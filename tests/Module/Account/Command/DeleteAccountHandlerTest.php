@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Account\Command;
 
+use App\Audit\AuditContext;
 use App\Exception\DomainErrors;
 use App\Module\Account\Command\DeleteAccountCommand;
 use App\Module\Account\Command\DeleteAccountHandler;
@@ -17,6 +18,9 @@ use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\SocialProvider;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\NullAuditActorProvider;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Messenger\CancelSubscriptionMessage;
 use App\Module\Project\Entity\Project;
@@ -30,10 +34,13 @@ use App\Module\Review\Entity\Verdict;
 use App\Module\Review\ValueObject\Anchor;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Tests\Support\BillingGrants;
+use App\Tests\Support\DirectLogging;
+use App\Tests\Support\RecordingAuditor;
+use App\Tests\Support\RecordingLogger;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemOperator;
-use Psr\Log\NullLogger;
+use League\Flysystem\UnableToDeleteFile;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
@@ -41,6 +48,8 @@ use Symfony\Component\Uid\Uuid;
 
 final class DeleteAccountHandlerTest extends KernelTestCase
 {
+    public const string ORPHANED_ARCHIVE_KEY = 'exports/orphaned-archive.zip';
+
     public function test_invalid_token_throws_and_deletes_nothing(): void
     {
         self::bootKernel();
@@ -63,6 +72,172 @@ final class DeleteAccountHandlerTest extends KernelTestCase
 
         $em->clear();
         self::assertNotNull($em->find(User::class, $userId));
+    }
+
+    /**
+     * Two records, and the pair is the point: `account.deleted` names the
+     * account the purger removed, while only `account.deletion_confirmed` says
+     * the owner clicked the emailed link themselves.
+     */
+    public function test_a_confirmed_deletion_records_both_the_confirmation_and_the_deletion(): void
+    {
+        self::bootKernel();
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $user = new User('Del Audit', 'del-audit@example.com', 'hash');
+        $em->persist($user);
+        $token = $user->generateAccountDeletionToken();
+        $em->flush();
+        $userId = (string) $user->id;
+
+        $handler = self::getContainer()->get(DeleteAccountHandler::class);
+        self::assertInstanceOf(DeleteAccountHandler::class, $handler);
+        $handler(new DeleteAccountCommand($token));
+
+        self::assertSame(['account.deleted', 'account.deletion_confirmed'], $audit->operations());
+
+        foreach (['account.deleted', 'account.deletion_confirmed'] as $operation) {
+            $record = $audit->record($operation);
+            self::assertSame(AuditOutcome::Success, $record->outcome);
+            self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+            self::assertSame(['userId' => $userId], $record->context);
+            self::assertNotNull($record->subject);
+            self::assertSame('user', $record->subject->type);
+            self::assertSame($userId, $record->subject->id);
+        }
+
+        self::assertSame(['account.deleted', 'account.deletion_confirmed'], $audit->domainLogLines());
+        self::assertSame([], $audit->securityLogLines());
+    }
+
+    /**
+     * The storage key is the one thing the record drops, so the purger keeps a
+     * logger for it and nothing else.
+     */
+    public function test_only_the_orphaned_key_is_logged_beside_the_auditor(): void
+    {
+        $user = new User('Del Split', 'del-split@example.com', 'hash');
+        new \ReflectionProperty(User::class, 'id')->setValue($user, Uuid::v4());
+
+        $storage = $this->createMock(FilesystemOperator::class);
+        $storage->expects($this->once())->method('delete')
+            ->willThrowException(new UnableToDeleteFile('bucket unreachable'));
+
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $logger = new RecordingLogger();
+        $this->purgerWith($audit, $storage, [$this->archiveDeletingPurger()], $logger)->purge($user);
+
+        DirectLogging::assertDiagnosticsLoggedBeside($audit, $logger, 'account.deletion_archive_unlink_failed', ['key']);
+        DirectLogging::assertOperationNotLoggedBy($audit, $logger, 'account.deleted');
+        self::assertSame(self::ORPHANED_ARCHIVE_KEY, $logger->records[0]['context']['key'] ?? null);
+    }
+
+    /**
+     * The archive outlives the account it belonged to, which is the one thing an
+     * erasure trail must not leave unsaid. The storage key names the orphan and
+     * is a path, so the record points at the account instead.
+     */
+    public function test_an_archive_that_could_not_be_unlinked_records_a_failure(): void
+    {
+        $user = new User('Del Archive', 'del-archive@example.com', 'hash');
+        new \ReflectionProperty(User::class, 'id')->setValue($user, Uuid::v4());
+        $userId = (string) $user->id;
+
+        $storage = $this->createMock(FilesystemOperator::class);
+        $storage->expects($this->once())->method('delete')
+            ->with(self::ORPHANED_ARCHIVE_KEY)
+            ->willThrowException(new UnableToDeleteFile('bucket unreachable'));
+
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $this->purgerWith($audit, $storage, [$this->archiveDeletingPurger()])->purge($user);
+
+        self::assertSame(
+            ['account.deletion_archive_unlink_failed', 'account.deleted'],
+            $audit->operations(),
+        );
+
+        $record = $audit->record('account.deletion_archive_unlink_failed');
+        self::assertSame(AuditOutcome::Failed, $record->outcome);
+        self::assertSame(['userId' => $userId], $record->context);
+        self::assertNotNull($record->subject);
+        self::assertSame('user', $record->subject->type);
+        self::assertSame($userId, $record->subject->id);
+        self::assertStringNotContainsString(
+            self::ORPHANED_ARCHIVE_KEY,
+            json_encode($audit->domainChannel->records, \JSON_THROW_ON_ERROR),
+        );
+    }
+
+    /** A deletion whose archives all went cleanly says nothing extra. */
+    public function test_a_clean_unlink_records_only_the_deletion(): void
+    {
+        $user = new User('Del Clean', 'del-clean@example.com', 'hash');
+        new \ReflectionProperty(User::class, 'id')->setValue($user, Uuid::v4());
+
+        $storage = $this->createMock(FilesystemOperator::class);
+        $storage->expects($this->once())->method('delete');
+
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $this->purgerWith($audit, $storage, [$this->archiveDeletingPurger()])->purge($user);
+
+        self::assertSame(['account.deleted'], $audit->operations());
+    }
+
+    /** Schedules one archive deletion, so the purger's post-commit unlink runs. */
+    private function archiveDeletingPurger(): AccountDataPurgerInterface
+    {
+        return new class implements AccountDataPurgerInterface {
+            #[\Override]
+            public function deletionOrder(): int
+            {
+                return 1;
+            }
+
+            #[\Override]
+            public function purge(User $user, AccountDeletionCleanup $cleanup): void
+            {
+                $cleanup->scheduleArchiveDeletion(DeleteAccountHandlerTest::ORPHANED_ARCHIVE_KEY);
+            }
+        };
+    }
+
+    /**
+     * @param list<AccountDataPurgerInterface> $purgers
+     */
+    private function purgerWith(RecordingAuditor $audit, FilesystemOperator $storage, array $purgers, ?RecordingLogger $logger = null): AccountPurger
+    {
+        $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('wrapInTransaction')->willReturnCallback(static fn (callable $fn) => $fn());
+        $em->method('getConnection')->willReturn($this->createStub(Connection::class));
+
+        return new AccountPurger(
+            $this->createStub(MessageBusInterface::class),
+            $em,
+            $logger ?? new RecordingLogger(),
+            $audit->auditor,
+            new AuditContext(),
+            $storage,
+            $purgers,
+            [],
+        );
+    }
+
+    /** An invalid token deletes nothing, so it must state nothing either. */
+    public function test_an_invalid_token_records_nothing(): void
+    {
+        self::bootKernel();
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        $handler = self::getContainer()->get(DeleteAccountHandler::class);
+        self::assertInstanceOf(DeleteAccountHandler::class, $handler);
+
+        try {
+            $handler(new DeleteAccountCommand('not-a-token'));
+            self::fail('expected DomainErrors');
+        } catch (DomainErrors) {
+        }
+
+        self::assertSame([], $audit->operations());
     }
 
     public function test_valid_token_deletes_the_full_owned_graph_and_spares_other_users(): void
@@ -194,7 +369,12 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $bus = $this->createMock(MessageBusInterface::class);
         $bus->expects(self::never())->method('dispatch');
 
-        $handler = new DeleteAccountHandler($users, new AccountPurger($bus, $em, new NullLogger(), $this->createStub(FilesystemOperator::class), []));
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $handler = new DeleteAccountHandler(
+            $users,
+            new AccountPurger($bus, $em, new RecordingLogger(), $audit->auditor, new AuditContext(), $this->createStub(FilesystemOperator::class), [], []),
+            $audit->auditor,
+        );
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('simulated transaction failure');
@@ -241,7 +421,12 @@ final class DeleteAccountHandlerTest extends KernelTestCase
 
         $purgers = [$makePurger(80), $makePurger(10), $makePurger(30)];
 
-        $handler = new DeleteAccountHandler($users, new AccountPurger($this->createStub(MessageBusInterface::class), $em, new NullLogger(), $this->createStub(FilesystemOperator::class), $purgers));
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $handler = new DeleteAccountHandler(
+            $users,
+            new AccountPurger($this->createStub(MessageBusInterface::class), $em, new RecordingLogger(), $audit->auditor, new AuditContext(), $this->createStub(FilesystemOperator::class), $purgers, []),
+            $audit->auditor,
+        );
         $handler(new DeleteAccountCommand($token));
 
         self::assertSame([10, 30, 80], $calls->getArrayCopy());

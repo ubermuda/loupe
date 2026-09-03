@@ -5,13 +5,15 @@ declare(strict_types=1);
 namespace App\Module\Account\Command;
 
 use App\Module\Account\Service\AccountDeletionEmailSender;
-use Psr\Log\LoggerInterface;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 
 final readonly class RequestAccountDeletionHandler
 {
     public function __construct(
         private AccountDeletionEmailSender $emailSender,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -27,8 +29,11 @@ final readonly class RequestAccountDeletionHandler
 
         $this->emailSender->send($command->user);
 
-        $this->logger->info('account.deletion.requested', [
-            'userId' => (string) $command->user->id,
-        ]);
+        $this->auditor->record(
+            'account.deletion_requested',
+            AuditOutcome::Success,
+            ['userId' => (string) $command->user->id],
+            new AuditSubject('user', (string) $command->user->id),
+        );
     }
 }

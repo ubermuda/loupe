@@ -64,7 +64,7 @@ class RevokeApiTokenController extends AppController
         }
 
         if (null !== $returnTo) {
-            $this->logger->info('account.api_token.return_to_rejected', [
+            $this->logger->info('account.api_token_return_to_rejected', [
                 'returnTo' => (string) $returnTo,
             ]);
         }

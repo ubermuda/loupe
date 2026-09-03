@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Security;
 
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
-use Monolog\Attribute\WithMonologChannel;
-use Psr\Log\LoggerInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Vote;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
@@ -27,7 +28,6 @@ use Symfony\Component\Security\Core\Authorization\Voter\Voter;
  *
  * @extends Voter<'document.mcp_read'|'document.mcp_write'|'comment.mcp_read'|'comment.mcp_write', Comment|Document>
  */
-#[WithMonologChannel('app_security')]
 final class McpBoundProjectVoter extends Voter
 {
     public const string DOCUMENT_READ = 'document.mcp_read';
@@ -37,7 +37,7 @@ final class McpBoundProjectVoter extends Voter
 
     public function __construct(
         private readonly AuthenticatedProjectResolver $projectResolver,
-        private readonly LoggerInterface $logger,
+        private readonly Auditor $auditor,
     ) {
     }
 
@@ -63,12 +63,18 @@ final class McpBoundProjectVoter extends Voter
             return true;
         }
 
-        $this->logger->info('review.mcp.access_denied', [
-            'attribute' => $attribute,
-            'subjectId' => (string) $subject->id,
-            'subjectProjectId' => (string) $subjectProject->id,
-            'boundProjectId' => null === $boundProject ? null : (string) $boundProject->id,
-        ]);
+        $this->auditor->record(
+            'review.mcp_access_denied',
+            AuditOutcome::Refused,
+            [
+                'attribute' => $attribute,
+                'subjectId' => (string) $subject->id,
+                'subjectProjectId' => (string) $subjectProject->id,
+                'boundProjectId' => null === $boundProject ? null : (string) $boundProject->id,
+            ],
+            new AuditSubject($subject instanceof Document ? 'document' : 'comment', (string) $subject->id),
+            Auditor::CATEGORY_SECURITY,
+        );
 
         return false;
     }

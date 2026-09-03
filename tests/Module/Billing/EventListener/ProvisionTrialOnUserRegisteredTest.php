@@ -11,6 +11,7 @@ use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\TrialProvisioner;
 use App\Tests\Support\BillingGrants;
 use App\Tests\Support\FeatureFlags;
+use App\Tests\Support\SilentAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 
@@ -63,7 +64,7 @@ final class ProvisionTrialOnUserRegisteredTest extends TestCase
     private function listener(BillingProfileRepository $profiles, array $flags): ProvisionTrialOnUserRegistered
     {
         return new ProvisionTrialOnUserRegistered(
-            new TrialProvisioner($profiles, FeatureFlags::service(), $this->createStub(EntityManagerInterface::class)),
+            new TrialProvisioner($profiles, FeatureFlags::service(), $this->createStub(EntityManagerInterface::class), SilentAuditor::create()),
             FeatureFlags::service($flags),
         );
     }

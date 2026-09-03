@@ -5,17 +5,19 @@ declare(strict_types=1);
 namespace App\Module\Project\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 
 final readonly class UpdateProjectHandler
 {
     public function __construct(
         private ProjectRepository $projects,
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -34,10 +36,18 @@ final readonly class UpdateProjectHandler
         $project->domain = $command->domain;
         $this->em->flush();
 
-        $this->logger->info('project.updated', [
-            'projectId' => (string) $project->id,
-            'ownerId' => (string) $project->owner->id,
-        ]);
+        $this->auditor->record(
+            'project.updated',
+            AuditOutcome::Success,
+            [
+                'projectId' => (string) $project->id,
+                // Whose project it is, not who acted — the Auditor resolves the
+                // actor itself. The two coincide only while a project is
+                // editable by its owner alone.
+                'ownerId' => (string) $project->owner->id,
+            ],
+            new AuditSubject('project', (string) $project->id),
+        );
 
         return $project;
     }

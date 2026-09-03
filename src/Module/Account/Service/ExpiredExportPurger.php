@@ -40,7 +40,7 @@ readonly class ExpiredExportPurger
                 try {
                     $this->exportStorage->delete(DataExport::computeArchiveKey($exportId));
                 } catch (FilesystemException) {
-                    $this->logger->warning('account.data_export.purge_unlink_failed', ['id' => (string) $exportId]);
+                    $this->logger->warning('account.data_export_purge_unlink_failed', ['id' => (string) $exportId]);
 
                     continue;
                 }
@@ -52,10 +52,10 @@ readonly class ExpiredExportPurger
 
         $this->em->flush();
 
-        // The scheduler runs this through RunCommandMessage, which buffers and
-        // discards the command's own output — this line is the only thing that
-        // makes hourly purge liveness greppable in the worker logs.
-        $this->logger->info('account.data_export.purge_completed', ['purged' => $purged]);
+        // The one completion line for a purge, whichever caller ran it: the
+        // hourly scheduler tick, the console command, or an export's own
+        // cleanup. Each caller must stay silent, or a tick logs twice.
+        $this->logger->info('account.data_export_purge_completed', ['purged' => $purged]);
 
         return $purged;
     }

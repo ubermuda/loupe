@@ -5,19 +5,21 @@ declare(strict_types=1);
 namespace App\Module\Billing\Command\Admin;
 
 use App\Exception\DomainErrors;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Billing\Entity\Subscription;
 use App\Module\Billing\Entity\SubscriptionKind;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 
 final readonly class RevokeCompHandler
 {
     public function __construct(
         private BillingProfileRepository $billingProfiles,
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -63,15 +65,26 @@ final readonly class RevokeCompHandler
             },
         );
 
-        $this->logger->info('billing.comp.revoked', [
-            'targetId' => (string) $command->target->id,
-            'actorId' => (string) $command->actor->id,
-        ]);
+        $this->record('billing.comp_revoked', $command);
 
         if ($disabled) {
-            $this->logger->info('billing.account.disabled_on_comp_revoke', ['userId' => (string) $command->target->id]);
+            $this->record('billing.account_disabled_on_comp_revoke', $command);
         }
 
         return $comp;
+    }
+
+    /**
+     * The comped account, never the admin: the admin is the actor, and the
+     * Auditor resolves that from the security token by itself.
+     */
+    private function record(string $operation, RevokeCompCommand $command): void
+    {
+        $this->auditor->record(
+            $operation,
+            AuditOutcome::Success,
+            ['userId' => (string) $command->target->id],
+            new AuditSubject('user', (string) $command->target->id),
+        );
     }
 }

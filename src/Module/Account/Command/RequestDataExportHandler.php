@@ -8,9 +8,11 @@ use App\Exception\DomainErrors;
 use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Messenger\GenerateDataExportMessage;
 use App\Module\Account\Repository\DataExportRepository;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 use Symfony\Component\Messenger\MessageBusInterface;
 
 final readonly class RequestDataExportHandler
@@ -19,7 +21,7 @@ final readonly class RequestDataExportHandler
         private DataExportRepository $dataExports,
         private EntityManagerInterface $em,
         private MessageBusInterface $bus,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -53,7 +55,14 @@ final readonly class RequestDataExportHandler
             throw new DomainErrors(['export' => 'account.settings.export.error.already_pending']);
         }
 
-        $this->logger->info('account.data_export.requested', ['id' => (string) $export->id]);
+        // After the commit, never inside it: the sink drains outside the
+        // business transaction, so a record written in there survives a rollback.
+        $this->auditor->record(
+            'account.data_export_requested',
+            AuditOutcome::Success,
+            ['id' => (string) $export->id],
+            new AuditSubject('data_export', (string) $export->id),
+        );
 
         return $export;
     }

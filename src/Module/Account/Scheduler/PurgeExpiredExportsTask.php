@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Module\Account\Scheduler;
 
 use App\Module\Account\Service\ExpiredExportPurger;
-use Psr\Log\LoggerInterface;
 use Symfony\Component\Scheduler\Attribute\AsCronTask;
 
 /**
@@ -21,13 +20,11 @@ final readonly class PurgeExpiredExportsTask
 {
     public function __construct(
         private ExpiredExportPurger $purger,
-        private LoggerInterface $logger,
     ) {
     }
 
     public function __invoke(): void
     {
-        // One line per tick makes scheduler liveness greppable in the worker logs.
-        $this->logger->info('account.export.purge_completed', ['purged' => $this->purger->purge()]);
+        $this->purger->purge();
     }
 }

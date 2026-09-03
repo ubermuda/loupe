@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Command;
 
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
@@ -14,7 +17,6 @@ use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\Service\RenderedDiffBuilder;
 use App\Module\Review\ValueObject\DiffRefusal;
 use App\Module\Review\ValueObject\DiffView;
-use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 final readonly class DiffDocumentVersionsHandler
@@ -25,7 +27,7 @@ final readonly class DiffDocumentVersionsHandler
         private MarkdownDiffer $markdownDiffer,
         private MarkdownRenderer $markdownRenderer,
         private RenderedDiffBuilder $renderedDiffs,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -43,12 +45,17 @@ final readonly class DiffDocumentVersionsHandler
         $changeCount = null;
         if ($result instanceof DiffRefusal) {
             $diffRefusal = $result;
-            $this->logger->info('review.document.diff_refused', [
-                'documentId' => (string) $command->document->id,
-                'from' => $command->fromVersionNumber,
-                'to' => $command->toVersionNumber,
-                'reason' => $result->value,
-            ]);
+            $this->auditor->record(
+                'review.document_diff_refused',
+                AuditOutcome::Refused,
+                [
+                    'documentId' => (string) $command->document->id,
+                    'from' => $command->fromVersionNumber,
+                    'to' => $command->toVersionNumber,
+                    'reason' => $result->value,
+                ],
+                new AuditSubject('document', (string) $command->document->id),
+            );
         } else {
             $diff = $result;
         }

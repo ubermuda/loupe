@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Billing\Command;
 
+use App\Audit\AuditChannel;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Entity\WaitlistEntry;
 use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\NullAuditActorProvider;
 use App\Module\Billing\Command\SyncStripeSubscriptionCommand;
 use App\Module\Billing\Command\SyncStripeSubscriptionHandler;
 use App\Module\Billing\Entity\BillingProfile;
@@ -18,6 +22,8 @@ use App\Module\Billing\Repository\SubscriptionRepository;
 use App\Module\Billing\Service\StripeGatewayInterface;
 use App\Module\Billing\Service\SubscriptionView;
 use App\Tests\Support\BillingGrants;
+use App\Tests\Support\DirectLogging;
+use App\Tests\Support\RecordingAuditor;
 use App\Tests\Support\RecordingLogger;
 use App\Tests\Support\TransactionalEntityManagerStub;
 use Doctrine\Common\Collections\Collection;
@@ -28,12 +34,22 @@ use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Symfony\Component\Uid\Uuid;
 
 final class SyncStripeSubscriptionHandlerTest extends TestCase
 {
+    private RecordingAuditor $audit;
+
+    #[\Override]
+    protected function setUp(): void
+    {
+        $this->audit = new RecordingAuditor(new NullAuditActorProvider());
+    }
+
     private function profile(): BillingProfile
     {
         $user = new User(fullName: 'Synced User', email: 'synced@example.com', password: 'irrelevant');
+        new \ReflectionProperty(User::class, 'id')->setValue($user, Uuid::v4());
         $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-1 day'));
         $profile->stripeCustomerId = 'cus_123';
 
@@ -69,6 +85,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         ?WaitlistEntry $waitlistEntry = null,
         ?LoggerInterface $logger = null,
         ?SubscriptionView $stripeState = null,
+        ?EntityManagerInterface $em = null,
     ): SyncStripeSubscriptionHandler {
         $profiles = $this->createStub(BillingProfileRepository::class);
         $profiles->method('findOneByStripeCustomerId')->willReturn($profile);
@@ -88,8 +105,9 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
             $this->subscriptionRepository($profile),
             $stripe,
             $waitlistEntries,
-            TransactionalEntityManagerStub::configure($this->createStub(EntityManagerInterface::class)),
+            $em ?? TransactionalEntityManagerStub::configure($this->createStub(EntityManagerInterface::class)),
             $logger ?? new NullLogger(),
+            $this->audit->auditor,
         );
     }
 
@@ -173,7 +191,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
      * second one cannot be applied. It must not raise, because a 500 makes
      * Stripe redeliver an event that fails the same way every time.
      */
-    public function test_a_second_concurrent_stripe_grant_is_logged_and_not_created(): void
+    public function test_a_second_concurrent_stripe_grant_is_refused_and_not_created(): void
     {
         $profile = $this->profile();
         $endsAt = new \DateTimeImmutable('+30 days');
@@ -186,12 +204,21 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         self::assertSame(BillingStatus::Active, $existing->stripeStatus);
         self::assertSame($endsAt, $existing->endsAt);
 
-        $refused = array_values(array_filter($logger->records, static fn (array $record): bool => 'billing.webhook.concurrent_grant' === $record['message']));
-        self::assertCount(1, $refused);
-        self::assertSame('error', $refused[0]['level']);
-        self::assertSame('cus_123', $refused[0]['context']['stripeCustomerId']);
-        self::assertSame('sub_123', $refused[0]['context']['stripeSubscriptionId']);
-        self::assertSame('evt_1', $refused[0]['context']['eventId']);
+        $refused = $this->audit->record('billing.webhook_concurrent_grant');
+        self::assertSame(AuditOutcome::Refused, $refused->outcome);
+        self::assertSame(['userId' => (string) $profile->user->id], $refused->context);
+        self::assertNotNull($refused->subject);
+        self::assertSame('user', $refused->subject->type);
+
+        // Support needs both grants named to see which one is live, and the
+        // record carries neither.
+        DirectLogging::assertDiagnosticsLoggedBeside(
+            $this->audit,
+            $logger,
+            'billing.webhook_concurrent_grant',
+            ['stripeCustomerId', 'stripeSubscriptionId', 'eventId', 'currentStripeSubscriptionId'],
+        );
+        self::assertSame('sub_other', $logger->records[0]['context']['currentStripeSubscriptionId'] ?? null);
 
         // The event never took effect, so the ordering bookkeeping must not
         // claim it did.
@@ -225,7 +252,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
 
         self::assertSame([], array_values(array_filter(
             $logger->records,
-            static fn (array $record): bool => 'billing.webhook.concurrent_grant' === $record['message'],
+            static fn (array $record): bool => 'billing.webhook_concurrent_grant' === $record['message'],
         )));
     }
 
@@ -340,6 +367,7 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
             $this->createStub(WaitlistEntryRepository::class),
             TransactionalEntityManagerStub::configure($this->createStub(EntityManagerInterface::class)),
             new NullLogger(),
+            $this->audit->auditor,
         );
 
         $handler($this->command('active', '2026-07-25 12:00:05', 'evt_only'));
@@ -364,15 +392,24 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
         $grant = BillingGrants::stripe($profile, BillingStatus::Canceled, new \DateTimeImmutable('-1 day'), 'sub_123');
         $grant->surveySentAt = new \DateTimeImmutable('-1 day');
-        $logger = new RecordingLogger();
 
-        ($this->handler($profile, logger: $logger))($this->command('active'));
+        ($this->handler($profile))($this->command('active'));
 
         self::assertNull($profile->user->disabledAt);
         self::assertNull($grant->surveySentAt);
-        $reenabled = array_values(array_filter($logger->records, static fn (array $record): bool => 'billing.account.reenabled' === $record['message']));
-        self::assertCount(1, $reenabled);
-        self::assertSame((string) $profile->user->id, $reenabled[0]['context']['userId']);
+
+        $record = $this->audit->record('billing.account_reenabled');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('user', $record->subject->type);
+        self::assertSame((string) $profile->user->id, $record->subject->id);
+        self::assertSame(['userId' => (string) $profile->user->id], $record->context);
+        self::assertSame(
+            ['billing.subscription_synced', 'billing.account_reenabled'],
+            $this->audit->domainLogLines(),
+        );
+        self::assertSame([], $this->audit->securityLogLines());
     }
 
     public function test_activation_of_a_disabled_account_converts_a_matching_waitlist_entry(): void
@@ -410,16 +447,20 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
     public function test_a_cancellation_whose_paid_period_is_over_disables_the_account(?string $currentPeriodEnd): void
     {
         $profile = $this->profile();
-        $logger = new RecordingLogger();
 
-        ($this->handler($profile, logger: $logger))(
+        ($this->handler($profile))(
             $this->command('canceled', eventType: 'customer.subscription.deleted', currentPeriodEnd: $currentPeriodEnd),
         );
 
         self::assertNotNull($profile->user->disabledAt);
-        $disabled = array_values(array_filter($logger->records, static fn (array $record): bool => 'billing.account.disabled_on_cancel' === $record['message']));
-        self::assertCount(1, $disabled);
-        self::assertSame((string) $profile->user->id, $disabled[0]['context']['userId']);
+
+        $record = $this->audit->record('billing.account_disabled_on_cancel');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('user', $record->subject->type);
+        self::assertSame((string) $profile->user->id, $record->subject->id);
+        self::assertSame(['userId' => (string) $profile->user->id], $record->context);
     }
 
     /**
@@ -463,5 +504,257 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         ($this->handler($profile))($this->command('incomplete', currentPeriodEnd: '+10 days'));
 
         self::assertFalse($profile->hasCurrentSubscription(new \DateTimeImmutable()));
+    }
+
+    /**
+     * The whole log line, not only its message: the sink is what puts the
+     * record back into the log stream the handler used to write to directly.
+     */
+    public function test_the_log_line_the_sink_emits_carries_the_reenable_record(): void
+    {
+        $profile = $this->profile();
+        $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
+
+        ($this->handler($profile))($this->command('active'));
+
+        self::assertCount(2, $this->audit->domainChannel->records);
+        self::assertSame([
+            'userId' => (string) $profile->user->id,
+            'outcome' => 'success',
+            'channel' => AuditChannel::System->value,
+            'subjectType' => 'user',
+            'subjectId' => (string) $profile->user->id,
+        ], $this->audit->domainChannel->records[1]['context']);
+    }
+
+    /**
+     * Every webhook decision logs the Stripe identifiers its record drops. The
+     * two account-state operations name only the local user, so they record
+     * alone and nothing doubles them in the log stream.
+     */
+    public function test_the_stripe_identifiers_are_logged_beside_each_decision(): void
+    {
+        $profile = $this->profile();
+        $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
+        $logger = new RecordingLogger();
+
+        $handler = $this->handler($profile, logger: $logger);
+        $handler($this->command('active', '2026-07-25 12:00:05', 'evt_first'));
+
+        DirectLogging::assertDiagnosticsLoggedBeside(
+            $this->audit,
+            $logger,
+            'billing.subscription_synced',
+            ['stripeCustomerId', 'stripeSubscriptionId', 'eventId'],
+        );
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $logger, 'billing.account_reenabled');
+
+        $logger->records = [];
+        $handler($this->command('canceled', '2026-07-25 12:00:06', 'evt_second', 'customer.subscription.deleted', '-1 hour'));
+
+        self::assertSame(
+            [
+                'billing.subscription_synced',
+                'billing.account_reenabled',
+                'billing.subscription_synced',
+                'billing.account_disabled_on_cancel',
+            ],
+            $this->audit->operations(),
+        );
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $logger, 'billing.account_disabled_on_cancel');
+
+        // The filtered paths need their own run: each one leaves apply() before
+        // anything is applied, so none of them fires above.
+        $filteredLogger = new RecordingLogger();
+        $filtered = $this->handler($this->profile(), logger: $filteredLogger);
+        $filtered($this->command('active', '2026-07-25 12:00:05', 'evt_once'));
+        $filtered($this->command('active', '2026-07-25 12:00:05', 'evt_once'));
+
+        DirectLogging::assertDiagnosticsLoggedBeside(
+            $this->audit,
+            $filteredLogger,
+            'billing.webhook_replayed_event',
+            ['stripeCustomerId', 'eventId'],
+        );
+
+        $staleLogger = new RecordingLogger();
+        $stale = $this->handler($this->profile(), logger: $staleLogger);
+        $stale($this->command('active', '2026-07-25 12:00:05', 'evt_current'));
+        $stale($this->command('canceled', '2026-07-25 12:00:04', 'evt_stale'));
+
+        // Two timestamps say why the event was dropped, and neither is a
+        // question the record can answer.
+        DirectLogging::assertDiagnosticsLoggedBeside(
+            $this->audit,
+            $staleLogger,
+            'billing.webhook_stale_event',
+            ['stripeCustomerId', 'eventId', 'eventCreatedAt', 'lastStripeEventAt'],
+        );
+    }
+
+    /** The status is an enum value; every Stripe identifier stays out. */
+    public function test_a_sync_records_the_status_and_no_stripe_identifier(): void
+    {
+        $profile = $this->profile();
+
+        ($this->handler($profile))($this->command('active'));
+
+        $record = $this->audit->record('billing.subscription_synced');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame([
+            'userId' => (string) $profile->user->id,
+            'status' => BillingStatus::Active->value,
+        ], $record->context);
+
+        $serialised = json_encode($this->audit->domainChannel->records, \JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString('cus_123', $serialised);
+        self::assertStringNotContainsString('sub_123', $serialised);
+        self::assertStringNotContainsString('evt_1', $serialised);
+    }
+
+    /**
+     * A webhook has no logged-in identity, so nothing resolves an actor. The
+     * record names the account it happened to and stops there.
+     */
+    public function test_a_webhook_record_names_no_actor(): void
+    {
+        $profile = $this->profile();
+        $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
+
+        ($this->handler($profile))($this->command('active'));
+
+        $record = $this->audit->record('billing.account_reenabled');
+        self::assertNull($record->actor);
+        self::assertNull($record->actorIdentifier);
+        self::assertNull($record->credential);
+    }
+
+    /** Stripe ids belong to the diagnostics, never to a record. */
+    public function test_a_record_carries_no_stripe_identifier(): void
+    {
+        $profile = $this->profile();
+        $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
+
+        ($this->handler($profile))($this->command('active'));
+
+        $context = $this->audit->record('billing.account_reenabled')->context;
+        self::assertSame([], array_filter(
+            $context,
+            static fn (string|int|float|bool|null $value): bool => \is_string($value)
+                && (str_starts_with($value, 'cus_') || str_starts_with($value, 'sub_') || str_starts_with($value, 'evt_')),
+        ));
+    }
+
+    /**
+     * The sink drains outside the business transaction, so a record made
+     * inside one outlives its rollback. A commit that fails after the
+     * re-enable must therefore leave no record claiming the account was
+     * re-enabled.
+     */
+    public function test_a_commit_that_fails_after_the_re_enable_records_nothing(): void
+    {
+        $profile = $this->profile();
+        $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
+
+        $handler = $this->handler($profile, em: $this->failingCommitEntityManager());
+
+        try {
+            $handler($this->command('active'));
+            self::fail('a failed commit must propagate');
+        } catch (\RuntimeException $e) {
+            self::assertSame('commit failed', $e->getMessage());
+        }
+
+        self::assertSame([], $this->audit->operations());
+        self::assertSame([], $this->audit->domainLogLines());
+    }
+
+    /** The mirror of the re-enable case, on the cancellation path. */
+    public function test_a_commit_that_fails_after_the_cancel_disable_records_nothing(): void
+    {
+        $profile = $this->profile();
+
+        $handler = $this->handler($profile, em: $this->failingCommitEntityManager());
+
+        try {
+            $handler($this->command('canceled', eventType: 'customer.subscription.deleted', currentPeriodEnd: '-1 hour'));
+            self::fail('a failed commit must propagate');
+        } catch (\RuntimeException) {
+        }
+
+        self::assertSame([], $this->audit->operations());
+    }
+
+    /**
+     * Runs the closure, then throws as a failing flush or commit would: the
+     * state change has happened in memory and nothing was kept.
+     */
+    private function failingCommitEntityManager(): EntityManagerInterface
+    {
+        $em = $this->createStub(EntityManagerInterface::class);
+        $em->method('wrapInTransaction')->willReturnCallback(
+            static function (callable $callback) use ($em): never {
+                $callback($em);
+
+                throw new \RuntimeException('commit failed');
+            },
+        );
+
+        return $em;
+    }
+
+    /**
+     * A filtered event was accepted and moved nothing, so it is Unchanged
+     * rather than a refusal a reader would count as a denial.
+     */
+    public function test_a_replayed_event_is_recorded_as_unchanged(): void
+    {
+        $profile = $this->profile();
+        $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
+        $handler = $this->handler($profile);
+
+        $handler($this->command('active', '2026-07-25 12:00:05', 'evt_same'));
+        $this->audit->forget();
+        $handler($this->command('active', '2026-07-25 12:00:05', 'evt_same'));
+
+        self::assertSame(['billing.webhook_replayed_event'], $this->audit->operations());
+        $record = $this->audit->record('billing.webhook_replayed_event');
+        self::assertSame(AuditOutcome::Unchanged, $record->outcome);
+        self::assertSame(['userId' => (string) $profile->user->id], $record->context);
+    }
+
+    /** Two stale paths share one operation, and only `reason` tells them apart. */
+    public function test_a_stale_event_is_recorded_with_the_reason_it_was_dropped(): void
+    {
+        $profile = $this->profile();
+        $handler = $this->handler($profile);
+
+        $handler($this->command('canceled', '2026-07-25 12:00:06', 'evt_new', 'customer.subscription.deleted', '-1 hour'));
+        $this->audit->forget();
+        $handler($this->command('active', '2026-07-25 12:00:05', 'evt_old'));
+
+        self::assertSame(['billing.webhook_stale_event'], $this->audit->operations());
+        $record = $this->audit->record('billing.webhook_stale_event');
+        self::assertSame(AuditOutcome::Unchanged, $record->outcome);
+        self::assertSame([
+            'userId' => (string) $profile->user->id,
+            'reason' => 'older_than_last_event',
+        ], $record->context);
+    }
+
+    /** An event from the deletion's own second is not newer, so it is dropped too. */
+    public function test_an_event_from_the_deletions_own_second_reports_its_own_reason(): void
+    {
+        $profile = $this->profile();
+        $handler = $this->handler($profile);
+
+        $handler($this->command('canceled', '2026-07-25 12:00:06', 'evt_deleted', 'customer.subscription.deleted', '-1 hour'));
+        $this->audit->forget();
+        $handler($this->command('active', '2026-07-25 12:00:06', 'evt_same_second'));
+
+        self::assertSame([
+            'userId' => (string) $profile->user->id,
+            'reason' => 'not_newer_than_deletion',
+        ], $this->audit->record('billing.webhook_stale_event')->context);
     }
 }

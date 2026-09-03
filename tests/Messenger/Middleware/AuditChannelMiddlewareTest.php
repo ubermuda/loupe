@@ -109,7 +109,7 @@ final class AuditChannelMiddlewareTest extends TestCase
     {
         $envelope = new Envelope(new \stdClass(), [new ReceivedStamp('async'), new ConsumedByWorkerStamp()]);
 
-        $this->middleware->handle($envelope, $this->stackRunning(fn () => $this->auditor->record('x', AuditOutcome::Success, ['async' => false])));
+        $this->middleware->handle($envelope, $this->stackRunning(fn () => $this->auditor->record('test.synthetic', AuditOutcome::Success, ['async' => false])));
 
         self::assertSame(['async' => false], $this->recordedEvent()->context);
     }

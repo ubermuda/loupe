@@ -9,6 +9,9 @@ use App\Module\Account\Export\DataExportArchiveBuilder;
 use App\Module\Account\Repository\DataExportRepository;
 use App\Module\Account\Service\DataExportEmailSender;
 use App\Module\Account\Service\ExpiredExportPurger;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
@@ -22,6 +25,7 @@ final readonly class ProcessDataExportHandler
         private ExpiredExportPurger $purger,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -32,7 +36,18 @@ final readonly class ProcessDataExportHandler
         // between the Ready flush and the email send — re-issuing the token
         // invalidates the old link and resends the mail (at-least-once safe).
         if (null === $export || DataExportStatus::Failed === $export->status) {
-            $this->logger->info('account.data_export.skipped', ['id' => $command->dataExportId]);
+            // A row that is gone broke; a row already marked Failed moved no
+            // state. The two share the operation and only `reason` tells them
+            // apart, so a reader counts real losses without counting redeliveries.
+            $this->auditor->record(
+                'account.data_export_skipped',
+                null === $export ? AuditOutcome::Failed : AuditOutcome::Unchanged,
+                [
+                    'id' => $command->dataExportId,
+                    'reason' => null === $export ? 'not_found' : 'already_failed',
+                ],
+                new AuditSubject('data_export', $command->dataExportId),
+            );
 
             return;
         }
@@ -46,14 +61,19 @@ final readonly class ProcessDataExportHandler
         $rawToken = $export->complete();
         $this->em->flush();
         $this->emailSender->send($export, $rawToken);
-        $this->logger->info('account.data_export.completed', ['id' => $command->dataExportId]);
+        $this->auditor->record(
+            'account.data_export_completed',
+            AuditOutcome::Success,
+            ['id' => $command->dataExportId],
+            new AuditSubject('data_export', $command->dataExportId),
+        );
 
         try {
             $this->purger->purge();
         } catch (\Throwable $e) {
             // A failed opportunistic purge must not fail the export itself —
             // the console command is the backstop for anything missed here.
-            $this->logger->warning('account.data_export.purge_failed', ['error' => $e->getMessage()]);
+            $this->logger->warning('account.data_export_purge_failed', ['error' => $e->getMessage()]);
         }
     }
 }

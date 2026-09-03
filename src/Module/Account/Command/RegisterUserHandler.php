@@ -10,6 +10,9 @@ use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Account\Service\VerificationEmailSender;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -29,6 +32,7 @@ final readonly class RegisterUserHandler
         private WaitlistEntryRepository $waitlistEntries,
         private EventDispatcherInterface $eventDispatcher,
         private LoggerInterface $logger,
+        private Auditor $auditor,
 
         #[Autowire(param: 'app.terms.version')]
         private string $termsVersion,
@@ -105,6 +109,20 @@ final readonly class RegisterUserHandler
             throw new DomainErrors(['email' => 'account.registration.error.email_duplicate']);
         }
 
+        // Recorded after the transaction commits, so a rollback cannot leave a
+        // record claiming an account that does not exist. `provider` is null on
+        // this path and names the provider on the social one, so both branches
+        // share the operation.
+        $this->auditor->record(
+            'account.registered',
+            AuditOutcome::Success,
+            [
+                'userId' => (string) $user->id,
+                'provider' => null,
+            ],
+            new AuditSubject('user', (string) $user->id),
+        );
+
         try {
             $this->verificationEmailSender->send($user);
         } catch (\Throwable) {
@@ -114,11 +132,20 @@ final readonly class RegisterUserHandler
         // Listeners run outside the committed registration transaction, so their
         // failures must not surface: a 500 would tell the user their created
         // account failed, and the retry dead-ends on "email already taken". Trial
-        // provisioning self-heals via PaywallGate, so log and move on.
+        // provisioning self-heals via PaywallGate, so record it and move on.
         try {
             $this->eventDispatcher->dispatch(new UserRegistered($user));
         } catch (\Throwable $e) {
-            $this->logger->warning('account.registration.listener_failed', [
+            $this->auditor->record(
+                'account.registration_listener_failed',
+                AuditOutcome::Failed,
+                ['userId' => (string) $user->id],
+                new AuditSubject('user', (string) $user->id),
+            );
+
+            // The record says the follow-up work broke. Which listener and why
+            // is the exception message, which never reaches the trail.
+            $this->logger->warning('account.registration_listener_failed', [
                 'userId' => (string) $user->id,
                 'error' => $e->getMessage(),
             ]);

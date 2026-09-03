@@ -61,7 +61,7 @@ final readonly class LogWidgetOriginMismatch
 
         $this->seen->save($item->set(true)->expiresAfter(self::REPEAT_AFTER_SECONDS));
 
-        $this->logger->warning('site_review.widget.origin_mismatch', [
+        $this->logger->warning('site_review.widget_origin_mismatch', [
             'project' => (string) $project->id,
             'origin' => $origin,
             'domain' => $project->domain,

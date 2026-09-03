@@ -6,6 +6,8 @@ namespace App\Tests\Module\Review\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\ArchiveDocumentCommand;
 use App\Module\Review\Command\ArchiveDocumentHandler;
@@ -13,6 +15,9 @@ use App\Module\Review\Command\UnarchiveDocumentCommand;
 use App\Module\Review\Command\UnarchiveDocumentHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
+use App\Module\Review\Repository\DocumentRepository;
+use App\Tests\Support\DirectLogging;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
@@ -22,6 +27,7 @@ final class ArchiveDocumentHandlerTest extends KernelTestCase
     private EntityManagerInterface $em;
     private ArchiveDocumentHandler $archive;
     private UnarchiveDocumentHandler $unarchive;
+    private RecordingAuditor $audit;
 
     protected function setUp(): void
     {
@@ -30,6 +36,8 @@ final class ArchiveDocumentHandlerTest extends KernelTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
+
+        $this->audit = RecordingAuditor::installedIn(self::getContainer());
 
         $archive = self::getContainer()->get(ArchiveDocumentHandler::class);
         self::assertInstanceOf(ArchiveDocumentHandler::class, $archive);
@@ -187,5 +195,131 @@ final class ArchiveDocumentHandlerTest extends KernelTestCase
         self::assertInstanceOf(Document::class, $restored);
         self::assertNull($restored->archivedAt);
         self::assertNull($restored->archiveReason);
+    }
+
+    public function test_archiving_is_recorded_on_the_domain_channel(): void
+    {
+        $document = $this->document('archive-audit@example.com');
+
+        ($this->archive)(new ArchiveDocumentCommand($document, null));
+
+        $record = $this->audit->record('review.document_archived');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('document', $record->subject->type);
+        self::assertSame((string) $document->id, $record->subject->id);
+        self::assertSame([
+            'documentId' => (string) $document->id,
+            'projectId' => (string) $document->project->id,
+        ], $record->context);
+
+        self::assertSame(['review.document_archived'], $this->audit->domainLogLines());
+        self::assertSame([], $this->audit->securityLogLines());
+    }
+
+    /** The reason is a sentence a reviewer wrote, so it stays out of the trail. */
+    public function test_the_archive_record_carries_no_reason(): void
+    {
+        $document = $this->document('archive-audit-reason@example.com');
+
+        ($this->archive)(new ArchiveDocumentCommand($document, 'superseded by Dana Okafor'));
+
+        $context = $this->audit->record('review.document_archived')->context;
+        self::assertArrayNotHasKey('reason', $context);
+        self::assertArrayNotHasKey('archiveReason', $context);
+        self::assertSame('superseded by Dana Okafor', $document->archiveReason);
+    }
+
+    public function test_unarchiving_is_recorded_on_the_domain_channel(): void
+    {
+        $document = $this->document('unarchive-audit@example.com');
+        ($this->archive)(new ArchiveDocumentCommand($document, null));
+
+        ($this->unarchive)(new UnarchiveDocumentCommand($document));
+
+        $record = $this->audit->record('review.document_unarchived');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('document', $record->subject->type);
+        self::assertSame([
+            'documentId' => (string) $document->id,
+            'projectId' => (string) $document->project->id,
+        ], $record->context);
+
+        self::assertSame(
+            ['review.document_archived', 'review.document_unarchived'],
+            $this->audit->domainLogLines(),
+        );
+    }
+
+    /**
+     * Both handlers stay silent where they already were: archiving twice keeps
+     * the first timestamp, and unarchiving a live document changes nothing.
+     */
+    public function test_a_state_change_that_does_not_happen_records_nothing(): void
+    {
+        $document = $this->document('archive-audit-noop@example.com');
+
+        ($this->unarchive)(new UnarchiveDocumentCommand($document));
+        self::assertSame([], $this->audit->operations());
+
+        ($this->archive)(new ArchiveDocumentCommand($document, null));
+        ($this->archive)(new ArchiveDocumentCommand($document, null));
+        self::assertSame(['review.document_archived'], $this->audit->operations());
+    }
+
+    public function test_a_rejected_archive_records_nothing(): void
+    {
+        $document = $this->document('archive-audit-refused@example.com');
+
+        try {
+            ($this->archive)(new ArchiveDocumentCommand($document, '   '));
+            self::fail('a blank reason must be rejected');
+        } catch (DomainErrors) {
+        }
+
+        self::assertSame([], $this->audit->operations());
+    }
+
+    /**
+     * The Doctrine sink drains at kernel.terminate, so a record written inside
+     * the transaction survives its rollback and then describes an archive that
+     * never reached the table.
+     */
+    public function test_a_transaction_that_fails_after_the_closure_records_nothing(): void
+    {
+        $document = $this->document('archive-audit-rollback@example.com');
+
+        $documents = self::getContainer()->get(DocumentRepository::class);
+        self::assertInstanceOf(DocumentRepository::class, $documents);
+
+        $failing = $this->createStub(EntityManagerInterface::class);
+        $failing->method('wrapInTransaction')->willReturnCallback(
+            static function (callable $work): never {
+                $work();
+
+                throw new \RuntimeException('the commit failed');
+            },
+        );
+
+        $handler = new ArchiveDocumentHandler($documents, $failing, $this->audit->auditor);
+
+        try {
+            $handler(new ArchiveDocumentCommand($document, null));
+            self::fail('the failing commit must propagate');
+        } catch (\RuntimeException $e) {
+            self::assertSame('the commit failed', $e->getMessage());
+        }
+
+        self::assertNotNull($document->archivedAt, 'the closure ran, so the guard below is not vacuous');
+        self::assertSame([], $this->audit->operations());
+    }
+
+    public function test_neither_handler_keeps_a_logger_beside_the_auditor(): void
+    {
+        DirectLogging::assertRemovedFrom(ArchiveDocumentHandler::class);
+        DirectLogging::assertRemovedFrom(UnarchiveDocumentHandler::class);
     }
 }

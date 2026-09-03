@@ -10,9 +10,15 @@ use App\Module\Audit\AuditActorProviderInterface;
 use App\Module\Audit\AuditEvent;
 use App\Module\Audit\Auditor;
 use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\NullAuditActorProvider;
+use App\Module\Billing\Command\SyncStripeSubscriptionHandler;
+use App\Module\Billing\Controller\StripeWebhookController;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Tests\Support\BillingScenario;
+use App\Tests\Support\DirectLogging;
 use App\Tests\Support\FakeAuditSink;
+use App\Tests\Support\RecordingAuditor;
+use App\Tests\Support\RecordingLogger;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Events;
 use Psr\Log\NullLogger;
@@ -137,7 +143,7 @@ final class StripeWebhookControllerTest extends WebTestCase
 
                 public function onFlush(): void
                 {
-                    $this->auditor->record('billing.subscription.synced', AuditOutcome::Success);
+                    $this->auditor->record('billing.subscription_synced', AuditOutcome::Success);
                 }
             },
         );
@@ -229,6 +235,81 @@ final class StripeWebhookControllerTest extends WebTestCase
         // No Stripe grant was ever written, so the left join yields nothing.
         self::assertNull($stored['status']);
         self::assertNull($stored['stripe_subscription_id']);
+    }
+
+    /**
+     * The signature failed, so nothing in the request is trustworthy: the
+     * record states the refusal on the security channel and carries no context.
+     */
+    public function test_a_tampered_signature_is_recorded_as_a_security_refusal(): void
+    {
+        $client = static::createClient();
+        $audit = RecordingAuditor::installedIn(static::getContainer());
+        $client->disableReboot();
+
+        $this->post($client, $this->payload('customer.subscription.updated', $this->classicSubscription(), time()), 't=1,v1=deadbeef');
+
+        self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+
+        $record = $audit->record('billing.webhook_rejected');
+        self::assertSame(AuditOutcome::Refused, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_SECURITY, $record->category);
+        self::assertSame([], $record->context);
+        self::assertNull($record->subject);
+
+        self::assertSame(['billing.webhook_rejected'], $audit->securityLogLines());
+        self::assertSame([], $audit->domainLogLines());
+    }
+
+    /**
+     * Stripe's own verification message is the one thing the record drops, so
+     * the controller logs it beside the record under the same operation name.
+     */
+    public function test_the_verification_message_is_logged_beside_the_refusal(): void
+    {
+        static::createClient();
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $logger = new RecordingLogger();
+
+        $sync = static::getContainer()->get(SyncStripeSubscriptionHandler::class);
+        self::assertInstanceOf(SyncStripeSubscriptionHandler::class, $sync);
+
+        $controller = new StripeWebhookController(
+            $sync,
+            $logger,
+            new AuditContext(),
+            $audit->auditor,
+            self::WEBHOOK_SECRET,
+        );
+
+        $controller(Request::create(
+            '/webhooks/stripe',
+            Request::METHOD_POST,
+            server: ['HTTP_STRIPE_SIGNATURE' => 't=1,v1=deadbeef'],
+            content: $this->payload('customer.subscription.updated', $this->classicSubscription(), time()),
+        ));
+
+        DirectLogging::assertDiagnosticsLoggedBeside($audit, $logger, 'billing.webhook_rejected', ['error']);
+        self::assertNotSame('', $logger->records[0]['context']['error'] ?? '');
+    }
+
+    /**
+     * A payload that fails field validation names no operation an outcome could
+     * describe, so it stays a diagnostic on the logger this controller keeps.
+     */
+    public function test_a_malformed_handled_event_stays_a_diagnostic(): void
+    {
+        $client = static::createClient();
+        $audit = RecordingAuditor::installedIn(static::getContainer());
+        $client->disableReboot();
+
+        $subscription = $this->classicSubscription();
+        unset($subscription['customer']);
+
+        $this->post($client, $this->payload('customer.subscription.updated', $subscription, time()));
+
+        self::assertResponseIsSuccessful();
+        self::assertSame([], $audit->operations());
     }
 
     public function test_a_missing_signature_header_is_rejected(): void

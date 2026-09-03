@@ -2640,9 +2640,17 @@
     .admin-badge-on {
         @apply bg-status-ok-bg text-status-ok-deep;
     }
+    .admin-badge-danger {
+        @apply bg-status-danger-bg text-status-danger-deep;
+    }
     .admin-badge-neutral,
     .admin-badge-off {
         @apply bg-tint text-fg-dim;
+    }
+    /* No fill: an outcome that moved no state is not a result to read, and a
+       filled badge beside it would compete with one that is. */
+    .admin-badge-quiet {
+        @apply bg-transparent text-fg-faint;
     }
     .admin-badge-count {
         @apply bg-accent-faint text-accent-ink;

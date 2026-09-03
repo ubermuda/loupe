@@ -13,6 +13,7 @@ use App\Module\Billing\Service\PaywallGate;
 use App\Module\Billing\Service\TrialProvisioner;
 use App\Tests\Support\BillingGrants;
 use App\Tests\Support\FeatureFlags;
+use App\Tests\Support\SilentAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -55,7 +56,7 @@ final class RequireSubscriptionListenerTest extends TestCase
 
         $gate = new PaywallGate(
             FeatureFlags::service(['billing.enabled' => true]),
-            new TrialProvisioner($profiles, FeatureFlags::service(), $this->createStub(EntityManagerInterface::class)),
+            new TrialProvisioner($profiles, FeatureFlags::service(), $this->createStub(EntityManagerInterface::class), SilentAuditor::create()),
         );
 
         $urlGenerator = $this->createStub(UrlGeneratorInterface::class);

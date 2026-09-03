@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Billing\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\StripeGatewayInterface;
 use Psr\Log\LoggerInterface;
@@ -17,6 +20,7 @@ final readonly class OpenPortalHandler
         private StripeGatewayInterface $stripe,
         private FeatureFlagService $featureFlags,
         private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -38,7 +42,14 @@ final readonly class OpenPortalHandler
         } catch (\Throwable $e) {
             // Stripe being down is a bad minute, not a bug: surface it as a
             // domain failure so the user gets "try again later", not a 500.
-            $this->logger->error('billing.portal.stripe_failed', [
+            $this->auditor->record(
+                'billing.portal_stripe_failed',
+                AuditOutcome::Failed,
+                ['userId' => (string) $command->user->id],
+                new AuditSubject('user', (string) $command->user->id),
+            );
+
+            $this->logger->error('billing.portal_stripe_failed', [
                 'userId' => (string) $command->user->id,
                 'error' => $e->getMessage(),
             ]);
@@ -46,7 +57,12 @@ final readonly class OpenPortalHandler
             throw new DomainErrors(['portal' => 'billing.error.stripe_unavailable']);
         }
 
-        $this->logger->info('billing.portal.opened', ['userId' => (string) $command->user->id]);
+        $this->auditor->record(
+            'billing.portal_opened',
+            AuditOutcome::Success,
+            ['userId' => (string) $command->user->id],
+            new AuditSubject('user', (string) $command->user->id),
+        );
 
         return $url;
     }

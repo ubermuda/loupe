@@ -6,10 +6,13 @@ namespace App\Tests\Module\Review\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\SetDocumentReferencesCommand;
 use App\Module\Review\Command\SetDocumentReferencesHandler;
 use App\Module\Review\Entity\Document;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -17,6 +20,7 @@ final class SetDocumentReferencesHandlerTest extends KernelTestCase
 {
     private EntityManagerInterface $em;
     private SetDocumentReferencesHandler $handler;
+    private RecordingAuditor $audit;
 
     protected function setUp(): void
     {
@@ -25,6 +29,8 @@ final class SetDocumentReferencesHandlerTest extends KernelTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
+
+        $this->audit = RecordingAuditor::installedIn(self::getContainer());
 
         $handler = self::getContainer()->get(SetDocumentReferencesHandler::class);
         self::assertInstanceOf(SetDocumentReferencesHandler::class, $handler);
@@ -151,5 +157,42 @@ final class SetDocumentReferencesHandlerTest extends KernelTestCase
         }
 
         self::assertSame(['target'], $this->targetsOf($source));
+    }
+
+    public function test_a_reference_set_is_recorded_on_the_domain_channel(): void
+    {
+        $project = $this->project('refs-audit');
+        $source = $this->documentIn($project, 'Source');
+        $target = $this->documentIn($project, 'Target');
+
+        ($this->handler)(new SetDocumentReferencesCommand($source, [$target]));
+
+        $record = $this->audit->record('review.document_references_updated');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('document', $record->subject->type);
+        self::assertSame((string) $source->id, $record->subject->id);
+        self::assertSame([
+            'documentId' => (string) $source->id,
+            'projectId' => (string) $project->id,
+            'referenceCount' => 1,
+        ], $record->context);
+
+        self::assertSame(['review.document_references_updated'], $this->audit->domainLogLines());
+        self::assertSame([], $this->audit->securityLogLines());
+    }
+
+    public function test_clearing_the_set_is_recorded_as_a_count_of_zero(): void
+    {
+        $project = $this->project('refs-audit-clear');
+        $source = $this->documentIn($project, 'Source');
+        $target = $this->documentIn($project, 'Target');
+        ($this->handler)(new SetDocumentReferencesCommand($source, [$target]));
+        $this->audit->forget();
+
+        ($this->handler)(new SetDocumentReferencesCommand($source, []));
+
+        self::assertSame(0, $this->audit->record('review.document_references_updated')->context['referenceCount']);
     }
 }

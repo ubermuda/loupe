@@ -23,6 +23,24 @@ An hourly scheduled command, `app:purge-expired-exports`, deletes expired
 archives and their rows. Like everything else on the schedule, it runs only if a
 worker is consuming.
 
+## What the archive contains
+
+The archive holds one file per kind of data. `audit_log.json` is one of them. It
+holds the audit records the user is the actor of, and the records that name the
+user as the subject. What was done to the account is the account's data too.
+
+A subject record was written by somebody else, so the file names no actor at
+all. It carries the operation, the outcome, the category, the channel, the
+subject and the context of each record, and never an actor name.
+
+An administrator's export contains the identifiers of the accounts they acted
+on, because those records are the administrator's own actions. An identifier is
+an opaque UUID. It carries no name and no address.
+
+That file reaches back as far as the trail does, which is 180 days by default
+and is set by the `audit.retention_days` feature flag. See
+[The admin area](admin.md).
+
 ## Where archives are stored
 
 `EXPORT_STORAGE` is `local` by default, which is correct only when the process

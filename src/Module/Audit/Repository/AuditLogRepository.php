@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Module\Audit\Repository;
 
+use App\Module\Audit\AuditActorInterface;
 use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Audit\Entity\AuditLog;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\AbstractQuery;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Uid\Uuid;
 
@@ -34,6 +37,35 @@ class AuditLogRepository extends ServiceEntityRepository
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, AuditLog::class);
+    }
+
+    /**
+     * Streams plain rows: the caller is the account data export, which has no
+     * page to bound it. Array hydration keeps the trail out of the identity
+     * map, so the caller's next flush computes no change set over rows it never
+     * edits. Not constant memory: ArrayHydrator still keeps one identifier per
+     * row for the length of the stream.
+     *
+     * What the actor did and what was done to it, in one query rather than two.
+     * A record where the actor is also the subject satisfies both sides of the
+     * OR, and one query over one table still returns it once.
+     *
+     * @return iterable<AuditLogRowData>
+     */
+    public function streamByActorOrSubject(AuditActorInterface $actor, AuditSubject $subject): iterable
+    {
+        /** @var iterable<AuditLogRowData> $rows */
+        $rows = $this->createQueryBuilder('a')
+            ->andWhere('a.actor = :actor OR (a.subjectType = :subjectType AND a.subjectId = :subjectId)')
+            ->setParameter('actor', $actor)
+            ->setParameter('subjectType', $subject->type)
+            ->setParameter('subjectId', $subject->id)
+            ->orderBy('a.occurredAt', 'DESC')
+            ->addOrderBy('a.id', 'DESC')
+            ->getQuery()
+            ->toIterable([], AbstractQuery::HYDRATE_ARRAY);
+
+        return $rows;
     }
 
     /**

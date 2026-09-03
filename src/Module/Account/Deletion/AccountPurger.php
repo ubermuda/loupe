@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace App\Module\Account\Deletion;
 
+use App\Audit\AuditContext;
 use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\FilesystemOperator;
@@ -32,21 +36,33 @@ final readonly class AccountPurger
     /** @var list<AccountDataPurgerInterface> */
     private array $purgers;
 
-    /** @param iterable<AccountDataPurgerInterface> $purgers */
+    /** @var list<AccountDeletionPreparerInterface> */
+    private array $preparers;
+
+    /**
+     * @param iterable<AccountDataPurgerInterface>       $purgers
+     * @param iterable<AccountDeletionPreparerInterface> $preparers
+     */
     public function __construct(
         private MessageBusInterface $bus,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
+        private Auditor $auditor,
+        private AuditContext $auditContext,
 
         #[Target('export.storage')]
         private FilesystemOperator $exportStorage,
 
         #[AutowireIterator('app.account_data_purger')]
         iterable $purgers,
+
+        #[AutowireIterator('app.account_deletion_preparer')]
+        iterable $preparers,
     ) {
         $ordered = iterator_to_array($purgers, false);
         usort($ordered, static fn (AccountDataPurgerInterface $a, AccountDataPurgerInterface $b): int => $a->deletionOrder() <=> $b->deletionOrder());
         $this->purgers = $ordered;
+        $this->preparers = iterator_to_array($preparers, false);
     }
 
     public function purge(User $user): void
@@ -55,7 +71,18 @@ final readonly class AccountPurger
 
         $cleanup = new AccountDeletionCleanup();
 
+        // Before the purgers run, because ProjectAccountPurger records a
+        // project deletion of its own at the first slot.
+        $this->auditContext->erasedActorId = (string) $userId;
+
         $this->em->wrapInTransaction(function () use ($user, $userId, $cleanup): void {
+            // Before the purgers, not among them: a preparer exists for the row
+            // whose owner stops being identifiable once ProjectAccountPurger has
+            // run, and that purger has to keep the lowest deletionOrder().
+            foreach ($this->preparers as $preparer) {
+                $preparer->prepare($user, $cleanup);
+            }
+
             foreach ($this->purgers as $purger) {
                 $purger->purge($user, $cleanup);
             }
@@ -77,10 +104,24 @@ final readonly class AccountPurger
             try {
                 $this->exportStorage->delete($key);
             } catch (FilesystemException) {
-                $this->logger->warning('account.deletion.archive_unlink_failed', ['key' => $key]);
+                $this->auditor->record(
+                    'account.deletion_archive_unlink_failed',
+                    AuditOutcome::Failed,
+                    ['userId' => (string) $userId],
+                    new AuditSubject('user', (string) $userId),
+                );
+
+                // The storage path names the object an operator must delete by
+                // hand. It stays out of the trail, which has no erasure path.
+                $this->logger->warning('account.deletion_archive_unlink_failed', ['key' => $key]);
             }
         }
 
-        $this->logger->info('account.deleted', ['userId' => (string) $userId]);
+        $this->auditor->record(
+            'account.deleted',
+            AuditOutcome::Success,
+            ['userId' => (string) $userId],
+            new AuditSubject('user', (string) $userId),
+        );
     }
 }

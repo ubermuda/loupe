@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Billing\Command;
 
+use App\Audit\AuditChannel;
+use App\Audit\AuditContext;
+use App\Module\Audit\AuditActorProviderInterface;
+use App\Module\Audit\AuditEvent;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Billing\Command\RunTrialSweepCommand;
 use App\Module\Billing\Command\RunTrialSweepHandler;
 use App\Module\Billing\Command\TrialSweepResult;
@@ -16,7 +22,10 @@ use App\Module\Billing\Service\CancelSurveyEmailSender;
 use App\Module\Billing\Service\TrialEndSurveyEmailSender;
 use App\Tests\Support\BillingGrants;
 use App\Tests\Support\BillingScenario;
+use App\Tests\Support\DirectLogging;
 use App\Tests\Support\FeatureFlags;
+use App\Tests\Support\RecordingAuditor;
+use App\Tests\Support\RecordingLogger;
 use App\Tests\Support\RecordingMailer;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -47,12 +56,20 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
 
     private RecordingMailer $mailer;
 
+    private RecordingAuditor $audit;
+
+    private RecordingLogger $logger;
+
     private \DateTimeImmutable $now;
 
     #[\Override]
     protected function setUp(): void
     {
         self::bootKernel();
+        $actors = self::getContainer()->get(AuditActorProviderInterface::class);
+        self::assertInstanceOf(AuditActorProviderInterface::class, $actors);
+        $this->audit = new RecordingAuditor($actors);
+        $this->logger = new RecordingLogger();
         // Wall-clock, not a fixed date: the grant fixtures are built from
         // relative offsets, so a frozen "now" would put them all in the future.
         $this->now = new \DateTimeImmutable();
@@ -288,7 +305,8 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
             new CancelSurveyEmailSender($mailer, $translator, $featureFlags, new NullLogger(), 'noreply@example.com', 'Loupe'),
             $featureFlags,
             $container->get(EntityManagerInterface::class),
-            new NullLogger(),
+            $failureLogger = new RecordingLogger(),
+            $this->audit->auditor,
         );
 
         $result = ($handler)(new RunTrialSweepCommand($this->now));
@@ -300,6 +318,23 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
         self::assertEquals($this->now, $this->trial($second)->surveySentAt);
         self::assertEquals($this->now, $first->user->disabledAt);
         self::assertEquals($this->now, $second->user->disabledAt);
+
+        // The record names the row the sweep left unsettled. The SMTP error is
+        // unbounded text with no erasure path, so it stays in the log line.
+        $failure = $this->audit->record('billing.trial_sweep_row_failed');
+        self::assertSame(AuditOutcome::Failed, $failure->outcome);
+        self::assertSame([
+            'subscriptionId' => (string) $this->trial($first)->id,
+            'userId' => (string) $first->user->id,
+        ], $failure->context);
+        self::assertNotNull($failure->subject);
+        self::assertSame('user', $failure->subject->type);
+        self::assertStringNotContainsString(
+            'SMTP down',
+            json_encode($this->audit->domainChannel->records, \JSON_THROW_ON_ERROR),
+        );
+        DirectLogging::assertDiagnosticsLoggedBeside($this->audit, $failureLogger, 'billing.trial_sweep_row_failed', ['error']);
+        self::assertSame('SMTP down', $failureLogger->records[0]['context']['error'] ?? null);
     }
 
     /** @param array<string, bool|int|string> $flags */
@@ -316,7 +351,8 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
             new CancelSurveyEmailSender($this->mailer, $translator, $featureFlags, new NullLogger(), 'noreply@example.com', 'Loupe'),
             $featureFlags,
             $container->get(EntityManagerInterface::class),
-            new NullLogger(),
+            $this->logger,
+            $this->audit->auditor,
         );
     }
 
@@ -341,5 +377,154 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
     private function em(): EntityManagerInterface
     {
         return static::getContainer()->get(EntityManagerInterface::class);
+    }
+
+    public function test_an_expired_trial_records_the_disable_with_its_reason(): void
+    {
+        $profile = $this->seedProfile('auditchurn');
+
+        ($this->handler())(new RunTrialSweepCommand($this->now));
+
+        $record = $this->audit->record('billing.trial_sweep_disabled');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('user', $record->subject->type);
+        self::assertSame((string) $profile->user->id, $record->subject->id);
+        self::assertSame([
+            'userId' => (string) $profile->user->id,
+            'reason' => 'trial_expired',
+        ], $record->context);
+
+        self::assertSame(
+            ['billing.trial_sweep_disabled', 'billing.trial_sweep_survey_sent'],
+            $this->audit->domainLogLines(),
+        );
+        self::assertSame([], $this->audit->securityLogLines());
+    }
+
+    public function test_a_settled_cancellation_records_the_disable_with_its_own_reason(): void
+    {
+        $profile = $this->seedProfile('auditcancel');
+        $this->grant(BillingGrants::stripe($profile, BillingStatus::Canceled, $this->now->modify('-1 hour')));
+
+        ($this->handler())(new RunTrialSweepCommand($this->now));
+
+        $record = $this->audit->record('billing.trial_sweep_disabled');
+        self::assertNotNull($record->subject);
+        self::assertSame((string) $profile->user->id, $record->subject->id);
+        self::assertSame([
+            'userId' => (string) $profile->user->id,
+            'reason' => 'subscription_canceled',
+        ], $record->context);
+    }
+
+    /** One operation, two passes: only `reason` tells the records apart. */
+    public function test_both_passes_in_one_sweep_record_one_disable_each(): void
+    {
+        $churned = $this->seedProfile('auditboth');
+        $canceled = $this->seedProfile('auditbothcancel');
+        $this->grant(BillingGrants::stripe($canceled, BillingStatus::Canceled, $this->now->modify('-1 hour')));
+
+        ($this->handler())(new RunTrialSweepCommand($this->now));
+
+        $records = $this->audit->records('billing.trial_sweep_disabled');
+        self::assertCount(2, $records);
+        self::assertSame([
+            ['userId' => (string) $churned->user->id, 'reason' => 'trial_expired'],
+            ['userId' => (string) $canceled->user->id, 'reason' => 'subscription_canceled'],
+        ], array_map(static fn (AuditEvent $event): array => $event->context, $records));
+    }
+
+    /** A comp keeps the account alive, so the sweep surveys it and disables nobody. */
+    public function test_a_sweep_that_disables_nobody_records_no_disable(): void
+    {
+        $profile = $this->seedProfile('auditcomped');
+        $this->grant(BillingGrants::comp($profile));
+
+        ($this->handler())(new RunTrialSweepCommand($this->now));
+
+        self::assertSame(['billing.trial_sweep_survey_sent'], $this->audit->operations());
+    }
+
+    /** The sweep mails the user, so the record names which survey went out. */
+    public function test_a_churned_survey_is_recorded_with_its_variant(): void
+    {
+        $profile = $this->seedProfile('auditsurvey');
+
+        ($this->handler())(new RunTrialSweepCommand($this->now));
+
+        $record = $this->audit->record('billing.trial_sweep_survey_sent');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame([
+            'userId' => (string) $profile->user->id,
+            'variant' => 'churned',
+        ], $record->context);
+        self::assertNotNull($record->subject);
+        self::assertSame('user', $record->subject->type);
+    }
+
+    public function test_a_cancellation_survey_is_recorded_against_the_user(): void
+    {
+        $profile = $this->seedProfile('auditcancelsurvey');
+        $this->grant(BillingGrants::stripe($profile, BillingStatus::Canceled, $this->now->modify('-1 hour')));
+
+        ($this->handler())(new RunTrialSweepCommand($this->now));
+
+        $record = $this->audit->record('billing.trial_sweep_cancel_survey_sent');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(['userId' => (string) $profile->user->id], $record->context);
+    }
+
+    /**
+     * The handler keeps its logger for the per-tick and after-lock diagnostics,
+     * so the reflection check cannot apply. Every migrated operation must reach
+     * the log stream through the sink alone.
+     */
+    public function test_the_migrated_operations_are_not_logged_beside_their_records(): void
+    {
+        $this->seedProfile('auditsplit');
+
+        ($this->handler())(new RunTrialSweepCommand($this->now));
+
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->logger, 'billing.trial_sweep_disabled');
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->logger, 'billing.trial_sweep_survey_sent');
+
+        // The cancellation pass needs its own row to reach its own survey.
+        $canceled = $this->seedProfile('auditsplitcancel');
+        $this->grant(BillingGrants::stripe($canceled, BillingStatus::Canceled, $this->now->modify('-1 hour')));
+        ($this->handler())(new RunTrialSweepCommand($this->now));
+
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->logger, 'billing.trial_sweep_cancel_survey_sent');
+    }
+
+    /**
+     * The whole log line, not only its message. The sweep runs with no
+     * security token, so the record carries the channel the process declared
+     * and no actor at all.
+     */
+    public function test_the_log_line_the_sink_emits_carries_the_cron_channel_and_no_actor(): void
+    {
+        $auditContext = self::getContainer()->get(AuditContext::class);
+        self::assertInstanceOf(AuditContext::class, $auditContext);
+        $auditContext->channel = AuditChannel::Cron;
+
+        $profile = $this->seedProfile('auditcron');
+
+        ($this->handler())(new RunTrialSweepCommand($this->now));
+
+        $record = $this->audit->record('billing.trial_sweep_disabled');
+        self::assertNull($record->actor);
+        self::assertNull($record->credential);
+        self::assertSame(AuditChannel::Cron->value, $record->channel);
+
+        self::assertSame([
+            'userId' => (string) $profile->user->id,
+            'reason' => 'trial_expired',
+            'outcome' => 'success',
+            'channel' => AuditChannel::Cron->value,
+            'subjectType' => 'user',
+            'subjectId' => (string) $profile->user->id,
+        ], $this->audit->domainChannel->records[0]['context']);
     }
 }

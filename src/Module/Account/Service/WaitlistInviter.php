@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Account\Service;
 
 use App\Module\Account\Entity\WaitlistEntry;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -15,6 +18,7 @@ final readonly class WaitlistInviter
         private WaitlistInviteEmailSender $emailSender,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -50,7 +54,14 @@ final readonly class WaitlistInviter
             // follow-up write so the entry stays invitable instead of stuck
             // until the never-sent token expires, and report a skip instead of
             // throwing so one bad entry cannot abort a bulk invite.
-            $this->logger->warning('account.waitlist.invite_send_failed', [
+            $this->auditor->record(
+                'account.waitlist_invite_send_failed',
+                AuditOutcome::Failed,
+                ['entryId' => (string) $entry->id],
+                new AuditSubject('waitlist_entry', (string) $entry->id),
+            );
+
+            $this->logger->warning('account.waitlist_invite_send_failed', [
                 'entryId' => (string) $entry->id,
                 'error' => $e->getMessage(),
             ]);
@@ -61,7 +72,12 @@ final readonly class WaitlistInviter
             return false;
         }
 
-        $this->logger->info('account.waitlist.invited', ['entryId' => (string) $entry->id]);
+        $this->auditor->record(
+            'account.waitlist_invited',
+            AuditOutcome::Success,
+            ['entryId' => (string) $entry->id],
+            new AuditSubject('waitlist_entry', (string) $entry->id),
+        );
 
         return true;
     }

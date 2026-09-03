@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Command;
 
 use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\ReviseDocumentCommand;
 use App\Module\Review\Command\ReviseDocumentHandler;
@@ -12,6 +14,7 @@ use App\Module\Review\Command\SetDocumentHighlightsCommand;
 use App\Module\Review\Command\SetDocumentHighlightsHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Highlight;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -21,6 +24,7 @@ final class SetDocumentHighlightsHandlerTest extends KernelTestCase
 
     private EntityManagerInterface $em;
     private SetDocumentHighlightsHandler $handler;
+    private RecordingAuditor $audit;
 
     protected function setUp(): void
     {
@@ -29,6 +33,8 @@ final class SetDocumentHighlightsHandlerTest extends KernelTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
+
+        $this->audit = RecordingAuditor::installedIn(self::getContainer());
 
         $handler = self::getContainer()->get(SetDocumentHighlightsHandler::class);
         self::assertInstanceOf(SetDocumentHighlightsHandler::class, $handler);
@@ -199,5 +205,44 @@ final class SetDocumentHighlightsHandlerTest extends KernelTestCase
         $this->em->flush();
 
         return $document;
+    }
+
+    public function test_a_highlight_set_is_recorded_on_the_domain_channel(): void
+    {
+        $document = $this->document('highlight-audit@example.com');
+
+        ($this->handler)(new SetDocumentHighlightsCommand($document, ['short-lived JWTs', 'nowhere in the text']));
+
+        $record = $this->audit->record('review.document_highlights_updated');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('document', $record->subject->type);
+        self::assertSame((string) $document->id, $record->subject->id);
+        self::assertSame([
+            'documentId' => (string) $document->id,
+            'versionId' => (string) $document->currentVersion()->id,
+            'highlightedCount' => 1,
+            'skippedCount' => 1,
+        ], $record->context);
+
+        self::assertSame(['review.document_highlights_updated'], $this->audit->domainLogLines());
+        self::assertSame([], $this->audit->securityLogLines());
+    }
+
+    /** Every quote is document text, so the record counts them instead. */
+    public function test_the_record_carries_no_quotes(): void
+    {
+        $document = $this->document('highlight-audit-quotes@example.com');
+
+        ($this->handler)(new SetDocumentHighlightsCommand($document, ['short-lived JWTs']));
+
+        $context = $this->audit->record('review.document_highlights_updated')->context;
+        self::assertArrayNotHasKey('highlighted', $context);
+        self::assertArrayNotHasKey('skipped', $context);
+        self::assertSame([], array_filter(
+            $context,
+            static fn (string|int|float|bool|null $value): bool => \is_string($value) && str_contains($value, 'JWT'),
+        ));
     }
 }

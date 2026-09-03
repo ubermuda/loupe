@@ -5,18 +5,18 @@ declare(strict_types=1);
 namespace App\Module\Account\Command;
 
 use App\Module\Account\Event\ApiTokenRevoked;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\ORM\EntityManagerInterface;
-use Monolog\Attribute\WithMonologChannel;
-use Psr\Log\LoggerInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
-#[WithMonologChannel('app_security')]
 final readonly class RevokeApiTokenHandler
 {
     public function __construct(
         private EntityManagerInterface $em,
         private EventDispatcherInterface $dispatcher,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -25,7 +25,7 @@ final readonly class RevokeApiTokenHandler
         $token = $command->token;
 
         // Idempotent: a stale double-submit of the revoke form must not re-stamp
-        // revokedAt or emit a second log entry.
+        // revokedAt or write a second record.
         if (null !== $token->revokedAt) {
             return;
         }
@@ -38,10 +38,17 @@ final readonly class RevokeApiTokenHandler
 
         $this->em->flush();
 
-        $this->logger->info('account.api_token.revoked', [
-            'userId' => null !== $token->owner->id ? (string) $token->owner->id : null,
-            'tokenId' => null !== $token->id ? (string) $token->id : null,
-            'label' => $token->label,
-        ]);
+        // No label: the user types it, so it is their prose about their own
+        // systems and has no place in a trail with no erasure path.
+        $this->auditor->record(
+            'account.api_token_revoked',
+            AuditOutcome::Success,
+            [
+                'userId' => null !== $token->owner->id ? (string) $token->owner->id : null,
+                'tokenId' => null !== $token->id ? (string) $token->id : null,
+            ],
+            null !== $token->id ? new AuditSubject('api_token', (string) $token->id) : null,
+            Auditor::CATEGORY_SECURITY,
+        );
     }
 }

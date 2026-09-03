@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Module\Account\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\ORM\EntityManagerInterface;
-use Monolog\Attribute\WithMonologChannel;
-use Psr\Log\LoggerInterface;
 
 /**
  * Marks an account's email verified without the emailed link. Unlike
@@ -17,13 +19,12 @@ use Psr\Log\LoggerInterface;
  * an unverified administrator is parked on the check-email page and cannot
  * reach the admin area at all.
  */
-#[WithMonologChannel('app_security')]
 final readonly class MarkEmailVerifiedHandler
 {
     public function __construct(
         private UserRepository $users,
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -44,7 +45,7 @@ final readonly class MarkEmailVerifiedHandler
         if ($user->isVerified()) {
             if ($tokenRevoked) {
                 $this->em->flush();
-                $this->logger->info('account.user.verification_token_revoked_by_operator', ['userId' => (string) $user->id]);
+                $this->record('account.user_verification_token_revoked_by_operator', $user);
             }
 
             return new MarkEmailVerifiedResult(verified: false, tokenRevoked: $tokenRevoked);
@@ -53,8 +54,19 @@ final readonly class MarkEmailVerifiedHandler
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $this->em->flush();
 
-        $this->logger->info('account.user.email_verified_by_operator', ['userId' => (string) $user->id]);
+        $this->record('account.user_email_verified_by_operator', $user);
 
         return new MarkEmailVerifiedResult(verified: true, tokenRevoked: $tokenRevoked);
+    }
+
+    private function record(string $operation, User $user): void
+    {
+        $this->auditor->record(
+            $operation,
+            AuditOutcome::Success,
+            ['userId' => (string) $user->id],
+            new AuditSubject('user', (string) $user->id),
+            Auditor::CATEGORY_SECURITY,
+        );
     }
 }

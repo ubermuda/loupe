@@ -10,7 +10,8 @@ use App\Module\Account\Command\JoinWaitlistHandler;
 use App\Module\Account\Form\WaitlistJoinFormType;
 use App\Module\Account\Form\WaitlistJoinRequest;
 use App\Module\Account\Service\RegistrationGate;
-use Psr\Log\LoggerInterface;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
@@ -30,7 +31,7 @@ final class JoinWaitlistController extends AppController
         private readonly RegistrationGate $gate,
         private readonly JoinWaitlistHandler $joinWaitlist,
         private readonly TranslatorInterface $translator,
-        private readonly LoggerInterface $logger,
+        private readonly Auditor $auditor,
 
         #[Autowire(service: 'limiter.waitlist_join')]
         private readonly RateLimiterFactory $waitlistJoinLimiter,
@@ -44,7 +45,12 @@ final class JoinWaitlistController extends AppController
         // wizard still pending — /register 404s, so redirecting there would
         // dead-end and collecting addresses would promise nothing.
         if (!$this->gate->allowsNewAccounts()) {
-            $this->logger->info('account.waitlist.denied', ['path' => $request->getPathInfo()]);
+            // Only a submission is recorded, for the reason RegisterController
+            // gives: a GET is a page view, and a crawler would write a row per
+            // request.
+            if ($request->isMethod('POST')) {
+                $this->auditor->record('account.waitlist_denied', AuditOutcome::Refused);
+            }
 
             throw $this->createNotFoundException();
         }

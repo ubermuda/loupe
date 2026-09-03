@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Billing\Command;
 
+use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Entity\Subscription;
 use App\Module\Billing\Entity\SubscriptionKind;
@@ -32,6 +36,7 @@ final readonly class RunTrialSweepHandler
         private FeatureFlagService $featureFlags,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -40,7 +45,7 @@ final readonly class RunTrialSweepHandler
         // No paywall, no trial semantics: with billing dark nothing may be
         // disabled or surveyed, whatever the timestamps say.
         if (!$this->featureFlags->isEnabled('billing.enabled')) {
-            $this->logger->info('billing.trial_sweep.skipped_billing_disabled');
+            $this->logger->info('billing.trial_sweep_skipped_billing_disabled');
 
             return new TrialSweepResult();
         }
@@ -56,7 +61,7 @@ final readonly class RunTrialSweepHandler
                 $subscriber += $subscriberNow;
             } catch (\Throwable $e) {
                 ++$failed;
-                $this->logFailure($trial, $e);
+                $this->recordFailure($trial, $e);
             }
         }
 
@@ -67,7 +72,7 @@ final readonly class RunTrialSweepHandler
                 $cancel += $surveyNow;
             } catch (\Throwable $e) {
                 ++$failed;
-                $this->logFailure($subscription, $e);
+                $this->recordFailure($subscription, $e);
             }
         }
 
@@ -91,7 +96,7 @@ final readonly class RunTrialSweepHandler
             $this->em->refresh($trial);
 
             if (null === $trial->endsAt || $now < $trial->endsAt || null !== $trial->surveySentAt) {
-                $this->logger->debug('billing.trial_sweep.skipped_after_lock', ['userId' => (string) $profile->user->id, 'pass' => 'ended_trials']);
+                $this->logger->debug('billing.trial_sweep_skipped_after_lock', ['userId' => (string) $profile->user->id, 'pass' => 'ended_trials']);
 
                 return [0, 0, 0];
             }
@@ -123,13 +128,13 @@ final readonly class RunTrialSweepHandler
         });
 
         if (1 === $disabledNow) {
-            $this->logger->info('billing.trial_sweep.disabled', ['userId' => (string) $user->id, 'reason' => 'trial_expired']);
+            $this->recordDisabled($user, 'trial_expired');
         }
         if (1 === $churnedNow && $this->trialSurveys->send($user, subscribed: false)) {
-            $this->logger->info('billing.trial_sweep.survey_sent', ['userId' => (string) $user->id, 'variant' => 'churned']);
+            $this->recordSurvey('billing.trial_sweep_survey_sent', $user, 'churned');
         }
         if (1 === $subscriberNow && $this->trialSurveys->send($user, subscribed: true)) {
-            $this->logger->info('billing.trial_sweep.survey_sent', ['userId' => (string) $user->id, 'variant' => 'subscribed']);
+            $this->recordSurvey('billing.trial_sweep_survey_sent', $user, 'subscribed');
         }
 
         return [$disabledNow, $churnedNow, $subscriberNow];
@@ -151,7 +156,7 @@ final readonly class RunTrialSweepHandler
             if (BillingStatus::Canceled !== $subscription->stripeStatus
                 || (null !== $subscription->endsAt && $now < $subscription->endsAt)
                 || $profile->hasCurrentSubscription($now)) {
-                $this->logger->debug('billing.trial_sweep.skipped_after_lock', ['userId' => (string) $user->id, 'pass' => 'canceled_stripe']);
+                $this->logger->debug('billing.trial_sweep_skipped_after_lock', ['userId' => (string) $user->id, 'pass' => 'canceled_stripe']);
 
                 return [0, 0];
             }
@@ -176,20 +181,61 @@ final readonly class RunTrialSweepHandler
         });
 
         if (1 === $disabledNow) {
-            $this->logger->info('billing.trial_sweep.disabled', ['userId' => (string) $user->id, 'reason' => 'subscription_canceled']);
+            $this->recordDisabled($user, 'subscription_canceled');
         }
         if (1 === $surveyNow && $this->cancelSurveys->send($user)) {
-            $this->logger->info('billing.trial_sweep.cancel_survey_sent', ['userId' => (string) $user->id]);
+            $this->recordSurvey('billing.trial_sweep_cancel_survey_sent', $user);
         }
 
         return [$disabledNow, $surveyNow];
     }
 
-    private function logFailure(Subscription $subscription, \Throwable $e): void
+    /**
+     * Both passes disable an account, and only `reason` tells them apart, so
+     * the two records are built in one place.
+     */
+    private function recordDisabled(User $user, string $reason): void
     {
-        $this->logger->error('billing.trial_sweep.row_failed', [
+        $this->auditor->record(
+            'billing.trial_sweep_disabled',
+            AuditOutcome::Success,
+            ['userId' => (string) $user->id, 'reason' => $reason],
+            new AuditSubject('user', (string) $user->id),
+        );
+    }
+
+    /** The sweep mails a user; `variant` names which survey when there is more than one. */
+    private function recordSurvey(string $operation, User $user, ?string $variant = null): void
+    {
+        $context = ['userId' => (string) $user->id];
+        if (null !== $variant) {
+            $context['variant'] = $variant;
+        }
+
+        $this->auditor->record(
+            $operation,
+            AuditOutcome::Success,
+            $context,
+            new AuditSubject('user', (string) $user->id),
+        );
+    }
+
+    private function recordFailure(Subscription $subscription, \Throwable $e): void
+    {
+        $userId = (string) $subscription->billingProfile->user->id;
+
+        // The record names the row the sweep left unsettled. Why it broke is
+        // the exception message, which never reaches the trail.
+        $this->auditor->record(
+            'billing.trial_sweep_row_failed',
+            AuditOutcome::Failed,
+            ['subscriptionId' => (string) $subscription->id, 'userId' => $userId],
+            new AuditSubject('user', $userId),
+        );
+
+        $this->logger->error('billing.trial_sweep_row_failed', [
             'subscriptionId' => (string) $subscription->id,
-            'userId' => (string) $subscription->billingProfile->user->id,
+            'userId' => $userId,
             'error' => $e->getMessage(),
         ]);
     }

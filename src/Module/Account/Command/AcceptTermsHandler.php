@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace App\Module\Account\Command;
 
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 final readonly class AcceptTermsHandler
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
 
         #[Autowire(param: 'app.terms.version')]
         private string $termsVersion,
@@ -26,9 +28,14 @@ final readonly class AcceptTermsHandler
 
         $this->em->flush();
 
-        $this->logger->info('account.terms.accepted', [
-            'userId' => (string) $command->user->id,
-            'version' => $this->termsVersion,
-        ]);
+        $this->auditor->record(
+            'account.terms_accepted',
+            AuditOutcome::Success,
+            [
+                'userId' => (string) $command->user->id,
+                'version' => $this->termsVersion,
+            ],
+            new AuditSubject('user', (string) $command->user->id),
+        );
     }
 }

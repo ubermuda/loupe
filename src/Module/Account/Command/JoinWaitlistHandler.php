@@ -7,9 +7,11 @@ namespace App\Module\Account\Command;
 use App\Module\Account\Entity\WaitlistEntry;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Repository\WaitlistEntryRepository;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 
 final readonly class JoinWaitlistHandler
 {
@@ -17,7 +19,7 @@ final readonly class JoinWaitlistHandler
         private WaitlistEntryRepository $waitlistEntries,
         private UserRepository $users,
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -36,13 +38,13 @@ final readonly class JoinWaitlistHandler
                     $existingEntry->reopen();
                     $this->em->flush();
 
-                    $this->logger->info('account.waitlist.rejoined', ['entryId' => self::entryId($existingEntry)]);
+                    $this->record('account.waitlist_rejoined', $existingEntry);
 
                     return;
                 }
             }
 
-            $this->logger->info('account.waitlist.duplicate_join', ['entryId' => self::entryId($existingEntry)]);
+            $this->record('account.waitlist_duplicate_join', $existingEntry, AuditOutcome::Unchanged);
 
             return;
         }
@@ -56,9 +58,13 @@ final readonly class JoinWaitlistHandler
             // Named by the account that made this path fire. A digest of the
             // address would do the same correlating job while staying guessable
             // from a wordlist, which is the thing being avoided here.
-            $this->logger->info('account.waitlist.join_skipped_existing_account', [
-                'userId' => (string) ($existingUser->id ?? throw new \LogicException('A persisted user always has an id.')),
-            ]);
+            $userId = (string) ($existingUser->id ?? throw new \LogicException('A persisted user always has an id.'));
+            $this->auditor->record(
+                'account.waitlist_join_skipped_existing_account',
+                AuditOutcome::Unchanged,
+                ['userId' => $userId],
+                new AuditSubject('user', $userId),
+            );
 
             return;
         }
@@ -74,7 +80,19 @@ final readonly class JoinWaitlistHandler
             return;
         }
 
-        $this->logger->info('account.waitlist.joined', ['entryId' => self::entryId($entry)]);
+        $this->record('account.waitlist_joined', $entry);
+    }
+
+    private function record(string $operation, WaitlistEntry $entry, AuditOutcome $outcome = AuditOutcome::Success): void
+    {
+        $entryId = self::entryId($entry);
+
+        $this->auditor->record(
+            $operation,
+            $outcome,
+            ['entryId' => $entryId],
+            new AuditSubject('waitlist_entry', $entryId),
+        );
     }
 
     private static function entryId(WaitlistEntry $entry): string

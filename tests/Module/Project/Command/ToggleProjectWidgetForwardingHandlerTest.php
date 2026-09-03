@@ -8,17 +8,22 @@ use App\Exception\DomainErrors;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
+use App\Module\Audit\AuditActorProviderInterface;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Command\ToggleProjectWidgetForwardingCommand;
 use App\Module\Project\Command\ToggleProjectWidgetForwardingHandler;
 use App\Module\Project\Entity\Project;
+use App\Tests\Support\DirectLogging;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class ToggleProjectWidgetForwardingHandlerTest extends KernelTestCase
 {
     private EntityManagerInterface $em;
     private ToggleProjectWidgetForwardingHandler $handler;
+    private RecordingAuditor $audit;
 
     protected function setUp(): void
     {
@@ -26,7 +31,10 @@ final class ToggleProjectWidgetForwardingHandlerTest extends KernelTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
-        $this->handler = new ToggleProjectWidgetForwardingHandler($this->em, new NullLogger());
+        $actors = self::getContainer()->get(AuditActorProviderInterface::class);
+        self::assertInstanceOf(AuditActorProviderInterface::class, $actors);
+        $this->audit = new RecordingAuditor($actors);
+        $this->handler = new ToggleProjectWidgetForwardingHandler($this->em, $this->audit->auditor);
     }
 
     public function test_a_freshly_minted_token_starts_collect_only(): void
@@ -68,6 +76,48 @@ final class ToggleProjectWidgetForwardingHandlerTest extends KernelTestCase
 
         $this->expectException(DomainErrors::class);
         ($this->handler)(new ToggleProjectWidgetForwardingCommand($project));
+    }
+
+    public function test_each_toggle_is_recorded_with_the_state_it_left_behind(): void
+    {
+        $project = $this->project('forwarding-audit@example.com');
+        $token = $project->widgetToken;
+        self::assertNotNull($token);
+
+        ($this->handler)(new ToggleProjectWidgetForwardingCommand($project));
+
+        $record = $this->audit->record('project.widget_forwarding_toggled');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('api_token', $record->subject->type);
+        self::assertSame((string) $token->id, $record->subject->id);
+        self::assertSame([
+            'projectId' => (string) $project->id,
+            'tokenId' => (string) $token->id,
+            'forwardsToAgent' => true,
+        ], $record->context);
+
+        self::assertSame(['project.widget_forwarding_toggled'], $this->audit->domainLogLines());
+        self::assertSame([], $this->audit->securityLogLines());
+    }
+
+    public function test_a_missing_widget_token_records_nothing(): void
+    {
+        $project = $this->project('forwarding-audit-none@example.com', withToken: false);
+
+        try {
+            ($this->handler)(new ToggleProjectWidgetForwardingCommand($project));
+            self::fail('Expected DomainErrors for a project without a widget token.');
+        } catch (DomainErrors) {
+        }
+
+        self::assertSame([], $this->audit->operations());
+    }
+
+    public function test_the_handler_keeps_no_logger_beside_the_auditor(): void
+    {
+        DirectLogging::assertRemovedFrom(ToggleProjectWidgetForwardingHandler::class);
     }
 
     /** @param non-empty-string $email */

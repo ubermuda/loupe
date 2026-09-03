@@ -37,7 +37,7 @@ class ListDocumentsController extends AppController
         $view = ($this->listDocuments)(new ListDocumentsCommand($project, $listQuery));
 
         if (null !== $view->clampedPage) {
-            $this->logger->info('review.document_list.page_clamped', [
+            $this->logger->info('review.document_list_page_clamped', [
                 'project' => (string) $project->id,
                 'requestedPage' => $listQuery->page,
                 'clampedPage' => $view->clampedPage,

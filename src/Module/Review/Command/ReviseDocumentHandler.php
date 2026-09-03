@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\DocumentVersion;
@@ -30,6 +33,7 @@ final readonly class ReviseDocumentHandler
         private DocumentVersionRepository $documentVersions,
         private DocumentReferenceValidator $referenceValidator,
         private DocumentSearchIndexer $searchIndexer,
+        private Auditor $auditor,
     ) {
     }
 
@@ -67,7 +71,9 @@ final readonly class ReviseDocumentHandler
             ? null
             : $this->referenceValidator->validated($document->project, $document, $command->references);
 
-        return $this->em->wrapInTransaction(function () use ($document, $command, $description, $title, $references): array {
+        $newVersionNumber = 0;
+
+        $summary = $this->em->wrapInTransaction(function () use ($document, $command, $description, $title, $references, &$newVersionNumber): array {
             // Locks the documents row before the number below is read, so two
             // concurrent revisions serialize here rather than both deriving the
             // same next version number.
@@ -127,7 +133,28 @@ final readonly class ReviseDocumentHandler
             // the vector describing a version that no longer exists.
             $this->searchIndexer->index($document);
 
+            $newVersionNumber = $newVersion->versionNumber;
+
             return $summary;
         });
+
+        // After the commit, never inside it: the sink drains at kernel.terminate,
+        // so a record written in the closure outlives a rollback.
+        $this->auditor->record(
+            'review.document_revised',
+            AuditOutcome::Success,
+            [
+                'documentId' => (string) $document->id,
+                'projectId' => (string) $document->project->id,
+                'versionNumber' => $newVersionNumber,
+                'titleChanged' => null !== $title,
+                'referencesReplaced' => null !== $references,
+                'commentsCarried' => $summary['carried'],
+                'commentsOrphaned' => $summary['orphaned'],
+            ],
+            new AuditSubject('document', (string) $document->id),
+        );
+
+        return $summary;
     }
 }

@@ -9,8 +9,10 @@ use App\Module\Account\Admin\AdminUserGuard;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Service\VerificationEmailSender;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 
 final readonly class UpdateUserHandler
 {
@@ -19,7 +21,7 @@ final readonly class UpdateUserHandler
         private UserRepository $users,
         private EntityManagerInterface $em,
         private VerificationEmailSender $verificationEmails,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -38,13 +40,24 @@ final readonly class UpdateUserHandler
         if ('' === $email) {
             throw new \LogicException('Email is required; the form must reject a blank one before reaching here.');
         }
+        $fullName = trim($command->fullName);
         $emailChanged = $email !== $target->email;
+
+        // Compared before anything is assigned: a resubmitted form that changes
+        // no field is accepted, not refused, and must not leave a record
+        // claiming a transition the database never made.
+        if (!$emailChanged
+            && $fullName === $target->fullName
+            && $roles === $target->roles
+            && $command->isVerified === $target->isVerified()) {
+            return $target;
+        }
 
         if ($emailChanged && null !== $this->users->findOneByEmail($email)) {
             throw new DomainErrors(['email' => 'account.admin.users.error.email_taken']);
         }
 
-        $target->fullName = trim($command->fullName);
+        $target->fullName = $fullName;
         $target->roles = $roles;
 
         if ($emailChanged) {
@@ -62,11 +75,17 @@ final readonly class UpdateUserHandler
             $this->verificationEmails->send($target);
         }
 
-        $this->logger->info('account.admin.user_updated', [
-            'targetId' => (string) $target->id,
-            'actorId' => (string) $command->actor->id,
-            'emailChanged' => $emailChanged,
-        ]);
+        // The admin is the actor the Auditor resolves from the security token,
+        // so naming them again in the context would only let the two drift.
+        $this->auditor->record(
+            'account.admin_user_updated',
+            AuditOutcome::Success,
+            [
+                'userId' => (string) $target->id,
+                'emailChanged' => $emailChanged,
+            ],
+            new AuditSubject('user', (string) $target->id),
+        );
 
         return $target;
     }

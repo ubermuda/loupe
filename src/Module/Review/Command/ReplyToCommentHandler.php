@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\Comment;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -18,6 +21,7 @@ final readonly class ReplyToCommentHandler
 
     public function __construct(
         private EntityManagerInterface $em,
+        private Auditor $auditor,
     ) {
     }
 
@@ -55,6 +59,17 @@ final readonly class ReplyToCommentHandler
 
         $this->em->persist($reply);
         $this->em->flush();
+
+        $this->auditor->record(
+            'review.comment_replied',
+            AuditOutcome::Success,
+            [
+                'commentId' => (string) $reply->id,
+                'parentCommentId' => (string) $parent->id,
+                'documentId' => (string) $parent->version->document->id,
+            ],
+            new AuditSubject('comment', (string) $reply->id),
+        );
 
         return $reply;
     }

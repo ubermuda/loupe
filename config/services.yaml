@@ -61,6 +61,9 @@ parameters:
     # the landing page only — Stripe remains the source of truth for what is
     # actually charged.
     app.hosted_price: '10'
+    # How long an audit record is kept, as the default the `audit.retention_days`
+    # feature flag starts from. An instance with no flag row reads this number.
+    app.audit.retention_days: 180
 
 services:
     # A vendor class, so it cannot carry our attributes. Built by a factory
@@ -111,6 +114,12 @@ services:
     # The audit package's port for "who is acting"; this application answers it
     # from the security token, the request and the ambient AuditContext.
     App\Module\Audit\AuditActorProviderInterface: '@App\Audit\LoupeAuditActorProvider'
+
+    # The package's port for "how long to keep a record". Loupe answers it from
+    # a feature flag, so an operator can change the window at runtime; the
+    # package's own ParameterAuditRetentionPolicy is the fallback for an
+    # application that supplies none.
+    App\Module\Audit\AuditRetentionPolicyInterface: '@App\Audit\FeatureFlagAuditRetentionPolicy'
 
 # Command handlers are private services; expose them in the test container so
 # KernelTestCase can fetch them directly without relying on a dependent service

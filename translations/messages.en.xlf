@@ -2308,6 +2308,18 @@
                 <source>check.agent_account.label</source>
                 <target>Agent account</target>
             </trans-unit>
+            <trans-unit id="account.system_status.trusted_proxies.resolved">
+                <source>account.system_status.trusted_proxies.resolved</source>
+                <target>The client address matches the caller named in X-Forwarded-For, so this instance sees real client addresses through its proxy.</target>
+            </trans-unit>
+            <trans-unit id="account.system_status.trusted_proxies.ignored">
+                <source>account.system_status.trusted_proxies.ignored</source>
+                <target>This request came through a proxy that is not trusted, so every caller resolves to that proxy's address. API rate limiting keys on the client address, so it collapses into one bucket for the whole instance and legitimate clients get 429s. Set TRUSTED_PROXIES to the address or CIDR range your proxy connects from — the default covers a proxy on a private network only.</target>
+            </trans-unit>
+            <trans-unit id="check.trusted_proxies.label">
+                <source>check.trusted_proxies.label</source>
+                <target>Trusted proxies</target>
+            </trans-unit>
             <trans-unit id="account.system_status.stripe.configured">
                 <source>account.system_status.stripe.configured</source>
                 <target>Both Stripe keys are set. Their validity is not checked here — that would mean calling Stripe from this page.</target>
@@ -3943,9 +3955,17 @@
                 <source>audit.admin.log.outcome.success</source>
                 <target>Success</target>
             </trans-unit>
+            <trans-unit id="audit.admin.log.outcome.unchanged">
+                <source>audit.admin.log.outcome.unchanged</source>
+                <target>Unchanged</target>
+            </trans-unit>
             <trans-unit id="audit.admin.log.outcome.refused">
                 <source>audit.admin.log.outcome.refused</source>
                 <target>Refused</target>
+            </trans-unit>
+            <trans-unit id="audit.admin.log.outcome.failed">
+                <source>audit.admin.log.outcome.failed</source>
+                <target>Failed</target>
             </trans-unit>
             <trans-unit id="audit.admin.log.context.show">
                 <source>audit.admin.log.context.show</source>

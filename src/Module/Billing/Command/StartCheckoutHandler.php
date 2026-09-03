@@ -7,6 +7,9 @@ namespace App\Module\Billing\Command;
 use App\Exception\DomainErrors;
 use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\RegistrationGate;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Service\ActivePriceProvider;
 use App\Module\Billing\Service\StripeGatewayInterface;
@@ -27,6 +30,7 @@ final readonly class StartCheckoutHandler
         private LoggerInterface $logger,
         private RegistrationGate $registrationGate,
         private WaitlistEntryRepository $waitlistEntries,
+        private Auditor $auditor,
     ) {
     }
 
@@ -102,7 +106,14 @@ final readonly class StartCheckoutHandler
             // Stripe being down or rejecting the call is a bad minute, not a
             // bug: surface it as a domain failure so the user gets the "try
             // again later" page instead of a 500.
-            $this->logger->error('billing.checkout.stripe_failed', [
+            $this->auditor->record(
+                'billing.checkout_stripe_failed',
+                AuditOutcome::Failed,
+                ['userId' => (string) $command->user->id],
+                new AuditSubject('user', (string) $command->user->id),
+            );
+
+            $this->logger->error('billing.checkout_stripe_failed', [
                 'userId' => (string) $command->user->id,
                 'error' => $e->getMessage(),
             ]);
@@ -110,7 +121,14 @@ final readonly class StartCheckoutHandler
             throw new DomainErrors(['billing' => 'billing.error.stripe_unavailable']);
         }
 
-        $this->logger->info('billing.checkout.started', ['userId' => (string) $command->user->id, 'priceId' => $priceId]);
+        // The price id stays out: it names a Stripe object, and an audit
+        // context carries this app's own identifiers only.
+        $this->auditor->record(
+            'billing.checkout_started',
+            AuditOutcome::Success,
+            ['userId' => (string) $command->user->id],
+            new AuditSubject('user', (string) $command->user->id),
+        );
 
         return $url;
     }

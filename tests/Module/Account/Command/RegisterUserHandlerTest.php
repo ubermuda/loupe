@@ -12,14 +12,19 @@ use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\InstallationState;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Account\Service\VerificationEmailSender;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\NullAuditActorProvider;
 use App\Module\Billing\Entity\SubscriptionKind;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\TrialProvisioner;
+use App\Tests\Support\DirectLogging;
 use App\Tests\Support\InstalledInstance;
+use App\Tests\Support\RecordingAuditor;
+use App\Tests\Support\RecordingLogger;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoDriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
@@ -50,6 +55,110 @@ final class RegisterUserHandlerTest extends KernelTestCase
         // Sign-up refuses to create the first account on an instance; these
         // tests all register into an instance that is already installed.
         InstalledInstance::ensure(self::getContainer());
+    }
+
+    /**
+     * Successful registration was audited nowhere before this: account creation
+     * was invisible to the trail. The social branch writes the same operation
+     * and separates itself with `provider`.
+     */
+    public function test_a_password_registration_is_recorded_with_a_null_provider(): void
+    {
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $handler = $this->handlerWith($this->createStub(EventDispatcherInterface::class), $audit->auditor);
+
+        $user = $handler(new RegisterUserCommand(
+            email: 'registered-audit@example.com',
+            fullName: 'Registered Audit',
+            plainPassword: 'SecurePassword1!',
+        ));
+
+        $record = $audit->record('account.registered');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertSame(['userId' => (string) $user->id, 'provider' => null], $record->context);
+        self::assertNotNull($record->subject);
+        self::assertSame('user', $record->subject->type);
+        self::assertSame((string) $user->id, $record->subject->id);
+
+        self::assertContains('account.registered', $audit->domainLogLines());
+        self::assertSame([], $audit->securityLogLines());
+    }
+
+    /**
+     * The listener's exception is the one thing the record drops, so the
+     * handler keeps a logger for it and nothing else.
+     */
+    public function test_only_the_listener_failure_is_logged_beside_the_auditor(): void
+    {
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $logger = new RecordingLogger();
+        $dispatcher = $this->createMock(EventDispatcherInterface::class);
+        $dispatcher->expects($this->once())->method('dispatch')
+            ->willThrowException(new \RuntimeException('listener exploded'));
+
+        $this->handlerWith($dispatcher, $audit->auditor, $logger)(new RegisterUserCommand(
+            email: 'listener-failed-split@example.com',
+            fullName: 'Listener Failed Split',
+            plainPassword: 'SecurePassword1!',
+        ));
+
+        DirectLogging::assertDiagnosticsLoggedBeside($audit, $logger, 'account.registration_listener_failed', ['error']);
+        DirectLogging::assertOperationNotLoggedBy($audit, $logger, 'account.registered');
+        self::assertSame('listener exploded', $logger->records[0]['context']['error'] ?? null);
+    }
+
+    /**
+     * A listener that throws leaves the account created and its follow-up work
+     * undone, which the trail says without repeating the listener's exception.
+     */
+    public function test_a_listener_that_throws_records_the_failure(): void
+    {
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $dispatcher = $this->createMock(EventDispatcherInterface::class);
+        $dispatcher->expects($this->once())->method('dispatch')
+            ->willThrowException(new \RuntimeException('listener exploded'));
+
+        $user = $this->handlerWith($dispatcher, $audit->auditor)(new RegisterUserCommand(
+            email: 'listener-failed@example.com',
+            fullName: 'Listener Failed',
+            plainPassword: 'SecurePassword1!',
+        ));
+
+        self::assertSame(
+            ['account.registered', 'account.registration_listener_failed'],
+            $audit->operations(),
+        );
+
+        $record = $audit->record('account.registration_listener_failed');
+        self::assertSame(AuditOutcome::Failed, $record->outcome);
+        self::assertSame(['userId' => (string) $user->id], $record->context);
+        self::assertNotNull($record->subject);
+        self::assertSame('user', $record->subject->type);
+        self::assertStringNotContainsString(
+            'listener exploded',
+            json_encode($audit->domainChannel->records, \JSON_THROW_ON_ERROR),
+        );
+    }
+
+    /** A refused registration creates nothing, so it states nothing. */
+    public function test_a_registration_refused_by_the_gate_records_nothing(): void
+    {
+        $this->closeRegistration();
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $handler = $this->handlerWith($this->neverDispatches(), $audit->auditor);
+
+        try {
+            $handler(new RegisterUserCommand(
+                email: 'refused-audit@example.com',
+                fullName: 'Refused Audit',
+                plainPassword: 'SecurePassword1!',
+            ));
+            $this->fail('Expected DomainErrors to be thrown.');
+        } catch (DomainErrors) {
+        }
+
+        self::assertSame([], $audit->records('account.registered'));
     }
 
     public function test_concurrent_duplicate_registration_surfaces_domain_error_not_500(): void
@@ -87,7 +196,8 @@ final class RegisterUserHandlerTest extends KernelTestCase
             registrationGate: $gate,
             waitlistEntries: $this->createStub(WaitlistEntryRepository::class),
             eventDispatcher: $this->neverDispatches(),
-            logger: new NullLogger(),
+            logger: new RecordingLogger(),
+            auditor: new RecordingAuditor(new NullAuditActorProvider())->auditor,
             termsVersion: $this->currentTermsVersion(),
         );
 
@@ -343,7 +453,7 @@ final class RegisterUserHandlerTest extends KernelTestCase
     }
 
     /** Container-wired collaborators with only the dispatcher swapped out. */
-    private function handlerWith(EventDispatcherInterface $dispatcher): RegisterUserHandler
+    private function handlerWith(EventDispatcherInterface $dispatcher, ?Auditor $auditor = null, ?RecordingLogger $logger = null): RegisterUserHandler
     {
         $container = self::getContainer();
         $users = $container->get(UserRepository::class);
@@ -363,7 +473,8 @@ final class RegisterUserHandlerTest extends KernelTestCase
             registrationGate: $gate,
             waitlistEntries: $this->entries,
             eventDispatcher: $dispatcher,
-            logger: new NullLogger(),
+            logger: $logger ?? new RecordingLogger(),
+            auditor: $auditor ?? new RecordingAuditor(new NullAuditActorProvider())->auditor,
             termsVersion: $this->currentTermsVersion(),
         );
     }

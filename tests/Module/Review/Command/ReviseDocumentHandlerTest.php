@@ -6,6 +6,8 @@ namespace App\Tests\Module\Review\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
@@ -22,6 +24,7 @@ use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\ValueObject\Anchor;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\PersistentCollection;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -568,5 +571,115 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         self::assertInstanceOf(Document::class, $fresh);
         self::assertSame('Trimmed title', $fresh->title);
         self::assertSame('Trimmed me.', $fresh->currentVersion()->description);
+    }
+
+    public function test_a_revision_is_recorded_on_the_domain_channel(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $user = new User(fullName: 'Agent', email: 'revise-audit@example.com', password: 'hashed');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        // Installed before the fixture, because the container refuses to
+        // replace a service it has already built, and creating the document
+        // builds the Auditor.
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+
+        $create = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $create);
+        $document = $create(new CreateDocumentCommand($project, 'Auth PRD', 'use JWTs and rate limiting'));
+
+        $comment = new Comment($document->currentVersion(), $user, 'why?', new Anchor('JWTs', 'use ', ' and', 4));
+        $em->persist($comment);
+        $em->flush();
+        $audit->forget();
+
+        $revise = self::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
+
+        $revise(new ReviseDocumentCommand($document, 'use JWTs everywhere', 'tightened', 'Auth PRD v2'));
+
+        $record = $audit->record('review.document_revised');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(Auditor::CATEGORY_DOMAIN, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('document', $record->subject->type);
+        self::assertSame((string) $document->id, $record->subject->id);
+        self::assertSame([
+            'documentId' => (string) $document->id,
+            'projectId' => (string) $project->id,
+            'versionNumber' => 2,
+            'titleChanged' => true,
+            'referencesReplaced' => false,
+            'commentsCarried' => 1,
+            'commentsOrphaned' => 0,
+        ], $record->context);
+
+        self::assertSame(['review.document_revised'], $audit->domainLogLines());
+        self::assertSame([], $audit->securityLogLines());
+    }
+
+    /** Neither the new title nor the Markdown reaches the trail. */
+    public function test_the_revision_record_carries_no_document_text(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $user = new User(fullName: 'Agent', email: 'revise-audit-text@example.com', password: 'hashed');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+
+        $create = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $create);
+        $document = $create(new CreateDocumentCommand($project, 'Plan', 'first draft'));
+        $audit->forget();
+
+        $revise = self::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
+
+        $revise(new ReviseDocumentCommand($document, 'Dana disagreed', 'Dana asked for this', 'Plan about Dana'));
+
+        self::assertSame([], array_filter(
+            $audit->record('review.document_revised')->context,
+            static fn (string|int|float|bool|null $value): bool => \is_string($value) && str_contains($value, 'Dana'),
+        ));
+    }
+
+    public function test_a_rejected_revision_records_nothing(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $user = new User(fullName: 'Agent', email: 'revise-audit-refused@example.com', password: 'hashed');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+
+        $create = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $create);
+        $document = $create(new CreateDocumentCommand($project, 'Plan', 'first draft'));
+        $audit->forget();
+
+        $revise = self::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
+
+        try {
+            $revise(new ReviseDocumentCommand($document, 'v2', '   '));
+            self::fail('a blank description must be rejected');
+        } catch (DomainErrors) {
+        }
+
+        self::assertSame([], $audit->operations());
     }
 }

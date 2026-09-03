@@ -39,7 +39,7 @@ final readonly class AgentAccountCheck implements DiagnosticInterface
         try {
             $present = (int) $this->connection->fetchOne(self::AGENT_ACCOUNT_SQL, ['id' => User::AGENT_ID]);
         } catch (\Throwable $e) {
-            $this->logger->warning('account.system_status.agent_account_unreadable', ['exception' => $e]);
+            $this->logger->warning('account.system_status_agent_account_unreadable', ['exception' => $e]);
 
             return new Diagnostic('agent_account', DiagnosticState::Unknown, 'account.system_status.agent_account.unreadable');
         }

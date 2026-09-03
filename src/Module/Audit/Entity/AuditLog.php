@@ -64,9 +64,9 @@ class AuditLog
         public array $context = [],
 
         /**
-         * SET NULL rather than CASCADE: deleting an account must not erase the
-         * trail of what it did, so the row outlives the actor it points at and
-         * keeps only the label.
+         * SET NULL rather than CASCADE, so the row survives the actor row it
+         * points at. AuditLogAccountPurger holds the retention rule, and it
+         * deletes the departing account's own records.
          */
         #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
         #[ORM\ManyToOne(targetEntity: AuditActorInterface::class)]

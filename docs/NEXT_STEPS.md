@@ -785,9 +785,9 @@ mapping it.
 request already holds that `User`, because `ApiTokenAuthenticator` authenticates
 as the project owner. So a tool writing a `Review` would produce a row
 **indistinguishable from one the owner clicked** — their name on an approval
-they never gave — and there is no audit trail to separate the two afterwards
-(see 'The actor model is unsettled — no audit trail, and an agent's writes look
-like the owner's').
+they never gave. The audit trail separates the two afterwards, and the `reviews`
+row itself still does not (see 'An agent's writes look like the owner's, and one
+global user signs them all').
 
 The second reason cuts the other way and is worth recording, because the
 original note had it backwards: document approval does **not** depend on
@@ -1024,7 +1024,7 @@ decided by `symfony/yaml`'s parser, and the two paths produce very different
 So a `symfony/yaml` upgrade that changes how any edge-case document parses will
 flip it between the two — moving every comment anchor below the block — with
 nothing to trigger a re-render and no signal that it happened. The renderer logs
-`review.markdown.front_matter_not_tabulated` whenever it takes the fallback,
+`review.markdown_front_matter_not_tabulated` whenever it takes the fallback,
 which is the hook to watch: a document that starts or stops logging it across a
 dependency bump has moved. Worth deciding whether the fallback path should be
 pinned by storing which path a version used, rather than recomputed.
@@ -1336,63 +1336,54 @@ consent", which replaces the pasted token entirely — but that still authorizes
 per directory unless the resulting credential is stored user-wide, so the scope
 question outlives the token question and should be answered on its own.
 
-## The actor model is unsettled — no audit trail, and an agent's writes look like the owner's
+## An agent's writes look like the owner's, and one global user signs them all
 
 
 **Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
 
-There is no audit entity and no audit table. There is a log trail: every
-`LoggerInterface::info` call in `src/` is a dotted domain event, and since PR #266 the
-`app` channel has an always-on handler excluded from the `fingers_crossed` buffer, so
-those records survive a request that does not also fail. What that trail does not carry
-is an actor — of every review-related write only `review.document.verdict_submitted`
-records one. `SiteReviewEvent` looks like an event log and is not one: it is a Mercure
-delivery outbox recording deliveries rather than decisions, and it carries no actor.
+The audit trail now exists. `audit_log` records an operation, an outcome, an
+actor, a credential, a subject and a context for each recorded decision. An
+admin reads it at `/admin/audit-log`. `AuditLogPurger` holds it to the window
+the `audit.retention_days` flag sets, which is 180 days by default. The trail
+settles provenance: an MCP write carries the API token in `credential_id`, so a
+reader can tell a token write from a click. Attribution in the data itself stays
+open.
 
-This was three separate entries and is one question: **what is an actor here, and how is
-an agent acting through an owner's token distinguished from the owner?** Settle it once.
-The three faces of it:
+This was three separate entries and is one question: **what is an actor here,
+and how is an agent acting through an owner's token distinguished from the
+owner?** Two faces of it are still open.
 
-1. **`Review` cannot be attributed at all.** It requires a non-nullable `reviewer: User`,
-   and an MCP request authenticates as the project owner
+1. **`Review` cannot be attributed at all.** It requires a non-nullable
+   `reviewer: User`, and an MCP request authenticates as the project owner
    (`ApiTokenAuthenticator` builds its passport from `$token->owner`), so any
-   agent-written `Review` is byte-for-byte identical to one the owner clicked. This is
-   what blocks the document-approval half of "Let the agent close the loop when a human
+   agent-written `Review` is byte-for-byte identical to one the owner clicked.
+   The audit trail records that a token acted, and the `reviews` row a later
+   reader opens still says the owner. This is what blocks the
+   document-approval half of "Let the agent close the loop when a human
    approves the work".
 
-2. **Document metadata operations leave no trace.** Renaming, archiving, tagging and
-   setting references all mutate a document without recording an actor;
-   `Document::$archivedAt` is the only timestamp any of them writes. The content path is
-   covered and the metadata path is not — a revision creates a `DocumentVersion` carrying
-   its own description and ordering, so it is attributable, while the operations beside it
-   are not. The gap widened as that surface grew: rename, tags, archive/unarchive and
-   references are all agent-callable over MCP now, so an agent changing a document's
-   metadata leaves less of a trail than one editing its text.
+2. **Every agent comment comes from one global user.** Comments written through
+   the MCP are authored by `App\Module\Account\Entity\User::AGENT_ID` (inserted
+   by `migrations/Version20260803000402.php`), one account for the whole
+   instance, so two projects, two API tokens and two different agents produce
+   replies that are indistinguishable in the thread and in
+   `document_get_review`. That was the deliberate choice when
+   `document_reply_to_comment` shipped: a per-project agent account multiplies
+   rows in `users` for a distinction nobody had asked to see, and every count
+   and sweep that must skip the agent would have to skip a set instead of an
+   id. The trail separates those replies by credential; the thread the human
+   reads does not.
 
-3. **Every agent comment comes from one global user.** Comments written through the MCP
-   are authored by `App\Module\Account\Entity\User::AGENT_ID` (inserted by
-   `migrations/Version20260803000402.php`) — one account for the whole instance, so two
-   projects, two API tokens and two different agents produce replies that are
-   indistinguishable in the thread and in `document_get_review`. That was the deliberate
-   choice when `document_reply_to_comment` shipped: a per-project agent account multiplies
-   rows in `users` for a distinction nobody had asked to see, and every count and sweep
-   that must skip the agent would have to skip a set instead of an id.
+**Decided.** The choice was between a per-operation audit log and actor columns
+on each subject. The audit log was built. A subject-column scheme is not the
+open question any more, and neither is the nullable `ApiToken` reference this
+entry once proposed for `Comment`: the credential rides on the audit row
+instead.
 
-**Decision needed** — the two designs answer different questions:
-
-1. A per-operation audit log (actor, verb, subject, timestamp, payload) generalises to any
-   future operation and can answer "what was this called before", but it is a table that
-   grows without bound and needs a retention policy.
-2. Actor and timestamp columns on the subject itself are far cheaper and answer "who last
-   touched this", but nothing historical.
-
-Whichever is chosen, the provenance shape for comments is already known and cheap: a
-**nullable `ApiToken` reference on `Comment` alongside the existing non-nullable
-`author`** — the token already carries a name and a project binding, so it identifies
-which credential wrote the reply without inventing an identity. Attribution stays on the
-singleton user and provenance rides beside it.
-
-Worth deciding before something writes state that cannot be attributed afterwards.
+What is left is whether the reading surfaces need the same distinction the
+trail has. A reader of a `Review` row, or of a comment thread, still cannot see
+which agent or which credential produced it without opening the trail beside
+it.
 
 ## Comment on a diff, not only on a document
 
@@ -2259,21 +2250,6 @@ bundle templates and any class a bundle applies from JavaScript, which is what
 made `admin-badge-off` look dead. The check itself belongs in `ubermuda/gamache`
 rather than here.
 
-## Reserve the comp audit event names for when an audit subsystem lands
-
-**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
-
-The subscription model in `src/Module/Billing/Entity/Subscription.php` supports a
-comp: a grant of kind `comp` with no end date, which an admin gives and later
-revokes. Granting one gives an account a paid product for free, and revoking one
-takes it away, so both are worth an audit record.
-
-This repository has no audit subsystem yet, so there is nothing to write the
-record to. Reserve the two names now, and use them unchanged when one arrives:
-`billing.comp.granted` and `billing.comp.revoked`. Revoking a comp sets `endsAt`
-rather than deleting the row, so the row itself already keeps a trail; the event
-names are for the actor and the time.
-
 ## Bump `.skeleton.json` once the Turbo-prefetch PR merges
 
 **Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
@@ -2518,6 +2494,62 @@ the option itself.
 
 Related: 'Decision controls: multi-select, and whether a choice should carry a comment'.
 
+## Some log lines stay diagnostics, and one of them is worth revisiting
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+The audit migration is complete for every operation an actor asked for. The
+lines below stay on `LoggerInterface` on purpose, because no actor asked for
+them: a scheduler tick reporting counts, an infrastructure row, a service
+reporting its own internals, or an external read that degraded.
+
+Per-tick counts: `site_review.outbox_drained`,
+`site_review.outbox_drain_skipped_push_disabled`, `billing.trial_sweep_completed`,
+`billing.trial_sweep_skipped_billing_disabled`,
+`account.data_export_purge_completed`, `audit.purge_completed`.
+
+Infrastructure and internals: `site_review.outbox_publish_failed`,
+`account.data_export_purge_unlink_failed`, `account.data_export_purge_failed`,
+`billing.trial_sweep_skipped_after_lock`, `billing.webhook_tie_broken_by_lookup`,
+`billing.webhook_malformed`, `billing.webhook_unknown_customer`,
+`review.markdown_front_matter_not_tabulated`,
+`site_review.widget_origin_mismatch`,
+`account.system_status_agent_account_unreadable`,
+`billing.survey_skipped_no_url`.
+
+Input normalisation on a request that succeeded: `project.list_page_clamped`,
+`review.document_list_page_clamped`, `account.api_token_return_to_rejected`.
+
+External reads that degraded: `billing.price_fetch_failed`,
+`update_check.unavailable`, `update_check.failed`.
+
+The one worth revisiting is `site_review.widget_origin_mismatch` in
+`src/Module/SiteReview/EventListener/LogWidgetOriginMismatch.php`. It is a
+security observation about a token holder, so it reads like a record. Every
+value it carries is banned from an audit context: the `Origin` header and the
+project's free-text `domain`. A record would hold the project id alone and say
+less than the log line does. Decide whether a project-scoped
+"traffic arrived from an unregistered origin" record earns its place with no
+detail at all.
+
+## Audit operation names have two shapes, and nothing keeps them to one
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+The trail holds 78 operation names in two shapes. `project.created` and
+`account.deleted` have two segments. `review.comment.added` and
+`site_review.comment.resolved` have three. A reader who filters the admin screen
+by prefix must first know which shape the module chose.
+
+The plan is one shape for every name, `<module>.<outcome>`. A gamache PHPStan
+rule then reads the first argument of every `Auditor::record()` call and fails a
+name that does not match. Open a PR on https://github.com/ubermuda/gamache for
+the rule, because gamache is an external package.
+
+Do this before the table carries much history. A rename does not rewrite the
+rows already written, and the admin filter is a prefix `LIKE` on `operation`, so
+the old name and the new name read as two separate operations from that day on.
+
 ## A mark-addressed skip reason is best-effort, because the re-read is not under the write's lock
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
@@ -2626,3 +2658,43 @@ keep running first, so give it the highest priority.
 The admin user panel extension point took this route in
 https://github.com/ubermuda/loupe/pull/309. The purgers stayed untouched there,
 because they were outside that branch's diff.
+
+## Collect the launch directories LocalDock lists, before announcing Loupe
+
+**Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending
+
+The "featured on" section of https://www.localdock.dev/#faq lists a set of
+launch and directory sites. It is a ready-made starting list for announcing
+Loupe, rather than assembling one from scratch on the day.
+
+Work when this is picked up: read that section, write down which sites it names,
+and check each for whether it fits a self-hostable document-review tool with an
+MCP server — several launch directories are AI-product or developer-tool
+specific, and several want a paid slot. Record the shortlist somewhere durable,
+because the source page can change or disappear.
+
+Worth doing before the launch rather than during it: most of these sites want a
+tagline, a description, screenshots and a category chosen in advance, and some
+gate submissions behind a queue measured in weeks.
+
+## `project.deleted` outlives an account deletion that rolls back
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`ProjectDeleter` records `project.deleted`. `AccountPurger` reaches it through
+`ProjectAccountPurger`, inside `EntityManagerInterface::wrapInTransaction()`.
+`DoctrineAuditSink` buffers its rows and drains them after the unit of work
+ends, which is what makes a record survive a rolled-back transaction the way a
+log line does. That is right for the trail in general and wrong here. An account
+deletion that rolls back leaves records that say the projects went, while the
+projects are still there.
+
+The fix wants a post-commit seam. A handler inside a transaction hands the
+auditor a record, and the sink drops it if the transaction rolls back. No such
+seam exists. DBAL 4 removed its event system, and the ORM has no post-commit
+event. So the work starts with a choice of mechanism. One option is a buffer
+that the outermost `wrapInTransaction` closure releases on commit. Another is a
+transaction-aware wrapper around the DBAL `Connection`.
+
+Rare in practice. An account deletion rolls back only when a purger throws.
+

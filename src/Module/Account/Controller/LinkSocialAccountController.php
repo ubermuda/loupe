@@ -14,7 +14,9 @@ use App\Module\Account\Security\SocialAuthenticator;
 use App\Module\Account\Service\PendingSocialLink;
 use App\Module\Account\Service\SocialLoginRace;
 use App\Module\Account\Service\StaleSocialLink;
-use Psr\Log\LoggerInterface;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
@@ -45,7 +47,7 @@ class LinkSocialAccountController extends AppController
         private readonly FeatureFlagService $featureFlags,
         private readonly Security $security,
         private readonly TranslatorInterface $translator,
-        private readonly LoggerInterface $logger,
+        private readonly Auditor $auditor,
 
         #[Autowire(service: 'limiter.oauth_link')]
         private readonly RateLimiterFactory $oauthLinkLimiter,
@@ -76,7 +78,15 @@ class LinkSocialAccountController extends AppController
         if ($form->isSubmitted() && $form->isValid()) {
             $limiter = $this->oauthLinkLimiter->create($request->getClientIp() ?? 'unknown');
             if (!$limiter->consume(1)->isAccepted()) {
-                $this->logger->info('account.social.link_throttled', ['provider' => $pending->profile->provider->value]);
+                $this->auditor->record(
+                    'account.social_link_throttled',
+                    AuditOutcome::Refused,
+                    [
+                        'provider' => $pending->profile->provider->value,
+                        'userId' => $pending->userId,
+                    ],
+                    new AuditSubject('user', $pending->userId),
+                );
 
                 return $this->render(self::TEMPLATE, array_merge($viewData, [
                     'form' => $form,
@@ -96,10 +106,15 @@ class LinkSocialAccountController extends AppController
                 // Consume the pending link only once it has actually been used:
                 // a wrong password must leave the user able to try again.
                 $this->pendingSocialLink->pull();
-                $this->logger->info('account.social.linked', [
-                    'provider' => $pending->profile->provider->value,
-                    'user' => (string) $account->user->id,
-                ]);
+                $this->auditor->record(
+                    'account.social_linked',
+                    AuditOutcome::Success,
+                    [
+                        'provider' => $pending->profile->provider->value,
+                        'userId' => (string) $account->user->id,
+                    ],
+                    new AuditSubject('user', (string) $account->user->id),
+                );
 
                 return $this->security->login(
                     $account->user,

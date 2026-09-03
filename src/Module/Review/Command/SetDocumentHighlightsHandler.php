@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Command;
 
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\Highlight;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Service\AnchorService;
@@ -18,6 +21,7 @@ final readonly class SetDocumentHighlightsHandler
         private EntityManagerInterface $em,
         private AnchorService $anchorService,
         private DocumentVersionRepository $documentVersions,
+        private Auditor $auditor,
     ) {
     }
 
@@ -80,6 +84,19 @@ final readonly class SetDocumentHighlightsHandler
         }
 
         $this->em->flush();
+
+        // Counts, not the quotes: every one of them is document text.
+        $this->auditor->record(
+            'review.document_highlights_updated',
+            AuditOutcome::Success,
+            [
+                'documentId' => (string) $command->document->id,
+                'versionId' => (string) $version->id,
+                'highlightedCount' => \count($highlighted),
+                'skippedCount' => \count($skipped),
+            ],
+            new AuditSubject('document', (string) $command->document->id),
+        );
 
         return ['highlighted' => $highlighted, 'skipped' => $skipped];
     }

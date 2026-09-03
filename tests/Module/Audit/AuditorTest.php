@@ -34,7 +34,7 @@ final class AuditorTest extends TestCase
             new MockClock(self::NOW),
         );
 
-        $auditor->record('billing.webhook.received', AuditOutcome::Success, channel: 'webhook');
+        $auditor->record('billing.webhook_received', AuditOutcome::Success, channel: 'webhook');
 
         self::assertCount(1, $sink->events);
         self::assertSame('webhook', $sink->events[0]->channel);
@@ -50,7 +50,7 @@ final class AuditorTest extends TestCase
             new MockClock(self::NOW),
         );
 
-        $auditor->record('billing.webhook.received', AuditOutcome::Success);
+        $auditor->record('billing.webhook_received', AuditOutcome::Success);
 
         self::assertCount(1, $sink->events);
         self::assertSame('session', $sink->events[0]->channel);
@@ -70,7 +70,7 @@ final class AuditorTest extends TestCase
             new MockClock(self::NOW),
         );
 
-        $operation = 'review.document.renamed';
+        $operation = 'review.document_renamed';
         $context = ['from' => 'a', 'to' => 'b'];
 
         $auditor->record($operation, AuditOutcome::Refused, $context, $subject, Auditor::CATEGORY_SECURITY);
@@ -78,7 +78,7 @@ final class AuditorTest extends TestCase
         self::assertCount(1, $sink->events);
         $event = $sink->events[0];
 
-        self::assertSame('review.document.renamed', $event->operation);
+        self::assertSame('review.document_renamed', $event->operation);
         self::assertSame(AuditOutcome::Refused, $event->outcome);
         self::assertSame(Auditor::CATEGORY_SECURITY, $event->category);
         self::assertSame(['from' => 'a', 'to' => 'b'], $event->context);
@@ -104,9 +104,9 @@ final class AuditorTest extends TestCase
             new MockClock(self::NOW),
         );
 
-        $auditor->record('review.document.created', AuditOutcome::Success);
+        $auditor->record('review.document_created', AuditOutcome::Success);
         $actor->label = 'Riley Chen-Okafor';
-        $auditor->record('review.document.renamed', AuditOutcome::Success);
+        $auditor->record('review.document_renamed', AuditOutcome::Success);
 
         self::assertSame('Riley Chen', $sink->events[0]->actorLabel);
         self::assertSame('Riley Chen-Okafor', $sink->events[1]->actorLabel);
@@ -125,7 +125,7 @@ final class AuditorTest extends TestCase
             new MockClock(self::NOW),
         );
 
-        $auditor->record('review.document.created', AuditOutcome::Success);
+        $auditor->record('review.document_created', AuditOutcome::Success);
         $actor->identifier = 'user-2';
         $credential->identifier = 'token-2';
 
@@ -146,7 +146,7 @@ final class AuditorTest extends TestCase
             new MockClock(self::NOW),
         );
 
-        $auditor->record('review.document.created', AuditOutcome::Success);
+        $auditor->record('review.document_created', AuditOutcome::Success);
 
         self::assertSame($actor, $sink->events[0]->actor);
         self::assertNull($sink->events[0]->actorLabel);
@@ -157,7 +157,7 @@ final class AuditorTest extends TestCase
     {
         $sink = new FakeAuditSink();
 
-        $this->auditor(new RecordingLogger(), $sink)->record('review.document.created', AuditOutcome::Success);
+        $this->auditor(new RecordingLogger(), $sink)->record('review.document_created', AuditOutcome::Success);
 
         self::assertNull($sink->events[0]->actor);
         self::assertNull($sink->events[0]->actorLabel);
@@ -168,7 +168,7 @@ final class AuditorTest extends TestCase
         $sink = new FakeAuditSink();
         $auditor = $this->auditor(new RecordingLogger(), $sink);
 
-        $auditor->record('review.document.created', AuditOutcome::Success);
+        $auditor->record('review.document_created', AuditOutcome::Success);
 
         self::assertSame(Auditor::CATEGORY_DOMAIN, $sink->events[0]->category);
         self::assertSame([], $sink->events[0]->context);
@@ -216,12 +216,12 @@ final class AuditorTest extends TestCase
         $logger = new RecordingLogger();
 
         new Auditor([$sink], $provider, $logger, new MockClock(self::NOW))
-            ->record('review.document.created', AuditOutcome::Refused, ['actorUnresolved' => false, 'documentId' => 'doc-1']);
+            ->record('review.document_created', AuditOutcome::Refused, ['actorUnresolved' => false, 'documentId' => 'doc-1']);
 
         self::assertCount(1, $sink->events);
         $event = $sink->events[0];
 
-        self::assertSame('review.document.created', $event->operation);
+        self::assertSame('review.document_created', $event->operation);
         self::assertSame(AuditOutcome::Refused, $event->outcome, 'A refusal whose actor could not be resolved is still a refusal.');
         self::assertNull($event->actor);
         self::assertNull($event->actorLabel);
@@ -234,7 +234,7 @@ final class AuditorTest extends TestCase
 
         self::assertCount(1, $logger->records);
         self::assertSame('audit.actor_unresolved', $logger->records[0]['message']);
-        self::assertSame('review.document.created', $logger->records[0]['context']['operation']);
+        self::assertSame('review.document_created', $logger->records[0]['context']['operation']);
     }
 
     /** The reporting path runs on a backend that has just failed, so it is the likeliest thing to fail next. */
@@ -258,7 +258,7 @@ final class AuditorTest extends TestCase
             new MockClock(self::NOW),
         );
 
-        $auditor->record('review.document.created', AuditOutcome::Success);
+        $auditor->record('review.document_created', AuditOutcome::Success);
         $auditor->flush();
 
         self::assertCount(1, $healthy->events);
@@ -271,7 +271,7 @@ final class AuditorTest extends TestCase
         $healthy = new FakeAuditSink();
         $logger = new RecordingLogger();
 
-        $this->auditor($logger, $failing, $healthy)->record('review.document.created', AuditOutcome::Success);
+        $this->auditor($logger, $failing, $healthy)->record('review.document_created', AuditOutcome::Success);
 
         self::assertSame([], $failing->events);
         self::assertCount(1, $healthy->events);
@@ -280,7 +280,7 @@ final class AuditorTest extends TestCase
         self::assertSame('audit.sink_failed', $logger->records[0]['message']);
         self::assertSame(FakeAuditSink::class, $logger->records[0]['context']['sink']);
         self::assertSame('write', $logger->records[0]['context']['stage']);
-        self::assertSame('review.document.created', $logger->records[0]['context']['operation']);
+        self::assertSame('review.document_created', $logger->records[0]['context']['operation']);
     }
 
     public function test_flush_fans_out_to_every_sink(): void
@@ -327,8 +327,8 @@ final class AuditorTest extends TestCase
             new MockClock(self::NOW),
         );
 
-        $auditor->record('review.document.created', AuditOutcome::Success);
-        $auditor->record('review.document.renamed', AuditOutcome::Success);
+        $auditor->record('review.document_created', AuditOutcome::Success);
+        $auditor->record('review.document_renamed', AuditOutcome::Success);
         $auditor->flush();
 
         self::assertCount(2, $first->events);

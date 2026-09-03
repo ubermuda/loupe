@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Command;
 
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\Document;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 
 final readonly class UnarchiveDocumentHandler
 {
     public function __construct(
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -27,10 +29,15 @@ final readonly class UnarchiveDocumentHandler
             $document->archiveReason = null;
             $this->em->flush();
 
-            $this->logger->info('review.document.unarchived', [
-                'document' => (string) $document->id,
-                'project' => (string) $document->project->id,
-            ]);
+            $this->auditor->record(
+                'review.document_unarchived',
+                AuditOutcome::Success,
+                [
+                    'documentId' => (string) $document->id,
+                    'projectId' => (string) $document->project->id,
+                ],
+                new AuditSubject('document', (string) $document->id),
+            );
         }
 
         return $document;

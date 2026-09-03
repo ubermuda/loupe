@@ -8,10 +8,12 @@ use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\DataExportStatus;
 use App\Module\Account\Messenger\GenerateDataExportMessage;
 use App\Module\Account\Repository\DataExportRepository;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\FilesystemOperator;
-use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\Messenger\Event\WorkerMessageFailedEvent;
@@ -23,7 +25,7 @@ final readonly class MarkExportFailedOnFinalFailure
     public function __construct(
         private DataExportRepository $dataExports,
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
 
         #[Target('export.storage')]
         private FilesystemOperator $exportStorage,
@@ -47,16 +49,34 @@ final readonly class MarkExportFailedOnFinalFailure
         // would orphan the archive forever. Deleted here, the one place that
         // observes the terminal failure.
         $exportId = $export->id;
+        $archiveOrphaned = false;
         if (null !== $exportId) {
             try {
                 $this->exportStorage->delete(DataExport::computeArchiveKey($exportId));
             } catch (FilesystemException) {
-                $this->logger->warning('account.data_export.failed_archive_unlink_failed', ['id' => $message->dataExportId]);
+                $archiveOrphaned = true;
             }
         }
 
         $export->fail();
         $this->em->flush();
-        $this->logger->warning('account.data_export.failed', ['id' => $message->dataExportId]);
+
+        // Both records land after the flush, so a failed write leaves the trail
+        // saying nothing rather than claiming a status the row never took.
+        if ($archiveOrphaned) {
+            $this->record('account.data_export_failed_archive_unlink_failed', $message->dataExportId);
+        }
+
+        $this->record('account.data_export_failed', $message->dataExportId);
+    }
+
+    private function record(string $operation, string $dataExportId): void
+    {
+        $this->auditor->record(
+            $operation,
+            AuditOutcome::Failed,
+            ['id' => $dataExportId],
+            new AuditSubject('data_export', $dataExportId),
+        );
     }
 }

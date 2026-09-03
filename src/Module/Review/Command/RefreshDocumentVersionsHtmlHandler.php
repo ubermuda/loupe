@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Command;
 
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
@@ -28,10 +30,32 @@ final readonly class RefreshDocumentVersionsHtmlHandler
         private AnchorService $anchorService,
         private CommentRepository $comments,
         private EntityManagerInterface $em,
+        private Auditor $auditor,
     ) {
     }
 
     public function __invoke(RefreshDocumentVersionsHtmlCommand $command): RefreshDocumentVersionsHtmlResult
+    {
+        $result = $this->run($command);
+
+        // One record for the sweep, not one per version or per comment: the run
+        // walks the whole table, and its counts are what an operator reviews.
+        $this->auditor->record(
+            'review.document_version_rerendered',
+            $result->refused ? AuditOutcome::Refused : AuditOutcome::Success,
+            [
+                'total' => $result->total,
+                'changed' => $result->changed,
+                'reanchored' => $result->reanchored,
+                'orphaned' => $result->orphaned,
+                'atRisk' => $result->atRisk,
+            ],
+        );
+
+        return $result;
+    }
+
+    private function run(RefreshDocumentVersionsHtmlCommand $command): RefreshDocumentVersionsHtmlResult
     {
         $atRisk = $this->countCommentsThatWouldStopResolving();
 
