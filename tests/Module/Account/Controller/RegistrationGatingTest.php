@@ -71,6 +71,26 @@ final class RegistrationGatingTest extends WebTestCase
     }
 
     /**
+     * A page view is not an attempt. The gate answers 404 either way, so a
+     * crawler on a closed instance would otherwise write a row per request.
+     */
+    public function test_a_closed_instance_records_nothing_for_a_page_view(): void
+    {
+        $client = static::createClient();
+        $this->install($client);
+        $this->setRegistrationEnabled($client, false);
+
+        $audit = RecordingAuditor::installedIn(static::getContainer());
+        $client->disableReboot();
+
+        $client->request(Request::METHOD_GET, '/register');
+        $client->request(Request::METHOD_GET, '/waitlist');
+
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+        self::assertSame([], $audit->operations());
+    }
+
+    /**
      * A visitor asked to sign up and a policy said no. The request path is the
      * only other thing the branch knows and it is caller-controlled, so the
      * record carries the refusal and nothing else.
@@ -84,8 +104,8 @@ final class RegistrationGatingTest extends WebTestCase
         $audit = RecordingAuditor::installedIn(static::getContainer());
         $client->disableReboot();
 
-        $client->request(Request::METHOD_GET, '/register');
-        $client->request(Request::METHOD_GET, '/waitlist');
+        $client->request(Request::METHOD_POST, '/register');
+        $client->request(Request::METHOD_POST, '/waitlist');
 
         self::assertSame(
             ['account.registration_denied', 'account.waitlist_denied'],

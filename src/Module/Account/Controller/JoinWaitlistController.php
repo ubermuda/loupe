@@ -45,9 +45,12 @@ final class JoinWaitlistController extends AppController
         // wizard still pending — /register 404s, so redirecting there would
         // dead-end and collecting addresses would promise nothing.
         if (!$this->gate->allowsNewAccounts()) {
-            // No context: the request path is the only thing this branch knows
-            // and it is caller-controlled, so the record states the refusal alone.
-            $this->auditor->record('account.waitlist_denied', AuditOutcome::Refused);
+            // Only a submission is recorded, for the reason RegisterController
+            // gives: a GET is a page view, and a crawler would write a row per
+            // request.
+            if ($request->isMethod('POST')) {
+                $this->auditor->record('account.waitlist_denied', AuditOutcome::Refused);
+            }
 
             throw $this->createNotFoundException();
         }

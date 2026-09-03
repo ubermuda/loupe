@@ -56,9 +56,14 @@ class RegisterController extends AppController
         // than a message, matching how the install wizard and every other
         // feature-flagged route disappear when switched off.
         if (!$this->registrationGate->allowsNewAccounts()) {
-            // No context: the request path is the only thing this branch knows
-            // and it is caller-controlled, so the record states the refusal alone.
-            $this->auditor->record('account.registration_denied', AuditOutcome::Refused);
+            // A submission only: a GET is a page view, and a crawler would
+            // write a row per request. The gate closes above the form, so this
+            // says an attempt reached a closed door, not that a filled-in form
+            // was rejected. No context, because the path is all this branch
+            // knows and it is caller-controlled.
+            if ($request->isMethod('POST')) {
+                $this->auditor->record('account.registration_denied', AuditOutcome::Refused);
+            }
 
             throw $this->createNotFoundException();
         }
