@@ -12,7 +12,6 @@ use App\Module\Audit\AuditOutcome;
 use App\Module\Audit\NullAuditActorProvider;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
-use App\Tests\Support\RecordingLogger;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -25,7 +24,6 @@ final class WaitlistInviterTest extends TestCase
     private EntityManagerInterface&Stub $em;
     private WaitlistInviter $inviter;
     private RecordingAuditor $audit;
-    private RecordingLogger $directLogger;
 
     #[\Override]
     protected function setUp(): void
@@ -44,8 +42,7 @@ final class WaitlistInviterTest extends TestCase
         $this->em->method('getConnection')->willReturn($connection);
 
         $this->audit = new RecordingAuditor(new NullAuditActorProvider());
-        $this->directLogger = new RecordingLogger();
-        $this->inviter = new WaitlistInviter($this->sender, $this->em, $this->directLogger, $this->audit->auditor);
+        $this->inviter = new WaitlistInviter($this->sender, $this->em, $this->audit->auditor);
     }
 
     public function test_invites_a_fresh_entry(): void
@@ -66,14 +63,20 @@ final class WaitlistInviterTest extends TestCase
 
         self::assertSame(['account.waitlist_invited'], $this->audit->domainLogLines());
         self::assertSame([], $this->audit->securityLogLines());
-        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->directLogger, 'account.waitlist_invited');
+    }
+
+    public function test_the_inviter_keeps_no_logger_beside_the_auditor(): void
+    {
+        $this->sender->expects($this->never())->method('send');
+
+        DirectLogging::assertRemovedFrom(WaitlistInviter::class);
     }
 
     /**
-     * A transport that never enqueued the invite has no actor whose action it
-     * records, so it stays a diagnostic on the logger this class keeps.
+     * An admin asked for the invite and it did not go out, so the trail says so
+     * rather than leaving the entry looking untouched.
      */
-    public function test_a_failed_send_stays_a_diagnostic(): void
+    public function test_a_failed_send_is_recorded_as_a_failure(): void
     {
         $entry = new WaitlistEntry('a@example.com');
         $this->sender->expects($this->once())->method('send')
@@ -81,10 +84,16 @@ final class WaitlistInviterTest extends TestCase
 
         self::assertFalse($this->inviter->invite($entry));
 
-        self::assertSame([], $this->audit->operations());
-        self::assertSame(
-            ['account.waitlist_invite_send_failed'],
-            array_map(static fn (array $record): string => $record['message'], $this->directLogger->records),
+        $record = $this->audit->record('account.waitlist_invite_send_failed');
+        self::assertSame(AuditOutcome::Failed, $record->outcome);
+        self::assertSame(['entryId' => (string) $entry->id], $record->context);
+        self::assertNotNull($record->subject);
+        self::assertSame('waitlist_entry', $record->subject->type);
+
+        self::assertSame(['account.waitlist_invite_send_failed'], $this->audit->domainLogLines());
+        self::assertStringNotContainsString(
+            'transport down',
+            json_encode($this->audit->domainChannel->records, \JSON_THROW_ON_ERROR),
         );
     }
 
@@ -128,7 +137,7 @@ final class WaitlistInviterTest extends TestCase
 
         $retrySender = $this->createMock(WaitlistInviteEmailSender::class);
         $retrySender->expects($this->once())->method('send');
-        $inviter = new WaitlistInviter($retrySender, $this->em, $this->directLogger, $this->audit->auditor);
+        $inviter = new WaitlistInviter($retrySender, $this->em, $this->audit->auditor);
 
         self::assertTrue($inviter->invite($entry));
     }

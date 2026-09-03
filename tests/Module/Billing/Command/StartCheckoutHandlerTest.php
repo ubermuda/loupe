@@ -27,7 +27,6 @@ use App\Tests\Support\BillingGrants;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\FeatureFlags;
 use App\Tests\Support\RecordingAuditor;
-use App\Tests\Support\RecordingLogger;
 use App\Tests\Support\SilentAuditor;
 use App\Tests\Support\TransactionalEntityManagerStub;
 use Doctrine\ORM\EntityManagerInterface;
@@ -45,13 +44,10 @@ final class StartCheckoutHandlerTest extends TestCase
 
     private RecordingAuditor $audit;
 
-    private RecordingLogger $logger;
-
     #[\Override]
     protected function setUp(): void
     {
         $this->audit = new RecordingAuditor(new NullAuditActorProvider());
-        $this->logger = new RecordingLogger();
     }
 
     private function user(): User
@@ -88,7 +84,6 @@ final class StartCheckoutHandlerTest extends TestCase
             $stripe,
             FeatureFlags::service($flags),
             TransactionalEntityManagerStub::configure($this->createStub(EntityManagerInterface::class)),
-            $this->logger,
             new RegistrationGate(FeatureFlags::service($flags), $users, new InstallationState($users)),
             $waitlistEntries ?? $this->createStub(WaitlistEntryRepository::class),
             $this->audit->auditor,
@@ -351,7 +346,8 @@ final class StartCheckoutHandlerTest extends TestCase
         ));
     }
 
-    public function test_a_stripe_failure_stays_a_diagnostic_and_records_nothing(): void
+    /** The user asked for a checkout and did not get one, so the trail says it broke. */
+    public function test_a_stripe_failure_is_recorded_as_a_failure(): void
     {
         $user = $this->user();
         $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('+3 days'));
@@ -366,30 +362,23 @@ final class StartCheckoutHandlerTest extends TestCase
         } catch (DomainErrors) {
         }
 
-        self::assertSame([], $this->audit->operations());
-        self::assertSame(
-            ['billing.checkout_stripe_failed'],
-            array_map(static fn (array $entry): string => $entry['message'], $this->logger->records),
-        );
+        self::assertSame(['billing.checkout_stripe_failed'], $this->audit->operations());
+
+        $record = $this->audit->record('billing.checkout_stripe_failed');
+        self::assertSame(AuditOutcome::Failed, $record->outcome);
+        self::assertSame(['userId' => (string) $user->id], $record->context);
+        self::assertNotNull($record->subject);
+        self::assertSame('user', $record->subject->type);
+
+        // The Stripe error and the customer id are both unbounded or external.
+        $serialised = json_encode($this->audit->domainChannel->records, \JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString('stripe is down', $serialised);
+        self::assertStringNotContainsString('cus_existing', $serialised);
     }
 
-    /**
-     * The handler keeps its logger for the Stripe-failure diagnostic, so the
-     * reflection check cannot apply. The started operation must still reach
-     * the log stream through the sink alone.
-     */
-    public function test_the_started_operation_is_never_logged_directly(): void
+    public function test_the_handler_keeps_no_logger_beside_the_auditor(): void
     {
-        $user = $this->user();
-        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('+3 days'));
-        $profile->stripeCustomerId = 'cus_existing';
-
-        $stripe = $this->createStub(StripeGatewayInterface::class);
-        $stripe->method('createCheckoutSession')->willReturn(self::CHECKOUT_URL);
-
-        ($this->handler($stripe, $profile))($this->command($user));
-
-        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->logger, 'billing.checkout_started');
+        DirectLogging::assertRemovedFrom(StartCheckoutHandler::class);
     }
 
     /**

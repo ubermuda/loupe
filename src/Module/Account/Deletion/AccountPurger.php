@@ -12,7 +12,6 @@ use App\Module\Audit\AuditSubject;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\FilesystemOperator;
-use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -46,7 +45,6 @@ final readonly class AccountPurger
     public function __construct(
         private MessageBusInterface $bus,
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
         private Auditor $auditor,
         private AuditContext $auditContext,
 
@@ -104,7 +102,15 @@ final readonly class AccountPurger
             try {
                 $this->exportStorage->delete($key);
             } catch (FilesystemException) {
-                $this->logger->warning('account.deletion_archive_unlink_failed', ['key' => $key]);
+                // The key names the orphaned object and is a storage path, so
+                // it stays out: the record says an archive outlived the account
+                // and points at the account it belonged to.
+                $this->auditor->record(
+                    'account.deletion_archive_unlink_failed',
+                    AuditOutcome::Failed,
+                    ['userId' => (string) $userId],
+                    new AuditSubject('user', (string) $userId),
+                );
             }
         }
 

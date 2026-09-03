@@ -16,7 +16,6 @@ use App\Module\Audit\AuditSubject;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
@@ -31,7 +30,6 @@ final readonly class RegisterUserHandler
         private RegistrationGate $registrationGate,
         private WaitlistEntryRepository $waitlistEntries,
         private EventDispatcherInterface $eventDispatcher,
-        private LoggerInterface $logger,
         private Auditor $auditor,
 
         #[Autowire(param: 'app.terms.version')]
@@ -132,14 +130,18 @@ final readonly class RegisterUserHandler
         // Listeners run outside the committed registration transaction, so their
         // failures must not surface: a 500 would tell the user their created
         // account failed, and the retry dead-ends on "email already taken". Trial
-        // provisioning self-heals via PaywallGate, so log and move on.
+        // provisioning self-heals via PaywallGate, so record it and move on.
         try {
             $this->eventDispatcher->dispatch(new UserRegistered($user));
-        } catch (\Throwable $e) {
-            $this->logger->warning('account.registration_listener_failed', [
-                'userId' => (string) $user->id,
-                'error' => $e->getMessage(),
-            ]);
+        } catch (\Throwable) {
+            // The listener's own exception stays with whatever reports it: the
+            // record says the registration's follow-up work broke, and never why.
+            $this->auditor->record(
+                'account.registration_listener_failed',
+                AuditOutcome::Failed,
+                ['userId' => (string) $user->id],
+                new AuditSubject('user', (string) $user->id),
+            );
         }
 
         return $user;

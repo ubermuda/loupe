@@ -92,11 +92,8 @@ final class ProcessDataExportHandlerTest extends TestCase
         DirectLogging::assertOperationNotLoggedBy($this->audit, $this->directLogger, 'account.data_export_completed');
     }
 
-    /**
-     * Neither has an actor whose action it records, so both stay diagnostics
-     * on the logger this class keeps beside the Auditor.
-     */
-    public function test_the_skip_and_purge_failure_branches_stay_diagnostics(): void
+    /** A redelivery of an already-failed export moves nothing, so it is Unchanged. */
+    public function test_a_redelivered_failed_export_records_an_unchanged_skip(): void
     {
         $export = $this->persistedExport();
         $export->fail();
@@ -107,7 +104,39 @@ final class ProcessDataExportHandlerTest extends TestCase
 
         $audit = new RecordingAuditor(new NullAuditActorProvider());
         $logger = new RecordingLogger();
-        $handler = new ProcessDataExportHandler(
+        $this->handlerWith($exports, $audit, $logger)(new ProcessDataExportCommand((string) $export->id));
+
+        $record = $audit->record('account.data_export_skipped');
+        self::assertSame(AuditOutcome::Unchanged, $record->outcome);
+        self::assertSame(
+            ['id' => (string) $export->id, 'reason' => 'already_failed'],
+            $record->context,
+        );
+        self::assertNotNull($record->subject);
+        self::assertSame('data_export', $record->subject->type);
+
+        DirectLogging::assertOperationNotLoggedBy($audit, $logger, 'account.data_export_skipped');
+    }
+
+    /** A row that is gone cannot be exported, so the skip is a failure. */
+    public function test_a_vanished_export_records_a_failed_skip(): void
+    {
+        /** @var DataExportRepository&Stub $exports */
+        $exports = $this->createStub(DataExportRepository::class);
+        $exports->method('find')->willReturn(null);
+
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $exportId = (string) Uuid::v7();
+        $this->handlerWith($exports, $audit, new RecordingLogger())(new ProcessDataExportCommand($exportId));
+
+        $record = $audit->record('account.data_export_skipped');
+        self::assertSame(AuditOutcome::Failed, $record->outcome);
+        self::assertSame(['id' => $exportId, 'reason' => 'not_found'], $record->context);
+    }
+
+    private function handlerWith(DataExportRepository $exports, RecordingAuditor $audit, RecordingLogger $logger): ProcessDataExportHandler
+    {
+        return new ProcessDataExportHandler(
             $exports,
             $this->createStub(DataExportArchiveBuilder::class),
             $this->createStub(DataExportEmailSender::class),
@@ -115,14 +144,6 @@ final class ProcessDataExportHandlerTest extends TestCase
             $this->createStub(EntityManagerInterface::class),
             $logger,
             $audit->auditor,
-        );
-
-        $handler(new ProcessDataExportCommand((string) $export->id));
-
-        self::assertSame([], $audit->operations());
-        self::assertSame(
-            ['account.data_export_skipped'],
-            array_map(static fn (array $record): string => $record['message'], $logger->records),
         );
     }
 

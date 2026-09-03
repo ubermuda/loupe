@@ -19,7 +19,6 @@ use App\Tests\Support\BillingGrants;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\FeatureFlags;
 use App\Tests\Support\RecordingAuditor;
-use App\Tests\Support\RecordingLogger;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Uid\Uuid;
 
@@ -29,13 +28,10 @@ final class OpenPortalHandlerTest extends TestCase
 
     private RecordingAuditor $audit;
 
-    private RecordingLogger $logger;
-
     #[\Override]
     protected function setUp(): void
     {
         $this->audit = new RecordingAuditor(new NullAuditActorProvider());
-        $this->logger = new RecordingLogger();
     }
 
     private function user(): User
@@ -55,7 +51,7 @@ final class OpenPortalHandlerTest extends TestCase
         $profiles = $this->createStub(BillingProfileRepository::class);
         $profiles->method('findOneByUser')->willReturn($profile);
 
-        return new OpenPortalHandler($profiles, $stripe, FeatureFlags::service($flags), $this->logger, $this->audit->auditor);
+        return new OpenPortalHandler($profiles, $stripe, FeatureFlags::service($flags), $this->audit->auditor);
     }
 
     public function test_a_customer_gets_a_portal_session(): void
@@ -187,7 +183,8 @@ final class OpenPortalHandlerTest extends TestCase
         ], $this->audit->domainChannel->records[0]['context']);
     }
 
-    public function test_a_stripe_failure_stays_a_diagnostic_and_records_nothing(): void
+    /** The user asked for a portal and did not get one, so the trail says it broke. */
+    public function test_a_stripe_failure_is_recorded_as_a_failure(): void
     {
         $user = $this->user();
         $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-1 day'));
@@ -202,29 +199,22 @@ final class OpenPortalHandlerTest extends TestCase
         } catch (DomainErrors) {
         }
 
-        self::assertSame([], $this->audit->operations());
-        self::assertSame(
-            ['billing.portal_stripe_failed'],
-            array_map(static fn (array $entry): string => $entry['message'], $this->logger->records),
-        );
+        self::assertSame(['billing.portal_stripe_failed'], $this->audit->operations());
+
+        $record = $this->audit->record('billing.portal_stripe_failed');
+        self::assertSame(AuditOutcome::Failed, $record->outcome);
+        self::assertSame(['userId' => (string) $user->id], $record->context);
+        self::assertNotNull($record->subject);
+        self::assertSame('user', $record->subject->type);
+
+        // The Stripe error and the customer id are both unbounded or external.
+        $serialised = json_encode($this->audit->domainChannel->records, \JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString('stripe is down', $serialised);
+        self::assertStringNotContainsString('cus_123', $serialised);
     }
 
-    /**
-     * The handler keeps its logger for the Stripe-failure diagnostic, so the
-     * reflection check cannot apply. The opened-portal operation must still
-     * reach the log stream through the sink alone.
-     */
-    public function test_the_opened_operation_is_never_logged_directly(): void
+    public function test_the_handler_keeps_no_logger_beside_the_auditor(): void
     {
-        $user = $this->user();
-        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('-1 day'));
-        $profile->stripeCustomerId = 'cus_123';
-
-        $stripe = $this->createStub(StripeGatewayInterface::class);
-        $stripe->method('createPortalSession')->willReturn(self::PORTAL_URL);
-
-        ($this->handler($stripe, $profile))(new OpenPortalCommand($user, returnUrl: 'https://app/billing'));
-
-        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->logger, 'billing.portal_opened');
+        DirectLogging::assertRemovedFrom(OpenPortalHandler::class);
     }
 }

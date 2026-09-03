@@ -21,7 +21,6 @@ use App\Module\Audit\AuditOutcome;
 use App\Module\Audit\AuditSubject;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final readonly class ResolveSocialLoginHandler
@@ -33,7 +32,6 @@ final readonly class ResolveSocialLoginHandler
         private RegistrationGate $registrationGate,
         private JoinWaitlistHandler $joinWaitlist,
         private WaitlistEntryRepository $waitlistEntries,
-        private LoggerInterface $logger,
         private EventDispatcherInterface $eventDispatcher,
         private DisplayNameDeriver $displayNameDeriver,
         private Auditor $auditor,
@@ -135,7 +133,11 @@ final readonly class ResolveSocialLoginHandler
 
         if (null === $user) {
             ($this->joinWaitlist)(new JoinWaitlistCommand($matchEmail));
-            $this->logger->info('account.waitlist_oauth_diverted', ['provider' => $profile->provider->value]);
+            $this->auditor->record(
+                'account.waitlist_oauth_diverted',
+                AuditOutcome::Refused,
+                ['provider' => $profile->provider->value],
+            );
 
             return SocialLoginOutcome::waitlisted();
         }
@@ -156,14 +158,18 @@ final readonly class ResolveSocialLoginHandler
         // failures cannot roll the account back — and must not surface: an error
         // here fails an OAuth login whose account exists, and the retry takes the
         // existing-identity branch. Trial provisioning self-heals via
-        // PaywallGate, so log and complete the login.
+        // PaywallGate, so record it and complete the login.
         try {
             $this->eventDispatcher->dispatch(new UserRegistered($user));
-        } catch (\Throwable $e) {
-            $this->logger->warning('account.registration_listener_failed', [
-                'userId' => (string) $user->id,
-                'error' => $e->getMessage(),
-            ]);
+        } catch (\Throwable) {
+            // The listener's own exception stays with whatever reports it: the
+            // record says the registration's follow-up work broke, and never why.
+            $this->auditor->record(
+                'account.registration_listener_failed',
+                AuditOutcome::Failed,
+                ['userId' => (string) $user->id],
+                new AuditSubject('user', (string) $user->id),
+            );
         }
 
         return SocialLoginOutcome::logIn($user);

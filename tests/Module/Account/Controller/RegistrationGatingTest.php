@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Account\Controller;
 
+use App\Module\Account\Controller\JoinWaitlistController;
+use App\Module\Account\Controller\RegisterController;
 use App\Module\Account\Service\RegistrationGate;
+use App\Module\Audit\AuditOutcome;
+use App\Tests\Support\DirectLogging;
 use App\Tests\Support\InstalledInstance;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -63,6 +68,42 @@ final class RegistrationGatingTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/waitlist');
 
         self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+    }
+
+    /**
+     * A visitor asked to sign up and a policy said no. The request path is the
+     * only other thing the branch knows and it is caller-controlled, so the
+     * record carries the refusal and nothing else.
+     */
+    public function test_a_closed_instance_records_both_refusals_with_no_context(): void
+    {
+        $client = static::createClient();
+        $this->install($client);
+        $this->setRegistrationEnabled($client, false);
+
+        $audit = RecordingAuditor::installedIn(static::getContainer());
+        $client->disableReboot();
+
+        $client->request(Request::METHOD_GET, '/register');
+        $client->request(Request::METHOD_GET, '/waitlist');
+
+        self::assertSame(
+            ['account.registration_denied', 'account.waitlist_denied'],
+            $audit->operations(),
+        );
+
+        foreach (['account.registration_denied', 'account.waitlist_denied'] as $operation) {
+            $record = $audit->record($operation);
+            self::assertSame(AuditOutcome::Refused, $record->outcome);
+            self::assertSame([], $record->context);
+            self::assertNull($record->subject);
+        }
+    }
+
+    public function test_the_gated_controllers_keep_no_logger_beside_the_auditor(): void
+    {
+        DirectLogging::assertRemovedFrom(RegisterController::class);
+        DirectLogging::assertRemovedFrom(JoinWaitlistController::class);
     }
 
     public function test_register_is_reachable_once_installed_with_the_switch_on(): void

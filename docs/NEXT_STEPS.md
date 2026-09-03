@@ -2494,24 +2494,43 @@ the option itself.
 
 Related: 'Decision controls: multi-select, and whether a choice should carry a comment'.
 
-## Diagnostic and failure log lines still write no audit record
+## Some log lines stay diagnostics, and one of them is worth revisiting
 
 **Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
 
-The audit migration moved the domain decisions to `Auditor::record()`. It left
-the diagnostic and failure lines on `LoggerInterface`. 54 call sites remain.
-List them with `grep -rn "logger->" src/`.
+The audit migration is complete for every operation an actor asked for. The
+lines below stay on `LoggerInterface` on purpose, because no actor asked for
+them: a scheduler tick reporting counts, an infrastructure row, a service
+reporting its own internals, or an external read that degraded.
 
-Some of them describe an operation a person asked for that then broke.
-`AuditOutcome::Failed` exists for that case, so each of those lines can write a
-record beside its log line. `ResendVerificationEmailHandler` is the shape to
-copy. It records `account.email_verification_resent` with `Failed` when the mail
-transport rejects the message.
+Per-tick counts: `site_review.outbox_drained`,
+`site_review.outbox_drain_skipped_push_disabled`, `billing.trial_sweep_completed`,
+`billing.trial_sweep_skipped_billing_disabled`,
+`account.data_export_purge_completed`, `audit.purge_completed`.
 
-Two rules hold for each migration. A `Failed` record names the operation that
-broke and never why, because an exception message is unbounded text with no
-erasure path. A background diagnostic with no actor stays in the log, because a
-record that names nobody answers nobody.
+Infrastructure and internals: `site_review.outbox_publish_failed`,
+`account.data_export_purge_unlink_failed`, `account.data_export_purge_failed`,
+`billing.trial_sweep_skipped_after_lock`, `billing.webhook_tie_broken_by_lookup`,
+`billing.webhook_malformed`, `billing.webhook_unknown_customer`,
+`review.markdown_front_matter_not_tabulated`,
+`site_review.widget_origin_mismatch`,
+`account.system_status_agent_account_unreadable`,
+`billing.survey_skipped_no_url`.
+
+Input normalisation on a request that succeeded: `project.list_page_clamped`,
+`review.document_list_page_clamped`, `account.api_token_return_to_rejected`.
+
+External reads that degraded: `billing.price_fetch_failed`,
+`update_check.unavailable`, `update_check.failed`.
+
+The one worth revisiting is `site_review.widget_origin_mismatch` in
+`src/Module/SiteReview/EventListener/LogWidgetOriginMismatch.php`. It is a
+security observation about a token holder, so it reads like a record. Every
+value it carries is banned from an audit context: the `Origin` header and the
+project's free-text `domain`. A record would hold the project id alone and say
+less than the log line does. Decide whether a project-scoped
+"traffic arrived from an unregistered origin" record earns its place with no
+detail at all.
 
 ## Audit operation names have two shapes, and nothing keeps them to one
 

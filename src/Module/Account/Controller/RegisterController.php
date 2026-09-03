@@ -14,7 +14,8 @@ use App\Module\Account\Form\RegistrationFormType;
 use App\Module\Account\Form\RegistrationRequest;
 use App\Module\Account\Service\EmailRateLimitKey;
 use App\Module\Account\Service\RegistrationGate;
-use Psr\Log\LoggerInterface;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
@@ -33,7 +34,7 @@ class RegisterController extends AppController
         private readonly TranslatorInterface $translator,
         private readonly RegistrationGate $registrationGate,
         private readonly CheckInviteTokenHandler $checkInviteToken,
-        private readonly LoggerInterface $logger,
+        private readonly Auditor $auditor,
 
         #[Autowire(service: 'limiter.registration')]
         private readonly RateLimiterFactoryInterface $registrationLimiter,
@@ -55,7 +56,9 @@ class RegisterController extends AppController
         // than a message, matching how the install wizard and every other
         // feature-flagged route disappear when switched off.
         if (!$this->registrationGate->allowsNewAccounts()) {
-            $this->logger->info('account.registration_denied', ['path' => $request->getPathInfo()]);
+            // No context: the request path is the only thing this branch knows
+            // and it is caller-controlled, so the record states the refusal alone.
+            $this->auditor->record('account.registration_denied', AuditOutcome::Refused);
 
             throw $this->createNotFoundException();
         }

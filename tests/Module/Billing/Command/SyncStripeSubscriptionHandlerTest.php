@@ -191,25 +191,23 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
      * second one cannot be applied. It must not raise, because a 500 makes
      * Stripe redeliver an event that fails the same way every time.
      */
-    public function test_a_second_concurrent_stripe_grant_is_logged_and_not_created(): void
+    public function test_a_second_concurrent_stripe_grant_is_refused_and_not_created(): void
     {
         $profile = $this->profile();
         $endsAt = new \DateTimeImmutable('+30 days');
         $existing = BillingGrants::stripe($profile, BillingStatus::Active, $endsAt, 'sub_other');
-        $logger = new RecordingLogger();
 
-        ($this->handler($profile, logger: $logger))($this->command('canceled', eventType: 'customer.subscription.deleted'));
+        ($this->handler($profile))($this->command('canceled', eventType: 'customer.subscription.deleted'));
 
         self::assertCount(2, $profile->subscriptions);
         self::assertSame(BillingStatus::Active, $existing->stripeStatus);
         self::assertSame($endsAt, $existing->endsAt);
 
-        $refused = array_values(array_filter($logger->records, static fn (array $record): bool => 'billing.webhook_concurrent_grant' === $record['message']));
-        self::assertCount(1, $refused);
-        self::assertSame('error', $refused[0]['level']);
-        self::assertSame('cus_123', $refused[0]['context']['stripeCustomerId']);
-        self::assertSame('sub_123', $refused[0]['context']['stripeSubscriptionId']);
-        self::assertSame('evt_1', $refused[0]['context']['eventId']);
+        $refused = $this->audit->record('billing.webhook_concurrent_grant');
+        self::assertSame(AuditOutcome::Refused, $refused->outcome);
+        self::assertSame(['userId' => (string) $profile->user->id], $refused->context);
+        self::assertNotNull($refused->subject);
+        self::assertSame('user', $refused->subject->type);
 
         // The event never took effect, so the ordering bookkeeping must not
         // claim it did.
@@ -396,7 +394,10 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         self::assertSame('user', $record->subject->type);
         self::assertSame((string) $profile->user->id, $record->subject->id);
         self::assertSame(['userId' => (string) $profile->user->id], $record->context);
-        self::assertSame(['billing.account_reenabled'], $this->audit->domainLogLines());
+        self::assertSame(
+            ['billing.subscription_synced', 'billing.account_reenabled'],
+            $this->audit->domainLogLines(),
+        );
         self::assertSame([], $this->audit->securityLogLines());
     }
 
@@ -505,22 +506,22 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
 
         ($this->handler($profile))($this->command('active'));
 
-        self::assertCount(1, $this->audit->domainChannel->records);
+        self::assertCount(2, $this->audit->domainChannel->records);
         self::assertSame([
             'userId' => (string) $profile->user->id,
             'outcome' => 'success',
             'channel' => AuditChannel::System->value,
             'subjectType' => 'user',
             'subjectId' => (string) $profile->user->id,
-        ], $this->audit->domainChannel->records[0]['context']);
+        ], $this->audit->domainChannel->records[1]['context']);
     }
 
     /**
-     * The handler keeps its logger for the webhook diagnostics, so the
-     * reflection check cannot apply. Both migrated operations must reach the
-     * log stream through the sink alone.
+     * The handler keeps its logger for the unknown-customer and tie-break
+     * diagnostics, so the reflection check cannot apply. Every migrated
+     * operation must reach the log stream through the sink alone.
      */
-    public function test_the_account_operations_are_never_logged_directly(): void
+    public function test_the_migrated_operations_are_never_logged_directly(): void
     {
         $profile = $this->profile();
         $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
@@ -531,25 +532,49 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $handler($this->command('canceled', '2026-07-25 12:00:06', 'evt_second', 'customer.subscription.deleted', '-1 hour'));
 
         self::assertSame(
-            ['billing.account_reenabled', 'billing.account_disabled_on_cancel'],
+            [
+                'billing.subscription_synced',
+                'billing.account_reenabled',
+                'billing.subscription_synced',
+                'billing.account_disabled_on_cancel',
+            ],
             $this->audit->operations(),
         );
 
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $logger, 'billing.subscription_synced');
         DirectLogging::assertOperationNotLoggedBy($this->audit, $logger, 'billing.account_reenabled');
         DirectLogging::assertOperationNotLoggedBy($this->audit, $logger, 'billing.account_disabled_on_cancel');
+
+        // The filtered paths need their own run: each one leaves apply() before
+        // anything is applied, so none of them fires above.
+        $filteredLogger = new RecordingLogger();
+        $filtered = $this->handler($this->profile(), logger: $filteredLogger);
+        $filtered($this->command('active', '2026-07-25 12:00:05', 'evt_once'));
+        $filtered($this->command('active', '2026-07-25 12:00:05', 'evt_once'));
+        $filtered($this->command('canceled', '2026-07-25 12:00:04', 'evt_stale'));
+
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $filteredLogger, 'billing.webhook_replayed_event');
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $filteredLogger, 'billing.webhook_stale_event');
     }
 
-    /** The sync line stays a diagnostic: it names Stripe objects and nothing else. */
-    public function test_the_sync_diagnostic_still_logs_directly_and_is_not_recorded(): void
+    /** The status is an enum value; every Stripe identifier stays out. */
+    public function test_a_sync_records_the_status_and_no_stripe_identifier(): void
     {
         $profile = $this->profile();
-        $logger = new RecordingLogger();
 
-        ($this->handler($profile, logger: $logger))($this->command('active'));
+        ($this->handler($profile))($this->command('active'));
 
-        $messages = array_map(static fn (array $entry): string => $entry['message'], $logger->records);
-        self::assertContains('billing.subscription_synced', $messages);
-        self::assertSame([], $this->audit->operations());
+        $record = $this->audit->record('billing.subscription_synced');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame([
+            'userId' => (string) $profile->user->id,
+            'status' => BillingStatus::Active->value,
+        ], $record->context);
+
+        $serialised = json_encode($this->audit->domainChannel->records, \JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString('cus_123', $serialised);
+        self::assertStringNotContainsString('sub_123', $serialised);
+        self::assertStringNotContainsString('evt_1', $serialised);
     }
 
     /**
@@ -644,10 +669,10 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
     }
 
     /**
-     * A filtered event changed nothing, so it must claim nothing. Each of the
-     * paths that leave `apply()` early reports no state change of its own.
+     * A filtered event was accepted and moved nothing, so it is Unchanged
+     * rather than a refusal a reader would count as a denial.
      */
-    public function test_a_replayed_event_records_nothing_beyond_the_first(): void
+    public function test_a_replayed_event_is_recorded_as_unchanged(): void
     {
         $profile = $this->profile();
         $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
@@ -657,10 +682,14 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $this->audit->forget();
         $handler($this->command('active', '2026-07-25 12:00:05', 'evt_same'));
 
-        self::assertSame([], $this->audit->operations());
+        self::assertSame(['billing.webhook_replayed_event'], $this->audit->operations());
+        $record = $this->audit->record('billing.webhook_replayed_event');
+        self::assertSame(AuditOutcome::Unchanged, $record->outcome);
+        self::assertSame(['userId' => (string) $profile->user->id], $record->context);
     }
 
-    public function test_a_stale_event_records_nothing(): void
+    /** Two stale paths share one operation, and only `reason` tells them apart. */
+    public function test_a_stale_event_is_recorded_with_the_reason_it_was_dropped(): void
     {
         $profile = $this->profile();
         $handler = $this->handler($profile);
@@ -669,6 +698,28 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $this->audit->forget();
         $handler($this->command('active', '2026-07-25 12:00:05', 'evt_old'));
 
-        self::assertSame([], $this->audit->operations());
+        self::assertSame(['billing.webhook_stale_event'], $this->audit->operations());
+        $record = $this->audit->record('billing.webhook_stale_event');
+        self::assertSame(AuditOutcome::Unchanged, $record->outcome);
+        self::assertSame([
+            'userId' => (string) $profile->user->id,
+            'reason' => 'older_than_last_event',
+        ], $record->context);
+    }
+
+    /** An event from the deletion's own second is not newer, so it is dropped too. */
+    public function test_an_event_from_the_deletions_own_second_reports_its_own_reason(): void
+    {
+        $profile = $this->profile();
+        $handler = $this->handler($profile);
+
+        $handler($this->command('canceled', '2026-07-25 12:00:06', 'evt_deleted', 'customer.subscription.deleted', '-1 hour'));
+        $this->audit->forget();
+        $handler($this->command('active', '2026-07-25 12:00:06', 'evt_same_second'));
+
+        self::assertSame([
+            'userId' => (string) $profile->user->id,
+            'reason' => 'not_newer_than_deletion',
+        ], $this->audit->record('billing.webhook_stale_event')->context);
     }
 }

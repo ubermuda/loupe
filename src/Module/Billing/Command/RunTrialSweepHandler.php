@@ -59,9 +59,9 @@ final readonly class RunTrialSweepHandler
                 $disabled += $disabledNow;
                 $churned += $churnedNow;
                 $subscriber += $subscriberNow;
-            } catch (\Throwable $e) {
+            } catch (\Throwable) {
                 ++$failed;
-                $this->logFailure($trial, $e);
+                $this->recordFailure($trial);
             }
         }
 
@@ -70,9 +70,9 @@ final readonly class RunTrialSweepHandler
                 [$disabledNow, $surveyNow] = $this->settleCanceled($subscription, $now);
                 $disabled += $disabledNow;
                 $cancel += $surveyNow;
-            } catch (\Throwable $e) {
+            } catch (\Throwable) {
                 ++$failed;
-                $this->logFailure($subscription, $e);
+                $this->recordFailure($subscription);
             }
         }
 
@@ -131,10 +131,10 @@ final readonly class RunTrialSweepHandler
             $this->recordDisabled($user, 'trial_expired');
         }
         if (1 === $churnedNow && $this->trialSurveys->send($user, subscribed: false)) {
-            $this->logger->info('billing.trial_sweep_survey_sent', ['userId' => (string) $user->id, 'variant' => 'churned']);
+            $this->recordSurvey('billing.trial_sweep_survey_sent', $user, 'churned');
         }
         if (1 === $subscriberNow && $this->trialSurveys->send($user, subscribed: true)) {
-            $this->logger->info('billing.trial_sweep_survey_sent', ['userId' => (string) $user->id, 'variant' => 'subscribed']);
+            $this->recordSurvey('billing.trial_sweep_survey_sent', $user, 'subscribed');
         }
 
         return [$disabledNow, $churnedNow, $subscriberNow];
@@ -184,7 +184,7 @@ final readonly class RunTrialSweepHandler
             $this->recordDisabled($user, 'subscription_canceled');
         }
         if (1 === $surveyNow && $this->cancelSurveys->send($user)) {
-            $this->logger->info('billing.trial_sweep_cancel_survey_sent', ['userId' => (string) $user->id]);
+            $this->recordSurvey('billing.trial_sweep_cancel_survey_sent', $user);
         }
 
         return [$disabledNow, $surveyNow];
@@ -204,12 +204,34 @@ final readonly class RunTrialSweepHandler
         );
     }
 
-    private function logFailure(Subscription $subscription, \Throwable $e): void
+    /** The sweep mails a user; `variant` names which survey when there is more than one. */
+    private function recordSurvey(string $operation, User $user, ?string $variant = null): void
     {
-        $this->logger->error('billing.trial_sweep_row_failed', [
-            'subscriptionId' => (string) $subscription->id,
-            'userId' => (string) $subscription->billingProfile->user->id,
-            'error' => $e->getMessage(),
-        ]);
+        $context = ['userId' => (string) $user->id];
+        if (null !== $variant) {
+            $context['variant'] = $variant;
+        }
+
+        $this->auditor->record(
+            $operation,
+            AuditOutcome::Success,
+            $context,
+            new AuditSubject('user', (string) $user->id),
+        );
+    }
+
+    private function recordFailure(Subscription $subscription): void
+    {
+        $userId = (string) $subscription->billingProfile->user->id;
+
+        // The thrown exception stays out of the record: the row is named so a
+        // reader can see which account the sweep left unsettled, and the reason
+        // is whatever reports the throwable.
+        $this->auditor->record(
+            'billing.trial_sweep_row_failed',
+            AuditOutcome::Failed,
+            ['subscriptionId' => (string) $subscription->id, 'userId' => $userId],
+            new AuditSubject('user', $userId),
+        );
     }
 }

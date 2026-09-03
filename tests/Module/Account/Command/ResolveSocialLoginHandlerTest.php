@@ -31,12 +31,9 @@ use App\Module\Billing\Service\TrialProvisioner;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\InstalledInstance;
 use App\Tests\Support\RecordingAuditor;
-use App\Tests\Support\RecordingLogger;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoDriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
-use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
@@ -72,7 +69,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         );
     }
 
-    private function buildHandler(RegistrationGate $gate, EventDispatcherInterface $dispatcher, ?Auditor $auditor = null, ?LoggerInterface $logger = null): ResolveSocialLoginHandler
+    private function buildHandler(RegistrationGate $gate, EventDispatcherInterface $dispatcher, ?Auditor $auditor = null): ResolveSocialLoginHandler
     {
         $joinWaitlist = self::getContainer()->get(JoinWaitlistHandler::class);
         self::assertInstanceOf(JoinWaitlistHandler::class, $joinWaitlist);
@@ -84,7 +81,6 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             $gate,
             $joinWaitlist,
             $this->waitlistEntries,
-            $logger ?? new NullLogger(),
             $dispatcher,
             new DisplayNameDeriver(),
             $auditor ?? new RecordingAuditor(new NullAuditActorProvider())->auditor,
@@ -396,45 +392,49 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         self::assertSame([], $audit->securityLogLines());
     }
 
+    public function test_the_handler_keeps_no_logger_beside_the_auditor(): void
+    {
+        DirectLogging::assertRemovedFrom(ResolveSocialLoginHandler::class);
+    }
+
     /**
-     * The class keeps its logger for the OAuth-diversion and listener-failure
-     * diagnostics, so both migrated operations must reach the log stream
-     * through the sink alone. Each one needs the run that produces it: an open
-     * instance registers, and a closed instance refuses.
+     * A listener that throws leaves the account created and its follow-up work
+     * undone, which the trail says without repeating the listener's exception.
      */
-    public function test_the_migrated_operations_are_not_logged_beside_their_records(): void
+    public function test_a_listener_that_throws_records_the_failure(): void
     {
         $audit = new RecordingAuditor(new NullAuditActorProvider());
-        $logger = new RecordingLogger();
+        $dispatcher = $this->createMock(EventDispatcherInterface::class);
+        $dispatcher->expects($this->once())->method('dispatch')
+            ->willThrowException(new \RuntimeException('listener exploded'));
+
         $handler = $this->buildHandler(
             new RegistrationGate($this->openFlags(), $this->users, new InstallationState($this->users)),
-            $this->createStub(EventDispatcherInterface::class),
+            $dispatcher,
             $audit->auditor,
-            $logger,
         );
 
         $handler(new ResolveSocialLoginCommand(
-            new SocialProfile(SocialProvider::Github, 'gh-direct', 'social-direct@example.com', 'Direct', emailVerified: true),
+            new SocialProfile(SocialProvider::Github, 'gh-listener', 'social-listener@example.com', 'Listener', emailVerified: true),
         ));
 
-        self::assertSame(['account.registered'], $audit->operations());
-        DirectLogging::assertOperationNotLoggedBy($audit, $logger, 'account.registered');
-
-        $closedAudit = new RecordingAuditor(new NullAuditActorProvider());
-        $closedLogger = new RecordingLogger();
-        $closedHandler = $this->buildHandler(
-            new RegistrationGate($this->closedFlags(), $this->users, new InstallationState($this->users)),
-            $this->neverDispatches(),
-            $closedAudit->auditor,
-            $closedLogger,
+        self::assertSame(
+            ['account.registered', 'account.registration_listener_failed'],
+            $audit->operations(),
         );
 
-        $closedHandler(new ResolveSocialLoginCommand(
-            new SocialProfile(SocialProvider::Google, 'g-direct', 'closed-direct@example.com', 'Closed Direct', emailVerified: true),
-        ));
+        $user = $this->users->findOneByEmail('social-listener@example.com');
+        self::assertNotNull($user);
 
-        self::assertSame(['account.social_registration_closed'], $closedAudit->operations());
-        DirectLogging::assertOperationNotLoggedBy($closedAudit, $closedLogger, 'account.social_registration_closed');
+        $record = $audit->record('account.registration_listener_failed');
+        self::assertSame(AuditOutcome::Failed, $record->outcome);
+        self::assertSame(['userId' => (string) $user->id], $record->context);
+        self::assertNotNull($record->subject);
+        self::assertSame('user', $record->subject->type);
+        self::assertStringNotContainsString(
+            'listener exploded',
+            json_encode($audit->domainChannel->records, \JSON_THROW_ON_ERROR),
+        );
     }
 
     /** A login that only reuses an identity creates nothing, so it records nothing. */
@@ -632,7 +632,6 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             new RegistrationGate($this->openFlags(), $users, new InstallationState($users)),
             $joinWaitlist,
             $waitlistEntries,
-            new NullLogger(),
             $this->neverDispatches(),
             new DisplayNameDeriver(),
             new RecordingAuditor(new NullAuditActorProvider())->auditor,
@@ -669,6 +668,29 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
 
         $entries = self::getContainer()->get(WaitlistEntryRepository::class);
         self::assertNotNull($entries->findOneByEmail('waitlisted-oauth@example.com'));
+    }
+
+    /** The cap refused the sign-up; the provider name is an enum, so it stays. */
+    public function test_at_cap_diversion_is_recorded_as_a_refusal(): void
+    {
+        $realGate = $this->closeRegistration();
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $handler = $this->buildHandler($realGate, $this->neverDispatches(), $audit->auditor);
+
+        $handler(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Github, 'gh-diverted', 'diverted-oauth@example.com', 'Diverted', emailVerified: true),
+        ));
+
+        self::assertContains('account.waitlist_oauth_diverted', $audit->operations());
+
+        $record = $audit->record('account.waitlist_oauth_diverted');
+        self::assertSame(AuditOutcome::Refused, $record->outcome);
+        self::assertSame(['provider' => SocialProvider::Github->value], $record->context);
+        self::assertNull($record->subject);
+        self::assertStringNotContainsString(
+            'diverted-oauth@example.com',
+            json_encode($audit->domainChannel->records, \JSON_THROW_ON_ERROR),
+        );
     }
 
     public function test_at_cap_waitlisted_oauth_dispatches_no_user_registered_event(): void

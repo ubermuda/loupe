@@ -7,6 +7,8 @@ namespace App\Module\Billing\Controller;
 use App\Audit\AuditChannel;
 use App\Audit\AuditContext;
 use App\Controller\AppController;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Billing\Command\SyncStripeSubscriptionCommand;
 use App\Module\Billing\Command\SyncStripeSubscriptionHandler;
 use App\Module\Billing\Entity\BillingProfile;
@@ -47,6 +49,7 @@ final class StripeWebhookController extends AppController
         private readonly SyncStripeSubscriptionHandler $syncSubscription,
         private readonly LoggerInterface $logger,
         private readonly AuditContext $auditContext,
+        private readonly Auditor $auditor,
 
         #[Autowire(env: 'STRIPE_WEBHOOK_SECRET')]
         private readonly string $webhookSecret,
@@ -65,8 +68,14 @@ final class StripeWebhookController extends AppController
                 $request->headers->get('Stripe-Signature', ''),
                 $this->webhookSecret,
             );
-        } catch (SignatureVerificationException|StripeUnexpectedValueException $e) {
-            $this->logger->warning('billing.webhook_rejected', ['error' => $e->getMessage()]);
+        } catch (SignatureVerificationException|StripeUnexpectedValueException) {
+            // No subject and no context: the signature failed, so nothing in the
+            // request is trustworthy and the library's message is its own to log.
+            $this->auditor->record(
+                'billing.webhook_rejected',
+                AuditOutcome::Refused,
+                category: Auditor::CATEGORY_SECURITY,
+            );
 
             return new JsonResponse(['error' => 'invalid signature'], Response::HTTP_BAD_REQUEST);
         }

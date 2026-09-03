@@ -36,7 +36,18 @@ final readonly class ProcessDataExportHandler
         // between the Ready flush and the email send — re-issuing the token
         // invalidates the old link and resends the mail (at-least-once safe).
         if (null === $export || DataExportStatus::Failed === $export->status) {
-            $this->logger->info('account.data_export_skipped', ['id' => $command->dataExportId]);
+            // A row that is gone broke; a row already marked Failed moved no
+            // state. The two share the operation and only `reason` tells them
+            // apart, so a reader counts real losses without counting redeliveries.
+            $this->auditor->record(
+                'account.data_export_skipped',
+                null === $export ? AuditOutcome::Failed : AuditOutcome::Unchanged,
+                [
+                    'id' => $command->dataExportId,
+                    'reason' => null === $export ? 'not_found' : 'already_failed',
+                ],
+                new AuditSubject('data_export', $command->dataExportId),
+            );
 
             return;
         }

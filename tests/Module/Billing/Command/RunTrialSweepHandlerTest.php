@@ -305,7 +305,7 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
             new CancelSurveyEmailSender($mailer, $translator, $featureFlags, new NullLogger(), 'noreply@example.com', 'Loupe'),
             $featureFlags,
             $container->get(EntityManagerInterface::class),
-            new NullLogger(),
+            $failureLogger = new RecordingLogger(),
             $this->audit->auditor,
         );
 
@@ -318,6 +318,22 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
         self::assertEquals($this->now, $this->trial($second)->surveySentAt);
         self::assertEquals($this->now, $first->user->disabledAt);
         self::assertEquals($this->now, $second->user->disabledAt);
+
+        // The row the sweep left unsettled is named, and the SMTP error is not:
+        // an exception message is unbounded text with no erasure path.
+        $failure = $this->audit->record('billing.trial_sweep_row_failed');
+        self::assertSame(AuditOutcome::Failed, $failure->outcome);
+        self::assertSame([
+            'subscriptionId' => (string) $this->trial($first)->id,
+            'userId' => (string) $first->user->id,
+        ], $failure->context);
+        self::assertNotNull($failure->subject);
+        self::assertSame('user', $failure->subject->type);
+        self::assertStringNotContainsString(
+            'SMTP down',
+            json_encode($this->audit->domainChannel->records, \JSON_THROW_ON_ERROR),
+        );
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $failureLogger, 'billing.trial_sweep_row_failed');
     }
 
     /** @param array<string, bool|int|string> $flags */
@@ -379,7 +395,10 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
             'reason' => 'trial_expired',
         ], $record->context);
 
-        self::assertSame(['billing.trial_sweep_disabled'], $this->audit->domainLogLines());
+        self::assertSame(
+            ['billing.trial_sweep_disabled', 'billing.trial_sweep_survey_sent'],
+            $this->audit->domainLogLines(),
+        );
         self::assertSame([], $this->audit->securityLogLines());
     }
 
@@ -416,31 +435,66 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
         ], array_map(static fn (AuditEvent $event): array => $event->context, $records));
     }
 
-    /** A sweep that disables nobody must record nothing. */
-    public function test_a_sweep_that_disables_nobody_records_nothing(): void
+    /** A comp keeps the account alive, so the sweep surveys it and disables nobody. */
+    public function test_a_sweep_that_disables_nobody_records_no_disable(): void
     {
         $profile = $this->seedProfile('auditcomped');
         $this->grant(BillingGrants::comp($profile));
 
         ($this->handler())(new RunTrialSweepCommand($this->now));
 
-        self::assertSame([], $this->audit->operations());
+        self::assertSame(['billing.trial_sweep_survey_sent'], $this->audit->operations());
+    }
+
+    /** The sweep mails the user, so the record names which survey went out. */
+    public function test_a_churned_survey_is_recorded_with_its_variant(): void
+    {
+        $profile = $this->seedProfile('auditsurvey');
+
+        ($this->handler())(new RunTrialSweepCommand($this->now));
+
+        $record = $this->audit->record('billing.trial_sweep_survey_sent');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame([
+            'userId' => (string) $profile->user->id,
+            'variant' => 'churned',
+        ], $record->context);
+        self::assertNotNull($record->subject);
+        self::assertSame('user', $record->subject->type);
+    }
+
+    public function test_a_cancellation_survey_is_recorded_against_the_user(): void
+    {
+        $profile = $this->seedProfile('auditcancelsurvey');
+        $this->grant(BillingGrants::stripe($profile, BillingStatus::Canceled, $this->now->modify('-1 hour')));
+
+        ($this->handler())(new RunTrialSweepCommand($this->now));
+
+        $record = $this->audit->record('billing.trial_sweep_cancel_survey_sent');
+        self::assertSame(AuditOutcome::Success, $record->outcome);
+        self::assertSame(['userId' => (string) $profile->user->id], $record->context);
     }
 
     /**
-     * The handler keeps its logger for the sweep diagnostics, so the
-     * reflection check cannot apply. The disable operation must reach the log
-     * stream through the sink alone, and the survey lines must stay direct.
+     * The handler keeps its logger for the per-tick and after-lock diagnostics,
+     * so the reflection check cannot apply. Every migrated operation must reach
+     * the log stream through the sink alone.
      */
-    public function test_the_survey_diagnostics_still_log_directly_and_the_disable_does_not(): void
+    public function test_the_migrated_operations_are_not_logged_beside_their_records(): void
     {
         $this->seedProfile('auditsplit');
 
         ($this->handler())(new RunTrialSweepCommand($this->now));
 
-        $messages = array_map(static fn (array $entry): string => $entry['message'], $this->logger->records);
-        self::assertContains('billing.trial_sweep_survey_sent', $messages);
         DirectLogging::assertOperationNotLoggedBy($this->audit, $this->logger, 'billing.trial_sweep_disabled');
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->logger, 'billing.trial_sweep_survey_sent');
+
+        // The cancellation pass needs its own row to reach its own survey.
+        $canceled = $this->seedProfile('auditsplitcancel');
+        $this->grant(BillingGrants::stripe($canceled, BillingStatus::Canceled, $this->now->modify('-1 hour')));
+        ($this->handler())(new RunTrialSweepCommand($this->now));
+
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->logger, 'billing.trial_sweep_cancel_survey_sent');
     }
 
     /**
@@ -463,7 +517,6 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
         self::assertNull($record->credential);
         self::assertSame(AuditChannel::Cron->value, $record->channel);
 
-        self::assertCount(1, $this->audit->domainChannel->records);
         self::assertSame([
             'userId' => (string) $profile->user->id,
             'reason' => 'trial_expired',

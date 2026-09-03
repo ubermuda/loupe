@@ -5,12 +5,17 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Command\DiffDocumentVersionsHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\ValueObject\Anchor;
+use App\Module\Review\ValueObject\DiffRefusal;
 use App\Tests\Support\AcceptedTerms;
+use App\Tests\Support\DirectLogging;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -526,6 +531,53 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         // The versions themselves are still readable, which is what the message
         // points the reviewer at.
         self::assertGreaterThan(0, $crawler->filter('.lp-version-pill--link')->count());
+    }
+
+    /**
+     * A reviewer asked to compare two versions and the app declined, so the
+     * refusal belongs in the trail with the bounded reason that caused it.
+     */
+    public function test_a_refused_comparison_is_recorded_against_the_document(): void
+    {
+        $client = static::createClient();
+        $audit = RecordingAuditor::installedIn(static::getContainer());
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-audit', 'owner-diff-audit@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Private Use Audit Doc');
+        $doc->addVersion('A trap here', '<p>v1</p>');
+        $doc->addVersion("A \u{fcffc}\u{ff2fb}trap\u{fff41}\u{fcffc} here", '<p>v2</p>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->disableReboot();
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
+
+        self::assertResponseIsSuccessful();
+
+        $record = $audit->record('review.document_diff_refused');
+        self::assertSame(AuditOutcome::Refused, $record->outcome);
+        self::assertSame([
+            'documentId' => $id,
+            'from' => 1,
+            'to' => 2,
+            'reason' => DiffRefusal::UnsupportedCharacters->value,
+        ], $record->context);
+        self::assertNotNull($record->subject);
+        self::assertSame('document', $record->subject->type);
+        self::assertSame($id, $record->subject->id);
+    }
+
+    public function test_the_diff_handler_keeps_no_logger_beside_the_auditor(): void
+    {
+        DirectLogging::assertRemovedFrom(DiffDocumentVersionsHandler::class);
     }
 
     /**
