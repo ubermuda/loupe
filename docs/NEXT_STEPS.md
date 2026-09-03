@@ -2586,6 +2586,53 @@ because it hides nothing.
 Relevant code is `src/Module/Review/Entity/DocumentStatus.php`,
 `src/Module/Review/Entity/Document.php` and `src/Module/Review/Mcp/`.
 
+## The bridge CLI types into tmux, and a Mercure subscription can replace that
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+`loupe bridge run` delivers a site-review event to a local Claude Code session
+by typing into it. `cli/internal/tmux/tmux.go` calls `tmux send-keys -l` with
+the prompt text, then sends `Enter`. Everything around that call exists to make
+the typing possible. `cli/internal/transport/mercure.go` holds the SSE
+subscription, `cli/internal/inject` formats the prompt, and `cli/cmd/bridge.go`
+spawns, finds or attaches the target session. The `cli/` module is about 976
+lines of Go, excluding tests.
+
+A proof of concept on 2026-09-03 removed the reason for most of it. Claude
+Code's `Monitor` tool arms a background command, and each stdout line becomes an
+event in the session. A `curl` subscription to the Mercure hub therefore
+delivers an event into a running session with no wrapper around it.
+
+The run confirmed two things. A published event reached a session that sat idle
+waiting on user input, with no polling and no keystrokes. A row queued in
+`site_review_events` and drained by `app:drain-site-review-outbox` arrived the
+same way, so the outbox and hub path needs no change.
+
+A replacement retires `cli/internal/tmux` in full,
+`cli/internal/transport/mercure.go`, `cli/internal/inject` as prompt
+formatting, and the session-target half of `cli/cmd/bridge.go`.
+
+It still needs `cli/internal/api`, `cli/internal/config` and `cli/cmd/login.go`.
+A subscription needs a subscriber JWT, and `StreamCredentialsController` issues
+it. The shape to aim at is a command that prints a ready-to-subscribe URL, plus
+a skill that tells the session to arm the monitor with it.
+
+One capability does not survive. `bridge run --dir` starts a tmux session
+running `claude` when none exists. A monitor only feeds a session that already
+runs, so it cannot start one. Decide whether starting an agent from an event
+matters before you drop that flag.
+
+Close-out order matters. Build the credentials command first. Then drive one
+real widget-produced event into a session through a monitor. Delete the tmux
+path last. The proof of concept used a hand-queued outbox row, so it exercised
+no producer. This entry therefore waits on "The site-review push subsystem has
+no producer left".
+
+Two limits the proof of concept did not clear. The dev hub keeps no history, so
+a reconnect gap loses events and a pull path stays necessary. The run used a
+wildcard subscriber token rather than `StreamCredentialsController`, so
+per-project topic scoping is unproven.
+
 ## A mark-addressed skip reason is best-effort, because the re-read is not under the write's lock
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
