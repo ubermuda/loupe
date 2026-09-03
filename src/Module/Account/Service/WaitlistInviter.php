@@ -10,12 +10,14 @@ use App\Module\Audit\AuditOutcome;
 use App\Module\Audit\AuditSubject;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 
 final readonly class WaitlistInviter
 {
     public function __construct(
         private WaitlistInviteEmailSender $emailSender,
         private EntityManagerInterface $em,
+        private LoggerInterface $logger,
         private Auditor $auditor,
     ) {
     }
@@ -46,7 +48,7 @@ final readonly class WaitlistInviter
 
         try {
             $this->emailSender->send($entry, $plainToken);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             // Delivery is async, but enqueueing (and rendering) the message can
             // still fail — and the token already committed. Revert it in a
             // follow-up write so the entry stays invitable instead of stuck
@@ -58,6 +60,11 @@ final readonly class WaitlistInviter
                 ['entryId' => (string) $entry->id],
                 new AuditSubject('waitlist_entry', (string) $entry->id),
             );
+
+            $this->logger->warning('account.waitlist_invite_send_failed', [
+                'entryId' => (string) $entry->id,
+                'error' => $e->getMessage(),
+            ]);
 
             $entry->clearInvite();
             $this->em->flush();

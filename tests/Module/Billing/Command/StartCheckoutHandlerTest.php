@@ -27,6 +27,7 @@ use App\Tests\Support\BillingGrants;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\FeatureFlags;
 use App\Tests\Support\RecordingAuditor;
+use App\Tests\Support\RecordingLogger;
 use App\Tests\Support\SilentAuditor;
 use App\Tests\Support\TransactionalEntityManagerStub;
 use Doctrine\ORM\EntityManagerInterface;
@@ -43,11 +44,13 @@ final class StartCheckoutHandlerTest extends TestCase
     private const array CAP_CLOSED_FLAGS = ['billing.enabled' => true, 'billing.stripe_price_id' => 'price_123', 'registration.cap' => 1];
 
     private RecordingAuditor $audit;
+    private RecordingLogger $logger;
 
     #[\Override]
     protected function setUp(): void
     {
         $this->audit = new RecordingAuditor(new NullAuditActorProvider());
+        $this->logger = new RecordingLogger();
     }
 
     private function user(): User
@@ -84,6 +87,7 @@ final class StartCheckoutHandlerTest extends TestCase
             $stripe,
             FeatureFlags::service($flags),
             TransactionalEntityManagerStub::configure($this->createStub(EntityManagerInterface::class)),
+            $this->logger,
             new RegistrationGate(FeatureFlags::service($flags), $users, new InstallationState($users)),
             $waitlistEntries ?? $this->createStub(WaitlistEntryRepository::class),
             $this->audit->auditor,
@@ -376,9 +380,42 @@ final class StartCheckoutHandlerTest extends TestCase
         self::assertStringNotContainsString('cus_existing', $serialised);
     }
 
-    public function test_the_handler_keeps_no_logger_beside_the_auditor(): void
+    /**
+     * Stripe's own message is the one thing the record drops, so the handler
+     * keeps a logger for it and nothing else.
+     */
+    public function test_only_the_stripe_failure_is_logged_beside_the_auditor(): void
     {
-        DirectLogging::assertRemovedFrom(StartCheckoutHandler::class);
+        $user = $this->user();
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('+3 days'));
+        $profile->stripeCustomerId = 'cus_existing';
+
+        $stripe = $this->createStub(StripeGatewayInterface::class);
+        $stripe->method('createCheckoutSession')->willThrowException(new \RuntimeException('stripe is down'));
+
+        try {
+            ($this->handler($stripe, $profile))($this->command($user));
+            self::fail('expected DomainErrors');
+        } catch (DomainErrors) {
+        }
+
+        DirectLogging::assertDiagnosticsLoggedBeside($this->audit, $this->logger, 'billing.checkout_stripe_failed', ['error']);
+        self::assertSame('stripe is down', $this->logger->records[0]['context']['error'] ?? null);
+    }
+
+    /** The successful path records only, so nothing doubles it in the log stream. */
+    public function test_a_started_checkout_is_not_logged_beside_the_auditor(): void
+    {
+        $user = $this->user();
+        $profile = BillingGrants::profileWithTrial($user, new \DateTimeImmutable('+3 days'));
+        $profile->stripeCustomerId = 'cus_existing';
+
+        $stripe = $this->createStub(StripeGatewayInterface::class);
+        $stripe->method('createCheckoutSession')->willReturn(self::CHECKOUT_URL);
+
+        ($this->handler($stripe, $profile))($this->command($user));
+
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->logger, 'billing.checkout_started');
     }
 
     /**

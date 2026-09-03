@@ -319,8 +319,8 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
         self::assertEquals($this->now, $first->user->disabledAt);
         self::assertEquals($this->now, $second->user->disabledAt);
 
-        // The row the sweep left unsettled is named, and the SMTP error is not:
-        // an exception message is unbounded text with no erasure path.
+        // The record names the row the sweep left unsettled. The SMTP error is
+        // unbounded text with no erasure path, so it stays in the log line.
         $failure = $this->audit->record('billing.trial_sweep_row_failed');
         self::assertSame(AuditOutcome::Failed, $failure->outcome);
         self::assertSame([
@@ -333,7 +333,8 @@ final class RunTrialSweepHandlerTest extends KernelTestCase
             'SMTP down',
             json_encode($this->audit->domainChannel->records, \JSON_THROW_ON_ERROR),
         );
-        DirectLogging::assertOperationNotLoggedBy($this->audit, $failureLogger, 'billing.trial_sweep_row_failed');
+        DirectLogging::assertDiagnosticsLoggedBeside($this->audit, $failureLogger, 'billing.trial_sweep_row_failed', ['error']);
+        self::assertSame('SMTP down', $failureLogger->records[0]['context']['error'] ?? null);
     }
 
     /** @param array<string, bool|int|string> $flags */

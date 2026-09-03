@@ -262,11 +262,10 @@ final class StripeWebhookControllerTest extends WebTestCase
     }
 
     /**
-     * The controller keeps its logger for the malformed-payload diagnostic, so
-     * the reflection check cannot apply. The refusal must reach the log stream
-     * through the sink alone.
+     * Stripe's own verification message is the one thing the record drops, so
+     * the controller logs it beside the record under the same operation name.
      */
-    public function test_the_refusal_is_never_logged_directly(): void
+    public function test_the_verification_message_is_logged_beside_the_refusal(): void
     {
         static::createClient();
         $audit = new RecordingAuditor(new NullAuditActorProvider());
@@ -290,7 +289,8 @@ final class StripeWebhookControllerTest extends WebTestCase
             content: $this->payload('customer.subscription.updated', $this->classicSubscription(), time()),
         ));
 
-        DirectLogging::assertOperationNotLoggedBy($audit, $logger, 'billing.webhook_rejected');
+        DirectLogging::assertDiagnosticsLoggedBeside($audit, $logger, 'billing.webhook_rejected', ['error']);
+        self::assertNotSame('', $logger->records[0]['context']['error'] ?? '');
     }
 
     /**

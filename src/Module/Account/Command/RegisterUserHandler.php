@@ -16,6 +16,7 @@ use App\Module\Audit\AuditSubject;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
@@ -30,6 +31,7 @@ final readonly class RegisterUserHandler
         private RegistrationGate $registrationGate,
         private WaitlistEntryRepository $waitlistEntries,
         private EventDispatcherInterface $eventDispatcher,
+        private LoggerInterface $logger,
         private Auditor $auditor,
 
         #[Autowire(param: 'app.terms.version')]
@@ -133,15 +135,20 @@ final readonly class RegisterUserHandler
         // provisioning self-heals via PaywallGate, so record it and move on.
         try {
             $this->eventDispatcher->dispatch(new UserRegistered($user));
-        } catch (\Throwable) {
-            // The listener's own exception stays with whatever reports it: the
-            // record says the registration's follow-up work broke, and never why.
+        } catch (\Throwable $e) {
             $this->auditor->record(
                 'account.registration_listener_failed',
                 AuditOutcome::Failed,
                 ['userId' => (string) $user->id],
                 new AuditSubject('user', (string) $user->id),
             );
+
+            // The record says the follow-up work broke. Which listener and why
+            // is the exception message, which never reaches the trail.
+            $this->logger->warning('account.registration_listener_failed', [
+                'userId' => (string) $user->id,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return $user;

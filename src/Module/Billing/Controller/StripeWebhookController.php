@@ -68,14 +68,16 @@ final class StripeWebhookController extends AppController
                 $request->headers->get('Stripe-Signature', ''),
                 $this->webhookSecret,
             );
-        } catch (SignatureVerificationException|StripeUnexpectedValueException) {
+        } catch (SignatureVerificationException|StripeUnexpectedValueException $e) {
             // No subject and no context: the signature failed, so nothing in the
-            // request is trustworthy and the library's message is its own to log.
+            // request is trustworthy.
             $this->auditor->record(
                 'billing.webhook_rejected',
                 AuditOutcome::Refused,
                 category: Auditor::CATEGORY_SECURITY,
             );
+
+            $this->logger->warning('billing.webhook_rejected', ['error' => $e->getMessage()]);
 
             return new JsonResponse(['error' => 'invalid signature'], Response::HTTP_BAD_REQUEST);
         }

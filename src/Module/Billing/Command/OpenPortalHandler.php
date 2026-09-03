@@ -10,6 +10,7 @@ use App\Module\Audit\AuditOutcome;
 use App\Module\Audit\AuditSubject;
 use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\StripeGatewayInterface;
+use Psr\Log\LoggerInterface;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 final readonly class OpenPortalHandler
@@ -18,6 +19,7 @@ final readonly class OpenPortalHandler
         private BillingProfileRepository $billingProfiles,
         private StripeGatewayInterface $stripe,
         private FeatureFlagService $featureFlags,
+        private LoggerInterface $logger,
         private Auditor $auditor,
     ) {
     }
@@ -37,7 +39,7 @@ final readonly class OpenPortalHandler
 
         try {
             $url = $this->stripe->createPortalSession($customerId, $command->returnUrl);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             // Stripe being down is a bad minute, not a bug: surface it as a
             // domain failure so the user gets "try again later", not a 500.
             $this->auditor->record(
@@ -46,6 +48,11 @@ final readonly class OpenPortalHandler
                 ['userId' => (string) $command->user->id],
                 new AuditSubject('user', (string) $command->user->id),
             );
+
+            $this->logger->error('billing.portal_stripe_failed', [
+                'userId' => (string) $command->user->id,
+                'error' => $e->getMessage(),
+            ]);
 
             throw new DomainErrors(['portal' => 'billing.error.stripe_unavailable']);
         }

@@ -36,6 +36,7 @@ use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Tests\Support\BillingGrants;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
+use App\Tests\Support\RecordingLogger;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemOperator;
@@ -110,9 +111,26 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         self::assertSame([], $audit->securityLogLines());
     }
 
-    public function test_the_purger_keeps_no_logger_beside_the_auditor(): void
+    /**
+     * The storage key is the one thing the record drops, so the purger keeps a
+     * logger for it and nothing else.
+     */
+    public function test_only_the_orphaned_key_is_logged_beside_the_auditor(): void
     {
-        DirectLogging::assertRemovedFrom(AccountPurger::class);
+        $user = new User('Del Split', 'del-split@example.com', 'hash');
+        new \ReflectionProperty(User::class, 'id')->setValue($user, Uuid::v4());
+
+        $storage = $this->createMock(FilesystemOperator::class);
+        $storage->expects($this->once())->method('delete')
+            ->willThrowException(new UnableToDeleteFile('bucket unreachable'));
+
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $logger = new RecordingLogger();
+        $this->purgerWith($audit, $storage, [$this->archiveDeletingPurger()], $logger)->purge($user);
+
+        DirectLogging::assertDiagnosticsLoggedBeside($audit, $logger, 'account.deletion_archive_unlink_failed', ['key']);
+        DirectLogging::assertOperationNotLoggedBy($audit, $logger, 'account.deleted');
+        self::assertSame(self::ORPHANED_ARCHIVE_KEY, $logger->records[0]['context']['key'] ?? null);
     }
 
     /**
@@ -187,7 +205,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
     /**
      * @param list<AccountDataPurgerInterface> $purgers
      */
-    private function purgerWith(RecordingAuditor $audit, FilesystemOperator $storage, array $purgers): AccountPurger
+    private function purgerWith(RecordingAuditor $audit, FilesystemOperator $storage, array $purgers, ?RecordingLogger $logger = null): AccountPurger
     {
         $em = $this->createStub(EntityManagerInterface::class);
         $em->method('wrapInTransaction')->willReturnCallback(static fn (callable $fn) => $fn());
@@ -196,6 +214,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         return new AccountPurger(
             $this->createStub(MessageBusInterface::class),
             $em,
+            $logger ?? new RecordingLogger(),
             $audit->auditor,
             new AuditContext(),
             $storage,
@@ -353,7 +372,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $audit = new RecordingAuditor(new NullAuditActorProvider());
         $handler = new DeleteAccountHandler(
             $users,
-            new AccountPurger($bus, $em, $audit->auditor, new AuditContext(), $this->createStub(FilesystemOperator::class), [], []),
+            new AccountPurger($bus, $em, new RecordingLogger(), $audit->auditor, new AuditContext(), $this->createStub(FilesystemOperator::class), [], []),
             $audit->auditor,
         );
 
@@ -405,7 +424,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $audit = new RecordingAuditor(new NullAuditActorProvider());
         $handler = new DeleteAccountHandler(
             $users,
-            new AccountPurger($this->createStub(MessageBusInterface::class), $em, $audit->auditor, new AuditContext(), $this->createStub(FilesystemOperator::class), $purgers, []),
+            new AccountPurger($this->createStub(MessageBusInterface::class), $em, new RecordingLogger(), $audit->auditor, new AuditContext(), $this->createStub(FilesystemOperator::class), $purgers, []),
             $audit->auditor,
         );
         $handler(new DeleteAccountCommand($token));

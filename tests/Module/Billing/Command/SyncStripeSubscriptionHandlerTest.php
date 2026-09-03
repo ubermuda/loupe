@@ -196,8 +196,9 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $profile = $this->profile();
         $endsAt = new \DateTimeImmutable('+30 days');
         $existing = BillingGrants::stripe($profile, BillingStatus::Active, $endsAt, 'sub_other');
+        $logger = new RecordingLogger();
 
-        ($this->handler($profile))($this->command('canceled', eventType: 'customer.subscription.deleted'));
+        ($this->handler($profile, logger: $logger))($this->command('canceled', eventType: 'customer.subscription.deleted'));
 
         self::assertCount(2, $profile->subscriptions);
         self::assertSame(BillingStatus::Active, $existing->stripeStatus);
@@ -208,6 +209,16 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         self::assertSame(['userId' => (string) $profile->user->id], $refused->context);
         self::assertNotNull($refused->subject);
         self::assertSame('user', $refused->subject->type);
+
+        // Support needs both grants named to see which one is live, and the
+        // record carries neither.
+        DirectLogging::assertDiagnosticsLoggedBeside(
+            $this->audit,
+            $logger,
+            'billing.webhook_concurrent_grant',
+            ['stripeCustomerId', 'stripeSubscriptionId', 'eventId', 'currentStripeSubscriptionId'],
+        );
+        self::assertSame('sub_other', $logger->records[0]['context']['currentStripeSubscriptionId'] ?? null);
 
         // The event never took effect, so the ordering bookkeeping must not
         // claim it did.
@@ -517,11 +528,11 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
     }
 
     /**
-     * The handler keeps its logger for the unknown-customer and tie-break
-     * diagnostics, so the reflection check cannot apply. Every migrated
-     * operation must reach the log stream through the sink alone.
+     * Every webhook decision logs the Stripe identifiers its record drops. The
+     * two account-state operations name only the local user, so they record
+     * alone and nothing doubles them in the log stream.
      */
-    public function test_the_migrated_operations_are_never_logged_directly(): void
+    public function test_the_stripe_identifiers_are_logged_beside_each_decision(): void
     {
         $profile = $this->profile();
         $profile->user->disabledAt = new \DateTimeImmutable('-2 days');
@@ -529,6 +540,16 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
 
         $handler = $this->handler($profile, logger: $logger);
         $handler($this->command('active', '2026-07-25 12:00:05', 'evt_first'));
+
+        DirectLogging::assertDiagnosticsLoggedBeside(
+            $this->audit,
+            $logger,
+            'billing.subscription_synced',
+            ['stripeCustomerId', 'stripeSubscriptionId', 'eventId'],
+        );
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $logger, 'billing.account_reenabled');
+
+        $logger->records = [];
         $handler($this->command('canceled', '2026-07-25 12:00:06', 'evt_second', 'customer.subscription.deleted', '-1 hour'));
 
         self::assertSame(
@@ -540,9 +561,6 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
             ],
             $this->audit->operations(),
         );
-
-        DirectLogging::assertOperationNotLoggedBy($this->audit, $logger, 'billing.subscription_synced');
-        DirectLogging::assertOperationNotLoggedBy($this->audit, $logger, 'billing.account_reenabled');
         DirectLogging::assertOperationNotLoggedBy($this->audit, $logger, 'billing.account_disabled_on_cancel');
 
         // The filtered paths need their own run: each one leaves apply() before
@@ -551,10 +569,27 @@ final class SyncStripeSubscriptionHandlerTest extends TestCase
         $filtered = $this->handler($this->profile(), logger: $filteredLogger);
         $filtered($this->command('active', '2026-07-25 12:00:05', 'evt_once'));
         $filtered($this->command('active', '2026-07-25 12:00:05', 'evt_once'));
-        $filtered($this->command('canceled', '2026-07-25 12:00:04', 'evt_stale'));
 
-        DirectLogging::assertOperationNotLoggedBy($this->audit, $filteredLogger, 'billing.webhook_replayed_event');
-        DirectLogging::assertOperationNotLoggedBy($this->audit, $filteredLogger, 'billing.webhook_stale_event');
+        DirectLogging::assertDiagnosticsLoggedBeside(
+            $this->audit,
+            $filteredLogger,
+            'billing.webhook_replayed_event',
+            ['stripeCustomerId', 'eventId'],
+        );
+
+        $staleLogger = new RecordingLogger();
+        $stale = $this->handler($this->profile(), logger: $staleLogger);
+        $stale($this->command('active', '2026-07-25 12:00:05', 'evt_current'));
+        $stale($this->command('canceled', '2026-07-25 12:00:04', 'evt_stale'));
+
+        // Two timestamps say why the event was dropped, and neither is a
+        // question the record can answer.
+        DirectLogging::assertDiagnosticsLoggedBeside(
+            $this->audit,
+            $staleLogger,
+            'billing.webhook_stale_event',
+            ['stripeCustomerId', 'eventId', 'eventCreatedAt', 'lastStripeEventAt'],
+        );
     }
 
     /** The status is an enum value; every Stripe identifier stays out. */

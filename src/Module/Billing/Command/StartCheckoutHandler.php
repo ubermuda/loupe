@@ -16,6 +16,7 @@ use App\Module\Billing\Service\StripeGatewayInterface;
 use App\Module\Billing\Service\TrialProvisioner;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 final readonly class StartCheckoutHandler
@@ -26,6 +27,7 @@ final readonly class StartCheckoutHandler
         private StripeGatewayInterface $stripe,
         private FeatureFlagService $featureFlags,
         private EntityManagerInterface $em,
+        private LoggerInterface $logger,
         private RegistrationGate $registrationGate,
         private WaitlistEntryRepository $waitlistEntries,
         private Auditor $auditor,
@@ -100,7 +102,7 @@ final readonly class StartCheckoutHandler
             );
         } catch (DomainErrors $e) {
             throw $e;
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             // Stripe being down or rejecting the call is a bad minute, not a
             // bug: surface it as a domain failure so the user gets the "try
             // again later" page instead of a 500.
@@ -110,6 +112,11 @@ final readonly class StartCheckoutHandler
                 ['userId' => (string) $command->user->id],
                 new AuditSubject('user', (string) $command->user->id),
             );
+
+            $this->logger->error('billing.checkout_stripe_failed', [
+                'userId' => (string) $command->user->id,
+                'error' => $e->getMessage(),
+            ]);
 
             throw new DomainErrors(['billing' => 'billing.error.stripe_unavailable']);
         }

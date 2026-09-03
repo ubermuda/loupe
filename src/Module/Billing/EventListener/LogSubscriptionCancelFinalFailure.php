@@ -8,20 +8,22 @@ use App\Module\Audit\Auditor;
 use App\Module\Audit\AuditOutcome;
 use App\Module\Audit\AuditSubject;
 use App\Module\Billing\Messenger\CancelSubscriptionMessage;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\Messenger\Event\WorkerMessageFailedEvent;
 
 /**
  * The account row is already deleted by the time a CancelSubscriptionMessage
- * exhausts its retries, so there is nothing left to mark failed — this record
- * is the only durable trace. It carries the deleted account's own id and no
- * Stripe identifier; StripeGateway stamps `app_user_id` on every customer it
- * creates, so support searches the dashboard by that and cancels manually.
+ * exhausts its retries, so there is nothing left to mark failed — this pair is
+ * the only durable trace. The record carries the deleted account's own id; the
+ * Stripe identifiers support cancels by stay in the log line, which is not a
+ * store an erasure request has to reach.
  */
 #[AsEventListener]
 final readonly class LogSubscriptionCancelFinalFailure
 {
     public function __construct(
+        private LoggerInterface $logger,
         private Auditor $auditor,
     ) {
     }
@@ -39,5 +41,11 @@ final readonly class LogSubscriptionCancelFinalFailure
             ['userId' => $message->deletedUserId],
             new AuditSubject('user', $message->deletedUserId),
         );
+
+        $this->logger->error('account.deletion_stripe_cancel_permanently_failed', [
+            'userId' => $message->deletedUserId,
+            'stripeSubscriptionId' => $message->stripeSubscriptionId,
+            'stripeCustomerId' => $message->stripeCustomerId,
+        ]);
     }
 }

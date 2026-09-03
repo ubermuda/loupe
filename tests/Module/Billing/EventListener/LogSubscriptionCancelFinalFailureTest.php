@@ -10,6 +10,7 @@ use App\Module\Billing\EventListener\LogSubscriptionCancelFinalFailure;
 use App\Module\Billing\Messenger\CancelSubscriptionMessage;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
+use App\Tests\Support\RecordingLogger;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Event\WorkerMessageFailedEvent;
@@ -17,12 +18,14 @@ use Symfony\Component\Messenger\Event\WorkerMessageFailedEvent;
 final class LogSubscriptionCancelFinalFailureTest extends TestCase
 {
     private RecordingAuditor $audit;
+    private RecordingLogger $logger;
     private LogSubscriptionCancelFinalFailure $listener;
 
     protected function setUp(): void
     {
         $this->audit = new RecordingAuditor(new NullAuditActorProvider());
-        $this->listener = new LogSubscriptionCancelFinalFailure($this->audit->auditor);
+        $this->logger = new RecordingLogger();
+        $this->listener = new LogSubscriptionCancelFinalFailure($this->logger, $this->audit->auditor);
     }
 
     public function test_it_records_a_failure_once_retries_are_exhausted(): void
@@ -70,9 +73,22 @@ final class LogSubscriptionCancelFinalFailureTest extends TestCase
         self::assertSame([], $this->audit->operations());
     }
 
-    public function test_the_listener_keeps_no_logger_beside_the_auditor(): void
+    /**
+     * The account row is gone, so the log line is the only place support can
+     * read the subscription it must cancel by hand.
+     */
+    public function test_the_stripe_identifiers_are_logged_beside_the_record(): void
     {
-        DirectLogging::assertRemovedFrom(LogSubscriptionCancelFinalFailure::class);
+        ($this->listener)($this->event());
+
+        DirectLogging::assertDiagnosticsLoggedBeside(
+            $this->audit,
+            $this->logger,
+            'account.deletion_stripe_cancel_permanently_failed',
+            ['stripeSubscriptionId', 'stripeCustomerId'],
+        );
+        self::assertSame('sub_123', $this->logger->records[0]['context']['stripeSubscriptionId'] ?? null);
+        self::assertSame('cus_123', $this->logger->records[0]['context']['stripeCustomerId'] ?? null);
     }
 
     private function event(): WorkerMessageFailedEvent

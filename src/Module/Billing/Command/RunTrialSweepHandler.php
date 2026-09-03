@@ -59,9 +59,9 @@ final readonly class RunTrialSweepHandler
                 $disabled += $disabledNow;
                 $churned += $churnedNow;
                 $subscriber += $subscriberNow;
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
                 ++$failed;
-                $this->recordFailure($trial);
+                $this->recordFailure($trial, $e);
             }
         }
 
@@ -70,9 +70,9 @@ final readonly class RunTrialSweepHandler
                 [$disabledNow, $surveyNow] = $this->settleCanceled($subscription, $now);
                 $disabled += $disabledNow;
                 $cancel += $surveyNow;
-            } catch (\Throwable) {
+            } catch (\Throwable $e) {
                 ++$failed;
-                $this->recordFailure($subscription);
+                $this->recordFailure($subscription, $e);
             }
         }
 
@@ -220,18 +220,23 @@ final readonly class RunTrialSweepHandler
         );
     }
 
-    private function recordFailure(Subscription $subscription): void
+    private function recordFailure(Subscription $subscription, \Throwable $e): void
     {
         $userId = (string) $subscription->billingProfile->user->id;
 
-        // The thrown exception stays out of the record: the row is named so a
-        // reader can see which account the sweep left unsettled, and the reason
-        // is whatever reports the throwable.
+        // The record names the row the sweep left unsettled. Why it broke is
+        // the exception message, which never reaches the trail.
         $this->auditor->record(
             'billing.trial_sweep_row_failed',
             AuditOutcome::Failed,
             ['subscriptionId' => (string) $subscription->id, 'userId' => $userId],
             new AuditSubject('user', $userId),
         );
+
+        $this->logger->error('billing.trial_sweep_row_failed', [
+            'subscriptionId' => (string) $subscription->id,
+            'userId' => $userId,
+            'error' => $e->getMessage(),
+        ]);
     }
 }

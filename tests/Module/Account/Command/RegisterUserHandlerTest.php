@@ -21,6 +21,7 @@ use App\Module\Billing\Service\TrialProvisioner;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\InstalledInstance;
 use App\Tests\Support\RecordingAuditor;
+use App\Tests\Support\RecordingLogger;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoDriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -84,9 +85,27 @@ final class RegisterUserHandlerTest extends KernelTestCase
         self::assertSame([], $audit->securityLogLines());
     }
 
-    public function test_the_handler_keeps_no_logger_beside_the_auditor(): void
+    /**
+     * The listener's exception is the one thing the record drops, so the
+     * handler keeps a logger for it and nothing else.
+     */
+    public function test_only_the_listener_failure_is_logged_beside_the_auditor(): void
     {
-        DirectLogging::assertRemovedFrom(RegisterUserHandler::class);
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $logger = new RecordingLogger();
+        $dispatcher = $this->createMock(EventDispatcherInterface::class);
+        $dispatcher->expects($this->once())->method('dispatch')
+            ->willThrowException(new \RuntimeException('listener exploded'));
+
+        $this->handlerWith($dispatcher, $audit->auditor, $logger)(new RegisterUserCommand(
+            email: 'listener-failed-split@example.com',
+            fullName: 'Listener Failed Split',
+            plainPassword: 'SecurePassword1!',
+        ));
+
+        DirectLogging::assertDiagnosticsLoggedBeside($audit, $logger, 'account.registration_listener_failed', ['error']);
+        DirectLogging::assertOperationNotLoggedBy($audit, $logger, 'account.registered');
+        self::assertSame('listener exploded', $logger->records[0]['context']['error'] ?? null);
     }
 
     /**
@@ -177,6 +196,7 @@ final class RegisterUserHandlerTest extends KernelTestCase
             registrationGate: $gate,
             waitlistEntries: $this->createStub(WaitlistEntryRepository::class),
             eventDispatcher: $this->neverDispatches(),
+            logger: new RecordingLogger(),
             auditor: new RecordingAuditor(new NullAuditActorProvider())->auditor,
             termsVersion: $this->currentTermsVersion(),
         );
@@ -433,7 +453,7 @@ final class RegisterUserHandlerTest extends KernelTestCase
     }
 
     /** Container-wired collaborators with only the dispatcher swapped out. */
-    private function handlerWith(EventDispatcherInterface $dispatcher, ?Auditor $auditor = null): RegisterUserHandler
+    private function handlerWith(EventDispatcherInterface $dispatcher, ?Auditor $auditor = null, ?RecordingLogger $logger = null): RegisterUserHandler
     {
         $container = self::getContainer();
         $users = $container->get(UserRepository::class);
@@ -453,6 +473,7 @@ final class RegisterUserHandlerTest extends KernelTestCase
             registrationGate: $gate,
             waitlistEntries: $this->entries,
             eventDispatcher: $dispatcher,
+            logger: $logger ?? new RecordingLogger(),
             auditor: $auditor ?? new RecordingAuditor(new NullAuditActorProvider())->auditor,
             termsVersion: $this->currentTermsVersion(),
         );

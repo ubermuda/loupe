@@ -19,6 +19,7 @@ use App\Module\Billing\Service\SubscriptionView;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 
 final readonly class SyncStripeSubscriptionHandler
 {
@@ -78,31 +79,62 @@ final readonly class SyncStripeSubscriptionHandler
         // kept.
         $userId = (string) $profile->user->id;
 
-        // Every Stripe identifier stays out. The record names the local user,
-        // and the profile row leads back to the customer when someone needs it.
-        // No default arm: a decision added later must be an unhandled match
-        // here rather than take a neighbour's meaning.
-        [$operation, $outcome, $context] = match ($result->decision) {
+        // Every Stripe identifier stays out of the record and goes to the log
+        // line below instead. No default arm: a decision added later must be an
+        // unhandled match here rather than take a neighbour's meaning.
+        [$operation, $outcome, $context, $level, $diagnostics] = match ($result->decision) {
             StripeSyncDecision::StaleEventOlder => [
                 'billing.webhook_stale_event',
                 AuditOutcome::Unchanged,
                 ['reason' => 'older_than_last_event'],
+                LogLevel::INFO,
+                [
+                    'eventCreatedAt' => $command->eventCreatedAt->format(\DATE_ATOM),
+                    'lastStripeEventAt' => $result->lastStripeEventAt?->format(\DATE_ATOM),
+                ],
             ],
             StripeSyncDecision::StaleEventNotNewerThanDeletion => [
                 'billing.webhook_stale_event',
                 AuditOutcome::Unchanged,
                 ['reason' => 'not_newer_than_deletion'],
+                LogLevel::INFO,
+                [],
             ],
-            StripeSyncDecision::ReplayedEvent => ['billing.webhook_replayed_event', AuditOutcome::Unchanged, []],
-            StripeSyncDecision::ConcurrentGrant => ['billing.webhook_concurrent_grant', AuditOutcome::Refused, []],
+            StripeSyncDecision::ReplayedEvent => [
+                'billing.webhook_replayed_event',
+                AuditOutcome::Unchanged,
+                [],
+                LogLevel::INFO,
+                [],
+            ],
+            StripeSyncDecision::ConcurrentGrant => [
+                'billing.webhook_concurrent_grant',
+                AuditOutcome::Refused,
+                [],
+                LogLevel::ERROR,
+                [
+                    'stripeSubscriptionId' => $command->stripeSubscriptionId,
+                    'currentStripeSubscriptionId' => $result->currentStripeSubscriptionId,
+                ],
+            ],
             StripeSyncDecision::Applied => [
                 'billing.subscription_synced',
                 AuditOutcome::Success,
                 ['status' => ($result->status ?? throw new \LogicException('an applied sync always carries a status'))->value],
+                LogLevel::INFO,
+                ['stripeSubscriptionId' => $command->stripeSubscriptionId],
             ],
         };
 
         $this->record($operation, $userId, $outcome, $context);
+
+        // Support traces a sync by the Stripe event id, which never reaches the
+        // trail: another system's identifiers have no erasure path there.
+        $this->logger->log($level, $operation, [
+            'stripeCustomerId' => $command->stripeCustomerId,
+            'eventId' => $command->stripeEventId,
+            ...$diagnostics,
+        ]);
 
         if ($result->reenabled) {
             $this->record('billing.account_reenabled', $userId);
@@ -141,7 +173,7 @@ final readonly class SyncStripeSubscriptionHandler
         // A strictly older event is a stale snapshot (an `updated` arriving
         // after `deleted`) and must not overwrite newer state.
         if (null !== $profile->lastStripeEventAt && $command->eventCreatedAt < $profile->lastStripeEventAt) {
-            return new StripeSyncResult(StripeSyncDecision::StaleEventOlder);
+            return new StripeSyncResult(StripeSyncDecision::StaleEventOlder, lastStripeEventAt: $profile->lastStripeEventAt);
         }
 
         // A deletion is terminal until something strictly newer supersedes it,
@@ -191,7 +223,7 @@ final readonly class SyncStripeSubscriptionHandler
                 // wrapInTransaction still flushes on the way out of this return,
                 // with an empty changeset. The controller answers 200, so Stripe
                 // stops retrying an event this handler refuses every time.
-                return new StripeSyncResult(StripeSyncDecision::ConcurrentGrant);
+                return new StripeSyncResult(StripeSyncDecision::ConcurrentGrant, currentStripeSubscriptionId: $concurrent->stripeSubscriptionId);
             }
 
             $subscription = new Subscription($profile, SubscriptionKind::Stripe, $now);

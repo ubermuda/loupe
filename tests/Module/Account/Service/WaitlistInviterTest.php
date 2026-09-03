@@ -12,6 +12,7 @@ use App\Module\Audit\AuditOutcome;
 use App\Module\Audit\NullAuditActorProvider;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
+use App\Tests\Support\RecordingLogger;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -24,6 +25,7 @@ final class WaitlistInviterTest extends TestCase
     private EntityManagerInterface&Stub $em;
     private WaitlistInviter $inviter;
     private RecordingAuditor $audit;
+    private RecordingLogger $logger;
 
     #[\Override]
     protected function setUp(): void
@@ -42,7 +44,8 @@ final class WaitlistInviterTest extends TestCase
         $this->em->method('getConnection')->willReturn($connection);
 
         $this->audit = new RecordingAuditor(new NullAuditActorProvider());
-        $this->inviter = new WaitlistInviter($this->sender, $this->em, $this->audit->auditor);
+        $this->logger = new RecordingLogger();
+        $this->inviter = new WaitlistInviter($this->sender, $this->em, $this->logger, $this->audit->auditor);
     }
 
     public function test_invites_a_fresh_entry(): void
@@ -65,11 +68,25 @@ final class WaitlistInviterTest extends TestCase
         self::assertSame([], $this->audit->securityLogLines());
     }
 
-    public function test_the_inviter_keeps_no_logger_beside_the_auditor(): void
+    /**
+     * The send failure's exception is the one thing the record drops, so the
+     * inviter keeps a logger for it and nothing else.
+     */
+    public function test_only_the_failed_send_is_logged_beside_the_auditor(): void
     {
-        $this->sender->expects($this->never())->method('send');
+        $entry = new WaitlistEntry('a@example.com');
+        $this->sender->expects($this->exactly(2))->method('send')
+            ->willReturnOnConsecutiveCalls(
+                self::throwException(new \RuntimeException('transport down')),
+                null,
+            );
 
-        DirectLogging::assertRemovedFrom(WaitlistInviter::class);
+        self::assertFalse($this->inviter->invite($entry));
+        self::assertTrue($this->inviter->invite($entry));
+
+        DirectLogging::assertDiagnosticsLoggedBeside($this->audit, $this->logger, 'account.waitlist_invite_send_failed', ['error']);
+        DirectLogging::assertOperationNotLoggedBy($this->audit, $this->logger, 'account.waitlist_invited');
+        self::assertSame('transport down', $this->logger->records[0]['context']['error'] ?? null);
     }
 
     /**
@@ -137,7 +154,7 @@ final class WaitlistInviterTest extends TestCase
 
         $retrySender = $this->createMock(WaitlistInviteEmailSender::class);
         $retrySender->expects($this->once())->method('send');
-        $inviter = new WaitlistInviter($retrySender, $this->em, $this->audit->auditor);
+        $inviter = new WaitlistInviter($retrySender, $this->em, $this->logger, $this->audit->auditor);
 
         self::assertTrue($inviter->invite($entry));
     }

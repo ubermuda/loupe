@@ -31,6 +31,7 @@ use App\Module\Billing\Service\TrialProvisioner;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\InstalledInstance;
 use App\Tests\Support\RecordingAuditor;
+use App\Tests\Support\RecordingLogger;
 use Doctrine\DBAL\Driver\PDO\Exception as PdoDriverException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -69,7 +70,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         );
     }
 
-    private function buildHandler(RegistrationGate $gate, EventDispatcherInterface $dispatcher, ?Auditor $auditor = null): ResolveSocialLoginHandler
+    private function buildHandler(RegistrationGate $gate, EventDispatcherInterface $dispatcher, ?Auditor $auditor = null, ?RecordingLogger $logger = null): ResolveSocialLoginHandler
     {
         $joinWaitlist = self::getContainer()->get(JoinWaitlistHandler::class);
         self::assertInstanceOf(JoinWaitlistHandler::class, $joinWaitlist);
@@ -81,6 +82,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             $gate,
             $joinWaitlist,
             $this->waitlistEntries,
+            $logger ?? new RecordingLogger(),
             $dispatcher,
             new DisplayNameDeriver(),
             $auditor ?? new RecordingAuditor(new NullAuditActorProvider())->auditor,
@@ -392,9 +394,32 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
         self::assertSame([], $audit->securityLogLines());
     }
 
-    public function test_the_handler_keeps_no_logger_beside_the_auditor(): void
+    /**
+     * The listener's exception is the one thing the record drops, so the
+     * handler keeps a logger for it and nothing else.
+     */
+    public function test_only_the_listener_failure_is_logged_beside_the_auditor(): void
     {
-        DirectLogging::assertRemovedFrom(ResolveSocialLoginHandler::class);
+        $audit = new RecordingAuditor(new NullAuditActorProvider());
+        $logger = new RecordingLogger();
+        $dispatcher = $this->createMock(EventDispatcherInterface::class);
+        $dispatcher->expects($this->once())->method('dispatch')
+            ->willThrowException(new \RuntimeException('listener exploded'));
+
+        $handler = $this->buildHandler(
+            new RegistrationGate($this->openFlags(), $this->users, new InstallationState($this->users)),
+            $dispatcher,
+            $audit->auditor,
+            $logger,
+        );
+
+        $handler(new ResolveSocialLoginCommand(
+            new SocialProfile(SocialProvider::Github, 'gh-split', 'social-split@example.com', 'Split', emailVerified: true),
+        ));
+
+        DirectLogging::assertDiagnosticsLoggedBeside($audit, $logger, 'account.registration_listener_failed', ['error']);
+        DirectLogging::assertOperationNotLoggedBy($audit, $logger, 'account.registered');
+        self::assertSame('listener exploded', $logger->records[0]['context']['error'] ?? null);
     }
 
     /**
@@ -632,6 +657,7 @@ final class ResolveSocialLoginHandlerTest extends KernelTestCase
             new RegistrationGate($this->openFlags(), $users, new InstallationState($users)),
             $joinWaitlist,
             $waitlistEntries,
+            new RecordingLogger(),
             $this->neverDispatches(),
             new DisplayNameDeriver(),
             new RecordingAuditor(new NullAuditActorProvider())->auditor,
