@@ -203,10 +203,10 @@ final class ResolveCommentHandlerTest extends KernelTestCase
 
     /**
      * A second Resolve moves nothing, so recording it as a success would build
-     * a trail of resolutions that never happened. MarkCommentsAddressedHandler
-     * already calls this same fact a refusal.
+     * a trail of resolutions that never happened. No policy refused it either:
+     * the handler is idempotent and the user saw the click succeed.
      */
-    public function test_resolving_an_already_resolved_comment_is_recorded_as_refused(): void
+    public function test_resolving_an_already_resolved_comment_is_recorded_as_unchanged(): void
     {
         self::bootKernel();
         $audit = RecordingAuditor::installedIn(self::getContainer());
@@ -222,7 +222,7 @@ final class ResolveCommentHandlerTest extends KernelTestCase
         $records = $audit->records('review.comment_resolved');
         self::assertCount(2, $records);
         self::assertSame(AuditOutcome::Success, $records[0]->outcome);
-        self::assertSame(AuditOutcome::Refused, $records[1]->outcome);
+        self::assertSame(AuditOutcome::Unchanged, $records[1]->outcome);
         self::assertSame([
             'commentId' => (string) $comment->id,
             'documentId' => (string) $document->id,

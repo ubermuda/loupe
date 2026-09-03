@@ -122,7 +122,9 @@ final class GrantCompHandlerTest extends KernelTestCase
         self::assertSame((string) $target->id, $record->subject->id);
         self::assertSame(['userId' => (string) $target->id], $record->context);
 
-        self::assertSame(['billing.comp_granted'], $audit->domainLogLines());
+        // The trial comes first, because the comp needs a profile and
+        // ensureProfile() grants one to an account that has none.
+        self::assertSame(['billing.trial_granted', 'billing.comp_granted'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
     }
 
@@ -187,7 +189,7 @@ final class GrantCompHandlerTest extends KernelTestCase
     }
 
     /** An account that was never disabled has nothing to re-enable. */
-    public function test_an_enabled_account_records_only_the_grant(): void
+    public function test_an_enabled_account_records_no_reenable(): void
     {
         self::bootKernel();
         $audit = RecordingAuditor::installedIn(self::getContainer());
@@ -195,7 +197,7 @@ final class GrantCompHandlerTest extends KernelTestCase
 
         $this->handler()(new GrantCompCommand($target, $admin));
 
-        self::assertSame(['billing.comp_granted'], $audit->operations());
+        self::assertSame(['billing.trial_granted', 'billing.comp_granted'], $audit->operations());
     }
 
     public function test_a_refused_second_comp_records_nothing(): void
@@ -229,14 +231,19 @@ final class GrantCompHandlerTest extends KernelTestCase
 
         $this->handler()(new GrantCompCommand($target, $admin));
 
-        self::assertCount(1, $audit->domainChannel->records);
+        $compLines = array_values(array_filter(
+            $audit->domainChannel->records,
+            static fn (array $entry): bool => 'billing.comp_granted' === $entry['message'],
+        ));
+
+        self::assertCount(1, $compLines);
         self::assertSame([
             'userId' => (string) $target->id,
             'outcome' => 'success',
             'channel' => AuditChannel::Session->value,
             'subjectType' => 'user',
             'subjectId' => (string) $target->id,
-        ], $audit->domainChannel->records[0]['context']);
+        ], $compLines[0]['context']);
     }
 
     public function test_the_handler_keeps_no_logger_beside_the_auditor(): void

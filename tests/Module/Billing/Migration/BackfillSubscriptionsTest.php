@@ -10,6 +10,7 @@ use App\Module\Billing\Repository\BillingProfileRepository;
 use App\Module\Billing\Service\PaywallGate;
 use App\Module\Billing\Service\TrialProvisioner;
 use App\Tests\Support\FeatureFlags;
+use App\Tests\Support\SilentAuditor;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\ORM\EntityManagerInterface;
@@ -233,6 +234,7 @@ final class BackfillSubscriptionsTest extends KernelTestCase
                 $container->get(BillingProfileRepository::class),
                 FeatureFlags::service(),
                 $container->get(EntityManagerInterface::class),
+                SilentAuditor::create(),
             ),
         );
     }

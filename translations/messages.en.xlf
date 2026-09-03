@@ -3955,6 +3955,10 @@
                 <source>audit.admin.log.outcome.success</source>
                 <target>Success</target>
             </trans-unit>
+            <trans-unit id="audit.admin.log.outcome.unchanged">
+                <source>audit.admin.log.outcome.unchanged</source>
+                <target>Unchanged</target>
+            </trans-unit>
             <trans-unit id="audit.admin.log.outcome.refused">
                 <source>audit.admin.log.outcome.refused</source>
                 <target>Refused</target>

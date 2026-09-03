@@ -2647,6 +2647,11 @@
     .admin-badge-off {
         @apply bg-tint text-fg-dim;
     }
+    /* No fill: an outcome that moved no state is not a result to read, and a
+       filled badge beside it would compete with one that is. */
+    .admin-badge-quiet {
+        @apply bg-transparent text-fg-faint;
+    }
     .admin-badge-count {
         @apply bg-accent-faint text-accent-ink;
     }

@@ -19,6 +19,7 @@ use App\Module\Billing\Service\StripeGatewayInterface;
 use App\Module\Billing\Service\TrialProvisioner;
 use App\Tests\Support\BillingGrants;
 use App\Tests\Support\FeatureFlags;
+use App\Tests\Support\SilentAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -52,7 +53,7 @@ final class ShowSubscribeHandlerTest extends TestCase
         return new ShowSubscribeHandler(
             $profiles,
             new ActivePriceProvider(FeatureFlags::service($flags), $this->createStub(StripeGatewayInterface::class), new ArrayAdapter(), new NullLogger()),
-            new TrialProvisioner($profiles, FeatureFlags::service($flags), $this->createStub(EntityManagerInterface::class)),
+            new TrialProvisioner($profiles, FeatureFlags::service($flags), $this->createStub(EntityManagerInterface::class), SilentAuditor::create()),
             FeatureFlags::service($flags),
             new RegistrationGate(FeatureFlags::service($flags), $users, new InstallationState($users)),
             $waitlistEntries ?? $this->createStub(WaitlistEntryRepository::class),

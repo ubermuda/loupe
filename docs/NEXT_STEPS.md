@@ -2531,22 +2531,6 @@ Do this before the table carries much history. A rename does not rewrite the
 rows already written, and the admin filter is a prefix `LIKE` on `operation`, so
 the old name and the new name read as two separate operations from that day on.
 
-## `TrialProvisioner::ensureProfile` grants a trial and records nothing
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-`src/Module/Billing/Service/TrialProvisioner.php` creates a `BillingProfile` and
-a trial grant for a user who has none. It writes no audit record. The trail
-therefore shows an account with a paid product and no event that gave it one.
-The comp path beside it is covered, because `GrantCompHandler` records
-`billing.comp_granted`.
-
-Two things to settle when you pick this up. `PaywallGate` calls the method on
-every paywalled request, so the record must be written where the profile is
-created and never on a read that finds one. The creation also runs inside
-`EntityManagerInterface::wrapInTransaction()`, so record after that transaction
-commits, the way `MarkCommentsAddressedHandler` does.
-
 ## A mark-addressed skip reason is best-effort, because the re-read is not under the write's lock
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
@@ -2695,39 +2679,3 @@ transaction-aware wrapper around the DBAL `Connection`.
 
 Rare in practice. An account deletion rolls back only when a purger throws.
 
-## Creating a document writes two records, and the first one says the document was updated
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-`CreateDocumentHandler` calls `SetDocumentTagsHandler`, which records
-`review.document_tags_updated`. The create then records
-`review.document_created`. One creation therefore writes two records, and the
-first says a document was updated before it existed. Both classes are in
-`src/Module/Review/Command/`.
-
-Nobody has decided which record is right. Three answers are open. Let the sub
-handler record, because a caller that sets tags did set tags. Silence the sub
-handler when its caller records the creation, which needs the caller to say so.
-Keep both, and accept that a reader who filters `review.document_tags_updated`
-sees every creation as well.
-
-Decide this before anything consumes the tag record.
-
-## `ResolveCommentHandler` records `Refused` for a click the user saw succeed
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-`src/Module/Review/Command/ResolveCommentHandler.php` records
-`review.comment_resolved` with `AuditOutcome::Refused` when the thread is
-already resolved. Nothing refused the user. The handler is idempotent, the user
-got the state they asked for, and the UI reports success. A reader who counts
-refusals counts these too.
-
-The handler states its reason. `MarkCommentsAddressedHandler` reports the same
-fact as a refusal, and so does
-`src/Module/SiteReview/Command/MarkSiteReviewCommentsAddressedHandler.php`. The
-three agree with each other, and they may all be wrong. The open question is
-what `Refused` means. One reading is that a policy said no. The other is that no
-state moved. All three handlers use the second reading today.
-
-Settle the meaning once, and apply the answer to all three handlers.

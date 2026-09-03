@@ -11,6 +11,8 @@ use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
+use App\Module\Review\Command\SetDocumentTagsCommand;
+use App\Module\Review\Command\SetDocumentTagsHandler;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Service\DocumentSearchIndexer;
@@ -203,12 +205,9 @@ final class CreateDocumentHandlerTest extends KernelTestCase
             'referenceCount' => 0,
         ], $record->context);
 
-        // Two records, because the tag set is written by its own handler, which
-        // records the write it performs.
-        self::assertSame(
-            ['review.document_tags_updated', 'review.document_created'],
-            $audit->domainLogLines(),
-        );
+        // One record, because the tags are applied by a service that records
+        // nothing: a creation is one operation however many parts it has.
+        self::assertSame(['review.document_created'], $audit->domainLogLines());
         self::assertSame([], $audit->securityLogLines());
     }
 
@@ -302,9 +301,8 @@ final class CreateDocumentHandlerTest extends KernelTestCase
     }
 
     /**
-     * The document is committed by the time the indexer runs, so a trail that
-     * held the nested tags-update and no creation would describe a document
-     * that appeared from nowhere.
+     * The document is committed by the time the indexer runs, so a trail with
+     * no creation record would describe a document that appeared from nowhere.
      */
     public function test_a_throwing_indexer_still_leaves_a_creation_record(): void
     {
@@ -341,9 +339,41 @@ final class CreateDocumentHandlerTest extends KernelTestCase
 
         $record = $audit->record('review.document_created');
         self::assertSame(AuditOutcome::Success, $record->outcome);
-        self::assertSame(
-            ['review.document_tags_updated', 'review.document_created'],
-            $audit->domainLogLines(),
-        );
+        self::assertSame(['review.document_created'], $audit->domainLogLines());
+    }
+
+    /**
+     * A creation is one operation, however many parts it has. Setting the same
+     * tags through their own entry point is a second operation, and it keeps
+     * its own record.
+     */
+    public function test_a_creation_writes_one_record_and_a_later_tag_set_writes_its_own(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $user = new User(fullName: 'Agent', email: 'create-audit-once@example.com', password: 'hashed-placeholder');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        $audit = RecordingAuditor::installedIn(self::getContainer());
+        $create = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $create);
+
+        $document = $create(new CreateDocumentCommand($project, 'Auth PRD', '# Auth', tagNames: ['design', 'security']));
+
+        self::assertSame(['review.document_created'], $audit->operations());
+        self::assertSame(2, $audit->record('review.document_created')->context['tagCount']);
+
+        $audit->forget();
+        $setTags = self::getContainer()->get(SetDocumentTagsHandler::class);
+        self::assertInstanceOf(SetDocumentTagsHandler::class, $setTags);
+
+        $setTags(new SetDocumentTagsCommand($document, ['design', 'security', 'billing']));
+
+        self::assertSame(['review.document_tags_updated'], $audit->operations());
+        self::assertSame(3, $audit->record('review.document_tags_updated')->context['tagCount']);
     }
 }

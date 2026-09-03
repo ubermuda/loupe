@@ -67,7 +67,18 @@ final readonly class MarkCommentsAddressedHandler
         foreach ($decided as [$comment, $outcome]) {
             $this->auditor->record(
                 'review.comment_addressed',
-                MarkCommentAddressedOutcome::Addressed === $outcome ? AuditOutcome::Success : AuditOutcome::Refused,
+                // No default arm: a per-comment outcome added later must be an
+                // unhandled match here rather than take a neighbour's meaning.
+                match ($outcome) {
+                    MarkCommentAddressedOutcome::Addressed => AuditOutcome::Success,
+                    MarkCommentAddressedOutcome::AlreadyAddressed,
+                    MarkCommentAddressedOutcome::AlreadyResolved => AuditOutcome::Unchanged,
+                    MarkCommentAddressedOutcome::Superseded,
+                    MarkCommentAddressedOutcome::IsReply => AuditOutcome::Refused,
+                    // The row was gone by the time the write ran, so the
+                    // operation neither moved a state nor met a policy.
+                    MarkCommentAddressedOutcome::NotFound => AuditOutcome::Failed,
+                },
                 [
                     'commentId' => (string) $comment->id,
                     'documentId' => (string) $comment->version->document->id,

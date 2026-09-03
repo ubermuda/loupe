@@ -81,6 +81,8 @@
                             <span class="admin-badge admin-badge-on">{{ ('audit.admin.log.outcome.' ~ row.outcome.value)|trans }}</span>
                         {% elseif row.outcome.value == 'failed' %}
                             <span class="admin-badge admin-badge-danger">{{ ('audit.admin.log.outcome.' ~ row.outcome.value)|trans }}</span>
+                        {% elseif row.outcome.value == 'unchanged' %}
+                            <span class="admin-badge admin-badge-quiet">{{ ('audit.admin.log.outcome.' ~ row.outcome.value)|trans }}</span>
                         {% else %}
                             <span class="admin-badge admin-badge-off">{{ ('audit.admin.log.outcome.' ~ row.outcome.value)|trans }}</span>
                         {% endif %}

@@ -12,6 +12,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Service\DocumentReferenceValidator;
 use App\Module\Review\Service\DocumentSearchIndexer;
+use App\Module\Review\Service\DocumentTagApplier;
 use App\Module\Review\Service\MarkdownRenderer;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -20,7 +21,7 @@ final readonly class CreateDocumentHandler
     public function __construct(
         private EntityManagerInterface $em,
         private MarkdownRenderer $renderer,
-        private SetDocumentTagsHandler $setTags,
+        private DocumentTagApplier $tagApplier,
         private DocumentReferenceValidator $referenceValidator,
         private DocumentSearchIndexer $searchIndexer,
         private Auditor $auditor,
@@ -56,10 +57,11 @@ final readonly class CreateDocumentHandler
             $document->addReference($reference);
         }
 
-        // SetDocumentTagsHandler owns the only flush, so the document, its tags
-        // and its references are written together or not at all.
+        // One flush, so the document, its tags and its references are written
+        // together or not at all.
         $this->em->persist($document);
-        ($this->setTags)(new SetDocumentTagsCommand($document, $command->tagNames));
+        $this->tagApplier->apply($document, $command->tagNames);
+        $this->em->flush();
 
         // Between the flush and the index. Before the flush the document has no
         // committed id, and after the index a throwing indexer would leave the
@@ -78,8 +80,8 @@ final readonly class CreateDocumentHandler
             new AuditSubject('document', (string) $document->id),
         );
 
-        // After setTags, because that is the flush: the indexer reads the rows
-        // back over SQL, so it sees nothing until they exist.
+        // After the flush, because the indexer reads the rows back over SQL and
+        // sees nothing until they exist.
         $this->searchIndexer->index($document);
 
         return $document;

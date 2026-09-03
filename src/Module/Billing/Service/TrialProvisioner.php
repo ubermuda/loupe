@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Billing\Service;
 
 use App\Module\Account\Entity\User;
+use App\Module\Audit\Auditor;
+use App\Module\Audit\AuditOutcome;
+use App\Module\Audit\AuditSubject;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\Subscription;
 use App\Module\Billing\Entity\SubscriptionKind;
@@ -26,6 +29,7 @@ final readonly class TrialProvisioner
         private BillingProfileRepository $billingProfiles,
         private FeatureFlagService $featureFlags,
         private EntityManagerInterface $em,
+        private Auditor $auditor,
     ) {
     }
 
@@ -40,7 +44,8 @@ final readonly class TrialProvisioner
         // user serves instead and the loser re-reads the winner's row. Recovering
         // from the unique-index collision is not an option: a failed flush()
         // closes the entity manager, leaving nothing able to re-read.
-        return $this->em->wrapInTransaction(function () use ($user): BillingProfile {
+        /** @var array{BillingProfile, ?int} $result the trial length, null when the profile was already there */
+        $result = $this->em->wrapInTransaction(function () use ($user): array {
             $this->em->getConnection()->executeStatement(
                 'SELECT pg_advisory_xact_lock(hashtext(?))',
                 ['billing_profile_'.(string) $user->id],
@@ -48,7 +53,7 @@ final readonly class TrialProvisioner
 
             $profile = $this->billingProfiles->findOneByUser($user);
             if (null !== $profile) {
-                return $profile;
+                return [$profile, null];
             }
 
             $days = max(1, $this->featureFlags->getIntValue('billing.trial_days', self::DEFAULT_TRIAL_DAYS));
@@ -64,7 +69,27 @@ final readonly class TrialProvisioner
             ));
             $this->em->flush();
 
-            return $profile;
+            return [$profile, $days];
         });
+
+        [$profile, $trialDays] = $result;
+
+        // Only where the grant happened, and after the transaction commits. The
+        // paywall gate calls this on every paywalled request, so recording the
+        // read that finds an existing profile would bury the one grant that
+        // matters under a record per request.
+        if (null !== $trialDays) {
+            $this->auditor->record(
+                'billing.trial_granted',
+                AuditOutcome::Success,
+                [
+                    'userId' => (string) $user->id,
+                    'trialDays' => $trialDays,
+                ],
+                new AuditSubject('user', (string) $user->id),
+            );
+        }
+
+        return $profile;
     }
 }

@@ -28,6 +28,7 @@ use App\Tests\Support\DirectLogging;
 use App\Tests\Support\FeatureFlags;
 use App\Tests\Support\RecordingAuditor;
 use App\Tests\Support\RecordingLogger;
+use App\Tests\Support\SilentAuditor;
 use App\Tests\Support\TransactionalEntityManagerStub;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
@@ -82,7 +83,7 @@ final class StartCheckoutHandlerTest extends TestCase
         $users->method('countActive')->willReturn(1);
 
         return new StartCheckoutHandler(
-            new TrialProvisioner($profiles, FeatureFlags::service($flags), $this->createStub(EntityManagerInterface::class)),
+            new TrialProvisioner($profiles, FeatureFlags::service($flags), $this->createStub(EntityManagerInterface::class), SilentAuditor::create()),
             new ActivePriceProvider(FeatureFlags::service($flags), $priceStripe, new ArrayAdapter(), new NullLogger()),
             $stripe,
             FeatureFlags::service($flags),

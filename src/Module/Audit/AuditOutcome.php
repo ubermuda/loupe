@@ -5,7 +5,13 @@ declare(strict_types=1);
 namespace App\Module\Audit;
 
 /**
- * Whether the operation happened, a policy said no, or it broke.
+ * Whether the operation happened, moved nothing, was denied, or broke.
+ *
+ * `Unchanged` covers an operation that was accepted and moved no state: the
+ * actor asked for a state the resource already held, and the handler is
+ * idempotent. `Refused` stays for a policy that said no. Keeping the two apart
+ * is what lets a reader count real denials, because an idempotent repeat is not
+ * one and the actor saw the operation succeed.
  *
  * `Failed` was added for an operation an actor asked for that then broke: a
  * mail transport that rejected the message, an external call that timed out.
@@ -22,6 +28,7 @@ namespace App\Module\Audit;
 enum AuditOutcome: string
 {
     case Success = 'success';
+    case Unchanged = 'unchanged';
     case Refused = 'refused';
     case Failed = 'failed';
 }

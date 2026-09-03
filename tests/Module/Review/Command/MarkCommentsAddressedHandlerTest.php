@@ -178,7 +178,7 @@ final class MarkCommentsAddressedHandlerTest extends KernelTestCase
         $records = $this->audit->records('review.comment_addressed');
         self::assertCount(4, $records);
         self::assertSame(
-            [AuditOutcome::Success, AuditOutcome::Refused, AuditOutcome::Refused, AuditOutcome::Refused],
+            [AuditOutcome::Success, AuditOutcome::Unchanged, AuditOutcome::Refused, AuditOutcome::Unchanged],
             array_map(static fn (AuditEvent $event): AuditOutcome => $event->outcome, $records),
         );
         self::assertSame(

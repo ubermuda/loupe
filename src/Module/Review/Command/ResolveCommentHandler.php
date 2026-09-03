@@ -38,10 +38,9 @@ final readonly class ResolveCommentHandler
 
         $this->auditor->record(
             'review.comment_resolved',
-            // Refused when the thread was already resolved: no status moved,
-            // and MarkCommentsAddressedHandler already reports that same fact
-            // as a refusal rather than a success.
-            $alreadyResolved ? AuditOutcome::Refused : AuditOutcome::Success,
+            // Unchanged when the thread was already resolved: no policy refused
+            // the actor, and the UI reports the click as a success.
+            $alreadyResolved ? AuditOutcome::Unchanged : AuditOutcome::Success,
             [
                 'commentId' => (string) $command->comment->id,
                 'documentId' => (string) $command->comment->version->document->id,
