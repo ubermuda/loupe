@@ -2550,6 +2550,42 @@ Do this before the table carries much history. A rename does not rewrite the
 rows already written, and the admin filter is a prefix `LIKE` on `operation`, so
 the old name and the new name read as two separate operations from that day on.
 
+## A document cannot be marked as implemented, so the work it specifies has to be re-verified
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+An agent can create, revise, rename and archive a document. Nothing records that
+the work a document specifies is now built. The two signals that exist do not
+carry that meaning. `DocumentStatus` holds `in-review`, `approved` and
+`changes-requested`, which state review agreement rather than delivery.
+`Document::$archivedAt` hides the document, which is not the same as shipping it.
+
+The cost shows up on every re-read. On 2026-09-03 a session was asked whether two
+decisions documents had been implemented. It had to grep the tree for each
+decision, one by one, because the documents themselves said nothing. Both were
+fully implemented.
+
+Three shapes to choose between:
+
+1. A fourth `DocumentStatus` case. Cheapest, but it conflates delivery with
+   review agreement, and a document can be implemented without ever being
+   approved.
+2. A separate nullable `implementedAt`, orthogonal to status the way
+   `archivedAt` already is. An approved document can also be implemented, so
+   the orthogonality argument in `Document::$archivedAt`'s docblock applies here
+   too.
+3. Per decision rather than per document. A decisions document holds many
+   decision blocks, and they land in separate branches at separate times.
+
+An agent does the implementing, so whichever shape wins needs an MCP tool beside
+it. Note the precedent: the archive tools were withheld from the MCP surface on
+2026-08-02, on the reasoning that an agent able to archive can take a document
+out of the human's view. A marker that only claims completion carries less risk,
+because it hides nothing.
+
+Relevant code is `src/Module/Review/Entity/DocumentStatus.php`,
+`src/Module/Review/Entity/Document.php` and `src/Module/Review/Mcp/`.
+
 ## A mark-addressed skip reason is best-effort, because the re-read is not under the write's lock
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
