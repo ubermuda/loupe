@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 use Arkitect\ClassSet;
 use Arkitect\CLI\Config;
-use Arkitect\Expression\ForClasses\DependsOnlyOnTheseNamespaces;
 use Arkitect\Expression\ForClasses\NotDependsOnTheseNamespaces;
 use Arkitect\Expression\ForClasses\NotResideInTheseNamespaces;
-use Arkitect\Expression\ForClasses\ResideInOneOfTheseNamespaces;
 use Arkitect\Rules\Rule;
 
 /*
@@ -35,34 +33,5 @@ return static function (Config $config): void {
             ->that(new NotResideInTheseNamespaces('App\Module\Billing'))
             ->should(new NotDependsOnTheseNamespaces(['App\Module\Billing']))
             ->because('Billing is a leaf: the paywall reaches out through its own listener, never the other way round'),
-    );
-
-    $config->add($src,
-        Rule::allClasses()
-            ->that(new ResideInOneOfTheseNamespaces('App\Module\Audit'))
-            ->should(new DependsOnlyOnTheseNamespaces([
-                'App\Module\Audit',
-                'Psr\Clock',
-                'Psr\Log',
-                // A package may depend on Doctrine; it may not depend on Loupe.
-                // The line is the ORM's write side: no class here names an
-                // EntityManager or a unit of work, and the sink writes through
-                // the DBAL. Mapping and hydration modes are read-side, so they
-                // are allowed. The rule matches imports, so it cannot see what
-                // a base class reaches transitively.
-                'Doctrine\Bundle\DoctrineBundle\Repository',
-                'Doctrine\DBAL',
-                'Doctrine\ORM\AbstractQuery',
-                'Doctrine\ORM\Mapping',
-                'Doctrine\Persistence',
-                'Symfony\Bridge\Doctrine\Types',
-                // The purge command is part of the package: a standalone audit
-                // package still owes its operator a manual seam.
-                'Symfony\Component\Console',
-                'Symfony\Component\DependencyInjection\Attribute',
-                'Symfony\Component\Uid',
-                'Symfony\Contracts\Service',
-            ]))
-            ->because('Audit is destined for a standalone package: it must depend on nothing in this application'),
     );
 };

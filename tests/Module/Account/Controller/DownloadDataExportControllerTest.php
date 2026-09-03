@@ -8,8 +8,6 @@ use App\Module\Account\Controller\DownloadDataExportController;
 use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Export\DataExportArchiveBuilder;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
 use App\Tests\Support\AcceptedTerms;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
@@ -17,6 +15,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemOperator;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
 
 final class DownloadDataExportControllerTest extends WebTestCase
 {

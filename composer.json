@@ -10,6 +10,10 @@
         },
         {
             "type": "vcs",
+            "url": "https://github.com/ubermuda/audit-bundle"
+        },
+        {
+            "type": "vcs",
             "url": "https://github.com/ubermuda/feature-flags-bundle"
         },
         {
@@ -96,6 +100,7 @@
         "twig/intl-extra": "^3.26",
         "twig/twig": "^2.12|^3.28",
         "ubermuda/admin-bundle": "dev-main#e1acfd023cc9f5330bb43d3ecc025c069ae4b2d7",
+        "ubermuda/audit-bundle": "dev-feat/extract-audit-bundle#cc413afdd554eca5ea097b5bae3df6a03f5e12da as dev-main",
         "ubermuda/doctrine-extra": "dev-main#ec867f3bf1ed362c201abbe152ac27447ec37526",
         "ubermuda/feature-flags-bundle": "dev-main#d8934784a9545dc5ec648c68deb0b2d58757764f",
         "ubermuda/health-check-bundle": "dev-main#dacf874c2aeaf2f48ef7b0c3d1a22f7aad0f4352",

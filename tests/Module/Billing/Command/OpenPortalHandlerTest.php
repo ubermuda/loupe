@@ -7,9 +7,6 @@ namespace App\Tests\Module\Billing\Command;
 use App\Audit\AuditChannel;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\NullAuditActorProvider;
 use App\Module\Billing\Command\OpenPortalCommand;
 use App\Module\Billing\Command\OpenPortalHandler;
 use App\Module\Billing\Entity\BillingProfile;
@@ -22,6 +19,9 @@ use App\Tests\Support\RecordingAuditor;
 use App\Tests\Support\RecordingLogger;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Uid\Uuid;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\NullAuditActorProvider;
 
 final class OpenPortalHandlerTest extends TestCase
 {

@@ -7,10 +7,10 @@ namespace App\Module\Account\Command\Admin;
 use App\Exception\DomainErrors;
 use App\Module\Account\Admin\AdminUserGuard;
 use App\Module\Account\Entity\User;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\AuditSubject;
 use Doctrine\ORM\EntityManagerInterface;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 
 final readonly class SuspendUserHandler
 {

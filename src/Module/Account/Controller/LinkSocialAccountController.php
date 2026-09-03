@@ -14,9 +14,6 @@ use App\Module\Account\Security\SocialAuthenticator;
 use App\Module\Account\Service\PendingSocialLink;
 use App\Module\Account\Service\SocialLoginRace;
 use App\Module\Account\Service\StaleSocialLink;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\AuditSubject;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Request;
@@ -25,6 +22,9 @@ use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\RememberMeBadge;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 /**

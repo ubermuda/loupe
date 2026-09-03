@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Command;
 
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
@@ -18,6 +15,9 @@ use App\Module\Review\Service\RenderedDiffBuilder;
 use App\Module\Review\ValueObject\DiffRefusal;
 use App\Module\Review\ValueObject\DiffView;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 
 final readonly class DiffDocumentVersionsHandler
 {

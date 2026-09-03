@@ -10,8 +10,6 @@ use App\Module\Account\Entity\User;
 use App\Module\Account\EventListener\MarkExportFailedOnFinalFailure;
 use App\Module\Account\Messenger\GenerateDataExportMessage;
 use App\Module\Account\Repository\DataExportRepository;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\NullAuditActorProvider;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
@@ -24,6 +22,8 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Event\WorkerMessageFailedEvent;
 use Symfony\Component\Uid\Uuid;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\NullAuditActorProvider;
 
 final class MarkExportFailedOnFinalFailureTest extends TestCase
 {

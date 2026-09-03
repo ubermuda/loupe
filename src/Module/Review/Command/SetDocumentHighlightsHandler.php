@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Command;
 
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\AuditSubject;
 use App\Module\Review\Entity\Highlight;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Service\AnchorService;
 use Doctrine\ORM\EntityManagerInterface;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 
 /**
  * @phpstan-type HighlightSummary array{highlighted: list<string>, skipped: list<array{quote: string, reason: string}>}

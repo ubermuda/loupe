@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Audit;
 
 use App\Audit\FeatureFlagAuditRetentionPolicy;
-use App\Audit\Scheduler\PurgeAuditLogTask;
-use App\Module\Audit\AuditRetentionPolicyInterface;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -14,6 +12,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Uid\Uuid;
+use Ubermuda\AuditBundle\AuditRetentionPolicyInterface;
+use Ubermuda\AuditBundle\Scheduler\PurgeAuditLogTask;
 use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
 use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 

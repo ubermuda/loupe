@@ -14,8 +14,6 @@ use App\Module\Account\Form\RegistrationFormType;
 use App\Module\Account\Form\RegistrationRequest;
 use App\Module\Account\Service\EmailRateLimitKey;
 use App\Module\Account\Service\RegistrationGate;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
@@ -23,6 +21,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
 
 #[Route('/register', name: 'app_register')]
 class RegisterController extends AppController

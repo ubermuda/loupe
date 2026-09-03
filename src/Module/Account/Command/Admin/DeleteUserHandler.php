@@ -7,9 +7,9 @@ namespace App\Module\Account\Command\Admin;
 use App\Exception\DomainErrors;
 use App\Module\Account\Admin\AdminUserGuard;
 use App\Module\Account\Deletion\AccountPurger;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\AuditSubject;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 
 final readonly class DeleteUserHandler
 {

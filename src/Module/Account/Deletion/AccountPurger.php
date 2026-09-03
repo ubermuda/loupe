@@ -6,9 +6,6 @@ namespace App\Module\Account\Deletion;
 
 use App\Audit\AuditContext;
 use App\Module\Account\Entity\User;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\AuditSubject;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Flysystem\FilesystemException;
 use League\Flysystem\FilesystemOperator;
@@ -16,6 +13,9 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 
 /**
  * Hard-deletes a user and every row they own inside one transaction, for every

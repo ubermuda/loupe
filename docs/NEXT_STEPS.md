@@ -2698,3 +2698,21 @@ transaction-aware wrapper around the DBAL `Connection`.
 
 Rare in practice. An account deletion rolls back only when a purger throws.
 
+
+## No ubermuda bundle runs gamache on its own code
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`admin-bundle`, `audit-bundle`, `feature-flags-bundle` and `health-check-bundle`
+each ship a `phpstan.neon` with level 8 and no gamache extension. The convention
+checks, the gamache PHPStan rules, the Rector rules and the two fixer layers
+therefore run on this application's code and on none of the code it vendors.
+
+The gap showed up when the audit bundle was extracted on 2026-09-03. Its files
+passed every gamache layer while they lived in `src/`, and nothing keeps them
+passing now.
+
+The work is one change repeated four times: include `extension.neon` from
+`ubermuda/gamache` in each bundle's `phpstan.neon`, add the package to
+`require-dev`, and fix whatever the first run reports. Do all four together, so
+the four repositories do not drift into four different standards.

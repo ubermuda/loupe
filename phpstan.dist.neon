@@ -27,7 +27,7 @@ parameters:
         templateNamespaces:
             forbiddenPathPrefix: 'Module/'
         auditOperations:
-            auditorClass: 'App\Module\Audit\Auditor'
+            auditorClass: 'Ubermuda\AuditBundle\Auditor'
         translationCallSites:
             - { class: App\Controller\AppController, method: addFlash, argumentIndex: 1 }
             - { class: Symfony\Component\Mime\Email, method: subject, argumentIndex: 0 }

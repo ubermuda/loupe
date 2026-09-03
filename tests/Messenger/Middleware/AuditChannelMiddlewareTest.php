@@ -12,9 +12,6 @@ use App\Messenger\Stamp\AuditChannelStamp;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\ApiTokenRepository;
 use App\Module\Account\Security\AuthenticatedApiTokenResolver;
-use App\Module\Audit\AuditEvent;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
 use App\Tests\Support\FakeAuditSink;
 use PHPUnit\Framework\TestCase;
 use Psr\Clock\ClockInterface;
@@ -26,6 +23,9 @@ use Symfony\Component\Messenger\Stamp\ConsumedByWorkerStamp;
 use Symfony\Component\Messenger\Stamp\ReceivedStamp;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+use Ubermuda\AuditBundle\AuditEvent;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
 
 final class AuditChannelMiddlewareTest extends TestCase
 {

@@ -6,11 +6,6 @@ namespace App\Tests\Module\Billing\Controller;
 
 use App\Audit\AuditChannel;
 use App\Audit\AuditContext;
-use App\Module\Audit\AuditActorProviderInterface;
-use App\Module\Audit\AuditEvent;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\NullAuditActorProvider;
 use App\Module\Billing\Command\SyncStripeSubscriptionHandler;
 use App\Module\Billing\Controller\StripeWebhookController;
 use App\Module\Billing\Entity\BillingStatus;
@@ -27,6 +22,11 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Ubermuda\AuditBundle\AuditActorProviderInterface;
+use Ubermuda\AuditBundle\AuditEvent;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\NullAuditActorProvider;
 
 /**
  * Payloads are signed exactly the way Stripe signs them, so the real

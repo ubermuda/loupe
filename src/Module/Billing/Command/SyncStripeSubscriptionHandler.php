@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace App\Module\Billing\Command;
 
 use App\Module\Account\Repository\WaitlistEntryRepository;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\AuditSubject;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Entity\BillingStatus;
 use App\Module\Billing\Entity\Subscription;
@@ -20,6 +17,9 @@ use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 
 final readonly class SyncStripeSubscriptionHandler
 {

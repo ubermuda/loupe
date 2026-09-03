@@ -3,13 +3,13 @@
 namespace App\Module\Account\Entity;
 
 use App\Module\Account\Repository\UserRepository;
-use App\Module\Audit\AuditActorInterface;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Uid\Uuid;
 use Ubermuda\AdminBundle\Security\AdminPromotableUser;
+use Ubermuda\AuditBundle\AuditActorInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: 'users')]

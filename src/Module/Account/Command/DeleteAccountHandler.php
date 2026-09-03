@@ -8,9 +8,9 @@ use App\Exception\DomainErrors;
 use App\Module\Account\Deletion\AccountPurger;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\AuditSubject;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 
 /**
  * Validates the emailed deletion token, then hands the user to AccountPurger,

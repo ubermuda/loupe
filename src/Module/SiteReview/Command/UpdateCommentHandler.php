@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Command;
 
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\AuditSubject;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 
 final readonly class UpdateCommentHandler
 {

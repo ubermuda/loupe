@@ -7,9 +7,6 @@ namespace App\Module\Billing\Command;
 use App\Exception\DomainErrors;
 use App\Module\Account\Repository\WaitlistEntryRepository;
 use App\Module\Account\Service\RegistrationGate;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\AuditSubject;
 use App\Module\Billing\Entity\BillingProfile;
 use App\Module\Billing\Service\ActivePriceProvider;
 use App\Module\Billing\Service\StripeGatewayInterface;
@@ -17,6 +14,9 @@ use App\Module\Billing\Service\TrialProvisioner;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 final readonly class StartCheckoutHandler

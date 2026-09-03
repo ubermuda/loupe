@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Support;
 
-use App\Module\Audit\AuditEvent;
-use App\Module\Audit\AuditSinkInterface;
+use Ubermuda\AuditBundle\AuditEvent;
+use Ubermuda\AuditBundle\AuditSinkInterface;
 
 /**
  * Collects the events the Auditor hands it, so a call-site test can assert what

@@ -8,12 +8,12 @@ use App\Module\Account\Command\RequestAccountDeletionCommand;
 use App\Module\Account\Command\RequestAccountDeletionHandler;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Service\AccountDeletionEmailSender;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\NullAuditActorProvider;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use PHPUnit\Framework\TestCase;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\NullAuditActorProvider;
 
 final class RequestAccountDeletionHandlerTest extends TestCase
 {

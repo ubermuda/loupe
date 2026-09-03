@@ -7,9 +7,6 @@ namespace App\Tests\Module\Account\Service;
 use App\Module\Account\Entity\WaitlistEntry;
 use App\Module\Account\Service\WaitlistInviteEmailSender;
 use App\Module\Account\Service\WaitlistInviter;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\NullAuditActorProvider;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use App\Tests\Support\RecordingLogger;
@@ -18,6 +15,9 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\NullAuditActorProvider;
 
 final class WaitlistInviterTest extends TestCase
 {

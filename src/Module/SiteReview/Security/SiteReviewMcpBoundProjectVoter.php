@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Security;
 
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\AuditSubject;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Vote;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 
 /**
  * Grants an MCP caller a site review, or one of its comments, only when it

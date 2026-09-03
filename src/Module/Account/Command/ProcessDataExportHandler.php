@@ -9,12 +9,12 @@ use App\Module\Account\Export\DataExportArchiveBuilder;
 use App\Module\Account\Repository\DataExportRepository;
 use App\Module\Account\Service\DataExportEmailSender;
 use App\Module\Account\Service\ExpiredExportPurger;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\AuditSubject;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 
 final readonly class ProcessDataExportHandler
 {

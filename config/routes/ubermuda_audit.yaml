@@ -1,0 +1,2 @@
+ubermuda_audit:
+    resource: '@UbermudaAuditBundle/config/routes.php'

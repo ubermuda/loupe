@@ -11,12 +11,12 @@ use App\Module\Account\Command\CreateInstallAdminHandler;
 use App\Module\Account\Form\InstallAdminFormType;
 use App\Module\Account\Form\InstallAdminRequest;
 use App\Module\Account\Service\InstallAccessGuard;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\AuditSubject;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 
 #[Route(
     '/install/admin',

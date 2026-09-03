@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace App\Module\Billing\Command\Admin;
 
 use App\Exception\DomainErrors;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\AuditSubject;
 use App\Module\Billing\Entity\Subscription;
 use App\Module\Billing\Entity\SubscriptionKind;
 use App\Module\Billing\Service\TrialProvisioner;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 
 final readonly class GrantCompHandler
 {

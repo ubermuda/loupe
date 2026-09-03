@@ -6,8 +6,8 @@ namespace App\Audit;
 
 use App\Module\Account\Entity\User;
 use App\Module\Account\Export\UserDataExporterInterface;
-use App\Module\Audit\AuditSubject;
-use App\Module\Audit\Repository\AuditLogRepository;
+use Ubermuda\AuditBundle\AuditSubject;
+use Ubermuda\AuditBundle\Repository\AuditLogRepository;
 
 /**
  * Exports what the account did and what was done to it: the rows it is the

@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Controller;
 
 use App\Module\Account\Entity\User;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Controller\UndoVerdictController;
 use App\Module\Review\Entity\Document;
@@ -17,6 +15,8 @@ use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
 
 final class UndoVerdictControllerTest extends WebTestCase
 {

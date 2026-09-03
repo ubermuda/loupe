@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Module\Billing\Messenger;
 
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\AuditSubject;
 use App\Module\Billing\Service\StripeGatewayInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 
 /**
  * Cancels the Stripe subscription for a deleted account. Deliberately does

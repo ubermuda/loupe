@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace App\Tests\Support;
 
 use App\Audit\LoupeAuditLoggerRegistry;
-use App\Module\Audit\AuditActorProviderInterface;
-use App\Module\Audit\AuditEvent;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\MonologAuditSink;
 use PHPUnit\Framework\Assert;
 use Psr\Log\NullLogger;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Ubermuda\AuditBundle\AuditActorProviderInterface;
+use Ubermuda\AuditBundle\AuditEvent;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\MonologAuditSink;
 
 /**
  * An Auditor that keeps both what it recorded and the log line the Monolog sink

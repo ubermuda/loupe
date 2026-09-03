@@ -6,9 +6,6 @@ namespace App\Tests\Module\Project\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
-use App\Module\Audit\AuditActorProviderInterface;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
 use App\Module\Project\Command\UpdateProjectCommand;
 use App\Module\Project\Command\UpdateProjectHandler;
 use App\Module\Project\Entity\Project;
@@ -17,6 +14,9 @@ use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Ubermuda\AuditBundle\AuditActorProviderInterface;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
 
 final class UpdateProjectHandlerTest extends KernelTestCase
 {

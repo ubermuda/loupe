@@ -47,8 +47,8 @@ doctrine:
         # metadata for an unresolved interface, so an audit_log association only
         # maps once these are declared.
         resolve_target_entities:
-            App\Module\Audit\AuditActorInterface: App\Module\Account\Entity\User
-            App\Module\Audit\AuditCredentialInterface: App\Module\Account\Entity\ApiToken
+            Ubermuda\AuditBundle\AuditActorInterface: App\Module\Account\Entity\User
+            Ubermuda\AuditBundle\AuditCredentialInterface: App\Module\Account\Entity\ApiToken
         mappings:
             App:
                 type: attribute

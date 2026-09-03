@@ -7,16 +7,16 @@ namespace App\Tests\Audit;
 use App\Audit\AuditContext;
 use App\Module\Account\Deletion\AccountPurger;
 use App\Module\Account\Entity\User;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\AuditSubject;
-use App\Module\Audit\Entity\AuditLog;
-use App\Module\Audit\Repository\AuditLogRepository;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
+use Ubermuda\AuditBundle\Entity\AuditLog;
+use Ubermuda\AuditBundle\Repository\AuditLogRepository;
 
 final class AuditTrailPersistenceTest extends KernelTestCase
 {

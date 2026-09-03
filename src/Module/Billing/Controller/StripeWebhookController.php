@@ -7,8 +7,6 @@ namespace App\Module\Billing\Controller;
 use App\Audit\AuditChannel;
 use App\Audit\AuditContext;
 use App\Controller\AppController;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
 use App\Module\Billing\Command\SyncStripeSubscriptionCommand;
 use App\Module\Billing\Command\SyncStripeSubscriptionHandler;
 use App\Module\Billing\Entity\BillingProfile;
@@ -22,6 +20,8 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
 
 /**
  * Deliberately not under /api: the api firewall lets any scoped token through on

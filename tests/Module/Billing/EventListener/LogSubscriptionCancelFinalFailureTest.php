@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Billing\EventListener;
 
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\NullAuditActorProvider;
 use App\Module\Billing\EventListener\LogSubscriptionCancelFinalFailure;
 use App\Module\Billing\Messenger\CancelSubscriptionMessage;
 use App\Tests\Support\DirectLogging;
@@ -14,6 +12,8 @@ use App\Tests\Support\RecordingLogger;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\Event\WorkerMessageFailedEvent;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\NullAuditActorProvider;
 
 final class LogSubscriptionCancelFinalFailureTest extends TestCase
 {

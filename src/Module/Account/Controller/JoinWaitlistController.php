@@ -10,8 +10,6 @@ use App\Module\Account\Command\JoinWaitlistHandler;
 use App\Module\Account\Form\WaitlistJoinFormType;
 use App\Module\Account\Form\WaitlistJoinRequest;
 use App\Module\Account\Service\RegistrationGate;
-use App\Module\Audit\Auditor;
-use App\Module\Audit\AuditOutcome;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
@@ -19,6 +17,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
 
 #[Route(
     '/waitlist',

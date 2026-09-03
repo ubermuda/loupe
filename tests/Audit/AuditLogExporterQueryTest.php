@@ -6,10 +6,10 @@ namespace App\Tests\Audit;
 
 use App\Audit\AuditLogExporter;
 use App\Module\Account\Entity\User;
-use App\Module\Audit\AuditOutcome;
-use App\Module\Audit\Entity\AuditLog;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\Entity\AuditLog;
 
 /**
  * The actor/subject reach against real rows. The unit test stubs the
