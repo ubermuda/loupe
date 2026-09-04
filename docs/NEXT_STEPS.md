@@ -2112,39 +2112,6 @@ every committed file, so documentation that merely *names* a class was
 compiling it into production CSS. `app.css` now carries
 `@source not "../../.claude"` and `@source not "../../docs"`.
 
-## Product idea (long horizon): drag DOM elements in the widget to try layouts
-
-
-**Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending
-
-Owner note (2026-07-27), raised with the caveat that it is probably too
-ambitious: let the reviewer actually move elements around on the page to try
-out a different layout, instead of only describing the change in words.
-
-The moving is the easy part — the widget already has an element picker and a
-fixed overlay, and dragging a node is a small amount of DOM work. The hard part
-is that the deliverable is not a moved element, it is a change an agent can
-act on. A dragged node yields a new position in *this* rendering, at *this*
-viewport width, with whatever inline styles the drag applied; none of that
-tells the agent which rule to edit, whether the intent was a flex order change
-or a margin, or what should happen at the other breakpoints. Getting from
-"reviewer moved this box" to a defensible CSS change is the whole feature, and
-it is why this stays an idea rather than a scheduled item.
-
-If it is ever picked up, the useful output is probably a description of the
-intended relationship ("this belongs above that", "these should be side by
-side") captured alongside a before/after screenshot, not a DOM diff. That makes
-it an extension of the same capture surface as 'Attach a screenshot to a
-site-review comment' and 'Drawing on the page in the site-review widget' — all
-three are the reviewer showing rather than telling, and they should share one
-composer rather than growing three parallel modes.
-
-**Do 'Anchor a site-review comment to several elements, not just one' first.**
-It delivers the stated relationship — the part that actually survives into a CSS
-change — for the price of a data-model change, with none of the intent-inference
-problem above. Once multi-anchor comments exist, revisit whether dragging adds
-enough over them to be worth building at all.
-
 ## Dead semantic classes accumulate in app.css with nothing to catch them
 
 
@@ -2566,31 +2533,6 @@ a reconnect gap loses events and a pull path stays necessary. The run used a
 wildcard subscriber token rather than `StreamCredentialsController`, so
 per-project topic scoping is unproven.
 
-## A mark-addressed skip reason is best-effort, because the re-read is not under the write's lock
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-`SiteReviewCommentRepository::markAddressedIfPending()` and its twin on
-`App\Module\Review\Repository\CommentRepository` settle the write with a
-conditional `UPDATE … WHERE status = 'pending'`, which is what stops an agent
-overwriting a human's Resolve. A zero-row result only says the comment was not
-pending, so both MCP mark-addressed tools then call `currentStatus()` to learn
-why and report `already_addressed` / `resolved` / not-found accordingly.
-
-That second read is a separate statement outside any row lock, so the status can
-move again between the two. The reported *reason* is therefore best-effort: an
-agent can be told `resolved` for a comment that was addressed a moment earlier,
-or the reverse.
-
-Only the label is affected — the write itself is already safe, and no comment
-changes state because of this. Closing it properly means the read-check-write
-pattern `project-backend` documents (`wrapInTransaction` + `lock(PESSIMISTIC_WRITE)`
-+ `refresh()`), which was passed over because it costs a lock per comment on
-every batch to sharpen a string that is only wrong when two writers race the same
-comment. Note `refresh()` does not work on these entities — Doctrine refuses to
-rehydrate their readonly `createdAt` — so a lock-based version needs another way
-to re-read.
-
 ## The MCP connection drops repeatedly, and reconnecting does not restore the tools
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
@@ -2711,3 +2653,34 @@ The work is one change repeated four times: include `extension.neon` from
 `ubermuda/gamache` in each bundle's `phpstan.neon`, add the package to
 `require-dev`, and fix whatever the first run reports. Do all four together, so
 the four repositories do not drift into four different standards.
+
+## `document_mark_comment_addressed` reports a best-effort skip reason, and nothing says so
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`App\Module\Review\Mcp\DocumentMarkCommentAddressedTool` settles its write with
+a conditional `UPDATE ... WHERE status = 'pending'`, in
+`App\Module\Review\Repository\CommentRepository::markAddressedIfPending()`. The
+write is authoritative. When zero rows change, the tool calls `currentStatus()`
+to learn why, then reports `already_addressed`, `resolved` or not-found.
+
+That second read is a separate statement outside any row lock. The status can
+move between the two reads, so the reported reason can name the wrong status.
+Only the label is wrong. No comment changes state because of this.
+
+The site-review tool has the same race, and the owner accepted it there as
+best-effort. Pull request #338 wrote that into the `#[McpTool]` description of
+`SiteReviewMarkCommentAddressedTool`, into its `__invoke` docblock, into the
+`loupe-site-review` skill and into `docs/using/mcp.md`.
+
+Locking was rejected on the site-review side. The fix needs `wrapInTransaction`,
+plus `lock(PESSIMISTIC_WRITE)`, plus `refresh()`. `refresh()` fails on these
+entities, because Doctrine refuses to rehydrate a readonly `createdAt`. The cost
+is one lock per comment on every batch, to sharpen a string that is only wrong
+when two writers race the same comment.
+
+The open question is how the document tool records the same contract. It can
+take the same caveat wording as the site-review tool, or another treatment.
+Decide that first. Then apply it to the `#[McpTool]` description, the `__invoke`
+docblock, the `loupe-documents` skill, which lists no skip reasons today, and
+the `document_mark_comment_addressed` row in `docs/using/mcp.md`.
