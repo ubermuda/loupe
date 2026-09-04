@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Command;
 
+use App\Module\Review\Entity\DecisionSelection;
 use App\Module\Review\Repository\DecisionSelectionRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Service\DecisionBlockService;
@@ -46,11 +47,16 @@ final readonly class ShowPersistedDecisionBlockHandler
 
         $selected = [];
         foreach ($this->decisionBlocks->extract($blockHtml) as $decision) {
-            foreach ($this->decisionSelections->findByDocumentAndDecisionId($command->document, $decision->id) as $selection) {
-                $index = $decision->resolveIndex($selection->optionLabel, $selection->optionIndex);
-                if (null !== $index) {
-                    $selected[$decision->id][] = $index;
-                }
+            $indexes = array_values(array_filter(
+                $decision->resolveIndexes(array_map(
+                    static fn (DecisionSelection $selection): array => [$selection->optionLabel, $selection->optionIndex],
+                    $this->decisionSelections->findByDocumentAndDecisionId($command->document, $decision->id),
+                )),
+                static fn (?int $index): bool => null !== $index,
+            ));
+
+            if ([] !== $indexes) {
+                $selected[$decision->id] = $indexes;
             }
         }
 

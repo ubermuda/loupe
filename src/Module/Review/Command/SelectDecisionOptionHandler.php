@@ -117,14 +117,15 @@ final readonly class SelectDecisionOptionHandler
     private function atCurrentIndexes(Decision $decision, array $stored): array
     {
         $beyondTheOptions = \count($decision->options);
+        $resolved = $decision->resolveIndexes(array_map(
+            static fn (DecisionSelection $selection): array => [$selection->optionLabel, $selection->optionIndex],
+            $stored,
+        ));
 
-        /** @var array<int, true> $taken */
-        $taken = [];
         $moved = [];
         $settled = [];
-        foreach ($stored as $selection) {
-            $index = self::placeFor($decision, $selection, $taken) ?? $beyondTheOptions++;
-            $taken[$index] = true;
+        foreach ($stored as $position => $selection) {
+            $index = $resolved[$position] ?? $beyondTheOptions++;
 
             if ($index === $selection->optionIndex) {
                 $settled[] = $selection;
@@ -159,33 +160,6 @@ final readonly class SelectDecisionOptionHandler
         $this->em->flush();
 
         return $settled;
-    }
-
-    /**
-     * Where one stored answer belongs among the current options, or null when
-     * they hold no free place for it.
-     *
-     * A block may offer the same text twice, and two answers to two such
-     * options both resolve onto the first of them. A taken index is therefore
-     * not the end of the search: the next option reading the same is as true a
-     * home for the answer, and it keeps both of them on the page.
-     *
-     * @param array<int, true> $taken
-     */
-    private static function placeFor(Decision $decision, DecisionSelection $selection, array $taken): ?int
-    {
-        $resolved = $decision->resolveIndex($selection->optionLabel, $selection->optionIndex);
-        if (null === $resolved || !isset($taken[$resolved])) {
-            return $resolved;
-        }
-
-        foreach ($decision->options as $index => $option) {
-            if ($option === $selection->optionLabel && !isset($taken[$index])) {
-                return $index;
-            }
-        }
-
-        return null;
     }
 
     /**

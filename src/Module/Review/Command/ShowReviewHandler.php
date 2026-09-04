@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Module\Review\Entity\Comment;
+use App\Module\Review\Entity\DecisionSelection;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DecisionSelectionRepository;
@@ -132,11 +133,19 @@ final readonly class ShowReviewHandler
         $decisions = [];
         foreach ($this->decisionBlocks->extract($currentVersion->renderedHtml) as $decision) {
             $stored = $selections[$decision->id] ?? [];
+            // Resolved as a set, exactly as the page resolves it. One answer at
+            // a time reports the same option twice where a block offers the
+            // same text twice, while the page shows only one of them ticked.
+            $resolved = $decision->resolveIndexes(array_map(
+                static fn (DecisionSelection $selection): array => [$selection->optionLabel, $selection->optionIndex],
+                $stored,
+            ));
+
             $chosen = [];
-            foreach ($stored as $selection) {
+            foreach ($stored as $position => $selection) {
                 $chosen[] = [
                     'option' => $selection->optionLabel,
-                    'index' => $decision->resolveIndex($selection->optionLabel, $selection->optionIndex),
+                    'index' => $resolved[$position],
                     'answered_at' => $selection->selectedAt->format(\DateTimeInterface::ATOM),
                     'answered_at_version' => $selection->versionNumber,
                 ];
@@ -154,9 +163,7 @@ final readonly class ShowReviewHandler
                 // Always indexes the `options` reported alongside it, because the
                 // page resolves it by the same rule. Null means the chosen option
                 // is no longer offered.
-                'selected_index' => null === $single
-                    ? null
-                    : $decision->resolveIndex($single->optionLabel, $single->optionIndex),
+                'selected_index' => null === $single ? null : $resolved[0],
                 'answered_at' => $single?->selectedAt->format(\DateTimeInterface::ATOM),
                 'answered_at_version' => $single?->versionNumber,
                 'selections' => $chosen,

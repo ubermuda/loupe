@@ -9,6 +9,8 @@ use App\Module\Account\Repository\UserRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
+use App\Module\Review\Command\ReviseDocumentCommand;
+use App\Module\Review\Command\ReviseDocumentHandler;
 use App\Module\Review\Command\SelectDecisionOptionCommand;
 use App\Module\Review\Command\SelectDecisionOptionHandler;
 use App\Module\Review\Command\ShowDocumentDataCommand;
@@ -482,6 +484,43 @@ final class ShowReviewHandlerTest extends KernelTestCase
             [['The importer', 0], ['The admin page', 2]],
             array_map(static fn (array $row): array => [$row['option'], $row['index']], $decision['selections']),
         );
+    }
+
+    /**
+     * A block may offer the same text twice. Read one answer at a time, both
+     * answers resolve onto the first of those options, so the payload names one
+     * option twice while the page shows one box ticked.
+     */
+    public function test_two_answers_reading_the_same_report_two_options(): void
+    {
+        $create = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $create);
+        $doc = $create(new CreateDocumentCommand(
+            $this->project,
+            'Ship plan',
+            "<!-- decision: ship-with -->\n\n- [ ] Ship it\n- [ ] Ship it\n- [ ] Wait\n\n<!-- /decision -->\n",
+        ));
+
+        $select = self::getContainer()->get(SelectDecisionOptionHandler::class);
+        self::assertInstanceOf(SelectDecisionOptionHandler::class, $select);
+        $select(new SelectDecisionOptionCommand($doc, 'ship-with', 0, displayedVersionNumber: 1));
+        $select(new SelectDecisionOptionCommand($doc, 'ship-with', 1, displayedVersionNumber: 1));
+
+        $revise = self::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
+        $revise(new ReviseDocumentCommand(
+            $doc,
+            "<!-- decision: ship-with -->\n\n- [ ] Hold\n- [ ] Ship it\n- [ ] Ship it\n- [ ] Wait\n\n<!-- /decision -->\n",
+            'Added a first option.',
+        ));
+
+        // Read before any click, so nothing has brought the rows up to date.
+        $decision = ($this->getReview)(new ShowReviewCommand($doc))['decisions'][0];
+
+        self::assertSame([1, 2], array_map(
+            static fn (array $row): ?int => $row['index'],
+            $decision['selections'],
+        ));
     }
 
     public function test_a_document_with_no_decisions_reports_an_empty_list(): void
