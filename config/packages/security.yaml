@@ -73,6 +73,7 @@ security:
         # prod and this rule is inert there. It exists so the e2e seeding endpoint
         # is reachable unauthenticated in the dev environment.
         - { path: ^/dev/register-and-verify$, roles: PUBLIC_ACCESS }
+        - { path: ^/dev/preview-login$, roles: PUBLIC_ACCESS }
         - { path: ^/dev/site-review-harness$, roles: PUBLIC_ACCESS }
         - { path: ^/dev/e2e/, roles: PUBLIC_ACCESS }
         # The OAuth start and callback URLs must be reachable unauthenticated.
