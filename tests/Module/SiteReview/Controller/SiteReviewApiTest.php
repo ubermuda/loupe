@@ -62,6 +62,144 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertCount(1, $pending);
     }
 
+    public function test_a_comment_can_point_at_several_elements(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw, $project] = $this->projectWithToken($em, 'api-anchors@example.com');
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
+            'body' => 'These two belong side by side',
+            'url' => 'https://app/x',
+            'anchors' => [
+                ['selector' => '.card', 'text' => 'Save'],
+                ['selector' => '.panel', 'text' => 'Cancel'],
+            ],
+        ]);
+        self::assertResponseStatusCodeSame(201);
+
+        $pending = static::getContainer()->get(SiteReviewCommentRepository::class)->findPendingForProject($project);
+        $anchors = array_values($pending[0]->anchors->toArray());
+        self::assertCount(2, $anchors);
+        self::assertSame(['.card', '.panel'], array_map(static fn ($a) => $a->selector, $anchors));
+        self::assertSame([0, 1], array_map(static fn ($a) => $a->position, $anchors));
+        self::assertNull($anchors[0]->quote);
+    }
+
+    /**
+     * The widget script URL carries no version, so a browser can hold a
+     * pre-anchors copy for a long time and still post the old body.
+     */
+    public function test_a_legacy_selector_body_becomes_one_anchor(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw, $project] = $this->projectWithToken($em, 'api-legacy@example.com');
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw,
+            ['body' => 'old widget', 'selector' => '.hero h1', 'text' => 'Hello', 'url' => 'https://app/x']);
+        self::assertResponseStatusCodeSame(201);
+
+        $pending = static::getContainer()->get(SiteReviewCommentRepository::class)->findPendingForProject($project);
+        $anchors = array_values($pending[0]->anchors->toArray());
+        self::assertCount(1, $anchors);
+        self::assertSame('.hero h1', $anchors[0]->selector);
+        self::assertSame('Hello', $anchors[0]->text);
+    }
+
+    public function test_a_legacy_body_with_an_empty_selector_gets_no_anchor(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw, $project] = $this->projectWithToken($em, 'api-legacy-note@example.com');
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw,
+            ['body' => 'a page note', 'selector' => '', 'text' => '', 'url' => 'https://app/x']);
+        self::assertResponseStatusCodeSame(201);
+
+        $pending = static::getContainer()->get(SiteReviewCommentRepository::class)->findPendingForProject($project);
+        self::assertCount(0, $pending[0]->anchors);
+    }
+
+    public function test_anchors_win_over_a_legacy_selector_in_the_same_body(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw, $project] = $this->projectWithToken($em, 'api-both@example.com');
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
+            'body' => 'both shapes',
+            'selector' => '.legacy',
+            'text' => 'Legacy',
+            'url' => 'https://app/x',
+            'anchors' => [['selector' => '.modern', 'text' => 'Modern']],
+        ]);
+        self::assertResponseStatusCodeSame(201);
+
+        $pending = static::getContainer()->get(SiteReviewCommentRepository::class)->findPendingForProject($project);
+        $anchors = array_values($pending[0]->anchors->toArray());
+        self::assertCount(1, $anchors);
+        self::assertSame('.modern', $anchors[0]->selector);
+    }
+
+    public function test_more_than_ten_anchors_is_rejected(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw] = $this->projectWithToken($em, 'api-cap@example.com');
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
+            'body' => 'too many',
+            'url' => 'https://app/x',
+            'anchors' => array_map(static fn (int $i) => ['selector' => '.e'.$i, 'text' => 'E'], range(1, 11)),
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+    }
+
+    public function test_an_anchor_with_a_blank_selector_is_rejected(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw] = $this->projectWithToken($em, 'api-blank-anchor@example.com');
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw,
+            ['body' => 'blank', 'url' => 'https://app/x', 'anchors' => [['selector' => '', 'text' => 'E']]]);
+
+        self::assertResponseStatusCodeSame(422);
+    }
+
+    /**
+     * A widget copy that predates anchors[] reads the scalar pair, so the
+     * rehydrate response keeps repeating the first anchor there.
+     */
+    public function test_the_rehydrate_response_carries_anchors_and_the_legacy_scalars(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw] = $this->projectWithToken($em, 'api-rehydrate@example.com');
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
+            'body' => 'two elements',
+            'url' => 'https://app/x',
+            'anchors' => [['selector' => '.a', 'text' => 'A'], ['selector' => '.b', 'text' => 'B']],
+        ]);
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw,
+            ['body' => 'a page note', 'url' => 'https://app/y']);
+
+        $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+
+        self::assertCount(2, $data['comments'][0]['anchors']);
+        self::assertSame('.a', $data['comments'][0]['anchors'][0]['selector']);
+        self::assertSame('.a', $data['comments'][0]['selector']);
+        self::assertSame('A', $data['comments'][0]['text']);
+
+        self::assertSame([], $data['comments'][1]['anchors']);
+        self::assertSame('', $data['comments'][1]['selector']);
+        self::assertSame('', $data['comments'][1]['text']);
+    }
+
     public function test_unbound_site_review_token_is_forbidden(): void
     {
         $client = static::createClient();

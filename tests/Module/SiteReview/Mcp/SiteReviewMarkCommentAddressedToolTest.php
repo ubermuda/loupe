@@ -46,9 +46,9 @@ final class SiteReviewMarkCommentAddressedToolTest extends KernelTestCase
         $this->em->persist($user);
         $project = new Project($user, $name);
         $this->em->persist($project);
-        $c1 = new SiteReviewComment($project, 0, 'first', '.a', 'A', 'https://app/x');
+        $c1 = new SiteReviewComment($project, 0, 'first', 'https://app/x')->addAnchor('.a', 'A');
         $c1->status = SiteReviewCommentStatus::Pending;
-        $c2 = new SiteReviewComment($project, 1, 'second', '', '', 'https://app/y');
+        $c2 = new SiteReviewComment($project, 1, 'second', 'https://app/y');
         $c2->status = SiteReviewCommentStatus::Pending;
         $this->em->persist($c1);
         $this->em->persist($c2);
@@ -159,11 +159,11 @@ final class SiteReviewMarkCommentAddressedToolTest extends KernelTestCase
         $project = new Project($user, 'addr-skip-site');
         $this->em->persist($project);
 
-        $resolvedComment = new SiteReviewComment($project, 0, 'resolved', '.a', 'A', 'https://app/x');
+        $resolvedComment = new SiteReviewComment($project, 0, 'resolved', 'https://app/x')->addAnchor('.a', 'A');
         $resolvedComment->status = SiteReviewCommentStatus::Resolved;
         $this->em->persist($resolvedComment);
 
-        $addressedComment = new SiteReviewComment($project, 1, 'addressed', '.b', 'B', 'https://app/y');
+        $addressedComment = new SiteReviewComment($project, 1, 'addressed', 'https://app/y')->addAnchor('.b', 'B');
         $addressedComment->status = SiteReviewCommentStatus::Addressed;
         $this->em->persist($addressedComment);
 

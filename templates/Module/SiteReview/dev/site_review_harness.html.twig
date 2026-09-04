@@ -11,6 +11,11 @@
     <h1 id="title">Site review harness</h1>
     <p>A dev-only page for exercising the site-review annotation widget in e2e tests.</p>
     <button id="target-me" class="card" type="button">A button to comment on</button>
+    {# `hide` drops a target so a reload leaves a saved multi-anchor comment degraded. #}
+    {% if hide != 'target-two' %}
+    <button id="target-two" class="card" type="button">A second button to comment on</button>
+    {% endif %}
+    <button id="target-three" class="card" type="button">A third button to comment on</button>
     <script src="/site-review/widget.js" data-token="{{ token }}"></script>
 </body>
 </html>

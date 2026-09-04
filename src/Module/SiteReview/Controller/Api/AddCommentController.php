@@ -8,6 +8,7 @@ use App\Controller\AppController;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Command\AddCommentCommand;
 use App\Module\SiteReview\Command\AddCommentHandler;
+use App\Module\SiteReview\Command\NewAnchor;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
@@ -40,11 +41,33 @@ final class AddCommentController extends AppController
         $comment = ($this->handler)(new AddCommentCommand(
             project: $project,
             body: $body,
-            selector: $payload->selector,
-            text: $payload->text,
             url: trim($payload->url ?? ''),
+            anchors: $this->anchorsOf($payload),
         ));
 
         return $this->json(['commentId' => (string) $comment->id], JsonResponse::HTTP_CREATED);
+    }
+
+    /**
+     * A body that carries neither anchors[] nor a selector is a page note.
+     *
+     * @return list<NewAnchor>
+     */
+    private function anchorsOf(AddCommentRequest $payload): array
+    {
+        if ([] === $payload->anchors) {
+            return '' === $payload->selector ? [] : [new NewAnchor($payload->selector, $payload->text)];
+        }
+
+        return array_values(array_map(
+            static fn (SiteReviewAnchorInput $anchor): NewAnchor => new NewAnchor(
+                selector: $anchor->selector ?? '',
+                text: $anchor->text,
+                quote: $anchor->quote,
+                quotePrefix: $anchor->quotePrefix,
+                quoteSuffix: $anchor->quoteSuffix,
+            ),
+            $payload->anchors,
+        ));
     }
 }

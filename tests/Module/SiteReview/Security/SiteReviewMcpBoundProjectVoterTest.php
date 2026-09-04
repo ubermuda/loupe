@@ -62,7 +62,7 @@ final class SiteReviewMcpBoundProjectVoterTest extends KernelTestCase
 
     private function commentOn(Project $project): SiteReviewComment
     {
-        $comment = new SiteReviewComment($project, 0, 'Fix this', '.a', 'A', 'https://app/x');
+        $comment = new SiteReviewComment($project, 0, 'Fix this', 'https://app/x')->addAnchor('.a', 'A');
         $this->em->persist($comment);
         $this->em->flush();
 

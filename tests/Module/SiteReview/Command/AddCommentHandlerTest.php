@@ -8,6 +8,8 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Command\AddCommentCommand;
 use App\Module\SiteReview\Command\AddCommentHandler;
+use App\Module\SiteReview\Command\NewAnchor;
+use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use App\Tests\Support\DirectLogging;
@@ -41,18 +43,67 @@ final class AddCommentHandlerTest extends KernelTestCase
     public function test_first_comment_is_pending_at_position_zero(): void
     {
         $project = $this->project('add-a@example.com');
-        $comment = ($this->handler)(new AddCommentCommand($project, 'hello', '.a', 'A', 'https://app/x'));
+        $comment = ($this->handler)(new AddCommentCommand($project, 'hello', 'https://app/x', [new NewAnchor('.a', 'A')]));
 
         self::assertNotNull($comment->id);
         self::assertSame(SiteReviewCommentStatus::Pending, $comment->status);
         self::assertSame(0, $comment->position);
     }
 
+    public function test_anchors_are_persisted_in_the_order_they_were_given(): void
+    {
+        $project = $this->project('add-anchors@example.com');
+
+        $comment = ($this->handler)(new AddCommentCommand($project, 'these two', 'https://app/x', [
+            new NewAnchor('.first', 'First'),
+            new NewAnchor('.second', 'Second', quote: 'a quoted run'),
+        ]));
+        $this->em->clear();
+
+        $reloaded = $this->em->find(SiteReviewComment::class, $comment->id);
+        self::assertNotNull($reloaded);
+        $anchors = array_values($reloaded->anchors->toArray());
+        self::assertCount(2, $anchors);
+        self::assertSame(['.first', '.second'], array_map(static fn ($a) => $a->selector, $anchors));
+        self::assertSame([0, 1], array_map(static fn ($a) => $a->position, $anchors));
+        self::assertNull($anchors[0]->quote);
+        self::assertSame('a quoted run', $anchors[1]->quote);
+    }
+
+    public function test_a_comment_with_no_anchor_is_an_unanchored_page_note(): void
+    {
+        $project = $this->project('add-note@example.com');
+
+        $comment = ($this->handler)(new AddCommentCommand($project, 'a page note', 'https://app/x'));
+
+        self::assertCount(0, $comment->anchors);
+    }
+
+    public function test_deleting_a_comment_removes_its_anchors(): void
+    {
+        $project = $this->project('add-cascade@example.com');
+
+        $comment = ($this->handler)(new AddCommentCommand($project, 'doomed', 'https://app/x', [
+            new NewAnchor('.a', 'A'),
+            new NewAnchor('.b', 'B'),
+        ]));
+        $commentId = (string) $comment->id;
+
+        $this->em->remove($comment);
+        $this->em->flush();
+
+        $left = $this->em->getConnection()->fetchOne(
+            'SELECT count(*) FROM site_review_comment_anchors WHERE comment_id = :id',
+            ['id' => $commentId],
+        );
+        self::assertSame(0, (int) $left);
+    }
+
     public function test_second_comment_increments_position(): void
     {
         $project = $this->project('add-b@example.com');
-        ($this->handler)(new AddCommentCommand($project, 'one', '', '', 'https://app/x'));
-        $second = ($this->handler)(new AddCommentCommand($project, 'two', '', '', 'https://app/y'));
+        ($this->handler)(new AddCommentCommand($project, 'one', 'https://app/x'));
+        $second = ($this->handler)(new AddCommentCommand($project, 'two', 'https://app/y'));
 
         self::assertSame(1, $second->position);
     }
@@ -60,7 +111,7 @@ final class AddCommentHandlerTest extends KernelTestCase
     public function test_position_keeps_incrementing_after_a_send(): void
     {
         $project = $this->project('add-c@example.com');
-        ($this->handler)(new AddCommentCommand($project, 'one', '', '', 'https://app/x'));
+        ($this->handler)(new AddCommentCommand($project, 'one', 'https://app/x'));
         $this->em->getConnection()->executeStatement(
             'UPDATE site_review_comments SET status = :status WHERE project_id = :project',
             ['status' => 'pending', 'project' => (string) $project->id],
@@ -68,7 +119,7 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         // No batch boundary anymore: position is a project-wide monotonic
         // counter, so a comment added after a send simply continues it.
-        $next = ($this->handler)(new AddCommentCommand($project, 'two', '', '', 'https://app/y'));
+        $next = ($this->handler)(new AddCommentCommand($project, 'two', 'https://app/y'));
 
         self::assertSame(1, $next->position);
     }
@@ -77,7 +128,7 @@ final class AddCommentHandlerTest extends KernelTestCase
     {
         $project = $this->project('add-audit@example.com');
 
-        $comment = ($this->handler)(new AddCommentCommand($project, 'hello', '.a', 'A', 'https://app/x'));
+        $comment = ($this->handler)(new AddCommentCommand($project, 'hello', 'https://app/x', [new NewAnchor('.a', 'A')]));
 
         $record = $this->audit->record('site_review.comment_added');
         self::assertSame(AuditOutcome::Success, $record->outcome);

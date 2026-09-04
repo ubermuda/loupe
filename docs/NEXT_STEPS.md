@@ -668,39 +668,9 @@ nor "general page note", so it needs its own entry in the composer alongside
 those two, and a selector-less comment shape. The overlay already owns a
 fixed-position layer above the page, which is where the canvas would live.
 
-## Anchor a site-review comment to several elements, not just one
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Owner note (2026-07-27): let the reviewer pick more than one element for a
-single comment, so the comment can talk about the elements *in relation* to
-each other ("these two should be side by side", "this belongs above that").
-
-This is the cheap version of what 'Product idea (long horizon): drag DOM
-elements in the widget to try layouts' is reaching for. Dragging struggles
-because a moved node does not tell the agent which rule to edit or what the
-intent was; a multi-anchor comment states the relationship in words and lets
-the agent decide the CSS. It is worth doing before, and possibly instead of,
-the drag idea.
-
-Cost is concentrated in the data model, which is single-anchor throughout:
-`SiteReviewComment` has scalar `selector`, `text` and `url` columns, so this
-needs either a related anchor entity or a JSON collection, plus a migration.
-Everything downstream reads those scalars and would follow: the widget's pin
-reconciliation is one pin per comment keyed by index (`renderPins` in
-`public/site-review/widget.js`), the site-review page renders one selector
-disclosure per comment, and the MCP `site_review_get` payload exposes
-`selector`/`text` per comment — that last one is an agent-facing contract
-change, so version it deliberately.
-
-Decide early what happens when only some anchors still resolve: today a pin
-whose element is gone is simply dropped, but a partially-orphaned relational
-comment ("these two…" with one element left) is misleading rather than merely
-incomplete. Related: 'Drawing on the page in the site-review widget' — drawing
-and multi-anchor are two ways to express the same relational feedback, and a
-stroke connecting two elements is arguably just a multi-anchor comment with a
-picture attached.
+`site_review_comments` now has a nullable `strokes` JSON column, added by the
+multi-anchor work so the agent-facing payload widens once. Nothing reads or
+writes it yet, so this entry owns it.
 
 ## Public feedback widget (a public pendant to the site-review widget)
 

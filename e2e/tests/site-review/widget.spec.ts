@@ -83,7 +83,13 @@ const addGeneralNote = async (
  */
 const fetchReviewComments = (
     page: Page,
-): Promise<Array<{ body: string; selector: string }>> =>
+): Promise<
+    Array<{
+        body: string;
+        selector: string;
+        anchors: Array<{ selector: string; text: string }>;
+    }>
+> =>
     page.evaluate(async () => {
         const script = document.querySelector(
             'script[src*="site-review/widget.js"]',
@@ -93,7 +99,11 @@ const fetchReviewComments = (
             headers: { Authorization: `Bearer ${token}` },
         });
         const { comments } = (await response.json()) as {
-            comments: Array<{ body: string; selector: string }>;
+            comments: Array<{
+                body: string;
+                selector: string;
+                anchors: Array<{ selector: string; text: string }>;
+            }>;
         };
         return comments;
     });
@@ -821,4 +831,120 @@ test('narrowing to a phone mid-pick stands the widget down', async ({
     await page.setViewportSize({ width: 1280, height: 844 });
     await expect(page.locator('#lp-toast')).toBeHidden();
     await expect(page.getByRole('button', { name: 'Review' })).toBeVisible();
+});
+
+const keepHarnessUrl = `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}&keep=1`;
+
+/**
+ * Pick two elements into one composer. Pins only render when the comment's
+ * stored url matches location.href, so the caller must already be on keepUrl.
+ */
+const addTwoElementComment = async (
+    page: Page,
+    body: string,
+): Promise<void> => {
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await page.locator('#target-me').click();
+    await page.getByRole('button', { name: '+ Add element' }).click();
+    await page.locator('#target-two').click();
+    await page.getByPlaceholder(/Describe the issue/).fill(body);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#lp-head-count')).toHaveText('1');
+};
+
+/**
+ * A comment can point at several elements, so it can say something about the
+ * relationship between them. Each anchor gets its own pin, and every pin of one
+ * comment carries that comment's number.
+ */
+test('a comment can be anchored to several elements at once', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await page.locator('#target-me').click();
+
+    // The composer holds one anchor chip and offers to add another.
+    await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
+        1,
+    );
+    await page.getByRole('button', { name: '+ Add element' }).click();
+    await page.locator('#target-two').click();
+    await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
+        2,
+    );
+
+    await page
+        .getByPlaceholder(/Describe the issue/)
+        .fill('These two should sit side by side');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#lp-head-count')).toHaveText('1');
+
+    // One comment, two pins, both numbered 1 — that is what shows they belong
+    // to the same comment.
+    await expect(page.locator('.pin')).toHaveCount(2);
+    await expect(page.locator('.pin').nth(0)).toHaveText('1');
+    await expect(page.locator('.pin').nth(1)).toHaveText('1');
+
+    // The API stored both anchors on one comment.
+    const comments = await fetchReviewComments(page);
+    expect(comments).toHaveLength(1);
+    expect(comments[0].anchors).toHaveLength(2);
+
+    // The list row names the count rather than one element's text.
+    await page.getByRole('button', { name: /Show .* comment/ }).click();
+    await expect(page.locator('#lp-list .lp-chip')).toHaveText('2 elements');
+});
+
+/**
+ * A multi-anchor comment whose anchors only partly resolve must say so. Showing
+ * one pin as though the comment had always been about one element would
+ * misstate what the reviewer said.
+ */
+test('a multi-anchor comment renders as degraded when an element is gone', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await addTwoElementComment(page, 'Align these two headings');
+    await expect(page.locator('.pin')).toHaveCount(2);
+
+    // Load the page again without one of the two targets. A pin renders only
+    // when the comment's stored url matches location.href, so put the URL back
+    // to the one the comment was saved on; the widget's history hook re-resolves
+    // the anchors against the page it is now looking at.
+    await page.goto(`${keepHarnessUrl}&hide=target-two`);
+    await expect(page.locator('#target-two')).toHaveCount(0);
+    await page.evaluate(
+        (url) => history.replaceState({}, '', url),
+        keepHarnessUrl,
+    );
+
+    // The surviving anchor still gets its pin, and it is marked degraded.
+    const pin = page.locator('.pin');
+    await expect(pin).toHaveCount(1);
+    await expect(pin).toHaveClass(/degraded/);
+
+    // Hovering names how many elements the comment lost.
+    await pin.hover();
+    await expect(page.locator('.lp-pop-degraded')).toContainText(
+        '1 no longer on this page',
+    );
+
+    // The list row says the same thing.
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page.getByRole('button', { name: /Show .* comment/ }).click();
+    await expect(page.locator('#lp-list .lp-chip')).toHaveText(
+        '1 of 2 elements',
+    );
 });

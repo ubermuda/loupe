@@ -31,6 +31,24 @@ not only the ones its holder wrote. Keeping the widget off public pages is what
 bounds who that is. Use a dedicated site-review-scoped token, never an MCP token
 or a production credential.
 
+## Pointing one comment at several elements
+
+Pick an element, then press **+ Add element** in the composer and pick another.
+The composer shows one chip per element, and the × on a chip drops it again. A
+comment can hold up to ten elements. Save once, and the comment is about all of
+them.
+
+Use this when the feedback is about a relationship. "These two should sit side
+by side" is one comment about two elements, not two comments.
+
+Every element gets its own pin on the page, and every pin of one comment carries
+that comment's number. That is what shows they belong together.
+
+When you come back to a page and one of a comment's elements has gone, the
+widget marks the comment as degraded. The surviving pins get a dashed ring, and
+the popover says how many elements are missing. A comment on a single element
+that no longer matches simply shows no pin, as before.
+
 ## What it needs from the page
 
 Very little. The widget is a `fetch` with a bearer header — no clipboard, no

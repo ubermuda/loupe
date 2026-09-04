@@ -73,7 +73,7 @@ final class SidebarStatesTest extends WebTestCase
             SiteReviewCommentStatus::Addressed,
             SiteReviewCommentStatus::Resolved,
         ] as $position => $status) {
-            $comment = new SiteReviewComment($project, $position, 'Body', '', '', 'https://example.com/');
+            $comment = new SiteReviewComment($project, $position, 'Body', 'https://example.com/');
             $comment->status = $status;
             $em->persist($comment);
         }
@@ -99,7 +99,7 @@ final class SidebarStatesTest extends WebTestCase
         $project = new Project($owner, 'calm-project');
         $em->persist($project);
 
-        $comment = new SiteReviewComment($project, 0, 'Body', '', '', 'https://example.com/');
+        $comment = new SiteReviewComment($project, 0, 'Body', 'https://example.com/');
         $comment->status = SiteReviewCommentStatus::Resolved;
         $em->persist($comment);
         $em->flush();
