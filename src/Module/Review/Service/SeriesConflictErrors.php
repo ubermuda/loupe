@@ -30,7 +30,7 @@ final readonly class SeriesConflictErrors
             return new DomainErrors(['seriesOrdinal' => 'review.series.error.ordinal_taken']);
         }
 
-        if (str_contains($message, 'uniq_series_project_name')) {
+        if (str_contains($message, 'uniq_series_project_normalized_name')) {
             return new DomainErrors(['series' => 'review.series.error.name_taken']);
         }
 

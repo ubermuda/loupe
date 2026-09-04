@@ -5,50 +5,39 @@ declare(strict_types=1);
 namespace App\Module\Review\Mcp;
 
 use App\Exception\DomainErrors;
-use App\Mcp\ResolvesBoundProject;
-use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Command\RenameSeriesCommand;
 use App\Module\Review\Command\RenameSeriesHandler;
 use App\Module\Review\Repository\DocumentRepository;
-use App\Module\Review\Repository\SeriesRepository;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
 /**
  * Renames one series of the project the authenticating token is bound to.
  *
- * The series is looked up inside that project, so a token can never reach one
- * belonging to another project. This is the same scoping the tag tools apply.
+ * ReviewSubjectResolver scopes the lookup to that project and puts the rename
+ * behind McpBoundProjectVoter, the same gate the document tools use.
  */
-#[McpTool(name: 'series_rename', description: 'Rename a series of the token\'s project. Every document in it keeps its position. The new name must not already belong to another series, because two series carry two independent numberings and merging them would put two documents on the same number.')]
+#[McpTool(name: 'series_rename', description: 'Rename a series of the token\'s project. Every document in it keeps its position. The name is stored as you spell it, and it must not already belong to another series, ignoring case, because two series carry two independent numberings and merging them would put two documents on the same number.')]
 final readonly class SeriesRenameTool
 {
-    use ResolvesBoundProject;
-
     public function __construct(
         private RenameSeriesHandler $renameSeries,
-        private SeriesRepository $series,
+        private ReviewSubjectResolver $subjects,
         private DocumentRepository $documents,
-        private AuthenticatedProjectResolver $projectResolver,
         private ToolCallErrorMessages $errorMessages,
     ) {
     }
 
     /**
      * @param string $series  The current name of the series to rename
-     * @param string $newName The name it takes, lowercased on write
+     * @param string $newName The name it takes, stored as you spell it
      *
      * @return array{series: string, documentCount: int}
      */
     public function __invoke(string $series, string $newName): array
     {
         try {
-            $project = $this->requireBoundProject($this->projectResolver);
-
-            $found = $this->series->findOneByProjectAndName($project, $series);
-            if (null === $found) {
-                throw new ToolCallException(\sprintf('Series "%s" not found in this project.', $series));
-            }
+            $found = $this->subjects->requireSeries($series);
 
             $renamed = ($this->renameSeries)(new RenameSeriesCommand($found, $newName));
 

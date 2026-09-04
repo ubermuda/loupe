@@ -18,9 +18,11 @@ final class Version20260904160920 extends AbstractMigration
     #[\Override]
     public function up(Schema $schema): void
     {
-        $this->addSql('CREATE TABLE series (id UUID NOT NULL, name VARCHAR(100) NOT NULL, created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, project_id UUID NOT NULL, PRIMARY KEY (id))');
+        $this->addSql('CREATE TABLE series (id UUID NOT NULL, name VARCHAR(100) NOT NULL, normalized_name VARCHAR(100) NOT NULL, created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, project_id UUID NOT NULL, PRIMARY KEY (id))');
         $this->addSql('CREATE INDEX IDX_3A10012D166D1F9C ON series (project_id)');
-        $this->addSql('CREATE UNIQUE INDEX uniq_series_project_name ON series (project_id, name)');
+        // `name` carries the author's spelling and `normalized_name` the
+        // comparison key, so the uniqueness runs on the key alone.
+        $this->addSql('CREATE UNIQUE INDEX uniq_series_project_normalized_name ON series (project_id, normalized_name)');
         $this->addSql('ALTER TABLE series ADD CONSTRAINT FK_3A10012D166D1F9C FOREIGN KEY (project_id) REFERENCES projects (id) NOT DEFERRABLE');
         $this->addSql('ALTER TABLE documents ADD series_ordinal INT DEFAULT NULL');
         $this->addSql('ALTER TABLE documents ADD series_id UUID DEFAULT NULL');

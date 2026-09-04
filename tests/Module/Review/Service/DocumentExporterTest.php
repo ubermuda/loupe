@@ -86,7 +86,7 @@ final class DocumentExporterTest extends TestCase
 
         $rows = iterator_to_array(new DocumentExporter($repo)->export($user));
 
-        self::assertSame('blog series', $rows[0]['series']);
+        self::assertSame('Blog Series', $rows[0]['series']);
         self::assertSame(5, $rows[0]['seriesOrdinal']);
     }
 

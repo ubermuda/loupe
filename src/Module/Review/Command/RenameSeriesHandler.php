@@ -34,22 +34,26 @@ final readonly class RenameSeriesHandler
     public function __invoke(RenameSeriesCommand $command): Series
     {
         $series = $command->series;
-        $name = Series::normalizeName($command->newName);
+        $name = Series::normalizeDisplayName($command->newName);
+        $normalizedName = Series::normalizeName($command->newName);
 
         if ('' === $name) {
             throw new DomainErrors(['series' => 'review.series.error.name_required']);
         }
 
-        if (mb_strlen($name) > Series::MAX_NAME_LENGTH) {
+        if (mb_strlen($name) > Series::MAX_NAME_LENGTH || mb_strlen($normalizedName) > Series::MAX_NAME_LENGTH) {
             throw new DomainErrors(['series' => 'review.series.error.too_long']);
         }
 
+        // Compared on the key, so renaming a series to its own name in a
+        // different case is a re-spelling rather than a clash.
         $existing = $this->series->findOneByProjectAndName($series->project, $name);
         if (null !== $existing && $existing !== $series) {
             throw new DomainErrors(['series' => 'review.series.error.name_taken']);
         }
 
         $series->name = $name;
+        $series->normalizedName = $normalizedName;
 
         try {
             $this->em->flush();

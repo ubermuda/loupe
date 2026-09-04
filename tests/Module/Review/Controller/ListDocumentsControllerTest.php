@@ -589,8 +589,8 @@ final class ListDocumentsControllerTest extends WebTestCase
 
         // Created newest last, so a list still ordered by creation date would
         // return them the other way round and this test would fail.
-        $first = $this->createDocument($project, 'Post one', 'Opening.', seriesName: 'blog series', seriesOrdinal: 1);
-        $second = $this->createDocument($project, 'Post two', 'Middle.', seriesName: 'blog series', seriesOrdinal: 2);
+        $first = $this->createDocument($project, 'Post one', 'Opening.', seriesName: 'Blog Series', seriesOrdinal: 1);
+        $second = $this->createDocument($project, 'Post two', 'Middle.', seriesName: 'Blog Series', seriesOrdinal: 2);
         $loose = $this->createDocument($project, 'Unrelated note', 'Nothing to do with it.');
         $em->flush();
         $firstId = (string) $first->id;
@@ -600,6 +600,7 @@ final class ListDocumentsControllerTest extends WebTestCase
 
         $client->loginUser($alice);
 
+        // Filtered by a spelling nobody stored, because the filter folds case.
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?series=blog+series');
 
         self::assertResponseIsSuccessful();
@@ -612,7 +613,9 @@ final class ListDocumentsControllerTest extends WebTestCase
         );
         // The row says where in the series the document sits, so the order is
         // readable rather than implied.
-        self::assertSelectorTextContains('[data-document-id="'.$secondId.'"] .lp-series', 'blog series, item 2');
+        self::assertSelectorTextContains('[data-document-id="'.$secondId.'"] .lp-series', 'Blog Series, item 2');
+        // The select shows the stored spelling and stays on the chosen series.
+        self::assertSame('Blog Series', $crawler->filter('#document-series option[selected]')->text());
         // The default line promises newest-first, which this ordering is not.
         self::assertSelectorTextContains('.lp-workspace-desc', 'in the order of the series');
     }

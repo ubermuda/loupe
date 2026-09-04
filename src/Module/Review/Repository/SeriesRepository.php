@@ -23,13 +23,13 @@ class SeriesRepository extends ServiceEntityRepository
     }
 
     /**
-     * Normalises the name here rather than trusting the caller to: a lookup on a
-     * raw string misses the stored row, and the find-or-create below then
-     * inserts a row whose name is exactly the one it failed to find.
+     * Matches on the comparison key rather than the stored spelling, so a caller
+     * that writes "Rust Atomics" finds the series somebody coined as "rust
+     * atomics".
      */
     public function findOneByProjectAndName(Project $project, string $name): ?Series
     {
-        return $this->findOneBy(['project' => $project, 'name' => Series::normalizeName($name)]);
+        return $this->findOneBy(['project' => $project, 'normalizedName' => Series::normalizeName($name)]);
     }
 
     /**
@@ -44,6 +44,10 @@ class SeriesRepository extends ServiceEntityRepository
      *
      * The conflict target is named on purpose. A bare `DO NOTHING` would also
      * swallow violations of constraints this method knows nothing about.
+     *
+     * The first spelling wins, because `DO NOTHING` keeps the row already
+     * there. A document created later therefore cannot re-title a series every
+     * reader already sees; `series_rename` is the deliberate way to change it.
      *
      * With no caller transaction open the insert commits on its own, ahead of
      * the caller's flush, so a flush that then fails leaves a series no
@@ -64,14 +68,16 @@ class SeriesRepository extends ServiceEntityRepository
         }
 
         $entityManager->getConnection()->executeStatement(
-            'INSERT INTO series (id, project_id, name, created_at) VALUES (:id, :project, :name, :createdAt)'
-            .' ON CONFLICT (project_id, name) DO NOTHING',
+            'INSERT INTO series (id, project_id, name, normalized_name, created_at)'
+            .' VALUES (:id, :project, :name, :normalizedName, :createdAt)'
+            .' ON CONFLICT (project_id, normalized_name) DO NOTHING',
             [
                 'id' => (string) $id,
                 'project' => (string) ($project->id ?? throw new \LogicException('a persisted project always has an id')),
                 // Normalised before the SQL, because the constructor that would
                 // otherwise have done it is not involved on this path.
-                'name' => Series::normalizeName($name),
+                'name' => Series::normalizeDisplayName($name),
+                'normalizedName' => Series::normalizeName($name),
                 'createdAt' => new \DateTimeImmutable(),
             ],
             ['createdAt' => Types::DATETIME_IMMUTABLE],
@@ -81,10 +87,15 @@ class SeriesRepository extends ServiceEntityRepository
             ?? throw new \LogicException('the series was just inserted or already existed');
     }
 
-    /** @return list<Series> */
+    /**
+     * Ordered by the comparison key rather than the spelling, so the order does
+     * not move when somebody renames a series only to change its case.
+     *
+     * @return list<Series>
+     */
     public function findByProject(Project $project): array
     {
-        return $this->findBy(['project' => $project], ['name' => 'ASC']);
+        return $this->findBy(['project' => $project], ['normalizedName' => 'ASC']);
     }
 
     /**
@@ -105,27 +116,27 @@ class SeriesRepository extends ServiceEntityRepository
         $series = $this->findByProject($project);
 
         // A second query rather than a left join off the series, so a series no
-        // document belongs to still reports zero instead of dropping out. Keyed
-        // by name rather than id so the keys stay plain strings through array
-        // hydration.
-        /** @var list<array{name: string, documentCount: int|numeric-string, highestOrdinal: int|numeric-string|null}> $rows */
+        // document belongs to still reports zero instead of dropping out.
+        // Grouped on the comparison key, which is unique per project, so the
+        // keys stay plain strings through array hydration.
+        /** @var list<array{normalizedName: string, documentCount: int|numeric-string, highestOrdinal: int|numeric-string|null}> $rows */
         $rows = $this->getEntityManager()
             ->createQuery(
-                'SELECT s.name AS name, COUNT(d.id) AS documentCount, MAX(d.seriesOrdinal) AS highestOrdinal'
+                'SELECT s.normalizedName AS normalizedName, COUNT(d.id) AS documentCount, MAX(d.seriesOrdinal) AS highestOrdinal'
                 .' FROM '.Document::class.' d JOIN d.series s'
-                .' WHERE s.project = :project AND d.project = :project GROUP BY s.name',
+                .' WHERE s.project = :project AND d.project = :project GROUP BY s.normalizedName',
             )
             ->setParameter('project', $project)
             ->getArrayResult();
 
-        $counts = array_column($rows, 'documentCount', 'name');
-        $highest = array_column($rows, 'highestOrdinal', 'name');
+        $counts = array_column($rows, 'documentCount', 'normalizedName');
+        $highest = array_column($rows, 'highestOrdinal', 'normalizedName');
 
         return array_map(
             static fn (Series $one): array => [
                 'series' => $one,
-                'documentCount' => (int) ($counts[$one->name] ?? 0),
-                'highestOrdinal' => isset($highest[$one->name]) ? (int) $highest[$one->name] : null,
+                'documentCount' => (int) ($counts[$one->normalizedName] ?? 0),
+                'highestOrdinal' => isset($highest[$one->normalizedName]) ? (int) $highest[$one->normalizedName] : null,
             ],
             $series,
         );

@@ -93,7 +93,7 @@ class DocumentRepository extends ServiceEntityRepository
 
         if (null !== $seriesName) {
             $qb->innerJoin('d.series', 'filterSeries')
-                ->andWhere('filterSeries.name = :seriesName')
+                ->andWhere('filterSeries.normalizedName = :seriesName')
                 ->setParameter('seriesName', $seriesName);
         }
 

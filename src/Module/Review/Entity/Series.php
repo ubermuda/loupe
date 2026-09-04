@@ -20,10 +20,10 @@ use Symfony\Component\Uid\Uuid;
  */
 #[ORM\Entity(repositoryClass: SeriesRepository::class)]
 #[ORM\Table(name: 'series')]
-#[ORM\UniqueConstraint(name: 'uniq_series_project_name', columns: ['project_id', 'name'])]
+#[ORM\UniqueConstraint(name: 'uniq_series_project_normalized_name', columns: ['project_id', 'normalized_name'])]
 class Series
 {
-    /** Mirrors the name column's length so callers can reject an over-long name before Postgres does. */
+    /** Mirrors both name columns' length so callers can reject an over-long name before Postgres does. */
     public const int MAX_NAME_LENGTH = 100;
 
     #[ORM\Column(type: UuidType::NAME, unique: true)]
@@ -33,13 +33,20 @@ class Series
     public private(set) ?Uuid $id = null;
 
     /**
-     * Normalised on the way in, never on the way out, so the unique constraint
-     * on (project_id, name) is a plain one and every lookup compares raw
-     * strings. A rename goes through RenameSeriesHandler, which normalises the
-     * new name the same way, so nothing can store a name a lookup would miss.
+     * The name as its author wrote it, which is what every screen and every tool
+     * result shows. A series name is a title rather than a label, so "Rust
+     * Atomics" must read as "Rust Atomics".
      */
     #[ORM\Column(length: self::MAX_NAME_LENGTH)]
     public string $name;
+
+    /**
+     * The same name folded to a comparison key, carrying the unique constraint
+     * on (project_id, normalized_name). It keeps "Rust Atomics" and "rust
+     * atomics" one series while the display column keeps the spelling.
+     */
+    #[ORM\Column(name: 'normalized_name', length: self::MAX_NAME_LENGTH)]
+    public string $normalizedName;
 
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
@@ -50,29 +57,39 @@ class Series
         #[ORM\Column]
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
     ) {
-        $this->name = self::normalizeName($name);
+        $this->name = self::normalizeDisplayName($name);
+        $this->normalizedName = self::normalizeName($name);
+    }
+
+    /**
+     * The stored spelling: the author's own, with the surrounding and interior
+     * whitespace tidied. Collapsing interior runs also folds the Unicode spaces
+     * `trim()` alone would keep, so a space-only name normalises to nothing
+     * rather than becoming a series.
+     */
+    public static function normalizeDisplayName(string $name): string
+    {
+        return trim((string) preg_replace('/\s+/u', ' ', $name));
     }
 
     /**
      * The single definition of what two series names being "the same" means.
-     *
-     * The same rule as a tag name: interior runs of whitespace collapse as well
-     * as the leading and trailing ones, so "blog  series" and "blog series" stay
-     * one series rather than becoming two.
+     * Case and whitespace are the only differences it folds, so "Rust  Atomics"
+     * and "rust atomics" stay one series rather than becoming two.
      */
     public static function normalizeName(string $name): string
     {
-        return mb_strtolower(trim((string) preg_replace('/\s+/u', ' ', $name)));
+        return mb_strtolower(self::normalizeDisplayName($name));
     }
 
     /**
-     * Where a document sits: a normalised series name and its ordinal, or two
-     * nulls when the document belongs to no series.
+     * Where a document sits: a series name as the caller spelled it and its
+     * ordinal, or two nulls when the document belongs to no series.
      *
      * Separate from any write so a caller can find out whether a placement is
      * acceptable before it starts writing. CreateDocumentHandler depends on
-     * that: it must reject a bad placement while it can still decline to persist
-     * the document.
+     * that: it must reject a bad placement while it can still decline to
+     * persist the document.
      *
      * @return array{?string, ?int}
      *
@@ -80,7 +97,7 @@ class Series
      */
     public static function normalizePlacement(?string $name, ?int $ordinal): array
     {
-        $name = null === $name ? null : self::normalizeName($name);
+        $name = null === $name ? null : self::normalizeDisplayName($name);
 
         if (null === $name || '' === $name) {
             if (null !== $ordinal) {
@@ -90,7 +107,9 @@ class Series
             return [null, null];
         }
 
-        if (mb_strlen($name) > self::MAX_NAME_LENGTH) {
+        // Both columns are capped, and folding case can lengthen a string, so
+        // the key is measured as well as the spelling.
+        if (mb_strlen($name) > self::MAX_NAME_LENGTH || mb_strlen(self::normalizeName($name)) > self::MAX_NAME_LENGTH) {
             throw new DomainErrors(['series' => 'review.series.error.too_long']);
         }
 

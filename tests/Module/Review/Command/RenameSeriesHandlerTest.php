@@ -66,7 +66,8 @@ final class RenameSeriesHandlerTest extends KernelTestCase
 
         $reloaded = $this->em->find(Document::class, $documentId);
         self::assertInstanceOf(Document::class, $reloaded);
-        self::assertSame('rust atomics', $reloaded->series?->name);
+        self::assertSame('Rust Atomics', $reloaded->series?->name);
+        self::assertSame('rust atomics', $reloaded->series->normalizedName);
         self::assertSame(1, $reloaded->seriesOrdinal);
     }
 
@@ -78,17 +79,21 @@ final class RenameSeriesHandlerTest extends KernelTestCase
         ($this->handler)(new RenameSeriesCommand($series, 'Rust Atomics'));
 
         self::assertNull($this->series->findOneByProjectAndName($project, 'blog series'));
+        // Found by either spelling, because the lookup runs on the key.
         self::assertInstanceOf(Series::class, $this->series->findOneByProjectAndName($project, 'rust atomics'));
+        self::assertInstanceOf(Series::class, $this->series->findOneByProjectAndName($project, 'RUST ATOMICS'));
     }
 
-    public function test_renaming_a_series_to_the_name_it_already_has_is_accepted(): void
+    /** Re-spelling a series is a rename, not a clash with itself. */
+    public function test_a_series_can_be_renamed_to_its_own_name_in_a_different_case(): void
     {
         $project = $this->project('rename-noop');
         $series = $this->series->findOrCreate($project, 'blog series');
 
-        $renamed = ($this->handler)(new RenameSeriesCommand($series, 'BLOG SERIES'));
+        $renamed = ($this->handler)(new RenameSeriesCommand($series, 'Blog Series'));
 
-        self::assertSame('blog series', $renamed->name);
+        self::assertSame('Blog Series', $renamed->name);
+        self::assertSame('blog series', $renamed->normalizedName);
     }
 
     public function test_a_name_another_series_holds_is_refused_rather_than_merged(): void
@@ -114,9 +119,9 @@ final class RenameSeriesHandlerTest extends KernelTestCase
         $series = $this->series->findOrCreate($mine, 'blog series');
         $this->series->findOrCreate($theirs, 'rust atomics');
 
-        $renamed = ($this->handler)(new RenameSeriesCommand($series, 'rust atomics'));
+        $renamed = ($this->handler)(new RenameSeriesCommand($series, 'Rust Atomics'));
 
-        self::assertSame('rust atomics', $renamed->name);
+        self::assertSame('Rust Atomics', $renamed->name);
     }
 
     public function test_a_blank_name_is_refused(): void

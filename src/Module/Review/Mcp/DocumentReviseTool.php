@@ -33,7 +33,7 @@ final readonly class DocumentReviseTool
      * @param string             $description   What changed in this version and why, in one or two sentences, for a reviewer who read the previous one — name what you rewrote, added or dropped, not that you revised it
      * @param string|null        $title         A corrected title for the document; omit to keep the current one
      * @param array<string>|null $references    The complete set of document ids this one points at, replacing the current set; omit to keep it, pass an empty list to clear it
-     * @param string|null        $series        Name of the ordered set this document belongs to, lowercased on write and created if the project does not have it yet; omit to leave the placement alone, pass an empty string to take the document out of its series
+     * @param string|null        $series        Name of the ordered set this document belongs to, stored as you spell it and created if the project does not have it yet; omit to leave the placement alone, pass an empty string to take the document out of its series
      * @param int|null           $seriesOrdinal Position of this document in that series, counting from 1; required whenever series is given
      *
      * @return ReanchoringSummary

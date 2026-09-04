@@ -96,8 +96,10 @@
                         class="lp-input lp-select lp-filter-select"
                         data-action="change->autosearch#search">
                     <option value="">{{ 'review.dashboard.filter.all_series'|trans }}</option>
+                    {# The option carries the spelling and the comparison uses the
+                       key, because listQuery.seriesName is already folded. #}
                     {% for series in projectSeries %}
-                        <option value="{{ series.name }}"{{ listQuery.seriesName == series.name ? ' selected' : '' }}>{{ series.name }}</option>
+                        <option value="{{ series.name }}"{{ listQuery.seriesName == series.normalizedName ? ' selected' : '' }}>{{ series.name }}</option>
                     {% endfor %}
                 </select>
             {% endif %}

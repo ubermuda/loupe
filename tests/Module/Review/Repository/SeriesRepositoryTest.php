@@ -58,29 +58,38 @@ final class SeriesRepositoryTest extends KernelTestCase
     private function insertBehindTheOrmsBack(Project $project, string $name): void
     {
         $this->em->getConnection()->executeStatement(
-            'INSERT INTO series (id, project_id, name, created_at) VALUES (:id, :project, :name, NOW())',
-            ['id' => (string) Uuid::v7(), 'project' => (string) $project->id, 'name' => $name],
+            'INSERT INTO series (id, project_id, name, normalized_name, created_at)'
+            .' VALUES (:id, :project, :name, :normalizedName, NOW())',
+            [
+                'id' => (string) Uuid::v7(),
+                'project' => (string) $project->id,
+                'name' => $name,
+                'normalizedName' => Series::normalizeName($name),
+            ],
         );
     }
 
-    public function test_the_name_is_normalised_before_it_reaches_the_insert(): void
+    public function test_the_spelling_survives_the_insert_and_the_key_is_folded(): void
     {
         $project = $this->project('seriesrepo-normalise');
 
         $series = $this->series->findOrCreate($project, '  Blog   Series ');
 
-        self::assertSame('blog series', $series->name);
+        self::assertSame('Blog Series', $series->name);
+        self::assertSame('blog series', $series->normalizedName);
         self::assertCount(1, $this->series->findBy(['project' => $project]));
     }
 
-    public function test_calling_it_twice_returns_the_same_row(): void
+    /** The stored spelling is the first one, so a later document cannot re-title a series. */
+    public function test_calling_it_twice_returns_the_same_row_and_keeps_the_first_spelling(): void
     {
         $project = $this->project('seriesrepo-twice');
 
-        $first = $this->series->findOrCreate($project, 'blog series');
+        $first = $this->series->findOrCreate($project, 'Blog Series');
         $second = $this->series->findOrCreate($project, 'BLOG SERIES');
 
         self::assertSame((string) $first->id, (string) $second->id);
+        self::assertSame('Blog Series', $second->name);
         self::assertCount(1, $this->series->findBy(['project' => $project]));
     }
 
@@ -93,11 +102,11 @@ final class SeriesRepositoryTest extends KernelTestCase
     public function test_a_row_another_request_committed_is_adopted_not_duplicated(): void
     {
         $project = $this->project('seriesrepo-race');
-        $this->insertBehindTheOrmsBack($project, 'blog series');
+        $this->insertBehindTheOrmsBack($project, 'Blog Series');
 
-        $series = $this->series->findOrCreate($project, 'Blog Series');
+        $series = $this->series->findOrCreate($project, 'blog series');
 
-        self::assertSame('blog series', $series->name);
+        self::assertSame('Blog Series', $series->name);
         self::assertCount(1, $this->series->findBy(['project' => $project]));
     }
 

@@ -75,16 +75,24 @@ final class SeriesConflictErrorsTest extends KernelTestCase
     public function test_a_duplicate_series_name_reads_back_as_the_name_domain_error(): void
     {
         $project = $this->project('conflict-name');
-        $this->em->getConnection()->executeStatement(
-            'INSERT INTO series (id, project_id, name, created_at) VALUES (:id, :project, :name, NOW())',
-            ['id' => (string) Uuid::v7(), 'project' => (string) $project->id, 'name' => 'blog series'],
-        );
+        $insert = 'INSERT INTO series (id, project_id, name, normalized_name, created_at)'
+            .' VALUES (:id, :project, :name, :normalizedName, NOW())';
+        $this->em->getConnection()->executeStatement($insert, [
+            'id' => (string) Uuid::v7(),
+            'project' => (string) $project->id,
+            'name' => 'Blog Series',
+            'normalizedName' => 'blog series',
+        ]);
 
         try {
-            $this->em->getConnection()->executeStatement(
-                'INSERT INTO series (id, project_id, name, created_at) VALUES (:id, :project, :name, NOW())',
-                ['id' => (string) Uuid::v7(), 'project' => (string) $project->id, 'name' => 'blog series'],
-            );
+            // A different spelling of the same key, which is exactly what the
+            // index exists to reject.
+            $this->em->getConnection()->executeStatement($insert, [
+                'id' => (string) Uuid::v7(),
+                'project' => (string) $project->id,
+                'name' => 'blog series',
+                'normalizedName' => 'blog series',
+            ]);
             self::fail('expected the unique index to reject the second series');
         } catch (UniqueConstraintViolationException $e) {
             $errors = $this->conflicts->forViolation($e);

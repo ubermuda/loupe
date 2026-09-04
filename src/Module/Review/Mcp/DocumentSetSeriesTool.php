@@ -15,7 +15,7 @@ use Mcp\Exception\ToolCallException;
  * Moves a document to one place in one series, or takes it out of the series it
  * was in.
  */
-#[McpTool(name: 'document_set_series', description: 'Place a document at a numbered position in an ordered set, such as post 5 of a blog series. Omit both series and seriesOrdinal to take the document out of the series it is in. Series names are lowercased and created on first use, and no two documents in one series may hold the same number.')]
+#[McpTool(name: 'document_set_series', description: 'Place a document at a numbered position in an ordered set, such as post 5 of a blog series. Omit both series and seriesOrdinal to take the document out of the series it is in. A series name is stored as you spell it, matched ignoring case, and created on first use. No two documents in one series may hold the same number.')]
 final readonly class DocumentSetSeriesTool
 {
     public function __construct(

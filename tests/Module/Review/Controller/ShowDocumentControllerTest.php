@@ -132,7 +132,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('.lp-series', 'Series blog series, item 5');
+        self::assertSelectorTextContains('.lp-series', 'Series Blog Series, item 5');
     }
 
     public function test_review_page_renders_byline_and_verdict_actions(): void

@@ -616,7 +616,8 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
 
         $reloaded = $em->find(Document::class, $documentId);
         self::assertInstanceOf(Document::class, $reloaded);
-        self::assertSame('blog series', $reloaded->series?->name);
+        self::assertSame('Blog Series', $reloaded->series?->name);
+        self::assertSame('blog series', $reloaded->series->normalizedName);
         self::assertSame(5, $reloaded->seriesOrdinal);
     }
 

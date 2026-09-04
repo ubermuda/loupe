@@ -12,24 +12,33 @@ use PHPUnit\Framework\TestCase;
 
 final class SeriesTest extends TestCase
 {
-    public function test_the_name_is_lowercased_and_trimmed_on_construction(): void
+    public function test_the_constructor_keeps_the_spelling_and_folds_the_key(): void
     {
         $project = new Project(new User('Alice A', 'alice@example.com', 'x'), 'My project');
 
-        self::assertSame('rust atomics', new Series($project, '  Rust Atomics  ')->name);
-        self::assertSame('rust atomics', new Series($project, "Rust\tAtomics")->name);
+        $series = new Series($project, '  Rust Atomics  ');
+
+        self::assertSame('Rust Atomics', $series->name);
+        self::assertSame('rust atomics', $series->normalizedName);
     }
 
-    public function test_normalize_name_is_what_the_constructor_applies(): void
+    public function test_only_whitespace_is_tidied_out_of_the_stored_spelling(): void
+    {
+        self::assertSame('Rust Atomics', Series::normalizeDisplayName(' Rust  Atomics '));
+        self::assertSame('Rust Atomics', Series::normalizeDisplayName("Rust\tAtomics"));
+        self::assertSame('', Series::normalizeDisplayName('   '));
+    }
+
+    public function test_the_key_folds_case_as_well_as_whitespace(): void
     {
         self::assertSame('rust atomics', Series::normalizeName(' Rust  Atomics '));
         self::assertSame('', Series::normalizeName('   '));
         self::assertSame('écriture', Series::normalizeName('Écriture'));
     }
 
-    public function test_a_complete_placement_normalises_to_a_name_and_its_ordinal(): void
+    public function test_a_complete_placement_keeps_the_spelling_it_was_given(): void
     {
-        self::assertSame(['blog series', 5], Series::normalizePlacement('  Blog Series ', 5));
+        self::assertSame(['Blog Series', 5], Series::normalizePlacement('  Blog Series ', 5));
     }
 
     public function test_no_series_and_no_ordinal_is_the_absence_of_a_placement(): void

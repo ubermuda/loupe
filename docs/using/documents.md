@@ -79,9 +79,11 @@ position. Two different series may both use position 1.
 
 An agent sets the placement when it submits the document, with the `series` and
 `seriesOrdinal` parameters of `document_create`. It can also move a document
-later with `document_set_series`, or take it out of its series. The name is
-lowercased on write, and Loupe creates the series the first time a document
-names it.
+later with `document_set_series`, or take it out of its series. Loupe stores the
+name as its author spells it, and creates the series the first time a document
+names it. Two spellings that differ only in case or spacing are one series, and
+the first spelling is the one every reader sees. Use `series_rename` to change
+it.
 
 The documents list gets a series filter beside the tag filter. Pick a series and
 the list shows only its documents, in their own order rather than newest first.

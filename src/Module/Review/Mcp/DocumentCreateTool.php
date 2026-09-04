@@ -17,7 +17,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 /**
  * Create a Markdown document for human review and return its id and review URL.
  */
-#[McpTool(name: 'document_create', description: 'Create a Markdown document for human review. Pass description to say what this first version is, tags to group it with related documents, and references to link the documents this one accompanies, supersedes or answers. Pass series with seriesOrdinal to say this document is a numbered item of an ordered set, such as post 5 of a blog series. Tags and series names are lowercased and created on first use. Read tag_list and series_list first so a batch reuses the project\'s existing names.')]
+#[McpTool(name: 'document_create', description: 'Create a Markdown document for human review. Pass description to say what this first version is, tags to group it with related documents, and references to link the documents this one accompanies, supersedes or answers. Pass series with seriesOrdinal to say this document is a numbered item of an ordered set, such as post 5 of a blog series. Tags are lowercased. A series name is stored as you spell it and matched ignoring case. Both are created on first use, so read tag_list and series_list first and reuse the project\'s existing names.')]
 final readonly class DocumentCreateTool
 {
     use ResolvesBoundProject;
@@ -50,7 +50,7 @@ final readonly class DocumentCreateTool
      * @param string|null   $description   What this first version is, in one or two sentences — the brief it answers or the question it exists to settle
      * @param string[]      $tags          Tag names to group this document by, lowercased on write and created if the project does not have them yet
      * @param array<string> $references    Ids of documents in the same project that this one points at; the link is shown on both documents
-     * @param string|null   $series        Name of the ordered set this document is an item of, lowercased on write and created if the project does not have it yet; requires seriesOrdinal
+     * @param string|null   $series        Name of the ordered set this document is an item of, stored as you spell it and created if the project does not have it yet; requires seriesOrdinal
      * @param int|null      $seriesOrdinal Position of this document in that series, counting from 1; no two documents in one series may hold the same number
      *
      * @return array{documentId: string, reviewUrl: string, tags: list<string>, series: ?string, seriesOrdinal: ?int}

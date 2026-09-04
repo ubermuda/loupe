@@ -67,14 +67,15 @@ final class SetDocumentSeriesHandlerTest extends KernelTestCase
         return $document;
     }
 
-    public function test_an_unknown_series_is_created_lowercased(): void
+    public function test_an_unknown_series_is_created_with_the_spelling_it_was_given(): void
     {
         [$project, $document] = $this->seed('series-create');
 
         $applied = ($this->handler)(new SetDocumentSeriesCommand($document, ' Blog  Series ', 5));
 
         self::assertInstanceOf(Series::class, $applied);
-        self::assertSame('blog series', $applied->name);
+        self::assertSame('Blog Series', $applied->name);
+        self::assertSame('blog series', $applied->normalizedName);
         self::assertSame(5, $document->seriesOrdinal);
         self::assertCount(1, $this->series->findBy(['project' => $project]));
     }
@@ -87,9 +88,10 @@ final class SetDocumentSeriesHandlerTest extends KernelTestCase
         $second = $this->document($project, 'other doc');
         $this->em->flush();
 
-        ($this->handler)(new SetDocumentSeriesCommand($second, 'Blog Series', 2));
+        ($this->handler)(new SetDocumentSeriesCommand($second, 'BLOG SERIES', 2));
 
         self::assertCount(1, $this->series->findBy(['project' => $project]));
+        // The first spelling, not the one this call used.
         self::assertSame('blog series', $second->series?->name);
     }
 
