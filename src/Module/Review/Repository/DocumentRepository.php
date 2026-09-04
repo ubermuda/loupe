@@ -9,6 +9,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
+use App\Module\Review\Entity\Series;
 use App\Module\Review\Entity\Tag;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\Tools\Pagination\Paginator;
@@ -31,6 +32,18 @@ class DocumentRepository extends ServiceEntityRepository
         return $this->findBy(['project' => $project], ['createdAt' => 'DESC']);
     }
 
+    /** How many documents the series holds, archived ones included. */
+    public function countBySeries(Series $series): int
+    {
+        return $this->count(['series' => $series]);
+    }
+
+    /** The document already at this place in this series, if any. */
+    public function findOneInSeriesAt(Series $series, int $ordinal): ?Document
+    {
+        return $this->findOneBy(['series' => $series, 'seriesOrdinal' => $ordinal]);
+    }
+
     /**
      * Archived documents are excluded unless asked for: they stay reachable at
      * their own URL, but a list is the one place they are meant to leave.
@@ -38,7 +51,8 @@ class DocumentRepository extends ServiceEntityRepository
      * The filter arguments are optional because the MCP document_list tool shares
      * this method and exposes none of them.
      *
-     * @param string|null $tagName already normalised by {@see Tag::normalizeName()}
+     * @param string|null $tagName    already normalised by {@see Tag::normalizeName()}
+     * @param string|null $seriesName already normalised by {@see Series::normalizeName()}
      *
      * @return Paginator<Document>
      */
@@ -50,8 +64,13 @@ class DocumentRepository extends ServiceEntityRepository
         ?string $search = null,
         ?DocumentStatus $status = null,
         ?string $tagName = null,
+        ?string $seriesName = null,
     ): Paginator {
         $qb = $this->createQueryBuilder('d')
+            // A to-one join, so it multiplies no rows and spares the list and
+            // the MCP tool a query per document.
+            ->leftJoin('d.series', 'documentSeries')
+            ->addSelect('documentSeries')
             ->andWhere('d.project = :project')
             ->setParameter('project', $project)
             ->setFirstResult(($page - 1) * $perPage)
@@ -72,16 +91,29 @@ class DocumentRepository extends ServiceEntityRepository
                 ->setParameter('tagName', $tagName);
         }
 
-        if (null !== $search) {
-            // The configuration is concatenated rather than bound: Postgres
-            // overloads websearch_to_tsquery as (regconfig, text) and (text), so
-            // a bound parameter has no type to resolve against and picks the
-            // wrong arity. It is a class constant, never user input.
-            $tsquery = \sprintf("WEBSEARCH_TO_TSQUERY('%s', :search)", FullTextSearch::CONFIGURATION);
+        if (null !== $seriesName) {
+            $qb->innerJoin('d.series', 'filterSeries')
+                ->andWhere('filterSeries.normalizedName = :seriesName')
+                ->setParameter('seriesName', $seriesName);
+        }
 
+        // The configuration is concatenated rather than bound: Postgres
+        // overloads websearch_to_tsquery as (regconfig, text) and (text), so a
+        // bound parameter has no type to resolve against and picks the wrong
+        // arity. It is a class constant, never user input.
+        $tsquery = \sprintf("WEBSEARCH_TO_TSQUERY('%s', :search)", FullTextSearch::CONFIGURATION);
+
+        if (null !== $search) {
             $qb->andWhere(\sprintf('TSMATCH(d.searchVector, %s) = true', $tsquery))
-                ->setParameter('search', $search)
-                ->orderBy(\sprintf('TS_RANK(d.searchVector, %s)', $tsquery), 'DESC');
+                ->setParameter('search', $search);
+        }
+
+        // One series is an ordered set, so its own numbering outranks both
+        // recency and search rank once the reader has asked for it.
+        if (null !== $seriesName) {
+            $qb->orderBy('d.seriesOrdinal', 'ASC');
+        } elseif (null !== $search) {
+            $qb->orderBy(\sprintf('TS_RANK(d.searchVector, %s)', $tsquery), 'DESC');
         } else {
             $qb->orderBy('d.createdAt', 'DESC');
         }
@@ -152,9 +184,10 @@ class DocumentRepository extends ServiceEntityRepository
     }
 
     /**
-     * The project is fetch-joined because DocumentExporter reads
-     * `$document->project->name` per row: as a ManyToOne it is a proxy, so
-     * without this the first read of each distinct project costs its own SELECT.
+     * The project and the series are fetch-joined because DocumentExporter
+     * reads `$document->project->name` and `$document->series->name` per row: as
+     * ManyToOne associations they are proxies, so without this the first read of
+     * each distinct one costs its own SELECT.
      *
      * @return list<Document>
      */
@@ -163,7 +196,9 @@ class DocumentRepository extends ServiceEntityRepository
         /** @var list<Document> $documents */
         $documents = $this->createQueryBuilder('d')
             ->addSelect('p')
+            ->addSelect('s')
             ->join('d.project', 'p')
+            ->leftJoin('d.series', 's')
             ->andWhere('d.owner = :owner')
             ->setParameter('owner', $owner)
             ->orderBy('d.createdAt', 'DESC')

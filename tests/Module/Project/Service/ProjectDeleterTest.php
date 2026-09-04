@@ -15,6 +15,7 @@ use App\Module\Review\Entity\DecisionSelection;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Highlight;
 use App\Module\Review\Entity\Review;
+use App\Module\Review\Entity\Series;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\ValueObject\Anchor;
@@ -84,6 +85,7 @@ final class ProjectDeleterTest extends KernelTestCase
         ));
         foreach ([
             'tags' => 'SELECT count(*) FROM tags WHERE project_id = :id',
+            'series' => 'SELECT count(*) FROM series WHERE project_id = :id',
             'site_review_events' => 'SELECT count(*) FROM site_review_events WHERE project_id = :id',
             'site_review_comments' => 'SELECT count(*) FROM site_review_comments WHERE project_id = :id',
             'comments' => 'SELECT count(*) FROM comments c JOIN document_versions v ON c.version_id = v.id JOIN documents d ON v.document_id = d.id WHERE d.project_id = :id',
@@ -109,6 +111,7 @@ final class ProjectDeleterTest extends KernelTestCase
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM site_review_comments WHERE project_id = :id', ['id' => (string) $sparedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM site_review_events WHERE project_id = :id', ['id' => (string) $sparedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM tags WHERE project_id = :id', ['id' => (string) $sparedId]));
+        self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM series WHERE project_id = :id', ['id' => (string) $sparedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM document_tags WHERE document_id = :id', ['id' => $sparedDocumentId]));
         self::assertNotNull($spared->widgetToken);
         self::assertNotNull($spared->mcpToken);
@@ -148,6 +151,7 @@ final class ProjectDeleterTest extends KernelTestCase
         self::assertSame(2, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE project_id = :id', ['id' => (string) $projectId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM site_review_comments WHERE project_id = :id', ['id' => (string) $projectId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM tags WHERE project_id = :id', ['id' => (string) $projectId]));
+        self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM series WHERE project_id = :id', ['id' => (string) $projectId]));
     }
 
     public function test_a_deletion_is_recorded_on_the_domain_channel(): void
@@ -207,6 +211,12 @@ final class ProjectDeleterTest extends KernelTestCase
         $tag = new Tag(project: $project, name: 'design');
         $em->persist($tag);
         $document->tags->add($tag);
+        // documents.series_id is NOT DEFERRABLE with no ON DELETE CASCADE, so a
+        // cleanup that drops series before documents fails outright.
+        $series = new Series(project: $project, name: 'blog series');
+        $em->persist($series);
+        $document->series = $series;
+        $document->seriesOrdinal = 1;
         $em->persist($document);
         // A referenced document too: document_references rows point at documents
         // from both ends, so the join table has to go before either row does.

@@ -165,6 +165,11 @@ reading context, not for a terminal or a README.
     degrades to a plain list, also with no error. Read
     `references/decision-fences.md` before you write one.
 
+13. **A stray HTML comment renders as a visible annotation**, on its own line as
+    a block note or inside a paragraph as an inline note. Never wrap such a
+    comment in an HTML element that opens its own block. Loupe then keeps the
+    element and drops the comment, so the annotation disappears with no error.
+
 ## Example
 
 Entry shape, lead sentence first and detail after:
