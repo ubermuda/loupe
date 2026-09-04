@@ -2633,6 +2633,32 @@ a reconnect gap loses events and a pull path stays necessary. The run used a
 wildcard subscriber token rather than `StreamCredentialsController`, so
 per-project topic scoping is unproven.
 
+## A worktree preview link in a pull request does not sign the reader in
+
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+An agent that builds a feature on a worktree puts a preview URL in the pull
+request body, so the reviewer can see the change against seeded data. The link
+lands on the login page instead of the page it names. The reviewer then signs in
+by hand with `dev@loupe.test`, and navigates to the page again.
+
+The link should carry a magic-auth token. It signs the reader in and lands them
+on the exact page the agent named.
+
+Symfony ships a `login_link` authenticator, and no code under `src/` uses it
+today. The only mention is in `config/reference.php`. A worktree gets its URL
+from `bin/worktrees/worktree-bootstrap.sh`, and its seeded accounts from
+`bin/console app:dev:seed`.
+
+Three constraints shape the work. The surface is for development only, so it
+must not exist in production. A token must expire quickly, because a pull
+request body is readable by anyone who can read the repository. And a token
+must work against one worktree only, so a leaked link cannot reach another
+branch's data.
+
+Close this out by teaching the agent prompt to build the link, not only by
+adding the route. A route nobody links to changes nothing.
+
 ## A mark-addressed skip reason is best-effort, because the re-read is not under the write's lock
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
