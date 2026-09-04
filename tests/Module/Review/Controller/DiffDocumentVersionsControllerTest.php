@@ -9,6 +9,7 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\DiffDocumentVersionsHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\ValueObject\Anchor;
 use App\Module\Review\ValueObject\DiffRefusal;
@@ -126,7 +127,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('[data-controller="diff-navigation"]'));
+        self::assertCount(1, $crawler->filter('[data-controller~="diff-navigation"]'));
 
         // Four marks and two runs: the removed heading and the removed paragraph
         // are two block wrappers with nothing unchanged between them, so they are
@@ -312,7 +313,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
             self::assertSame($counter, trim($crawler->filter('.lp-diff-nav__count')->text()));
             self::assertSame(
                 'Change %current% of '.$hunks,
-                $crawler->filter('[data-controller="diff-navigation"]')->attr('data-diff-navigation-position-value'),
+                $crawler->filter('[data-controller~="diff-navigation"]')->attr('data-diff-navigation-position-value'),
             );
         }
     }
@@ -448,7 +449,12 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertSame($new, implode("\n", $newLines));
     }
 
-    public function test_a_diff_accepts_no_comment_and_leaves_anchoring_unattached(): void
+    /**
+     * A comment always lands on the latest version, so a diff that ends anywhere
+     * else has nothing to anchor against: the quote would be stored on a version
+     * AnchorService never re-anchors from, invisible from the moment it is made.
+     */
+    public function test_a_diff_that_does_not_end_at_the_current_version_accepts_no_comment(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -461,6 +467,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $em->persist($doc);
         $em->persist(new Comment($version, $owner, 'Still open', new Anchor('Body', '', '', 0)));
         $doc->addVersion('# Rewritten body', '<h1>Rewritten body</h1>');
+        $doc->addVersion('# Rewritten again', '<h1>Rewritten again</h1>');
         $em->flush();
 
         $projectId = (string) $project->id;
@@ -471,22 +478,18 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $diff = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
 
         self::assertResponseIsSuccessful();
-        // Commenting on a diff is a feature of its own, and this is not it: the
-        // pane's text belongs to two versions at once, so every anchor carrier
-        // would be re-locating a quote against text that is not there, and every
-        // write control would act on a version the reader is not looking at.
-        self::assertCount(0, $diff->filter('[data-controller="comment-anchor"]'));
+        self::assertCount(0, $diff->filter('[data-controller~="comment-anchor"]'));
         self::assertCount(0, $diff->filter('[data-comment-anchor-target="doc"]'));
         self::assertCount(0, $diff->filter('[data-comment-anchor-target="agentHighlight"]'));
         self::assertCount(0, $diff->filter('#comment-threads'));
         self::assertCount(0, $diff->filter('.lp-comment-composer'));
         self::assertCount(0, $diff->filter('.lp-anchor-toolbar'));
-        self::assertCount(0, $diff->filter('button[name="submit_review_form[verdict]"]'));
+        self::assertStringNotContainsString('data-diff-offset', (string) $client->getResponse()->getContent());
 
         // The review page on the current version, so the assertions above cannot
         // pass merely because the selectors never match anything.
         $latest = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
-        self::assertCount(1, $latest->filter('[data-controller="comment-anchor"]'));
+        self::assertCount(1, $latest->filter('[data-controller~="comment-anchor"]'));
         self::assertCount(1, $latest->filter('[data-comment-anchor-target="doc"]'));
         self::assertCount(1, $latest->filter('#comment-threads'));
         self::assertCount(2, $latest->filter('button[name="submit_review_form[verdict]"]'));
@@ -495,6 +498,61 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         // one to two. What this control has to establish is that the selector
         // matches something when comments are accepted.
         self::assertGreaterThan(0, $latest->filter('.lp-comment-composer')->count());
+    }
+
+    /**
+     * The newer side IS the version a comment lands on, so the pane accepts one.
+     * The verdict stays off, because it describes a document rather than a
+     * comparison.
+     */
+    public function test_a_diff_ending_at_the_current_version_accepts_a_comment(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $renderer = static::getContainer()->get(MarkdownRenderer::class);
+
+        $owner = $this->createUser($em, 'owner-diff-rw', 'owner-diff-rw@example.com');
+        $project = $this->project($em, $owner);
+
+        $newSource = "# Plan\n\nThe rollout takes three steps.\n";
+        $doc = new Document(owner: $owner, project: $project, title: 'Commentable Diff');
+        $doc->addVersion("# Plan\n\nThe rollout takes one step.\n", $renderer->render("# Plan\n\nThe rollout takes one step.\n"));
+        $doc->addVersion($newSource, $renderer->render($newSource));
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $diff = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $diff->filter('[data-controller~="comment-anchor"]'));
+        self::assertCount(1, $diff->filter('[data-comment-anchor-diff-value="true"]'));
+        self::assertCount(1, $diff->filter('.lp-diff-doc[data-comment-anchor-target="doc"]'));
+        self::assertCount(1, $diff->filter('#comment-threads'));
+        self::assertCount(1, $diff->filter('.lp-anchor-toolbar'));
+        self::assertGreaterThan(0, $diff->filter('.lp-comment-composer')->count());
+
+        // Still a comparison: nothing that reports on a single version is offered.
+        self::assertCount(0, $diff->filter('button[name="submit_review_form[verdict]"]'));
+
+        // Inserted text carries an offset. Deleted text carries none, which is
+        // what lets the browser refuse a selection that touches it.
+        $inserted = $diff->filter('.lp-diff__mark--inserted [data-diff-offset]');
+        self::assertGreaterThan(0, $inserted->count());
+        self::assertCount(0, $diff->filter('.lp-diff__mark--deleted [data-diff-offset]'));
+
+        // The offsets name places in the version a comment would land on.
+        $plainText = DocumentVersion::plainTextOf($renderer->render($newSource));
+        foreach ($diff->filter('[data-diff-offset]') as $span) {
+            self::assertInstanceOf(\DOMElement::class, $span);
+            $offset = (int) $span->getAttribute('data-diff-offset');
+            $text = $span->textContent;
+            self::assertSame($text, mb_substr($plainText, $offset, mb_strlen($text, 'UTF-8'), 'UTF-8'));
+        }
     }
 
     /**
@@ -633,7 +691,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(0, $crawler->filter('.lp-diff-doc'));
-        self::assertCount(0, $crawler->filter('[data-controller="diff-navigation"]'));
+        self::assertCount(0, $crawler->filter('[data-controller~="diff-navigation"]'));
         self::assertSelectorTextContains('.lp-empty', 'identical');
     }
 

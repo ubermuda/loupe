@@ -124,7 +124,21 @@ export default class extends Controller {
     // Demo mode drives the same UI with no backend behind it: the landing page's
     // try-it section, where a visitor annotates the marketing copy and nothing is
     // saved. It only picks the transport — every other behaviour here is shared.
-    static values = { hideResolved: Boolean, demo: Boolean };
+    // `diff` switches anchor extraction to the diff pane, whose text belongs to
+    // two versions at once. The two messages are the refusals that pane can give.
+    static values = {
+        hideResolved: Boolean,
+        demo: Boolean,
+        diff: Boolean,
+        deletedMessage: String,
+        unanchorableMessage: String,
+    };
+
+    // Marks a run of text the newer version also holds, and carries that run's
+    // character offset into it. RenderedDiffBuilder writes both.
+    static DIFF_OFFSET_ATTRIBUTE = 'data-diff-offset';
+
+    static DIFF_DELETED_SELECTOR = '.lp-diff__mark--deleted';
 
     // Where the resolved-comments preference is remembered. It is a view
     // preference rather than document state, so it belongs to the reader and
@@ -247,6 +261,9 @@ export default class extends Controller {
         }
 
         this.pendingSelection = { ...anchor, range: range.cloneRange() };
+        if (this.diffValue) {
+            this.#showActionError('');
+        }
         this.#showToolbarNear(range);
     }
 
@@ -567,6 +584,10 @@ export default class extends Controller {
      * for an empty selection.
      */
     #extractAnchor(range) {
+        if (this.diffValue) {
+            return this.#extractDiffAnchor(range);
+        }
+
         const start = this.#textOffset(range.startContainer, range.startOffset);
         const end = this.#textOffset(range.endContainer, range.endOffset);
         if (end <= start) {
@@ -581,6 +602,143 @@ export default class extends Controller {
             prefix: this.#before(fullText, start, context),
             suffix: this.#after(fullText, end, context),
         };
+    }
+
+    /**
+     * Builds {quote, prefix, suffix} for a selection made on a diff pane.
+     *
+     * That pane shows the text of two versions at once, so it cannot be sliced
+     * the way the document pane is. Each run the newer version also holds
+     * carries its offset into that version's plain text; joining the runs that
+     * follow one another gives back a verbatim stretch of it, and the anchor is
+     * sliced out of that. A selection that touches an unmarked run — deleted
+     * text, or a run the two texts stopped agreeing on — is refused and says so.
+     */
+    #extractDiffAnchor(range) {
+        const runs = [];
+        let run = null;
+        let start = null;
+        let end = null;
+
+        const walker = document.createTreeWalker(
+            this.docTarget,
+            NodeFilter.SHOW_TEXT,
+            null,
+        );
+        for (
+            let node = walker.nextNode();
+            node !== null;
+            node = walker.nextNode()
+        ) {
+            const offset = this.#diffOffsetOf(node);
+            const length = Array.from(node.data).length;
+            const selected = this.#selectedSpan(node, range);
+
+            if (offset === null) {
+                // Wrapping a changed block adds whitespace the newer version
+                // never had. Selecting it means nothing, so it is dropped rather
+                // than refused, and the runs on either side still join up.
+                if (selected !== null && node.data.trim() !== '') {
+                    this.#showActionError(
+                        this.#insideDeletedMark(node)
+                            ? this.deletedMessageValue
+                            : this.unanchorableMessageValue,
+                    );
+                    return null;
+                }
+                continue;
+            }
+
+            if (run !== null && run.offset + run.length === offset) {
+                run.text += node.data;
+                run.length += length;
+            } else {
+                run = { offset, text: node.data, length };
+                runs.push(run);
+            }
+
+            if (selected !== null) {
+                const before = Array.from(
+                    node.data.slice(0, selected.start),
+                ).length;
+                const inside = Array.from(
+                    node.data.slice(selected.start, selected.end),
+                ).length;
+                if (start === null) {
+                    start = offset + before;
+                }
+                end = offset + before + inside;
+            }
+        }
+
+        if (start === null || end === null || end <= start) {
+            return null;
+        }
+
+        const holder = runs.find(
+            (candidate) =>
+                candidate.offset <= start &&
+                end <= candidate.offset + candidate.length,
+        );
+        if (holder === undefined) {
+            this.#showActionError(this.unanchorableMessageValue);
+            return null;
+        }
+
+        const characters = Array.from(holder.text);
+        const from = start - holder.offset;
+        const to = end - holder.offset;
+        const context = this.constructor.CONTEXT;
+
+        return {
+            quote: characters.slice(from, to).join(''),
+            prefix: characters
+                .slice(Math.max(0, from - context), from)
+                .join(''),
+            suffix: characters.slice(to, to + context).join(''),
+        };
+    }
+
+    /** A run's character offset into the newer version's plain text, or null. */
+    #diffOffsetOf(node) {
+        // Read before it is converted: Number(null) is 0, which would read a
+        // missing attribute as the very start of the document.
+        const value =
+            node.parentElement?.getAttribute(
+                this.constructor.DIFF_OFFSET_ATTRIBUTE,
+            ) ?? null;
+        if (value === null) {
+            return null;
+        }
+
+        const offset = Number(value);
+
+        return Number.isInteger(offset) ? offset : null;
+    }
+
+    #insideDeletedMark(node) {
+        return Boolean(
+            node.parentElement?.closest(this.constructor.DIFF_DELETED_SELECTOR),
+        );
+    }
+
+    /** The [start, end) of `node` the range covers, in UTF-16 units, or null. */
+    #selectedSpan(node, range) {
+        if (!range.intersectsNode(node)) {
+            return null;
+        }
+
+        const start = node === range.startContainer ? range.startOffset : 0;
+        const end =
+            node === range.endContainer ? range.endOffset : node.data.length;
+
+        return end > start ? { start, end } : null;
+    }
+
+    #showActionError(message) {
+        if (this.hasActionErrorTarget) {
+            this.actionErrorTarget.textContent = message;
+        }
     }
 
     /**
