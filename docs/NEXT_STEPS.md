@@ -2682,5 +2682,5 @@ when two writers race the same comment.
 The open question is how the document tool records the same contract. It can
 take the same caveat wording as the site-review tool, or another treatment.
 Decide that first. Then apply it to the `#[McpTool]` description, the `__invoke`
-docblock, the `loupe-documents` skill and the `document_mark_comment_addressed`
-row in `docs/using/mcp.md`.
+docblock, the `loupe-documents` skill, which lists no skip reasons today, and
+the `document_mark_comment_addressed` row in `docs/using/mcp.md`.
