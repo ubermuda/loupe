@@ -1375,6 +1375,14 @@
                 <source>review.document.diff.refused.unsupported_characters</source>
                 <target>These versions contain characters this comparison cannot handle, and showing it anyway would misreport what changed. Use the version list above to read either version in full.</target>
             </trans-unit>
+            <trans-unit id="review.document.diff.comment.deleted_refused">
+                <source>review.document.diff.comment.deleted_refused</source>
+                <target>You cannot comment on text this revision removed. Select text the newer version still has.</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.comment.unanchorable_refused">
+                <source>review.document.diff.comment.unanchorable_refused</source>
+                <target>You cannot comment on this selection. Select text inside one part of the newer version.</target>
+            </trans-unit>
 
             <!-- Document review table of contents -->
             <trans-unit id="review.document.contents.label">

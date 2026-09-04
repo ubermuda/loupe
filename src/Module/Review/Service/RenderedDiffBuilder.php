@@ -32,12 +32,27 @@ final readonly class RenderedDiffBuilder
     /** The fieldset DecisionBlockService mints, which a diff shows but cannot answer. */
     private const string DECISION_CLASS = 'lp-decision';
 
+    /** Carries a run's character offset into the newer version's plain text. */
+    public const string OFFSET_ATTRIBUTE = 'data-diff-offset';
+
+    /**
+     * Elements whose only legal children are table structure. The HTML parser
+     * moves anything else out of the table, which would reorder the pane's text
+     * and put every offset after it wrong, so text in one is left unwrapped.
+     */
+    private const array TABLE_STRUCTURE = ['table', 'thead', 'tbody', 'tfoot', 'tr'];
+
     public function __construct(
         private TranslatorInterface $translator,
     ) {
     }
 
-    public function build(string $html): RenderedDiff
+    /**
+     * @param ?string $newPlainText the newer version's DocumentVersion::plainText(),
+     *                              when a comment made on this diff would anchor
+     *                              against it. Null leaves the pane unanchorable.
+     */
+    public function build(string $html, ?string $newPlainText = null): RenderedDiff
     {
         $body = \Dom\HTMLDocument::createFromString($html, \LIBXML_NOERROR, 'UTF-8')->body
             ?? throw new \RuntimeException('Rendered diff parsed to a document with no body.');
@@ -45,6 +60,10 @@ final readonly class RenderedDiffBuilder
         $count = 0;
         $open = false;
         $this->visit($body, false, $count, $open);
+
+        if (null !== $newPlainText) {
+            $this->stampOffsets($body, $newPlainText);
+        }
 
         return new RenderedDiff($body->innerHTML, $count);
     }
@@ -119,6 +138,85 @@ final readonly class RenderedDiffBuilder
                 ? 'review.document.diff.mark.inserted'
                 : 'review.document.diff.mark.deleted',
         ));
+    }
+
+    /**
+     * Wraps each run of text the newer version also holds in a span carrying
+     * that run's character offset into the newer version's plain text.
+     *
+     * A comment anchor is a verbatim slice of that text, and this pane holds two
+     * versions at once, so the browser cannot slice it out of the pane alone.
+     * The offsets tell it which runs join up. Deleted text gets none, and so
+     * does a run the two texts no longer agree on, which is what makes a
+     * selection over either one refusable.
+     */
+    private function stampOffsets(\Dom\Element $body, string $newPlainText): void
+    {
+        $nodes = [];
+        $this->collectNewSideText($body, false, $nodes);
+
+        $stamps = [];
+        $bytes = 0;
+        $characters = 0;
+        foreach ($nodes as $node) {
+            $text = $node->data;
+            if (substr($newPlainText, $bytes, \strlen($text)) !== $text) {
+                // A changed block is wrapped in a mark of its own, which adds
+                // newlines the newer version never had. Anything else means the
+                // two texts have parted company, so the rest goes unstamped.
+                if ('' !== trim($text)) {
+                    break;
+                }
+
+                continue;
+            }
+
+            $parent = $node->parentNode;
+            if ($parent instanceof \Dom\Element && !in_array(strtolower($parent->tagName), self::TABLE_STRUCTURE, true)) {
+                $stamps[] = [$node, $characters];
+            }
+
+            $characters += mb_strlen($text, 'UTF-8');
+            $bytes += \strlen($text);
+        }
+
+        $document = $body->ownerDocument
+            ?? throw new \RuntimeException('The rendered diff body left its document.');
+
+        foreach ($stamps as [$node, $offset]) {
+            $span = $document->createElement('span');
+            $span->setAttribute(self::OFFSET_ATTRIBUTE, (string) $offset);
+            $node->parentNode?->replaceChild($span, $node);
+            $span->appendChild($node);
+        }
+    }
+
+    /**
+     * Every text node the newer version also holds, in document order.
+     *
+     * @param list<\Dom\Text> $nodes
+     */
+    private function collectNewSideText(\Dom\Node $parent, bool $deleted, array &$nodes): void
+    {
+        foreach ($parent->childNodes as $node) {
+            if ($node instanceof \Dom\Text) {
+                if (!$deleted) {
+                    $nodes[] = $node;
+                }
+
+                continue;
+            }
+
+            if (!$node instanceof \Dom\Element) {
+                continue;
+            }
+
+            $this->collectNewSideText(
+                $node,
+                $deleted || $node->classList->contains(MarkdownRenderer::DIFF_MARK_CLASS.'--deleted'),
+                $nodes,
+            );
+        }
     }
 
     private function openHunk(\Dom\Element $mark, int $number): void
