@@ -141,6 +141,37 @@ async function selectPhrase(
     );
 }
 
+/**
+ * The first anchor the controller painted, described by where it landed: the
+ * text, whether its run carries a newer-version offset, and whether it sits in
+ * removed text.
+ */
+async function paintedAnchor(page: Page): Promise<{
+    text: string;
+    stamped: boolean;
+    deleted: boolean;
+} | null> {
+    return page.evaluate(() => {
+        const registry = (
+            CSS as unknown as { highlights?: Map<string, Set<Range>> }
+        ).highlights;
+        const highlight = registry?.get('lp-anchor-pending');
+        for (const range of highlight ?? []) {
+            const parent = range.startContainer.parentElement;
+
+            return {
+                text: range.toString(),
+                stamped: parent?.hasAttribute('data-diff-offset') ?? false,
+                deleted: Boolean(
+                    parent?.closest('.lp-diff__mark--deleted') ?? null,
+                ),
+            };
+        }
+
+        return null;
+    });
+}
+
 async function reviewState(
     page: Page,
     documentId: string,
@@ -190,6 +221,12 @@ test('a comment made on an inserted run lands on the current version', async ({
     const state = await reviewState(page, documentId);
     expect(state.storedAnchors).toHaveLength(1);
     expect(state.storedAnchors[0].quote).toBe(INSERTED);
+
+    // The thread is painted back onto a run the newer version holds, rather than
+    // onto whichever occurrence the pane's combined text happened to offer.
+    await expect
+        .poll(async () => paintedAnchor(page), { timeout: 10000 })
+        .toEqual({ text: INSERTED, stamped: true, deleted: false });
 });
 
 test('a selection that touches deleted text is refused', async ({ page }) => {

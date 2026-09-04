@@ -615,67 +615,50 @@ export default class extends Controller {
      * text, or a run the two texts stopped agreeing on — is refused and says so.
      */
     #extractDiffAnchor(range) {
-        const runs = [];
-        let run = null;
         let start = null;
         let end = null;
 
-        const walker = document.createTreeWalker(
-            this.docTarget,
-            NodeFilter.SHOW_TEXT,
-            null,
-        );
-        for (
-            let node = walker.nextNode();
-            node !== null;
-            node = walker.nextNode()
-        ) {
-            const offset = this.#diffOffsetOf(node);
-            const length = Array.from(node.data).length;
+        for (const node of this.#diffTextNodes()) {
             const selected = this.#selectedSpan(node, range);
+            if (selected === null) {
+                continue;
+            }
 
+            const offset = this.#diffOffsetOf(node);
             if (offset === null) {
                 // Wrapping a changed block adds whitespace the newer version
                 // never had. Selecting it means nothing, so it is dropped rather
                 // than refused, and the runs on either side still join up.
-                if (selected !== null && node.data.trim() !== '') {
-                    this.#showActionError(
-                        this.#insideDeletedMark(node)
-                            ? this.deletedMessageValue
-                            : this.unanchorableMessageValue,
-                    );
-                    return null;
+                if (node.data.trim() === '') {
+                    continue;
                 }
-                continue;
+
+                this.#showActionError(
+                    this.#insideDeletedMark(node)
+                        ? this.deletedMessageValue
+                        : this.unanchorableMessageValue,
+                );
+
+                return null;
             }
 
-            if (run !== null && run.offset + run.length === offset) {
-                run.text += node.data;
-                run.length += length;
-            } else {
-                run = { offset, text: node.data, length };
-                runs.push(run);
+            const before = Array.from(
+                node.data.slice(0, selected.start),
+            ).length;
+            const inside = Array.from(
+                node.data.slice(selected.start, selected.end),
+            ).length;
+            if (start === null) {
+                start = offset + before;
             }
-
-            if (selected !== null) {
-                const before = Array.from(
-                    node.data.slice(0, selected.start),
-                ).length;
-                const inside = Array.from(
-                    node.data.slice(selected.start, selected.end),
-                ).length;
-                if (start === null) {
-                    start = offset + before;
-                }
-                end = offset + before + inside;
-            }
+            end = offset + before + inside;
         }
 
         if (start === null || end === null || end <= start) {
             return null;
         }
 
-        const holder = runs.find(
+        const holder = this.#diffRuns().find(
             (candidate) =>
                 candidate.offset <= start &&
                 end <= candidate.offset + candidate.length,
@@ -697,6 +680,135 @@ export default class extends Controller {
                 .join(''),
             suffix: characters.slice(to, to + context).join(''),
         };
+    }
+
+    /**
+     * Finds a DOM Range for an anchor's quote in a diff pane, searching only the
+     * runs the newer version also holds.
+     *
+     * Searching the pane's whole text would let a quote match inside removed
+     * text, or across the whitespace a wrapped block adds, and put the thread
+     * beside a passage it does not point at.
+     */
+    #findDiffRange(quote, prefix, suffix) {
+        if (quote === '') {
+            return null;
+        }
+
+        const context = this.constructor.CONTEXT;
+        const fingerprint = this.constructor.FINGERPRINT;
+        let best = null;
+
+        for (const run of this.#diffRuns()) {
+            let at = run.text.indexOf(quote);
+            while (at !== -1) {
+                let score = 0;
+                if (
+                    prefix !== '' &&
+                    this.#before(run.text, at, context).endsWith(
+                        this.#before(prefix, prefix.length, fingerprint),
+                    )
+                ) {
+                    score += 1;
+                }
+                if (
+                    suffix !== '' &&
+                    this.#after(
+                        run.text,
+                        at + quote.length,
+                        context,
+                    ).startsWith(this.#after(suffix, 0, fingerprint))
+                ) {
+                    score += 1;
+                }
+                // Strictly greater, so the earliest occurrence keeps a tie, as
+                // it does on the server.
+                if (best === null || score > best.score) {
+                    best = { run, at, score };
+                }
+                at = run.text.indexOf(quote, at + 1);
+            }
+        }
+
+        if (best === null) {
+            return null;
+        }
+
+        return this.#rangeInRun(best.run, best.at, best.at + quote.length);
+    }
+
+    /**
+     * The pane's runs of newer-version text, each one a verbatim stretch of that
+     * version's plain text.
+     *
+     * `offset` and `length` count codepoints, matching the stamped attribute.
+     * `text` and each piece's position are UTF-16, which is what a DOM range
+     * needs.
+     */
+    #diffRuns() {
+        const runs = [];
+        let run = null;
+
+        for (const node of this.#diffTextNodes()) {
+            const offset = this.#diffOffsetOf(node);
+            if (offset === null) {
+                continue;
+            }
+
+            const length = Array.from(node.data).length;
+            if (run !== null && run.offset + run.length === offset) {
+                run.pieces.push({ node, at: run.text.length });
+                run.text += node.data;
+                run.length += length;
+            } else {
+                run = {
+                    offset,
+                    length,
+                    text: node.data,
+                    pieces: [{ node, at: 0 }],
+                };
+                runs.push(run);
+            }
+        }
+
+        return runs;
+    }
+
+    /** Maps a [start, end) span of one run's text to a DOM Range. */
+    #rangeInRun(run, start, end) {
+        const range = document.createRange();
+        let startSet = false;
+
+        for (const piece of run.pieces) {
+            const pieceEnd = piece.at + piece.node.data.length;
+            if (!startSet && start < pieceEnd) {
+                range.setStart(piece.node, start - piece.at);
+                startSet = true;
+            }
+            if (startSet && end <= pieceEnd) {
+                range.setEnd(piece.node, end - piece.at);
+
+                return range;
+            }
+        }
+
+        return null;
+    }
+
+    /** Every text node of the diff pane, in document order. */
+    *#diffTextNodes() {
+        const walker = document.createTreeWalker(
+            this.docTarget,
+            NodeFilter.SHOW_TEXT,
+            null,
+        );
+        for (
+            let node = walker.nextNode();
+            node !== null;
+            node = walker.nextNode()
+        ) {
+            yield node;
+        }
     }
 
     /** A run's character offset into the newer version's plain text, or null. */
@@ -829,6 +941,10 @@ export default class extends Controller {
      * to the client.
      */
     #findRange(quote, prefix, suffix) {
+        if (this.diffValue) {
+            return this.#findDiffRange(quote, prefix, suffix);
+        }
+
         if (quote === '') {
             return null;
         }
