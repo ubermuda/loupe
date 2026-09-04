@@ -27,9 +27,9 @@ export default class extends Controller {
 
         this.decisionIdTarget.value = block.dataset.decisionId;
         this.optionIndexTarget.value = control.value;
-        if (this.hasChosenTarget) {
-            this.chosenTarget.checked = control.checked;
-        }
+        // Unguarded like the two above: a missing widget would otherwise submit
+        // nothing for it, and every checkbox click would read as an untick.
+        this.chosenTarget.checked = control.checked;
         // requestSubmit(), never submit(): submit() fires no submit event, so
         // csrf_protection_controller.js's document-level listener never runs the
         // double-submit and every password-login session gets a 403 — while the
