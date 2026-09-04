@@ -33,10 +33,11 @@ class EditProjectController extends AppController
 
     public function __invoke(Request $request, Project $project): Response
     {
-        // The edit form reuses the create form (identical fields); UpdateProjectRequest
-        // only adds the factory that pre-fills it from the project.
+        // The edit form reuses the create form; UpdateProjectRequest only adds the
+        // factory that pre-fills it from the project. The search language is
+        // chosen once, at creation, so this screen leaves the field out.
         $data = UpdateProjectRequest::fromProject($project);
-        $form = $this->createForm(CreateProjectFormType::class, $data);
+        $form = $this->createForm(CreateProjectFormType::class, $data, ['with_search_language' => false]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {

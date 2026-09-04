@@ -135,10 +135,12 @@ The value is a PostgreSQL text-search configuration name, such as `english`,
 of mixed or unknown language, which then matches on whole words only. An unknown
 name is refused, and the error lists the accepted ones.
 
-A document that names no language takes the project's default. That default is
-`english`, and no screen changes it yet. Every document written before this
-feature stays English, because that is how it was already indexed. Changing a
-document's language after it exists needs a reindex, which no tool does yet.
+A document that names no language takes the project's default. You choose that
+default when you create the project, on the new-project form or on the first
+step of the first-run wizard, and it is `english` for every project that came
+before the field. No screen changes it afterwards. Every document written before
+this feature stays English, because that is how it was already indexed. Changing
+a document's language after it exists needs a reindex, which no tool does yet.
 
 ## Two things agents get wrong
 

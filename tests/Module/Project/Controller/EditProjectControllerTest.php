@@ -43,6 +43,29 @@ final class EditProjectControllerTest extends WebTestCase
         self::assertSame('after.example', $fresh->domain);
     }
 
+    /**
+     * The edit form shares CreateProjectFormType. Drop the option that hides the
+     * field and form_rest renders a select this screen's handler ignores.
+     */
+    public function test_the_edit_screen_does_not_offer_the_search_language(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'edit-no-language@example.com');
+        $project = new Project($owner, 'no-language-field');
+        $em->persist($project);
+        $em->flush();
+        $projectId = $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/edit');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('#create_project_form_name'));
+        self::assertCount(0, $crawler->filter('[name="create_project_form[searchLanguage]"]'));
+    }
+
     public function test_a_blank_domain_clears_it(): void
     {
         $client = static::createClient();

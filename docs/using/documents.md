@@ -71,6 +71,24 @@ Highlights tint the passages a reviewer should read first. They carry no body
 and cannot be replied to — they steer attention, nothing more. They belong to
 the version current when they are set, and a new version drops them.
 
+## The search language
+
+Search stems words, so it must know the language a document is written in. Every
+document carries its own.
+
+A project holds the default. You choose it when you create the project, in the
+**Document language** field on the new-project form and on the first step of the
+first-run wizard. A document that names no language of its own takes that
+default. An agent names another language per document through `document_create`.
+
+The default is `english` for every project that existed before this field, which
+keeps those projects searching as they always did. No screen changes the default
+after the project is created, and no screen or tool changes a document's own
+language after it is written. Both need a database change today.
+
+Pick **Other or mixed (no stemming)** for a project whose text has no single
+language. Search then matches whole words only.
+
 ## Archiving
 
 `/archive` and `/unarchive` take a document out of the default listing and put

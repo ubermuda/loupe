@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Project\Controller\Wizard;
 
+use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
@@ -86,6 +87,28 @@ final class ShowWelcomeControllerTest extends WebTestCase
         $projects = static::getContainer()->get(ProjectRepository::class)->findByOwner($user);
         self::assertCount(1, $projects);
         self::assertSame('My first project', $projects[0]->name);
+    }
+
+    public function test_the_first_project_takes_the_language_chosen_in_the_wizard(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $user = $this->createUser($em, 'wizlang', 'wiz-lang@example.com');
+        $em->flush();
+
+        $client->loginUser($user);
+        $crawler = $client->request(Request::METHOD_GET, '/welcome');
+        self::assertCount(1, $crawler->filter('select[name="create_project_form[searchLanguage]"]'));
+
+        $client->submitForm('Create project', [
+            'create_project_form[name]' => 'Projet francais',
+            'create_project_form[searchLanguage]' => 'french',
+        ]);
+
+        self::assertResponseRedirects('/welcome/connect');
+        $projects = static::getContainer()->get(ProjectRepository::class)->findByOwner($user);
+        self::assertCount(1, $projects);
+        self::assertSame(SearchLanguage::French, $projects[0]->searchLanguage);
     }
 
     public function test_invalid_submit_rerenders_with_422(): void
