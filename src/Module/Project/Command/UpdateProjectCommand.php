@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Project\Command;
 
+use App\Doctrine\SearchLanguage;
 use App\Module\Project\Entity\Project;
 
 final readonly class UpdateProjectCommand
@@ -13,6 +14,7 @@ final readonly class UpdateProjectCommand
         /** @phpstan-var non-empty-string */
         public string $name,
         public ?string $domain,
+        public SearchLanguage $searchLanguage,
     ) {
     }
 }

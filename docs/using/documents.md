@@ -81,10 +81,13 @@ A project holds the default. You choose it when you create the project, in the
 first-run wizard. A document that names no language of its own takes that
 default. An agent names another language per document through `document_create`.
 
+The project settings screen carries the same field, so you can change the
+default later. The change applies only to documents written after it. A document
+fixes its own language when it is written, and nothing changes that language
+afterwards, because a change needs a reindex that no screen or tool does today.
+
 The default is `english` for every project that existed before this field, which
-keeps those projects searching as they always did. No screen changes the default
-after the project is created, and no screen or tool changes a document's own
-language after it is written. Both need a database change today.
+keeps those projects searching as they always did.
 
 Pick **Other or mixed (no stemming)** for a project whose text has no single
 language. Search then matches whole words only.

@@ -26,10 +26,8 @@ class CreateProjectFormType extends AbstractType
                 'required' => false,
                 'label' => 'project.form.create_project_form.domain.label',
                 'attr' => ['placeholder' => 'project.form.create_project_form.domain.placeholder'],
-            ]);
-
-        if (true === $options['with_search_language']) {
-            $builder->add('searchLanguage', EnumType::class, [
+            ])
+            ->add('searchLanguage', EnumType::class, [
                 'class' => SearchLanguage::class,
                 // Simple is not a language, so it goes last rather than between
                 // Serbian and Spanish where its backing value sorts it.
@@ -43,16 +41,11 @@ class CreateProjectFormType extends AbstractType
                 'label' => 'project.form.create_project_form.search_language.label',
                 'choice_label' => static fn (SearchLanguage $language): string => 'project.form.create_project_form.search_language.choice.'.$language->value,
             ]);
-        }
     }
 
     #[\Override]
     public function configureOptions(OptionsResolver $resolver): void
     {
-        $resolver->setDefaults([
-            'data_class' => CreateProjectRequest::class,
-            'with_search_language' => true,
-        ]);
-        $resolver->setAllowedTypes('with_search_language', 'bool');
+        $resolver->setDefaults(['data_class' => CreateProjectRequest::class]);
     }
 }

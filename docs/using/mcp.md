@@ -138,7 +138,8 @@ name is refused, and the error lists the accepted ones.
 A document that names no language takes the project's default. You choose that
 default when you create the project, on the new-project form or on the first
 step of the first-run wizard, and it is `english` for every project that came
-before the field. No screen changes it afterwards. Every document written before
+before the field. The project settings screen changes it afterwards, and the
+change applies only to documents written after it. Every document written before
 this feature stays English, because that is how it was already indexed. Changing
 a document's language after it exists needs a reindex, which no tool does yet.
 

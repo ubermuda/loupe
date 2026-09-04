@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Project\Command;
 
+use App\Doctrine\SearchLanguage;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Command\UpdateProjectCommand;
@@ -42,7 +43,7 @@ final class UpdateProjectHandlerTest extends KernelTestCase
     {
         $project = $this->project('update-project-audit@example.com', 'before');
 
-        ($this->handler)(new UpdateProjectCommand($project, 'after', 'after.example.com'));
+        ($this->handler)(new UpdateProjectCommand($project, 'after', 'after.example.com', SearchLanguage::English));
 
         self::assertSame('after', $project->name);
         self::assertSame('after.example.com', $project->domain);
@@ -62,6 +63,21 @@ final class UpdateProjectHandlerTest extends KernelTestCase
         self::assertSame([], $this->audit->securityLogLines());
     }
 
+    public function test_a_changed_search_language_is_stored(): void
+    {
+        $project = $this->project('update-project-language@example.com', 'lang');
+        self::assertSame(SearchLanguage::English, $project->searchLanguage);
+
+        ($this->handler)(new UpdateProjectCommand($project, 'lang', null, SearchLanguage::Italian));
+
+        $id = $project->id;
+        self::assertNotNull($id);
+        $this->em->clear();
+        $fresh = $this->em->find(Project::class, $id);
+        self::assertInstanceOf(Project::class, $fresh);
+        self::assertSame(SearchLanguage::Italian, $fresh->searchLanguage);
+    }
+
     public function test_a_name_collision_records_nothing(): void
     {
         $taken = $this->project('update-project-collision@example.com', 'taken');
@@ -70,7 +86,7 @@ final class UpdateProjectHandlerTest extends KernelTestCase
         $this->em->flush();
 
         try {
-            ($this->handler)(new UpdateProjectCommand($project, 'taken', null));
+            ($this->handler)(new UpdateProjectCommand($project, 'taken', null, SearchLanguage::English));
             self::fail('Expected DomainErrors for a colliding project name.');
         } catch (DomainErrors $e) {
             self::assertSame(['name' => 'project.error.name_taken'], $e->errors);

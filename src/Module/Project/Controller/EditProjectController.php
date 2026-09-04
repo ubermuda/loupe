@@ -33,11 +33,10 @@ class EditProjectController extends AppController
 
     public function __invoke(Request $request, Project $project): Response
     {
-        // The edit form reuses the create form; UpdateProjectRequest only adds the
-        // factory that pre-fills it from the project. The search language is
-        // chosen once, at creation, so this screen leaves the field out.
+        // The edit form reuses the create form (identical fields); UpdateProjectRequest
+        // only adds the factory that pre-fills it from the project.
         $data = UpdateProjectRequest::fromProject($project);
-        $form = $this->createForm(CreateProjectFormType::class, $data, ['with_search_language' => false]);
+        $form = $this->createForm(CreateProjectFormType::class, $data);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -53,6 +52,7 @@ class EditProjectController extends AppController
                     project: $project,
                     name: $name,
                     domain: trim($data->domain ?? '') ?: null,
+                    searchLanguage: $data->searchLanguage ?? throw new \LogicException('search language required after validation'),
                 ));
 
                 return $this->redirectToRoute('app_projects');

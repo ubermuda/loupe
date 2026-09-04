@@ -1629,7 +1629,7 @@
             </trans-unit>
             <trans-unit id="project.form.create_project_form.search_language.hint">
                 <source>project.form.create_project_form.search_language.hint</source>
-                <target>Search stems words in this language. New documents in this project use it unless the agent that writes them names another. You cannot change it later.</target>
+                <target>Search stems words in this language. New documents in this project use it unless the agent that writes them names another. You can change it later, and the change applies only to documents written after it.</target>
             </trans-unit>
             <trans-unit id="project.form.create_project_form.search_language.choice.arabic">
                 <source>project.form.create_project_form.search_language.choice.arabic</source>
