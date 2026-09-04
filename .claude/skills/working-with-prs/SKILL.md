@@ -149,9 +149,17 @@ by hand. Mint a signed link instead, from inside the worktree:
 
 The link signs the reader in and lands them on the page you named, so the body
 needs no credentials at all. Use `--email=admin@loupe.test` for an admin page.
-The link is valid for 15 minutes by default, and `--ttl` changes that. Its
-signature covers the whole URL, host included, so it works against that worktree
-only. The route is `#[When('dev')]`, so it does not exist in production.
+
+**Set `--ttl` to cover the review window.** The default is 15 minutes, which
+suits a link you mint and click yourself. A link in a pull request body is read
+hours or days later, so pass something like `--ttl=1209600` for two weeks. A
+reviewer who clicks an expired link is told it expired, which is better than a
+blank page and still a wasted click. The cost of the longer window is small,
+because the host resolves on your own machine only.
+
+The signature covers the whole URL, host included, so a link works against that
+worktree only. The route is `#[When('dev')]`, so it does not exist in
+production.
 
 Open the link yourself before you write it down. Say plainly when a branch has
 no worktree or nothing to click, rather than pasting a link that goes nowhere.
