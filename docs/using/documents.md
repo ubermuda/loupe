@@ -83,7 +83,7 @@ default. An agent names another language per document through `document_create`.
 
 The project settings screen carries the same field, so you can change the
 default later. The change applies only to documents written after it. A document
-fixes its own language when it is written, and nothing changes that language
+fixes its own language when it is written. Nothing changes that language
 afterwards, because a change needs a reindex that no screen or tool does today.
 
 The default is `english` for every project that existed before this field, which
