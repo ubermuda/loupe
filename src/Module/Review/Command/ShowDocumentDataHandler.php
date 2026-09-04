@@ -8,7 +8,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\DocumentVersionRepository;
 
 /**
- * @phpstan-type DocumentPayload array{documentId: string, title: string, status: string, archived: bool, archiveReason: ?string, version: int, versionDescription: ?string, markdown: string, tags: list<string>, references: list<array{documentId: string, title: string, archived: bool}>, referencedBy: list<array{documentId: string, title: string, archived: bool}>}
+ * @phpstan-type DocumentPayload array{documentId: string, title: string, status: string, archived: bool, archiveReason: ?string, version: int, versionDescription: ?string, markdown: string, tags: list<string>, series: ?string, seriesOrdinal: ?int, references: list<array{documentId: string, title: string, archived: bool}>, referencedBy: list<array{documentId: string, title: string, archived: bool}>}
  */
 final readonly class ShowDocumentDataHandler
 {
@@ -72,6 +72,11 @@ final readonly class ShowDocumentDataHandler
             'versionDescription' => $currentVersion->description,
             'markdown' => $currentVersion->markdownSource,
             'tags' => $tags,
+            // Always present, both null unless the document is in a series: a
+            // key that appears and disappears makes a caller guess which of the
+            // two it is looking at.
+            'series' => $document->series?->name,
+            'seriesOrdinal' => $document->seriesOrdinal,
             'references' => $references,
             'referencedBy' => $referencedBy,
         ];

@@ -4,8 +4,9 @@ description: "Submitting Markdown, reviewing it inline, and revising across vers
 ---
 
 A document belongs to a project. It carries Markdown, a title, an optional
-description, tags, and links to other documents; each submission mints a new
-**version**, and the review UI keeps every one of them.
+description, tags, an optional place in a series, and links to other documents;
+each submission mints a new **version**, and the review UI keeps every one of
+them.
 
 ## Reviewing
 
@@ -91,6 +92,33 @@ drops the comment. The note then disappears, and nothing warns you:
 Blockquotes and list items are Markdown rather than raw HTML, so a comment
 inside one renders as a note. The comments stay invisible in every other
 Markdown renderer.
+
+## Series
+
+Tags say that documents belong together. A **series** also says in what order
+you read them. A series has a name and belongs to one project. A document
+belongs to at most one series, and holds a position in it, counting from 1.
+
+Set the name and the position together. A position with no series numbers
+nothing, and a series with no position cannot be read in order, so Loupe rejects
+either one on its own. Two documents in one series may not hold the same
+position. Two different series may both use position 1.
+
+An agent sets the placement when it submits the document, with the `series` and
+`seriesOrdinal` parameters of `document_create`. It can also move a document
+later with `document_set_series`, or take it out of its series. Loupe stores the
+name as its author spells it, and creates the series the first time a document
+names it. Two spellings that differ only in case or spacing are one series, and
+the first spelling is the one every reader sees. Use `series_rename` to change
+it.
+
+The documents list gets a series filter beside the tag filter. Pick a series and
+the list shows only its documents, in their own order rather than newest first.
+A document page shows the series and the position under the title.
+
+Renaming a series keeps every document in place. A name another series already
+holds is refused rather than merged, because two series carry two independent
+numberings.
 
 ## Highlights
 

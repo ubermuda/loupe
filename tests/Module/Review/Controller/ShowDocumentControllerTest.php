@@ -15,6 +15,7 @@ use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Review;
+use App\Module\Review\Entity\Series;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Service\MarkdownRenderer;
@@ -105,6 +106,34 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('.lp-tag', 'architecture');
+    }
+
+    public function test_review_page_renders_the_place_the_document_holds_in_a_series(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'seriesowner', 'seriesowner@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Post five');
+        $doc->addVersion('# Hello', '<h1>Hello</h1>');
+        $series = new Series($project, 'Blog Series');
+        $em->persist($series);
+        $doc->series = $series;
+        $doc->seriesOrdinal = 5;
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.lp-series', 'Series Blog Series, item 5');
     }
 
     public function test_review_page_renders_byline_and_verdict_actions(): void
