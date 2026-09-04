@@ -2727,10 +2727,17 @@ The hazard is the one `CLAUDE.md` already names for staging: a `git add -A` on
 the moved branch would have shipped a security config change inside a
 documentation commit.
 
+A session also cannot see that the checkout is occupied. A branch somebody else
+left there looks exactly like a branch you left there yourself, and
+`git worktree list` reports the path without saying who is standing in it. So
+moving it is not obviously an intrusion at the moment you do it.
+
 Decide whether the rule should be that a session never moves the main checkout
 at all, and does every edit in a worktree. Reported by two sessions that now
 work that way. Write it into `CLAUDE.md` if so, because a convention that lives
-only in one session's memory is not a convention.
+only in one session's memory is not a convention. If the rule stays advisory
+instead, the second half needs answering: give a session a way to tell an
+occupied checkout from one it can borrow.
 
 ## "Keep both entries" is wrong when a branch deleted one on purpose
 
