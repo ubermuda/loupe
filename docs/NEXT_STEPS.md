@@ -2722,10 +2722,16 @@ two sessions did during one wave. Once, that happened while another session's
 uncommitted work sat in the same tree, including a `config/packages/security.yaml`
 change and a new `Controller/Dev/` route.
 
-Nothing was lost, because both trees were clean at the point they were moved.
-The hazard is the one `CLAUDE.md` already names for staging: a `git add -A` on
-the moved branch would have shipped a security config change inside a
-documentation commit.
+Work was taken, not merely put at risk. A commit on the moved branch carried 20
+lines of another session's uncommitted edit to
+`.claude/skills/working-with-prs/SKILL.md`, and it was pushed before anyone
+noticed. The branch was rebuilt without it.
+
+`CLAUDE.md`'s "stage files by name, never `git add -A`" does not cover this.
+Both sessions were editing one file, and `git add <path>` stages the whole
+working-tree version of that path, so staging by name took the other session's
+hunks too. The check that catches it is reading `git diff --cached` before
+committing, rather than checking which files are staged.
 
 A session also cannot see that the checkout is occupied. A branch somebody else
 left there looks exactly like a branch you left there yourself, and
