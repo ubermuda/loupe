@@ -25,6 +25,9 @@ final class Version20260904161417 extends AbstractMigration
     public function down(Schema $schema): void
     {
         $this->addSql('DROP INDEX uniq_decision_selection_option');
+        // A block that took several answers holds several rows, which the old
+        // index cannot cover. Going back to one answer per block discards them.
+        $this->addSql('DELETE FROM decision_selections a USING decision_selections b WHERE a.document_id = b.document_id AND a.decision_id = b.decision_id AND a.option_index > b.option_index');
         $this->addSql('CREATE UNIQUE INDEX uniq_decision_selection_id ON decision_selections (document_id, decision_id)');
     }
 }

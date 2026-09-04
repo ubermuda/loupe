@@ -239,6 +239,36 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
     }
 
     /**
+     * A block may offer the same text twice, and two answers to two such
+     * options both resolve onto the first of them. They have to stay on two
+     * options, or one answer lands on the other's row and the click fails.
+     */
+    public function test_two_answers_reading_the_same_stay_on_two_options(): void
+    {
+        $document = $this->createDocument(
+            "Pick what ships.\n\n<!-- decision: ship-with -->\n\n- [ ] Ship it\n- [ ] Ship it\n- [ ] Wait\n\n<!-- /decision -->\n",
+        );
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 1, displayedVersionNumber: 1));
+
+        $revise = self::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
+        $revise(new ReviseDocumentCommand(
+            $document,
+            "Pick what ships.\n\n<!-- decision: ship-with -->\n\n- [ ] Hold\n- [ ] Ship it\n- [ ] Ship it\n- [ ] Wait\n\n<!-- /decision -->\n",
+            'Added a first option.',
+        ));
+
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 3, displayedVersionNumber: 2));
+
+        $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
+        self::assertSame(
+            [[1, 'Ship it'], [2, 'Ship it'], [3, 'Wait']],
+            array_map(static fn (object $row): array => [$row->optionIndex, $row->optionLabel], $stored),
+        );
+    }
+
+    /**
      * A revision can turn a multi-choice block back into a single-choice one,
      * and the block then takes one answer. The extra rows have to go, or the
      * page shows several answers a radio group cannot express.

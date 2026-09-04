@@ -105,10 +105,10 @@ final readonly class SelectDecisionOptionHandler
      * whose label is gone. The label, the version and the time are what that row
      * reports, and all three are carried across.
      *
-     * Every target is distinct by construction, so the set can be laid down in
-     * one pass. The rows that move are rewritten rather than updated, because
-     * two options that swap places would meet on the unique key mid-flush:
-     * Doctrine writes every update before any delete.
+     * No two rows are given the same target, so the set can be laid down in one
+     * pass. The rows that move are rewritten rather than updated, because two
+     * options that swap places would meet on the unique key mid-flush: Doctrine
+     * writes every update before any delete.
      *
      * @param list<DecisionSelection> $stored
      *
@@ -118,11 +118,13 @@ final readonly class SelectDecisionOptionHandler
     {
         $beyondTheOptions = \count($decision->options);
 
+        /** @var array<int, true> $taken */
+        $taken = [];
         $moved = [];
         $settled = [];
         foreach ($stored as $selection) {
-            $index = $decision->resolveIndex($selection->optionLabel, $selection->optionIndex)
-                ?? $beyondTheOptions++;
+            $index = self::placeFor($decision, $selection, $taken) ?? $beyondTheOptions++;
+            $taken[$index] = true;
 
             if ($index === $selection->optionIndex) {
                 $settled[] = $selection;
@@ -157,6 +159,33 @@ final readonly class SelectDecisionOptionHandler
         $this->em->flush();
 
         return $settled;
+    }
+
+    /**
+     * Where one stored answer belongs among the current options, or null when
+     * they hold no free place for it.
+     *
+     * A block may offer the same text twice, and two answers to two such
+     * options both resolve onto the first of them. A taken index is therefore
+     * not the end of the search: the next option reading the same is as true a
+     * home for the answer, and it keeps both of them on the page.
+     *
+     * @param array<int, true> $taken
+     */
+    private static function placeFor(Decision $decision, DecisionSelection $selection, array $taken): ?int
+    {
+        $resolved = $decision->resolveIndex($selection->optionLabel, $selection->optionIndex);
+        if (null === $resolved || !isset($taken[$resolved])) {
+            return $resolved;
+        }
+
+        foreach ($decision->options as $index => $option) {
+            if ($option === $selection->optionLabel && !isset($taken[$index])) {
+                return $index;
+            }
+        }
+
+        return null;
     }
 
     /**
