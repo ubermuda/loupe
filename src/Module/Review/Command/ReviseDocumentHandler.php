@@ -16,6 +16,8 @@ use App\Module\Review\Service\DocumentSearchIndexer;
 use App\Module\Review\Service\DocumentSeriesApplier;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\Service\ReanchoringService;
+use App\Module\Review\Service\SeriesConflictErrors;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
@@ -36,6 +38,7 @@ final readonly class ReviseDocumentHandler
         private DocumentReferenceValidator $referenceValidator,
         private DocumentSeriesApplier $seriesApplier,
         private DocumentSearchIndexer $searchIndexer,
+        private SeriesConflictErrors $conflicts,
         private Auditor $auditor,
     ) {
     }
@@ -143,7 +146,11 @@ final readonly class ReviseDocumentHandler
             $document->status = DocumentStatus::InReview;
 
             // Flush: the new version is persisted explicitly above; version → comments cascade persists the copies.
-            $this->em->flush();
+            try {
+                $this->em->flush();
+            } catch (UniqueConstraintViolationException $e) {
+                throw $this->conflicts->forViolation($e) ?? $e;
+            }
 
             // Inside the transaction: a revision that rolls back must not leave
             // the vector describing a version that no longer exists.

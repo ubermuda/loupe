@@ -6,6 +6,8 @@ namespace App\Module\Review\Command;
 
 use App\Module\Review\Entity\Series;
 use App\Module\Review\Service\DocumentSeriesApplier;
+use App\Module\Review\Service\SeriesConflictErrors;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -23,6 +25,7 @@ final readonly class SetDocumentSeriesHandler
     public function __construct(
         private EntityManagerInterface $em,
         private DocumentSeriesApplier $seriesApplier,
+        private SeriesConflictErrors $conflicts,
         private Auditor $auditor,
     ) {
     }
@@ -32,7 +35,11 @@ final readonly class SetDocumentSeriesHandler
         $document = $command->document;
         $series = $this->seriesApplier->apply($document, $command->seriesName, $command->seriesOrdinal);
 
-        $this->em->flush();
+        try {
+            $this->em->flush();
+        } catch (UniqueConstraintViolationException $e) {
+            throw $this->conflicts->forViolation($e) ?? $e;
+        }
 
         // An ordinal, not a name: a series name is a phrase a person typed.
         $this->auditor->record(

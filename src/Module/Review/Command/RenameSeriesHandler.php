@@ -7,6 +7,8 @@ namespace App\Module\Review\Command;
 use App\Exception\DomainErrors;
 use App\Module\Review\Entity\Series;
 use App\Module\Review\Repository\SeriesRepository;
+use App\Module\Review\Service\SeriesConflictErrors;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -24,6 +26,7 @@ final readonly class RenameSeriesHandler
     public function __construct(
         private EntityManagerInterface $em,
         private SeriesRepository $series,
+        private SeriesConflictErrors $conflicts,
         private Auditor $auditor,
     ) {
     }
@@ -47,7 +50,12 @@ final readonly class RenameSeriesHandler
         }
 
         $series->name = $name;
-        $this->em->flush();
+
+        try {
+            $this->em->flush();
+        } catch (UniqueConstraintViolationException $e) {
+            throw $this->conflicts->forViolation($e) ?? $e;
+        }
 
         $this->auditor->record(
             'review.series_renamed',

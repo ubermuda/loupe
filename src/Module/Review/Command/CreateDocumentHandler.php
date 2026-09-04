@@ -12,6 +12,8 @@ use App\Module\Review\Service\DocumentSearchIndexer;
 use App\Module\Review\Service\DocumentSeriesApplier;
 use App\Module\Review\Service\DocumentTagApplier;
 use App\Module\Review\Service\MarkdownRenderer;
+use App\Module\Review\Service\SeriesConflictErrors;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -26,6 +28,7 @@ final readonly class CreateDocumentHandler
         private DocumentSeriesApplier $seriesApplier,
         private DocumentReferenceValidator $referenceValidator,
         private DocumentSearchIndexer $searchIndexer,
+        private SeriesConflictErrors $conflicts,
         private Auditor $auditor,
     ) {
     }
@@ -67,7 +70,12 @@ final readonly class CreateDocumentHandler
         // are written together or not at all.
         $this->em->persist($document);
         $this->tagApplier->apply($document, $command->tagNames);
-        $this->em->flush();
+
+        try {
+            $this->em->flush();
+        } catch (UniqueConstraintViolationException $e) {
+            throw $this->conflicts->forViolation($e) ?? $e;
+        }
 
         // Between the flush and the index. Before the flush the document has no
         // committed id, and after the index a throwing indexer would leave the
