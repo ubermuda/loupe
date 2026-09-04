@@ -40,7 +40,12 @@ final readonly class SectionApprovalReader
 
         $approved = [];
         foreach ($this->sectionApprovals->findByDocumentAndApproverIndexedByHeadingId($document, $reader) as $headingId => $approval) {
-            if (($hashes[$headingId] ?? null) === $approval->contentHash) {
+            // The version guard is what keeps an older version honest: an
+            // approval given later can still match its text, and marking the
+            // section approved there claims a reader approved it before they did.
+            if ($approval->versionNumber <= $version->versionNumber
+                && ($hashes[$headingId] ?? null) === $approval->contentHash
+            ) {
                 $approved[$headingId] = true;
             }
         }
