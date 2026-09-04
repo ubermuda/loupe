@@ -466,7 +466,9 @@
 
       .lp-composer{flex:0 0 auto;overflow:hidden;transition:max-height .27s cubic-bezier(.4,0,.2,1),opacity .2s ease}
       .lp-composer-inner{padding:2px 16px 14px}
-      .lp-compose-head{display:flex;align-items:center;gap:7px;margin-bottom:9px;min-height:21px;flex-wrap:wrap}
+      /* The composer's height is fixed and it clips, so the chips scroll rather
+         than push the textarea and the buttons out of the box. */
+      .lp-compose-head{display:flex;align-items:center;gap:7px;margin-bottom:9px;min-height:21px;flex-wrap:wrap;max-height:90px;overflow-y:auto;overscroll-behavior:contain}
       .lp-compose-general{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
       .lp-dot{width:7px;height:7px;border-radius:50%;border:1.5px dashed var(--faint)}
       .lp-compose-chip{flex:0 1 auto;min-width:0;display:inline-flex;align-items:center;gap:5px;height:21px;padding:0 9px;background:var(--accent-tint);color:var(--accent-ink);border-radius:999px;font-size:11px;font-weight:600;overflow:hidden}

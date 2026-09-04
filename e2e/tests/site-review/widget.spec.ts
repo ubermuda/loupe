@@ -959,6 +959,71 @@ test('an element can be dropped from the composer before saving', async ({
 });
 
 /**
+ * The composer has a fixed height and clips, so a header full of chips must
+ * scroll. Before it did, ten long labels pushed Save out of the clipped box and
+ * the reviewer could not save a valid comment at all.
+ */
+test('the composer keeps Save reachable at the anchor cap', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+
+    // Ten targets whose labels are long enough to wrap the chip header.
+    await page.evaluate(() => {
+        for (let i = 1; i <= 10; i++) {
+            const button = document.createElement('button');
+            button.id = `long-${i}`;
+            button.type = 'button';
+            button.textContent = `A deliberately long element label number ${i} that keeps going well past the chip width`;
+            document.body.appendChild(button);
+        }
+    });
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await page.locator('#long-1').click();
+    for (let i = 2; i <= 10; i++) {
+        await page.getByRole('button', { name: '+ Add element' }).click();
+        await page.locator(`#long-${i}`).click();
+    }
+
+    await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
+        10,
+    );
+    // At the cap the widget stops offering another pick.
+    await expect(
+        page.getByRole('button', { name: '+ Add element' }),
+    ).toHaveCount(0);
+
+    // The header scrolls instead of growing.
+    const overflows = await page
+        .locator('#lp-compose-head')
+        .evaluate((el) => el.scrollHeight > el.clientHeight);
+    expect(overflows).toBe(true);
+
+    // Save stays inside the composer's clipped box, so it can still be clicked.
+    const composerBox = await page.locator('#lp-composer').boundingBox();
+    const saveBox = await page
+        .getByRole('button', { name: 'Save' })
+        .boundingBox();
+    expect(saveBox!.y + saveBox!.height).toBeLessThanOrEqual(
+        composerBox!.y + composerBox!.height + 1,
+    );
+
+    // The real proof: the comment saves.
+    await page
+        .getByPlaceholder(/Describe the issue/)
+        .fill('Ten anchors with long labels');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#lp-head-count')).toHaveText('1');
+    await expect(page.locator('.pin')).toHaveCount(10);
+});
+
+/**
  * A multi-anchor comment whose anchors only partly resolve must say so. Showing
  * one pin as though the comment had always been about one element would
  * misstate what the reviewer said.
