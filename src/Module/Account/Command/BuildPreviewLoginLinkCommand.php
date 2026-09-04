@@ -12,7 +12,6 @@ final readonly class BuildPreviewLoginLinkCommand
     public function __construct(
         public string $email,
         public string $path = '/',
-        public int $lifetimeSeconds = 900,
     ) {
     }
 }

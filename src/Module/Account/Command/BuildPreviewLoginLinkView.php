@@ -11,7 +11,6 @@ final readonly class BuildPreviewLoginLinkView
 {
     public function __construct(
         public string $url,
-        public \DateTimeImmutable $expiresAt,
     ) {
     }
 }

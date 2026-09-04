@@ -32,6 +32,7 @@ final class BuildPreviewLoginLinkHandlerTest extends TestCase
 
         self::assertStringStartsWith(self::HOST.'/dev/preview-login?', $view->url);
         self::assertTrue($this->uriSigner->check($view->url));
+        self::assertStringNotContainsString('_expiration', $view->url);
     }
 
     /** Worktrees share APP_SECRET and all seed dev@loupe.test, so only the host binds a link. */
@@ -50,19 +51,6 @@ final class BuildPreviewLoginLinkHandlerTest extends TestCase
         $view = ($this->handler())(new BuildPreviewLoginLinkCommand('dev@loupe.test', '/projects'));
 
         self::assertFalse($this->uriSigner->check(str_replace('%2Fprojects', '%2Fadmin', $view->url)));
-    }
-
-    public function test_the_link_carries_the_requested_lifetime_as_its_expiry(): void
-    {
-        $before = time();
-
-        $view = ($this->handler())(new BuildPreviewLoginLinkCommand('dev@loupe.test', '/', 60));
-
-        self::assertGreaterThanOrEqual($before + 60, $view->expiresAt->getTimestamp());
-        self::assertLessThanOrEqual(time() + 60, $view->expiresAt->getTimestamp());
-
-        parse_str((string) parse_url($view->url, \PHP_URL_QUERY), $query);
-        self::assertSame((string) $view->expiresAt->getTimestamp(), $query['_expiration'] ?? null);
     }
 
     public function test_an_unknown_email_is_rejected(): void
@@ -88,13 +76,6 @@ final class BuildPreviewLoginLinkHandlerTest extends TestCase
         $this->expectException(DomainErrors::class);
 
         ($this->handler())(new BuildPreviewLoginLinkCommand('dev@loupe.test', $path));
-    }
-
-    public function test_a_lifetime_of_zero_is_rejected(): void
-    {
-        $this->expectException(DomainErrors::class);
-
-        ($this->handler())(new BuildPreviewLoginLinkCommand('dev@loupe.test', '/', 0));
     }
 
     private function handler(bool $known = true): BuildPreviewLoginLinkHandler

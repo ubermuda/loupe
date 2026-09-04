@@ -33,8 +33,7 @@ final class PreviewLoginLinkCommand extends Command
     {
         $this
             ->addOption('email', null, InputOption::VALUE_REQUIRED, 'Seeded account to sign in as', 'dev@loupe.test')
-            ->addOption('path', null, InputOption::VALUE_REQUIRED, 'Absolute path to land on', '/')
-            ->addOption('ttl', null, InputOption::VALUE_REQUIRED, 'Seconds the link stays valid', '900');
+            ->addOption('path', null, InputOption::VALUE_REQUIRED, 'Absolute path to land on', '/');
     }
 
     #[\Override]
@@ -46,7 +45,6 @@ final class PreviewLoginLinkCommand extends Command
             $view = ($this->buildPreviewLoginLink)(new BuildPreviewLoginLinkCommand(
                 email: (string) $input->getOption('email'),
                 path: (string) $input->getOption('path'),
-                lifetimeSeconds: (int) $input->getOption('ttl'),
             ));
         } catch (DomainErrors $e) {
             foreach ($e->errors as $field => $translationKey) {
@@ -57,7 +55,6 @@ final class PreviewLoginLinkCommand extends Command
         }
 
         $output->writeln($view->url);
-        $io->comment('Valid until '.$view->expiresAt->format(\DateTimeInterface::ATOM).'.');
 
         return Command::SUCCESS;
     }

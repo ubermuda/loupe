@@ -40,7 +40,7 @@ sidecar at `https://mailpit-<slug>.loupe.dev.localhost` (SMTP alias
 area. To skip the login form, run `bin/console app:dev:preview-login-link
 --path=/projects` inside the worktree. It prints a signed link that signs you in
 and lands you on that page. The signature covers the host, so the link works
-against that worktree only, and it expires in 15 minutes.
+against that worktree only. It does not expire.
 
 Run `just up` first. Bootstrap fails fast rather than leave a worktree whose
 `.env.local` points at a database that was never created.

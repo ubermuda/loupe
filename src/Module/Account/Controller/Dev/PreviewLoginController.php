@@ -47,10 +47,7 @@ final class PreviewLoginController extends AppController
         }
 
         if (!$this->uriSigner->checkRequest($request)) {
-            // Unverified, so it decides the wording only and never access.
-            $expiration = $request->query->getInt('_expiration');
-
-            throw $this->createNotFoundException(0 !== $expiration && $expiration < time() ? 'This preview link has expired. Mint another one with app:dev:preview-login-link.' : 'This preview link does not verify here. It is signed for one host, so mint it inside the worktree you are opening.');
+            throw $this->createNotFoundException('This preview link does not verify here. It is signed for one host, so mint it inside the worktree you are opening.');
         }
 
         $email = $request->query->getString('email');

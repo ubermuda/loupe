@@ -36,18 +36,12 @@ final readonly class BuildPreviewLoginLinkHandler
             throw new DomainErrors(['path' => 'account.preview_login.error.path_not_local']);
         }
 
-        if ($command->lifetimeSeconds < 1) {
-            throw new DomainErrors(['lifetimeSeconds' => 'account.preview_login.error.lifetime_not_positive']);
-        }
-
-        $expiresAt = new \DateTimeImmutable()->modify('+'.$command->lifetimeSeconds.' seconds');
-
         $url = $this->urlGenerator->generate(
             'dev_preview_login',
             ['email' => $command->email, 'to' => $command->path],
             UrlGeneratorInterface::ABSOLUTE_URL,
         );
 
-        return new BuildPreviewLoginLinkView($this->uriSigner->sign($url, $expiresAt), $expiresAt);
+        return new BuildPreviewLoginLinkView($this->uriSigner->sign($url));
     }
 }
