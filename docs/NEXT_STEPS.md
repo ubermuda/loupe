@@ -1071,6 +1071,33 @@ things were deliberately left out.
    and this is cosmetic — but a reviewer selecting across two options gets a
    quote with no separator in it.
 
+## Drop the dead selector and text columns from site_review_comments
+
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`site_review_comments` still has a `selector` column and a `text` column.
+`Version20260904185305` made both nullable and stopped the entity from mapping
+them. The anchor data now lives in `site_review_comment_anchors`, one row per
+element, so nothing reads the two columns any more.
+
+That migration expands only, so a rollback lands on a schema the previous image
+still tolerates. The drop is the contract phase, and it belongs in a later
+release. Write it once no deployed image reads the scalars.
+
+The drop is two statements:
+
+    ALTER TABLE site_review_comments DROP selector;
+    ALTER TABLE site_review_comments DROP text;
+
+Until then `just migrate-diff` proposes those two statements on every run,
+because the entity and the table disagree on purpose. Do not treat that as
+drift, and do not commit the migration it generates before the release above.
+
+This defers the hazard in 'Rolling a production image back can leave the schema
+ahead of the code'. That entry has to settle the expand and contract policy, and
+this column pair is a concrete case of it.
+
 ## Rolling a production image back can leave the schema ahead of the code
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending

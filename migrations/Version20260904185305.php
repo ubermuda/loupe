@@ -12,7 +12,7 @@ final class Version20260904185305 extends AbstractMigration
     #[\Override]
     public function getDescription(): string
     {
-        return 'Move a site-review comment anchor into its own table, and add the strokes column';
+        return 'Add site-review comment anchors and the strokes column, and make the scalar anchor columns nullable';
     }
 
     public function up(Schema $schema): void
@@ -30,31 +30,29 @@ final class Version20260904185305 extends AbstractMigration
             WHERE selector <> ''
             SQL);
 
-        // @contract-phase: the anchors table above now holds this data, and no code reads the column after this release. This takes the contract phase in the same release as the expansion, so a rollback to the previous image needs down() run by hand.
-        $this->addSql('ALTER TABLE site_review_comments DROP selector');
-        // @contract-phase: same statement as the selector drop above; the pair moved to site_review_comment_anchors together.
-        $this->addSql('ALTER TABLE site_review_comments DROP text');
+        // The entity stops mapping these two, so an insert no longer supplies
+        // them. They stay in the table, and a later release drops them.
+        $this->addSql('ALTER TABLE site_review_comments ALTER selector DROP NOT NULL');
+        $this->addSql('ALTER TABLE site_review_comments ALTER text DROP NOT NULL');
     }
 
     #[\Override]
     public function down(Schema $schema): void
     {
-        // The columns come back with a default so an existing row satisfies NOT
-        // NULL; the default then goes, because the entity never had one.
-        $this->addSql("ALTER TABLE site_review_comments ADD selector TEXT NOT NULL DEFAULT ''");
-        $this->addSql("ALTER TABLE site_review_comments ADD text TEXT NOT NULL DEFAULT ''");
-
-        // Only the first anchor fits back into the scalar columns. Any further
-        // anchor of a comment is dropped.
+        // A row written after up() has null scalars, so restore them from the
+        // first anchor before NOT NULL comes back. A comment with no anchor is
+        // an unanchored page note, which the scalars spell as an empty string.
         $this->addSql(<<<'SQL'
             UPDATE site_review_comments c
             SET selector = a.selector, text = a.text
             FROM site_review_comment_anchors a
             WHERE a.comment_id = c.id AND a.position = 0
+              AND (c.selector IS NULL OR c.text IS NULL)
             SQL);
+        $this->addSql("UPDATE site_review_comments SET selector = COALESCE(selector, ''), text = COALESCE(text, '')");
 
-        $this->addSql('ALTER TABLE site_review_comments ALTER selector DROP DEFAULT');
-        $this->addSql('ALTER TABLE site_review_comments ALTER text DROP DEFAULT');
+        $this->addSql('ALTER TABLE site_review_comments ALTER selector SET NOT NULL');
+        $this->addSql('ALTER TABLE site_review_comments ALTER text SET NOT NULL');
         $this->addSql('ALTER TABLE site_review_comment_anchors DROP CONSTRAINT FK_3F582CA8F8697D13');
         $this->addSql('DROP TABLE site_review_comment_anchors');
         $this->addSql('ALTER TABLE site_review_comments DROP strokes');
