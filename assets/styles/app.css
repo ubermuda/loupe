@@ -1267,6 +1267,11 @@
     .lp-doc-meta__series {
         @apply flex items-center gap-1.5 ml-auto;
     }
+    /* Flex splits the free space between two auto margins, which would strand
+       the series mid-bar. The series leads the group and takes the one margin. */
+    .lp-doc-meta__series + .lp-doc-meta__tags {
+        @apply ml-0;
+    }
     .lp-doc-meta__panel {
         @apply rounded-xl bg-surface-2 p-3.5 mt-2.5;
         animation: lp-appear 120ms ease-out both;
