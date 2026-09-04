@@ -1471,7 +1471,11 @@
             </trans-unit>
             <trans-unit id="review.decision.status.saved">
                 <source>review.decision.status.saved</source>
-                <target>Choice saved.</target>
+                <target>Saved “%option%” for version %version%.</target>
+            </trans-unit>
+            <trans-unit id="review.decision.status.not_saved">
+                <source>review.decision.status.not_saved</source>
+                <target>Not saved for version %version%. %reason%</target>
             </trans-unit>
             <trans-unit id="review.decision.error.save_failed">
                 <source>review.decision.error.save_failed</source>
@@ -3359,6 +3363,14 @@
             <trans-unit id="review.document.diff.mark.deleted">
                 <source>review.document.diff.mark.deleted</source>
                 <target>Removed</target>
+            </trans-unit>
+            <trans-unit id="review.document.front_matter.label">
+                <source>review.document.front_matter.label</source>
+                <target>Front matter</target>
+            </trans-unit>
+            <trans-unit id="review.document.note.label">
+                <source>review.document.note.label</source>
+                <target>Annotation</target>
             </trans-unit>
 
             <trans-unit id="landing.meta.description">

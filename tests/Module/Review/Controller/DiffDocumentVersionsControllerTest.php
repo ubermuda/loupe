@@ -20,6 +20,7 @@ use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Translation\IdentityTranslator;
 use Ubermuda\AuditBundle\AuditOutcome;
 
 final class DiffDocumentVersionsControllerTest extends WebTestCase
@@ -651,7 +652,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $owner = $this->createUser($em, 'owner-diff-toc', 'owner-diff-toc@example.com');
         $project = $this->project($em, $owner);
 
-        $renderer = new MarkdownRenderer(new NullLogger());
+        $renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
         $old = "## First\n\nBody.\n\n## Second\n\nMore.\n";
         $new = "## First\n\nRevised body.\n\n## Second\n\nMore.\n";
 

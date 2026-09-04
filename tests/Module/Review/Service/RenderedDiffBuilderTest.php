@@ -12,6 +12,7 @@ use App\Module\Review\ValueObject\RenderedDiff;
 use PHPUnit\Framework\MockObject\Stub;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use Symfony\Component\Translation\IdentityTranslator;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
@@ -27,7 +28,7 @@ final class RenderedDiffBuilderTest extends TestCase
     protected function setUp(): void
     {
         $this->differ = new MarkdownDiffer();
-        $this->renderer = new MarkdownRenderer(new NullLogger());
+        $this->renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
 
         /** @var TranslatorInterface&Stub $translator */
         $translator = $this->createStub(TranslatorInterface::class);

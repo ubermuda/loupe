@@ -8,12 +8,13 @@ use App\Module\Review\Service\MarkdownRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use Symfony\Component\Translation\IdentityTranslator;
 
 final class MarkdownRendererTest extends TestCase
 {
     public function test_renders_markdown_and_strips_dangerous_html(): void
     {
-        $html = new MarkdownRenderer(new NullLogger())->render("# Title\n\nHello <script>alert(1)</script> world\n\n- a\n- b");
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render("# Title\n\nHello <script>alert(1)</script> world\n\n- a\n- b");
 
         self::assertStringContainsString('<h1 id="heading-title">Title</h1>', $html);
         self::assertStringContainsString('<li>a</li>', $html);
@@ -24,7 +25,7 @@ final class MarkdownRendererTest extends TestCase
 
     public function test_keeps_the_href_on_a_documents_own_in_page_link(): void
     {
-        $html = new MarkdownRenderer(new NullLogger())->render("# Intro\n\n[jump](#heading-intro)");
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render("# Intro\n\n[jump](#heading-intro)");
 
         // The renderer mints heading-<slug> ids itself, so an author has every
         // reason to link to one; the sanitizer used to strip the href and leave
@@ -34,14 +35,14 @@ final class MarkdownRendererTest extends TestCase
 
     public function test_keeps_the_href_on_a_same_origin_path(): void
     {
-        $html = new MarkdownRenderer(new NullLogger())->render('[the project](/projects/abc)');
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render('[the project](/projects/abc)');
 
         self::assertStringContainsString('href="/projects/abc"', $html);
     }
 
     public function test_strips_onclick_attributes(): void
     {
-        $html = new MarkdownRenderer(new NullLogger())->render('<p onclick="alert(2)">hi</p>');
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render('<p onclick="alert(2)">hi</p>');
 
         self::assertStringContainsString('hi', $html);
         self::assertStringNotContainsString('onclick', $html);
@@ -56,7 +57,7 @@ final class MarkdownRendererTest extends TestCase
     #[DataProvider('obfuscatedJavascriptUrls')]
     public function test_an_obfuscated_javascript_url_never_survives_as_an_attribute(string $markdown): void
     {
-        $html = new MarkdownRenderer(new NullLogger())->render($markdown);
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render($markdown);
 
         self::assertDoesNotMatchRegularExpression('~(href|src)\s*=~i', $html);
     }
@@ -79,7 +80,7 @@ final class MarkdownRendererTest extends TestCase
         $markdown = str_repeat($section, 500)."## The Very Last Heading\n\nfinal-marker-text\n";
         self::assertGreaterThan(20_000, strlen($markdown));
 
-        $html = new MarkdownRenderer(new NullLogger())->render($markdown);
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render($markdown);
 
         self::assertStringContainsString('The Very Last Heading', $html);
         self::assertStringContainsString('final-marker-text', $html);
@@ -87,7 +88,7 @@ final class MarkdownRendererTest extends TestCase
 
     public function test_strips_javascript_links(): void
     {
-        $html = new MarkdownRenderer(new NullLogger())->render('[click me](javascript:alert(1))');
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render('[click me](javascript:alert(1))');
 
         self::assertStringContainsString('click me', $html);
         self::assertStringNotContainsString('javascript:', $html);
@@ -95,7 +96,7 @@ final class MarkdownRendererTest extends TestCase
 
     public function test_gives_every_heading_a_stable_id(): void
     {
-        $html = new MarkdownRenderer(new NullLogger())->render("# The Title\n\n## Open Questions\n\n### Résumé & co\n");
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render("# The Title\n\n## Open Questions\n\n### Résumé & co\n");
 
         self::assertStringContainsString('<h1 id="heading-the-title">The Title</h1>', $html);
         self::assertStringContainsString('<h2 id="heading-open-questions">Open Questions</h2>', $html);
@@ -104,7 +105,7 @@ final class MarkdownRendererTest extends TestCase
 
     public function test_repeated_headings_get_distinct_ids(): void
     {
-        $html = new MarkdownRenderer(new NullLogger())->render("## Notes\n\n## Notes\n\n## Notes\n");
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render("## Notes\n\n## Notes\n\n## Notes\n");
 
         self::assertStringContainsString('id="heading-notes"', $html);
         self::assertStringContainsString('id="heading-notes-2"', $html);
@@ -115,7 +116,7 @@ final class MarkdownRendererTest extends TestCase
     {
         // strip_tags() alone reduces an image-only heading to nothing, which used to
         // give every one of them the same generic id.
-        $renderer = new MarkdownRenderer(new NullLogger());
+        $renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
 
         self::assertStringContainsString(
             '<h2 id="heading-diagram">',
@@ -132,7 +133,7 @@ final class MarkdownRendererTest extends TestCase
     {
         // An image with no alt leaves no text, and no filename either — the sanitizer
         // drops a relative src. The id has to exist regardless, so links resolve.
-        $html = new MarkdownRenderer(new NullLogger())->render("## ![](one.png)\n\n## ![](two.png)\n");
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render("## ![](one.png)\n\n## ![](two.png)\n");
 
         self::assertStringContainsString('<h2 id="heading-section">', $html);
         self::assertStringContainsString('<h2 id="heading-section-2">', $html);
@@ -143,7 +144,7 @@ final class MarkdownRendererTest extends TestCase
         // DocumentVersion::plainText() — the basis every comment anchor offset is
         // measured against — is strip_tags() of this HTML. An id lives in an
         // attribute, so it must not reach the text.
-        $html = new MarkdownRenderer(new NullLogger())->render("## Open Questions\n\nBody text.\n");
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render("## Open Questions\n\nBody text.\n");
 
         $plainText = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
@@ -153,7 +154,7 @@ final class MarkdownRendererTest extends TestCase
     public function test_document_supplied_ids_and_classes_cannot_reach_the_page(): void
     {
         // `composer-error` is a live Turbo stream target on the review page.
-        $html = new MarkdownRenderer(new NullLogger())->render('<h2 id="composer-error" class="lp-anchor">Injected</h2>');
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render('<h2 id="composer-error" class="lp-anchor">Injected</h2>');
 
         self::assertStringContainsString('<h2 id="heading-injected">Injected</h2>', $html);
         self::assertStringNotContainsString('composer-error', $html);
@@ -162,7 +163,7 @@ final class MarkdownRendererTest extends TestCase
 
     public function test_keeps_the_attributes_the_renderer_itself_emits(): void
     {
-        $html = new MarkdownRenderer(new NullLogger())->render(
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render(
             "3. three\n4. four\n\n```php\necho 1;\n```\n\n| a | b |\n|:--|--:|\n| 1 | 2 |\n",
         );
 
@@ -178,7 +179,7 @@ final class MarkdownRendererTest extends TestCase
         // Markdown's `- [ ]` renders as literal text because TaskListExtension is
         // not registered. `input` is void, so dropping it takes no text with it and
         // the surrounding words keep their offsets in plainText().
-        $html = new MarkdownRenderer(new NullLogger())->render('<input type="password" name="pw" checked> shipped');
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render('<input type="password" name="pw" checked> shipped');
 
         self::assertStringNotContainsString('<input', $html);
         self::assertStringContainsString('shipped', $html);
@@ -188,7 +189,7 @@ final class MarkdownRendererTest extends TestCase
     {
         // <code> is an ordinary box and every component class is compiled
         // unconditionally, so an unconstrained value is a full-viewport overlay.
-        $renderer = new MarkdownRenderer(new NullLogger());
+        $renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
 
         self::assertStringContainsString(
             '<code class="language-php">',
@@ -213,7 +214,7 @@ final class MarkdownRendererTest extends TestCase
     {
         // Quadratic de-duplication made a document of many same-named headings pin a
         // worker for minutes; rendering is synchronous inside the MCP request.
-        $renderer = new MarkdownRenderer(new NullLogger());
+        $renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
 
         $start = microtime(true);
         $html = $renderer->render(str_repeat("## Same\n\n", 20_000));
@@ -226,7 +227,7 @@ final class MarkdownRendererTest extends TestCase
     public function test_an_element_it_does_not_render_still_contributes_its_text(): void
     {
         // Dropping the text instead would move every comment anchor below it.
-        $html = new MarkdownRenderer(new NullLogger())->render('<section><figure>captioned</figure></section>');
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render('<section><figure>captioned</figure></section>');
 
         self::assertStringContainsString('captioned', $html);
         self::assertStringNotContainsString('<section>', $html);
@@ -234,11 +235,11 @@ final class MarkdownRendererTest extends TestCase
 
     public function test_renders_front_matter_as_a_table_above_the_document(): void
     {
-        $html = new MarkdownRenderer(new NullLogger())->render(
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render(
             "---\ntitle: \"Wave C\"\ndate: 2026-08-02\ntags:\n  - review\n  - markdown\n---\n\n## First Section\n\nBody.\n",
         );
 
-        self::assertStringStartsWith('<table class="lp-front-matter">', $html);
+        self::assertStringStartsWith('<table class="lp-front-matter" aria-label="review.document.front_matter.label">', $html);
         self::assertStringContainsString('<th scope="row">title</th>', $html);
         self::assertStringContainsString('<td>Wave C</td>', $html);
         // Unquoted YAML dates parse to a timestamp unless PARSE_DATETIME is on.
@@ -254,7 +255,7 @@ final class MarkdownRendererTest extends TestCase
     {
         // What tells the two apart: a content table is allowed no attributes, so
         // a class on a table is always one the renderer computed.
-        $html = new MarkdownRenderer(new NullLogger())->render(
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render(
             "---\ntitle: Real\n---\n\n<table class=\"lp-front-matter\"><tr><td>forged</td></tr></table>\n",
         );
 
@@ -267,8 +268,8 @@ final class MarkdownRendererTest extends TestCase
         // The extension removes the block from the body whether or not it can be
         // tabulated, so an unparseable or scalar block has to be rendered again
         // without it — otherwise the text vanishes from the page.
-        $malformed = new MarkdownRenderer(new NullLogger())->render("---\ntitle: \"unclosed\n  bad: [1, 2\n---\n\nBody.\n");
-        $scalar = new MarkdownRenderer(new NullLogger())->render("---\njust a string\n---\n\nBody.\n");
+        $malformed = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render("---\ntitle: \"unclosed\n  bad: [1, 2\n---\n\nBody.\n");
+        $scalar = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render("---\njust a string\n---\n\nBody.\n");
 
         self::assertStringContainsString('unclosed', $malformed);
         self::assertStringNotContainsString('lp-front-matter', $malformed);
@@ -278,12 +279,12 @@ final class MarkdownRendererTest extends TestCase
 
     public function test_renders_html_comments_as_visible_annotations(): void
     {
-        $html = new MarkdownRenderer(new NullLogger())->render(
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render(
             "Before.\n\n<!-- TODO: link the skeleton repo -->\n\nMid <!-- inline note --> sentence.\n",
         );
 
         self::assertStringContainsString(
-            '<aside role="note" class="lp-doc-note">TODO: link the skeleton repo</aside>',
+            '<aside role="note" aria-label="review.document.note.label" class="lp-doc-note">TODO: link the skeleton repo</aside>',
             $html,
         );
         self::assertStringContainsString(
@@ -292,11 +293,36 @@ final class MarkdownRendererTest extends TestCase
         );
     }
 
+    /**
+     * The names are written outside the sanitizer, so `aria-label` stays off the
+     * allowlist and a document that writes its own still loses it. Allowing the
+     * attribute instead would let a content table forge a front-matter name.
+     */
+    public function test_the_rendered_names_survive_sanitization_and_a_document_cannot_forge_one(): void
+    {
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render(
+            "---\ntitle: Named\n---\n\n<!-- a note -->\n\n"
+            ."<table aria-label=\"forged\"><tr><td>cell</td></tr></table>\n\n"
+            .'<aside aria-label="forged">side</aside>'."\n",
+        );
+
+        self::assertStringContainsString(
+            '<table class="lp-front-matter" aria-label="review.document.front_matter.label">',
+            $html,
+        );
+        self::assertStringContainsString(
+            '<aside role="note" aria-label="review.document.note.label" class="lp-doc-note">a note</aside>',
+            $html,
+        );
+        self::assertStringContainsString('cell', $html, 'the document table must survive to be checked');
+        self::assertStringNotContainsString('forged', $html);
+    }
+
     public function test_a_comment_inside_a_code_fence_stays_literal(): void
     {
         // Block-vs-inline comes from the parser's node type, so fenced content —
         // a FencedCode node — never reaches the comment renderer at all.
-        $html = new MarkdownRenderer(new NullLogger())->render("```\n<!-- not an annotation -->\n```\n");
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render("```\n<!-- not an annotation -->\n```\n");
 
         self::assertStringContainsString('&lt;!-- not an annotation --&gt;', $html);
         self::assertStringNotContainsString('lp-doc-note', $html);
@@ -304,7 +330,7 @@ final class MarkdownRendererTest extends TestCase
 
     public function test_a_comment_cannot_smuggle_markup_into_the_annotation(): void
     {
-        $html = new MarkdownRenderer(new NullLogger())->render('<!-- <script>alert(1)</script> -->');
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render('<!-- <script>alert(1)</script> -->');
 
         self::assertStringContainsString('&lt;script&gt;', $html);
         self::assertStringNotContainsString('<script>', $html);
@@ -320,8 +346,8 @@ final class MarkdownRendererTest extends TestCase
             ."<!-- a marker past the old truncation point -->\n\nTail.\n";
         self::assertGreaterThan(500_000, \strlen($long));
 
-        $first = new MarkdownRenderer(new NullLogger())->render($long);
-        $second = new MarkdownRenderer(new NullLogger())->render($long);
+        $first = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render($long);
+        $second = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render($long);
 
         self::assertStringNotContainsString('loupe-note', $first);
         self::assertSame($first, $second, 'two renderers must agree on the same source');
@@ -336,7 +362,7 @@ final class MarkdownRendererTest extends TestCase
         // time. Driven through the private method because starving the backtrack
         // limit breaks the comment renderer's own patterns first, so no marker is
         // ever emitted.
-        $renderer = new MarkdownRenderer(new NullLogger());
+        $renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
         $reflection = new \ReflectionClass($renderer);
         $open = $reflection->getProperty('noteBlockOpen')->getValue($renderer);
         $close = $reflection->getProperty('noteClose')->getValue($renderer);
@@ -362,7 +388,7 @@ final class MarkdownRendererTest extends TestCase
     {
         // `<!-- a --><!-- b -->` is a single HtmlBlock, and a greedy match reads
         // it as one comment whose text contains the markup between them.
-        $html = new MarkdownRenderer(new NullLogger())->render("<!-- first --><!-- second -->\n");
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render("<!-- first --><!-- second -->\n");
 
         self::assertSame(2, substr_count($html, 'lp-doc-note'));
         self::assertStringContainsString('>first</aside>', $html);
@@ -372,7 +398,7 @@ final class MarkdownRendererTest extends TestCase
 
     public function test_a_block_with_trailing_markup_is_left_alone(): void
     {
-        $html = new MarkdownRenderer(new NullLogger())->render("<!-- note --> trailing -->\n");
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render("<!-- note --> trailing -->\n");
 
         self::assertStringNotContainsString('lp-doc-note', $html);
     }
@@ -422,7 +448,7 @@ final class MarkdownRendererTest extends TestCase
         self::assertLessThan(5_000, \strlen($markdown));
 
         $started = microtime(true);
-        $html = new MarkdownRenderer(new NullLogger())->render($markdown);
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render($markdown);
         $elapsed = microtime(true) - $started;
 
         self::assertStringNotContainsString('lp-front-matter', $html);
@@ -438,7 +464,7 @@ final class MarkdownRendererTest extends TestCase
         // nothing BoundedHtmlBuilder does not already bound, while refusing prose
         // like `- *starred phrase*`. This pins that legitimate aliases still
         // produce a table.
-        $html = new MarkdownRenderer(new NullLogger())->render(
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render(
             "---\ndefaults: &defaults\n  team: platform\nowner:\n  <<: *defaults\ntags: [a, b]\n---\n\nBody.\n",
         );
 
@@ -454,7 +480,7 @@ final class MarkdownRendererTest extends TestCase
         }
         self::assertGreaterThan(16_384, \strlen($block));
 
-        $html = new MarkdownRenderer(new NullLogger())->render("---\n{$block}---\n\nBody.\n");
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render("---\n{$block}---\n\nBody.\n");
 
         self::assertStringNotContainsString('lp-front-matter', $html);
         self::assertStringContainsString('Body.', $html);
@@ -478,7 +504,7 @@ final class MarkdownRendererTest extends TestCase
         self::assertLessThan(2_000, \strlen($yaml));
 
         $started = microtime(true);
-        $html = new MarkdownRenderer(new NullLogger())->render($yaml."---\n\nBody.\n");
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render($yaml."---\n\nBody.\n");
 
         self::assertStringNotContainsString('lp-front-matter', $html);
         self::assertLessThan(2.0, microtime(true) - $started);
@@ -498,7 +524,7 @@ final class MarkdownRendererTest extends TestCase
         }
 
         $started = microtime(true);
-        $html = new MarkdownRenderer(new NullLogger())->render($yaml."---\n\nBody.\n");
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render($yaml."---\n\nBody.\n");
 
         self::assertLessThan(200_000, \strlen($html));
         self::assertLessThan(5.0, microtime(true) - $started);
@@ -514,7 +540,7 @@ final class MarkdownRendererTest extends TestCase
         // blank, with nothing saying anything was dropped.
         $deep = str_repeat('[', 18).'"buried"'.str_repeat(']', 18);
 
-        $html = new MarkdownRenderer(new NullLogger())->render("---\nkey: {$deep}\n---\n\nBody.\n");
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render("---\nkey: {$deep}\n---\n\nBody.\n");
 
         self::assertStringNotContainsString('lp-front-matter', $html);
         self::assertStringContainsString('buried', $html);
@@ -524,7 +550,7 @@ final class MarkdownRendererTest extends TestCase
     {
         // A sequence is an array with no keys, so tabulating it would invent 0
         // and 1 and show them as if the document had written them.
-        $html = new MarkdownRenderer(new NullLogger())->render("---\n- one\n- two\n---\n\nBody.\n");
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render("---\n- one\n- two\n---\n\nBody.\n");
 
         self::assertStringNotContainsString('lp-front-matter', $html);
         self::assertStringContainsString('one', $html);
@@ -541,7 +567,7 @@ final class MarkdownRendererTest extends TestCase
         }
         $yaml .= 'tags: ['.implode(', ', array_map(static fn (int $i): string => "tag{$i}", range(1, 50)))."]\n";
 
-        $html = new MarkdownRenderer(new NullLogger())->render($yaml."---\n\nBody.\n");
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render($yaml."---\n\nBody.\n");
 
         self::assertStringContainsString('lp-front-matter', $html);
         self::assertStringContainsString('tag50', $html);
@@ -549,7 +575,7 @@ final class MarkdownRendererTest extends TestCase
 
     public function test_an_empty_comment_renders_nothing(): void
     {
-        $html = new MarkdownRenderer(new NullLogger())->render("Before.\n\n<!--   -->\n\nAfter.\n");
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render("Before.\n\n<!--   -->\n\nAfter.\n");
 
         self::assertStringNotContainsString('lp-doc-note', $html);
     }
@@ -560,7 +586,7 @@ final class MarkdownRendererTest extends TestCase
         // front-matter keys stop arriving as prose and start arriving as table
         // cells, and a comment's text goes from contributing nothing to
         // contributing itself. Every stored version has to be re-rendered.
-        $html = new MarkdownRenderer(new NullLogger())->render("---\ntitle: T\n---\n\nA.\n\n<!-- note -->\n\nB.\n");
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render("---\ntitle: T\n---\n\nA.\n\n<!-- note -->\n\nB.\n");
 
         $plainText = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
@@ -572,7 +598,7 @@ final class MarkdownRendererTest extends TestCase
         // Parsed as Markdown instead, the closing `---` turns the lines above it
         // into a setext heading — and HeadingExtractor reads the rendered HTML, so
         // the contents panel listed a section the document never wrote.
-        $html = new MarkdownRenderer(new NullLogger())->render("---\njust a string\n---\n\n## Real Section\n\nBody.\n");
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render("---\njust a string\n---\n\n## Real Section\n\nBody.\n");
 
         self::assertStringContainsString("<pre><code>---\njust a string\n---</code></pre>", $html);
         self::assertStringNotContainsString('heading-just-a-string', $html);
@@ -582,7 +608,7 @@ final class MarkdownRendererTest extends TestCase
 
     public function test_unparseable_front_matter_is_escaped_rather_than_rendered(): void
     {
-        $html = new MarkdownRenderer(new NullLogger())->render("---\ntitle: \"<b>x\n  bad: [1, 2\n---\n\nBody.\n");
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render("---\ntitle: \"<b>x\n  bad: [1, 2\n---\n\nBody.\n");
 
         self::assertStringContainsString('&lt;b&gt;x', $html);
         self::assertStringNotContainsString('<b>', $html);
@@ -596,7 +622,7 @@ final class MarkdownRendererTest extends TestCase
     #[DataProvider('markupTheAllowListMustKeep')]
     public function test_allowed_markup_still_renders(string $markdown, string $expected): void
     {
-        $html = new MarkdownRenderer(new NullLogger())->render($markdown);
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render($markdown);
 
         self::assertStringContainsString($expected, $html);
     }
@@ -641,7 +667,7 @@ final class MarkdownRendererTest extends TestCase
         // The point of blocking rather than dropping: plainText() is the basis every
         // comment anchor is measured against, so an unanticipated tag must not take
         // a paragraph with it.
-        $html = new MarkdownRenderer(new NullLogger())->render('<p>before <foobar>kept</foobar> after</p>');
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render('<p>before <foobar>kept</foobar> after</p>');
 
         self::assertStringNotContainsString('foobar', $html);
         self::assertStringContainsString('before kept after', $html);
@@ -653,7 +679,7 @@ final class MarkdownRendererTest extends TestCase
         // The exceptions to blocking: text that is code. `style` cannot be named in
         // the sanitizer config at all in a body context, which is why the tree is
         // stripped of it before the sanitizer sees it.
-        $html = new MarkdownRenderer(new NullLogger())->render($markdown."\n\nBody.\n");
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render($markdown."\n\nBody.\n");
 
         self::assertStringNotContainsString($absent, $html);
         self::assertStringContainsString('<p>Body.</p>', $html);

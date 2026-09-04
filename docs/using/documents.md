@@ -58,6 +58,9 @@ Which host should an emailed reset link be built from?
 <!-- /decision -->
 ```
 
+The status line under the document title confirms each click. It names the option
+you chose and the version it is recorded against.
+
 The identifier is permanent. The answer is stored against the id rather than
 against the words, so options can be reworded freely in a later version —
 but **changing the id discards the answer**, with no error and no warning.
@@ -65,6 +68,30 @@ Treat it like a database column name.
 
 The comments are invisible in every other Markdown renderer, so a document read
 outside Loupe still shows a plain list.
+
+## Annotations
+
+An HTML comment that is not part of a decision block renders as a visible note.
+A comment on its own line becomes a block note. A comment inside a paragraph
+becomes an inline note.
+
+```markdown
+<!-- note: this section still needs the migration numbers -->
+```
+
+**Do not wrap the comment in an HTML element that opens its own block.** Loupe
+reads that whole region as one block of raw HTML. It keeps the wrapper and
+drops the comment. The note then disappears, and nothing warns you:
+
+```markdown
+<div>
+<!-- this note never appears -->
+</div>
+```
+
+Blockquotes and list items are Markdown rather than raw HTML, so a comment
+inside one renders as a note. The comments stay invisible in every other
+Markdown renderer.
 
 ## Series
 
