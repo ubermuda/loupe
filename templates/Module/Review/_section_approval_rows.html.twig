@@ -18,8 +18,10 @@
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('section-approval') }}">
         <input type="hidden" name="set_section_approval_form[headingId]" value="{{ row.headingId }}">
         <input type="hidden" name="set_section_approval_form[versionNumber]" value="{{ versionNumber }}">
+        {# Every row shows the same two words, so the label names the section too. #}
         <button type="submit" class="lp-btn lp-btn--ghost lp-btn--sm"
-                name="set_section_approval_form[action]" value="{{ row.approved ? 'withdraw' : 'approve' }}">
+                name="set_section_approval_form[action]" value="{{ row.approved ? 'withdraw' : 'approve' }}"
+                aria-label="{{ (row.approved ? 'review.document.sections.withdraw_label' : 'review.document.sections.approve_label')|trans({'%section%': row.label}) }}">
             {{ (row.approved ? 'review.document.sections.withdraw' : 'review.document.sections.approve')|trans }}
         </button>
     </form>

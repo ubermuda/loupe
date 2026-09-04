@@ -1465,6 +1465,14 @@
                 <source>review.document.sections.withdraw</source>
                 <target>Withdraw approval</target>
             </trans-unit>
+            <trans-unit id="review.document.sections.approve_label">
+                <source>review.document.sections.approve_label</source>
+                <target>Approve section %section%</target>
+            </trans-unit>
+            <trans-unit id="review.document.sections.withdraw_label">
+                <source>review.document.sections.withdraw_label</source>
+                <target>Withdraw approval of section %section%</target>
+            </trans-unit>
             <trans-unit id="review.section.flash.approved">
                 <source>review.section.flash.approved</source>
                 <target>Section approved.</target>

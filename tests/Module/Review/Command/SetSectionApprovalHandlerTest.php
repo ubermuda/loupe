@@ -14,6 +14,7 @@ use App\Module\Review\Command\ReviseDocumentHandler;
 use App\Module\Review\Command\SetSectionApprovalCommand;
 use App\Module\Review\Command\SetSectionApprovalHandler;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\SectionApproval;
 use App\Module\Review\Repository\SectionApprovalRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -56,6 +57,27 @@ final class SetSectionApprovalHandlerTest extends KernelTestCase
         [$user, $document] = $this->seed();
 
         ($this->handler())(new SetSectionApprovalCommand($document, $user, 'heading-alpha', false, 1));
+
+        self::assertSame([], $this->repository()->findByDocument($document));
+    }
+
+    public function test_withdrawing_a_section_whose_heading_is_gone_removes_the_row(): void
+    {
+        [$user, $document] = $this->seed();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+
+        $em->persist(new SectionApproval(
+            document: $document,
+            headingId: 'heading-gone',
+            contentHash: str_repeat('0', 64),
+            approver: $user,
+            versionNumber: 1,
+        ));
+        $em->flush();
+        self::assertCount(1, $this->repository()->findByDocument($document));
+
+        ($this->handler())(new SetSectionApprovalCommand($document, $user, 'heading-gone', false, 1));
 
         self::assertSame([], $this->repository()->findByDocument($document));
     }

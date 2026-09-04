@@ -47,35 +47,40 @@ final readonly class SetSectionApprovalHandler
                 throw new DomainErrors(['headingId' => 'review.section.error.stale_version']);
             }
 
-            $hashes = $this->hasher->hashes(
-                $version->renderedHtml,
-                $this->headings->extract($version->renderedHtml),
-            );
-            $hash = $hashes[$command->headingId]
-                ?? throw new DomainErrors(['headingId' => 'review.section.error.unknown']);
-
             $approval = $this->sectionApprovals->findOneByDocumentHeadingAndApprover(
                 $command->document,
                 $command->headingId,
                 $command->reviewer,
             );
 
+            // Only an approval needs the digest. A withdrawal that demanded one
+            // would refuse to delete a row whose heading an in-place re-render
+            // has since removed, and that row is the one worth removing.
             if (!$command->approved) {
                 if (null !== $approval) {
                     $this->em->remove($approval);
                 }
-            } elseif (null === $approval) {
-                $this->em->persist(new SectionApproval(
-                    document: $command->document,
-                    headingId: $command->headingId,
-                    contentHash: $hash,
-                    approver: $command->reviewer,
-                    versionNumber: $version->versionNumber,
-                ));
             } else {
-                $approval->contentHash = $hash;
-                $approval->versionNumber = $version->versionNumber;
-                $approval->approvedAt = new \DateTimeImmutable();
+                $hashes = $this->hasher->hashes(
+                    $version->renderedHtml,
+                    $this->headings->extract($version->renderedHtml),
+                );
+                $hash = $hashes[$command->headingId]
+                    ?? throw new DomainErrors(['headingId' => 'review.section.error.unknown']);
+
+                if (null === $approval) {
+                    $this->em->persist(new SectionApproval(
+                        document: $command->document,
+                        headingId: $command->headingId,
+                        contentHash: $hash,
+                        approver: $command->reviewer,
+                        versionNumber: $version->versionNumber,
+                    ));
+                } else {
+                    $approval->contentHash = $hash;
+                    $approval->versionNumber = $version->versionNumber;
+                    $approval->approvedAt = new \DateTimeImmutable();
+                }
             }
 
             $this->em->flush();
