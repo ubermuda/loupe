@@ -45,7 +45,9 @@ async function login(page: Page, email: string): Promise<void> {
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(PASSWORD);
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL('/welcome');
+    // A cold PHP cache makes the first sign-in of a run slow, so this waits
+    // longer than the default expect timeout.
+    await expect(page).toHaveURL('/welcome', { timeout: 15000 });
 }
 
 async function seedDocument(
@@ -103,11 +105,29 @@ async function openSections(page: Page): Promise<void> {
     await expect(page.locator(SECTIONS_PANEL)).toBeVisible();
 }
 
-/** The approve or withdraw button of one section row. */
+/** One row of the sections panel, found by its heading label. */
 function sectionRow(page: Page, label: string) {
     return page
         .locator(`${SECTIONS_PANEL} .lp-section-approvals__item`)
         .filter({ has: page.getByRole('link', { name: label, exact: true }) });
+}
+
+/** The tab, which carries the running count and stays visible on every render. */
+function sectionsTab(page: Page) {
+    return page.getByRole('button', { name: 'Sections' });
+}
+
+/**
+ * Presses one section's button. Every press redirects back to the same page,
+ * which closes the panel, so it is re-opened here rather than by each test.
+ */
+async function pressSection(
+    page: Page,
+    label: string,
+    button: 'Approve section' | 'Withdraw approval',
+): Promise<void> {
+    await openSections(page);
+    await sectionRow(page, label).getByRole('button', { name: button }).click();
 }
 
 test.describe('per-section approval', () => {
@@ -117,26 +137,15 @@ test.describe('per-section approval', () => {
     }) => {
         const { documentId, reviewUrl } = review;
 
-        await openSections(page);
-        await expect(
-            page.getByRole('button', { name: 'Sections' }),
-        ).toContainText('0 of 2 approved');
+        await expect(sectionsTab(page)).toContainText('0 of 2 approved');
 
-        await sectionRow(page, 'Alpha')
-            .getByRole('button', { name: 'Approve section' })
-            .click();
-        // The page returns to the same URL, so wait for the count to change
-        // rather than for the URL, which already matches.
-        await expect(
-            page.getByRole('button', { name: 'Sections' }),
-        ).toContainText('1 of 2 approved');
+        await pressSection(page, 'Alpha', 'Approve section');
+        // The page returns to the same URL, so wait for the running count to
+        // change rather than for the URL, which already matches.
+        await expect(sectionsTab(page)).toContainText('1 of 2 approved');
 
-        await sectionRow(page, 'Beta')
-            .getByRole('button', { name: 'Approve section' })
-            .click();
-        await expect(
-            page.getByRole('button', { name: 'Sections' }),
-        ).toContainText('2 of 2 approved');
+        await pressSection(page, 'Beta', 'Approve section');
+        await expect(sectionsTab(page)).toContainText('2 of 2 approved');
 
         const revised = await page.request.post(
             `/dev/review/${documentId}/revise`,
@@ -154,10 +163,9 @@ test.describe('per-section approval', () => {
         });
 
         await page.goto(reviewUrl);
+        await expect(sectionsTab(page)).toContainText('1 of 2 approved');
+
         await openSections(page);
-        await expect(
-            page.getByRole('button', { name: 'Sections' }),
-        ).toContainText('1 of 2 approved');
         await expect(
             sectionRow(page, 'Alpha').getByRole('button', {
                 name: 'Withdraw approval',
@@ -171,42 +179,23 @@ test.describe('per-section approval', () => {
     });
 
     test('a reviewer can withdraw a section approval', async ({ page }) => {
-        await openSections(page);
-        await sectionRow(page, 'Alpha')
-            .getByRole('button', { name: 'Approve section' })
-            .click();
-        await expect(
-            page.getByRole('button', { name: 'Sections' }),
-        ).toContainText('1 of 2 approved');
+        await pressSection(page, 'Alpha', 'Approve section');
+        await expect(sectionsTab(page)).toContainText('1 of 2 approved');
 
-        await openSections(page);
-        await sectionRow(page, 'Alpha')
-            .getByRole('button', { name: 'Withdraw approval' })
-            .click();
-        await expect(
-            page.getByRole('button', { name: 'Sections' }),
-        ).toContainText('0 of 2 approved');
+        await pressSection(page, 'Alpha', 'Withdraw approval');
+        await expect(sectionsTab(page)).toContainText('0 of 2 approved');
     });
 
     test('the whole-document verdict still works alongside section approval', async ({
         page,
     }) => {
-        await openSections(page);
-        await sectionRow(page, 'Alpha')
-            .getByRole('button', { name: 'Approve section' })
-            .click();
-        await expect(
-            page.getByRole('button', { name: 'Sections' }),
-        ).toContainText('1 of 2 approved');
+        await pressSection(page, 'Alpha', 'Approve section');
+        await expect(sectionsTab(page)).toContainText('1 of 2 approved');
 
         await page
             .getByRole('button', { name: 'Approve', exact: true })
             .click();
         await expect(page.locator('.lp-verdict-bar')).toBeVisible();
-
-        await openSections(page);
-        await expect(
-            page.getByRole('button', { name: 'Sections' }),
-        ).toContainText('1 of 2 approved');
+        await expect(sectionsTab(page)).toContainText('1 of 2 approved');
     });
 });

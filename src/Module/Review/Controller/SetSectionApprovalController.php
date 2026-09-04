@@ -80,10 +80,12 @@ final class SetSectionApprovalController extends AppController
             $this->addFlash('error', $this->translator->trans($errorKey));
         }
 
+        // No `_fragment` naming the section: Turbo treats a redirect to the URL
+        // the page is already on, fragment included, as an anchor scroll and
+        // renders nothing, so a second press on one section did nothing at all.
         return $this->redirectToRoute('app_document_review', [
             'projectId' => (string) $project->id,
             'documentId' => (string) $document->id,
-            '_fragment' => $data->headingId ?? '',
         ]);
     }
 }
