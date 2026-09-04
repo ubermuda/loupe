@@ -6,6 +6,7 @@ namespace App\Tests\Module\Review\Service;
 
 use App\Module\Review\Service\DecisionBlockService;
 use App\Module\Review\Service\MarkdownRenderer;
+use App\Module\Review\ValueObject\DecisionType;
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Event\DocumentParsedEvent;
 use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
@@ -26,12 +27,24 @@ final class DecisionBlockServiceTest extends TestCase
 
         <!-- decision: deploy-target -->
 
-        - [ ] Ship to staging first
-        - [ ] Ship straight to **production**
+        - ( ) Ship to staging first
+        - ( ) Ship straight to **production**
 
         <!-- /decision -->
 
         After.
+        MD;
+
+    private const string MULTIPLE_FENCE = <<<'MD'
+        <!-- decision: ship-with -->
+
+        Which of these ship together?
+
+        - [ ] The importer
+        - [x] The exporter
+        - [ ] The **admin** page
+
+        <!-- /decision -->
         MD;
 
     private MarkdownRenderer $renderer;
@@ -48,12 +61,106 @@ final class DecisionBlockServiceTest extends TestCase
         $html = $this->renderer->render(self::FENCE);
 
         // The id is the Turbo stream target a refused submission replaces.
-        self::assertStringContainsString('<fieldset class="lp-decision" id="decision_block_deploy-target" data-decision-id="deploy-target">', $html);
+        self::assertStringContainsString('<fieldset class="lp-decision" id="decision_block_deploy-target" data-decision-id="deploy-target" data-decision-type="single">', $html);
         self::assertStringContainsString('<input type="radio" name="lp-decision-deploy-target" value="0"', $html);
         self::assertStringContainsString('<input type="radio" name="lp-decision-deploy-target" value="1"', $html);
-        // Inline formatting inside an option survives; the task-list marker does not.
+        // Inline formatting inside an option survives; the marker does not.
         self::assertStringContainsString('Ship straight to <strong>production</strong>', $html);
-        self::assertStringNotContainsString('[ ]', $html);
+        self::assertStringNotContainsString('( )', $html);
+    }
+
+    /**
+     * A block that takes several answers asks for them with `[ ]`, which is the
+     * GFM task-list marker every other renderer already shows as a checkbox.
+     */
+    public function test_a_task_list_fence_becomes_a_group_of_checkboxes(): void
+    {
+        $html = $this->renderer->render(self::MULTIPLE_FENCE);
+
+        self::assertStringContainsString('data-decision-id="ship-with" data-decision-type="multiple">', $html);
+        self::assertStringContainsString('<input type="checkbox" name="lp-decision-ship-with" value="0"', $html);
+        self::assertStringContainsString('<input type="checkbox" name="lp-decision-ship-with" value="2"', $html);
+        self::assertStringNotContainsString('type="radio"', $html);
+
+        $decisions = $this->decisions->extract($html);
+        self::assertSame(DecisionType::Multiple, $decisions[0]->type);
+        // Both marker spellings are stripped, and the ticked one is no answer:
+        // the reviewer's clicks are what the app stores, not the author's.
+        self::assertSame(['The importer', 'The exporter', 'The admin page'], $decisions[0]->options);
+    }
+
+    /**
+     * Neither marker leaves anything behind in the text, because the anchor
+     * basis is strip_tags() of the stored HTML and two stray characters shift
+     * every comment below the block.
+     *
+     * @param non-empty-string $markdown
+     */
+    #[DataProvider('markedFences')]
+    public function test_a_marker_never_reaches_the_anchor_basis(string $markdown, DecisionType $type): void
+    {
+        $html = $this->renderer->render($markdown);
+        $text = strip_tags($html);
+
+        self::assertSame($type, $this->decisions->extract($html)[0]->type);
+        self::assertStringNotContainsString('[ ]', $text);
+        self::assertStringNotContainsString('[x]', $text);
+        self::assertStringNotContainsString('( )', $text);
+    }
+
+    /**
+     * @return iterable<string, array{string, DecisionType}>
+     */
+    public static function markedFences(): iterable
+    {
+        yield 'single markers' => [self::FENCE, DecisionType::Single];
+        yield 'multiple markers' => [self::MULTIPLE_FENCE, DecisionType::Multiple];
+        yield 'markers on an ordered list' => [
+            "<!-- decision: ordered -->\n\n1. [ ] A\n2. [x] B\n\n<!-- /decision -->\n",
+            DecisionType::Multiple,
+        ];
+    }
+
+    /**
+     * An unmarked list is what every fence written before multi-choice looks
+     * like, so it stays a single-choice block and its text is left alone.
+     */
+    public function test_an_unmarked_list_stays_a_single_choice_block(): void
+    {
+        $html = $this->renderer->render(
+            "<!-- decision: plain -->\n\n- Ship it (now)\n- Wait\n\n<!-- /decision -->\n",
+        );
+
+        $decisions = $this->decisions->extract($html);
+        self::assertSame(DecisionType::Single, $decisions[0]->type);
+        self::assertSame(['Ship it (now)', 'Wait'], $decisions[0]->options);
+        self::assertStringContainsString('type="radio"', $html);
+    }
+
+    /**
+     * Nothing can tell which kind of block a disagreeing list asks for, and
+     * guessing one records answers against a block the author never asked for.
+     *
+     * @param non-empty-string $markdown
+     */
+    #[DataProvider('mixedMarkerLists')]
+    public function test_a_list_whose_markers_disagree_degrades_to_a_plain_list(string $markdown): void
+    {
+        $html = $this->renderer->render($markdown);
+
+        self::assertStringNotContainsString('lp-decision', $html);
+        self::assertStringNotContainsString('LPDECISION', $html);
+        self::assertSame([], $this->decisions->extract($html));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function mixedMarkerLists(): iterable
+    {
+        yield 'both markers' => ["<!-- decision: mixed -->\n\n- ( ) A\n- [ ] B\n\n<!-- /decision -->\n"];
+        yield 'one item unmarked' => ["<!-- decision: mixed -->\n\n- [ ] A\n- B\n\n<!-- /decision -->\n"];
+        yield 'one item marked' => ["<!-- decision: mixed -->\n\n- A\n- ( ) B\n\n<!-- /decision -->\n"];
     }
 
     /**
@@ -524,12 +631,12 @@ final class DecisionBlockServiceTest extends TestCase
     {
         $html = $this->renderer->render(self::FENCE);
 
-        $marked = $this->decisions->withSelections($html, ['deploy-target' => 1], readOnly: false);
+        $marked = $this->decisions->withSelections($html, ['deploy-target' => [1]], readOnly: false);
         self::assertStringContainsString('data-decision-option="deploy-target:1" checked>', $marked);
         self::assertStringContainsString('data-decision-option="deploy-target:0">', $marked);
         self::assertStringNotContainsString('disabled', $marked);
 
-        $readOnly = $this->decisions->withSelections($html, ['deploy-target' => 1], readOnly: true);
+        $readOnly = $this->decisions->withSelections($html, ['deploy-target' => [1]], readOnly: true);
         self::assertStringContainsString('data-decision-option="deploy-target:1" checked disabled>', $readOnly);
         self::assertStringContainsString('data-decision-option="deploy-target:0" disabled>', $readOnly);
     }
@@ -542,7 +649,7 @@ final class DecisionBlockServiceTest extends TestCase
     public function test_showing_an_answer_leaves_the_anchor_basis_untouched(): void
     {
         $html = $this->renderer->render(self::FENCE);
-        $marked = $this->decisions->withSelections($html, ['deploy-target' => 1], readOnly: true);
+        $marked = $this->decisions->withSelections($html, ['deploy-target' => [1]], readOnly: true);
 
         self::assertSame(strip_tags($html), strip_tags($marked));
         self::assertNotSame($html, $marked);

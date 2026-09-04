@@ -137,6 +137,10 @@ re-read the review for fresh ids. See [Documents and review](documents.md).
 **A decision block's id is permanent.** Rewording its options is safe; changing
 its id silently discards the reviewer's answer.
 
+A decision reports its `type`. A single-choice block answers in `selected` and
+`selected_index`. A multi-choice block answers in `selections`, and reports null
+in `selected`. See [Documents and review](documents.md) for the syntax.
+
 ## Configuration
 
 `document_highlight` is behind the `review.highlights.enabled` feature flag,

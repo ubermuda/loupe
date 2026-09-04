@@ -77,6 +77,28 @@ against the words, so options can be reworded freely in a later version —
 but **changing the id discards the answer**, with no error and no warning.
 Treat it like a database column name.
 
+A block can also take more than one answer. Mark every option `- [ ]` and Loupe
+renders checkboxes, so the reviewer ticks any number of them:
+
+```markdown
+<!-- decision: ship-with -->
+
+Which of these ship in the first release?
+
+- [ ] The importer
+- [ ] The exporter
+- [ ] The admin page
+
+<!-- /decision -->
+```
+
+Mark every option `- ( )`, or mark none of them, and the block takes exactly one
+answer. Loupe strips the marker from the rendered document. A list that mixes
+the two markers, or marks only some of its options, degrades to a plain list.
+
+A multi-choice block reports its answers in `selections`, and reports null in
+`selected`. Every fence written before checkboxes existed keeps its answer.
+
 The comments are invisible in every other Markdown renderer, so a document read
 outside Loupe still shows a plain list.
 

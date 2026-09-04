@@ -1481,6 +1481,10 @@
                 <source>review.decision.status.saved</source>
                 <target>Saved “%option%” for version %version%.</target>
             </trans-unit>
+            <trans-unit id="review.decision.status.cleared">
+                <source>review.decision.status.cleared</source>
+                <target>Cleared “%option%” for version %version%.</target>
+            </trans-unit>
             <trans-unit id="review.decision.status.not_saved">
                 <source>review.decision.status.not_saved</source>
                 <target>Not saved for version %version%. %reason%</target>
@@ -3519,7 +3523,7 @@
             </trans-unit>
             <trans-unit id="landing.feature.decisions.text">
                 <source>landing.feature.decisions.text</source>
-                <target>An agent can mark a passage as a decision with options. The reviewer picks one, and the choice comes back structured.</target>
+                <target>An agent can mark a passage as a decision with options. The reviewer picks one or several, and the choice comes back structured.</target>
             </trans-unit>
             <trans-unit id="landing.feature.site_review.title">
                 <source>landing.feature.site_review.title</source>
