@@ -39,7 +39,8 @@ the rest".
 
 Section approvals sit beside the whole-document verdict and do not replace it.
 `document_revise` reports `sectionsCarried` and `sectionsDropped` next to the
-comment counts.
+comment counts, and `document_get_review` returns a `sections` list that says how
+many reviewers still approve each one. See [The MCP endpoint](mcp.md).
 
 ## Revising
 
