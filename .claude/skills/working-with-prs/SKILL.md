@@ -106,6 +106,19 @@ The reason is proportion. Asking a reviewer model to read prose for correctness
 bugs is cost with no signal, and running a gate that can never fail teaches a
 reader to stop trusting gate results.
 
+## Open it ready, not draft
+
+The owner reviews ready pull requests only. A draft is invisible to him, so a
+finished branch left in draft waits for a review that never starts.
+
+Mark a pull request ready as soon as its gate is green and the Codex review is
+clean. Use `gh pr ready <number>` if you opened it as a draft. Do not wait for
+the owner's review to un-draft it, because that is the wrong way round.
+
+Open a draft only while the branch is unfinished, and say in the body what is
+still missing. Ready does not mean merged: `main` still needs one approving
+review, and you never approve your own work.
+
 ## Write the body for two readers
 
 `main` allows squash merges only, so the PR body becomes the commit body. It is
