@@ -25,7 +25,6 @@ final readonly class ShowDocumentView
         public array $comments,
         public array $versions,
         public array $headings,
-        public int $orphanedCount,
         public CommentSignals $signals,
         public DecisionSummary $decisions,
         public string $decisionMarkedHtml,

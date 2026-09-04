@@ -68,7 +68,6 @@ final class DiffDocumentVersionsController extends AppController
             // single version, so nothing that writes to one is offered here.
             'readOnly' => true,
             'comments' => $view->comments,
-            'orphanedCount' => $view->orphanedCount,
             'signals' => $view->signals,
         ]);
     }

@@ -38,9 +38,9 @@
 
 {% block body %}
 <div class="lp-review">
-    {% if orphanedCount > 0 %}
+    {% if signals.hasOrphanedThreads %}
     <div class="lp-orphan-banner">
-        {{ 'review.document.orphan_banner'|trans({'%count%': orphanedCount}) }}
+        {{ 'review.document.orphan_banner'|trans({'%count%': signals.orphanedThreadCount}) }}
     </div>
     {% endif %}
 

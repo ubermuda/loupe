@@ -33,7 +33,6 @@ final readonly class DiffDocumentVersionsView
         public ?int $changeCount,
         public array $comments,
         public array $versions,
-        public int $orphanedCount,
         public CommentSignals $signals,
     ) {
     }

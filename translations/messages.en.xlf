@@ -1283,7 +1283,7 @@
             </trans-unit>
             <trans-unit id="review.document.orphan_banner">
                 <source>review.document.orphan_banner</source>
-                <target>{0}No comments refer to text that has been removed or changed.|{1}One comment refers to text that has been removed or changed.|]1,Inf[%count% comments refer to text that has been removed or changed.</target>
+                <target>{0}No comment threads refer to text that has been removed or changed.|{1}One comment thread refers to text that has been removed or changed.|]1,Inf[%count% comment threads refer to text that has been removed or changed.</target>
             </trans-unit>
             <trans-unit id="review.document.version.read_only">
                 <source>review.document.version.read_only</source>

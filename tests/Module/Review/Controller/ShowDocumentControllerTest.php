@@ -253,6 +253,39 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertSelectorNotExists('.lp-signal--answered');
     }
 
+    public function test_the_orphan_banner_counts_threads_and_not_their_replies(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'orphanowner', 'orphans@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Orphan Doc');
+        $version = $doc->addVersion('# Body', '<h1>Body</h1>');
+        $em->persist($doc);
+
+        $root = new Comment($version, $owner, 'A comment on removed text', new Anchor('Gone', '', '', 0));
+        $root->orphaned = true;
+        // A reply copies its parent's anchor, so re-anchoring flags it too. One
+        // broken anchor is one thing to fix, so the banner must say one.
+        $reply = new Comment($version, $owner, 'A reply', $root->anchor, $root);
+        $reply->orphaned = true;
+        $em->persist($root);
+        $em->persist($reply);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.lp-orphan-banner', 'One comment thread refers to text that has been removed');
+    }
+
     public function test_resolving_a_comment_returns_the_whole_list_as_one_stream(): void
     {
         $client = static::createClient();
