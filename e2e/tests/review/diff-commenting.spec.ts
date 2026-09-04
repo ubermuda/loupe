@@ -34,6 +34,18 @@ The rollout takes three careful steps in this revised plan.`;
 const INSERTED = 'three careful steps';
 const DELETED = 'one step';
 
+// A revision that only removes a word, so a current-version quote either side of
+// the removal reads as one passage while the diff draws the removed word between.
+const SPANNING_ONE = `# Diff Comment Doc
+
+Alpha OLD Beta.`;
+
+const SPANNING_TWO = `# Diff Comment Doc
+
+Alpha Beta.`;
+
+const SPANNING_QUOTE = 'Alpha Beta';
+
 const DOC = '[data-comment-anchor-target="doc"]';
 const TOOLBAR = '[data-comment-anchor-target="toolbar"]';
 const COMPOSER = '[data-comment-anchor-target="composer"]';
@@ -52,6 +64,7 @@ async function seedDocument(
     page: Page,
     tag: string,
     revisions: string[],
+    first: string = VERSION_ONE,
 ): Promise<{ projectId: string; documentId: string }> {
     await suppressToolbar(page);
     await suppressWidget(page);
@@ -73,7 +86,7 @@ async function seedDocument(
     const seeded = await page.request.post('/dev/seed/document', {
         form: {
             title: 'Diff Comment Doc',
-            markdown: VERSION_ONE,
+            markdown: first,
             revisions: JSON.stringify(revisions),
         },
     });
@@ -158,13 +171,14 @@ async function paintedAnchor(page: Page): Promise<{
         const highlight = registry?.get('lp-anchor-pending');
         for (const range of highlight ?? []) {
             const parent = range.startContainer.parentElement;
+            const covered = range.cloneContents();
 
             return {
                 text: range.toString(),
                 stamped: parent?.hasAttribute('data-diff-offset') ?? false,
-                deleted: Boolean(
-                    parent?.closest('.lp-diff__mark--deleted') ?? null,
-                ),
+                deleted:
+                    Boolean(parent?.closest('.lp-diff__mark--deleted')) ||
+                    covered.querySelector('.lp-diff__mark--deleted') !== null,
             };
         }
 
@@ -286,4 +300,53 @@ test('a diff whose newer side is not the current version offers no commenting', 
     );
     await expect(page.locator(DOC)).toBeVisible();
     await expect(page.locator(TOOLBAR)).toHaveCount(1);
+});
+
+/**
+ * A comment made on the current version can quote a passage the diff draws a
+ * removed word inside of. The pane offers no unbroken stretch for it, so the
+ * anchor goes unpainted rather than tinting the removed word as part of it.
+ */
+test('an anchor that spans a removal is never painted over the removed text', async ({
+    page,
+}) => {
+    const { projectId, documentId } = await seedDocument(
+        page,
+        'spanning',
+        [SPANNING_TWO],
+        SPANNING_ONE,
+    );
+
+    // The comment is made on the document itself, where the passage reads whole.
+    await page.goto(`/projects/${projectId}/documents/${documentId}/review`);
+    await expect(page.locator(DOC)).toBeVisible();
+    await selectPhrase(page, SPANNING_QUOTE);
+    await expect(page.locator(TOOLBAR)).toBeVisible({ timeout: 5000 });
+    await page.getByRole('button', { name: 'Comment', exact: true }).click();
+    await page.locator(COMPOSER_BODY).fill('Reads well now.');
+    await page.getByRole('button', { name: 'Post' }).click();
+    await expect(page.locator('#comment-threads')).toContainText(
+        'Reads well now.',
+        { timeout: 10000 },
+    );
+
+    // Painted on the document page, so the diff page's answer below is about the
+    // diff and not about the anchor being unusable everywhere.
+    await expect
+        .poll(async () => paintedAnchor(page), { timeout: 10000 })
+        .toEqual({ text: SPANNING_QUOTE, stamped: false, deleted: false });
+
+    await page.goto(
+        `/projects/${projectId}/documents/${documentId}/review/diff/1/2`,
+    );
+    await expect(page.locator(DOC)).toBeVisible();
+    await expect(page.locator('#comment-threads')).toContainText(
+        'Reads well now.',
+    );
+    await expect(page.locator('.lp-diff__mark--deleted').first()).toBeVisible();
+
+    // The card still renders; only its tint is withheld.
+    await expect
+        .poll(async () => paintedAnchor(page), { timeout: 10000 })
+        .toBeNull();
 });

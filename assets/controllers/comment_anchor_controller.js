@@ -748,16 +748,25 @@ export default class extends Controller {
     #diffRuns() {
         const runs = [];
         let run = null;
+        // Whether removed text stands between the last stamped node and the next
+        // one. The newer version reads straight across it, so the run carries on,
+        // but a DOM range that crossed it would cover the removed words.
+        let separated = false;
 
         for (const node of this.#diffTextNodes()) {
             const offset = this.#diffOffsetOf(node);
             if (offset === null) {
+                separated = separated || node.data.trim() !== '';
                 continue;
             }
 
             const length = Array.from(node.data).length;
             if (run !== null && run.offset + run.length === offset) {
-                run.pieces.push({ node, at: run.text.length });
+                run.pieces.push({
+                    node,
+                    at: run.text.length,
+                    adjacent: !separated,
+                });
                 run.text += node.data;
                 run.length += length;
             } else {
@@ -765,21 +774,29 @@ export default class extends Controller {
                     offset,
                     length,
                     text: node.data,
-                    pieces: [{ node, at: 0 }],
+                    pieces: [{ node, at: 0, adjacent: true }],
                 };
                 runs.push(run);
             }
+            separated = false;
         }
 
         return runs;
     }
 
-    /** Maps a [start, end) span of one run's text to a DOM Range. */
+    /**
+     * Maps a [start, end) span of one run's text to a DOM Range, or null when
+     * the span would have to reach across removed text to cover it.
+     */
     #rangeInRun(run, start, end) {
         const range = document.createRange();
         let startSet = false;
 
         for (const piece of run.pieces) {
+            if (startSet && !piece.adjacent) {
+                return null;
+            }
+
             const pieceEnd = piece.at + piece.node.data.length;
             if (!startSet && start < pieceEnd) {
                 range.setStart(piece.node, start - piece.at);
