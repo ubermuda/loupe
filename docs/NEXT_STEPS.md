@@ -1888,6 +1888,23 @@ So the choice is between marking them with `@comment-budget-ignore` and dropping
 `.env` from the check's `patterns` in `gamache.php`. Trimming them further trades
 documentation for a number, which is the opposite of what the check is for.
 
+## Rendered front matter and annotations have no accessible name
+
+
+**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
+
+`MarkdownRenderer` emits the front-matter table with no `<caption>`, so screen
+readers announce an unnamed table. Block-level HTML comments carry
+`role="note"`, which keeps them out of the landmark list, but they are unnamed
+too.
+
+Naming either one needs a translated string, and `MarkdownRenderer` has no
+translator — it renders document content rather than UI, and is constructed
+directly in tests. Adding one is the decision to make; an untranslated English
+label would be worse than none. Note that any visible label would also land in
+`plainText()` and shift every anchor below it, so this needs the same re-render
+treatment as any other rendering change.
+
 ## An HTML comment inside a raw HTML block still renders as nothing
 
 
