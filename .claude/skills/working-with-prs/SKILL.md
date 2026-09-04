@@ -137,11 +137,24 @@ several states, seed one document per state and link each: a reviewer who can
 see all of them side by side reviews what the code does, rather than the one
 case you happened to seed.
 
-Point at the running instance. Every worktree serves its own branch at
-`https://<slug>.loupe.dev.localhost`. Put that URL in the body with the login
-(`dev@loupe.test` / `password`, or `admin@loupe.test` for the admin area).
-Verify it responds before you write it down. Say plainly when a branch has no
-worktree or nothing to click, rather than pasting a link that goes nowhere.
+Point at the running instance, and sign the reader in. Every worktree serves its
+own branch at `https://<slug>.loupe.dev.localhost`. Do not put a bare page URL
+in the body, because it lands the reader on the login page and they must sign in
+by hand. Mint a signed link instead, from inside the worktree:
+
+```bash
+( cd .claude/worktrees/<name> && bin/worktrees/compose-exec.sh \
+    bin/console app:dev:preview-login-link --path=/projects )
+```
+
+The link signs the reader in and lands them on the page you named, so the body
+needs no credentials at all. Use `--email=admin@loupe.test` for an admin page.
+The link is valid for 15 minutes by default, and `--ttl` changes that. Its
+signature covers the whole URL, host included, so it works against that worktree
+only. The route is `#[When('dev')]`, so it does not exist in production.
+
+Open the link yourself before you write it down. Say plainly when a branch has
+no worktree or nothing to click, rather than pasting a link that goes nowhere.
 
 **Every such URL must be clickable, and that means one whole absolute URL in
 plain text.** A bare host followed by paths in backticks — the shape a body
