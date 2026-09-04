@@ -613,6 +613,8 @@ final class ListDocumentsControllerTest extends WebTestCase
         // The row says where in the series the document sits, so the order is
         // readable rather than implied.
         self::assertSelectorTextContains('[data-document-id="'.$secondId.'"] .lp-series', 'blog series, item 2');
+        // The default line promises newest-first, which this ordering is not.
+        self::assertSelectorTextContains('.lp-workspace-desc', 'in the order of the series');
     }
 
     public function test_every_filter_survives_the_clamp_redirect_and_the_pagination_links(): void

@@ -18,8 +18,16 @@
 {% set totalDocuments = project_document_count(project) %}
 <div class="lp-workspace">
     <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'review.dashboard.page.title'|trans }}</h1>
-    {# The default line promises newest-first, which a ranked search makes untrue. #}
-    <p class="lp-workspace-desc">{{ (listQuery.search ? 'review.dashboard.description_ranked' : 'review.dashboard.description')|trans }}</p>
+    {# The default line promises newest-first, which a ranked search and a series
+       both make untrue. The series wins, because its order wins in the query. #}
+    {% if listQuery.seriesName %}
+        {% set descriptionKey = 'review.dashboard.description_series' %}
+    {% elseif listQuery.search %}
+        {% set descriptionKey = 'review.dashboard.description_ranked' %}
+    {% else %}
+        {% set descriptionKey = 'review.dashboard.description' %}
+    {% endif %}
+    <p class="lp-workspace-desc">{{ descriptionKey|trans }}</p>
 
     {# Six controls in front of a project that has nothing to filter are six dead
        controls, so the bar waits for a first document — but it stays once a

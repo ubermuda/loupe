@@ -1037,6 +1037,10 @@
                 <source>review.dashboard.description_ranked</source>
                 <target>Documents the agent submitted for review, best matches first.</target>
             </trans-unit>
+            <trans-unit id="review.dashboard.description_series">
+                <source>review.dashboard.description_series</source>
+                <target>Documents the agent submitted for review, in the order of the series.</target>
+            </trans-unit>
             <trans-unit id="review.dashboard.meta.updated">
                 <source>review.dashboard.meta.updated</source>
                 <target>Updated %time%</target>
