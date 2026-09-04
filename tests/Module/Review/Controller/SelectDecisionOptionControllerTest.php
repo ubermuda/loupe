@@ -718,11 +718,10 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
     }
 
     /**
-     * @param array<string, string> $server
-     */
-    /**
      * `answer()` posts no `chosen` field, which a checkbox reads as unchecked.
      * A multi-choice test has to say which state it is posting.
+     *
+     * @param array<string, string> $server
      */
     private function setOption(
         KernelBrowser $client,
@@ -753,6 +752,9 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         );
     }
 
+    /**
+     * @param array<string, string> $server
+     */
     private function submitAnswer(
         KernelBrowser $client,
         Document $document,
