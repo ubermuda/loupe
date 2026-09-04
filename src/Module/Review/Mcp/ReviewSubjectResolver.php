@@ -8,19 +8,21 @@ use App\Mcp\ResolvesBoundProject;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\Series;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentRepository;
+use App\Module\Review\Repository\SeriesRepository;
 use App\Module\Review\Security\McpBoundProjectVoter;
 use Mcp\Exception\ToolCallException;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Resolves the documents and comments an MCP tool call may act on, rejecting
- * anything outside the project the authenticating token is bound to.
+ * Resolves the documents, comments and series an MCP tool call may act on,
+ * rejecting anything outside the project the authenticating token is bound to.
  *
- * A tool cannot reach a Document or a Comment without passing through here, so
- * the scoping rule is applied rather than remembered.
+ * A tool cannot reach one of those without passing through here, so the scoping
+ * rule is applied rather than remembered.
  */
 final readonly class ReviewSubjectResolver
 {
@@ -30,6 +32,7 @@ final readonly class ReviewSubjectResolver
         private AuthenticatedProjectResolver $projectResolver,
         private DocumentRepository $documents,
         private CommentRepository $comments,
+        private SeriesRepository $series,
         private AuthorizationCheckerInterface $authorization,
     ) {
     }
@@ -86,6 +89,24 @@ final readonly class ReviewSubjectResolver
         }
 
         return $comment;
+    }
+
+    /**
+     * A series is named rather than addressed by id, and the lookup is already
+     * scoped to the bound project. The grant runs anyway, so a later read-only
+     * token policy covers this call site without an audit of it.
+     */
+    public function requireSeries(string $name): Series
+    {
+        $project = $this->requireBoundProject($this->projectResolver);
+
+        $series = $this->series->findOneByProjectAndName($project, $name);
+
+        if (null === $series || !$this->authorization->isGranted(McpBoundProjectVoter::SERIES_WRITE, $series)) {
+            throw new ToolCallException(\sprintf('Series "%s" not found or not accessible.', $name));
+        }
+
+        return $series;
     }
 
     private function parseId(string $id, string $subject): Uuid

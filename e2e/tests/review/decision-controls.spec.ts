@@ -110,7 +110,7 @@ test('choosing an option records the answer and survives a reload', async ({
     // and the radio reads as checked the moment the browser paints it —
     // whether or not the POST ever landed. Reloading on that signal cancels the
     // request in flight and the answer is silently lost.
-    await expect(page.locator('#decision-status')).toHaveText(/saved/i, {
+    await expect(page.locator('#decision-status')).toHaveText(/^Saved/, {
         timeout: 15000,
     });
 
@@ -134,7 +134,7 @@ test('the answer reaches the review payload', async ({ page }) => {
         .locator(`[data-decision-id="${DECISION_ID}"]`)
         .locator('input[type="radio"][data-decision-option]');
     await radios.nth(0).check();
-    await expect(page.locator('#decision-status')).toHaveText(/saved/i, {
+    await expect(page.locator('#decision-status')).toHaveText(/^Saved/, {
         timeout: 15000,
     });
 
@@ -273,9 +273,12 @@ test('the toolbar reports the decisions and tracks the answer', async ({
         .nth(1)
         .check();
 
-    await expect(page.locator('#decision-status')).toHaveText(/saved/i, {
-        timeout: 15000,
-    });
+    // One region serves every block, so it has to say which option landed and
+    // against which version. It is aria-live, so this is also what is read out.
+    await expect(page.locator('#decision-status')).toHaveText(
+        `Saved “${OPTION_TWO}” for version 1.`,
+        { timeout: 15000 },
+    );
     // Streamed with `update`, so the panel the reviewer opened is still open.
     await expect(page.locator('#decision-summary-count')).toHaveText('1/1');
     await expect(row).toContainText(OPTION_TWO);

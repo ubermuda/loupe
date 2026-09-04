@@ -59,6 +59,7 @@ class ListDocumentsController extends AppController
             'listQuery' => $listQuery,
             'statuses' => DocumentStatus::cases(),
             'projectTags' => $view->projectTags,
+            'projectSeries' => $view->projectSeries,
         ]);
     }
 }
