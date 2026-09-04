@@ -57,8 +57,8 @@ Which host should an emailed reset link be built from?
 <!-- /decision -->
 ```
 
-A click is confirmed in the status line under the document title. The line names
-the option you chose and the version it is recorded against.
+The status line under the document title confirms each click. It names the option
+you chose and the version it is recorded against.
 
 The identifier is permanent. The answer is stored against the id rather than
 against the words, so options can be reworded freely in a later version —
