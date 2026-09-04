@@ -102,6 +102,7 @@ final class ShowDocumentController extends AppController
             'comments' => $view->comments,
             'headings' => $view->headings,
             'orphanedCount' => $view->orphanedCount,
+            'signals' => $view->signals,
             'addCommentForm' => $addCommentForm,
             'suggestRewordingForm' => $suggestRewordingForm,
             'strikePassageForm' => $strikePassageForm,

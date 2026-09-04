@@ -10,6 +10,7 @@ use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\ValueObject\Anchor;
+use App\Module\Review\ValueObject\CommentSignals;
 use App\Module\Review\ValueObject\Engagement;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -51,57 +52,59 @@ class CommentRepository extends ServiceEntityRepository
     }
 
     /**
-     * Counts the open threads on a version: top-level (parent IS NULL) comments
-     * that are not resolved. Replies never count as threads of their own — and
-     * with the filter restricted to roots, their status never has to be joined.
-     */
-    public function countOpenByVersion(DocumentVersion $version): int
-    {
-        return (int) $this->createQueryBuilder('c')
-            ->select('COUNT(c.id)')
-            ->where('c.version = :version')
-            ->andWhere('c.status != :resolved')
-            ->andWhere('c.parent IS NULL')
-            ->setParameter('version', $version)
-            ->setParameter('resolved', CommentStatus::Resolved)
-            ->getQuery()
-            ->getSingleScalarResult();
-    }
-
-    /**
-     * Same count as countOpenByVersion, for several versions in one query. The
-     * documents list renders a page of rows, so the per-version form is an N+1
-     * across the whole page.
+     * Every signal the pages derive from a version's comments, for several
+     * versions in one grouped query. The documents list renders a page of rows,
+     * so a per-version form is an N+1 across the whole page.
+     *
+     * Roots only (parent IS NULL): status belongs to the thread, and a reply
+     * copies its parent's anchor, so counting replies double-counts one broken
+     * anchor.
      *
      * @param list<string> $versionIds
      *
-     * @return array<string, int> keyed by version id; a version with no open
-     *                            threads is absent rather than zero
+     * @return array<string, CommentSignals> keyed by version id, with one entry
+     *                                       for every id asked for
      */
-    public function countOpenByVersions(array $versionIds): array
+    public function signalsByVersions(array $versionIds): array
     {
         if ([] === $versionIds) {
             return [];
         }
 
-        /** @var list<array{id: mixed, total: mixed}> $rows */
+        /** @var list<array{id: mixed, status: CommentStatus, orphaned: bool, total: int|string}> $rows */
         $rows = $this->createQueryBuilder('c')
-            ->select('IDENTITY(c.version) AS id, COUNT(c.id) AS total')
+            ->select('IDENTITY(c.version) AS id', 'c.status AS status', 'c.orphaned AS orphaned', 'COUNT(c.id) AS total')
             ->where('c.version IN (:versions)')
-            ->andWhere('c.status != :resolved')
             ->andWhere('c.parent IS NULL')
             ->setParameter('versions', $versionIds)
-            ->setParameter('resolved', CommentStatus::Resolved)
-            ->groupBy('c.version')
+            ->groupBy('c.version', 'c.status', 'c.orphaned')
             ->getQuery()
-            ->getArrayResult();
+            ->getResult();
 
-        $counts = [];
+        $tallies = [];
         foreach ($rows as $row) {
-            $counts[(string) $row['id']] = (int) $row['total'];
+            $id = (string) $row['id'];
+            $status = $row['status']->value;
+            $total = (int) $row['total'];
+
+            $tallies[$id][$status] = ($tallies[$id][$status] ?? 0) + $total;
+            if ($row['orphaned']) {
+                $tallies[$id]['orphaned'] = ($tallies[$id]['orphaned'] ?? 0) + $total;
+            }
         }
 
-        return $counts;
+        $signals = [];
+        foreach ($versionIds as $versionId) {
+            $tally = $tallies[$versionId] ?? [];
+            $signals[$versionId] = new CommentSignals(
+                pendingThreadCount: $tally[CommentStatus::Pending->value] ?? 0,
+                addressedThreadCount: $tally[CommentStatus::Addressed->value] ?? 0,
+                resolvedThreadCount: $tally[CommentStatus::Resolved->value] ?? 0,
+                orphanedThreadCount: $tally['orphaned'] ?? 0,
+            );
+        }
+
+        return $signals;
     }
 
     /**

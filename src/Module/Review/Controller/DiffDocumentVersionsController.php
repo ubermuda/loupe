@@ -69,6 +69,7 @@ final class DiffDocumentVersionsController extends AppController
             'readOnly' => true,
             'comments' => $view->comments,
             'orphanedCount' => $view->orphanedCount,
+            'signals' => $view->signals,
         ]);
     }
 }

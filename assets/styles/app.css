@@ -557,6 +557,22 @@
         @apply bg-status-danger-chip text-status-danger-deep;
     }
 
+    /* ── Comment signals ────────────────────────────────────────────────
+       What a document's comment threads say about it. Sized like .lp-badge, so
+       the two sit level beside each other on a list row and in the topbar. */
+    .lp-signal {
+        @apply inline-flex items-center shrink-0 py-1 px-3 rounded-full text-sm font-bold whitespace-nowrap;
+    }
+    .lp-signal--addressed {
+        @apply bg-status-pending-bg text-status-pending-deep;
+    }
+    .lp-signal--answered {
+        @apply bg-status-ok-bg text-status-ok-deep;
+    }
+    .lp-signal--orphaned {
+        @apply bg-status-danger-bg text-status-danger-deep;
+    }
+
     /* ── System status checks ───────────────────────────────────────────
        One row per infrastructure check. Four badge states, one of which —
        "unknown" — is deliberately neutral rather than green, because some

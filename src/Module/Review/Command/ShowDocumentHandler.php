@@ -13,6 +13,7 @@ use App\Module\Review\Service\DecisionBlockService;
 use App\Module\Review\Service\DecisionSummaryReader;
 use App\Module\Review\Service\HeadingExtractor;
 use App\Module\Review\Service\LastSeenVersionResolver;
+use App\Module\Review\ValueObject\CommentSignals;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 final readonly class ShowDocumentHandler
@@ -50,6 +51,7 @@ final readonly class ShowDocumentHandler
             versions: $this->documentVersions->findAllMetaByDocument($command->document),
             headings: $this->headings->extract($version->renderedHtml),
             orphanedCount: count(array_filter($comments, static fn (Comment $c) => $c->orphaned)),
+            signals: $this->comments->signalsByVersions([(string) $version->id])[(string) $version->id] ?? new CommentSignals(),
             decisions: $decisions,
             decisionMarkedHtml: $this->decisionBlocks->withSelections(
                 $version->renderedHtml,

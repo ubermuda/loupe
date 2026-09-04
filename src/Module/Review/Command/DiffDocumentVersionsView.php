@@ -6,6 +6,7 @@ namespace App\Module\Review\Command;
 
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\DocumentVersion;
+use App\Module\Review\ValueObject\CommentSignals;
 use App\Module\Review\ValueObject\DiffRefusal;
 use App\Module\Review\ValueObject\DiffView;
 use App\Module\Review\ValueObject\DocumentDiff;
@@ -33,6 +34,7 @@ final readonly class DiffDocumentVersionsView
         public array $comments,
         public array $versions,
         public int $orphanedCount,
+        public CommentSignals $signals,
     ) {
     }
 }

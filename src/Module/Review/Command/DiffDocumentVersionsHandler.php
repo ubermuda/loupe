@@ -12,6 +12,7 @@ use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Service\MarkdownDiffer;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\Service\RenderedDiffBuilder;
+use App\Module\Review\ValueObject\CommentSignals;
 use App\Module\Review\ValueObject\DiffRefusal;
 use App\Module\Review\ValueObject\DiffView;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -88,6 +89,7 @@ final readonly class DiffDocumentVersionsHandler
             comments: $comments,
             versions: $this->documentVersions->findAllMetaByDocument($command->document),
             orphanedCount: count(array_filter($comments, static fn (Comment $c) => $c->orphaned)),
+            signals: $this->comments->signalsByVersions([(string) $version->id])[(string) $version->id] ?? new CommentSignals(),
         );
     }
 
