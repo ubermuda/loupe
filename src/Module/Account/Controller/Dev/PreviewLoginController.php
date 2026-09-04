@@ -43,17 +43,21 @@ final class PreviewLoginController extends AppController
     public function __invoke(Request $request): Response
     {
         if (!in_array($this->environment, ['dev', 'test'], true)) {
-            throw $this->createNotFoundException();
+            throw $this->createNotFoundException('The preview-login route exists in dev only.');
         }
 
         if (!$this->uriSigner->checkRequest($request)) {
-            throw $this->createNotFoundException();
+            $expiration = $request->query->getInt('_expiration');
+
+            throw $this->createNotFoundException(0 !== $expiration && $expiration < time() ? 'This preview link has expired. Mint another one with app:dev:preview-login-link.' : 'This preview link does not verify here. It is signed for one host, so mint it inside the worktree you are opening.');
         }
 
+        $email = $request->query->getString('email');
+
         try {
-            $user = $this->userProvider->loadUserByIdentifier($request->query->getString('email'));
+            $user = $this->userProvider->loadUserByIdentifier($email);
         } catch (UserNotFoundException) {
-            throw $this->createNotFoundException();
+            throw $this->createNotFoundException(sprintf('No account exists for %s. Seed it with app:dev:seed.', $email));
         }
 
         $this->security->login($user, 'form_login');
