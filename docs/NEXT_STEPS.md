@@ -228,9 +228,11 @@ time — and guessing has produced both over-engineering and misplaced
 blocking. With it, most of those calls answer themselves and only genuine edge
 cases need escalating.
 
-Worth deciding when writing it: whether ADRs are required for a class of change
-(new dependency, schema change, cross-module boundary) or written on judgement,
-since a process nobody follows is worse than none.
+Owner decision (2026-09-04): an ADR is written on judgement. No class of change
+requires one.
+
+Write the ranked list of architectural priorities first. It is the cheaper
+artifact, and it changes agent behaviour immediately.
 
 ## A better framework for planning and running multi-branch waves
 
@@ -350,20 +352,19 @@ suite that had read every mapping thousands of times and showing it contained
 zero deprecation lines. A quiet log would have made that a much weaker argument,
 and the same shape recurs whenever the question is "did this *not* happen".
 
-So the goal is less volume without losing that capability. Options worth
-weighing rather than a single obvious answer:
+Owner decision (2026-09-04): route deprecations to their own always-on file,
+independent of the `fingers_crossed` main handler. The `when@prod` block already
+has that split. It declares a `deprecation` stream handler on the `deprecation`
+channel, and its `main` handler excludes that channel. Mirror the same shape in
+`when@test`.
 
-1. Keep deprecations and warnings, drop `info`/`debug` — the bulk is almost
-   certainly SQL and request logging, not the lines anyone wants.
-2. Route deprecations to their own file, so the useful signal stays greppable
-   and cheap regardless of what the main handler does.
-3. Make verbosity opt-in for a single run via an env var, so the default is
-   quiet and a session investigating something can turn it back up.
+Verify the change like this. Reinstate a `nullable: false` on a many-to-many
+join column, then confirm the deprecation still appears. A logging change that
+passes its own tests while removing the ability to answer "did this not happen"
+has made things worse.
 
-Whichever is chosen, check the change against the case above: reinstate a
-`nullable: false` on a many-to-many join column and confirm the deprecation
-still appears. A logging change that passes its own tests while removing the
-ability to answer "did this not happen" has made things worse.
+Rotation or per-run truncation is still worth doing on its own. One checkout's
+`var/log/test.log` reached 181 MB on 2026-09-04.
 
 ## Document search stems every document as English
 
@@ -952,7 +953,14 @@ on pull request #118) from a hand-written `<form>` plus
 with the form component issuing and checking the token. The
 `document-archive` entry came out of `config/packages/csrf.yaml` with it.
 
-Four controllers still use the pattern that replaced:
+`ArchiveDocumentFormType` is the outlier, and the attribute is the norm. A
+count on 2026-09-04 found 32 `#[CsrfToken]` attribute sites under `src/`, with
+`grep -rn "^#\[CsrfToken(" src/`. `config/packages/csrf.yaml` declares 30 ids in
+`stateless_token_ids`, and the framework owns three of them: `submit`,
+`authenticate` and `logout`. So the divergence is much wider than the four
+comment controllers this entry first named.
+
+Those four carry the comment actions:
 
 - `Module/Review/Controller/DeleteCommentController` and `ResolveCommentController`
   (`comment-action`), submitted from `templates/Module/Review/components/CommentThread.html.twig`
@@ -960,22 +968,22 @@ Four controllers still use the pattern that replaced:
   `ResolveSiteReviewCommentController` (`site-review-comment-action`), submitted
   from `templates/Module/SiteReview/show_site_review.html.twig`
 
-They were left alone deliberately — they were outside the branch that made the
-change — so the divergence is known rather than accidental. But it is still two
-ways to write one shape of action in the same module, and the next fieldless
-POST has no obvious precedent to copy.
+They were left alone deliberately, because they sat outside the branch that made
+the archive change. The divergence is known rather than accidental.
 
-**Decision needed** — which way to converge:
+Owner decision (2026-09-04): convert every fieldless POST action to a Symfony
+form, not only the four comment controllers.
 
-1. Convert the four to Symfony forms, matching archive (recommended: the form
-   component already owns CSRF, so `stateless_token_ids` shrinks toward holding
-   only the genuinely form-less endpoints, and there is now a worked example
-   including the per-row `createNamed` naming).
-2. Keep `#[CsrfToken]` for fieldless actions and revert archive to it, treating
-   "a form with no fields" as ceremony not worth the indirection.
+Three hybrid admin forms fall inside that scope. `SuspendUserFormType`,
+`DeleteUserFormType` and `InviteOldestWaitlistFormType` are real forms that set
+`'csrf_protection' => false`. Each one leans on the controller's `#[CsrfToken]`
+attribute instead. Convert them so the form owns the token.
 
-Whichever is chosen, `SubmitReviewController` (`submit-review`) is **not** part
-of this: it submits a verdict value, so it is not the fieldless shape.
+The work is large enough for its own wave. Do not attach it to an unrelated
+branch.
+
+`SubmitReviewController` (`submit-review`) is not part of this. It submits a
+verdict value, so it is not the fieldless shape.
 
 One thing the conversion surfaced that the attribute form hides: a per-row
 fieldless form still needs a unique name (`createNamed`), or every row renders
@@ -1057,36 +1065,6 @@ run has established that the rest of the suite — fixtures, feature flags, the
 destructive `install-reset` and `trial-end-lifecycle` projects, any other shared
 host state — tolerates it. Close this by running two branches' suites at once,
 finding what collides, and only then lifting `workers: 1`.
-
-## Self-hosting audit
-
-
-
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-Owner request (2026-07-26): audit the app for self-hosting readiness. Scope was
-not specified beyond that, so settle it when picking this up rather than
-assuming — the note is recorded here verbatim in intent.
-
-Likely ground to cover, from what the repo looks like today: everything a
-third party would have to supply or change to run Loupe themselves. That
-includes the required environment variables and which have unsafe defaults
-(`COMPOSE_PROJECT_NAME` is mandatory, `DATABASE_URL` ships a placeholder,
-`INSTALL_TOKEN` gates `/install` and must be set, since the wizard fails
-closed in production and a self-hoster who omits it cannot create their first
-administrator at all); the
-hard dependencies beyond Postgres (Mercure hub, Mailpit/SMTP, the messenger
-worker as its own container, Traefik routing); the Stripe coupling, since
-billing is currently woven through the paywall listener and account
-lifecycle, and a self-hoster may want it off entirely; the prod image and
-`docker/prod/` layout versus the dev compose stack; and what documentation
-exists (`README.md`, `CONTRIBUTING.md`) versus what a self-hoster would
-actually need.
-
-Related decisions already recorded: CLAUDE.md notes that if the project goes
-public, `docs/` should stop shipping and open work moves to GitHub issues —
-that choice interacts with this.
 
 ## OAuth for the MCP and site-review widget, with project selection at consent
 
@@ -1398,10 +1376,11 @@ on the result — but a comment on deleted text has no home there.
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-`package.json` carries `eslint`, `prettier` and Tailwind and nothing else — no
-test runner, no DOM environment, no `test` script. The only way to execute any
-JavaScript in this project is Playwright, which needs a booted app, a database
-and a mail catcher, and costs minutes.
+`package.json` carries `eslint`, `prettier`, Tailwind and `esbuild` 0.28.2,
+plus a `build:widget` script. It carries no test runner, no DOM environment and
+no `test` script. So Playwright is the only way to execute any JavaScript in
+this project. Playwright needs a booted app, a database and a mail catcher, and
+it costs minutes.
 
 That was proportionate when the front end was a handful of small Stimulus
 controllers. It is not any more: `assets/controllers/comment_anchor_controller.js`
@@ -1427,12 +1406,18 @@ through a browser; `#extractAnchor`'s offsets are the browser half of the
 anchoring contract that PHP currently asserts alone; and the widget's fatal-state
 transitions are a state machine currently covered only by whole-app e2e specs.
 
-Worth deciding together with "Ship a minified site-review widget", since that
-entry introduces a build step for the same file and the two share tooling. The
-open questions are which runner (vitest is the obvious default given no bundler
-is present), whether the widget's tests run against source or the minified
-artefact, and whether `just ci` gains a leg or it stays opt-in until the suite
-earns its place.
+Owner decision (2026-09-04): add vitest and a `just ci` leg in the same change.
+Cover `#findRange` in `assets/controllers/comment_anchor_controller.js` first.
+Cover the site-review widget's fatal-state machine second. Both are pure enough
+to test without a browser.
+
+The widget already has a build step. `docker/prod/Dockerfile` runs `npm run
+build:widget`, which minifies `public/site-review/widget.js` with esbuild. The
+production artefact is a minification of the source. So the tests run against
+the source, and e2e verifies the build.
+
+Sequencing: the one-off reformat in "Running prettier on the site-review widget
+reformats all 1600 lines" must land before this work.
 
 ## Package Loupe as a Claude Code plugin and list it in the agent directories
 
@@ -1660,31 +1645,54 @@ The `install-reset` project truncates every table as its last act. `just e2e`
 now re-seeds a worktree afterwards rather than leaving it broken, so this is a
 question of design rather than a live breakage.
 
-## `users.disabledAt` is written by Billing but lives on the Account entity
+## Decide what `users.disabledAt` is for, now that the paywall does not read it
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
 
 Owner note (2026-08-21): `User::$disabledAt` should eventually move into the
-Billing module — onto a `Subscription` entity or something similar — rather
-than sitting on the Account module's `User`.
+Billing module rather than sit on the Account module's `User`. The premise has
+changed since then, so the open question is now what the column is for.
 
-Today the column is declared on `App\Module\Account\Entity\User`, but every
-write to it belongs to Billing: `RunTrialSweepHandler` sets it when a trial
-lapses, `SyncStripeSubscriptionHandler` clears it when a subscription goes live
-and sets it when one ends, and `SeedBillingStateHandler` drives it for seeding.
-Account reads it back in `JoinWaitlistHandler` and
-`UserRepository::countActive()`, so the coupling runs both ways.
+Access does not depend on the flag. `App\Module\Billing\Entity\Subscription`
+gives each grant of access its own row, with a kind of trial, Stripe or comp,
+and a `startsAt` and `endsAt` pair.
+`BillingProfile::hasCurrentSubscription($now)` answers whether an account has
+access now, and `App\Module\Billing\Service\PaywallGate` reads it. The paywall
+does not read `disabledAt` at all.
 
-The practical cost surfaced while designing the admin user-management section:
-an admin suspend control could not reuse the field, because a manual re-enable
-would be silently reverted by the next trial sweep. That design added a separate
-`suspendedAt` the admin owns — correct, but it leaves two "this account is
-inactive" flags on one entity, each owned by a different module.
+Billing writes the flag from five handlers: `RunTrialSweepHandler`,
+`SyncStripeSubscriptionHandler`, `SeedBillingStateHandler`,
+`Admin/GrantCompHandler` and `Admin/RevokeCompHandler`.
+`App\Module\Billing\Scheduler\SweepEndedTrialsTask` runs hourly, so the flag
+lags a lapsed grant by up to one hour. Access stays correct through that hour,
+because the paywall reads the rows.
 
-The control-flow half of the same encapsulation goal is already done: the
-paywall's exemption list moved into `App\Module\Billing\Service\PaywallExemptions`,
-so no module outside Billing carries a Billing-motivated marker any more. This
-column is what is left.
+Account reads the flag in `UserRepository::countHumans()` with `activeOnly`, in
+the admin user list `state` filter in `UserRepository::findPaginatedForAdmin()`,
+and in `JoinWaitlistHandler`. Billing reads it back in `SubscriptionRepository`
+for the cancel survey, and in the capacity checks in `StartCheckoutHandler` and
+`ShowSubscribeHandler`. Those two capacity checks are why the flag still decides
+something. A disabled account that returns to subscribe is refused when
+registration is closed, the cap is full, and it holds no valid invite.
+
+The encapsulation work this entry was once sequenced behind is done.
+`PaywallExemptions` lives inside Billing, no `#[PaywallExempt]` marker survives
+outside the module, and phparkitect enforces Billing as a leaf. That leaf rule
+also stops Account from querying Billing tables. To derive the state, Account
+declares a port and Billing implements it. `App\Module\Account\Admin\AdminUserPanelInterface`
+already uses that shape.
+
+`User` still carries two inactive flags, `disabledAt` and the admin-owned
+`suspendedAt`. A different module owns each one.
+
+**Decision needed.** Choose one:
+
+1. Drop the column, and read account state through a port that Billing
+   implements.
+2. Keep it on `User`, and document it as a Billing-written cache of "no current
+   grant".
+3. Move it onto `BillingProfile`. This pays the same port cost, adds a
+   migration, and keeps the lag.
 
 ## The `cli-test` CI check is not required, so a broken CLI cannot block a merge
 
@@ -1783,18 +1791,19 @@ fails, restore. That is one mutant, placed where a weakness was already
 suspected. It gives no score and covers none of the mutants nobody thought of —
 which is exactly the gap a tool closes.
 
-Proposal: scope Infection to the directories where a silently-passing test costs
-most — `src/Module/Account/Security/` and `src/Module/Account/EventListener/` —
-rather than the whole codebase. Both hold code that runs on every authenticated
-request, where a wrong answer is an outage or an authorization hole rather than
-a broken page.
+Scope Infection to the directories where a silently-passing test costs most:
+`src/Module/Account/Security/` and `src/Module/Account/EventListener/`. Both
+hold code that runs on every authenticated request. A wrong answer there is an
+outage or an authorization hole rather than a broken page.
 
-The open question is not whether it is useful but where it runs. Infection
-reruns the suite once per mutant, so a full-repo pass against ~1450 tests is
-coffee-break length, not a pre-commit hook. Decide between a `just ci` leg on a
-narrow path list and a manual command invoked when touching security-adjacent
-code. Cost is the deciding factor; measure a scoped run before wiring it into a
-gate.
+Owner decision (2026-09-04): make it a manual scoped `just` command, not a `just
+ci` leg. Run it on a regular cadence of about one week. Do not tie the run to
+which code a branch touches.
+
+Build the scoped command over those two directories. Measure one run, because
+Infection reruns the suite once per mutant, and a full-repo pass against ~1450
+tests is coffee-break length. Then decide how the weekly run is triggered. That
+trigger mechanism is the remaining open question.
 
 ## `countActiveAdmins()` depends on two rules that live somewhere else
 
@@ -1821,9 +1830,9 @@ Neither is broken now. Both are the kind of coupling that breaks silently and
 far from the change that caused it, which is why they are written down rather
 than commented in the query.
 
-## Decide how CommentBudgetCheck should treat `.env`
+## Drop `.env` from CommentBudgetCheck's patterns
 
-**Author:** Geoffrey · **Type:** docs · **Priority:** low · **Status:** pending
+**Author:** Geoffrey · **Type:** tooling · **Priority:** low · **Status:** pending
 
 The repo-wide sweep took `CommentBudgetCheck` from 151 findings to 10, and every
 other file — `src/`, `templates/`, `assets/`, `config/`, `tests/`, `e2e/`, the
@@ -1834,9 +1843,13 @@ Its first block is Symfony's own shipped header, which `composer
 recipes:update` would restore if rewritten. The rest document environment
 variables for whoever deploys the app, which is that file's whole purpose.
 
-So the choice is between marking them with `@comment-budget-ignore` and dropping
-`.env` from the check's `patterns` in `gamache.php`. Trimming them further trades
-documentation for a number, which is the opposite of what the check is for.
+Owner decision (2026-09-04): drop `.env` from the check's `patterns` in
+`gamache.php` at the project root. Marking each block with
+`@comment-budget-ignore` trades documentation for a number, which is the
+opposite of what the check is for.
+
+Accepted cost: the check then polices nothing in that file. A long comment block
+could land in `.env` and nothing would report it.
 
 ## Rendered front matter and annotations have no accessible name
 
@@ -2229,11 +2242,15 @@ prettier run produces a phantom several-hundred-line diff, and the real change i
 unreviewable inside it. Hit on 2026-08-13 while dropping the widget's send step;
 the fix was to revert and re-apply the edit by hand.
 
-Two ways to close it, and either is fine as long as it is a decision: leave the
-file out of prettier's scope deliberately (it is hand-formatted, dense, and
-`npx eslint public/site-review/widget.js` already gates it), or reformat it once
-in a commit that changes nothing else, then add `public/` to the prettier
-recipes in the `justfile` so it stays formatted.
+Owner decision (2026-09-04): reformat the file in one commit that changes
+nothing else. Then add `public/` to the prettier recipes in the `justfile`, so
+the file stays formatted.
+
+The widget now goes through an esbuild build step. `docker/prod/Dockerfile` runs
+`npm run build:widget`, so the shipped bytes are no longer the source bytes.
+
+This reformat commit must land before the vitest work in "There is no JavaScript
+test harness, and the JS is no longer trivial".
 
 ## Connect's code panels still emit the literal `YOUR_TOKEN`
 
