@@ -45,9 +45,10 @@ Every element gets its own pin on the page, and every pin of one comment carries
 that comment's number. That is what shows they belong together.
 
 When you come back to a page and one of a comment's elements has gone, the
-widget marks the comment as degraded. The surviving pins get a dashed ring, and
-the popover says how many elements are missing. A comment on a single element
-that no longer matches simply shows no pin, as before.
+widget marks the comment as degraded. The surviving pins take an amber dashed
+border, the popover says how many elements are missing, and the list row reads
+"1 of 2 elements". A comment on a single element that no longer matches simply
+shows no pin, as before.
 
 ## What it needs from the page
 
