@@ -6,7 +6,10 @@ RUN apk add --no-cache $PHPIZE_DEPS postgresql-dev libzip-dev libxslt-dev bash i
 
 RUN docker-php-ext-install bcmath pdo pdo_pgsql zip intl xsl
 
-RUN pecl install xdebug && docker-php-ext-enable xdebug
+# Pinned, because an unpinned `pecl install` turns every CI run red when
+# packagist's PECL index has a bad hour, and lets two builds a month apart
+# install different versions.
+RUN pecl install xdebug-3.5.3 && docker-php-ext-enable xdebug
 
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
