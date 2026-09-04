@@ -15,6 +15,7 @@ use App\Module\Review\Command\ReviseDocumentCommand;
 use App\Module\Review\Command\ReviseDocumentHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
+use App\Module\Review\Entity\Series;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Repository\DocumentRepository;
 use App\Module\Review\Service\DocumentSearchIndexer;
@@ -57,9 +58,17 @@ final class DocumentSearchTest extends KernelTestCase
     /**
      * @param list<string> $tagNames
      */
-    private function document(Project $project, string $title, string $markdown, array $tagNames = [], ?SearchLanguage $language = null): Document
+    private function document(Project $project, string $title, string $markdown, array $tagNames = [], ?SearchLanguage $language = null, ?string $seriesName = null, ?int $seriesOrdinal = null): Document
     {
-        return ($this->create)(new CreateDocumentCommand($project, $title, $markdown, tagNames: $tagNames, language: $language));
+        return ($this->create)(new CreateDocumentCommand(
+            $project,
+            $title,
+            $markdown,
+            tagNames: $tagNames,
+            seriesName: $seriesName,
+            seriesOrdinal: $seriesOrdinal,
+            language: $language,
+        ));
     }
 
     /**
@@ -255,6 +264,33 @@ final class DocumentSearchTest extends KernelTestCase
         self::assertSame(
             ['Payments'],
             $this->titles($this->documents->findPaginatedByProject($project, 1, 20, search: 'processing')),
+        );
+    }
+
+    /**
+     * Searching inside a series only became possible when the per-language
+     * match branches and the series filter met in one query. A series is an
+     * ordered set, so its own numbering has to outrank rank and recency once
+     * the reader has asked for it. Part one is created first, so recency
+     * ordering would return the two the other way round.
+     */
+    public function test_search_within_a_series_orders_by_the_series_numbering(): void
+    {
+        $project = $this->project();
+        $this->document($project, 'Partie une', 'Le stockage utilise postgres.', language: SearchLanguage::French, seriesName: 'Guide', seriesOrdinal: 1);
+        $this->document($project, 'Part two', 'The storage uses postgres.', seriesName: 'Guide', seriesOrdinal: 2);
+        $this->document($project, 'Loose note', 'Another note about postgres.');
+
+        self::assertSame(
+            ['Partie une', 'Part two'],
+            $this->titles($this->documents->findPaginatedByProject(
+                $project,
+                1,
+                20,
+                search: 'postgres',
+                seriesName: Series::normalizeName('Guide'),
+            )),
+            'the series numbering orders the matches, and a match outside the series is filtered out',
         );
     }
 
