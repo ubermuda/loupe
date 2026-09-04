@@ -268,7 +268,7 @@ final class ListDocumentsControllerTest extends WebTestCase
         self::assertSelectorTextContains($rowSelector.' .lp-document-row__threads', '1 open');
     }
 
-    public function test_row_shows_the_addressed_and_lost_anchor_signals(): void
+    public function test_row_shows_the_addressed_and_orphaned_signals(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -299,7 +299,7 @@ final class ListDocumentsControllerTest extends WebTestCase
         $rowSelector = '[data-document-id="'.$documentId.'"]';
 
         self::assertSelectorTextContains($rowSelector.' .lp-signal--addressed', '1 addressed');
-        self::assertSelectorTextContains($rowSelector.' .lp-signal--orphaned', '1 lost anchor');
+        self::assertSelectorTextContains($rowSelector.' .lp-signal--orphaned', '1 orphaned');
         // One thread is still pending, so the row must not claim it is finished.
         self::assertSelectorNotExists($rowSelector.' .lp-signal--answered');
     }

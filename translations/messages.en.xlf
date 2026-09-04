@@ -3210,7 +3210,7 @@
             </trans-unit>
             <trans-unit id="review.dashboard.meta.orphaned_count">
                 <source>review.dashboard.meta.orphaned_count</source>
-                <target>{0}no lost anchors|{1}1 lost anchor|]1,Inf[%count% lost anchors</target>
+                <target>{0}no orphaned threads|{1}1 orphaned|]1,Inf[%count% orphaned</target>
             </trans-unit>
             <trans-unit id="review.dashboard.meta.all_answered">
                 <source>review.dashboard.meta.all_answered</source>
