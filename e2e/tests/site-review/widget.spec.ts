@@ -918,6 +918,47 @@ test('a comment can be anchored to several elements at once', async ({
 });
 
 /**
+ * The × on a chip drops that element before the comment is saved, so a
+ * mis-click during picking does not force the reviewer to start again.
+ */
+test('an element can be dropped from the composer before saving', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await page.locator('#target-me').click();
+    await page.getByRole('button', { name: '+ Add element' }).click();
+    await page.locator('#target-two').click();
+    await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
+        2,
+    );
+
+    // Drop the second element again.
+    await page.locator('#lp-compose-head .lp-chip-x').nth(1).click();
+    await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
+        1,
+    );
+
+    await page
+        .getByPlaceholder(/Describe the issue/)
+        .fill('Only the first one');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#lp-head-count')).toHaveText('1');
+
+    // One anchor was stored, and it is the element that was kept.
+    const comments = await fetchReviewComments(page);
+    expect(comments).toHaveLength(1);
+    expect(comments[0].anchors).toHaveLength(1);
+    await expect(page.locator('.pin')).toHaveCount(1);
+});
+
+/**
  * A multi-anchor comment whose anchors only partly resolve must say so. Showing
  * one pin as though the comment had always been about one element would
  * misstate what the reviewer said.
