@@ -42,9 +42,10 @@ doctrine:
                 # arguments with StringPrimary(), which only accepts a nested
                 # function if it is registered as one returning a string.
                 WEBSEARCH_TO_TSQUERY: MartinGeorgiev\Doctrine\ORM\Query\AST\Functions\WebsearchToTsquery
-                # Casts the per-row search_language column to regconfig, which is
-                # the only type websearch_to_tsquery/2 accepts. A string function
-                # for the same reason as the line above: it nests inside one.
+                # Casts the per-row search_language column to regconfig for the
+                # ranking expression, which is the only type
+                # websearch_to_tsquery/2 accepts. A string function for the same
+                # reason as the line above: it nests inside one.
                 CAST: MartinGeorgiev\Doctrine\ORM\Query\AST\Functions\Cast
         # The audit package holds an actor and a credential as interfaces so it
         # never learns what this application calls a user. Doctrine cannot load

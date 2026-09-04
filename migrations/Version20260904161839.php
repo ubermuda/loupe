@@ -7,7 +7,7 @@ namespace DoctrineMigrations;
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\Migrations\AbstractMigration;
 
-final class Version20260904160218 extends AbstractMigration
+final class Version20260904161839 extends AbstractMigration
 {
     #[\Override]
     public function getDescription(): string
@@ -20,12 +20,14 @@ final class Version20260904160218 extends AbstractMigration
         // No reindex: every existing row was stemmed as English, which is the
         // value the DEFAULT gives it.
         $this->addSql('ALTER TABLE documents ADD search_language VARCHAR(20) DEFAULT \'english\' NOT NULL');
+        $this->addSql('CREATE INDEX idx_documents_project_search_language ON documents (project_id, search_language)');
         $this->addSql('ALTER TABLE projects ADD search_language VARCHAR(20) DEFAULT \'english\' NOT NULL');
     }
 
     #[\Override]
     public function down(Schema $schema): void
     {
+        $this->addSql('DROP INDEX idx_documents_project_search_language');
         $this->addSql('ALTER TABLE documents DROP search_language');
         $this->addSql('ALTER TABLE projects DROP search_language');
     }

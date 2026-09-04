@@ -22,6 +22,9 @@ use Symfony\Component\Uid\Uuid;
 // comparator would emit a DROP plus a plain CREATE INDEX, silently downgrading
 // it to a B-tree index that @@ never uses.
 #[ORM\Index(name: 'idx_documents_search_vector', columns: ['search_vector'])]
+// Read by the search query, which asks a project which languages it holds
+// before it builds one constant tsquery per language.
+#[ORM\Index(name: 'idx_documents_project_search_language', columns: ['project_id', 'search_language'])]
 #[ORM\Table(name: 'documents')]
 class Document
 {

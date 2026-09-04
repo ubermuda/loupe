@@ -300,4 +300,13 @@ final class DocumentSearchTest extends KernelTestCase
             $this->titles($this->documents->findPaginatedByProject($project, 1, 20, search: 'traiter')),
         );
     }
+
+    public function test_searching_a_project_with_no_documents_returns_nothing(): void
+    {
+        // The query builds one branch per language the project holds. A project
+        // that holds none still has to produce valid DQL.
+        $project = $this->project();
+
+        self::assertSame([], $this->titles($this->documents->findPaginatedByProject($project, 1, 20, search: 'anything')));
+    }
 }
