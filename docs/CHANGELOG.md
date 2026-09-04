@@ -30,6 +30,36 @@ entry.
 
 ## [Unreleased]
 
+- `2091a0c` (#346) — **Changed:** the `working-with-prs` skill now says what a
+  Codex pass is worth and when to stop asking for one.
+- `f03f345` (#333) — **Added:** a document is stemmed for search in its own
+  language, set per document or inherited from the project, so a French document
+  matches a French query rather than an English stemmer's guess.
+- `e275bb2` (#336) — **Added:** a decision block can take more than one answer,
+  and the status line names the option a reviewer cleared as well as one they
+  chose.
+- `c795eff` (#340) — **Changed:** an MCP tool reports every rejected argument at
+  once, rather than the first one it reached.
+- `f8a26b6` (#337) — **Added:** a reviewer can leave a comment while looking at
+  a diff, anchored to the passage the diff shows.
+- `8ceae0f` (#334) — **Added:** documents can say they belong to an ordered
+  series, filtered and read in their own order rather than newest first, with
+  `document_set_series` and `series_rename` to place and rename them.
+- `60ec749` (#331) — **Changed:** the decision status line names the option and
+  the version an answer was recorded against, taken from what was stored rather
+  than what was submitted.
+- `7000cb0` (#330) — **Changed:** the front-matter table and the rendered
+  annotations carry names, so a screen reader announces what they are.
+- `aaec685` (#347) — **Fixed:** the development image installs xdebug from its
+  tarball rather than by package name, so a build no longer queries the PECL
+  index that was intermittently answering "No releases available" and failing
+  four CI jobs at once.
+- `3aa3bcd` (#329) — **Changed:** the document documentation warns that an
+  annotation wrapped in an HTML element is dropped without a warning.
+- `46fe5e6` (#344) — **Changed:** the `working-with-prs` skill puts the preview
+  links at the top of a pull request body.
+- `6cef3f9` (#345) — **Fixed:** the development image pins the xdebug version it
+  installs, so two builds a month apart no longer install different ones.
 - `1183917` (#325) — **Changed:** the audit trail now comes from the
   `ubermuda/audit-bundle` package. The `/admin/audit-log` screen and the
   `audit:purge` command work as before; the retention window moves from

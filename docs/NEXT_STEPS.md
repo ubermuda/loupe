@@ -2711,3 +2711,23 @@ The work is one change repeated four times: include `extension.neon` from
 `ubermuda/gamache` in each bundle's `phpstan.neon`, add the package to
 `require-dev`, and fix whatever the first run reports. Do all four together, so
 the four repositories do not drift into four different standards.
+
+## The shared main checkout is unguarded shared state
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`CLAUDE.md` tells the main session never to move *into* a worktree. It says
+nothing about a session moving the main checkout *onto its own branch*, which
+two sessions did during one wave. Once, that happened while another session's
+uncommitted work sat in the same tree, including a `config/packages/security.yaml`
+change and a new `Controller/Dev/` route.
+
+Nothing was lost, because both trees were clean at the point they were moved.
+The hazard is the one `CLAUDE.md` already names for staging: a `git add -A` on
+the moved branch would have shipped a security config change inside a
+documentation commit.
+
+Decide whether the rule should be that a session never moves the main checkout
+at all, and does every edit in a worktree. Reported by two sessions that now
+work that way. Write it into `CLAUDE.md` if so, because a convention that lives
+only in one session's memory is not a convention.
