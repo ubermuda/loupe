@@ -235,7 +235,7 @@ since a process nobody follows is worse than none.
 ## A better framework for planning and running multi-branch waves
 
 
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** parked
 
 Running nine parallel branches on 2026-08-03 worked, but the coordination lived
 in one session's head and in ad-hoc prose briefs. Everything below is a real
@@ -266,10 +266,19 @@ and conflict edges between branches, since the deletion paths and one template
 were touched by four branches each; and a shared findings log that new agents
 read on start instead of being told.
 
-Worth weighing against building anything: much of the pain was a single shared
-php-fpm pool, now fixed, and the rest may dissolve if agents move to their own
-containers — see 'Give each agent its own container in the cloud instead of
-sharing one dev stack'. Build the coordination layer only for what survives that.
+Per-agent containers do not remove most of this. They remove the exclusive e2e
+slot, and the hand coordination that keeps a sibling's `just ci` off an
+in-flight gate. Costs 2, 3 and 4 above survive containers, because merge
+ordering is a property of git and of the gate protocol. 'Give each agent its own
+container in the cloud instead of sharing one dev stack' is parked as well, so
+waiting on it means building nothing.
+
+The cheapest restart is a shared findings log: one committed file that every
+agent reads at start. It answers cost 3 directly, and it needs no new tooling.
+The owner parked it rather than start it, for one reason worth recording. Such a
+log overlaps `docs/NEXT_STEPS.md` and the per-project memory files. A second
+committed file that competes with those has a real cost, and nobody has priced
+it.
 
 ## Shrink the e2e suite and push its assertions down to functional tests
 
