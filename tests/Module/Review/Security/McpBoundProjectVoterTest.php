@@ -9,6 +9,7 @@ use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\Series;
 use App\Module\Review\Security\McpBoundProjectVoter;
 use App\Module\Review\ValueObject\Anchor;
 use App\Tests\Support\DirectLogging;
@@ -157,6 +158,68 @@ final class McpBoundProjectVoterTest extends KernelTestCase
         self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::COMMENT_READ, $comment));
     }
 
+    private function seriesInNewProject(User $owner): Series
+    {
+        $project = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($project);
+
+        $series = new Series($project, 'Blog Series');
+        $this->em->persist($series);
+        $this->em->flush();
+
+        return $series;
+    }
+
+    public function test_grants_a_series_of_the_bound_project(): void
+    {
+        $series = $this->seriesInNewProject($this->user('voter-series@example.com'));
+        $this->actAsMcpTokenBoundTo($series->project);
+
+        self::assertTrue($this->authorization->isGranted(McpBoundProjectVoter::SERIES_WRITE, $series));
+    }
+
+    /**
+     * The rename tool resolves a series inside the bound project, so this vote
+     * is defence in depth rather than the only gate. It has to deny anyway, or
+     * a later read-only token policy would pass straight through it.
+     */
+    public function test_denies_a_series_in_another_project_of_the_same_owner(): void
+    {
+        $owner = $this->user('voter-series-cross@example.com');
+        $series = $this->seriesInNewProject($owner);
+
+        $projectB = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($projectB);
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($projectB);
+
+        self::assertFalse($this->authorization->isGranted(McpBoundProjectVoter::SERIES_WRITE, $series));
+    }
+
+    public function test_a_denied_series_is_recorded_against_the_series_it_voted_on(): void
+    {
+        $owner = $this->user('voter-audit-series@example.com');
+        $series = $this->seriesInNewProject($owner);
+        $projectB = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($projectB);
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($projectB);
+
+        $audit = $this->auditedVote(McpBoundProjectVoter::SERIES_WRITE, $series);
+
+        $record = $audit->record('review.mcp_access_denied');
+        self::assertSame(Auditor::CATEGORY_SECURITY, $record->category);
+        self::assertNotNull($record->subject);
+        self::assertSame('series', $record->subject->type);
+        self::assertSame((string) $series->id, $record->subject->id);
+        self::assertSame([
+            'attribute' => McpBoundProjectVoter::SERIES_WRITE,
+            'subjectId' => (string) $series->id,
+            'subjectProjectId' => (string) $series->project->id,
+            'boundProjectId' => (string) $projectB->id,
+        ], $record->context);
+    }
+
     public function test_a_denied_document_is_recorded_on_the_security_channel(): void
     {
         $owner = $this->user('voter-audit-doc@example.com');
@@ -238,7 +301,7 @@ final class McpBoundProjectVoterTest extends KernelTestCase
      * Votes through a voter built on a recording Auditor. The container's own
      * voter is behind the authorization checker, which offers no seam for one.
      */
-    private function auditedVote(string $attribute, Comment|Document $subject, int $expected = VoterInterface::ACCESS_DENIED): RecordingAuditor
+    private function auditedVote(string $attribute, Comment|Document|Series $subject, int $expected = VoterInterface::ACCESS_DENIED): RecordingAuditor
     {
         $resolver = self::getContainer()->get(AuthenticatedProjectResolver::class);
         self::assertInstanceOf(AuthenticatedProjectResolver::class, $resolver);

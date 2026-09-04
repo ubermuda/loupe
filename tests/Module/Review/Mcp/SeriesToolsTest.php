@@ -73,7 +73,7 @@ final class SeriesToolsTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($project);
 
         $placed = ($this->setSeries)((string) $document->id, 'Blog Series', 5);
-        self::assertSame(['documentId' => (string) $document->id, 'series' => 'blog series', 'seriesOrdinal' => 5], $placed);
+        self::assertSame(['documentId' => (string) $document->id, 'series' => 'Blog Series', 'seriesOrdinal' => 5], $placed);
 
         $cleared = ($this->setSeries)((string) $document->id);
         self::assertSame(['documentId' => (string) $document->id, 'series' => null, 'seriesOrdinal' => null], $cleared);
@@ -120,11 +120,12 @@ final class SeriesToolsTest extends KernelTestCase
         $this->em->flush();
         $this->actAsMcpTokenBoundTo($project);
 
-        ($this->setSeries)((string) $first->id, 'blog series', 1);
+        ($this->setSeries)((string) $first->id, 'Blog Series', 1);
+        // A different spelling of the same name is the same series.
         ($this->setSeries)((string) $second->id, 'blog series', 9);
 
         self::assertSame(
-            [['name' => 'blog series', 'documentCount' => 2, 'highestOrdinal' => 9]],
+            [['name' => 'Blog Series', 'documentCount' => 2, 'highestOrdinal' => 9]],
             ($this->list)()['series'],
         );
     }
@@ -157,8 +158,9 @@ final class SeriesToolsTest extends KernelTestCase
         ($this->setSeries)((string) $document->id, 'blog series', 3);
 
         self::assertSame(
-            ['series' => 'rust atomics', 'documentCount' => 1],
-            ($this->rename)('Blog Series', 'Rust Atomics'),
+            ['series' => 'Rust Atomics', 'documentCount' => 1],
+            // Named by a spelling nobody stored, because the lookup folds case.
+            ($this->rename)('BLOG SERIES', 'Rust Atomics'),
         );
         self::assertSame(3, $document->seriesOrdinal);
     }
@@ -178,8 +180,10 @@ final class SeriesToolsTest extends KernelTestCase
 
         $this->actAsMcpTokenBoundTo($bound);
 
+        // The same message a missing series gets, so a token cannot probe what
+        // exists outside its project.
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('Series "secret series" not found in this project.');
+        $this->expectExceptionMessage('Series "secret series" not found or not accessible.');
         ($this->rename)('secret series', 'stolen');
     }
 
