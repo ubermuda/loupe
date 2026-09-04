@@ -20,9 +20,9 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
  * table added to the wrong chain still reads plausibly here and fails only at
  * runtime.
  *
- * `tags` and `series` are neither chain and come last: the documents reference
- * them, so they cannot precede the document delete, and they hang off the
- * project rather than any document.
+ * `tags` and `series` are neither chain and come last: the join rows reference
+ * a tag and the documents reference a series, so neither can precede its
+ * referencing delete, and both hang off the project rather than any document.
  */
 #[AsEventListener]
 final readonly class DeleteReviewDataOnProjectDeleting
@@ -82,7 +82,7 @@ final readonly class DeleteReviewDataOnProjectDeleting
         )->setParameter('project', $event->project)->execute();
 
         $this->em->createQuery(
-            'DELETE App\Module\Review\Entity\Series s2 WHERE s2.project = :project',
+            'DELETE App\Module\Review\Entity\Series s WHERE s.project = :project',
         )->setParameter('project', $event->project)->execute();
     }
 }
