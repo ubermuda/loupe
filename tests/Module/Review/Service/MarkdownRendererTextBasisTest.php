@@ -124,7 +124,7 @@ final class MarkdownRendererTextBasisTest extends TestCase
 
     /**
      * A decision fence mints elements no document may write — fieldset, label,
-     * a radio input — after sanitization, so the sweep above never sees them.
+     * a checkbox input — after sanitization, so the sweep above never sees them.
      * They are the newest chance for the two readings to diverge.
      */
     public function test_a_decision_block_reads_the_same_to_php_and_the_html5_parser(): void
@@ -143,7 +143,7 @@ final class MarkdownRendererTextBasisTest extends TestCase
         // it is stored, so the browser reads ITS output while every anchor was
         // measured against plainText() of the stored string. Adding an attribute
         // should be invisible to both; nobody predicted <caption> either.
-        $marked = new DecisionBlockService()->withSelections($html, ['pick-one' => 1], readOnly: true);
+        $marked = new DecisionBlockService()->withSelections($html, ['pick-one' => [1]], readOnly: true);
         self::assertStringContainsString('checked disabled', $marked);
         self::assertSame(
             html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8'),

@@ -32,19 +32,23 @@ final readonly class DecisionSummaryReader
     public function __invoke(Document $document, DocumentVersion $version): DecisionSummary
     {
         $decisions = $this->decisionBlocks->extract($version->renderedHtml);
-        $selections = $this->decisionSelections->findByDocumentIndexedByDecisionId($document);
+        $selections = $this->decisionSelections->findByDocumentGroupedByDecisionId($document);
 
-        $selectedIndexByDecisionId = [];
+        $selectedIndexesByDecisionId = [];
         foreach ($decisions as $decision) {
-            $selection = $selections[$decision->id] ?? null;
-            $index = null === $selection
-                ? null
-                : $decision->resolveIndex($selection->optionLabel, $selection->optionIndex);
-            if (null !== $index) {
-                $selectedIndexByDecisionId[$decision->id] = $index;
+            $indexes = [];
+            foreach ($selections[$decision->id] ?? [] as $selection) {
+                $index = $decision->resolveIndex($selection->optionLabel, $selection->optionIndex);
+                if (null !== $index) {
+                    $indexes[] = $index;
+                }
+            }
+
+            if ([] !== $indexes) {
+                $selectedIndexesByDecisionId[$decision->id] = $indexes;
             }
         }
 
-        return new DecisionSummary($decisions, $selectedIndexByDecisionId);
+        return new DecisionSummary($decisions, $selectedIndexesByDecisionId);
     }
 }

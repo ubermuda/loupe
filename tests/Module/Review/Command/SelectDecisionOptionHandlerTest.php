@@ -29,8 +29,20 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
 
         <!-- decision: deploy-target -->
 
-        - [ ] Ship to staging first
-        - [ ] Ship straight to production
+        - ( ) Ship to staging first
+        - ( ) Ship straight to production
+
+        <!-- /decision -->
+        MD;
+
+    private const string MULTIPLE_MARKDOWN = <<<'MD'
+        Pick what ships.
+
+        <!-- decision: ship-with -->
+
+        - [ ] The importer
+        - [x] The exporter
+        - [ ] The admin page
 
         <!-- /decision -->
         MD;
@@ -74,8 +86,9 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
     {
         $document = $this->createDocument(self::MARKDOWN);
 
-        $selection = ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1, displayedVersionNumber: 1));
+        $selection = ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1, displayedVersionNumber: 1))->selection;
 
+        self::assertNotNull($selection);
         self::assertSame('deploy-target', $selection->decisionId);
         self::assertSame(1, $selection->optionIndex);
         self::assertSame('Ship straight to production', $selection->optionLabel);
@@ -83,9 +96,9 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
     }
 
     /**
-     * The unique (document, decision) index makes a second insert a 500 rather
-     * than an update, and answering is a click — a reviewer changing their mind
-     * is the normal case, not an edge one.
+     * The unique (document, decision, option) index makes a second insert a 500
+     * rather than an update, and answering is a click — a reviewer changing
+     * their mind is the normal case, not an edge one.
      *
      * The concurrent form of this is not expressible here: dama wraps the test
      * in one connection's transaction, so two overlapping DB transactions cannot
@@ -97,11 +110,68 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
         $document = $this->createDocument(self::MARKDOWN);
 
         ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 0, displayedVersionNumber: 1));
-        $second = ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1, displayedVersionNumber: 1));
+        $second = ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1, displayedVersionNumber: 1))->selection;
 
         self::assertCount(1, $this->selections->findBy(['document' => $document]));
+        self::assertNotNull($second);
         self::assertSame(1, $second->optionIndex);
         self::assertSame('Ship straight to production', $second->optionLabel);
+    }
+
+    /**
+     * A multi-choice block stores one row per chosen option, so a second answer
+     * adds to the first rather than replacing it.
+     */
+    public function test_a_multi_choice_block_records_every_chosen_option(): void
+    {
+        $document = $this->createDocument(self::MULTIPLE_MARKDOWN);
+
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 2, displayedVersionNumber: 1));
+
+        $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
+        self::assertSame([0, 2], array_map(static fn (object $row): int => $row->optionIndex, $stored));
+        self::assertSame(['The importer', 'The admin page'], array_map(static fn (object $row): string => $row->optionLabel, $stored));
+    }
+
+    /** Clicking a ticked checkbox unticks it, so the same POST has to take the row back off. */
+    public function test_answering_a_chosen_option_again_removes_it(): void
+    {
+        $document = $this->createDocument(self::MULTIPLE_MARKDOWN);
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 1, displayedVersionNumber: 1));
+
+        $result = ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1));
+
+        self::assertNull($result->selection);
+        $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
+        self::assertSame([1], array_map(static fn (object $row): int => $row->optionIndex, $stored));
+    }
+
+    /**
+     * A revision can turn a multi-choice block back into a single-choice one,
+     * and the block then takes one answer. The extra rows have to go, or the
+     * page shows several answers a radio group cannot express.
+     */
+    public function test_a_block_that_becomes_single_choice_keeps_one_answer(): void
+    {
+        $document = $this->createDocument(self::MULTIPLE_MARKDOWN);
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 1, displayedVersionNumber: 1));
+
+        $revise = self::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
+        $revise(new ReviseDocumentCommand(
+            $document,
+            str_replace(['- [ ] ', '- [x] '], '- ( ) ', self::MULTIPLE_MARKDOWN),
+            'Made the block take one answer.',
+        ));
+
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 2, displayedVersionNumber: 2));
+
+        $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
+        self::assertCount(1, $stored);
+        self::assertSame(2, $stored[0]->optionIndex);
     }
 
     /**
@@ -126,8 +196,9 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
             'Reworded the deploy decision.',
         ));
 
-        $selection = $this->selections->findOneByDocumentAndDecisionId($document, 'deploy-target');
-        self::assertNotNull($selection);
+        $stored = $this->selections->findByDocumentAndDecisionId($document, 'deploy-target');
+        self::assertCount(1, $stored);
+        $selection = $stored[0];
         self::assertSame(1, $selection->optionIndex);
         // The label is the one that was agreed to, not the rewritten one.
         self::assertSame('Ship straight to production', $selection->optionLabel);
@@ -147,7 +218,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
         self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
         $revise(new ReviseDocumentCommand(
             $document,
-            "Pick a target.\n\n<!-- decision: deploy-target -->\n\n- [ ] Ship straight to production\n- [ ] Ship to staging first\n\n<!-- /decision -->\n",
+            "Pick a target.\n\n<!-- decision: deploy-target -->\n\n- ( ) Ship straight to production\n- ( ) Ship to staging first\n\n<!-- /decision -->\n",
             'Reordered the options.',
         ));
 
@@ -159,8 +230,8 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
             // Names the label so a regression reports WHICH answer it invented:
             // index 1 was 'Ship straight to production' on the version the
             // reviewer read, and is 'Ship to staging first' on the current one.
-            $persisted = $this->selections->findOneByDocumentAndDecisionId($document, 'deploy-target');
-            self::assertNull($persisted, 'recorded an answer the reviewer never gave: '.($persisted->optionLabel ?? ''));
+            $persisted = $this->selections->findByDocumentAndDecisionId($document, 'deploy-target');
+            self::assertSame([], $persisted, 'recorded an answer the reviewer never gave: '.($persisted[0]->optionLabel ?? ''));
         }
     }
 
@@ -211,9 +282,9 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
         $document = $this->createDocument(self::MARKDOWN);
         $this->audit->forget();
 
-        $selection = ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1, displayedVersionNumber: 1));
+        $selection = ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1, displayedVersionNumber: 1))->selection;
 
-        self::assertSame('Ship straight to production', $selection->optionLabel);
+        self::assertSame('Ship straight to production', $selection?->optionLabel);
         self::assertArrayNotHasKey('optionLabel', $this->audit->record('review.decision_selected')->context);
     }
 

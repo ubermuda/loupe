@@ -28,8 +28,8 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
 
         <!-- decision: deploy-target -->
 
-        - [ ] Ship to staging first
-        - [ ] Ship straight to production
+        - ( ) Ship to staging first
+        - ( ) Ship straight to production
 
         <!-- /decision -->
         MD;
@@ -63,9 +63,9 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
 
         $selections = static::getContainer()->get(DecisionSelectionRepository::class);
         self::assertInstanceOf(DecisionSelectionRepository::class, $selections);
-        $selection = $selections->findOneByDocumentAndDecisionId($document, 'deploy-target');
-        self::assertNotNull($selection);
-        self::assertSame(1, $selection->optionIndex);
+        $stored = $selections->findByDocumentAndDecisionId($document, 'deploy-target');
+        self::assertCount(1, $stored);
+        self::assertSame(1, $stored[0]->optionIndex);
 
         $client->request(Request::METHOD_GET, $this->reviewPath($document));
         self::assertSelectorExists('#decision_option_deploy-target_1[checked]');

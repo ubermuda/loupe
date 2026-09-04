@@ -3439,7 +3439,7 @@
             </trans-unit>
             <trans-unit id="landing.feature.decisions.text">
                 <source>landing.feature.decisions.text</source>
-                <target>An agent can mark a passage as a decision with options. The reviewer picks one, and the choice comes back structured.</target>
+                <target>An agent can mark a passage as a decision with options. The reviewer picks one or several, and the choice comes back structured.</target>
             </trans-unit>
             <trans-unit id="landing.feature.site_review.title">
                 <source>landing.feature.site_review.title</source>

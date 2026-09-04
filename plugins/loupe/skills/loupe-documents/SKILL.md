@@ -158,7 +158,8 @@ reading context, not for a terminal or a README.
 12. **A decision fence turns a choice into something the reviewer clicks.** A
     pair of `<!-- decision: some-id -->` and `<!-- /decision -->` comments around
     the alternatives renders them as radio buttons, whose answer comes back in
-    `document_get_review` under `decisions`. **An id is permanent once
+    `document_get_review` under `decisions`. Mark every option `- [ ]` instead
+    to let the reviewer pick several. **An id is permanent once
     published**, and **a changed id silently discards the answer**: no error, no
     warning, and the decision reads as unanswered again. A malformed fence
     degrades to a plain list, also with no error. Read

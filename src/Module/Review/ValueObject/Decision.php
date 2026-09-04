@@ -6,8 +6,8 @@ namespace App\Module\Review\ValueObject;
 
 /**
  * One decision block as it stands in a rendered version: the identifier the
- * document declared, the option labels in the order they are shown, and the
- * question the block asks.
+ * document declared, the option labels in the order they are shown, the
+ * question the block asks, and how many answers it takes.
  *
  * The identifier — not the option text and not the position — is what a
  * selection is keyed by, so a revision that rewords the block keeps its answer.
@@ -22,6 +22,7 @@ final readonly class Decision
         public string $id,
         public array $options,
         public string $prompt = '',
+        public DecisionType $type = DecisionType::Single,
     ) {
     }
 

@@ -11,17 +11,21 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * A reviewer's answer to one decision block.
+ * A reviewer's answer to one option of one decision block.
  *
  * Keyed to the DOCUMENT and the decision's own identifier, never to a version
  * or to the quoted text: a revision that rewords a decision block is exactly
  * what a revision responding to feedback about that decision does, and keying
  * on the text would discard the answer at the moment it is being acted upon.
  * The trade is that changing a published id silently drops its answer.
+ *
+ * A multi-choice block stores one row per chosen option, so the option index
+ * belongs to the unique key. A single-choice block keeps at most one row, and
+ * the handler is what holds it to that.
  */
 #[ORM\Entity(repositoryClass: DecisionSelectionRepository::class)]
 #[ORM\Table(name: 'decision_selections')]
-#[ORM\UniqueConstraint(name: 'uniq_decision_selection_id', columns: ['document_id', 'decision_id'])]
+#[ORM\UniqueConstraint(name: 'uniq_decision_selection_option', columns: ['document_id', 'decision_id', 'option_index'])]
 class DecisionSelection
 {
     /** Mirrors the id pattern DecisionBlockService accepts in a fence. */

@@ -46,10 +46,11 @@ final readonly class ShowPersistedDecisionBlockHandler
 
         $selected = [];
         foreach ($this->decisionBlocks->extract($blockHtml) as $decision) {
-            $selection = $this->decisionSelections->findOneByDocumentAndDecisionId($command->document, $decision->id);
-            $index = null === $selection ? null : $decision->resolveIndex($selection->optionLabel, $selection->optionIndex);
-            if (null !== $index) {
-                $selected[$decision->id] = $index;
+            foreach ($this->decisionSelections->findByDocumentAndDecisionId($command->document, $decision->id) as $selection) {
+                $index = $decision->resolveIndex($selection->optionLabel, $selection->optionIndex);
+                if (null !== $index) {
+                    $selected[$decision->id][] = $index;
+                }
             }
         }
 
