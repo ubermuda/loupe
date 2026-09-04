@@ -23,6 +23,39 @@ path skips this.
 Review against `origin/main`, never `main`. A worktree's local `main` is often
 stale, so a review against it reports findings for already-merged code.
 
+**One clean pass is not a pass. Run until two consecutive passes come back
+clean.** The same review on the same commit gives different answers each time.
+Two runs on one branch, same model and same base, disagreed: the second found a
+real defect that sat in the tree the first had called clean. The habit that
+protects you is the one an agent falls into anyway when it fixes findings and
+re-runs. Branches that stopped at their first clean answer are the ones with
+the least evidence behind them, however green they look.
+
+**Scope the review to the commit, not the base, once a branch has more than
+one commit.** `mcp__codex-cli__review` takes `commit: "<sha>"` for this. A
+`base` review on a long branch can come back clean while describing only the
+branch's oldest work. One branch took three clean runs: the two scoped to
+`origin/main` summarised its original creation path and never named the update
+path its newest commit changed, and only the commit-scoped run described the
+code under review. The two agreeing runs proved nothing, because both drifted
+the same way. The risk is highest when the newer commits are a different
+kind of work from the branch's original purpose, because a summary of the
+branch's theme then covers none of them. Commit count is the trigger because
+it is mechanical, and the cost of scoping when you did not need to is one
+run. A single-commit branch is not exposed to this.
+
+**Read the summary, not only the verdict. A clean result that never mentions
+the largest thing in the diff is a pass that missed the diff.** One branch took
+two clean passes whose summaries described the search plumbing and named
+neither the form, the wizard, the picker nor the 31 new translations that made
+up most of the change. Both were clean because neither looked. A second run
+does not help here, because that pass is stable and wrong the same way every
+time. Name the biggest thing you changed, then check the summary mentions it.
+
+Both rules cost time on a large diff. Say in the PR body how many passes ran
+and what the last one covered, so a reader can weigh the evidence rather than
+read "Codex: clean" and assume it means more than it does.
+
 e2e is not in the local gate. The `e2e` required check on the PR gates the
 suite, and it runs the same `just e2e` on a disposable runner. Push, then read
 that check. Fix every failure it reports, including pre-existing ones. Do not
