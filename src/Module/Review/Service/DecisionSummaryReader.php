@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Service;
 
+use App\Module\Review\Entity\DecisionSelection;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Repository\DecisionSelectionRepository;
@@ -17,7 +18,7 @@ use App\Module\Review\ValueObject\DecisionSummary;
  * the latest does — a decision rendered blank reads as unanswered, which is a
  * different claim from "answered before this version".
  *
- * Every answer resolves through Decision::resolveIndex, exactly as GetReview
+ * Every answer resolves through Decision::resolveIndexes, exactly as GetReview
  * does. Resolving by a second rule is how the reviewer ends up seeing one option
  * ticked while the agent is told another.
  */
@@ -32,19 +33,23 @@ final readonly class DecisionSummaryReader
     public function __invoke(Document $document, DocumentVersion $version): DecisionSummary
     {
         $decisions = $this->decisionBlocks->extract($version->renderedHtml);
-        $selections = $this->decisionSelections->findByDocumentIndexedByDecisionId($document);
+        $selections = $this->decisionSelections->findByDocumentGroupedByDecisionId($document);
 
-        $selectedIndexByDecisionId = [];
+        $selectedIndexesByDecisionId = [];
         foreach ($decisions as $decision) {
-            $selection = $selections[$decision->id] ?? null;
-            $index = null === $selection
-                ? null
-                : $decision->resolveIndex($selection->optionLabel, $selection->optionIndex);
-            if (null !== $index) {
-                $selectedIndexByDecisionId[$decision->id] = $index;
+            $indexes = array_values(array_filter(
+                $decision->resolveIndexes(array_map(
+                    static fn (DecisionSelection $selection): array => [$selection->optionLabel, $selection->optionIndex],
+                    $selections[$decision->id] ?? [],
+                )),
+                static fn (?int $index): bool => null !== $index,
+            ));
+
+            if ([] !== $indexes) {
+                $selectedIndexesByDecisionId[$decision->id] = $indexes;
             }
         }
 
-        return new DecisionSummary($decisions, $selectedIndexByDecisionId);
+        return new DecisionSummary($decisions, $selectedIndexesByDecisionId);
     }
 }

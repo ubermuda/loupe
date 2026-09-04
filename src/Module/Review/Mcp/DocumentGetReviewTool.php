@@ -15,7 +15,7 @@ use Mcp\Exception\ToolCallException;
  *
  * @phpstan-import-type ReviewPayload from ShowReviewHandler
  */
-#[McpTool(name: 'document_get_review', description: 'Fetch the review state (verdict, status, threaded comments, and answered decision blocks) for a document\'s current version. Every comment and reply reports whether an agent or a human wrote it, and a comment may carry a replacement for the text it quotes.')]
+#[McpTool(name: 'document_get_review', description: 'Fetch the review state (verdict, status, threaded comments, and answered decision blocks) for a document\'s current version. Every comment and reply reports whether an agent or a human wrote it, and a comment may carry a replacement for the text it quotes. A decision block reports its type: a single-choice block answers in selected, and a multiple-choice block answers in selections.')]
 final readonly class DocumentGetReviewTool
 {
     public function __construct(
@@ -53,6 +53,13 @@ final readonly class DocumentGetReviewTool
      *
      * `selected_index` points into the same entry's `options`, and is null when the chosen option
      * is no longer among them — `answered_at_version` then says which version it came from
+     *
+     * `type` is single or multiple. A multiple-choice block takes any number of answers, so it
+     * reports null in `selected`, `selected_index`, `answered_at` and `answered_at_version`
+     *
+     * `selections` lists every recorded answer of either kind of block, each with the `option`
+     * text, its `index` in `options`, and when and against which version it was chosen. Read it
+     * for a multiple-choice block, and read it for a single-choice one too if you want one shape
      *
      * Each decision's `id` is the one the document declared in its fence, and it is permanent:
      * changing it in a revision discards the answer keyed to the old one

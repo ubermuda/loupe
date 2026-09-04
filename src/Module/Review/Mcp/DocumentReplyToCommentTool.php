@@ -12,7 +12,6 @@ use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
-use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Writes an agent reply into a document-review thread.
@@ -30,7 +29,7 @@ final readonly class DocumentReplyToCommentTool
         private ReviewSubjectResolver $subjects,
         private UserRepository $users,
         private DocumentVersionRepository $documentVersions,
-        private TranslatorInterface $translator,
+        private ToolCallErrorMessages $errorMessages,
     ) {
     }
 
@@ -64,11 +63,7 @@ final readonly class DocumentReplyToCommentTool
         } catch (ToolCallException $e) {
             throw $e;
         } catch (DomainErrors $e) {
-            // DomainErrors carries translation keys, which mean nothing to a
-            // caller that never renders a template.
-            $reasons = array_map($this->translator->trans(...), array_values($e->errors));
-
-            throw new ToolCallException(\sprintf('The reply was rejected: %s', implode(' ', $reasons)), previous: $e);
+            throw $this->errorMessages->forAgent($e);
         } catch (\Throwable $e) {
             throw new ToolCallException('The reply could not be saved. The error has been logged.', previous: $e);
         }

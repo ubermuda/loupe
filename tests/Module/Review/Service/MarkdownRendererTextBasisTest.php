@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Review\Service;
 
+use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Service\DecisionBlockService;
 use App\Module\Review\Service\MarkdownRenderer;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\HtmlSanitizer\Reference\W3CReference;
+use Symfony\Component\Translation\IdentityTranslator;
 
 /**
  * Guards the two-sided contract behind every comment anchor.
@@ -34,7 +36,7 @@ final class MarkdownRendererTextBasisTest extends TestCase
      */
     public function test_php_and_the_html5_parser_read_the_same_text_in_the_same_order(): void
     {
-        $renderer = new MarkdownRenderer(new NullLogger());
+        $renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
         $mismatches = [];
         $checked = 0;
 
@@ -63,7 +65,7 @@ final class MarkdownRendererTextBasisTest extends TestCase
      */
     public function test_every_element_the_sanitizer_considers_safe_still_contributes_its_text(): void
     {
-        $renderer = new MarkdownRenderer(new NullLogger());
+        $renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
         $swallowed = [];
         $checked = 0;
 
@@ -97,7 +99,7 @@ final class MarkdownRendererTextBasisTest extends TestCase
      */
     public function test_front_matter_and_annotations_read_the_same_on_both_sides(): void
     {
-        $renderer = new MarkdownRenderer(new NullLogger());
+        $renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
 
         $documents = [
             'front matter only' => "---\ntitle: Wave C\ndate: 2026-08-02\ntags:\n  - review\n  - markdown\n---\n\n## Section\n\nBody.\n",
@@ -124,12 +126,12 @@ final class MarkdownRendererTextBasisTest extends TestCase
 
     /**
      * A decision fence mints elements no document may write — fieldset, label,
-     * a radio input — after sanitization, so the sweep above never sees them.
+     * a checkbox input — after sanitization, so the sweep above never sees them.
      * They are the newest chance for the two readings to diverge.
      */
     public function test_a_decision_block_reads_the_same_to_php_and_the_html5_parser(): void
     {
-        $html = new MarkdownRenderer(new NullLogger())->render(
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render(
             "Before.\n\n<!-- decision: pick-one -->\n\n- [ ] First option\n- [ ] Second **option**\n\n<!-- /decision -->\n\nAfter.\n",
         );
 
@@ -143,11 +145,31 @@ final class MarkdownRendererTextBasisTest extends TestCase
         // it is stored, so the browser reads ITS output while every anchor was
         // measured against plainText() of the stored string. Adding an attribute
         // should be invisible to both; nobody predicted <caption> either.
-        $marked = new DecisionBlockService()->withSelections($html, ['pick-one' => 1], readOnly: true);
+        $marked = new DecisionBlockService()->withSelections($html, ['pick-one' => [1]], readOnly: true);
         self::assertStringContainsString('checked disabled', $marked);
         self::assertSame(
             html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
             $this->textContent($marked),
+        );
+    }
+
+    /**
+     * The expected string is the basis this renderer produced before the
+     * front-matter table and the block annotation carried an `aria-label`. An
+     * attribute never reaches strip_tags(), so every anchor stored against a
+     * version rendered earlier still resolves to the same characters.
+     */
+    public function test_the_accessible_names_leave_the_anchor_basis_unchanged(): void
+    {
+        $markdown = "---\ntitle: Anchor basis\ntags: [a, b]\n---\n\n# Heading\n\n"
+            ."<!-- a block annotation -->\n\nBody text with an <!-- inline annotation --> inside.\n";
+
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render($markdown);
+
+        self::assertStringContainsString('aria-label', $html, 'the names must actually have been rendered');
+        self::assertSame(
+            "\n\n\ntitle\nAnchor basis\n\n\ntags\na, b\n\n\n\nHeading\na block annotation\nBody text with an inline annotation inside.\n",
+            DocumentVersion::plainTextOf($html),
         );
     }
 

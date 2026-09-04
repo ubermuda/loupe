@@ -66,6 +66,23 @@ final class DocumentCreateToolTest extends KernelTestCase
         self::assertSame('Auth PRD', $document->title);
     }
 
+    public function test_a_blank_title_is_rejected_with_a_message_the_agent_can_act_on(): void
+    {
+        $owner = $this->user('create-blank-title@example.com');
+        $project = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($project);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        try {
+            ($this->tool)('   ', '# Body');
+            self::fail('a blank title must throw');
+        } catch (ToolCallException $e) {
+            self::assertSame('title: A document title must not be blank.', $e->getMessage());
+        }
+    }
+
     public function test_tags_passed_at_creation_are_created_and_attached(): void
     {
         $owner = $this->user('create-tagged@example.com');

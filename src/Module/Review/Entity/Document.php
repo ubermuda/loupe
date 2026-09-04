@@ -26,6 +26,9 @@ use Symfony\Component\Uid\Uuid;
 // before it builds one constant tsquery per language.
 #[ORM\Index(name: 'idx_documents_project_search_language', columns: ['project_id', 'search_language'])]
 #[ORM\Table(name: 'documents')]
+// Postgres treats NULLs as distinct here, so every document outside a series
+// keeps a (NULL, NULL) pair of its own and only real numbering collides.
+#[ORM\UniqueConstraint(name: 'uniq_document_series_ordinal', columns: ['series_id', 'series_ordinal'])]
 class Document
 {
     /** Mirrors the title column's length so callers can reject an over-long title before Postgres does. */
@@ -98,6 +101,22 @@ class Document
     #[ORM\ManyToMany(targetEntity: Tag::class)]
     #[ORM\OrderBy(['name' => 'ASC'])]
     public Collection $tags;
+
+    /**
+     * The series this document is one item of, and its place in it. Both are
+     * set together: a series without an ordinal cannot be read in order, and an
+     * ordinal without a series numbers nothing. DocumentSeriesApplier is the one
+     * writer, so the pair cannot drift.
+     *
+     * No cascade and no orphanRemoval: a series is project vocabulary that
+     * outlives the documents in it.
+     */
+    #[ORM\JoinColumn(name: 'series_id', nullable: true)]
+    #[ORM\ManyToOne(targetEntity: Series::class)]
+    public ?Series $series = null;
+
+    #[ORM\Column(name: 'series_ordinal', nullable: true)]
+    public ?int $seriesOrdinal = null;
 
     /**
      * The documents this one points at. A reference targets the document rather

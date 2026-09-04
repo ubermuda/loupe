@@ -120,7 +120,10 @@ Roughly in the order an agent uses them:
 | `document_rename` | Change the title without minting a version |
 | `document_archive` / `document_unarchive` | Take it out of the listing, or put it back |
 | `document_set_tags` / `document_set_references` | Group it, or link it to sibling documents |
+| `document_set_series` | Place it at a numbered position in an ordered set, or take it out of one |
 | `tag_list` | The project's existing tag vocabulary |
+| `series_list` | The project's series, each with its document count and highest position |
+| `series_rename` | Rename a series; every document in it keeps its position |
 | `site_review_get` | Comments submitted through the widget |
 | `site_review_mark_comment_addressed` | Mark a widget comment acted on, so the next `site_review_get` skips it |
 
@@ -152,6 +155,10 @@ re-read the review for fresh ids. See [Documents and review](documents.md).
 
 **A decision block's id is permanent.** Rewording its options is safe; changing
 its id silently discards the reviewer's answer.
+
+A decision reports its `type`. A single-choice block answers in `selected` and
+`selected_index`. A multi-choice block answers in `selections`, and reports null
+in `selected`. See [Documents and review](documents.md) for the syntax.
 
 ## Configuration
 

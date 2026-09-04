@@ -1037,6 +1037,10 @@
                 <source>review.dashboard.description_ranked</source>
                 <target>Documents the agent submitted for review, best matches first.</target>
             </trans-unit>
+            <trans-unit id="review.dashboard.description_series">
+                <source>review.dashboard.description_series</source>
+                <target>Documents the agent submitted for review, in the order of the series.</target>
+            </trans-unit>
             <trans-unit id="review.dashboard.meta.updated">
                 <source>review.dashboard.meta.updated</source>
                 <target>Updated %time%</target>
@@ -1072,6 +1076,14 @@
             <trans-unit id="review.dashboard.filter.all_tags">
                 <source>review.dashboard.filter.all_tags</source>
                 <target>All tags</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.series_label">
+                <source>review.dashboard.filter.series_label</source>
+                <target>Filter by series</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.all_series">
+                <source>review.dashboard.filter.all_series</source>
+                <target>All series</target>
             </trans-unit>
             <trans-unit id="review.dashboard.filter.clear">
                 <source>review.dashboard.filter.clear</source>
@@ -1146,6 +1158,42 @@
             <trans-unit id="review.tags.error.too_long">
                 <source>review.tags.error.too_long</source>
                 <target>That tag name is too long.</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.series.item">
+                <source>review.dashboard.series.item</source>
+                <target>%series%, item %ordinal%</target>
+            </trans-unit>
+            <trans-unit id="review.document.series.item">
+                <source>review.document.series.item</source>
+                <target>Series %series%, item %ordinal%</target>
+            </trans-unit>
+            <trans-unit id="review.series.error.name_required">
+                <source>review.series.error.name_required</source>
+                <target>Give the series a name beside its item number.</target>
+            </trans-unit>
+            <trans-unit id="review.series.error.too_long">
+                <source>review.series.error.too_long</source>
+                <target>That series name is too long.</target>
+            </trans-unit>
+            <trans-unit id="review.series.error.ordinal_required">
+                <source>review.series.error.ordinal_required</source>
+                <target>Give the document an item number in the series.</target>
+            </trans-unit>
+            <trans-unit id="review.series.error.ordinal_not_positive">
+                <source>review.series.error.ordinal_not_positive</source>
+                <target>An item number must be 1 or greater.</target>
+            </trans-unit>
+            <trans-unit id="review.series.error.ordinal_too_large">
+                <source>review.series.error.ordinal_too_large</source>
+                <target>That item number is too large.</target>
+            </trans-unit>
+            <trans-unit id="review.series.error.ordinal_taken">
+                <source>review.series.error.ordinal_taken</source>
+                <target>Another document in that series already holds that item number.</target>
+            </trans-unit>
+            <trans-unit id="review.series.error.name_taken">
+                <source>review.series.error.name_taken</source>
+                <target>The project already has a series of that name.</target>
             </trans-unit>
             <trans-unit id="review.references.error.self_reference">
                 <source>review.references.error.self_reference</source>
@@ -1327,6 +1375,14 @@
                 <source>review.document.diff.refused.unsupported_characters</source>
                 <target>These versions contain characters this comparison cannot handle, and showing it anyway would misreport what changed. Use the version list above to read either version in full.</target>
             </trans-unit>
+            <trans-unit id="review.document.diff.comment.deleted_refused">
+                <source>review.document.diff.comment.deleted_refused</source>
+                <target>You cannot comment on text this revision removed. Select text the newer version still has.</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.comment.unanchorable_refused">
+                <source>review.document.diff.comment.unanchorable_refused</source>
+                <target>You cannot comment on this selection. Select text inside one part of the newer version.</target>
+            </trans-unit>
 
             <!-- Document review table of contents -->
             <trans-unit id="review.document.contents.label">
@@ -1423,7 +1479,15 @@
             </trans-unit>
             <trans-unit id="review.decision.status.saved">
                 <source>review.decision.status.saved</source>
-                <target>Choice saved.</target>
+                <target>Saved “%option%” for version %version%.</target>
+            </trans-unit>
+            <trans-unit id="review.decision.status.cleared">
+                <source>review.decision.status.cleared</source>
+                <target>Cleared “%option%” for version %version%.</target>
+            </trans-unit>
+            <trans-unit id="review.decision.status.not_saved">
+                <source>review.decision.status.not_saved</source>
+                <target>Not saved for version %version%. %reason%</target>
             </trans-unit>
             <trans-unit id="review.decision.error.save_failed">
                 <source>review.decision.error.save_failed</source>
@@ -2006,6 +2070,10 @@
                 <source>project.connect.tool.document_set_tags</source>
                 <target>Replace a document's tags with the given set. An empty list clears them.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.document_set_series">
+                <source>project.connect.tool.document_set_series</source>
+                <target>Place a document at a numbered position in an ordered set, or take it out of one.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.document_set_references">
                 <source>project.connect.tool.document_set_references</source>
                 <target>Replace the set of documents a document points at, without creating a new version.</target>
@@ -2025,6 +2093,14 @@
             <trans-unit id="project.connect.tool.tag_list">
                 <source>project.connect.tool.tag_list</source>
                 <target>List every tag in the project with how many documents carry it.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.series_list">
+                <source>project.connect.tool.series_list</source>
+                <target>List every series in the project, with how many documents each holds and the highest position in use.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.series_rename">
+                <source>project.connect.tool.series_rename</source>
+                <target>Rename a series. Every document in it keeps its position.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.site_review_get">
                 <source>project.connect.tool.site_review_get</source>
@@ -3424,6 +3500,14 @@
                 <source>review.document.diff.mark.deleted</source>
                 <target>Removed</target>
             </trans-unit>
+            <trans-unit id="review.document.front_matter.label">
+                <source>review.document.front_matter.label</source>
+                <target>Front matter</target>
+            </trans-unit>
+            <trans-unit id="review.document.note.label">
+                <source>review.document.note.label</source>
+                <target>Annotation</target>
+            </trans-unit>
 
             <trans-unit id="landing.meta.description">
                 <source>landing.meta.description</source>
@@ -3563,7 +3647,7 @@
             </trans-unit>
             <trans-unit id="landing.feature.decisions.text">
                 <source>landing.feature.decisions.text</source>
-                <target>An agent can mark a passage as a decision with options. The reviewer picks one, and the choice comes back structured.</target>
+                <target>An agent can mark a passage as a decision with options. The reviewer picks one or several, and the choice comes back structured.</target>
             </trans-unit>
             <trans-unit id="landing.feature.site_review.title">
                 <source>landing.feature.site_review.title</source>

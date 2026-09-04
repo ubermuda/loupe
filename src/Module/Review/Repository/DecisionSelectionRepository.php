@@ -20,22 +20,29 @@ class DecisionSelectionRepository extends ServiceEntityRepository
     }
 
     /**
-     * Every answer recorded on a document, indexed by decision id.
+     * Every answer recorded on a document, grouped by decision id.
      *
-     * @return array<string, DecisionSelection>
+     * A multi-choice block holds one row per chosen option, so every caller
+     * reads a list. Returning one row per decision dropped the rest in silence.
+     *
+     * @return array<string, list<DecisionSelection>>
      */
-    public function findByDocumentIndexedByDecisionId(Document $document): array
+    public function findByDocumentGroupedByDecisionId(Document $document): array
     {
         $selections = [];
-        foreach ($this->findBy(['document' => $document]) as $selection) {
-            $selections[$selection->decisionId] = $selection;
+        foreach ($this->findBy(['document' => $document], ['optionIndex' => 'ASC']) as $selection) {
+            $selections[$selection->decisionId][] = $selection;
         }
 
         return $selections;
     }
 
-    public function findOneByDocumentAndDecisionId(Document $document, string $decisionId): ?DecisionSelection
+    /** @return list<DecisionSelection> */
+    public function findByDocumentAndDecisionId(Document $document, string $decisionId): array
     {
-        return $this->findOneBy(['document' => $document, 'decisionId' => $decisionId]);
+        return array_values($this->findBy(
+            ['document' => $document, 'decisionId' => $decisionId],
+            ['optionIndex' => 'ASC'],
+        ));
     }
 }

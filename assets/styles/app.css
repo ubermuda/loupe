@@ -614,6 +614,12 @@
         @apply inline-flex items-center py-1 px-2.5 rounded-full text-xs font-semibold bg-surface-3 text-fg-mute;
     }
 
+    /* A series chip carries a position, so it reads in the accent ink to
+       separate it from the tag chips it usually sits beside. */
+    .lp-series {
+        @apply inline-flex items-center shrink-0 py-1 px-2.5 rounded-full text-xs font-semibold bg-surface-3 text-accent-ink;
+    }
+
     /* ── Step ribbon ────────────────────────────────────────────────────
        Horizontal step progress for the first-run wizard. The caller classifies
        each step; the filled track runs up to and including the current one. */
@@ -1257,6 +1263,14 @@
     }
     .lp-doc-meta__tags {
         @apply flex items-center gap-1.5 ml-auto;
+    }
+    .lp-doc-meta__series {
+        @apply flex items-center gap-1.5 ml-auto;
+    }
+    /* Flex splits the free space between two auto margins, which would strand
+       the series mid-bar. The series leads the group and takes the one margin. */
+    .lp-doc-meta__series + .lp-doc-meta__tags {
+        @apply ml-0;
     }
     .lp-doc-meta__panel {
         @apply rounded-xl bg-surface-2 p-3.5 mt-2.5;
@@ -2525,6 +2539,9 @@
         content: 'Decision — pick one';
         @apply block mb-3 uppercase text-fg-mute text-xs font-bold tracking-widest;
     }
+    .lp-decision[data-decision-type='multiple'] .lp-decision__prompt::before {
+        content: 'Decision — pick any';
+    }
     .lp-decision__options {
         @apply clear-both flex flex-col gap-2;
     }
@@ -2543,6 +2560,10 @@
     }
     .lp-decision__option input:checked {
         @apply border-ink bg-ink;
+    }
+    /* A square box says the block takes more than one answer. */
+    .lp-decision__option input[type='checkbox'] {
+        @apply rounded-sm;
     }
     .lp-decision__option label {
         @apply cursor-pointer;

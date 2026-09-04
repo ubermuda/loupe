@@ -2,7 +2,7 @@
    Everything around that pane is the same apparatus, so the diff overrides one
    block rather than rebuilding the page.
    Params: document, version, versions, diffFromVersion, diffView, diff,
-   renderedDiff, diffRefusal. #}
+   renderedDiff, diffRefusal, diffCommenting. #}
 {% extends '@Review/show_document.html.twig' %}
 
 {% set documentPath = path('app_document_review', {projectId: document.project.id, documentId: document.id}) %}
@@ -92,8 +92,9 @@
         {% include '@Review/_version_diff.html.twig' with {diff: diff} only %}
     {% else %}
         {# The document as the newer version reads it, with what the revision
-           added and removed marked in place. Not a comment-anchor target: the
-           text here belongs to two versions at once. #}
-        <div class="prose lp-prose lp-review-doc__prose lp-diff-doc">{{ renderedDiff.html|raw }}</div>
+           added and removed marked in place. Its text belongs to two versions at
+           once, so RenderedDiffBuilder marks the runs the newer version also
+           holds and the controller anchors to those alone. #}
+        <div class="prose lp-prose lp-review-doc__prose lp-diff-doc"{% if diffCommenting %} data-comment-anchor-target="doc"{% endif %}>{{ renderedDiff.html|raw }}</div>
     {% endif %}
 {% endblock %}

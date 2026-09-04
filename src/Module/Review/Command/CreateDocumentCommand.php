@@ -15,6 +15,8 @@ final readonly class CreateDocumentCommand
      *                                        implicit creation are
      *                                        SetDocumentTagsHandler's job
      * @param list<Document>      $references documents the new one points at
+     * @param ?string             $seriesName raw name as typed; the series is created
+     *                                        if the project does not have it yet
      * @param SearchLanguage|null $language   null means "take the project's default"
      */
     public function __construct(
@@ -24,6 +26,8 @@ final readonly class CreateDocumentCommand
         public ?string $description = null,
         public array $tagNames = [],
         public array $references = [],
+        public ?string $seriesName = null,
+        public ?int $seriesOrdinal = null,
         public ?SearchLanguage $language = null,
     ) {
     }

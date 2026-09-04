@@ -6,7 +6,11 @@ RUN apk add --no-cache $PHPIZE_DEPS postgresql-dev libzip-dev libxslt-dev bash i
 
 RUN docker-php-ext-install bcmath pdo pdo_pgsql zip intl xsl
 
-RUN pecl install xdebug && docker-php-ext-enable xdebug
+# Installed from the tarball URL, not the package name. A package name makes
+# pecl query the pecl.php.net REST index, which answers datacentre addresses
+# with "No releases available" while it answers a laptop normally. A URL is
+# also still pinned.
+RUN pecl install https://xdebug.org/files/xdebug-3.5.3.tgz && docker-php-ext-enable xdebug
 
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
