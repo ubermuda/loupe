@@ -22,9 +22,9 @@ version is either an approval or a request for changes, submitted at
 
 The documents list and the review top bar report what those threads say about
 the current version, beside the document status. A chip counts the addressed
-threads, and it reads **All answered** when no thread is pending. The list also
-counts the orphaned threads. Every count is a thread count, so a reply never
-adds to one.
+threads, and it reads **All answered** when no thread is pending. The list and
+the review page banner count the orphaned threads. Every count is a thread
+count, so a reply never adds to one.
 
 Two views help across versions:
 
