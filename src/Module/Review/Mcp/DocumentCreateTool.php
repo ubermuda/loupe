@@ -61,7 +61,7 @@ final readonly class DocumentCreateTool
             $project = $this->requireBoundProject($this->projectResolver);
 
             if (\strlen($markdown) > self::MAX_MARKDOWN_BYTES) {
-                throw new ToolCallException('The markdown content exceeds the maximum allowed size.');
+                throw $this->errorMessages->forArgument('markdown', 'The markdown content exceeds the maximum allowed size.');
             }
 
             // A whitespace-only description means "none given", but "0" is a
