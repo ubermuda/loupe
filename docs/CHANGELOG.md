@@ -30,6 +30,11 @@ entry.
 
 ## [Unreleased]
 
+- `26d6bf5` (#348) — **Added:** a development-only preview-login link.
+  `bin/console app:dev:preview-login-link --path=/projects` prints a URL that
+  signs the reader in and lands them on that page, so a pull request body needs
+  no credentials. The signature covers the whole URL including the host, so a
+  link works against one worktree only.
 - `2091a0c` (#346) — **Changed:** the `working-with-prs` skill now says what a
   Codex pass is worth and when to stop asking for one.
 - `f03f345` (#333) — **Added:** a document is stemmed for search in its own
