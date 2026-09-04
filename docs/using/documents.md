@@ -4,8 +4,9 @@ description: "Submitting Markdown, reviewing it inline, and revising across vers
 ---
 
 A document belongs to a project. It carries Markdown, a title, an optional
-description, tags, and links to other documents; each submission mints a new
-**version**, and the review UI keeps every one of them.
+description, tags, an optional place in a series, and links to other documents;
+each submission mints a new **version**, and the review UI keeps every one of
+them.
 
 ## Reviewing
 
@@ -64,6 +65,31 @@ Treat it like a database column name.
 
 The comments are invisible in every other Markdown renderer, so a document read
 outside Loupe still shows a plain list.
+
+## Series
+
+Tags say that documents belong together. A **series** also says in what order
+you read them. A series has a name and belongs to one project. A document
+belongs to at most one series, and holds a position in it, counting from 1.
+
+Set the name and the position together. A position with no series numbers
+nothing, and a series with no position cannot be read in order, so Loupe rejects
+either one on its own. Two documents in one series may not hold the same
+position. Two different series may both use position 1.
+
+An agent sets the placement when it submits the document, with the `series` and
+`seriesOrdinal` parameters of `document_create`. It can also move a document
+later with `document_set_series`, or take it out of its series. The name is
+lowercased on write, and Loupe creates the series the first time a document
+names it.
+
+The documents list gets a series filter beside the tag filter. Pick a series and
+the list shows only its documents, in their own order rather than newest first.
+A document page shows the series and the position under the title.
+
+Renaming a series keeps every document in place. A name another series already
+holds is refused rather than merged, because two series carry two independent
+numberings.
 
 ## Highlights
 

@@ -7,6 +7,7 @@ namespace App\Tests\Module\Review\Service;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\Series;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Repository\DocumentRepository;
 use App\Module\Review\Service\DocumentExporter;
@@ -68,6 +69,41 @@ final class DocumentExporterTest extends TestCase
         $repo->method('findByOwner')->willReturn([$document]);
 
         self::assertSame([], iterator_to_array(new DocumentExporter($repo)->export($user))[0]['tags']);
+    }
+
+    public function test_exports_the_place_a_document_holds_in_a_series(): void
+    {
+        $user = new User('Alice A', 'alice@example.com', 'x');
+        $project = new Project($user, 'My project');
+        $document = new Document($user, $project, 'My doc');
+        $document->addVersion('# v1', '<h1>v1</h1>');
+        $document->series = new Series($project, 'Blog Series');
+        $document->seriesOrdinal = 5;
+
+        /** @var DocumentRepository&Stub $repo */
+        $repo = $this->createStub(DocumentRepository::class);
+        $repo->method('findByOwner')->willReturn([$document]);
+
+        $rows = iterator_to_array(new DocumentExporter($repo)->export($user));
+
+        self::assertSame('blog series', $rows[0]['series']);
+        self::assertSame(5, $rows[0]['seriesOrdinal']);
+    }
+
+    public function test_a_document_in_no_series_exports_two_nulls(): void
+    {
+        $user = new User('Alice A', 'alice@example.com', 'x');
+        $document = new Document($user, new Project($user, 'My project'), 'My doc');
+        $document->addVersion('# v1', '<h1>v1</h1>');
+
+        /** @var DocumentRepository&Stub $repo */
+        $repo = $this->createStub(DocumentRepository::class);
+        $repo->method('findByOwner')->willReturn([$document]);
+
+        $row = iterator_to_array(new DocumentExporter($repo)->export($user))[0];
+
+        self::assertNull($row['series']);
+        self::assertNull($row['seriesOrdinal']);
     }
 
     public function test_exports_archive_state_and_version_descriptions(): void

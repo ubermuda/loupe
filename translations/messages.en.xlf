@@ -1073,6 +1073,14 @@
                 <source>review.dashboard.filter.all_tags</source>
                 <target>All tags</target>
             </trans-unit>
+            <trans-unit id="review.dashboard.filter.series_label">
+                <source>review.dashboard.filter.series_label</source>
+                <target>Filter by series</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.all_series">
+                <source>review.dashboard.filter.all_series</source>
+                <target>All series</target>
+            </trans-unit>
             <trans-unit id="review.dashboard.filter.clear">
                 <source>review.dashboard.filter.clear</source>
                 <target>Clear</target>
@@ -1146,6 +1154,38 @@
             <trans-unit id="review.tags.error.too_long">
                 <source>review.tags.error.too_long</source>
                 <target>That tag name is too long.</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.series.item">
+                <source>review.dashboard.series.item</source>
+                <target>%series%, item %ordinal%</target>
+            </trans-unit>
+            <trans-unit id="review.document.series.item">
+                <source>review.document.series.item</source>
+                <target>Series %series%, item %ordinal%</target>
+            </trans-unit>
+            <trans-unit id="review.series.error.name_required">
+                <source>review.series.error.name_required</source>
+                <target>Give the series a name beside its item number.</target>
+            </trans-unit>
+            <trans-unit id="review.series.error.too_long">
+                <source>review.series.error.too_long</source>
+                <target>That series name is too long.</target>
+            </trans-unit>
+            <trans-unit id="review.series.error.ordinal_required">
+                <source>review.series.error.ordinal_required</source>
+                <target>Give the document an item number in the series.</target>
+            </trans-unit>
+            <trans-unit id="review.series.error.ordinal_not_positive">
+                <source>review.series.error.ordinal_not_positive</source>
+                <target>An item number must be 1 or greater.</target>
+            </trans-unit>
+            <trans-unit id="review.series.error.ordinal_taken">
+                <source>review.series.error.ordinal_taken</source>
+                <target>Another document in that series already holds that item number.</target>
+            </trans-unit>
+            <trans-unit id="review.series.error.name_taken">
+                <source>review.series.error.name_taken</source>
+                <target>The project already has a series of that name.</target>
             </trans-unit>
             <trans-unit id="review.references.error.self_reference">
                 <source>review.references.error.self_reference</source>
@@ -1882,6 +1922,10 @@
                 <source>project.connect.tool.document_set_tags</source>
                 <target>Replace a document's tags with the given set. An empty list clears them.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.document_set_series">
+                <source>project.connect.tool.document_set_series</source>
+                <target>Place a document at a numbered position in an ordered set, or take it out of one.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.document_set_references">
                 <source>project.connect.tool.document_set_references</source>
                 <target>Replace the set of documents a document points at, without creating a new version.</target>
@@ -1901,6 +1945,14 @@
             <trans-unit id="project.connect.tool.tag_list">
                 <source>project.connect.tool.tag_list</source>
                 <target>List every tag in the project with how many documents carry it.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.series_list">
+                <source>project.connect.tool.series_list</source>
+                <target>List every series in the project, with how many documents each holds and the highest position in use.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.series_rename">
+                <source>project.connect.tool.series_rename</source>
+                <target>Rename a series. Every document in it keeps its position.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.site_review_get">
                 <source>project.connect.tool.site_review_get</source>

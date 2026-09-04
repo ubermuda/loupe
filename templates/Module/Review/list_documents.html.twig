@@ -79,6 +79,21 @@
                 </select>
             {% endif %}
 
+            {# Filtering by series is also what puts the list in the series's own
+               order, so the control stays out of the way until a series exists. #}
+            {% if projectSeries|length > 0 %}
+                <label class="sr-only" for="document-series">{{ 'review.dashboard.filter.series_label'|trans }}</label>
+                <select id="document-series"
+                        name="series"
+                        class="lp-input lp-select lp-filter-select"
+                        data-action="change->autosearch#search">
+                    <option value="">{{ 'review.dashboard.filter.all_series'|trans }}</option>
+                    {% for series in projectSeries %}
+                        <option value="{{ series.name }}"{{ listQuery.seriesName == series.name ? ' selected' : '' }}>{{ series.name }}</option>
+                    {% endfor %}
+                </select>
+            {% endif %}
+
             <a href="{{ path('app_project_documents', {id: project.id}) }}"
                data-autosearch-target="clearButton"
                class="lp-filter-clear">{{ 'review.dashboard.filter.clear'|trans }}</a>
@@ -122,6 +137,12 @@
                 <div class="lp-document-row__head">
                     <span class="lp-document-row__title">{{ document.title }}</span>
                     <span class="lp-document-row__version">{{ 'v' ~ item.versionNumber }}</span>
+                    {% if document.series is not null %}
+                    <span class="lp-series">{{ 'review.dashboard.series.item'|trans({
+                        '%series%': document.series.name,
+                        '%ordinal%': document.seriesOrdinal,
+                    }) }}</span>
+                    {% endif %}
                     {% if archived %}
                     <span class="lp-document-row__archived">{{ 'review.dashboard.archived_tag'|trans }}</span>
                     {% endif %}

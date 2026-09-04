@@ -8,10 +8,12 @@ use App\Exception\DomainErrors;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\DocumentVersion;
+use App\Module\Review\Entity\Series;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Service\DocumentReferenceValidator;
 use App\Module\Review\Service\DocumentSearchIndexer;
+use App\Module\Review\Service\DocumentSeriesApplier;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\Service\ReanchoringService;
 use Doctrine\DBAL\LockMode;
@@ -32,6 +34,7 @@ final readonly class ReviseDocumentHandler
         private CommentRepository $comments,
         private DocumentVersionRepository $documentVersions,
         private DocumentReferenceValidator $referenceValidator,
+        private DocumentSeriesApplier $seriesApplier,
         private DocumentSearchIndexer $searchIndexer,
         private Auditor $auditor,
     ) {
@@ -71,9 +74,18 @@ final readonly class ReviseDocumentHandler
             ? null
             : $this->referenceValidator->validated($document->project, $document, $command->references);
 
+        // Both null means "leave the placement alone", which is why a revision
+        // cannot take a document out of a series. Validated out here for the
+        // same reason as the title: a rejected placement must not roll a whole
+        // revision back as a 500.
+        $placesInSeries = null !== $command->seriesName || null !== $command->seriesOrdinal;
+        if ($placesInSeries) {
+            Series::normalizePlacement($command->seriesName, $command->seriesOrdinal);
+        }
+
         $newVersionNumber = 0;
 
-        $summary = $this->em->wrapInTransaction(function () use ($document, $command, $description, $title, $references, &$newVersionNumber): array {
+        $summary = $this->em->wrapInTransaction(function () use ($document, $command, $description, $title, $references, $placesInSeries, &$newVersionNumber): array {
             // Locks the documents row before the number below is read, so two
             // concurrent revisions serialize here rather than both deriving the
             // same next version number.
@@ -113,6 +125,10 @@ final readonly class ReviseDocumentHandler
                 }
             }
 
+            if ($placesInSeries) {
+                $this->seriesApplier->apply($document, $command->seriesName, $command->seriesOrdinal);
+            }
+
             // Collect all open (unresolved) comments from the previous version. Orphaned-but-
             // unresolved comments are intentionally included so they are re-evaluated against the
             // new text: if the quoted passage reappears in this revision, the copy re-anchors and
@@ -149,6 +165,7 @@ final readonly class ReviseDocumentHandler
                 'versionNumber' => $newVersionNumber,
                 'titleChanged' => null !== $title,
                 'referencesReplaced' => null !== $references,
+                'seriesChanged' => $placesInSeries,
                 'commentsCarried' => $summary['carried'],
                 'commentsOrphaned' => $summary['orphaned'],
             ],

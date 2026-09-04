@@ -15,7 +15,7 @@ use Mcp\Exception\ToolCallException;
 /**
  * List documents in the project bound to the authenticated MCP token.
  */
-#[McpTool(name: 'document_list', description: 'List documents in the token\'s project, with their current status and version. Archived documents are omitted unless includeArchived is true. Paginated: pass page to walk further, and keep going while hasMore is true.')]
+#[McpTool(name: 'document_list', description: 'List documents in the token\'s project, with their current status and version. Each row carries its tags and, when it has one, its series and position in it. Archived documents are omitted unless includeArchived is true. Paginated: pass page to walk further, and keep going while hasMore is true.')]
 final readonly class DocumentListTool
 {
     use ResolvesBoundProject;
@@ -42,7 +42,7 @@ final readonly class DocumentListTool
      * @param int  $perPage         How many documents to return per page
      * @param bool $includeArchived Include archived documents, which are omitted by default
      *
-     * @return array{documents: list<array{documentId: string, title: string, status: string, currentVersion: int, archived: bool}>, page: int, perPage: int, total: int, hasMore: bool}
+     * @return array{documents: list<array{documentId: string, title: string, status: string, currentVersion: int, archived: bool, tags: list<string>, series: ?string, seriesOrdinal: ?int}>, page: int, perPage: int, total: int, hasMore: bool}
      */
     public function __invoke(int $page = 1, int $perPage = self::DEFAULT_PER_PAGE, bool $includeArchived = false): array
     {
@@ -81,6 +81,8 @@ final readonly class DocumentListTool
                             'currentVersion' => $meta['versionNumber'],
                             'archived' => null !== $doc->archivedAt,
                             'tags' => $tags,
+                            'series' => $doc->series?->name,
+                            'seriesOrdinal' => $doc->seriesOrdinal,
                         ];
                     },
                     $documents,

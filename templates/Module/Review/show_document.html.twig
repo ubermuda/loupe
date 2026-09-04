@@ -135,7 +135,7 @@
                used to push the first paragraph below the fold.
                A sibling of the head, not a child: the bar is sticky, and a
                sticky element cannot outlive its containing block. #}
-            {% if showVersions or showContents or referenceCount > 0 or decisionRows|length > 0 or document.tags|length > 0 or diffNavigation %}
+            {% if showVersions or showContents or referenceCount > 0 or decisionRows|length > 0 or document.tags|length > 0 or document.series is not null or diffNavigation %}
             <div class="lp-doc-meta-bar" data-controller="metadata-tabs">
                     <div class="lp-doc-meta">
                         {% if showVersions %}
@@ -180,6 +180,14 @@
                             }) }}</span>
                             <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
                         </button>
+                        {% endif %}
+                        {% if document.series is not null %}
+                        <div class="lp-doc-meta__series">
+                            <span class="lp-series">{{ 'review.document.series.item'|trans({
+                                '%series%': document.series.name,
+                                '%ordinal%': document.seriesOrdinal,
+                            }) }}</span>
+                        </div>
                         {% endif %}
                         {% if document.tags|length > 0 %}
                         <div class="lp-doc-meta__tags">

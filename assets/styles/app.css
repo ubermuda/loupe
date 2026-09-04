@@ -614,6 +614,12 @@
         @apply inline-flex items-center py-1 px-2.5 rounded-full text-xs font-semibold bg-surface-3 text-fg-mute;
     }
 
+    /* A series chip carries a position, so it reads in the accent ink to
+       separate it from the tag chips it usually sits beside. */
+    .lp-series {
+        @apply inline-flex items-center shrink-0 py-1 px-2.5 rounded-full text-xs font-semibold bg-surface-3 text-accent-ink;
+    }
+
     /* ── Step ribbon ────────────────────────────────────────────────────
        Horizontal step progress for the first-run wizard. The caller classifies
        each step; the filled track runs up to and including the current one. */
@@ -1256,6 +1262,9 @@
         @apply rotate-90;
     }
     .lp-doc-meta__tags {
+        @apply flex items-center gap-1.5 ml-auto;
+    }
+    .lp-doc-meta__series {
         @apply flex items-center gap-1.5 ml-auto;
     }
     .lp-doc-meta__panel {

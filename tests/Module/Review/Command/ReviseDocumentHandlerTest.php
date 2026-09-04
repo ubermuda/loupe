@@ -615,6 +615,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
             'versionNumber' => 2,
             'titleChanged' => true,
             'referencesReplaced' => false,
+            'seriesChanged' => false,
             'commentsCarried' => 1,
             'commentsOrphaned' => 0,
         ], $record->context);

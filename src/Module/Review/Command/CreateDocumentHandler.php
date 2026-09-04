@@ -9,6 +9,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Service\DocumentReferenceValidator;
 use App\Module\Review\Service\DocumentSearchIndexer;
+use App\Module\Review\Service\DocumentSeriesApplier;
 use App\Module\Review\Service\DocumentTagApplier;
 use App\Module\Review\Service\MarkdownRenderer;
 use Doctrine\ORM\EntityManagerInterface;
@@ -22,6 +23,7 @@ final readonly class CreateDocumentHandler
         private EntityManagerInterface $em,
         private MarkdownRenderer $renderer,
         private DocumentTagApplier $tagApplier,
+        private DocumentSeriesApplier $seriesApplier,
         private DocumentReferenceValidator $referenceValidator,
         private DocumentSearchIndexer $searchIndexer,
         private Auditor $auditor,
@@ -57,8 +59,12 @@ final readonly class CreateDocumentHandler
             $document->addReference($reference);
         }
 
-        // One flush, so the document, its tags and its references are written
-        // together or not at all.
+        // Also before persist(), for the same reason: this rejects a placement
+        // whose ordinal another document in the series already holds.
+        $this->seriesApplier->apply($document, $command->seriesName, $command->seriesOrdinal);
+
+        // One flush, so the document, its tags, its series and its references
+        // are written together or not at all.
         $this->em->persist($document);
         $this->tagApplier->apply($document, $command->tagNames);
         $this->em->flush();
@@ -76,6 +82,7 @@ final readonly class CreateDocumentHandler
                 // The validated list, not what was asked for: it drops a target
                 // named twice, which is one link rather than two.
                 'referenceCount' => \count($references),
+                'inSeries' => null !== $document->series,
             ],
             new AuditSubject('document', (string) $document->id),
         );
