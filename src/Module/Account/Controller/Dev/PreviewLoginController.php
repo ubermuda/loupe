@@ -17,9 +17,9 @@ use Symfony\Component\Security\Core\Exception\UserNotFoundException;
 use Symfony\Component\Security\Core\User\UserProviderInterface;
 
 /**
- * SECURITY: this route grants a session from a URL. #[When('dev')] keeps it out
- * of production, and the signature covers the whole URL, host included, so a
- * link cannot be replayed against a sibling worktree.
+ * SECURITY: this grants a session from a URL. #[When('dev')] is what keeps it
+ * from production, not the access_control rule, which ships everywhere. The
+ * signature covers the whole URL, so a link cannot be replayed onto a sibling.
  */
 #[Route(
     '/dev/preview-login',
@@ -47,6 +47,7 @@ final class PreviewLoginController extends AppController
         }
 
         if (!$this->uriSigner->checkRequest($request)) {
+            // Unverified, so it decides the wording only and never access.
             $expiration = $request->query->getInt('_expiration');
 
             throw $this->createNotFoundException(0 !== $expiration && $expiration < time() ? 'This preview link has expired. Mint another one with app:dev:preview-login-link.' : 'This preview link does not verify here. It is signed for one host, so mint it inside the worktree you are opening.');
