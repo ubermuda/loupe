@@ -1085,7 +1085,18 @@ That migration expands only, so a rollback lands on a schema the previous image
 still tolerates. The drop is the contract phase, and it belongs in a later
 release. Write it once no deployed image reads the scalars.
 
-The drop is two statements:
+The contraction migration must run the backfill again before it drops anything.
+`Version20260904185305` backfilled once, and an instance that predates the anchors
+table can still write a comment straight into the scalar columns after that. Such
+a row has a selector and no anchor row, and the current code shows it as a page
+note with the element lost. Re-run the backfill for every comment with a
+non-empty selector and no anchor row, then drop:
+
+    INSERT INTO site_review_comment_anchors (id, comment_id, position, selector, text)
+    SELECT gen_random_uuid(), c.id, 0, c.selector, c.text
+    FROM site_review_comments c
+    WHERE c.selector <> '' AND c.selector IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM site_review_comment_anchors a WHERE a.comment_id = c.id);
 
     ALTER TABLE site_review_comments DROP selector;
     ALTER TABLE site_review_comments DROP text;

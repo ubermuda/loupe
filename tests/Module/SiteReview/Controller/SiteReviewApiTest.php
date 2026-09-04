@@ -142,6 +142,35 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertSame('.modern', $anchors[0]->selector);
     }
 
+    /**
+     * The widget repeats its first anchor in the scalar pair, so an instance
+     * that predates anchors[] still records the element. The current API must
+     * read anchors[] and drop the repeat, rather than store it twice.
+     */
+    public function test_the_widget_shape_does_not_double_the_first_anchor(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw, $project] = $this->projectWithToken($em, 'api-widget-shape@example.com');
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
+            'body' => 'These two belong side by side',
+            'url' => 'https://app/x',
+            'anchors' => [
+                ['selector' => '.card', 'text' => 'Save'],
+                ['selector' => '.panel', 'text' => 'Cancel'],
+            ],
+            'selector' => '.card',
+            'text' => 'Save',
+        ]);
+        self::assertResponseStatusCodeSame(201);
+
+        $pending = static::getContainer()->get(SiteReviewCommentRepository::class)->findPendingForProject($project);
+        $anchors = array_values($pending[0]->anchors->toArray());
+        self::assertCount(2, $anchors);
+        self::assertSame(['.card', '.panel'], array_map(static fn ($a) => $a->selector, $anchors));
+    }
+
     public function test_more_than_ten_anchors_is_rejected(): void
     {
         $client = static::createClient();

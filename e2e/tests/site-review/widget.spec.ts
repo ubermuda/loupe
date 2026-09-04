@@ -867,6 +867,21 @@ test('a comment can be anchored to several elements at once', async ({
     await openHarness(page);
     await page.goto(keepHarnessUrl);
 
+    // Capture what the widget actually posts, not just what comes back.
+    let saved: {
+        selector: string;
+        text: string;
+        anchors: Array<{ selector: string; text: string }>;
+    } | null = null;
+    page.on('request', (request) => {
+        if (
+            request.method() === 'POST' &&
+            request.url().includes('/api/site-review/comments')
+        ) {
+            saved = JSON.parse(request.postData() ?? '{}');
+        }
+    });
+
     await page.getByRole('button', { name: 'Review' }).click();
     await page
         .locator('#lp-panel')
@@ -896,10 +911,18 @@ test('a comment can be anchored to several elements at once', async ({
     await expect(page.locator('.pin').nth(0)).toHaveText('1');
     await expect(page.locator('.pin').nth(1)).toHaveText('1');
 
-    // The API stored both anchors on one comment.
+    // The API stored both anchors on one comment, and exactly two.
     const comments = await fetchReviewComments(page);
     expect(comments).toHaveLength(1);
     expect(comments[0].anchors).toHaveLength(2);
+
+    // The POST repeats the first anchor in the scalar pair, so an instance that
+    // predates anchors[] still records the element rather than saving a page
+    // note. The current API prefers anchors[], hence the two above and not three.
+    expect(saved).not.toBeNull();
+    expect(saved.anchors).toHaveLength(2);
+    expect(saved.selector).toBe(saved.anchors[0].selector);
+    expect(saved.text).toBe(saved.anchors[0].text);
 
     // The list row names the count rather than one element's text.
     await page.getByRole('button', { name: /Show .* comment/ }).click();

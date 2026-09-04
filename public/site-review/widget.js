@@ -1510,7 +1510,18 @@
         const anchors = composeAnchors()
           .filter((entry) => entry.selector)
           .map((entry) => ({ selector: entry.selector, text: entry.text }));
-        const comment = { body, url: location.href, anchors };
+        // selector/text repeat the first anchor for an instance that predates
+        // anchors[]. This script's URL carries no version, so a browser can hold
+        // this copy long after a rollback, and that instance would otherwise save
+        // every comment as an unanchored note. The current API prefers anchors[].
+        const first = anchors[0];
+        const comment = {
+          body,
+          url: location.href,
+          anchors,
+          selector: first ? first.selector : '',
+          text: first ? first.text : '',
+        };
         const { commentId } = await api('POST', '/api/site-review/comments', comment);
         comments.push({ id: commentId, ...comment });
       }
