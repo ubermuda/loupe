@@ -1423,11 +1423,15 @@
             </trans-unit>
             <trans-unit id="review.decision.status.saved">
                 <source>review.decision.status.saved</source>
-                <target>Choice saved.</target>
+                <target>Saved “%option%” for version %version%.</target>
+            </trans-unit>
+            <trans-unit id="review.decision.status.not_saved">
+                <source>review.decision.status.not_saved</source>
+                <target>Not saved for version %version%. %reason%</target>
             </trans-unit>
             <trans-unit id="review.decision.error.save_failed">
                 <source>review.decision.error.save_failed</source>
-                <target>Couldn’t save that choice. Please try again.</target>
+                <target>Please try again.</target>
             </trans-unit>
             <trans-unit id="review.decision.error.unknown">
                 <source>review.decision.error.unknown</source>
