@@ -149,6 +149,70 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
     }
 
     /**
+     * A reordered block resolves its stored answers by label, so the page shows
+     * them on their new indexes. The click names one of those, and matching it
+     * against the old index instead untick the wrong option or duplicates one.
+     */
+    public function test_a_reordered_multi_choice_block_toggles_the_option_the_reviewer_clicked(): void
+    {
+        $document = $this->createDocument(self::MULTIPLE_MARKDOWN);
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1));
+
+        $revise = self::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
+        $revise(new ReviseDocumentCommand(
+            $document,
+            "Pick what ships.\n\n<!-- decision: ship-with -->\n\n- [ ] The admin page\n- [ ] The exporter\n- [ ] The importer\n\n<!-- /decision -->\n",
+            'Reversed the options.',
+        ));
+
+        // 'The importer' now sits at index 2, and index 0 is a different option.
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 2));
+
+        $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
+        self::assertSame(
+            [[0, 'The admin page'], [2, 'The importer']],
+            array_map(static fn (object $row): array => [$row->optionIndex, $row->optionLabel], $stored),
+        );
+
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 2, displayedVersionNumber: 2));
+
+        $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
+        self::assertSame(
+            [[0, 'The admin page']],
+            array_map(static fn (object $row): array => [$row->optionIndex, $row->optionLabel], $stored),
+        );
+    }
+
+    /**
+     * Two options swapping places move onto each other's stored index, so the
+     * rows must not meet on the unique key while they are being brought up to
+     * date.
+     */
+    public function test_two_answers_that_swap_places_both_survive(): void
+    {
+        $document = $this->createDocument(self::MULTIPLE_MARKDOWN);
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 1, displayedVersionNumber: 1));
+
+        $revise = self::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
+        $revise(new ReviseDocumentCommand(
+            $document,
+            "Pick what ships.\n\n<!-- decision: ship-with -->\n\n- [ ] The exporter\n- [ ] The importer\n- [ ] The admin page\n\n<!-- /decision -->\n",
+            'Swapped the first two options.',
+        ));
+
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 2, displayedVersionNumber: 2));
+
+        $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
+        self::assertSame(
+            [[0, 'The exporter'], [1, 'The importer'], [2, 'The admin page']],
+            array_map(static fn (object $row): array => [$row->optionIndex, $row->optionLabel], $stored),
+        );
+    }
+
+    /**
      * A revision can turn a multi-choice block back into a single-choice one,
      * and the block then takes one answer. The extra rows have to go, or the
      * page shows several answers a radio group cannot express.

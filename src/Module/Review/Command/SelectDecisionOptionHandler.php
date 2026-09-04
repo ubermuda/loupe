@@ -9,6 +9,7 @@ use App\Module\Review\Entity\DecisionSelection;
 use App\Module\Review\Repository\DecisionSelectionRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Service\DecisionBlockService;
+use App\Module\Review\ValueObject\Decision;
 use App\Module\Review\ValueObject\DecisionType;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -64,7 +65,7 @@ final readonly class SelectDecisionOptionHandler
             $stored = $this->decisionSelections->findByDocumentAndDecisionId($command->document, $command->decisionId);
 
             $selection = DecisionType::Multiple === $decision->type
-                ? $this->toggleOption($command, $label, $version->versionNumber, $stored)
+                ? $this->toggleOption($command, $label, $version->versionNumber, $this->atCurrentIndexes($decision, $stored))
                 : $this->replaceAnswer($command, $label, $version->versionNumber, $stored);
 
             $this->em->flush();
@@ -88,6 +89,65 @@ final readonly class SelectDecisionOptionHandler
         );
 
         return $result;
+    }
+
+    /**
+     * The stored answers, each sitting where the current version shows it.
+     *
+     * A revision that reorders a block leaves the rows on their old indexes
+     * while the page resolves them by label onto the new ones. The click then
+     * names an index the rows do not use, so a tick reads as an untick and the
+     * unique key collides. A row whose option is gone resolves nowhere and is
+     * left as it stands, because it still reports the answer that was given.
+     *
+     * Rewritten rather than updated: two options that swap places would meet on
+     * the unique key mid-flush, and Doctrine writes every update before any
+     * delete. The replacement carries the label, the version and the time, so
+     * only the row's identity changes.
+     *
+     * @param list<DecisionSelection> $stored
+     *
+     * @return list<DecisionSelection>
+     */
+    private function atCurrentIndexes(Decision $decision, array $stored): array
+    {
+        $moved = [];
+        $settled = [];
+        foreach ($stored as $selection) {
+            $index = $decision->resolveIndex($selection->optionLabel, $selection->optionIndex);
+            if (null === $index || $index === $selection->optionIndex) {
+                $settled[] = $selection;
+
+                continue;
+            }
+
+            $moved[] = [$selection, $index];
+        }
+
+        if ([] === $moved) {
+            return $settled;
+        }
+
+        foreach ($moved as [$selection]) {
+            $this->em->remove($selection);
+        }
+        $this->em->flush();
+
+        foreach ($moved as [$selection, $index]) {
+            $replacement = new DecisionSelection(
+                document: $selection->document,
+                decisionId: $selection->decisionId,
+                optionIndex: $index,
+                optionLabel: $selection->optionLabel,
+                versionNumber: $selection->versionNumber,
+                selectedAt: $selection->selectedAt,
+            );
+            $this->em->persist($replacement);
+            $settled[] = $replacement;
+        }
+        $this->em->flush();
+
+        return $settled;
     }
 
     /**
