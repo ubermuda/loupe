@@ -17,6 +17,7 @@ use League\CommonMark\Parser\MarkdownParser;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use Symfony\Component\Translation\IdentityTranslator;
 
 final class DecisionBlockServiceTest extends TestCase
 {
@@ -38,7 +39,7 @@ final class DecisionBlockServiceTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->renderer = new MarkdownRenderer(new NullLogger());
+        $this->renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
         $this->decisions = new DecisionBlockService();
     }
 

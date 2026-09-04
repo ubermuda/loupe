@@ -124,7 +124,21 @@ export default class extends Controller {
     // Demo mode drives the same UI with no backend behind it: the landing page's
     // try-it section, where a visitor annotates the marketing copy and nothing is
     // saved. It only picks the transport — every other behaviour here is shared.
-    static values = { hideResolved: Boolean, demo: Boolean };
+    // `diff` switches anchor extraction to the diff pane, whose text belongs to
+    // two versions at once. The two messages are the refusals that pane can give.
+    static values = {
+        hideResolved: Boolean,
+        demo: Boolean,
+        diff: Boolean,
+        deletedMessage: String,
+        unanchorableMessage: String,
+    };
+
+    // Marks a run of text the newer version also holds, and carries that run's
+    // character offset into it. RenderedDiffBuilder writes both.
+    static DIFF_OFFSET_ATTRIBUTE = 'data-diff-offset';
+
+    static DIFF_DELETED_SELECTOR = '.lp-diff__mark--deleted';
 
     // Where the resolved-comments preference is remembered. It is a view
     // preference rather than document state, so it belongs to the reader and
@@ -247,6 +261,9 @@ export default class extends Controller {
         }
 
         this.pendingSelection = { ...anchor, range: range.cloneRange() };
+        if (this.diffValue) {
+            this.#showActionError('');
+        }
         this.#showToolbarNear(range);
     }
 
@@ -567,6 +584,10 @@ export default class extends Controller {
      * for an empty selection.
      */
     #extractAnchor(range) {
+        if (this.diffValue) {
+            return this.#extractDiffAnchor(range);
+        }
+
         const start = this.#textOffset(range.startContainer, range.startOffset);
         const end = this.#textOffset(range.endContainer, range.endOffset);
         if (end <= start) {
@@ -581,6 +602,272 @@ export default class extends Controller {
             prefix: this.#before(fullText, start, context),
             suffix: this.#after(fullText, end, context),
         };
+    }
+
+    /**
+     * Builds {quote, prefix, suffix} for a selection made on a diff pane.
+     *
+     * That pane shows the text of two versions at once, so it cannot be sliced
+     * the way the document pane is. Each run the newer version also holds
+     * carries its offset into that version's plain text; joining the runs that
+     * follow one another gives back a verbatim stretch of it, and the anchor is
+     * sliced out of that. A selection that touches an unmarked run — deleted
+     * text, or a run the two texts stopped agreeing on — is refused and says so.
+     */
+    #extractDiffAnchor(range) {
+        let start = null;
+        let end = null;
+
+        for (const node of this.#diffTextNodes()) {
+            const selected = this.#selectedSpan(node, range);
+            if (selected === null) {
+                continue;
+            }
+
+            const offset = this.#diffOffsetOf(node);
+            if (offset === null) {
+                // Wrapping a changed block adds whitespace the newer version
+                // never had. Selecting it means nothing, so it is dropped rather
+                // than refused, and the runs on either side still join up.
+                if (node.data.trim() === '') {
+                    continue;
+                }
+
+                this.#showActionError(
+                    this.#insideDeletedMark(node)
+                        ? this.deletedMessageValue
+                        : this.unanchorableMessageValue,
+                );
+
+                return null;
+            }
+
+            const before = Array.from(
+                node.data.slice(0, selected.start),
+            ).length;
+            const inside = Array.from(
+                node.data.slice(selected.start, selected.end),
+            ).length;
+            if (start === null) {
+                start = offset + before;
+            }
+            end = offset + before + inside;
+        }
+
+        if (start === null || end === null || end <= start) {
+            return null;
+        }
+
+        const holder = this.#diffRuns().find(
+            (candidate) =>
+                candidate.offset <= start &&
+                end <= candidate.offset + candidate.length,
+        );
+        if (holder === undefined) {
+            this.#showActionError(this.unanchorableMessageValue);
+            return null;
+        }
+
+        const characters = Array.from(holder.text);
+        const from = start - holder.offset;
+        const to = end - holder.offset;
+        const context = this.constructor.CONTEXT;
+
+        return {
+            quote: characters.slice(from, to).join(''),
+            prefix: characters
+                .slice(Math.max(0, from - context), from)
+                .join(''),
+            suffix: characters.slice(to, to + context).join(''),
+        };
+    }
+
+    /**
+     * Finds a DOM Range for an anchor's quote in a diff pane, searching only the
+     * runs the newer version also holds.
+     *
+     * Searching the pane's whole text would let a quote match inside removed
+     * text, or across the whitespace a wrapped block adds, and put the thread
+     * beside a passage it does not point at.
+     */
+    #findDiffRange(quote, prefix, suffix) {
+        if (quote === '') {
+            return null;
+        }
+
+        const context = this.constructor.CONTEXT;
+        const fingerprint = this.constructor.FINGERPRINT;
+        let best = null;
+
+        for (const run of this.#diffRuns()) {
+            let at = run.text.indexOf(quote);
+            while (at !== -1) {
+                let score = 0;
+                if (
+                    prefix !== '' &&
+                    this.#before(run.text, at, context).endsWith(
+                        this.#before(prefix, prefix.length, fingerprint),
+                    )
+                ) {
+                    score += 1;
+                }
+                if (
+                    suffix !== '' &&
+                    this.#after(
+                        run.text,
+                        at + quote.length,
+                        context,
+                    ).startsWith(this.#after(suffix, 0, fingerprint))
+                ) {
+                    score += 1;
+                }
+                // Strictly greater, so the earliest occurrence keeps a tie, as
+                // it does on the server.
+                if (best === null || score > best.score) {
+                    best = { run, at, score };
+                }
+                at = run.text.indexOf(quote, at + 1);
+            }
+        }
+
+        if (best === null) {
+            return null;
+        }
+
+        return this.#rangeInRun(best.run, best.at, best.at + quote.length);
+    }
+
+    /**
+     * The pane's runs of newer-version text, each one a verbatim stretch of that
+     * version's plain text.
+     *
+     * `offset` and `length` count codepoints, matching the stamped attribute.
+     * `text` and each piece's position are UTF-16, which is what a DOM range
+     * needs.
+     */
+    #diffRuns() {
+        const runs = [];
+        let run = null;
+        // Whether removed text stands between the last stamped node and the next
+        // one. The newer version reads straight across it, so the run carries on,
+        // but a DOM range that crossed it would cover the removed words.
+        let separated = false;
+
+        for (const node of this.#diffTextNodes()) {
+            const offset = this.#diffOffsetOf(node);
+            if (offset === null) {
+                separated = separated || node.data.trim() !== '';
+                continue;
+            }
+
+            const length = Array.from(node.data).length;
+            if (run !== null && run.offset + run.length === offset) {
+                run.pieces.push({
+                    node,
+                    at: run.text.length,
+                    adjacent: !separated,
+                });
+                run.text += node.data;
+                run.length += length;
+            } else {
+                run = {
+                    offset,
+                    length,
+                    text: node.data,
+                    pieces: [{ node, at: 0, adjacent: true }],
+                };
+                runs.push(run);
+            }
+            separated = false;
+        }
+
+        return runs;
+    }
+
+    /**
+     * Maps a [start, end) span of one run's text to a DOM Range, or null when
+     * the span would have to reach across removed text to cover it.
+     */
+    #rangeInRun(run, start, end) {
+        const range = document.createRange();
+        let startSet = false;
+
+        for (const piece of run.pieces) {
+            if (startSet && !piece.adjacent) {
+                return null;
+            }
+
+            const pieceEnd = piece.at + piece.node.data.length;
+            if (!startSet && start < pieceEnd) {
+                range.setStart(piece.node, start - piece.at);
+                startSet = true;
+            }
+            if (startSet && end <= pieceEnd) {
+                range.setEnd(piece.node, end - piece.at);
+
+                return range;
+            }
+        }
+
+        return null;
+    }
+
+    /** Every text node of the diff pane, in document order. */
+    *#diffTextNodes() {
+        const walker = document.createTreeWalker(
+            this.docTarget,
+            NodeFilter.SHOW_TEXT,
+            null,
+        );
+        for (
+            let node = walker.nextNode();
+            node !== null;
+            node = walker.nextNode()
+        ) {
+            yield node;
+        }
+    }
+
+    /** A run's character offset into the newer version's plain text, or null. */
+    #diffOffsetOf(node) {
+        // Read before it is converted: Number(null) is 0, which would read a
+        // missing attribute as the very start of the document.
+        const value =
+            node.parentElement?.getAttribute(
+                this.constructor.DIFF_OFFSET_ATTRIBUTE,
+            ) ?? null;
+        if (value === null) {
+            return null;
+        }
+
+        const offset = Number(value);
+
+        return Number.isInteger(offset) ? offset : null;
+    }
+
+    #insideDeletedMark(node) {
+        return Boolean(
+            node.parentElement?.closest(this.constructor.DIFF_DELETED_SELECTOR),
+        );
+    }
+
+    /** The [start, end) of `node` the range covers, in UTF-16 units, or null. */
+    #selectedSpan(node, range) {
+        if (!range.intersectsNode(node)) {
+            return null;
+        }
+
+        const start = node === range.startContainer ? range.startOffset : 0;
+        const end =
+            node === range.endContainer ? range.endOffset : node.data.length;
+
+        return end > start ? { start, end } : null;
+    }
+
+    #showActionError(message) {
+        if (this.hasActionErrorTarget) {
+            this.actionErrorTarget.textContent = message;
+        }
     }
 
     /**
@@ -671,6 +958,10 @@ export default class extends Controller {
      * to the client.
      */
     #findRange(quote, prefix, suffix) {
+        if (this.diffValue) {
+            return this.#findDiffRange(quote, prefix, suffix);
+        }
+
         if (quote === '') {
             return null;
         }

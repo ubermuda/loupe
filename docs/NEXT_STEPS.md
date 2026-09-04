@@ -228,14 +228,16 @@ time — and guessing has produced both over-engineering and misplaced
 blocking. With it, most of those calls answer themselves and only genuine edge
 cases need escalating.
 
-Worth deciding when writing it: whether ADRs are required for a class of change
-(new dependency, schema change, cross-module boundary) or written on judgement,
-since a process nobody follows is worse than none.
+Owner decision (2026-09-04): an ADR is written on judgement. No class of change
+requires one.
+
+Write the ranked list of architectural priorities first. It is the cheaper
+artifact, and it changes agent behaviour immediately.
 
 ## A better framework for planning and running multi-branch waves
 
 
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** parked
 
 Running nine parallel branches on 2026-08-03 worked, but the coordination lived
 in one session's head and in ad-hoc prose briefs. Everything below is a real
@@ -266,10 +268,19 @@ and conflict edges between branches, since the deletion paths and one template
 were touched by four branches each; and a shared findings log that new agents
 read on start instead of being told.
 
-Worth weighing against building anything: much of the pain was a single shared
-php-fpm pool, now fixed, and the rest may dissolve if agents move to their own
-containers — see 'Give each agent its own container in the cloud instead of
-sharing one dev stack'. Build the coordination layer only for what survives that.
+Per-agent containers do not remove most of this. They remove the exclusive e2e
+slot, and the hand coordination that keeps a sibling's `just ci` off an
+in-flight gate. Costs 2, 3 and 4 above survive containers, because merge
+ordering is a property of git and of the gate protocol. 'Give each agent its own
+container in the cloud instead of sharing one dev stack' is parked as well, so
+waiting on it means building nothing.
+
+The cheapest restart is a shared findings log: one committed file that every
+agent reads at start. It answers cost 3 directly, and it needs no new tooling.
+The owner parked it rather than start it, for one reason worth recording. Such a
+log overlaps `docs/NEXT_STEPS.md` and the per-project memory files. A second
+committed file that competes with those has a real cost, and nobody has priced
+it.
 
 ## Shrink the e2e suite and push its assertions down to functional tests
 
@@ -341,20 +352,19 @@ suite that had read every mapping thousands of times and showing it contained
 zero deprecation lines. A quiet log would have made that a much weaker argument,
 and the same shape recurs whenever the question is "did this *not* happen".
 
-So the goal is less volume without losing that capability. Options worth
-weighing rather than a single obvious answer:
+Owner decision (2026-09-04): route deprecations to their own always-on file,
+independent of the `fingers_crossed` main handler. The `when@prod` block already
+has that split. It declares a `deprecation` stream handler on the `deprecation`
+channel, and its `main` handler excludes that channel. Mirror the same shape in
+`when@test`.
 
-1. Keep deprecations and warnings, drop `info`/`debug` — the bulk is almost
-   certainly SQL and request logging, not the lines anyone wants.
-2. Route deprecations to their own file, so the useful signal stays greppable
-   and cheap regardless of what the main handler does.
-3. Make verbosity opt-in for a single run via an env var, so the default is
-   quiet and a session investigating something can turn it back up.
+Verify the change like this. Reinstate a `nullable: false` on a many-to-many
+join column, then confirm the deprecation still appears. A logging change that
+passes its own tests while removing the ability to answer "did this not happen"
+has made things worse.
 
-Whichever is chosen, check the change against the case above: reinstate a
-`nullable: false` on a many-to-many join column and confirm the deprecation
-still appears. A logging change that passes its own tests while removing the
-ability to answer "did this not happen" has made things worse.
+Rotation or per-run truncation is still worth doing on its own. One checkout's
+`var/log/test.log` reached 181 MB on 2026-09-04.
 
 ## Document search stems every document as English
 
@@ -943,7 +953,14 @@ on pull request #118) from a hand-written `<form>` plus
 with the form component issuing and checking the token. The
 `document-archive` entry came out of `config/packages/csrf.yaml` with it.
 
-Four controllers still use the pattern that replaced:
+`ArchiveDocumentFormType` is the outlier, and the attribute is the norm. A
+count on 2026-09-04 found 32 `#[CsrfToken]` attribute sites under `src/`, with
+`grep -rn "^#\[CsrfToken(" src/`. `config/packages/csrf.yaml` declares 30 ids in
+`stateless_token_ids`, and the framework owns three of them: `submit`,
+`authenticate` and `logout`. So the divergence is much wider than the four
+comment controllers this entry first named.
+
+Those four carry the comment actions:
 
 - `Module/Review/Controller/DeleteCommentController` and `ResolveCommentController`
   (`comment-action`), submitted from `templates/Module/Review/components/CommentThread.html.twig`
@@ -951,22 +968,22 @@ Four controllers still use the pattern that replaced:
   `ResolveSiteReviewCommentController` (`site-review-comment-action`), submitted
   from `templates/Module/SiteReview/show_site_review.html.twig`
 
-They were left alone deliberately — they were outside the branch that made the
-change — so the divergence is known rather than accidental. But it is still two
-ways to write one shape of action in the same module, and the next fieldless
-POST has no obvious precedent to copy.
+They were left alone deliberately, because they sat outside the branch that made
+the archive change. The divergence is known rather than accidental.
 
-**Decision needed** — which way to converge:
+Owner decision (2026-09-04): convert every fieldless POST action to a Symfony
+form, not only the four comment controllers.
 
-1. Convert the four to Symfony forms, matching archive (recommended: the form
-   component already owns CSRF, so `stateless_token_ids` shrinks toward holding
-   only the genuinely form-less endpoints, and there is now a worked example
-   including the per-row `createNamed` naming).
-2. Keep `#[CsrfToken]` for fieldless actions and revert archive to it, treating
-   "a form with no fields" as ceremony not worth the indirection.
+Three hybrid admin forms fall inside that scope. `SuspendUserFormType`,
+`DeleteUserFormType` and `InviteOldestWaitlistFormType` are real forms that set
+`'csrf_protection' => false`. Each one leans on the controller's `#[CsrfToken]`
+attribute instead. Convert them so the form owns the token.
 
-Whichever is chosen, `SubmitReviewController` (`submit-review`) is **not** part
-of this: it submits a verdict value, so it is not the fieldless shape.
+The work is large enough for its own wave. Do not attach it to an unrelated
+branch.
+
+`SubmitReviewController` (`submit-review`) is not part of this. It submits a
+verdict value, so it is not the fieldless shape.
 
 One thing the conversion surfaced that the attribute form hides: a per-row
 fieldless form still needs a unique name (`createNamed`), or every row renders
@@ -1010,36 +1027,6 @@ run has established that the rest of the suite — fixtures, feature flags, the
 destructive `install-reset` and `trial-end-lifecycle` projects, any other shared
 host state — tolerates it. Close this by running two branches' suites at once,
 finding what collides, and only then lifting `workers: 1`.
-
-## Self-hosting audit
-
-
-
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-Owner request (2026-07-26): audit the app for self-hosting readiness. Scope was
-not specified beyond that, so settle it when picking this up rather than
-assuming — the note is recorded here verbatim in intent.
-
-Likely ground to cover, from what the repo looks like today: everything a
-third party would have to supply or change to run Loupe themselves. That
-includes the required environment variables and which have unsafe defaults
-(`COMPOSE_PROJECT_NAME` is mandatory, `DATABASE_URL` ships a placeholder,
-`INSTALL_TOKEN` gates `/install` and must be set, since the wizard fails
-closed in production and a self-hoster who omits it cannot create their first
-administrator at all); the
-hard dependencies beyond Postgres (Mercure hub, Mailpit/SMTP, the messenger
-worker as its own container, Traefik routing); the Stripe coupling, since
-billing is currently woven through the paywall listener and account
-lifecycle, and a self-hoster may want it off entirely; the prod image and
-`docker/prod/` layout versus the dev compose stack; and what documentation
-exists (`README.md`, `CONTRIBUTING.md`) versus what a self-hoster would
-actually need.
-
-Related decisions already recorded: CLAUDE.md notes that if the project goes
-public, `docs/` should stop shipping and open work moves to GitHub issues —
-that choice interacts with this.
 
 ## OAuth for the MCP and site-review widget, with project selection at consent
 
@@ -1133,46 +1120,6 @@ policy, which nothing forced along with it.
 Settling it means deciding what a migration is allowed to do in a release that
 might be rolled back (expand-only, contract in a later release), and making
 `release.sh` honour that rather than migrating on every deploy regardless.
-
-## Inbound MCP events so an agent can react without being asked
-
-
-**Author:** Geoffrey · **Type:** idea · **Priority:** medium · **Status:** pending
-
-Owner note (2026-07-28): today every agent action in a session is pull-based —
-the human says "92 approved" and the agent goes and looks. The idea is to close
-that loop the other way: something happens outside the session, and the agent
-finds out on its own.
-
-Sketch of the chain: an external event (marking a PR approved on GitHub) hits
-webhook machinery, which queues an event in Loupe — **a new Loupe feature, the
-event queue does not exist yet** — and the agent picks it up by calling a
-`get_events` MCP tool from a monitor it set up at the start of the session. A
-skill would carry the instruction to set that monitor up, so the behaviour is
-opt-in per session rather than baked into every agent.
-
-Three things to settle before this is designable:
-
-1. **What the queue is scoped to.** Events almost certainly belong to a project
-   and a user, since the MCP token already carries both — but a PR-approved
-   event has no natural Loupe project unless something maps repository to
-   project.
-2. **Delivery semantics.** Whether `get_events` drains (at-most-once, simple,
-   loses events if the agent dies mid-handling) or acknowledges separately
-   (at-least-once, needs idempotent handling). The site-review outbox settles
-   the same tradeoff at-least-once: `DrainOutboxHandler` leases a batch,
-   republishes, and retries with backoff until the hub confirms, which is
-   only safe because the nudge is payload-free and idempotent. An event queue
-   carrying real payloads does not get that for free.
-3. **What stops a polling loop from being wasteful.** A monitor that wakes
-   every 30 seconds all session is mostly empty calls; long-poll on the MCP
-   side, or a wake-up interval tied to what is actually being waited on, are
-   the obvious alternatives.
-
-Worth noting the security shape early: an inbound event queue is a channel by
-which outside parties influence what an agent does next. Event bodies are
-untrusted text and must never be treated as instructions — the same rule that
-already applies to site-review comment bodies.
 
 ## Worker heartbeat, so "is a worker running?" can be answered positively
 
@@ -1391,10 +1338,11 @@ on the result — but a comment on deleted text has no home there.
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-`package.json` carries `eslint`, `prettier` and Tailwind and nothing else — no
-test runner, no DOM environment, no `test` script. The only way to execute any
-JavaScript in this project is Playwright, which needs a booted app, a database
-and a mail catcher, and costs minutes.
+`package.json` carries `eslint`, `prettier`, Tailwind and `esbuild` 0.28.2,
+plus a `build:widget` script. It carries no test runner, no DOM environment and
+no `test` script. So Playwright is the only way to execute any JavaScript in
+this project. Playwright needs a booted app, a database and a mail catcher, and
+it costs minutes.
 
 That was proportionate when the front end was a handful of small Stimulus
 controllers. It is not any more: `assets/controllers/comment_anchor_controller.js`
@@ -1420,12 +1368,18 @@ through a browser; `#extractAnchor`'s offsets are the browser half of the
 anchoring contract that PHP currently asserts alone; and the widget's fatal-state
 transitions are a state machine currently covered only by whole-app e2e specs.
 
-Worth deciding together with "Ship a minified site-review widget", since that
-entry introduces a build step for the same file and the two share tooling. The
-open questions are which runner (vitest is the obvious default given no bundler
-is present), whether the widget's tests run against source or the minified
-artefact, and whether `just ci` gains a leg or it stays opt-in until the suite
-earns its place.
+Owner decision (2026-09-04): add vitest and a `just ci` leg in the same change.
+Cover `#findRange` in `assets/controllers/comment_anchor_controller.js` first.
+Cover the site-review widget's fatal-state machine second. Both are pure enough
+to test without a browser.
+
+The widget already has a build step. `docker/prod/Dockerfile` runs `npm run
+build:widget`, which minifies `public/site-review/widget.js` with esbuild. The
+production artefact is a minification of the source. So the tests run against
+the source, and e2e verifies the build.
+
+Sequencing: the one-off reformat in "Running prettier on the site-review widget
+reformats all 1600 lines" must land before this work.
 
 ## Package Loupe as a Claude Code plugin and list it in the agent directories
 
@@ -1449,11 +1403,13 @@ read parts of it directly.
 
 What is left is distribution: the plugin is not listed anywhere. Self-serve, no
 gatekeeper: Gemini CLI (add the GitHub topic `gemini-cli-extension` plus a root
-`gemini-extension.json`, crawled daily), Pi
-(npm keyword `pi-package`), OpenCode (PR to their ecosystem page), skills.sh,
-and the MCP registry (still in preview). Curated but open: the Claude Code
-plugin directory, Cursor's marketplace (manual review, plugins must be open
+`gemini-extension.json`, crawled daily), OpenCode (PR to their ecosystem page),
+skills.sh, and the MCP registry (still in preview). Curated but open: the Claude
+Code plugin directory, Cursor's marketplace (manual review, plugins must be open
 source — AGPL qualifies), and Kiro's Powers.
+
+The Pi listing is not in that set. 'Ship a Pi plugin for Loupe' owns it, and the
+owner parked that entry. Do not start the Pi listing from here.
 
 Not worth investing in: Droid, Amp, Devin Desktop and Cline have no third-party
 publishing path, and Zed has no agent lifecycle hooks. Roo Code is discontinued
@@ -1483,83 +1439,66 @@ carries most of the value.
 ## Enable and disable individual MCP tools per instance and per project
 
 
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** parked
 
-The MCP surface is all-or-nothing today: a token that reaches the server can
-call every tool registered on it. A self-hosted operator has no way to withhold
-a tool across their whole instance, and no project can run with a narrower
-surface than its neighbours.
+Make each MCP tool switchable, at two levels that behave differently. Instance
+is the operator deciding which tools exist on their deployment. It is a policy
+switch, set once, that applies to everyone on that instance. Project narrows
+that set further for one project's agents, and behaves like a permission grant.
 
-Two levels, and they are different controls. **Instance** is the operator
-deciding which tools exist at all on their deployment — a policy switch, set
-once, applying to everyone on it. **Project** is narrowing that set further for
-one project's agents, which behaves more like a permission grant than a policy.
+The mechanism for the instance level already exists.
+`App\Mcp\FlagGatedToolInterface` binds a tool to a feature flag,
+`FlagGatedListToolsHandler` hides a disabled tool from `tools/list`, and
+`App\Module\Project\Mcp\AdvertisedTools` reads the same gates for the connect
+page. `DocumentHighlightTool` is the only tool that uses it today, behind the
+`review.highlights.enabled` flag.
+
+Which of the remaining tools get a flag stays open. Where per-project state
+lives also stays open, because a per-project override may not fit the
+feature-flag bundle and may need its own storage.
 
 What makes this concrete: the archive tools were withheld from the MCP surface
 entirely on 2026-08-02, on the reasoning that an agent able to archive can take
-its own work out of a reviewer's list — then added on 2026-08-03 when the
-capability proved genuinely useful for retiring duplicate uploads. A per-tool
-switch is what turns that into a setting rather than a one-way decision: the
-cautious posture stays available to whoever wants it, without denying the tool
-to everyone else. The same shape will recur for any tool that is useful to most
-projects and unwanted by some.
-
-Check the existing feature-flag bundle before building a second mechanism —
-flags already have an admin UI and are already how other capabilities are
-gated. The open question is whether a per-project override fits that model or
-needs its own storage.
+its own work out of a reviewer's list. They were added on 2026-08-03 when the
+capability proved useful for retiring duplicate uploads. A per-tool switch
+turns that into a setting rather than a one-way decision. The cautious posture
+stays available to whoever wants it, and the tool stays available to everyone
+else. The same shape returns for any tool that most projects want and some do
+not.
 
 ## MCP tool: hand the human a list of what needs their attention
 
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** parked
 
-Owner note (2026-08-04): a tool that lets an agent push "todos for the human" —
-pull requests waiting to be reviewed, test scenarios to walk through by hand,
-decisions the agent could not make — so that someone returning after a long
-unattended session can see what to do next instead of reconstructing it from
-the transcript.
+Owner note (2026-08-04): a tool that lets an agent push "todos for the human".
+Examples are pull requests waiting to be reviewed, test scenarios to walk
+through by hand, and decisions the agent could not make. An agent that works for
+hours produces a queue of things only a person can finish, and today that queue
+exists only in the chat log.
 
-The problem it solves is real and specific: an agent working for hours produces
-a queue of things only a person can finish, and today that queue exists only in
-the chat log. A human coming back has to read the whole session to find the
-three things that need them.
+Notes for whoever restarts this. The tool shares an "agent asks a human" model
+with 'Agent-authored test scenarios delivered through the site-review widget',
+so the two need one model rather than two. The read side has to be built first,
+because the agent must see what it asked for and what came back. Without that,
+the next session starts by re-asking.
 
-Worth settling before designing it. Whether an item is its own entity or a typed
-variant of something that exists — this is close to 'Agent-authored test
-scenarios delivered through the site-review widget', which asks for the same
-push in the site-review direction, and the two should share a model rather than
-growing separately. Where it surfaces: a page of its own, the dashboard, or the
-existing site-review inbox. Whether items carry a state beyond done/not-done,
-since "reviewed and rejected" is a different outcome from "done". And how an
-item points at what it concerns, given that nothing in the model records a pull
-request today — the same missing link 'Let the agent close the loop when a human
-approves the work' ran into.
+## Ship a Pi plugin for Loupe
 
-The read side matters as much as the write: the agent should be able to see what
-it asked for and what came back, or the next session starts by re-asking.
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** parked
 
-## Decide which models and harnesses get a first-party Loupe plugin
+Owner decision (2026-09-04): Loupe ships a plugin for Pi. That settles the older
+scope question about which models and harnesses get a first-party plugin.
 
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+The work is parked rather than urgent, because one bundle already reaches most
+harnesses. The 2026-08-03 survey in 'Package Loupe as a Claude Code plugin and
+list it in the agent directories' found that the plugin layout plus its
+`.mcp.json` is read directly by Copilot CLI, Cursor, OpenCode, Cline, Amp, Pi
+and Droid. A Pi plugin therefore adds a package and a listing, and no second
+packaging format.
 
-Owner note (2026-08-05): Loupe should ship plugins for all the relevant models
-and harnesses, not just Claude Code.
-
-This is a scope question sitting on top of 'Package Loupe as a Claude Code
-plugin and list it in the agent directories', which covers the packaging
-mechanics and the directory listings. That entry's 2026-08-03 survey explicitly
-ruled some targets out — Droid, Amp, Devin Desktop and Cline have no
-third-party publishing path, Zed has no agent lifecycle hooks, Roo Code is
-archived, Windsurf/Codeium is gone — so the open question is whether "all
-relevant" means revisiting those (shipping a plugin people install by hand,
-without a marketplace behind it) or whether it means the set that survey kept:
-Claude Code, Copilot CLI, Cursor, OpenCode, Gemini CLI, Pi, Kiro.
-
-Answer that before building anything, because it decides how many packaging
-artefacts exist. The survey's finding was that one Claude-Code-shaped bundle is
-read by most harnesses directly, so the cost of "all relevant" may be much lower
-than it sounds — or much higher, if the ruled-out ones each need their own
-format.
+Pi's publishing path is self-serve: an npm package that carries the `pi-package`
+keyword. This entry owns that listing. The packaging entry named above lists the
+other directories, and it does not list Pi.
 
 ## A step-ca thread leak takes down `docker exec` for every other container
 
@@ -1626,45 +1565,41 @@ container': the host-visible symptom names the wrong process.
 
 ## Give each agent its own container in the cloud instead of sharing one dev stack
 
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
+**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** parked
 
 Every git worktree gets its own nginx sidecar, Mailpit sidecar, database and
-URL, but they all share **one php-fpm container and one Postgres**. That sharing
-is the root of most of the parallel-work pain, and on 2026-08-03 it cost most of
-a day across nine concurrent branches.
+URL, but they all share one php-fpm container and one Postgres. That sharing is
+the root of most of the parallel-work pain, and on 2026-08-03 it cost most of a
+day across nine concurrent branches.
 
-What sharing actually causes, all observed rather than predicted:
+What sharing causes, all observed rather than predicted:
 
-- **php-fpm worker exhaustion.** One pool serves every worktree plus all e2e
-  traffic. The logs carry both failure modes — 71 "seems busy … 0 idle"
-  spawn-rate warnings and 4 "server reached pm.max_children setting". A request
+- php-fpm worker exhaustion. One pool serves every worktree plus all e2e
+  traffic. The logs carry both failure modes: 71 "seems busy … 0 idle"
+  spawn-rate warnings, and 4 "server reached pm.max_children setting". A request
   that gets no worker returns nothing: no response body, no fatal, no log line,
   and a submit button left disabled with no validation error. That signature is
-  documented elsewhere as a cold-cache symptom and has been misattributed that
-  way more than once.
-- **e2e is not parallelised.** The original cause — one shared Mailpit, whose
-  messages concurrent mail-asserting specs read from each other — is gone now
-  that each worktree has its own sidecar, but `workers: 1` still stands until
-  something proves the rest of the suite parallel-safe, so it is still one
-  branch at a time at roughly 8.5 minutes each.
-- **Any sibling's `just ci` starves an in-flight e2e run**, so gating has to be
-  coordinated by hand. That coordination does not survive parallel agents; it
+  documented elsewhere as a cold-cache symptom, and it has been misattributed
+  that way more than once.
+- Any sibling's `just ci` starves an in-flight e2e run, so gating has to be
+  coordinated by hand. That coordination does not survive parallel agents. It
   has to be remembered by whoever is orchestrating.
 
-Two things have since reduced the pressure without removing the cause. Messenger
-dispatch is handled inline under `X-Playwright` (`PlaywrightSyncMiddleware`),
-which took one process out of the shared pool and removed the class of failure
-where a forgotten worker made an e2e run hang. And the pool limits were raised:
+Some pressure has come off without the cause being removed. Messenger dispatch
+is handled inline under `X-Playwright` (`PlaywrightSyncMiddleware`), which took
+one process out of the shared pool. It also removed the class of failure where a
+forgotten worker made an e2e run hang. The pool limits were raised too:
 `docker/dev/php-fpm/zz-pm.conf` now sets `pm.max_children = 32`,
-`pm.start_servers = 12`, `pm.min_spare_servers = 8`, against an observed peak
-demand of 17–20 concurrent. Together those are why this is no longer `high`.
+`pm.start_servers = 12` and `pm.min_spare_servers = 8`, against an observed peak
+demand of 17 to 20 concurrent. Those changes are why this is no longer `high`.
 
-Neither lifts `workers: 1`, so the per-branch throughput ceiling is unchanged;
-see 'The e2e suite is still serialized, and nothing has proved it parallel-safe'.
+Neither change lifts `workers: 1`, so the per-branch throughput ceiling is
+unchanged. See 'The e2e suite is still serialized, and nothing has proved it
+parallel-safe'.
 
-Per-agent containers would remove all three by construction rather than by
-convention, and would also end the class of bug where a stop or a kill reaches
-only the host-side wrapper — a process started inside a container can only be
+Per-agent containers would remove both causes by construction rather than by
+convention. They would also end the class of bug where a stop or a kill reaches
+only the host-side wrapper. A process started inside a container can only be
 observed and stopped from inside it, which `CLAUDE.md` now states.
 
 Worth deciding alongside it: whether the e2e suite still needs to be destructive.
@@ -1672,31 +1607,54 @@ The `install-reset` project truncates every table as its last act. `just e2e`
 now re-seeds a worktree afterwards rather than leaving it broken, so this is a
 question of design rather than a live breakage.
 
-## `users.disabledAt` is written by Billing but lives on the Account entity
+## Decide what `users.disabledAt` is for, now that the paywall does not read it
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
 
 Owner note (2026-08-21): `User::$disabledAt` should eventually move into the
-Billing module — onto a `Subscription` entity or something similar — rather
-than sitting on the Account module's `User`.
+Billing module rather than sit on the Account module's `User`. The premise has
+changed since then, so the open question is now what the column is for.
 
-Today the column is declared on `App\Module\Account\Entity\User`, but every
-write to it belongs to Billing: `RunTrialSweepHandler` sets it when a trial
-lapses, `SyncStripeSubscriptionHandler` clears it when a subscription goes live
-and sets it when one ends, and `SeedBillingStateHandler` drives it for seeding.
-Account reads it back in `JoinWaitlistHandler` and
-`UserRepository::countActive()`, so the coupling runs both ways.
+Access does not depend on the flag. `App\Module\Billing\Entity\Subscription`
+gives each grant of access its own row, with a kind of trial, Stripe or comp,
+and a `startsAt` and `endsAt` pair.
+`BillingProfile::hasCurrentSubscription($now)` answers whether an account has
+access now, and `App\Module\Billing\Service\PaywallGate` reads it. The paywall
+does not read `disabledAt` at all.
 
-The practical cost surfaced while designing the admin user-management section:
-an admin suspend control could not reuse the field, because a manual re-enable
-would be silently reverted by the next trial sweep. That design added a separate
-`suspendedAt` the admin owns — correct, but it leaves two "this account is
-inactive" flags on one entity, each owned by a different module.
+Billing writes the flag from five handlers: `RunTrialSweepHandler`,
+`SyncStripeSubscriptionHandler`, `SeedBillingStateHandler`,
+`Admin/GrantCompHandler` and `Admin/RevokeCompHandler`.
+`App\Module\Billing\Scheduler\SweepEndedTrialsTask` runs hourly, so the flag
+lags a lapsed grant by up to one hour. Access stays correct through that hour,
+because the paywall reads the rows.
 
-The control-flow half of the same encapsulation goal is already done: the
-paywall's exemption list moved into `App\Module\Billing\Service\PaywallExemptions`,
-so no module outside Billing carries a Billing-motivated marker any more. This
-column is what is left.
+Account reads the flag in `UserRepository::countHumans()` with `activeOnly`, in
+the admin user list `state` filter in `UserRepository::findPaginatedForAdmin()`,
+and in `JoinWaitlistHandler`. Billing reads it back in `SubscriptionRepository`
+for the cancel survey, and in the capacity checks in `StartCheckoutHandler` and
+`ShowSubscribeHandler`. Those two capacity checks are why the flag still decides
+something. A disabled account that returns to subscribe is refused when
+registration is closed, the cap is full, and it holds no valid invite.
+
+The encapsulation work this entry was once sequenced behind is done.
+`PaywallExemptions` lives inside Billing, no `#[PaywallExempt]` marker survives
+outside the module, and phparkitect enforces Billing as a leaf. That leaf rule
+also stops Account from querying Billing tables. To derive the state, Account
+declares a port and Billing implements it. `App\Module\Account\Admin\AdminUserPanelInterface`
+already uses that shape.
+
+`User` still carries two inactive flags, `disabledAt` and the admin-owned
+`suspendedAt`. A different module owns each one.
+
+**Decision needed.** Choose one:
+
+1. Drop the column, and read account state through a port that Billing
+   implements.
+2. Keep it on `User`, and document it as a Billing-written cache of "no current
+   grant".
+3. Move it onto `BillingProfile`. This pays the same port cost, adds a
+   migration, and keeps the lag.
 
 ## The `cli-test` CI check is not required, so a broken CLI cannot block a merge
 
@@ -1795,18 +1753,19 @@ fails, restore. That is one mutant, placed where a weakness was already
 suspected. It gives no score and covers none of the mutants nobody thought of —
 which is exactly the gap a tool closes.
 
-Proposal: scope Infection to the directories where a silently-passing test costs
-most — `src/Module/Account/Security/` and `src/Module/Account/EventListener/` —
-rather than the whole codebase. Both hold code that runs on every authenticated
-request, where a wrong answer is an outage or an authorization hole rather than
-a broken page.
+Scope Infection to the directories where a silently-passing test costs most:
+`src/Module/Account/Security/` and `src/Module/Account/EventListener/`. Both
+hold code that runs on every authenticated request. A wrong answer there is an
+outage or an authorization hole rather than a broken page.
 
-The open question is not whether it is useful but where it runs. Infection
-reruns the suite once per mutant, so a full-repo pass against ~1450 tests is
-coffee-break length, not a pre-commit hook. Decide between a `just ci` leg on a
-narrow path list and a manual command invoked when touching security-adjacent
-code. Cost is the deciding factor; measure a scoped run before wiring it into a
-gate.
+Owner decision (2026-09-04): make it a manual scoped `just` command, not a `just
+ci` leg. Run it on a regular cadence of about one week. Do not tie the run to
+which code a branch touches.
+
+Build the scoped command over those two directories. Measure one run, because
+Infection reruns the suite once per mutant, and a full-repo pass against ~1450
+tests is coffee-break length. Then decide how the weekly run is triggered. That
+trigger mechanism is the remaining open question.
 
 ## `countActiveAdmins()` depends on two rules that live somewhere else
 
@@ -1833,9 +1792,9 @@ Neither is broken now. Both are the kind of coupling that breaks silently and
 far from the change that caused it, which is why they are written down rather
 than commented in the query.
 
-## Decide how CommentBudgetCheck should treat `.env`
+## Drop `.env` from CommentBudgetCheck's patterns
 
-**Author:** Geoffrey · **Type:** docs · **Priority:** low · **Status:** pending
+**Author:** Geoffrey · **Type:** tooling · **Priority:** low · **Status:** pending
 
 The repo-wide sweep took `CommentBudgetCheck` from 151 findings to 10, and every
 other file — `src/`, `templates/`, `assets/`, `config/`, `tests/`, `e2e/`, the
@@ -1846,9 +1805,13 @@ Its first block is Symfony's own shipped header, which `composer
 recipes:update` would restore if rewritten. The rest document environment
 variables for whoever deploys the app, which is that file's whole purpose.
 
-So the choice is between marking them with `@comment-budget-ignore` and dropping
-`.env` from the check's `patterns` in `gamache.php`. Trimming them further trades
-documentation for a number, which is the opposite of what the check is for.
+Owner decision (2026-09-04): drop `.env` from the check's `patterns` in
+`gamache.php` at the project root. Marking each block with
+`@comment-budget-ignore` trades documentation for a number, which is the
+opposite of what the check is for.
+
+Accepted cost: the check then polices nothing in that file. A long comment block
+could land in `.env` and nothing would report it.
 
 ## Rendered front matter and annotations have no accessible name
 
@@ -2241,11 +2204,15 @@ prettier run produces a phantom several-hundred-line diff, and the real change i
 unreviewable inside it. Hit on 2026-08-13 while dropping the widget's send step;
 the fix was to revert and re-apply the edit by hand.
 
-Two ways to close it, and either is fine as long as it is a decision: leave the
-file out of prettier's scope deliberately (it is hand-formatted, dense, and
-`npx eslint public/site-review/widget.js` already gates it), or reformat it once
-in a commit that changes nothing else, then add `public/` to the prettier
-recipes in the `justfile` so it stays formatted.
+Owner decision (2026-09-04): reformat the file in one commit that changes
+nothing else. Then add `public/` to the prettier recipes in the `justfile`, so
+the file stays formatted.
+
+The widget now goes through an esbuild build step. `docker/prod/Dockerfile` runs
+`npm run build:widget`, so the shipped bytes are no longer the source bytes.
+
+This reformat commit must land before the vitest work in "There is no JavaScript
+test harness, and the JS is no longer trivial".
 
 ## Connect's code panels still emit the literal `YOUR_TOKEN`
 
@@ -2579,6 +2546,10 @@ A subscription needs a subscriber JWT, and `StreamCredentialsController` issues
 it. The shape to aim at is a command that prints a ready-to-subscribe URL, plus
 a skill that tells the session to arm the monitor with it.
 
+Event payloads are untrusted text, because outside parties influence what they
+contain. The skill must tell the session to read an event as data. The session
+must never obey an instruction that an event body carries.
+
 One capability does not survive. `bridge run --dir` starts a tmux session
 running `claude` when none exists. A monitor only feeds a session that already
 runs, so it cannot start one. Decide whether starting an agent from an event
@@ -2663,27 +2634,6 @@ request is harmless. `WebProfilerBundle` is registered for `dev` and `test` only
 0.12.0 and `mcp/sdk` 0.7.1 are installed. Re-check when either publishes a
 release whose notes mention tool-list delivery or session handling; both are
 pre-1.0 and moving.
-
-## Watch an agent work, rather than reading what it finished
-
-**Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending
-
-https://doop.design/ is a multiplayer design canvas where agents join over MCP
-and their work streams onto the canvas live — they announce the task they are
-starting, others watch it happen, and feedback given mid-flight is picked up
-before the agent finishes. Noted on 2026-08-24 as a direction worth thinking
-about, not a commitment.
-
-Loupe's cycle is the opposite shape: the agent submits a finished document,
-a human reviews it, the agent revises. Nothing is visible between submit and
-submit, and a reviewer who spots the wrong premise in paragraph two still waits
-for the whole draft before saying so.
-
-The pieces for a live channel already exist and are idle — `SiteReviewEvent`,
-the outbox, `DrainOutboxHandler`, the Mercure hub and the `site_review.push`
-flag — but nothing writes an event any more (see 'The site-review push
-subsystem has no producer left'). Any work here starts by deciding what an
-agent would announce, not by building transport.
 
 ## Account purgers still hand-roll an order that Symfony can supply
 

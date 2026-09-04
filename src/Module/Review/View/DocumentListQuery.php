@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Review\View;
 
 use App\Module\Review\Entity\DocumentStatus;
+use App\Module\Review\Entity\Series;
 use App\Module\Review\Entity\Tag;
 use Symfony\Component\HttpFoundation\InputBag;
 
@@ -27,6 +28,7 @@ final readonly class DocumentListQuery
         public ?string $search = null,
         public ?DocumentStatus $status = null,
         public ?string $tagName = null,
+        public ?string $seriesName = null,
     ) {
     }
 
@@ -35,6 +37,7 @@ final readonly class DocumentListQuery
     {
         $search = trim($query->getString('search'));
         $tagName = trim($query->getString('tag'));
+        $seriesName = trim($query->getString('series'));
 
         return new self(
             page: max(1, $query->getInt('page', 1)),
@@ -44,6 +47,7 @@ final readonly class DocumentListQuery
             // URL should show the unfiltered list, not a 404.
             status: DocumentStatus::tryFrom($query->getString('status')),
             tagName: '' === $tagName ? null : Tag::normalizeName($tagName),
+            seriesName: '' === $seriesName ? null : Series::normalizeName($seriesName),
         );
     }
 
@@ -75,10 +79,10 @@ final readonly class DocumentListQuery
      */
     public function isNarrowed(): bool
     {
-        return null !== $this->search || null !== $this->status || null !== $this->tagName;
+        return null !== $this->search || null !== $this->status || null !== $this->tagName || null !== $this->seriesName;
     }
 
-    /** @return array{page: int, archived?: int, search?: string, status?: string, tag?: string} */
+    /** @return array{page: int, archived?: int, search?: string, status?: string, tag?: string, series?: string} */
     public function routeParams(): array
     {
         $params = ['page' => $this->page];
@@ -97,6 +101,10 @@ final readonly class DocumentListQuery
 
         if (null !== $this->tagName) {
             $params['tag'] = $this->tagName;
+        }
+
+        if (null !== $this->seriesName) {
+            $params['series'] = $this->seriesName;
         }
 
         return $params;

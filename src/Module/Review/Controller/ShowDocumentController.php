@@ -98,6 +98,7 @@ final class ShowDocumentController extends AppController
             'diffFromVersion' => null,
             'diffView' => null,
             'diffChangeCount' => null,
+            'diffCommenting' => false,
             'readOnly' => $view->readOnly,
             'comments' => $view->comments,
             'headings' => $view->headings,
