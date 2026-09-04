@@ -77,10 +77,10 @@ final readonly class ReviseDocumentHandler
             ? null
             : $this->referenceValidator->validated($document->project, $document, $command->references);
 
-        // Both null means "leave the placement alone", which is why a revision
-        // cannot take a document out of a series. Validated out here for the
-        // same reason as the title: a rejected placement must not roll a whole
-        // revision back as a 500.
+        // Both null means "leave the placement alone"; a blank name is how a
+        // revision takes a document out of its series. Validated out here for
+        // the same reason as the title: a rejected placement must not roll a
+        // whole revision back as a 500.
         $placesInSeries = null !== $command->seriesName || null !== $command->seriesOrdinal;
         if ($placesInSeries) {
             Series::normalizePlacement($command->seriesName, $command->seriesOrdinal);

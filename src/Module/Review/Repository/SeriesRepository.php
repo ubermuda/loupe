@@ -45,10 +45,12 @@ class SeriesRepository extends ServiceEntityRepository
      * The conflict target is named on purpose. A bare `DO NOTHING` would also
      * swallow violations of constraints this method knows nothing about.
      *
-     * The insert commits on its own, ahead of the caller's flush, so a flush
-     * that then fails leaves a series no document belongs to. That is the same
-     * state as a series whose last document left it, which `series_list`
-     * already reports with a count of zero.
+     * With no caller transaction open the insert commits on its own, ahead of
+     * the caller's flush, so a flush that then fails leaves a series no
+     * document belongs to. That is the same state as a series whose last
+     * document left it, which `series_list` already reports with a count of
+     * zero. Inside a caller's transaction, such as a revision, it joins that
+     * transaction and rolls back with it instead.
      */
     public function findOrCreate(Project $project, string $name): Series
     {

@@ -51,14 +51,16 @@ final readonly class DocumentReviseTool
                 throw new ToolCallException('The markdown content exceeds the maximum allowed size.');
             }
 
+            // Named, not positional: the command now ends in four optional
+            // parameters of mixed type, so a mis-ordered call would be silent.
             return ($this->handler)(new ReviseDocumentCommand(
-                $document,
-                $markdown,
-                $description,
-                $title,
-                null === $references ? null : $this->subjects->requireReferences($references),
-                $series,
-                $seriesOrdinal,
+                document: $document,
+                markdown: $markdown,
+                description: $description,
+                title: $title,
+                references: null === $references ? null : $this->subjects->requireReferences($references),
+                seriesName: $series,
+                seriesOrdinal: $seriesOrdinal,
             ));
         } catch (DomainErrors $e) {
             throw $this->errorMessages->forAgent($e);
