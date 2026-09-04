@@ -29,6 +29,7 @@ final readonly class ProjectExporter implements UserDataExporterInterface
                 'id' => (string) $project->id,
                 'name' => $project->name,
                 'domain' => $project->domain,
+                'searchLanguage' => $project->searchLanguage->value,
                 'createdAt' => $project->createdAt->format(\DateTimeInterface::ATOM),
             ];
         }

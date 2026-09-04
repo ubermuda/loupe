@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Review\Mcp;
 
+use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
@@ -199,5 +200,66 @@ final class DocumentCreateToolTest extends KernelTestCase
         // flush — leaving the document permanently unsearchable with nothing
         // to retry it.
         self::assertLessThanOrEqual(1_048_575, DocumentCreateTool::MAX_MARKDOWN_BYTES);
+    }
+
+    public function test_an_unknown_language_is_rejected_before_it_reaches_sql(): void
+    {
+        $owner = $this->user('create-bad-language@example.com');
+        $project = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($project);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        try {
+            ($this->tool)('Title', '# Body', language: 'klingon');
+            self::fail('an unknown language must throw');
+        } catch (ToolCallException $e) {
+            self::assertStringContainsString('Unknown language "klingon"', $e->getMessage());
+            self::assertStringContainsString('english', $e->getMessage());
+        }
+
+        $this->em->clear();
+        self::assertSame(
+            0,
+            (int) $this->em->getConnection()->fetchOne(
+                'SELECT count(*) FROM documents WHERE project_id = :id',
+                ['id' => (string) $project->id],
+            ),
+        );
+    }
+
+    public function test_a_named_language_is_stored_and_reported_back(): void
+    {
+        $owner = $this->user('create-french@example.com');
+        $project = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($project);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = ($this->tool)('Paiements', '# Paiements', language: 'french');
+
+        self::assertSame('french', $result['language']);
+
+        $this->em->clear();
+        $document = $this->em->find(Document::class, Uuid::fromString($result['documentId']));
+        self::assertInstanceOf(Document::class, $document);
+        self::assertSame(SearchLanguage::French, $document->searchLanguage);
+    }
+
+    public function test_a_document_with_no_language_takes_the_project_default(): void
+    {
+        $owner = $this->user('create-project-default@example.com');
+        $project = new Project($owner, 'p-'.uniqid());
+        $project->searchLanguage = SearchLanguage::German;
+        $this->em->persist($project);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = ($this->tool)('Zahlungen', '# Zahlungen');
+
+        self::assertSame('german', $result['language']);
     }
 }

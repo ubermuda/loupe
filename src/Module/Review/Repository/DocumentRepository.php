@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Repository;
 
-use App\Doctrine\FullTextSearch;
+use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
@@ -97,14 +97,27 @@ class DocumentRepository extends ServiceEntityRepository
                 ->setParameter('seriesName', $seriesName);
         }
 
-        // The configuration is concatenated rather than bound: Postgres
-        // overloads websearch_to_tsquery as (regconfig, text) and (text), so a
-        // bound parameter has no type to resolve against and picks the wrong
-        // arity. It is a class constant, never user input.
-        $tsquery = \sprintf("WEBSEARCH_TO_TSQUERY('%s', :search)", FullTextSearch::CONFIGURATION);
-
         if (null !== $search) {
-            $qb->andWhere(\sprintf('TSMATCH(d.searchVector, %s) = true', $tsquery))
+            // One branch per language the project holds, each with a constant
+            // configuration, because Postgres uses the GIN index only when the
+            // tsquery is the same for every row. Deriving the configuration from
+            // the row instead turns the match into a filter over every document
+            // in the project.
+            $branches = [];
+            foreach ($this->searchLanguagesOf($project) as $index => $language) {
+                // The configuration is concatenated rather than bound: Postgres
+                // overloads websearch_to_tsquery as (regconfig, text) and (text),
+                // so a bound parameter has no type to resolve against and picks
+                // the wrong arity. It comes from the enum, never from user input.
+                $branches[] = \sprintf(
+                    "(d.searchLanguage = :searchLanguage%d AND TSMATCH(d.searchVector, WEBSEARCH_TO_TSQUERY('%s', :search)) = true)",
+                    $index,
+                    $language->value,
+                );
+                $qb->setParameter('searchLanguage'.$index, $language);
+            }
+
+            $qb->andWhere('('.implode(' OR ', $branches).')')
                 ->setParameter('search', $search);
         }
 
@@ -113,7 +126,10 @@ class DocumentRepository extends ServiceEntityRepository
         if (null !== $seriesName) {
             $qb->orderBy('d.seriesOrdinal', 'ASC');
         } elseif (null !== $search) {
-            $qb->orderBy(\sprintf('TS_RANK(d.searchVector, %s)', $tsquery), 'DESC');
+            // The rank runs on the matches only, so the per-row cast costs
+            // nothing here. CAST because websearch_to_tsquery has no
+            // (varchar, text) overload, only (regconfig, text).
+            $qb->orderBy('TS_RANK(d.searchVector, WEBSEARCH_TO_TSQUERY(CAST(d.searchLanguage AS regconfig), :search))', 'DESC');
         } else {
             $qb->orderBy('d.createdAt', 'DESC');
         }
@@ -124,6 +140,34 @@ class DocumentRepository extends ServiceEntityRepository
         $qb->addOrderBy('d.id', 'DESC');
 
         return new Paginator($qb->getQuery());
+    }
+
+    /**
+     * The distinct languages the project's documents are stemmed in. An
+     * index-only scan of idx_documents_project_search_language, which is why the
+     * index exists.
+     *
+     * A project with no documents answers with the default, so the search query
+     * always has one branch to build. It matches nothing either way.
+     *
+     * @return list<SearchLanguage>
+     */
+    public function searchLanguagesOf(Project $project): array
+    {
+        /** @var list<SearchLanguage|string> $rows */
+        $rows = $this->createQueryBuilder('d')
+            ->select('DISTINCT d.searchLanguage')
+            ->andWhere('d.project = :project')
+            ->setParameter('project', $project)
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        $languages = array_map(
+            static fn (SearchLanguage|string $row): SearchLanguage => $row instanceof SearchLanguage ? $row : SearchLanguage::from($row),
+            $rows,
+        );
+
+        return [] === $languages ? [SearchLanguage::DEFAULT] : $languages;
     }
 
     /**

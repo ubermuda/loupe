@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Review\Command;
 
+use App\Doctrine\SearchLanguage;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
@@ -41,6 +42,26 @@ final class CreateDocumentHandlerTest extends KernelTestCase
         self::assertSame(DocumentStatus::InReview, $doc->status);
         self::assertSame(1, $doc->versions->count());
         self::assertStringContainsString('<h1 id="heading-auth">Auth</h1>', $doc->currentVersion()->renderedHtml);
+    }
+
+    public function test_a_document_inherits_the_project_search_language_when_the_caller_names_none(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $user = new User(fullName: 'Agent', email: 'inherit-'.uniqid().'@example.com', password: 'hashed-placeholder');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $project->searchLanguage = SearchLanguage::Portuguese;
+        $em->persist($project);
+        $em->flush();
+
+        $handler = self::getContainer()->get(CreateDocumentHandler::class);
+
+        $inherited = $handler(new CreateDocumentCommand(project: $project, title: 'Pagamentos', markdown: '# Pagamentos'));
+        $named = $handler(new CreateDocumentCommand(project: $project, title: 'Payments', markdown: '# Payments', language: SearchLanguage::English));
+
+        self::assertSame(SearchLanguage::Portuguese, $inherited->searchLanguage);
+        self::assertSame(SearchLanguage::English, $named->searchLanguage);
     }
 
     /** @return iterable<string, array{string, string}> */

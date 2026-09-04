@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Project\Controller;
 
+use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
@@ -33,6 +34,47 @@ final class ProjectsPageTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('[data-project-id]'));
         self::assertSame('mine', trim($crawler->filter('[data-project-id] .lp-project-row__name')->text()));
+    }
+
+    public function test_creating_a_project_stores_the_chosen_search_language(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'projects-language@example.com');
+        $em->flush();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects');
+        self::assertCount(1, $crawler->filter('select[name="create_project_form[searchLanguage]"]'));
+
+        $client->submitForm('Add project', [
+            'create_project_form[name]' => 'proyecto',
+            'create_project_form[searchLanguage]' => 'spanish',
+        ]);
+
+        self::assertResponseRedirects('/projects');
+        $projects = static::getContainer()->get(ProjectRepository::class)->findByOwner($owner);
+        self::assertCount(1, $projects);
+        self::assertSame(SearchLanguage::Spanish, $projects[0]->searchLanguage);
+    }
+
+    public function test_a_project_created_without_touching_the_select_is_english(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'projects-language-default@example.com');
+        $em->flush();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects');
+        $client->submitForm('Add project', [
+            'create_project_form[name]' => 'left-alone',
+        ]);
+
+        self::assertResponseRedirects('/projects');
+        $projects = static::getContainer()->get(ProjectRepository::class)->findByOwner($owner);
+        self::assertCount(1, $projects);
+        self::assertSame(SearchLanguage::English, $projects[0]->searchLanguage);
     }
 
     public function test_paginates_at_twenty_per_page(): void

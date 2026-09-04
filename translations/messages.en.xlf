@@ -1687,6 +1687,130 @@
                 <source>project.form.create_project_form.domain.placeholder</source>
                 <target>example.com</target>
             </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.label">
+                <source>project.form.create_project_form.search_language.label</source>
+                <target>Document language</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.hint">
+                <source>project.form.create_project_form.search_language.hint</source>
+                <target>Search stems words in this language. New documents in this project use it unless the agent that writes them names another. You can change it later, and the change applies only to documents written after it.</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.arabic">
+                <source>project.form.create_project_form.search_language.choice.arabic</source>
+                <target>Arabic</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.armenian">
+                <source>project.form.create_project_form.search_language.choice.armenian</source>
+                <target>Armenian</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.basque">
+                <source>project.form.create_project_form.search_language.choice.basque</source>
+                <target>Basque</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.catalan">
+                <source>project.form.create_project_form.search_language.choice.catalan</source>
+                <target>Catalan</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.danish">
+                <source>project.form.create_project_form.search_language.choice.danish</source>
+                <target>Danish</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.dutch">
+                <source>project.form.create_project_form.search_language.choice.dutch</source>
+                <target>Dutch</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.english">
+                <source>project.form.create_project_form.search_language.choice.english</source>
+                <target>English</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.finnish">
+                <source>project.form.create_project_form.search_language.choice.finnish</source>
+                <target>Finnish</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.french">
+                <source>project.form.create_project_form.search_language.choice.french</source>
+                <target>French</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.german">
+                <source>project.form.create_project_form.search_language.choice.german</source>
+                <target>German</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.greek">
+                <source>project.form.create_project_form.search_language.choice.greek</source>
+                <target>Greek</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.hindi">
+                <source>project.form.create_project_form.search_language.choice.hindi</source>
+                <target>Hindi</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.hungarian">
+                <source>project.form.create_project_form.search_language.choice.hungarian</source>
+                <target>Hungarian</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.indonesian">
+                <source>project.form.create_project_form.search_language.choice.indonesian</source>
+                <target>Indonesian</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.irish">
+                <source>project.form.create_project_form.search_language.choice.irish</source>
+                <target>Irish</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.italian">
+                <source>project.form.create_project_form.search_language.choice.italian</source>
+                <target>Italian</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.lithuanian">
+                <source>project.form.create_project_form.search_language.choice.lithuanian</source>
+                <target>Lithuanian</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.nepali">
+                <source>project.form.create_project_form.search_language.choice.nepali</source>
+                <target>Nepali</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.norwegian">
+                <source>project.form.create_project_form.search_language.choice.norwegian</source>
+                <target>Norwegian</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.portuguese">
+                <source>project.form.create_project_form.search_language.choice.portuguese</source>
+                <target>Portuguese</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.romanian">
+                <source>project.form.create_project_form.search_language.choice.romanian</source>
+                <target>Romanian</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.russian">
+                <source>project.form.create_project_form.search_language.choice.russian</source>
+                <target>Russian</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.serbian">
+                <source>project.form.create_project_form.search_language.choice.serbian</source>
+                <target>Serbian</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.simple">
+                <source>project.form.create_project_form.search_language.choice.simple</source>
+                <target>Other or mixed (no stemming)</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.spanish">
+                <source>project.form.create_project_form.search_language.choice.spanish</source>
+                <target>Spanish</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.swedish">
+                <source>project.form.create_project_form.search_language.choice.swedish</source>
+                <target>Swedish</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.tamil">
+                <source>project.form.create_project_form.search_language.choice.tamil</source>
+                <target>Tamil</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.turkish">
+                <source>project.form.create_project_form.search_language.choice.turkish</source>
+                <target>Turkish</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.yiddish">
+                <source>project.form.create_project_form.search_language.choice.yiddish</source>
+                <target>Yiddish</target>
+            </trans-unit>
             <trans-unit id="project.error.name_taken">
                 <source>project.error.name_taken</source>
                 <target>You already have a project with this name.</target>

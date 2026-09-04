@@ -52,7 +52,12 @@ final readonly class CreateDocumentHandler
             throw new DomainErrors(['title' => 'review.create.error.too_long']);
         }
 
-        $document = new Document(owner: $command->project->owner, project: $command->project, title: $title);
+        $document = new Document(
+            owner: $command->project->owner,
+            project: $command->project,
+            title: $title,
+            searchLanguage: $command->language ?? $command->project->searchLanguage,
+        );
         $document->addVersion($command->markdown, $this->renderer->render($command->markdown), $command->description);
 
         // Also before persist(), for the same reason: this rejects a reference

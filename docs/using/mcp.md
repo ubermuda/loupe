@@ -110,7 +110,7 @@ Roughly in the order an agent uses them:
 
 | Tool | Purpose |
 |---|---|
-| `document_create` | Submit Markdown as a new document; returns a review URL |
+| `document_create` | Submit Markdown as a new document; returns a review URL and the language it was stored in |
 | `document_revise` | Submit a new version, described by what changed |
 | `document_get` / `document_list` | Read a document, or enumerate the project's |
 | `document_get_review` | Verdict, threaded comments, and answered decision blocks |
@@ -126,6 +126,25 @@ Roughly in the order an agent uses them:
 | `series_rename` | Rename a series; every document in it keeps its position |
 | `site_review_get` | Comments submitted through the widget |
 | `site_review_mark_comment_addressed` | Mark a widget comment acted on, so the next `site_review_get` skips it |
+
+### The language a document is searched in
+
+Search stems words, so it must know the language a document is written in. Every
+document carries its own. `document_create` takes an optional `language`, and
+`document_get` reports the value back.
+
+The value is a PostgreSQL text-search configuration name, such as `english`,
+`french`, `german`, `spanish`, `portuguese` or `russian`. Use `simple` for text
+of mixed or unknown language, which then matches on whole words only. An unknown
+name is refused, and the error lists the accepted ones.
+
+A document that names no language takes the project's default. You choose that
+default when you create the project, on the new-project form or on the first
+step of the first-run wizard, and it is `english` for every project that came
+before the field. The project settings screen changes it afterwards, and the
+change applies only to documents written after it. Every document written before
+this feature stays English, because that is how it was already indexed. Changing
+a document's language after it exists needs a reindex, which no tool does yet.
 
 ## Two things agents get wrong
 
