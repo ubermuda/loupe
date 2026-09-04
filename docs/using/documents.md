@@ -65,6 +65,30 @@ Treat it like a database column name.
 The comments are invisible in every other Markdown renderer, so a document read
 outside Loupe still shows a plain list.
 
+## Annotations
+
+An HTML comment that is not part of a decision block renders as a visible note.
+A comment on its own line becomes a block note. A comment inside a paragraph
+becomes an inline note.
+
+```markdown
+<!-- note: this section still needs the migration numbers -->
+```
+
+**Do not wrap the comment in an HTML element that opens its own block.** Loupe
+reads that whole region as one block of raw HTML. It keeps the wrapper and
+drops the comment. The note then disappears, and nothing warns you:
+
+```markdown
+<div>
+<!-- this note never appears -->
+</div>
+```
+
+Blockquotes and list items are Markdown rather than raw HTML, so a comment
+inside one renders as a note. The comments stay invisible in every other
+Markdown renderer.
+
 ## Highlights
 
 Highlights tint the passages a reviewer should read first. They carry no body
