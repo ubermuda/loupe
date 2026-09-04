@@ -2653,3 +2653,34 @@ The work is one change repeated four times: include `extension.neon` from
 `ubermuda/gamache` in each bundle's `phpstan.neon`, add the package to
 `require-dev`, and fix whatever the first run reports. Do all four together, so
 the four repositories do not drift into four different standards.
+
+## `document_mark_comment_addressed` reports a best-effort skip reason, and nothing says so
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`App\Module\Review\Mcp\DocumentMarkCommentAddressedTool` settles its write with
+a conditional `UPDATE ... WHERE status = 'pending'`, in
+`App\Module\Review\Repository\CommentRepository::markAddressedIfPending()`. The
+write is authoritative. When zero rows change, the tool calls `currentStatus()`
+to learn why, then reports `already_addressed`, `resolved` or not-found.
+
+That second read is a separate statement outside any row lock. The status can
+move between the two reads, so the reported reason can name the wrong status.
+Only the label is wrong. No comment changes state because of this.
+
+The site-review tool has the same race, and the owner accepted it there as
+best-effort. Pull request #338 wrote that into the `#[McpTool]` description of
+`SiteReviewMarkCommentAddressedTool`, into its `__invoke` docblock, into the
+`loupe-site-review` skill and into `docs/using/mcp.md`.
+
+Locking was rejected on the site-review side. The fix needs `wrapInTransaction`,
+plus `lock(PESSIMISTIC_WRITE)`, plus `refresh()`. `refresh()` fails on these
+entities, because Doctrine refuses to rehydrate a readonly `createdAt`. The cost
+is one lock per comment on every batch, to sharpen a string that is only wrong
+when two writers race the same comment.
+
+The open question is how the document tool records the same contract. It can
+take the same caveat wording as the site-review tool, or another treatment.
+Decide that first. Then apply it to the `#[McpTool]` description, the `__invoke`
+docblock, the `loupe-documents` skill and the `document_mark_comment_addressed`
+row in `docs/using/mcp.md`.
