@@ -31,10 +31,10 @@ A diff accepts comments when its newer side is the current version. The comment
 is an ordinary comment on that version, so it reads and re-anchors like every
 other one.
 
-Two limits follow from that. Text the revision removed cannot be commented on,
-because the current version no longer holds it, and the page says so when you
-select it. A diff that ends at an older version stays read-only, because a
-comment made there would anchor to a version nothing reads back.
+Text the revision removed cannot be commented on, because the current version no
+longer holds it, and the page says so when you select it. A diff that ends at an
+older version stays read-only, because a comment made there would anchor to a
+version nothing reads back.
 
 ## Revising
 
