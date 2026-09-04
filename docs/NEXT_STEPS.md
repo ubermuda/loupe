@@ -2731,3 +2731,25 @@ Decide whether the rule should be that a session never moves the main checkout
 at all, and does every edit in a worktree. Reported by two sessions that now
 work that way. Write it into `CLAUDE.md` if so, because a convention that lives
 only in one session's memory is not a convention.
+
+## "Keep both entries" is wrong when a branch deleted one on purpose
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`CLAUDE.md` says two branches that both append to `docs/NEXT_STEPS.md` conflict,
+"and the resolution is always to keep both entries". The rule is right for two
+branches that append. It is wrong for a branch that *resolves* entries, because
+the file's own rule is to delete a resolved entry entirely, and keeping both
+sides restores work that is already done.
+
+This nearly bit during a fourteen-pull-request merge wave. One branch deleted
+two entries and added one. An outside merger reading only `CLAUDE.md` would have
+kept the deletions' other side and resurrected both. The branch's own session
+merged it instead, because it knew which deletions were intentional.
+
+The generalisation: keep both sides when neither side deleted an entry on
+purpose, and hand the merge to the branch's author when one did. An outside
+merger cannot tell a deliberate deletion from a lost one, and git shows the same
+conflict either way.
+
+Decide whether to write that qualification into `CLAUDE.md` line 45.
