@@ -46,7 +46,7 @@ final readonly class DocumentReviseTool
             // what a document may contain. Title and description are domain
             // rules and are enforced by the handler.
             if (\strlen($markdown) > DocumentCreateTool::MAX_MARKDOWN_BYTES) {
-                throw new ToolCallException('The markdown content exceeds the maximum allowed size.');
+                throw $this->errorMessages->forArgument('markdown', 'The markdown content exceeds the maximum allowed size.');
             }
 
             return ($this->handler)(new ReviseDocumentCommand(
