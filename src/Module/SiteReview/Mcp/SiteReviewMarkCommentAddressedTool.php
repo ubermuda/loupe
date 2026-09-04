@@ -28,7 +28,7 @@ use Symfony\Component\Uid\Uuid;
  * SiteReviewSubjectResolver answers it against the token's binding rather than
  * against ownership.
  */
-#[McpTool(name: 'site_review_mark_comment_addressed', description: 'Mark site-review comments as addressed after fixing them. Accepts the comment ids returned by site_review_get. Comments that are unknown, already addressed, or resolved are skipped, not fatal.')]
+#[McpTool(name: 'site_review_mark_comment_addressed', description: 'Mark site-review comments as addressed after fixing them. Accepts the comment ids returned by site_review_get. Comments that are unknown, already addressed, or resolved are skipped, not fatal. The skip reason is best-effort: the write settles the status, and the reason comes from a separate read that can be stale when another writer changes the same comment at that moment.')]
 final readonly class SiteReviewMarkCommentAddressedTool
 {
     public function __construct(
@@ -41,6 +41,9 @@ final readonly class SiteReviewMarkCommentAddressedTool
      * `string[]` not `list<string>`: the SDK infers a parameter's JSON-schema
      * `items` from the docblock type and parses only the `T[]` and `array<T>`
      * spellings, so `list<string>` publishes an array of anything.
+     *
+     * A `skipped` reason is best-effort. The conditional UPDATE settles the
+     * status, and the reason comes from a second read that can be stale.
      *
      * @param string[] $commentIds comment ids from site_review_get
      *
