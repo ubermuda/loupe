@@ -1431,7 +1431,7 @@
             </trans-unit>
             <trans-unit id="review.decision.error.save_failed">
                 <source>review.decision.error.save_failed</source>
-                <target>Please try again.</target>
+                <target>Couldn’t save that choice. Please try again.</target>
             </trans-unit>
             <trans-unit id="review.decision.error.unknown">
                 <source>review.decision.error.unknown</source>
