@@ -61,6 +61,7 @@ class CreateFirstProjectController extends AppController
                     owner: $user,
                     name: $name,
                     domain: trim($data->domain ?? '') ?: null,
+                    searchLanguage: $data->searchLanguage ?? throw new \LogicException('search language required after validation'),
                 ));
 
                 return $this->redirectToRoute('app_welcome_connect');

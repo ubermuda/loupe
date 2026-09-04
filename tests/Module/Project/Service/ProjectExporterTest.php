@@ -27,6 +27,7 @@ final class ProjectExporterTest extends TestCase
         self::assertCount(1, $rows);
         self::assertSame('My project', $rows[0]['name']);
         self::assertSame('example.com', $rows[0]['domain']);
+        self::assertSame('english', $rows[0]['searchLanguage']);
         self::assertArrayHasKey('createdAt', $rows[0]);
         self::assertSame('projects.json', new ProjectExporter($repo)->filename());
     }

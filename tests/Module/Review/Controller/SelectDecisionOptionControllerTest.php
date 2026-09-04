@@ -28,11 +28,25 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
 
         <!-- decision: deploy-target -->
 
-        - [ ] Ship to staging first
-        - [ ] Ship straight to production
+        - ( ) Ship to staging first
+        - ( ) Ship straight to production
 
         <!-- /decision -->
         MD;
+
+    private const string MULTIPLE_MARKDOWN = <<<'MD'
+        <!-- decision: ship-with -->
+
+        Which of these ship together?
+
+        - [ ] The importer
+        - [ ] The exporter
+        - [ ] The admin page
+
+        <!-- /decision -->
+        MD;
+
+    private const string LONG_OPTION = 'Ship straight to production on a Friday afternoon and then tell the entire company about it';
 
     public function test_the_review_page_renders_a_fence_as_radios_the_reviewer_can_answer(): void
     {
@@ -63,9 +77,9 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
 
         $selections = static::getContainer()->get(DecisionSelectionRepository::class);
         self::assertInstanceOf(DecisionSelectionRepository::class, $selections);
-        $selection = $selections->findOneByDocumentAndDecisionId($document, 'deploy-target');
-        self::assertNotNull($selection);
-        self::assertSame(1, $selection->optionIndex);
+        $stored = $selections->findByDocumentAndDecisionId($document, 'deploy-target');
+        self::assertCount(1, $stored);
+        self::assertSame(1, $stored[0]->optionIndex);
 
         $client->request(Request::METHOD_GET, $this->reviewPath($document));
         self::assertSelectorExists('#decision_option_deploy-target_1[checked]');
@@ -157,6 +171,96 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
             '~target="decision-summary-count">\s*<template>1/1</template>~',
             $body,
         );
+    }
+
+    /**
+     * The status line is the only confirmation a Turbo answer gets, and one line
+     * is shared by every block in the document. Naming the option and the
+     * version is what tells the reviewer which click it reports.
+     */
+    public function test_the_status_line_names_the_chosen_option_and_the_version(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+
+        $client->loginUser($owner);
+        $this->answer($client, $document, 'deploy-target', '1', ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            'Saved “Ship straight to production” for version 1.',
+            self::statusMessage((string) $client->getResponse()->getContent()),
+        );
+    }
+
+    /**
+     * Clearing an answer deletes the row, so the label cannot be read back off
+     * it. Naming the option anyway is what tells the reviewer which of several
+     * checked boxes they just turned off.
+     */
+    public function test_the_status_line_names_the_option_it_cleared(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seedMarkdown($client, self::MULTIPLE_MARKDOWN);
+
+        $client->loginUser($owner);
+        $this->setOption($client, $document, 'ship-with', '1', true);
+        $this->setOption($client, $document, 'ship-with', '1', false, ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            'Cleared “The exporter” for version 1.',
+            self::statusMessage((string) $client->getResponse()->getContent()),
+        );
+    }
+
+    /**
+     * The announcement is shortened on the saved path. A cleared answer reaches
+     * the same `aria-live` region, so a long label must not announce in full
+     * just because the row it came from is gone.
+     */
+    public function test_a_long_option_is_shortened_when_it_is_cleared(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seedMarkdown(
+            $client,
+            "<!-- decision: ship-with -->\n\n- [ ] ".self::LONG_OPTION."\n- [ ] Ship to staging first\n\n<!-- /decision -->\n",
+        );
+
+        $client->loginUser($owner);
+        $this->setOption($client, $document, 'ship-with', '0', true);
+        $this->setOption($client, $document, 'ship-with', '0', false, ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html']);
+
+        $status = self::statusMessage((string) $client->getResponse()->getContent());
+        self::assertStringContainsString('Cleared “Ship straight to production on a Friday', $status);
+        self::assertStringContainsString('…', $status);
+        self::assertStringContainsString('for version 1.', $status);
+        self::assertStringNotContainsString(self::LONG_OPTION, $status);
+    }
+
+    /**
+     * The region is `aria-live`, so an option written as a paragraph would be
+     * read out in full on every click. The panel below still carries the whole
+     * label, because only the announcement is shortened.
+     */
+    public function test_a_long_option_is_shortened_for_the_announcement(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seedMarkdown(
+            $client,
+            "<!-- decision: deploy-target -->\n\n1. ".self::LONG_OPTION."\n2. Ship to staging first\n\n<!-- /decision -->\n",
+        );
+
+        $client->loginUser($owner);
+        $this->answer($client, $document, 'deploy-target', '0', ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html']);
+
+        $body = (string) $client->getResponse()->getContent();
+        $status = self::statusMessage($body);
+        self::assertStringContainsString('Saved “Ship straight to production on a Friday', $status);
+        self::assertStringContainsString('…', $status);
+        self::assertStringContainsString('for version 1.', $status);
+        self::assertStringNotContainsString(self::LONG_OPTION, $status);
+        self::assertStringContainsString(self::LONG_OPTION, $body, 'the panel reports the whole label');
     }
 
     /**
@@ -281,7 +385,13 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
         $body = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('target="decision-status"', $body);
-        self::assertStringContainsString('changed while you were reading', $body);
+        self::assertStringContainsString('lp-decision-status__message--failed', $body);
+        // Named the same way a saved answer is, and against the version the page
+        // still shows rather than the one that superseded it.
+        self::assertSame(
+            'Not saved for version 1. This document changed while you were reading it. Reload the page and choose again.',
+            self::statusMessage($body),
+        );
 
         // The browser leaves the clicked radio checked, so a refusal that only
         // replaced the status line would leave the page claiming a selection
@@ -539,6 +649,14 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
      */
     private function seed(KernelBrowser $client): array
     {
+        return $this->seedMarkdown($client, self::MARKDOWN);
+    }
+
+    /**
+     * @return array{User, Document}
+     */
+    private function seedMarkdown(KernelBrowser $client, string $markdown): array
+    {
         $client->disableReboot();
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -555,7 +673,18 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         $create = static::getContainer()->get(CreateDocumentHandler::class);
         self::assertInstanceOf(CreateDocumentHandler::class, $create);
 
-        return [$owner, $create(new CreateDocumentCommand($project, 'Deploy plan', self::MARKDOWN))];
+        return [$owner, $create(new CreateDocumentCommand($project, 'Deploy plan', $markdown))];
+    }
+
+    /** The text of the status line, lifted out of the stream that carries it. */
+    private static function statusMessage(string $body): string
+    {
+        preg_match('~<span class="lp-decision-status__message[^"]*">(.*?)</span>~s', $body, $matches);
+        if (!isset($matches[1])) {
+            self::fail('the stream carries no status message');
+        }
+
+        return $matches[1];
     }
 
     /**
@@ -586,6 +715,41 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
             (string) $crawler->filter('input[name="select_decision_option_form[_token]"]')->attr('value'),
             (string) $crawler->filter('input[name="select_decision_option_form[versionNumber]"]')->attr('value'),
         ];
+    }
+
+    /**
+     * `answer()` posts no `chosen` field, which a checkbox reads as unchecked.
+     * A multi-choice test has to say which state it is posting.
+     *
+     * @param array<string, string> $server
+     */
+    private function setOption(
+        KernelBrowser $client,
+        Document $document,
+        string $decisionId,
+        string $optionIndex,
+        bool $chosen,
+        array $server = [],
+    ): void {
+        [$token, $versionNumber] = $this->renderForm($client, $document);
+
+        $fields = [
+            'decisionId' => $decisionId,
+            'optionIndex' => $optionIndex,
+            'versionNumber' => $versionNumber,
+            '_token' => $token,
+        ];
+        if ($chosen) {
+            $fields['chosen'] = '1';
+        }
+
+        $client->request(
+            Request::METHOD_POST,
+            $this->decisionPath($document),
+            ['select_decision_option_form' => $fields],
+            [],
+            $server,
+        );
     }
 
     /**

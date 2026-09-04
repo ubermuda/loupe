@@ -82,26 +82,31 @@
     </div>
     {% endif %}
 
-    {# In diff mode the comment-anchor controller is not attached at all rather
-       than told to stay quiet: its highlight painting runs on every layout
-       regardless of readOnly, and the pane it walks no longer holds
-       DocumentVersion::plainText(). The diff's controller takes its place here,
-       above both the jump bar and the marks it moves between. #}
+    {# The comment-anchor controller attaches in diff mode only where the diff
+       accepts comments, and its `diff` value tells it the pane holds two
+       versions. It is never attached merely to stay quiet: its highlight
+       painting runs on every layout, whatever readOnly says. #}
     {% set diffNavigation = diffMode and diffChangeCount is not null %}
+    {% set canComment = not readOnly or diffCommenting %}
+    {% set reviewControllers = (diffNavigation ? ['diff-navigation'] : [])|merge(diffMode and not diffCommenting ? [] : ['comment-anchor']) %}
     {# The one state where the page misleads rather than merely simplifies: the
        two versions do differ, and the rendered view marked none of it, so the
        count says "No changes" about a revision that changed something. A null
        count is a refusal or two identical versions, and both say so already. #}
     {% set diffUnmarked = diffNavigation and diffView.value == 'rendered' and diffChangeCount == 0 %}
     <div class="lp-review-block"
-        {%- if diffNavigation %} data-controller="diff-navigation" data-diff-navigation-position-value="{{ 'review.document.diff.nav.position'|trans({'%total%': diffChangeCount}) }}"
-        {%- elseif not diffMode %} data-controller="comment-anchor"{% endif %}>
+        {%- if reviewControllers|length > 0 %} data-controller="{{ reviewControllers|join(' ') }}"{% endif %}
+        {%- if diffNavigation %} data-diff-navigation-position-value="{{ 'review.document.diff.nav.position'|trans({'%total%': diffChangeCount}) }}"{% endif %}
+        {%- if diffCommenting %} data-comment-anchor-diff-value="true"
+            data-comment-anchor-deleted-message-value="{{ 'review.document.diff.comment.deleted_refused'|trans }}"
+            data-comment-anchor-unanchorable-message-value="{{ 'review.document.diff.comment.unanchorable_refused'|trans }}"{% endif %}>
         {# .lp-review-doc is position:relative: the offset parent the floating
            composer and toolbar are placed against, and the frame the comment
            margin is measured within. The inner [data-comment-anchor-target="doc"]
            is the TreeWalker root and must hold ONLY the rendered HTML — no
            template whitespace — so its textContent === plainText(). #}
-        <div class="lp-review-doc" data-comment-anchor-target="block" data-controller="decision"{% if not readOnly %} data-action="mouseup->comment-anchor#onDocMouseup mousemove->comment-anchor#onDocMousemove change->decision#select"{% endif %}>
+        {% set docActions = (canComment ? ['mouseup->comment-anchor#onDocMouseup', 'mousemove->comment-anchor#onDocMousemove'] : [])|merge(readOnly ? [] : ['change->decision#select']) %}
+        <div class="lp-review-doc" data-comment-anchor-target="block" data-controller="decision"{% if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}>
 
             <div class="lp-review-doc__head">
                 <h1 class="lp-review-doc__title">{{ document.title }}</h1>
@@ -135,7 +140,7 @@
                used to push the first paragraph below the fold.
                A sibling of the head, not a child: the bar is sticky, and a
                sticky element cannot outlive its containing block. #}
-            {% if showVersions or showContents or referenceCount > 0 or decisionRows|length > 0 or document.tags|length > 0 or diffNavigation %}
+            {% if showVersions or showContents or referenceCount > 0 or decisionRows|length > 0 or document.tags|length > 0 or document.series is not null or diffNavigation %}
             <div class="lp-doc-meta-bar" data-controller="metadata-tabs">
                     <div class="lp-doc-meta">
                         {% if showVersions %}
@@ -180,6 +185,14 @@
                             }) }}</span>
                             <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
                         </button>
+                        {% endif %}
+                        {% if document.series is not null %}
+                        <div class="lp-doc-meta__series">
+                            <span class="lp-series">{{ 'review.document.series.item'|trans({
+                                '%series%': document.series.name,
+                                '%ordinal%': document.seriesOrdinal,
+                            }) }}</span>
+                        </div>
                         {% endif %}
                         {% if document.tags|length > 0 %}
                         <div class="lp-doc-meta__tags">
@@ -347,7 +360,7 @@
             </div>
             {% endif %}
 
-            {% if not readOnly and not diffMode %}
+            {% if canComment %}
             <div class="lp-review-actions">
                 <button type="button" class="lp-btn lp-btn--sm" data-action="comment-anchor#startUntargeted">
                     {{ 'review.document.comment.untargeted'|trans }}
@@ -366,8 +379,10 @@
             </div>
             {% endif %}
 
-            {% if not diffMode %}
-            {% include '@Review/_comment_threads.html.twig' with {comments: comments, readOnly: readOnly} only %}
+            {# Also on a diff that accepts comments: the add-comment stream
+               replaces this list, so a comment made there needs it on the page. #}
+            {% if not diffMode or diffCommenting %}
+            {% include '@Review/_comment_threads.html.twig' with {comments: comments, readOnly: readOnly and not diffCommenting} only %}
             {% endif %}
 
             {# The one part the diff view replaces — see diff_document_versions.html.twig.
@@ -389,6 +404,7 @@
             }}) }}
                 {{ form_widget(selectDecisionForm.decisionId) }}
                 {{ form_widget(selectDecisionForm.optionIndex) }}
+                {{ form_widget(selectDecisionForm.chosen) }}
             {{ form_end(selectDecisionForm) }}
             {% endif %}
 
@@ -409,8 +425,9 @@
             {% endif %}
 
             {# The composer and its toolbar post onto the CURRENT version, so on an
-               earlier one they are omitted entirely rather than shown and ignored. #}
-            {% if not readOnly %}
+               earlier one they are omitted entirely rather than shown and ignored.
+               A diff whose newer side IS the current version keeps them. #}
+            {% if canComment %}
             {# Floating toolbar — appears on text selection so selecting text no
                longer steals focus or blocks copying. Comment and Suggest open a
                composer; Strike posts on the spot, which is why it also carries the

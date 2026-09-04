@@ -72,9 +72,9 @@ final class DocumentReplyToCommentToolTest extends KernelTestCase
         $first = ($this->tool)((string) $comment->id, 'One.');
 
         $this->expectException(ToolCallException::class);
-        // The translated sentence, not the key: nothing renders a template for
-        // an MCP caller, so the key would reach the agent verbatim.
-        $this->expectExceptionMessage('The reply was rejected: Replies can only be added to the top-level comment.');
+        // A sentence naming the argument, not the key: nothing renders a
+        // template for an MCP caller, so the key would reach the agent verbatim.
+        $this->expectExceptionMessage('body: A reply can only be added to the top-level comment of a thread.');
         ($this->tool)($first['id'], 'Two.');
     }
 
@@ -85,7 +85,7 @@ final class DocumentReplyToCommentToolTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($comment->version->document->project);
 
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('The reply was rejected: A reply cannot be empty.');
+        $this->expectExceptionMessage('body: A reply must not be blank.');
         ($this->tool)((string) $comment->id, "  \n ");
     }
 

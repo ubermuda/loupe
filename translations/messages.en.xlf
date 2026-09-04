@@ -1037,6 +1037,10 @@
                 <source>review.dashboard.description_ranked</source>
                 <target>Documents the agent submitted for review, best matches first.</target>
             </trans-unit>
+            <trans-unit id="review.dashboard.description_series">
+                <source>review.dashboard.description_series</source>
+                <target>Documents the agent submitted for review, in the order of the series.</target>
+            </trans-unit>
             <trans-unit id="review.dashboard.meta.updated">
                 <source>review.dashboard.meta.updated</source>
                 <target>Updated %time%</target>
@@ -1072,6 +1076,14 @@
             <trans-unit id="review.dashboard.filter.all_tags">
                 <source>review.dashboard.filter.all_tags</source>
                 <target>All tags</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.series_label">
+                <source>review.dashboard.filter.series_label</source>
+                <target>Filter by series</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.filter.all_series">
+                <source>review.dashboard.filter.all_series</source>
+                <target>All series</target>
             </trans-unit>
             <trans-unit id="review.dashboard.filter.clear">
                 <source>review.dashboard.filter.clear</source>
@@ -1146,6 +1158,42 @@
             <trans-unit id="review.tags.error.too_long">
                 <source>review.tags.error.too_long</source>
                 <target>That tag name is too long.</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.series.item">
+                <source>review.dashboard.series.item</source>
+                <target>%series%, item %ordinal%</target>
+            </trans-unit>
+            <trans-unit id="review.document.series.item">
+                <source>review.document.series.item</source>
+                <target>Series %series%, item %ordinal%</target>
+            </trans-unit>
+            <trans-unit id="review.series.error.name_required">
+                <source>review.series.error.name_required</source>
+                <target>Give the series a name beside its item number.</target>
+            </trans-unit>
+            <trans-unit id="review.series.error.too_long">
+                <source>review.series.error.too_long</source>
+                <target>That series name is too long.</target>
+            </trans-unit>
+            <trans-unit id="review.series.error.ordinal_required">
+                <source>review.series.error.ordinal_required</source>
+                <target>Give the document an item number in the series.</target>
+            </trans-unit>
+            <trans-unit id="review.series.error.ordinal_not_positive">
+                <source>review.series.error.ordinal_not_positive</source>
+                <target>An item number must be 1 or greater.</target>
+            </trans-unit>
+            <trans-unit id="review.series.error.ordinal_too_large">
+                <source>review.series.error.ordinal_too_large</source>
+                <target>That item number is too large.</target>
+            </trans-unit>
+            <trans-unit id="review.series.error.ordinal_taken">
+                <source>review.series.error.ordinal_taken</source>
+                <target>Another document in that series already holds that item number.</target>
+            </trans-unit>
+            <trans-unit id="review.series.error.name_taken">
+                <source>review.series.error.name_taken</source>
+                <target>The project already has a series of that name.</target>
             </trans-unit>
             <trans-unit id="review.references.error.self_reference">
                 <source>review.references.error.self_reference</source>
@@ -1327,6 +1375,14 @@
                 <source>review.document.diff.refused.unsupported_characters</source>
                 <target>These versions contain characters this comparison cannot handle, and showing it anyway would misreport what changed. Use the version list above to read either version in full.</target>
             </trans-unit>
+            <trans-unit id="review.document.diff.comment.deleted_refused">
+                <source>review.document.diff.comment.deleted_refused</source>
+                <target>You cannot comment on text this revision removed. Select text the newer version still has.</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.comment.unanchorable_refused">
+                <source>review.document.diff.comment.unanchorable_refused</source>
+                <target>You cannot comment on this selection. Select text inside one part of the newer version.</target>
+            </trans-unit>
 
             <!-- Document review table of contents -->
             <trans-unit id="review.document.contents.label">
@@ -1423,7 +1479,15 @@
             </trans-unit>
             <trans-unit id="review.decision.status.saved">
                 <source>review.decision.status.saved</source>
-                <target>Choice saved.</target>
+                <target>Saved “%option%” for version %version%.</target>
+            </trans-unit>
+            <trans-unit id="review.decision.status.cleared">
+                <source>review.decision.status.cleared</source>
+                <target>Cleared “%option%” for version %version%.</target>
+            </trans-unit>
+            <trans-unit id="review.decision.status.not_saved">
+                <source>review.decision.status.not_saved</source>
+                <target>Not saved for version %version%. %reason%</target>
             </trans-unit>
             <trans-unit id="review.decision.error.save_failed">
                 <source>review.decision.error.save_failed</source>
@@ -1622,6 +1686,130 @@
             <trans-unit id="project.form.create_project_form.domain.placeholder">
                 <source>project.form.create_project_form.domain.placeholder</source>
                 <target>example.com</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.label">
+                <source>project.form.create_project_form.search_language.label</source>
+                <target>Document language</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.hint">
+                <source>project.form.create_project_form.search_language.hint</source>
+                <target>Search stems words in this language. New documents in this project use it unless the agent that writes them names another. You can change it later, and the change applies only to documents written after it.</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.arabic">
+                <source>project.form.create_project_form.search_language.choice.arabic</source>
+                <target>Arabic</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.armenian">
+                <source>project.form.create_project_form.search_language.choice.armenian</source>
+                <target>Armenian</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.basque">
+                <source>project.form.create_project_form.search_language.choice.basque</source>
+                <target>Basque</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.catalan">
+                <source>project.form.create_project_form.search_language.choice.catalan</source>
+                <target>Catalan</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.danish">
+                <source>project.form.create_project_form.search_language.choice.danish</source>
+                <target>Danish</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.dutch">
+                <source>project.form.create_project_form.search_language.choice.dutch</source>
+                <target>Dutch</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.english">
+                <source>project.form.create_project_form.search_language.choice.english</source>
+                <target>English</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.finnish">
+                <source>project.form.create_project_form.search_language.choice.finnish</source>
+                <target>Finnish</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.french">
+                <source>project.form.create_project_form.search_language.choice.french</source>
+                <target>French</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.german">
+                <source>project.form.create_project_form.search_language.choice.german</source>
+                <target>German</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.greek">
+                <source>project.form.create_project_form.search_language.choice.greek</source>
+                <target>Greek</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.hindi">
+                <source>project.form.create_project_form.search_language.choice.hindi</source>
+                <target>Hindi</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.hungarian">
+                <source>project.form.create_project_form.search_language.choice.hungarian</source>
+                <target>Hungarian</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.indonesian">
+                <source>project.form.create_project_form.search_language.choice.indonesian</source>
+                <target>Indonesian</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.irish">
+                <source>project.form.create_project_form.search_language.choice.irish</source>
+                <target>Irish</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.italian">
+                <source>project.form.create_project_form.search_language.choice.italian</source>
+                <target>Italian</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.lithuanian">
+                <source>project.form.create_project_form.search_language.choice.lithuanian</source>
+                <target>Lithuanian</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.nepali">
+                <source>project.form.create_project_form.search_language.choice.nepali</source>
+                <target>Nepali</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.norwegian">
+                <source>project.form.create_project_form.search_language.choice.norwegian</source>
+                <target>Norwegian</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.portuguese">
+                <source>project.form.create_project_form.search_language.choice.portuguese</source>
+                <target>Portuguese</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.romanian">
+                <source>project.form.create_project_form.search_language.choice.romanian</source>
+                <target>Romanian</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.russian">
+                <source>project.form.create_project_form.search_language.choice.russian</source>
+                <target>Russian</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.serbian">
+                <source>project.form.create_project_form.search_language.choice.serbian</source>
+                <target>Serbian</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.simple">
+                <source>project.form.create_project_form.search_language.choice.simple</source>
+                <target>Other or mixed (no stemming)</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.spanish">
+                <source>project.form.create_project_form.search_language.choice.spanish</source>
+                <target>Spanish</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.swedish">
+                <source>project.form.create_project_form.search_language.choice.swedish</source>
+                <target>Swedish</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.tamil">
+                <source>project.form.create_project_form.search_language.choice.tamil</source>
+                <target>Tamil</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.turkish">
+                <source>project.form.create_project_form.search_language.choice.turkish</source>
+                <target>Turkish</target>
+            </trans-unit>
+            <trans-unit id="project.form.create_project_form.search_language.choice.yiddish">
+                <source>project.form.create_project_form.search_language.choice.yiddish</source>
+                <target>Yiddish</target>
             </trans-unit>
             <trans-unit id="project.error.name_taken">
                 <source>project.error.name_taken</source>
@@ -1882,6 +2070,10 @@
                 <source>project.connect.tool.document_set_tags</source>
                 <target>Replace a document's tags with the given set. An empty list clears them.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.document_set_series">
+                <source>project.connect.tool.document_set_series</source>
+                <target>Place a document at a numbered position in an ordered set, or take it out of one.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.document_set_references">
                 <source>project.connect.tool.document_set_references</source>
                 <target>Replace the set of documents a document points at, without creating a new version.</target>
@@ -1901,6 +2093,14 @@
             <trans-unit id="project.connect.tool.tag_list">
                 <source>project.connect.tool.tag_list</source>
                 <target>List every tag in the project with how many documents carry it.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.series_list">
+                <source>project.connect.tool.series_list</source>
+                <target>List every series in the project, with how many documents each holds and the highest position in use.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.series_rename">
+                <source>project.connect.tool.series_rename</source>
+                <target>Rename a series. Every document in it keeps its position.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.site_review_get">
                 <source>project.connect.tool.site_review_get</source>
@@ -3300,6 +3500,14 @@
                 <source>review.document.diff.mark.deleted</source>
                 <target>Removed</target>
             </trans-unit>
+            <trans-unit id="review.document.front_matter.label">
+                <source>review.document.front_matter.label</source>
+                <target>Front matter</target>
+            </trans-unit>
+            <trans-unit id="review.document.note.label">
+                <source>review.document.note.label</source>
+                <target>Annotation</target>
+            </trans-unit>
 
             <trans-unit id="landing.meta.description">
                 <source>landing.meta.description</source>
@@ -3439,7 +3647,7 @@
             </trans-unit>
             <trans-unit id="landing.feature.decisions.text">
                 <source>landing.feature.decisions.text</source>
-                <target>An agent can mark a passage as a decision with options. The reviewer picks one, and the choice comes back structured.</target>
+                <target>An agent can mark a passage as a decision with options. The reviewer picks one or several, and the choice comes back structured.</target>
             </trans-unit>
             <trans-unit id="landing.feature.site_review.title">
                 <source>landing.feature.site_review.title</source>

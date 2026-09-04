@@ -34,6 +34,9 @@ final readonly class UpdateProjectHandler
 
         $project->name = $command->name;
         $project->domain = $command->domain;
+        // Documents keep the language they were written with, so this only
+        // changes what a document created after it inherits.
+        $project->searchLanguage = $command->searchLanguage;
         $this->em->flush();
 
         $this->auditor->record(

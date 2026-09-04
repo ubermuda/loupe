@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Project\Controller;
 
+use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Tests\Support\AcceptedTerms;
@@ -41,6 +42,38 @@ final class EditProjectControllerTest extends WebTestCase
         self::assertInstanceOf(Project::class, $fresh);
         self::assertSame('after-name', $fresh->name);
         self::assertSame('after.example', $fresh->domain);
+    }
+
+    public function test_the_edit_screen_pre_fills_and_changes_the_search_language(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'edit-language@example.com');
+        $project = new Project($owner, 'language-field');
+        $project->searchLanguage = SearchLanguage::German;
+        $em->persist($project);
+        $em->flush();
+        $projectId = $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/edit');
+
+        self::assertResponseIsSuccessful();
+        $selected = $crawler->filter('[name="create_project_form[searchLanguage]"] option[selected]');
+        self::assertCount(1, $selected);
+        self::assertSame(SearchLanguage::German->value, $selected->attr('value'));
+
+        $client->submitForm('Save changes', [
+            'create_project_form[name]' => 'language-field',
+            'create_project_form[searchLanguage]' => SearchLanguage::Dutch->value,
+        ]);
+
+        self::assertResponseRedirects('/projects');
+        $em->clear();
+        $fresh = $em->find(Project::class, $projectId);
+        self::assertInstanceOf(Project::class, $fresh);
+        self::assertSame(SearchLanguage::Dutch, $fresh->searchLanguage);
     }
 
     public function test_a_blank_domain_clears_it(): void

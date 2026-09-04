@@ -4,7 +4,7 @@
 # application in its own right — its own URL, its own database — and so its
 # gates (just ci) run against its own code, isolated from other worktrees.
 #
-# Only nginx is duplicated per worktree. php-fpm, Postgres, Mailpit and Mercure
+# nginx and Mailpit are duplicated per worktree. php-fpm, Postgres and Mercure
 # are shared with the main stack.
 #
 # What it does (idempotent, safe to re-run on every entry):
@@ -17,9 +17,10 @@
 #      `just ci` runs don't drop/recreate each other's schema.
 #   4. .env.local copied from the main checkout (when absent) — carries any
 #      local-only env (e.g. a real APP_ENCRYPTION_KEY) the dev kernel needs —
-#      plus the three per-worktree values written below.
+#      plus the four per-worktree values written below.
 #   5. A per-worktree DEV database, migrated and seeded.
-#   6. An nginx sidecar routed by Traefik at <slug>.<project>.dev.localhost.
+#   6. nginx and Mailpit sidecars, both routed by Traefik under
+#      <project>.dev.localhost.
 #   7. Dev cache warmup — phpstan reads var/cache/dev/App_KernelDevDebugContainer.xml,
 #      which only exists after a kernel boot, so a fresh worktree fails `just ci`
 #      without it.

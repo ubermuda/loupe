@@ -20,6 +20,10 @@ final readonly class DiffDocumentVersionsView
      * `view` names: `renderedDiff` for the rendered view, `diff` for the source
      * one, which is why only the showing view is ever built.
      *
+     * `commentingEnabled` says whether a reviewer may comment on this pane. It
+     * needs the rendered view, and it needs the newer side to be the version a
+     * comment would land on, which is the latest one.
+     *
      * @param list<Comment>                                                                        $comments
      * @param list<array{versionNumber: int, createdAt: \DateTimeImmutable, description: ?string}> $versions
      */
@@ -30,6 +34,7 @@ final readonly class DiffDocumentVersionsView
         public ?RenderedDiff $renderedDiff,
         public ?DiffRefusal $diffRefusal,
         public ?int $changeCount,
+        public bool $commentingEnabled,
         public array $comments,
         public array $versions,
         public int $orphanedCount,

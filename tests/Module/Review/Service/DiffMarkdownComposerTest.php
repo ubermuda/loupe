@@ -10,6 +10,7 @@ use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\ValueObject\DocumentDiff;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use Symfony\Component\Translation\IdentityTranslator;
 
 /**
  * Assertions are on the rendered HTML rather than the merged Markdown, since
@@ -24,7 +25,7 @@ final class DiffMarkdownComposerTest extends TestCase
     protected function setUp(): void
     {
         $this->differ = new MarkdownDiffer();
-        $this->renderer = new MarkdownRenderer(new NullLogger());
+        $this->renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
         $this->composer = new DiffMarkdownComposer();
     }
 

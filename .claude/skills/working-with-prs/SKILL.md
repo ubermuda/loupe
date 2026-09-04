@@ -125,6 +125,18 @@ permanent history.
 
 A reviewer who has to build state by hand usually will not.
 
+**The preview links go at the very top of the body, under a `## Preview`
+heading, before the decision, the summary and everything else.** They are the
+first thing the owner looks for, so nothing goes above them. A demo section
+called "Try it", "Click it" or "Verification", sitting two thirds of the way
+down next to the gate results, makes the reviewer hunt for the one thing they
+opened the page to find. Lead with the links, then explain the change.
+
+Give each link a one-line label saying what state it shows. When a change has
+several states, seed one document per state and link each: a reviewer who can
+see all of them side by side reviews what the code does, rather than the one
+case you happened to seed.
+
 Point at the running instance. Every worktree serves its own branch at
 `https://<slug>.loupe.dev.localhost`. Put that URL in the body with the login
 (`dev@loupe.test` / `password`, or `admin@loupe.test` for the admin area).

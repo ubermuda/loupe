@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Project\Entity;
 
+use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Repository\ProjectRepository;
@@ -41,6 +42,14 @@ class Project
     #[ORM\JoinColumn(name: 'mcp_token_id', onDelete: 'SET NULL')]
     #[ORM\OneToOne(targetEntity: ApiToken::class)]
     public ?ApiToken $mcpToken = null;
+
+    /**
+     * The stemming language a new document in this project gets when the caller
+     * names none. Read once, at creation: each document then carries its own
+     * language, so changing this leaves the documents already written alone.
+     */
+    #[ORM\Column(name: 'search_language', length: 20, enumType: SearchLanguage::class, options: ['default' => SearchLanguage::DEFAULT->value])]
+    public SearchLanguage $searchLanguage = SearchLanguage::DEFAULT;
 
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]

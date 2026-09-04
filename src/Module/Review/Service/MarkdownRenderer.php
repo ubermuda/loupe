@@ -19,6 +19,7 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizer;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerAction;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 final readonly class MarkdownRenderer
 {
@@ -118,6 +119,7 @@ final readonly class MarkdownRenderer
      */
     public function __construct(
         private LoggerInterface $logger,
+        private TranslatorInterface $translator,
         private DecisionBlockService $decisions = new DecisionBlockService(),
         private DiffMarkdownComposer $diffComposer = new DiffMarkdownComposer(),
     ) {
@@ -391,6 +393,8 @@ final readonly class MarkdownRenderer
      */
     private function withDocumentNotes(string $html): string
     {
+        $label = $this->ariaLabel('review.document.note.label');
+
         return preg_replace_callback(
             $this->notePattern,
             /** @param array<int, string> $matches */
@@ -398,10 +402,16 @@ final readonly class MarkdownRenderer
             // document with six markers would otherwise add six unnamed
             // landmarks to the page's landmark list.
             static fn (array $matches): string => 'block' === $matches[1]
-                ? sprintf('<aside role="note" class="lp-doc-note">%s</aside>', $matches[2])
+                ? sprintf('<aside role="note" aria-label="%s" class="lp-doc-note">%s</aside>', $label, $matches[2])
                 : sprintf('<span class="lp-doc-note lp-doc-note--inline">%s</span>', $matches[2]),
             $html,
         ) ?? throw new \RuntimeException('Comment annotation pass failed: '.preg_last_error_msg().'.');
+    }
+
+    /** A translated accessible name, escaped here since nothing downstream will do it. */
+    private function ariaLabel(string $key): string
+    {
+        return htmlspecialchars($this->translator->trans($key), \ENT_QUOTES | \ENT_SUBSTITUTE, 'UTF-8');
     }
 
     /**
@@ -429,7 +439,10 @@ final readonly class MarkdownRenderer
         // strip_tags() inserts nothing of its own, so without the newlines every
         // cell would run into the next one in plainText() — the string every
         // comment anchor is measured against.
-        $out->append("<table class=\"lp-front-matter\">\n<tbody>\n");
+        $out->append(sprintf(
+            "<table class=\"lp-front-matter\" aria-label=\"%s\">\n<tbody>\n",
+            $this->ariaLabel('review.document.front_matter.label'),
+        ));
         $out->each($frontMatter, function (int|string $key, mixed $value) use ($out): void {
             $out->visit(0);
             $out->append("<tr>\n<th scope=\"row\">");
