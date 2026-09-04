@@ -1456,11 +1456,13 @@ read parts of it directly.
 
 What is left is distribution: the plugin is not listed anywhere. Self-serve, no
 gatekeeper: Gemini CLI (add the GitHub topic `gemini-cli-extension` plus a root
-`gemini-extension.json`, crawled daily), Pi
-(npm keyword `pi-package`), OpenCode (PR to their ecosystem page), skills.sh,
-and the MCP registry (still in preview). Curated but open: the Claude Code
-plugin directory, Cursor's marketplace (manual review, plugins must be open
+`gemini-extension.json`, crawled daily), OpenCode (PR to their ecosystem page),
+skills.sh, and the MCP registry (still in preview). Curated but open: the Claude
+Code plugin directory, Cursor's marketplace (manual review, plugins must be open
 source — AGPL qualifies), and Kiro's Powers.
+
+The Pi listing is not in that set. 'Ship a Pi plugin for Loupe' owns it, and the
+owner parked that entry. Do not start the Pi listing from here.
 
 Not worth investing in: Droid, Amp, Devin Desktop and Cline have no third-party
 publishing path, and Zed has no agent lifecycle hooks. Roo Code is discontinued
@@ -1548,8 +1550,8 @@ and Droid. A Pi plugin therefore adds a package and a listing, and no second
 packaging format.
 
 Pi's publishing path is self-serve: an npm package that carries the `pi-package`
-keyword. The packaging entry named above tracks that listing, so keep the two
-entries in step.
+keyword. This entry owns that listing. The packaging entry named above lists the
+other directories, and it does not list Pi.
 
 ## A step-ca thread leak takes down `docker exec` for every other container
 
