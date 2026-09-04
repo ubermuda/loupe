@@ -34,6 +34,14 @@ use Symfony\UX\Turbo\TurboBundle;
 )]
 final class SelectDecisionOptionController extends AppController
 {
+    /**
+     * How much of an option label the status line repeats.
+     *
+     * The region is `aria-live`, so a whole paragraph of an option would be read
+     * out on every click.
+     */
+    private const int ANNOUNCED_OPTION_LENGTH = 60;
+
     public function __construct(
         private readonly SelectDecisionOptionHandler $selectDecisionOption,
         private readonly ShowPersistedDecisionBlockHandler $showPersistedDecisionBlock,
@@ -55,16 +63,22 @@ final class SelectDecisionOptionController extends AppController
         $failed = true;
 
         if (!$form->isSubmitted() || !$form->isValid()) {
-            $message = $this->translator->trans('review.decision.error.save_failed');
+            $message = $this->refusal($this->translator->trans('review.decision.error.save_failed'), $data->versionNumber);
         } else {
             try {
-                ($this->selectDecisionOption)(new SelectDecisionOptionCommand(
+                $selection = ($this->selectDecisionOption)(new SelectDecisionOptionCommand(
                     document: $document,
                     decisionId: $data->decisionId ?? throw new \LogicException('decisionId required after validation'),
                     optionIndex: $data->optionIndex ?? throw new \LogicException('optionIndex required after validation'),
                     displayedVersionNumber: $data->versionNumber ?? throw new \LogicException('versionNumber required after validation'),
                 ));
-                $message = $this->translator->trans('review.decision.status.saved');
+                // The stored label and version, never the submitted ones: the
+                // handler is what decides which option and which version the
+                // answer actually landed against.
+                $message = $this->translator->trans('review.decision.status.saved', [
+                    '%option%' => self::announcedOption($selection->optionLabel),
+                    '%version%' => $selection->versionNumber,
+                ]);
                 $failed = false;
             } catch (DomainErrors $e) {
                 // Deliberately not mapped onto the form fields. The form is
@@ -72,10 +86,10 @@ final class SelectDecisionOptionController extends AppController
                 // form_errors() output would be invisible; the status line is
                 // the only surface. The field names in $e->errors are dropped
                 // and only the messages survive.
-                $message = implode(' ', array_map(
+                $message = $this->refusal(implode(' ', array_map(
                     fn (string $key): string => $this->translator->trans($key),
                     $e->errors,
-                ));
+                )), $data->versionNumber);
             }
         }
 
@@ -127,5 +141,34 @@ final class SelectDecisionOptionController extends AppController
             $failed ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK,
             ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE],
         );
+    }
+
+    /**
+     * A refusal, framed the way a saved answer is: the outcome, then the version
+     * the reviewer is still looking at, then why.
+     *
+     * The submitted version is the honest one to name here. A refused answer
+     * belongs to the list the reviewer clicked, which is what the page still
+     * shows.
+     */
+    private function refusal(string $reason, ?int $versionNumber): string
+    {
+        if (null === $versionNumber) {
+            return $reason;
+        }
+
+        return $this->translator->trans('review.decision.status.not_saved', [
+            '%reason%' => $reason,
+            '%version%' => $versionNumber,
+        ]);
+    }
+
+    private static function announcedOption(string $label): string
+    {
+        if (mb_strlen($label) <= self::ANNOUNCED_OPTION_LENGTH) {
+            return $label;
+        }
+
+        return rtrim(mb_substr($label, 0, self::ANNOUNCED_OPTION_LENGTH)).'…';
     }
 }
