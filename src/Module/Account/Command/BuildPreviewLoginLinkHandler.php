@@ -30,7 +30,9 @@ final readonly class BuildPreviewLoginLinkHandler
             throw new DomainErrors(['email' => 'account.preview_login.error.unknown_email']);
         }
 
-        if (!str_starts_with($command->path, '/') || str_starts_with($command->path, '//')) {
+        // Browsers normalise a backslash to a slash, so /\evil.test is network-path
+        // relative once the redirect reaches them.
+        if (1 !== preg_match('#^/(?![/\\\\])#', $command->path)) {
             throw new DomainErrors(['path' => 'account.preview_login.error.path_not_local']);
         }
 

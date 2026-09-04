@@ -76,6 +76,8 @@ final class BuildPreviewLoginLinkHandlerTest extends TestCase
     public static function non_local_paths(): iterable
     {
         yield 'protocol relative' => ['//evil.test/steal'];
+        yield 'backslash network path' => ['/\\evil.test/steal'];
+        yield 'double backslash' => ['/\\\\evil.test/steal'];
         yield 'absolute url' => ['https://evil.test/steal'];
         yield 'relative' => ['projects'];
     }
