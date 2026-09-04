@@ -26,6 +26,13 @@ class Series
     /** Mirrors both name columns' length so callers can reject an over-long name before Postgres does. */
     public const int MAX_NAME_LENGTH = 100;
 
+    /**
+     * The largest value the ordinal's `INT` column holds. PHP counts far past
+     * it on a 64-bit build, so an ordinal that is merely positive can still
+     * overflow the column and fail at flush rather than as a field error.
+     */
+    public const int MAX_ORDINAL = 2_147_483_647;
+
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
@@ -119,6 +126,10 @@ class Series
 
         if ($ordinal < 1) {
             throw new DomainErrors(['seriesOrdinal' => 'review.series.error.ordinal_not_positive']);
+        }
+
+        if ($ordinal > self::MAX_ORDINAL) {
+            throw new DomainErrors(['seriesOrdinal' => 'review.series.error.ordinal_too_large']);
         }
 
         return [$name, $ordinal];

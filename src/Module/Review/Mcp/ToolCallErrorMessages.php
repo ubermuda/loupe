@@ -34,6 +34,7 @@ final readonly class ToolCallErrorMessages
             'review.series.error.too_long' => \sprintf('A series name must be at most %d characters.', Series::MAX_NAME_LENGTH),
             'review.series.error.ordinal_required' => 'A series name needs an ordinal beside it, counting from 1.',
             'review.series.error.ordinal_not_positive' => 'A series ordinal must be 1 or greater.',
+            'review.series.error.ordinal_too_large' => \sprintf('A series ordinal must be at most %d.', Series::MAX_ORDINAL),
             'review.series.error.ordinal_taken' => 'Another document in that series already holds that ordinal.',
             'review.series.error.name_taken' => 'The project already has a series of that name.',
             'review.references.error.self_reference' => 'A document cannot reference itself.',

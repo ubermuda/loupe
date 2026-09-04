@@ -69,6 +69,16 @@ final class SeriesTest extends TestCase
         Series::normalizePlacement('blog series', 0);
     }
 
+    /** PHP counts past the ordinal column's range, so a merely positive ordinal is not enough. */
+    public function test_an_ordinal_beyond_the_column_range_is_rejected(): void
+    {
+        self::assertSame(['blog series', Series::MAX_ORDINAL], Series::normalizePlacement('blog series', Series::MAX_ORDINAL));
+
+        $this->expectExceptionObject(new DomainErrors(['seriesOrdinal' => 'review.series.error.ordinal_too_large']));
+
+        Series::normalizePlacement('blog series', Series::MAX_ORDINAL + 1);
+    }
+
     public function test_an_over_long_name_is_rejected_before_postgres_sees_it(): void
     {
         $this->expectExceptionObject(new DomainErrors(['series' => 'review.series.error.too_long']));

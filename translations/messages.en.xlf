@@ -1183,6 +1183,10 @@
                 <source>review.series.error.ordinal_not_positive</source>
                 <target>An item number must be 1 or greater.</target>
             </trans-unit>
+            <trans-unit id="review.series.error.ordinal_too_large">
+                <source>review.series.error.ordinal_too_large</source>
+                <target>That item number is too large.</target>
+            </trans-unit>
             <trans-unit id="review.series.error.ordinal_taken">
                 <source>review.series.error.ordinal_taken</source>
                 <target>Another document in that series already holds that item number.</target>
