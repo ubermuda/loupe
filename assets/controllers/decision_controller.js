@@ -8,10 +8,11 @@ import { Controller } from '@hotwired/stimulus';
  * inputs that post nothing themselves — clicking one copies its decision id and
  * option index into this form's hidden fields, exactly as the comment composer
  * fills its anchor fields, and Turbo submits it. A checkbox posts the option it
- * carries whether it was ticked or unticked, and the server toggles the row.
+ * carries whether it was ticked or unticked, alongside which of the two it now
+ * is, so a second tab holding an older view cannot undo what the first one did.
  */
 export default class extends Controller {
-    static targets = ['form', 'decisionId', 'optionIndex'];
+    static targets = ['form', 'decisionId', 'optionIndex', 'chosen'];
 
     select(event) {
         const control = event.target;
@@ -26,6 +27,9 @@ export default class extends Controller {
 
         this.decisionIdTarget.value = block.dataset.decisionId;
         this.optionIndexTarget.value = control.value;
+        if (this.hasChosenTarget) {
+            this.chosenTarget.checked = control.checked;
+        }
         // requestSubmit(), never submit(): submit() fires no submit event, so
         // csrf_protection_controller.js's document-level listener never runs the
         // double-submit and every password-login session gets a 403 — while the

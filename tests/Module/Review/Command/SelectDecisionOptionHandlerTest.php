@@ -134,18 +134,39 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
         self::assertSame(['The importer', 'The admin page'], array_map(static fn (object $row): string => $row->optionLabel, $stored));
     }
 
-    /** Clicking a ticked checkbox unticks it, so the same POST has to take the row back off. */
-    public function test_answering_a_chosen_option_again_removes_it(): void
+    /** Unticking a checkbox says so, so the POST takes that one row back off. */
+    public function test_unticking_a_chosen_option_removes_it(): void
     {
         $document = $this->createDocument(self::MULTIPLE_MARKDOWN);
         ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1));
         ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 1, displayedVersionNumber: 1));
 
-        $result = ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1));
+        $result = ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1, chosen: false));
 
         self::assertNull($result->selection);
         $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
         self::assertSame([1], array_map(static fn (object $row): int => $row->optionIndex, $stored));
+    }
+
+    /**
+     * The click says what it wants rather than flipping what is stored, so a
+     * repeat of the same POST, and a second tab holding an older view of the
+     * block, both land on the answer the reviewer gave.
+     */
+    public function test_the_same_answer_twice_lands_on_the_same_state(): void
+    {
+        $document = $this->createDocument(self::MULTIPLE_MARKDOWN);
+
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1));
+
+        $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
+        self::assertSame([0], array_map(static fn (object $row): int => $row->optionIndex, $stored));
+
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1, chosen: false));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1, chosen: false));
+
+        self::assertSame([], $this->selections->findByDocumentAndDecisionId($document, 'ship-with'));
     }
 
     /**
@@ -175,7 +196,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
             array_map(static fn (object $row): array => [$row->optionIndex, $row->optionLabel], $stored),
         );
 
-        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 2, displayedVersionNumber: 2));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 2, displayedVersionNumber: 2, chosen: false));
 
         $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
         self::assertSame(
@@ -232,7 +253,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
         ));
 
         // 'The exporter' is index 0 now, and the reviewer unticks it.
-        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 2));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 2, chosen: false));
 
         $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
         self::assertSame(['The importer'], array_map(static fn (object $row): string => $row->optionLabel, $stored));

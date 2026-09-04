@@ -21,6 +21,13 @@ class SelectDecisionOptionRequest
         #[Assert\NotNull]
         #[Assert\PositiveOrZero]
         public ?int $optionIndex = null,
+        /**
+         * Whether the reviewer wants the option chosen, read from the control
+         * they clicked. Sent rather than inferred, so a second tab holding an
+         * older view of the block cannot undo what the first one did, and a
+         * repeated POST lands on the same answer.
+         */
+        public bool $chosen = true,
 
         /**
          * The version the reviewer was looking at when they clicked. An index

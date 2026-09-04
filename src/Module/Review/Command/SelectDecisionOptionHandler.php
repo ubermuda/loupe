@@ -65,7 +65,7 @@ final readonly class SelectDecisionOptionHandler
             $stored = $this->decisionSelections->findByDocumentAndDecisionId($command->document, $command->decisionId);
 
             $selection = DecisionType::Multiple === $decision->type
-                ? $this->toggleOption($command, $label, $version->versionNumber, $this->atCurrentIndexes($decision, $stored))
+                ? $this->setOption($command, $label, $version->versionNumber, $this->atCurrentIndexes($decision, $stored))
                 : $this->replaceAnswer($command, $label, $version->versionNumber, $stored);
 
             $this->em->flush();
@@ -163,14 +163,16 @@ final readonly class SelectDecisionOptionHandler
     }
 
     /**
-     * Adds the option to a multi-choice block, or takes it back off.
+     * Puts one option of a multi-choice block on or off.
      *
      * One POST carries one option either way, which is what keeps the Turbo
-     * stream and the refusal path the same shape as the single-choice one.
+     * stream and the refusal path the same shape as the single-choice one. The
+     * click says which of the two it wants, so a repeat of the same POST, and a
+     * second tab holding an older view of the block, both land where they mean.
      *
      * @param list<DecisionSelection> $stored
      */
-    private function toggleOption(
+    private function setOption(
         SelectDecisionOptionCommand $command,
         string $label,
         int $versionNumber,
@@ -178,10 +180,18 @@ final readonly class SelectDecisionOptionHandler
     ): ?DecisionSelection {
         foreach ($stored as $selection) {
             if ($selection->optionIndex === $command->optionIndex) {
-                $this->em->remove($selection);
+                if (!$command->chosen) {
+                    $this->em->remove($selection);
 
-                return null;
+                    return null;
+                }
+
+                return $selection;
             }
+        }
+
+        if (!$command->chosen) {
+            return null;
         }
 
         $selection = new DecisionSelection(
