@@ -904,6 +904,17 @@ test('a comment can be anchored to several elements at once', async ({
     // The list row names the count rather than one element's text.
     await page.getByRole('button', { name: /Show .* comment/ }).click();
     await expect(page.locator('#lp-list .lp-chip')).toHaveText('2 elements');
+
+    // An edit PATCHes the body alone, so the composer offers no control that
+    // would change the anchors and then silently discard the change.
+    await page.locator('#lp-list .lp-edit').first().click();
+    await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
+        2,
+    );
+    await expect(page.locator('#lp-compose-head .lp-chip-x')).toHaveCount(0);
+    await expect(
+        page.getByRole('button', { name: '+ Add element' }),
+    ).toHaveCount(0);
 });
 
 /**

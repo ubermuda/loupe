@@ -1136,19 +1136,25 @@
       if (ct.type === 'general') {
         composeHead.innerHTML = `<span class="lp-compose-general"><span class="lp-dot"></span>General comment</span>`;
       } else {
-        // One removable chip per anchor, then the control that picks another.
-        // Editing an existing comment does not re-send its anchors, so the add
-        // control is offered for a new comment only.
+        // One chip per anchor, then the control that picks another. An edit
+        // PATCHes the body alone and leaves the stored anchors untouched, so
+        // neither the add control nor the remove × is offered while editing —
+        // they would confirm a change that the save then discards.
         const anchors = ct.anchors || [];
+        const editable = state.editId == null;
         const chips = anchors
           .map(
             (anchor, anchorIndex) =>
               `<span class="lp-compose-chip">${ICON.glyph(11)}<span>${escapeHtml(
                 anchor.label || 'Selected element',
-              )}</span><button class="lp-chip-x" data-anchor-remove="${anchorIndex}" aria-label="Remove this element">×</button></span>`,
+              )}</span>${
+                editable
+                  ? `<button class="lp-chip-x" data-anchor-remove="${anchorIndex}" aria-label="Remove this element">×</button>`
+                  : ''
+              }</span>`,
           )
           .join('');
-        const canAdd = state.editId == null && anchors.length < MAX_ANCHORS;
+        const canAdd = editable && anchors.length < MAX_ANCHORS;
         composeHead.innerHTML =
           chips +
           (canAdd
@@ -1431,7 +1437,7 @@
   // as a page note rather than closing the composer under the reviewer.
   const removeComposeAnchor = (anchorIndex) => {
     const anchors = composeAnchors();
-    if (!anchors.length) return;
+    if (!anchors.length || state.editId != null) return;
     anchors.splice(anchorIndex, 1);
     if (!anchors.length) state.composeTarget = { type: 'general' };
     sync();
