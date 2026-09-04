@@ -25,6 +25,22 @@ Two views help across versions:
 - `/review/versions/{versionNumber}` — any earlier version as it read then.
 - `/review/diff/{from}/{to}` — what changed between two versions.
 
+## Section approvals
+
+The verdict covers the whole document. A reviewer can also approve one section
+at a time, from the **Sections** panel above the document. A section runs from
+one heading to the next heading, whatever the two levels are.
+
+Loupe stores each approval against the heading and against a digest of the
+section's own text. A revision keeps an approval only while both still match, so
+a section you left alone stays approved and a section you rewrote comes back
+unapproved. This is how a multi-round review says "these parts are settled, read
+the rest".
+
+Section approvals sit beside the whole-document verdict and do not replace it.
+`document_revise` reports `sectionsCarried` and `sectionsDropped` next to the
+comment counts.
+
 ## Revising
 
 Submitting a new version **re-anchors** open comments onto it. A comment whose

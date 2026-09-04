@@ -78,7 +78,7 @@ final class DocumentReviseToolTest extends KernelTestCase
 
         $summary = ($this->tool)((string) $document->id, '# Revised', 'Rewrote the body.');
 
-        self::assertSame(['carried' => 0, 'orphaned' => 0], $summary);
+        self::assertSame(['carried' => 0, 'orphaned' => 0, 'sectionsCarried' => 0, 'sectionsDropped' => 0], $summary);
         self::assertSame('# Revised', $document->currentVersion()->markdownSource);
     }
 

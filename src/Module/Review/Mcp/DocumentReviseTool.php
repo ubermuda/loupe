@@ -13,11 +13,12 @@ use Mcp\Exception\ToolCallException;
 
 /**
  * Submit a revised Markdown document. Unresolved comments are carried forward by fuzzy re-anchoring;
- * comments whose quoted text no longer appears are flagged orphaned. Returns the re-anchoring summary.
+ * comments whose quoted text no longer appears are flagged orphaned. A section approval survives only
+ * while its heading and its text both read as before. Returns both summaries.
  *
- * @phpstan-import-type ReanchoringSummary from ReviseDocumentHandler
+ * @phpstan-import-type RevisionSummary from ReviseDocumentHandler
  */
-#[McpTool(name: 'document_revise', description: 'Submit a new Markdown version of a document, described by what changed in it. Open comments are re-anchored onto the new version; those whose quoted text no longer appears are flagged orphaned. Pass title to correct the document title at the same time, and references to replace the documents this one points at.')]
+#[McpTool(name: 'document_revise', description: 'Submit a new Markdown version of a document, described by what changed in it. Open comments are re-anchored onto the new version; those whose quoted text no longer appears are flagged orphaned. Approved sections whose heading and text are unchanged carry forward; the rest are dropped. Pass title to correct the document title at the same time, and references to replace the documents this one points at.')]
 final readonly class DocumentReviseTool
 {
     public function __construct(
@@ -34,7 +35,7 @@ final readonly class DocumentReviseTool
      * @param string|null        $title       A corrected title for the document; omit to keep the current one
      * @param array<string>|null $references  The complete set of document ids this one points at, replacing the current set; omit to keep it, pass an empty list to clear it
      *
-     * @return ReanchoringSummary
+     * @return RevisionSummary
      */
     public function __invoke(string $documentId, string $markdown, string $description, ?string $title = null, ?array $references = null): array
     {

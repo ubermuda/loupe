@@ -9,6 +9,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\ValueObject\DecisionSummary;
 use App\Module\Review\ValueObject\DocumentHeading;
+use App\Module\Review\ValueObject\SectionApprovalSummary;
 
 final readonly class ShowDocumentView
 {
@@ -29,6 +30,8 @@ final readonly class ShowDocumentView
         public string $decisionMarkedHtml,
         /** The version this reader last engaged with, or null when there is no signal. */
         public ?int $lastSeenVersionNumber,
+        /** Which sections of this version the reader has approved. */
+        public SectionApprovalSummary $sections,
     ) {
     }
 }

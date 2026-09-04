@@ -130,12 +130,16 @@
                an undefined-variable 500 on the diff page. #}
             {% set decisionRows = diffMode ? [] : decisions.rows %}
             {% set answeredDecisions = diffMode ? 0 : decisions.answeredCount %}
+            {# Section approvals. Same lazy-ternary guard as the rows above: the
+               diff controller passes no `sections`. #}
+            {% set sectionRows = diffMode ? [] : sections.rows %}
+            {% set approvedSections = diffMode ? 0 : sections.approvedCount %}
 
             {# Mutually-exclusive panels rather than stacked blocks: together they
                used to push the first paragraph below the fold.
                A sibling of the head, not a child: the bar is sticky, and a
                sticky element cannot outlive its containing block. #}
-            {% if showVersions or showContents or referenceCount > 0 or decisionRows|length > 0 or document.tags|length > 0 or diffNavigation %}
+            {% if showVersions or showContents or referenceCount > 0 or decisionRows|length > 0 or sectionRows|length > 0 or document.tags|length > 0 or diffNavigation %}
             <div class="lp-doc-meta-bar" data-controller="metadata-tabs">
                     <div class="lp-doc-meta">
                         {% if showVersions %}
@@ -177,6 +181,19 @@
                             <span class="lp-doc-meta__count" id="decision-summary-count">{{ 'review.document.decisions.count'|trans({
                                 '%answered%': answeredDecisions,
                                 '%total%': decisionRows|length,
+                            }) }}</span>
+                            <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
+                        </button>
+                        {% endif %}
+                        {% if sectionRows|length > 0 %}
+                        <button type="button" class="lp-doc-meta__tab" aria-expanded="false"
+                                data-metadata-tabs-target="tab"
+                                data-metadata-tabs-panel-param="sections"
+                                data-action="click->metadata-tabs#toggle">
+                            {{ 'review.document.meta.sections'|trans }}
+                            <span class="lp-doc-meta__count">{{ 'review.document.sections.count'|trans({
+                                '%approved%': approvedSections,
+                                '%total%': sectionRows|length,
                             }) }}</span>
                             <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
                         </button>
@@ -341,6 +358,22 @@
                 <div class="lp-doc-meta__panel lp-decision-summary" data-metadata-tabs-target="panel" data-panel="decisions" hidden>
                     <ul class="lp-decision-summary__list" id="decision-summary-list">
                         {% include '@Review/_decision_summary_rows.html.twig' with {rows: decisionRows} only %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                {# Section approvals panel. Outside the rendered-HTML container,
+                   like every other panel here: that element's textContent is the
+                   basis every comment anchor is measured against. #}
+                {% if sectionRows|length > 0 %}
+                <div class="lp-doc-meta__panel lp-section-approvals" data-metadata-tabs-target="panel" data-panel="sections" hidden>
+                    <ul class="lp-section-approvals__list">
+                        {% include '@Review/_section_approval_rows.html.twig' with {
+                            rows: sectionRows,
+                            readOnly: readOnly,
+                            document: document,
+                            versionNumber: version.versionNumber,
+                        } only %}
                     </ul>
                 </div>
                 {% endif %}

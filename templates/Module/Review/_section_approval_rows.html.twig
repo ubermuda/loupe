@@ -1,0 +1,28 @@
+{# Rows of the sections panel: one section per row, in document order.
+   The buttons are omitted on an older version, which is read-only. #}
+{% for row in rows %}
+<li class="lp-section-approvals__item">
+    <a class="lp-section-approvals__link" data-level="{{ row.level }}" href="#{{ row.headingId }}"
+       data-action="click->metadata-tabs#jump" title="{{ row.label }}">{{ row.label }}</a>
+    {% if row.approved %}
+    <span class="lp-section-approvals__approved" data-section-approved="{{ row.headingId }}">
+        <twig:ux:icon name="lucide:check" class="lp-section-approvals__check" />
+        {{ 'review.document.sections.approved'|trans }}
+    </span>
+    {% else %}
+    <span class="lp-section-approvals__pending">{{ 'review.document.sections.pending'|trans }}</span>
+    {% endif %}
+    {% if not readOnly %}
+    <form class="lp-section-approvals__form" method="POST"
+          action="{{ path('app_document_section_approval', {projectId: document.project.id, documentId: document.id}) }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('section-approval') }}">
+        <input type="hidden" name="set_section_approval_form[headingId]" value="{{ row.headingId }}">
+        <input type="hidden" name="set_section_approval_form[versionNumber]" value="{{ versionNumber }}">
+        <button type="submit" class="lp-btn lp-btn--ghost lp-btn--sm"
+                name="set_section_approval_form[action]" value="{{ row.approved ? 'withdraw' : 'approve' }}">
+            {{ (row.approved ? 'review.document.sections.withdraw' : 'review.document.sections.approve')|trans }}
+        </button>
+    </form>
+    {% endif %}
+</li>
+{% endfor %}

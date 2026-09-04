@@ -2590,6 +2590,42 @@
         @apply ml-auto text-xs text-fg-dim;
     }
 
+    /* ── Section approvals ──────────────────────────────────────────────
+       One row per heading, indented by level like the table of contents. */
+    .lp-section-approvals__list {
+        @apply flex flex-col gap-1 m-0 p-0 list-none;
+    }
+    .lp-section-approvals__item {
+        @apply flex items-baseline gap-3 py-1;
+    }
+    .lp-section-approvals__link {
+        @apply block truncate text-sm font-semibold text-ink no-underline hover:underline;
+    }
+    .lp-section-approvals__link[data-level='3'] {
+        @apply pl-5;
+    }
+    .lp-section-approvals__link[data-level='4'] {
+        @apply pl-9;
+    }
+    .lp-section-approvals__link[data-level='5'] {
+        @apply pl-13;
+    }
+    .lp-section-approvals__link[data-level='6'] {
+        @apply pl-17;
+    }
+    .lp-section-approvals__approved {
+        @apply inline-flex items-baseline gap-1 ml-auto text-xs text-fg-mute;
+    }
+    .lp-section-approvals__check {
+        @apply w-3.5 h-3.5 shrink-0 self-center text-accent-ink;
+    }
+    .lp-section-approvals__pending {
+        @apply ml-auto text-xs text-fg-dim;
+    }
+    .lp-section-approvals__form {
+        @apply flex shrink-0 m-0;
+    }
+
     /* ── Admin primitives ───────────────────────────────────────────────
        The admin bundle leaves these primitives to the consuming app. Keep the
        whole set defined even where vendor templates use only some of it — this

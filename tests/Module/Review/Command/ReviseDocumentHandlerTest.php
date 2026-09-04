@@ -617,6 +617,8 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
             'referencesReplaced' => false,
             'commentsCarried' => 1,
             'commentsOrphaned' => 0,
+            'sectionsCarried' => 0,
+            'sectionsDropped' => 0,
         ], $record->context);
 
         self::assertSame(['review.document_revised'], $audit->domainLogLines());
