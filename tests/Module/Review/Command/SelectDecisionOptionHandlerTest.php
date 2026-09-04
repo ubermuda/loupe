@@ -213,6 +213,32 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
     }
 
     /**
+     * A revision that drops one chosen option and moves another onto its index.
+     * The dropped answer still reports the label it was given, and the surviving
+     * one has to be able to take the index it now needs.
+     */
+    public function test_a_dropped_option_does_not_block_the_answer_that_moves_onto_its_index(): void
+    {
+        $document = $this->createDocument(self::MULTIPLE_MARKDOWN);
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 1, displayedVersionNumber: 1));
+
+        $revise = self::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
+        $revise(new ReviseDocumentCommand(
+            $document,
+            "Pick what ships.\n\n<!-- decision: ship-with -->\n\n- [ ] The exporter\n\n<!-- /decision -->\n",
+            'Dropped the importer and the admin page.',
+        ));
+
+        // 'The exporter' is index 0 now, and the reviewer unticks it.
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 2));
+
+        $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
+        self::assertSame(['The importer'], array_map(static fn (object $row): string => $row->optionLabel, $stored));
+    }
+
+    /**
      * A revision can turn a multi-choice block back into a single-choice one,
      * and the block then takes one answer. The extra rows have to go, or the
      * page shows several answers a radio group cannot express.

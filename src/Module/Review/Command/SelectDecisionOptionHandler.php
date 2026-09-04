@@ -97,13 +97,18 @@ final readonly class SelectDecisionOptionHandler
      * A revision that reorders a block leaves the rows on their old indexes
      * while the page resolves them by label onto the new ones. The click then
      * names an index the rows do not use, so a tick reads as an untick and the
-     * unique key collides. A row whose option is gone resolves nowhere and is
-     * left as it stands, because it still reports the answer that was given.
+     * unique key collides.
      *
-     * Rewritten rather than updated: two options that swap places would meet on
-     * the unique key mid-flush, and Doctrine writes every update before any
-     * delete. The replacement carries the label, the version and the time, so
-     * only the row's identity changes.
+     * A row whose option the revision dropped resolves nowhere, so it is parked
+     * past the last option rather than left where it stands: its old index is
+     * one a surviving answer may now need, and nothing reads the index of a row
+     * whose label is gone. The label, the version and the time are what that row
+     * reports, and all three are carried across.
+     *
+     * Every target is distinct by construction, so the set can be laid down in
+     * one pass. The rows that move are rewritten rather than updated, because
+     * two options that swap places would meet on the unique key mid-flush:
+     * Doctrine writes every update before any delete.
      *
      * @param list<DecisionSelection> $stored
      *
@@ -111,11 +116,15 @@ final readonly class SelectDecisionOptionHandler
      */
     private function atCurrentIndexes(Decision $decision, array $stored): array
     {
+        $beyondTheOptions = \count($decision->options);
+
         $moved = [];
         $settled = [];
         foreach ($stored as $selection) {
-            $index = $decision->resolveIndex($selection->optionLabel, $selection->optionIndex);
-            if (null === $index || $index === $selection->optionIndex) {
+            $index = $decision->resolveIndex($selection->optionLabel, $selection->optionIndex)
+                ?? $beyondTheOptions++;
+
+            if ($index === $selection->optionIndex) {
                 $settled[] = $selection;
 
                 continue;
