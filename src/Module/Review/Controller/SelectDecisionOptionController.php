@@ -66,7 +66,7 @@ final class SelectDecisionOptionController extends AppController
             $message = $this->refusal($this->translator->trans('review.decision.error.save_failed'), $data->versionNumber);
         } else {
             try {
-                $selection = ($this->selectDecisionOption)(new SelectDecisionOptionCommand(
+                $result = ($this->selectDecisionOption)(new SelectDecisionOptionCommand(
                     document: $document,
                     decisionId: $data->decisionId ?? throw new \LogicException('decisionId required after validation'),
                     optionIndex: $data->optionIndex ?? throw new \LogicException('optionIndex required after validation'),
@@ -75,11 +75,18 @@ final class SelectDecisionOptionController extends AppController
                 ));
                 // The stored label and version, never the submitted ones: the
                 // handler is what decides which option and which version the
-                // answer actually landed against.
-                $message = $this->translator->trans('review.decision.status.saved', [
-                    '%option%' => self::announcedOption($selection->optionLabel),
-                    '%version%' => $selection->versionNumber,
-                ]);
+                // answer actually landed against. That holds on the cleared
+                // path too, where the row is gone and the result carries the
+                // label instead.
+                $message = $this->translator->trans(
+                    null === $result->selection
+                        ? 'review.decision.status.cleared'
+                        : 'review.decision.status.saved',
+                    [
+                        '%option%' => self::announcedOption($result->optionLabel),
+                        '%version%' => $result->versionNumber,
+                    ],
+                );
                 $failed = false;
             } catch (DomainErrors $e) {
                 // Deliberately not mapped onto the form fields. The form is

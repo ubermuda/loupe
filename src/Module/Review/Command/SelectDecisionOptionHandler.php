@@ -70,7 +70,7 @@ final readonly class SelectDecisionOptionHandler
 
             $this->em->flush();
 
-            return new SelectDecisionOptionResult($selection, $version->versionNumber);
+            return new SelectDecisionOptionResult($selection, $version->versionNumber, $label);
         });
 
         // After the commit, never inside it: the sink drains at kernel.terminate,

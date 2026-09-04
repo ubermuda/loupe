@@ -13,6 +13,8 @@ final readonly class SelectDecisionOptionResult
         public ?DecisionSelection $selection,
         /** The version the block was answered against. */
         public int $versionNumber,
+        /** The option's label, read from the document, and kept when the row is gone. */
+        public string $optionLabel,
     ) {
     }
 }

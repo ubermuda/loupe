@@ -34,6 +34,18 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         <!-- /decision -->
         MD;
 
+    private const string MULTIPLE_MARKDOWN = <<<'MD'
+        <!-- decision: ship-with -->
+
+        Which of these ship together?
+
+        - [ ] The importer
+        - [ ] The exporter
+        - [ ] The admin page
+
+        <!-- /decision -->
+        MD;
+
     private const string LONG_OPTION = 'Ship straight to production on a Friday afternoon and then tell the entire company about it';
 
     public function test_the_review_page_renders_a_fence_as_radios_the_reviewer_can_answer(): void
@@ -179,6 +191,51 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
             'Saved “Ship straight to production” for version 1.',
             self::statusMessage((string) $client->getResponse()->getContent()),
         );
+    }
+
+    /**
+     * Clearing an answer deletes the row, so the label cannot be read back off
+     * it. Naming the option anyway is what tells the reviewer which of several
+     * checked boxes they just turned off.
+     */
+    public function test_the_status_line_names_the_option_it_cleared(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seedMarkdown($client, self::MULTIPLE_MARKDOWN);
+
+        $client->loginUser($owner);
+        $this->setOption($client, $document, 'ship-with', '1', true);
+        $this->setOption($client, $document, 'ship-with', '1', false, ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            'Cleared “The exporter” for version 1.',
+            self::statusMessage((string) $client->getResponse()->getContent()),
+        );
+    }
+
+    /**
+     * The announcement is shortened on the saved path. A cleared answer reaches
+     * the same `aria-live` region, so a long label must not announce in full
+     * just because the row it came from is gone.
+     */
+    public function test_a_long_option_is_shortened_when_it_is_cleared(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seedMarkdown(
+            $client,
+            "<!-- decision: ship-with -->\n\n- [ ] ".self::LONG_OPTION."\n- [ ] Ship to staging first\n\n<!-- /decision -->\n",
+        );
+
+        $client->loginUser($owner);
+        $this->setOption($client, $document, 'ship-with', '0', true);
+        $this->setOption($client, $document, 'ship-with', '0', false, ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html']);
+
+        $status = self::statusMessage((string) $client->getResponse()->getContent());
+        self::assertStringContainsString('Cleared “Ship straight to production on a Friday', $status);
+        self::assertStringContainsString('…', $status);
+        self::assertStringContainsString('for version 1.', $status);
+        self::assertStringNotContainsString(self::LONG_OPTION, $status);
     }
 
     /**
@@ -663,6 +720,39 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
     /**
      * @param array<string, string> $server
      */
+    /**
+     * `answer()` posts no `chosen` field, which a checkbox reads as unchecked.
+     * A multi-choice test has to say which state it is posting.
+     */
+    private function setOption(
+        KernelBrowser $client,
+        Document $document,
+        string $decisionId,
+        string $optionIndex,
+        bool $chosen,
+        array $server = [],
+    ): void {
+        [$token, $versionNumber] = $this->renderForm($client, $document);
+
+        $fields = [
+            'decisionId' => $decisionId,
+            'optionIndex' => $optionIndex,
+            'versionNumber' => $versionNumber,
+            '_token' => $token,
+        ];
+        if ($chosen) {
+            $fields['chosen'] = '1';
+        }
+
+        $client->request(
+            Request::METHOD_POST,
+            $this->decisionPath($document),
+            ['select_decision_option_form' => $fields],
+            [],
+            $server,
+        );
+    }
+
     private function submitAnswer(
         KernelBrowser $client,
         Document $document,

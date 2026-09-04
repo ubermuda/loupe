@@ -1473,6 +1473,10 @@
                 <source>review.decision.status.saved</source>
                 <target>Saved “%option%” for version %version%.</target>
             </trans-unit>
+            <trans-unit id="review.decision.status.cleared">
+                <source>review.decision.status.cleared</source>
+                <target>Cleared “%option%” for version %version%.</target>
+            </trans-unit>
             <trans-unit id="review.decision.status.not_saved">
                 <source>review.decision.status.not_saved</source>
                 <target>Not saved for version %version%. %reason%</target>
