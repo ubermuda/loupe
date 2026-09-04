@@ -66,10 +66,23 @@ final class ListDocumentsControllerTest extends WebTestCase
      *
      * @param list<string> $tagNames
      */
-    private function createDocument(Project $project, string $title, string $body, array $tagNames = []): Document
-    {
+    private function createDocument(
+        Project $project,
+        string $title,
+        string $body,
+        array $tagNames = [],
+        ?string $seriesName = null,
+        ?int $seriesOrdinal = null,
+    ): Document {
         return (static::getContainer()->get(CreateDocumentHandler::class))(
-            new CreateDocumentCommand($project, $title, $body, tagNames: $tagNames),
+            new CreateDocumentCommand(
+                $project,
+                $title,
+                $body,
+                tagNames: $tagNames,
+                seriesName: $seriesName,
+                seriesOrdinal: $seriesOrdinal,
+            ),
         );
     }
 
@@ -647,6 +660,49 @@ final class ListDocumentsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('[data-document-id="'.$approvedId.'"]'));
         self::assertCount(0, $crawler->filter('[data-document-id="'.$openId.'"]'));
+    }
+
+    public function test_the_series_filter_narrows_the_list_and_orders_it_by_ordinal(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice-series', 'alice-series@example.com');
+        $project = $this->project($em, $alice);
+        $em->flush();
+        $projectId = (string) $project->id;
+
+        // Created newest last, so a list still ordered by creation date would
+        // return them the other way round and this test would fail.
+        $first = $this->createDocument($project, 'Post one', 'Opening.', seriesName: 'Blog Series', seriesOrdinal: 1);
+        $second = $this->createDocument($project, 'Post two', 'Middle.', seriesName: 'Blog Series', seriesOrdinal: 2);
+        $loose = $this->createDocument($project, 'Unrelated note', 'Nothing to do with it.');
+        $em->flush();
+        $firstId = (string) $first->id;
+        $secondId = (string) $second->id;
+        $looseId = (string) $loose->id;
+        $em->clear();
+
+        $client->loginUser($alice);
+
+        // Filtered by a spelling nobody stored, because the filter folds case.
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?series=blog+series');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('[data-document-id="'.$looseId.'"]'));
+        self::assertSame(
+            [$firstId, $secondId],
+            $crawler->filter('[data-document-id]')->each(
+                static fn (Crawler $row): string => (string) $row->attr('data-document-id'),
+            ),
+        );
+        // The row says where in the series the document sits, so the order is
+        // readable rather than implied.
+        self::assertSelectorTextContains('[data-document-id="'.$secondId.'"] .lp-series', 'Blog Series, item 2');
+        // The select shows the stored spelling and stays on the chosen series.
+        self::assertSame('Blog Series', $crawler->filter('#document-series option[selected]')->text());
+        // The default line promises newest-first, which this ordering is not.
+        self::assertSelectorTextContains('.lp-workspace-desc', 'in the order of the series');
     }
 
     public function test_every_filter_survives_the_clamp_redirect_and_the_pagination_links(): void

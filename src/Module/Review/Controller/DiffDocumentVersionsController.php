@@ -9,6 +9,12 @@ use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\DiffDocumentVersionsCommand;
 use App\Module\Review\Command\DiffDocumentVersionsHandler;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Form\AddCommentFormType;
+use App\Module\Review\Form\AddCommentRequest;
+use App\Module\Review\Form\StrikePassageFormType;
+use App\Module\Review\Form\StrikePassageRequest;
+use App\Module\Review\Form\SuggestRewordingFormType;
+use App\Module\Review\Form\SuggestRewordingRequest;
 use App\Module\Review\Security\DocumentVoter;
 use App\Module\Review\ValueObject\DiffView;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -53,6 +59,34 @@ final class DiffDocumentVersionsController extends AppController
             view: DiffView::fromRequestValue($request->query->all()['view'] ?? null),
         ));
 
+        $routeParameters = [
+            'projectId' => (string) $project->id,
+            'documentId' => (string) $document->id,
+        ];
+
+        // The same three forms the review page posts, on the same three routes.
+        // A comment made here is an ordinary comment on the current version, so
+        // nothing downstream learns it came from a diff.
+        $addCommentForm = null;
+        $suggestRewordingForm = null;
+        $strikePassageForm = null;
+        if ($view->commentingEnabled) {
+            $addCommentForm = $this->createForm(AddCommentFormType::class, new AddCommentRequest(), [
+                'action' => $this->generateUrl('app_comment_add', $routeParameters),
+                'method' => 'POST',
+            ]);
+
+            $suggestRewordingForm = $this->createForm(SuggestRewordingFormType::class, new SuggestRewordingRequest(), [
+                'action' => $this->generateUrl('app_comment_suggest', $routeParameters),
+                'method' => 'POST',
+            ]);
+
+            $strikePassageForm = $this->createForm(StrikePassageFormType::class, new StrikePassageRequest(), [
+                'action' => $this->generateUrl('app_comment_strike', $routeParameters),
+                'method' => 'POST',
+            ]);
+        }
+
         return $this->render('@Review/diff_document_versions.html.twig', [
             'document' => $document,
             'version' => $view->version,
@@ -64,11 +98,16 @@ final class DiffDocumentVersionsController extends AppController
             'diffChangeCount' => $view->changeCount,
             'diffRefusal' => $view->diffRefusal,
             'diffFromVersion' => $fromVersionNumber,
-            // A diff has no text basis to anchor a quote against and describes no
-            // single version, so nothing that writes to one is offered here.
+            // The verdict and the decision controls describe one version, and a
+            // diff describes two, so they stay off here. Commenting is separate:
+            // it anchors to the newer side when that side is the current version.
             'readOnly' => true,
+            'diffCommenting' => $view->commentingEnabled,
             'comments' => $view->comments,
             'signals' => $view->signals,
+            'addCommentForm' => $addCommentForm,
+            'suggestRewordingForm' => $suggestRewordingForm,
+            'strikePassageForm' => $strikePassageForm,
         ]);
     }
 }

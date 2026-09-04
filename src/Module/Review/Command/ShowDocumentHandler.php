@@ -53,7 +53,7 @@ final readonly class ShowDocumentHandler
             decisions: $decisions,
             decisionMarkedHtml: $this->decisionBlocks->withSelections(
                 $version->renderedHtml,
-                $decisions->selectedIndexByDecisionId,
+                $decisions->selectedIndexesByDecisionId,
                 readOnly: !$isLatest,
             ),
             lastSeenVersionNumber: $this->lastSeenVersion->versionNumberFor($command->document, $command->reader),

@@ -6,8 +6,8 @@ namespace App\Module\Review\ValueObject;
 
 /**
  * One decision block as it stands in a rendered version: the identifier the
- * document declared, the option labels in the order they are shown, and the
- * question the block asks.
+ * document declared, the option labels in the order they are shown, the
+ * question the block asks, and how many answers it takes.
  *
  * The identifier — not the option text and not the position — is what a
  * selection is keyed by, so a revision that rewords the block keeps its answer.
@@ -22,6 +22,7 @@ final readonly class Decision
         public string $id,
         public array $options,
         public string $prompt = '',
+        public DecisionType $type = DecisionType::Single,
     ) {
     }
 
@@ -37,11 +38,60 @@ final readonly class Decision
     }
 
     /**
+     * Where each of a block's stored answers sits now, in the order given.
+     *
+     * The page, the review payload and the handler all resolve through this one
+     * method. Resolving in two places by two rules is how the reviewer ends up
+     * seeing one option ticked while the agent is told another.
+     *
+     * A set rather than one answer at a time, because a block may offer the same
+     * text twice: two answers to two such options both resolve onto the first of
+     * them, and reporting one option twice is not what the reviewer chose. An
+     * answer left with no free place reports null, as one whose option the
+     * document dropped does.
+     *
+     * @param list<array{string, int}> $answers each the option as it read when it was chosen, and the index it was recorded at
+     *
+     * @return list<int|null>
+     */
+    public function resolveIndexes(array $answers): array
+    {
+        /** @var array<int, true> $taken */
+        $taken = [];
+        $resolved = [];
+        foreach ($answers as [$option, $recordedIndex]) {
+            $index = $this->resolveIndex($option, $recordedIndex);
+            if (null !== $index && isset($taken[$index])) {
+                $index = $this->firstFreeIndexOf($option, $taken);
+            }
+
+            if (null !== $index) {
+                $taken[$index] = true;
+            }
+
+            $resolved[] = $index;
+        }
+
+        return $resolved;
+    }
+
+    /** @param array<int, true> $taken */
+    private function firstFreeIndexOf(string $option, array $taken): ?int
+    {
+        foreach ($this->options as $index => $candidate) {
+            if ($candidate === $option && !isset($taken[$index])) {
+                return $index;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Where a previously chosen option now sits, or null once it is gone.
      *
-     * Both the page and the review payload resolve a stored answer through this
-     * one method. Resolving in two places by two rules is how the reviewer ends
-     * up seeing one option ticked while the agent is told another.
+     * Read one answer at a time only where a block holds one. Everything else
+     * goes through resolveIndexes(), which settles a whole block at once.
      *
      * The label leads and the recorded index breaks ties, because each alone is
      * wrong in a case the other handles: trusting the index means a revision

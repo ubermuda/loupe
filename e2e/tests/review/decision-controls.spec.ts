@@ -6,7 +6,7 @@ import { suppressToolbar, suppressWidget } from '../fixtures';
  *
  * PHPUnit covers DecisionBlockService and SelectDecisionOptionController; the
  * untested half was the JavaScript. decision_controller.js reads the clicked
- * radio, copies its decision id and option index into a hidden form and calls
+ * control, copies its decision id and option index into a hidden form and calls
  * requestSubmit() — so the Stimulus target names, the `change` delegation and
  * the requestSubmit() choice could all break with a green `just ci`.
  *
@@ -110,7 +110,7 @@ test('choosing an option records the answer and survives a reload', async ({
     // and the radio reads as checked the moment the browser paints it —
     // whether or not the POST ever landed. Reloading on that signal cancels the
     // request in flight and the answer is silently lost.
-    await expect(page.locator('#decision-status')).toHaveText(/saved/i, {
+    await expect(page.locator('#decision-status')).toHaveText(/^Saved/, {
         timeout: 15000,
     });
 
@@ -134,7 +134,7 @@ test('the answer reaches the review payload', async ({ page }) => {
         .locator(`[data-decision-id="${DECISION_ID}"]`)
         .locator('input[type="radio"][data-decision-option]');
     await radios.nth(0).check();
-    await expect(page.locator('#decision-status')).toHaveText(/saved/i, {
+    await expect(page.locator('#decision-status')).toHaveText(/^Saved/, {
         timeout: 15000,
     });
 
@@ -273,9 +273,12 @@ test('the toolbar reports the decisions and tracks the answer', async ({
         .nth(1)
         .check();
 
-    await expect(page.locator('#decision-status')).toHaveText(/saved/i, {
-        timeout: 15000,
-    });
+    // One region serves every block, so it has to say which option landed and
+    // against which version. It is aria-live, so this is also what is read out.
+    await expect(page.locator('#decision-status')).toHaveText(
+        `Saved “${OPTION_TWO}” for version 1.`,
+        { timeout: 15000 },
+    );
     // Streamed with `update`, so the panel the reviewer opened is still open.
     await expect(page.locator('#decision-summary-count')).toHaveText('1/1');
     await expect(row).toContainText(OPTION_TWO);
@@ -320,4 +323,110 @@ test('the metadata bar stays pinned while the document scrolls', async ({
     expect(blockBox).not.toBeNull();
     expect(barBox).not.toBeNull();
     expect(blockBox!.y).toBeGreaterThanOrEqual(barBox!.y + barBox!.height);
+});
+
+const MULTIPLE_ID = 'ship-with';
+const SHIP_ONE = 'The importer';
+const SHIP_TWO = 'The exporter';
+
+const MULTIPLE_MARKDOWN = `# Scope
+
+<!-- decision: ${MULTIPLE_ID} -->
+
+Which of these ship first?
+
+- [ ] ${SHIP_ONE}
+- [ ] ${SHIP_TWO}
+
+<!-- /decision -->
+`;
+
+type ReportedDecision = {
+    type: string;
+    selected: string | null;
+    selections: Array<{ option: string; index: number | null }>;
+};
+
+async function readDecision(
+    page: Page,
+    documentId: string,
+): Promise<ReportedDecision | undefined> {
+    const stateRes = await page.request.get(`/dev/review/${documentId}/state`);
+    expect(stateRes.status()).toBe(200);
+    const state = (await stateRes.json()) as {
+        decisions: Array<ReportedDecision & { id: string }>;
+    };
+
+    return state.decisions.find((d) => d.id === MULTIPLE_ID);
+}
+
+/**
+ * The checkbox half of the same JavaScript. One click adds an option and a
+ * second takes it back off, so the controller has to post an unticked box too —
+ * a handler that only ever added would look correct until someone changed their
+ * mind.
+ */
+test('a multi-choice block records several answers and clears one', async ({
+    page,
+}) => {
+    await signedInReviewer(page, 'multi');
+    const response = await page.request.post('/dev/seed/document', {
+        form: { title: 'Decision — multi', markdown: MULTIPLE_MARKDOWN },
+    });
+    expect(response.status()).toBe(201);
+    const body = (await response.json()) as {
+        documentId: string;
+        projectId: string;
+    };
+    await page.goto(
+        `/projects/${body.projectId}/documents/${body.documentId}/review`,
+    );
+
+    const boxes = page
+        .locator(`[data-decision-id="${MULTIPLE_ID}"]`)
+        .locator('input[type="checkbox"][data-decision-option]');
+    await expect(boxes).toHaveCount(2);
+
+    // Polled against what is stored, never against the box's own checked
+    // state: the browser paints a tick whether or not the POST landed, and the
+    // status region already reads "saved" from the answer before this one.
+    await boxes.nth(0).check();
+    await expect(page.locator('#decision-status')).toHaveText(/saved/i, {
+        timeout: 15000,
+    });
+    await boxes.nth(1).check();
+    await expect
+        .poll(
+            async () =>
+                (await readDecision(page, body.documentId))?.selections.length,
+            { timeout: 15000 },
+        )
+        .toBe(2);
+
+    let decision = await readDecision(page, body.documentId);
+    expect(decision?.type).toBe('multiple');
+    expect(decision?.selected).toBeNull();
+    expect(decision?.selections.map((s) => s.option)).toEqual([
+        SHIP_ONE,
+        SHIP_TWO,
+    ]);
+
+    await boxes.nth(0).uncheck();
+    await expect
+        .poll(
+            async () =>
+                (await readDecision(page, body.documentId))?.selections.length,
+            { timeout: 15000 },
+        )
+        .toBe(1);
+
+    decision = await readDecision(page, body.documentId);
+    expect(decision?.selections.map((s) => s.option)).toEqual([SHIP_TWO]);
+
+    await page.reload();
+    const afterReload = page
+        .locator(`[data-decision-id="${MULTIPLE_ID}"]`)
+        .locator('input[type="checkbox"][data-decision-option]');
+    await expect(afterReload.nth(0)).not.toBeChecked();
+    await expect(afterReload.nth(1)).toBeChecked();
 });

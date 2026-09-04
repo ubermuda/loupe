@@ -12,10 +12,11 @@ use Doctrine\DBAL\Connection;
  * Rebuilds a document's search vector from its title and its current version's
  * markdown.
  *
- * Every write that changes either input calls this — creating a document,
- * revising one, renaming one. A database trigger would do the same work
- * invisibly; this codebase has none, and keeping it in the handlers is what makes
- * it greppable.
+ * Every write that changes an input calls this — creating a document, revising
+ * one, renaming one. The document's own $searchLanguage is a fourth input, so a
+ * write that changes it must call this too. A database trigger would do the same
+ * work invisibly; this codebase has none, and keeping it in the handlers is what
+ * makes it greppable.
  *
  * The three callers do not wrap this the same way, and that is deliberate.
  * ReviseDocumentHandler already holds a transaction for the version-number lock,
@@ -47,8 +48,8 @@ final readonly class DocumentSearchIndexer
             \sprintf(
                 <<<'SQL'
                     UPDATE documents d
-                    SET search_vector = setweight(to_tsvector('%1$s', d.title), '%2$s')
-                        || setweight(to_tsvector('%1$s', v.markdown_source), '%3$s')
+                    SET search_vector = setweight(to_tsvector(d.search_language::regconfig, d.title), '%1$s')
+                        || setweight(to_tsvector(d.search_language::regconfig, v.markdown_source), '%2$s')
                     FROM (
                         SELECT DISTINCT ON (document_id) document_id, markdown_source
                         FROM document_versions
@@ -57,7 +58,6 @@ final readonly class DocumentSearchIndexer
                     ) v
                     WHERE d.id = :id AND v.document_id = d.id
                     SQL,
-                FullTextSearch::CONFIGURATION,
                 FullTextSearch::TITLE_WEIGHT,
                 FullTextSearch::BODY_WEIGHT,
             ),

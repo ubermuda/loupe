@@ -9,8 +9,11 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Service\DocumentReferenceValidator;
 use App\Module\Review\Service\DocumentSearchIndexer;
+use App\Module\Review\Service\DocumentSeriesApplier;
 use App\Module\Review\Service\DocumentTagApplier;
 use App\Module\Review\Service\MarkdownRenderer;
+use App\Module\Review\Service\SeriesConflictErrors;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -22,8 +25,10 @@ final readonly class CreateDocumentHandler
         private EntityManagerInterface $em,
         private MarkdownRenderer $renderer,
         private DocumentTagApplier $tagApplier,
+        private DocumentSeriesApplier $seriesApplier,
         private DocumentReferenceValidator $referenceValidator,
         private DocumentSearchIndexer $searchIndexer,
+        private SeriesConflictErrors $conflicts,
         private Auditor $auditor,
     ) {
     }
@@ -47,7 +52,12 @@ final readonly class CreateDocumentHandler
             throw new DomainErrors(['title' => 'review.create.error.too_long']);
         }
 
-        $document = new Document(owner: $command->project->owner, project: $command->project, title: $title);
+        $document = new Document(
+            owner: $command->project->owner,
+            project: $command->project,
+            title: $title,
+            searchLanguage: $command->language ?? $command->project->searchLanguage,
+        );
         $document->addVersion($command->markdown, $this->renderer->render($command->markdown), $command->description);
 
         // Also before persist(), for the same reason: this rejects a reference
@@ -57,11 +67,20 @@ final readonly class CreateDocumentHandler
             $document->addReference($reference);
         }
 
-        // One flush, so the document, its tags and its references are written
-        // together or not at all.
+        // Also before persist(), for the same reason: this rejects a placement
+        // whose ordinal another document in the series already holds.
+        $this->seriesApplier->apply($document, $command->seriesName, $command->seriesOrdinal);
+
+        // One flush, so the document, its tags, its series and its references
+        // are written together or not at all.
         $this->em->persist($document);
         $this->tagApplier->apply($document, $command->tagNames);
-        $this->em->flush();
+
+        try {
+            $this->em->flush();
+        } catch (UniqueConstraintViolationException $e) {
+            throw $this->conflicts->forViolation($e) ?? $e;
+        }
 
         // Between the flush and the index. Before the flush the document has no
         // committed id, and after the index a throwing indexer would leave the
@@ -76,6 +95,7 @@ final readonly class CreateDocumentHandler
                 // The validated list, not what was asked for: it drops a target
                 // named twice, which is one link rather than two.
                 'referenceCount' => \count($references),
+                'inSeries' => null !== $document->series,
             ],
             new AuditSubject('document', (string) $document->id),
         );

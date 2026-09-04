@@ -29,6 +29,7 @@ final readonly class CreateProjectHandler
         }
 
         $project = new Project($command->owner, $command->name, $command->domain);
+        $project->searchLanguage = $command->searchLanguage;
 
         try {
             $this->em->persist($project);

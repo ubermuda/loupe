@@ -8,6 +8,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
+use App\Module\Review\Repository\SeriesRepository;
 use App\Module\Review\Repository\TagRepository;
 use App\Module\Review\ValueObject\CommentSignals;
 use App\Module\Review\View\DocumentListItem;
@@ -22,6 +23,7 @@ final readonly class ListDocumentsHandler
         private DocumentVersionRepository $documentVersions,
         private CommentRepository $comments,
         private TagRepository $tags,
+        private SeriesRepository $series,
     ) {
     }
 
@@ -36,6 +38,7 @@ final readonly class ListDocumentsHandler
             $listQuery->search,
             $listQuery->status,
             $listQuery->tagName,
+            $listQuery->seriesName,
         );
         $total = count($paginator);
         $totalPages = max(1, (int) ceil($total / self::PER_PAGE));
@@ -69,6 +72,7 @@ final readonly class ListDocumentsHandler
             totalPages: $totalPages,
             pageList: PageList::build($listQuery->page, $totalPages),
             projectTags: $this->tags->findByProject($command->project),
+            projectSeries: $this->series->findByProject($command->project),
             clampedPage: PageList::clampedPage($listQuery->page, $total, self::PER_PAGE),
         );
     }

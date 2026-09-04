@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace App\Module\Review\Service;
 
 use App\Module\Review\ValueObject\Decision;
+use App\Module\Review\ValueObject\DecisionType;
 use League\CommonMark\Event\DocumentParsedEvent;
 use League\CommonMark\Extension\CommonMark\Node\Block\HtmlBlock;
 
 /**
- * Turns a decision fence in a document into a group of radio controls, and reads
- * the result back. The syntax itself is documented for authors in the
- * loupe-documents skill.
+ * Turns a decision fence in a document into a group of radio or checkbox
+ * controls, and reads the result back. The syntax itself is documented for
+ * authors in the loupe-documents skill.
  *
  * Detection happens on the parsed AST rather than on the source text, which is
  * what makes a fence quoted inside a code block inert: CommonMark hands it over
@@ -37,8 +38,8 @@ final readonly class DecisionBlockService
 
     private const string ID_SEPARATOR = '_';
 
-    /** Groups a block's radios; inert as a form field, the controls post nothing themselves. */
-    private const string RADIO_NAME_PREFIX = 'lp-decision-';
+    /** Groups a block's controls; inert as a form field, they post nothing themselves. */
+    private const string CONTROL_NAME_PREFIX = 'lp-decision-';
 
     /**
      * Turbo stream target for one block, so a failed submission can put the
@@ -54,6 +55,16 @@ final readonly class DecisionBlockService
      */
     private const string BLOCK_MARKER = 'data-decision-id';
     private const string OPTION_MARKER = 'data-decision-option';
+
+    /**
+     * How many options the block takes. Absent on every version rendered before
+     * multi-choice existed, and those read as single-choice.
+     */
+    private const string TYPE_MARKER = 'data-decision-type';
+
+    /** The list-item markers an author writes to pick the kind of block. */
+    private const string SINGLE_ITEM_MARKER = '~^\( \)\s*~';
+    private const string MULTIPLE_ITEM_MARKER = '~^\[[ xX]\]\s*~';
 
     /**
      * An id is what a selection is keyed by, so it is deliberately narrow: safe
@@ -271,6 +282,7 @@ final readonly class DecisionBlockService
                 // the same label. DisplayLabel reads the `alt` instead.
                 array_map(DisplayLabel::fromHtml(...), $labels[1]),
                 self::promptOf($block['inner']),
+                $block['type'],
             );
         }
 
@@ -287,6 +299,16 @@ final readonly class DecisionBlockService
         return DisplayLabel::fromHtml($matches[1]);
     }
 
+    /** A version rendered before multi-choice existed carries no type, and takes one answer. */
+    private static function typeOfOpenTag(string $openTag): DecisionType
+    {
+        if (1 !== preg_match('~\s'.self::TYPE_MARKER.'="([a-z]+)"~', $openTag, $matches)) {
+            return DecisionType::Single;
+        }
+
+        return DecisionType::tryFrom($matches[1]) ?? DecisionType::Single;
+    }
+
     /**
      * Every decision fieldset in the rendered HTML, as id, inner markup and whole.
      *
@@ -298,7 +320,7 @@ final readonly class DecisionBlockService
      * fieldsets emitted here are flat: fieldset() writes one per block and never
      * nests them.
      *
-     * @return list<array{id: string, inner: string, html: string}>
+     * @return list<array{id: string, type: DecisionType, inner: string, html: string}>
      */
     private function fieldsets(string $html): array
     {
@@ -322,6 +344,7 @@ final readonly class DecisionBlockService
 
             $found[] = [
                 'id' => $openTag[1],
+                'type' => self::typeOfOpenTag($openTag[0]),
                 'inner' => substr($element, \strlen($openTag[0])),
                 'html' => $element.'</fieldset>',
             ];
@@ -366,15 +389,15 @@ final readonly class DecisionBlockService
      * selection never rewrites a version. Only attributes are added, and
      * strip_tags() drops those — the anchor basis is untouched.
      *
-     * @param array<string, int> $selectedIndexByDecisionId
+     * @param array<string, list<int>> $selectedIndexesByDecisionId
      */
-    public function withSelections(string $html, array $selectedIndexByDecisionId, bool $readOnly): string
+    public function withSelections(string $html, array $selectedIndexesByDecisionId, bool $readOnly): string
     {
         $marked = preg_replace_callback(
             '~<input[^>]*\s'.self::OPTION_MARKER.'="('.self::ID_PATTERN.'):(\d+)"[^>]*>~',
-            static function (array $matches) use ($selectedIndexByDecisionId, $readOnly): string {
+            static function (array $matches) use ($selectedIndexesByDecisionId, $readOnly): string {
                 $added = '';
-                if (($selectedIndexByDecisionId[$matches[1]] ?? null) === (int) $matches[2]) {
+                if (\in_array((int) $matches[2], $selectedIndexesByDecisionId[$matches[1]] ?? [], true)) {
                     $added .= ' checked';
                 }
                 if ($readOnly) {
@@ -392,12 +415,16 @@ final readonly class DecisionBlockService
     }
 
     /**
-     * The controls for one block, or null when the list is not a flat one.
+     * The controls for one block, or null when the list cannot become one.
      *
      * A nested list is refused rather than converted: splitting on `<li>` would
      * cut through the inner list and emit unbalanced tags — into renderedHtml,
      * which is stored, so the browser and strip_tags() would then disagree about
      * the document's text and every anchor below it would be wrong.
+     *
+     * A list whose items disagree about their marker is refused for a different
+     * reason: nothing here can tell which kind the author meant, and guessing
+     * one records answers against a block they did not ask for.
      */
     private function fieldset(string $id, string $listHtml, string $promptHtml): ?string
     {
@@ -406,13 +433,23 @@ final readonly class DecisionBlockService
         }
 
         preg_match_all('~<li>(.*?)</li>~s', $listHtml, $items);
+        $texts = array_map(self::optionText(...), $items[1]);
+
+        $type = self::typeOfItems($texts);
+        if (null === $type) {
+            return null;
+        }
+
+        $control = DecisionType::Multiple === $type ? 'checkbox' : 'radio';
+        $marker = DecisionType::Multiple === $type ? self::MULTIPLE_ITEM_MARKER : self::SINGLE_ITEM_MARKER;
 
         $options = '';
-        foreach ($items[1] as $index => $item) {
+        foreach ($texts as $index => $text) {
             $optionId = self::OPTION_ID_PREFIX.$id.self::ID_SEPARATOR.$index;
             $options .= sprintf(
-                '<div class="lp-decision__option"><input type="radio" name="%s%s" value="%d" id="%s" %s="%s:%d"><label for="%s">%s</label></div>',
-                self::RADIO_NAME_PREFIX,
+                '<div class="lp-decision__option"><input type="%s" name="%s%s" value="%d" id="%s" %s="%s:%d"><label for="%s">%s</label></div>',
+                $control,
+                self::CONTROL_NAME_PREFIX,
                 $id,
                 $index,
                 $optionId,
@@ -420,16 +457,18 @@ final readonly class DecisionBlockService
                 $id,
                 $index,
                 $optionId,
-                self::optionLabel($item),
+                trim((string) preg_replace($marker, '', $text)),
             );
         }
 
         return sprintf(
-            '<fieldset class="lp-decision" id="%s%s" %s="%s"><legend class="lp-decision__prompt">%s</legend><div class="lp-decision__options">%s</div></fieldset>',
+            '<fieldset class="lp-decision" id="%s%s" %s="%s" %s="%s"><legend class="lp-decision__prompt">%s</legend><div class="lp-decision__options">%s</div></fieldset>',
             self::BLOCK_ID_PREFIX,
             $id,
             self::BLOCK_MARKER,
             $id,
+            self::TYPE_MARKER,
+            $type->value,
             trim($promptHtml),
             $options,
         );
@@ -448,17 +487,46 @@ final readonly class DecisionBlockService
     }
 
     /**
-     * A loose list wraps each item in a paragraph, and `[ ]` survives as literal
-     * text because TaskListExtension is off — enabling it would delete those two
-     * characters from plainText() in every document, fence or not, and shift
-     * every anchor below the first task list.
+     * One item's markup, with the paragraph a loose list wraps it in removed.
+     *
+     * A marker survives to here as literal text because TaskListExtension is off
+     * — enabling it would delete those characters from plainText() in every
+     * document, fence or not, and shift every anchor below the first task list.
      */
-    private static function optionLabel(string $itemHtml): string
+    private static function optionText(string $itemHtml): string
     {
-        $label = trim($itemHtml);
-        $label = (string) preg_replace('~^<p>(.*)</p>$~s', '$1', $label);
+        $text = trim($itemHtml);
 
-        return trim((string) preg_replace('~^\[[ xX]\]\s*~', '', trim($label)));
+        return trim((string) preg_replace('~^<p>(.*)</p>$~s', '$1', $text));
+    }
+
+    /**
+     * The kind of block these items ask for, or null when they disagree.
+     *
+     * A marker on every item picks the kind. A marker on none of them is the
+     * shape every fence written before multi-choice used, so it stays a
+     * single-choice block and its text is left alone.
+     *
+     * @param list<string> $texts
+     */
+    private static function typeOfItems(array $texts): ?DecisionType
+    {
+        $singles = 0;
+        $multiples = 0;
+        foreach ($texts as $text) {
+            if (1 === preg_match(self::MULTIPLE_ITEM_MARKER, $text)) {
+                ++$multiples;
+            } elseif (1 === preg_match(self::SINGLE_ITEM_MARKER, $text)) {
+                ++$singles;
+            }
+        }
+
+        $count = \count($texts);
+        if ($multiples === $count && $count > 0) {
+            return DecisionType::Multiple;
+        }
+
+        return 0 === $multiples && (0 === $singles || $singles === $count) ? DecisionType::Single : null;
     }
 
     /** Everything a sentinel shares, whichever kind it is — the sweep keys on this. */

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Review\Command;
 
 use App\Module\Review\Entity\Comment;
+use App\Module\Review\Entity\DecisionSelection;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DecisionSelectionRepository;
@@ -12,6 +13,7 @@ use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Repository\ReviewRepository;
 use App\Module\Review\Service\DecisionBlockService;
 use App\Module\Review\ValueObject\Anchor;
+use App\Module\Review\ValueObject\DecisionType;
 
 /**
  * @phpstan-type ReviewPayload array{
@@ -19,7 +21,7 @@ use App\Module\Review\ValueObject\Anchor;
  *     verdict: string|null,
  *     version: int,
  *     comments: list<array{id: string, quote: string, body: string, replacement: string|null, author: 'agent'|'human', status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, author: 'agent'|'human', orphaned: bool}>}>,
- *     decisions: list<array{id: string, options: list<string>, selected: string|null, selected_index: int|null, answered_at: string|null, answered_at_version: int|null}>
+ *     decisions: list<array{id: string, type: string, options: list<string>, selected: string|null, selected_index: int|null, answered_at: string|null, answered_at_version: int|null, selections: list<array{option: string, index: int|null, answered_at: string, answered_at_version: int}>}>
  * }
  */
 final readonly class ShowReviewHandler
@@ -64,6 +66,11 @@ final readonly class ShowReviewHandler
      * option as it read when the reviewer chose it rather than whatever now sits
      * at that index, so a reworded or reordered block cannot rewrite the answer;
      * `answered_at_version` says which version they were reading at the time.
+     *
+     * `type` is single or multiple. `selections` lists every recorded answer for
+     * both kinds, so one reader serves both. A multi-choice block reports null
+     * in `selected`, `selected_index`, `answered_at` and `answered_at_version`,
+     * because a block with several answers has no one answer to name there.
      *
      * @return ReviewPayload
      */
@@ -122,24 +129,44 @@ final readonly class ShowReviewHandler
             ];
         }
 
-        $selections = $this->decisionSelections->findByDocumentIndexedByDecisionId($document);
+        $selections = $this->decisionSelections->findByDocumentGroupedByDecisionId($document);
         $decisions = [];
         foreach ($this->decisionBlocks->extract($currentVersion->renderedHtml) as $decision) {
-            $selection = $selections[$decision->id] ?? null;
-            $selectedIndex = null === $selection
-                ? null
-                : $decision->resolveIndex($selection->optionLabel, $selection->optionIndex);
+            $stored = $selections[$decision->id] ?? [];
+            // Resolved as a set, exactly as the page resolves it. One answer at
+            // a time reports the same option twice where a block offers the
+            // same text twice, while the page shows only one of them ticked.
+            $resolved = $decision->resolveIndexes(array_map(
+                static fn (DecisionSelection $selection): array => [$selection->optionLabel, $selection->optionIndex],
+                $stored,
+            ));
+
+            $chosen = [];
+            foreach ($stored as $position => $selection) {
+                $chosen[] = [
+                    'option' => $selection->optionLabel,
+                    'index' => $resolved[$position],
+                    'answered_at' => $selection->selectedAt->format(\DateTimeInterface::ATOM),
+                    'answered_at_version' => $selection->versionNumber,
+                ];
+            }
+
+            // A multi-choice block answers through `selections` alone: one
+            // label in `selected` would name whichever row came back first.
+            $single = DecisionType::Single === $decision->type ? ($stored[0] ?? null) : null;
 
             $decisions[] = [
                 'id' => $decision->id,
+                'type' => $decision->type->value,
                 'options' => $decision->options,
-                'selected' => $selection?->optionLabel,
+                'selected' => $single?->optionLabel,
                 // Always indexes the `options` reported alongside it, because the
                 // page resolves it by the same rule. Null means the chosen option
                 // is no longer offered.
-                'selected_index' => $selectedIndex,
-                'answered_at' => $selection?->selectedAt->format(\DateTimeInterface::ATOM),
-                'answered_at_version' => $selection?->versionNumber,
+                'selected_index' => null === $single ? null : $resolved[0],
+                'answered_at' => $single?->selectedAt->format(\DateTimeInterface::ATOM),
+                'answered_at_version' => $single?->versionNumber,
+                'selections' => $chosen,
             ];
         }
 

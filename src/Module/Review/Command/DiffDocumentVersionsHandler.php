@@ -60,6 +60,12 @@ final readonly class DiffDocumentVersionsHandler
             $diff = $result;
         }
 
+        // A comment always lands on the latest version, so anchoring one against
+        // the diff's newer side only holds while that side IS the latest version.
+        // On any older pair the pane stays read-only, and the plain text the
+        // rendered diff would be measured against is not read at all.
+        $isCurrent = $this->documentVersions->findLatest($command->document)->versionNumber === $version->versionNumber;
+
         // Only the showing view is built. Rendering the other one costs a whole
         // Markdown pass, and its count would then be on the page describing jump
         // targets that are not.
@@ -67,15 +73,16 @@ final readonly class DiffDocumentVersionsHandler
             if (DiffView::Source === $command->view) {
                 $changeCount = $diff->changeCount();
             } else {
-                $renderedDiff = $this->renderedDiffs->build($this->markdownRenderer->renderDiff($diff));
+                $renderedDiff = $this->renderedDiffs->build(
+                    $this->markdownRenderer->renderDiff($diff),
+                    $isCurrent ? $version->plainText() : null,
+                );
                 $changeCount = $renderedDiff->changeCount;
             }
         }
 
-        // A diff never accepts a comment or a verdict: its pane holds the text of
-        // two versions at once, so an anchor has no single version to resolve
-        // against. That is the same `readOnly` the review page uses for an earlier
-        // version, and it is why no comment form is built here.
+        // A verdict still belongs to the document rather than to a comparison, so
+        // the page stays `readOnly` even where commenting is offered.
         $comments = $this->comments->findByVersion($version);
 
         return new DiffDocumentVersionsView(
@@ -85,6 +92,7 @@ final readonly class DiffDocumentVersionsHandler
             renderedDiff: $renderedDiff,
             diffRefusal: $diffRefusal,
             changeCount: $changeCount,
+            commentingEnabled: $isCurrent && null !== $renderedDiff,
             comments: $comments,
             versions: $this->documentVersions->findAllMetaByDocument($command->document),
             signals: $this->comments->signalsByVersions([(string) $version->id])[(string) $version->id] ?? new CommentSignals(),

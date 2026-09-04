@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Project\Command;
 
+use App\Doctrine\SearchLanguage;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Command\CreateProjectCommand;
 use App\Module\Project\Command\CreateProjectHandler;
+use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
@@ -41,7 +43,7 @@ final class CreateProjectHandlerTest extends KernelTestCase
     {
         $owner = $this->user('create-project-a@example.com');
 
-        $project = ($this->handler)(new CreateProjectCommand($owner, 'my-app', 'my-app.example.com'));
+        $project = ($this->handler)(new CreateProjectCommand($owner, 'my-app', 'my-app.example.com', SearchLanguage::English));
 
         self::assertNotNull($project->id);
         self::assertSame($owner, $project->owner);
@@ -55,19 +57,52 @@ final class CreateProjectHandlerTest extends KernelTestCase
     {
         $owner = $this->user('create-project-b@example.com');
 
-        $project = ($this->handler)(new CreateProjectCommand($owner, 'domainless', null));
+        $project = ($this->handler)(new CreateProjectCommand($owner, 'domainless', null, SearchLanguage::English));
 
         self::assertNotNull($project->id);
         self::assertNull($project->domain);
     }
 
+    public function test_a_chosen_search_language_is_stored(): void
+    {
+        $owner = $this->user('create-project-language@example.com');
+
+        $project = ($this->handler)(new CreateProjectCommand($owner, 'stemmed-de', null, SearchLanguage::German));
+
+        $id = $project->id;
+        self::assertNotNull($id);
+        $this->em->clear();
+        $fresh = $this->em->find(Project::class, $id);
+        self::assertInstanceOf(Project::class, $fresh);
+        self::assertSame(SearchLanguage::German, $fresh->searchLanguage);
+    }
+
+    public function test_a_project_written_without_the_setting_reads_back_as_english(): void
+    {
+        $owner = $this->user('create-project-legacy@example.com');
+        $project = new Project($owner, 'legacy-shape');
+        $this->em->persist($project);
+        $this->em->flush();
+        $id = $project->id;
+        self::assertNotNull($id);
+
+        // Read the column, not the hydrated property: this is what an existing
+        // row gets from the migration's DEFAULT.
+        $stored = $this->em->getConnection()->fetchOne(
+            'SELECT search_language FROM projects WHERE id = :id',
+            ['id' => (string) $id],
+        );
+
+        self::assertSame(SearchLanguage::English->value, $stored);
+    }
+
     public function test_duplicate_name_for_same_owner_is_a_domain_error(): void
     {
         $owner = $this->user('create-project-c@example.com');
-        ($this->handler)(new CreateProjectCommand($owner, 'dup', null));
+        ($this->handler)(new CreateProjectCommand($owner, 'dup', null, SearchLanguage::English));
 
         try {
-            ($this->handler)(new CreateProjectCommand($owner, 'dup', null));
+            ($this->handler)(new CreateProjectCommand($owner, 'dup', null, SearchLanguage::English));
             self::fail('Expected DomainErrors for a duplicate project name.');
         } catch (DomainErrors $e) {
             self::assertSame(['name' => 'project.error.name_taken'], $e->errors);
@@ -78,9 +113,9 @@ final class CreateProjectHandlerTest extends KernelTestCase
     {
         $a = $this->user('create-project-d@example.com');
         $b = $this->user('create-project-e@example.com');
-        ($this->handler)(new CreateProjectCommand($a, 'shared-name', null));
+        ($this->handler)(new CreateProjectCommand($a, 'shared-name', null, SearchLanguage::English));
 
-        $project = ($this->handler)(new CreateProjectCommand($b, 'shared-name', null));
+        $project = ($this->handler)(new CreateProjectCommand($b, 'shared-name', null, SearchLanguage::English));
 
         self::assertNotNull($project->id);
         self::assertSame($b, $project->owner);
@@ -90,7 +125,7 @@ final class CreateProjectHandlerTest extends KernelTestCase
     {
         $owner = $this->user('create-project-audit@example.com');
 
-        $project = ($this->handler)(new CreateProjectCommand($owner, 'audited', null));
+        $project = ($this->handler)(new CreateProjectCommand($owner, 'audited', null, SearchLanguage::English));
 
         $record = $this->audit->record('project.created');
         self::assertSame(AuditOutcome::Success, $record->outcome);
@@ -110,10 +145,10 @@ final class CreateProjectHandlerTest extends KernelTestCase
     public function test_a_refused_create_records_nothing(): void
     {
         $owner = $this->user('create-project-audit-dup@example.com');
-        ($this->handler)(new CreateProjectCommand($owner, 'taken', null));
+        ($this->handler)(new CreateProjectCommand($owner, 'taken', null, SearchLanguage::English));
 
         try {
-            ($this->handler)(new CreateProjectCommand($owner, 'taken', null));
+            ($this->handler)(new CreateProjectCommand($owner, 'taken', null, SearchLanguage::English));
             self::fail('Expected DomainErrors for a duplicate project name.');
         } catch (DomainErrors) {
         }

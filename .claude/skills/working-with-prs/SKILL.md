@@ -23,6 +23,39 @@ path skips this.
 Review against `origin/main`, never `main`. A worktree's local `main` is often
 stale, so a review against it reports findings for already-merged code.
 
+**One clean pass is not a pass. Run until two consecutive passes come back
+clean.** The same review on the same commit gives different answers each time.
+Two runs on one branch, same model and same base, disagreed: the second found a
+real defect that sat in the tree the first had called clean. The habit that
+protects you is the one an agent falls into anyway when it fixes findings and
+re-runs. Branches that stopped at their first clean answer are the ones with
+the least evidence behind them, however green they look.
+
+**Scope the review to the commit, not the base, once a branch has more than
+one commit.** `mcp__codex-cli__review` takes `commit: "<sha>"` for this. A
+`base` review on a long branch can come back clean while describing only the
+branch's oldest work. One branch took three clean runs: the two scoped to
+`origin/main` summarised its original creation path and never named the update
+path its newest commit changed, and only the commit-scoped run described the
+code under review. The two agreeing runs proved nothing, because both drifted
+the same way. The risk is highest when the newer commits are a different
+kind of work from the branch's original purpose, because a summary of the
+branch's theme then covers none of them. Commit count is the trigger because
+it is mechanical, and the cost of scoping when you did not need to is one
+run. A single-commit branch is not exposed to this.
+
+**Read the summary, not only the verdict. A clean result that never mentions
+the largest thing in the diff is a pass that missed the diff.** One branch took
+two clean passes whose summaries described the search plumbing and named
+neither the form, the wizard, the picker nor the 31 new translations that made
+up most of the change. Both were clean because neither looked. A second run
+does not help here, because that pass is stable and wrong the same way every
+time. Name the biggest thing you changed, then check the summary mentions it.
+
+Both rules cost time on a large diff. Say in the PR body how many passes ran
+and what the last one covered, so a reader can weigh the evidence rather than
+read "Codex: clean" and assume it means more than it does.
+
 e2e is not in the local gate. The `e2e` required check on the PR gates the
 suite, and it runs the same `just e2e` on a disposable runner. Push, then read
 that check. Fix every failure it reports, including pre-existing ones. Do not
@@ -91,6 +124,18 @@ permanent history.
 ## Make the branch testable, not just reviewable
 
 A reviewer who has to build state by hand usually will not.
+
+**The preview links go at the very top of the body, under a `## Preview`
+heading, before the decision, the summary and everything else.** They are the
+first thing the owner looks for, so nothing goes above them. A demo section
+called "Try it", "Click it" or "Verification", sitting two thirds of the way
+down next to the gate results, makes the reviewer hunt for the one thing they
+opened the page to find. Lead with the links, then explain the change.
+
+Give each link a one-line label saying what state it shows. When a change has
+several states, seed one document per state and link each: a reviewer who can
+see all of them side by side reviews what the code does, rather than the one
+case you happened to seed.
 
 Point at the running instance. Every worktree serves its own branch at
 `https://<slug>.loupe.dev.localhost`. Put that URL in the body with the login
