@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Repository;
 
-use App\Doctrine\FullTextSearch;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
@@ -73,11 +72,12 @@ class DocumentRepository extends ServiceEntityRepository
         }
 
         if (null !== $search) {
-            // The configuration is concatenated rather than bound: Postgres
-            // overloads websearch_to_tsquery as (regconfig, text) and (text), so
-            // a bound parameter has no type to resolve against and picks the
-            // wrong arity. It is a class constant, never user input.
-            $tsquery = \sprintf("WEBSEARCH_TO_TSQUERY('%s', :search)", FullTextSearch::CONFIGURATION);
+            // Each row is parsed in its own configuration. A single global one
+            // here would leave every document stemmed in another language
+            // unfindable, because a French vector and an English query never
+            // meet. The CAST is required: websearch_to_tsquery has no
+            // (varchar, text) overload, only (regconfig, text).
+            $tsquery = 'WEBSEARCH_TO_TSQUERY(CAST(d.searchLanguage AS regconfig), :search)';
 
             $qb->andWhere(\sprintf('TSMATCH(d.searchVector, %s) = true', $tsquery))
                 ->setParameter('search', $search)

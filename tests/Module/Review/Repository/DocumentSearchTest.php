@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Review\Repository;
 
+use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
@@ -16,6 +17,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Repository\DocumentRepository;
+use App\Module\Review\Service\DocumentSearchIndexer;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -36,7 +38,7 @@ final class DocumentSearchTest extends KernelTestCase
         $this->create = self::getContainer()->get(CreateDocumentHandler::class);
     }
 
-    private function project(): Project
+    private function project(SearchLanguage $language = SearchLanguage::English): Project
     {
         $owner = new User(
             fullName: 'Search Owner',
@@ -45,6 +47,7 @@ final class DocumentSearchTest extends KernelTestCase
         );
         $this->em->persist($owner);
         $project = new Project($owner, 'p-'.uniqid());
+        $project->searchLanguage = $language;
         $this->em->persist($project);
         $this->em->flush();
 
@@ -54,9 +57,9 @@ final class DocumentSearchTest extends KernelTestCase
     /**
      * @param list<string> $tagNames
      */
-    private function document(Project $project, string $title, string $markdown, array $tagNames = []): Document
+    private function document(Project $project, string $title, string $markdown, array $tagNames = [], ?SearchLanguage $language = null): Document
     {
-        return ($this->create)(new CreateDocumentCommand($project, $title, $markdown, tagNames: $tagNames));
+        return ($this->create)(new CreateDocumentCommand($project, $title, $markdown, tagNames: $tagNames, language: $language));
     }
 
     /**
@@ -213,5 +216,88 @@ final class DocumentSearchTest extends KernelTestCase
         $this->document($project, 'Unrelated', '# Something else entirely');
 
         self::assertCount(3, $this->documents->findPaginatedByProject($project, 1, 20, search: 'kafka'));
+    }
+
+    /**
+     * "traite" and "traiter" share a stem in French and share none in English,
+     * so this pair fails on any run that parses the query in one global
+     * configuration.
+     */
+    public function test_a_french_document_is_found_by_a_french_word_form(): void
+    {
+        $project = $this->project();
+        $this->document($project, 'Paiements', 'Le déploiement traite les paiements.', language: SearchLanguage::French);
+
+        self::assertSame(
+            ['Paiements'],
+            $this->titles($this->documents->findPaginatedByProject($project, 1, 20, search: 'traiter')),
+        );
+    }
+
+    public function test_the_same_french_text_stemmed_as_english_is_not_found(): void
+    {
+        $project = $this->project();
+        $this->document($project, 'Paiements', 'Le déploiement traite les paiements.');
+
+        self::assertSame([], $this->titles($this->documents->findPaginatedByProject($project, 1, 20, search: 'traiter')));
+    }
+
+    public function test_documents_in_two_languages_are_each_searchable_in_their_own(): void
+    {
+        $project = $this->project();
+        $this->document($project, 'Paiements', 'Le déploiement traite les paiements.', language: SearchLanguage::French);
+        $this->document($project, 'Payments', 'The deployment processes the payments.');
+
+        self::assertSame(
+            ['Paiements'],
+            $this->titles($this->documents->findPaginatedByProject($project, 1, 20, search: 'traiter')),
+        );
+        self::assertSame(
+            ['Payments'],
+            $this->titles($this->documents->findPaginatedByProject($project, 1, 20, search: 'processing')),
+        );
+    }
+
+    public function test_a_document_takes_the_project_default_when_it_names_no_language(): void
+    {
+        $project = $this->project(SearchLanguage::French);
+        $document = $this->document($project, 'Paiements', 'Le déploiement traite les paiements.');
+
+        self::assertSame(SearchLanguage::French, $document->searchLanguage);
+        self::assertSame(
+            ['Paiements'],
+            $this->titles($this->documents->findPaginatedByProject($project, 1, 20, search: 'traiter')),
+        );
+    }
+
+    public function test_an_explicit_language_overrides_the_project_default(): void
+    {
+        $project = $this->project(SearchLanguage::French);
+        $document = $this->document($project, 'Payments', 'The deployment processes the payments.', language: SearchLanguage::English);
+
+        self::assertSame(SearchLanguage::English, $document->searchLanguage);
+        self::assertSame(
+            ['Payments'],
+            $this->titles($this->documents->findPaginatedByProject($project, 1, 20, search: 'processing')),
+        );
+    }
+
+    public function test_reindexing_after_a_language_change_makes_the_new_stemming_apply(): void
+    {
+        $project = $this->project();
+        $document = $this->document($project, 'Paiements', 'Le déploiement traite les paiements.');
+
+        // The guard: English stemming finds nothing here, so the assertion after
+        // the reindex can only pass because the language changed.
+        self::assertSame([], $this->titles($this->documents->findPaginatedByProject($project, 1, 20, search: 'traiter')));
+
+        $document->searchLanguage = SearchLanguage::French;
+        $this->em->flush();
+        self::getContainer()->get(DocumentSearchIndexer::class)->index($document);
+
+        self::assertSame(
+            ['Paiements'],
+            $this->titles($this->documents->findPaginatedByProject($project, 1, 20, search: 'traiter')),
+        );
     }
 }

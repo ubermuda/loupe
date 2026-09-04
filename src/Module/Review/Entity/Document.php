@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Entity;
 
+use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Repository\DocumentRepository;
@@ -135,6 +136,16 @@ class Document
 
         #[ORM\Column]
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
+
+        /**
+         * The configuration $searchVector above is built with, and the one the
+         * query is parsed in for this row. Both sides must read it off the same
+         * row: a vector stemmed as French and a query parsed as English never
+         * meet. Assign a new value and the vector is stale until
+         * DocumentSearchIndexer::index() runs again.
+         */
+        #[ORM\Column(name: 'search_language', length: 20, enumType: SearchLanguage::class, options: ['default' => SearchLanguage::DEFAULT->value])]
+        public SearchLanguage $searchLanguage = SearchLanguage::DEFAULT,
     ) {
         $this->versions = new ArrayCollection();
         $this->tags = new ArrayCollection();

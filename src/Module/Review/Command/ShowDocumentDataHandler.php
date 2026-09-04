@@ -8,7 +8,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\DocumentVersionRepository;
 
 /**
- * @phpstan-type DocumentPayload array{documentId: string, title: string, status: string, archived: bool, archiveReason: ?string, version: int, versionDescription: ?string, markdown: string, tags: list<string>, references: list<array{documentId: string, title: string, archived: bool}>, referencedBy: list<array{documentId: string, title: string, archived: bool}>}
+ * @phpstan-type DocumentPayload array{documentId: string, title: string, language: string, status: string, archived: bool, archiveReason: ?string, version: int, versionDescription: ?string, markdown: string, tags: list<string>, references: list<array{documentId: string, title: string, archived: bool}>, referencedBy: list<array{documentId: string, title: string, archived: bool}>}
  */
 final readonly class ShowDocumentDataHandler
 {
@@ -62,6 +62,8 @@ final readonly class ShowDocumentDataHandler
         return [
             'documentId' => (string) $document->id,
             'title' => $document->title,
+            // The stemming language search uses for this document.
+            'language' => $document->searchLanguage->value,
             'status' => $document->status->value,
             'archived' => null !== $document->archivedAt,
             // Always present, null unless the archiving stated one — a caller

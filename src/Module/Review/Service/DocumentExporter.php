@@ -64,6 +64,7 @@ final readonly class DocumentExporter implements UserDataExporterInterface
                 'id' => (string) $document->id,
                 'project' => $document->project->name,
                 'title' => $document->title,
+                'language' => $document->searchLanguage->value,
                 'tags' => $tags,
                 'status' => $document->status->value,
                 'archivedAt' => $document->archivedAt?->format(\DateTimeInterface::ATOM),
