@@ -417,7 +417,7 @@ final class ShowReviewHandlerTest extends KernelTestCase
      */
     public function test_decisions_are_reported_with_their_options_answered_or_not(): void
     {
-        $markdown = "<!-- decision: deploy-target -->\n\n- [ ] Ship to staging first\n- [ ] Ship straight to production\n\n<!-- /decision -->\n\n<!-- decision: rollout -->\n\n- [ ] All at once\n\n<!-- /decision -->\n";
+        $markdown = "<!-- decision: deploy-target -->\n\n- ( ) Ship to staging first\n- ( ) Ship straight to production\n\n<!-- /decision -->\n\n<!-- decision: rollout -->\n\n- ( ) All at once\n\n<!-- /decision -->\n";
 
         $create = self::getContainer()->get(CreateDocumentHandler::class);
         self::assertInstanceOf(CreateDocumentHandler::class, $create);
@@ -436,11 +436,18 @@ final class ShowReviewHandlerTest extends KernelTestCase
         self::assertSame('Ship straight to production', $decisions[0]['selected']);
         self::assertSame(1, $decisions[0]['selected_index']);
         self::assertNotNull($decisions[0]['answered_at']);
+        self::assertSame('single', $decisions[0]['type']);
+        // The same answer under one shape both kinds of block share.
+        self::assertSame([['Ship straight to production', 1]], array_map(
+            static fn (array $row): array => [$row['option'], $row['index']],
+            $decisions[0]['selections'],
+        ));
 
         self::assertSame('rollout', $decisions[1]['id']);
         self::assertNull($decisions[1]['selected']);
         self::assertNull($decisions[1]['selected_index']);
         self::assertNull($decisions[1]['answered_at']);
+        self::assertSame([], $decisions[1]['selections']);
 
         // The reported labels are the ones rendered into the version the
         // reviewer answered against, not a second reading of the Markdown.
@@ -448,6 +455,74 @@ final class ShowReviewHandlerTest extends KernelTestCase
         foreach ($decisions[0]['options'] as $option) {
             self::assertStringContainsString('>'.$option.'</label>', $html);
         }
+    }
+
+    /**
+     * A multi-choice block answers through `selections`, and reports null in
+     * every field that names one answer — an agent reading `selected` alone
+     * would otherwise be told one option when the reviewer chose three.
+     */
+    public function test_a_multi_choice_block_reports_every_chosen_option(): void
+    {
+        $markdown = "<!-- decision: ship-with -->\n\n- [ ] The importer\n- [ ] The exporter\n- [ ] The admin page\n\n<!-- /decision -->\n";
+
+        $create = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $create);
+        $doc = $create(new CreateDocumentCommand($this->project, 'Ship plan', $markdown));
+
+        $select = self::getContainer()->get(SelectDecisionOptionHandler::class);
+        self::assertInstanceOf(SelectDecisionOptionHandler::class, $select);
+        $select(new SelectDecisionOptionCommand($doc, 'ship-with', 0, displayedVersionNumber: 1));
+        $select(new SelectDecisionOptionCommand($doc, 'ship-with', 2, displayedVersionNumber: 1));
+
+        $decision = ($this->getReview)(new ShowReviewCommand($doc))['decisions'][0];
+
+        self::assertSame('multiple', $decision['type']);
+        self::assertNull($decision['selected']);
+        self::assertNull($decision['selected_index']);
+        self::assertNull($decision['answered_at']);
+        self::assertNull($decision['answered_at_version']);
+        self::assertSame(
+            [['The importer', 0], ['The admin page', 2]],
+            array_map(static fn (array $row): array => [$row['option'], $row['index']], $decision['selections']),
+        );
+    }
+
+    /**
+     * A block may offer the same text twice. Read one answer at a time, both
+     * answers resolve onto the first of those options, so the payload names one
+     * option twice while the page shows one box ticked.
+     */
+    public function test_two_answers_reading_the_same_report_two_options(): void
+    {
+        $create = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $create);
+        $doc = $create(new CreateDocumentCommand(
+            $this->project,
+            'Ship plan',
+            "<!-- decision: ship-with -->\n\n- [ ] Ship it\n- [ ] Ship it\n- [ ] Wait\n\n<!-- /decision -->\n",
+        ));
+
+        $select = self::getContainer()->get(SelectDecisionOptionHandler::class);
+        self::assertInstanceOf(SelectDecisionOptionHandler::class, $select);
+        $select(new SelectDecisionOptionCommand($doc, 'ship-with', 0, displayedVersionNumber: 1));
+        $select(new SelectDecisionOptionCommand($doc, 'ship-with', 1, displayedVersionNumber: 1));
+
+        $revise = self::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
+        $revise(new ReviseDocumentCommand(
+            $doc,
+            "<!-- decision: ship-with -->\n\n- [ ] Hold\n- [ ] Ship it\n- [ ] Ship it\n- [ ] Wait\n\n<!-- /decision -->\n",
+            'Added a first option.',
+        ));
+
+        // Read before any click, so nothing has brought the rows up to date.
+        $decision = ($this->getReview)(new ShowReviewCommand($doc))['decisions'][0];
+
+        self::assertSame([1, 2], array_map(
+            static fn (array $row): ?int => $row['index'],
+            $decision['selections'],
+        ));
     }
 
     public function test_a_document_with_no_decisions_reports_an_empty_list(): void

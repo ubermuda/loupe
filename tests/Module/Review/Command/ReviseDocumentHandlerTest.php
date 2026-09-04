@@ -573,6 +573,140 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         self::assertSame('Trimmed me.', $fresh->currentVersion()->description);
     }
 
+    /** @return array{EntityManagerInterface, Project, Document} */
+    private function seedForSeries(string $slug): array
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $user = new User(fullName: 'Agent', email: $slug.'@example.com', password: 'hashed');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.$slug);
+        $em->persist($project);
+        $em->flush();
+
+        $create = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $create);
+        $document = $create(new CreateDocumentCommand($project, 'Post five', '# Five'));
+
+        return [$em, $project, $document];
+    }
+
+    private function reviseHandler(): ReviseDocumentHandler
+    {
+        $handler = self::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $handler);
+
+        return $handler;
+    }
+
+    public function test_a_revision_can_place_the_document_in_a_series(): void
+    {
+        [$em, , $document] = $this->seedForSeries('revise-series-place');
+
+        $this->reviseHandler()(new ReviseDocumentCommand(
+            $document,
+            '# Five, rewritten',
+            'reworked the opening',
+            seriesName: 'Blog Series',
+            seriesOrdinal: 5,
+        ));
+        $documentId = $document->id;
+        $em->clear();
+
+        $reloaded = $em->find(Document::class, $documentId);
+        self::assertInstanceOf(Document::class, $reloaded);
+        self::assertSame('Blog Series', $reloaded->series?->name);
+        self::assertSame('blog series', $reloaded->series->normalizedName);
+        self::assertSame(5, $reloaded->seriesOrdinal);
+    }
+
+    public function test_a_revision_that_names_no_series_leaves_the_placement_alone(): void
+    {
+        [$em, , $document] = $this->seedForSeries('revise-series-keep');
+        $revise = $this->reviseHandler();
+        $revise(new ReviseDocumentCommand($document, '# Five, v2', 'placed it', seriesName: 'blog series', seriesOrdinal: 5));
+
+        $revise(new ReviseDocumentCommand($document, '# Five, v3', 'reworded the middle'));
+        $documentId = $document->id;
+        $em->clear();
+
+        $reloaded = $em->find(Document::class, $documentId);
+        self::assertInstanceOf(Document::class, $reloaded);
+        self::assertSame('blog series', $reloaded->series?->name);
+        self::assertSame(5, $reloaded->seriesOrdinal);
+    }
+
+    public function test_a_blank_series_name_takes_the_document_out_of_its_series(): void
+    {
+        [$em, , $document] = $this->seedForSeries('revise-series-clear');
+        $revise = $this->reviseHandler();
+        $revise(new ReviseDocumentCommand($document, '# Five, v2', 'placed it', seriesName: 'blog series', seriesOrdinal: 5));
+
+        $revise(new ReviseDocumentCommand($document, '# Five, v3', 'took it out of the series', seriesName: ''));
+        $documentId = $document->id;
+        $em->clear();
+
+        $reloaded = $em->find(Document::class, $documentId);
+        self::assertInstanceOf(Document::class, $reloaded);
+        self::assertNull($reloaded->series);
+        self::assertNull($reloaded->seriesOrdinal);
+    }
+
+    /**
+     * The placement is validated before the transaction opens, so a rejected one
+     * costs no version. Without that, a bad ordinal would roll the whole revision
+     * back as an internal failure rather than a field error.
+     */
+    public function test_an_ordinal_with_no_series_name_is_rejected_before_a_version_is_minted(): void
+    {
+        [$em, , $document] = $this->seedForSeries('revise-series-no-name');
+
+        try {
+            $this->reviseHandler()(new ReviseDocumentCommand($document, '# Five, v2', 'tried to number it', seriesOrdinal: 5));
+            self::fail('expected DomainErrors');
+        } catch (DomainErrors $e) {
+            self::assertSame(['series' => 'review.series.error.name_required'], $e->errors);
+        }
+
+        $documentId = $document->id;
+        $em->clear();
+
+        $reloaded = $em->find(Document::class, $documentId);
+        self::assertInstanceOf(Document::class, $reloaded);
+        self::assertCount(1, $reloaded->versions);
+    }
+
+    /** The one series failure that fires inside the transaction, so the new version goes back with it. */
+    public function test_a_taken_ordinal_rolls_the_whole_revision_back(): void
+    {
+        [$em, $project, $document] = $this->seedForSeries('revise-series-taken');
+        $create = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $create);
+        $create(new CreateDocumentCommand($project, 'Post one', '# One', seriesName: 'blog series', seriesOrdinal: 1));
+
+        try {
+            $this->reviseHandler()(new ReviseDocumentCommand(
+                $document,
+                '# Five, v2',
+                'tried to claim ordinal one',
+                seriesName: 'blog series',
+                seriesOrdinal: 1,
+            ));
+            self::fail('expected DomainErrors');
+        } catch (DomainErrors $e) {
+            self::assertSame(['seriesOrdinal' => 'review.series.error.ordinal_taken'], $e->errors);
+        }
+
+        $documentId = $document->id;
+        $em->clear();
+
+        $reloaded = $em->find(Document::class, $documentId);
+        self::assertInstanceOf(Document::class, $reloaded);
+        self::assertCount(1, $reloaded->versions);
+        self::assertNull($reloaded->series);
+    }
+
     public function test_a_revision_is_recorded_on_the_domain_channel(): void
     {
         self::bootKernel();
@@ -615,6 +749,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
             'versionNumber' => 2,
             'titleChanged' => true,
             'referencesReplaced' => false,
+            'seriesChanged' => false,
             'commentsCarried' => 1,
             'commentsOrphaned' => 0,
             'sectionsCarried' => 0,

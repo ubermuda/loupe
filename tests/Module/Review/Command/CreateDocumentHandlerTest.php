@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Review\Command;
 
+use App\Doctrine\SearchLanguage;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
@@ -11,6 +12,7 @@ use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
 use App\Module\Review\Command\SetDocumentTagsCommand;
 use App\Module\Review\Command\SetDocumentTagsHandler;
+use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Service\DocumentSearchIndexer;
@@ -40,6 +42,26 @@ final class CreateDocumentHandlerTest extends KernelTestCase
         self::assertSame(DocumentStatus::InReview, $doc->status);
         self::assertSame(1, $doc->versions->count());
         self::assertStringContainsString('<h1 id="heading-auth">Auth</h1>', $doc->currentVersion()->renderedHtml);
+    }
+
+    public function test_a_document_inherits_the_project_search_language_when_the_caller_names_none(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $user = new User(fullName: 'Agent', email: 'inherit-'.uniqid().'@example.com', password: 'hashed-placeholder');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $project->searchLanguage = SearchLanguage::Portuguese;
+        $em->persist($project);
+        $em->flush();
+
+        $handler = self::getContainer()->get(CreateDocumentHandler::class);
+
+        $inherited = $handler(new CreateDocumentCommand(project: $project, title: 'Pagamentos', markdown: '# Pagamentos'));
+        $named = $handler(new CreateDocumentCommand(project: $project, title: 'Payments', markdown: '# Payments', language: SearchLanguage::English));
+
+        self::assertSame(SearchLanguage::Portuguese, $inherited->searchLanguage);
+        self::assertSame(SearchLanguage::English, $named->searchLanguage);
     }
 
     /** @return iterable<string, array{string, string}> */
@@ -170,6 +192,83 @@ final class CreateDocumentHandlerTest extends KernelTestCase
         self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM document_versions'));
     }
 
+    public function test_a_document_can_be_placed_in_a_series_as_it_is_created(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $user = new User(fullName: 'Agent', email: 'placed@example.com', password: 'hashed-placeholder');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        $handler = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $handler);
+
+        $document = $handler(new CreateDocumentCommand(
+            project: $project,
+            title: 'Post five',
+            markdown: '# Five',
+            seriesName: 'Blog Series',
+            seriesOrdinal: 5,
+        ));
+        $documentId = $document->id;
+        $em->clear();
+
+        $reloaded = $em->find(Document::class, $documentId);
+        self::assertInstanceOf(Document::class, $reloaded);
+        self::assertSame('Blog Series', $reloaded->series?->name);
+        self::assertSame('blog series', $reloaded->series->normalizedName);
+        self::assertSame(5, $reloaded->seriesOrdinal);
+    }
+
+    /**
+     * Same guarantee as the rejected tag name above, for the ordinal: a rejected
+     * placement must leave nothing scheduled for a later flush by anyone sharing
+     * this EntityManager.
+     */
+    public function test_a_taken_ordinal_leaves_nothing_scheduled_for_a_later_flush(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $user = new User(fullName: 'Agent', email: 'clash@example.com', password: 'hashed-placeholder');
+        $em->persist($user);
+        $project = new Project($user, 'p-'.uniqid());
+        $em->persist($project);
+        $em->flush();
+
+        $handler = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $handler);
+        $handler(new CreateDocumentCommand(
+            project: $project,
+            title: 'Post one',
+            markdown: '# One',
+            seriesName: 'blog series',
+            seriesOrdinal: 1,
+        ));
+
+        try {
+            $handler(new CreateDocumentCommand(
+                project: $project,
+                title: 'Also post one',
+                markdown: '# One again',
+                seriesName: 'blog series',
+                seriesOrdinal: 1,
+            ));
+            self::fail('expected DomainErrors');
+        } catch (DomainErrors $e) {
+            self::assertSame(['seriesOrdinal' => 'review.series.error.ordinal_taken'], $e->errors);
+        }
+
+        $em->flush();
+        $em->clear();
+
+        $conn = $em->getConnection();
+        self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE project_id = :id', ['id' => (string) $project->id]));
+    }
+
     public function test_a_created_document_is_recorded_on_the_domain_channel(): void
     {
         self::bootKernel();
@@ -203,6 +302,7 @@ final class CreateDocumentHandlerTest extends KernelTestCase
             'projectId' => (string) $project->id,
             'tagCount' => 2,
             'referenceCount' => 0,
+            'inSeries' => false,
         ], $record->context);
 
         // One record, because the tags are applied by a service that records

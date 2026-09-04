@@ -16,12 +16,12 @@ use App\Module\Review\Service\DecisionBlockService;
 final readonly class DecisionSummary
 {
     /**
-     * @param list<Decision>     $decisions
-     * @param array<string, int> $selectedIndexByDecisionId keyed by decision id, absent when unanswered
+     * @param list<Decision>           $decisions
+     * @param array<string, list<int>> $selectedIndexesByDecisionId keyed by decision id, absent when unanswered
      */
     public function __construct(
         public array $decisions,
-        public array $selectedIndexByDecisionId,
+        public array $selectedIndexesByDecisionId,
     ) {
     }
 
@@ -34,7 +34,7 @@ final readonly class DecisionSummary
     {
         return \count(array_filter(
             $this->decisions,
-            fn (Decision $decision): bool => isset($this->selectedIndexByDecisionId[$decision->id]),
+            fn (Decision $decision): bool => [] !== ($this->selectedIndexesByDecisionId[$decision->id] ?? []),
         ));
     }
 
@@ -45,22 +45,35 @@ final readonly class DecisionSummary
      * out in the template, because it is the same id the rendered fieldset
      * carries and a second spelling of the prefix is a link that breaks silently.
      *
-     * @return list<array{label: string, elementId: string, selected: string|null}>
+     * @return list<array{label: string, elementId: string, selected: list<string>}>
      */
     public function rows(): array
     {
         return array_map(fn (Decision $decision): array => [
             'label' => $decision->label(),
             'elementId' => DecisionBlockService::blockElementId($decision->id),
-            'selected' => $this->selectedOption($decision),
+            'selected' => $this->selectedOptions($decision),
         ], $this->decisions);
     }
 
-    /** The option the reviewer chose, or null while the block is unanswered. */
-    public function selectedOption(Decision $decision): ?string
+    /**
+     * The options the reviewer chose, empty while the block is unanswered.
+     *
+     * A single-choice block never holds more than one, so the panel reads both
+     * kinds through this one list rather than branching on the block's type.
+     *
+     * @return list<string>
+     */
+    public function selectedOptions(Decision $decision): array
     {
-        $index = $this->selectedIndexByDecisionId[$decision->id] ?? null;
+        $options = [];
+        foreach ($this->selectedIndexesByDecisionId[$decision->id] ?? [] as $index) {
+            $option = $decision->optionAt($index);
+            if (null !== $option) {
+                $options[] = $option;
+            }
+        }
 
-        return null === $index ? null : $decision->optionAt($index);
+        return $options;
     }
 }

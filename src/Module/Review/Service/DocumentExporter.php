@@ -50,6 +50,8 @@ final readonly class DocumentExporter implements UserDataExporterInterface
                 $tags[] = $tag->name;
             }
 
+            $series = $document->series?->name;
+
             // Outgoing only: what this document points at is the owner's own
             // statement, while an incoming link is someone else's.
             $references = [];
@@ -64,7 +66,10 @@ final readonly class DocumentExporter implements UserDataExporterInterface
                 'id' => (string) $document->id,
                 'project' => $document->project->name,
                 'title' => $document->title,
+                'language' => $document->searchLanguage->value,
                 'tags' => $tags,
+                'series' => $series,
+                'seriesOrdinal' => $document->seriesOrdinal,
                 'status' => $document->status->value,
                 'archivedAt' => $document->archivedAt?->format(\DateTimeInterface::ATOM),
                 'createdAt' => $document->createdAt->format(\DateTimeInterface::ATOM),

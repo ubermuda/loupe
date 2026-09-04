@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Review\Form;
 
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -37,6 +38,13 @@ class SelectDecisionOptionFormType extends AbstractType
         $builder->add('optionIndex', IntegerType::class, [
             'required' => false,
             'attr' => ['data-decision-target' => 'optionIndex'],
+        ]);
+        // A real checkbox, so an unticked one submits nothing and maps to false.
+        // The Stimulus controller mirrors the clicked control's own state onto
+        // it, and a radio is always ticked by the click that fires this.
+        $builder->add('chosen', CheckboxType::class, [
+            'required' => false,
+            'attr' => ['data-decision-target' => 'chosen'],
         ]);
         // Server-filled, not Stimulus-filled: it names the version whose option
         // list was rendered into the page, so it must come from the render and

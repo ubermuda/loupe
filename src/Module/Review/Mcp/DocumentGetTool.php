@@ -15,7 +15,7 @@ use Mcp\Exception\ToolCallException;
  *
  * @phpstan-import-type DocumentPayload from ShowDocumentDataHandler
  */
-#[McpTool(name: 'document_get', description: 'Fetch a document\'s current Markdown source, title, status, archive state and reason, version number, that version\'s description, and the documents it references.')]
+#[McpTool(name: 'document_get', description: 'Fetch a document\'s current Markdown source, title, search language, status, archive state and reason, version number, that version\'s description, its tags, its place in a series, and the documents it references.')]
 final readonly class DocumentGetTool
 {
     public function __construct(

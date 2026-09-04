@@ -213,7 +213,7 @@ final class DocumentReviseToolTest extends KernelTestCase
             ($this->tool)((string) $document->id, '# One', 'Pointed at myself.', null, [(string) $document->id]);
             self::fail('a self-reference must throw');
         } catch (ToolCallException $e) {
-            self::assertSame('A document cannot reference itself.', $e->getMessage());
+            self::assertSame('references: A document cannot reference itself.', $e->getMessage());
         }
 
         // Rejected outright: the revision itself did not land either.
@@ -347,7 +347,7 @@ final class DocumentReviseToolTest extends KernelTestCase
         // so without the ToolCallException re-throw guard this message would be
         // rewritten into the catch-all's generic one.
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('The markdown content exceeds the maximum allowed size.');
+        $this->expectExceptionMessage('markdown: The markdown content exceeds the maximum allowed size.');
         ($this->tool)((string) $document->id, str_repeat('a', DocumentCreateTool::MAX_MARKDOWN_BYTES + 1), 'Too big.');
     }
 

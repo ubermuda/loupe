@@ -75,9 +75,11 @@ exactly four fields, separated by ` · `.
 - **Priority**: `high` (blocks or degrades real work or users; gate-integrity
   and security exposures default here), `medium` (worth scheduling), or `low`
   (opportunistic, cosmetic, or only-if-it-bites).
-- **Status**: `pending` (the default for a new entry) or `in-progress` (a
-  branch, worktree, or session works it now; name that in the body). There is
-  no `done`, because you delete a resolved entry.
+- **Status**: `pending` (the default for a new entry), `in-progress` (a branch,
+  worktree, or session works it now; name that in the body), or `parked`. A
+  parked entry stays open, and nobody works on it until the owner unparks it.
+  It keeps its priority and its position in its band. There is no `done`,
+  because you delete a resolved entry.
 
 ## Lifecycle rules
 

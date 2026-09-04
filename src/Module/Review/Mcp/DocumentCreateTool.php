@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Mcp;
 
+use App\Doctrine\SearchLanguage;
 use App\Exception\DomainErrors;
 use App\Mcp\ResolvesBoundProject;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
@@ -17,7 +18,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 /**
  * Create a Markdown document for human review and return its id and review URL.
  */
-#[McpTool(name: 'document_create', description: 'Create a Markdown document for human review. Pass description to say what this first version is, tags to group it with related documents, and references to link the documents this one accompanies, supersedes or answers. Tags are lowercased and created on first use — read tag_list first so a batch reuses the project\'s existing names.')]
+#[McpTool(name: 'document_create', description: 'Create a Markdown document for human review. Pass description to say what this first version is, tags to group it with related documents, and references to link the documents this one accompanies, supersedes or answers. Pass series with seriesOrdinal to say this document is a numbered item of an ordered set, such as post 5 of a blog series. Pass language when the document is not in the project\'s default language, so search stems it correctly: one of the PostgreSQL text-search configuration names, such as english, french, german, spanish, portuguese, russian, or simple for text of mixed or unknown language. Tags are lowercased. A series name is stored as you spell it and matched ignoring case. Both are created on first use, so read tag_list and series_list first and reuse the project\'s existing names.')]
 final readonly class DocumentCreateTool
 {
     use ResolvesBoundProject;
@@ -45,21 +46,24 @@ final readonly class DocumentCreateTool
      * `T[]` and `array<T>` forms, so `list<string>` publishes an array of
      * anything. `string[]` and `array<string>` are both fine.
      *
-     * @param string        $title       The document title
-     * @param string        $markdown    The document content in Markdown format
-     * @param string|null   $description What this first version is, in one or two sentences — the brief it answers or the question it exists to settle
-     * @param string[]      $tags        Tag names to group this document by, lowercased on write and created if the project does not have them yet
-     * @param array<string> $references  Ids of documents in the same project that this one points at; the link is shown on both documents
+     * @param string        $title         The document title
+     * @param string        $markdown      The document content in Markdown format
+     * @param string|null   $description   What this first version is, in one or two sentences — the brief it answers or the question it exists to settle
+     * @param string[]      $tags          Tag names to group this document by, lowercased on write and created if the project does not have them yet
+     * @param array<string> $references    Ids of documents in the same project that this one points at; the link is shown on both documents
+     * @param string|null   $series        Name of the ordered set this document is an item of, stored as you spell it and created if the project does not have it yet; requires seriesOrdinal
+     * @param int|null      $seriesOrdinal Position of this document in that series, counting from 1; no two documents in one series may hold the same number
+     * @param string|null   $language      The language the document is written in, which decides how search stems it; a PostgreSQL text-search configuration name such as english, french or simple. Defaults to the project's own setting.
      *
-     * @return array{documentId: string, reviewUrl: string, tags: list<string>}
+     * @return array{documentId: string, reviewUrl: string, tags: list<string>, series: ?string, seriesOrdinal: ?int, language: string}
      */
-    public function __invoke(string $title, string $markdown, ?string $description = null, array $tags = [], array $references = []): array
+    public function __invoke(string $title, string $markdown, ?string $description = null, array $tags = [], array $references = [], ?string $series = null, ?int $seriesOrdinal = null, ?string $language = null): array
     {
         try {
             $project = $this->requireBoundProject($this->projectResolver);
 
             if (\strlen($markdown) > self::MAX_MARKDOWN_BYTES) {
-                throw new ToolCallException('The markdown content exceeds the maximum allowed size.');
+                throw $this->errorMessages->forArgument('markdown', 'The markdown content exceeds the maximum allowed size.');
             }
 
             // A whitespace-only description means "none given", but "0" is a
@@ -67,6 +71,14 @@ final readonly class DocumentCreateTool
             $description = null === $description ? null : trim($description);
             if ('' === $description) {
                 $description = null;
+            }
+
+            // Rejected here rather than passed through: the value reaches SQL as
+            // a regconfig, so an unknown name raises a database error instead of
+            // returning nothing.
+            $searchLanguage = null === $language ? null : SearchLanguage::tryFrom($language);
+            if (null !== $language && null === $searchLanguage) {
+                throw new ToolCallException(\sprintf('Unknown language "%s". Use one of: %s.', $language, implode(', ', SearchLanguage::values())));
             }
 
             // Named, not positional: the command now ends in two optional arrays
@@ -78,6 +90,9 @@ final readonly class DocumentCreateTool
                 description: $description,
                 tagNames: $tags,
                 references: $this->subjects->requireReferences($references),
+                seriesName: $series,
+                seriesOrdinal: $seriesOrdinal,
+                language: $searchLanguage,
             ));
 
             return [
@@ -87,6 +102,11 @@ final readonly class DocumentCreateTool
                     'documentId' => (string) $doc->id,
                 ], UrlGeneratorInterface::ABSOLUTE_URL),
                 'tags' => array_values(array_map(static fn (Tag $tag): string => $tag->name, $doc->tags->toArray())),
+                'series' => $doc->series?->name,
+                'seriesOrdinal' => $doc->seriesOrdinal,
+                // Echoed back so a caller that named none learns what the
+                // project's default resolved to.
+                'language' => $doc->searchLanguage->value,
             ];
         } catch (DomainErrors $e) {
             throw $this->errorMessages->forAgent($e);

@@ -52,6 +52,7 @@ class EditProjectController extends AppController
                     project: $project,
                     name: $name,
                     domain: trim($data->domain ?? '') ?: null,
+                    searchLanguage: $data->searchLanguage ?? throw new \LogicException('search language required after validation'),
                 ));
 
                 return $this->redirectToRoute('app_projects');

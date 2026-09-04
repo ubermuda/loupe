@@ -109,7 +109,7 @@ final class DocumentArchiveToolTest extends KernelTestCase
             ($this->tool)((string) $document->id, '   ');
             self::fail('a blank reason must throw');
         } catch (ToolCallException $e) {
-            self::assertSame('A reason for archiving the document is required.', $e->getMessage());
+            self::assertSame('reason: A reason for archiving the document is required.', $e->getMessage());
         }
 
         self::assertNull($document->archivedAt);

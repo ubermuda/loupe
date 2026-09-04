@@ -14,6 +14,6 @@ class UpdateProjectRequest extends CreateProjectRequest
 {
     public static function fromProject(Project $project): self
     {
-        return new self($project->name, $project->domain);
+        return new self($project->name, $project->domain, $project->searchLanguage);
     }
 }
