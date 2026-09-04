@@ -32,12 +32,14 @@ final class Version20260904160920 extends AbstractMigration
     #[\Override]
     public function down(Schema $schema): void
     {
-        $this->addSql('ALTER TABLE series DROP CONSTRAINT FK_3A10012D166D1F9C');
-        $this->addSql('DROP TABLE series');
+        // The generated order dropped `series` while documents still referenced
+        // it, which Postgres refuses. The referencing side goes first.
         $this->addSql('ALTER TABLE documents DROP CONSTRAINT FK_A2B072885278319C');
         $this->addSql('DROP INDEX IDX_A2B072885278319C');
         $this->addSql('DROP INDEX uniq_document_series_ordinal');
         $this->addSql('ALTER TABLE documents DROP series_ordinal');
         $this->addSql('ALTER TABLE documents DROP series_id');
+        $this->addSql('ALTER TABLE series DROP CONSTRAINT FK_3A10012D166D1F9C');
+        $this->addSql('DROP TABLE series');
     }
 }
