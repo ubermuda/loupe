@@ -24,6 +24,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Translation\IdentityTranslator;
 use Symfony\UX\Turbo\TurboBundle;
 
 final class ShowDocumentControllerTest extends WebTestCase
@@ -715,7 +716,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         // exist in MarkdownRenderer's output.
         $markdown = "## First\n\nBody.\n\n## Second\n\nMore.\n";
         $doc = new Document(owner: $owner, project: $project, title: 'Sectioned Doc');
-        $doc->addVersion($markdown, new MarkdownRenderer(new NullLogger())->render($markdown));
+        $doc->addVersion($markdown, new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render($markdown));
         $em->persist($doc);
         $em->flush();
 
@@ -748,7 +749,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         // so it must not become a blank link between the two real entries.
         $markdown = "## First\n\nBody.\n\n## ![](diagram.png)\n\nMore.\n\n## Second\n\nEnd.\n";
         $doc = new Document(owner: $owner, project: $project, title: 'Illustrated Doc');
-        $doc->addVersion($markdown, new MarkdownRenderer(new NullLogger())->render($markdown));
+        $doc->addVersion($markdown, new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render($markdown));
         $em->persist($doc);
         $em->flush();
 
@@ -778,7 +779,7 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         $markdown = "## Only\n\nBody.\n";
         $doc = new Document(owner: $owner, project: $project, title: 'Flat Doc');
-        $doc->addVersion($markdown, new MarkdownRenderer(new NullLogger())->render($markdown));
+        $doc->addVersion($markdown, new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render($markdown));
         $em->persist($doc);
         $em->flush();
 
@@ -895,7 +896,7 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         $markdown = "## First\n\nBody.\n\n## Second\n\nMore.\n";
         $source = new Document(owner: $owner, project: $project, title: 'Sectioned Companion');
-        $source->addVersion($markdown, new MarkdownRenderer(new NullLogger())->render($markdown));
+        $source->addVersion($markdown, new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render($markdown));
         $source->references->add($target);
         $em->persist($source);
         $em->flush();
