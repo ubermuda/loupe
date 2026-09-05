@@ -30,6 +30,9 @@ entry.
 
 ## [Unreleased]
 
+- `7e1060c` (#358) — **Changed:** the test suite writes deprecations to their own
+  always-on log with rotation, and writes far less to `test.log`, which now holds
+  exactly one run.
 - `e887a13` (#356) — **Added:** `docs/contributing/architectural-priorities.md`
   ranks correctness, simplicity, performance and shipping speed, and says which
   one yields in each of six collisions and when to escalate instead.
