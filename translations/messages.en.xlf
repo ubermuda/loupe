@@ -1513,6 +1513,46 @@
                 <source>review.decision.error.stale_version</source>
                 <target>This document changed while you were reading it. Reload the page and choose again.</target>
             </trans-unit>
+            <trans-unit id="review.document.sections.count">
+                <source>review.document.sections.count</source>
+                <target>%approved% of %total% approved</target>
+            </trans-unit>
+            <trans-unit id="review.document.sections.approved">
+                <source>review.document.sections.approved</source>
+                <target>Approved</target>
+            </trans-unit>
+            <trans-unit id="review.document.sections.pending">
+                <source>review.document.sections.pending</source>
+                <target>Not approved</target>
+            </trans-unit>
+            <trans-unit id="review.document.sections.approve_label">
+                <source>review.document.sections.approve_label</source>
+                <target>Approve section %section%</target>
+            </trans-unit>
+            <trans-unit id="review.document.sections.withdraw_label">
+                <source>review.document.sections.withdraw_label</source>
+                <target>Withdraw approval of section %section%</target>
+            </trans-unit>
+            <trans-unit id="review.section.flash.approved">
+                <source>review.section.flash.approved</source>
+                <target>Section approved.</target>
+            </trans-unit>
+            <trans-unit id="review.section.flash.withdrawn">
+                <source>review.section.flash.withdrawn</source>
+                <target>Section approval withdrawn.</target>
+            </trans-unit>
+            <trans-unit id="review.section.error.save_failed">
+                <source>review.section.error.save_failed</source>
+                <target>Couldn’t save that section approval. Please try again.</target>
+            </trans-unit>
+            <trans-unit id="review.section.error.unknown">
+                <source>review.section.error.unknown</source>
+                <target>That section is no longer part of this document.</target>
+            </trans-unit>
+            <trans-unit id="review.section.error.stale_version">
+                <source>review.section.error.stale_version</source>
+                <target>This document changed while you were reading it. Reload the page and approve again.</target>
+            </trans-unit>
             <trans-unit id="comment.error.not_owner">
                 <source>comment.error.not_owner</source>
                 <target>You can only comment on your own documents.</target>

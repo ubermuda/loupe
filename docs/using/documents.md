@@ -50,6 +50,28 @@ longer holds it, and the page says so when you select it. A diff that ends at an
 older version stays read-only, because a comment made there would anchor to a
 version nothing reads back.
 
+## Section approvals
+
+The verdict covers the whole document. A reviewer can also approve one section
+at a time. A section runs from one heading to the next heading, whatever the two
+levels are.
+
+A round button sits beside each heading in the document. It approves that
+section, and it withdraws the approval again. The **Sections** panel above the
+document lists every section with its state, as an overview; the button beside
+the heading is where you act.
+
+Loupe stores each approval against the heading and against a digest of the
+section's own text. A revision keeps an approval only while both still match, so
+a section you left alone stays approved and a section you rewrote comes back
+unapproved. This is how a multi-round review says "these parts are settled, read
+the rest".
+
+Section approvals sit beside the whole-document verdict and do not replace it.
+`document_revise` reports `sectionsCarried` and `sectionsDropped` next to the
+comment counts, and `document_get_review` returns a `sections` list that says how
+many reviewers still approve each one. See [The MCP endpoint](mcp.md).
+
 ## Revising
 
 Submitting a new version **re-anchors** open comments onto it. A comment whose

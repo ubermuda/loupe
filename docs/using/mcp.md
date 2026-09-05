@@ -113,7 +113,7 @@ Roughly in the order an agent uses them:
 | `document_create` | Submit Markdown as a new document; returns a review URL and the language it was stored in |
 | `document_revise` | Submit a new version, described by what changed |
 | `document_get` / `document_list` | Read a document, or enumerate the project's |
-| `document_get_review` | Verdict, threaded comments, and answered decision blocks |
+| `document_get_review` | Verdict, threaded comments, answered decision blocks, and approved sections |
 | `document_reply_to_comment` | Reply to a reviewer's thread |
 | `document_mark_comment_addressed` | Mark a thread acted on |
 | `document_highlight` | Tint the passages to read first (off by default — see below) |
@@ -167,6 +167,24 @@ A comment with several anchors says something about how those elements relate,
 so read them together. An empty `anchors` list is a note about the page as a
 whole. The `quote` fields are reserved for an anchor on a run of text, and are
 always null today.
+
+## Which sections are settled
+
+`document_get_review` returns a `sections` list beside the comments, one entry
+per section of the current version:
+
+```json
+{ "heading_id": "heading-goals", "level": 2, "title": "Goals", "standing_approval_count": 1 }
+```
+
+`standing_approval_count` counts **every reviewer** whose approval of that
+section still matches its text. It is 0 while nobody's approval stands. The
+count is not scoped to the identity the token belongs to. It also names no
+reviewer, for the same reason a comment reports only `agent` or `human`.
+
+Treat a section above 0 as settled and leave its text alone. Rewriting a section
+changes its digest, which drops the approval and puts the section back in front
+of the reviewer. See [Documents and review](documents.md).
 
 ## Two things agents get wrong
 

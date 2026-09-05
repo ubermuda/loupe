@@ -11,11 +11,14 @@ use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Entity\Series;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
+use App\Module\Review\Repository\SectionApprovalRepository;
 use App\Module\Review\Service\DocumentReferenceValidator;
 use App\Module\Review\Service\DocumentSearchIndexer;
 use App\Module\Review\Service\DocumentSeriesApplier;
+use App\Module\Review\Service\HeadingExtractor;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\Service\ReanchoringService;
+use App\Module\Review\Service\SectionHasher;
 use App\Module\Review\Service\SeriesConflictErrors;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\LockMode;
@@ -25,7 +28,7 @@ use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
 /**
- * @phpstan-import-type ReanchoringSummary from ReanchoringService
+ * @phpstan-type RevisionSummary array{carried: int, orphaned: int, sectionsCarried: int, sectionsDropped: int}
  */
 final readonly class ReviseDocumentHandler
 {
@@ -35,6 +38,9 @@ final readonly class ReviseDocumentHandler
         private ReanchoringService $reanchoringService,
         private CommentRepository $comments,
         private DocumentVersionRepository $documentVersions,
+        private SectionApprovalRepository $sectionApprovals,
+        private HeadingExtractor $headings,
+        private SectionHasher $sectionHasher,
         private DocumentReferenceValidator $referenceValidator,
         private DocumentSeriesApplier $seriesApplier,
         private DocumentSearchIndexer $searchIndexer,
@@ -44,7 +50,7 @@ final readonly class ReviseDocumentHandler
     }
 
     /**
-     * @return ReanchoringSummary
+     * @return RevisionSummary
      */
     public function __invoke(ReviseDocumentCommand $command): array
     {
@@ -142,6 +148,8 @@ final readonly class ReviseDocumentHandler
             // Re-anchor them onto the new version; copies are attached to $newVersion->comments.
             $summary = $this->reanchoringService->reanchor($openComments, $newVersion);
 
+            $sections = $this->carryForwardApprovals($document, $newVersion);
+
             // Transition document status back to in-review.
             $document->status = DocumentStatus::InReview;
 
@@ -158,7 +166,12 @@ final readonly class ReviseDocumentHandler
 
             $newVersionNumber = $newVersion->versionNumber;
 
-            return $summary;
+            return [
+                'carried' => $summary['carried'],
+                'orphaned' => $summary['orphaned'],
+                'sectionsCarried' => $sections['carried'],
+                'sectionsDropped' => $sections['dropped'],
+            ];
         });
 
         // After the commit, never inside it: the sink drains at kernel.terminate,
@@ -175,10 +188,45 @@ final readonly class ReviseDocumentHandler
                 'seriesChanged' => $placesInSeries,
                 'commentsCarried' => $summary['carried'],
                 'commentsOrphaned' => $summary['orphaned'],
+                'sectionsCarried' => $summary['sectionsCarried'],
+                'sectionsDropped' => $summary['sectionsDropped'],
             ],
             new AuditSubject('document', (string) $document->id),
         );
 
         return $summary;
+    }
+
+    /**
+     * Keeps an approval whose section reads exactly as it did, and drops the rest.
+     *
+     * The heading id and the digest must BOTH still match. The id alone would
+     * keep an approval of text this revision replaced, which is the claim the
+     * digest exists to refuse. A dropped row is deleted rather than flagged: the
+     * reviewer approves the new text again, or leaves it open.
+     *
+     * @return array{carried: int, dropped: int}
+     */
+    private function carryForwardApprovals(Document $document, DocumentVersion $newVersion): array
+    {
+        $hashes = $this->sectionHasher->hashes(
+            $newVersion->renderedHtml,
+            $this->headings->extract($newVersion->renderedHtml),
+        );
+
+        $carried = 0;
+        $dropped = 0;
+        foreach ($this->sectionApprovals->findByDocument($document) as $approval) {
+            if (($hashes[$approval->headingId] ?? null) === $approval->contentHash) {
+                ++$carried;
+
+                continue;
+            }
+
+            $this->em->remove($approval);
+            ++$dropped;
+        }
+
+        return ['carried' => $carried, 'dropped' => $dropped];
     }
 }
