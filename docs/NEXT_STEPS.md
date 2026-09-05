@@ -2707,49 +2707,25 @@ Decide that first. Then apply it to the `#[McpTool]` description, the `__invoke`
 docblock, the `loupe-documents` skill, which lists no skip reasons today, and
 the `document_mark_comment_addressed` row in `docs/using/mcp.md`.
 
-## One failing e2e test silently disables three whole suites
+## A red `chromium` test silently withholds three e2e suites
 
 **Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
 
-`e2e/playwright.config.ts` chains its projects: `waitlist` on `chromium`,
-`trial-end-lifecycle` on `waitlist`, `install-reset` on all three. Playwright
-skips a dependent project when its dependency fails, so one red `chromium` test
-disables eleven others.
+`e2e/playwright.config.ts` chains `waitlist` on `chromium`,
+`trial-end-lifecycle` on `waitlist`, and `install-reset` on all three.
 
-A real run read `1 failed, 130 passed, 11 did not run`; the same commit healthy
-reads `142 passed`. Twelve tests and one ambiguous phrase is the whole signal,
-so three suites went untested for hours and nobody noticed.
+The chain is not ordering for its own sake and should not be removed. Those
+three specs mutate state every other spec depends on: `waitlist` and
+`trial-end-lifecycle` write `registration.cap` and `billing.enabled`, and
+`install-reset` truncates every table. `dependencies` is the only Playwright
+mechanism that serialises projects, so the chain is what stops them running
+alongside anything else.
 
-Decide whether to break the chain or make the summary name the skipped projects.
+The cost is the second thing `dependencies` does. Playwright also skips a
+dependent project when its dependency fails, so one red `chromium` test withheld
+all three suites for hours. A real run read `1 failed, 130 passed, 11 did not
+run`; the same commit healthy reads `142 passed`. Twelve tests and one ambiguous
+phrase is the whole signal, and "did not run" reads as a deliberate skip.
 
-## Every worktree shares one php-fpm container
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-There is one container, `loupe-php-fpm-1`. `bin/worktrees/compose-exec.sh` execs
-into it and varies only `--workdir`. Worktrees are isolated per test database by
-`TEST_TOKEN`, never per container.
-
-So `docker compose exec php-fpm pkill -f phpunit` kills every worktree's run.
-Match the path instead: `pkill -f 'phpunit.*worktrees/<name>'`. Two gates in one
-worktree share a token and crash on `pg_type_typname_nsp_index`.
-
-`CLAUDE.md` says a host-side `pkill` cannot see into the container, which makes
-the in-container form look safe. Three sessions used it in one day.
-
-Decide whether this belongs in `CLAUDE.md` or `project-worktrees`.
-
-## "Keep both entries" is wrong when a branch deleted one on purpose
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`CLAUDE.md` says a conflict in this file always resolves to keeping both
-entries. That holds for two branches that append. It is wrong for a branch that
-resolves entries, because keeping both sides restores work already done, and
-nothing goes red.
-
-Hand such a merge to the branch's author: an outside merger cannot tell a
-deliberate deletion from a lost one.
-
-Decide whether to qualify the rule at `CLAUDE.md` line 45.
-
+Decide how to keep the serialisation and lose the silence: fail the run loudly
+when a project is withheld, or name the withheld projects in the summary.
