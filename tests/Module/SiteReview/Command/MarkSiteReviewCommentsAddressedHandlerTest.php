@@ -185,7 +185,7 @@ final class MarkSiteReviewCommentsAddressedHandlerTest extends KernelTestCase
 
     private function comment(SiteReviewCommentStatus $status = SiteReviewCommentStatus::Pending): SiteReviewComment
     {
-        $comment = new SiteReviewComment($this->project, 0, 'Fix this', '.hero h1', 'Hello world', 'https://example.com/');
+        $comment = new SiteReviewComment($this->project, 0, 'Fix this', 'https://example.com/')->addAnchor('.hero h1', 'Hello world');
         $comment->status = $status;
         $this->em->persist($comment);
         $this->em->flush();

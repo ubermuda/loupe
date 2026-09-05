@@ -36,15 +36,44 @@ final class SiteReviewsPageTest extends WebTestCase
         $owner = $this->user($em, $email);
         $project = new Project($owner, $siteName);
         $em->persist($project);
-        $c1 = new SiteReviewComment($project, 0, 'First comment', '.selector', 'Selected text', 'https://example.com/page');
+        $c1 = new SiteReviewComment($project, 0, 'First comment', 'https://example.com/page')->addAnchor('.selector', 'Selected text');
         $c1->status = SiteReviewCommentStatus::Pending;
-        $c2 = new SiteReviewComment($project, 1, 'Second comment', '', '', 'https://example.com/other');
+        $c2 = new SiteReviewComment($project, 1, 'Second comment', 'https://example.com/other');
         $c2->status = SiteReviewCommentStatus::Pending;
         $em->persist($c1);
         $em->persist($c2);
         $em->flush();
 
         return [$project, [$c1, $c2]];
+    }
+
+    public function test_a_multi_anchor_comment_gets_one_selector_disclosure_per_anchor(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->user($em, 'reviews-page-anchors@example.com');
+        $project = new Project($owner, 'reviews-site-anchors');
+        $em->persist($project);
+        $multi = new SiteReviewComment($project, 0, 'These belong side by side', 'https://example.com/page')
+            ->addAnchor('.card', 'Save')
+            ->addAnchor('.panel', 'Cancel');
+        $multi->status = SiteReviewCommentStatus::Pending;
+        $em->persist($multi);
+        $em->flush();
+        $commentId = $multi->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
+
+        self::assertResponseIsSuccessful();
+        $article = $crawler->filter('[data-comment-id="'.$commentId.'"]');
+        // One Page disclosure plus one per anchor.
+        self::assertCount(3, $article->filter('.lp-site-review-selector'));
+        self::assertStringContainsString('2 elements', $article->filter('.lp-site-review-quote')->text());
+        self::assertStringContainsString('.card', $article->text());
+        self::assertStringContainsString('.panel', $article->text());
     }
 
     public function test_page_shows_pending_comments_with_statuses(): void
@@ -164,7 +193,7 @@ final class SiteReviewsPageTest extends WebTestCase
         $project = new Project($owner, 'reviews-site-e');
         $em->persist($project);
         // Default status, exactly as the widget's save leaves it — no send step.
-        $comment = new SiteReviewComment($project, 0, 'Straight from the widget', '.a', 'text', 'https://example.com');
+        $comment = new SiteReviewComment($project, 0, 'Straight from the widget', 'https://example.com')->addAnchor('.a', 'text');
         $em->persist($comment);
         $em->flush();
         $commentId = $comment->id;
@@ -188,7 +217,7 @@ final class SiteReviewsPageTest extends WebTestCase
         $owner = $this->user($em, 'reviews-page-f@example.com');
         $project = new Project($owner, 'reviews-site-f');
         $em->persist($project);
-        $comment = new SiteReviewComment($project, 0, 'sneaky', '.x', 'text', 'javascript:alert(1)');
+        $comment = new SiteReviewComment($project, 0, 'sneaky', 'javascript:alert(1)')->addAnchor('.x', 'text');
         $comment->status = SiteReviewCommentStatus::Pending;
         $em->persist($comment);
         $em->flush();

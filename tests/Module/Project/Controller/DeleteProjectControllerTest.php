@@ -23,7 +23,7 @@ final class DeleteProjectControllerTest extends WebTestCase
         $project = new Project($owner, 'my-project');
         $em->persist($project);
         $em->persist(new Document($owner, $project, 'a doc'));
-        $em->persist(new SiteReviewComment($project, 0, 'a comment', '', '', 'https://example.test/'));
+        $em->persist(new SiteReviewComment($project, 0, 'a comment', 'https://example.test/'));
         $em->flush();
         $projectId = $project->id;
         $em->clear();

@@ -31,6 +31,32 @@ not only the ones its holder wrote. Keeping the widget off public pages is what
 bounds who that is. Use a dedicated site-review-scoped token, never an MCP token
 or a production credential.
 
+## Pointing one comment at several elements
+
+Pick an element, then hold **⌘** (**Ctrl** on Windows and Linux) and click
+another. The picker stays up as long as you hold the key, so you can add several
+elements in one go. You can also hold the key before the first pick. The composer
+shows one pill per element. A comment can hold up to ten elements. Save once,
+and the comment is about all of them.
+
+Point at a pill and the widget emphasises the element that pill names, while the
+other elements stay outlined. Click the pill to scroll to its element when it is
+off screen. Two controls drop an element again: the × on its pill, and the ×
+that appears on the element's own outline when you point at it.
+
+Use this when the feedback is about a relationship. "These two should sit side
+by side" is one comment about two elements, not two comments.
+
+Every element gets its own pin on the page, and every pin of one comment carries
+that comment's number. Point at one pin and the widget outlines every element of
+that comment. That is what shows they belong together.
+
+When you come back to a page and one of a comment's elements has gone, the
+widget marks the comment as degraded. The surviving pins take an amber dashed
+border, the popover says how many elements are missing, and the list row reads
+"1 of 2 elements". A comment on a single element that no longer matches simply
+shows no pin, as before.
+
 ## What it needs from the page
 
 Very little. The widget is a `fetch` with a bearer header — no clipboard, no

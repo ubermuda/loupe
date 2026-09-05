@@ -75,7 +75,7 @@ final class ResolveSiteReviewCommentHandlerTest extends KernelTestCase
         $this->em->persist($user);
         $project = new Project($user, 'resolve-site');
         $this->em->persist($project);
-        $comment = new SiteReviewComment($project, 0, 'Fix this', '.a', 'A', 'https://app/x');
+        $comment = new SiteReviewComment($project, 0, 'Fix this', 'https://app/x')->addAnchor('.a', 'A');
         $this->em->persist($comment);
         $this->em->flush();
 

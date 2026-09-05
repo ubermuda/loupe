@@ -33,10 +33,17 @@ final readonly class AddCommentHandler
                 project: $command->project,
                 position: $this->siteReviewComments->nextPositionForProject($command->project),
                 body: $command->body,
-                selector: $command->selector,
-                text: $command->text,
                 url: $command->url,
             );
+            foreach ($command->anchors as $anchor) {
+                $comment->addAnchor(
+                    selector: $anchor->selector,
+                    text: $anchor->text,
+                    quote: $anchor->quote,
+                    quotePrefix: $anchor->quotePrefix,
+                    quoteSuffix: $anchor->quoteSuffix,
+                );
+            }
             $this->em->persist($comment);
             $this->em->flush();
 

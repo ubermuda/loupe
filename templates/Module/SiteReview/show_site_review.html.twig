@@ -35,9 +35,13 @@
                 <span class="lp-site-review-index lp-site-review-index--{{ isPending ? 'pending' : 'ok' }}">{{ '%02d'|format(loop.index) }}</span>
                 <div class="lp-site-review-main">
                     <div class="lp-site-review-title-row">
+                        {% set anchors = comment.anchors|filter(anchor => anchor.selector is not empty) %}
+                        {% set anchorCount = anchors|length %}
                         <p class="lp-site-review-quote">
-                            {%- if comment.text is not empty -%}
-                                &ldquo;{{ comment.text }}&rdquo;
+                            {%- if anchorCount > 1 -%}
+                                {{ 'site_review.comment.element_count'|trans({'%count%': anchorCount}) }}
+                            {%- elseif anchorCount == 1 and anchors|first.text is not empty -%}
+                                &ldquo;{{ anchors|first.text }}&rdquo;
                             {%- else -%}
                                 {{ 'site_review.comment.general_page'|trans }}
                             {%- endif -%}
@@ -75,17 +79,24 @@
                           only of interest when someone goes looking for it, so it
                           stays collapsed behind its icon.
                         #}
-                        {% if comment.selector is not empty %}
+                        {% for anchor in anchors %}
                         <details class="lp-site-review-selector" data-controller="disclosure">
                             <summary class="lp-site-review-selector__summary" data-action="click->disclosure#toggle">
                                 <twig:ux:icon name="lucide:code-xml" class="w-3.5 h-3.5 shrink-0" />
-                                <span>{{ 'site_review.comment.selector'|trans }}</span>
+                                <span>
+                                    {%- if anchorCount > 1 -%}
+                                        {{ 'site_review.comment.selector_numbered'|trans({'%number%': loop.index}) }}
+                                    {%- else -%}
+                                        {{ 'site_review.comment.selector'|trans }}
+                                    {%- endif -%}
+                                </span>
                             </summary>
                             <div class="lp-site-review-selector__content" data-disclosure-target="content">
-                                <code>{{ comment.selector }}</code>
+                                {% if anchor.text is not empty %}<p>&ldquo;{{ anchor.text }}&rdquo;</p>{% endif %}
+                                <code>{{ anchor.selector }}</code>
                             </div>
                         </details>
-                        {% endif %}
+                        {% endfor %}
                     </div>
 
                     {#

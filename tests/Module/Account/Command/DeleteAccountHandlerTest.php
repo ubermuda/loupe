@@ -589,7 +589,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $em->persist($reply);
         $em->persist(new Review(version: $version, verdict: Verdict::Approved, reviewer: $owner));
 
-        $em->persist(new SiteReviewComment(project: $project, position: 0, body: 'widget comment', selector: 'body', text: 'x', url: 'https://example.test/'));
+        $em->persist(new SiteReviewComment(project: $project, position: 0, body: 'widget comment', url: 'https://example.test/')->addAnchor('body', 'x'));
 
         [$widgetToken] = ApiToken::issue($owner, $slug.'-widget', ApiTokenScope::SiteReview);
         [$mcpToken] = ApiToken::issue($owner, $slug.'-mcp', ApiTokenScope::Mcp);

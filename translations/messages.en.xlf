@@ -2368,6 +2368,14 @@
                 <source>site_review.comment.selector</source>
                 <target>Selector</target>
             </trans-unit>
+            <trans-unit id="site_review.comment.selector_numbered">
+                <source>site_review.comment.selector_numbered</source>
+                <target>Selector %number%</target>
+            </trans-unit>
+            <trans-unit id="site_review.comment.element_count">
+                <source>site_review.comment.element_count</source>
+                <target>{0}No elements|{1}1 element|]1,Inf[%count% elements</target>
+            </trans-unit>
             <trans-unit id="site_review.comment.action.resolve">
                 <source>site_review.comment.action.resolve</source>
                 <target>Resolve</target>
@@ -3703,7 +3711,7 @@
             </trans-unit>
             <trans-unit id="landing.feature.site_review.text">
                 <source>landing.feature.site_review.text</source>
-                <target>An embeddable widget that brings the same select-and-comment flow to a live page, streamed back to the reviewer as it happens.</target>
+                <target>An embeddable widget that brings the same select-and-comment flow to a live page. Point one comment at several elements to say how they relate.</target>
             </trans-unit>
             <trans-unit id="landing.tech.title">
                 <source>landing.tech.title</source>
