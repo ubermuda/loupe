@@ -30,6 +30,9 @@ entry.
 
 ## [Unreleased]
 
+- `e887a13` (#356) — **Added:** `docs/contributing/architectural-priorities.md`
+  ranks correctness, simplicity, performance and shipping speed, and says which
+  one yields in each of six collisions and when to escalate instead.
 - `3fdfd63` (#360) — **Added:** the site-review launcher can be moved to any
   corner of the page, so it no longer sits over the review console's pinned
   controls. The choice is remembered per browser.
