@@ -912,14 +912,28 @@
         hlxNode.appendChild(node);
         xNodes[index] = node;
       }
+      const r = entry.rect;
+      // A control for an anchor that is scrolled out of sight has nothing to
+      // point at. Clamping it would park an invisible hit target on the edge,
+      // where it would eat host-page clicks and remove an anchor nobody can see.
+      const onScreen =
+        r.left < window.innerWidth &&
+        r.left + r.width > 0 &&
+        r.top < window.innerHeight &&
+        r.top + r.height > 0;
+      if (!onScreen) {
+        node.style.display = 'none';
+        node.removeAttribute('data-anchor-remove');
+        return;
+      }
       node.style.display = 'flex';
       node.dataset.anchorRemove = String(entry.removeIndex);
       node.classList.toggle('lit', state.hoverAnchor === entry.removeIndex);
-      // Clamped: an element against the top or right edge would otherwise put
+      // Clamped: an anchor against the top or right edge would otherwise put
       // most of the control off screen, where it cannot be clicked.
       const clamp = (value, limit) => Math.min(Math.max(value, 0), limit - X_SIZE);
-      node.style.left = clamp(entry.rect.left + entry.rect.width - 11, window.innerWidth) + 'px';
-      node.style.top = clamp(entry.rect.top - 11, window.innerHeight) + 'px';
+      node.style.left = clamp(r.left + r.width - 11, window.innerWidth) + 'px';
+      node.style.top = clamp(r.top - 11, window.innerHeight) + 'px';
     });
     for (let index = entries.length; index < xNodes.length; index++) {
       xNodes[index].style.display = 'none';
