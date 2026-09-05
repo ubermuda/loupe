@@ -42,7 +42,7 @@ This applies only to a document meant for considered review. Keep ordinary conve
 
 Invoke the `project-next-steps` skill before you append, because the entry format needs an author, type and priority line. Never leave such a note in a code comment.
 
-`docs/NEXT_STEPS.md` is committed, because a tracker only one checkout can see is a tracker the next session cannot read. That also makes it branch content. Two parallel branches that both append will conflict, and the resolution is always to keep both entries.
+`docs/NEXT_STEPS.md` is committed, because a tracker only one checkout can see is a tracker the next session cannot read. That also makes it branch content. Two parallel branches that both append will conflict, and the resolution is to keep both entries. That holds for two branches that append. It is wrong for a branch that *resolves* entries, because the file's own rule is to delete a resolved entry, so keeping both sides restores work already done and nothing goes red. Hand that merge to the branch's author: an outside merger cannot tell a deliberate deletion from a lost one.
 
 The tracker is public, and stays public. Moving it to GitHub issues was once the plan for the visibility flip. It is not any more, because a tracker an agent reads in one `cat` beats one behind an API call. Write every entry as public text, with no secrets, no customer names, and no venting about people. It is already in git history, so deleting an entry does not unpublish it.
 
@@ -146,6 +146,8 @@ Remove these tells: negative parallelism ("it is not X, it is Y"); a preamble th
 An existing file keeps its old prose until a rewrite touches it. The `compressing-skills` skill carries the full tell list and the procedure for a rewrite pass. `~/.claude/skills/ai-writing-tells/check.py` finds many tells mechanically, and its output is advice, not a gate.
 
 ## Recommendations and the quality bar
+
+The owner ranks the priorities `correctness > simplicity > performance > shipping speed`. `docs/contributing/architectural-priorities.md` says which one yields in each of the six collisions, and when to escalate rather than apply the ranking. Read it before you call a trade-off.
 
 ### The owner sets the bar, not the agent
 

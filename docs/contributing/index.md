@@ -30,7 +30,9 @@ Rector violations will fail `ci` with nothing having been fixed.
 Loupe follows a set of project conventions (module layout, the command + handler
 pattern, authorization voters, translations, and more). The `.claude/skills/`
 directory documents them in detail — please skim the relevant skill before
-working in an area. In short:
+working in an area. [Architectural priorities](architectural-priorities.md)
+ranks correctness, simplicity, performance and shipping speed, and says which
+one yields when two of them collide. In short:
 
 - Source lives in domain modules under `src/Module/`.
 - Controller actions with logic are backed by a command + handler pair.
