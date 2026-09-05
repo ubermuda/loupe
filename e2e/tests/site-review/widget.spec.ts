@@ -2040,6 +2040,56 @@ test("a saved comment's drawing comes back on reload", async ({ page }) => {
 });
 
 /**
+ * The instance decides whether drawing is offered, and the boot load is where
+ * the widget learns it. Turning the flag off has to remove the control without
+ * hiding a drawing a reviewer already left, or the switch destroys their work.
+ */
+test('an instance with drawing off offers no Draw, and still renders saved strokes', async ({
+    page,
+}) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await composeDrawingOnWideBlock(page);
+
+    const wideBox = (await page.locator('#target-wide').boundingBox())!;
+    await drawStroke(
+        page,
+        { x: wideBox.x + 6, y: wideBox.y + 6 },
+        { x: wideBox.x + 220, y: wideBox.y + wideBox.height - 6 },
+    );
+    await saveComposer(page, 'Drawn while the flag was on');
+    const drawn = await waitForInk(page);
+
+    // Come back to an instance that no longer offers drawing.
+    await page.route('**/api/site-review/review', async (route) => {
+        const response = await route.fetch();
+        const payload = (await response.json()) as Record<string, unknown>;
+        await route.fulfill({
+            response,
+            json: { ...payload, drawingEnabled: false },
+        });
+    });
+    await page.goto(keepHarnessUrl);
+
+    const kept = await waitForInk(page);
+    expect(Math.abs(kept.left - drawn.left)).toBeLessThan(4);
+    expect(Math.abs(kept.top - drawn.top)).toBeLessThan(4);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await expect(
+        page.locator('#lp-panel').getByRole('button', { name: 'Pick element' }),
+    ).toBeVisible();
+    await expect(page.locator('#draw')).toBeHidden();
+
+    // The shortcut is gone too, so nothing opens a composer the API refuses.
+    await page.keyboard.press('d');
+    await expect(page.locator('#lp-composer')).toHaveCSS('max-height', '0px');
+});
+
+/**
  * Undo drops the last stroke and Clear drops the drawing. There is no per-stroke
  * eraser, so these two are the whole of what a reviewer can take back.
  */

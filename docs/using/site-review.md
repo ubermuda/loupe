@@ -91,6 +91,12 @@ Your agent is told only **that** a comment carries a drawing, not what the
 drawing looks like. It cannot render vector points over a live page, so treat
 the drawing as something you and it discuss, and put the point in words too.
 
+Drawing sits behind the `site_review.drawing.enabled` feature flag, which is on
+after an install and after an upgrade. Turn it off in `/admin/feature-flags` and
+the widget stops offering **Draw**, and the API refuses a drawing rather than
+saving a comment without it. Drawings already saved keep rendering on the page,
+so the switch takes the tool away and never the work.
+
 ## What it needs from the page
 
 Very little. The widget is a `fetch` with a bearer header — no clipboard, no

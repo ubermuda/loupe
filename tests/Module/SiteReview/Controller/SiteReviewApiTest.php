@@ -9,11 +9,14 @@ use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
+use App\Module\SiteReview\SiteReviewDrawing;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
+use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 
 final class SiteReviewApiTest extends WebTestCase
 {
@@ -114,6 +117,56 @@ final class SiteReviewApiTest extends WebTestCase
             [['space' => 'anchor', 'points' => [[0.1, 0.2], [0.9, 0.8]]]],
             $data['comments'][0]['strokes'],
         );
+    }
+
+    /**
+     * A widget cached from before the flag went off still offers Draw. Its save
+     * has to be refused, so the reviewer is told, rather than accepted with the
+     * drawing dropped on the floor.
+     */
+    public function test_strokes_are_refused_while_drawing_is_off(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw, $project] = $this->projectWithToken($em, 'api-drawing-off@example.com');
+        $em->persist(new FeatureFlag(SiteReviewDrawing::FLAG, FeatureFlagType::Bool, false));
+        $em->flush();
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
+            'body' => 'Move this to the right',
+            'url' => 'https://app/x',
+            'strokes' => [['space' => 'page', 'points' => [[0.1, 0.2], [0.3, 0.4]]]],
+        ]);
+        self::assertResponseStatusCodeSame(422);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('drawing_disabled', $data['error']);
+
+        // A comment with no drawing is unaffected, and the boot load says the
+        // control is gone so the widget stops offering it.
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw,
+            ['body' => 'a page note', 'url' => 'https://app/x']);
+        self::assertResponseStatusCodeSame(201);
+        self::assertCount(1, static::getContainer()->get(SiteReviewCommentRepository::class)->findPendingForProject($project));
+
+        $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
+        $payload = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($payload);
+        self::assertFalse($payload['drawingEnabled']);
+    }
+
+    public function test_the_boot_load_reports_drawing_on_by_default(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw] = $this->projectWithToken($em, 'api-drawing-default@example.com');
+
+        // No flag row exists, so this reads the coded default the install
+        // seeder also writes.
+        $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
+        $payload = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($payload);
+        self::assertTrue($payload['drawingEnabled']);
     }
 
     public function test_a_comment_with_no_drawing_stores_null(): void
@@ -336,7 +389,10 @@ final class SiteReviewApiTest extends WebTestCase
         [$raw, $project] = $this->projectWithToken($em, 'api-c@example.com');
 
         $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
-        self::assertSame(['comments' => []], json_decode((string) $client->getResponse()->getContent(), true));
+        self::assertSame(
+            ['drawingEnabled' => true, 'comments' => []],
+            json_decode((string) $client->getResponse()->getContent(), true),
+        );
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => 'one', 'url' => 'https://app/x']);
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => 'two', 'url' => 'https://app/y']);

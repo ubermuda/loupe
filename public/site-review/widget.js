@@ -21,6 +21,12 @@
   // anchors is a list of { selector, text } — several when the comment says something
   // about a relationship between elements, and empty for an unanchored page note.
   let comments = [];
+  // Whether this instance offers freehand drawing. The boot load carries it,
+  // because the embed snippet lives in someone else's page and nobody re-pastes
+  // it. Off until the server says otherwise: a widget that offered a control
+  // the API then refuses would lose the reviewer's gesture. Strokes already
+  // saved render whatever this says, so switching the flag off hides no data.
+  let drawingEnabled = false;
   const MAX_ANCHORS = 10; // AddCommentRequest's cap — over it the API 422s
   const AT_CAP_MESSAGE = `A comment can point at ${MAX_ANCHORS} elements at most.`;
   // AddCommentRequest's caps for the drawing. A stroke past the point cap stops
@@ -58,6 +64,8 @@
   const demoApi = async (method, path, body) => {
     if (method === 'GET') {
       return {
+        // The demo has no instance behind it, so it shows the whole widget.
+        drawingEnabled: true,
         comments: demoStore.comments.map((comment) => ({
           ...comment,
           anchors: (comment.anchors || []).map((anchor) => ({ ...anchor })),
@@ -135,6 +143,7 @@
     try {
       const payload = await api('GET', '/api/site-review/review');
       comments = payload.comments || [];
+      drawingEnabled = true === payload.drawingEnabled;
     } catch (error) {
       // Catch a rejected token at the earliest possible point — the boot load — so the
       // widget opens straight into its critical state instead of a misleading empty list.
@@ -530,10 +539,14 @@
       .lp-primary:hover{background:var(--accent-hover)}
       .lp-primary[disabled]{opacity:.55;cursor:default}
 
-      /* Three capture modes share the row, so the type is a step down from the
-         two-button layout and the keyboard hints moved to the docs. */
-      .lp-actions{flex:0 0 auto;display:flex;gap:6px;padding:0 14px 12px}
-      .lp-action{flex:1;min-width:0;height:38px;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:999px;font-family:inherit;font-size:12.5px;font-weight:600;white-space:nowrap;cursor:pointer;border:0;background:var(--chip-bg);color:var(--text);transition:background .15s ease,color .15s ease}
+      /* Three capture modes share one 320px row, so each label is one word and
+         the keyboard hints moved to the docs. The full name stays the button's
+         accessible name, which is what a screen reader and the specs read. */
+      .lp-actions{flex:0 0 auto;display:flex;gap:7px;padding:0 14px 12px}
+      .lp-action{flex:1;min-width:0;height:38px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:999px;font-family:inherit;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;border:0;background:var(--chip-bg);color:var(--text);transition:background .15s ease,color .15s ease}
+      /* An icon is a flex item with a min-content width of zero, so a row one
+         pixel too tight silently squashes it instead of overflowing. */
+      .lp-action svg{flex:0 0 auto}
       .lp-action:hover{background:var(--field-focus)}
       /* Pressed, not primary: a solid accent fill here would compete with the
          Save button for the eye, so the toggle takes the pale tint. */
@@ -644,9 +657,9 @@
           </div>
         </div>
         <div class="lp-actions">
-          <button class="lp-action" id="general" aria-pressed="false">${ICON.comment(15)}<span>Add note</span></button>
-          <button class="lp-action" id="target" aria-pressed="false">${ICON.target(15)}<span>Pick element</span></button>
-          <button class="lp-action" id="draw" aria-pressed="false">${ICON.pen(15)}<span>Draw</span></button>
+          <button class="lp-action" id="general" aria-pressed="false" aria-label="Add note">${ICON.comment(15)}<span>Note</span></button>
+          <button class="lp-action" id="target" aria-pressed="false" aria-label="Pick element">${ICON.target(15)}<span>Element</span></button>
+          <button class="lp-action" id="draw" aria-pressed="false" aria-label="Draw">${ICON.pen(15)}<span>Draw</span></button>
         </div>
         <div class="lp-error" id="lp-error" style="display:none"></div>
         <div id="lp-body">
@@ -1577,6 +1590,9 @@
     generalBtn.setAttribute('aria-pressed', noteActive ? 'true' : 'false');
     targetBtn.classList.toggle('active', state.target);
     targetBtn.setAttribute('aria-pressed', state.target ? 'true' : 'false');
+    // Hidden rather than disabled when the instance offers no drawing: the two
+    // remaining modes then split the row, and there is nothing to explain.
+    drawBtn.style.display = drawingEnabled ? '' : 'none';
     drawBtn.classList.toggle('active', state.drawing);
     drawBtn.setAttribute('aria-pressed', state.drawing ? 'true' : 'false');
     // An edit PATCHes the body alone, so a drawing added here would be dropped
@@ -1904,7 +1920,7 @@
     state.hoverAnchor = null;
   };
   const toggleDraw = () => {
-    if (state.fatal) return;
+    if (state.fatal || !drawingEnabled) return;
     if (state.drawing) {
       setDrawing(false);
       sync();

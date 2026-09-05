@@ -10,9 +10,11 @@ use App\Module\SiteReview\Command\AddCommentCommand;
 use App\Module\SiteReview\Command\AddCommentHandler;
 use App\Module\SiteReview\Command\NewAnchor;
 use App\Module\SiteReview\Command\NewStroke;
+use App\Module\SiteReview\SiteReviewDrawing;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
+use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 #[Route(
     '/api/site-review/comments',
@@ -24,6 +26,7 @@ final class AddCommentController extends AppController
     public function __construct(
         private readonly AddCommentHandler $handler,
         private readonly AuthenticatedProjectResolver $projectResolver,
+        private readonly FeatureFlagService $featureFlags,
     ) {
     }
 
@@ -32,6 +35,13 @@ final class AddCommentController extends AppController
         $project = $this->projectResolver->resolveWidgetProject();
         if (null === $project) {
             return $this->json(['error' => 'token_not_bound_to_site'], JsonResponse::HTTP_FORBIDDEN);
+        }
+
+        // Refused rather than dropped. A widget holding a cached copy from
+        // before the flag went off would otherwise get a 201 for a comment
+        // whose drawing never reached the database.
+        if ([] !== $payload->strokes && !$this->featureFlags->isEnabled(SiteReviewDrawing::FLAG, SiteReviewDrawing::DEFAULT)) {
+            return $this->json(['error' => 'drawing_disabled'], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         $body = trim($payload->body ?? '');
