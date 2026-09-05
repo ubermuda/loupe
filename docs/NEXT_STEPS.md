@@ -2714,13 +2714,18 @@ reach: `git commit -a` stages the same way, and `git checkout -- <path>`
 destroys rather than captures. Delete this paragraph when #351 lands, or fold
 the two commands into it.
 
-Reading the shared tree is the quieter failure, and this session made it. It
-reported a rule as landed in `CLAUDE.md` after its harness said the file had
-changed on disk. The checkout was standing on somebody else's unmerged branch,
-so the rule was a proposal, and nothing on disk showed the mistake. Two sessions
-were told the wrong thing before one of them checked origin. Name the ref rather
-than reading the file: `git show origin/main:<path>` answers "has this landed",
-and opening the file answers only "what is in this tree".
+Reading the shared tree is the quieter failure, and two sessions made it within
+an hour, from the same source. Each was told by its harness that `CLAUDE.md` had
+changed on disk, and each reported the rule as landed on main. The checkout was
+standing on somebody else's unmerged branch, so it was a proposal. One of the
+two had already run `git show origin/main:CLAUDE.md`, seen nothing, and reported
+the on-disk version anyway.
+
+A harness notice that a file changed on disk describes the working tree, and a
+working tree is whatever branch someone else left checked out. It reads like an
+authoritative update about the repository and it is not. `git show
+origin/<branch>:<path>` is the only answer to "what is on main", and no disk
+read ever is.
 
 A session also cannot see that the checkout is occupied. A branch somebody else
 left there looks exactly like one you left yourself, and `git worktree list`
@@ -2780,8 +2785,10 @@ own header says "the shared php-fpm container". Isolation between worktrees is
 per test database, through the `TEST_TOKEN` that `worktree-bootstrap.sh` writes
 into each `.env.test.local`, and not per container.
 
-So `pkill -f phpunit` in that container kills every worktree's test run, not the
-one you meant. Match the worktree path instead, such as
+The existing guidance points the wrong way here. `CLAUDE.md` warns that a
+host-side `pkill` cannot see into the container, which makes the in-container
+form look like the safe one. It is the dangerous one: `pkill -f phpunit` in that
+container kills every worktree's test run, not the one you meant. Match the worktree path instead, such as
 `pkill -f 'phpunit.*worktrees/<name>'`, and read
 `docker exec loupe-php-fpm-1 ps aux | grep phpunit` before killing anything.
 
