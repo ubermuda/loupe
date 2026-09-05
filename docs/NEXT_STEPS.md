@@ -2714,6 +2714,14 @@ reach: `git commit -a` stages the same way, and `git checkout -- <path>`
 destroys rather than captures. Delete this paragraph when #351 lands, or fold
 the two commands into it.
 
+Reading the shared tree is the quieter failure, and this session made it. It
+reported a rule as landed in `CLAUDE.md` after its harness said the file had
+changed on disk. The checkout was standing on somebody else's unmerged branch,
+so the rule was a proposal, and nothing on disk showed the mistake. Two sessions
+were told the wrong thing before one of them checked origin. Name the ref rather
+than reading the file: `git show origin/main:<path>` answers "has this landed",
+and opening the file answers only "what is in this tree".
+
 A session also cannot see that the checkout is occupied. A branch somebody else
 left there looks exactly like one you left yourself, and `git worktree list`
 reports the path without saying who is standing in it. So moving it is not
