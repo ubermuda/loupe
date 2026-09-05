@@ -1969,6 +1969,37 @@ test('a quote that no longer reads falls back to its element', async ({
 });
 
 /**
+ * An edit PATCHes the body alone, so the composer offers nothing that would
+ * change the anchors. The quote offer has to obey that too: taking a selection
+ * mid-edit would start a new comment and throw the draft away.
+ */
+test('editing a comment withdraws the offer to quote a selection', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, PROSE_QUOTE);
+    await page.locator('#lp-quote-btn').click();
+    await saveComposed(page, 'The original body');
+
+    await page.getByRole('button', { name: /Show .* comment/ }).click();
+    await page.locator('#lp-list .lp-edit').first().click();
+    const textarea = page.getByPlaceholder(/Describe the issue/);
+    await textarea.fill('An edit in progress');
+
+    // Selecting page text mid-edit changes nothing: no offer, one chip still,
+    // and the draft intact.
+    await selectText(page, repeatSpan(await occurrenceAt(page, 0)));
+    await expect(page.locator('#lp-quote-btn')).toBeHidden();
+    await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
+        1,
+    );
+    await expect(textarea).toHaveValue('An edit in progress');
+});
+
+/**
  * A second selection extends the open comment, the way a second element pick
  * does. Two occurrences of one phrase are two anchors, because the text around
  * them differs — the composer must not collapse them into one.

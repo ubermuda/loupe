@@ -1398,7 +1398,7 @@
   const QUOTE_BTN_HEIGHT = 30; // matches .lp-quote-btn
   const renderQuoteButton = () => {
     const pick = state.quotePick;
-    if (!pick || state.target || state.fatal || !state.open || hidden.matches) {
+    if (!pick || state.target || state.fatal || !state.open || state.editId != null || hidden.matches) {
       quoteBtn.style.display = 'none';
       return;
     }
@@ -2434,11 +2434,15 @@
   });
 
   // A selection on the host page offers to become a quoted anchor, but only
-  // while the panel is open: the widget must not claim a gesture on a page
-  // nobody is reviewing. selectionchange rather than mouseup, so a keyboard
-  // selection and a programmatic one both reach it.
+  // while the panel is open and no saved comment is being edited: the widget
+  // must not claim a gesture on a page nobody is reviewing, and an edit sends
+  // the body alone, so taking the selection would throw the draft away.
+  // selectionchange rather than mouseup, so a keyboard selection and a
+  // programmatic one both reach it.
   const readSelection = () => {
-    if (state.fatal || state.target || !state.open || hidden.matches) return clearQuotePick();
+    if (state.fatal || state.target || !state.open || state.editId != null || hidden.matches) {
+      return clearQuotePick();
+    }
     const selection = document.getSelection();
     if (!selection || selection.isCollapsed || !selection.rangeCount) return clearQuotePick();
     const range = selection.getRangeAt(0);
