@@ -397,12 +397,46 @@
     glyph: (s) =>
       `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" ` +
       `stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg>`,
+    corners: (s) =>
+      svg(s, '<path d="M4 9V4h5"/><path d="M15 4h5v5"/><path d="M20 15v5h-5"/><path d="M9 20H4v-5"/>', 1.9),
     alert: (s) =>
       svg(
         s,
         '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
         1.9,
       ),
+  };
+
+  // ---- launcher corner ----
+  // The launcher is fixed to one corner, and a host page may pin its own chrome
+  // to that same corner. Both routes out of a collision write here: the panel's
+  // move control walks this list, and a drag snaps to the nearest entry.
+  const CORNERS = ['bottom-right', 'bottom-left', 'top-left', 'top-right'];
+  const CORNER_LABEL = {
+    'bottom-right': 'bottom right',
+    'bottom-left': 'bottom left',
+    'top-left': 'top left',
+    'top-right': 'top right',
+  };
+  const CORNER_KEY = 'loupe.site-review.corner';
+  // Reading and writing site data throws outright in a private window, or where
+  // the visitor blocks it, and this script runs on other people's pages. Both
+  // sides swallow that: the default corner is a correct answer.
+  const readCorner = () => {
+    try {
+      const stored = window.localStorage.getItem(CORNER_KEY);
+      if (CORNERS.includes(stored)) return stored;
+    } catch {
+      /* storage unavailable — fall through to the default */
+    }
+    return CORNERS[0];
+  };
+  const writeCorner = (corner) => {
+    try {
+      window.localStorage.setItem(CORNER_KEY, corner);
+    } catch {
+      /* storage unavailable — the corner still holds for this page */
+    }
   };
 
   // ---- widget state (the reviewer's comments live in `comments`; this is UI state) ----
@@ -424,7 +458,8 @@
     editId: null, // server id of the comment being edited in place, or null for a new one
     listExpanded: false,
     expandLevel: 0,
-    toastDock: 'top', // 'top' | 'bottom' — the pick-mode toast dodges to the bottom near the top edge
+    corner: readCorner(), // which corner the launcher and the panel are pinned to
+    toastDock: 'top', // 'top' | 'bottom' — the pick-mode toast dodges away from the cursor
     moveHL: null, // { left, top, width, height, label } while picking
     hoverId: null, // hovered comment index (list row)
     hoverAnchor: null, // anchor index whose on-page remove control is revealed
@@ -473,13 +508,22 @@
       @media (max-width:639px),(hover:none) and (pointer:coarse){:host{display:none}}
       @keyframes lp-spin{to{transform:rotate(360deg)}}
       @keyframes lp-pop{from{transform:translateY(8px) scale(.985)}to{transform:none}}
+      @keyframes lp-pop-down{from{transform:translateY(-8px) scale(.985)}to{transform:none}}
       @keyframes lp-slide-left{from{transform:translateX(-100%)}to{transform:translateX(0)}}
       @keyframes lp-slide-left-out{from{transform:translateX(0)}to{transform:translateX(-100%)}}
       .lp-scroll::-webkit-scrollbar{width:10px;height:10px}
       .lp-scroll::-webkit-scrollbar-thumb{background:var(--faint);border-radius:9px;border:3px solid transparent;background-clip:content-box}
       .lp-scroll::-webkit-scrollbar-track{background:transparent}
 
-      .lp-launcher{position:fixed;right:20px;bottom:20px;height:46px;padding:0 7px;display:flex;align-items:center;gap:0;background:var(--bar-bg);border:1px solid var(--bar-line);border-radius:999px;box-shadow:var(--bar-shadow);font-family:var(--font);pointer-events:auto;transition:box-shadow .14s ease,background .25s ease}
+      .lp-launcher{position:fixed;right:20px;bottom:20px;height:46px;padding:0 7px;display:flex;align-items:center;gap:0;background:var(--bar-bg);border:1px solid var(--bar-line);border-radius:999px;box-shadow:var(--bar-shadow);font-family:var(--font);pointer-events:auto;cursor:grab;user-select:none;-webkit-user-select:none;transition:box-shadow .14s ease,background .25s ease}
+      /* Corner placement. Only the two offsets move: the launcher keeps one
+         shape in every corner, so the open/close collapse is untouched. */
+      .lp-launcher.at-left{right:auto;left:20px}
+      .lp-launcher.at-top{bottom:auto;top:20px}
+      /* While dragging, the launcher follows the pointer on left/top, so both
+         corner offsets are cleared inline and the raised shadow says it is loose. */
+      .lp-launcher.dragging{cursor:grabbing;box-shadow:0 14px 34px rgba(15,15,13,.5)}
+      .lp-launcher.dragging *{cursor:grabbing}
       /* The quick actions collapse as one unit when the panel opens. max-width + opacity
          animate the slide-away; visibility flips to hidden only after the collapse (the
          .24s delay) so the buttons are genuinely non-interactive once gone, and back
@@ -495,18 +539,29 @@
       [data-tip]{position:relative}
       [data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) translateY(3px);padding:5px 10px;background:var(--bar-raised);border:1px solid var(--bar-line);color:var(--bar-fg);font-size:11.5px;font-weight:500;line-height:1.4;white-space:nowrap;border-radius:999px;box-shadow:var(--bar-shadow);opacity:0;pointer-events:none;transition:opacity .12s ease,transform .12s ease}
       [data-tip]:hover::after{opacity:1;transform:translateX(-50%) translateY(0)}
+      /* A tooltip above a launcher docked at the top would sit off screen, so
+         it hangs below instead. The hover rule is restated because the corner
+         selector outranks the plain one. */
+      .lp-launcher.at-top [data-tip]::after{bottom:auto;top:calc(100% + 8px);transform:translateX(-50%) translateY(-3px)}
+      .lp-launcher.at-top [data-tip]:hover::after{transform:translateX(-50%) translateY(0)}
       .lp-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 7px;border-radius:999px;font-size:11.5px;font-weight:700}
       .lp-count.solid{background:var(--accent);color:var(--on-accent)}
       .lp-count.soft{background:var(--accent-tint);color:var(--accent-ink)}
       .lp-count.danger{background:var(--danger);color:#fff}
 
       .lp-panel{position:fixed;right:20px;bottom:78px;width:348px;max-height:calc(100vh - 160px);display:flex;flex-direction:column;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:16px;box-shadow:var(--shadow);pointer-events:auto;overflow:hidden;font-family:var(--font);color:var(--text);animation:lp-pop .2s cubic-bezier(.2,.9,.3,1);transition:background .25s ease,border-color .25s ease}
+      /* The panel opens away from the launcher's edge. 78px clears the 46px
+         launcher plus its 20px inset, and the 160px max-height budget covers
+         that offset at either end, so no corner grows off screen. */
+      .lp-panel.at-left{right:auto;left:20px}
+      .lp-panel.at-top{bottom:auto;top:78px;animation-name:lp-pop-down}
       .lp-main{display:flex;flex-direction:column;min-height:0;flex:1 1 auto}
       .lp-header{flex:0 0 auto;display:flex;align-items:center;gap:9px;padding:14px 14px 12px 17px}
       .lp-title{font-size:15px;font-weight:700;letter-spacing:-.01em}
       .lp-spacer{flex:1}
       .lp-iconbtn{width:28px;height:28px;border:0;background:transparent;color:var(--muted);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer}
       .lp-iconbtn:hover{background:var(--panel-elev);color:var(--text)}
+      .lp-iconbtn:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
 
       .lp-composer{flex:0 0 auto;overflow:hidden;transition:max-height .27s cubic-bezier(.4,0,.2,1),opacity .2s ease}
       .lp-composer-inner{padding:2px 16px 14px}
@@ -630,6 +685,7 @@
         <span class="lp-title">Review</span>
         <span class="lp-count soft" id="lp-head-count" style="display:none">0</span>
         <div class="lp-spacer"></div>
+        <button class="lp-iconbtn" id="lp-move">${ICON.corners(15)}</button>
         <button class="lp-iconbtn" id="lp-close" aria-label="Close">${ICON.close(15)}</button>
       </div>
       <div class="lp-main" id="lp-main">
@@ -765,9 +821,6 @@
       .lp-toast-key[disabled]{opacity:.45;cursor:default}
       .lp-toast-key[disabled]:hover{background:var(--bar-raised)}
       .lp-toast--saved{padding:9px 15px}
-      /* The drawing toast docks at the bottom rather than dodging: a reviewer
-         draws all over the page, so there is no quiet band to slide into. */
-      .lp-toast--draw{top:auto;bottom:24px;transform:translate(-50%,0)}
     </style>
     <div class="lp-ov" id="lp-ov">
       <div class="lp-scrim" id="lp-scrim" style="display:none"></div>
@@ -783,7 +836,7 @@
         <span class="lp-toast-dim">⌥ scroll to resize</span>
         <span class="lp-toast-key" id="lp-toast-esc">Esc</span>
       </div>
-      <div class="lp-toast lp-toast--draw" id="lp-draw-toast" style="display:none">
+      <div class="lp-toast" id="lp-draw-toast" style="display:none">
         ${ICON.pen(15)}
         <span id="lp-draw-text">Drag to draw</span>
         <span class="lp-toast-sep">·</span>
@@ -1375,20 +1428,26 @@
     });
   };
 
-  // The pick-mode toast lives at the top centre, where it can cover the very element
-  // the reviewer wants to click. Rather than add controls, it auto-dodges: when the
-  // cursor enters the top band it slides to the bottom, and slides back when it leaves.
-  const TOAST_DODGE_BAND = 140; // px from the top edge
-  const positionToast = () => {
-    if (state.toastDock === 'bottom') {
-      const offset = window.innerHeight - toastNode.offsetHeight - 36;
-      toastNode.style.transform = `translate(-50%, ${offset}px)`;
-    } else {
-      toastNode.style.transform = 'translate(-50%, 0)';
-    }
+  // Both toasts rest against the edge opposite the launcher, so a launcher moved
+  // to a top corner never sits under one. The pick-mode toast can still cover the
+  // element the reviewer wants to click, so it auto-dodges: the cursor entering
+  // the band at its own edge sends it to the other one, and it slides back after.
+  const TOAST_DODGE_BAND = 140; // px from the toast's resting edge
+  const toastHome = () => (state.corner.startsWith('top') ? 'bottom' : 'top');
+  const dockToast = (node, dock) => {
+    const offset = dock === 'bottom' ? window.innerHeight - node.offsetHeight - 36 : 0;
+    node.style.transform = `translate(-50%, ${offset}px)`;
   };
+  const positionToast = () => dockToast(toastNode, state.toastDock);
   const updateToastDodge = (clientY) => {
-    const dock = clientY != null && clientY < TOAST_DODGE_BAND ? 'bottom' : 'top';
+    const home = toastHome();
+    const away = home === 'top' ? 'bottom' : 'top';
+    const nearHome =
+      clientY != null &&
+      (home === 'top'
+        ? clientY < TOAST_DODGE_BAND
+        : clientY > window.innerHeight - TOAST_DODGE_BAND);
+    const dock = nearHome ? away : home;
     if (state.toastDock === dock) return;
     state.toastDock = dock;
     positionToast();
@@ -1400,12 +1459,19 @@
     toastText.textContent = state.addAnchor ? 'Click to add another element' : 'Click to comment';
     // offsetHeight only reads correctly once the toast is shown, so position after.
     if (state.target) positionToast();
-    // Both toasts sit top-centre, so the pick-mode one wins while it is up.
+    // Both toasts share one resting edge, so the pick-mode one wins while it is up.
     const showSaved = !!state.savedNotice && !state.target;
     savedToastNode.style.display = showSaved ? 'flex' : 'none';
-    if (showSaved) $$('lp-saved-text').textContent = state.savedNotice;
+    if (showSaved) {
+      $$('lp-saved-text').textContent = state.savedNotice;
+      dockToast(savedToastNode, toastHome());
+    }
     drawToastNode.style.display = state.drawing ? 'flex' : 'none';
     if (state.drawing) {
+      // Parked at the edge away from the launcher, and never dodging: the
+      // pointer is busy drawing, and a toast that moved would carry its own
+      // Undo and Clear out from under the reviewer.
+      dockToast(drawToastNode, toastHome());
       const count = state.strokes.length;
       $$('lp-draw-text').textContent =
         count === 0 ? 'Drag to draw' : count === 1 ? '1 stroke' : `${count} strokes`;
@@ -1463,7 +1529,6 @@
     // the reviewer's next ⌘V somewhere other than their draft, and it would hold the
     // chip list a pick behind the anchors it lists.
     const picking = state.target && !state.addAnchor;
-    const launcherNode = $('lp-launcher');
     launcherNode.style.display = picking ? 'none' : '';
     // The launcher's quick actions duplicate the in-panel ones, so hide them (keeping only
     // the Review toggle) whenever the panel is open — or fatal, where they'd only launch a
@@ -2230,7 +2295,7 @@
       state.addAnchor = false;
       moveBase = null;
     } else {
-      state.toastDock = 'top';
+      state.toastDock = toastHome();
     }
     cursorStyle.textContent = on ? '*{cursor:crosshair !important}' : '';
     if (on) {
@@ -2371,6 +2436,145 @@
     setTargeting(false);
     sync();
   };
+
+  // ---- moving the launcher ----
+  const launcherNode = $('lp-launcher');
+  const moveBtn = $('lp-move');
+  const nextCorner = () => CORNERS[(CORNERS.indexOf(state.corner) + 1) % CORNERS.length];
+
+  const applyCorner = () => {
+    const atTop = state.corner.startsWith('top');
+    const atLeft = state.corner.endsWith('left');
+    [launcherNode, panelNode].forEach((node) => {
+      node.classList.toggle('at-top', atTop);
+      node.classList.toggle('at-left', atLeft);
+    });
+    // Told to the host page so an embedder can move its own pinned chrome out
+    // of the way. `data-loupe-review-open` is the same contract.
+    document.documentElement.setAttribute('data-loupe-review-corner', state.corner);
+    // "Review" stays out of this name: it is the launcher's own accessible name,
+    // and a label containing it makes every by-name lookup ambiguous.
+    const label = `Move the launcher to the ${CORNER_LABEL[nextCorner()]}`;
+    moveBtn.setAttribute('aria-label', label);
+    moveBtn.setAttribute('title', label);
+  };
+  const setCorner = (corner) => {
+    if (!CORNERS.includes(corner)) return;
+    if (corner !== state.corner) {
+      state.corner = corner;
+      writeCorner(corner);
+    }
+    applyCorner();
+    sync();
+  };
+
+  const DRAG_THRESHOLD = 4; // px of travel before a press counts as a drag
+  let drag = null;
+
+  // A drag ends in a click on whatever the pointer was released over, and that
+  // gesture meant "move", not "open". Swallowing it at the top of the capture
+  // path beats a timer: the listener removes itself on the click it eats, and
+  // the next press removes it too, so a drag that ends off the page leaves
+  // nothing armed against an unrelated click.
+  const swallowNextClick = (event) => {
+    window.removeEventListener('click', swallowNextClick, true);
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  const disarmClickSwallow = () => window.removeEventListener('click', swallowNextClick, true);
+  const armClickSwallow = () => {
+    disarmClickSwallow();
+    window.addEventListener('click', swallowNextClick, true);
+  };
+
+  const nearestCorner = (rect) =>
+    (rect.top + rect.height / 2 < window.innerHeight / 2 ? 'top' : 'bottom') +
+    '-' +
+    (rect.left + rect.width / 2 < window.innerWidth / 2 ? 'left' : 'right');
+
+  const onDragMove = (event) => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    if (!drag.moved) {
+      if (
+        Math.abs(event.clientX - drag.startX) < DRAG_THRESHOLD &&
+        Math.abs(event.clientY - drag.startY) < DRAG_THRESHOLD
+      ) {
+        return;
+      }
+      drag.moved = true;
+      launcherNode.classList.add('dragging');
+    }
+    // Clamped to the viewport, so a launcher can never be dropped where its own
+    // corner control is out of reach.
+    const clamp = (value, limit) => Math.min(Math.max(value, 0), Math.max(0, limit));
+    launcherNode.style.right = 'auto';
+    launcherNode.style.bottom = 'auto';
+    launcherNode.style.left =
+      clamp(event.clientX - drag.offsetX, window.innerWidth - drag.width) + 'px';
+    launcherNode.style.top =
+      clamp(event.clientY - drag.offsetY, window.innerHeight - drag.height) + 'px';
+  };
+  const stopDrag = () => {
+    document.removeEventListener('pointermove', onDragMove, true);
+    document.removeEventListener('pointerup', onDragEnd, true);
+    document.removeEventListener('pointercancel', onDragCancel, true);
+    window.removeEventListener('blur', onDragCancel);
+    launcherNode.classList.remove('dragging');
+    ['left', 'top', 'right', 'bottom'].forEach((side) => {
+      launcherNode.style[side] = '';
+    });
+    drag = null;
+  };
+  // A pointer lost mid-drag (a window switch, a cancelled gesture) returns the
+  // launcher to the corner it started from rather than leaving it loose. It
+  // arms no swallow: the browser sends no click after a cancelled gesture, so
+  // one armed here would sit and eat the reviewer's next click on the page.
+  const onDragCancel = () => {
+    if (!drag) return;
+    stopDrag();
+  };
+  const onDragEnd = (event) => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    const moved = drag.moved;
+    // Measured before stopDrag clears the inline offsets that put it there.
+    const rect = launcherNode.getBoundingClientRect();
+    stopDrag();
+    if (!moved) return;
+    armClickSwallow();
+    setCorner(nearestCorner(rect));
+  };
+
+  launcherNode.addEventListener('pointerdown', (event) => {
+    // Primary button only, and never while picking: the picker owns the page's
+    // clicks, and the launcher is only up there to hold an open draft.
+    if (0 !== event.button || state.target || drag) return;
+    const rect = launcherNode.getBoundingClientRect();
+    drag = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+      width: rect.width,
+      height: rect.height,
+      moved: false,
+    };
+    document.addEventListener('pointermove', onDragMove, true);
+    document.addEventListener('pointerup', onDragEnd, true);
+    document.addEventListener('pointercancel', onDragCancel, true);
+    window.addEventListener('blur', onDragCancel);
+  });
+  // Any fresh press clears a swallow that somehow outlived the click it was
+  // armed for, so a stale one can never reach an unrelated gesture.
+  document.addEventListener('pointerdown', disarmClickSwallow, true);
+
+  // A press must not take the caret out of the draft. The button stays
+  // focusable, so only the keyboard reaches it and only it sees a ring.
+  moveBtn.addEventListener('mousedown', (event) => event.preventDefault());
+  moveBtn.addEventListener('click', () => {
+    setCorner(nextCorner());
+    if (state.composing && root.activeElement !== moveBtn) focusTextarea();
+  });
 
   // ---- panel open/close ----
   const togglePanel = () => {
@@ -2558,6 +2762,11 @@
       renderPins();
       updateHighlight();
       renderStrokes();
+      // A toast resting against the bottom is placed from innerHeight, so a
+      // resize moves it.
+      if (state.target) positionToast();
+      else if (state.savedNotice) dockToast(savedToastNode, toastHome());
+      if (state.drawing) dockToast(drawToastNode, toastHome());
     });
   };
   window.addEventListener('scroll', scheduleReposition, true);
@@ -2603,6 +2812,7 @@
     document.addEventListener(evt, rerenderAnchors),
   );
 
+  applyCorner();
   const ready = refresh({ firstLoad: true });
   sync();
   ready.then(sync);

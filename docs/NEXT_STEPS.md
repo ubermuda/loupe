@@ -1985,24 +1985,6 @@ All widget API failures render into the single `#lp-error` banner. Fine for a
 one-reviewer tool; if bulk operations ever appear, attach errors to the affected
 list row instead.
 
-## Site-review widget overlaps the review console's pinned controls (dogfooding)
-
-
-
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-The site-review widget (loaded on Loupe's own pages when
-`SITE_REVIEW_WIDGET_TOKEN` is set — dev/dogfooding) mounts a `position:fixed`
-bottom-right launcher (z-index max). PR 3 pinned the document-review verdict bar
-to the bottom of the 388px margin, so the launcher can overlap the "Request
-changes"/"Approve" buttons in dogfooding mode. The e2e `review-loop` spec
-suppresses the widget (`suppressWidget`, like the debug toolbar) to test the
-review screen in isolation. Product decision to make later: the widget isn't part
-of the review/site-review console screens' design — consider not loading it on
-those routes (scope the `base.html.twig` widget include out of the review console)
-so dogfooding a review doesn't cover the console's own controls.
-
 ## Billing paywall answers machine clients with 402
 
 

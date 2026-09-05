@@ -97,11 +97,33 @@ the widget stops offering **Draw**, and the API refuses a drawing rather than
 saving a comment without it. Drawings already saved keep rendering on the page,
 so the switch takes the tool away and never the work.
 
+## Moving the launcher
+
+The launcher sits in the bottom-right corner, which is where many pages pin
+their own controls. Move it to another corner in either of two ways.
+
+- Open the panel and press the corner button in its header. Each press moves the
+  launcher to the next corner. The button is reachable by Tab and works with
+  Enter or Space.
+- Drag the launcher. It follows the pointer, and on release it snaps to the
+  nearest corner. A drag never opens the panel.
+
+The panel, the composer and every toast follow the launcher, so
+every corner keeps them on screen. The widget remembers the corner in the
+reviewed page's own browser storage, so it survives a reload. A private window,
+or a browser that blocks site data, gets the bottom-right corner every time and
+works the same otherwise.
+
+The widget also sets `data-loupe-review-corner` on the page's `<html>` element,
+beside the `data-loupe-review-open` it already sets. A page can read either one
+to move its own pinned chrome out of the way.
+
 ## What it needs from the page
 
 Very little. The widget is a `fetch` with a bearer header — no clipboard, no
-storage, no cookies, and no browser API that requires a secure context. Cross-
-origin embedding works because the API answers CORS itself.
+cookies, and no browser API that requires a secure context. It writes one
+localStorage key, `loupe.site-review.corner`, and works without it. Cross-origin
+embedding works because the API answers CORS itself.
 
 Serving Loupe over plain HTTP is therefore fine when the reviewed page is also
 plain HTTP. Embedding it in an **HTTPS** page while Loupe is on

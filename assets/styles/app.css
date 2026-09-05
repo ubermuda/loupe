@@ -2985,6 +2985,14 @@
     html[data-loupe-review-open] .lp-demo-widget-hint {
         display: none;
     }
+    /* The tail points down and right, so the balloon only makes sense while the
+       launcher is in the corner below it. The widget names its corner here. */
+    html[data-loupe-review-corner]:not(
+            [data-loupe-review-corner='bottom-right']
+        )
+        .lp-demo-widget-hint {
+        display: none;
+    }
     /* Gone with the margin: a toolbar whose actions have nowhere to land is
        worse than no toolbar. */
     .lp-demo-frame > .lp-anchor-toolbar:not([hidden]),
