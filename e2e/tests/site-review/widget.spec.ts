@@ -1242,6 +1242,47 @@ test('a second key spends the add-anchor hold and leaves the shortcut alone', as
 });
 
 /**
+ * A reviewer who starts a page note and then realises it is about one element
+ * should not have to discard the draft. The hold points the note at an element
+ * and keeps what is typed, and the composer says so rather than changing the
+ * comment's type in silence.
+ */
+test('holding the modifier over a page note points it at an element', async ({
+    page,
+}) => {
+    await openHarness(page);
+    const modifier = await addAnchorKey(page);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Add note' })
+        .click();
+    await expect(page.locator('#lp-compose-head .lp-compose-hint')).toHaveText(
+        /Hold .* to point at an element/,
+    );
+    await page.getByPlaceholder(/Describe the issue/).fill('Actually this bit');
+
+    await page.keyboard.down(modifier);
+    await page.locator('#target-me').click();
+    await page.keyboard.up(modifier);
+
+    // The draft survives and the note is now anchored.
+    await expect(page.getByPlaceholder(/Describe the issue/)).toHaveValue(
+        'Actually this bit',
+    );
+    await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
+        1,
+    );
+
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#lp-head-count')).toHaveText('1');
+    const comments = await fetchReviewComments(page);
+    expect(comments[0].body).toBe('Actually this bit');
+    expect(comments[0].anchors).toHaveLength(1);
+});
+
+/**
  * A comment about several elements only reads as one comment if the reviewer
  * can see the whole set at once, so hovering any one anchor outlines them all.
  */

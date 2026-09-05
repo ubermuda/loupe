@@ -1207,7 +1207,13 @@
     if (state.composing) {
       const ct = state.composeTarget || { type: 'general' };
       if (ct.type === 'general') {
-        composeHead.innerHTML = `<span class="lp-compose-general"><span class="lp-dot"></span>General comment</span>`;
+        // The hold points a page note at an element and keeps the draft, so the
+        // note says the key does something rather than changing type in silence.
+        composeHead.innerHTML =
+          `<span class="lp-compose-general"><span class="lp-dot"></span>General comment</span>` +
+          (state.editId == null
+            ? `<span class="lp-compose-hint">Hold ${MOD_LABEL} to point at an element</span>`
+            : '');
       } else {
         // One chip per anchor. An edit PATCHes the body alone and leaves the
         // stored anchors untouched, so the remove × is not offered while editing:
