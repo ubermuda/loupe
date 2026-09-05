@@ -27,7 +27,7 @@ Promote the array to a value object when it grows past about 2 keys, or when tem
 
 A Symfony form (DTO plus FormType) binds all user input for HTML and Turbo endpoints. Never hand-parse it from the `Request`. This includes Turbo, AJAX and stream endpoints that render UI. There is no "it is just a small POST" exception. Do not write `$request->request->get('x')` with ad-hoc `is_numeric` or `trim` validation in a controller. Create a `FooRequest` DTO with constraints and a `FooFormType`, then call `createForm()`, `handleRequest()` and `isSubmitted() && isValid()`.
 
-Two raw-request reads stay acceptable: a CSRF token on a hand-rolled fieldless form, and a dev-only or test-only controller. JSON API endpoints are also an exception, because they use `#[MapRequestPayload]`. See "API controllers" below.
+Two raw-request reads stay acceptable: a CSRF token on a hand-rolled fieldless form, and a dev-only or test-only controller. A fieldless POST action may use either that hand-rolled shape or a real form, so read `references/csrf.md` before you choose. JSON API endpoints are also an exception, because they use `#[MapRequestPayload]`. See "API controllers" below.
 
 - Forms must not bind directly to Doctrine entities.
 - Create a DTO with a `Request` suffix, such as `FooRequest`, next to the form file.
@@ -308,7 +308,7 @@ Do not create a `Service/` class for logic called from one place. Keep it in the
 
 Read the file before you work on the topic.
 
-- `references/csrf.md` before you write a hand-rolled form with a manual `_csrf_token`, or a hand-rolled POST to a Form-component endpoint. A literal token ID gives a 403 in production while the tests pass.
+- `references/csrf.md` before you write any fieldless POST action, a hand-rolled form with a manual `_csrf_token`, or a hand-rolled POST to a Form-component endpoint. It carries the rule that picks between the `#[CsrfToken]` attribute and a real Symfony form. A literal token ID gives a 403 in production while the tests pass.
 - `references/scheduled-jobs.md` before you add a recurring job. Use `#[AsCronTask]` on a task class in `src/Module/*/Scheduler/`. Never add a schedule provider.
 - `references/email.md` before you send, build or test an email. Delivery is asynchronous, the sender address is a container parameter, and tests use `assertQueuedEmailCount()`.
 - `references/admin-listing.md` before you add or change an admin list, edit, delete or toggle action. The list must preserve filter and sort state through `returnTo`.
