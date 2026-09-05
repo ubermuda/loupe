@@ -2214,12 +2214,12 @@
     drag = null;
   };
   // A pointer lost mid-drag (a window switch, a cancelled gesture) returns the
-  // launcher to the corner it started from rather than leaving it loose.
+  // launcher to the corner it started from rather than leaving it loose. It
+  // arms no swallow: the browser sends no click after a cancelled gesture, so
+  // one armed here would sit and eat the reviewer's next click on the page.
   const onDragCancel = () => {
     if (!drag) return;
-    const moved = drag.moved;
     stopDrag();
-    if (moved) armClickSwallow();
   };
   const onDragEnd = (event) => {
     if (!drag || event.pointerId !== drag.pointerId) return;
@@ -2236,7 +2236,6 @@
     // Primary button only, and never while picking: the picker owns the page's
     // clicks, and the launcher is only up there to hold an open draft.
     if (0 !== event.button || state.target || drag) return;
-    disarmClickSwallow();
     const rect = launcherNode.getBoundingClientRect();
     drag = {
       pointerId: event.pointerId,
@@ -2253,6 +2252,9 @@
     document.addEventListener('pointercancel', onDragCancel, true);
     window.addEventListener('blur', onDragCancel);
   });
+  // Any fresh press clears a swallow that somehow outlived the click it was
+  // armed for, so a stale one can never reach an unrelated gesture.
+  document.addEventListener('pointerdown', disarmClickSwallow, true);
 
   // A press must not take the caret out of the draft. The button stays
   // focusable, so only the keyboard reaches it and only it sees a ring.
