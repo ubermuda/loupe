@@ -2112,39 +2112,6 @@ every committed file, so documentation that merely *names* a class was
 compiling it into production CSS. `app.css` now carries
 `@source not "../../.claude"` and `@source not "../../docs"`.
 
-## Product idea (long horizon): drag DOM elements in the widget to try layouts
-
-
-**Author:** Geoffrey · **Type:** idea · **Priority:** low · **Status:** pending
-
-Owner note (2026-07-27), raised with the caveat that it is probably too
-ambitious: let the reviewer actually move elements around on the page to try
-out a different layout, instead of only describing the change in words.
-
-The moving is the easy part — the widget already has an element picker and a
-fixed overlay, and dragging a node is a small amount of DOM work. The hard part
-is that the deliverable is not a moved element, it is a change an agent can
-act on. A dragged node yields a new position in *this* rendering, at *this*
-viewport width, with whatever inline styles the drag applied; none of that
-tells the agent which rule to edit, whether the intent was a flex order change
-or a margin, or what should happen at the other breakpoints. Getting from
-"reviewer moved this box" to a defensible CSS change is the whole feature, and
-it is why this stays an idea rather than a scheduled item.
-
-If it is ever picked up, the useful output is probably a description of the
-intended relationship ("this belongs above that", "these should be side by
-side") captured alongside a before/after screenshot, not a DOM diff. That makes
-it an extension of the same capture surface as 'Attach a screenshot to a
-site-review comment' and 'Drawing on the page in the site-review widget' — all
-three are the reviewer showing rather than telling, and they should share one
-composer rather than growing three parallel modes.
-
-**Do 'Anchor a site-review comment to several elements, not just one' first.**
-It delivers the stated relationship — the part that actually survives into a CSS
-change — for the price of a data-model change, with none of the intent-inference
-problem above. Once multi-anchor comments exist, revisit whether dragging adds
-enough over them to be worth building at all.
-
 ## Dead semantic classes accumulate in app.css with nothing to catch them
 
 
@@ -2566,31 +2533,6 @@ a reconnect gap loses events and a pull path stays necessary. The run used a
 wildcard subscriber token rather than `StreamCredentialsController`, so
 per-project topic scoping is unproven.
 
-## A mark-addressed skip reason is best-effort, because the re-read is not under the write's lock
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-`SiteReviewCommentRepository::markAddressedIfPending()` and its twin on
-`App\Module\Review\Repository\CommentRepository` settle the write with a
-conditional `UPDATE … WHERE status = 'pending'`, which is what stops an agent
-overwriting a human's Resolve. A zero-row result only says the comment was not
-pending, so both MCP mark-addressed tools then call `currentStatus()` to learn
-why and report `already_addressed` / `resolved` / not-found accordingly.
-
-That second read is a separate statement outside any row lock, so the status can
-move again between the two. The reported *reason* is therefore best-effort: an
-agent can be told `resolved` for a comment that was addressed a moment earlier,
-or the reverse.
-
-Only the label is affected — the write itself is already safe, and no comment
-changes state because of this. Closing it properly means the read-check-write
-pattern `project-backend` documents (`wrapInTransaction` + `lock(PESSIMISTIC_WRITE)`
-+ `refresh()`), which was passed over because it costs a lock per comment on
-every batch to sharpen a string that is only wrong when two writers race the same
-comment. Note `refresh()` does not work on these entities — Doctrine refuses to
-rehydrate their readonly `createdAt` — so a lock-based version needs another way
-to re-read.
-
 ## The MCP connection drops repeatedly, and reconnecting does not restore the tools
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
@@ -2712,37 +2654,76 @@ The work is one change repeated four times: include `extension.neon` from
 `require-dev`, and fix whatever the first run reports. Do all four together, so
 the four repositories do not drift into four different standards.
 
+## `document_mark_comment_addressed` reports a best-effort skip reason, and nothing says so
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+`App\Module\Review\Mcp\DocumentMarkCommentAddressedTool` settles its write with
+a conditional `UPDATE ... WHERE status = 'pending'`, in
+`App\Module\Review\Repository\CommentRepository::markAddressedIfPending()`. The
+write is authoritative. When zero rows change, the tool calls `currentStatus()`
+to learn why, then reports `already_addressed`, `resolved` or not-found.
+
+That second read is a separate statement outside any row lock. The status can
+move between the two reads, so the reported reason can name the wrong status.
+Only the label is wrong. No comment changes state because of this.
+
+The site-review tool has the same race, and the owner accepted it there as
+best-effort. Pull request #338 wrote that into the `#[McpTool]` description of
+`SiteReviewMarkCommentAddressedTool`, into its `__invoke` docblock, into the
+`loupe-site-review` skill and into `docs/using/mcp.md`.
+
+Locking was rejected on the site-review side. The fix needs `wrapInTransaction`,
+plus `lock(PESSIMISTIC_WRITE)`, plus `refresh()`. `refresh()` fails on these
+entities, because Doctrine refuses to rehydrate a readonly `createdAt`. The cost
+is one lock per comment on every batch, to sharpen a string that is only wrong
+when two writers race the same comment.
+
+The open question is how the document tool records the same contract. It can
+take the same caveat wording as the site-review tool, or another treatment.
+Decide that first. Then apply it to the `#[McpTool]` description, the `__invoke`
+docblock, the `loupe-documents` skill, which lists no skip reasons today, and
+the `document_mark_comment_addressed` row in `docs/using/mcp.md`.
+
 ## The shared main checkout is unguarded shared state
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
 
 `CLAUDE.md` tells the main session never to move *into* a worktree. It says
-nothing about a session moving the main checkout *onto its own branch*, which
-two sessions did during one wave. Once, that happened while another session's
-uncommitted work sat in the same tree, including a `config/packages/security.yaml`
-change and a new `Controller/Dev/` route.
+nothing about several sessions sharing the main checkout, which is what they do.
+Three sessions hit a variant of the same problem in one day, every one of them
+on `.claude/skills/working-with-prs/SKILL.md`. That concentration points at a
+hot file rather than at careless sessions.
 
-Work was taken, not merely put at risk. A commit on the moved branch carried 20
-lines of another session's uncommitted edit to
-`.claude/skills/working-with-prs/SKILL.md`, and it was pushed before anyone
-noticed. The branch was rebuilt without it.
+Two separate incidents, hours apart, not one.
 
-`CLAUDE.md`'s "stage files by name, never `git add -A`" does not cover this.
-Both sessions were editing one file, and `git add <path>` stages the whole
-working-tree version of that path, so staging by name took the other session's
-hunks too. The check that catches it is reading `git diff --cached` before
-committing, rather than checking which files are staged.
+Work was taken in the first. A commit carried 20 lines of another session's
+uncommitted edit to that file and pushed them. The branch was rebuilt without
+them.
+
+The main checkout was moved onto another branch in the second, while a third
+session's uncommitted `config/packages/security.yaml` change and new
+`Controller/Dev/` route sat in the tree. That tree was clean when it moved, and
+nothing was lost.
+
+`CLAUDE.md`'s "stage files by name, never `git add -A`" does not defend against
+the first. Two sessions were editing one file, and `git add <path>` stages the
+whole working-tree version of that path, so staging by name takes the other
+session's hunks too. `git commit -a` has the same reach, and
+`git checkout -- <path>` destroys rather than captures. The check that catches
+all three is reading `git diff --cached` before committing, rather than checking
+which files are staged.
 
 A session also cannot see that the checkout is occupied. A branch somebody else
-left there looks exactly like a branch you left there yourself, and
-`git worktree list` reports the path without saying who is standing in it. So
-moving it is not obviously an intrusion at the moment you do it.
+left there looks exactly like one you left yourself, and `git worktree list`
+reports the path without saying who is standing in it. So moving it is not
+obviously an intrusion at the moment you do it.
 
 Decide whether the rule should be that a session never moves the main checkout
-at all, and does every edit in a worktree. Reported by two sessions that now
-work that way. Write it into `CLAUDE.md` if so, because a convention that lives
-only in one session's memory is not a convention. If the rule stays advisory
-instead, the second half needs answering: give a session a way to tell an
+at all, and does every edit in a worktree. Reported by three sessions, two of
+which now work that way. Write it into `CLAUDE.md` if so, because a convention
+that lives only in one session's memory is not a convention. If the rule stays
+advisory, the second half needs answering: give a session a way to tell an
 occupied checkout from one it can borrow.
 
 ## "Keep both entries" is wrong when a branch deleted one on purpose
