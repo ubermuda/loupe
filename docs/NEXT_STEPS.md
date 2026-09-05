@@ -2716,8 +2716,9 @@ the `document_mark_comment_addressed` row in `docs/using/mcp.md`.
 skips a dependent project when its dependency fails, so one red `chromium` test
 disables eleven others.
 
-A real run read `1 failed, 130 passed, 11 did not run`. That summary looks
-mostly green, so three suites went untested for hours and nobody noticed.
+A real run read `1 failed, 130 passed, 11 did not run`; the same commit healthy
+reads `142 passed`. Twelve tests and one ambiguous phrase is the whole signal,
+so three suites went untested for hours and nobody noticed.
 
 Decide whether to break the chain or make the summary name the skipped projects.
 
