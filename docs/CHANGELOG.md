@@ -30,6 +30,17 @@ entry.
 
 ## [Unreleased]
 
+- `f335764` (#341) — **Added:** a site-review comment can point at several
+  elements, so it can describe a relationship between them rather than being
+  tied to one. Hold Cmd, or Ctrl away from a Mac, and keep clicking to add
+  elements to the comment you are writing. Each appears as a pill in the
+  composer; hovering a pill lights up its anchor on the page, and hovering an
+  anchor lights up the others in the same comment. Remove an anchor by its pill
+  or by a control on the element.
+- `f335764` (#341) — **Changed:** `site_review_comments` keeps writing its
+  `selector` and `text` columns, which nothing reads any more. The contraction
+  that drops them must re-run the backfill and remove the entity mapping in the
+  same release, or a rollback breaks.
 - `7af7f10` (#351) — **Changed:** `CLAUDE.md` tells an agent to read
   `git diff --cached` before committing. Staging by name protects against
   another branch's files, not against another session's hunks in a file two
