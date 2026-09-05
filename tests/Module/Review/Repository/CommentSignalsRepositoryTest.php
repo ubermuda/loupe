@@ -77,6 +77,44 @@ final class CommentSignalsRepositoryTest extends KernelTestCase
         self::assertSame(1, $signals[(string) $version->id]->orphanedThreadCount);
     }
 
+    /**
+     * The grouped query returns one row per status and orphaned pair, so an
+     * addressed orphan lands in the addressed bucket and the orphaned bucket
+     * alike. The waiting signal must read it as one thread.
+     */
+    public function test_an_addressed_orphan_waits_once(): void
+    {
+        $author = $this->user('signals-addressed-orphan@example.com');
+        $version = $this->version($author, 'Acted on');
+
+        foreach (range(1, 3) as $ignored) {
+            $this->comment($version, $author, CommentStatus::Addressed)->orphaned = true;
+        }
+        $this->em->flush();
+
+        $tally = $this->comments->signalsByVersions([(string) $version->id])[(string) $version->id];
+
+        self::assertSame(3, $tally->addressedThreadCount);
+        self::assertSame(3, $tally->orphanedThreadCount);
+        self::assertSame(3, $tally->waitingThreadCount());
+    }
+
+    public function test_a_pending_orphan_waits_and_an_anchored_pending_thread_does_not(): void
+    {
+        $author = $this->user('signals-pending-orphan@example.com');
+        $version = $this->version($author, 'Broken anchor');
+
+        $this->comment($version, $author, CommentStatus::Pending)->orphaned = true;
+        $this->comment($version, $author, CommentStatus::Pending);
+        $this->comment($version, $author, CommentStatus::Resolved)->orphaned = true;
+        $this->em->flush();
+
+        $tally = $this->comments->signalsByVersions([(string) $version->id])[(string) $version->id];
+
+        self::assertSame(1, $tally->pendingOrphanedThreadCount);
+        self::assertSame(1, $tally->waitingThreadCount());
+    }
+
     public function test_it_reports_every_version_asked_for_including_ones_with_no_comments(): void
     {
         $author = $this->user('signals-batch@example.com');

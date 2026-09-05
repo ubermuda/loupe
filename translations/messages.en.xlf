@@ -3400,21 +3400,9 @@
                 <source>review.dashboard.filter.count</source>
                 <target>%matching% of %total% documents</target>
             </trans-unit>
-            <trans-unit id="review.dashboard.meta.open_count">
-                <source>review.dashboard.meta.open_count</source>
-                <target>{0}no open threads|{1}1 open|]1,Inf[%count% open</target>
-            </trans-unit>
-            <trans-unit id="review.dashboard.meta.addressed_count">
-                <source>review.dashboard.meta.addressed_count</source>
-                <target>{0}none addressed|{1}1 addressed|]1,Inf[%count% addressed</target>
-            </trans-unit>
-            <trans-unit id="review.dashboard.meta.orphaned_count">
-                <source>review.dashboard.meta.orphaned_count</source>
-                <target>{0}no orphaned threads|{1}1 orphaned|]1,Inf[%count% orphaned</target>
-            </trans-unit>
-            <trans-unit id="review.dashboard.meta.all_answered">
-                <source>review.dashboard.meta.all_answered</source>
-                <target>All answered</target>
+            <trans-unit id="review.dashboard.meta.waiting_count">
+                <source>review.dashboard.meta.waiting_count</source>
+                <target>{0}nothing waiting for you|{1}1 thread waiting for you|]1,Inf[%count% threads waiting for you</target>
             </trans-unit>
             <trans-unit id="review.dashboard.empty.title">
                 <source>review.dashboard.empty.title</source>

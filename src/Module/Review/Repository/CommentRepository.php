@@ -90,6 +90,9 @@ class CommentRepository extends ServiceEntityRepository
             $tallies[$id][$status] = ($tallies[$id][$status] ?? 0) + $total;
             if ($row['orphaned']) {
                 $tallies[$id]['orphaned'] = ($tallies[$id]['orphaned'] ?? 0) + $total;
+                if (CommentStatus::Pending === $row['status']) {
+                    $tallies[$id]['pending_orphaned'] = ($tallies[$id]['pending_orphaned'] ?? 0) + $total;
+                }
             }
         }
 
@@ -101,6 +104,7 @@ class CommentRepository extends ServiceEntityRepository
                 addressedThreadCount: $tally[CommentStatus::Addressed->value] ?? 0,
                 resolvedThreadCount: $tally[CommentStatus::Resolved->value] ?? 0,
                 orphanedThreadCount: $tally['orphaned'] ?? 0,
+                pendingOrphanedThreadCount: $tally['pending_orphaned'] ?? 0,
             );
         }
 

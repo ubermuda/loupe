@@ -178,21 +178,12 @@
                 </ul>
                 {% endif %}
             </div>
-            {# The one thing on the row that asks for action, so it carries the
-               highlight fill and sits next to the status rather than in the
-               muted meta line. #}
-            {% if item.signals.orphanedThreadCount > 0 %}
-            <span class="lp-signal lp-signal--orphaned">{{ 'review.dashboard.meta.orphaned_count'|trans({'%count%': item.signals.orphanedThreadCount}) }}</span>
-            {% endif %}
-            {% if item.signals.openThreadCount > 0 %}
-            <span class="lp-document-row__threads">{{ 'review.dashboard.meta.open_count'|trans({'%count%': item.signals.openThreadCount}) }}</span>
-            {% endif %}
-            {# One chip for the two states, because "all answered" already says
-               that every thread is addressed or resolved. #}
-            {% if item.signals.allThreadsAnswered %}
-            <span class="lp-signal lp-signal--answered">{{ 'review.dashboard.meta.all_answered'|trans }}</span>
-            {% elseif item.signals.hasAddressedThreads %}
-            <span class="lp-signal lp-signal--addressed">{{ 'review.dashboard.meta.addressed_count'|trans({'%count%': item.signals.addressedThreadCount}) }}</span>
+            {# One indicator, and only when the reader owes the row something. A
+               row with nothing waiting shows nothing, because the absence is
+               what makes the waiting rows findable. The full breakdown lives on
+               the document page. #}
+            {% if item.signals.hasWaitingThreads %}
+            <span class="lp-document-row__waiting">{{ 'review.dashboard.meta.waiting_count'|trans({'%count%': item.signals.waitingThreadCount}) }}</span>
             {% endif %}
             <span class="lp-badge lp-badge--{{ document.status.value }}">
                 {{ document.status.translationKey()|trans }}
