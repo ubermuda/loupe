@@ -2899,6 +2899,10 @@ signals were unanimous and wrong: approved, clean, and every check green, while
 the owner had already reported a defect on the approved head. One of those two
 had four separate defects reported after its single approval.
 
+A third hold on the same branch cleared in one exchange, and that is not a cost
+to design away. A check that fires only when it turns out to be right is set too
+loose, because it cannot fire on the case it exists for.
+
 Decide whether `working-with-prs` should say that, beside the existing
 instruction to merge an approved and green pull request without asking. Found
 when a merge-master session was one command from shipping a version the owner
