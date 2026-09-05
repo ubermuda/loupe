@@ -15,8 +15,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
-use Ubermuda\FeatureFlagsBundle\Entity\FeatureFlag;
-use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class SiteReviewApiTest extends WebTestCase
 {
@@ -129,7 +128,10 @@ final class SiteReviewApiTest extends WebTestCase
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
         [$raw, $project] = $this->projectWithToken($em, 'api-drawing-off@example.com');
-        $em->persist(new FeatureFlag(SiteReviewDrawing::FLAG, FeatureFlagType::Bool, false));
+        // The migration seeds the row, so this moves it rather than creating it.
+        $flags = static::getContainer()->get(FeatureFlagRepository::class);
+        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
+        $flags->findAllIndexed()[SiteReviewDrawing::FLAG]->value = false;
         $em->flush();
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
@@ -155,14 +157,14 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertFalse($payload['drawingEnabled']);
     }
 
-    public function test_the_boot_load_reports_drawing_on_by_default(): void
+    public function test_the_boot_load_reports_drawing_on_for_an_untouched_instance(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
         [$raw] = $this->projectWithToken($em, 'api-drawing-default@example.com');
 
-        // No flag row exists, so this reads the coded default the install
-        // seeder also writes.
+        // Nothing has moved the flag, so this reads the value the migration
+        // and the install seeder both write.
         $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
         $payload = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertIsArray($payload);
