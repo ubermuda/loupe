@@ -157,6 +157,8 @@ phpunit *args:
 # one database. `--list-tests` runs the PHPUnit bootstrap alone, which builds the
 # schema that TEST_SCHEMA_READY tells each mutant process to keep.
 mutation *args:
+    # An interrupted run leaves a half-written junit.xml that aborts the next one.
+    rm -rf var/infection/infection
     bin/worktrees/compose-exec.sh vendor/bin/phpunit --list-tests > /dev/null
     bin/worktrees/compose-exec.sh env TEST_SCHEMA_READY=1 XDEBUG_MODE=coverage vendor/bin/infection --no-interaction --with-uncovered "$@"
 
@@ -169,15 +171,24 @@ mutation-diff base="origin/main":
     # git runs on the host. Infection's own --git-diff-lines shells out to git
     # inside the container, where a worktree's .git points at a host path that
     # does not exist, so it aborts. This resolves the same list from outside.
-    files=$(git diff --name-only --diff-filter=AM "{{base}}...HEAD" -- 'src/***.php' | paste -s -d, -)
+    fork=$(git merge-base "{{base}}" HEAD)
+    # Against the merge base with no second commit, so the working tree counts:
+    # this runs on code you have not committed yet. ls-files adds new ones.
+    files=$( { git diff --name-only --diff-filter=AM "$fork" -- 'src/***.php'; \
+               git ls-files --others --exclude-standard -- 'src/***.php'; } \
+             | sort -u | tr '\n' ' ' )
     if [ -z "$files" ]; then
         echo "mutation-diff: no added or modified files under src/ against {{base}}"
         exit 0
     fi
     echo "mutation-diff: $files"
+    # An interrupted run leaves a half-written junit.xml that aborts the next one.
+    rm -rf var/infection/infection
     bin/worktrees/compose-exec.sh vendor/bin/phpunit --list-tests > /dev/null
+    # Paths are positional; --filter is deprecated. Unquoted on purpose, so each
+    # path becomes its own argument.
     bin/worktrees/compose-exec.sh env TEST_SCHEMA_READY=1 XDEBUG_MODE=coverage \
-        vendor/bin/infection --no-interaction --with-uncovered --filter="$files"
+        vendor/bin/infection --no-interaction --with-uncovered -- $files
 
 cs: prettier lint rector cs-fix twig-cs-fix
 
