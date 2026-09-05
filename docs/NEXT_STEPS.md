@@ -2829,7 +2829,17 @@ intended rather than broken. And prefer what #348 shipped: a reader mints a
 fresh link against a live worktree with `app:dev:preview-login-link`, which beats
 one baked into a body that outlives the tree.
 
+The same shape catches a body's text, not just its links. GitHub copies the body
+into the squash commit at the instant of merge, so editing the body afterwards
+changes the pull request page and never the commit. One session added a
+paragraph of reasoning to a merged pull request's body: `gh pr view` finds it,
+`git show -s --format=%B <sha>` does not. `docs/CHANGELOG.md` sends a reader to
+"the PR body and the commit message, which the SHA and the PR number both point
+at", and those two disagree the moment anyone edits after merging.
+
 Decide which, and write it into `working-with-prs` beside the existing
-instruction to open the link before writing it down. Raised by the session that
+instruction to open the link before writing it down. Say there that anything
+meant for the permanent record has to be in the body before the merge, because
+the body is the commit message only at that instant. Raised by the session that
 ran the teardown, which checked merged state, a clean tree and nothing unpushed
 on all seven first.
