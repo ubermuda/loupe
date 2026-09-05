@@ -480,9 +480,10 @@ open-coverage:
 
 # PHPUnit-suite coverage, in its own tree. `e2e-coverage` above deletes
 # var/coverage on every run, so the two reports must not share a directory.
-# xdebug is the driver, as it is for `just mutation`.
+# xdebug is the driver, as it is for `just mutation`. clover.xml and summary.txt
+# exist so a reader can grep a number without opening the HTML.
 phpunit-coverage *args:
-    bin/worktrees/compose-exec.sh env XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-html=var/phpunit-coverage/html "$@"
+    bin/worktrees/compose-exec.sh env XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-html=var/phpunit-coverage/html --coverage-clover=var/phpunit-coverage/clover.xml --coverage-text=var/phpunit-coverage/summary.txt "$@"
     @echo "coverage: var/phpunit-coverage/html/index.html — 'just open-phpunit-coverage'"
 
 open-phpunit-coverage:

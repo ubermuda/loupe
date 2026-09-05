@@ -1,0 +1,59 @@
+name: Coverage report
+
+on:
+  schedule:
+    # Mondays, 03:00 UTC, an hour before the mutation run. A schedule fires from
+    # the default branch only, so this first runs after the branch merges.
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+  # TEMPORARY, removed before merge. workflow_dispatch is registered from the
+  # default branch only, so this is the one way to measure a run on a runner.
+  push:
+    branches: [tooling/scoped-mutation-testing]
+
+concurrency:
+  group: coverage-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
+
+jobs:
+  # The PHPUnit suite, not the e2e suite. `just e2e-coverage` measures the other
+  # one, needs the browser stack, and deletes var/coverage on every run. Nothing
+  # here touches that directory.
+  phpunit-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Runner conditions
+        run: |
+          nproc
+          date -u +'stack build starts %H:%M:%S UTC'
+
+      - uses: ./.github/actions/setup
+        with:
+          docker: 'true'
+
+      - run: date -u +'stack build ends %H:%M:%S UTC'
+
+      - run: just phpunit-coverage
+
+      # summary.txt and clover.xml answer "what is coverage now" without
+      # downloading the HTML tree and opening a browser.
+      - name: Coverage summary
+        if: always()
+        run: head -20 var/phpunit-coverage/summary.txt || echo 'no summary written'
+
+      - name: Coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phpunit-coverage
+          path: |
+            var/phpunit-coverage/summary.txt
+            var/phpunit-coverage/clover.xml
+            var/phpunit-coverage/html
+          if-no-files-found: warn
