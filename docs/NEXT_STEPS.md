@@ -2807,3 +2807,29 @@ Decide whether this belongs in `CLAUDE.md` beside the existing container rule,
 or in the `project-worktrees` skill. Found when two test runs raced in one
 worktree, and after this session gave another the repository-wide `pkill` as
 advice.
+
+## A pull request body outlives the worktree its preview link points at
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`working-with-prs` says to mint a signed preview link, seed the data the change
+needs, and open the link yourself before writing it down. It does not say the
+link dies when the worktree does.
+
+Seven merged pull requests lost their previews in one teardown. `main` takes
+squash merges only, so a body becomes the permanent commit message, and those
+bodies now point at hosts that do not resolve. Nothing of value is gone, because
+the code is merged and the fixtures were disposable. A later reader following a
+link from one of them gets a connection error rather than a page, and no clue
+that this was expected.
+
+Two ways to fix it, and they compose. Say in the body that a preview is
+disposable and names a tree that will be removed, so the dead link reads as
+intended rather than broken. And prefer what #348 shipped: a reader mints a
+fresh link against a live worktree with `app:dev:preview-login-link`, which beats
+one baked into a body that outlives the tree.
+
+Decide which, and write it into `working-with-prs` beside the existing
+instruction to open the link before writing it down. Raised by the session that
+ran the teardown, which checked merged state, a clean tree and nothing unpushed
+on all seven first.
