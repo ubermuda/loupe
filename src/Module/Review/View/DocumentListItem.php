@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace App\Module\Review\View;
 
 use App\Module\Review\Entity\Document;
+use App\Module\Review\ValueObject\CommentSignals;
 
 /**
  * One row on the documents list: the document plus the derived values shown on
- * the row — the current version number, when that version was submitted, and how
- * many top-level threads are still open. The counts are gathered in the
- * controller (the only place allowed to read across repositories) so this view
- * model imports only its own module.
+ * the row. That is the current version number, when that version was submitted,
+ * and what its comment threads say about it.
  */
 final readonly class DocumentListItem
 {
@@ -19,7 +18,7 @@ final readonly class DocumentListItem
         public Document $document,
         public int $versionNumber,
         public \DateTimeImmutable $updatedAt,
-        public int $openThreadCount,
+        public CommentSignals $signals,
     ) {
     }
 }

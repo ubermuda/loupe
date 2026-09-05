@@ -21,6 +21,19 @@ Threads carry a status: pending, addressed, or resolved. The verdict on a
 version is either an approval or a request for changes, submitted at
 `/review/submit`.
 
+The documents list answers one question per row: does this document wait for
+you? A row reads **1 thread waiting for you**, and counts up from there. A
+thread waits for you when the agent marked it addressed and nobody confirmed it
+yet. It also waits when it is still pending and orphaned, because nobody acted
+and its anchor is gone. A pending thread that still points at real text waits
+for the agent, so it adds nothing. A row with nothing waiting stays empty, which
+is what makes the waiting rows easy to find.
+
+The review top bar carries the full picture for the version on screen: the open
+and resolved counts, a chip that counts the addressed threads, and **All
+answered** when no thread is pending. The banner above the document counts the
+orphaned threads. Every count is a thread count, so a reply never adds to one.
+
 Two views help across versions:
 
 - `/review/versions/{versionNumber}` — any earlier version as it read then.

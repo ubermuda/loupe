@@ -10,6 +10,7 @@ use App\Module\Review\Repository\DocumentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Repository\SeriesRepository;
 use App\Module\Review\Repository\TagRepository;
+use App\Module\Review\ValueObject\CommentSignals;
 use App\Module\Review\View\DocumentListItem;
 use App\Utils\PageList;
 
@@ -48,21 +49,21 @@ final readonly class ListDocumentsHandler
 
         // One grouped query for the page rather than one per row, matching how
         // tags and version metadata above are already loaded.
-        $openThreadCounts = $this->comments->countOpenByVersions(array_values(array_map(
+        $signals = $this->comments->signalsByVersions(array_values(array_map(
             static fn (array $meta): string => (string) $meta['versionId'],
             $latestVersions,
         )));
 
         return new ListDocumentsView(
             items: array_map(
-                static function (Document $document) use ($latestVersions, $openThreadCounts): DocumentListItem {
+                static function (Document $document) use ($latestVersions, $signals): DocumentListItem {
                     $meta = $latestVersions[(string) $document->id] ?? throw new \LogicException('Document has no versions.');
 
                     return new DocumentListItem(
                         document: $document,
                         versionNumber: $meta['versionNumber'],
                         updatedAt: $meta['createdAt'],
-                        openThreadCount: $openThreadCounts[(string) $meta['versionId']] ?? 0,
+                        signals: $signals[(string) $meta['versionId']] ?? new CommentSignals(),
                     );
                 },
                 $documents,

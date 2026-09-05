@@ -10,9 +10,14 @@
 {% endblock %}
 
 {% block topbar_meta %}
-    {% set openThreadCount = comments|filter(c => c.parent is null and c.threadStatus.value != 'resolved')|length %}
-    {% set resolvedThreadCount = comments|filter(c => c.parent is null and c.threadStatus.value == 'resolved')|length %}
-    <span class="lp-topbar__meta">{{ 'review.document.threads.summary'|trans({'%open%': openThreadCount, '%resolved%': resolvedThreadCount}) }}</span>
+    <span class="lp-topbar__meta">{{ 'review.document.threads.summary'|trans({'%open%': signals.openThreadCount, '%resolved%': signals.resolvedThreadCount}) }}</span>
+    {# One chip for the two states, because "all answered" already says that
+       every thread is addressed or resolved. #}
+    {% if signals.allThreadsAnswered %}
+    <span class="lp-signal lp-signal--answered">{{ 'review.document.threads.all_answered'|trans }}</span>
+    {% elseif signals.hasAddressedThreads %}
+    <span class="lp-signal lp-signal--addressed">{{ 'review.document.threads.addressed_count'|trans({'%count%': signals.addressedThreadCount}) }}</span>
+    {% endif %}
 {% endblock %}
 
 {% block topbar_actions %}
@@ -33,9 +38,9 @@
 
 {% block body %}
 <div class="lp-review">
-    {% if orphanedCount > 0 %}
+    {% if signals.hasOrphanedThreads %}
     <div class="lp-orphan-banner">
-        {{ 'review.document.orphan_banner'|trans({'%count%': orphanedCount}) }}
+        {{ 'review.document.orphan_banner'|trans({'%count%': signals.orphanedThreadCount}) }}
     </div>
     {% endif %}
 

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Command;
 
-use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Repository\CommentRepository;
@@ -12,6 +11,7 @@ use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Service\MarkdownDiffer;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\Service\RenderedDiffBuilder;
+use App\Module\Review\ValueObject\CommentSignals;
 use App\Module\Review\ValueObject\DiffRefusal;
 use App\Module\Review\ValueObject\DiffView;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -95,7 +95,7 @@ final readonly class DiffDocumentVersionsHandler
             commentingEnabled: $isCurrent && null !== $renderedDiff,
             comments: $comments,
             versions: $this->documentVersions->findAllMetaByDocument($command->document),
-            orphanedCount: count(array_filter($comments, static fn (Comment $c) => $c->orphaned)),
+            signals: $this->comments->signalsByVersions([(string) $version->id])[(string) $version->id] ?? new CommentSignals(),
         );
     }
 

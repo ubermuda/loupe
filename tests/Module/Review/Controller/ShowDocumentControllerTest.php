@@ -246,6 +246,77 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertSelectorExists('.lp-comment-thread--resolved');
     }
 
+    public function test_the_topbar_reports_the_thread_signals_of_the_version_on_screen(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'signalowner', 'signals@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Signal Doc');
+        $version = $doc->addVersion('# Body', '<h1>Body</h1>');
+        $em->persist($doc);
+
+        $addressed = new Comment($version, $owner, 'An addressed comment', new Anchor('Body', '', '', 0));
+        $addressed->status = CommentStatus::Addressed;
+        $pending = new Comment($version, $owner, 'A pending comment', new Anchor('Body', '', '', 10));
+        $resolved = new Comment($version, $owner, 'A resolved comment', new Anchor('Body', '', '', 20));
+        $resolved->status = CommentStatus::Resolved;
+        // A reply is not a thread, so neither the summary nor the chip counts it.
+        $reply = new Comment($version, $owner, 'A reply', $pending->anchor, $pending);
+        $em->persist($addressed);
+        $em->persist($pending);
+        $em->persist($resolved);
+        $em->persist($reply);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.lp-topbar__meta', '2 open · 1 resolved');
+        self::assertSelectorTextContains('.lp-signal--addressed', '1 addressed');
+        self::assertSelectorNotExists('.lp-signal--answered');
+    }
+
+    public function test_the_orphan_banner_counts_threads_and_not_their_replies(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'orphanowner', 'orphans@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Orphan Doc');
+        $version = $doc->addVersion('# Body', '<h1>Body</h1>');
+        $em->persist($doc);
+
+        $root = new Comment($version, $owner, 'A comment on removed text', new Anchor('Gone', '', '', 0));
+        $root->orphaned = true;
+        // A reply copies its parent's anchor, so re-anchoring flags it too. One
+        // broken anchor is one thing to fix, so the banner must say one.
+        $reply = new Comment($version, $owner, 'A reply', $root->anchor, $root);
+        $reply->orphaned = true;
+        $em->persist($root);
+        $em->persist($reply);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.lp-orphan-banner', 'One comment thread refers to text that has been removed');
+    }
+
     public function test_resolving_a_comment_returns_the_whole_list_as_one_stream(): void
     {
         $client = static::createClient();
