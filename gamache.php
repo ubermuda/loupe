@@ -92,10 +92,10 @@ return (new GamacheConfig())->registerChecks([
     ),
     new CommentBudgetCheck(
         /*
-         * Beyond the default Symfony layout, the files where comment essays
-         * actually accumulate here: the justfile, the compose topologies and
-         * the dotenv template, which together hold more over-budget blocks
-         * than src/ does.
+         * The justfile and the compose topologies join the default Symfony
+         * layout, because they carry comment prose. `.env` stays out: its
+         * comments are deployer documentation, and its header is Flex-managed,
+         * so `composer recipes:update` restores what a trim removes.
          */
         patterns: [
             'src/**/*.php',
@@ -108,7 +108,6 @@ return (new GamacheConfig())->registerChecks([
             'justfile',
             'compose.yaml',
             'docker/compose/prod.yaml',
-            '.env',
         ],
         // Binding rather than advisory: an advisory check's green result says
         // nothing, and three over-budget blocks once shipped through three
