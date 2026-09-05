@@ -14,7 +14,9 @@ When two of these collide, the higher one wins and the lower one yields.
 ## How to use it
 
 Most trade-offs answer themselves here. An agent that faces "this is technically
-wrong, and nobody would notice" reads the ranking and fixes it.
+wrong, and nobody would notice" reads the ranking and fixes it. Before the
+ranking existed, that agent guessed, and the guesses produced both
+over-engineering and blocking on the wrong things.
 
 Escalate on cost, not on principle. Apply the ranking when the fix is cheap.
 Ask the owner when the fix is expensive, when the defect is unreachable in
@@ -66,14 +68,16 @@ and the example only shows correctness winning without a contest.
 
 Correctness wins. Ship late, and ship right.
 
-`SelectDecisionOptionHandler` refuses a stale decision submission. A reviewer who
-submits against an old version gets an error and re-reads the block. Resolving
-the submission is faster for that reviewer, and it records a label they never
-clicked.
+The pull request gate says so. `working-with-prs` tells you to fix every failure
+the gate reports, including the failures that pre-date your change. The only
+acceptable response to a flaky test is a fix.
 
-The pull request gate says the same thing. `working-with-prs` tells you to fix
-every failure the gate reports, including the failures that pre-date your
-change. The only acceptable response to a flaky test is a fix.
+`SelectDecisionOptionHandler` shows the same rule in the product. It refuses a
+stale decision submission, so a reviewer who submits against an old version gets
+an error and re-reads the block. Resolving the submission is faster for that
+reviewer, and it records a label they never clicked. The owner settled that call.
+[CLAUDE.md](../../CLAUDE.md) still lists it as an example of a judgement about
+rigour, to make the point that the owner makes such calls.
 
 ### Simplicity against performance
 
@@ -127,9 +131,11 @@ This repository holds no ADR yet, so the first author creates the home:
 - Use three sections: Context, Decision, Consequences.
 - Name the options you rejected, and name the cost the decision accepts.
 
-Every page under `docs/` publishes to the public documentation site. Add the new
-group to `website/astro.config.mjs`, or the page is reachable only by its URL.
-Write every ADR as public text.
+A page under `docs/` publishes to the public documentation site by default. The
+loader skips a name that starts with `_`, and it skips the internal paths that
+`website/src/content.config.ts` excludes. Add the new group to
+`website/astro.config.mjs`, or the page is reachable only by its URL. Write every
+ADR as public text.
 
 ### Decisions with no record
 
