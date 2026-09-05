@@ -30,6 +30,12 @@ entry.
 
 ## [Unreleased]
 
+- `d937c04` (#332) — **Changed:** the documents list shows one signal per row,
+  "N threads waiting for you", and only where something waits, in place of three
+  per-row counts. The full breakdown moves to the document page. It also fixes
+  the count: an orphaned thread was counted alongside its status rather than as
+  part of it, so a thread that was both orphaned and addressed appeared in two
+  totals and three such threads read as six.
 - `f3822e2` (#350) — **Changed:** the `working-with-prs` skill says to open a
   pull request ready rather than draft, because a draft waits for a review that
   never starts.
