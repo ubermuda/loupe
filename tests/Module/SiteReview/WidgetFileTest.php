@@ -19,6 +19,10 @@ final class WidgetFileTest extends TestCase
         self::assertStringContainsString('/api/site-review/comments', $src);
         // The widget saves as the reviewer writes; there is no send step to call.
         self::assertStringNotContainsString('/api/site-review/review/submit', $src);
-        self::assertStringNotContainsString('localStorage', $src);
+
+        // Comments live on the server alone. The launcher's corner is the one
+        // thing the widget keeps in the browser, so one write is the budget.
+        self::assertStringContainsString("'loupe.site-review.corner'", $src);
+        self::assertSame(1, substr_count($src, 'localStorage.setItem'));
     }
 }
