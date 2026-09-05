@@ -2934,3 +2934,31 @@ instruction to read the checks against the head you are about to merge. That
 instruction already says a rollup can describe the previous head; this is the
 neighbouring trap, where the rollup describes the right head and the wrong
 workflow.
+
+## One failing e2e test silently disables three whole suites
+
+**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+
+`e2e/playwright.config.ts` chains its projects. `waitlist` depends on
+`chromium`, `trial-end-lifecycle` depends on `waitlist`, and `install-reset`
+depends on all three. Playwright skips a dependent project when its dependency
+fails, so a single failure in `chromium` takes the other three with it.
+
+That is live right now. One failing test in `chromium` produces
+`1 failed, 130 passed, 11 did not run`, and those eleven are the waitlist, the
+trial-end lifecycle and the install reset. For as long as any `chromium` test
+is red, nobody is testing those three areas at all, on `main` or on any branch
+that syncs with it.
+
+The run summary does not make that obvious. It reads as a mostly-green run with
+one known failure in it, and "11 did not run" is easy to read as eleven tests
+that were skipped on purpose. The blind spot is larger than the red, and it is
+invisible at exactly the moment someone decides a known flake is tolerable.
+
+Decide whether the chain is worth its cost. The dependencies exist because those
+suites need seeded state, so removing them is not free. Options include making
+the summary state plainly which projects were skipped and why, or breaking the
+chain so a `chromium` failure does not gate suites that share nothing with it.
+
+Found when a flaky test sat red on `main` for several hours and three suites
+went untested without anyone noticing.
