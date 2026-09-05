@@ -2907,3 +2907,30 @@ Decide whether `working-with-prs` should say that, beside the existing
 instruction to merge an approved and green pull request without asking. Found
 when a merge-master session was one command from shipping a version the owner
 had already rejected.
+
+## `gh run list --limit 1` answers "did CI pass" confidently and wrongly
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+This repository runs two workflows per commit, `CI` and `Docs`. So
+`gh run list --branch main --limit 1` returns whichever finished last, and on a
+red commit that is often the passing `Docs` run.
+
+One session used it, read `success`, and told another that main was green while
+main's `CI` run on the same sha had failed. The sha was right and the workflow
+was wrong, and the query could not have shown which. It fails by answering
+confidently rather than by erroring.
+
+The form that works names the workflow and then the job, rather than taking the
+newest run:
+
+```
+gh run list --branch main --workflow ci.yml --limit 1
+gh run view <run-id> --json jobs -q '.jobs[]|select(.name=="e2e")|.conclusion'
+```
+
+Decide whether this belongs in `working-with-prs`, beside the existing
+instruction to read the checks against the head you are about to merge. That
+instruction already says a rollup can describe the previous head; this is the
+neighbouring trap, where the rollup describes the right head and the wrong
+workflow.
