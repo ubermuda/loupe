@@ -77,6 +77,43 @@ final class AddCommentHandlerTest extends KernelTestCase
         $comment = ($this->handler)(new AddCommentCommand($project, 'a page note', 'https://app/x'));
 
         self::assertCount(0, $comment->anchors);
+        self::assertSame('', $comment->selector);
+        self::assertSame('', $comment->text);
+    }
+
+    /**
+     * The retained columns are written and never read. A previous image maps
+     * them as non-nullable, so a rollback onto this schema hydrates a row only
+     * when they carry anchor 0. Read them from the database, not from the
+     * in-memory entity, because the write is the part that has to hold.
+     */
+    public function test_a_new_comment_still_writes_anchor_zero_to_the_old_columns(): void
+    {
+        $project = $this->project('add-scalars@example.com');
+
+        $comment = ($this->handler)(new AddCommentCommand($project, 'these two', 'https://app/x', [
+            new NewAnchor('.first', 'First'),
+            new NewAnchor('.second', 'Second'),
+        ]));
+
+        $row = $this->em->getConnection()->fetchAssociative(
+            'SELECT selector, text FROM site_review_comments WHERE id = :id',
+            ['id' => (string) $comment->id],
+        );
+        self::assertSame(['selector' => '.first', 'text' => 'First'], $row);
+    }
+
+    public function test_a_page_note_writes_empty_strings_to_the_old_columns(): void
+    {
+        $project = $this->project('add-scalars-note@example.com');
+
+        $comment = ($this->handler)(new AddCommentCommand($project, 'a page note', 'https://app/x'));
+
+        $row = $this->em->getConnection()->fetchAssociative(
+            'SELECT selector, text FROM site_review_comments WHERE id = :id',
+            ['id' => (string) $comment->id],
+        );
+        self::assertSame(['selector' => '', 'text' => ''], $row);
     }
 
     public function test_deleting_a_comment_removes_its_anchors(): void

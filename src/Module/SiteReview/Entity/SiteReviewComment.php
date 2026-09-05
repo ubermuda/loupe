@@ -34,6 +34,18 @@ class SiteReviewComment
     #[ORM\Column(type: Types::JSON, nullable: true)]
     public ?array $strokes = null;
 
+    /**
+     * Anchor 0, repeated. Nothing here reads either one: the anchors are the
+     * record. A previous image maps both columns as non-nullable, so a rollback
+     * onto this schema can only hydrate rows that carry them. The contraction
+     * migration drops the columns and this mapping in the same release.
+     */
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    public ?string $selector = '';
+
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    public ?string $text = '';
+
     /** @var Collection<int, SiteReviewCommentAnchor> */
     #[ORM\OneToMany(targetEntity: SiteReviewCommentAnchor::class, mappedBy: 'comment', cascade: ['persist', 'remove'], orphanRemoval: true)]
     #[ORM\OrderBy(['position' => 'ASC'])]
@@ -71,9 +83,15 @@ class SiteReviewComment
         ?string $quotePrefix = null,
         ?string $quoteSuffix = null,
     ): self {
+        $position = $this->anchors->count();
+        if (0 === $position) {
+            $this->selector = $selector;
+            $this->text = $text;
+        }
+
         $this->anchors->add(new SiteReviewCommentAnchor(
             comment: $this,
-            position: $this->anchors->count(),
+            position: $position,
             selector: $selector,
             text: $text,
             quote: $quote,

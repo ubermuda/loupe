@@ -1077,13 +1077,25 @@ things were deliberately left out.
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
 
 `site_review_comments` still has a `selector` column and a `text` column.
-`Version20260904185305` made both nullable and stopped the entity from mapping
-them. The anchor data now lives in `site_review_comment_anchors`, one row per
-element, so nothing reads the two columns any more.
+`Version20260904185305` made both nullable. The anchor data now lives in
+`site_review_comment_anchors`, one row per element, so nothing reads the two
+columns any more.
+
+`SiteReviewComment` still maps them, and every new comment writes anchor 0 into
+them. A page note writes two empty strings. They are write-only, and they exist
+for one reason: a previous image maps both as non-nullable `string`, so it can
+hydrate a row only when they carry a value. Without the write, a rollback onto
+this schema raises a TypeError on read rather than rendering something poor.
 
 That migration expands only, so a rollback lands on a schema the previous image
 still tolerates. The drop is the contract phase, and it belongs in a later
 release. Write it once no deployed image reads the scalars.
+
+**The contraction is what stops the write.** Remove the two properties from
+`SiteReviewComment`, and the assignment in `addAnchor()`, in the same release as
+the drop. Do neither on its own. A drop without the mapping change breaks every
+insert, and a mapping change without the drop leaves two columns written and read
+by nothing for good.
 
 The contraction migration must run the backfill again before it drops anything.
 `Version20260904185305` backfilled once, and an instance that predates the anchors
@@ -1101,9 +1113,11 @@ non-empty selector and no anchor row, then drop:
     ALTER TABLE site_review_comments DROP selector;
     ALTER TABLE site_review_comments DROP text;
 
-Until then `just migrate-diff` proposes those two statements on every run,
-because the entity and the table disagree on purpose. Do not treat that as
-drift, and do not commit the migration it generates before the release above.
+The re-run stays necessary even though new comments write the scalars. It covers
+the reverse case: an old instance writes a scalar and no anchor row, and the
+current code then shows that comment as a page note with its element lost. No
+dual-write and no trigger guard that window. The owner decided the window is too
+short to justify either, and the backfill above is the repair.
 
 This defers the hazard in 'Rolling a production image back can leave the schema
 ahead of the code'. That entry has to settle the expand and contract policy, and
