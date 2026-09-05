@@ -307,17 +307,15 @@
       if (suffix && tail.startsWith(afterText(suffix, 0, QUOTE_FINGERPRINT))) value += 1;
       return value;
     };
-    hits.sort((a, b) => score(b) - score(a) || a - b);
-    const start = hits[0];
-    // Several hits that no stored context separates are a coin flip. Naming one
-    // would put the comment on a passage the reviewer may not have meant, so the
-    // anchor degrades to its element instead. A lone hit needs no context: there
-    // is nothing else it could be.
-    if (hits.length > 1 && 0 === score(start)) return null;
-    // Several hits that no stored context separates are a coin flip. Naming one
-    // would put the comment on a passage the reviewer may not have meant, so the
-    // anchor degrades to its element instead. A lone hit needs no context: there
-    // is nothing else it could be.
+    const ranked = hits
+      .map((at) => ({ at, rank: score(at) }))
+      .sort((a, b) => b.rank - a.rank || a.at - b.at);
+    // Resolve only when one occurrence outranks every other. A tie means the
+    // stored context does not say which one the reviewer meant, and position
+    // alone would be a coin flip, so the anchor degrades to its element. A lone
+    // hit needs no context, because there is nothing else it could be.
+    if (ranked.length > 1 && ranked[0].rank === ranked[1].rank) return null;
+    const start = ranked[0].at;
     try {
       return rangeForSpan(el, start, start + quote.length);
     } catch {

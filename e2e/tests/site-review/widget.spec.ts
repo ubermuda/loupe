@@ -1989,11 +1989,12 @@ test('a quote whose context no longer separates its twins degrades', async ({
     const pin = page.locator('.pin');
     await expect(pin).toHaveAttribute('data-anchor-kind', 'quote');
 
-    // Both phrases survive; the words on either side of both are rewritten, so
-    // neither occurrence carries the context the anchor was captured with.
+    // Both phrases survive, and the words before them are rewritten so neither
+    // prefix matches. Both still end in the stored suffix, so both score one:
+    // a tie, which says the context no longer separates them.
     await page.evaluate(() => {
         document.querySelector('#prose-repeat')!.textContent =
-            'Zzz the same phrase here? Yyy the same phrase here?';
+            'Zzz the same phrase here. Yyy the same phrase here.';
         window.dispatchEvent(new Event('resize'));
     });
     await expect(pin).toHaveCount(1);
