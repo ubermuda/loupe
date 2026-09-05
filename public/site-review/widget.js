@@ -1816,9 +1816,13 @@
   });
 
   // The element a selection is anchored to: the smallest one holding the whole
-  // range. A range that reaches across blocks lands on <body>, which no selector
-  // usefully names, so the widget offers nothing there rather than a page-wide
-  // anchor the reviewer did not mean.
+  // range. A selection that spans several blocks resolves to the wrapper around
+  // them, and that is kept, because the quote inside it stays exact and the
+  // outline is still drawn on the words. Only the fallback for a stale quote is
+  // then as wide as the wrapper.
+  //
+  // <body> and <html> are refused. A selector naming either anchors the comment
+  // to the whole page, which is what an unanchored page note already says.
   const containerElementOf = (range) => {
     let el = range.commonAncestorContainer;
     if (el && el.nodeType !== 1) el = el.parentElement;
