@@ -1827,9 +1827,11 @@
   };
 
   // A selected run of text as an anchor. The quote and its context are sliced
-  // from the container's textContent, which is the same basis quoteRange
-  // searches, so capture and match always count the same characters. `text`
-  // stays the element's own text, so a degraded anchor still has a name.
+  // from the container's textContent, the same basis quoteRange searches, so
+  // capture and match always count the same characters. Not Selection.toString():
+  // Chrome puts a break between blocks there, and that string is then not a
+  // substring of textContent, so nothing would re-anchor. `text` stays the
+  // element's innerText, which is where those breaks survive.
   const anchorForRange = (range) => {
     const el = containerElementOf(range);
     if (!el) return null;
