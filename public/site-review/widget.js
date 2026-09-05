@@ -284,8 +284,7 @@
   };
 
   // Where an anchor's quote reads now, as a Range, or null when it no longer
-  // reads at all. Occurrences rank by how much of the stored context still
-  // surrounds them, earliest position breaking a tie.
+  // reads at all, and null again when nothing separates two occurrences.
   // textContent, never innerText: innerText collapses whitespace, so it would
   // count different characters from the ones the capture counted.
   const quoteRange = (el, anchor) => {
