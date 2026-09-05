@@ -916,11 +916,13 @@
       // A control for an anchor that is scrolled out of sight has nothing to
       // point at. Clamping it would park an invisible hit target on the edge,
       // where it would eat host-page clicks and remove an anchor nobody can see.
+      // Measured on the element, not on its outline, which reaches 8px further.
+      const e = entry.inner;
       const onScreen =
-        r.left < window.innerWidth &&
-        r.left + r.width > 0 &&
-        r.top < window.innerHeight &&
-        r.top + r.height > 0;
+        e.left < window.innerWidth &&
+        e.left + e.width > 0 &&
+        e.top < window.innerHeight &&
+        e.top + e.height > 0;
       if (!onScreen) {
         node.style.display = 'none';
         node.removeAttribute('data-anchor-remove');
@@ -974,10 +976,10 @@
     const controls = [];
     others.forEach((entry) => {
       const r = entry.removeIndex != null && rectOf(entry.el);
-      if (r) controls.push({ rect: outset(r), removeIndex: entry.removeIndex });
+      if (r) controls.push({ rect: outset(r), inner: r, removeIndex: entry.removeIndex });
     });
     if (hl && framedRemove != null) {
-      controls.push({ rect: outset(hl), removeIndex: framedRemove });
+      controls.push({ rect: outset(hl), inner: hl, removeIndex: framedRemove });
     }
     drawRemoveControls(controls);
     if (!hl) {
