@@ -6,11 +6,6 @@ on:
     # first runs after the branch merges. Use workflow_dispatch before then.
     - cron: '0 4 * * 1'
   workflow_dispatch:
-  # Temporary, and removed before this branch merges. GitHub registers
-  # workflow_dispatch from the default branch only, so this is the one way to
-  # measure a real run on a runner before the workflow lands there.
-  push:
-    branches: [tooling/scoped-mutation-testing]
 
 # A run takes hours. Two of them against the same ref would only compete.
 concurrency:
