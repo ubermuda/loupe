@@ -1822,6 +1822,11 @@
     let el = range.commonAncestorContainer;
     if (el && el.nodeType !== 1) el = el.parentElement;
     if (!el || el.nodeType !== 1) return null;
+    // getRootNode rather than insideWidget alone: Node.contains does not cross a
+    // shadow boundary, so text selected in the widget's own panel reads as host
+    // page text. A selector cannot reach into any shadow root either, so one
+    // belonging to the host page is refused here for the same reason.
+    if (el.getRootNode() !== document) return null;
     if (el === document.body || el === document.documentElement) return null;
     return insideWidget(el) ? null : el;
   };

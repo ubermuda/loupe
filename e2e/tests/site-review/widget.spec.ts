@@ -1981,6 +1981,41 @@ test('a quote that no longer reads falls back to its element', async ({
 });
 
 /**
+ * The widget's panel lives in a shadow root, and `Node.contains` does not cross
+ * that boundary. Text selected inside the widget must not be offered as a page
+ * quote: no selector reaches into a shadow root, so the anchor could never
+ * resolve, and would be built from the widget's own markup.
+ */
+test('text selected inside the widget is not offered as a quote', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.getByRole('button', { name: 'Review' }).click();
+
+    const selected = await page.evaluate(() => {
+        const roots = [...document.querySelectorAll('*')]
+            .map((node) => node.shadowRoot)
+            .filter(Boolean) as ShadowRoot[];
+        const panel = roots.find((root) => root.getElementById('lp-panel'))!;
+        const copy = panel.querySelector('.lp-empty-sub')!;
+        const text = [...copy.childNodes].find(
+            (node) => node.nodeType === Node.TEXT_NODE,
+        ) as Text;
+        const range = document.createRange();
+        range.setStart(text, 0);
+        range.setEnd(text, Math.min(10, text.data.length));
+        const selection = document.getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return selection.toString();
+    });
+
+    // The selection really happened; the widget declines to act on it.
+    expect(selected.length).toBeGreaterThan(0);
+    await expect(page.locator('#lp-quote-btn')).toBeHidden();
+});
+
+/**
  * A pin is anchored to the URL it was made on, and so is a selection waiting to
  * become one. A client-side route change must withdraw the offer, or a click
  * would store the old page's selector and quote against the new URL.
