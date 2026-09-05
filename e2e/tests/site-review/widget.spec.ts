@@ -1053,6 +1053,10 @@ test('pointing at a pill emphasises the anchor it names', async ({ page }) => {
     await page.locator('#target-three').click();
     await page.locator('#target-input').click();
     await page.keyboard.up(modifier);
+    // The release makes every anchor box hit-testable again, and the pointer
+    // still rests on the element it just clicked. The widget then emphasises
+    // that anchor, correctly. Park the pointer before asserting a resting state.
+    await page.mouse.move(2, 2);
     await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
         4,
     );
@@ -1248,6 +1252,9 @@ test('an anchor can be dropped from its own box on the page', async ({
     await page.locator('#target-two').click();
     await page.locator('#target-three').click();
     await page.keyboard.up(modifier);
+    // `fill()` focuses without moving the pointer, so it would still rest on
+    // the last element clicked, and its own control would be revealed.
+    await page.mouse.move(2, 2);
     await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
         3,
     );
