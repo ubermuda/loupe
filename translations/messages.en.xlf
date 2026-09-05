@@ -3671,7 +3671,7 @@
             </trans-unit>
             <trans-unit id="landing.feature.site_review.text">
                 <source>landing.feature.site_review.text</source>
-                <target>An embeddable widget that brings the same select-and-comment flow to a live page. Point one comment at several elements to say how they relate.</target>
+                <target>An embeddable widget that brings the same select-and-comment flow to a live page. Quote a passage of text, or point one comment at several elements to say how they relate.</target>
             </trans-unit>
             <trans-unit id="landing.tech.title">
                 <source>landing.tech.title</source>
