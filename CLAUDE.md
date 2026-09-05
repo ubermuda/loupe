@@ -243,7 +243,9 @@ just cs                       # Write-mode fixer pipeline: prettier, lint, recto
 just ci                       # Check-only gate (never rewrites files): lint, cs-check (rector/cs-fixer/twig-cs-fixer dry-run), phpstan, arkitect, gamache, composer audit, PHPUnit (e2e is separate)
 just audit                    # Security advisories against composer.lock (also runs inside `just ci`)
 just gamache                  # Run Gamache convention checker (replaces the seven custom check scripts)
-just mutation                 # Infection over the account security gates; manual, weekly, not in `ci`
+just mutation                 # Infection over all of `src`; takes hours, and a weekly GitHub Action runs it
+just mutation-diff            # Infection over the lines this branch changed; the one to run while developing
+just phpunit-coverage         # PHPUnit coverage report at var/phpunit-coverage/html (separate from `e2e-coverage`)
 just migrate-diff             # Generate migrations from entities
 just migrate-run              # Run migrations
 just e2e                      # Run Playwright e2e tests

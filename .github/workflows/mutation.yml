@@ -1,0 +1,40 @@
+name: Mutation testing
+
+on:
+  schedule:
+    # Mondays, 04:00 UTC. Nothing else runs then, and the report is waiting on
+    # Monday morning.
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+# A run takes hours. Two of them against the same ref would only compete.
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
+
+jobs:
+  infection:
+    runs-on: ubuntu-latest
+    # The hosted ceiling is 6 hours and it kills the job with no report. This
+    # stops the run first, so the log and the artifact still upload.
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          docker: 'true'
+
+      - run: just mutation
+
+      - name: Mutation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infection-report
+          path: |
+            var/infection/infection.log
+            var/infection/summary.log
+          if-no-files-found: warn

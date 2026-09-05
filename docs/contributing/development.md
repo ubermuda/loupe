@@ -58,22 +58,42 @@ across concurrent runs read each other's messages.
 ## Mutation testing
 
 ```sh
-just mutation   # Infection over src/Module/Account/Security and EventListener
+just mutation-diff   # only the lines this branch changed — run this one
+just mutation        # all of src — hours, and the weekly Action already does it
 ```
 
 Infection changes the source code one edit at a time and reruns the tests. A
-change that no test catches shows that the test asserts nothing. The run covers
-the account security gates only, because a silent test there costs an outage or
-an authorization hole. `infection.json5` holds the scope.
+change that no test catches shows that the test asserts nothing. `infection.json5`
+holds the scope, which is all of `src` apart from `Kernel.php`.
 
-It stays out of `just ci`. Run it about once a week and read
-`var/infection/infection.log`. Escaped mutants name a test that asserts nothing.
-Some are harmless, so judge each one. Not-covered mutants name a class with no
-focused test, which the `--with-uncovered` flag in the recipe keeps visible.
+Read `var/infection/infection.log` after a run. Escaped mutants name a test that
+asserts nothing. Some are harmless, so judge each one. Not-covered mutants name a
+line no test reaches, which `--with-uncovered` in both recipes keeps visible.
 
-Run it alone. It starts one PHPUnit process per mutant against this checkout's
-test database, and a second test run in the same checkout crashes on the shared
-schema. It takes a few minutes.
+`just mutation-diff` is the one to run while you work. It mutates the `src/` files
+you added or changed against `origin/main`, which takes minutes. Pass another base
+as its argument, such as `just mutation-diff main~5`.
+
+A weekly GitHub Action named "Mutation testing" runs the full pass and attaches
+its log as an artifact. It is informational, not a required check.
+
+Neither is a `just ci` leg. Run either one alone: it starts one PHPUnit process
+per mutant against this checkout's test database, and a second test run in the
+same checkout crashes on the shared schema.
+
+## Coverage
+
+```sh
+just phpunit-coverage        # HTML at var/phpunit-coverage/html, summary on stdout
+just open-phpunit-coverage   # open that report
+```
+
+This covers the PHPUnit suites. `just e2e-coverage` covers the e2e suite instead,
+and it owns `var/coverage`, which it deletes at the start of every run. The two
+reports keep separate trees for that reason.
+
+Both recipes take PHPUnit arguments, so `just phpunit-coverage tests/Module/Review`
+reports on one directory.
 
 ## Secrets
 

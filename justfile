@@ -152,13 +152,32 @@ arkitect:
 phpunit *args:
     bin/worktrees/compose-exec.sh vendor/bin/phpunit "$@"
 
-# Mutation testing over the account security gates, scoped in infection.json5.
-# Run it about weekly, and never beside another test run in this worktree,
-# because both use one database. `--list-tests` runs the PHPUnit bootstrap alone,
-# which builds the schema that TEST_SCHEMA_READY tells each mutant process to keep.
+# Mutation testing over all of `src`. It takes hours, and a weekly GitHub Action
+# runs it. Never run it beside another test run in this worktree, because both use
+# one database. `--list-tests` runs the PHPUnit bootstrap alone, which builds the
+# schema that TEST_SCHEMA_READY tells each mutant process to keep.
 mutation *args:
-    bin/worktrees/compose-exec.sh vendor/bin/phpunit --testsuite=mutation --list-tests > /dev/null
+    bin/worktrees/compose-exec.sh vendor/bin/phpunit --list-tests > /dev/null
     bin/worktrees/compose-exec.sh env TEST_SCHEMA_READY=1 XDEBUG_MODE=coverage vendor/bin/infection --no-interaction --with-uncovered "$@"
+
+# Mutation testing over the src/ files this branch changed. The one to run while
+# you work: minutes rather than hours, because it mutates your files alone.
+# Usage: just mutation-diff [BASE]
+mutation-diff base="origin/main":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # git runs on the host. Infection's own --git-diff-lines shells out to git
+    # inside the container, where a worktree's .git points at a host path that
+    # does not exist, so it aborts. This resolves the same list from outside.
+    files=$(git diff --name-only --diff-filter=AM "{{base}}...HEAD" -- 'src/***.php' | paste -s -d, -)
+    if [ -z "$files" ]; then
+        echo "mutation-diff: no added or modified files under src/ against {{base}}"
+        exit 0
+    fi
+    echo "mutation-diff: $files"
+    bin/worktrees/compose-exec.sh vendor/bin/phpunit --list-tests > /dev/null
+    bin/worktrees/compose-exec.sh env TEST_SCHEMA_READY=1 XDEBUG_MODE=coverage \
+        vendor/bin/infection --no-interaction --with-uncovered --filter="$files"
 
 cs: prettier lint rector cs-fix twig-cs-fix
 
@@ -447,6 +466,16 @@ e2e-coverage *args:
 
 open-coverage:
     open var/coverage/html/index.html
+
+# PHPUnit-suite coverage, in its own tree. `e2e-coverage` above deletes
+# var/coverage on every run, so the two reports must not share a directory.
+# xdebug is the driver, as it is for `just mutation`.
+phpunit-coverage *args:
+    bin/worktrees/compose-exec.sh env XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-html=var/phpunit-coverage/html "$@"
+    @echo "coverage: var/phpunit-coverage/html/index.html — 'just open-phpunit-coverage'"
+
+open-phpunit-coverage:
+    open var/phpunit-coverage/html/index.html
 
 browser-sync:
     npx browser-sync start --proxy localhost --files "templates/**/*.html.twig, assets/**/*.css, assets/**/*.js"

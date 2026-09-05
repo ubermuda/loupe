@@ -1,17 +1,11 @@
 {
     $schema: "vendor/infection/infection/resources/schema.json",
     source: {
-        directories: [
-            "src/Module/Account/Security",
-            "src/Module/Account/EventListener",
-        ],
+        directories: ["src"],
+        // MicroKernelTrait boilerplate. Every mutant here is equivalent or kills
+        // the kernel, and neither answer says anything about a test.
+        excludes: ["Kernel.php"],
     },
-    // The whole suite covers these classes, because the listeners run on every
-    // request. Infection reruns every covering test per mutant, so a full-suite
-    // scope costs hours. The `mutation` suite in phpunit.dist.xml holds the
-    // tests written for these classes, and `--testsuite` applies to the initial
-    // run only. Infection filters it out of each mutant process.
-    testFrameworkExtraArgs: "--testsuite=mutation",
     tmpDir: "var/infection",
     // One php-fpm container serves every worktree. A 30-second timeout turned
     // four mutants into false kills when a sibling ran its tests at the same
