@@ -30,6 +30,11 @@ entry.
 
 ## [Unreleased]
 
+- `2c2c37c` (#349) — **Changed:** the e2e run stops at the first failure.
+  `waitlist`, `trial-end-lifecycle` and `install-reset` depend on `chromium`, and
+  Playwright skips a dependent project when its dependency fails, so a red test
+  used to withhold three suites behind a "did not run" line that read as a
+  deliberate skip.
 - `7e1060c` (#358) — **Changed:** the test suite writes deprecations to their own
   always-on log with rotation, and writes far less to `test.log`, which now holds
   exactly one run.
