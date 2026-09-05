@@ -164,8 +164,7 @@ mutation *args:
     bin/worktrees/compose-exec.sh env TEST_SCHEMA_READY=1 XDEBUG_MODE=coverage php -d memory_limit=2G vendor/bin/infection --no-interaction --with-uncovered "$@"
 
 # Mutation testing over the src/ files this branch changed. The one to run while
-# you work: minutes rather than hours, because it mutates your files alone.
-# Usage: just mutation-diff [BASE]
+# you work, because it mutates your files alone. Usage: just mutation-diff [BASE]
 mutation-diff base="origin/main":
     #!/usr/bin/env bash
     set -euo pipefail

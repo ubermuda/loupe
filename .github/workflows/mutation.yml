@@ -6,12 +6,8 @@ on:
     # first runs after the branch merges. Use workflow_dispatch before then.
     - cron: '0 4 * * 1'
   workflow_dispatch:
-  # TEMPORARY, removed before merge. workflow_dispatch is registered from the
-  # default branch only, so this is the one way to prove a fix on a runner.
-  push:
-    branches: [tooling/scoped-mutation-testing]
 
-# A run takes hours. Two of them against the same ref would only compete.
+# A run takes 15 to 25 minutes. Two against the same ref would only compete.
 concurrency:
   group: mutation-${{ github.ref }}
   cancel-in-progress: false
@@ -45,9 +41,9 @@ jobs:
           date -u +'stack build ends %H:%M:%S UTC'
           docker compose exec -T php-fpm php -m | grep -iE 'xdebug|pcov' || echo 'NO COVERAGE DRIVER'
 
-      # A measured run takes 14 minutes, so 60 is a four-fold margin and a
-      # degraded run fails fast. Infection writes its logs at the end, so a run
-      # stopped here uploads nothing.
+      # Two measured runs took 14m and 25m on identical runners, so 60 leaves
+      # room for that variance and still fails fast. Infection writes its logs at
+      # the end, so a run stopped here uploads nothing.
       - run: just mutation
         timeout-minutes: 60
 

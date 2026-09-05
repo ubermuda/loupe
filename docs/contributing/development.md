@@ -58,8 +58,8 @@ across concurrent runs read each other's messages.
 ## Mutation testing
 
 ```sh
-just mutation-diff   # only the lines this branch changed — run this one
-just mutation        # all of src — hours, and the weekly Action already does it
+just mutation-diff   # only the src/ files this branch changed — run this one
+just mutation        # all of src — the weekly Action already does this
 ```
 
 Infection changes the source code one edit at a time and reruns the tests. A
@@ -75,7 +75,20 @@ you added or changed against `origin/main`, which takes minutes. Pass another ba
 as its argument, such as `just mutation-diff main~5`.
 
 A weekly GitHub Action named "Mutation testing" runs the full pass and attaches
-its log as an artifact. It is informational, not a required check.
+its log as an artifact. It is informational, not a required check. That run takes
+15 to 25 minutes on a hosted runner and much longer on a development machine, for
+the reason below.
+
+### Why a local timing is not a CI timing
+
+A workload that starts one process per unit of work runs about 8 times slower
+here than on a hosted runner. Every process autoloads `vendor/` across the
+bind mount, and Docker Desktop on macOS serves that mount through a virtual
+filesystem. The same suite inside one process is only about 2 times slower.
+
+This holds on an idle machine, so it is not contention. Measure a
+process-per-unit tool on CI before you judge how long it takes, or you will
+overstate it by an order of magnitude.
 
 Neither is a `just ci` leg. Run either one alone: it starts one PHPUnit process
 per mutant against this checkout's test database, and a second test run in the
