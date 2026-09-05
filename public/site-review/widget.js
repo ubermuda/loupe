@@ -926,7 +926,10 @@
       /* Above the outlines, below the pins: the drawing is content over the
          page, and a pin still has to be reachable through it. */
       .lp-canvas{position:fixed;left:0;top:0;z-index:3;pointer-events:none}
-      .lp-ov.drawing .lp-canvas{pointer-events:auto;cursor:crosshair}
+      /* touch-action, so a pen or a touch drag on a hybrid laptop reaches
+         pointermove instead of being claimed by panning, which would cancel
+         the stroke. A touch-primary device hides the widget outright. */
+      .lp-ov.drawing .lp-canvas{pointer-events:auto;cursor:crosshair;touch-action:none}
       .lp-pin-wrap{position:fixed;z-index:4;pointer-events:auto}
       .lp-ov.targeting .lp-pin-wrap,.lp-ov.drawing .lp-pin-wrap{pointer-events:none}
       .pin{width:24px;height:24px;border-radius:50% 50% 50% 2px;border:2px solid var(--pin-ring);background:var(--accent);color:var(--on-accent);font-family:inherit;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(15,15,13,.35);animation:lp-pin .22s cubic-bezier(.2,1.3,.5,1)}
