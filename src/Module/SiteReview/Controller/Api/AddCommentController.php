@@ -49,12 +49,23 @@ final class AddCommentController extends AppController
             throw new \LogicException('body required after validation');
         }
 
+        $anchors = $this->anchorsOf($payload);
+        $strokes = $this->strokesOf($payload);
+
+        // An anchor-space stroke measures against anchor 0, so with no anchor
+        // it can never be drawn again. The widget picks the space from the
+        // anchors it is saving, so only another client reaches this.
+        $anchorSpace = array_filter($strokes, static fn (NewStroke $stroke): bool => 'anchor' === $stroke->space);
+        if ([] === $anchors && [] !== $anchorSpace) {
+            return $this->json(['error' => 'anchor_stroke_without_anchor'], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         $comment = ($this->handler)(new AddCommentCommand(
             project: $project,
             body: $body,
             url: trim($payload->url ?? ''),
-            anchors: $this->anchorsOf($payload),
-            strokes: $this->strokesOf($payload),
+            anchors: $anchors,
+            strokes: $strokes,
         ));
 
         return $this->json(['commentId' => (string) $comment->id], JsonResponse::HTTP_CREATED);

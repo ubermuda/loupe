@@ -157,6 +157,38 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertFalse($payload['drawingEnabled']);
     }
 
+    /**
+     * The widget picks the space from the anchors it is saving, so only another
+     * client sends this. An anchor-space stroke measures against anchor 0, so
+     * with no anchor it could be stored and never drawn again.
+     */
+    public function test_an_anchor_space_stroke_needs_an_anchor(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw, $project] = $this->projectWithToken($em, 'api-orphan-stroke@example.com');
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
+            'body' => 'Look here',
+            'url' => 'https://app/x',
+            'strokes' => [['space' => 'anchor', 'points' => [[0.1, 0.2], [0.9, 0.8]]]],
+        ]);
+        self::assertResponseStatusCodeSame(422);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('anchor_stroke_without_anchor', $data['error']);
+        self::assertCount(0, static::getContainer()->get(SiteReviewCommentRepository::class)->findPendingForProject($project));
+
+        // The same stroke with an anchor to measure against is accepted.
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
+            'body' => 'Look here',
+            'url' => 'https://app/x',
+            'anchors' => [['selector' => '.card', 'text' => 'Save']],
+            'strokes' => [['space' => 'anchor', 'points' => [[0.1, 0.2], [0.9, 0.8]]]],
+        ]);
+        self::assertResponseStatusCodeSame(201);
+    }
+
     public function test_the_boot_load_reports_drawing_on_for_an_untouched_instance(): void
     {
         $client = static::createClient();
