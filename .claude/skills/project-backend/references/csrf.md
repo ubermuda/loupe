@@ -4,10 +4,11 @@ Read this before you write a plain HTML `<form>` with a manual `_csrf_token` fie
 
 ## Which shape for a fieldless POST action
 
-Both shapes stay. Pick on one question: what must happen when the token is stale or forged?
+Both shapes stay. The `#[CsrfToken]` attribute with a hand-written `<form>` is the default. Follow "The three parts" below. It costs one id in `config/packages/csrf.yaml`.
 
-- A 403 is the right answer. Use the `#[CsrfToken]` attribute on the controller with a hand-written `<form>`, and follow "The three parts" below. This is the default, and the norm across `src/`. It costs one id in `config/packages/csrf.yaml`.
-- A 403 is too blunt. Use a real Symfony form. The form component issues and checks the token, so the action needs no id in `csrf.yaml`. The controller reads `isSubmitted() && isValid()` and redirects with an error flash. It costs a `FormType`, a Twig function that builds the form, and `createNamed` plumbing. `Module/Review/Form/ArchiveDocumentFormType` is the one site that made this call, for the archive control on the documents list.
+Use a real Symfony form only when you can name why a 403 on a stale or forged token is wrong for this action. If you cannot name that reason, use the attribute. The form component issues and checks the token, so the action needs no id in `csrf.yaml`, and `isSubmitted() && isValid()` lets the controller redirect with an error flash instead. It costs a `FormType`, a Twig function that builds the form, and `createNamed` plumbing.
+
+`Module/Review/Form/ArchiveDocumentFormType` is the one site that took the exception, and its reason is on record in pull request #118. The archive control repeats on every row of the documents list, so a reader holds a stale page often, and the form binds nothing the reader could have got wrong.
 
 `ValidateCsrfTokenListener` throws `AccessDeniedException` before the action runs, so the attribute always gives a 403. A controller cannot soften it.
 
@@ -15,7 +16,7 @@ Build a per-row form with `FormFactoryInterface::createNamed('<prefix>_'.$id, â€
 
 ## The hybrid shape, and why to avoid it in new code
 
-These form types set `'csrf_protection' => false` and lean on the controller's `#[CsrfToken]` attribute instead: `SubmitReviewFormType`, `SuspendUserFormType`, `DeleteUserFormType` and `InviteOldestWaitlistFormType`. Each binds a field that its template hand-writes rather than renders through `form_widget()`, so the form's own `_token` input never reaches the page. Disabling the form's CSRF stops it rejecting the submission.
+These form types set `'csrf_protection' => false` and lean on the controller's `#[CsrfToken]` attribute instead: `SubmitReviewFormType`, `SuspendUserFormType`, `DeleteUserFormType` and `InviteOldestWaitlistFormType`. Each binds a field that its template hand-writes rather than renders through `form_widget()`, so the form's own `_token` input never reaches the page. Disabling the form's CSRF stops it rejecting the submission. None of them is fieldless, so `SubmitReviewController` and the three admin actions fall outside the rule above.
 
 Do not copy this shape for new code. Hand-render the form's own `_token` instead, as "Hand-rolling a POST to a Form-component endpoint" below shows, and leave `csrf_protection` on. The action then carries one token and needs no `csrf.yaml` id. This is guidance, and no check enforces it. The existing sites work, so leave them alone until other work touches them.
 
