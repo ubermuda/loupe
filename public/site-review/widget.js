@@ -1858,9 +1858,17 @@
   };
 
   // Two anchors name the same thing when they hold the same element and quote
-  // the same text. Comparing the element alone would swallow a second passage
-  // inside an element the comment already points at.
-  const sameAnchor = (a, b) => a.el === b.el && (a.quote || '') === (b.quote || '');
+  // the same text with the same text around it. The element alone would swallow
+  // a second passage inside an element already pointed at, and the quote alone
+  // would swallow the second of two identical phrases — the very pair the stored
+  // context exists to tell apart. Two whose context matches too are one pick,
+  // because nothing could separate them on the next page load either.
+  //
+  // NUL joins the fields, because the HTML parser never leaves one in page text,
+  // so no two fields can run together into another pair's key.
+  const quoteKey = (anchor) =>
+    [anchor.quote || '', anchor.quotePrefix || '', anchor.quoteSuffix || ''].join('\u0000');
+  const sameAnchor = (a, b) => a.el === b.el && quoteKey(a) === quoteKey(b);
 
   // Add an anchor to the composer, whether it names an element or a run of text
   // inside one. A pick while a new comment is open extends it rather than

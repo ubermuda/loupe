@@ -1969,6 +1969,40 @@ test('a quote that no longer reads falls back to its element', async ({
 });
 
 /**
+ * A second selection extends the open comment, the way a second element pick
+ * does. Two occurrences of one phrase are two anchors, because the text around
+ * them differs — the composer must not collapse them into one.
+ */
+test('a second selection adds another quote to the same comment', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    const first = await occurrenceAt(page, 0);
+    const second = await occurrenceAt(page, 1);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, repeatSpan(first));
+    await page.locator('#lp-quote-btn').click();
+    await selectText(page, repeatSpan(second));
+    await page.locator('#lp-quote-btn').click();
+
+    const chips = page.locator('#lp-compose-head .lp-compose-chip');
+    await expect(chips).toHaveCount(2);
+    await saveComposed(page, 'Both of these say the same thing');
+
+    // Same element and same words, told apart only by the text around them.
+    const comments = await fetchReviewComments(page);
+    expect(comments[0].anchors).toHaveLength(2);
+    expect(comments[0].anchors[0].quote).toBe(REPEATED);
+    expect(comments[0].anchors[1].quote).toBe(REPEATED);
+    expect(comments[0].anchors[0].quotePrefix).not.toBe(
+        comments[0].anchors[1].quotePrefix,
+    );
+    await expect(page.locator('.pin')).toHaveCount(2);
+});
+
+/**
  * A phrase repeated inside one element cannot be told apart by its selector or
  * by the quote, so the stored prefix and suffix are the only thing that picks
  * the occurrence the reviewer meant.
