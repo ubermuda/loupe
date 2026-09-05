@@ -174,7 +174,7 @@ mutation-diff base="origin/main":
     fork=$(git merge-base "{{base}}" HEAD)
     # Against the merge base with no second commit, so the working tree counts:
     # this runs on code you have not committed yet. ls-files adds new ones.
-    files=$( { git diff --name-only --diff-filter=AM "$fork" -- 'src/***.php'; \
+    files=$( { git diff --name-only --diff-filter=AMR "$fork" -- 'src/***.php'; \
                git ls-files --others --exclude-standard -- 'src/***.php'; } \
              | sort -u | tr '\n' ' ' )
     if [ -z "$files" ]; then
