@@ -4,7 +4,8 @@
  * The dev-only harness page (/dev/site-review-harness) finds-or-creates the
  * `e2e-harness` site for the user, deletes its comments and mints a fresh
  * site-bound token on every load — so each test starts from a clean site
- * simply by loading the harness (no localStorage involved).
+ * simply by loading the harness. No comment ever lives in the browser; the one
+ * thing the widget keeps there is which corner the launcher sits in.
  *
  * There is no send step. Every saved comment POSTs to
  * /api/site-review/comments and is Pending — live for the agent — from that
@@ -2178,4 +2179,263 @@ test('a repeated quote re-anchors to the occurrence it was taken from', async ({
     const first = await spanIn(page, repeatSpan(await occurrenceAt(page, 0)));
     expect(Math.abs(outline!.x - (second.x - 8))).toBeLessThan(2);
     expect(Math.abs(outline!.x - (first.x - 8))).toBeGreaterThan(20);
+});
+
+/**
+ * Moving the launcher.
+ *
+ * The launcher is fixed to one corner, and a host page pins its own chrome to
+ * corners too. Two routes move it: the panel's corner control, and a drag that
+ * snaps on drop. The corner it lands in is kept in the host origin's
+ * localStorage, and the widget tells the page which corner it is in through
+ * `data-loupe-review-corner` on <html>.
+ */
+
+const cornerAttribute = (page: Page): Promise<string | null> =>
+    page.evaluate(() =>
+        document.documentElement.getAttribute('data-loupe-review-corner'),
+    );
+
+/**
+ * The panel opens and closes on a max-height transition, so a box read straight
+ * after a click is mid-animation and smaller than the one that has to fit. Wait
+ * until two consecutive reads agree before measuring.
+ */
+const settledBox = async (page: Page, selector: string) => {
+    const locator = page.locator(selector);
+    let previous = -1;
+    await expect
+        .poll(async () => {
+            const height = (await locator.boundingBox())!.height;
+            const stable = height === previous;
+            previous = height;
+            return stable;
+        })
+        .toBe(true);
+    return (await locator.boundingBox())!;
+};
+
+const expectInsideViewport = async (
+    page: Page,
+    selector: string,
+): Promise<void> => {
+    const viewport = page.viewportSize()!;
+    const box = await settledBox(page, selector);
+    expect(box.x, `${selector} left edge`).toBeGreaterThanOrEqual(0);
+    expect(box.y, `${selector} top edge`).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width, `${selector} right edge`).toBeLessThanOrEqual(
+        viewport.width,
+    );
+    expect(box.y + box.height, `${selector} bottom edge`).toBeLessThanOrEqual(
+        viewport.height,
+    );
+};
+
+/**
+ * The panel must open out of the launcher's own corner, touching it. Staying on
+ * screen is not enough on its own, and neither is being on the right side of
+ * it: a panel that keeps its bottom-right offsets while the launcher moves to
+ * the top still fits the viewport, and is still "below" the launcher, at the
+ * far end of the screen from the thing it belongs to. So measure the gap.
+ */
+const MAX_PANEL_GAP = 40;
+
+const expectPanelMeetsLauncher = async (
+    page: Page,
+    corner: string,
+): Promise<void> => {
+    const launcher = await settledBox(page, '#lp-launcher');
+    const panel = await settledBox(page, '#lp-panel');
+
+    const gap = corner.startsWith('top')
+        ? panel.y - (launcher.y + launcher.height)
+        : launcher.y - (panel.y + panel.height);
+    expect(
+        gap,
+        `gap between the panel and a ${corner} launcher`,
+    ).toBeGreaterThanOrEqual(0);
+    expect(gap, `gap between the panel and a ${corner} launcher`).toBeLessThan(
+        MAX_PANEL_GAP,
+    );
+
+    if (corner.endsWith('left')) {
+        expect(
+            Math.abs(panel.x - launcher.x),
+            'left edges line up',
+        ).toBeLessThan(4);
+    } else {
+        expect(
+            Math.abs(panel.x + panel.width - (launcher.x + launcher.width)),
+            'right edges line up',
+        ).toBeLessThan(4);
+    }
+};
+
+/** Open the panel and put the composer in it, which is the panel at its tallest. */
+const openTallestPanel = async (page: Page): Promise<void> => {
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Add note' })
+        .click();
+    await page.getByPlaceholder(/Describe the issue/).fill('x'.repeat(200));
+};
+
+test('the corner control walks the launcher round every corner, each on screen', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await expect(page.locator('#lp-panel')).toBeVisible();
+
+    const visited: Array<string | null> = [];
+    for (let step = 0; step < 4; step++) {
+        const corner = (await cornerAttribute(page))!;
+        visited.push(corner);
+
+        // Measured with the composer open, which is the panel at its tallest.
+        await openTallestPanel(page);
+        await expectInsideViewport(page, '#lp-launcher');
+        await expectInsideViewport(page, '#lp-panel');
+        await expectInsideViewport(page, '#lp-composer');
+        await expectPanelMeetsLauncher(page, corner);
+
+        await page.locator('#lp-cancel').click();
+        await page.locator('#lp-move').click();
+    }
+
+    expect(visited).toEqual([
+        'bottom-right',
+        'bottom-left',
+        'top-left',
+        'top-right',
+    ]);
+    // Four presses return it to where it started.
+    await expect.poll(() => cornerAttribute(page)).toBe('bottom-right');
+});
+
+test('dragging the launcher snaps it to the nearest corner, and is not a click', async ({
+    page,
+}) => {
+    await openHarness(page);
+    const launcher = page.locator('#lp-launcher');
+    const review = launcher.getByRole('button', { name: 'Review' });
+
+    // A short drag off the Review button releases with the pointer still over
+    // it, so the browser does fire a click there. That press meant "move", so
+    // the panel must stay shut. A long drag releases over the page instead and
+    // never reaches this button, which is why the short one is the real test.
+    const button = (await review.boundingBox())!;
+    await page.mouse.move(
+        button.x + button.width / 2,
+        button.y + button.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+        button.x + button.width / 2 + 14,
+        button.y + button.height / 2 - 8,
+        { steps: 4 },
+    );
+    await page.mouse.up();
+    await expect.poll(() => cornerAttribute(page)).toBe('bottom-right');
+    await expect(page.locator('#lp-panel')).toBeHidden();
+
+    const start = (await launcher.boundingBox())!;
+    await page.mouse.move(
+        start.x + start.width / 2,
+        start.y + start.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+        start.x + start.width / 2 - 40,
+        start.y + start.height / 2 - 40,
+        { steps: 5 },
+    );
+    await page.mouse.move(160, 160, { steps: 10 });
+    await page.mouse.up();
+
+    // Dropped nearer the top-left quadrant than any other, so that is where it goes.
+    await expect.poll(() => cornerAttribute(page)).toBe('top-left');
+    const dropped = (await launcher.boundingBox())!;
+    expect(dropped.x).toBeLessThan(100);
+    expect(dropped.y).toBeLessThan(100);
+
+    // A drag is not a click. The press that moved it must not open the panel.
+    await expect(page.locator('#lp-panel')).toBeHidden();
+
+    // A press that goes nowhere still is a click, so the panel still opens.
+    await page.getByRole('button', { name: 'Review' }).click();
+    await expect(page.locator('#lp-panel')).toBeVisible();
+});
+
+test('the chosen corner survives a reload', async ({ page }) => {
+    await openHarness(page);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page.locator('#lp-move').click();
+    await page.locator('#lp-move').click();
+    await expect.poll(() => cornerAttribute(page)).toBe('top-left');
+
+    await page.reload();
+    await expect(page.locator('#lp-launcher')).toBeVisible();
+
+    await expect.poll(() => cornerAttribute(page)).toBe('top-left');
+    const box = (await page.locator('#lp-launcher').boundingBox())!;
+    expect(box.x).toBeLessThan(100);
+    expect(box.y).toBeLessThan(100);
+});
+
+test('the corner control is reachable and operable from the keyboard', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await expect(page.locator('#lp-panel')).toBeVisible();
+
+    // The control names where it will move the launcher, so a screen reader
+    // hears the destination rather than "button".
+    const move = page.locator('#lp-move');
+    await expect(move).toHaveAttribute(
+        'aria-label',
+        'Move the launcher to the bottom left',
+    );
+
+    // In the tab order, not merely focusable by script: Close follows it in the
+    // header, so Shift+Tab from Close has to land on it.
+    await page.locator('#lp-close').focus();
+    await page.keyboard.press('Shift+Tab');
+    await expect(move).toBeFocused();
+
+    await page.keyboard.press('Enter');
+    await expect.poll(() => cornerAttribute(page)).toBe('bottom-left');
+
+    // Focus stays on the control, so a second press keeps walking the corners.
+    await expect(move).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect.poll(() => cornerAttribute(page)).toBe('top-left');
+});
+
+// The widget ships to other people's sites, where a private window or blocked
+// site data makes every localStorage access throw. Guarded, it must still mount.
+test('a page that blocks site data still gets a working launcher', async ({
+    page,
+}) => {
+    await registerUser(page);
+    await page.addInitScript(() => {
+        Object.defineProperty(window, 'localStorage', {
+            get() {
+                throw new DOMException(
+                    'The operation is insecure.',
+                    'SecurityError',
+                );
+            },
+        });
+    });
+    await page.goto(HARNESS_URL);
+
+    await expect(page.locator('#lp-launcher')).toBeVisible();
+    await expect.poll(() => cornerAttribute(page)).toBe('bottom-right');
+
+    // The corner still moves for this page, with nowhere to record it.
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page.locator('#lp-move').click();
+    await expect.poll(() => cornerAttribute(page)).toBe('bottom-left');
 });
