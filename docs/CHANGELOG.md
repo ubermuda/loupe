@@ -30,6 +30,75 @@ entry.
 
 ## [Unreleased]
 
+- `59defea` (#357) — **Fixed:** two site-review widget tests asserted a resting
+  state the interaction never promises. Releasing the modifier key makes every
+  anchor box hit-testable again, and Chromium dispatches a `mouseover` for the
+  stationary pointer with no matching `mouseout`, so the emphasis arrives and
+  stays. Both tests now park the pointer before asserting. The widget was
+  correct; the assertions were not.
+- `f335764` (#341) — **Added:** a site-review comment can point at several
+  elements, so it can describe a relationship between them rather than being
+  tied to one. Hold Cmd, or Ctrl away from a Mac, and keep clicking to add
+  elements to the comment you are writing. Each appears as a pill in the
+  composer; hovering a pill lights up its anchor on the page, and hovering an
+  anchor lights up the others in the same comment. Remove an anchor by its pill
+  or by a control on the element.
+- `f335764` (#341) — **Changed:** `site_review_comments` keeps writing its
+  `selector` and `text` columns, which nothing reads any more. The contraction
+  that drops them must re-run the backfill and remove the entity mapping in the
+  same release, or a rollback breaks.
+- `7af7f10` (#351) — **Changed:** `CLAUDE.md` tells an agent to read
+  `git diff --cached` before committing. Staging by name protects against
+  another branch's files, not against another session's hunks in a file two
+  sessions are both editing.
+- `d937c04` (#332) — **Changed:** the documents list shows one signal per row,
+  "N threads waiting for you", and only where something waits, in place of three
+  per-row counts. The full breakdown moves to the document page. It also fixes
+  the count: an orphaned thread was counted alongside its status rather than as
+  part of it, so a thread that was both orphaned and addressed appeared in two
+  totals and three such threads read as six.
+- `f3822e2` (#350) — **Changed:** the `working-with-prs` skill says to open a
+  pull request ready rather than draft, because a draft waits for a review that
+  never starts.
+- `db025af` (#338) — **Changed:** `site_review_mark_comment_addressed` states in
+  its tool description, its docblock, the `loupe-site-review` skill and
+  `docs/using/mcp.md` that a skip reason is best-effort. The write is
+  authoritative; only the reported reason can name a status that moved under it.
+- `26d6bf5` (#348) — **Added:** a development-only preview-login link.
+  `bin/console app:dev:preview-login-link --path=/projects` prints a URL that
+  signs the reader in and lands them on that page, so a pull request body needs
+  no credentials. The signature covers the whole URL including the host, so a
+  link works against one worktree only.
+- `2091a0c` (#346) — **Changed:** the `working-with-prs` skill now says what a
+  Codex pass is worth and when to stop asking for one.
+- `f03f345` (#333) — **Added:** a document is stemmed for search in its own
+  language, set per document or inherited from the project, so a French document
+  matches a French query rather than an English stemmer's guess.
+- `e275bb2` (#336) — **Added:** a decision block can take more than one answer,
+  and the status line names the option a reviewer cleared as well as one they
+  chose.
+- `c795eff` (#340) — **Changed:** an MCP tool reports every rejected argument at
+  once, rather than the first one it reached.
+- `f8a26b6` (#337) — **Added:** a reviewer can leave a comment while looking at
+  a diff, anchored to the passage the diff shows.
+- `8ceae0f` (#334) — **Added:** documents can say they belong to an ordered
+  series, filtered and read in their own order rather than newest first, with
+  `document_set_series` and `series_rename` to place and rename them.
+- `60ec749` (#331) — **Changed:** the decision status line names the option and
+  the version an answer was recorded against, taken from what was stored rather
+  than what was submitted.
+- `7000cb0` (#330) — **Changed:** the front-matter table and the rendered
+  annotations carry names, so a screen reader announces what they are.
+- `aaec685` (#347) — **Fixed:** the development image installs xdebug from its
+  tarball rather than by package name, so a build no longer queries the PECL
+  index that was intermittently answering "No releases available" and failing
+  four CI jobs at once.
+- `3aa3bcd` (#329) — **Changed:** the document documentation warns that an
+  annotation wrapped in an HTML element is dropped without a warning.
+- `46fe5e6` (#344) — **Changed:** the `working-with-prs` skill puts the preview
+  links at the top of a pull request body.
+- `6cef3f9` (#345) — **Fixed:** the development image pins the xdebug version it
+  installs, so two builds a month apart no longer install different ones.
 - `1183917` (#325) — **Changed:** the audit trail now comes from the
   `ubermuda/audit-bundle` package. The `/admin/audit-log` screen and the
   `audit:purge` command work as before; the retention window moves from
