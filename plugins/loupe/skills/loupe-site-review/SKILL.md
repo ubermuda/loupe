@@ -166,6 +166,11 @@ A skip of `unknown` or `already_addressed` is not a failure to report. A
 `resolved` skip means the human moved ahead of you. They can resolve straight
 from `Pending`, so it does not imply you addressed it earlier.
 
+The reason itself is best-effort. The tool writes the status first, then reads
+the comment again to learn why it skipped. Another writer can change the comment
+between those two steps, so a reason can name the wrong status. The skip itself
+is always correct.
+
 ## Finding what a comment points at
 
 `selector` and `text` describe the **rendered** page, so grepping the codebase
