@@ -2091,6 +2091,51 @@ test('an instance with drawing off offers no Draw, and still renders saved strok
 });
 
 /**
+ * Every toast rests on the same edge, so drawing again inside the saved
+ * notice's 2.4 second window must not bury the stroke count and its controls.
+ */
+test('the saved notice gives way to the drawing toast', async ({ page }) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Add note' })
+        .click();
+    await page.getByPlaceholder(/Describe the issue/).fill('A plain note');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#lp-head-count')).toHaveText('1', inkTimeout);
+
+    // The notice clears itself after 2.4 seconds, so a retrying matcher would
+    // pass on the timer rather than on the behaviour. Press Draw and read both
+    // toasts in the same evaluate, with no round trip in between.
+    const toasts = await page.evaluate(() => {
+        const roots = [...document.documentElement.children]
+            .map((node) => node.shadowRoot)
+            .filter((root): root is ShadowRoot => root !== null);
+        const panel = roots.find((root) => root.getElementById('lp-panel'))!;
+        const overlay = roots.find((root) => root.getElementById('lp-ov'))!;
+        const savedBefore = overlay.getElementById('lp-saved')!.style.display;
+        panel.getElementById('draw')!.click();
+        return {
+            savedBefore,
+            savedAfter: overlay.getElementById('lp-saved')!.style.display,
+            drawAfter: overlay.getElementById('lp-draw-toast')!.style.display,
+        };
+    });
+
+    // Guard: without this the two assertions below also pass on a notice that
+    // had already timed out, which proves nothing.
+    expect(toasts.savedBefore).toBe('flex');
+    expect(toasts.drawAfter).toBe('flex');
+    expect(toasts.savedAfter).toBe('none');
+    await expect(page.locator('#lp-draw-text')).toHaveText('Drag to draw');
+});
+
+/**
  * Undo drops the last stroke and Clear drops the drawing. There is no per-stroke
  * eraser, so these two are the whole of what a reviewer can take back.
  */

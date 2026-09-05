@@ -1459,8 +1459,10 @@
     toastText.textContent = state.addAnchor ? 'Click to add another element' : 'Click to comment';
     // offsetHeight only reads correctly once the toast is shown, so position after.
     if (state.target) positionToast();
-    // Both toasts share one resting edge, so the pick-mode one wins while it is up.
-    const showSaved = !!state.savedNotice && !state.target;
+    // Every toast shares one resting edge, so the mode the reviewer is in wins.
+    // The saved notice clears itself on a timer, and drawing again inside that
+    // window would otherwise bury the stroke count and its Undo and Clear.
+    const showSaved = !!state.savedNotice && !state.target && !state.drawing;
     savedToastNode.style.display = showSaved ? 'flex' : 'none';
     if (showSaved) {
       $$('lp-saved-text').textContent = state.savedNotice;
