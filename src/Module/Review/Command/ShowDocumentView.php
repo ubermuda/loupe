@@ -7,6 +7,7 @@ namespace App\Module\Review\Command;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
+use App\Module\Review\ValueObject\CommentSignals;
 use App\Module\Review\ValueObject\DecisionSummary;
 use App\Module\Review\ValueObject\DocumentHeading;
 use App\Module\Review\ValueObject\SectionApprovalSummary;
@@ -25,7 +26,7 @@ final readonly class ShowDocumentView
         public array $comments,
         public array $versions,
         public array $headings,
-        public int $orphanedCount,
+        public CommentSignals $signals,
         public DecisionSummary $decisions,
         public string $decisionMarkedHtml,
         /** The version this reader last engaged with, or null when there is no signal. */

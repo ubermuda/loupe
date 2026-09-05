@@ -17,6 +17,7 @@ use App\Module\Review\ValueObject\Anchor;
 use App\Tests\Support\AcceptedTerms;
 use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
@@ -110,18 +111,25 @@ final class ListDocumentsControllerTest extends WebTestCase
     }
 
     /**
-     * The open-thread count is one grouped query for the page. Per row it was an
-     * N+1 that nothing would notice — the list renders identically either way.
+     * The comment signals are one grouped query for the page, whatever the page
+     * holds. Per row they would be an N+1 that nothing would notice, because the
+     * list renders identically either way.
      */
-    public function test_the_documents_list_counts_open_threads_in_one_query(): void
+    #[DataProvider('listSizes')]
+    public function test_the_documents_list_derives_comment_signals_in_one_query(int $documentCount): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
-        $owner = $this->createUser($em, 'countowner', 'count-owner@example.com');
+        $owner = $this->createUser($em, 'countowner', 'count-owner-'.$documentCount.'@example.com');
         $project = $this->project($em, $owner);
-        for ($i = 0; $i < 6; ++$i) {
-            $this->document($em, $owner, $project, 'Doc '.$i);
+        for ($i = 0; $i < $documentCount; ++$i) {
+            $document = $this->document($em, $owner, $project, 'Doc '.$i);
+            $current = $document->currentVersion();
+            $em->persist(new Comment($current, $owner, 'Open thread.', Anchor::unanchored()));
+            $addressed = new Comment($current, $owner, 'Handled.', Anchor::unanchored());
+            $addressed->status = CommentStatus::Addressed;
+            $em->persist($addressed);
         }
         $em->flush();
         $projectId = (string) $project->id;
@@ -137,14 +145,13 @@ final class ListDocumentsControllerTest extends WebTestCase
         $collector = $profile->getCollector('db');
         self::assertInstanceOf(DoctrineDataCollector::class, $collector);
 
-        $countQueries = 0;
+        $commentQueries = 0;
         $total = 0;
         foreach ($collector->getQueries() as $queries) {
             foreach ($queries as $query) {
                 ++$total;
-                $sql = (string) $query['sql'];
-                if (str_contains($sql, 'FROM comments') && str_contains($sql, 'COUNT(')) {
-                    ++$countQueries;
+                if (str_contains((string) $query['sql'], 'FROM comments')) {
+                    ++$commentQueries;
                 }
             }
         }
@@ -153,8 +160,16 @@ final class ListDocumentsControllerTest extends WebTestCase
         // no queries at all.
         self::assertGreaterThan(0, $total);
 
-        // Six documents, one grouped count. Per row this would be six.
-        self::assertLessThanOrEqual(1, $countQueries);
+        // One grouped tally, whatever the page size. Per row it would be one
+        // query per document.
+        self::assertSame(1, $commentQueries);
+    }
+
+    /** @return iterable<string, array{int}> */
+    public static function listSizes(): iterable
+    {
+        yield 'two documents' => [2];
+        yield 'eight documents' => [8];
     }
 
     public function test_a_documents_tags_are_rendered_on_its_row(): void
@@ -215,7 +230,7 @@ final class ListDocumentsControllerTest extends WebTestCase
         self::assertStringNotContainsString('Bob Private', (string) $content);
     }
 
-    public function test_row_shows_version_pill_status_chip_and_open_thread_count(): void
+    public function test_row_shows_version_pill_and_status_chip_and_waits_for_nobody(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -228,10 +243,8 @@ final class ListDocumentsControllerTest extends WebTestCase
         $current = $document->addVersion('# v2', '<h1>v2</h1>');
         $em->persist($document);
 
-        // One open top-level thread + one resolved top-level thread + one
-        // unresolved reply (parent set) on the current version. The chip counts
-        // only unresolved *top-level* threads, so the reply must NOT bump the
-        // count → the chip should read "1 open".
+        // A pending thread, a resolved one and a reply. None of them waits for
+        // the reader: pending waits for the agent, and resolved is finished.
         $open = new Comment($current, $alice, 'Please rethink the window.', Anchor::unanchored());
         $resolved = new Comment($current, $alice, 'Fixed, thanks.', Anchor::unanchored());
         $resolved->status = CommentStatus::Resolved;
@@ -262,8 +275,117 @@ final class ListDocumentsControllerTest extends WebTestCase
         // Status chip keeps the lp-badge hook and the translated status text.
         self::assertSelectorTextContains($rowSelector.' .lp-badge', 'In review');
 
-        // Open-thread chip counts only the unresolved top-level thread.
-        self::assertSelectorTextContains($rowSelector.' .lp-document-row__threads', '1 open');
+        // Nothing waits for the reader, so the row carries no indicator at all.
+        self::assertSelectorNotExists($rowSelector.' .lp-document-row__waiting');
+    }
+
+    public function test_row_counts_an_addressed_thread_and_a_pending_orphan_as_two_waiting(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice4', 'alice4@example.com');
+        $project = $this->project($em, $alice);
+
+        $document = new Document(owner: $alice, project: $project, title: 'Cache the feed');
+        $current = $document->addVersion('# v1', '<h1>v1</h1>');
+        $em->persist($document);
+
+        $pending = new Comment($current, $alice, 'Please rethink the window.', Anchor::unanchored());
+        $pending->orphaned = true;
+        $addressed = new Comment($current, $alice, 'Done.', Anchor::unanchored());
+        $addressed->status = CommentStatus::Addressed;
+        $em->persist($pending);
+        $em->persist($addressed);
+
+        $em->flush();
+        $projectId = (string) $project->id;
+        $documentId = (string) $document->id;
+        $em->clear();
+
+        $client->loginUser($alice);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents');
+
+        self::assertResponseIsSuccessful();
+        $rowSelector = '[data-document-id="'.$documentId.'"]';
+
+        self::assertSelectorTextContains($rowSelector.' .lp-document-row__waiting', '2 threads waiting for you');
+        // The other counts moved to the document page. The row carries one
+        // indicator, so a reader scanning the list sees only the rows that
+        // want them.
+        self::assertSelectorNotExists($rowSelector.' .lp-signal');
+        self::assertSelectorNotExists($rowSelector.' .lp-document-row__threads');
+    }
+
+    /**
+     * A comment orphans when a revision rewrites the text it quoted, and the
+     * agent then marks it addressed. That terminal state fills the addressed
+     * bucket and the orphaned bucket, so a row that adds them reads double.
+     */
+    public function test_row_counts_a_thread_that_is_both_addressed_and_orphaned_once(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice6', 'alice6@example.com');
+        $project = $this->project($em, $alice);
+
+        $document = new Document(owner: $alice, project: $project, title: 'Rewrite the intro');
+        $current = $document->addVersion('# v2', '<h1>v2</h1>');
+        $em->persist($document);
+
+        $acted = new Comment($current, $alice, 'Reworded as asked.', Anchor::unanchored());
+        $acted->status = CommentStatus::Addressed;
+        $acted->orphaned = true;
+        $em->persist($acted);
+
+        $em->flush();
+        $projectId = (string) $project->id;
+        $documentId = (string) $document->id;
+        $em->clear();
+
+        $client->loginUser($alice);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents');
+
+        self::assertResponseIsSuccessful();
+        $rowSelector = '[data-document-id="'.$documentId.'"]';
+
+        self::assertSelectorTextContains($rowSelector.' .lp-document-row__waiting', '1 thread waiting for you');
+    }
+
+    public function test_row_waits_for_nobody_once_every_thread_is_resolved(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $alice = $this->createUser($em, 'alice5', 'alice5@example.com');
+        $project = $this->project($em, $alice);
+
+        $document = new Document(owner: $alice, project: $project, title: 'Ship the exporter');
+        $current = $document->addVersion('# v1', '<h1>v1</h1>');
+        $em->persist($document);
+
+        $first = new Comment($current, $alice, 'Done.', Anchor::unanchored());
+        $first->status = CommentStatus::Resolved;
+        $second = new Comment($current, $alice, 'Agreed.', Anchor::unanchored());
+        $second->status = CommentStatus::Resolved;
+        $em->persist($first);
+        $em->persist($second);
+
+        $em->flush();
+        $projectId = (string) $project->id;
+        $documentId = (string) $document->id;
+        $em->clear();
+
+        $client->loginUser($alice);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents');
+
+        self::assertResponseIsSuccessful();
+        $rowSelector = '[data-document-id="'.$documentId.'"]';
+
+        // A finished document is quiet. The row shows no "all clear" chip,
+        // because the absence of the indicator is what makes the list scannable.
+        self::assertSelectorNotExists($rowSelector.' .lp-document-row__waiting');
     }
 
     public function test_paginates_at_twenty_per_page(): void

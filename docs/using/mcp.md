@@ -178,6 +178,24 @@ A decision reports its `type`. A single-choice block answers in `selected` and
 `selected_index`. A multi-choice block answers in `selections`, and reports null
 in `selected`. See [Documents and review](documents.md) for the syntax.
 
+## What `site_review_mark_comment_addressed` skips
+
+The call never fails on a comment it cannot mark. It marks the rest and returns
+the others under `skipped`, each with a reason.
+
+| Reason | Meaning |
+|---|---|
+| `unknown` | No such comment on this project, or the reviewer deleted it |
+| `invalid_id` | The id is not a UUID |
+| `already_addressed` | An earlier pass marked it |
+| `resolved` | A human signed it off in the web UI |
+
+The reason is best-effort. The tool writes the status first, then reads the
+comment again to learn why it skipped. Another writer can change the comment
+between those two steps, so a reason can name the wrong status. The skip itself
+is always correct, because the write only touches a comment that is still
+pending.
+
 ## Configuration
 
 `document_highlight` is behind the `review.highlights.enabled` feature flag,

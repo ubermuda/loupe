@@ -557,6 +557,19 @@
         @apply bg-status-danger-chip text-status-danger-deep;
     }
 
+    /* ── Comment signals ────────────────────────────────────────────────
+       What a document's comment threads say about it. Sized like .lp-badge, so
+       the two sit level beside each other on a list row and in the topbar. */
+    .lp-signal {
+        @apply inline-flex items-center shrink-0 py-1 px-3 rounded-full text-sm font-bold whitespace-nowrap;
+    }
+    .lp-signal--addressed {
+        @apply bg-status-pending-bg text-status-pending-deep;
+    }
+    .lp-signal--answered {
+        @apply bg-status-ok-bg text-status-ok-deep;
+    }
+
     /* ── System status checks ───────────────────────────────────────────
        One row per infrastructure check. Four badge states, one of which —
        "unknown" — is deliberately neutral rather than green, because some
@@ -859,10 +872,15 @@
     .lp-document-row__sep {
         @apply text-fg-dim;
     }
-    /* Open-thread count — the one thing on the row that asks for action, so it
-       is the only element carrying the highlight fill. */
-    .lp-document-row__threads {
-        @apply inline-flex items-center shrink-0 rounded-full bg-accent-soft text-ink font-bold text-sm py-1 px-3;
+    /* The one signal on the row: a thread waits for the reader. A dot and a word
+       rather than a filled chip, because the row already carries a status badge
+       and a second fill beside it reads as noise. */
+    .lp-document-row__waiting {
+        @apply inline-flex items-center gap-1.5 shrink-0 text-accent-ink font-bold text-sm whitespace-nowrap;
+    }
+    .lp-document-row__waiting::before {
+        content: '';
+        @apply w-1.5 h-1.5 shrink-0 rounded-full bg-accent;
     }
     /* Line 3: the document's tag chips. Wraps, because a document may carry more
        names than fit the row and .lp-document-row__main is min-w-0. No margin —

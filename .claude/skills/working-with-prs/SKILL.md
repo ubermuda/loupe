@@ -106,6 +106,19 @@ The reason is proportion. Asking a reviewer model to read prose for correctness
 bugs is cost with no signal, and running a gate that can never fail teaches a
 reader to stop trusting gate results.
 
+## Open it ready, not draft
+
+The owner reviews ready pull requests only. A draft is invisible to him, so a
+finished branch left in draft waits for a review that never starts.
+
+Mark a pull request ready as soon as its gate is green and the Codex review is
+clean. Use `gh pr ready <number>` if you opened it as a draft. Do not wait for
+the owner's review to un-draft it, because that is the wrong way round.
+
+Open a draft only while the branch is unfinished, and say in the body what is
+still missing. Ready does not mean merged: `main` still needs one approving
+review, and you never approve your own work.
+
 ## Write the body for two readers
 
 `main` allows squash merges only, so the PR body becomes the commit body. It is
@@ -137,11 +150,25 @@ several states, seed one document per state and link each: a reviewer who can
 see all of them side by side reviews what the code does, rather than the one
 case you happened to seed.
 
-Point at the running instance. Every worktree serves its own branch at
-`https://<slug>.loupe.dev.localhost`. Put that URL in the body with the login
-(`dev@loupe.test` / `password`, or `admin@loupe.test` for the admin area).
-Verify it responds before you write it down. Say plainly when a branch has no
-worktree or nothing to click, rather than pasting a link that goes nowhere.
+Point at the running instance, and sign the reader in. Every worktree serves its
+own branch at `https://<slug>.loupe.dev.localhost`. Do not put a bare page URL
+in the body, because it lands the reader on the login page and they must sign in
+by hand. Mint a signed link instead, from inside the worktree:
+
+```bash
+( cd .claude/worktrees/<name> && bin/worktrees/compose-exec.sh \
+    bin/console app:dev:preview-login-link --path=/projects )
+```
+
+The link signs the reader in and lands them on the page you named, so the body
+needs no credentials at all. Use `--email=admin@loupe.test` for an admin page.
+It does not expire, so it still works when the reviewer reads the body days
+later. The signature covers the whole URL, host included, so a link works
+against that worktree only, and the host resolves on your own machine. The route
+is `#[When('dev')]`, so it does not exist in production.
+
+Open the link yourself before you write it down. Say plainly when a branch has
+no worktree or nothing to click, rather than pasting a link that goes nowhere.
 
 **Every such URL must be clickable, and that means one whole absolute URL in
 plain text.** A bare host followed by paths in backticks — the shape a body

@@ -37,7 +37,10 @@ sidecar at `https://mailpit-<slug>.loupe.dev.localhost` (SMTP alias
 `mailpit-<slug>` on the app network). A name that normalises to a slug beginning
 `mailpit-` is refused, because it would claim a sibling's mail host. Log in with
 `dev@loupe.test` / `password`, or `admin@loupe.test` / `password` for the admin
-area.
+area. To skip the login form, run `bin/console app:dev:preview-login-link
+--path=/projects` inside the worktree. It prints a signed link that signs you in
+and lands you on that page. The signature covers the host, so the link works
+against that worktree only. It does not expire.
 
 Run `just up` first. Bootstrap fails fast rather than leave a worktree whose
 `.env.local` points at a database that was never created.

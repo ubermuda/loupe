@@ -104,7 +104,7 @@ final class DiffDocumentVersionsController extends AppController
             'readOnly' => true,
             'diffCommenting' => $view->commentingEnabled,
             'comments' => $view->comments,
-            'orphanedCount' => $view->orphanedCount,
+            'signals' => $view->signals,
             'addCommentForm' => $addCommentForm,
             'suggestRewordingForm' => $suggestRewordingForm,
             'strikePassageForm' => $strikePassageForm,
