@@ -2842,3 +2842,32 @@ meant for the permanent record has to be in the body before the merge, because
 the body is the commit message only at that instant. Raised by the session that
 ran the teardown, which checked merged state, a clean tree and nothing unpushed
 on all seven first.
+
+## An approval does not expire when the reviewer asks for more
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`working-with-prs` says a pull request that is approved with every required
+check green is good to merge, without asking. That rule shipped seventeen
+changes correctly in one day and would have shipped a wrong one.
+
+#335 read APPROVED and CLEAN while its owner had already asked for two further
+changes, in conversation rather than on the pull request. The branch head was
+complete and green, and nine uncommitted files in its worktree were the work in
+progress. Nothing in the pull request's own state said any of it. The ruleset
+sets `dismiss_stale_reviews_on_push: false`, so even a push would not have
+cleared the approval.
+
+So APPROVED means "was approved at some point", not "is currently wanted". The
+gap is only visible to whoever holds the branch.
+
+Two cheap defences, and they compose. Ask the branch's owner whether its tree is
+quiet before syncing anything you did not write, which is what caught this one.
+And treat uncommitted files in a branch's worktree as a hold, because a clean
+branch head with a dirty tree means the author has moved past what you would
+merge.
+
+Decide whether `working-with-prs` should say that, beside the existing
+instruction to merge an approved and green pull request without asking. Found
+when a merge-master session was one command from shipping a version the owner
+had already rejected.
