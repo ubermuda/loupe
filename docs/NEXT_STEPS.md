@@ -2867,6 +2867,16 @@ And treat uncommitted files in a branch's worktree as a hold, because a clean
 branch head with a dirty tree means the author has moved past what you would
 merge.
 
+Hold on any uncommitted change, not only on files that look like source. A dirty
+spec file is the same evidence as a dirty implementation file: it means the
+author is still deciding what correct looks like.
+
+The heuristic caught two of the next two approved pull requests it was applied
+to, on different branches owned by different sessions. In both the automated
+signals were unanimous and wrong: approved, clean, and every check green, while
+the owner had already reported a defect on the approved head. One of those two
+had four separate defects reported after its single approval.
+
 Decide whether `working-with-prs` should say that, beside the existing
 instruction to merge an approved and green pull request without asking. Found
 when a merge-master session was one command from shipping a version the owner
