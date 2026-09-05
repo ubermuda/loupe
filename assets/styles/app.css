@@ -1590,8 +1590,11 @@
     .lp-review-contents__list {
         @apply flex flex-col list-none m-0 p-0;
     }
+    .lp-review-contents__item {
+        @apply flex items-baseline gap-3;
+    }
     .lp-review-contents__link {
-        @apply block truncate rounded no-underline text-fg-mute text-sm py-1 px-1.5 transition-colors hover:bg-tint hover:text-fg;
+        @apply block min-w-0 flex-1 truncate rounded no-underline text-fg-mute text-sm py-1 px-1.5 transition-colors hover:bg-tint hover:text-fg;
     }
     /* Levels 1 and 2 share the base indent on purpose: a Loupe document keeps its
        title out of the body and opens at `##`, so h2 is the top section level and
@@ -2627,6 +2630,51 @@
     }
     .lp-decision-summary__pending {
         @apply ml-auto text-xs text-fg-dim;
+    }
+
+    /* ── Section state, in the contents panel ───────────────────────────
+       The row itself is a contents row; these are the state it carries. */
+    .lp-section-approvals__approved {
+        @apply inline-flex items-baseline gap-1 ml-auto text-xs text-fg-mute;
+    }
+    .lp-section-approvals__check {
+        @apply w-3.5 h-3.5 shrink-0 self-center text-accent-ink;
+    }
+    .lp-section-approvals__pending {
+        @apply ml-auto text-xs text-fg-dim;
+    }
+
+    /* ── The approve control beside a heading ───────────────────────────
+       The wrapper is only `relative`, which creates no block formatting
+       context, so the heading's own margins still collapse through it and the
+       document keeps its vertical rhythm. */
+    .lp-section-head {
+        @apply relative;
+    }
+    .lp-section-head > :is(h1, h2, h3, h4, h5, h6) {
+        @apply pr-9;
+    }
+    /* `prose` zeroes the top margin of its FIRST child, which is now the
+       wrapper rather than the heading inside it. */
+    .lp-review-doc__prose
+        > .lp-section-head:first-child
+        > :is(h1, h2, h3, h4, h5, h6) {
+        @apply mt-0;
+    }
+    .lp-section-approve {
+        @apply absolute right-0 top-0 m-0 flex;
+    }
+    .lp-section-approve__button {
+        @apply inline-flex items-center justify-center rounded-md p-1 cursor-pointer border-0 bg-transparent text-fg-dim transition hover:bg-tint hover:text-fg;
+    }
+    .lp-section-approve__button:active {
+        @apply translate-y-px scale-97;
+    }
+    .lp-section-approve__button--approved {
+        @apply text-accent-ink;
+    }
+    .lp-section-approve__icon {
+        @apply w-5 h-5 shrink-0;
     }
 
     /* ── Admin primitives ───────────────────────────────────────────────

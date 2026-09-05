@@ -15,6 +15,7 @@ use App\Module\Review\Entity\DecisionSelection;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Highlight;
 use App\Module\Review\Entity\Review;
+use App\Module\Review\Entity\SectionApproval;
 use App\Module\Review\Entity\Series;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Entity\Verdict;
@@ -95,6 +96,7 @@ final class ProjectDeleterTest extends KernelTestCase
             'reviews' => 'SELECT count(*) FROM reviews rv JOIN document_versions v ON rv.version_id = v.id JOIN documents d ON v.document_id = d.id WHERE d.project_id = :id',
             'document_highlights' => 'SELECT count(*) FROM document_highlights h JOIN document_versions v ON h.version_id = v.id JOIN documents d ON v.document_id = d.id WHERE d.project_id = :id',
             'decision_selections' => 'SELECT count(*) FROM decision_selections s JOIN documents d ON s.document_id = d.id WHERE d.project_id = :id',
+            'section_approvals' => 'SELECT count(*) FROM section_approvals a JOIN documents d ON a.document_id = d.id WHERE d.project_id = :id',
             'document_versions' => 'SELECT count(*) FROM document_versions v JOIN documents d ON v.document_id = d.id WHERE d.project_id = :id',
             'documents' => 'SELECT count(*) FROM documents WHERE project_id = :id',
         ] as $table => $sql) {
@@ -244,6 +246,8 @@ final class ProjectDeleterTest extends KernelTestCase
         // DeleteReviewDataOnProjectDeleting clears it. It hangs off the document
         // rather than the version, so it is the other chain's regression guard.
         $em->persist(new DecisionSelection($document, 'deploy-target', 1, 'Ship straight to production', 1));
+        // Same chain and the same NOT DEFERRABLE constraint as the selection above.
+        $em->persist(new SectionApproval($document, 'heading-hi', str_repeat('a', 64), $owner, 1));
 
         $em->persist(new SiteReviewComment(project: $project, position: 0, body: 'widget comment', url: 'https://example.test/')->addAnchor('body', 'x'));
         $em->persist(new SiteReviewEvent($project, 'topic', '{}'));

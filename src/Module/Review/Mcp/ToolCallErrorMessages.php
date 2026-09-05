@@ -66,6 +66,8 @@ final readonly class ToolCallErrorMessages
             'review.decision.error.stale_version' => 'The document changed since you read it. Read it again, then choose again.',
             'review.decision.error.unknown' => 'This version of the document holds no decision with that id.',
             'review.decision.error.unknown_option' => 'That decision offers no option with that index.',
+            'review.section.error.stale_version' => 'The document changed since you read it. Read it again, then approve again.',
+            'review.section.error.unknown' => 'This version of the document holds no section with that heading id.',
             'review.document.suggestion.error.no_anchor' => 'A suggestion must quote the text that it replaces.',
             'review.document.flash.verdict_none' => 'You left no verdict on this document, so there is none to withdraw.',
             'review.document.flash.verdict_already_withdrawn' => 'You already withdrew your verdict on this document.',
