@@ -9,6 +9,7 @@
          failOnWarning="true"
          bootstrap="tests/bootstrap.php"
          cacheDirectory=".phpunit.cache"
+         defaultTestSuite="Project Test Suite"
 >
     <php>
         <ini name="display_errors" value="1" />
@@ -24,6 +25,13 @@
     <testsuites>
         <testsuite name="Project Test Suite">
             <directory>tests</directory>
+        </testsuite>
+
+        <!-- The tests `just mutation` runs. `defaultTestSuite` above keeps a
+             plain `phpunit` run on the whole suite, so these do not run twice. -->
+        <testsuite name="mutation">
+            <directory>tests/Module/Account/Security</directory>
+            <directory>tests/Module/Account/EventListener</directory>
         </testsuite>
     </testsuites>
 

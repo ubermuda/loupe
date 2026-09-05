@@ -152,6 +152,14 @@ arkitect:
 phpunit *args:
     bin/worktrees/compose-exec.sh vendor/bin/phpunit "$@"
 
+# Mutation testing over the account security gates, scoped in infection.json5.
+# Run it about weekly, and never beside another test run in this worktree,
+# because both use one database. `--list-tests` runs the PHPUnit bootstrap alone,
+# which builds the schema that TEST_SCHEMA_READY tells each mutant process to keep.
+mutation *args:
+    bin/worktrees/compose-exec.sh vendor/bin/phpunit --testsuite=mutation --list-tests > /dev/null
+    bin/worktrees/compose-exec.sh env TEST_SCHEMA_READY=1 XDEBUG_MODE=coverage vendor/bin/infection --no-interaction --with-uncovered "$@"
+
 cs: prettier lint rector cs-fix twig-cs-fix
 
 # Non-mutating counterpart of `cs` — reports instead of rewriting, for the gate.
