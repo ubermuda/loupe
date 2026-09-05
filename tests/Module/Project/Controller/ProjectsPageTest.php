@@ -124,7 +124,7 @@ final class ProjectsPageTest extends WebTestCase
         $em->persist(new Document($owner, $project, 'Doc one'));
         $em->persist(new Document($owner, $project, 'Doc two'));
         for ($i = 0; $i < 4; ++$i) {
-            $comment = new SiteReviewComment($project, $i, 'body', 'a.cta', 'Start', 'https://acme.test/');
+            $comment = new SiteReviewComment($project, $i, 'body', 'https://acme.test/')->addAnchor('a.cta', 'Start');
             // Three of the four still await the agent; the fourth is done.
             $comment->status = 3 === $i ? SiteReviewCommentStatus::Resolved : SiteReviewCommentStatus::Pending;
             $em->persist($comment);

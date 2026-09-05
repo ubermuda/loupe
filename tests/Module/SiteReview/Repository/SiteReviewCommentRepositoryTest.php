@@ -24,7 +24,7 @@ final class SiteReviewCommentRepositoryTest extends KernelTestCase
         $em->persist($owner);
         $project = new Project($owner, 'repo-race-site');
         $em->persist($project);
-        $comment = new SiteReviewComment($project, 0, 'Body', '', '', 'https://example.com/');
+        $comment = new SiteReviewComment($project, 0, 'Body', 'https://example.com/');
         $em->persist($comment);
         $em->flush();
 
@@ -70,7 +70,7 @@ final class SiteReviewCommentRepositoryTest extends KernelTestCase
             SiteReviewCommentStatus::Addressed,
             SiteReviewCommentStatus::Resolved,
         ] as $status) {
-            $comment = new SiteReviewComment($project, $position++, 'Body', '', '', 'https://example.com/');
+            $comment = new SiteReviewComment($project, $position++, 'Body', 'https://example.com/');
             $comment->status = $status;
             $em->persist($comment);
         }

@@ -49,7 +49,7 @@ final class UpdateCommentHandlerTest extends KernelTestCase
     public function test_edits_a_pending_comment_body(): void
     {
         $project = $this->project('upd-a@example.com');
-        $comment = ($this->addHandler)(new AddCommentCommand($project, 'orig', '', '', 'https://app/x'));
+        $comment = ($this->addHandler)(new AddCommentCommand($project, 'orig', 'https://app/x'));
         $commentId = $comment->id ?? throw new \LogicException('comment id must not be null');
 
         ($this->handler)(new UpdateCommentCommand($project, $commentId, 'edited'));
@@ -63,7 +63,7 @@ final class UpdateCommentHandlerTest extends KernelTestCase
     public function test_addressed_comment_is_not_editable(): void
     {
         $project = $this->project('upd-b@example.com');
-        $comment = ($this->addHandler)(new AddCommentCommand($project, 'orig', '', '', 'https://app/x'));
+        $comment = ($this->addHandler)(new AddCommentCommand($project, 'orig', 'https://app/x'));
         $comment->status = SiteReviewCommentStatus::Addressed;
         $this->em->flush();
 
@@ -75,7 +75,7 @@ final class UpdateCommentHandlerTest extends KernelTestCase
     {
         $siteA = $this->project('upd-c@example.com', 'site-a');
         $siteB = $this->project('upd-d@example.com', 'site-b');
-        $comment = ($this->addHandler)(new AddCommentCommand($siteA, 'orig', '', '', 'https://app/x'));
+        $comment = ($this->addHandler)(new AddCommentCommand($siteA, 'orig', 'https://app/x'));
 
         $this->expectException(CommentNotFound::class);
         ($this->handler)(new UpdateCommentCommand($siteB, $comment->id ?? throw new \LogicException('comment id must not be null'), 'edited'));
@@ -84,7 +84,7 @@ final class UpdateCommentHandlerTest extends KernelTestCase
     public function test_an_edited_comment_is_recorded_on_the_domain_channel(): void
     {
         $project = $this->project('upd-audit@example.com');
-        $comment = ($this->addHandler)(new AddCommentCommand($project, 'orig', '', '', 'https://app/x'));
+        $comment = ($this->addHandler)(new AddCommentCommand($project, 'orig', 'https://app/x'));
         $commentId = $comment->id ?? throw new \LogicException('comment id must not be null');
 
         ($this->handler)(new UpdateCommentCommand($project, $commentId, 'edited'));
@@ -108,7 +108,7 @@ final class UpdateCommentHandlerTest extends KernelTestCase
     {
         $siteA = $this->project('upd-audit-miss-a@example.com', 'site-a');
         $siteB = $this->project('upd-audit-miss-b@example.com', 'site-b');
-        $comment = ($this->addHandler)(new AddCommentCommand($siteA, 'orig', '', '', 'https://app/x'));
+        $comment = ($this->addHandler)(new AddCommentCommand($siteA, 'orig', 'https://app/x'));
         $commentId = $comment->id ?? throw new \LogicException('comment id must not be null');
 
         try {

@@ -6,6 +6,7 @@ namespace App\Module\SiteReview\Service;
 
 use App\Module\Account\Entity\User;
 use App\Module\Account\Export\UserDataExporterInterface;
+use App\Module\SiteReview\Entity\SiteReviewCommentAnchor;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 
 final readonly class SiteReviewExporter implements UserDataExporterInterface
@@ -28,8 +29,16 @@ final readonly class SiteReviewExporter implements UserDataExporterInterface
             yield [
                 'project' => $comment->project->name,
                 'body' => $comment->body,
-                'selector' => $comment->selector,
-                'text' => $comment->text,
+                'anchors' => array_values(array_map(
+                    static fn (SiteReviewCommentAnchor $anchor): array => [
+                        'selector' => $anchor->selector,
+                        'text' => $anchor->text,
+                        'quote' => $anchor->quote,
+                        'quotePrefix' => $anchor->quotePrefix,
+                        'quoteSuffix' => $anchor->quoteSuffix,
+                    ],
+                    $comment->anchors->toArray(),
+                )),
                 'url' => $comment->url,
                 'status' => $comment->status->value,
                 'createdAt' => $comment->createdAt->format(\DateTimeInterface::ATOM),

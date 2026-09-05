@@ -146,6 +146,28 @@ change applies only to documents written after it. Every document written before
 this feature stays English, because that is how it was already indexed. Changing
 a document's language after it exists needs a reindex, which no tool does yet.
 
+### A site-review comment carries a list of anchors
+
+`site_review_get` reports each comment's elements in an `anchors` list. It no
+longer reports the `selector` and `text` fields, which held one element each.
+
+```json
+{
+  "id": "...",
+  "url": "https://staging.example.com/pricing",
+  "body": "These two should sit side by side.",
+  "anchors": [
+    { "selector": ".plan-card", "text": "Starter", "quote": null, "quotePrefix": null, "quoteSuffix": null },
+    { "selector": ".plan-note", "text": "Billed yearly", "quote": null, "quotePrefix": null, "quoteSuffix": null }
+  ]
+}
+```
+
+A comment with several anchors says something about how those elements relate,
+so read them together. An empty `anchors` list is a note about the page as a
+whole. The `quote` fields are reserved for an anchor on a run of text, and are
+always null today.
+
 ## Two things agents get wrong
 
 **Comment ids do not survive `document_revise`.** Re-anchoring copies a comment
