@@ -30,6 +30,10 @@ entry.
 
 ## [Unreleased]
 
+- `7af7f10` (#351) — **Changed:** `CLAUDE.md` tells an agent to read
+  `git diff --cached` before committing. Staging by name protects against
+  another branch's files, not against another session's hunks in a file two
+  sessions are both editing.
 - `d937c04` (#332) — **Changed:** the documents list shows one signal per row,
   "N threads waiting for you", and only where something waits, in place of three
   per-row counts. The full breakdown moves to the document page. It also fixes
