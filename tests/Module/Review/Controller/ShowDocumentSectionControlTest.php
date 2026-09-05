@@ -84,10 +84,28 @@ final class ShowDocumentSectionControlTest extends WebTestCase
         self::assertSame('true', $control->attr('aria-pressed'));
         self::assertSame('Withdraw approval of section Alpha', $control->attr('aria-label'));
 
-        // The panel reports the same rows and offers no control of its own.
+        // The glyph itself says which state the section is in, so the two do not
+        // read alike for someone who cannot tell the two colours apart. Both keep
+        // the ring; only the approved one carries the tick inside it.
+        $stillOpen = $crawler->filter('[data-section-approve="heading-beta"]');
+        self::assertSame('false', $stillOpen->attr('aria-pressed'));
+        self::assertCount(1, $control->filter('svg circle'));
+        self::assertCount(1, $stillOpen->filter('svg circle'));
+        self::assertCount(1, $control->filter('svg path'), 'the approved glyph carries a tick');
+        self::assertCount(0, $stillOpen->filter('svg path'), 'the unapproved glyph is an empty ring');
+        self::assertNotSame($control->filter('svg')->html(), $stillOpen->filter('svg')->html());
+
+        // Contents and section approvals are one panel. It reports the same
+        // rows, keeps its navigation links, and offers no control of its own.
         self::assertStringContainsString('1 of 3 approved', $crawler->filter('#section-summary-count')->text());
         self::assertCount(1, $crawler->filter('[data-section-approved="heading-alpha"]'));
-        self::assertCount(0, $crawler->filter('[data-panel="sections"] button'));
+        self::assertCount(0, $crawler->filter('[data-panel="contents"] button'));
+        self::assertCount(0, $crawler->filter('[data-panel="sections"]'));
+        self::assertCount(3, $crawler->filter('[data-panel="contents"] .lp-review-contents__link'));
+        self::assertSame(
+            '#heading-alpha',
+            $crawler->filter('[data-panel="contents"] .lp-review-contents__link')->first()->attr('href'),
+        );
 
         // And the basis still holds once a control has changed state.
         $pane = $crawler->filter('[data-comment-anchor-target="doc"]');

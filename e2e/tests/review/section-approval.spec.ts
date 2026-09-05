@@ -31,7 +31,7 @@ Alpha body stays exactly as it is.
 
 Beta body reads completely differently now.`;
 
-const SECTIONS_PANEL = '[data-panel="sections"]';
+const SECTIONS_PANEL = '[data-panel="contents"]';
 const HEADING_CONTROL =
     '[data-comment-anchor-target="doc"] [data-section-approve]';
 
@@ -107,22 +107,22 @@ test.use({ storageState: { cookies: [], origins: [] } });
 // 30-second default.
 test.describe.configure({ timeout: 90000 });
 
-/** Open the sections panel on the current review page. */
+/** Open the contents panel, which carries the section states. */
 async function openSections(page: Page): Promise<void> {
-    await page.getByRole('button', { name: 'Sections' }).click();
+    await sectionsTab(page).click();
     await expect(page.locator(SECTIONS_PANEL)).toBeVisible();
 }
 
 /** One row of the sections panel, found by its heading label. */
 function sectionRow(page: Page, label: string) {
     return page
-        .locator(`${SECTIONS_PANEL} .lp-section-approvals__item`)
+        .locator(`${SECTIONS_PANEL} .lp-review-contents__item`)
         .filter({ has: page.getByRole('link', { name: label, exact: true }) });
 }
 
 /** The tab, which carries the running count and stays visible on every render. */
 function sectionsTab(page: Page) {
-    return page.getByRole('button', { name: 'Sections' });
+    return page.getByRole('button', { name: 'Contents' });
 }
 
 /**

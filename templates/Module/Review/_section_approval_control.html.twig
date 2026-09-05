@@ -14,7 +14,14 @@
             aria-pressed="{{ approved ? 'true' : 'false' }}"
             aria-label="{{ (approved ? 'review.document.sections.withdraw_label' : 'review.document.sections.approve_label')|trans({'%section%': label}) }}"
             data-section-approve="{{ headingId }}">
+        {# Two tags with literal names, never one tag with a computed name:
+           `ux:icons:lock` reads literals only, so a ternary here writes nothing
+           under assets/icons/ and the icon is missing in production. #}
+        {% if approved %}
         <twig:ux:icon name="lucide:circle-check" class="lp-section-approve__icon" />
+        {% else %}
+        <twig:ux:icon name="lucide:circle" class="lp-section-approve__icon" />
+        {% endif %}
     </button>
 </form>
 {% endapply %}

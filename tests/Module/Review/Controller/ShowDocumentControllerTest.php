@@ -838,7 +838,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-comment-anchor-target="doc"] .lp-review-contents'));
     }
 
-    public function test_a_heading_with_no_derivable_label_is_left_out_of_the_table_of_contents(): void
+    public function test_a_heading_with_no_derivable_label_is_listed_under_its_own_id(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -846,8 +846,9 @@ final class ShowDocumentControllerTest extends WebTestCase
         $owner = $this->createUser($em, 'owner-blanktoc', 'owner-blanktoc@example.com');
         $project = $this->project($em, $owner);
 
-        // The middle heading is an image with no alt text: nothing to label it with,
-        // so it must not become a blank link between the two real entries.
+        // The middle heading is an image with no alt text, so nothing labels it.
+        // The panel now also reports which sections are approved, and that one is
+        // approvable, so it takes a row under its own id rather than a blank one.
         $markdown = "## First\n\nBody.\n\n## ![](diagram.png)\n\nMore.\n\n## Second\n\nEnd.\n";
         $doc = new Document(owner: $owner, project: $project, title: 'Illustrated Doc');
         $doc->addVersion($markdown, new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render($markdown));
@@ -863,8 +864,13 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame(
-            ['#heading-first', '#heading-second'],
+            ['#heading-first', '#heading-section', '#heading-second'],
             $crawler->filter('.lp-review-contents__link')->each(static fn ($node): string => (string) $node->attr('href')),
+        );
+        // Labelled by its id, never blank: a blank link is what the old rule avoided.
+        self::assertSame(
+            ['First', 'heading-section', 'Second'],
+            $crawler->filter('.lp-review-contents__link')->each(static fn ($node): string => trim($node->text())),
         );
         // It keeps its id in the document, so anything already linking to it resolves.
         self::assertStringContainsString('id="heading-section"', (string) $client->getResponse()->getContent());

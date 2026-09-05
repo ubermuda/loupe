@@ -1513,10 +1513,6 @@
                 <source>review.decision.error.stale_version</source>
                 <target>This document changed while you were reading it. Reload the page and choose again.</target>
             </trans-unit>
-            <trans-unit id="review.document.meta.sections">
-                <source>review.document.meta.sections</source>
-                <target>Sections</target>
-            </trans-unit>
             <trans-unit id="review.document.sections.count">
                 <source>review.document.sections.count</source>
                 <target>%approved% of %total% approved</target>

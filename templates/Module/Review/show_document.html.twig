@@ -129,21 +129,21 @@
                appears nowhere else. #}
             {% set hasVersionDescription = versions|filter(meta => meta.description is not empty)|length > 0 %}
             {% set showVersions = versions|length > 1 or hasVersionDescription %}
-            {# An untexted heading would render as a blank link, but it keeps its
-               id so anything linking to it still works. Diff mode replaces the
-               HTML those ids live in, and is passed no `headings` at all. #}
-            {% set contentsHeadings = diffMode ? [] : headings|filter(heading => heading.text is not empty) %}
-            {% set showContents = contentsHeadings|length > 1 %}
+            {# Contents and section approvals are one panel: both are a list of
+               the same headings, and the state belongs beside the link rather
+               than a tab away. Diff mode replaces the HTML those ids live in and
+               is passed no `sections`, hence the lazy-ternary guard. #}
+            {% set sectionRows = diffMode ? [] : sections.rows %}
+            {% set approvedSections = diffMode ? 0 : sections.approvedCount %}
+            {# An untexted heading keeps a row, labelled by its id: it is still a
+               section, and it can still be approved from the button beside it. #}
+            {% set showContents = sectionRows|length > 1 %}
             {% set referenceCount = document.references|length + document.referencedBy|length %}
             {# Same lazy-ternary guard as the headings above: the diff controller
                passes no `decisions` at all, and naming it outside this branch is
                an undefined-variable 500 on the diff page. #}
             {% set decisionRows = diffMode ? [] : decisions.rows %}
             {% set answeredDecisions = diffMode ? 0 : decisions.answeredCount %}
-            {# Section approvals. Same lazy-ternary guard as the rows above: the
-               diff controller passes no `sections`. #}
-            {% set sectionRows = diffMode ? [] : sections.rows %}
-            {% set approvedSections = diffMode ? 0 : sections.approvedCount %}
             {# The pane HTML with an approval control beside each heading. Built
                here rather than in the block below, so the diff branch never
                evaluates `decisionMarkedHtml`, which it is not passed. An older
@@ -159,7 +159,7 @@
                used to push the first paragraph below the fold.
                A sibling of the head, not a child: the bar is sticky, and a
                sticky element cannot outlive its containing block. #}
-            {% if showVersions or showContents or referenceCount > 0 or decisionRows|length > 0 or sectionRows|length > 0 or document.tags|length > 0 or document.series is not null or diffNavigation %}
+            {% if showVersions or showContents or referenceCount > 0 or decisionRows|length > 0 or document.tags|length > 0 or document.series is not null or diffNavigation %}
             <div class="lp-doc-meta-bar" data-controller="metadata-tabs">
                     <div class="lp-doc-meta">
                         {% if showVersions %}
@@ -178,7 +178,12 @@
                                 data-metadata-tabs-panel-param="contents"
                                 data-action="click->metadata-tabs#toggle">
                             {{ 'review.document.contents.label'|trans }}
-                            <span class="lp-doc-meta__count">{{ contentsHeadings|length }}</span>
+                            {# Approved-of-total rather than a bare heading count:
+                               it carries the same total and the state as well. #}
+                            <span class="lp-doc-meta__count" id="section-summary-count">{{ 'review.document.sections.count'|trans({
+                                '%approved%': approvedSections,
+                                '%total%': sectionRows|length,
+                            }) }}</span>
                             <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
                         </button>
                         {% endif %}
@@ -201,19 +206,6 @@
                             <span class="lp-doc-meta__count" id="decision-summary-count">{{ 'review.document.decisions.count'|trans({
                                 '%answered%': answeredDecisions,
                                 '%total%': decisionRows|length,
-                            }) }}</span>
-                            <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
-                        </button>
-                        {% endif %}
-                        {% if sectionRows|length > 0 %}
-                        <button type="button" class="lp-doc-meta__tab" aria-expanded="false"
-                                data-metadata-tabs-target="tab"
-                                data-metadata-tabs-panel-param="sections"
-                                data-action="click->metadata-tabs#toggle">
-                            {{ 'review.document.meta.sections'|trans }}
-                            <span class="lp-doc-meta__count" id="section-summary-count">{{ 'review.document.sections.count'|trans({
-                                '%approved%': approvedSections,
-                                '%total%': sectionRows|length,
                             }) }}</span>
                             <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
                         </button>
@@ -329,13 +321,7 @@
                 <nav class="lp-doc-meta__panel lp-review-contents" data-metadata-tabs-target="panel" data-panel="contents" hidden
                      aria-label="{{ 'review.document.contents.nav_label'|trans }}">
                     <ul class="lp-review-contents__list">
-                        {% for heading in contentsHeadings %}
-                        <li>
-                            {# title= so a heading truncated by the panel width is still readable on hover. #}
-                            <a class="lp-review-contents__link" data-level="{{ heading.level }}" href="#{{ heading.id }}"
-                               data-action="click->metadata-tabs#jump" title="{{ heading.text }}">{{ heading.text }}</a>
-                        </li>
-                        {% endfor %}
+                        {% include '@Review/_contents_rows.html.twig' with {rows: sectionRows} only %}
                     </ul>
                 </nav>
                 {% endif %}
@@ -390,16 +376,6 @@
                 </div>
                 {% endif %}
 
-                {# Section approvals panel. Outside the rendered-HTML container,
-                   like every other panel here: that element's textContent is the
-                   basis every comment anchor is measured against. #}
-                {% if sectionRows|length > 0 %}
-                <div class="lp-doc-meta__panel lp-section-approvals" data-metadata-tabs-target="panel" data-panel="sections" hidden>
-                    <ul class="lp-section-approvals__list">
-                        {% include '@Review/_section_approval_rows.html.twig' with {rows: sectionRows} only %}
-                    </ul>
-                </div>
-                {% endif %}
             </div>
             {% endif %}
 
