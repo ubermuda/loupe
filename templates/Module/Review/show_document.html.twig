@@ -135,9 +135,11 @@
                is passed no `sections`, hence the lazy-ternary guard. #}
             {% set sectionRows = diffMode ? [] : sections.rows %}
             {% set approvedSections = diffMode ? 0 : sections.approvedCount %}
-            {# An untexted heading keeps a row, labelled by its id: it is still a
-               section, and it can still be approved from the button beside it. #}
-            {% set showContents = sectionRows|length > 1 %}
+            {# One section is enough, where the old table of contents wanted two:
+               the panel now reports approval state, which changes and is worth
+               seeing for a single section. An untexted heading keeps a row too,
+               labelled by its id, or the tab count would outrun the list. #}
+            {% set showContents = sectionRows|length > 0 %}
             {% set referenceCount = document.references|length + document.referencedBy|length %}
             {# Same lazy-ternary guard as the headings above: the diff controller
                passes no `decisions` at all, and naming it outside this branch is
