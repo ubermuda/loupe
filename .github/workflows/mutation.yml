@@ -6,6 +6,10 @@ on:
     # first runs after the branch merges. Use workflow_dispatch before then.
     - cron: '0 4 * * 1'
   workflow_dispatch:
+  # TEMPORARY, removed before merge. workflow_dispatch is registered from the
+  # default branch only, so this is the one way to prove a fix on a runner.
+  push:
+    branches: [tooling/scoped-mutation-testing]
 
 # A run takes hours. Two of them against the same ref would only compete.
 concurrency:
