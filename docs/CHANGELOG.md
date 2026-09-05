@@ -30,6 +30,10 @@ entry.
 
 ## [Unreleased]
 
+- `9123005` (#335) — **Added:** a reviewer can approve a document one section at
+  a time, with a control beside each heading. The Contents and Sections panels
+  become one, and a document with a single heading now shows it, so a one-section
+  document keeps an aggregate view of what has been approved.
 - `01684ad` (#352) — **Changed:** `CommentBudgetCheck` no longer policies `.env`,
   so a dotenv comment can explain a variable at whatever length it needs.
 - `f1bca43` (#361) — **Added:** a site-review comment can quote a range of text
