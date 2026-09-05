@@ -165,7 +165,7 @@ final class SiteReviewApiTest extends WebTestCase
         yield 'a single point' => [['space' => 'page', 'points' => [[0.1, 0.2]]]];
         yield 'a point that is not a pair' => [['space' => 'page', 'points' => [[0.1], [0.3, 0.4]]]];
         yield 'a point that is not numeric' => [['space' => 'page', 'points' => [['a', 'b'], [0.3, 0.4]]]];
-        yield 'a point far off the page' => [['space' => 'page', 'points' => [[0.1, 0.2], [9999.0, 0.4]]]];
+        yield 'a point far off the page' => [['space' => 'page', 'points' => [[0.1, 0.2], [999999.0, 0.4]]]];
     }
 
     /**

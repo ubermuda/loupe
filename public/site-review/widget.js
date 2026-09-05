@@ -877,14 +877,21 @@
     const box = first && docRectOf(first.el || (first.selector ? queryOne(first.selector) : null));
     return box && box.width > 0 && box.height > 0 ? box : null;
   };
+  // How far outside its box a stroke may reach and still be measured against
+  // it. A drawing that stays near the element wants to move with it. One that
+  // crosses the page from a small element does not: every fraction is then
+  // multiplied by a tiny width, so a few pixels of reflow would fling the far
+  // end of the stroke across the screen. Page coordinates are the honest space
+  // for a page-scale gesture, and they keep the stored numbers small.
+  const ANCHOR_SPACE_REACH = 20;
   const storeStroke = (points, box) => {
-    if (box) {
+    const anchored = box
+      ? points.map(([x, y]) => [(x - box.left) / box.width, (y - box.top) / box.height])
+      : null;
+    if (anchored && anchored.every(([x, y]) => Math.max(Math.abs(x), Math.abs(y)) <= ANCHOR_SPACE_REACH)) {
       return {
         space: 'anchor',
-        points: points.map(([x, y]) => [
-          Number(((x - box.left) / box.width).toFixed(5)),
-          Number(((y - box.top) / box.height).toFixed(5)),
-        ]),
+        points: anchored.map(([x, y]) => [Number(x.toFixed(5)), Number(y.toFixed(5))]),
       };
     }
     const scale = pageScale();

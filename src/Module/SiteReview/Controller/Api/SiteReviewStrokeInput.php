@@ -10,12 +10,18 @@ use Symfony\Component\Validator\Context\ExecutionContextInterface;
 /**
  * One freehand stroke of an incoming comment. Points are fractions, not pixels:
  * `anchor` measures each one against the box of anchor 0, and `page` divides
- * both axes by the document width. A point may fall outside the box it is
+ * both axes by the document width. A point may fall well outside the box it is
  * measured against, so the range is generous rather than 0 to 1.
  */
 final class SiteReviewStrokeInput
 {
-    public const float COORDINATE_LIMIT = 100.0;
+    /**
+     * Far above what the widget can produce. It measures against a box only
+     * while the stroke stays near it, and a page-space point above 1 needs a
+     * page taller than it is wide. The point and stroke counts are what bound
+     * the payload; this only rejects a value nothing could have drawn.
+     */
+    public const float COORDINATE_LIMIT = 1000.0;
 
     /**
      * @param list<mixed> $points

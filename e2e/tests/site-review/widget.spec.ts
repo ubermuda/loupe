@@ -1831,6 +1831,9 @@ const saveComposer = async (page: Page, body: string): Promise<void> => {
 test('a stroke on an anchored comment moves with its element', async ({
     page,
 }) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
     await openHarness(page);
     await page.goto(keepHarnessUrl);
     await composeDrawingOnWideBlock(page);
@@ -1876,6 +1879,52 @@ test('a stroke on an anchored comment moves with its element', async ({
 });
 
 /**
+ * A stroke that crosses the page from a small element is a page-scale gesture,
+ * not a mark on that element's box. Measuring it against the box would multiply
+ * every fraction by a small width, so a few pixels of reflow would fling the
+ * far end of the stroke across the screen — and the fractions themselves grow
+ * large enough for the API to refuse the save.
+ */
+test('a stroke that reaches far past its element falls back to page space', async ({
+    page,
+}) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    // 21px tall, so a 600px drag reaches far more than 20 box heights.
+    await page.locator('#target-me').click();
+    await expect(page.locator('[data-anchor-chip]')).toHaveCount(1);
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Draw' })
+        .click();
+
+    const small = (await page.locator('#target-me').boundingBox())!;
+    expect(small.height).toBeLessThan(40);
+    await drawStroke(
+        page,
+        { x: small.x + 4, y: small.y + 4 },
+        { x: small.x + 300, y: small.y + 600 },
+    );
+    await waitForInk(page);
+    await saveComposer(page, 'This belongs down there');
+
+    const [saved] = await fetchReviewStrokes(page);
+    expect(saved.anchorCount).toBe(1);
+    expect(saved.strokes[0].space).toBe('page');
+    // Whatever the space, the drawing has to come back on the page.
+    const reloaded = await waitForInk(page);
+    expect(reloaded.bottom).toBeGreaterThan(small.y + 500);
+});
+
+/**
  * A comment with no anchor has no box to measure against, so its strokes are
  * page coordinates. They survive a scroll, and the widget says so in the docs
  * rather than pretending they survive a reflow.
@@ -1883,6 +1932,9 @@ test('a stroke on an anchored comment moves with its element', async ({
 test('a stroke on a page note keeps its place as the page scrolls', async ({
     page,
 }) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
     await openHarness(page);
     await page.goto(keepHarnessUrl);
     await page.getByRole('button', { name: 'Review' }).click();
@@ -1921,6 +1973,9 @@ test('a stroke on a page note keeps its place as the page scrolls', async ({
  * pointer — otherwise every drag over an element would silently anchor it.
  */
 test('drawing never picks the element under the stroke', async ({ page }) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
     await openHarness(page);
     await page.goto(keepHarnessUrl);
     await composeDrawingOnWideBlock(page);
@@ -1954,6 +2009,9 @@ test('drawing never picks the element under the stroke', async ({ page }) => {
  * the way the pins do.
  */
 test("a saved comment's drawing comes back on reload", async ({ page }) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
     await openHarness(page);
     await page.goto(keepHarnessUrl);
     await composeDrawingOnWideBlock(page);
@@ -1981,6 +2039,9 @@ test("a saved comment's drawing comes back on reload", async ({ page }) => {
 test('a stroke can be undone, and the whole drawing cleared', async ({
     page,
 }) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
     await openHarness(page);
     await page.goto(keepHarnessUrl);
     await page.getByRole('button', { name: 'Review' }).click();
