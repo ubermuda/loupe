@@ -82,14 +82,18 @@ const addGeneralNote = async (
  * reloading — a harness reload deliberately purges them, so "survives reload"
  * cannot be asserted against the harness.
  */
+type ReviewAnchor = {
+    selector: string;
+    text: string;
+    quote: string | null;
+    quotePrefix: string | null;
+    quoteSuffix: string | null;
+};
+
 const fetchReviewComments = (
     page: Page,
 ): Promise<
-    Array<{
-        body: string;
-        selector: string;
-        anchors: Array<{ selector: string; text: string }>;
-    }>
+    Array<{ body: string; selector: string; anchors: ReviewAnchor[] }>
 > =>
     page.evaluate(async () => {
         const script = document.querySelector(
@@ -103,7 +107,13 @@ const fetchReviewComments = (
             comments: Array<{
                 body: string;
                 selector: string;
-                anchors: Array<{ selector: string; text: string }>;
+                anchors: Array<{
+                    selector: string;
+                    text: string;
+                    quote: string | null;
+                    quotePrefix: string | null;
+                    quoteSuffix: string | null;
+                }>;
             }>;
         };
         return comments;
@@ -1683,6 +1693,492 @@ test('hovering one anchor outlines every anchor of the same comment', async ({
     await page.mouse.move(2, 2);
     await expect(framed).toBeHidden();
     await expect(siblings).toHaveCount(0);
+});
+
+// The harness paragraph reads "The quick brown fox jumps over the lazy dog.",
+// with <em> around "jumps over". These offsets quote across that markup.
+const PROSE_QUOTE = { selector: '#prose', start: 4, end: 38 };
+const PROSE_TEXT = 'quick brown fox jumps over the laz';
+const REPEATED = 'the same phrase here';
+const repeatSpan = (start: number) => ({
+    selector: '#prose-repeat',
+    start,
+    end: start + REPEATED.length,
+});
+
+type Span = { selector: string; start: number; end: number };
+
+/**
+ * Address a run of an element's textContent by character offsets, walking text
+ * nodes so a boundary inside inline markup is reachable. Returns the run's
+ * viewport box, and with `select` also puts it in the page's selection.
+ */
+const spanIn = (
+    page: Page,
+    span: Span,
+    select = false,
+): Promise<{ x: number; width: number }> =>
+    page.evaluate(
+        (args) => {
+            const el = document.querySelector(args.selector)!;
+            const walker = document.createTreeWalker(
+                el,
+                NodeFilter.SHOW_TEXT,
+                null,
+            );
+            const nodes: Text[] = [];
+            for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+                nodes.push(n as Text);
+            }
+            const at = (offset: number): [Text, number] => {
+                let seen = 0;
+                for (const n of nodes) {
+                    if (offset <= seen + n.data.length)
+                        return [n, offset - seen];
+                    seen += n.data.length;
+                }
+                throw new Error(`offset ${offset} is past ${args.selector}`);
+            };
+            const range = document.createRange();
+            range.setStart(...at(args.start));
+            range.setEnd(...at(args.end));
+            if (args.select) {
+                const selection = document.getSelection()!;
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+            const r = range.getBoundingClientRect();
+            return { x: r.left, width: r.width };
+        },
+        { ...span, select },
+    );
+
+/**
+ * Select a run of text on the host page. A programmatic range rather than a
+ * pixel drag: the widget reads `selectionchange`, which both fire, and a drag
+ * across inline markup lands on different characters at different viewports.
+ */
+const selectText = async (page: Page, span: Span): Promise<void> => {
+    await spanIn(page, span, true);
+};
+
+/**
+ * Fill the composer and save, waiting for the API to accept the comment. The
+ * head count alone races the POST, which takes seconds on a loaded container,
+ * and the widget counts a comment only once the server has taken it.
+ */
+const saveComposed = async (page: Page, body: string): Promise<void> => {
+    await page.getByPlaceholder(/Describe the issue/).fill(body);
+    await Promise.all([
+        page.waitForResponse(
+            (response) =>
+                response.url().includes('/api/site-review/comments') &&
+                response.request().method() === 'POST',
+        ),
+        page.getByRole('button', { name: 'Save' }).click(),
+    ]);
+    await expect(page.locator('#lp-head-count')).toHaveText('1');
+};
+
+/** Load a harness URL and wait for the widget's boot fetch to land. */
+const openWithComments = async (page: Page, url: string): Promise<void> => {
+    await Promise.all([
+        page.waitForResponse((response) =>
+            response.url().includes('/api/site-review/review'),
+        ),
+        page.goto(url),
+    ]);
+};
+
+/** Where `REPEATED` starts, on the nth occurrence inside #prose-repeat. */
+const occurrenceAt = (page: Page, nth: number): Promise<number> =>
+    page.evaluate(
+        (args) => {
+            const text = document.querySelector('#prose-repeat')!.textContent!;
+            let at = -1;
+            for (let i = 0; i <= args.nth; i++)
+                at = text.indexOf(args.needle, at + 1);
+            return at;
+        },
+        { needle: REPEATED, nth },
+    );
+
+/**
+ * The widget takes a selection only while the panel is open. A page nobody is
+ * reviewing must keep its own text selection, because the reviewer is reading
+ * or copying rather than commenting.
+ */
+test('the offer to quote a selection waits for the panel to be open', async ({
+    page,
+}) => {
+    await openHarness(page);
+    const offer = page.locator('#lp-quote-btn');
+
+    await selectText(page, PROSE_QUOTE);
+    await expect(offer).toBeHidden();
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, PROSE_QUOTE);
+    await expect(offer).toBeVisible();
+
+    // Collapsing the selection withdraws the offer.
+    await page.evaluate(() => document.getSelection()!.removeAllRanges());
+    await expect(offer).toBeHidden();
+
+    // So does closing the panel while the selection is still held. The offer
+    // renders from the same sync pass as the pins, so no state that hides the
+    // panel can leave it behind.
+    await selectText(page, PROSE_QUOTE);
+    await expect(offer).toBeVisible();
+    await page.locator('#lp-close').click();
+    await expect(offer).toBeHidden();
+
+    // Re-opening with the selection still held brings it back.
+    await page.getByRole('button', { name: 'Review' }).click();
+    await expect(offer).toBeVisible();
+});
+
+/**
+ * A comment can quote the exact run of text the reviewer selected, across the
+ * inline markup inside it, rather than pointing at the whole element.
+ */
+test('a comment can quote a run of text inside an element', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+
+    let saved: {
+        anchors: Array<{
+            selector: string;
+            text: string;
+            quote?: string;
+            quotePrefix?: string;
+            quoteSuffix?: string;
+        }>;
+    } | null = null;
+    page.on('request', (request) => {
+        if (
+            request.method() === 'POST' &&
+            request.url().includes('/api/site-review/comments')
+        ) {
+            saved = JSON.parse(request.postData() ?? '{}');
+        }
+    });
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, PROSE_QUOTE);
+    await page.locator('#lp-quote-btn').click();
+
+    // The composer names the quote, not the paragraph holding it.
+    const chip = page.locator('#lp-compose-head .lp-compose-chip');
+    await expect(chip).toHaveCount(1);
+    await expect(chip).toHaveAttribute('data-anchor-kind', 'quote');
+    await expect(chip).toContainText('quick brown fox');
+
+    await saveComposed(page, 'This reads oddly');
+
+    // The quote crosses the <em>, so a capture that read only one text node
+    // would stop at "fox " and never reach "the laz".
+    expect(saved).not.toBeNull();
+    expect(saved!.anchors).toHaveLength(1);
+    expect(saved!.anchors[0].selector).toBe('#prose');
+    expect(saved!.anchors[0].quote).toBe(PROSE_TEXT);
+    expect(saved!.anchors[0].quotePrefix).toBe('The ');
+    expect(saved!.anchors[0].quoteSuffix).toBe('y dog.');
+
+    // The pin and the outline are drawn around the quoted run, which is what
+    // separates this from an anchor on the whole paragraph.
+    const pin = page.locator('.pin');
+    await expect(pin).toHaveCount(1);
+    await expect(pin).toHaveAttribute('data-anchor-kind', 'quote');
+
+    await pin.hover();
+    const outline = await page.locator('#lp-hl').boundingBox();
+    const quoted = await spanIn(page, PROSE_QUOTE);
+    const paragraph = await page.locator('#prose').boundingBox();
+    expect(Math.abs(outline!.width - (quoted.width + 16))).toBeLessThan(2);
+    expect(outline!.width).toBeLessThan(paragraph!.width);
+});
+
+/**
+ * One comment can hold both kinds of anchor, because a reviewer comparing a
+ * sentence with a control is talking about one thing.
+ */
+test('a comment can mix a quoted passage and a whole element', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    const modifier = await addAnchorKey(page);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, PROSE_QUOTE);
+    await page.locator('#lp-quote-btn').click();
+
+    await page.keyboard.down(modifier);
+    await page.locator('#target-me').click();
+    await page.keyboard.up(modifier);
+
+    const chips = page.locator('#lp-compose-head .lp-compose-chip');
+    await expect(chips).toHaveCount(2);
+    await expect(chips.nth(0)).toHaveAttribute('data-anchor-kind', 'quote');
+    await expect(chips.nth(1)).toHaveAttribute('data-anchor-kind', 'element');
+
+    await saveComposed(page, 'This sentence contradicts that button');
+
+    // One comment, two anchors, and only the quoted one carries quote fields.
+    const comments = await fetchReviewComments(page);
+    expect(comments).toHaveLength(1);
+    expect(comments[0].anchors).toHaveLength(2);
+    expect(comments[0].anchors[0].quote).toBe(PROSE_TEXT);
+    expect(comments[0].anchors[1].selector).toBe('#target-me');
+    expect(comments[0].anchors[1].quote).toBeNull();
+
+    // Both anchors get a pin, numbered alike, each measured on its own kind.
+    const pins = page.locator('.pin');
+    await expect(pins).toHaveCount(2);
+    await expect(pins.nth(0)).toHaveText('1');
+    await expect(pins.nth(1)).toHaveText('1');
+    await expect(pins.nth(0)).toHaveAttribute('data-anchor-kind', 'quote');
+    await expect(pins.nth(1)).toHaveAttribute('data-anchor-kind', 'element');
+});
+
+/**
+ * A live page has no version boundary, so a quote can stop reading at any time.
+ * The anchor then falls back to the element it was taken from: the comment keeps
+ * its pin and its outline, and only the precision is lost.
+ */
+test('a quote that no longer reads falls back to its element', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, PROSE_QUOTE);
+    await page.locator('#lp-quote-btn').click();
+    await saveComposed(page, 'Reword this');
+
+    // Re-anchoring from storage is the starting point, so the degrade below is
+    // the quote failing to match rather than the comment never resolving.
+    await openWithComments(page, keepHarnessUrl);
+    const pin = page.locator('.pin');
+    await expect(pin).toHaveCount(1);
+    await expect(pin).toHaveAttribute('data-anchor-kind', 'quote');
+
+    // The paragraph is rewritten under the saved comment, as a live page does.
+    // Its selector still matches; its quote no longer reads anywhere in it.
+    await page.evaluate(() => {
+        document.querySelector('#prose')!.textContent =
+            'The rewritten sentence says something else now.';
+        window.dispatchEvent(new Event('resize'));
+    });
+    await expect(pin).toHaveCount(1);
+    await expect(pin).toHaveAttribute('data-anchor-kind', 'element');
+
+    // The outline is the paragraph now, not a narrower run inside it.
+    await pin.hover();
+    const outline = await page.locator('#lp-hl').boundingBox();
+    const paragraph = await page.locator('#prose').boundingBox();
+    expect(Math.abs(outline!.width - (paragraph!.width + 16))).toBeLessThan(2);
+
+    // The stored quote survives for the agent; only the drawing degrades.
+    const comments = await fetchReviewComments(page);
+    expect(comments[0].anchors[0].quote).toBe(PROSE_TEXT);
+});
+
+/**
+ * The widget's panel lives in a shadow root, and `Node.contains` does not cross
+ * that boundary. Text selected inside the widget must not be offered as a page
+ * quote: no selector reaches into a shadow root, so the anchor could never
+ * resolve, and would be built from the widget's own markup.
+ */
+test('text selected inside the widget is not offered as a quote', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.getByRole('button', { name: 'Review' }).click();
+
+    const selected = await page.evaluate(() => {
+        const roots = [...document.querySelectorAll('*')]
+            .map((node) => node.shadowRoot)
+            .filter(Boolean) as ShadowRoot[];
+        const panel = roots.find((root) => root.getElementById('lp-panel'))!;
+        const copy = panel.querySelector('.lp-empty-sub')!;
+        const text = [...copy.childNodes].find(
+            (node) => node.nodeType === Node.TEXT_NODE,
+        ) as Text;
+        const range = document.createRange();
+        range.setStart(text, 0);
+        range.setEnd(text, Math.min(10, text.data.length));
+        const selection = document.getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return selection.toString();
+    });
+
+    // The selection really happened; the widget declines to act on it.
+    expect(selected.length).toBeGreaterThan(0);
+    await expect(page.locator('#lp-quote-btn')).toBeHidden();
+});
+
+/**
+ * A pin is anchored to the URL it was made on, and so is a selection waiting to
+ * become one. A client-side route change must withdraw the offer, or a click
+ * would store the old page's selector and quote against the new URL.
+ */
+test('a same-document navigation withdraws a waiting quote offer', async ({
+    page,
+}) => {
+    await openHarness(page);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, PROSE_QUOTE);
+    const offer = page.locator('#lp-quote-btn');
+    await expect(offer).toBeVisible();
+
+    await page.evaluate(() =>
+        history.pushState(
+            {},
+            '',
+            `${location.pathname}${location.search}&page=2`,
+        ),
+    );
+    await expect(offer).toBeHidden();
+});
+
+/**
+ * Two surviving occurrences that the stored context no longer separates are a
+ * coin flip. Naming one would put the comment on a passage the reviewer may not
+ * have meant, so the anchor degrades to its element instead.
+ */
+test('a quote whose context no longer separates its twins degrades', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+
+    const second = await occurrenceAt(page, 1);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, repeatSpan(second));
+    await page.locator('#lp-quote-btn').click();
+    await saveComposed(page, 'The second one again');
+
+    await openWithComments(page, keepHarnessUrl);
+    const pin = page.locator('.pin');
+    await expect(pin).toHaveAttribute('data-anchor-kind', 'quote');
+
+    // Both phrases survive, and the words before them are rewritten so neither
+    // prefix matches. Both still end in the stored suffix, so both score one:
+    // a tie, which says the context no longer separates them.
+    await page.evaluate(() => {
+        document.querySelector('#prose-repeat')!.textContent =
+            'Zzz the same phrase here. Yyy the same phrase here.';
+        window.dispatchEvent(new Event('resize'));
+    });
+    await expect(pin).toHaveCount(1);
+    await expect(pin).toHaveAttribute('data-anchor-kind', 'element');
+});
+
+/**
+ * An edit PATCHes the body alone, so the composer offers nothing that would
+ * change the anchors. The quote offer has to obey that too: taking a selection
+ * mid-edit would start a new comment and throw the draft away.
+ */
+test('editing a comment withdraws the offer to quote a selection', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, PROSE_QUOTE);
+    await page.locator('#lp-quote-btn').click();
+    await saveComposed(page, 'The original body');
+
+    await page.getByRole('button', { name: /Show .* comment/ }).click();
+    await page.locator('#lp-list .lp-edit').first().click();
+    const textarea = page.getByPlaceholder(/Describe the issue/);
+    await textarea.fill('An edit in progress');
+
+    // Selecting page text mid-edit changes nothing: no offer, one chip still,
+    // and the draft intact.
+    await selectText(page, repeatSpan(await occurrenceAt(page, 0)));
+    await expect(page.locator('#lp-quote-btn')).toBeHidden();
+    await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
+        1,
+    );
+    await expect(textarea).toHaveValue('An edit in progress');
+});
+
+/**
+ * A second selection extends the open comment, the way a second element pick
+ * does. Two occurrences of one phrase are two anchors, because the text around
+ * them differs — the composer must not collapse them into one.
+ */
+test('a second selection adds another quote to the same comment', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    const first = await occurrenceAt(page, 0);
+    const second = await occurrenceAt(page, 1);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, repeatSpan(first));
+    await page.locator('#lp-quote-btn').click();
+    await selectText(page, repeatSpan(second));
+    await page.locator('#lp-quote-btn').click();
+
+    const chips = page.locator('#lp-compose-head .lp-compose-chip');
+    await expect(chips).toHaveCount(2);
+    await saveComposed(page, 'Both of these say the same thing');
+
+    // Same element and same words, told apart only by the text around them.
+    const comments = await fetchReviewComments(page);
+    expect(comments[0].anchors).toHaveLength(2);
+    expect(comments[0].anchors[0].quote).toBe(REPEATED);
+    expect(comments[0].anchors[1].quote).toBe(REPEATED);
+    expect(comments[0].anchors[0].quotePrefix).not.toBe(
+        comments[0].anchors[1].quotePrefix,
+    );
+    await expect(page.locator('.pin')).toHaveCount(2);
+});
+
+/**
+ * A phrase repeated inside one element cannot be told apart by its selector or
+ * by the quote, so the stored prefix and suffix are the only thing that picks
+ * the occurrence the reviewer meant.
+ */
+test('a repeated quote re-anchors to the occurrence it was taken from', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+
+    const start = await occurrenceAt(page, 1);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, repeatSpan(start));
+    await page.locator('#lp-quote-btn').click();
+    await saveComposed(page, 'The second one');
+
+    // The prefix reaches back past the first occurrence, which is what makes the
+    // two distinguishable at all.
+    const comments = await fetchReviewComments(page);
+    expect(comments[0].anchors[0].quote).toBe(REPEATED);
+    expect(comments[0].anchors[0].quotePrefix).toContain('Second run:');
+
+    // Re-anchor from storage on a fresh load, then measure which run it found.
+    await openWithComments(page, keepHarnessUrl);
+    const pin = page.locator('.pin');
+    await expect(pin).toHaveCount(1);
+    await pin.hover();
+    const outline = await page.locator('#lp-hl').boundingBox();
+    const second = await spanIn(page, repeatSpan(start));
+    const first = await spanIn(page, repeatSpan(await occurrenceAt(page, 0)));
+    expect(Math.abs(outline!.x - (second.x - 8))).toBeLessThan(2);
+    expect(Math.abs(outline!.x - (first.x - 8))).toBeGreaterThan(20);
 });
 
 /**

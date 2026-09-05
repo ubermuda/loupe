@@ -16,13 +16,19 @@
   const DEMO = script.hasAttribute('data-demo');
   // Every comment is saved to the API as it is written and is live from that
   // moment — there is no send step. `comments` mirrors the project's Pending
-  // comments, the ones this reviewer may still edit or delete; once the agent
-  // marks one addressed it drops out. Each item: { id, body, url, anchors }, where
-  // anchors is a list of { selector, text } — several when the comment says something
-  // about a relationship between elements, and empty for an unanchored page note.
+  // comments, the ones this reviewer may still edit or delete; once the agent marks
+  // one addressed it drops out. Each item: { id, body, url, anchors }, and an anchor is
+  // { selector, text, quote, quotePrefix, quoteSuffix } — several when the comment says
+  // how elements relate, none for a page note, and quoting when it points at a run of
+  // text inside its element rather than at the whole element.
   let comments = [];
   const MAX_ANCHORS = 10; // AddCommentRequest's cap — over it the API 422s
   const AT_CAP_MESSAGE = `A comment can point at ${MAX_ANCHORS} elements at most.`;
+  // SiteReviewAnchorInput caps quote, quotePrefix and quoteSuffix at 2000 each. The
+  // widget refuses well under that, because a quote long enough to approach it is a
+  // whole section rather than the passage the reviewer means.
+  const QUOTE_MAX = 1000;
+  const LONG_QUOTE_MESSAGE = `A quote can be ${QUOTE_MAX} characters at most. Select a shorter passage.`;
 
   // Hold this key to add another element to the comment being composed. Ctrl is
   // the modifier away from a Mac, where Ctrl+click is a right click.
@@ -116,6 +122,7 @@
     state.draft = '';
     state.actionError = null;
     state.savedNotice = null;
+    state.quotePick = null;
     textareaNode.value = '';
   };
 
@@ -201,16 +208,131 @@
     }
   };
 
-  // Every anchor of a comment paired with the element it resolves to on this
-  // page, or null when the anchor no longer matches. Empty for an unanchored
-  // comment or one made on another page.
+  // ---- text quotes (the W3C TextQuoteSelector shape) ----
+  // Characters of context kept on each side of a quote, and how many of them a
+  // match is confirmed on. Both mirror the document reviewer's AnchorService,
+  // which solved this same problem against a rendered document.
+  const QUOTE_CONTEXT = 32;
+  const QUOTE_FINGERPRINT = 8;
+
+  // The last `count` codepoints of `text` ending at the UTF-16 offset `index`.
+  // A plain slice would build a shorter window, and could halve a surrogate
+  // pair, around an emoji.
+  const beforeText = (text, index, count) =>
+    Array.from(text.slice(Math.max(0, index - count * 2), index))
+      .slice(-count)
+      .join('');
+  // The first `count` codepoints of `text` starting at the UTF-16 offset `index`.
+  const afterText = (text, index, count) =>
+    Array.from(text.slice(index, index + count * 2))
+      .slice(0, count)
+      .join('');
+
+  const textWalker = (root) => document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+
+  // Offset at which `element`'s own text begins within `root`'s textContent.
+  const elementStartOffset = (root, element) => {
+    const walker = textWalker(root);
+    let offset = 0;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      // A descendant of the element reports FOLLOWING too, so this stops at the
+      // element's own subtree as well as at anything after it.
+      if (element.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING) break;
+      offset += node.textContent.length;
+    }
+    return offset;
+  };
+
+  // Offset of (node, offsetInNode) within `root`'s textContent. A range boundary
+  // can land on an element rather than a text node — a triple-click selects a
+  // whole block — and the offset then counts child nodes, not characters.
+  const textOffsetIn = (root, node, offsetInNode) => {
+    if (node.nodeType === 1) {
+      const before = [...node.childNodes]
+        .slice(0, offsetInNode)
+        .reduce((total, child) => total + child.textContent.length, 0);
+      return elementStartOffset(root, node) + before;
+    }
+    const walker = textWalker(root);
+    let offset = 0;
+    for (let current = walker.nextNode(); current; current = walker.nextNode()) {
+      if (current === node) return offset + offsetInNode;
+      offset += current.textContent.length;
+    }
+    return offset;
+  };
+
+  // A [start, end) span of `root`'s textContent as a live DOM Range.
+  const rangeForSpan = (root, start, end) => {
+    const walker = textWalker(root);
+    const range = document.createRange();
+    let offset = 0;
+    let startSet = false;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const length = node.textContent.length;
+      if (!startSet && start <= offset + length) {
+        range.setStart(node, start - offset);
+        startSet = true;
+      }
+      if (startSet && end <= offset + length) {
+        range.setEnd(node, end - offset);
+        return range;
+      }
+      offset += length;
+    }
+    return null;
+  };
+
+  // Where an anchor's quote reads now, as a Range, or null when it no longer
+  // reads at all, and null again when nothing separates two occurrences.
+  // textContent, never innerText: innerText collapses whitespace, so it would
+  // count different characters from the ones the capture counted.
+  const quoteRange = (el, anchor) => {
+    const quote = (anchor && anchor.quote) || '';
+    if (!el || !quote) return null;
+    const haystack = el.textContent || '';
+    const hits = [];
+    for (let at = haystack.indexOf(quote); at !== -1; at = haystack.indexOf(quote, at + 1)) {
+      hits.push(at);
+    }
+    if (!hits.length) return null;
+    const prefix = anchor.quotePrefix || '';
+    const suffix = anchor.quoteSuffix || '';
+    const score = (start) => {
+      let value = 0;
+      const head = beforeText(haystack, start, QUOTE_CONTEXT);
+      const tail = afterText(haystack, start + quote.length, QUOTE_CONTEXT);
+      if (prefix && head.endsWith(beforeText(prefix, prefix.length, QUOTE_FINGERPRINT))) value += 1;
+      if (suffix && tail.startsWith(afterText(suffix, 0, QUOTE_FINGERPRINT))) value += 1;
+      return value;
+    };
+    const ranked = hits
+      .map((at) => ({ at, rank: score(at) }))
+      .sort((a, b) => b.rank - a.rank || a.at - b.at);
+    // Resolve only when one occurrence outranks every other. A tie means the
+    // stored context does not say which one the reviewer meant, and position
+    // alone would be a coin flip, so the anchor degrades to its element. A lone
+    // hit needs no context, because there is nothing else it could be.
+    if (ranked.length > 1 && ranked[0].rank === ranked[1].rank) return null;
+    const start = ranked[0].at;
+    try {
+      return rangeForSpan(el, start, start + quote.length);
+    } catch {
+      return null;
+    }
+  };
+
+  // Every anchor paired with the element it resolves to on this page, or null
+  // when it no longer matches. Empty off-page and for an unanchored comment.
+  // `range` is resolved fresh every pass, because the host page's nodes are
+  // replaced under it. A stale quote leaves it null and `el` intact, which is
+  // how the anchor degrades to its element instead of dropping the comment.
   const resolveAnchors = (comment) => {
     if (comment.url !== location.href) return [];
-    return anchorsOf(comment).map((anchor, anchorIndex) => ({
-      anchor,
-      anchorIndex,
-      el: anchor.selector ? queryOne(anchor.selector) : null,
-    }));
+    return anchorsOf(comment).map((anchor, anchorIndex) => {
+      const el = anchor.selector ? queryOne(anchor.selector) : null;
+      return { anchor, anchorIndex, el, range: quoteRange(el, anchor) };
+    });
   };
 
   // A comment is degraded when it was anchored to several elements and at least
@@ -235,6 +357,12 @@
     if (!line) return '';
     return line.length > 44 ? line.slice(0, 43).trim() + '…' : line;
   };
+
+  // What an anchor is called: the text it quotes, or its element's own text when
+  // it quotes nothing. Pass kind 'element' where the widget is drawing the
+  // element rather than the quote, so the name matches the box on the page.
+  const anchorLabel = (anchor, kind) =>
+    firstLineLabel('element' === kind ? anchor.text : anchor.quote || anchor.text);
 
   // Where a comment was made, as a short path. The reviewer only needs to tell one
   // page from another, so the origin is dropped and the raw string is the fallback
@@ -371,6 +499,12 @@
     glyph: (s) =>
       `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" ` +
       `stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg>`,
+    quote: (s) =>
+      svg(
+        s,
+        '<path d="M9 7H5a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h2v1a3 3 0 0 1-3 3"/><path d="M19 7h-4a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h2v1a3 3 0 0 1-3 3"/>',
+        1.9,
+      ),
     corners: (s) =>
       svg(s, '<path d="M4 9V4h5"/><path d="M15 4h5v5"/><path d="M20 15v5h-5"/><path d="M9 20H4v-5"/>', 1.9),
     alert: (s) =>
@@ -430,6 +564,7 @@
     corner: readCorner(), // which corner the launcher and the panel are pinned to
     toastDock: 'top', // 'top' | 'bottom' — the pick-mode toast dodges away from the cursor
     moveHL: null, // { left, top, width, height, label } while picking
+    quotePick: null, // { range, anchor } — a live selection offering to be quoted
     hoverId: null, // hovered comment index (list row)
     hoverAnchor: null, // anchor index whose on-page remove control is revealed
     hoverPinId: null, // hovered pin index
@@ -669,7 +804,7 @@
             <div class="lp-empty" id="lp-empty">
               <div class="lp-empty-icon">${ICON.comment(20)}</div>
               <div class="lp-empty-title">No comments yet</div>
-              <div class="lp-empty-sub">Add a note, or pick an element on the page to anchor your feedback.</div>
+              <div class="lp-empty-sub">Select text, pick an element, or add a note.</div>
             </div>
           </div>
         </div>
@@ -775,6 +910,11 @@
       .lp-toast-key{margin-left:2px;padding:3px 9px;background:var(--bar-raised);border:1px solid var(--bar-line);border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;transition:background .12s ease}
       .lp-toast-key:hover{background:var(--bar-line)}
       .lp-toast--saved{padding:9px 15px}
+      /* The offer to quote a selection. Same bar furniture as the toasts, so it
+         reads as the widget rather than as host-page chrome. */
+      .lp-quote-btn{position:fixed;z-index:6;display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 12px;background:var(--bar-bg);border:1px solid var(--bar-line);color:var(--bar-fg);border-radius:999px;font-family:var(--font);font-size:12.5px;font-weight:600;white-space:nowrap;cursor:pointer;pointer-events:auto;box-shadow:var(--bar-shadow);animation:lp-fade .12s ease}
+      .lp-quote-btn:hover{background:var(--bar-raised)}
+      .lp-quote-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     </style>
     <div class="lp-ov" id="lp-ov">
       <div class="lp-scrim" id="lp-scrim" style="display:none"></div>
@@ -793,6 +933,9 @@
         ${ICON.check(15, 2.6, 'var(--success)')}
         <span id="lp-saved-text"></span>
       </div>
+      <button class="lp-quote-btn" id="lp-quote-btn" type="button" style="display:none">
+        ${ICON.quote(13)}<span>Comment on this text</span>
+      </button>
     </div>`;
 
   const $ = (id) => root.getElementById(id);
@@ -808,6 +951,7 @@
   const toastNode = $$('lp-toast');
   const toastText = $$('lp-toast-text');
   const savedToastNode = $$('lp-saved');
+  const quoteBtn = $$('lp-quote-btn');
   const panelNode = $('lp-panel');
   const mainNode = $('lp-main');
   const fatalNode = $('lp-fatal');
@@ -858,11 +1002,18 @@
     }
     return current;
   };
-  const rectOf = (el) => {
-    const r = el.getBoundingClientRect();
+  // An element or a Range — both answer getBoundingClientRect, and a quoted
+  // anchor is measured on its run of text rather than on its element. A range
+  // over several lines gives one box spanning them.
+  const rectOf = (box) => {
+    const r = box.getBoundingClientRect();
     if (r.width === 0 && r.height === 0) return null;
     return r;
   };
+  // What an anchor is drawn around: its quoted text when the quote still reads
+  // on the page, and its element when it does not.
+  const boxOf = (entry) => entry.range || entry.el;
+  const anchorKind = (entry) => (entry.range ? 'quote' : 'element');
 
   // ---- overlay render (scrim / highlight / pins / toast) ----
   const HIGHLIGHT_PADDING = 8; // px of breathing room around the targeted element
@@ -874,7 +1025,12 @@
   const highlightTargets = () => {
     const composed = state.composing
       ? composeAnchors()
-          .map((entry, anchorIndex) => ({ el: entry.el, label: entry.label, anchorIndex }))
+          .map((entry, anchorIndex) => ({
+            el: entry.el,
+            range: entry.range,
+            label: entry.label,
+            anchorIndex,
+          }))
           .filter((entry) => entry.el)
       : [];
     // The box carries a remove control only while a new comment is composed and
@@ -883,6 +1039,7 @@
     const removable = state.editId == null && !state.target;
     const mark = (entry) => ({
       el: entry.el,
+      range: entry.range,
       anchorIndex: entry.anchorIndex,
       removeIndex: removable ? entry.anchorIndex : null,
     });
@@ -893,6 +1050,7 @@
       const last = composed[composed.length - 1];
       return {
         el: last.el,
+        range: last.range,
         label: last.label,
         anchorIndex: last.anchorIndex,
         removeIndex: mark(last).removeIndex,
@@ -903,16 +1061,21 @@
       // The pin key is `${commentIndex}:${anchorIndex}` — frame that one anchor.
       const [commentIndex, anchorIndex] = String(state.hoverPinId).split(':').map(Number);
       const found = resolveAnchors(comments[commentIndex] || {}).filter((entry) => entry.el);
+      const framed = found.find((entry) => entry.anchorIndex === anchorIndex);
       return {
-        el: found.find((entry) => entry.anchorIndex === anchorIndex)?.el,
+        el: framed?.el,
+        range: framed?.range,
         others: found
           .filter((entry) => entry.anchorIndex !== anchorIndex)
-          .map((entry) => ({ el: entry.el })),
+          .map((entry) => ({ el: entry.el, range: entry.range })),
       };
     }
     if (state.hoverId != null && comments[state.hoverId]) {
-      const found = anchorHealth(comments[state.hoverId]).found.map((entry) => ({ el: entry.el }));
-      return { el: found[0] && found[0].el, others: found.slice(1) };
+      const found = anchorHealth(comments[state.hoverId]).found.map((entry) => ({
+        el: entry.el,
+        range: entry.range,
+      }));
+      return { el: found[0] && found[0].el, range: found[0] && found[0].range, others: found.slice(1) };
     }
     return { others: [] };
   };
@@ -929,13 +1092,14 @@
         hlsNode.appendChild(node);
         sibNodes[index] = node;
       }
-      const r = rectOf(entry.el);
+      const r = rectOf(boxOf(entry));
       if (!r) {
         node.style.display = 'none';
         node.classList.remove('removable', 'lit');
         node.dataset.anchorHover = '';
         return;
       }
+      node.dataset.anchorKind = anchorKind(entry);
       node.classList.toggle('removable', entry.removeIndex != null);
       node.classList.toggle('lit', entry.anchorIndex != null && state.hoverAnchor === entry.anchorIndex);
       node.dataset.anchorHover = entry.anchorIndex == null ? '' : String(entry.anchorIndex);
@@ -1021,17 +1185,19 @@
     let hl = null;
     if (targets.move) {
       hl = targets.move;
+      hlNode.dataset.anchorKind = 'element';
     } else if (targets.el) {
-      const r = rectOf(targets.el);
+      const r = rectOf(boxOf(targets));
       if (r) {
         hl = { left: r.left, top: r.top, width: r.width, height: r.height, label: targets.label || null };
+        hlNode.dataset.anchorKind = anchorKind(targets);
       }
     }
     // Every removable anchor gets a control, the framed one included, and each is
     // measured from the same outset rect the box is drawn with.
     const controls = [];
     others.forEach((entry) => {
-      const r = entry.removeIndex != null && rectOf(entry.el);
+      const r = entry.removeIndex != null && rectOf(boxOf(entry));
       if (r) controls.push({ rect: outset(r), inner: r, removeIndex: entry.removeIndex });
     });
     if (hl && framedRemove != null) {
@@ -1042,6 +1208,7 @@
       hlNode.style.display = 'none';
       hlNode.classList.remove('removable', 'lit');
       hlNode.dataset.anchorHover = '';
+      hlNode.dataset.anchorKind = '';
       return;
     }
     // Outset the measured rect so the outline frames the element rather than
@@ -1090,7 +1257,7 @@
   // a separate node toggled in place, so arming/cancelling delete never rebuilds the
   // card (which would replay its fade-in and flicker).
   const buildPopover = (comment, index, info) => {
-    const label = firstLineLabel(info.anchor.text);
+    const label = anchorLabel(info.anchor, info.kind);
     // A degraded comment names how many of its elements survived, so the reviewer
     // is not left reading a note about two things beside a pin on one.
     const missing = info.total - info.foundCount;
@@ -1176,7 +1343,7 @@
     comments.forEach((comment, index) => {
       const { found, total, degraded } = anchorHealth(comment);
       found.forEach((entry) => {
-        const r = rectOf(entry.el);
+        const r = rectOf(boxOf(entry));
         if (!r) return;
         const onScreen = !(
           r.bottom < 0 ||
@@ -1188,6 +1355,7 @@
           comment,
           index,
           anchor: entry.anchor,
+          kind: anchorKind(entry),
           total,
           foundCount: found.length,
           degraded,
@@ -1227,6 +1395,7 @@
       wrap.style.display = info.onScreen ? '' : 'none';
       const pin = wrap.querySelector('.pin');
       pin.textContent = String(info.index + 1);
+      pin.dataset.anchorKind = info.kind;
       pin.classList.toggle('degraded', info.degraded);
       // Build the card once on hover; toggle the confirm overlay in place. Neither
       // is rebuilt on scroll, so nothing re-animates while repositioning.
@@ -1283,6 +1452,32 @@
     positionToast();
   };
 
+  // The offer sits just under the selection, flipping above it near the bottom
+  // edge and clamped horizontally, on the same reasoning as the pin popover.
+  const QUOTE_BTN_GAP = 8;
+  const QUOTE_BTN_HEIGHT = 30; // matches .lp-quote-btn
+  const renderQuoteButton = () => {
+    const pick = state.quotePick;
+    if (!pick || state.target || state.fatal || !state.open || state.editId != null || hidden.matches) {
+      quoteBtn.style.display = 'none';
+      return;
+    }
+    quoteBtn.style.display = 'inline-flex';
+    const r = pick.range.getBoundingClientRect();
+    const maxLeft = Math.max(QUOTE_BTN_GAP, window.innerWidth - quoteBtn.offsetWidth - QUOTE_BTN_GAP);
+    const below = r.bottom + QUOTE_BTN_GAP;
+    const fits = below + QUOTE_BTN_HEIGHT + QUOTE_BTN_GAP <= window.innerHeight;
+    quoteBtn.style.left = Math.min(Math.max(r.left, QUOTE_BTN_GAP), maxLeft) + 'px';
+    quoteBtn.style.top =
+      (fits ? below : Math.max(QUOTE_BTN_GAP, r.top - QUOTE_BTN_HEIGHT - QUOTE_BTN_GAP)) + 'px';
+  };
+
+  const clearQuotePick = () => {
+    if (!state.quotePick) return;
+    state.quotePick = null;
+    renderQuoteButton();
+  };
+
   const renderOverlay = () => {
     scrimNode.style.display = state.target ? 'block' : 'none';
     toastNode.style.display = state.target ? 'flex' : 'none';
@@ -1298,6 +1493,7 @@
     }
     renderPins();
     updateHighlight();
+    renderQuoteButton();
   };
 
   // Copy for a failed mutation. Auth failures (401/403) never reach here — authFailed()
@@ -1403,12 +1599,16 @@
         const editable = state.editId == null;
         const chips = anchors
           .map((anchor, anchorIndex) => {
-            const label = anchor.label || 'Selected element';
-            return `<span class="lp-compose-chip" data-anchor-chip="${anchorIndex}"><button class="lp-chip-name" type="button" data-anchor-pill="${anchorIndex}" aria-label="Highlight ${escapeHtml(
+            const quoted = !!anchor.quote;
+            const label = anchor.label || (quoted ? 'Selected text' : 'Selected element');
+            const noun = quoted ? 'text' : 'element';
+            return `<span class="lp-compose-chip" data-anchor-chip="${anchorIndex}" data-anchor-kind="${
+              quoted ? 'quote' : 'element'
+            }"><button class="lp-chip-name" type="button" data-anchor-pill="${anchorIndex}" aria-label="Highlight ${escapeHtml(
               label,
-            )}">${ICON.glyph(11)}<span>${escapeHtml(label)}</span></button>${
+            )}">${quoted ? ICON.quote(11) : ICON.glyph(11)}<span>${escapeHtml(label)}</span></button>${
               editable
-                ? `<button class="lp-chip-x" data-anchor-remove="${anchorIndex}" aria-label="Remove this element">×</button>`
+                ? `<button class="lp-chip-x" data-anchor-remove="${anchorIndex}" aria-label="Remove this ${noun}">×</button>`
                 : ''
             }</span>`;
           })
@@ -1578,7 +1778,7 @@
           ? `${found.length} of ${anchors.length} elements`
           : `${anchors.length} elements`;
       } else if (isElement) {
-        label = firstLineLabel(anchors[0].text);
+        label = anchorLabel(anchors[0]);
       }
       const showChip = isElement ? !!label : true;
       chipEl.style.display = showChip ? '' : 'none';
@@ -1677,25 +1877,77 @@
     label: firstLineLabel(el.innerText),
   });
 
+  // The element a selection is anchored to: the smallest one holding the whole
+  // range. A selection spanning several blocks keeps the wrapper around them,
+  // because the quote inside it is still exact. <body> and <html> are refused,
+  // because a selector naming either says only what a page note already says.
+  const containerElementOf = (range) => {
+    let el = range.commonAncestorContainer;
+    if (el && el.nodeType !== 1) el = el.parentElement;
+    if (!el || el.nodeType !== 1) return null;
+    // getRootNode rather than insideWidget alone: Node.contains does not cross a
+    // shadow boundary, so text selected in the widget's own panel reads as host
+    // page text. A selector cannot reach into any shadow root either, so one
+    // belonging to the host page is refused here for the same reason.
+    if (el.getRootNode() !== document) return null;
+    if (el === document.body || el === document.documentElement) return null;
+    return insideWidget(el) ? null : el;
+  };
+
+  // A selected run of text as an anchor. The quote and its context are sliced
+  // from the container's textContent, the same basis quoteRange searches, so
+  // capture and match always count the same characters. Not Selection.toString():
+  // Chrome puts a break between blocks there, and that string is then not a
+  // substring of textContent, so nothing would re-anchor. `text` stays the
+  // element's innerText, which is where those breaks survive.
+  const anchorForRange = (range) => {
+    const el = containerElementOf(range);
+    if (!el) return null;
+    const haystack = el.textContent || '';
+    const start = textOffsetIn(el, range.startContainer, range.startOffset);
+    const end = textOffsetIn(el, range.endContainer, range.endOffset);
+    if (end <= start) return null;
+    const quote = haystack.slice(start, end);
+    if (!quote.trim()) return null;
+    if (Array.from(quote).length > QUOTE_MAX) return { tooLong: true };
+    return {
+      ...anchorFor(el),
+      range,
+      quote,
+      quotePrefix: beforeText(haystack, start, QUOTE_CONTEXT),
+      quoteSuffix: afterText(haystack, end, QUOTE_CONTEXT),
+      label: firstLineLabel(quote),
+    };
+  };
+
   // The anchors the composer currently holds, empty for a page note.
   const composeAnchors = () => {
     const ct = state.composeTarget;
     return ct && ct.type === 'element' ? ct.anchors : [];
   };
 
-  // Add the picked element to the composer. A pick while a new comment is open
-  // extends it rather than replacing its anchor, which is how one comment comes
-  // to say something about several elements. `keepPicking` holds pick mode open
-  // for the next one, which is what the add-another modifier does.
-  const openElementComposer = (el, keepPicking) => {
-    const anchor = anchorFor(el);
+  // The element alone would swallow a second passage inside an element already
+  // pointed at, and the quote alone would swallow the second of two identical
+  // phrases — the pair the stored context exists to tell apart. So all three
+  // fields decide, joined on NUL, which the HTML parser never leaves in page
+  // text and which therefore cannot run two fields into another pair's key.
+  const quoteKey = (anchor) =>
+    [anchor.quote || '', anchor.quotePrefix || '', anchor.quoteSuffix || ''].join('\u0000');
+  const sameAnchor = (a, b) => a.el === b.el && quoteKey(a) === quoteKey(b);
+
+  // Add an anchor to the composer, whether it names an element or a run of text
+  // inside one. A pick while a new comment is open extends it rather than
+  // replacing its anchor, which is how one comment comes to say something about
+  // several things. `keepPicking` holds pick mode open for the next one, which
+  // is what the add-another modifier does.
+  const addComposeAnchor = (anchor, keepPicking) => {
     if (state.composing && state.editId == null) {
       const existing = composeAnchors();
       let stayed = keepPicking;
       if (existing.length >= MAX_ANCHORS) {
         state.actionError = { message: AT_CAP_MESSAGE };
         stayed = false;
-      } else if (!existing.some((entry) => entry.el === el)) {
+      } else if (!existing.some((entry) => sameAnchor(entry, anchor))) {
         state.composeTarget = { type: 'element', anchors: existing.concat([anchor]) };
       }
       state.open = true;
@@ -1715,6 +1967,25 @@
     state.addAnchor = !!keepPicking;
     sync();
     if (!keepPicking) focusTextarea();
+  };
+  const openElementComposer = (el, keepPicking) => addComposeAnchor(anchorFor(el), keepPicking);
+
+  // Turn the reviewer's selection into a quoted anchor. The offer is what calls
+  // this, never the selection itself: acting on every drag would take a gesture
+  // the reviewer aimed at the host page.
+  const commentOnSelection = () => {
+    const anchor = state.quotePick && state.quotePick.anchor;
+    clearQuotePick();
+    if (!anchor) return;
+    if (anchor.tooLong) {
+      state.actionError = { message: LONG_QUOTE_MESSAGE };
+      state.open = true;
+      sync();
+      return;
+    }
+    const selection = document.getSelection();
+    if (selection) selection.removeAllRanges();
+    addComposeAnchor(anchor, false);
   };
 
   // Drop one anchor from the composer. Removing the last one leaves the comment
@@ -1747,7 +2018,7 @@
   // pointer that is only browsing the pills.
   const showAnchor = (anchorIndex) => {
     const anchor = composeAnchors()[anchorIndex];
-    const r = anchor && anchor.el && rectOf(anchor.el);
+    const r = anchor && anchor.el && rectOf(boxOf(anchor));
     if (!r) return;
     const onScreen =
       r.top >= 0 &&
@@ -1797,12 +2068,19 @@
     state.composeTarget = stored.length
       ? {
           type: 'element',
-          anchors: stored.map((anchor) => ({
-            el: onThisPage ? queryOne(anchor.selector) : null, // null off-page — fine
-            selector: anchor.selector,
-            text: anchor.text,
-            label: firstLineLabel(anchor.text),
-          })),
+          anchors: stored.map((anchor) => {
+            const el = onThisPage ? queryOne(anchor.selector) : null; // null off-page — fine
+            return {
+              el,
+              range: quoteRange(el, anchor),
+              selector: anchor.selector,
+              text: anchor.text,
+              quote: anchor.quote,
+              quotePrefix: anchor.quotePrefix,
+              quoteSuffix: anchor.quoteSuffix,
+              label: anchorLabel(anchor),
+            };
+          }),
         }
       : { type: 'general' };
     state.draft = comment.body;
@@ -1838,9 +2116,21 @@
         await api('PATCH', `/api/site-review/comments/${target.id}`, { body });
         target.body = body;
       } else {
+        // The quote fields go over the wire only when the anchor names a run of
+        // text; an element anchor sends none, and the API stores null.
         const anchors = composeAnchors()
           .filter((entry) => entry.selector)
-          .map((entry) => ({ selector: entry.selector, text: entry.text }));
+          .map((entry) => ({
+            selector: entry.selector,
+            text: entry.text,
+            ...(entry.quote
+              ? {
+                  quote: entry.quote,
+                  quotePrefix: entry.quotePrefix,
+                  quoteSuffix: entry.quoteSuffix,
+                }
+              : {}),
+          }));
         // selector/text repeat the first anchor for an instance that predates
         // anchors[]. This script's URL carries no version, so a browser can hold
         // this copy long after a rollback, and that instance would otherwise save
@@ -2338,6 +2628,40 @@
   ovRoot.addEventListener('mouseout', (event) => {
     if (hoverAnchorOf(event.relatedTarget) == null) setHoverAnchor(null);
   });
+  // A press must not reach the page, which would collapse the very selection
+  // the button is offering to quote before the click ever fires.
+  quoteBtn.addEventListener('mousedown', (event) => event.preventDefault());
+  quoteBtn.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    commentOnSelection();
+  });
+
+  // A selection offers to become a quoted anchor only while the panel is open
+  // and no saved comment is being edited: an edit sends the body alone, so
+  // taking the selection would start a new comment and lose the draft.
+  // selectionchange rather than mouseup, so a keyboard selection reaches it.
+  const readSelection = () => {
+    if (state.fatal || state.target || !state.open || state.editId != null || hidden.matches) {
+      return clearQuotePick();
+    }
+    const selection = document.getSelection();
+    if (!selection || selection.isCollapsed || !selection.rangeCount) return clearQuotePick();
+    const range = selection.getRangeAt(0);
+    const anchor = anchorForRange(range.cloneRange());
+    if (!anchor) return clearQuotePick();
+    state.quotePick = { range: range.cloneRange(), anchor };
+    renderQuoteButton();
+  };
+  let selectionFrame = 0;
+  document.addEventListener('selectionchange', () => {
+    if (selectionFrame) return;
+    selectionFrame = requestAnimationFrame(() => {
+      selectionFrame = 0;
+      readSelection();
+    });
+  });
+
   textareaNode.addEventListener('input', (event) => {
     state.draft = event.target.value;
   });
@@ -2415,6 +2739,7 @@
       repositionFrame = 0;
       renderPins();
       updateHighlight();
+      renderQuoteButton();
       // A toast resting against the bottom is placed from innerHeight, so a
       // resize moves it.
       if (state.target) positionToast();
@@ -2431,6 +2756,7 @@
   const rerenderAnchors = () => {
     renderPins();
     updateHighlight();
+    renderQuoteButton();
   };
   let lastSeenUrl = location.href;
   const handleLocationChange = () => {
@@ -2439,6 +2765,9 @@
     state.hoverId = null;
     state.hoverPinId = null;
     state.pinConfirmId = null;
+    // A selection held from the old page names an element that is about to go,
+    // and saving it would store that selector against the new URL.
+    clearQuotePick();
     rerenderAnchors();
     // Under Turbo the <body> is swapped *after* the URL changes, so the new page's
     // anchors resolve to null on this tick and would never reappear until a scroll.

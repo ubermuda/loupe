@@ -158,15 +158,26 @@ longer reports the `selector` and `text` fields, which held one element each.
   "body": "These two should sit side by side.",
   "anchors": [
     { "selector": ".plan-card", "text": "Starter", "quote": null, "quotePrefix": null, "quoteSuffix": null },
-    { "selector": ".plan-note", "text": "Billed yearly", "quote": null, "quotePrefix": null, "quoteSuffix": null }
+    { "selector": ".plan-note", "text": "Billed yearly per seat", "quote": "per seat", "quotePrefix": "Billed yearly ", "quoteSuffix": "" }
   ]
 }
 ```
 
 A comment with several anchors says something about how those elements relate,
 so read them together. An empty `anchors` list is a note about the page as a
-whole. The `quote` fields are reserved for an anchor on a run of text, and are
-always null today.
+whole.
+
+An anchor whose `quote` is a string points at that run of text inside its
+element, and `quote` is then the subject of the comment. One whose `quote` is
+null points at the whole element. `quotePrefix` and `quoteSuffix` hold up to 32
+characters of the surrounding page text; they exist so the widget can find the
+passage again when the same words appear twice in one element, and they are not
+part of what the reviewer said.
+
+A live page has no version boundary, so a quote can stop matching. The widget
+then falls back to drawing the element, and the payload keeps the quote. An
+agent that cannot find a quote on the page should report that rather than guess
+which text replaced it.
 
 ## Two things agents get wrong
 
