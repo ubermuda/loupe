@@ -9,6 +9,7 @@ use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Command\AddCommentCommand;
 use App\Module\SiteReview\Command\AddCommentHandler;
 use App\Module\SiteReview\Command\NewAnchor;
+use App\Module\SiteReview\Command\NewStroke;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
 use Symfony\Component\Routing\Attribute\Route;
@@ -43,6 +44,7 @@ final class AddCommentController extends AppController
             body: $body,
             url: trim($payload->url ?? ''),
             anchors: $this->anchorsOf($payload),
+            strokes: $this->strokesOf($payload),
         ));
 
         return $this->json(['commentId' => (string) $comment->id], JsonResponse::HTTP_CREATED);
@@ -68,6 +70,30 @@ final class AddCommentController extends AppController
                 quoteSuffix: $anchor->quoteSuffix,
             ),
             $payload->anchors,
+        ));
+    }
+
+    /**
+     * Validation has already proved every point is a numeric pair, so the cast
+     * here narrows the type rather than repairing the value.
+     *
+     * @return list<NewStroke>
+     */
+    private function strokesOf(AddCommentRequest $payload): array
+    {
+        return array_values(array_map(
+            static fn (SiteReviewStrokeInput $stroke): NewStroke => new NewStroke(
+                space: $stroke->space,
+                points: array_values(array_map(
+                    /** @param array{0: float|int, 1: float|int} $point */
+                    static fn (array $point): array => [
+                        round((float) $point[0], 5),
+                        round((float) $point[1], 5),
+                    ],
+                    $stroke->points,
+                )),
+            ),
+            $payload->strokes,
         ));
     }
 }

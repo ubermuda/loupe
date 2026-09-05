@@ -57,4 +57,29 @@ final class SiteReviewExporterTest extends TestCase
 
         self::assertSame([], $rows[0]['anchors']);
     }
+
+    /**
+     * The export is the user's own copy of their data, so it carries the points
+     * themselves rather than the flag the agent-facing payload reports.
+     */
+    public function test_a_drawing_is_exported_in_full(): void
+    {
+        $owner = new User('Alice A', 'alice@example.com', 'x');
+        $project = new Project($owner, 'My project', 'example.com');
+        $drawn = new SiteReviewComment($project, 0, 'Point here', 'https://example.com/');
+        $drawn->strokes = [['space' => 'page', 'points' => [[0.1, 0.2], [0.3, 0.4]]]];
+        $plain = new SiteReviewComment($project, 1, 'A page note', 'https://example.com/');
+
+        /** @var SiteReviewCommentRepository&Stub $repo */
+        $repo = $this->createStub(SiteReviewCommentRepository::class);
+        $repo->method('findByOwner')->willReturn([$drawn, $plain]);
+
+        $rows = iterator_to_array(new SiteReviewExporter($repo)->export($owner));
+
+        self::assertSame(
+            [['space' => 'page', 'points' => [[0.1, 0.2], [0.3, 0.4]]]],
+            $rows[0]['strokes'],
+        );
+        self::assertSame([], $rows[1]['strokes']);
+    }
 }
