@@ -132,8 +132,9 @@ This repository holds no ADR yet, so the first author creates the home:
 - Name the options you rejected, and name the cost the decision accepts.
 
 A page under `docs/` publishes to the public documentation site by default. The
-loader skips a name that starts with `_`, and it skips the internal paths that
-`website/src/content.config.ts` excludes. Add the new group to
+loader skips a file name that starts with `_`, and it skips the internal paths
+that `website/src/content.config.ts` excludes. A directory name that starts with
+`_` does not hide the files inside it. Add the new group to
 `website/astro.config.mjs`, or the page is reachable only by its URL. Write every
 ADR as public text.
 
