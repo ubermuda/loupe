@@ -1,0 +1,20 @@
+{# This control must contribute NO text. The pane's textContent is what every
+   comment anchor offset is measured against, so a visible label here moves
+   every anchor below this heading. The name lives on aria-label, and
+   `spaceless` clears the whitespace between the tags, which would be text. #}
+{% apply spaceless %}
+<form class="lp-section-approve" method="POST"
+      action="{{ path('app_document_section_approval', {projectId: document.project.id, documentId: document.id}) }}">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token('section-approval') }}">
+    <input type="hidden" name="set_section_approval_form[headingId]" value="{{ headingId }}">
+    <input type="hidden" name="set_section_approval_form[versionNumber]" value="{{ versionNumber }}">
+    <button type="submit"
+            class="lp-section-approve__button{{ approved ? ' lp-section-approve__button--approved' }}"
+            name="set_section_approval_form[action]" value="{{ approved ? 'withdraw' : 'approve' }}"
+            aria-pressed="{{ approved ? 'true' : 'false' }}"
+            aria-label="{{ (approved ? 'review.document.sections.withdraw_label' : 'review.document.sections.approve_label')|trans({'%section%': label}) }}"
+            data-section-approve="{{ headingId }}">
+        <twig:ux:icon name="lucide:circle-check" class="lp-section-approve__icon" />
+    </button>
+</form>
+{% endapply %}

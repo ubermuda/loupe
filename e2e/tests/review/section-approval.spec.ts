@@ -1,6 +1,6 @@
 /**
- * Browser coverage for per-section approval: approving a section from the
- * sections panel, and what a revision does to that approval.
+ * Browser coverage for per-section approval: the button beside each heading,
+ * and what a revision does to the approvals it recorded.
  *
  * The round trip is the point. A section the revision leaves alone stays
  * approved; a section it rewrites comes back unapproved.
@@ -32,6 +32,8 @@ Alpha body stays exactly as it is.
 Beta body reads completely differently now.`;
 
 const SECTIONS_PANEL = '[data-panel="sections"]';
+const HEADING_CONTROL =
+    '[data-comment-anchor-target="doc"] [data-section-approve]';
 
 async function devRegisterAndVerify(page: Page, email: string): Promise<void> {
     const response = await page.request.post('/dev/register-and-verify', {
@@ -99,6 +101,12 @@ const test = base.extend<{ review: SeededReview }>({
 // Guest by default — make the unauthenticated starting state explicit.
 test.use({ storageState: { cookies: [], origins: [] } });
 
+// A test here registers, logs in, seeds, and then makes up to four writes that
+// each redirect and re-render. One such write was measured at six seconds
+// against a php-fpm shared with every other worktree, which overruns the
+// 30-second default.
+test.describe.configure({ timeout: 90000 });
+
 /** Open the sections panel on the current review page. */
 async function openSections(page: Page): Promise<void> {
     await page.getByRole('button', { name: 'Sections' }).click();
@@ -118,16 +126,25 @@ function sectionsTab(page: Page) {
 }
 
 /**
- * Presses one section's button. Every press redirects back to the same page,
- * which closes the panel, so it is re-opened here rather than by each test.
+ * Waits for the running count the tab carries.
+ *
+ * Every press redirects back to the page it came from, so the URL cannot say
+ * the write landed and the count is the signal. The timeout is generous because
+ * the whole write, redirect and re-render was measured at just over six seconds
+ * against a php-fpm shared with every other worktree.
  */
-async function pressSection(
-    page: Page,
-    label: string,
-    button: 'Approve section' | 'Withdraw approval',
-): Promise<void> {
-    await openSections(page);
-    await sectionRow(page, label).getByRole('button', { name: button }).click();
+async function expectSectionCount(page: Page, count: string): Promise<void> {
+    await expect(sectionsTab(page)).toContainText(count, { timeout: 20000 });
+}
+
+/**
+ * The approve button beside one heading, inside the document. It is the only
+ * place a reviewer acts; the panel is an overview and carries no control.
+ */
+function headingControl(page: Page, headingId: string) {
+    return page.locator(
+        `${HEADING_CONTROL}[data-section-approve="${headingId}"]`,
+    );
 }
 
 test.describe('per-section approval', () => {
@@ -137,15 +154,15 @@ test.describe('per-section approval', () => {
     }) => {
         const { documentId, reviewUrl } = review;
 
-        await expect(sectionsTab(page)).toContainText('0 of 2 approved');
+        await expectSectionCount(page, '0 of 2 approved');
 
-        await pressSection(page, 'Alpha', 'Approve section');
+        await headingControl(page, 'heading-alpha').click();
         // The page returns to the same URL, so wait for the running count to
         // change rather than for the URL, which already matches.
-        await expect(sectionsTab(page)).toContainText('1 of 2 approved');
+        await expectSectionCount(page, '1 of 2 approved');
 
-        await pressSection(page, 'Beta', 'Approve section');
-        await expect(sectionsTab(page)).toContainText('2 of 2 approved');
+        await headingControl(page, 'heading-beta').click();
+        await expectSectionCount(page, '2 of 2 approved');
 
         const revised = await page.request.post(
             `/dev/review/${documentId}/revise`,
@@ -163,39 +180,83 @@ test.describe('per-section approval', () => {
         });
 
         await page.goto(reviewUrl);
-        await expect(sectionsTab(page)).toContainText('1 of 2 approved');
+        await expectSectionCount(page, '1 of 2 approved');
+
+        await expect(headingControl(page, 'heading-alpha')).toHaveAttribute(
+            'aria-pressed',
+            'true',
+            { timeout: 20000 },
+        );
+        await expect(headingControl(page, 'heading-beta')).toHaveAttribute(
+            'aria-pressed',
+            'false',
+        );
 
         await openSections(page);
-        await expect(
-            sectionRow(page, 'Alpha').getByRole('button', {
-                name: 'Withdraw approval',
-            }),
-        ).toBeVisible();
-        await expect(
-            sectionRow(page, 'Beta').getByRole('button', {
-                name: 'Approve section',
-            }),
-        ).toBeVisible();
+        await expect(sectionRow(page, 'Alpha')).toContainText('Approved');
+        await expect(sectionRow(page, 'Beta')).toContainText('Not approved');
     });
 
     test('a reviewer can withdraw a section approval', async ({ page }) => {
-        await pressSection(page, 'Alpha', 'Approve section');
-        await expect(sectionsTab(page)).toContainText('1 of 2 approved');
+        await headingControl(page, 'heading-alpha').click();
+        await expectSectionCount(page, '1 of 2 approved');
+        await expect(headingControl(page, 'heading-alpha')).toHaveAttribute(
+            'aria-pressed',
+            'true',
+        );
 
-        await pressSection(page, 'Alpha', 'Withdraw approval');
-        await expect(sectionsTab(page)).toContainText('0 of 2 approved');
+        await headingControl(page, 'heading-alpha').click();
+        await expectSectionCount(page, '0 of 2 approved');
+        await expect(headingControl(page, 'heading-alpha')).toHaveAttribute(
+            'aria-pressed',
+            'false',
+        );
     });
 
     test('the whole-document verdict still works alongside section approval', async ({
         page,
     }) => {
-        await pressSection(page, 'Alpha', 'Approve section');
-        await expect(sectionsTab(page)).toContainText('1 of 2 approved');
+        await headingControl(page, 'heading-alpha').click();
+        await expectSectionCount(page, '1 of 2 approved');
 
         await page
             .getByRole('button', { name: 'Approve', exact: true })
             .click();
-        await expect(page.locator('.lp-verdict-bar')).toBeVisible();
-        await expect(sectionsTab(page)).toContainText('1 of 2 approved');
+        // Same generous wait as the count above: this is a second write,
+        // a redirect and a re-render on the shared container.
+        await expect(page.locator('.lp-verdict-bar')).toBeVisible({
+            timeout: 20000,
+        });
+        await expectSectionCount(page, '1 of 2 approved');
+    });
+
+    test('the panel reports what the heading control did, and offers no control of its own', async ({
+        page,
+    }) => {
+        await expect(page.locator(HEADING_CONTROL)).toHaveCount(2);
+
+        await openSections(page);
+        await expect(sectionRow(page, 'Alpha')).toContainText('Not approved');
+        await expect(page.locator(`${SECTIONS_PANEL} button`)).toHaveCount(0);
+
+        await headingControl(page, 'heading-alpha').click();
+        await expectSectionCount(page, '1 of 2 approved');
+
+        await openSections(page);
+        await expect(sectionRow(page, 'Alpha')).toContainText('Approved');
+        await expect(page.locator(`${SECTIONS_PANEL} button`)).toHaveCount(0);
+    });
+
+    test('the heading control carries its name on an attribute, not as text', async ({
+        page,
+    }) => {
+        const control = headingControl(page, 'heading-beta');
+
+        await expect(control).toHaveAttribute(
+            'aria-label',
+            'Approve section Beta',
+        );
+        // Empty on purpose: text here would move every comment anchor below it.
+        await expect(control).toHaveText('');
     });
 });

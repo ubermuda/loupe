@@ -40,8 +40,13 @@ version nothing reads back.
 ## Section approvals
 
 The verdict covers the whole document. A reviewer can also approve one section
-at a time, from the **Sections** panel above the document. A section runs from
-one heading to the next heading, whatever the two levels are.
+at a time. A section runs from one heading to the next heading, whatever the two
+levels are.
+
+A round button sits beside each heading in the document. It approves that
+section, and it withdraws the approval again. The **Sections** panel above the
+document lists every section with its state, as an overview; the button beside
+the heading is where you act.
 
 Loupe stores each approval against the heading and against a digest of the
 section's own text. A revision keeps an approval only while both still match, so

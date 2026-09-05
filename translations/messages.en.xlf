@@ -1521,14 +1521,6 @@
                 <source>review.document.sections.pending</source>
                 <target>Not approved</target>
             </trans-unit>
-            <trans-unit id="review.document.sections.approve">
-                <source>review.document.sections.approve</source>
-                <target>Approve section</target>
-            </trans-unit>
-            <trans-unit id="review.document.sections.withdraw">
-                <source>review.document.sections.withdraw</source>
-                <target>Withdraw approval</target>
-            </trans-unit>
             <trans-unit id="review.document.sections.approve_label">
                 <source>review.document.sections.approve_label</source>
                 <target>Approve section %section%</target>

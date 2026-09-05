@@ -139,6 +139,16 @@
                diff controller passes no `sections`. #}
             {% set sectionRows = diffMode ? [] : sections.rows %}
             {% set approvedSections = diffMode ? 0 : sections.approvedCount %}
+            {# The pane HTML with an approval control beside each heading. Built
+               here rather than in the block below, so the diff branch never
+               evaluates `decisionMarkedHtml`, which it is not passed. An older
+               version gets no controls: they would post onto the current one. #}
+            {% set documentPaneHtml = diffMode ? '' : section_approval_controls(
+                decisionMarkedHtml,
+                readOnly ? [] : sectionRows,
+                document,
+                version.versionNumber,
+            ) %}
 
             {# Mutually-exclusive panels rather than stacked blocks: together they
                used to push the first paragraph below the fold.
@@ -196,7 +206,7 @@
                                 data-metadata-tabs-panel-param="sections"
                                 data-action="click->metadata-tabs#toggle">
                             {{ 'review.document.meta.sections'|trans }}
-                            <span class="lp-doc-meta__count">{{ 'review.document.sections.count'|trans({
+                            <span class="lp-doc-meta__count" id="section-summary-count">{{ 'review.document.sections.count'|trans({
                                 '%approved%': approvedSections,
                                 '%total%': sectionRows|length,
                             }) }}</span>
@@ -381,12 +391,7 @@
                 {% if sectionRows|length > 0 %}
                 <div class="lp-doc-meta__panel lp-section-approvals" data-metadata-tabs-target="panel" data-panel="sections" hidden>
                     <ul class="lp-section-approvals__list">
-                        {% include '@Review/_section_approval_rows.html.twig' with {
-                            rows: sectionRows,
-                            readOnly: readOnly,
-                            document: document,
-                            versionNumber: version.versionNumber,
-                        } only %}
+                        {% include '@Review/_section_approval_rows.html.twig' with {rows: sectionRows} only %}
                     </ul>
                 </div>
                 {% endif %}
@@ -422,7 +427,7 @@
                Everything else on this page reads the same in both modes, which is
                why the diff overrides this block instead of being a page of its own. #}
             {% block documentPane %}
-            <div class="prose lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ decisionMarkedHtml|raw }}</div>
+            <div class="prose lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ documentPaneHtml|raw }}</div>
             {% endblock %}
 
             {# Outside the prose on purpose: that textContent must stay identical

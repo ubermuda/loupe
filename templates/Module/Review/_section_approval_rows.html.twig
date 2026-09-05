@@ -1,5 +1,6 @@
 {# Rows of the sections panel: one section per row, in document order.
-   The buttons are omitted on an older version, which is read-only. #}
+   An overview only. The button beside each heading is where a reviewer acts,
+   so this panel carries no control of its own. #}
 {% for row in rows %}
 <li class="lp-section-approvals__item">
     <a class="lp-section-approvals__link" data-level="{{ row.level }}" href="#{{ row.headingId }}"
@@ -11,20 +12,6 @@
     </span>
     {% else %}
     <span class="lp-section-approvals__pending">{{ 'review.document.sections.pending'|trans }}</span>
-    {% endif %}
-    {% if not readOnly %}
-    <form class="lp-section-approvals__form" method="POST"
-          action="{{ path('app_document_section_approval', {projectId: document.project.id, documentId: document.id}) }}">
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token('section-approval') }}">
-        <input type="hidden" name="set_section_approval_form[headingId]" value="{{ row.headingId }}">
-        <input type="hidden" name="set_section_approval_form[versionNumber]" value="{{ versionNumber }}">
-        {# Every row shows the same two words, so the label names the section too. #}
-        <button type="submit" class="lp-btn lp-btn--ghost lp-btn--sm"
-                name="set_section_approval_form[action]" value="{{ row.approved ? 'withdraw' : 'approve' }}"
-                aria-label="{{ (row.approved ? 'review.document.sections.withdraw_label' : 'review.document.sections.approve_label')|trans({'%section%': row.label}) }}">
-            {{ (row.approved ? 'review.document.sections.withdraw' : 'review.document.sections.approve')|trans }}
-        </button>
-    </form>
     {% endif %}
 </li>
 {% endfor %}
