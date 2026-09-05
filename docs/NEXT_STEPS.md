@@ -2745,3 +2745,32 @@ merger cannot tell a deliberate deletion from a lost one, and git shows the same
 conflict either way.
 
 Decide whether to write that qualification into `CLAUDE.md` line 45.
+
+## Every worktree shares one php-fpm container, so `pkill` there is repository-wide
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`CLAUDE.md` says a process started inside a container can only be stopped from
+inside it, and gives `docker compose exec php-fpm pkill -f <script>` as the way.
+That is right, and incomplete in a way that makes the obvious command dangerous.
+
+There is one stack and one container, `loupe-php-fpm-1`.
+`bin/worktrees/compose-exec.sh` execs into it and varies only `--workdir`; its
+own header says "the shared php-fpm container". Isolation between worktrees is
+per test database, through the `TEST_TOKEN` that `worktree-bootstrap.sh` writes
+into each `.env.test.local`, and not per container.
+
+So `pkill -f phpunit` in that container kills every worktree's test run, not the
+one you meant. Match the worktree path instead, such as
+`pkill -f 'phpunit.*worktrees/<name>'`, and read
+`docker exec loupe-php-fpm-1 ps aux | grep phpunit` before killing anything.
+
+Two gates in one worktree share one `TEST_TOKEN`, hit one database, and crash in
+`tests/bootstrap.php` with `duplicate key value violates unique constraint
+"pg_type_typname_nsp_index"`, which is two schema creations racing rather than a
+code defect. Two gates in different worktrees are safe.
+
+Decide whether this belongs in `CLAUDE.md` beside the existing container rule,
+or in the `project-worktrees` skill. Found when two test runs raced in one
+worktree, and after this session gave another the repository-wide `pkill` as
+advice.
