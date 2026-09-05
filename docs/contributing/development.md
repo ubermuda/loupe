@@ -55,6 +55,26 @@ link work with nothing draining the queue.
 The suite cannot be parallelised: Mailpit is shared, so mail-asserting specs
 across concurrent runs read each other's messages.
 
+## Mutation testing
+
+```sh
+just mutation   # Infection over src/Module/Account/Security and EventListener
+```
+
+Infection changes the source code one edit at a time and reruns the tests. A
+change that no test catches shows that the test asserts nothing. The run covers
+the account security gates only, because a silent test there costs an outage or
+an authorization hole. `infection.json5` holds the scope.
+
+It stays out of `just ci`. Run it about once a week and read
+`var/infection/infection.log`. Escaped mutants name a test that asserts nothing.
+Some are harmless, so judge each one. Not-covered mutants name a class with no
+focused test, which the `--with-uncovered` flag in the recipe keeps visible.
+
+Run it alone. It starts one PHPUnit process per mutant against this checkout's
+test database, and a second test run in the same checkout crashes on the shared
+schema. It takes a few minutes.
+
 ## Secrets
 
 ```sh
