@@ -30,6 +30,8 @@ entry.
 
 ## [Unreleased]
 
+- `cd8b30c` (#353) — **Changed:** `User::$disabledAt` now documents what it is
+  for: a cache the Billing module writes, which the paywall no longer reads.
 - `59defea` (#357) — **Fixed:** two site-review widget tests asserted a resting
   state the interaction never promises. Releasing the modifier key makes every
   anchor box hit-testable again, and Chromium dispatches a `mouseover` for the
