@@ -11,11 +11,11 @@ use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
 /**
- * Fetch the current review state (verdict, status, comments) for a document.
+ * Fetch the current review state (verdict, status, comments, sections) for a document.
  *
  * @phpstan-import-type ReviewPayload from ShowReviewHandler
  */
-#[McpTool(name: 'document_get_review', description: 'Fetch the review state (verdict, status, threaded comments, and answered decision blocks) for a document\'s current version. Every comment and reply reports whether an agent or a human wrote it, and a comment may carry a replacement for the text it quotes. A decision block reports its type: a single-choice block answers in selected, and a multiple-choice block answers in selections.')]
+#[McpTool(name: 'document_get_review', description: 'Fetch the review state (verdict, status, threaded comments, answered decision blocks, and which sections reviewers have approved) for a document\'s current version. Every comment and reply reports whether an agent or a human wrote it, and a comment may carry a replacement for the text it quotes. A decision block reports its type: a single-choice block answers in selected, and a multiple-choice block answers in selections.')]
 final readonly class DocumentGetReviewTool
 {
     public function __construct(
@@ -63,6 +63,14 @@ final readonly class DocumentGetReviewTool
      *
      * Each decision's `id` is the one the document declared in its fence, and it is permanent:
      * changing it in a revision discards the answer keyed to the old one
+     *
+     * `sections` lists every section of the current version in document order, where a section
+     * runs from one heading to the next heading whatever the two levels are
+     *
+     * `standing_approval_count` counts every reviewer whose approval of that section still
+     * matches its text, not just the caller's own — it is 0 while nobody's approval stands.
+     * Reviewers stay anonymous here, as they do on a comment. Treat a section above 0 as
+     * settled and leave its text alone, because rewriting it drops the approval
      *
      * @return ReviewPayload
      */

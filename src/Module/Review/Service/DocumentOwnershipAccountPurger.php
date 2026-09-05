@@ -17,10 +17,10 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * Same FK-safe order as ProjectDeleter's own document-subtree cleanup (reviews,
  * comments, highlights, versions, tag join rows, references, decision
- * selections, then the document), keyed on document ownership instead of the
- * project. Every table with a FK onto document_versions or documents must be
- * listed here: the constraints are NOT DEFERRABLE, so one missing statement
- * turns account deletion into a 500 rather than a silent orphan.
+ * selections, section approvals, then the document), keyed on document
+ * ownership instead of the project. Every table with a FK onto document_versions
+ * or documents must be listed here: the constraints are NOT DEFERRABLE, so one
+ * missing statement turns account deletion into a 500 rather than a silent orphan.
  *
  * Two chains, not one list — what hangs off document_versions precedes it, what
  * hangs off documents precedes that. A new table put in the wrong chain still
@@ -84,6 +84,10 @@ final readonly class DocumentOwnershipAccountPurger implements AccountDataPurger
         // off documents, not versions, so it only has to precede the delete below.
         $conn->executeStatement(
             'DELETE FROM decision_selections WHERE document_id IN (SELECT id FROM documents WHERE owner_id = :id)',
+            ['id' => $id],
+        );
+        $conn->executeStatement(
+            'DELETE FROM section_approvals WHERE document_id IN (SELECT id FROM documents WHERE owner_id = :id)',
             ['id' => $id],
         );
         $conn->executeStatement('DELETE FROM documents WHERE owner_id = :id', ['id' => $id]);
