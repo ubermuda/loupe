@@ -119,6 +119,7 @@ export default defineConfig({
           items: [
             { label: 'Overview', slug: 'contributing' },
             { slug: 'contributing/development' },
+            { slug: 'contributing/architectural-priorities' },
             { slug: 'contributing/worktrees' },
           ],
         },
