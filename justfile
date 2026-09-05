@@ -152,15 +152,16 @@ arkitect:
 phpunit *args:
     bin/worktrees/compose-exec.sh vendor/bin/phpunit "$@"
 
-# Mutation testing over all of `src`. It takes hours, and a weekly GitHub Action
-# runs it. Never run it beside another test run in this worktree, because both use
-# one database. `--list-tests` runs the PHPUnit bootstrap alone, which builds the
-# schema that TEST_SCHEMA_READY tells each mutant process to keep.
+# Mutation testing over all of `src`, which a weekly GitHub Action also runs.
+# Never run it beside another test run in this worktree, because both use one
+# database. `--list-tests` runs the PHPUnit bootstrap alone, which builds the
+# schema that TEST_SCHEMA_READY tells each mutant process to keep. Infection
+# deletes 8,500 mutant directories at the end, which needs more than 512M.
 mutation *args:
     # An interrupted run leaves a half-written junit.xml that aborts the next one.
     rm -rf var/infection/infection
     bin/worktrees/compose-exec.sh vendor/bin/phpunit --list-tests > /dev/null
-    bin/worktrees/compose-exec.sh env TEST_SCHEMA_READY=1 XDEBUG_MODE=coverage vendor/bin/infection --no-interaction --with-uncovered "$@"
+    bin/worktrees/compose-exec.sh env TEST_SCHEMA_READY=1 XDEBUG_MODE=coverage php -d memory_limit=2G vendor/bin/infection --no-interaction --with-uncovered "$@"
 
 # Mutation testing over the src/ files this branch changed. The one to run while
 # you work: minutes rather than hours, because it mutates your files alone.
@@ -188,7 +189,7 @@ mutation-diff base="origin/main":
     # Paths are positional; --filter is deprecated. Unquoted on purpose, so each
     # path becomes its own argument.
     bin/worktrees/compose-exec.sh env TEST_SCHEMA_READY=1 XDEBUG_MODE=coverage \
-        vendor/bin/infection --no-interaction --with-uncovered -- $files
+        php -d memory_limit=2G vendor/bin/infection --no-interaction --with-uncovered -- $files
 
 cs: prettier lint rector cs-fix twig-cs-fix
 
