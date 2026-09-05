@@ -1628,7 +1628,11 @@
   const QUOTE_BTN_HEIGHT = 30; // matches .lp-quote-btn
   const renderQuoteButton = () => {
     const pick = state.quotePick;
-    if (!pick || state.target || state.fatal || !state.open || state.editId != null || hidden.matches) {
+    // Hidden while another mode owns the pointer, drawing included: the canvas
+    // sits under this button, so an offer left up would eat part of a stroke
+    // and could add a quote without leaving draw mode. The selection survives,
+    // so the offer comes back when the mode ends.
+    if (!pick || state.target || state.drawing || state.fatal || !state.open || state.editId != null || hidden.matches) {
       quoteBtn.style.display = 'none';
       return;
     }

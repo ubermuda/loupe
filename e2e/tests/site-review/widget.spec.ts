@@ -2632,6 +2632,46 @@ test('the saved notice gives way to the drawing toast', async ({ page }) => {
 });
 
 /**
+ * The canvas sits under the offer to quote a selection, so an offer left up
+ * during a drag would eat part of the stroke and could add a quote without
+ * leaving draw mode. Draw mode hides it the way pick mode already does, and the
+ * selection survives, so the offer returns when the mode ends.
+ */
+test('the offer to quote a selection stands down while drawing', async ({
+    page,
+}) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await page.getByRole('button', { name: 'Review' }).click();
+
+    const offer = page.locator('#lp-quote-btn');
+    await selectText(page, PROSE_QUOTE);
+    await expect(offer).toBeVisible();
+
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Draw', exact: true })
+        .click();
+    await expect(offer).toBeHidden();
+
+    // A stroke drawn across the offer's own place still lands.
+    const box = (await page.locator('#prose').boundingBox())!;
+    await drawStroke(
+        page,
+        { x: box.x + 8, y: box.y + box.height + 12 },
+        { x: box.x + 180, y: box.y + box.height + 30 },
+    );
+    await waitForInk(page);
+
+    // Leaving draw mode gives the offer back, because the selection is intact.
+    await page.getByRole('button', { name: 'Done' }).click();
+    await expect(offer).toBeVisible();
+});
+
+/**
  * Undo drops the last stroke and Clear drops the drawing. There is no per-stroke
  * eraser, so these two are the whole of what a reviewer can take back.
  */
