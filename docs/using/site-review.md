@@ -33,16 +33,18 @@ or a production credential.
 
 ## Pointing one comment at several elements
 
-Pick an element, then press **+ Add element** in the composer and pick another.
-The composer shows one chip per element, and the × on a chip drops it again. A
-comment can hold up to ten elements. Save once, and the comment is about all of
-them.
+Pick an element, then hold **⌘** (**Ctrl** on Windows and Linux) and click
+another. The picker stays up as long as you hold the key, so you can add several
+elements in one go. You can also hold the key before the first pick. The composer
+shows one chip per element, and the × on a chip drops it again. A comment can
+hold up to ten elements. Save once, and the comment is about all of them.
 
 Use this when the feedback is about a relationship. "These two should sit side
 by side" is one comment about two elements, not two comments.
 
 Every element gets its own pin on the page, and every pin of one comment carries
-that comment's number. That is what shows they belong together.
+that comment's number. Point at one pin and the widget outlines every element of
+that comment. That is what shows they belong together.
 
 When you come back to a page and one of a comment's elements has gone, the
 widget marks the comment as degraded. The surviving pins take an amber dashed

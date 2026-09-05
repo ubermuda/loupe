@@ -22,6 +22,19 @@
   // about a relationship between elements, and empty for an unanchored page note.
   let comments = [];
   const MAX_ANCHORS = 10; // AddCommentRequest's cap — over it the API 422s
+  const AT_CAP_MESSAGE = `A comment can point at ${MAX_ANCHORS} elements at most.`;
+
+  // Hold this key to add another element to the comment being composed. Ctrl is
+  // the modifier away from a Mac, where Ctrl+click is a right click.
+  // Either source is enough, because Ctrl+click on a Mac is a right click and a
+  // widget that reads one spoofed value wrong there picks nothing at all.
+  // userAgentData says 'macOS', navigator.platform says 'MacIntel'.
+  const IS_MAC = /mac|iphone|ipad|ipod/i.test(
+    `${navigator.platform || ''} ${(navigator.userAgentData && navigator.userAgentData.platform) || ''}`,
+  );
+  const MOD_KEY = IS_MAC ? 'Meta' : 'Control';
+  const MOD_LABEL = IS_MAC ? '⌘' : 'Ctrl';
+  const modHeld = (event) => (IS_MAC ? event.metaKey : event.ctrlKey);
 
   // Anchors of a comment, tolerating a pre-anchors server that sends only the
   // scalar selector/text pair.
@@ -210,10 +223,6 @@
     return { resolved, found, total: resolved.length, degraded: resolved.length > 1 && found.length < resolved.length };
   };
 
-  // The first element a comment still resolves to, for the single-element
-  // highlight a list-row hover draws.
-  const resolveElement = (comment) => anchorHealth(comment).found[0]?.el || null;
-
   // Human-readable anchor: the first non-empty line of the element's visible text,
   // truncated. Returns '' when there's nothing readable — callers then show no chip
   // rather than a meaningless CSS selector.
@@ -379,6 +388,8 @@
     // { type:'general' } | { type:'element', anchors: [{ el, selector, text, label }] }
     composeTarget: null,
     draft: '',
+    addAnchor: false, // the add-another-element modifier is held down
+    modCancelled: false, // another key went down during this hold, so it adds nothing
     editId: null, // server id of the comment being edited in place, or null for a new one
     listExpanded: false,
     expandLevel: 0,
@@ -475,8 +486,7 @@
       .lp-compose-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .lp-chip-x{flex:0 0 auto;border:0;background:transparent;color:inherit;font-family:inherit;font-size:13px;line-height:1;padding:0;margin-right:-3px;cursor:pointer;opacity:.6}
       .lp-chip-x:hover{opacity:1}
-      .lp-compose-add{flex:0 0 auto;height:21px;padding:0 9px;background:transparent;border:1px dashed var(--faint);color:var(--muted);border-radius:999px;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer}
-      .lp-compose-add:hover{border-color:var(--accent-ink);color:var(--accent-ink)}
+      .lp-compose-hint{flex:0 0 auto;height:21px;line-height:21px;color:var(--muted);font-size:11px;font-weight:600}
       /* Borderless: the fill is the field, as everywhere else in the app. */
       .lp-textarea{width:100%;min-height:74px;resize:none;border:0;background:var(--field-bg);color:var(--text);border-radius:12px;padding:10px 12px;font-family:inherit;font-size:13px;line-height:1.5;outline:none;transition:background .14s ease}
       .lp-textarea:focus{background:var(--field-focus);box-shadow:inset 0 0 0 1px var(--accent-ink),0 0 0 3px var(--accent-tint)}
@@ -657,6 +667,9 @@
          every marker the widget paints onto the page carries a near-black edge
          of its own: the accent reads as the brand, the ring keeps it visible. */
       .highlight{position:fixed;border:2px solid var(--accent);background:var(--accent-fill);border-radius:10px;pointer-events:none;box-shadow:0 2px 10px var(--pin-shadow);transition:left .07s ease,top .07s ease,width .07s ease,height .07s ease;z-index:2}
+      /* A comment's other anchors. Same accent, no fill, so the framed one still
+         reads as the one under the cursor. */
+      .highlight.sib{background:transparent;border-width:1.5px;box-shadow:none;transition:none}
       .lp-hl-label{position:absolute;left:-2px;top:-27px;display:inline-block;max-width:240px;height:21px;line-height:21px;padding:0 9px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:600;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 10px var(--pin-shadow)}
       .lp-pin-wrap{position:fixed;z-index:4;pointer-events:auto}
       .lp-ov.targeting .lp-pin-wrap{pointer-events:none}
@@ -688,11 +701,12 @@
     </style>
     <div class="lp-ov" id="lp-ov">
       <div class="lp-scrim" id="lp-scrim" style="display:none"></div>
+      <div id="lp-hls"></div>
       <div class="highlight" id="lp-hl" style="display:none"><span class="lp-hl-label" id="lp-hl-label" style="display:none"></span></div>
       <div id="lp-pins"></div>
       <div class="lp-toast" id="lp-toast" style="display:none">
         ${ICON.target(15)}
-        <span>Click to comment</span>
+        <span id="lp-toast-text">Click to comment</span>
         <span class="lp-toast-sep">·</span>
         <span class="lp-toast-dim">⌥ scroll to resize</span>
         <span class="lp-toast-key" id="lp-toast-esc">Esc</span>
@@ -708,10 +722,12 @@
 
   const ovRoot = $$('lp-ov');
   const scrimNode = $$('lp-scrim');
+  const hlsNode = $$('lp-hls');
   const hlNode = $$('lp-hl');
   const hlLabel = $$('lp-hl-label');
   const pinsNode = $$('lp-pins');
   const toastNode = $$('lp-toast');
+  const toastText = $$('lp-toast-text');
   const savedToastNode = $$('lp-saved');
   const panelNode = $('lp-panel');
   const mainNode = $('lp-main');
@@ -771,29 +787,79 @@
 
   // ---- overlay render (scrim / highlight / pins / toast) ----
   const HIGHLIGHT_PADDING = 8; // px of breathing room around the targeted element
-  const updateHighlight = () => {
-    let hl = null;
-    if (state.target && state.moveHL) {
-      hl = state.moveHL;
-    } else if (state.composing && state.composeTarget && state.composeTarget.type === 'element') {
-      // Only one highlight box exists, so it frames the anchor picked last —
-      // the chips in the composer are what show the full set.
-      const last = composeAnchors().filter((entry) => entry.el).pop();
-      const r = last && rectOf(last.el);
-      if (r) hl = { left: r.left, top: r.top, width: r.width, height: r.height, label: last.label };
-    } else {
-      let el = null;
-      if (state.hoverPinId != null) {
-        // The pin key is `${commentIndex}:${anchorIndex}` — frame that one anchor.
-        const [commentIndex, anchorIndex] = String(state.hoverPinId).split(':').map(Number);
-        el = resolveAnchors(comments[commentIndex] || {}).find(
-          (entry) => entry.anchorIndex === anchorIndex,
-        )?.el;
-      } else if (state.hoverId != null && comments[state.hoverId]) {
-        el = resolveElement(comments[state.hoverId]);
+
+  // What the overlay outlines: one framed element (`move` while picking, or `el`),
+  // plus `others`, the rest of the same comment's anchors. Every anchor of the
+  // comment being composed stays outlined, and hovering one anchor of a saved
+  // comment lights its siblings.
+  const highlightTargets = () => {
+    const composed = state.composing ? composeAnchors().filter((entry) => entry.el) : [];
+    if (state.target) {
+      return { move: state.moveHL, others: composed.map((entry) => entry.el) };
+    }
+    if (composed.length) {
+      const last = composed[composed.length - 1];
+      return {
+        el: last.el,
+        label: last.label,
+        others: composed.slice(0, -1).map((entry) => entry.el),
+      };
+    }
+    if (state.hoverPinId != null) {
+      // The pin key is `${commentIndex}:${anchorIndex}` — frame that one anchor.
+      const [commentIndex, anchorIndex] = String(state.hoverPinId).split(':').map(Number);
+      const found = resolveAnchors(comments[commentIndex] || {}).filter((entry) => entry.el);
+      return {
+        el: found.find((entry) => entry.anchorIndex === anchorIndex)?.el,
+        others: found.filter((entry) => entry.anchorIndex !== anchorIndex).map((entry) => entry.el),
+      };
+    }
+    if (state.hoverId != null && comments[state.hoverId]) {
+      const found = anchorHealth(comments[state.hoverId]).found.map((entry) => entry.el);
+      return { el: found[0], others: found.slice(1) };
+    }
+    return { others: [] };
+  };
+
+  // The sibling boxes are pooled and hidden rather than removed, so a hover that
+  // moves between anchors repositions nodes instead of recreating them.
+  const sibNodes = [];
+  const drawSiblings = (els) => {
+    els.forEach((el, index) => {
+      let node = sibNodes[index];
+      if (!node) {
+        node = document.createElement('div');
+        node.className = 'highlight sib';
+        hlsNode.appendChild(node);
+        sibNodes[index] = node;
       }
-      const r = el && rectOf(el);
-      if (r) hl = { left: r.left, top: r.top, width: r.width, height: r.height, label: null };
+      const r = rectOf(el);
+      if (!r) {
+        node.style.display = 'none';
+        return;
+      }
+      node.style.display = 'block';
+      node.style.left = r.left - HIGHLIGHT_PADDING + 'px';
+      node.style.top = r.top - HIGHLIGHT_PADDING + 'px';
+      node.style.width = r.width + HIGHLIGHT_PADDING * 2 + 'px';
+      node.style.height = r.height + HIGHLIGHT_PADDING * 2 + 'px';
+    });
+    for (let index = els.length; index < sibNodes.length; index++) {
+      sibNodes[index].style.display = 'none';
+    }
+  };
+
+  const updateHighlight = () => {
+    const targets = highlightTargets();
+    drawSiblings(targets.others || []);
+    let hl = null;
+    if (targets.move) {
+      hl = targets.move;
+    } else if (targets.el) {
+      const r = rectOf(targets.el);
+      if (r) {
+        hl = { left: r.left, top: r.top, width: r.width, height: r.height, label: targets.label || null };
+      }
     }
     if (!hl) {
       hlNode.style.display = 'none';
@@ -1041,6 +1107,7 @@
   const renderOverlay = () => {
     scrimNode.style.display = state.target ? 'block' : 'none';
     toastNode.style.display = state.target ? 'flex' : 'none';
+    toastText.textContent = state.addAnchor ? 'Click to add another element' : 'Click to comment';
     // offsetHeight only reads correctly once the toast is shown, so position after.
     if (state.target) positionToast();
     // Both toasts sit top-centre, so the pick-mode one wins while it is up.
@@ -1092,9 +1159,13 @@
     $('lp-launch-alert').style.display = fatal ? 'inline-flex' : 'none';
 
     // While picking an element, hide the whole widget (launcher + panel) so it does
-    // not obscure the page; the scrim + toast are the only pick-mode UI.
+    // not obscure the page; the scrim + toast are the only pick-mode UI. Add-anchor
+    // mode is the exception: hiding the panel blurs the textarea, which would send
+    // the reviewer's next ⌘V somewhere other than their draft, and it would hold the
+    // chip list a pick behind the anchors it lists.
+    const picking = state.target && !state.addAnchor;
     const launcherNode = $('lp-launcher');
-    launcherNode.style.display = state.target ? 'none' : '';
+    launcherNode.style.display = picking ? 'none' : '';
     // The launcher's quick actions duplicate the in-panel ones, so hide them (keeping only
     // the Review toggle) whenever the panel is open — or fatal, where they'd only launch a
     // composer the critical state immediately hides.
@@ -1108,8 +1179,8 @@
     // Clip the quick actions while they collapse; once expanded and idle, allow overflow
     // so their hover tooltips can escape upward (see the transitionend handler).
     if (state.open) launchQuick.style.overflow = 'hidden';
-    panelNode.style.display = state.open && !state.target ? 'flex' : 'none';
-    if (!state.open || state.target) return;
+    panelNode.style.display = state.open && !picking ? 'flex' : 'none';
+    if (!state.open || picking) return;
 
     const headCount = $('lp-head-count');
     headCount.style.display = n > 0 && !fatal ? 'inline-flex' : 'none';
@@ -1138,10 +1209,9 @@
       if (ct.type === 'general') {
         composeHead.innerHTML = `<span class="lp-compose-general"><span class="lp-dot"></span>General comment</span>`;
       } else {
-        // One chip per anchor, then the control that picks another. An edit
-        // PATCHes the body alone and leaves the stored anchors untouched, so
-        // neither the add control nor the remove × is offered while editing —
-        // they would confirm a change that the save then discards.
+        // One chip per anchor. An edit PATCHes the body alone and leaves the
+        // stored anchors untouched, so the remove × is not offered while editing:
+        // it would confirm a change that the save then discards.
         const anchors = ct.anchors || [];
         const editable = state.editId == null;
         const chips = anchors
@@ -1160,15 +1230,13 @@
         composeHead.innerHTML =
           chips +
           (canAdd
-            ? `<button class="lp-compose-add" id="lp-anchor-add" type="button">+ Add element</button>`
+            ? `<span class="lp-compose-hint">Hold ${MOD_LABEL} to add another</span>`
             : '');
         composeHead.querySelectorAll('[data-anchor-remove]').forEach((button) => {
           button.addEventListener('click', () =>
             removeComposeAnchor(Number(button.dataset.anchorRemove)),
           );
         });
-        const addBtn = composeHead.querySelector('#lp-anchor-add');
-        if (addBtn) addBtn.addEventListener('click', addAnotherElement);
       }
     }
     // Composer just closed but the textarea kept focus would keep isTyping() true and
@@ -1406,22 +1474,26 @@
     return ct && ct.type === 'element' ? ct.anchors : [];
   };
 
-  // Add the picked element to the composer. A pick while an element composer is
-  // already open extends the comment rather than replacing its anchor, which is
-  // how one comment comes to say something about several elements.
-  const openElementComposer = (el) => {
+  // Add the picked element to the composer. A pick while a new comment is open
+  // extends it rather than replacing its anchor, which is how one comment comes
+  // to say something about several elements. `keepPicking` holds pick mode open
+  // for the next one, which is what the add-another modifier does.
+  const openElementComposer = (el, keepPicking) => {
     const anchor = anchorFor(el);
-    const existing = composeAnchors();
-    if (state.composing && existing.length) {
+    if (state.composing && state.editId == null) {
+      const existing = composeAnchors();
+      let stayed = keepPicking;
       if (existing.length >= MAX_ANCHORS) {
-        state.actionError = { message: `A comment can point at ${MAX_ANCHORS} elements at most.` };
+        state.actionError = { message: AT_CAP_MESSAGE };
+        stayed = false;
       } else if (!existing.some((entry) => entry.el === el)) {
-        existing.push(anchor);
+        state.composeTarget = { type: 'element', anchors: existing.concat([anchor]) };
       }
       state.open = true;
-      setTargeting(false);
+      if (!stayed) setTargeting(false);
+      state.addAnchor = stayed;
       sync();
-      focusTextarea();
+      if (!stayed && root.activeElement !== textareaNode) focusTextarea();
       return;
     }
     state.composing = true;
@@ -1430,9 +1502,10 @@
     state.draft = '';
     textareaNode.value = '';
     state.open = true;
-    setTargeting(false);
+    if (!keepPicking) setTargeting(false);
+    state.addAnchor = !!keepPicking;
     sync();
-    focusTextarea();
+    if (!keepPicking) focusTextarea();
   };
 
   // Drop one anchor from the composer. Removing the last one leaves the comment
@@ -1445,11 +1518,29 @@
     sync();
   };
 
-  // Re-enter pick mode without discarding the anchors already chosen.
-  const addAnotherElement = () => {
-    if (state.fatal || composeAnchors().length >= MAX_ANCHORS) return;
-    setTargeting(true);
+  // Add-anchor mode. Holding the modifier over an open composer brings the picker
+  // back, so a click adds another anchor without discarding the draft. The mode
+  // lasts as long as the hold. At the cap it says so instead of picking.
+  const enterAddAnchor = () => {
+    if (state.modCancelled || state.addAnchor) return;
+    if (state.fatal || !state.composing || state.editId != null || hidden.matches) return;
+    if (composeAnchors().length >= MAX_ANCHORS) {
+      state.actionError = { message: AT_CAP_MESSAGE };
+    } else {
+      setTargeting(true);
+    }
+    state.addAnchor = true;
     sync();
+  };
+  // `cancelled` marks the hold spent, so another key pressed with the modifier
+  // down does not re-enter the mode before the reviewer lets go.
+  const exitAddAnchor = (cancelled) => {
+    state.modCancelled = cancelled;
+    if (!state.addAnchor) return;
+    state.addAnchor = false;
+    setTargeting(false);
+    sync();
+    if (state.composing && root.activeElement !== textareaNode) focusTextarea();
   };
   // Re-open the composer pre-filled to edit an existing comment in place. The anchors
   // are preserved and rebuilt from storage; only the body is editable.
@@ -1654,6 +1745,7 @@
     if (!on) {
       state.moveHL = null;
       state.expandLevel = 0;
+      state.addAnchor = false;
       moveBase = null;
     } else {
       state.toastDock = 'top';
@@ -1736,8 +1828,9 @@
     event.preventDefault();
     event.stopPropagation();
     const current = climbUp(base, state.expandLevel);
-    setTargeting(false);
-    openElementComposer(current);
+    // The modifier read at click time is what makes a hold that started before
+    // the first pick work: no composer was open, so no keydown could arm it.
+    openElementComposer(current, modHeld(event) && !state.modCancelled);
   };
   // Granularity: widen to parent (delta>0) or narrow back (delta<0) relative to the
   // element under the cursor. Clamped to stay inside the host content.
@@ -1844,7 +1937,30 @@
     return !!shadowActive && (shadowActive.tagName === 'INPUT' || shadowActive.tagName === 'TEXTAREA');
   };
 
+  // Add-anchor mode is armed by the modifier alone, before the typing guard below,
+  // because the composer's textarea holds focus while the reviewer picks. Any other
+  // key spends the hold, which leaves ⌘A, ⌘C and ⌘V doing what they always did.
+  document.addEventListener('keyup', (event) => {
+    if (event.key === MOD_KEY) exitAddAnchor(false);
+  });
+  // A keyup never arrives when the hold ends outside the page, so ⌘-Tab away and
+  // a window switch both stand the picker down.
+  window.addEventListener('blur', () => exitAddAnchor(false));
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) exitAddAnchor(false);
+  });
+
   document.addEventListener('keydown', (event) => {
+    if (event.key === MOD_KEY) {
+      if (!event.repeat) enterAddAnchor();
+      return;
+    }
+    // Any other key spends the hold. Escape stops there rather than falling
+    // through to cancelCompose, which would throw the draft away.
+    if (state.addAnchor) {
+      exitAddAnchor(true);
+      return;
+    }
     if (event.key === 'Escape') {
       if (state.target) {
         setTargeting(false);

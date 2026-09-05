@@ -836,6 +836,19 @@ test('narrowing to a phone mid-pick stands the widget down', async ({
 const keepHarnessUrl = `/dev/site-review-harness?email=${encodeURIComponent(E2E_EMAIL)}&keep=1`;
 
 /**
+ * Adding an anchor takes ⌘ on a Mac and Ctrl elsewhere, because Ctrl+click is a
+ * right click on a Mac. Ask the browser rather than assume the runner's platform.
+ */
+const addAnchorKey = (page: Page): Promise<'Meta' | 'Control'> =>
+    page.evaluate(() => {
+        const nav = navigator as Navigator & {
+            userAgentData?: { platform?: string };
+        };
+        const platform = `${nav.platform ?? ''} ${nav.userAgentData?.platform ?? ''}`;
+        return /mac|iphone|ipad|ipod/i.test(platform) ? 'Meta' : 'Control';
+    });
+
+/**
  * Pick two elements into one composer. Pins only render when the comment's
  * stored url matches location.href, so the caller must already be on keepUrl.
  */
@@ -843,14 +856,16 @@ const addTwoElementComment = async (
     page: Page,
     body: string,
 ): Promise<void> => {
+    const modifier = await addAnchorKey(page);
     await page.getByRole('button', { name: 'Review' }).click();
     await page
         .locator('#lp-panel')
         .getByRole('button', { name: 'Pick element' })
         .click();
     await page.locator('#target-me').click();
-    await page.getByRole('button', { name: '+ Add element' }).click();
+    await page.keyboard.down(modifier);
     await page.locator('#target-two').click();
+    await page.keyboard.up(modifier);
     await page.getByPlaceholder(/Describe the issue/).fill(body);
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.locator('#lp-head-count')).toHaveText('1');
@@ -889,15 +904,30 @@ test('a comment can be anchored to several elements at once', async ({
         .click();
     await page.locator('#target-me').click();
 
-    // The composer holds one anchor chip and offers to add another.
+    // The composer holds one anchor chip and says how to add another.
+    const modifier = await addAnchorKey(page);
     await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
         1,
     );
-    await page.getByRole('button', { name: '+ Add element' }).click();
+    await expect(page.locator('#lp-compose-head .lp-compose-hint')).toHaveText(
+        /Hold .* to add another/,
+    );
+
+    // Holding the modifier brings the picker back, and the composer stays up so
+    // the draft keeps its focus and the chips keep up with the picks.
+    await page.keyboard.down(modifier);
+    await expect(page.locator('#lp-toast')).toContainText(
+        'Click to add another element',
+    );
+    await expect(page.locator('#lp-panel')).toBeVisible();
     await page.locator('#target-two').click();
     await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
         2,
     );
+
+    // Releasing it returns the normal composer.
+    await page.keyboard.up(modifier);
+    await expect(page.locator('#lp-toast')).toBeHidden();
 
     await page
         .getByPlaceholder(/Describe the issue/)
@@ -935,9 +965,12 @@ test('a comment can be anchored to several elements at once', async ({
         2,
     );
     await expect(page.locator('#lp-compose-head .lp-chip-x')).toHaveCount(0);
-    await expect(
-        page.getByRole('button', { name: '+ Add element' }),
-    ).toHaveCount(0);
+    await expect(page.locator('#lp-compose-head .lp-compose-hint')).toHaveCount(
+        0,
+    );
+    await page.keyboard.down(modifier);
+    await expect(page.locator('#lp-toast')).toBeHidden();
+    await page.keyboard.up(modifier);
 });
 
 /**
@@ -956,8 +989,10 @@ test('an element can be dropped from the composer before saving', async ({
         .getByRole('button', { name: 'Pick element' })
         .click();
     await page.locator('#target-me').click();
-    await page.getByRole('button', { name: '+ Add element' }).click();
+    const modifier = await addAnchorKey(page);
+    await page.keyboard.down(modifier);
     await page.locator('#target-two').click();
+    await page.keyboard.up(modifier);
     await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
         2,
     );
@@ -992,35 +1027,58 @@ test('the composer keeps Save reachable at the anchor cap', async ({
     await openHarness(page);
     await page.goto(keepHarnessUrl);
 
-    // Ten targets whose labels are long enough to wrap the chip header.
+    // Eleven targets whose labels are long enough to wrap the chip header. The
+    // eleventh is the one the cap refuses.
     await page.evaluate(() => {
-        for (let i = 1; i <= 10; i++) {
+        for (let i = 1; i <= 11; i++) {
             const button = document.createElement('button');
             button.id = `long-${i}`;
             button.type = 'button';
             button.textContent = `A deliberately long element label number ${i} that keeps going well past the chip width`;
+            // Keep them clear of the panel, which stays up while anchors are added.
+            button.style.cssText = 'display:block;width:320px;text-align:left';
             document.body.appendChild(button);
         }
     });
 
+    const modifier = await addAnchorKey(page);
     await page.getByRole('button', { name: 'Review' }).click();
     await page
         .locator('#lp-panel')
         .getByRole('button', { name: 'Pick element' })
         .click();
     await page.locator('#long-1').click();
+    await page.keyboard.down(modifier);
     for (let i = 2; i <= 10; i++) {
-        await page.getByRole('button', { name: '+ Add element' }).click();
         await page.locator(`#long-${i}`).click();
     }
 
     await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
         10,
     );
-    // At the cap the widget stops offering another pick.
-    await expect(
-        page.getByRole('button', { name: '+ Add element' }),
-    ).toHaveCount(0);
+    // At the cap the widget stops offering another pick, and an eleventh says so
+    // rather than doing nothing.
+    await expect(page.locator('#lp-compose-head .lp-compose-hint')).toHaveCount(
+        0,
+    );
+    await page.locator('#long-11').click();
+    await expect(page.locator('#lp-error')).toContainText(
+        'A comment can point at 10 elements at most.',
+    );
+    await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
+        10,
+    );
+    await page.keyboard.up(modifier);
+    await page.locator('#lp-error-dismiss').click();
+
+    // Holding the modifier at the cap says the same thing instead of picking.
+    await page.keyboard.down(modifier);
+    await expect(page.locator('#lp-error')).toContainText(
+        'A comment can point at 10 elements at most.',
+    );
+    await expect(page.locator('#lp-toast')).toBeHidden();
+    await page.keyboard.up(modifier);
+    await page.locator('#lp-error-dismiss').click();
 
     // The header scrolls instead of growing.
     const overflows = await page
@@ -1087,4 +1145,138 @@ test('a multi-anchor comment renders as degraded when an element is gone', async
     await expect(page.locator('#lp-list .lp-chip')).toHaveText(
         '1 of 2 elements',
     );
+});
+
+/**
+ * The modifier also works when it goes down before the first pick. No composer
+ * is open then, so no keydown can arm the mode: the click's own modifier flag
+ * is what keeps the picker up.
+ */
+test('the add-anchor modifier can be held before the very first pick', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    const modifier = await addAnchorKey(page);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+
+    await page.keyboard.down(modifier);
+    await page.locator('#target-me').click();
+    await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
+        1,
+    );
+    await expect(page.locator('#lp-toast')).toContainText(
+        'Click to add another element',
+    );
+    await page.locator('#target-two').click();
+    await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
+        2,
+    );
+    await page.keyboard.up(modifier);
+    await expect(page.locator('#lp-toast')).toBeHidden();
+
+    // No keyup arrives when the hold ends outside the page, so losing focus
+    // stands the picker down too.
+    await page.keyboard.down(modifier);
+    await expect(page.locator('#lp-toast')).toBeVisible();
+    await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+    await expect(page.locator('#lp-toast')).toBeHidden();
+    await page.keyboard.up(modifier);
+
+    await page.getByPlaceholder(/Describe the issue/).fill('Both of these');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#lp-head-count')).toHaveText('1');
+    const comments = await fetchReviewComments(page);
+    expect(comments[0].anchors).toHaveLength(2);
+});
+
+/**
+ * The composer's own modifier shortcuts must survive. A second key spends the
+ * hold, and the composer keeps the focus throughout, so the shortcut reaches
+ * the textarea exactly as it did before add-anchor mode existed.
+ */
+test('a second key spends the add-anchor hold and leaves the shortcut alone', async ({
+    page,
+}) => {
+    await openHarness(page);
+    const modifier = await addAnchorKey(page);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await page.locator('#target-me').click();
+
+    const textarea = page.getByPlaceholder(/Describe the issue/);
+    await textarea.fill('select all of this');
+    await expect(textarea).toBeFocused();
+
+    await page.keyboard.down(modifier);
+    await expect(page.locator('#lp-toast')).toBeVisible();
+    // The composer stays up, so the draft never loses focus mid-hold.
+    await expect(textarea).toBeFocused();
+
+    // Select-all still selects, which can only happen if the widget let the
+    // shortcut through to the focused textarea.
+    await page.keyboard.press('a');
+    await expect(page.locator('#lp-toast')).toBeHidden();
+    const selection = await textarea.evaluate((el) => [
+        (el as HTMLTextAreaElement).selectionStart,
+        (el as HTMLTextAreaElement).selectionEnd,
+    ]);
+    expect(selection).toEqual([0, 'select all of this'.length]);
+
+    // The hold stays spent until the modifier comes back up.
+    await page.keyboard.press('a');
+    await expect(page.locator('#lp-toast')).toBeHidden();
+    await page.keyboard.up(modifier);
+    await page.keyboard.down(modifier);
+    await expect(page.locator('#lp-toast')).toBeVisible();
+    await page.keyboard.up(modifier);
+});
+
+/**
+ * A comment about several elements only reads as one comment if the reviewer
+ * can see the whole set at once, so hovering any one anchor outlines them all.
+ */
+test('hovering one anchor outlines every anchor of the same comment', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await addTwoElementComment(page, 'These two must agree');
+    await expect(page.locator('.pin')).toHaveCount(2);
+
+    const framed = page.locator('#lp-hl');
+    const siblings = page.locator('#lp-hls > div:visible');
+    await expect(framed).toBeHidden();
+    await expect(siblings).toHaveCount(0);
+
+    // Hovering the first pin frames its own element and outlines the second.
+    await page.locator('.pin').first().hover();
+    await expect(framed).toBeVisible();
+    await expect(siblings).toHaveCount(1);
+    const siblingBox = await siblings.boundingBox();
+    const secondBox = await page.locator('#target-two').boundingBox();
+    expect(Math.abs(siblingBox!.x - (secondBox!.x - 8))).toBeLessThan(2);
+    expect(Math.abs(siblingBox!.y - (secondBox!.y - 8))).toBeLessThan(2);
+
+    // Hovering the second pin swaps which one is framed, and still outlines both.
+    await page.locator('.pin').nth(1).hover();
+    await expect(framed).toBeVisible();
+    await expect(siblings).toHaveCount(1);
+    const swappedBox = await siblings.boundingBox();
+    const firstBox = await page.locator('#target-me').boundingBox();
+    expect(Math.abs(swappedBox!.x - (firstBox!.x - 8))).toBeLessThan(2);
+
+    // Moving away clears every outline.
+    await page.mouse.move(2, 2);
+    await expect(framed).toBeHidden();
+    await expect(siblings).toHaveCount(0);
 });
