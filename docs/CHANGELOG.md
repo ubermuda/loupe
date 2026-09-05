@@ -30,6 +30,10 @@ entry.
 
 ## [Unreleased]
 
+- `f1bca43` (#361) — **Added:** a site-review comment can quote a range of text
+  rather than only pointing at an element, so a comment about a sentence anchors
+  to the sentence. The quote and its surrounding context are stored, so the
+  anchor survives the page changing around it.
 - `2c2c37c` (#349) — **Changed:** the e2e run stops at the first failure.
   `waitlist`, `trial-end-lifecycle` and `install-reset` depend on `chromium`, and
   Playwright skips a dependent project when its dependency fails, so a red test
