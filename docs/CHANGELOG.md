@@ -30,6 +30,12 @@ entry.
 
 ## [Unreleased]
 
+- `59defea` (#357) — **Fixed:** two site-review widget tests asserted a resting
+  state the interaction never promises. Releasing the modifier key makes every
+  anchor box hit-testable again, and Chromium dispatches a `mouseover` for the
+  stationary pointer with no matching `mouseout`, so the emphasis arrives and
+  stays. Both tests now park the pointer before asserting. The widget was
+  correct; the assertions were not.
 - `f335764` (#341) — **Added:** a site-review comment can point at several
   elements, so it can describe a relationship between them rather than being
   tied to one. Hold Cmd, or Ctrl away from a Mac, and keep clicking to add
