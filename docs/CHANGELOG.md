@@ -30,6 +30,13 @@ entry.
 
 ## [Unreleased]
 
+- `f3822e2` (#350) — **Changed:** the `working-with-prs` skill says to open a
+  pull request ready rather than draft, because a draft waits for a review that
+  never starts.
+- `db025af` (#338) — **Changed:** `site_review_mark_comment_addressed` states in
+  its tool description, its docblock, the `loupe-site-review` skill and
+  `docs/using/mcp.md` that a skip reason is best-effort. The write is
+  authoritative; only the reported reason can name a status that moved under it.
 - `26d6bf5` (#348) — **Added:** a development-only preview-login link.
   `bin/console app:dev:preview-login-link --path=/projects` prints a URL that
   signs the reader in and lands them on that page, so a pull request body needs
