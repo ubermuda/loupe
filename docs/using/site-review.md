@@ -36,8 +36,13 @@ or a production credential.
 Pick an element, then hold **⌘** (**Ctrl** on Windows and Linux) and click
 another. The picker stays up as long as you hold the key, so you can add several
 elements in one go. You can also hold the key before the first pick. The composer
-shows one chip per element, and the × on a chip drops it again. A comment can
-hold up to ten elements. Save once, and the comment is about all of them.
+shows one pill per element. A comment can hold up to ten elements. Save once,
+and the comment is about all of them.
+
+Point at a pill and the widget emphasises the element that pill names, while the
+other elements stay outlined. Click the pill to scroll to its element when it is
+off screen. Two controls drop an element again: the × on its pill, and the ×
+that appears on the element's own outline when you point at it.
 
 Use this when the feedback is about a relationship. "These two should sit side
 by side" is one comment about two elements, not two comments.

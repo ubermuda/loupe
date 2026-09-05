@@ -16,6 +16,9 @@
     <button id="target-two" class="card" type="button">A second button to comment on</button>
     {% endif %}
     <button id="target-three" class="card" type="button">A third button to comment on</button>
+    {# Focusable targets: picking one must not move focus onto the host page. #}
+    <p><input id="target-input" type="text" value="A field to comment on"></p>
+    <p><a id="target-link" href="#somewhere">A link to comment on</a></p>
     <script src="/site-review/widget.js" data-token="{{ token }}"></script>
 </body>
 </html>

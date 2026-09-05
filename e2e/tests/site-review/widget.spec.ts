@@ -968,6 +968,13 @@ test('a comment can be anchored to several elements at once', async ({
     await expect(page.locator('#lp-compose-head .lp-compose-hint')).toHaveCount(
         0,
     );
+    // The anchors are still outlined while editing, and none offers to remove
+    // itself: a PATCH sends the body alone, so the change would be discarded.
+    await expect(
+        page.locator('#lp-hls > div:visible, #lp-hl:visible'),
+    ).toHaveCount(2);
+    await expect(page.locator('.highlight.removable')).toHaveCount(0);
+    await expect(page.locator('#lp-hlx .lp-hl-x:visible')).toHaveCount(0);
     await page.keyboard.down(modifier);
     await expect(page.locator('#lp-toast')).toBeHidden();
     await page.keyboard.up(modifier);
@@ -1014,6 +1021,300 @@ test('an element can be dropped from the composer before saving', async ({
     expect(comments).toHaveLength(1);
     expect(comments[0].anchors).toHaveLength(1);
     await expect(page.locator('.pin')).toHaveCount(1);
+});
+
+/**
+ * With four pills a reviewer cannot tell which names which element. Pointing at
+ * one emphasises its element on the page. The rest stay painted, because a
+ * comment is about the whole set and hiding them would flicker the page.
+ */
+test('pointing at a pill emphasises the anchor it names', async ({ page }) => {
+    await openHarness(page);
+    const modifier = await addAnchorKey(page);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await page.locator('#target-me').click();
+    await page.keyboard.down(modifier);
+    await page.locator('#target-two').click();
+    await page.locator('#target-three').click();
+    await page.locator('#target-input').click();
+    await page.keyboard.up(modifier);
+    await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
+        4,
+    );
+
+    // Each pill is a control with a name of its own, not a span with a listener.
+    await expect(
+        page.getByRole('button', {
+            name: 'Highlight A second button to comment on',
+        }),
+    ).toBeVisible();
+
+    const painted = page.locator('#lp-hl:visible, #lp-hls > div:visible');
+    await expect(painted).toHaveCount(4);
+    await expect(page.locator('.highlight.lit')).toHaveCount(0);
+
+    // Hovering one pill emphasises one element and paints all four.
+    await page.locator('.lp-chip-name[data-anchor-pill="1"]').hover();
+    await expect(
+        page.locator('.highlight.lit[data-anchor-hover="1"]'),
+    ).toHaveCount(1);
+    await expect(page.locator('.highlight.lit')).toHaveCount(1);
+    await expect(painted).toHaveCount(4);
+    await expect(
+        page.locator('.lp-compose-chip[data-anchor-chip="1"]'),
+    ).toHaveClass(/lit/);
+
+    // Keyboard focus does the same. Two tabs move from one pill, past its own
+    // remove control, to the next pill.
+    await page.mouse.move(2, 2);
+    await expect(page.locator('.highlight.lit')).toHaveCount(0);
+    await page.locator('.lp-chip-name[data-anchor-pill="1"]').focus();
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Tab');
+    await expect(
+        page.locator('.lp-chip-name[data-anchor-pill="2"]'),
+    ).toBeFocused();
+    await expect(
+        page.locator('.highlight.lit[data-anchor-hover="2"]'),
+    ).toHaveCount(1);
+    await expect(page.locator('.highlight.lit')).toHaveCount(1);
+    await expect(painted).toHaveCount(4);
+
+    // A keyboard user sees a ring on the pill. A mouse user does not, because a
+    // press on a pill never focuses it.
+    expect(
+        await page
+            .locator('.lp-chip-name[data-anchor-pill="2"]')
+            .evaluate((el) => el.matches(':focus-visible')),
+    ).toBe(true);
+    await page.getByPlaceholder(/Describe the issue/).click();
+    await page.locator('.lp-chip-name[data-anchor-pill="0"]').click();
+    await expect(
+        page.locator('.lp-chip-name[data-anchor-pill="0"]'),
+    ).not.toBeFocused();
+    await expect(page.getByPlaceholder(/Describe the issue/)).toBeFocused();
+});
+
+/**
+ * Picking selects an element. It must not operate it. The browser focuses what a
+ * mousedown lands on, which put a focus ring on the host page's field and took
+ * the caret out of the composer for a gesture that only meant to select.
+ */
+test('picking an element does not give it focus', async ({ page }) => {
+    await openHarness(page);
+    const modifier = await addAnchorKey(page);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+
+    // Count the focus the page's own elements receive. Asserting the end state
+    // would not discriminate: the composer takes focus straight after a pick, so
+    // a page element that was focused and then lost it leaves no trace.
+    await page.evaluate(() => {
+        const seen = window as unknown as { __hostFocus: number };
+        seen.__hostFocus = 0;
+        ['target-input', 'target-link'].forEach((id) =>
+            document
+                .getElementById(id)!
+                .addEventListener('focus', () => (seen.__hostFocus += 1)),
+        );
+    });
+
+    // A text field is the sharpest case: focus would put the caret in the page.
+    await page.locator('#target-input').click();
+    await expect(page.locator('#target-input')).not.toBeFocused();
+    await expect(page.getByPlaceholder(/Describe the issue/)).toBeFocused();
+    await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
+        1,
+    );
+
+    // A link is the other one: it must neither focus nor navigate.
+    const url = page.url();
+    await page.keyboard.down(modifier);
+    await page.locator('#target-link').click();
+    await page.keyboard.up(modifier);
+    await expect(page.locator('#target-link')).not.toBeFocused();
+    await expect(page).toHaveURL(url);
+    await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
+        2,
+    );
+
+    // Neither pick ever moved focus onto the page, not even for an instant.
+    expect(
+        await page.evaluate(
+            () => (window as unknown as { __hostFocus: number }).__hostFocus,
+        ),
+    ).toBe(0);
+
+    // The caret is in the draft, so the reviewer types or pastes straight away.
+    await expect(page.getByPlaceholder(/Describe the issue/)).toBeFocused();
+    await page.keyboard.type('Typed without clicking first');
+    await expect(page.getByPlaceholder(/Describe the issue/)).toHaveValue(
+        'Typed without clicking first',
+    );
+});
+
+/**
+ * The chip is not the only way out. Each anchor's own box on the page carries a
+ * remove control, so the reviewer drops an element by clicking the thing they
+ * are looking at. Dropping one renumbers the rest and leaves no gap.
+ */
+test('an anchor can be dropped from its own box on the page', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    const modifier = await addAnchorKey(page);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await page.locator('#target-me').click();
+    await page.keyboard.down(modifier);
+    await page.locator('#target-two').click();
+    await page.locator('#target-three').click();
+    await page.keyboard.up(modifier);
+    await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
+        3,
+    );
+    await page
+        .getByPlaceholder(/Describe the issue/)
+        .fill('All three of these');
+
+    // Every anchor is outlined, and every outline has a control of its own.
+    await expect(page.locator('.highlight.removable')).toHaveCount(3);
+    await expect(page.locator('#lp-hlx .lp-hl-x:visible')).toHaveCount(3);
+
+    // The control is revealed on hover rather than drawn permanently.
+    const middle = page.locator('.highlight.removable[data-anchor-hover="1"]');
+    const middleX = page.locator('.lp-hl-x[data-anchor-remove="1"]');
+    await expect(middleX).toHaveCSS('opacity', '0');
+    await middle.hover();
+    await expect(middleX).toHaveCSS('opacity', '1');
+
+    // Focus reveals it too, so it is reachable without a pointer.
+    const firstX = page.locator('.lp-hl-x[data-anchor-remove="0"]');
+    await firstX.focus();
+    await expect(firstX).toBeFocused();
+    await expect(firstX).toHaveCSS('opacity', '1');
+
+    // Dropping the middle anchor renumbers the rest. The press must not focus
+    // the control, so count the focus it receives rather than reading the end
+    // state, which the composer reclaims either way.
+    await middleX.evaluate((el) => {
+        const seen = window as unknown as { __xFocus: number };
+        seen.__xFocus = 0;
+        el.addEventListener('focus', () => (seen.__xFocus += 1));
+    });
+    await middle.hover();
+    await middleX.click();
+    expect(
+        await page.evaluate(
+            () => (window as unknown as { __xFocus: number }).__xFocus,
+        ),
+    ).toBe(0);
+    await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
+        2,
+    );
+    await expect(page.locator('.highlight.removable')).toHaveCount(2);
+    await expect(page.locator('.lp-hl-x[data-anchor-remove="0"]')).toHaveCount(
+        1,
+    );
+    await expect(page.locator('.lp-hl-x[data-anchor-remove="1"]')).toHaveCount(
+        1,
+    );
+    await expect(page.locator('.lp-hl-x[data-anchor-remove="2"]')).toHaveCount(
+        0,
+    );
+    await expect(page.locator('#lp-compose-head')).not.toContainText(
+        'A second button',
+    );
+
+    // A mouse press must not focus the control. Focus goes back to the draft,
+    // which is where the reviewer works next, rather than to the document.
+    await expect(page.getByPlaceholder(/Describe the issue/)).toBeFocused();
+
+    // The draft is untouched, and the survivors save in their original order.
+    await expect(page.getByPlaceholder(/Describe the issue/)).toHaveValue(
+        'All three of these',
+    );
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#lp-head-count')).toHaveText('1');
+    await expect(page.locator('.pin')).toHaveCount(2);
+    const comments = await fetchReviewComments(page);
+    expect(comments[0].anchors).toHaveLength(2);
+    expect(comments[0].anchors[0].text).toContain('A button to comment on');
+    expect(comments[0].anchors[1].text).toContain(
+        'A third button to comment on',
+    );
+});
+
+/**
+ * Dropping the last anchor leaves a page note rather than an empty composer.
+ * This is the mirror of holding the modifier over a page note, which gives it an
+ * anchor and keeps the draft, so the pair stays symmetric.
+ */
+test('dropping the last anchor leaves a page note with the draft intact', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await page.locator('#target-me').click();
+    await page
+        .getByPlaceholder(/Describe the issue/)
+        .fill('Actually about the page');
+
+    const box = page.locator('.highlight.removable');
+    await expect(box).toHaveCount(1);
+
+    // The control sits over the element it removes, so its click must not reach
+    // it. A fall-through would land on the host page under the overlay.
+    await page.evaluate(() => {
+        const counted = window as unknown as { __anchorHits: number };
+        counted.__anchorHits = 0;
+        document
+            .getElementById('target-me')!
+            .addEventListener('click', () => (counted.__anchorHits += 1));
+    });
+    await box.hover();
+    await page.locator('#lp-hlx .lp-hl-x').click();
+    expect(
+        await page.evaluate(
+            () => (window as unknown as { __anchorHits: number }).__anchorHits,
+        ),
+    ).toBe(0);
+
+    // The comment becomes a page note and keeps what was typed.
+    await expect(page.locator('#lp-compose-head')).toContainText(
+        'General comment',
+    );
+    await expect(page.locator('.highlight.removable')).toHaveCount(0);
+    await expect(page.getByPlaceholder(/Describe the issue/)).toHaveValue(
+        'Actually about the page',
+    );
+
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#lp-head-count')).toHaveText('1');
+    await expect(page.locator('.pin')).toHaveCount(0);
+    const comments = await fetchReviewComments(page);
+    expect(comments[0].body).toBe('Actually about the page');
+    expect(comments[0].anchors).toHaveLength(0);
 });
 
 /**

@@ -396,6 +396,7 @@
     toastDock: 'top', // 'top' | 'bottom' — the pick-mode toast dodges to the bottom near the top edge
     moveHL: null, // { left, top, width, height, label } while picking
     hoverId: null, // hovered comment index (list row)
+    hoverAnchor: null, // anchor index whose on-page remove control is revealed
     hoverPinId: null, // hovered pin index
     confirmDeleteId: null, // armed inline list-row delete
     confirmClear: false,
@@ -484,8 +485,14 @@
       .lp-dot{width:7px;height:7px;border-radius:50%;border:1.5px dashed var(--faint)}
       .lp-compose-chip{flex:0 1 auto;min-width:0;display:inline-flex;align-items:center;gap:5px;height:21px;padding:0 9px;background:var(--accent-tint);color:var(--accent-ink);border-radius:999px;font-size:11px;font-weight:600;overflow:hidden}
       .lp-compose-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      /* The pill names one anchor, so it is a control: point at it and its
+         element is emphasised on the page, click it and the page scrolls to it. */
+      .lp-chip-name{flex:0 1 auto;min-width:0;display:inline-flex;align-items:center;gap:5px;border:0;padding:0;background:transparent;color:inherit;font-family:inherit;font-size:inherit;font-weight:inherit;line-height:1;cursor:pointer}
+      .lp-chip-name:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px;border-radius:999px}
+      .lp-compose-chip.lit{background:var(--accent);color:var(--on-accent)}
       .lp-chip-x{flex:0 0 auto;border:0;background:transparent;color:inherit;font-family:inherit;font-size:13px;line-height:1;padding:0;margin-right:-3px;cursor:pointer;opacity:.6}
       .lp-chip-x:hover{opacity:1}
+      .lp-chip-x:focus-visible{opacity:1;outline:2px solid var(--accent-ink);outline-offset:2px;border-radius:999px}
       .lp-compose-hint{flex:0 0 auto;height:21px;line-height:21px;color:var(--muted);font-size:11px;font-weight:600}
       /* Borderless: the fill is the field, as everywhere else in the app. */
       .lp-textarea{width:100%;min-height:74px;resize:none;border:0;background:var(--field-bg);color:var(--text);border-radius:12px;padding:10px 12px;font-family:inherit;font-size:13px;line-height:1.5;outline:none;transition:background .14s ease}
@@ -670,6 +677,20 @@
       /* A comment's other anchors. Same accent, no fill, so the framed one still
          reads as the one under the cursor. */
       .highlight.sib{background:transparent;border-width:1.5px;box-shadow:none;transition:none}
+      /* The anchor whose pill is pointed at, or whose own box is. It stays the
+         emphasised member of a set that all stays painted. */
+      .highlight.lit{background:var(--accent-fill);border-width:3px;border-color:var(--accent-ink);box-shadow:0 2px 10px var(--pin-shadow)}
+      /* Only a removable box takes pointer events, so an outline never eats a
+         click on the host page outside the short window a comment is composed in. */
+      .highlight.removable{pointer-events:auto}
+      /* The controls live above every box rather than inside one. Two anchors on
+         neighbouring elements have overlapping boxes, and a control drawn inside
+         its own box would sit under its neighbour and refuse the click. */
+      .lp-hl-x{position:fixed;z-index:5;display:flex;width:22px;height:22px;align-items:center;justify-content:center;padding:0;background:var(--accent);color:var(--on-accent);border:2px solid var(--pin-ring);border-radius:50%;font-family:inherit;font-size:14px;font-weight:700;line-height:1;cursor:pointer;pointer-events:auto;opacity:0;transition:opacity .12s ease;box-shadow:0 2px 8px var(--pin-shadow)}
+      /* :focus reveals it, because a mousedown on it is prevented and cannot
+         focus it. The ring is :focus-visible, so only a keyboard user sees one. */
+      .lp-hl-x.lit,.lp-hl-x:hover,.lp-hl-x:focus{opacity:1}
+      .lp-hl-x:focus-visible{outline:2px solid var(--pin-ring);outline-offset:2px}
       .lp-hl-label{position:absolute;left:-2px;top:-27px;display:inline-block;max-width:240px;height:21px;line-height:21px;padding:0 9px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:600;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 10px var(--pin-shadow)}
       .lp-pin-wrap{position:fixed;z-index:4;pointer-events:auto}
       .lp-ov.targeting .lp-pin-wrap{pointer-events:none}
@@ -703,6 +724,7 @@
       <div class="lp-scrim" id="lp-scrim" style="display:none"></div>
       <div id="lp-hls"></div>
       <div class="highlight" id="lp-hl" style="display:none"><span class="lp-hl-label" id="lp-hl-label" style="display:none"></span></div>
+      <div id="lp-hlx"></div>
       <div id="lp-pins"></div>
       <div class="lp-toast" id="lp-toast" style="display:none">
         ${ICON.target(15)}
@@ -725,6 +747,7 @@
   const hlsNode = $$('lp-hls');
   const hlNode = $$('lp-hl');
   const hlLabel = $$('lp-hl-label');
+  const hlxNode = $$('lp-hlx');
   const pinsNode = $$('lp-pins');
   const toastNode = $$('lp-toast');
   const toastText = $$('lp-toast-text');
@@ -793,16 +816,31 @@
   // comment being composed stays outlined, and hovering one anchor of a saved
   // comment lights its siblings.
   const highlightTargets = () => {
-    const composed = state.composing ? composeAnchors().filter((entry) => entry.el) : [];
+    const composed = state.composing
+      ? composeAnchors()
+          .map((entry, anchorIndex) => ({ el: entry.el, label: entry.label, anchorIndex }))
+          .filter((entry) => entry.el)
+      : [];
+    // The box carries a remove control only while a new comment is composed and
+    // the picker is off. An edit PATCHes the body alone and cannot change
+    // anchors, and a live picker needs the boxes to stay out of the way.
+    const removable = state.editId == null && !state.target;
+    const mark = (entry) => ({
+      el: entry.el,
+      anchorIndex: entry.anchorIndex,
+      removeIndex: removable ? entry.anchorIndex : null,
+    });
     if (state.target) {
-      return { move: state.moveHL, others: composed.map((entry) => entry.el) };
+      return { move: state.moveHL, others: composed.map(mark) };
     }
     if (composed.length) {
       const last = composed[composed.length - 1];
       return {
         el: last.el,
         label: last.label,
-        others: composed.slice(0, -1).map((entry) => entry.el),
+        anchorIndex: last.anchorIndex,
+        removeIndex: mark(last).removeIndex,
+        others: composed.slice(0, -1).map(mark),
       };
     }
     if (state.hoverPinId != null) {
@@ -811,12 +849,14 @@
       const found = resolveAnchors(comments[commentIndex] || {}).filter((entry) => entry.el);
       return {
         el: found.find((entry) => entry.anchorIndex === anchorIndex)?.el,
-        others: found.filter((entry) => entry.anchorIndex !== anchorIndex).map((entry) => entry.el),
+        others: found
+          .filter((entry) => entry.anchorIndex !== anchorIndex)
+          .map((entry) => ({ el: entry.el })),
       };
     }
     if (state.hoverId != null && comments[state.hoverId]) {
-      const found = anchorHealth(comments[state.hoverId]).found.map((entry) => entry.el);
-      return { el: found[0], others: found.slice(1) };
+      const found = anchorHealth(comments[state.hoverId]).found.map((entry) => ({ el: entry.el }));
+      return { el: found[0] && found[0].el, others: found.slice(1) };
     }
     return { others: [] };
   };
@@ -824,8 +864,8 @@
   // The sibling boxes are pooled and hidden rather than removed, so a hover that
   // moves between anchors repositions nodes instead of recreating them.
   const sibNodes = [];
-  const drawSiblings = (els) => {
-    els.forEach((el, index) => {
+  const drawSiblings = (entries) => {
+    entries.forEach((entry, index) => {
       let node = sibNodes[index];
       if (!node) {
         node = document.createElement('div');
@@ -833,25 +873,75 @@
         hlsNode.appendChild(node);
         sibNodes[index] = node;
       }
-      const r = rectOf(el);
+      const r = rectOf(entry.el);
       if (!r) {
         node.style.display = 'none';
+        node.classList.remove('removable', 'lit');
+        node.dataset.anchorHover = '';
         return;
       }
+      node.classList.toggle('removable', entry.removeIndex != null);
+      node.classList.toggle('lit', entry.anchorIndex != null && state.hoverAnchor === entry.anchorIndex);
+      node.dataset.anchorHover = entry.anchorIndex == null ? '' : String(entry.anchorIndex);
       node.style.display = 'block';
       node.style.left = r.left - HIGHLIGHT_PADDING + 'px';
       node.style.top = r.top - HIGHLIGHT_PADDING + 'px';
       node.style.width = r.width + HIGHLIGHT_PADDING * 2 + 'px';
       node.style.height = r.height + HIGHLIGHT_PADDING * 2 + 'px';
     });
-    for (let index = els.length; index < sibNodes.length; index++) {
+    for (let index = entries.length; index < sibNodes.length; index++) {
       sibNodes[index].style.display = 'none';
+      sibNodes[index].classList.remove('removable', 'lit');
+      sibNodes[index].dataset.anchorHover = '';
     }
   };
 
+  // One remove control per removable anchor, pooled and pinned to the padded
+  // box's top-right corner. `lit` follows the box the pointer is over.
+  const xNodes = [];
+  const drawRemoveControls = (entries) => {
+    entries.forEach((entry, index) => {
+      let node = xNodes[index];
+      if (!node) {
+        node = document.createElement('button');
+        node.className = 'lp-hl-x';
+        node.type = 'button';
+        node.setAttribute('aria-label', 'Remove this element');
+        node.textContent = '×';
+        hlxNode.appendChild(node);
+        xNodes[index] = node;
+      }
+      node.style.display = 'flex';
+      node.dataset.anchorRemove = String(entry.removeIndex);
+      node.classList.toggle('lit', state.hoverAnchor === entry.removeIndex);
+      node.style.left = entry.rect.left + entry.rect.width - 11 + 'px';
+      node.style.top = entry.rect.top - 11 + 'px';
+    });
+    for (let index = entries.length; index < xNodes.length; index++) {
+      xNodes[index].style.display = 'none';
+      xNodes[index].removeAttribute('data-anchor-remove');
+    }
+  };
+
+  const outset = (r) => ({
+    left: r.left - HIGHLIGHT_PADDING,
+    top: r.top - HIGHLIGHT_PADDING,
+    width: r.width + HIGHLIGHT_PADDING * 2,
+    height: r.height + HIGHLIGHT_PADDING * 2,
+  });
+
   const updateHighlight = () => {
     const targets = highlightTargets();
-    drawSiblings(targets.others || []);
+    const others = targets.others || [];
+    drawSiblings(others);
+    const framedRemove = targets.move ? null : targets.removeIndex;
+    const framedAnchor = targets.move ? null : targets.anchorIndex;
+    hlNode.classList.toggle('removable', framedRemove != null);
+    hlNode.classList.toggle(
+      'lit',
+      framedAnchor != null && state.hoverAnchor === framedAnchor,
+    );
+    hlNode.dataset.anchorHover = framedAnchor == null ? '' : String(framedAnchor);
     let hl = null;
     if (targets.move) {
       hl = targets.move;
@@ -861,20 +951,27 @@
         hl = { left: r.left, top: r.top, width: r.width, height: r.height, label: targets.label || null };
       }
     }
+    // Every removable anchor gets a control, the framed one included, and each is
+    // measured from the same outset rect the box is drawn with.
+    const controls = [];
+    others.forEach((entry) => {
+      const r = entry.removeIndex != null && rectOf(entry.el);
+      if (r) controls.push({ rect: outset(r), removeIndex: entry.removeIndex });
+    });
+    if (hl && framedRemove != null) {
+      controls.push({ rect: outset(hl), removeIndex: framedRemove });
+    }
+    drawRemoveControls(controls);
     if (!hl) {
       hlNode.style.display = 'none';
+      hlNode.classList.remove('removable', 'lit');
+      hlNode.dataset.anchorHover = '';
       return;
     }
     // Outset the measured rect so the outline frames the element rather than
     // tracing its edge. Applied before the label is placed, so the label keeps
     // sitting against the box the reviewer actually sees.
-    hl = {
-      ...hl,
-      left: hl.left - HIGHLIGHT_PADDING,
-      top: hl.top - HIGHLIGHT_PADDING,
-      width: hl.width + HIGHLIGHT_PADDING * 2,
-      height: hl.height + HIGHLIGHT_PADDING * 2,
-    };
+    hl = { ...hl, ...outset(hl) };
     hlNode.style.display = 'block';
     hlNode.style.left = hl.left + 'px';
     hlNode.style.top = hl.top + 'px';
@@ -1221,16 +1318,16 @@
         const anchors = ct.anchors || [];
         const editable = state.editId == null;
         const chips = anchors
-          .map(
-            (anchor, anchorIndex) =>
-              `<span class="lp-compose-chip">${ICON.glyph(11)}<span>${escapeHtml(
-                anchor.label || 'Selected element',
-              )}</span>${
-                editable
-                  ? `<button class="lp-chip-x" data-anchor-remove="${anchorIndex}" aria-label="Remove this element">×</button>`
-                  : ''
-              }</span>`,
-          )
+          .map((anchor, anchorIndex) => {
+            const label = anchor.label || 'Selected element';
+            return `<span class="lp-compose-chip" data-anchor-chip="${anchorIndex}"><button class="lp-chip-name" type="button" data-anchor-pill="${anchorIndex}" aria-label="Highlight ${escapeHtml(
+              label,
+            )}">${ICON.glyph(11)}<span>${escapeHtml(label)}</span></button>${
+              editable
+                ? `<button class="lp-chip-x" data-anchor-remove="${anchorIndex}" aria-label="Remove this element">×</button>`
+                : ''
+            }</span>`;
+          })
           .join('');
         const canAdd = editable && anchors.length < MAX_ANCHORS;
         composeHead.innerHTML =
@@ -1239,9 +1336,28 @@
             ? `<span class="lp-compose-hint">Hold ${MOD_LABEL} to add another</span>`
             : '');
         composeHead.querySelectorAll('[data-anchor-remove]').forEach((button) => {
-          button.addEventListener('click', () =>
-            removeComposeAnchor(Number(button.dataset.anchorRemove)),
-          );
+          button.addEventListener('mousedown', (event) => event.preventDefault());
+          button.addEventListener('click', () => {
+            removeComposeAnchor(Number(button.dataset.anchorRemove));
+            if (state.composing) focusTextarea();
+          });
+        });
+        // Pointing at a pill emphasises the one element it names, and the rest
+        // of the comment's anchors stay painted around it.
+        composeHead.querySelectorAll('[data-anchor-pill]').forEach((button) => {
+          const anchorIndex = Number(button.dataset.anchorPill);
+          const enter = () => setHoverAnchor(anchorIndex);
+          const leave = () => setHoverAnchor(null);
+          button.addEventListener('mouseenter', enter);
+          button.addEventListener('focus', enter);
+          button.addEventListener('mouseleave', leave);
+          button.addEventListener('blur', leave);
+          // A press must not take the caret out of the draft. The pill stays
+          // focusable, so only the keyboard reaches it and only it sees a ring.
+          // A press must not take the caret out of the draft. The pill stays
+          // focusable, so only the keyboard reaches it and only it sees a ring.
+          button.addEventListener('mousedown', (event) => event.preventDefault());
+          button.addEventListener('click', () => showAnchor(anchorIndex));
         });
       }
     }
@@ -1524,6 +1640,29 @@
     sync();
   };
 
+  // Emphasise one anchor of the comment being composed, on the page and on its
+  // pill. Either end can set it: a pill points at an element, and an element's
+  // own box points back at its pill.
+  const setHoverAnchor = (anchorIndex) => {
+    if (state.hoverAnchor === anchorIndex) return;
+    state.hoverAnchor = anchorIndex;
+    composeHead.querySelectorAll('[data-anchor-chip]').forEach((chip) => {
+      chip.classList.toggle('lit', Number(chip.dataset.anchorChip) === anchorIndex);
+    });
+    updateHighlight();
+  };
+
+  // Scroll to an anchor only when the reviewer asks by clicking its pill, and
+  // only when it is off screen. Scrolling on hover would move the page under a
+  // pointer that is only browsing the pills.
+  const showAnchor = (anchorIndex) => {
+    const anchor = composeAnchors()[anchorIndex];
+    const r = anchor && anchor.el && rectOf(anchor.el);
+    if (!r) return;
+    if (r.top >= 0 && r.bottom <= window.innerHeight) return;
+    anchor.el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  };
+
   // Add-anchor mode. Holding the modifier over an open composer brings the picker
   // back, so a click adds another anchor without discarding the draft. The mode
   // lasts as long as the hold. At the cap it says so instead of picking.
@@ -1759,11 +1898,13 @@
     cursorStyle.textContent = on ? '*{cursor:crosshair !important}' : '';
     if (on) {
       document.addEventListener('mousemove', onMove, true);
+      document.addEventListener('mousedown', onDown, true);
       document.addEventListener('click', onClick, true);
       document.addEventListener('contextmenu', onContext, true);
       window.addEventListener('wheel', onWheel, { passive: false });
     } else {
       document.removeEventListener('mousemove', onMove, true);
+      document.removeEventListener('mousedown', onDown, true);
       document.removeEventListener('click', onClick, true);
       document.removeEventListener('contextmenu', onContext, true);
       window.removeEventListener('wheel', onWheel);
@@ -1825,6 +1966,13 @@
       label: firstLineLabel(current.innerText),
     };
     updateHighlight();
+  };
+  // A mousedown focuses what it lands on. During a pick that gives the host
+  // page's link, input or button a focus ring and takes the caret out of the
+  // composer, for a gesture that only meant to select. The click still fires.
+  const onDown = (event) => {
+    if (!state.target || !pickEl(event)) return;
+    event.preventDefault();
   };
   const onClick = (event) => {
     if (!state.target) return;
@@ -1923,6 +2071,38 @@
   $$('lp-toast-esc').addEventListener('click', () => {
     setTargeting(false);
     sync();
+  });
+  // The remove control sits in the overlay above the page, so the click is
+  // stopped here rather than falling through to the element it is drawn over.
+  ovRoot.addEventListener('click', (event) => {
+    const button = event.target.closest && event.target.closest('[data-anchor-remove]');
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    removeComposeAnchor(Number(button.dataset.anchorRemove));
+    // The reviewer types next, and the removed control is gone, so the caret
+    // goes back to the draft rather than falling to the document.
+    if (state.composing) focusTextarea();
+  });
+  // A mouse press must not focus the control. It stays focusable for the
+  // keyboard, and :focus-visible is what draws the ring.
+  ovRoot.addEventListener('mousedown', (event) => {
+    if (event.target.closest && event.target.closest('[data-anchor-remove]')) event.preventDefault();
+  });
+  // Reveal the control of whichever removable box the pointer is over.
+  // A box or its own remove control. Reaching for the control must not drop the
+  // emphasis, because the pointer leaves the box to get there.
+  const hoverAnchorOf = (target) => {
+    if (!target || !target.closest) return null;
+    const control = target.closest('[data-anchor-remove]');
+    if (control) return Number(control.dataset.anchorRemove);
+    const box = target.closest('.highlight.removable');
+    const value = box && box.dataset.anchorHover;
+    return value ? Number(value) : null;
+  };
+  ovRoot.addEventListener('mouseover', (event) => setHoverAnchor(hoverAnchorOf(event.target)));
+  ovRoot.addEventListener('mouseout', (event) => {
+    if (hoverAnchorOf(event.relatedTarget) == null) setHoverAnchor(null);
   });
   textareaNode.addEventListener('input', (event) => {
     state.draft = event.target.value;
