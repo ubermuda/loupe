@@ -1676,3 +1676,419 @@ test('hovering one anchor outlines every anchor of the same comment', async ({
     await expect(framed).toBeHidden();
     await expect(siblings).toHaveCount(0);
 });
+
+/**
+ * The bounding box of every painted pixel on the widget's stroke canvas, in CSS
+ * pixels of the viewport. The canvas carries the drawing and nothing else — the
+ * outlines, pins and labels are all DOM — so this measures the strokes alone.
+ */
+type Ink = {
+    count: number;
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+};
+
+const inkBounds = (page: Page): Promise<Ink> =>
+    page.evaluate(() => {
+        const canvas = [...document.documentElement.children]
+            .map((node) => node.shadowRoot?.getElementById('lp-canvas'))
+            .find(Boolean) as HTMLCanvasElement | undefined;
+        if (!canvas || canvas.width === 0) {
+            return { count: 0, left: 0, top: 0, right: 0, bottom: 0 };
+        }
+        const { width, height } = canvas;
+        const pixels = canvas
+            .getContext('2d')!
+            .getImageData(0, 0, width, height).data;
+        // The backing store is scaled by the device pixel ratio.
+        const scale = width / window.innerWidth;
+        let count = 0;
+        let left = Infinity;
+        let top = Infinity;
+        let right = -Infinity;
+        let bottom = -Infinity;
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (pixels[(y * width + x) * 4 + 3] <= 12) {
+                    continue;
+                }
+                count++;
+                left = Math.min(left, x);
+                right = Math.max(right, x);
+                top = Math.min(top, y);
+                bottom = Math.max(bottom, y);
+            }
+        }
+        if (count === 0) {
+            return { count: 0, left: 0, top: 0, right: 0, bottom: 0 };
+        }
+        return {
+            count,
+            left: left / scale,
+            top: top / scale,
+            right: right / scale,
+            bottom: bottom / scale,
+        };
+    });
+
+const inkTimeout = { timeout: 25000 };
+
+const waitForInk = async (page: Page): Promise<Ink> => {
+    await expect
+        .poll(async () => (await inkBounds(page)).count, inkTimeout)
+        .toBeGreaterThan(0);
+
+    return inkBounds(page);
+};
+
+/**
+ * Drag a stroke across the page. Draw mode has to be on already, because the
+ * canvas is the node that takes these events.
+ */
+const drawStroke = async (
+    page: Page,
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+): Promise<void> => {
+    const steps = 8;
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    for (let step = 1; step <= steps; step++) {
+        await page.mouse.move(
+            from.x + ((to.x - from.x) * step) / steps,
+            from.y + ((to.y - from.y) * step) / steps,
+        );
+    }
+    await page.mouse.up();
+};
+
+/** The stored strokes of the site's live comments, read with the widget's token. */
+const fetchReviewStrokes = (
+    page: Page,
+): Promise<
+    Array<{
+        anchorCount: number;
+        strokes: Array<{ space: string; points: Array<[number, number]> }>;
+    }>
+> =>
+    page.evaluate(async () => {
+        const script = document.querySelector(
+            'script[src*="site-review/widget.js"]',
+        )!;
+        const response = await fetch('/api/site-review/review', {
+            headers: {
+                Authorization: `Bearer ${script.getAttribute('data-token')!}`,
+            },
+        });
+        const { comments } = (await response.json()) as {
+            comments: Array<{
+                anchors: unknown[];
+                strokes: Array<{
+                    space: string;
+                    points: Array<[number, number]>;
+                }>;
+            }>;
+        };
+        return comments.map((comment) => ({
+            anchorCount: comment.anchors.length,
+            strokes: comment.strokes,
+        }));
+    });
+
+/** Open the panel, pick `#target-wide`, then turn the canvas on. */
+const composeDrawingOnWideBlock = async (page: Page): Promise<void> => {
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await page.locator('#target-wide').click();
+    await expect(page.locator('[data-anchor-chip]')).toHaveCount(1);
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Draw', exact: true })
+        .click();
+};
+
+const saveComposer = async (page: Page, body: string): Promise<void> => {
+    await page.getByRole('button', { name: 'Done' }).click();
+    await page.getByPlaceholder(/Describe the issue/).fill(body);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#lp-head-count')).toHaveText('1', inkTimeout);
+    // The "saved" toast clears itself on a timer, and that timer repaints the
+    // whole overlay. Wait it out, so any later repaint can only have come from
+    // the gesture under test.
+    await expect(page.locator('#lp-saved')).toBeHidden({ timeout: 15000 });
+};
+
+/**
+ * A stroke on an anchored comment is stored as fractions of its first anchor's
+ * box, so the drawing reflows with the element instead of staying at the pixels
+ * the reviewer happened to draw it at.
+ */
+test('a stroke on an anchored comment moves with its element', async ({
+    page,
+}) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await composeDrawingOnWideBlock(page);
+
+    const wideBox = (await page.locator('#target-wide').boundingBox())!;
+    await drawStroke(
+        page,
+        { x: wideBox.x + 4, y: wideBox.y + 4 },
+        {
+            x: wideBox.x + wideBox.width - 4,
+            y: wideBox.y + wideBox.height - 4,
+        },
+    );
+    await waitForInk(page);
+    await saveComposer(page, 'Move this block to the right');
+
+    const [saved] = await fetchReviewStrokes(page);
+    expect(saved.anchorCount).toBe(1);
+    expect(saved.strokes).toHaveLength(1);
+    expect(saved.strokes[0].space).toBe('anchor');
+
+    // The saved comment re-renders from those fractions, over the same element.
+    const wideInk = await waitForInk(page);
+    expect(wideInk.right).toBeGreaterThan(wideBox.x + wideBox.width - 16);
+
+    // Narrow the window. #target-wide is a percentage width, so it genuinely
+    // reflows, and the drawing has to reflow with it.
+    await page.setViewportSize({ width: 760, height: 800 });
+    const narrowBox = (await page.locator('#target-wide').boundingBox())!;
+    expect(narrowBox.width).toBeLessThan(wideBox.width - 200);
+
+    await expect
+        .poll(async () => (await inkBounds(page)).right, inkTimeout)
+        .toBeLessThan(narrowBox.x + narrowBox.width + 8);
+    const narrowInk = await inkBounds(page);
+    // Still spanning the element, and still inside it. Page coordinates would
+    // put the drawing well above the block, because the whole page scales.
+    expect(narrowInk.right - narrowInk.left).toBeGreaterThan(
+        narrowBox.width * 0.8,
+    );
+    expect(narrowInk.top).toBeGreaterThan(narrowBox.y - 8);
+    expect(narrowInk.bottom).toBeLessThan(narrowBox.y + narrowBox.height + 8);
+});
+
+/**
+ * A stroke that crosses the page from a small element is a page-scale gesture,
+ * not a mark on that element's box. Measuring it against the box would multiply
+ * every fraction by a small width, so a few pixels of reflow would fling the
+ * far end of the stroke across the screen — and the fractions themselves grow
+ * large enough for the API to refuse the save.
+ */
+test('a stroke that reaches far past its element falls back to page space', async ({
+    page,
+}) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    // 21px tall, so a 600px drag reaches far more than 20 box heights.
+    await page.locator('#target-me').click();
+    await expect(page.locator('[data-anchor-chip]')).toHaveCount(1);
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Draw', exact: true })
+        .click();
+
+    const small = (await page.locator('#target-me').boundingBox())!;
+    expect(small.height).toBeLessThan(40);
+    await drawStroke(
+        page,
+        { x: small.x + 4, y: small.y + 4 },
+        { x: small.x + 300, y: small.y + 600 },
+    );
+    await waitForInk(page);
+    await saveComposer(page, 'This belongs down there');
+
+    const [saved] = await fetchReviewStrokes(page);
+    expect(saved.anchorCount).toBe(1);
+    expect(saved.strokes[0].space).toBe('page');
+    // Whatever the space, the drawing has to come back on the page.
+    const reloaded = await waitForInk(page);
+    expect(reloaded.bottom).toBeGreaterThan(small.y + 500);
+});
+
+/**
+ * A comment with no anchor has no box to measure against, so its strokes are
+ * page coordinates. They survive a scroll, and the widget says so in the docs
+ * rather than pretending they survive a reflow.
+ */
+test('a stroke on a page note keeps its place as the page scrolls', async ({
+    page,
+}) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Draw', exact: true })
+        .click();
+
+    const linkBox = (await page.locator('#target-link').boundingBox())!;
+    await drawStroke(
+        page,
+        { x: linkBox.x + 2, y: linkBox.y + 2 },
+        { x: linkBox.x + 150, y: linkBox.y + 70 },
+    );
+    await waitForInk(page);
+    await saveComposer(page, 'This whole area needs work');
+
+    const [saved] = await fetchReviewStrokes(page);
+    expect(saved.anchorCount).toBe(0);
+    expect(saved.strokes[0].space).toBe('page');
+
+    const before = await waitForInk(page);
+    await page.mouse.wheel(0, 120);
+    await expect
+        .poll(
+            async () =>
+                Math.abs((await inkBounds(page)).top - (before.top - 120)),
+            inkTimeout,
+        )
+        .toBeLessThan(4);
+});
+
+/**
+ * A stroke is not a pick. It creates no anchor, it promotes nothing under it,
+ * and the add-another-element hold does nothing while the canvas has the
+ * pointer — otherwise every drag over an element would silently anchor it.
+ */
+test('drawing never picks the element under the stroke', async ({ page }) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await composeDrawingOnWideBlock(page);
+
+    const modifier = await addAnchorKey(page);
+    const secondBox = (await page.locator('#target-two').boundingBox())!;
+    await page.keyboard.down(modifier);
+    await drawStroke(
+        page,
+        { x: secondBox.x + 3, y: secondBox.y + 3 },
+        {
+            x: secondBox.x + secondBox.width - 3,
+            y: secondBox.y + secondBox.height - 3,
+        },
+    );
+    await page.keyboard.up(modifier);
+
+    // The anchor count first: a hold that reached the picker would have added
+    // the second button on the drag's own click.
+    await expect(page.locator('[data-anchor-chip]')).toHaveCount(1);
+    await expect(page.locator('#lp-scrim')).toBeHidden();
+    await waitForInk(page);
+
+    await saveComposer(page, 'The drawing points at the second button');
+    const [saved] = await fetchReviewStrokes(page);
+    expect(saved.anchorCount).toBe(1);
+});
+
+/**
+ * The drawing is stored with the comment, so it comes back on the next visit
+ * the way the pins do.
+ */
+test("a saved comment's drawing comes back on reload", async ({ page }) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await composeDrawingOnWideBlock(page);
+
+    const wideBox = (await page.locator('#target-wide').boundingBox())!;
+    await drawStroke(
+        page,
+        { x: wideBox.x + 6, y: wideBox.y + 6 },
+        { x: wideBox.x + 200, y: wideBox.y + wideBox.height - 6 },
+    );
+    await saveComposer(page, 'Still here after a reload');
+    const before = await waitForInk(page);
+
+    await page.goto(keepHarnessUrl);
+    const after = await waitForInk(page);
+    expect(Math.abs(after.left - before.left)).toBeLessThan(4);
+    expect(Math.abs(after.top - before.top)).toBeLessThan(4);
+    expect(Math.abs(after.right - before.right)).toBeLessThan(4);
+});
+
+/**
+ * Undo drops the last stroke and Clear drops the drawing. There is no per-stroke
+ * eraser, so these two are the whole of what a reviewer can take back.
+ */
+test('a stroke can be undone, and the whole drawing cleared', async ({
+    page,
+}) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Draw', exact: true })
+        .click();
+
+    await drawStroke(page, { x: 60, y: 240 }, { x: 160, y: 300 });
+    await drawStroke(page, { x: 400, y: 240 }, { x: 500, y: 300 });
+    const both = await waitForInk(page);
+    expect(both.right).toBeGreaterThan(480);
+    await expect(page.locator('#lp-draw-text')).toHaveText('2 strokes');
+
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(page.locator('#lp-draw-text')).toHaveText('1 stroke');
+    await expect
+        .poll(async () => (await inkBounds(page)).right, inkTimeout)
+        .toBeLessThan(200);
+
+    // Leaving draw mode keeps the stroke, and the composer names it. Going back
+    // in and out again must not disturb it.
+    await page.getByRole('button', { name: 'Done' }).click();
+    const strokeChip = page.locator('[data-stroke-clear]');
+    await expect(strokeChip).toHaveCount(1);
+    await expect(page.locator('#lp-compose-head')).toContainText('1 stroke');
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Draw', exact: true })
+        .click();
+    await expect(page.locator('#lp-draw-text')).toHaveText('1 stroke');
+
+    await page.getByRole('button', { name: 'Clear' }).click();
+    await expect(page.locator('#lp-draw-text')).toHaveText('Drag to draw');
+    await expect
+        .poll(async () => (await inkBounds(page)).count, inkTimeout)
+        .toBe(0);
+    await expect(strokeChip).toHaveCount(0);
+
+    // The chip's own × is the erase control once draw mode is off.
+    await drawStroke(page, { x: 220, y: 260 }, { x: 320, y: 320 });
+    await page.getByRole('button', { name: 'Done' }).click();
+    await expect(strokeChip).toHaveCount(1);
+    await waitForInk(page);
+    await strokeChip.click();
+    await expect(strokeChip).toHaveCount(0);
+    await expect
+        .poll(async () => (await inkBounds(page)).count, inkTimeout)
+        .toBe(0);
+});

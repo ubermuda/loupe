@@ -159,7 +159,8 @@ longer reports the `selector` and `text` fields, which held one element each.
   "anchors": [
     { "selector": ".plan-card", "text": "Starter", "quote": null, "quotePrefix": null, "quoteSuffix": null },
     { "selector": ".plan-note", "text": "Billed yearly", "quote": null, "quotePrefix": null, "quoteSuffix": null }
-  ]
+  ],
+  "hasDrawing": false
 }
 ```
 
@@ -167,6 +168,18 @@ A comment with several anchors says something about how those elements relate,
 so read them together. An empty `anchors` list is a note about the page as a
 whole. The `quote` fields are reserved for an anchor on a run of text, and are
 always null today.
+
+### A drawing is reported as a flag, not as points
+
+A reviewer can draw freehand over the page as part of a comment.
+`site_review_get` reports `hasDrawing` and nothing more. The strokes are vector
+points measured against a live page, which no agent can render, so the points
+would cost a large payload and buy nothing.
+
+Read `hasDrawing: true` as "the reviewer pointed at something the words may not
+name". Act on the words. Ask the reviewer when they do not say enough, rather
+than guessing what the drawing meant. The reviewer's own data export carries the
+points in full, under `strokes` in `site_reviews.json`.
 
 ## Two things agents get wrong
 

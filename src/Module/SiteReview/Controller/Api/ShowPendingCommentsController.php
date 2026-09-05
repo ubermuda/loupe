@@ -65,6 +65,7 @@ final class ShowPendingCommentsController extends AppController
                         ],
                         $anchors,
                     )),
+                    'strokes' => $c->strokes ?? [],
                 ];
             },
             $view->comments,

@@ -23,6 +23,12 @@
   let comments = [];
   const MAX_ANCHORS = 10; // AddCommentRequest's cap — over it the API 422s
   const AT_CAP_MESSAGE = `A comment can point at ${MAX_ANCHORS} elements at most.`;
+  // AddCommentRequest's caps for the drawing. A stroke past the point cap stops
+  // growing rather than 422ing the save the reviewer already committed to.
+  const MAX_STROKES = 50;
+  const MAX_STROKE_POINTS = 500;
+  const AT_STROKE_CAP_MESSAGE = `A comment can carry ${MAX_STROKES} strokes at most.`;
+  const MIN_POINT_GAP = 2; // px of pointer travel before another point is kept
 
   // Hold this key to add another element to the comment being composed. Ctrl is
   // the modifier away from a Mac, where Ctrl+click is a right click.
@@ -42,6 +48,9 @@
     if (Array.isArray(comment.anchors)) return comment.anchors;
     return comment.selector ? [{ selector: comment.selector, text: comment.text || '' }] : [];
   };
+
+  // Strokes of a saved comment, tolerating a server that predates the column.
+  const strokesOf = (comment) => (Array.isArray(comment.strokes) ? comment.strokes : []);
 
   // Demo transport: an in-memory list that dies with the page. Same four calls,
   // same shapes, same 404 for a row that is gone — so the widget cannot tell.
@@ -110,6 +119,8 @@
     state.fatal = fatalFrom(error);
     comments = [];
     setTargeting(false);
+    setDrawing(false);
+    state.strokes = [];
     state.composing = false;
     state.composeTarget = null;
     state.editId = null;
@@ -368,6 +379,12 @@
         '<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>',
         1.9,
       ),
+    pen: (s) =>
+      svg(
+        s,
+        '<path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/>',
+        1.9,
+      ),
     glyph: (s) =>
       `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" ` +
       `stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg>`,
@@ -384,6 +401,11 @@
   const state = {
     open: false,
     target: false,
+    drawing: false, // the freehand canvas is taking pointer events
+    // Strokes of the comment being composed, each a list of [x, y] in document
+    // pixels. They become fractions at save time, never before, because the
+    // page can scroll or the anchor can change between the drag and the save.
+    strokes: [],
     composing: false,
     // { type:'general' } | { type:'element', anchors: [{ el, selector, text, label }] }
     composeTarget: null,
@@ -409,6 +431,7 @@
   };
   let moveBase = null; // deepest element under the cursor while picking
   let pinCloseTimer = 0;
+  let liveStroke = null; // the stroke under the pointer right now, or null
 
   // --- Shadow-DOM UI host (launcher + panel), isolated from host-page CSS. ---
   const host = document.createElement('div');
@@ -507,13 +530,16 @@
       .lp-primary:hover{background:var(--accent-hover)}
       .lp-primary[disabled]{opacity:.55;cursor:default}
 
-      .lp-actions{flex:0 0 auto;display:flex;gap:8px;padding:0 14px 12px}
-      .lp-action{flex:1;height:38px;display:flex;align-items:center;justify-content:center;gap:7px;border-radius:999px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;border:0;background:var(--chip-bg);color:var(--text);transition:background .15s ease,color .15s ease}
+      /* Three capture modes share the row, so the type is a step down from the
+         two-button layout and the keyboard hints moved to the docs. */
+      .lp-actions{flex:0 0 auto;display:flex;gap:6px;padding:0 14px 12px}
+      .lp-action{flex:1;min-width:0;height:38px;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:999px;font-family:inherit;font-size:12.5px;font-weight:600;white-space:nowrap;cursor:pointer;border:0;background:var(--chip-bg);color:var(--text);transition:background .15s ease,color .15s ease}
       .lp-action:hover{background:var(--field-focus)}
       /* Pressed, not primary: a solid accent fill here would compete with the
          Save button for the eye, so the toggle takes the pale tint. */
       .lp-action.active{background:var(--accent-tint);color:var(--accent-ink);box-shadow:inset 0 0 0 1px var(--accent-border)}
-      .lp-kbd{font-family:var(--mono);font-size:10px;line-height:1;padding:2px 4px;border-radius:4px;background:var(--panel-elev);border:1px solid var(--panel-border);border-bottom-width:2px;color:var(--chip-text)}
+      .lp-action[disabled]{opacity:.5;cursor:default}
+      .lp-action[disabled]:hover{background:var(--chip-bg)}
 
       .lp-error{margin:0 14px 10px;padding:9px 11px;display:flex;align-items:flex-start;gap:8px;background:color-mix(in srgb,var(--danger) 10%,transparent);border:1px solid color-mix(in srgb,var(--danger) 28%,transparent);border-radius:12px;font-size:12px;line-height:1.45;color:var(--danger)}
       .lp-error span{flex:1;padding-top:2px}
@@ -618,8 +644,9 @@
           </div>
         </div>
         <div class="lp-actions">
-          <button class="lp-action" id="general" aria-pressed="false">${ICON.comment(15)}<span>Add note</span><span class="lp-kbd" aria-hidden="true">C</span></button>
-          <button class="lp-action" id="target" aria-pressed="false">${ICON.target(15)}<span>Pick element</span><span class="lp-kbd" aria-hidden="true">T</span></button>
+          <button class="lp-action" id="general" aria-pressed="false">${ICON.comment(15)}<span>Add note</span></button>
+          <button class="lp-action" id="target" aria-pressed="false">${ICON.target(15)}<span>Pick element</span></button>
+          <button class="lp-action" id="draw" aria-pressed="false">${ICON.pen(15)}<span>Draw</span></button>
         </div>
         <div class="lp-error" id="lp-error" style="display:none"></div>
         <div id="lp-body">
@@ -692,8 +719,12 @@
       .lp-hl-x.lit,.lp-hl-x:hover,.lp-hl-x:focus{opacity:1}
       .lp-hl-x:focus-visible{outline:2px solid var(--pin-ring);outline-offset:2px}
       .lp-hl-label{position:absolute;left:-2px;top:-27px;display:inline-block;max-width:240px;height:21px;line-height:21px;padding:0 9px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:600;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 10px var(--pin-shadow)}
+      /* Above the outlines, below the pins: the drawing is content over the
+         page, and a pin still has to be reachable through it. */
+      .lp-canvas{position:fixed;left:0;top:0;z-index:3;pointer-events:none}
+      .lp-ov.drawing .lp-canvas{pointer-events:auto;cursor:crosshair}
       .lp-pin-wrap{position:fixed;z-index:4;pointer-events:auto}
-      .lp-ov.targeting .lp-pin-wrap{pointer-events:none}
+      .lp-ov.targeting .lp-pin-wrap,.lp-ov.drawing .lp-pin-wrap{pointer-events:none}
       .pin{width:24px;height:24px;border-radius:50% 50% 50% 2px;border:2px solid var(--pin-ring);background:var(--accent);color:var(--on-accent);font-family:inherit;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(15,15,13,.35);animation:lp-pin .22s cubic-bezier(.2,1.3,.5,1)}
       .pin:hover{transform:scale(1.12)}
       .lp-pop{position:absolute;top:16px;right:0;width:240px;padding-top:14px;cursor:default}
@@ -716,14 +747,20 @@
       .lp-toast{position:fixed;top:18px;left:50%;transform:translate(-50%,0);z-index:6;display:flex;align-items:center;gap:10px;padding:9px 13px 9px 15px;background:var(--bar-bg);border:1px solid var(--bar-line);color:var(--bar-fg);border-radius:999px;font-size:13px;font-weight:600;box-shadow:var(--bar-shadow);animation:lp-fade .18s ease;transition:transform .22s cubic-bezier(.4,0,.2,1);pointer-events:auto}
       .lp-toast-sep{color:var(--bar-line)}
       .lp-toast-dim{color:var(--bar-mute);font-size:12px;font-weight:500}
-      .lp-toast-key{margin-left:2px;padding:3px 9px;background:var(--bar-raised);border:1px solid var(--bar-line);border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;transition:background .12s ease}
+      .lp-toast-key{margin-left:2px;padding:3px 9px;background:var(--bar-raised);border:1px solid var(--bar-line);border-radius:999px;color:inherit;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:background .12s ease}
       .lp-toast-key:hover{background:var(--bar-line)}
+      .lp-toast-key[disabled]{opacity:.45;cursor:default}
+      .lp-toast-key[disabled]:hover{background:var(--bar-raised)}
       .lp-toast--saved{padding:9px 15px}
+      /* The drawing toast docks at the bottom rather than dodging: a reviewer
+         draws all over the page, so there is no quiet band to slide into. */
+      .lp-toast--draw{top:auto;bottom:24px;transform:translate(-50%,0)}
     </style>
     <div class="lp-ov" id="lp-ov">
       <div class="lp-scrim" id="lp-scrim" style="display:none"></div>
       <div id="lp-hls"></div>
       <div class="highlight" id="lp-hl" style="display:none"><span class="lp-hl-label" id="lp-hl-label" style="display:none"></span></div>
+      <canvas class="lp-canvas" id="lp-canvas"></canvas>
       <div id="lp-hlx"></div>
       <div id="lp-pins"></div>
       <div class="lp-toast" id="lp-toast" style="display:none">
@@ -732,6 +769,14 @@
         <span class="lp-toast-sep">·</span>
         <span class="lp-toast-dim">⌥ scroll to resize</span>
         <span class="lp-toast-key" id="lp-toast-esc">Esc</span>
+      </div>
+      <div class="lp-toast lp-toast--draw" id="lp-draw-toast" style="display:none">
+        ${ICON.pen(15)}
+        <span id="lp-draw-text">Drag to draw</span>
+        <span class="lp-toast-sep">·</span>
+        <button class="lp-toast-key" id="lp-draw-undo" type="button">Undo</button>
+        <button class="lp-toast-key" id="lp-draw-clear" type="button">Clear</button>
+        <button class="lp-toast-key" id="lp-draw-done" type="button">Done</button>
       </div>
       <div class="lp-toast lp-toast--saved" id="lp-saved" style="display:none">
         ${ICON.check(15, 2.6, 'var(--success)')}
@@ -749,6 +794,8 @@
   const hlLabel = $$('lp-hl-label');
   const hlxNode = $$('lp-hlx');
   const pinsNode = $$('lp-pins');
+  const canvasNode = $$('lp-canvas');
+  const drawToastNode = $$('lp-draw-toast');
   const toastNode = $$('lp-toast');
   const toastText = $$('lp-toast-text');
   const savedToastNode = $$('lp-saved');
@@ -771,6 +818,7 @@
   const saveBtn = $('lp-save');
   const generalBtn = $('general');
   const targetBtn = $('target');
+  const drawBtn = $('draw');
 
   // --- theming: follow the host's color scheme and live-update on change. ---
   const applyTheme = (dark) => {
@@ -808,6 +856,116 @@
     return r;
   };
 
+  // ---- freehand strokes ----
+  // Strokes are held in document pixels while they are drawn and stored as
+  // fractions. Document pixels are the only space that survives a scroll
+  // between the drag and the save, and a fraction is the only one that survives
+  // the page moving under a stroke that is already saved.
+  const docPointOf = (event) => [event.clientX + window.scrollX, event.clientY + window.scrollY];
+  const docRectOf = (el) => {
+    const r = el && rectOf(el);
+    if (!r) return null;
+    return { left: r.left + window.scrollX, top: r.top + window.scrollY, width: r.width, height: r.height };
+  };
+  // Both axes divide by the width, so a page-space drawing keeps its shape. A
+  // page taller than it is wide simply carries fractions above 1.
+  const pageScale = () => Math.max(document.documentElement.scrollWidth, 1);
+  // The box a stroke is measured against: anchor 0 of the comment, matching the
+  // pin the reviewer sees first. A zero-sized box divides by nothing.
+  const strokeBoxOf = (anchors) => {
+    const first = anchors[0];
+    const box = first && docRectOf(first.el || (first.selector ? queryOne(first.selector) : null));
+    return box && box.width > 0 && box.height > 0 ? box : null;
+  };
+  // How far outside its box a stroke may reach and still be measured against
+  // it. A drawing that stays near the element wants to move with it. One that
+  // crosses the page from a small element does not: every fraction is then
+  // multiplied by a tiny width, so a few pixels of reflow would fling the far
+  // end of the stroke across the screen. Page coordinates are the honest space
+  // for a page-scale gesture, and they keep the stored numbers small.
+  const ANCHOR_SPACE_REACH = 20;
+  const storeStroke = (points, box) => {
+    const anchored = box
+      ? points.map(([x, y]) => [(x - box.left) / box.width, (y - box.top) / box.height])
+      : null;
+    if (anchored && anchored.every(([x, y]) => Math.max(Math.abs(x), Math.abs(y)) <= ANCHOR_SPACE_REACH)) {
+      return {
+        space: 'anchor',
+        points: anchored.map(([x, y]) => [Number(x.toFixed(5)), Number(y.toFixed(5))]),
+      };
+    }
+    const scale = pageScale();
+    return {
+      space: 'page',
+      points: points.map(([x, y]) => [Number((x / scale).toFixed(5)), Number((y / scale).toFixed(5))]),
+    };
+  };
+  // Back to document pixels for painting. Null when an anchor-space stroke has
+  // no box to measure against, which is how a drawing on a vanished element
+  // disappears with it instead of landing somewhere arbitrary.
+  const readStroke = (stroke, box) => {
+    const points = Array.isArray(stroke && stroke.points) ? stroke.points : [];
+    if (points.length < 2) return null;
+    if (stroke.space === 'anchor') {
+      if (!box) return null;
+      return points.map(([x, y]) => [box.left + x * box.width, box.top + y * box.height]);
+    }
+    const scale = pageScale();
+    return points.map(([x, y]) => [x * scale, y * scale]);
+  };
+
+  const STROKE_RING_WIDTH = 6;
+  const STROKE_WIDTH = 3;
+  const paintStroke = (ctx, points) => {
+    const sx = window.scrollX;
+    const sy = window.scrollY;
+    ctx.beginPath();
+    points.forEach(([x, y], index) => {
+      if (index === 0) ctx.moveTo(x - sx, y - sy);
+      else ctx.lineTo(x - sx, y - sy);
+    });
+    // Same near-black edge every marker the widget paints carries, so a stroke
+    // stays legible over a host page of any colour.
+    ctx.strokeStyle = CHROME['--pin-ring'];
+    ctx.lineWidth = STROKE_RING_WIDTH;
+    ctx.stroke();
+    ctx.strokeStyle = CHROME['--accent'];
+    ctx.lineWidth = STROKE_WIDTH;
+    ctx.stroke();
+  };
+
+  const renderStrokes = () => {
+    const dpr = window.devicePixelRatio || 1;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const backingWidth = Math.round(width * dpr);
+    const backingHeight = Math.round(height * dpr);
+    if (canvasNode.width !== backingWidth || canvasNode.height !== backingHeight) {
+      canvasNode.width = backingWidth;
+      canvasNode.height = backingHeight;
+      canvasNode.style.width = width + 'px';
+      canvasNode.style.height = height + 'px';
+    }
+    const ctx = canvasNode.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    comments.forEach((comment) => {
+      // Same page gate the pins use: a drawing made elsewhere is not about this
+      // page, whatever space it was stored in.
+      if (comment.url !== location.href) return;
+      const box = strokeBoxOf(anchorsOf(comment).filter((anchor) => anchor.selector));
+      strokesOf(comment).forEach((stroke) => {
+        const points = readStroke(stroke, box);
+        if (points) paintStroke(ctx, points);
+      });
+    });
+    if (!state.composing) return;
+    state.strokes.forEach((points) => paintStroke(ctx, points));
+    if (liveStroke && liveStroke.length > 1) paintStroke(ctx, liveStroke);
+  };
+
   // ---- overlay render (scrim / highlight / pins / toast) ----
   const HIGHLIGHT_PADDING = 8; // px of breathing room around the targeted element
 
@@ -822,9 +980,10 @@
           .filter((entry) => entry.el)
       : [];
     // The box carries a remove control only while a new comment is composed and
-    // the picker is off. An edit PATCHes the body alone and cannot change
-    // anchors, and a live picker needs the boxes to stay out of the way.
-    const removable = state.editId == null && !state.target;
+    // both the picker and the canvas are off. An edit PATCHes the body alone
+    // and cannot change anchors, a live picker needs the boxes out of the way,
+    // and a removable box would swallow the drag that starts a stroke.
+    const removable = state.editId == null && !state.target && !state.drawing;
     const mark = (entry) => ({
       el: entry.el,
       anchorIndex: entry.anchorIndex,
@@ -1113,6 +1272,7 @@
   };
   const renderPins = () => {
     ovRoot.classList.toggle('targeting', state.target);
+    ovRoot.classList.toggle('drawing', state.drawing);
     // One pin per resolved anchor, keyed by comment and anchor so a comment on
     // several elements gets a pin on each. Every pin of one comment carries that
     // comment's number, which is what shows they belong together.
@@ -1231,8 +1391,17 @@
     const showSaved = !!state.savedNotice && !state.target;
     savedToastNode.style.display = showSaved ? 'flex' : 'none';
     if (showSaved) $$('lp-saved-text').textContent = state.savedNotice;
+    drawToastNode.style.display = state.drawing ? 'flex' : 'none';
+    if (state.drawing) {
+      const count = state.strokes.length;
+      $$('lp-draw-text').textContent =
+        count === 0 ? 'Drag to draw' : count === 1 ? '1 stroke' : `${count} strokes`;
+      $$('lp-draw-undo').disabled = count === 0;
+      $$('lp-draw-clear').disabled = count === 0;
+    }
     renderPins();
     updateHighlight();
+    renderStrokes();
   };
 
   // Copy for a failed mutation. Auth failures (401/403) never reach here — authFailed()
@@ -1323,11 +1492,20 @@
       : 'Save';
     if (state.composing) {
       const ct = state.composeTarget || { type: 'general' };
+      // The drawing gets a pill of its own, so it stays visible and removable
+      // after the reviewer leaves draw mode and goes back to typing.
+      const strokeCount = state.editId == null ? state.strokes.length : 0;
+      const strokeChip = strokeCount
+        ? `<span class="lp-compose-chip">${ICON.pen(11)}<span>${
+            strokeCount === 1 ? '1 stroke' : `${strokeCount} strokes`
+          }</span><button class="lp-chip-x" type="button" data-stroke-clear="1" aria-label="Remove the strokes">×</button></span>`
+        : '';
       if (ct.type === 'general') {
         // The hold points a page note at an element and keeps the draft, so the
         // note says the key does something rather than changing type in silence.
         composeHead.innerHTML =
           `<span class="lp-compose-general"><span class="lp-dot"></span>General comment</span>` +
+          strokeChip +
           (state.editId == null
             ? `<span class="lp-compose-hint">Hold ${MOD_LABEL} to point at an element</span>`
             : '');
@@ -1352,6 +1530,7 @@
         const canAdd = editable && anchors.length < MAX_ANCHORS;
         composeHead.innerHTML =
           chips +
+          strokeChip +
           (canAdd
             ? `<span class="lp-compose-hint">Hold ${MOD_LABEL} to add another</span>`
             : '');
@@ -1383,6 +1562,10 @@
           button.addEventListener('click', () => showAnchor(Number(button.dataset.anchorPill)));
         });
       }
+      composeHead.querySelectorAll('[data-stroke-clear]').forEach((button) => {
+        button.addEventListener('mousedown', (event) => event.preventDefault());
+        button.addEventListener('click', () => clearStrokes());
+      });
     }
     // Composer just closed but the textarea kept focus would keep isTyping() true and
     // trap the single-key shortcuts (t/c). Blur it once the composer is hidden.
@@ -1394,6 +1577,11 @@
     generalBtn.setAttribute('aria-pressed', noteActive ? 'true' : 'false');
     targetBtn.classList.toggle('active', state.target);
     targetBtn.setAttribute('aria-pressed', state.target ? 'true' : 'false');
+    drawBtn.classList.toggle('active', state.drawing);
+    drawBtn.setAttribute('aria-pressed', state.drawing ? 'true' : 'false');
+    // An edit PATCHes the body alone, so a drawing added here would be dropped
+    // by the save, the same way an anchor change is.
+    drawBtn.disabled = state.editId != null;
 
     if (state.actionError) {
       errorNode.style.display = 'flex';
@@ -1583,9 +1771,11 @@
     state.composeTarget = { type: 'general' };
     state.editId = null;
     state.draft = '';
+    state.strokes = [];
     textareaNode.value = '';
     state.open = true;
     setTargeting(false);
+    setDrawing(false);
     sync();
     focusTextarea();
   };
@@ -1596,7 +1786,9 @@
       state.composeTarget = null;
       state.editId = null;
       state.draft = '';
+      state.strokes = [];
       textareaNode.value = '';
+      setDrawing(false);
       sync();
     } else {
       openNoteComposer();
@@ -1645,6 +1837,7 @@
     state.composeTarget = { type: 'element', anchors: [anchor] };
     state.editId = null;
     state.draft = '';
+    state.strokes = [];
     textareaNode.value = '';
     state.open = true;
     if (!keepPicking) setTargeting(false);
@@ -1694,12 +1887,93 @@
     anchor.el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
   };
 
+  // ---- drawing mode ----
+  // A stroke creates no anchor and promotes nothing under it. It says "look
+  // here" beside whatever the comment already points at, so a reviewer can
+  // target an element and draw an arrow showing where it should move.
+  const setDrawing = (on) => {
+    if (on && hidden.matches) return;
+    if (on) setTargeting(false);
+    state.drawing = on;
+    if (!on) {
+      liveStroke = null;
+      return;
+    }
+    // The boxes stop taking pointer events on this tick, so a hover the pointer
+    // is already inside would never see its mouseout and would stay emphasised.
+    state.hoverAnchor = null;
+  };
+  const toggleDraw = () => {
+    if (state.fatal) return;
+    if (state.drawing) {
+      setDrawing(false);
+      sync();
+      if (state.composing) focusTextarea();
+      return;
+    }
+    if (state.editId != null) return;
+    if (!state.composing) {
+      state.composing = true;
+      state.composeTarget = { type: 'general' };
+      state.strokes = [];
+      state.draft = '';
+      textareaNode.value = '';
+    }
+    state.open = true;
+    setDrawing(true);
+    // The reviewer is drawing, not typing: the next ⌘Z has to undo a stroke,
+    // and a stray keystroke must not land in a field nobody is looking at.
+    textareaNode.blur();
+    sync();
+  };
+  const undoStroke = () => {
+    if (!state.strokes.length) return;
+    state.strokes.pop();
+    sync();
+  };
+  const clearStrokes = () => {
+    if (!state.strokes.length) return;
+    state.strokes = [];
+    sync();
+  };
+  const beginStroke = (event) => {
+    if (!state.drawing || event.button !== 0 || liveStroke) return;
+    if (state.strokes.length >= MAX_STROKES) {
+      state.actionError = { message: AT_STROKE_CAP_MESSAGE };
+      sync();
+      return;
+    }
+    event.preventDefault();
+    // Capture, so a drag that wanders over the panel or leaves the window still
+    // ends on this node instead of leaving a stroke open behind the pointer.
+    if (canvasNode.setPointerCapture) canvasNode.setPointerCapture(event.pointerId);
+    liveStroke = [docPointOf(event)];
+  };
+  const extendStroke = (event) => {
+    if (!liveStroke || liveStroke.length >= MAX_STROKE_POINTS) return;
+    const point = docPointOf(event);
+    const last = liveStroke[liveStroke.length - 1];
+    if (Math.abs(point[0] - last[0]) + Math.abs(point[1] - last[1]) < MIN_POINT_GAP) return;
+    liveStroke.push(point);
+    renderStrokes();
+  };
+  // A press that never moved is not a stroke, and the API refuses a one-point one.
+  const endStroke = (keep) => {
+    if (!liveStroke) return;
+    const points = liveStroke;
+    liveStroke = null;
+    if (keep && points.length > 1) state.strokes.push(points);
+    sync();
+  };
+
   // Add-anchor mode. Holding the modifier over an open composer brings the picker
   // back, so a click adds another anchor without discarding the draft. The mode
   // lasts as long as the hold. At the cap it says so instead of picking.
   const enterAddAnchor = () => {
     if (state.modCancelled || state.addAnchor) return;
     if (state.fatal || !state.composing || state.editId != null || hidden.matches) return;
+    // A modifier held while drawing belongs to the drag, not to the picker.
+    if (state.drawing) return;
     if (composeAnchors().length >= MAX_ANCHORS) {
       state.actionError = { message: AT_CAP_MESSAGE };
     } else {
@@ -1742,9 +2016,13 @@
         }
       : { type: 'general' };
     state.draft = comment.body;
+    // An edit PATCHes the body alone, so the stored drawing is left where it
+    // is and the composer offers no stroke controls.
+    state.strokes = [];
     textareaNode.value = comment.body;
     state.open = true;
     setTargeting(false);
+    setDrawing(false);
     sync();
     focusTextarea();
   };
@@ -1753,7 +2031,9 @@
     state.composeTarget = null;
     state.editId = null;
     state.draft = '';
+    state.strokes = [];
     textareaNode.value = '';
+    setDrawing(false);
     sync();
   };
   const saveComment = async () => {
@@ -1774,9 +2054,12 @@
         await api('PATCH', `/api/site-review/comments/${target.id}`, { body });
         target.body = body;
       } else {
-        const anchors = composeAnchors()
-          .filter((entry) => entry.selector)
-          .map((entry) => ({ selector: entry.selector, text: entry.text }));
+        const kept = composeAnchors().filter((entry) => entry.selector);
+        const anchors = kept.map((entry) => ({ selector: entry.selector, text: entry.text }));
+        // The space is decided here rather than while drawing, because a pick
+        // after the drag changes which box the fractions are measured against.
+        const box = strokeBoxOf(kept);
+        const strokes = state.strokes.map((points) => storeStroke(points, box));
         // selector/text repeat the first anchor for an instance that predates
         // anchors[]. This script's URL carries no version, so a browser can hold
         // this copy long after a rollback, and that instance would otherwise save
@@ -1786,6 +2069,7 @@
           body,
           url: location.href,
           anchors,
+          strokes,
           selector: first ? first.selector : '',
           text: first ? first.text : '',
         };
@@ -1796,7 +2080,9 @@
       state.composeTarget = null;
       state.editId = null;
       state.draft = '';
+      state.strokes = [];
       textareaNode.value = '';
+      setDrawing(false);
       flashSaved(editing ? 'Comment updated' : 'Comment saved');
     } catch (error) {
       // A rejected token is fatal; anything else keeps the composer open with the text
@@ -1882,6 +2168,8 @@
     state.composing = false;
     state.composeTarget = null;
     state.editId = null;
+    state.strokes = [];
+    setDrawing(false);
     state.hoverId = null;
     state.hoverPinId = null;
     state.confirmDeleteId = null;
@@ -1917,6 +2205,8 @@
   );
   const setTargeting = (on) => {
     if (on && hidden.matches) return;
+    // The two modes both own the pointer, so only one of them can be up.
+    if (on) setDrawing(false);
     state.target = on;
     if (!on) {
       state.moveHL = null;
@@ -1945,6 +2235,7 @@
   hidden.addEventListener('change', (event) => {
     if (event.matches) {
       setTargeting(false);
+      setDrawing(false);
       // setTargeting only moves state; without this the widget comes back on a
       // widen still showing the pick toast it is no longer in.
       sync();
@@ -1953,14 +2244,18 @@
   const toggleTarget = () => {
     if (state.fatal) return;
     const on = !state.target;
-    // Picking while a new element comment is open adds to it. Discarding the
-    // draft there would lose both the body and the anchors already chosen.
-    const extending = state.composing && state.editId == null && composeAnchors().length > 0;
+    // Picking while a new comment is open adds to it. Discarding the draft
+    // there would lose the body, the anchors already chosen and the drawing.
+    const extending =
+      state.composing &&
+      state.editId == null &&
+      (composeAnchors().length > 0 || state.strokes.length > 0);
     if (on && !extending) {
       state.composing = false;
       state.composeTarget = null;
       state.editId = null;
       state.draft = '';
+      state.strokes = [];
       textareaNode.value = '';
     }
     if (on) state.open = true;
@@ -2066,10 +2361,12 @@
     state.open = !state.open;
     if (!state.open) {
       setTargeting(false);
+      setDrawing(false);
       state.composing = false;
       state.composeTarget = null;
       state.editId = null;
       state.draft = '';
+      state.strokes = [];
       textareaNode.value = '';
     }
     sync();
@@ -2090,6 +2387,14 @@
   $('lp-close').addEventListener('click', togglePanel);
   generalBtn.addEventListener('click', toggleNote);
   targetBtn.addEventListener('click', toggleTarget);
+  drawBtn.addEventListener('click', toggleDraw);
+  canvasNode.addEventListener('pointerdown', beginStroke);
+  canvasNode.addEventListener('pointermove', extendStroke);
+  canvasNode.addEventListener('pointerup', () => endStroke(true));
+  canvasNode.addEventListener('pointercancel', () => endStroke(false));
+  $$('lp-draw-undo').addEventListener('click', undoStroke);
+  $$('lp-draw-clear').addEventListener('click', clearStrokes);
+  $$('lp-draw-done').addEventListener('click', toggleDraw);
   $('lp-cancel').addEventListener('click', cancelCompose);
   $('lp-save').addEventListener('click', saveComment);
   $('lp-list-toggle').addEventListener('click', () => {
@@ -2168,6 +2473,19 @@
   });
 
   document.addEventListener('keydown', (event) => {
+    // Undo a stroke, not the draft. Only while drawing, and only with the caret
+    // out of the textarea, so clicking back into it restores text undo.
+    if (
+      state.drawing &&
+      !isTyping() &&
+      (event.metaKey || event.ctrlKey) &&
+      !event.shiftKey &&
+      event.key.toLowerCase() === 'z'
+    ) {
+      event.preventDefault();
+      undoStroke();
+      return;
+    }
     if (event.key === MOD_KEY) {
       if (!event.repeat) enterAddAnchor();
       return;
@@ -2182,6 +2500,14 @@
       if (state.target) {
         setTargeting(false);
         sync();
+        return;
+      }
+      // Leaving draw mode keeps the strokes and the draft, the way leaving pick
+      // mode keeps the anchors already chosen.
+      if (state.drawing) {
+        setDrawing(false);
+        sync();
+        if (state.composing) focusTextarea();
         return;
       }
       if (state.composing) {
@@ -2201,6 +2527,9 @@
     } else if (event.key === 't') {
       event.preventDefault();
       toggleTarget();
+    } else if (event.key === 'd') {
+      event.preventDefault();
+      toggleDraw();
     }
   });
 
@@ -2212,6 +2541,7 @@
       repositionFrame = 0;
       renderPins();
       updateHighlight();
+      renderStrokes();
     });
   };
   window.addEventListener('scroll', scheduleReposition, true);
@@ -2224,6 +2554,7 @@
   const rerenderAnchors = () => {
     renderPins();
     updateHighlight();
+    renderStrokes();
   };
   let lastSeenUrl = location.href;
   const handleLocationChange = () => {
