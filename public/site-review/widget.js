@@ -2545,6 +2545,7 @@
   const rerenderAnchors = () => {
     renderPins();
     updateHighlight();
+    renderQuoteButton();
   };
   let lastSeenUrl = location.href;
   const handleLocationChange = () => {
@@ -2553,6 +2554,9 @@
     state.hoverId = null;
     state.hoverPinId = null;
     state.pinConfirmId = null;
+    // A selection held from the old page names an element that is about to go,
+    // and saving it would store that selector against the new URL.
+    clearQuotePick();
     rerenderAnchors();
     // Under Turbo the <body> is swapped *after* the URL changes, so the new page's
     // anchors resolve to null on this tick and would never reappear until a scroll.

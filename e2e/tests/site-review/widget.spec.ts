@@ -1969,6 +1969,31 @@ test('a quote that no longer reads falls back to its element', async ({
 });
 
 /**
+ * A pin is anchored to the URL it was made on, and so is a selection waiting to
+ * become one. A client-side route change must withdraw the offer, or a click
+ * would store the old page's selector and quote against the new URL.
+ */
+test('a same-document navigation withdraws a waiting quote offer', async ({
+    page,
+}) => {
+    await openHarness(page);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, PROSE_QUOTE);
+    const offer = page.locator('#lp-quote-btn');
+    await expect(offer).toBeVisible();
+
+    await page.evaluate(() =>
+        history.pushState(
+            {},
+            '',
+            `${location.pathname}${location.search}&page=2`,
+        ),
+    );
+    await expect(offer).toBeHidden();
+});
+
+/**
  * Two surviving occurrences that the stored context no longer separates are a
  * coin flip. Naming one would put the comment on a passage the reviewer may not
  * have meant, so the anchor degrades to its element instead.
