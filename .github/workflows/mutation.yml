@@ -2,8 +2,8 @@ name: Mutation testing
 
 on:
   schedule:
-    # Mondays, 04:00 UTC. Nothing else runs then, and the report is waiting on
-    # Monday morning.
+    # Mondays, 04:00 UTC. A schedule fires from the default branch only, so this
+    # first runs after the branch merges. Use workflow_dispatch before then.
     - cron: '0 4 * * 1'
   workflow_dispatch:
 
@@ -23,9 +23,23 @@ jobs:
     timeout-minutes: 340
     steps:
       - uses: actions/checkout@v7
+
+      # A timing is only readable beside the machine that produced it, and the
+      # thread count in infection.json5 is chosen against a core count.
+      - name: Runner conditions
+        run: |
+          nproc
+          free -g | head -2
+          date -u +'stack build starts %H:%M:%S UTC'
+
       - uses: ./.github/actions/setup
         with:
           docker: 'true'
+
+      - name: Coverage driver and build time
+        run: |
+          date -u +'stack build ends %H:%M:%S UTC'
+          docker compose exec -T php-fpm php -m | grep -iE 'xdebug|pcov' || echo 'NO COVERAGE DRIVER'
 
       # Infection writes its logs when it finishes, so a run stopped here
       # uploads nothing. Read a timeout as "shard this", not as a slow week.
