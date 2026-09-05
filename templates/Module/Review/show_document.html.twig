@@ -129,17 +129,33 @@
                appears nowhere else. #}
             {% set hasVersionDescription = versions|filter(meta => meta.description is not empty)|length > 0 %}
             {% set showVersions = versions|length > 1 or hasVersionDescription %}
-            {# An untexted heading would render as a blank link, but it keeps its
-               id so anything linking to it still works. Diff mode replaces the
-               HTML those ids live in, and is passed no `headings` at all. #}
-            {% set contentsHeadings = diffMode ? [] : headings|filter(heading => heading.text is not empty) %}
-            {% set showContents = contentsHeadings|length > 1 %}
+            {# Contents and section approvals are one panel: both are a list of
+               the same headings, and the state belongs beside the link rather
+               than a tab away. Diff mode replaces the HTML those ids live in and
+               is passed no `sections`, hence the lazy-ternary guard. #}
+            {% set sectionRows = diffMode ? [] : sections.rows %}
+            {% set approvedSections = diffMode ? 0 : sections.approvedCount %}
+            {# One section is enough, where the old table of contents wanted two:
+               the panel now reports approval state, which changes and is worth
+               seeing for a single section. An untexted heading keeps a row too,
+               labelled by its id, or the tab count would outrun the list. #}
+            {% set showContents = sectionRows|length > 0 %}
             {% set referenceCount = document.references|length + document.referencedBy|length %}
             {# Same lazy-ternary guard as the headings above: the diff controller
                passes no `decisions` at all, and naming it outside this branch is
                an undefined-variable 500 on the diff page. #}
             {% set decisionRows = diffMode ? [] : decisions.rows %}
             {% set answeredDecisions = diffMode ? 0 : decisions.answeredCount %}
+            {# The pane HTML with an approval control beside each heading. Built
+               here rather than in the block below, so the diff branch never
+               evaluates `decisionMarkedHtml`, which it is not passed. An older
+               version gets no controls: they would post onto the current one. #}
+            {% set documentPaneHtml = diffMode ? '' : section_approval_controls(
+                decisionMarkedHtml,
+                readOnly ? [] : sectionRows,
+                document,
+                version.versionNumber,
+            ) %}
 
             {# Mutually-exclusive panels rather than stacked blocks: together they
                used to push the first paragraph below the fold.
@@ -164,7 +180,12 @@
                                 data-metadata-tabs-panel-param="contents"
                                 data-action="click->metadata-tabs#toggle">
                             {{ 'review.document.contents.label'|trans }}
-                            <span class="lp-doc-meta__count">{{ contentsHeadings|length }}</span>
+                            {# Approved-of-total rather than a bare heading count:
+                               it carries the same total and the state as well. #}
+                            <span class="lp-doc-meta__count" id="section-summary-count">{{ 'review.document.sections.count'|trans({
+                                '%approved%': approvedSections,
+                                '%total%': sectionRows|length,
+                            }) }}</span>
                             <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
                         </button>
                         {% endif %}
@@ -302,13 +323,7 @@
                 <nav class="lp-doc-meta__panel lp-review-contents" data-metadata-tabs-target="panel" data-panel="contents" hidden
                      aria-label="{{ 'review.document.contents.nav_label'|trans }}">
                     <ul class="lp-review-contents__list">
-                        {% for heading in contentsHeadings %}
-                        <li>
-                            {# title= so a heading truncated by the panel width is still readable on hover. #}
-                            <a class="lp-review-contents__link" data-level="{{ heading.level }}" href="#{{ heading.id }}"
-                               data-action="click->metadata-tabs#jump" title="{{ heading.text }}">{{ heading.text }}</a>
-                        </li>
-                        {% endfor %}
+                        {% include '@Review/_contents_rows.html.twig' with {rows: sectionRows} only %}
                     </ul>
                 </nav>
                 {% endif %}
@@ -362,6 +377,7 @@
                     </ul>
                 </div>
                 {% endif %}
+
             </div>
             {% endif %}
 
@@ -394,7 +410,7 @@
                Everything else on this page reads the same in both modes, which is
                why the diff overrides this block instead of being a page of its own. #}
             {% block documentPane %}
-            <div class="prose lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ decisionMarkedHtml|raw }}</div>
+            <div class="prose lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ documentPaneHtml|raw }}</div>
             {% endblock %}
 
             {# Outside the prose on purpose: that textContent must stay identical
