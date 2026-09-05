@@ -11,6 +11,10 @@
     // four mutants into false kills when a sibling ran its tests at the same
     // time. Four threads and 90 seconds hold up under that load.
     timeout: 90,
+    // Four PHPUnit processes share one test database. DAMA rolls each test back,
+    // and the evidence says they do not collide: one thread and four gave an
+    // identical kill set, and two full runs both escaped exactly 113. Mailpit is
+    // an e2e concern, not a PHPUnit one. One thread would cost about 4x.
     threads: 4,
     logs: {
         text: "var/infection/infection.log",
