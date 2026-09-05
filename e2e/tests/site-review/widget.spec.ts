@@ -1816,6 +1816,18 @@ test('the offer to quote a selection waits for the panel to be open', async ({
     // Collapsing the selection withdraws the offer.
     await page.evaluate(() => document.getSelection()!.removeAllRanges());
     await expect(offer).toBeHidden();
+
+    // So does closing the panel while the selection is still held. The offer
+    // renders from the same sync pass as the pins, so no state that hides the
+    // panel can leave it behind.
+    await selectText(page, PROSE_QUOTE);
+    await expect(offer).toBeVisible();
+    await page.locator('#lp-close').click();
+    await expect(offer).toBeHidden();
+
+    // Re-opening with the selection still held brings it back.
+    await page.getByRole('button', { name: 'Review' }).click();
+    await expect(offer).toBeVisible();
 });
 
 /**
