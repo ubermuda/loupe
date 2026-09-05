@@ -2706,26 +2706,3 @@ take the same caveat wording as the site-review tool, or another treatment.
 Decide that first. Then apply it to the `#[McpTool]` description, the `__invoke`
 docblock, the `loupe-documents` skill, which lists no skip reasons today, and
 the `document_mark_comment_addressed` row in `docs/using/mcp.md`.
-
-## A red `chromium` test silently withholds three e2e suites
-
-**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
-
-`e2e/playwright.config.ts` chains `waitlist` on `chromium`,
-`trial-end-lifecycle` on `waitlist`, and `install-reset` on all three.
-
-The chain is not ordering for its own sake and should not be removed. Those
-three specs mutate state every other spec depends on: `waitlist` and
-`trial-end-lifecycle` write `registration.cap` and `billing.enabled`, and
-`install-reset` truncates every table. `dependencies` is the only Playwright
-mechanism that serialises projects, so the chain is what stops them running
-alongside anything else.
-
-The cost is the second thing `dependencies` does. Playwright also skips a
-dependent project when its dependency fails, so one red `chromium` test withheld
-all three suites for hours. A real run read `1 failed, 130 passed, 11 did not
-run`; the same commit healthy reads `142 passed`. Twelve tests and one ambiguous
-phrase is the whole signal, and "did not run" reads as a deliberate skip.
-
-Decide how to keep the serialisation and lose the silence: fail the run loudly
-when a project is withheld, or name the withheld projects in the summary.
