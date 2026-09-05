@@ -2706,11 +2706,13 @@ session's uncommitted `config/packages/security.yaml` change and new
 `Controller/Dev/` route sat in the tree. That tree was clean when it moved, and
 nothing was lost.
 
-`CLAUDE.md` now carries the rule that came out of the first: read
-`git diff --cached` before you commit, because staging by name protects against
-another branch's files and not against another session's hunks in a file you are
-both editing. Two commands it does not name have the same reach: `git commit -a`
-stages the same way, and `git checkout -- <path>` destroys rather than captures.
+The rule that came out of the first is proposed in pull request #351, not yet
+merged: read `git diff --cached` before you commit, because staging by name
+protects against another branch's files and not against another session's hunks
+in a file you are both editing. Two commands it does not name have the same
+reach: `git commit -a` stages the same way, and `git checkout -- <path>`
+destroys rather than captures. Delete this paragraph when #351 lands, or fold
+the two commands into it.
 
 A session also cannot see that the checkout is occupied. A branch somebody else
 left there looks exactly like one you left yourself, and `git worktree list`
