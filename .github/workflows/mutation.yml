@@ -18,16 +18,19 @@ env:
 jobs:
   infection:
     runs-on: ubuntu-latest
-    # The hosted ceiling is 6 hours and it kills the job with no report. This
-    # stops the run first, so the log and the artifact still upload.
-    timeout-minutes: 330
+    # Backstop only. A job-level timeout cancels the job, so the upload below
+    # would not run. The step timeout is what has to fire first.
+    timeout-minutes: 340
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
         with:
           docker: 'true'
 
+      # Infection writes its logs when it finishes, so a run stopped here
+      # uploads nothing. Read a timeout as "shard this", not as a slow week.
       - run: just mutation
+        timeout-minutes: 300
 
       - name: Mutation report
         if: always()
