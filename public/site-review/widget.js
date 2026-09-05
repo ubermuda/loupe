@@ -16,12 +16,11 @@
   const DEMO = script.hasAttribute('data-demo');
   // Every comment is saved to the API as it is written and is live from that
   // moment — there is no send step. `comments` mirrors the project's Pending
-  // comments, the ones this reviewer may still edit or delete; once the agent
-  // marks one addressed it drops out. Each item: { id, body, url, anchors }, where
-  // anchors is a list of { selector, text, quote, quotePrefix, quoteSuffix } — several
-  // when the comment says something about a relationship between elements, and empty
-  // for an unanchored page note. An anchor that carries a quote points at that run of
-  // text inside its element; one that does not points at the whole element.
+  // comments, the ones this reviewer may still edit or delete; once the agent marks
+  // one addressed it drops out. Each item: { id, body, url, anchors }, and an anchor is
+  // { selector, text, quote, quotePrefix, quoteSuffix } — several when the comment says
+  // how elements relate, none for a page note, and quoting when it points at a run of
+  // text inside its element rather than at the whole element.
   let comments = [];
   const MAX_ANCHORS = 10; // AddCommentRequest's cap — over it the API 422s
   const AT_CAP_MESSAGE = `A comment can point at ${MAX_ANCHORS} elements at most.`;
@@ -284,14 +283,11 @@
     return null;
   };
 
-  // Where an anchor's quote reads on the page now, as a Range, or null when it
-  // no longer reads there at all. Occurrences rank by how much of the stored
-  // context still surrounds them, earliest position breaking a tie.
-  //
-  // The basis is the anchor's own element rather than the whole page, so a
-  // phrase repeated elsewhere cannot win, and the walk stays short. textContent
-  // on both sides, never innerText, which collapses whitespace and would count
-  // different characters from the ones the capture counted.
+  // Where an anchor's quote reads now, as a Range, or null when it no longer
+  // reads at all. Occurrences rank by how much of the stored context still
+  // surrounds them, earliest position breaking a tie.
+  // textContent, never innerText: innerText collapses whitespace, so it would
+  // count different characters from the ones the capture counted.
   const quoteRange = (el, anchor) => {
     const quote = (anchor && anchor.quote) || '';
     if (!el || !quote) return null;
@@ -320,14 +316,11 @@
     }
   };
 
-  // Every anchor of a comment paired with the element it resolves to on this
-  // page, or null when the anchor no longer matches. Empty for an unanchored
-  // comment or one made on another page.
-  //
-  // `range` is the run of text a quoted anchor points at, resolved fresh on
-  // every pass because the host page's nodes are replaced under it. A quote
-  // that no longer reads leaves `range` null and `el` intact, which is how a
-  // stale quote degrades to its element instead of dropping the comment.
+  // Every anchor paired with the element it resolves to on this page, or null
+  // when it no longer matches. Empty off-page and for an unanchored comment.
+  // `range` is resolved fresh every pass, because the host page's nodes are
+  // replaced under it. A stale quote leaves it null and `el` intact, which is
+  // how the anchor degrades to its element instead of dropping the comment.
   const resolveAnchors = (comment) => {
     if (comment.url !== location.href) return [];
     return anchorsOf(comment).map((anchor, anchorIndex) => {
@@ -948,9 +941,8 @@
     return current;
   };
   // An element or a Range — both answer getBoundingClientRect, and a quoted
-  // anchor is measured on its run of text rather than on the element holding it.
-  // A range over several lines gives one box spanning them, which is the same
-  // outline an element gets and keeps the overlay's visual language one thing.
+  // anchor is measured on its run of text rather than on its element. A range
+  // over several lines gives one box spanning them.
   const rectOf = (box) => {
     const r = box.getBoundingClientRect();
     if (r.width === 0 && r.height === 0) return null;
@@ -1816,13 +1808,9 @@
   });
 
   // The element a selection is anchored to: the smallest one holding the whole
-  // range. A selection that spans several blocks resolves to the wrapper around
-  // them, and that is kept, because the quote inside it stays exact and the
-  // outline is still drawn on the words. Only the fallback for a stale quote is
-  // then as wide as the wrapper.
-  //
-  // <body> and <html> are refused. A selector naming either anchors the comment
-  // to the whole page, which is what an unanchored page note already says.
+  // range. A selection spanning several blocks keeps the wrapper around them,
+  // because the quote inside it is still exact. <body> and <html> are refused,
+  // because a selector naming either says only what a page note already says.
   const containerElementOf = (range) => {
     let el = range.commonAncestorContainer;
     if (el && el.nodeType !== 1) el = el.parentElement;
@@ -1861,15 +1849,11 @@
     return ct && ct.type === 'element' ? ct.anchors : [];
   };
 
-  // Two anchors name the same thing when they hold the same element and quote
-  // the same text with the same text around it. The element alone would swallow
-  // a second passage inside an element already pointed at, and the quote alone
-  // would swallow the second of two identical phrases — the very pair the stored
-  // context exists to tell apart. Two whose context matches too are one pick,
-  // because nothing could separate them on the next page load either.
-  //
-  // NUL joins the fields, because the HTML parser never leaves one in page text,
-  // so no two fields can run together into another pair's key.
+  // The element alone would swallow a second passage inside an element already
+  // pointed at, and the quote alone would swallow the second of two identical
+  // phrases — the pair the stored context exists to tell apart. So all three
+  // fields decide, joined on NUL, which the HTML parser never leaves in page
+  // text and which therefore cannot run two fields into another pair's key.
   const quoteKey = (anchor) =>
     [anchor.quote || '', anchor.quotePrefix || '', anchor.quoteSuffix || ''].join('\u0000');
   const sameAnchor = (a, b) => a.el === b.el && quoteKey(a) === quoteKey(b);
@@ -2437,12 +2421,10 @@
     commentOnSelection();
   });
 
-  // A selection on the host page offers to become a quoted anchor, but only
-  // while the panel is open and no saved comment is being edited: the widget
-  // must not claim a gesture on a page nobody is reviewing, and an edit sends
-  // the body alone, so taking the selection would throw the draft away.
-  // selectionchange rather than mouseup, so a keyboard selection and a
-  // programmatic one both reach it.
+  // A selection offers to become a quoted anchor only while the panel is open
+  // and no saved comment is being edited: an edit sends the body alone, so
+  // taking the selection would start a new comment and lose the draft.
+  // selectionchange rather than mouseup, so a keyboard selection reaches it.
   const readSelection = () => {
     if (state.fatal || state.target || !state.open || state.editId != null || hidden.matches) {
       return clearQuotePick();
