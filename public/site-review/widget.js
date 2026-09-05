@@ -899,6 +899,7 @@
   // One remove control per removable anchor, pooled and pinned to the padded
   // box's top-right corner. `lit` follows the box the pointer is over.
   const xNodes = [];
+  const X_SIZE = 22; // matches .lp-hl-x
   const drawRemoveControls = (entries) => {
     entries.forEach((entry, index) => {
       let node = xNodes[index];
@@ -914,8 +915,11 @@
       node.style.display = 'flex';
       node.dataset.anchorRemove = String(entry.removeIndex);
       node.classList.toggle('lit', state.hoverAnchor === entry.removeIndex);
-      node.style.left = entry.rect.left + entry.rect.width - 11 + 'px';
-      node.style.top = entry.rect.top - 11 + 'px';
+      // Clamped: an element against the top or right edge would otherwise put
+      // most of the control off screen, where it cannot be clicked.
+      const clamp = (value, limit) => Math.min(Math.max(value, 0), limit - X_SIZE);
+      node.style.left = clamp(entry.rect.left + entry.rect.width - 11, window.innerWidth) + 'px';
+      node.style.top = clamp(entry.rect.top - 11, window.innerHeight) + 'px';
     });
     for (let index = entries.length; index < xNodes.length; index++) {
       xNodes[index].style.display = 'none';
@@ -1637,6 +1641,9 @@
     if (!anchors.length || state.editId != null) return;
     anchors.splice(anchorIndex, 1);
     if (!anchors.length) state.composeTarget = { type: 'general' };
+    // The index the removed anchor held now belongs to the next one. Emphasis
+    // has to go with the anchor that is gone, not pass to its neighbour.
+    setHoverAnchor(null);
     sync();
   };
 
@@ -1659,8 +1666,13 @@
     const anchor = composeAnchors()[anchorIndex];
     const r = anchor && anchor.el && rectOf(anchor.el);
     if (!r) return;
-    if (r.top >= 0 && r.bottom <= window.innerHeight) return;
-    anchor.el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const onScreen =
+      r.top >= 0 &&
+      r.bottom <= window.innerHeight &&
+      r.left >= 0 &&
+      r.right <= window.innerWidth;
+    if (onScreen) return;
+    anchor.el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
   };
 
   // Add-anchor mode. Holding the modifier over an open composer brings the picker
