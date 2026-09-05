@@ -1498,7 +1498,7 @@
       const strokeChip = strokeCount
         ? `<span class="lp-compose-chip">${ICON.pen(11)}<span>${
             strokeCount === 1 ? '1 stroke' : `${strokeCount} strokes`
-          }</span><button class="lp-chip-x" type="button" data-stroke-clear="1" aria-label="Remove the drawing">×</button></span>`
+          }</span><button class="lp-chip-x" type="button" data-stroke-clear="1" aria-label="Remove the strokes">×</button></span>`
         : '';
       if (ct.type === 'general') {
         // The hold points a page note at an element and keeps the draft, so the

@@ -1808,7 +1808,7 @@ const composeDrawingOnWideBlock = async (page: Page): Promise<void> => {
     await expect(page.locator('[data-anchor-chip]')).toHaveCount(1);
     await page
         .locator('#lp-panel')
-        .getByRole('button', { name: 'Draw' })
+        .getByRole('button', { name: 'Draw', exact: true })
         .click();
 };
 
@@ -1903,7 +1903,7 @@ test('a stroke that reaches far past its element falls back to page space', asyn
     await expect(page.locator('[data-anchor-chip]')).toHaveCount(1);
     await page
         .locator('#lp-panel')
-        .getByRole('button', { name: 'Draw' })
+        .getByRole('button', { name: 'Draw', exact: true })
         .click();
 
     const small = (await page.locator('#target-me').boundingBox())!;
@@ -1940,7 +1940,7 @@ test('a stroke on a page note keeps its place as the page scrolls', async ({
     await page.getByRole('button', { name: 'Review' }).click();
     await page
         .locator('#lp-panel')
-        .getByRole('button', { name: 'Draw' })
+        .getByRole('button', { name: 'Draw', exact: true })
         .click();
 
     const linkBox = (await page.locator('#target-link').boundingBox())!;
@@ -2047,7 +2047,7 @@ test('a stroke can be undone, and the whole drawing cleared', async ({
     await page.getByRole('button', { name: 'Review' }).click();
     await page
         .locator('#lp-panel')
-        .getByRole('button', { name: 'Draw' })
+        .getByRole('button', { name: 'Draw', exact: true })
         .click();
 
     await drawStroke(page, { x: 60, y: 240 }, { x: 160, y: 300 });
@@ -2062,8 +2062,32 @@ test('a stroke can be undone, and the whole drawing cleared', async ({
         .poll(async () => (await inkBounds(page)).right, inkTimeout)
         .toBeLessThan(200);
 
+    // Leaving draw mode keeps the stroke, and the composer names it. Going back
+    // in and out again must not disturb it.
+    await page.getByRole('button', { name: 'Done' }).click();
+    const strokeChip = page.locator('[data-stroke-clear]');
+    await expect(strokeChip).toHaveCount(1);
+    await expect(page.locator('#lp-compose-head')).toContainText('1 stroke');
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Draw', exact: true })
+        .click();
+    await expect(page.locator('#lp-draw-text')).toHaveText('1 stroke');
+
     await page.getByRole('button', { name: 'Clear' }).click();
     await expect(page.locator('#lp-draw-text')).toHaveText('Drag to draw');
+    await expect
+        .poll(async () => (await inkBounds(page)).count, inkTimeout)
+        .toBe(0);
+    await expect(strokeChip).toHaveCount(0);
+
+    // The chip's own × is the erase control once draw mode is off.
+    await drawStroke(page, { x: 220, y: 260 }, { x: 320, y: 320 });
+    await page.getByRole('button', { name: 'Done' }).click();
+    await expect(strokeChip).toHaveCount(1);
+    await waitForInk(page);
+    await strokeChip.click();
+    await expect(strokeChip).toHaveCount(0);
     await expect
         .poll(async () => (await inkBounds(page)).count, inkTimeout)
         .toBe(0);
