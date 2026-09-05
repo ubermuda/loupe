@@ -4,9 +4,10 @@ description: "An embeddable widget for commenting on live web pages. Preview —
 ---
 
 The site-review widget brings the select-and-comment flow to any web page. A
-reviewer highlights something on the page and leaves a comment; it is saved to
-the project the moment they press Save, and the agent can pull it with
-`site_review_get` from then on. There is no send step to remember.
+reviewer picks an element, or selects a passage of text, and leaves a comment
+about it; it is saved to the project the moment they press Save, and the agent
+can pull it with `site_review_get` from then on. There is no send step to
+remember.
 
 **This is a preview.** It works and is used daily on this project, but it is not
 covered by any release promise, and the pieces around it — the hub, the
@@ -30,6 +31,35 @@ that credential reads, edits and deletes every pending comment on the project,
 not only the ones its holder wrote. Keeping the widget off public pages is what
 bounds who that is. Use a dedicated site-review-scoped token, never an MCP token
 or a production credential.
+
+## Quoting a passage of text
+
+Open the widget, then select text on the page as you normally would. A **Comment
+on this text** button appears under the selection. Click it and the composer
+opens with that exact passage quoted, rather than with the whole paragraph
+picked. The selection may run across bold, links and other inline markup.
+
+The offer appears only while the widget panel is open, so ordinary reading and
+copying on the page are untouched.
+
+A quoted anchor behaves like any other. It gets a pin, an outline drawn around
+the words themselves, and a pill in the composer. One comment can hold both
+kinds, so you can quote a sentence and pick a button in the same comment and say
+that the two disagree. A quote holds up to 1000 characters. The widget refuses a
+longer selection and tells you so, rather than storing part of it.
+
+The agent receives the quoted text, so "this sentence is wrong" arrives with the
+sentence attached.
+
+### When the page changes under a quote
+
+The widget stores the quoted words plus a little of the text on each side, and
+finds them again on your next visit. The surrounding text is what tells two
+identical phrases apart in one paragraph.
+
+If the words are edited or removed, the comment does not disappear. The anchor
+falls back to the element the quote came from: the pin stays, and the outline
+widens from the passage to the whole element. Only the precision is lost.
 
 ## Pointing one comment at several elements
 
@@ -57,11 +87,33 @@ border, the popover says how many elements are missing, and the list row reads
 "1 of 2 elements". A comment on a single element that no longer matches simply
 shows no pin, as before.
 
+## Moving the launcher
+
+The launcher sits in the bottom-right corner, which is where many pages pin
+their own controls. Move it to another corner in either of two ways.
+
+- Open the panel and press the corner button in its header. Each press moves the
+  launcher to the next corner. The button is reachable by Tab and works with
+  Enter or Space.
+- Drag the launcher. It follows the pointer, and on release it snaps to the
+  nearest corner. A drag never opens the panel.
+
+The panel, the composer and the pick-mode toast all follow the launcher, so
+every corner keeps them on screen. The widget remembers the corner in the
+reviewed page's own browser storage, so it survives a reload. A private window,
+or a browser that blocks site data, gets the bottom-right corner every time and
+works the same otherwise.
+
+The widget also sets `data-loupe-review-corner` on the page's `<html>` element,
+beside the `data-loupe-review-open` it already sets. A page can read either one
+to move its own pinned chrome out of the way.
+
 ## What it needs from the page
 
 Very little. The widget is a `fetch` with a bearer header — no clipboard, no
-storage, no cookies, and no browser API that requires a secure context. Cross-
-origin embedding works because the API answers CORS itself.
+cookies, and no browser API that requires a secure context. It writes one
+localStorage key, `loupe.site-review.corner`, and works without it. Cross-origin
+embedding works because the API answers CORS itself.
 
 Serving Loupe over plain HTTP is therefore fine when the reviewed page is also
 plain HTTP. Embedding it in an **HTTPS** page while Loupe is on

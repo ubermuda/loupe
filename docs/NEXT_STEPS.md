@@ -2010,24 +2010,6 @@ All widget API failures render into the single `#lp-error` banner. Fine for a
 one-reviewer tool; if bulk operations ever appear, attach errors to the affected
 list row instead.
 
-## Site-review widget overlaps the review console's pinned controls (dogfooding)
-
-
-
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-The site-review widget (loaded on Loupe's own pages when
-`SITE_REVIEW_WIDGET_TOKEN` is set — dev/dogfooding) mounts a `position:fixed`
-bottom-right launcher (z-index max). PR 3 pinned the document-review verdict bar
-to the bottom of the 388px margin, so the launcher can overlap the "Request
-changes"/"Approve" buttons in dogfooding mode. The e2e `review-loop` spec
-suppresses the widget (`suppressWidget`, like the debug toolbar) to test the
-review screen in isolation. Product decision to make later: the widget isn't part
-of the review/site-review console screens' design — consider not loading it on
-those routes (scope the `base.html.twig` widget include out of the review console)
-so dogfooding a review doesn't cover the console's own controls.
-
 ## Billing paywall answers machine clients with 402
 
 
@@ -2275,33 +2257,6 @@ caller — `withSelections()` takes no translator and no version number today �
 and that generated content is read inconsistently by screen readers, which
 matters more here than for the card's eyebrow because this text is an announced
 live region rather than decoration.
-
-## Text-selection mode for the site-review widget
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-The site-review widget anchors a comment to a page element: the reviewer picks
-something, and the stored comment carries a CSS selector plus some text
-(`public/site-review/widget.js` — its pending items are
-`{ id, body, selector, text, url }`). Document review works differently. There
-the reviewer selects a *range of text* and the comment quotes exactly that
-range, which is what makes "this sentence is wrong" expressible rather than
-"something in this block is wrong". The widget should offer the same: select
-text on the live page, comment on the selection, carry the quoted range
-through. As of 2026-08-12 the widget calls no `getSelection` at all, so this is
-new behaviour rather than an extension of existing selection handling.
-
-Two things to settle before building it. What a text anchor means on a page
-that has no versions: document review re-anchors comments by matching quoted
-text into the next version and reports the rest as orphaned, and a live page
-has no equivalent of a version boundary — so decide whether a stale anchor
-degrades to the selector, or is shown as orphaned, or is simply left broken.
-And whether the range travels as quoted text (robust to markup changes, may
-match twice) or as offsets into the selector's subtree (exact, breaks on any
-edit); the document-review side chose quoted text and hit the
-matches-twice case, which is worth reading before repeating the choice.
-
-Server side lives in `src/Module/SiteReview/`.
 
 ## The site-review push subsystem has no producer left
 
