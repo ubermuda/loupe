@@ -18,6 +18,7 @@ services:
 
   php-fpm:
     environment:
-      # The dev stack collects coverage on every request. Nothing here reads it,
-      # and it roughly doubles the PHPUnit leg on a two-core runner.
-      XDEBUG_MODE: 'off'
+      # The dev stack collects coverage on every request. Nothing reads it in a
+      # normal CI run, and it roughly doubles the PHPUnit leg on a small runner.
+      # The weekly coverage workflow sets XDEBUG_MODE=coverage to turn it back on.
+      XDEBUG_MODE: '${XDEBUG_MODE:-off}'

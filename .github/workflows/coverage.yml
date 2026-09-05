@@ -18,11 +18,12 @@ concurrency:
 env:
   COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
 
+# Two jobs rather than two steps. They measure different suites and write to
+# different trees, and separate runners make a shared database impossible rather
+# than merely sequential. The cost is a second stack build, which is the cheaper
+# half of either job.
 jobs:
-  # The PHPUnit suite, not the e2e suite. `just e2e-coverage` measures the other
-  # one, needs the browser stack, and deletes var/coverage on every run. Nothing
-  # here touches that directory.
-  phpunit-coverage:
+  phpunit:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -39,15 +40,15 @@ jobs:
 
       - run: date -u +'stack build ends %H:%M:%S UTC'
 
+      # Writes var/phpunit-coverage. Never var/coverage, which the e2e job below
+      # deletes at the start of its own run.
       - run: just phpunit-coverage
 
-      # summary.txt and clover.xml answer "what is coverage now" without
-      # downloading the HTML tree and opening a browser.
       - name: Coverage summary
         if: always()
-        run: head -20 var/phpunit-coverage/summary.txt || echo 'no summary written'
+        run: tail -20 var/phpunit-coverage/summary.txt || echo 'no summary written'
 
-      - name: Coverage report
+      - name: PHPUnit coverage report
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -56,4 +57,62 @@ jobs:
             var/phpunit-coverage/summary.txt
             var/phpunit-coverage/clover.xml
             var/phpunit-coverage/html
+          if-no-files-found: warn
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # ci.yaml pins XDEBUG_MODE to off, because a normal CI run reads no coverage
+    # and pays double for it. This job is the one that does read it.
+    env:
+      XDEBUG_MODE: coverage
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          node: 'true'
+          docker: 'true'
+
+      - name: Runner conditions
+        run: |
+          nproc
+          date -u +'e2e stack starts %H:%M:%S UTC'
+
+      - run: >
+          docker compose -f compose.yaml -f docker/compose/ci.yaml
+          up -d --wait nginx mailer
+
+      - name: Prepare the application
+        run: |
+          docker compose exec -T php-fpm bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+          docker compose exec -T php-fpm bin/console app:dev:seed
+
+      # CoverageSubscriber writes .cov files into var/ as www-data, and the
+      # runner owns var/. Without this the first write fails mid-suite.
+      - name: Let php-fpm write to var/
+        run: |
+          mkdir -p var/log
+          sudo chmod -R a+rwX var
+
+      - run: npx playwright install --with-deps chromium
+        working-directory: e2e
+
+      - run: date -u +'e2e run starts %H:%M:%S UTC'
+
+      # Confirms the driver is really on. A silent 'off' collects nothing and
+      # still produces an empty report, which reads as zero coverage.
+      - name: Confirm the coverage driver is live
+        run: docker compose exec -T php-fpm php -r 'echo ini_get("xdebug.mode"), PHP_EOL;'
+
+      - run: just e2e-coverage
+        env:
+          E2E_BASE_URL: http://localhost
+          MAILPIT_URL: http://localhost:8025
+
+      - name: e2e coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-coverage
+          path: var/coverage/html
           if-no-files-found: warn
