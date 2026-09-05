@@ -86,7 +86,7 @@ three: passing every check does not make a 17-line comment worth keeping.
 - `SelfContainedCommentsCheck` fails on references to tasks, phases, spec
   sections, handoff docs or dated decisions. State the underlying fact instead.
 - `CommentBudgetCheck` fails on any run of **6 or more** consecutive comment
-  lines, in PHP, Twig, JS, CSS, YAML, the justfile and `.env` alike.
+  lines, in PHP, Twig, JS, CSS, YAML and the justfile alike.
 
 The budget check fails instead of warning, because a check that cannot fail is a
 check whose green result carries no information.
