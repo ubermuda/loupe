@@ -2707,258 +2707,48 @@ Decide that first. Then apply it to the `#[McpTool]` description, the `__invoke`
 docblock, the `loupe-documents` skill, which lists no skip reasons today, and
 the `document_mark_comment_addressed` row in `docs/using/mcp.md`.
 
-## The shared main checkout is unguarded shared state
+## One failing e2e test silently disables three whole suites
+
+**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+
+`e2e/playwright.config.ts` chains its projects: `waitlist` on `chromium`,
+`trial-end-lifecycle` on `waitlist`, `install-reset` on all three. Playwright
+skips a dependent project when its dependency fails, so one red `chromium` test
+disables eleven others.
+
+A real run read `1 failed, 130 passed, 11 did not run`. That summary looks
+mostly green, so three suites went untested for hours and nobody noticed.
+
+Decide whether to break the chain or make the summary name the skipped projects.
+
+## Every worktree shares one php-fpm container
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-`CLAUDE.md` tells the main session never to move *into* a worktree. It says
-nothing about several sessions sharing the main checkout, which is what they do.
-Three sessions hit a variant of the same problem in one day, every one of them
-on `.claude/skills/working-with-prs/SKILL.md`. That concentration points at a
-hot file rather than at careless sessions.
+There is one container, `loupe-php-fpm-1`. `bin/worktrees/compose-exec.sh` execs
+into it and varies only `--workdir`. Worktrees are isolated per test database by
+`TEST_TOKEN`, never per container.
 
-Two separate incidents, hours apart, not one.
+So `docker compose exec php-fpm pkill -f phpunit` kills every worktree's run.
+Match the path instead: `pkill -f 'phpunit.*worktrees/<name>'`. Two gates in one
+worktree share a token and crash on `pg_type_typname_nsp_index`.
 
-Work was taken in the first. A commit carried 20 lines of another session's
-uncommitted edit to that file and pushed them. The branch was rebuilt without
-them.
+`CLAUDE.md` says a host-side `pkill` cannot see into the container, which makes
+the in-container form look safe. Three sessions used it in one day.
 
-The main checkout was moved onto another branch in the second, while a third
-session's uncommitted `config/packages/security.yaml` change and new
-`Controller/Dev/` route sat in the tree. That tree was clean when it moved, and
-nothing was lost.
-
-`CLAUDE.md` now carries the rule that came out of the first: read
-`git diff --cached` before you commit. Two commands it does not name have the
-same reach. `git commit -a` stages every tracked modification and skips the
-staging step the rule is about, and `git checkout -- <path>` destroys another
-session's uncommitted work rather than committing it. Decide whether the rule
-should name them.
-
-Reading the shared tree is the quieter failure, and two sessions made it within
-an hour, from the same source. Each was told by its harness that `CLAUDE.md` had
-changed on disk, and each reported the rule as landed on main. The checkout was
-standing on somebody else's unmerged branch, so it was a proposal. One of the
-two had already run `git show origin/main:CLAUDE.md`, seen nothing, and reported
-the on-disk version anyway.
-
-A harness notice that a file changed on disk describes the working tree, and a
-working tree is whatever branch someone else left checked out. It reads like an
-authoritative update about the repository and it is not. `git show
-origin/<branch>:<path>` is the only answer to "what is on main", and no disk
-read ever is.
-
-Knowing that command is not the fix, which is what makes this worth an entry.
-One of the two sessions had run it and seen nothing, and reported the on-disk
-file anyway. The notice outranked evidence already in hand. So the rule has to
-be that a disk read never answers the question, rather than that you should also
-check the ref.
-
-A session also cannot see that the checkout is occupied. A branch somebody else
-left there looks exactly like one you left yourself, and `git worktree list`
-reports the path without saying who is standing in it. So moving it is not
-obviously an intrusion at the moment you do it.
-
-Decide whether the rule should be that a session never moves the main checkout
-at all, and does every edit in a worktree. Reported by three sessions, two of
-which now work that way. Write it into `CLAUDE.md` if so, because a convention
-that lives only in one session's memory is not a convention. If the rule stays
-advisory, the second half needs answering: give a session a way to tell an
-occupied checkout from one it can borrow.
+Decide whether this belongs in `CLAUDE.md` or `project-worktrees`.
 
 ## "Keep both entries" is wrong when a branch deleted one on purpose
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-`CLAUDE.md` says two branches that both append to `docs/NEXT_STEPS.md` conflict,
-"and the resolution is always to keep both entries". The rule is right for two
-branches that append. It is wrong for a branch that *resolves* entries, because
-the file's own rule is to delete a resolved entry entirely, and keeping both
-sides restores work that is already done.
+`CLAUDE.md` says a conflict in this file always resolves to keeping both
+entries. That holds for two branches that append. It is wrong for a branch that
+resolves entries, because keeping both sides restores work already done, and
+nothing goes red.
 
-This nearly bit during a fourteen-pull-request merge wave. One branch deleted
-two entries and added one. An outside merger reading only `CLAUDE.md` would have
-kept the deletions' other side and resurrected both. The branch's own session
-merged it instead, because it knew which deletions were intentional.
+Hand such a merge to the branch's author: an outside merger cannot tell a
+deliberate deletion from a lost one.
 
-The generalisation: keep both sides when neither side deleted an entry on
-purpose, and hand the merge to the branch's author when one did. An outside
-merger cannot tell a deliberate deletion from a lost one, and git shows the same
-conflict either way.
+Decide whether to qualify the rule at `CLAUDE.md` line 45.
 
-Decide whether to write that qualification into `CLAUDE.md` line 45.
-
-## Every worktree shares one php-fpm container, so `pkill` there is repository-wide
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`CLAUDE.md` says a process started inside a container can only be stopped from
-inside it, and gives `docker compose exec php-fpm pkill -f <script>` as the way.
-That is right on its own terms. `project-worktrees` is right too, and describes
-a worktree as a full application with its own URL, database and stylesheet.
-
-Read together they imply a container each. Nothing states otherwise, so the
-wrong model is the one a careful reader arrives at, and three sessions repeated
-the dangerous command in one day before anyone opened `compose-exec.sh`. The
-inference is the thing to kill, not just the mechanism to document.
-
-The boundary in one line: isolated per test database, shared per container. So
-parallel gates in different worktrees are safe, and two gates in one worktree
-are not.
-
-There is one stack and one container, `loupe-php-fpm-1`.
-`bin/worktrees/compose-exec.sh` execs into it and varies only `--workdir`; its
-own header says "the shared php-fpm container". Isolation between worktrees is
-per test database, through the `TEST_TOKEN` that `worktree-bootstrap.sh` writes
-into each `.env.test.local`, and not per container.
-
-The existing guidance points the wrong way here. `CLAUDE.md` warns that a
-host-side `pkill` cannot see into the container, which makes the in-container
-form look like the safe one. It is the dangerous one: `pkill -f phpunit` in that
-container kills every worktree's test run, not the one you meant. Match the worktree path instead, such as
-`pkill -f 'phpunit.*worktrees/<name>'`, and read
-`docker exec loupe-php-fpm-1 ps aux | grep phpunit` before killing anything.
-
-Two gates in one worktree share one `TEST_TOKEN`, hit one database, and crash in
-`tests/bootstrap.php` with `duplicate key value violates unique constraint
-"pg_type_typname_nsp_index"`, which is two schema creations racing rather than a
-code defect. Two gates in different worktrees are safe.
-
-Decide whether this belongs in `CLAUDE.md` beside the existing container rule,
-or in the `project-worktrees` skill. Found when two test runs raced in one
-worktree, and after this session gave another the repository-wide `pkill` as
-advice.
-
-## A pull request body outlives the worktree its preview link points at
-
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
-
-`working-with-prs` says to mint a signed preview link, seed the data the change
-needs, and open the link yourself before writing it down. It does not say the
-link dies when the worktree does.
-
-Seven merged pull requests lost their previews in one teardown. `main` takes
-squash merges only, so a body becomes the permanent commit message, and those
-bodies now point at hosts that do not resolve. Nothing of value is gone, because
-the code is merged and the fixtures were disposable. A later reader following a
-link from one of them gets a connection error rather than a page, and no clue
-that this was expected.
-
-Two ways to fix it, and they compose. Say in the body that a preview is
-disposable and names a tree that will be removed, so the dead link reads as
-intended rather than broken. And prefer what #348 shipped: a reader mints a
-fresh link against a live worktree with `app:dev:preview-login-link`, which beats
-one baked into a body that outlives the tree.
-
-The same shape catches a body's text, not just its links. GitHub copies the body
-into the squash commit at the instant of merge, so editing the body afterwards
-changes the pull request page and never the commit. One session added a
-paragraph of reasoning to a merged pull request's body: `gh pr view` finds it,
-`git show -s --format=%B <sha>` does not. `docs/CHANGELOG.md` sends a reader to
-"the PR body and the commit message, which the SHA and the PR number both point
-at", and those two disagree the moment anyone edits after merging.
-
-Decide which, and write it into `working-with-prs` beside the existing
-instruction to open the link before writing it down. Say there that anything
-meant for the permanent record has to be in the body before the merge, because
-the body is the commit message only at that instant. Raised by the session that
-ran the teardown, which checked merged state, a clean tree and nothing unpushed
-on all seven first.
-
-## An approval does not expire when the reviewer asks for more
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`working-with-prs` says a pull request that is approved with every required
-check green is good to merge, without asking. That rule shipped seventeen
-changes correctly in one day and would have shipped a wrong one.
-
-#335 read APPROVED and CLEAN while its owner had already asked for two further
-changes, in conversation rather than on the pull request. The branch head was
-complete and green, and nine uncommitted files in its worktree were the work in
-progress. Nothing in the pull request's own state said any of it. The ruleset
-sets `dismiss_stale_reviews_on_push: false`, so even a push would not have
-cleared the approval.
-
-So APPROVED means "was approved at some point", not "is currently wanted". The
-gap is only visible to whoever holds the branch.
-
-Two cheap defences, and they compose. Ask the branch's owner whether its tree is
-quiet before syncing anything you did not write, which is what caught this one.
-And treat uncommitted files in a branch's worktree as a hold, because a clean
-branch head with a dirty tree means the author has moved past what you would
-merge.
-
-Hold on any uncommitted change, not only on files that look like source. A dirty
-spec file is the same evidence as a dirty implementation file: it means the
-author is still deciding what correct looks like.
-
-The heuristic caught two of the next two approved pull requests it was applied
-to, on different branches owned by different sessions. In both the automated
-signals were unanimous and wrong: approved, clean, and every check green, while
-the owner had already reported a defect on the approved head. One of those two
-had four separate defects reported after its single approval.
-
-A third hold on the same branch cleared in one exchange, and that is not a cost
-to design away. A check that fires only when it turns out to be right is set too
-loose, because it cannot fire on the case it exists for.
-
-Decide whether `working-with-prs` should say that, beside the existing
-instruction to merge an approved and green pull request without asking. Found
-when a merge-master session was one command from shipping a version the owner
-had already rejected.
-
-## `gh run list --limit 1` answers "did CI pass" confidently and wrongly
-
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
-
-This repository runs two workflows per commit, `CI` and `Docs`. So
-`gh run list --branch main --limit 1` returns whichever finished last, and on a
-red commit that is often the passing `Docs` run.
-
-One session used it, read `success`, and told another that main was green while
-main's `CI` run on the same sha had failed. The sha was right and the workflow
-was wrong, and the query could not have shown which. It fails by answering
-confidently rather than by erroring.
-
-The form that works names the workflow and then the job, rather than taking the
-newest run:
-
-```
-gh run list --branch main --workflow ci.yml --limit 1
-gh run view <run-id> --json jobs -q '.jobs[]|select(.name=="e2e")|.conclusion'
-```
-
-Decide whether this belongs in `working-with-prs`, beside the existing
-instruction to read the checks against the head you are about to merge. That
-instruction already says a rollup can describe the previous head; this is the
-neighbouring trap, where the rollup describes the right head and the wrong
-workflow.
-
-## One failing e2e test silently disables three whole suites
-
-**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
-
-`e2e/playwright.config.ts` chains its projects. `waitlist` depends on
-`chromium`, `trial-end-lifecycle` depends on `waitlist`, and `install-reset`
-depends on all three. Playwright skips a dependent project when its dependency
-fails, so a single failure in `chromium` takes the other three with it.
-
-That is live right now. One failing test in `chromium` produces
-`1 failed, 130 passed, 11 did not run`, and those eleven are the waitlist, the
-trial-end lifecycle and the install reset. For as long as any `chromium` test
-is red, nobody is testing those three areas at all, on `main` or on any branch
-that syncs with it.
-
-The run summary does not make that obvious. It reads as a mostly-green run with
-one known failure in it, and "11 did not run" is easy to read as eleven tests
-that were skipped on purpose. The blind spot is larger than the red, and it is
-invisible at exactly the moment someone decides a known flake is tolerable.
-
-Decide whether the chain is worth its cost. The dependencies exist because those
-suites need seeded state, so removing them is not free. Options include making
-the summary state plainly which projects were skipped and why, or breaking the
-chain so a `chromium` failure does not gate suites that share nothing with it.
-
-Found when a flaky test sat red on `main` for several hours and three suites
-went untested without anyone noticing.
