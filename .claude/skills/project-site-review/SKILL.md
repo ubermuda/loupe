@@ -32,6 +32,7 @@ Invoke `project-frontend` only for a change in `assets/` or a Twig template.
 | Serena's edit tools | No language server is configured for JavaScript in this project. `replace_content` and friends fail with "No language servers available". Use Edit/Write. Serena reads are unaffected. |
 | `text-overflow` in the overlay | JS sets `display` as an inline style on several overlay nodes, which beats the stylesheet. `text-overflow: ellipsis` has no effect on a flex container's anonymous text item, so an `inline-flex` label hard-clips mid-word instead of ellipsing. Check the JS-applied `display` before debugging the CSS. |
 | Absolutely-positioned `display` | The overlay's label is `position: absolute`, so `display` blockifies: `inline-block` computes to `block`, `inline-flex` to `flex`. Computed style will not echo what you wrote. |
+| Reading the platform from one source | Playwright's Chromium reports `navigator.userAgentData.platform` as `Windows` while running on macOS, and `navigator.platform` as `MacIntel`. The widget's add-anchor modifier takes either Mac signal, because Ctrl+click on a Mac is a right click: the widget's own `contextmenu` handler then stands the picker down, and every pick after the first fails in a way that reads as a lost click. Mirror the same expression in a spec rather than reading `process.platform`. |
 
 ## The status model
 

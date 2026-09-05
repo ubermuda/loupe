@@ -49,7 +49,7 @@ final class DeleteCommentHandlerTest extends KernelTestCase
     public function test_deletes_a_pending_comment(): void
     {
         $project = $this->project('del-a@example.com');
-        $comment = ($this->addHandler)(new AddCommentCommand($project, 'to delete', '', '', 'https://app/x'));
+        $comment = ($this->addHandler)(new AddCommentCommand($project, 'to delete', 'https://app/x'));
         $id = $comment->id ?? throw new \LogicException('comment id must not be null');
 
         ($this->handler)(new DeleteCommentCommand($project, $id));
@@ -61,7 +61,7 @@ final class DeleteCommentHandlerTest extends KernelTestCase
     public function test_addressed_comment_throws_comment_not_found(): void
     {
         $project = $this->project('del-b@example.com');
-        $comment = ($this->addHandler)(new AddCommentCommand($project, 'orig', '', '', 'https://app/x'));
+        $comment = ($this->addHandler)(new AddCommentCommand($project, 'orig', 'https://app/x'));
         $comment->status = SiteReviewCommentStatus::Addressed;
         $this->em->flush();
 
@@ -73,7 +73,7 @@ final class DeleteCommentHandlerTest extends KernelTestCase
     {
         $siteA = $this->project('del-c@example.com', 'site-a');
         $siteB = $this->project('del-d@example.com', 'site-b');
-        $comment = ($this->addHandler)(new AddCommentCommand($siteA, 'orig', '', '', 'https://app/x'));
+        $comment = ($this->addHandler)(new AddCommentCommand($siteA, 'orig', 'https://app/x'));
 
         $this->expectException(CommentNotFound::class);
         ($this->handler)(new DeleteCommentCommand($siteB, $comment->id ?? throw new \LogicException('comment id must not be null')));
@@ -82,7 +82,7 @@ final class DeleteCommentHandlerTest extends KernelTestCase
     public function test_a_deleted_comment_is_recorded_on_the_domain_channel(): void
     {
         $project = $this->project('del-audit@example.com');
-        $comment = ($this->addHandler)(new AddCommentCommand($project, 'to delete', '', '', 'https://app/x'));
+        $comment = ($this->addHandler)(new AddCommentCommand($project, 'to delete', 'https://app/x'));
         $commentId = $comment->id ?? throw new \LogicException('comment id must not be null');
 
         ($this->handler)(new DeleteCommentCommand($project, $commentId));
@@ -106,7 +106,7 @@ final class DeleteCommentHandlerTest extends KernelTestCase
     {
         $siteA = $this->project('del-audit-miss-a@example.com', 'site-a');
         $siteB = $this->project('del-audit-miss-b@example.com', 'site-b');
-        $comment = ($this->addHandler)(new AddCommentCommand($siteA, 'orig', '', '', 'https://app/x'));
+        $comment = ($this->addHandler)(new AddCommentCommand($siteA, 'orig', 'https://app/x'));
         $commentId = $comment->id ?? throw new \LogicException('comment id must not be null');
 
         try {

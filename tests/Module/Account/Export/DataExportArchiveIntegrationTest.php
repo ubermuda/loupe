@@ -53,7 +53,7 @@ final class DataExportArchiveIntegrationTest extends KernelTestCase
         $review = new Review($version1, Verdict::Approved, $user);
         $em->persist($review);
 
-        $em->persist(new SiteReviewComment($project, 0, 'Fix this', '.hero h1', 'Hello world', 'https://example.com/'));
+        $em->persist(new SiteReviewComment($project, 0, 'Fix this', 'https://example.com/')->addAnchor('.hero h1', 'Hello world'));
 
         [$apiToken] = ApiToken::issue($user, 'My agent', ApiTokenScope::Mcp);
         $em->persist($apiToken);

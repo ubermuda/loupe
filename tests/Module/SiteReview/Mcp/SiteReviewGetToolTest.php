@@ -45,9 +45,9 @@ final class SiteReviewGetToolTest extends KernelTestCase
         $this->em->persist($user);
         $project = new Project($user, $name);
         $this->em->persist($project);
-        $c1 = new SiteReviewComment($project, 0, 'first', '.a', 'A', 'https://app/x');
+        $c1 = new SiteReviewComment($project, 0, 'first', 'https://app/x')->addAnchor('.a', 'A');
         $c1->status = SiteReviewCommentStatus::Pending;
-        $c2 = new SiteReviewComment($project, 1, 'second', '', '', 'https://app/y');
+        $c2 = new SiteReviewComment($project, 1, 'second', 'https://app/y');
         $c2->status = SiteReviewCommentStatus::Pending;
         $this->em->persist($c1);
         $this->em->persist($c2);
@@ -64,20 +64,20 @@ final class SiteReviewGetToolTest extends KernelTestCase
         $project = new Project($user, 'order-site');
         $this->em->persist($project);
 
-        $first = new SiteReviewComment($project, 0, 'older-comment', '.b', 'B', 'https://app/old');
+        $first = new SiteReviewComment($project, 0, 'older-comment', 'https://app/old')->addAnchor('.b', 'B');
         $first->status = SiteReviewCommentStatus::Pending;
         $this->em->persist($first);
 
-        $second = new SiteReviewComment($project, 1, 'newer-first', '.c', 'C', 'https://app/new1');
+        $second = new SiteReviewComment($project, 1, 'newer-first', 'https://app/new1')->addAnchor('.c', 'C');
         $second->status = SiteReviewCommentStatus::Pending;
         $this->em->persist($second);
 
-        $third = new SiteReviewComment($project, 2, 'newer-second', '.d', 'D', 'https://app/new2');
+        $third = new SiteReviewComment($project, 2, 'newer-second', 'https://app/new2')->addAnchor('.d', 'D');
         $third->status = SiteReviewCommentStatus::Pending;
         $this->em->persist($third);
 
         // An addressed comment must NOT appear — the queue is the pending ones.
-        $addressed = new SiteReviewComment($project, 3, 'addressed-comment', '.e', 'E', 'https://app/done');
+        $addressed = new SiteReviewComment($project, 3, 'addressed-comment', 'https://app/done')->addAnchor('.e', 'E');
         $addressed->status = SiteReviewCommentStatus::Addressed;
         $this->em->persist($addressed);
 
@@ -100,6 +100,39 @@ final class SiteReviewGetToolTest extends KernelTestCase
         }
     }
 
+    public function test_a_comment_reports_its_anchors_and_no_scalar_selector(): void
+    {
+        $user = new User(fullName: 'U', email: 'get-anchors@example.com', password: 'x');
+        $this->em->persist($user);
+        $project = new Project($user, 'anchor-site');
+        $this->em->persist($project);
+
+        $multi = new SiteReviewComment($project, 0, 'These two belong together', 'https://app/x')
+            ->addAnchor('.card', 'Save')
+            ->addAnchor('.panel', 'Cancel');
+        $multi->status = SiteReviewCommentStatus::Pending;
+        $this->em->persist($multi);
+
+        $note = new SiteReviewComment($project, 1, 'a page note', 'https://app/y');
+        $note->status = SiteReviewCommentStatus::Pending;
+        $this->em->persist($note);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+        $result = ($this->tool)();
+
+        // The scalars are gone from the payload; anchors[] replaces them.
+        self::assertArrayNotHasKey('selector', $result['comments'][0]);
+        self::assertArrayNotHasKey('text', $result['comments'][0]);
+
+        self::assertSame([
+            ['selector' => '.card', 'text' => 'Save', 'quote' => null, 'quotePrefix' => null, 'quoteSuffix' => null],
+            ['selector' => '.panel', 'text' => 'Cancel', 'quote' => null, 'quotePrefix' => null, 'quoteSuffix' => null],
+        ], $result['comments'][0]['anchors']);
+
+        self::assertSame([], $result['comments'][1]['anchors']);
+    }
+
     public function test_addressed_and_resolved_comments_are_excluded(): void
     {
         $userEmail = 'get-status@example.com';
@@ -108,11 +141,11 @@ final class SiteReviewGetToolTest extends KernelTestCase
         $project = new Project($user, 'status-site');
         $this->em->persist($project);
 
-        $pending = new SiteReviewComment($project, 0, 'pending', '.a', 'A', 'https://app/x');
+        $pending = new SiteReviewComment($project, 0, 'pending', 'https://app/x')->addAnchor('.a', 'A');
         $pending->status = SiteReviewCommentStatus::Pending;
-        $addressed = new SiteReviewComment($project, 1, 'addressed', '.b', 'B', 'https://app/y');
+        $addressed = new SiteReviewComment($project, 1, 'addressed', 'https://app/y')->addAnchor('.b', 'B');
         $addressed->status = SiteReviewCommentStatus::Addressed;
-        $resolved = new SiteReviewComment($project, 2, 'resolved', '.c', 'C', 'https://app/z');
+        $resolved = new SiteReviewComment($project, 2, 'resolved', 'https://app/z')->addAnchor('.c', 'C');
         $resolved->status = SiteReviewCommentStatus::Resolved;
         $this->em->persist($pending);
         $this->em->persist($addressed);
@@ -133,10 +166,10 @@ final class SiteReviewGetToolTest extends KernelTestCase
         $project = new Project($user, 'readback-site');
         $this->em->persist($project);
 
-        $pending = new SiteReviewComment($project, 0, 'pending', '.a', 'A', 'https://app/x');
-        $addressed = new SiteReviewComment($project, 1, 'addressed', '.b', 'B', 'https://app/y');
+        $pending = new SiteReviewComment($project, 0, 'pending', 'https://app/x')->addAnchor('.a', 'A');
+        $addressed = new SiteReviewComment($project, 1, 'addressed', 'https://app/y')->addAnchor('.b', 'B');
         $addressed->status = SiteReviewCommentStatus::Addressed;
-        $resolved = new SiteReviewComment($project, 2, 'resolved', '.c', 'C', 'https://app/z');
+        $resolved = new SiteReviewComment($project, 2, 'resolved', 'https://app/z')->addAnchor('.c', 'C');
         $resolved->status = SiteReviewCommentStatus::Resolved;
         $this->em->persist($pending);
         $this->em->persist($addressed);

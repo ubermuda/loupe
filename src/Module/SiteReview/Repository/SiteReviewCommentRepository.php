@@ -32,11 +32,14 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     public function findPendingForProject(Project $project): array
     {
         return $this->createQueryBuilder('c')
+            ->leftJoin('c.anchors', 'a')
+            ->addSelect('a')
             ->andWhere('c.project = :project')
             ->andWhere('c.status = :status')
             ->setParameter('project', $project)
             ->setParameter('status', SiteReviewCommentStatus::Pending)
             ->orderBy('c.position', 'ASC')
+            ->addOrderBy('a.position', 'ASC')
             ->getQuery()
             ->getResult();
     }
@@ -156,11 +159,14 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     public function findForProjectWithStatus(Project $project, SiteReviewCommentStatus $status): array
     {
         return $this->createQueryBuilder('c')
+            ->leftJoin('c.anchors', 'a')
+            ->addSelect('a')
             ->andWhere('c.project = :project')
             ->andWhere('c.status = :status')
             ->setParameter('project', $project)
             ->setParameter('status', $status)
             ->orderBy('c.position', 'ASC')
+            ->addOrderBy('a.position', 'ASC')
             ->getQuery()
             ->getResult();
     }
@@ -174,9 +180,12 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     public function findForProject(Project $project): array
     {
         return $this->createQueryBuilder('c')
+            ->leftJoin('c.anchors', 'a')
+            ->addSelect('a')
             ->andWhere('c.project = :project')
             ->setParameter('project', $project)
             ->orderBy('c.position', 'ASC')
+            ->addOrderBy('a.position', 'ASC')
             ->getQuery()
             ->getResult();
     }
@@ -208,9 +217,12 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('c')
             ->join('c.project', 'p')
+            ->leftJoin('c.anchors', 'a')
+            ->addSelect('a')
             ->where('p.owner = :user')
             ->setParameter('user', $user)
             ->orderBy('c.createdAt', 'ASC')
+            ->addOrderBy('a.position', 'ASC')
             ->getQuery()
             ->getResult();
     }

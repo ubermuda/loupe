@@ -22,6 +22,9 @@ use Symfony\Component\Routing\Attribute\Route;
  * widget rehydrates the project's existing comments. A fresh token is still minted on
  * every load (the raw value of the previous one is unrecoverable from its hash); that is
  * fine because the comments belong to the project, not the token.
+ *
+ * Pass `?hide=target-two` to leave that element out of the page, so a reload finds a
+ * saved multi-anchor comment with one anchor that no longer resolves.
  */
 #[Route(
     '/dev/site-review-harness',
@@ -43,6 +46,9 @@ final class SiteReviewHarnessController extends AppController
             keepComments: $request->query->getBoolean('keep'),
         ));
 
-        return $this->render('@SiteReview/dev/site_review_harness.html.twig', ['token' => $view->rawToken]);
+        return $this->render('@SiteReview/dev/site_review_harness.html.twig', [
+            'token' => $view->rawToken,
+            'hide' => $request->query->getString('hide'),
+        ]);
     }
 }

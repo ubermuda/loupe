@@ -17,15 +17,43 @@
   // Every comment is saved to the API as it is written and is live from that
   // moment — there is no send step. `comments` mirrors the project's Pending
   // comments, the ones this reviewer may still edit or delete; once the agent
-  // marks one addressed it drops out. Each item: { id, body, selector, text, url }.
+  // marks one addressed it drops out. Each item: { id, body, url, anchors }, where
+  // anchors is a list of { selector, text } — several when the comment says something
+  // about a relationship between elements, and empty for an unanchored page note.
   let comments = [];
+  const MAX_ANCHORS = 10; // AddCommentRequest's cap — over it the API 422s
+  const AT_CAP_MESSAGE = `A comment can point at ${MAX_ANCHORS} elements at most.`;
+
+  // Hold this key to add another element to the comment being composed. Ctrl is
+  // the modifier away from a Mac, where Ctrl+click is a right click.
+  // Either source is enough, because Ctrl+click on a Mac is a right click and a
+  // widget that reads one spoofed value wrong there picks nothing at all.
+  // userAgentData says 'macOS', navigator.platform says 'MacIntel'.
+  const IS_MAC = /mac|iphone|ipad|ipod/i.test(
+    `${navigator.platform || ''} ${(navigator.userAgentData && navigator.userAgentData.platform) || ''}`,
+  );
+  const MOD_KEY = IS_MAC ? 'Meta' : 'Control';
+  const MOD_LABEL = IS_MAC ? '⌘' : 'Ctrl';
+  const modHeld = (event) => (IS_MAC ? event.metaKey : event.ctrlKey);
+
+  // Anchors of a comment, tolerating a pre-anchors server that sends only the
+  // scalar selector/text pair.
+  const anchorsOf = (comment) => {
+    if (Array.isArray(comment.anchors)) return comment.anchors;
+    return comment.selector ? [{ selector: comment.selector, text: comment.text || '' }] : [];
+  };
 
   // Demo transport: an in-memory list that dies with the page. Same four calls,
   // same shapes, same 404 for a row that is gone — so the widget cannot tell.
   const demoStore = { comments: [], nextId: 1 };
   const demoApi = async (method, path, body) => {
     if (method === 'GET') {
-      return { comments: demoStore.comments.map((comment) => ({ ...comment })) };
+      return {
+        comments: demoStore.comments.map((comment) => ({
+          ...comment,
+          anchors: (comment.anchors || []).map((anchor) => ({ ...anchor })),
+        })),
+      };
     }
     if (method === 'POST') {
       const commentId = `demo-${demoStore.nextId++}`;
@@ -165,15 +193,34 @@
     return '';
   };
 
-  // Resolve a comment to a live element on the current page, or null when it
-  // is unanchored, was made on another page, or its selector no longer matches.
-  const resolveElement = (comment) => {
-    if (!comment.selector || comment.url !== location.href) return null;
+  const queryOne = (selector) => {
     try {
-      return document.querySelector(comment.selector);
+      return document.querySelector(selector);
     } catch {
       return null;
     }
+  };
+
+  // Every anchor of a comment paired with the element it resolves to on this
+  // page, or null when the anchor no longer matches. Empty for an unanchored
+  // comment or one made on another page.
+  const resolveAnchors = (comment) => {
+    if (comment.url !== location.href) return [];
+    return anchorsOf(comment).map((anchor, anchorIndex) => ({
+      anchor,
+      anchorIndex,
+      el: anchor.selector ? queryOne(anchor.selector) : null,
+    }));
+  };
+
+  // A comment is degraded when it was anchored to several elements and at least
+  // one of them is gone. Rendering the survivors as if the comment had always
+  // been about them would misstate what the reviewer said, so the widget says so.
+  // A single-anchor comment that no longer resolves is still dropped in silence.
+  const anchorHealth = (comment) => {
+    const resolved = resolveAnchors(comment);
+    const found = resolved.filter((entry) => entry.el);
+    return { resolved, found, total: resolved.length, degraded: resolved.length > 1 && found.length < resolved.length };
   };
 
   // Human-readable anchor: the first non-empty line of the element's visible text,
@@ -338,14 +385,18 @@
     open: false,
     target: false,
     composing: false,
-    composeTarget: null, // { type:'general' } | { type:'element', el, selector, text, label }
+    // { type:'general' } | { type:'element', anchors: [{ el, selector, text, label }] }
+    composeTarget: null,
     draft: '',
+    addAnchor: false, // the add-another-element modifier is held down
+    modCancelled: false, // another key went down during this hold, so it adds nothing
     editId: null, // server id of the comment being edited in place, or null for a new one
     listExpanded: false,
     expandLevel: 0,
     toastDock: 'top', // 'top' | 'bottom' — the pick-mode toast dodges to the bottom near the top edge
     moveHL: null, // { left, top, width, height, label } while picking
     hoverId: null, // hovered comment index (list row)
+    hoverAnchor: null, // anchor index whose on-page remove control is revealed
     hoverPinId: null, // hovered pin index
     confirmDeleteId: null, // armed inline list-row delete
     confirmClear: false,
@@ -427,11 +478,22 @@
 
       .lp-composer{flex:0 0 auto;overflow:hidden;transition:max-height .27s cubic-bezier(.4,0,.2,1),opacity .2s ease}
       .lp-composer-inner{padding:2px 16px 14px}
-      .lp-compose-head{display:flex;align-items:center;gap:7px;margin-bottom:9px;min-height:21px}
+      /* The composer's height is fixed and it clips, so the chips scroll rather
+         than push the textarea and the buttons out of the box. */
+      .lp-compose-head{display:flex;align-items:center;gap:7px;margin-bottom:9px;min-height:21px;flex-wrap:wrap;max-height:90px;overflow-y:auto;overscroll-behavior:contain}
       .lp-compose-general{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
       .lp-dot{width:7px;height:7px;border-radius:50%;border:1.5px dashed var(--faint)}
       .lp-compose-chip{flex:0 1 auto;min-width:0;display:inline-flex;align-items:center;gap:5px;height:21px;padding:0 9px;background:var(--accent-tint);color:var(--accent-ink);border-radius:999px;font-size:11px;font-weight:600;overflow:hidden}
       .lp-compose-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      /* The pill names one anchor, so it is a control: point at it and its
+         element is emphasised on the page, click it and the page scrolls to it. */
+      .lp-chip-name{flex:0 1 auto;min-width:0;display:inline-flex;align-items:center;gap:5px;border:0;padding:0;background:transparent;color:inherit;font-family:inherit;font-size:inherit;font-weight:inherit;line-height:1;cursor:pointer}
+      .lp-chip-name:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px;border-radius:999px}
+      .lp-compose-chip.lit{background:var(--accent);color:var(--on-accent)}
+      .lp-chip-x{flex:0 0 auto;border:0;background:transparent;color:inherit;font-family:inherit;font-size:13px;line-height:1;padding:0;margin-right:-3px;cursor:pointer;opacity:.6}
+      .lp-chip-x:hover{opacity:1}
+      .lp-chip-x:focus-visible{opacity:1;outline:2px solid var(--accent-ink);outline-offset:2px;border-radius:999px}
+      .lp-compose-hint{flex:0 0 auto;height:21px;line-height:21px;color:var(--muted);font-size:11px;font-weight:600}
       /* Borderless: the fill is the field, as everywhere else in the app. */
       .lp-textarea{width:100%;min-height:74px;resize:none;border:0;background:var(--field-bg);color:var(--text);border-radius:12px;padding:10px 12px;font-family:inherit;font-size:13px;line-height:1.5;outline:none;transition:background .14s ease}
       .lp-textarea:focus{background:var(--field-focus);box-shadow:inset 0 0 0 1px var(--accent-ink),0 0 0 3px var(--accent-tint)}
@@ -479,6 +541,7 @@
       .lp-item-body{flex:1;min-width:0}
       .lp-item-text{font-size:13px;line-height:1.5;color:var(--text);word-break:break-word}
       .lp-chip{display:inline-flex;align-items:center;gap:4px;margin-top:6px;height:19px;padding:0 9px;background:var(--chip-bg);color:var(--chip-text);border-radius:999px;font-size:10.5px;font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:6px}
+      .lp-chip.degraded{background:#fef3c7;color:#92400e}
       /* Chip-shaped but a real button: it says which page the comment was made on
          and goes there. Only rendered when that page is not the current one. */
       .lp-item-page{display:inline-flex;align-items:center;gap:4px;margin-top:6px;height:19px;padding:0 9px;background:transparent;border:1px solid var(--hairline);color:var(--muted);border-radius:999px;font-family:inherit;font-size:10.5px;font-weight:600;max-width:100%;cursor:pointer}
@@ -611,6 +674,23 @@
          every marker the widget paints onto the page carries a near-black edge
          of its own: the accent reads as the brand, the ring keeps it visible. */
       .highlight{position:fixed;border:2px solid var(--accent);background:var(--accent-fill);border-radius:10px;pointer-events:none;box-shadow:0 2px 10px var(--pin-shadow);transition:left .07s ease,top .07s ease,width .07s ease,height .07s ease;z-index:2}
+      /* A comment's other anchors. Same accent, no fill, so the framed one still
+         reads as the one under the cursor. */
+      .highlight.sib{background:transparent;border-width:1.5px;box-shadow:none;transition:none}
+      /* The anchor whose pill is pointed at, or whose own box is. It stays the
+         emphasised member of a set that all stays painted. */
+      .highlight.lit{background:var(--accent-fill);border-width:3px;border-color:var(--accent-ink);box-shadow:0 2px 10px var(--pin-shadow)}
+      /* Only a removable box takes pointer events, so an outline never eats a
+         click on the host page outside the short window a comment is composed in. */
+      .highlight.removable{pointer-events:auto}
+      /* The controls live above every box rather than inside one. Two anchors on
+         neighbouring elements have overlapping boxes, and a control drawn inside
+         its own box would sit under its neighbour and refuse the click. */
+      .lp-hl-x{position:fixed;z-index:5;display:flex;width:22px;height:22px;align-items:center;justify-content:center;padding:0;background:var(--accent);color:var(--on-accent);border:2px solid var(--pin-ring);border-radius:50%;font-family:inherit;font-size:14px;font-weight:700;line-height:1;cursor:pointer;pointer-events:auto;opacity:0;transition:opacity .12s ease;box-shadow:0 2px 8px var(--pin-shadow)}
+      /* :focus reveals it, because a mousedown on it is prevented and cannot
+         focus it. The ring is :focus-visible, so only a keyboard user sees one. */
+      .lp-hl-x.lit,.lp-hl-x:hover,.lp-hl-x:focus{opacity:1}
+      .lp-hl-x:focus-visible{outline:2px solid var(--pin-ring);outline-offset:2px}
       .lp-hl-label{position:absolute;left:-2px;top:-27px;display:inline-block;max-width:240px;height:21px;line-height:21px;padding:0 9px;background:var(--accent);color:var(--on-accent);font-size:11px;font-weight:600;border-radius:999px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 10px var(--pin-shadow)}
       .lp-pin-wrap{position:fixed;z-index:4;pointer-events:auto}
       .lp-ov.targeting .lp-pin-wrap{pointer-events:none}
@@ -619,6 +699,8 @@
       .lp-pop{position:absolute;top:16px;right:0;width:240px;padding-top:14px;cursor:default}
       .lp-pop-card{position:relative;overflow:hidden;min-height:96px;padding:12px;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:12px;box-shadow:var(--shadow);animation:lp-fade .12s ease;display:flex;flex-direction:column}
       .lp-pop-body{font-size:12.5px;line-height:1.5;color:var(--text);word-break:break-word}
+      .pin.degraded{border-style:dashed;border-color:#b45309}
+      .lp-pop-degraded{margin-top:6px;font-size:11px;line-height:1.4;color:#b45309;word-break:break-word}
       .lp-pop-row{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:10px}
       .lp-pop-chip{display:inline-flex;align-items:center;height:19px;padding:0 9px;background:var(--chip-bg);color:var(--chip-text);border-radius:999px;font-size:10.5px;font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .lp-pop-edit{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
@@ -640,11 +722,13 @@
     </style>
     <div class="lp-ov" id="lp-ov">
       <div class="lp-scrim" id="lp-scrim" style="display:none"></div>
+      <div id="lp-hls"></div>
       <div class="highlight" id="lp-hl" style="display:none"><span class="lp-hl-label" id="lp-hl-label" style="display:none"></span></div>
+      <div id="lp-hlx"></div>
       <div id="lp-pins"></div>
       <div class="lp-toast" id="lp-toast" style="display:none">
         ${ICON.target(15)}
-        <span>Click to comment</span>
+        <span id="lp-toast-text">Click to comment</span>
         <span class="lp-toast-sep">·</span>
         <span class="lp-toast-dim">⌥ scroll to resize</span>
         <span class="lp-toast-key" id="lp-toast-esc">Esc</span>
@@ -660,10 +744,13 @@
 
   const ovRoot = $$('lp-ov');
   const scrimNode = $$('lp-scrim');
+  const hlsNode = $$('lp-hls');
   const hlNode = $$('lp-hl');
   const hlLabel = $$('lp-hl-label');
+  const hlxNode = $$('lp-hlx');
   const pinsNode = $$('lp-pins');
   const toastNode = $$('lp-toast');
+  const toastText = $$('lp-toast-text');
   const savedToastNode = $$('lp-saved');
   const panelNode = $('lp-panel');
   const mainNode = $('lp-main');
@@ -723,41 +810,188 @@
 
   // ---- overlay render (scrim / highlight / pins / toast) ----
   const HIGHLIGHT_PADDING = 8; // px of breathing room around the targeted element
+
+  // What the overlay outlines: one framed element (`move` while picking, or `el`),
+  // plus `others`, the rest of the same comment's anchors. Every anchor of the
+  // comment being composed stays outlined, and hovering one anchor of a saved
+  // comment lights its siblings.
+  const highlightTargets = () => {
+    const composed = state.composing
+      ? composeAnchors()
+          .map((entry, anchorIndex) => ({ el: entry.el, label: entry.label, anchorIndex }))
+          .filter((entry) => entry.el)
+      : [];
+    // The box carries a remove control only while a new comment is composed and
+    // the picker is off. An edit PATCHes the body alone and cannot change
+    // anchors, and a live picker needs the boxes to stay out of the way.
+    const removable = state.editId == null && !state.target;
+    const mark = (entry) => ({
+      el: entry.el,
+      anchorIndex: entry.anchorIndex,
+      removeIndex: removable ? entry.anchorIndex : null,
+    });
+    if (state.target) {
+      return { move: state.moveHL, others: composed.map(mark) };
+    }
+    if (composed.length) {
+      const last = composed[composed.length - 1];
+      return {
+        el: last.el,
+        label: last.label,
+        anchorIndex: last.anchorIndex,
+        removeIndex: mark(last).removeIndex,
+        others: composed.slice(0, -1).map(mark),
+      };
+    }
+    if (state.hoverPinId != null) {
+      // The pin key is `${commentIndex}:${anchorIndex}` — frame that one anchor.
+      const [commentIndex, anchorIndex] = String(state.hoverPinId).split(':').map(Number);
+      const found = resolveAnchors(comments[commentIndex] || {}).filter((entry) => entry.el);
+      return {
+        el: found.find((entry) => entry.anchorIndex === anchorIndex)?.el,
+        others: found
+          .filter((entry) => entry.anchorIndex !== anchorIndex)
+          .map((entry) => ({ el: entry.el })),
+      };
+    }
+    if (state.hoverId != null && comments[state.hoverId]) {
+      const found = anchorHealth(comments[state.hoverId]).found.map((entry) => ({ el: entry.el }));
+      return { el: found[0] && found[0].el, others: found.slice(1) };
+    }
+    return { others: [] };
+  };
+
+  // The sibling boxes are pooled and hidden rather than removed, so a hover that
+  // moves between anchors repositions nodes instead of recreating them.
+  const sibNodes = [];
+  const drawSiblings = (entries) => {
+    entries.forEach((entry, index) => {
+      let node = sibNodes[index];
+      if (!node) {
+        node = document.createElement('div');
+        node.className = 'highlight sib';
+        hlsNode.appendChild(node);
+        sibNodes[index] = node;
+      }
+      const r = rectOf(entry.el);
+      if (!r) {
+        node.style.display = 'none';
+        node.classList.remove('removable', 'lit');
+        node.dataset.anchorHover = '';
+        return;
+      }
+      node.classList.toggle('removable', entry.removeIndex != null);
+      node.classList.toggle('lit', entry.anchorIndex != null && state.hoverAnchor === entry.anchorIndex);
+      node.dataset.anchorHover = entry.anchorIndex == null ? '' : String(entry.anchorIndex);
+      node.style.display = 'block';
+      node.style.left = r.left - HIGHLIGHT_PADDING + 'px';
+      node.style.top = r.top - HIGHLIGHT_PADDING + 'px';
+      node.style.width = r.width + HIGHLIGHT_PADDING * 2 + 'px';
+      node.style.height = r.height + HIGHLIGHT_PADDING * 2 + 'px';
+    });
+    for (let index = entries.length; index < sibNodes.length; index++) {
+      sibNodes[index].style.display = 'none';
+      sibNodes[index].classList.remove('removable', 'lit');
+      sibNodes[index].dataset.anchorHover = '';
+    }
+  };
+
+  // One remove control per removable anchor, pooled and pinned to the padded
+  // box's top-right corner. `lit` follows the box the pointer is over.
+  const xNodes = [];
+  const X_SIZE = 22; // matches .lp-hl-x
+  const drawRemoveControls = (entries) => {
+    entries.forEach((entry, index) => {
+      let node = xNodes[index];
+      if (!node) {
+        node = document.createElement('button');
+        node.className = 'lp-hl-x';
+        node.type = 'button';
+        node.setAttribute('aria-label', 'Remove this element');
+        node.textContent = '×';
+        hlxNode.appendChild(node);
+        xNodes[index] = node;
+      }
+      const r = entry.rect;
+      // A control for an anchor that is scrolled out of sight has nothing to
+      // point at. Clamping it would park an invisible hit target on the edge,
+      // where it would eat host-page clicks and remove an anchor nobody can see.
+      // Measured on the element, not on its outline, which reaches 8px further.
+      const e = entry.inner;
+      const onScreen =
+        e.left < window.innerWidth &&
+        e.left + e.width > 0 &&
+        e.top < window.innerHeight &&
+        e.top + e.height > 0;
+      if (!onScreen) {
+        node.style.display = 'none';
+        node.removeAttribute('data-anchor-remove');
+        return;
+      }
+      node.style.display = 'flex';
+      node.dataset.anchorRemove = String(entry.removeIndex);
+      node.classList.toggle('lit', state.hoverAnchor === entry.removeIndex);
+      // Clamped: an anchor against the top or right edge would otherwise put
+      // most of the control off screen, where it cannot be clicked.
+      const clamp = (value, limit) => Math.min(Math.max(value, 0), limit - X_SIZE);
+      node.style.left = clamp(r.left + r.width - 11, window.innerWidth) + 'px';
+      node.style.top = clamp(r.top - 11, window.innerHeight) + 'px';
+    });
+    for (let index = entries.length; index < xNodes.length; index++) {
+      xNodes[index].style.display = 'none';
+      xNodes[index].removeAttribute('data-anchor-remove');
+    }
+  };
+
+  const outset = (r) => ({
+    left: r.left - HIGHLIGHT_PADDING,
+    top: r.top - HIGHLIGHT_PADDING,
+    width: r.width + HIGHLIGHT_PADDING * 2,
+    height: r.height + HIGHLIGHT_PADDING * 2,
+  });
+
   const updateHighlight = () => {
+    const targets = highlightTargets();
+    const others = targets.others || [];
+    drawSiblings(others);
+    const framedRemove = targets.move ? null : targets.removeIndex;
+    const framedAnchor = targets.move ? null : targets.anchorIndex;
+    hlNode.classList.toggle('removable', framedRemove != null);
+    hlNode.classList.toggle(
+      'lit',
+      framedAnchor != null && state.hoverAnchor === framedAnchor,
+    );
+    hlNode.dataset.anchorHover = framedAnchor == null ? '' : String(framedAnchor);
     let hl = null;
-    if (state.target && state.moveHL) {
-      hl = state.moveHL;
-    } else if (
-      state.composing &&
-      state.composeTarget &&
-      state.composeTarget.type === 'element' &&
-      state.composeTarget.el
-    ) {
-      const r = rectOf(state.composeTarget.el);
-      if (r) hl = { left: r.left, top: r.top, width: r.width, height: r.height, label: state.composeTarget.label };
-    } else {
-      const index = state.hoverPinId != null ? state.hoverPinId : state.hoverId;
-      if (index != null) {
-        const comment = comments[index];
-        const el = comment && resolveElement(comment);
-        const r = el && rectOf(el);
-        if (r) hl = { left: r.left, top: r.top, width: r.width, height: r.height, label: null };
+    if (targets.move) {
+      hl = targets.move;
+    } else if (targets.el) {
+      const r = rectOf(targets.el);
+      if (r) {
+        hl = { left: r.left, top: r.top, width: r.width, height: r.height, label: targets.label || null };
       }
     }
+    // Every removable anchor gets a control, the framed one included, and each is
+    // measured from the same outset rect the box is drawn with.
+    const controls = [];
+    others.forEach((entry) => {
+      const r = entry.removeIndex != null && rectOf(entry.el);
+      if (r) controls.push({ rect: outset(r), inner: r, removeIndex: entry.removeIndex });
+    });
+    if (hl && framedRemove != null) {
+      controls.push({ rect: outset(hl), inner: hl, removeIndex: framedRemove });
+    }
+    drawRemoveControls(controls);
     if (!hl) {
       hlNode.style.display = 'none';
+      hlNode.classList.remove('removable', 'lit');
+      hlNode.dataset.anchorHover = '';
       return;
     }
     // Outset the measured rect so the outline frames the element rather than
     // tracing its edge. Applied before the label is placed, so the label keeps
     // sitting against the box the reviewer actually sees.
-    hl = {
-      ...hl,
-      left: hl.left - HIGHLIGHT_PADDING,
-      top: hl.top - HIGHLIGHT_PADDING,
-      width: hl.width + HIGHLIGHT_PADDING * 2,
-      height: hl.height + HIGHLIGHT_PADDING * 2,
-    };
+    hl = { ...hl, ...outset(hl) };
     hlNode.style.display = 'block';
     hlNode.style.left = hl.left + 'px';
     hlNode.style.top = hl.top + 'px';
@@ -799,11 +1033,20 @@
   // The card (body + chip + delete) is built once on hover; the confirm overlay is
   // a separate node toggled in place, so arming/cancelling delete never rebuilds the
   // card (which would replay its fade-in and flicker).
-  const buildPopover = (comment, index) => {
-    const label = firstLineLabel(comment.text);
+  const buildPopover = (comment, index, info) => {
+    const label = firstLineLabel(info.anchor.text);
+    // A degraded comment names how many of its elements survived, so the reviewer
+    // is not left reading a note about two things beside a pin on one.
+    const missing = info.total - info.foundCount;
+    const warning = info.degraded
+      ? `<div class="lp-pop-degraded">${escapeHtml(
+          `Anchored to ${info.total} elements — ${missing} no longer on this page`,
+        )}</div>`
+      : '';
     return `<div class="lp-pop">
         <div class="lp-pop-card">
           <div class="lp-pop-body">${escapeHtml(comment.body)}</div>
+          ${warning}
           <div class="lp-pop-row">
             ${label ? `<span class="lp-pop-chip">${escapeHtml(label)}</span>` : ''}
             <div style="flex:1"></div>
@@ -848,15 +1091,15 @@
          <button class="lp-pop-no" data-pin-no="${index}">Cancel</button>
        </div>
      </div>`;
-  const bindPopover = (holder, index) => {
+  const bindPopover = (holder, key, commentIndex) => {
     const del = holder.querySelector('[data-pin-del]');
     if (del)
       del.addEventListener('click', () => {
-        state.pinConfirmId = index;
+        state.pinConfirmId = key;
         renderPins();
       });
     const edit = holder.querySelector('[data-pin-edit]');
-    if (edit) edit.addEventListener('click', () => openEditComposer(index));
+    if (edit) edit.addEventListener('click', () => openEditComposer(commentIndex));
   };
   const bindConfirm = (el, index) => {
     const yes = el.querySelector('[data-pin-yes]');
@@ -870,29 +1113,43 @@
   };
   const renderPins = () => {
     ovRoot.classList.toggle('targeting', state.target);
+    // One pin per resolved anchor, keyed by comment and anchor so a comment on
+    // several elements gets a pin on each. Every pin of one comment carries that
+    // comment's number, which is what shows they belong together.
     const wanted = new Map();
     comments.forEach((comment, index) => {
-      const el = resolveElement(comment);
-      if (!el) return;
-      const r = rectOf(el);
-      if (!r) return;
-      const onScreen = !(
-        r.bottom < 0 ||
-        r.top > window.innerHeight ||
-        r.right < 0 ||
-        r.left > window.innerWidth
-      );
-      wanted.set(index, { comment, left: r.left + r.width - 12, top: r.top - 12, onScreen });
+      const { found, total, degraded } = anchorHealth(comment);
+      found.forEach((entry) => {
+        const r = rectOf(entry.el);
+        if (!r) return;
+        const onScreen = !(
+          r.bottom < 0 ||
+          r.top > window.innerHeight ||
+          r.right < 0 ||
+          r.left > window.innerWidth
+        );
+        wanted.set(`${index}:${entry.anchorIndex}`, {
+          comment,
+          index,
+          anchor: entry.anchor,
+          total,
+          foundCount: found.length,
+          degraded,
+          left: r.left + r.width - 12,
+          top: r.top - 12,
+          onScreen,
+        });
+      });
     });
     // Drop pins whose element is gone (deleted, or anchored to another page).
-    pinNodes.forEach((wrap, index) => {
-      if (!wanted.has(index)) {
+    pinNodes.forEach((wrap, key) => {
+      if (!wanted.has(key)) {
         wrap.remove();
-        pinNodes.delete(index);
+        pinNodes.delete(key);
       }
     });
-    wanted.forEach((info, index) => {
-      let wrap = pinNodes.get(index);
+    wanted.forEach((info, key) => {
+      let wrap = pinNodes.get(key);
       if (!wrap) {
         wrap = document.createElement('div');
         wrap.className = 'lp-pin-wrap';
@@ -904,19 +1161,21 @@
           state.listExpanded = true;
           sync();
         });
-        wrap.addEventListener('mouseenter', () => hoverPin(index));
+        wrap.addEventListener('mouseenter', () => hoverPin(key));
         wrap.addEventListener('mouseleave', unhoverPin);
         pinsNode.appendChild(wrap);
-        pinNodes.set(index, wrap);
+        pinNodes.set(key, wrap);
       }
       wrap.style.left = info.left + 'px';
       wrap.style.top = info.top + 'px';
       wrap.style.display = info.onScreen ? '' : 'none';
-      wrap.querySelector('.pin').textContent = String(index + 1);
+      const pin = wrap.querySelector('.pin');
+      pin.textContent = String(info.index + 1);
+      pin.classList.toggle('degraded', info.degraded);
       // Build the card once on hover; toggle the confirm overlay in place. Neither
       // is rebuilt on scroll, so nothing re-animates while repositioning.
-      const hovered = state.hoverPinId === index;
-      const confirming = hovered && state.pinConfirmId === index;
+      const hovered = state.hoverPinId === key;
+      const confirming = hovered && state.pinConfirmId === key;
       const holder = wrap.querySelector('.lp-pop-holder');
       if (!hovered) {
         if (holder.dataset.shown) {
@@ -925,17 +1184,17 @@
         }
       } else {
         if (!holder.dataset.shown) {
-          holder.innerHTML = buildPopover(info.comment, index);
+          holder.innerHTML = buildPopover(info.comment, info.index, info);
           holder.dataset.shown = '1';
-          bindPopover(holder, index);
+          bindPopover(holder, key, info.index);
         }
         clampPopover(holder.querySelector('.lp-pop'), info);
         const card = holder.querySelector('.lp-pop-card');
         const liveConfirm = card.querySelector('.lp-pop-confirm:not([data-exiting])');
         if (confirming && !liveConfirm) {
           card.querySelectorAll('.lp-pop-confirm').forEach((node) => node.remove());
-          card.insertAdjacentHTML('beforeend', buildConfirm(index));
-          bindConfirm(card.querySelector('.lp-pop-confirm'), index);
+          card.insertAdjacentHTML('beforeend', buildConfirm(info.index));
+          bindConfirm(card.querySelector('.lp-pop-confirm'), info.index);
         } else if (!confirming && liveConfirm) {
           slideOut(liveConfirm);
         }
@@ -965,6 +1224,7 @@
   const renderOverlay = () => {
     scrimNode.style.display = state.target ? 'block' : 'none';
     toastNode.style.display = state.target ? 'flex' : 'none';
+    toastText.textContent = state.addAnchor ? 'Click to add another element' : 'Click to comment';
     // offsetHeight only reads correctly once the toast is shown, so position after.
     if (state.target) positionToast();
     // Both toasts sit top-centre, so the pick-mode one wins while it is up.
@@ -978,10 +1238,14 @@
   // Copy for a failed mutation. Auth failures (401/403) never reach here — authFailed()
   // promotes them to the fatal state. A 404 is its own case: the comment stopped being
   // editable because the agent picked it up, so retrying would fail the same way.
-  const errorText = (error) =>
-    error && error.status === 404
-      ? 'Your agent has already picked that comment up, so it can’t be changed now.'
-      : 'Couldn’t apply that change. Please try again.';
+  const errorText = (error) => {
+    if (error && error.status === 404) {
+      return 'Your agent has already picked that comment up, so it can’t be changed now.';
+    }
+    // A widget-side refusal carries its own wording and no HTTP status.
+    if (error && !error.status && error.message) return error.message;
+    return 'Couldn’t apply that change. Please try again.';
+  };
 
   // Detail line for the fatal panel, tailored to how the token was rejected. Keyed on the
   // server's error code (from the response body) with a status fallback: the three cases
@@ -1012,9 +1276,13 @@
     $('lp-launch-alert').style.display = fatal ? 'inline-flex' : 'none';
 
     // While picking an element, hide the whole widget (launcher + panel) so it does
-    // not obscure the page; the scrim + toast are the only pick-mode UI.
+    // not obscure the page; the scrim + toast are the only pick-mode UI. Add-anchor
+    // mode is the exception: hiding the panel blurs the textarea, which would send
+    // the reviewer's next ⌘V somewhere other than their draft, and it would hold the
+    // chip list a pick behind the anchors it lists.
+    const picking = state.target && !state.addAnchor;
     const launcherNode = $('lp-launcher');
-    launcherNode.style.display = state.target ? 'none' : '';
+    launcherNode.style.display = picking ? 'none' : '';
     // The launcher's quick actions duplicate the in-panel ones, so hide them (keeping only
     // the Review toggle) whenever the panel is open — or fatal, where they'd only launch a
     // composer the critical state immediately hides.
@@ -1028,8 +1296,8 @@
     // Clip the quick actions while they collapse; once expanded and idle, allow overflow
     // so their hover tooltips can escape upward (see the transitionend handler).
     if (state.open) launchQuick.style.overflow = 'hidden';
-    panelNode.style.display = state.open && !state.target ? 'flex' : 'none';
-    if (!state.open || state.target) return;
+    panelNode.style.display = state.open && !picking ? 'flex' : 'none';
+    if (!state.open || picking) return;
 
     const headCount = $('lp-head-count');
     headCount.style.display = n > 0 && !fatal ? 'inline-flex' : 'none';
@@ -1055,10 +1323,66 @@
       : 'Save';
     if (state.composing) {
       const ct = state.composeTarget || { type: 'general' };
-      composeHead.innerHTML =
-        ct.type === 'general'
-          ? `<span class="lp-compose-general"><span class="lp-dot"></span>General comment</span>`
-          : `<span class="lp-compose-chip">${ICON.glyph(11)}<span>${escapeHtml(ct.label || 'Selected element')}</span></span>`;
+      if (ct.type === 'general') {
+        // The hold points a page note at an element and keeps the draft, so the
+        // note says the key does something rather than changing type in silence.
+        composeHead.innerHTML =
+          `<span class="lp-compose-general"><span class="lp-dot"></span>General comment</span>` +
+          (state.editId == null
+            ? `<span class="lp-compose-hint">Hold ${MOD_LABEL} to point at an element</span>`
+            : '');
+      } else {
+        // One chip per anchor. An edit PATCHes the body alone and leaves the
+        // stored anchors untouched, so the remove × is not offered while editing:
+        // it would confirm a change that the save then discards.
+        const anchors = ct.anchors || [];
+        const editable = state.editId == null;
+        const chips = anchors
+          .map((anchor, anchorIndex) => {
+            const label = anchor.label || 'Selected element';
+            return `<span class="lp-compose-chip" data-anchor-chip="${anchorIndex}"><button class="lp-chip-name" type="button" data-anchor-pill="${anchorIndex}" aria-label="Highlight ${escapeHtml(
+              label,
+            )}">${ICON.glyph(11)}<span>${escapeHtml(label)}</span></button>${
+              editable
+                ? `<button class="lp-chip-x" data-anchor-remove="${anchorIndex}" aria-label="Remove this element">×</button>`
+                : ''
+            }</span>`;
+          })
+          .join('');
+        const canAdd = editable && anchors.length < MAX_ANCHORS;
+        composeHead.innerHTML =
+          chips +
+          (canAdd
+            ? `<span class="lp-compose-hint">Hold ${MOD_LABEL} to add another</span>`
+            : '');
+        composeHead.querySelectorAll('[data-anchor-remove]').forEach((button) => {
+          button.addEventListener('mousedown', (event) => event.preventDefault());
+          button.addEventListener('click', () => {
+            removeComposeAnchor(Number(button.dataset.anchorRemove));
+            if (state.composing) focusTextarea();
+          });
+        });
+        // Pointing at a pill emphasises the one element it names, and the rest
+        // of the comment's anchors stay painted around it. Bound to the whole
+        // pill, so reaching for its × keeps the element it removes emphasised.
+        composeHead.querySelectorAll('[data-anchor-chip]').forEach((chip) => {
+          const anchorIndex = Number(chip.dataset.anchorChip);
+          chip.addEventListener('mouseenter', () => setHoverAnchor(anchorIndex));
+          chip.addEventListener('mouseleave', () => setHoverAnchor(null));
+          // focusin and focusout bubble, so they see the label and the ×. Moving
+          // between the two must not blink the emphasis off on the way.
+          chip.addEventListener('focusin', () => setHoverAnchor(anchorIndex));
+          chip.addEventListener('focusout', (event) => {
+            if (!chip.contains(event.relatedTarget)) setHoverAnchor(null);
+          });
+        });
+        composeHead.querySelectorAll('[data-anchor-pill]').forEach((button) => {
+          // A press must not take the caret out of the draft. The pill stays
+          // focusable, so only the keyboard reaches it and only it sees a ring.
+          button.addEventListener('mousedown', (event) => event.preventDefault());
+          button.addEventListener('click', () => showAnchor(Number(button.dataset.anchorPill)));
+        });
+      }
     }
     // Composer just closed but the textarea kept focus would keep isTyping() true and
     // trap the single-key shortcuts (t/c). Blur it once the composer is hidden.
@@ -1154,7 +1478,7 @@
           `<button class="lp-edit" aria-label="Edit comment">${ICON.edit(14)}</button>` +
           `<button class="lp-del" aria-label="Delete comment">${ICON.trash(14)}</button>`;
         row.addEventListener('mouseenter', () => {
-          if (state.target || !comments[index] || !comments[index].selector) return;
+          if (state.target || !comments[index] || !anchorsOf(comments[index]).length) return;
           state.hoverId = index;
           updateHighlight();
         });
@@ -1174,15 +1498,27 @@
         listNode.appendChild(row);
         rowNodes.set(index, row);
       }
-      const isElement = !!comment.selector;
+      const anchors = anchorsOf(comment);
+      const isElement = anchors.length > 0;
       const badge = row.querySelector('.lp-badge');
       badge.className = 'lp-badge ' + (isElement ? 'element' : 'general');
       badge.textContent = String(index + 1);
       row.querySelector('.lp-item-text').textContent = comment.body;
       const chipEl = row.querySelector('.lp-chip');
-      const label = isElement ? firstLineLabel(comment.text) : '';
+      // A multi-anchor row names its count, and says so when some of its
+      // elements are missing, rather than showing one element's text.
+      const { degraded, found } = anchorHealth(comment);
+      let label = '';
+      if (anchors.length > 1) {
+        label = degraded
+          ? `${found.length} of ${anchors.length} elements`
+          : `${anchors.length} elements`;
+      } else if (isElement) {
+        label = firstLineLabel(anchors[0].text);
+      }
       const showChip = isElement ? !!label : true;
       chipEl.style.display = showChip ? '' : 'none';
+      chipEl.classList.toggle('degraded', isElement && degraded);
       if (showChip) chipEl.textContent = isElement ? label : 'General comment';
       // Only cross-page comments get the affordance: on the current page the row
       // already highlights its element, and a label saying "here" is noise.
@@ -1266,41 +1602,143 @@
       openNoteComposer();
     }
   };
-  const openElementComposer = (el) => {
+  const anchorFor = (el) => ({
+    el,
+    selector: selectorFor(el),
+    // Array.from splits on code points, so a truncation cannot land inside an
+    // emoji and produce the broken character the API rejects.
+    text: Array.from((el.innerText || '').trim())
+      .slice(0, TEXT_MAX)
+      .join(''),
+    label: firstLineLabel(el.innerText),
+  });
+
+  // The anchors the composer currently holds, empty for a page note.
+  const composeAnchors = () => {
+    const ct = state.composeTarget;
+    return ct && ct.type === 'element' ? ct.anchors : [];
+  };
+
+  // Add the picked element to the composer. A pick while a new comment is open
+  // extends it rather than replacing its anchor, which is how one comment comes
+  // to say something about several elements. `keepPicking` holds pick mode open
+  // for the next one, which is what the add-another modifier does.
+  const openElementComposer = (el, keepPicking) => {
+    const anchor = anchorFor(el);
+    if (state.composing && state.editId == null) {
+      const existing = composeAnchors();
+      let stayed = keepPicking;
+      if (existing.length >= MAX_ANCHORS) {
+        state.actionError = { message: AT_CAP_MESSAGE };
+        stayed = false;
+      } else if (!existing.some((entry) => entry.el === el)) {
+        state.composeTarget = { type: 'element', anchors: existing.concat([anchor]) };
+      }
+      state.open = true;
+      if (!stayed) setTargeting(false);
+      state.addAnchor = stayed;
+      sync();
+      if (!stayed && root.activeElement !== textareaNode) focusTextarea();
+      return;
+    }
     state.composing = true;
-    state.composeTarget = {
-      type: 'element',
-      el,
-      selector: selectorFor(el),
-      // Array.from splits on code points, so a truncation cannot land inside an
-      // emoji and produce the broken character the API rejects.
-      text: Array.from((el.innerText || '').trim())
-        .slice(0, TEXT_MAX)
-        .join(''),
-      label: firstLineLabel(el.innerText),
-    };
+    state.composeTarget = { type: 'element', anchors: [anchor] };
     state.editId = null;
     state.draft = '';
     textareaNode.value = '';
     state.open = true;
+    if (!keepPicking) setTargeting(false);
+    state.addAnchor = !!keepPicking;
+    sync();
+    if (!keepPicking) focusTextarea();
+  };
+
+  // Drop one anchor from the composer. Removing the last one leaves the comment
+  // as a page note rather than closing the composer under the reviewer.
+  const removeComposeAnchor = (anchorIndex) => {
+    const anchors = composeAnchors();
+    if (!anchors.length || state.editId != null) return;
+    anchors.splice(anchorIndex, 1);
+    if (!anchors.length) state.composeTarget = { type: 'general' };
+    // The index the removed anchor held now belongs to the next one. Emphasis
+    // has to go with the anchor that is gone, not pass to its neighbour.
+    setHoverAnchor(null);
+    sync();
+  };
+
+  // Emphasise one anchor of the comment being composed, on the page and on its
+  // pill. Either end can set it: a pill points at an element, and an element's
+  // own box points back at its pill.
+  const setHoverAnchor = (anchorIndex) => {
+    if (state.hoverAnchor === anchorIndex) return;
+    state.hoverAnchor = anchorIndex;
+    composeHead.querySelectorAll('[data-anchor-chip]').forEach((chip) => {
+      chip.classList.toggle('lit', Number(chip.dataset.anchorChip) === anchorIndex);
+    });
+    updateHighlight();
+  };
+
+  // Scroll to an anchor only when the reviewer asks by clicking its pill, and
+  // only when it is off screen. Scrolling on hover would move the page under a
+  // pointer that is only browsing the pills.
+  const showAnchor = (anchorIndex) => {
+    const anchor = composeAnchors()[anchorIndex];
+    const r = anchor && anchor.el && rectOf(anchor.el);
+    if (!r) return;
+    const onScreen =
+      r.top >= 0 &&
+      r.bottom <= window.innerHeight &&
+      r.left >= 0 &&
+      r.right <= window.innerWidth;
+    if (onScreen) return;
+    anchor.el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+  };
+
+  // Add-anchor mode. Holding the modifier over an open composer brings the picker
+  // back, so a click adds another anchor without discarding the draft. The mode
+  // lasts as long as the hold. At the cap it says so instead of picking.
+  const enterAddAnchor = () => {
+    if (state.modCancelled || state.addAnchor) return;
+    if (state.fatal || !state.composing || state.editId != null || hidden.matches) return;
+    if (composeAnchors().length >= MAX_ANCHORS) {
+      state.actionError = { message: AT_CAP_MESSAGE };
+    } else {
+      setTargeting(true);
+    }
+    state.addAnchor = true;
+    sync();
+  };
+  // `cancelled` marks the hold spent, so another key pressed with the modifier
+  // down does not re-enter the mode before the reviewer lets go.
+  const exitAddAnchor = (cancelled) => {
+    state.modCancelled = cancelled;
+    if (!state.addAnchor) return;
+    state.addAnchor = false;
     setTargeting(false);
     sync();
-    focusTextarea();
+    if (state.composing && root.activeElement !== textareaNode) focusTextarea();
   };
-  // Re-open the composer pre-filled to edit an existing comment in place. The anchor
-  // (selector/text) is preserved and rebuilt from storage; only the body is editable.
+  // Re-open the composer pre-filled to edit an existing comment in place. The anchors
+  // are preserved and rebuilt from storage; only the body is editable.
   const openEditComposer = (index) => {
     const comment = comments[index];
     if (!comment) return;
+    // Read the stored anchors rather than the resolved ones: a comment made on
+    // another page still has its anchors, and editing must not silently demote
+    // it to a page note.
+    const stored = anchorsOf(comment).filter((anchor) => anchor.selector);
+    const onThisPage = comment.url === location.href;
     state.composing = true;
     state.editId = comment.id;
-    state.composeTarget = comment.selector
+    state.composeTarget = stored.length
       ? {
           type: 'element',
-          el: resolveElement(comment), // may be null when the anchor is off-page — fine
-          selector: comment.selector,
-          text: comment.text,
-          label: firstLineLabel(comment.text),
+          anchors: stored.map((anchor) => ({
+            el: onThisPage ? queryOne(anchor.selector) : null, // null off-page — fine
+            selector: anchor.selector,
+            text: anchor.text,
+            label: firstLineLabel(anchor.text),
+          })),
         }
       : { type: 'general' };
     state.draft = comment.body;
@@ -1336,11 +1774,21 @@
         await api('PATCH', `/api/site-review/comments/${target.id}`, { body });
         target.body = body;
       } else {
-        const ct = state.composeTarget || { type: 'general' };
-        const comment =
-          ct.type === 'element'
-            ? { body, selector: ct.selector, text: ct.text, url: location.href }
-            : { body, selector: '', text: '', url: location.href };
+        const anchors = composeAnchors()
+          .filter((entry) => entry.selector)
+          .map((entry) => ({ selector: entry.selector, text: entry.text }));
+        // selector/text repeat the first anchor for an instance that predates
+        // anchors[]. This script's URL carries no version, so a browser can hold
+        // this copy long after a rollback, and that instance would otherwise save
+        // every comment as an unanchored note. The current API prefers anchors[].
+        const first = anchors[0];
+        const comment = {
+          body,
+          url: location.href,
+          anchors,
+          selector: first ? first.selector : '',
+          text: first ? first.text : '',
+        };
         const { commentId } = await api('POST', '/api/site-review/comments', comment);
         comments.push({ id: commentId, ...comment });
       }
@@ -1473,6 +1921,7 @@
     if (!on) {
       state.moveHL = null;
       state.expandLevel = 0;
+      state.addAnchor = false;
       moveBase = null;
     } else {
       state.toastDock = 'top';
@@ -1480,11 +1929,13 @@
     cursorStyle.textContent = on ? '*{cursor:crosshair !important}' : '';
     if (on) {
       document.addEventListener('mousemove', onMove, true);
+      document.addEventListener('mousedown', onDown, true);
       document.addEventListener('click', onClick, true);
       document.addEventListener('contextmenu', onContext, true);
       window.addEventListener('wheel', onWheel, { passive: false });
     } else {
       document.removeEventListener('mousemove', onMove, true);
+      document.removeEventListener('mousedown', onDown, true);
       document.removeEventListener('click', onClick, true);
       document.removeEventListener('contextmenu', onContext, true);
       window.removeEventListener('wheel', onWheel);
@@ -1502,14 +1953,17 @@
   const toggleTarget = () => {
     if (state.fatal) return;
     const on = !state.target;
-    if (on) {
+    // Picking while a new element comment is open adds to it. Discarding the
+    // draft there would lose both the body and the anchors already chosen.
+    const extending = state.composing && state.editId == null && composeAnchors().length > 0;
+    if (on && !extending) {
       state.composing = false;
       state.composeTarget = null;
       state.editId = null;
       state.draft = '';
       textareaNode.value = '';
-      state.open = true;
     }
+    if (on) state.open = true;
     setTargeting(on);
     sync();
   };
@@ -1544,6 +1998,13 @@
     };
     updateHighlight();
   };
+  // A mousedown focuses what it lands on. During a pick that gives the host
+  // page's link, input or button a focus ring and takes the caret out of the
+  // composer, for a gesture that only meant to select. The click still fires.
+  const onDown = (event) => {
+    if (!state.target || !pickEl(event)) return;
+    event.preventDefault();
+  };
   const onClick = (event) => {
     if (!state.target) return;
     const base = pickEl(event);
@@ -1552,8 +2013,9 @@
     event.preventDefault();
     event.stopPropagation();
     const current = climbUp(base, state.expandLevel);
-    setTargeting(false);
-    openElementComposer(current);
+    // The modifier read at click time is what makes a hold that started before
+    // the first pick work: no composer was open, so no keydown could arm it.
+    openElementComposer(current, modHeld(event) && !state.modCancelled);
   };
   // Granularity: widen to parent (delta>0) or narrow back (delta<0) relative to the
   // element under the cursor. Clamped to stay inside the host content.
@@ -1641,6 +2103,38 @@
     setTargeting(false);
     sync();
   });
+  // The remove control sits in the overlay above the page, so the click is
+  // stopped here rather than falling through to the element it is drawn over.
+  ovRoot.addEventListener('click', (event) => {
+    const button = event.target.closest && event.target.closest('[data-anchor-remove]');
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    removeComposeAnchor(Number(button.dataset.anchorRemove));
+    // The reviewer types next, and the removed control is gone, so the caret
+    // goes back to the draft rather than falling to the document.
+    if (state.composing) focusTextarea();
+  });
+  // A mouse press must not focus the control. It stays focusable for the
+  // keyboard, and :focus-visible is what draws the ring.
+  ovRoot.addEventListener('mousedown', (event) => {
+    if (event.target.closest && event.target.closest('[data-anchor-remove]')) event.preventDefault();
+  });
+  // Reveal the control of whichever removable box the pointer is over.
+  // A box or its own remove control. Reaching for the control must not drop the
+  // emphasis, because the pointer leaves the box to get there.
+  const hoverAnchorOf = (target) => {
+    if (!target || !target.closest) return null;
+    const control = target.closest('[data-anchor-remove]');
+    if (control) return Number(control.dataset.anchorRemove);
+    const box = target.closest('.highlight.removable');
+    const value = box && box.dataset.anchorHover;
+    return value ? Number(value) : null;
+  };
+  ovRoot.addEventListener('mouseover', (event) => setHoverAnchor(hoverAnchorOf(event.target)));
+  ovRoot.addEventListener('mouseout', (event) => {
+    if (hoverAnchorOf(event.relatedTarget) == null) setHoverAnchor(null);
+  });
   textareaNode.addEventListener('input', (event) => {
     state.draft = event.target.value;
   });
@@ -1660,7 +2154,30 @@
     return !!shadowActive && (shadowActive.tagName === 'INPUT' || shadowActive.tagName === 'TEXTAREA');
   };
 
+  // Add-anchor mode is armed by the modifier alone, before the typing guard below,
+  // because the composer's textarea holds focus while the reviewer picks. Any other
+  // key spends the hold, which leaves ⌘A, ⌘C and ⌘V doing what they always did.
+  document.addEventListener('keyup', (event) => {
+    if (event.key === MOD_KEY) exitAddAnchor(false);
+  });
+  // A keyup never arrives when the hold ends outside the page, so ⌘-Tab away and
+  // a window switch both stand the picker down.
+  window.addEventListener('blur', () => exitAddAnchor(false));
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) exitAddAnchor(false);
+  });
+
   document.addEventListener('keydown', (event) => {
+    if (event.key === MOD_KEY) {
+      if (!event.repeat) enterAddAnchor();
+      return;
+    }
+    // Any other key spends the hold. Escape stops there rather than falling
+    // through to cancelCompose, which would throw the draft away.
+    if (state.addAnchor) {
+      exitAddAnchor(true);
+      return;
+    }
     if (event.key === 'Escape') {
       if (state.target) {
         setTargeting(false);

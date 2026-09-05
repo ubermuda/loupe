@@ -668,39 +668,9 @@ nor "general page note", so it needs its own entry in the composer alongside
 those two, and a selector-less comment shape. The overlay already owns a
 fixed-position layer above the page, which is where the canvas would live.
 
-## Anchor a site-review comment to several elements, not just one
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Owner note (2026-07-27): let the reviewer pick more than one element for a
-single comment, so the comment can talk about the elements *in relation* to
-each other ("these two should be side by side", "this belongs above that").
-
-This is the cheap version of what 'Product idea (long horizon): drag DOM
-elements in the widget to try layouts' is reaching for. Dragging struggles
-because a moved node does not tell the agent which rule to edit or what the
-intent was; a multi-anchor comment states the relationship in words and lets
-the agent decide the CSS. It is worth doing before, and possibly instead of,
-the drag idea.
-
-Cost is concentrated in the data model, which is single-anchor throughout:
-`SiteReviewComment` has scalar `selector`, `text` and `url` columns, so this
-needs either a related anchor entity or a JSON collection, plus a migration.
-Everything downstream reads those scalars and would follow: the widget's pin
-reconciliation is one pin per comment keyed by index (`renderPins` in
-`public/site-review/widget.js`), the site-review page renders one selector
-disclosure per comment, and the MCP `site_review_get` payload exposes
-`selector`/`text` per comment — that last one is an agent-facing contract
-change, so version it deliberately.
-
-Decide early what happens when only some anchors still resolve: today a pin
-whose element is gone is simply dropped, but a partially-orphaned relational
-comment ("these two…" with one element left) is misleading rather than merely
-incomplete. Related: 'Drawing on the page in the site-review widget' — drawing
-and multi-anchor are two ways to express the same relational feedback, and a
-stroke connecting two elements is arguably just a multi-anchor comment with a
-picture attached.
+`site_review_comments` now has a nullable `strokes` JSON column, added by the
+multi-anchor work so the agent-facing payload widens once. Nothing reads or
+writes it yet, so this entry owns it.
 
 ## Public feedback widget (a public pendant to the site-review widget)
 
@@ -1100,6 +1070,58 @@ things were deliberately left out.
    `strip_tags()` and the browser read. The two agree, so anchors are correct
    and this is cosmetic — but a reviewer selecting across two options gets a
    quote with no separator in it.
+
+## Drop the dead selector and text columns from site_review_comments
+
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+`site_review_comments` still has a `selector` column and a `text` column.
+`Version20260904185305` made both nullable. The anchor data now lives in
+`site_review_comment_anchors`, one row per element, so nothing reads the two
+columns any more.
+
+`SiteReviewComment` still maps them, and every new comment writes anchor 0 into
+them. A page note writes two empty strings. They are write-only, and they exist
+for one reason: a previous image maps both as non-nullable `string`, so it can
+hydrate a row only when they carry a value. Without the write, a rollback onto
+this schema raises a TypeError on read rather than rendering something poor.
+
+That migration expands only, so a rollback lands on a schema the previous image
+still tolerates. The drop is the contract phase, and it belongs in a later
+release. Write it once no deployed image reads the scalars.
+
+**The contraction is what stops the write.** Remove the two properties from
+`SiteReviewComment`, and the assignment in `addAnchor()`, in the same release as
+the drop. Do neither on its own. A drop without the mapping change breaks every
+insert, and a mapping change without the drop leaves two columns written and read
+by nothing for good.
+
+The contraction migration must run the backfill again before it drops anything.
+`Version20260904185305` backfilled once, and an instance that predates the anchors
+table can still write a comment straight into the scalar columns after that. Such
+a row has a selector and no anchor row, and the current code shows it as a page
+note with the element lost. Re-run the backfill for every comment with a
+non-empty selector and no anchor row, then drop:
+
+    INSERT INTO site_review_comment_anchors (id, comment_id, position, selector, text)
+    SELECT gen_random_uuid(), c.id, 0, c.selector, c.text
+    FROM site_review_comments c
+    WHERE c.selector <> '' AND c.selector IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM site_review_comment_anchors a WHERE a.comment_id = c.id);
+
+    ALTER TABLE site_review_comments DROP selector;
+    ALTER TABLE site_review_comments DROP text;
+
+The re-run stays necessary even though new comments write the scalars. It covers
+the reverse case: an old instance writes a scalar and no anchor row, and the
+current code then shows that comment as a page note with its element lost. No
+dual-write and no trigger guard that window. The owner decided the window is too
+short to justify either, and the backfill above is the repair.
+
+This defers the hazard in 'Rolling a production image back can leave the schema
+ahead of the code'. That entry has to settle the expand and contract policy, and
+this column pair is a concrete case of it.
 
 ## Rolling a production image back can leave the schema ahead of the code
 
