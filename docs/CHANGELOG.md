@@ -30,6 +30,8 @@ entry.
 
 ## [Unreleased]
 
+- `01684ad` (#352) — **Changed:** `CommentBudgetCheck` no longer policies `.env`,
+  so a dotenv comment can explain a variable at whatever length it needs.
 - `f1bca43` (#361) — **Added:** a site-review comment can quote a range of text
   rather than only pointing at an element, so a comment about a sentence anchors
   to the sentence. The quote and its surrounding context are stored, so the
