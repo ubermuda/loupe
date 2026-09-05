@@ -30,6 +30,9 @@ entry.
 
 ## [Unreleased]
 
+- `3fdfd63` (#360) — **Added:** the site-review launcher can be moved to any
+  corner of the page, so it no longer sits over the review console's pinned
+  controls. The choice is remembered per browser.
 - `001a00a` (#354) — **Changed:** the `project-backend` skill names the rule that
   picks between the two CSRF shapes for a fieldless POST action, with the detail
   in `references/csrf.md`.
