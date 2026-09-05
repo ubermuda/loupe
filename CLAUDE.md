@@ -147,6 +147,8 @@ An existing file keeps its old prose until a rewrite touches it. The `compressin
 
 ## Recommendations and the quality bar
 
+The owner ranks the priorities `correctness > simplicity > performance > shipping speed`. `docs/contributing/architectural-priorities.md` says which one yields in each of the six collisions, and when to escalate rather than apply the ranking. Read it before you call a trade-off.
+
 ### The owner sets the bar, not the agent
 
 Deciding what is good enough, and what has to be exactly right, is the owner's call. The failure to avoid is making that call silently and then presenting the outcome as a technical necessity, which removes the decision instead of informing it. Ranking findings as must-fix and blocking on them, declaring one branch's failing run to outrank a merge queue, imposing mutation checks as a standard, requiring a stale form submission to be refused rather than resolved: each of those is a judgement about how much rigour something deserves. Several of them may well be right. The point is who made them.
