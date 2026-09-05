@@ -1969,6 +1969,38 @@ test('a quote that no longer reads falls back to its element', async ({
 });
 
 /**
+ * Two surviving occurrences that the stored context no longer separates are a
+ * coin flip. Naming one would put the comment on a passage the reviewer may not
+ * have meant, so the anchor degrades to its element instead.
+ */
+test('a quote whose context no longer separates its twins degrades', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+
+    const second = await occurrenceAt(page, 1);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, repeatSpan(second));
+    await page.locator('#lp-quote-btn').click();
+    await saveComposed(page, 'The second one again');
+
+    await openWithComments(page, keepHarnessUrl);
+    const pin = page.locator('.pin');
+    await expect(pin).toHaveAttribute('data-anchor-kind', 'quote');
+
+    // Both phrases survive; the words on either side of both are rewritten, so
+    // neither occurrence carries the context the anchor was captured with.
+    await page.evaluate(() => {
+        document.querySelector('#prose-repeat')!.textContent =
+            'Zzz the same phrase here? Yyy the same phrase here?';
+        window.dispatchEvent(new Event('resize'));
+    });
+    await expect(pin).toHaveCount(1);
+    await expect(pin).toHaveAttribute('data-anchor-kind', 'element');
+});
+
+/**
  * An edit PATCHes the body alone, so the composer offers nothing that would
  * change the anchors. The quote offer has to obey that too: taking a selection
  * mid-edit would start a new comment and throw the draft away.

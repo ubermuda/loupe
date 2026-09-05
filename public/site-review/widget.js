@@ -309,6 +309,15 @@
     };
     hits.sort((a, b) => score(b) - score(a) || a - b);
     const start = hits[0];
+    // Several hits that no stored context separates are a coin flip. Naming one
+    // would put the comment on a passage the reviewer may not have meant, so the
+    // anchor degrades to its element instead. A lone hit needs no context: there
+    // is nothing else it could be.
+    if (hits.length > 1 && 0 === score(start)) return null;
+    // Several hits that no stored context separates are a coin flip. Naming one
+    // would put the comment on a passage the reviewer may not have meant, so the
+    // anchor degrades to its element instead. A lone hit needs no context: there
+    // is nothing else it could be.
     try {
       return rangeForSpan(el, start, start + quote.length);
     } catch {
