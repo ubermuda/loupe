@@ -30,6 +30,9 @@ entry.
 
 ## [Unreleased]
 
+- `001a00a` (#354) — **Changed:** the `project-backend` skill names the rule that
+  picks between the two CSRF shapes for a fieldless POST action, with the detail
+  in `references/csrf.md`.
 - `cd8b30c` (#353) — **Changed:** `User::$disabledAt` now documents what it is
   for: a cache the Billing module writes, which the paywall no longer reads.
 - `59defea` (#357) — **Fixed:** two site-review widget tests asserted a resting
