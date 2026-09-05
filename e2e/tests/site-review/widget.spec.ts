@@ -1069,12 +1069,66 @@ test('pointing at a pill emphasises the anchor it names', async ({ page }) => {
         page.locator('.lp-compose-chip[data-anchor-chip="1"]'),
     ).toHaveClass(/lit/);
 
+    // Reaching for the pill's own × must not drop the emphasis. That control
+    // removes the anchor, so this is the moment the reviewer most needs to see
+    // which element it is. Assert the same anchor, not merely that one is lit.
+    await page.locator('.lp-chip-x[data-anchor-remove="1"]').hover();
+    await expect(
+        page.locator('.highlight.lit[data-anchor-hover="1"]'),
+    ).toHaveCount(1);
+    await expect(page.locator('.highlight.lit')).toHaveCount(1);
+    await expect(painted).toHaveCount(4);
+
     // Keyboard focus does the same. Two tabs move from one pill, past its own
     // remove control, to the next pill.
     await page.mouse.move(2, 2);
     await expect(page.locator('.highlight.lit')).toHaveCount(0);
     await page.locator('.lp-chip-name[data-anchor-pill="1"]').focus();
+    await expect(
+        page.locator('.highlight.lit[data-anchor-hover="1"]'),
+    ).toHaveCount(1);
+
+    // The first tab lands on this pill's own ×, still inside the same pill. A
+    // count of the class transitions, because focusout and focusin net out: the
+    // emphasis can blink off and back on between two states that both look right.
+    await page.evaluate(() => {
+        const overlay = [...document.querySelectorAll('*')]
+            .map((node) => (node as HTMLElement).shadowRoot)
+            .find((root) => root?.getElementById('lp-ov'));
+        const counter = window as unknown as { __unlit: number };
+        counter.__unlit = 0;
+        const observer = new MutationObserver((records) => {
+            for (const record of records) {
+                const box = record.target as HTMLElement;
+                if (
+                    '1' === box.dataset.anchorHover &&
+                    !box.classList.contains('lit')
+                ) {
+                    counter.__unlit += 1;
+                }
+            }
+        });
+        overlay!.querySelectorAll('.highlight').forEach((box) =>
+            observer.observe(box, {
+                attributes: true,
+                attributeFilter: ['class'],
+            }),
+        );
+    });
     await page.keyboard.press('Tab');
+    await expect(
+        page.locator('.lp-chip-x[data-anchor-remove="1"]'),
+    ).toBeFocused();
+    await expect(
+        page.locator('.highlight.lit[data-anchor-hover="1"]'),
+    ).toHaveCount(1);
+    await expect(page.locator('.highlight.lit')).toHaveCount(1);
+    expect(
+        await page.evaluate(
+            () => (window as unknown as { __unlit: number }).__unlit,
+        ),
+    ).toBe(0);
+
     await page.keyboard.press('Tab');
     await expect(
         page.locator('.lp-chip-name[data-anchor-pill="2"]'),

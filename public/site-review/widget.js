@@ -1363,21 +1363,24 @@
           });
         });
         // Pointing at a pill emphasises the one element it names, and the rest
-        // of the comment's anchors stay painted around it.
+        // of the comment's anchors stay painted around it. Bound to the whole
+        // pill, so reaching for its × keeps the element it removes emphasised.
+        composeHead.querySelectorAll('[data-anchor-chip]').forEach((chip) => {
+          const anchorIndex = Number(chip.dataset.anchorChip);
+          chip.addEventListener('mouseenter', () => setHoverAnchor(anchorIndex));
+          chip.addEventListener('mouseleave', () => setHoverAnchor(null));
+          // focusin and focusout bubble, so they see the label and the ×. Moving
+          // between the two must not blink the emphasis off on the way.
+          chip.addEventListener('focusin', () => setHoverAnchor(anchorIndex));
+          chip.addEventListener('focusout', (event) => {
+            if (!chip.contains(event.relatedTarget)) setHoverAnchor(null);
+          });
+        });
         composeHead.querySelectorAll('[data-anchor-pill]').forEach((button) => {
-          const anchorIndex = Number(button.dataset.anchorPill);
-          const enter = () => setHoverAnchor(anchorIndex);
-          const leave = () => setHoverAnchor(null);
-          button.addEventListener('mouseenter', enter);
-          button.addEventListener('focus', enter);
-          button.addEventListener('mouseleave', leave);
-          button.addEventListener('blur', leave);
-          // A press must not take the caret out of the draft. The pill stays
-          // focusable, so only the keyboard reaches it and only it sees a ring.
           // A press must not take the caret out of the draft. The pill stays
           // focusable, so only the keyboard reaches it and only it sees a ring.
           button.addEventListener('mousedown', (event) => event.preventDefault());
-          button.addEventListener('click', () => showAnchor(anchorIndex));
+          button.addEventListener('click', () => showAnchor(Number(button.dataset.anchorPill)));
         });
       }
     }
