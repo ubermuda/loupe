@@ -2727,6 +2727,12 @@ authoritative update about the repository and it is not. `git show
 origin/<branch>:<path>` is the only answer to "what is on main", and no disk
 read ever is.
 
+Knowing that command is not the fix, which is what makes this worth an entry.
+One of the two sessions had run it and seen nothing, and reported the on-disk
+file anyway. The notice outranked evidence already in hand. So the rule has to
+be that a disk read never answers the question, rather than that you should also
+check the ref.
+
 A session also cannot see that the checkout is occupied. A branch somebody else
 left there looks exactly like one you left yourself, and `git worktree list`
 reports the path without saying who is standing in it. So moving it is not
