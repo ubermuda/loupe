@@ -2752,7 +2752,17 @@ Decide whether to write that qualification into `CLAUDE.md` line 45.
 
 `CLAUDE.md` says a process started inside a container can only be stopped from
 inside it, and gives `docker compose exec php-fpm pkill -f <script>` as the way.
-That is right, and incomplete in a way that makes the obvious command dangerous.
+That is right on its own terms. `project-worktrees` is right too, and describes
+a worktree as a full application with its own URL, database and stylesheet.
+
+Read together they imply a container each. Nothing states otherwise, so the
+wrong model is the one a careful reader arrives at, and three sessions repeated
+the dangerous command in one day before anyone opened `compose-exec.sh`. The
+inference is the thing to kill, not just the mechanism to document.
+
+The boundary in one line: isolated per test database, shared per container. So
+parallel gates in different worktrees are safe, and two gates in one worktree
+are not.
 
 There is one stack and one container, `loupe-php-fpm-1`.
 `bin/worktrees/compose-exec.sh` execs into it and varies only `--workdir`; its
