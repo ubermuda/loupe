@@ -748,7 +748,7 @@
             <div class="lp-empty" id="lp-empty">
               <div class="lp-empty-icon">${ICON.comment(20)}</div>
               <div class="lp-empty-title">No comments yet</div>
-              <div class="lp-empty-sub">Add a note, or pick an element on the page to anchor your feedback.</div>
+              <div class="lp-empty-sub">Select text, pick an element, or add a note.</div>
             </div>
           </div>
         </div>
