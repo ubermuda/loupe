@@ -2217,29 +2217,3 @@ take the same caveat wording as the site-review tool, or another treatment.
 Decide that first. Then apply it to the `#[McpTool]` description, the `__invoke`
 docblock, the `loupe-documents` skill, which lists no skip reasons today, and
 the `document_mark_comment_addressed` row in `docs/using/mcp.md`.
-
-## A CDN fetch at build time turns branches red
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`./.github/actions/setup` runs `composer install`, which runs
-`importmap:install`, which fetches from `cdn.jsdelivr.net`. When that fetch
-fails the job dies before any test runs:
-
-```
-Script importmap:install returned with error code 1
-Recv failure: Connection reset by peer
-```
-
-Three occurrences on two branches in one evening, each passing on a rerun. The
-check that reports it is `phpunit`, so it reads as a test failure rather than a
-network one, and the real cause is only visible in the setup step's log.
-
-This is the shape #347 fixed for PECL: a dependency fetched over the network at
-build time, failing for reasons unconnected to the diff under it. That one was
-solved by removing the lookup rather than by improving its odds.
-
-Decide whether to do the same here. The assets could be vendored and committed,
-as `assets/icons/` already is for the same reason, or the fetch could be cached
-between runs.
-
