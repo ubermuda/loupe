@@ -108,10 +108,11 @@ an element:
 - **With an element.** The strokes are stored as fractions of the first
   element's box, so the drawing moves and resizes with that element. It survives
   a window resize and a responsive breakpoint.
-- **Without an element.** The strokes are stored as page coordinates. They
-  survive a scroll and a reload, and they do not follow a reflow: content that
-  moves leaves the drawing behind. Anchor the comment to an element when that
-  matters.
+- **Without an element.** The strokes are stored as fractions of the document
+  width. They survive a scroll and a reload. They do not follow a reflow: the
+  drawing scales with the page's width and stays where the page put it, so
+  content that moves leaves the drawing behind. Anchor the comment to an
+  element when that matters.
 
 Two things the first release leaves out. There is no per-stroke eraser, so Undo
 and Clear are the whole of what you can take back. Editing a saved comment
