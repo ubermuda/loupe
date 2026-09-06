@@ -202,6 +202,51 @@ final class MarkExportFailedOnFinalFailureTest extends TestCase
         self::assertSame([], $this->audit->operations());
     }
 
+    public function test_a_missing_export_row_is_ignored(): void
+    {
+        /** @var DataExportRepository&Stub $exports */
+        $exports = $this->createStub(DataExportRepository::class);
+        $exports->method('find')->willReturn(null);
+
+        /** @var EntityManagerInterface&MockObject $em */
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->expects(self::never())->method('flush');
+
+        $listener = new MarkExportFailedOnFinalFailure($exports, $em, $this->audit->auditor, $this->localStorage());
+
+        $listener(new WorkerMessageFailedEvent(
+            new Envelope(new GenerateDataExportMessage((string) Uuid::v7())),
+            'async',
+            new \RuntimeException('boom'),
+        ));
+
+        self::assertSame([], $this->audit->operations());
+    }
+
+    public function test_an_export_that_already_failed_is_left_untouched(): void
+    {
+        $export = $this->persistedExport();
+        $export->fail();
+
+        /** @var DataExportRepository&Stub $exports */
+        $exports = $this->createStub(DataExportRepository::class);
+        $exports->method('find')->willReturn($export);
+
+        /** @var EntityManagerInterface&MockObject $em */
+        $em = $this->createMock(EntityManagerInterface::class);
+        $em->expects(self::never())->method('flush');
+
+        $listener = new MarkExportFailedOnFinalFailure($exports, $em, $this->audit->auditor, $this->localStorage());
+
+        $listener(new WorkerMessageFailedEvent(
+            new Envelope(new GenerateDataExportMessage((string) $export->id)),
+            'async',
+            new \RuntimeException('boom'),
+        ));
+
+        self::assertSame([], $this->audit->operations());
+    }
+
     public function test_an_unrelated_message_is_ignored(): void
     {
         /** @var DataExportRepository&Stub $exports */

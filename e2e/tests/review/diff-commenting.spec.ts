@@ -13,6 +13,7 @@
 
 import { test, expect, type Page } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
+import { coverageScaled } from '../timeouts';
 
 // Guest by default — each test logs in as the user it just created.
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -215,19 +216,23 @@ test('a comment made on an inserted run lands on the current version', async ({
     ).toBeVisible();
 
     await selectPhrase(page, INSERTED);
-    await expect(page.locator(TOOLBAR)).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(TOOLBAR)).toBeVisible({
+        timeout: coverageScaled(5000),
+    });
 
     await page.getByRole('button', { name: 'Comment', exact: true }).click();
     await expect(page.locator(COMPOSER)).toBeVisible();
     await page.locator(COMPOSER_BODY).fill('Three steps reads better.');
     await page.getByRole('button', { name: 'Post' }).click();
-    await expect(page.locator(COMPOSER)).toBeHidden({ timeout: 10000 });
+    await expect(page.locator(COMPOSER)).toBeHidden({
+        timeout: coverageScaled(10000),
+    });
 
     // The thread list is on the diff page too, so the stream that replaces it
     // has somewhere to land.
     await expect(page.locator('#comment-threads')).toContainText(
         'Three steps reads better.',
-        { timeout: 10000 },
+        { timeout: coverageScaled(10000) },
     );
 
     // storedAnchors reads the LATEST version's comments, so the quote appearing
@@ -239,7 +244,9 @@ test('a comment made on an inserted run lands on the current version', async ({
     // The thread is painted back onto a run the newer version holds, rather than
     // onto whichever occurrence the pane's combined text happened to offer.
     await expect
-        .poll(async () => paintedAnchor(page), { timeout: 10000 })
+        .poll(async () => paintedAnchor(page), {
+            timeout: coverageScaled(10000),
+        })
         .toEqual({ text: INSERTED, stamped: true, deleted: false });
 });
 
@@ -263,14 +270,16 @@ test('a selection that touches deleted text is refused', async ({ page }) => {
 
     await expect(page.locator(ACTION_ERROR)).toContainText(
         'text this revision removed',
-        { timeout: 5000 },
+        { timeout: coverageScaled(5000) },
     );
     await expect(page.locator(TOOLBAR)).toBeHidden();
 
     // A selection that avoids the removed run still works, so the refusal above
     // is about the deleted text and not about the pane refusing everything.
     await selectPhrase(page, INSERTED);
-    await expect(page.locator(TOOLBAR)).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(TOOLBAR)).toBeVisible({
+        timeout: coverageScaled(5000),
+    });
     await expect(page.locator(ACTION_ERROR)).toHaveText('');
 
     expect((await reviewState(page, documentId)).storedAnchors).toHaveLength(0);
@@ -321,19 +330,23 @@ test('an anchor that spans a removal is never painted over the removed text', as
     await page.goto(`/projects/${projectId}/documents/${documentId}/review`);
     await expect(page.locator(DOC)).toBeVisible();
     await selectPhrase(page, SPANNING_QUOTE);
-    await expect(page.locator(TOOLBAR)).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(TOOLBAR)).toBeVisible({
+        timeout: coverageScaled(5000),
+    });
     await page.getByRole('button', { name: 'Comment', exact: true }).click();
     await page.locator(COMPOSER_BODY).fill('Reads well now.');
     await page.getByRole('button', { name: 'Post' }).click();
     await expect(page.locator('#comment-threads')).toContainText(
         'Reads well now.',
-        { timeout: 10000 },
+        { timeout: coverageScaled(10000) },
     );
 
     // Painted on the document page, so the diff page's answer below is about the
     // diff and not about the anchor being unusable everywhere.
     await expect
-        .poll(async () => paintedAnchor(page), { timeout: 10000 })
+        .poll(async () => paintedAnchor(page), {
+            timeout: coverageScaled(10000),
+        })
         .toEqual({ text: SPANNING_QUOTE, stamped: false, deleted: false });
 
     await page.goto(
@@ -347,6 +360,8 @@ test('an anchor that spans a removal is never painted over the removed text', as
 
     // The card still renders; only its tint is withheld.
     await expect
-        .poll(async () => paintedAnchor(page), { timeout: 10000 })
+        .poll(async () => paintedAnchor(page), {
+            timeout: coverageScaled(10000),
+        })
         .toBeNull();
 });

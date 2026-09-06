@@ -213,15 +213,26 @@ final class MarkdownRendererTest extends TestCase
     public function test_repeated_headings_stay_linear_to_de_duplicate(): void
     {
         // Quadratic de-duplication made a document of many same-named headings pin a
-        // worker for minutes; rendering is synchronous inside the MCP request.
+        // worker for minutes; rendering is synchronous inside the MCP request. The
+        // assertion compares two sizes rather than naming a wall-clock ceiling,
+        // which xdebug coverage doubles and a loaded machine moves further.
         $renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
 
-        $start = microtime(true);
-        $html = $renderer->render(str_repeat("## Same\n\n", 20_000));
-        $elapsed = microtime(true) - $start;
+        [$halfElapsed] = self::timeRender($renderer, 10_000);
+        [$fullElapsed, $html] = self::timeRender($renderer, 20_000);
 
         self::assertStringContainsString('id="heading-same-20000"', $html);
-        self::assertLessThan(5.0, $elapsed);
+        // Linear doubles the time, quadratic quadruples it.
+        self::assertLessThan(3.0, $fullElapsed / $halfElapsed);
+    }
+
+    /** @return array{float, string} */
+    private static function timeRender(MarkdownRenderer $renderer, int $headings): array
+    {
+        $start = microtime(true);
+        $html = $renderer->render(str_repeat("## Same\n\n", $headings));
+
+        return [microtime(true) - $start, $html];
     }
 
     public function test_an_element_it_does_not_render_still_contributes_its_text(): void

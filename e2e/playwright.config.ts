@@ -17,10 +17,19 @@ if (!baseURL) {
     );
 }
 
+// Per-request coverage collection takes one page render from about 0.5s to
+// about 4.7s, measured with and without the X-Coverage header. Playwright's
+// expect timeout is an absolute 5 seconds, so a coverage run sits on the bound
+// and fails on timeouts rather than on anything a spec asserts. 20s is about
+// four times the measured cost. The per-pull-request gate keeps 5s.
+const collectingCoverage = !!process.env.COVERAGE;
+
 export default defineConfig({
     globalSetup: './global-setup.ts',
     testDir: './tests',
     fullyParallel: false,
+    timeout: collectingCoverage ? 120_000 : 30_000,
+    expect: { timeout: collectingCoverage ? 20_000 : 5_000 },
     // Mailpit is shared by every spec and is never cleared, so concurrent
     // mail-asserting specs read each other's messages. The suite is serial by
     // nature; saying so here means the plain `just e2e` is correct rather than
