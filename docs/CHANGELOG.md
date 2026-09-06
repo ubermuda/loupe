@@ -30,6 +30,21 @@ entry.
 
 ## [Unreleased]
 
+- `9123005` (#335) — **Added:** a reviewer can approve a document one section at
+  a time, with a control beside each heading. The Contents and Sections panels
+  become one, and a document with a single heading now shows it, so a one-section
+  document keeps an aggregate view of what has been approved.
+- `01684ad` (#352) — **Changed:** `CommentBudgetCheck` no longer policies `.env`,
+  so a dotenv comment can explain a variable at whatever length it needs.
+- `f1bca43` (#361) — **Added:** a site-review comment can quote a range of text
+  rather than only pointing at an element, so a comment about a sentence anchors
+  to the sentence. The quote and its surrounding context are stored, so the
+  anchor survives the page changing around it.
+- `2c2c37c` (#349) — **Changed:** the e2e run stops at the first failure.
+  `waitlist`, `trial-end-lifecycle` and `install-reset` depend on `chromium`, and
+  Playwright skips a dependent project when its dependency fails, so a red test
+  used to withhold three suites behind a "did not run" line that read as a
+  deliberate skip.
 - `7e1060c` (#358) — **Changed:** the test suite writes deprecations to their own
   always-on log with rotation, and writes far less to `test.log`, which now holds
   exactly one run.
