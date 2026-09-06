@@ -131,9 +131,15 @@ export default class extends Controller {
         }
 
         const card = this.draggedCard;
-        const group = this.placeholder.closest(
-            '[data-board-drag-target="group"]',
-        );
+        // The release point decides, not the placeholder: the placeholder stays
+        // where the pointer last was over a group, so letting go away from the
+        // board would otherwise commit that last hovered spot instead of
+        // abandoning the drag.
+        const overGroup = this.groupUnder(event.clientX, event.clientY);
+        const group =
+            overGroup === null
+                ? null
+                : this.placeholder.closest('[data-board-drag-target="group"]');
         // Counted among the other cards only, which is the rank the move
         // endpoint expects: the dragged card is spliced back in at that index.
         const position = group === null ? -1 : this.rankOfPlaceholder(group);
