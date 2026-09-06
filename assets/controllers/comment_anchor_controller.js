@@ -1442,12 +1442,6 @@ export default class extends Controller {
             if (thread.dataset.commentGeneral === 'true') {
                 continue;
             }
-            // offsetParent is null for a display:none card, which is what
-            // hiding resolved threads does. A slot holding only those would
-            // open a gap in the prose around nothing.
-            if (thread.offsetParent === null) {
-                continue;
-            }
             const range = this.anchorRanges.get(thread);
             if (range === undefined) {
                 continue;
@@ -1517,15 +1511,9 @@ export default class extends Controller {
         return slot;
     }
 
-    /** Evicts a card that has since been hidden, and closes an emptied slot. */
     #pruneInlineSlots() {
         for (const slot of this.#inlineSlots()) {
-            for (const thread of [...slot.children]) {
-                if (thread.offsetParent === null) {
-                    this.marginTarget.append(thread);
-                }
-            }
-            if (slot.firstElementChild === null) {
+            if (slot.querySelector('.lp-comment-thread') === null) {
                 slot.remove();
             }
         }

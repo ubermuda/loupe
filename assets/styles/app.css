@@ -1243,26 +1243,26 @@
     .lp-review-margin {
         @apply flex flex-col gap-3 w-full lg:block lg:absolute lg:left-169 lg:top-0 lg:w-74;
     }
-    /* Clears the prose below it, and only while it holds a card someone can
-       see: the second rule takes the space back when hiding resolved threads
-       leaves nothing on screen. */
+    /* Clears the prose below it while it holds a card. */
     .lp-review-margin:has(.lp-comment-thread) {
         @apply mb-9 lg:mb-0;
-    }
-    .lp-review-block--hide-resolved
-        .lp-review-margin:not(
-            :has(.lp-comment-thread:not(.lp-comment-thread--resolved))
-        ) {
-        @apply mb-0;
     }
 
     /* Holds the cards for one paragraph below lg, in normal flow right after it.
        The type reset undoes .lp-review-doc__prose, which the slot sits inside;
-       the typography plugin's own `not-prose` rides beside this class. The
-       controller keeps a hidden card out, so the slot exists only where there
-       is something to see and the clearance is unconditional. */
+       the typography plugin's own `not-prose` rides beside this class. */
     .lp-review-inline-threads {
         @apply flex flex-col gap-3 my-6 text-sm leading-normal text-fg;
+    }
+
+    /* A hidden card is still a card to :has and to a slot's own box, so both
+       take their space back when hiding resolved threads leaves them with
+       nothing on screen. */
+    .lp-review-block--hide-resolved
+        :is(.lp-review-margin, .lp-review-inline-threads):not(
+            :has(.lp-comment-thread:not(.lp-comment-thread--resolved))
+        ) {
+        @apply my-0;
     }
 
     .lp-version-pill {

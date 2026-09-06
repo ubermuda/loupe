@@ -400,7 +400,7 @@ test('a comment card flows into the prose below lg and returns above it', async 
     await expect(page.locator(THREAD)).toHaveCount(1);
 });
 
-test('hiding a resolved card closes the slot it had to itself', async ({
+test('a slot whose only card is hidden takes no room in the prose', async ({
     page,
 }) => {
     await page.setViewportSize(DESKTOP);
@@ -414,8 +414,16 @@ test('hiding a resolved card closes the slot it had to itself', async ({
 
     await page.getByRole('button', { name: 'Hide resolved' }).click();
 
-    // The card stays in the DOM, hidden, and its slot goes: a slot holding
-    // nothing anyone can see would open a gap in the prose around nothing.
-    await expect(page.locator(THREAD)).toHaveCount(1);
-    await expect(page.locator(SLOT)).toHaveCount(0);
+    const slot = await page.evaluate(() => {
+        const element = document.querySelector('.lp-review-inline-threads')!;
+        const style = getComputedStyle(element);
+        return {
+            height: element.getBoundingClientRect().height,
+            marginTop: style.marginTop,
+            marginBottom: style.marginBottom,
+        };
+    });
+    expect(slot.height).toBe(0);
+    expect(slot.marginTop).toBe('0px');
+    expect(slot.marginBottom).toBe('0px');
 });
