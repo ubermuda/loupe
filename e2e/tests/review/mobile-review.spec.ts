@@ -24,7 +24,13 @@ const DOCUMENT_MARKDOWN = `# E2E Mobile Review Document
 
 This first paragraph contains a ${KNOWN_PHRASE} in this review.
 
-This second paragraph carries no anchor at all.`;
+This second paragraph carries no anchor at all, and it ends on a long unbroken
+token: https://example.com/a/very/long/path/that/never/breaks/anywhere/at/all
+
+| Environment | Region | Instance size | Database | Mercure hub | Worker command |
+| --- | --- | --- | --- | --- | --- |
+| production | ams3 | basic-xxs | managed-pg-16 | hub.example.com | consume async |
+| staging | ams3 | basic-xxs | managed-pg-16 | staging.example.com | consume async |`;
 
 const COMMENT_BODY = 'This comment must flow into the prose on a phone.';
 
@@ -38,6 +44,10 @@ const SLOT = '.lp-review-inline-threads';
 
 const PHONE = { width: 375, height: 812 };
 const DESKTOP = { width: 1440, height: 900 };
+
+// A phone spends this screen on the document, not on the frame around it. The
+// desktop block spends 172px of it, which is a quarter of an 812px screen.
+const PHONE_VERTICAL_PADDING_BUDGET = 110;
 
 async function devRegisterAndVerify(
     page: Page,
@@ -179,6 +189,33 @@ async function phraseMidpoint(
     }, phrase);
 }
 
+/**
+ * Every element under the review block whose content is wider than its own box
+ * and which does not scroll.
+ *
+ * This is the check a width comparison of rectangles cannot make. A crushed
+ * parent with `overflow: visible` still has a rectangle that overlaps nothing,
+ * and `.lp-main` hides the result behind its own sideways scroll, so neither
+ * shows up as horizontal overflow on the document.
+ */
+async function contentEscapingItsBox(page: Page): Promise<string[]> {
+    return page.evaluate(() => {
+        const block = document.querySelector('.lp-review-block')!;
+        const escaped: string[] = [];
+        for (const element of [block, ...block.querySelectorAll('*')]) {
+            if (
+                element.scrollWidth > element.clientWidth + 1 &&
+                getComputedStyle(element).overflowX === 'visible'
+            ) {
+                escaped.push(
+                    `${element.tagName}.${String(element.className).slice(0, 40)} scrollWidth=${element.scrollWidth} clientWidth=${element.clientWidth}`,
+                );
+            }
+        }
+        return escaped;
+    });
+}
+
 /** Geometry of the review screen, read after the layout frame has run. */
 async function readLayout(page: Page) {
     await page.evaluate(
@@ -188,6 +225,8 @@ async function readLayout(page: Page) {
     return page.evaluate(() => {
         const main = document.querySelector('.lp-main')!;
         const doc = document.querySelector('.lp-review-doc')!;
+        const block = document.querySelector('.lp-review-block')!;
+        const blockStyle = getComputedStyle(block);
         const prose = document.querySelector('.lp-review-doc__prose')!;
         const margin = document.querySelector('.lp-review-margin')!;
         const mainRect = main.getBoundingClientRect();
@@ -210,6 +249,8 @@ async function readLayout(page: Page) {
             docWidth: docRect.width,
             proseScrollWidth: prose.scrollWidth,
             proseClientWidth: prose.clientWidth,
+            blockPaddingTop: parseFloat(blockStyle.paddingTop),
+            blockPaddingBottom: parseFloat(blockStyle.paddingBottom),
             marginPosition: getComputedStyle(margin).position,
             threadParentClass: thread?.parentElement?.className ?? null,
             threadPosition:
@@ -262,6 +303,29 @@ async function givePhoneWidthReadingArea(page: Page): Promise<void> {
     });
 }
 
+/**
+ * Seeds a second document with two versions and returns its diff URL.
+ *
+ * The diff pane is its own template, and this branch does not touch it. The
+ * sweep still runs there, because nothing else looks at it below lg.
+ */
+async function seedDiffUrl(page: Page): Promise<string> {
+    const response = await page.request.post('/dev/seed/document', {
+        form: {
+            title: 'E2E Mobile Diff Document',
+            markdown:
+                '# Deployment notes\n\nThe worker consumes the async transport and the scheduler transport. It runs under a time limit.\n',
+            revisions: JSON.stringify([
+                '# Deployment notes\n\nThe worker consumes the scheduler transport first and the async transport second. It runs under a time limit and a memory limit, so a deep backlog cannot delay a scheduled tick.\n',
+            ]),
+        },
+    });
+    expect(response.status()).toBe(201);
+    const body = await response.json();
+
+    return `/projects/${body.projectId}/documents/${body.documentId}/review/diff/1/2`;
+}
+
 interface SeededReview {
     reviewUrl: string;
 }
@@ -310,6 +374,36 @@ test('the reading column fills the screen instead of being clipped', async ({
     expect(layout.proseScrollWidth).toBeLessThanOrEqual(
         layout.proseClientWidth + 1,
     );
+});
+
+test('nothing under the review block outgrows its own box', async ({
+    page,
+}) => {
+    await givePhoneWidthReadingArea(page);
+
+    // The seeded document carries the two blocks a phone column cannot reflow:
+    // a six-column table and an unbreakable URL.
+    expect(await contentEscapingItsBox(page)).toEqual([]);
+});
+
+test('the frame around the document shrinks with the screen', async ({
+    page,
+}) => {
+    await givePhoneWidthReadingArea(page);
+
+    const phone = await readLayout(page);
+    expect(
+        phone.blockPaddingTop + phone.blockPaddingBottom,
+    ).toBeLessThanOrEqual(PHONE_VERTICAL_PADDING_BUDGET);
+    // The bottom padding still clears the strike error, which is fixed 24px up
+    // from the bottom edge and about 50px tall on a phone.
+    expect(phone.blockPaddingBottom).toBeGreaterThanOrEqual(74);
+
+    await page.setViewportSize(DESKTOP);
+
+    const desktop = await readLayout(page);
+    expect(desktop.blockPaddingTop).toBe(52);
+    expect(desktop.blockPaddingBottom).toBe(120);
 });
 
 test('a 375px reading area scrolls in one direction only', async ({ page }) => {
@@ -398,6 +492,28 @@ test('a comment card flows into the prose below lg and returns above it', async 
     // Nothing is left behind in the prose when the margin comes back.
     await expect(page.locator(SLOT)).toHaveCount(0);
     await expect(page.locator(THREAD)).toHaveCount(1);
+});
+
+test('the diff pane holds a phone column too', async ({ page }) => {
+    const diffUrl = await seedDiffUrl(page);
+    await page.goto(diffUrl);
+    await expect(page.locator('.lp-diff-doc')).toBeVisible();
+    await givePhoneWidthReadingArea(page);
+
+    expect(await contentEscapingItsBox(page)).toEqual([]);
+
+    const diff = await page.evaluate(() => {
+        const pane = document.querySelector('.lp-diff-doc')!;
+        const main = document.querySelector('.lp-main')!;
+        return {
+            paneRight: pane.getBoundingClientRect().right,
+            mainRight: main.getBoundingClientRect().right,
+            mainScrollWidth: main.scrollWidth,
+            mainClientWidth: main.clientWidth,
+        };
+    });
+    expect(diff.paneRight).toBeLessThanOrEqual(diff.mainRight + 1);
+    expect(diff.mainScrollWidth).toBeLessThanOrEqual(diff.mainClientWidth);
 });
 
 test('a slot whose only card is hidden takes no room in the prose', async ({

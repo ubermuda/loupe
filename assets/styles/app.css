@@ -1219,7 +1219,7 @@
        and the floating panels are positioned against. Below lg the 972px is a
        ceiling rather than a width, so the reading column fills a phone. */
     .lp-review-block {
-        @apply relative w-full max-w-243 mx-auto px-5 pt-13 pb-30 lg:px-0;
+        @apply relative w-full max-w-243 mx-auto px-5 pt-6 pb-19 lg:px-0 lg:pt-13 lg:pb-30;
     }
 
     /* ── Document pane ──────────────────────────────────────────────────
@@ -1613,6 +1613,12 @@
     .lp-review-doc__prose code {
         @apply font-mono bg-surface-3 rounded-md text-ink py-0.5 px-1.5;
         font-size: 0.82em;
+    }
+    /* A wide table is the one block a phone column cannot reflow, so below lg it
+       scrolls inside itself rather than pushing the whole paper sideways. Its
+       scrollbar stays, because it is the only thing that says it scrolls. */
+    .lp-review-doc__prose table {
+        @apply block max-w-full overflow-x-auto lg:table;
     }
 
     /* ── Table of contents ──────────────────────────────────────────────
