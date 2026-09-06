@@ -3136,9 +3136,10 @@
         @apply left-0 top-76;
     }
     /* The still is a fixed-width frame, so its review geometry answers to the
-       frame and never to the viewport. */
+       frame and never to the viewport. The padding is part of that: the margin
+       below is placed from the block's top edge. */
     .lp-landing-mock .lp-review-block {
-        @apply w-243 px-0;
+        @apply w-243 px-0 pt-13 pb-30;
     }
     .lp-landing-mock__margin {
         @apply block absolute left-169 top-72 w-74;
