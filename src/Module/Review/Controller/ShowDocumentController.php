@@ -110,6 +110,7 @@ final class ShowDocumentController extends AppController
             'decisions' => $view->decisions,
             'decisionMarkedHtml' => $view->decisionMarkedHtml,
             'lastSeenVersionNumber' => $view->lastSeenVersionNumber,
+            'sections' => $view->sections,
         ]);
     }
 }

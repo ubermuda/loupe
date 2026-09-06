@@ -12,6 +12,7 @@ use App\Module\Review\Service\DecisionBlockService;
 use App\Module\Review\Service\DecisionSummaryReader;
 use App\Module\Review\Service\HeadingExtractor;
 use App\Module\Review\Service\LastSeenVersionResolver;
+use App\Module\Review\Service\SectionApprovalReader;
 use App\Module\Review\ValueObject\CommentSignals;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -24,6 +25,7 @@ final readonly class ShowDocumentHandler
         private DecisionBlockService $decisionBlocks,
         private DecisionSummaryReader $decisionSummary,
         private LastSeenVersionResolver $lastSeenVersion,
+        private SectionApprovalReader $sectionApprovals,
     ) {
     }
 
@@ -41,6 +43,7 @@ final readonly class ShowDocumentHandler
         $isLatest = $version->versionNumber === $latest->versionNumber;
         $comments = $this->comments->findByVersion($version);
         $decisions = ($this->decisionSummary)($command->document, $version);
+        $headings = $this->headings->extract($version->renderedHtml);
 
         return new ShowDocumentView(
             document: $command->document,
@@ -48,7 +51,7 @@ final readonly class ShowDocumentHandler
             readOnly: !$isLatest,
             comments: $comments,
             versions: $this->documentVersions->findAllMetaByDocument($command->document),
-            headings: $this->headings->extract($version->renderedHtml),
+            headings: $headings,
             signals: $this->comments->signalsByVersions([(string) $version->id])[(string) $version->id] ?? new CommentSignals(),
             decisions: $decisions,
             decisionMarkedHtml: $this->decisionBlocks->withSelections(
@@ -57,6 +60,7 @@ final readonly class ShowDocumentHandler
                 readOnly: !$isLatest,
             ),
             lastSeenVersionNumber: $this->lastSeenVersion->versionNumberFor($command->document, $command->reader),
+            sections: ($this->sectionApprovals)($command->document, $version, $headings, $command->reader),
         );
     }
 

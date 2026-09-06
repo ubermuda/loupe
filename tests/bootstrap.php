@@ -18,6 +18,15 @@ if ($_SERVER['APP_DEBUG']) {
 // overhead of dropping and recreating the schema for every test.
 (function (): void {
     $kernel = new App\Kernel('test', (bool) ($_SERVER['APP_DEBUG'] ?? false));
+
+    // test.log then holds exactly one run, which a date-based rotation cannot
+    // give. test.deprecation.log is left alone: a phpunit run writes nothing to
+    // it, so truncating it would wipe what a console run found.
+    $mainLog = $kernel->getLogDir().'/test.log';
+    if (is_file($mainLog)) {
+        file_put_contents($mainLog, '');
+    }
+
     $kernel->boot();
 
     $app = new Application($kernel);

@@ -50,17 +50,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, AdminPr
     public ?\DateTimeImmutable $lastSignedInAt = null;
 
     /**
-     * A disabled account keeps its data and may still log in, but is excluded
-     * from the registration-cap count and blocked by the billing paywall until
-     * a subscription re-enables it. Set by the trial-end sweep and the Stripe
-     * webhook; cleared only when a subscription activates.
+     * Billing's cache of "no grant is current", and only Billing writes it.
+     * PaywallGate never reads it: access comes from
+     * BillingProfile::hasCurrentSubscription(), which flips as soon as a grant's
+     * endsAt passes, while this flag waits for the hourly sweep. The
+     * registration-cap count and the admin state filter read the flag, so both
+     * lag by up to an hour. suspendedAt is the other inactive marker: an admin
+     * sets that one, and it blocks sign-in, which this one never does.
      */
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $disabledAt = null;
 
     /**
-     * Set by an admin, and distinct from disabledAt, which billing owns: a
-     * suspension must survive the trial sweep that clears disabledAt.
+     * Set by an admin, and separate from disabledAt so that no billing write
+     * can lift it.
      */
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $suspendedAt = null;

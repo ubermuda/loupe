@@ -156,47 +156,6 @@ token scopes per resource, webhook subscription storage + signing (HMAC),
 delivery retries (the existing Messenger worker is the natural transport),
 and dogfooding the API from the CLI/widget.
 
-## Surface what the comments say about a document, not just the review verdict
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Owner decision (2026-07-27, via site review): the state the product exposes
-should be derived from the comments themselves — for a site review, things like
-"has drafts" / "has addressed comments"; for a document, "has addressed
-comments". The four-step loop ribbon (Proposed → In review → Revise → Approved)
-and the `LoopStage` enum behind it were the visible half of that idea and are
-already gone.
-
-**This entry used to also propose deleting `Document::$status`, and that half
-was dropped on 2026-08-02 because its premise was wrong.** `status` is not a
-comment-derived value that drifted — it is a denormalised copy of the latest
-`Review`'s verdict, mapped one-to-one by `SubmitReviewHandler`. Removing it
-would have been a refactor with no product content, and it is not happening; the
-column stays. Two conclusions that were drawn from the old framing and are also
-wrong, recorded so they are not re-derived: filtering the documents list by
-status is a plain `WHERE` and not a join, and document approval does not lose
-its write target, because approval writes a `Review`.
-
-What remains is the part that was the actual intent, and it does not exist in
-any form: **signals computed from the comments on a document.** "Has addressed
-comments" is the named example, and plausible neighbours are open-thread counts,
-orphaned counts, and whether every thread has been answered.
-
-The raw material only just arrived. Document comments had two booleans,
-`resolved` and `orphaned`, and no notion of *addressed* at all — that concept
-existed only on `SiteReviewComment`. The comment-status work replaces the
-boolean with a three-case status (pending, addressed, resolved) on the thread
-root, which is what makes "has addressed comments" answerable for a document.
-
-Worth settling when this is picked up: whether these signals are computed per
-request or denormalised (the documents list now batches its open-thread tally
-through `countOpenByVersions()` in `ListDocumentsHandler`, so a naive per-row
-derivation would reintroduce the N+1 that batching removed —
-`SiteReviewCommentRepository::statusCountsForProject()` is the other in-repo
-precedent for a single grouped tally), where they surface
-alongside the existing status badge, and whether the MCP payload carries them.
-
 ## Set up ADRs and a stated list of architectural priorities
 
 
@@ -366,31 +325,6 @@ has made things worse.
 Rotation or per-run truncation is still worth doing on its own. One checkout's
 `var/log/test.log` reached 181 MB on 2026-09-04.
 
-## Document search stems every document as English
-
-
-**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
-
-`App\Doctrine\FullTextSearch::CONFIGURATION` is `english`, and both the stored
-vector (`documents.search_vector`, written by
-`App\Module\Review\Service\DocumentSearchIndexer`) and the query
-(`TSMATCH` / `TS_RANK`, from martin-georgiev/postgresql-for-doctrine) use it.
-That is what makes "reviewing" match "review". It is also wrong for every other
-language: a French document is stemmed with English rules, so its own words
-often fail to match themselves.
-
-Accepted knowingly, because there is nowhere to read a better answer from — a
-`Document` has no locale, and neither does the project or the submitting agent.
-Closing this means deciding where a language comes from first. The options are a
-per-project setting, a per-document one set at `document_create` time, or
-detection at ingest; only then does the column become
-`to_tsvector(<per-row regconfig>, …)`.
-
-Whichever is chosen, changing the configuration requires rebuilding every stored
-vector in the same change — a vector stemmed as English and a query parsed as
-French do not meet. The migration that introduced the column
-(`Version20260803015620`) has the backfill statement to copy.
-
 ## Site-review comments have no agent-reply data model
 
 
@@ -505,22 +439,6 @@ Two pieces of work, in order:
 
 Candidate to fold in while here: "Deduplicate the waitlist idioms (convert +
 invite-validation)".
-
-## Review UI: per-section approval
-
-
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Owner request (2026-07-25): alongside the whole-document verdict, let a
-reviewer approve individual sections. During the trial-end sweep spec review,
-each revision orphaned most open comments and there was no way to mark "these
-sections are settled, only re-review the delta" — per-section approval state
-(persisting across revisions when a section's content is unchanged) would make
-multi-round spec reviews much cheaper. Section identity comes from headings, so
-`App\Module\Review\Service\HeadingExtractor` is the existing source of it; also
-interacts with comment re-anchoring.
 
 ## Fuller billing section in account settings (manage sub in-app)
 
@@ -639,38 +557,13 @@ committing to an extension:
 Whichever path: the widget must hide its own overlay (pins, panel, scrim) before
 capturing and restore it after, or every screenshot contains the review UI. Also
 needs a decision on where the image is stored and how it is served, since
-`SiteReviewComment` today carries only text, a selector and a URL. Related:
-'Drawing on the page in the site-review widget' — the two are usually one
-gesture, and a stroke drawn on a frozen screenshot is a very different feature
-from one drawn on live DOM.
+`SiteReviewComment` today carries text, anchors, strokes and a URL.
 
-## Drawing on the page in the site-review widget
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Owner note (2026-07-27): let the reviewer draw on the page — circle the thing
-that is wrong, arrow at it — rather than only clicking one element.
-
-The decision that shapes everything else is what the strokes are drawn *on*:
-
-- **Live DOM.** Strokes are vector data in the widget's overlay, anchored the
-  way pins already are, and re-render on the real page later. Survives a redeploy
-  in the sense that the page stays current, but reflow, responsive breakpoints
-  and any content change move the page out from under the drawing.
-- **A frozen screenshot.** Capture first, then annotate the image (see 'Attach a
-  screenshot to a site-review comment'). Always shows what the reviewer saw, and
-  sidesteps anchoring entirely, but the annotation is dead pixels the agent
-  cannot map back to an element.
-
-Drawing also gives the widget a capture mode that is neither "pick one element"
-nor "general page note", so it needs its own entry in the composer alongside
-those two, and a selector-less comment shape. The overlay already owns a
-fixed-position layer above the page, which is where the canvas would live.
-
-`site_review_comments` now has a nullable `strokes` JSON column, added by the
-multi-anchor work so the agent-facing payload widens once. Nothing reads or
-writes it yet, so this entry owns it.
+Drawing already ships, on the live DOM rather than on an image: strokes are
+vector points in the widget's overlay, stored in the `strokes` column. So a
+screenshot is now the second half of a gesture the widget half-supports, and the
+open question is whether an annotated screenshot is a separate capture or the
+same drawing rendered over a frozen frame.
 
 ## Public feedback widget (a public pendant to the site-review widget)
 
@@ -783,34 +676,6 @@ codebase where a third party's word permits a local state change, and it works
 because **the app makes the call itself**, with a credential whose control the
 caller just proved, and fails closed on any ambiguity. "The agent was told in
 chat" has neither property.
-
-## Documents can be tagged and linked, but not grouped into a series
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Two of the three organizing primitives now exist. Project-scoped tags ship with
-a `Tag` entity, a filter bar on the documents list, and `document_create` /
-`document_set_tags` over MCP; document-to-document references ship too, render
-on both sides, and are settable through `document_create`, `document_revise`
-and `document_set_references`.
-
-What neither expresses is **membership of an ordered set**. Submitting a blog
-series on 2026-08-01 put seventeen related documents into one project — eleven
-posts, six companion threads — and the only way to say "thread 5 belongs to
-post 5, and both are the fifth item of one series" was to bake it into the
-titles by hand ("Post 5 — …", "Thread 5 — …"). That is a naming convention
-pretending to be a data model: nothing enforces it, nothing sorts on it, and it
-breaks the moment a title is wrong. A tag can say seventeen documents are
-related; it cannot say they are numbered one to eleven, nor that six of them
-are companions to the other eleven.
-
-Still open, then: whether grouping is a hierarchical primitive of its own
-(categories, folders, a `Series` entity with an ordinal), or whether ordering
-metadata on the existing reference edge is enough. Whichever it is, it must be
-settable from the MCP at `document_create` time — the agent submitting the
-batch is the one that knows how the documents relate, and asking a human to
-order seventeen documents afterwards means it does not happen.
 
 ## Edit a document in the app, not only through an agent
 
@@ -1031,45 +896,6 @@ the deny-by-default `^/api` rule in `config/packages/security.yaml`, since OAuth
 scopes would need the same per-scope `access_control` discipline. Note
 `symfony/mcp-bundle` is on 0.12 and tracks the MCP protocol's own authorization
 spec — check what it provides before hand-rolling a server.
-
-## Decision controls: multi-select, and whether a choice should carry a comment
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Single-choice decision controls ship: a document fences a decision with
-`<!-- decision: some-id -->` around a list, the reviewer clicks one option, and
-`document_get_review` reports the answer under `decisions`. `DecisionBlockService`
-renders and reads them; `loupe-documents` rule 10 teaches the syntax. Three
-things were deliberately left out.
-
-1. **Multi-select.** Every block is a radio group — exactly one answer. A
-   decision that legitimately takes several answers ("which of these do we
-   ship?") has no representation. `- [ ]` is already GFM task-list syntax and
-   round-trips through other tooling, so it is the natural marker for a
-   multi-select block, but it is currently accepted and stripped in the
-   single-choice fence too. Any multi-select syntax has to distinguish itself
-   from that rather than reuse it, and the storage would move from one row per
-   decision to one per chosen option.
-2. **Whether a selection needs an accompanying comment for the "why".**
-   Currently no: a reviewer can already anchor a comment to the decision block,
-   so requiring one adds friction to answering without adding a capability.
-   Revisit if answers start arriving without any recorded reasoning.
-3. **Whether selecting should resolve the thread attached to that passage.**
-   Currently no, on the same grounds `CommentRepository::findOpenByVersion`
-   already applies to `addressed`: the human choosing is not the human agreeing
-   the discussion is finished, and the agent still has to act on the choice.
-4. **An answer to a decision a later version dropped is retained but never
-   reported.** `GetReview` iterates the current version's blocks, so a row whose
-   `decision_id` no longer appears is invisible — neither surfaced nor cleaned
-   up. Harmless while ids are permanent (re-adding the id brings the answer
-   back, which is arguably right), but it means the table grows without bound
-   and an agent cannot see that a decision it removed had been answered.
-5. **Option text runs together in `plainText()`.** Converted options are
-   adjacent inline elements, so `…staging firstShip straight to…` is what both
-   `strip_tags()` and the browser read. The two agree, so anchors are correct
-   and this is cosmetic — but a reviewer selecting across two options gets a
-   quote with no separator in it.
 
 ## Drop the dead selector and text columns from site_review_comments
 
@@ -1315,45 +1141,6 @@ What is left is whether the reading surfaces need the same distinction the
 trail has. A reader of a `Review` row, or of a comment thread, still cannot see
 which agent or which credential produced it without opening the trail beside
 it.
-
-## Comment on a diff, not only on a document
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Owner note (2026-08-02): once the review UI can show a word-level diff between
-two document versions, a reviewer should be able to comment on the diff itself.
-Pointing at a change while looking at the change is the obvious thing to want,
-and today the only commentable surface is the current version's prose.
-
-The version-diff work deliberately does **not** ship this, and equally
-deliberately does not foreclose it. Two constraints were built in for that
-reason and should not be undone:
-
-- The diff renders **in place of** the document, so while it is on screen the
-  pane's `textContent` is not `DocumentVersion::plainText()`. Anchoring is
-  therefore inert in diff mode — no toolbar, no composer, no highlight painting.
-  `readOnly` alone does **not** achieve this and was not used for it:
-  `comment_anchor_controller.js` repaints highlights on every layout regardless
-  of that flag. `show_document.html.twig` instead omits
-  `data-controller="comment-anchor"` entirely in diff mode, so the controller
-  never connects. Re-enabling comments here means attaching it deliberately, not
-  flipping a flag.
-- The diff renderer must emit segments tagged unchanged, inserted and deleted,
-  so that **either side's plain text can be reconstructed from the diff markup**:
-  unchanged plus inserted yields the new version, unchanged plus deleted the
-  old. `App\Module\Review\ValueObject\DocumentDiff` does this
-  (`oldSource()`/`newSource()`), and it is the **server** half only — the
-  rendered pane's `textContent` is neither side, because deleted and inserted
-  lines interleave and line breaks are block layout rather than newlines. A
-  comment captured in the browser will additionally need per-side markers or
-  offsets in the DOM.
-
-The open design question, which did not need answering to keep the door open:
-whether a comment made while looking at a diff anchors to the new version, the
-old one, or records which side it was made on. Anchoring to the new version is
-the intuitive default — a reviewer commenting on a change is usually commenting
-on the result — but a comment on deleted text has no home there.
 
 ## There is no JavaScript test harness, and the JS is no longer trivial
 
@@ -1835,23 +1622,6 @@ opposite of what the check is for.
 Accepted cost: the check then polices nothing in that file. A long comment block
 could land in `.env` and nothing would report it.
 
-## Rendered front matter and annotations have no accessible name
-
-
-**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
-
-`MarkdownRenderer` emits the front-matter table with no `<caption>`, so screen
-readers announce an unnamed table. Block-level HTML comments carry
-`role="note"`, which keeps them out of the landmark list, but they are unnamed
-too.
-
-Naming either one needs a translated string, and `MarkdownRenderer` has no
-translator — it renders document content rather than UI, and is constructed
-directly in tests. Adding one is the decision to make; an untranslated English
-label would be worse than none. Note that any visible label would also land in
-`plainText()` and shift every anchor below it, so this needs the same re-render
-treatment as any other rendering change.
-
 ## An HTML comment inside a raw HTML block still renders as nothing
 
 
@@ -1887,35 +1657,6 @@ content add arbitrary attributes to the tag. Telling a comment in text position
 from one in attribute position needs an HTML tokeniser, which is the sanitizer's
 job — so any real fix has to run after sanitization, on parsed markup, rather
 than on the raw literal.
-
-## A document cannot render a checkbox, by either route
-
-
-
-
-**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
-
-Neither route works today, and that is deliberate rather than an oversight.
-`MarkdownRenderer` does not allow `<input>`, so a checkbox written as raw HTML is
-dropped; and `TaskListExtension` is not registered, so Markdown's `- [ ] item`
-renders literally as `[ ] item`.
-
-The allowance existed briefly and was removed for want of a consumer: rendering
-every document in the development database that mentions `<input>` produced zero
-inputs, because every occurrence is inside a code fence or backticks. Dropping it
-costs no text — `input` is void — so the anchor basis is unaffected either way.
-
-**Do not close this gap by registering `TaskListExtension`.** It deletes the two
-characters between the brackets from the rendered text and therefore from
-`DocumentVersion::plainText()`, so every comment anchor below the first task list
-moves; existing document versions use that syntax, and their open comments would
-orphan on the next revision. Like the sanitizer default above, it needs a rerender
-plus a reanchor pass, which `bin/console app:review:rerender-versions --reanchor`
-now performs. Re-allowing `<input>` is the cheaper half and
-has no anchor cost, but on its own it only serves hand-written HTML.
-
-Note the review screen's decision controls are **not** this: they are minted after
-sanitization and so never pass through the allowlist.
 
 ## Review anchoring — structural fallback anchor (low priority)
 
@@ -2009,24 +1750,6 @@ win; per-token scope roles are slightly more awkward there (you don't own
 All widget API failures render into the single `#lp-error` banner. Fine for a
 one-reviewer tool; if bulk operations ever appear, attach errors to the affected
 list row instead.
-
-## Site-review widget overlaps the review console's pinned controls (dogfooding)
-
-
-
-
-**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
-
-The site-review widget (loaded on Loupe's own pages when
-`SITE_REVIEW_WIDGET_TOKEN` is set — dev/dogfooding) mounts a `position:fixed`
-bottom-right launcher (z-index max). PR 3 pinned the document-review verdict bar
-to the bottom of the 388px margin, so the launcher can overlap the "Request
-changes"/"Approve" buttons in dogfooding mode. The e2e `review-loop` spec
-suppresses the widget (`suppressWidget`, like the debug toolbar) to test the
-review screen in isolation. Product decision to make later: the widget isn't part
-of the review/site-review console screens' design — consider not loading it on
-those routes (scope the `base.html.twig` widget include out of the review console)
-so dogfooding a review doesn't cover the console's own controls.
 
 ## Billing paywall answers machine clients with 402
 
@@ -2226,82 +1949,6 @@ change rather than a feature. The open options are all UI-side — keep the
 placeholder but say plainly in copy that the reader must paste their own token,
 or move the snippets behind a "regenerate to see this filled in" affordance that
 is honest about destroying the old token.
-
-## A decision card cannot show its own recorded answer
-
-**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
-
-The Chartreuse design puts a line inside each decision card reporting what was
-chosen — "Chosen: option 1, recorded against v3." What the app has instead is a
-single `#decision-status` region for the whole page
-(`templates/Module/Review/show_document.html.twig`), replaced by a Turbo stream
-from `SelectDecisionOptionController` with one generic saved/failed message. A
-page with five cards has one status line between them all, and it never names
-the option or the version.
-
-What blocks the obvious fix is *when* the text would be added, not that it is
-text. The card renders inside `[data-comment-anchor-target="doc"]`, whose text is
-the basis every comment offset is measured against — `DocumentVersion::plainText()`
-is `strip_tags()` of the stored HTML, and `ShowDocumentControllerTest` asserts the
-rendered pane's text still equals it exactly.
-
-At **display** time that rules text out: `DecisionBlockService::withSelections()`
-post-processes stored HTML on the way to the page, so a sentence it injected would
-be in the pane and not in the stored version, and every anchor below the first card
-would resolve to the wrong passage. At **store** time it does not:
-`DecisionBlockService::toControls()` runs inside `MarkdownRenderer::render()`, which
-`CreateDocumentHandler` and `ReviseDocumentHandler` call to produce `renderedHtml`,
-and `plainText()` derives from that same HTML — so text minted there is in both
-sides of the invariant, and versions already stored are untouched. A card's eyebrow
-or a static label can therefore be real text, with one caveat: a fresh render of an
-already-stored version now produces text that version does not have, so
-`RefreshDocumentVersionsHtmlHandler` may refuse without `acceptCommentOrphaning` —
-it asks each anchor individually (`countCommentsThatWouldStopResolving()`) and stops
-only if some comment's anchor resolves against the stored text and no longer resolves
-against the re-rendered one. Adding store-time text is a change new versions get for
-free and old ones only through a reanchor pass.
-
-The recorded answer is not one of those. It is per-reviewer state chosen after the
-version was stored, so it cannot be derived from the markdown at render time, and
-the store-time path is closed to it.
-
-The way through is to keep the text out of the DOM's text content:
-`DecisionBlockService::withSelections()` already post-processes the stored HTML
-at display time and deliberately adds **attributes only**, so it could write a
-`data-decision-chosen="…"` attribute the CSS renders with `content: attr(...)`.
-Generated content is not part of `textContent` and `strip_tags()` never sees it,
-so the invariant holds. The cost is that the sentence has to be composed by the
-caller — `withSelections()` takes no translator and no version number today —
-and that generated content is read inconsistently by screen readers, which
-matters more here than for the card's eyebrow because this text is an announced
-live region rather than decoration.
-
-## Text-selection mode for the site-review widget
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-The site-review widget anchors a comment to a page element: the reviewer picks
-something, and the stored comment carries a CSS selector plus some text
-(`public/site-review/widget.js` — its pending items are
-`{ id, body, selector, text, url }`). Document review works differently. There
-the reviewer selects a *range of text* and the comment quotes exactly that
-range, which is what makes "this sentence is wrong" expressible rather than
-"something in this block is wrong". The widget should offer the same: select
-text on the live page, comment on the selection, carry the quoted range
-through. As of 2026-08-12 the widget calls no `getSelection` at all, so this is
-new behaviour rather than an extension of existing selection handling.
-
-Two things to settle before building it. What a text anchor means on a page
-that has no versions: document review re-anchors comments by matching quoted
-text into the next version and reports the rest as orphaned, and a live page
-has no equivalent of a version boundary — so decide whether a stale anchor
-degrades to the selector, or is shown as orphaned, or is simply left broken.
-And whether the range travels as quoted text (robust to markup changes, may
-match twice) or as offsets into the selector's subtree (exact, breaks on any
-edit); the document-review side chose quoted text and hit the
-matches-twice case, which is worth reading before repeating the choice.
-
-Server side lives in `src/Module/SiteReview/`.
 
 ## The site-review push subsystem has no producer left
 

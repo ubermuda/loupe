@@ -9,6 +9,7 @@ use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Command\AddCommentCommand;
 use App\Module\SiteReview\Command\AddCommentHandler;
 use App\Module\SiteReview\Command\NewAnchor;
+use App\Module\SiteReview\Command\NewStroke;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
@@ -48,6 +49,31 @@ final class AddCommentHandlerTest extends KernelTestCase
         self::assertNotNull($comment->id);
         self::assertSame(SiteReviewCommentStatus::Pending, $comment->status);
         self::assertSame(0, $comment->position);
+    }
+
+    public function test_strokes_are_persisted_and_an_empty_drawing_stores_null(): void
+    {
+        $project = $this->project('add-strokes@example.com');
+        $drawn = ($this->handler)(new AddCommentCommand(
+            $project,
+            'point here',
+            'https://app/x',
+            [new NewAnchor('.a', 'A')],
+            [new NewStroke('anchor', [[0.25, 0.5], [0.75, 0.5]])],
+        ));
+        $plain = ($this->handler)(new AddCommentCommand($project, 'no drawing', 'https://app/x'));
+
+        $this->em->clear();
+        $reloaded = $this->em->find(SiteReviewComment::class, $drawn->id);
+        self::assertNotNull($reloaded);
+        self::assertSame(
+            [['space' => 'anchor', 'points' => [[0.25, 0.5], [0.75, 0.5]]]],
+            $reloaded->strokes,
+        );
+
+        $reloadedPlain = $this->em->find(SiteReviewComment::class, $plain->id);
+        self::assertNotNull($reloadedPlain);
+        self::assertNull($reloadedPlain->strokes);
     }
 
     public function test_anchors_are_persisted_in_the_order_they_were_given(): void

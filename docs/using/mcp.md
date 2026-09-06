@@ -113,7 +113,7 @@ Roughly in the order an agent uses them:
 | `document_create` | Submit Markdown as a new document; returns a review URL and the language it was stored in |
 | `document_revise` | Submit a new version, described by what changed |
 | `document_get` / `document_list` | Read a document, or enumerate the project's |
-| `document_get_review` | Verdict, threaded comments, and answered decision blocks |
+| `document_get_review` | Verdict, threaded comments, answered decision blocks, and approved sections |
 | `document_reply_to_comment` | Reply to a reviewer's thread |
 | `document_mark_comment_addressed` | Mark a thread acted on |
 | `document_highlight` | Tint the passages to read first (off by default — see below) |
@@ -158,15 +158,57 @@ longer reports the `selector` and `text` fields, which held one element each.
   "body": "These two should sit side by side.",
   "anchors": [
     { "selector": ".plan-card", "text": "Starter", "quote": null, "quotePrefix": null, "quoteSuffix": null },
-    { "selector": ".plan-note", "text": "Billed yearly", "quote": null, "quotePrefix": null, "quoteSuffix": null }
-  ]
+    { "selector": ".plan-note", "text": "Billed yearly per seat", "quote": "per seat", "quotePrefix": "Billed yearly ", "quoteSuffix": "" }
+  ],
+  "hasDrawing": false
 }
 ```
 
 A comment with several anchors says something about how those elements relate,
 so read them together. An empty `anchors` list is a note about the page as a
-whole. The `quote` fields are reserved for an anchor on a run of text, and are
-always null today.
+whole.
+
+An anchor whose `quote` is a string points at that run of text inside its
+element, and `quote` is then the subject of the comment. One whose `quote` is
+null points at the whole element. `quotePrefix` and `quoteSuffix` hold up to 32
+characters of the surrounding page text; they exist so the widget can find the
+passage again when the same words appear twice in one element, and they are not
+part of what the reviewer said.
+
+A live page has no version boundary, so a quote can stop matching. The widget
+then falls back to drawing the element, and the payload keeps the quote. An
+agent that cannot find a quote on the page should report that rather than guess
+which text replaced it.
+
+### A drawing is reported as a flag, not as points
+
+A reviewer can draw freehand over the page as part of a comment.
+`site_review_get` reports `hasDrawing` and nothing more. The strokes are vector
+points measured against a live page, which no agent can render, so the points
+would cost a large payload and buy nothing.
+
+Read `hasDrawing: true` as "the reviewer pointed at something the words may not
+name". Act on the words. Ask the reviewer when they do not say enough, rather
+than guessing what the drawing meant. The reviewer's own data export carries the
+points in full, under `strokes` in `site_reviews.json`.
+
+## Which sections are settled
+
+`document_get_review` returns a `sections` list beside the comments, one entry
+per section of the current version:
+
+```json
+{ "heading_id": "heading-goals", "level": 2, "title": "Goals", "standing_approval_count": 1 }
+```
+
+`standing_approval_count` counts **every reviewer** whose approval of that
+section still matches its text. It is 0 while nobody's approval stands. The
+count is not scoped to the identity the token belongs to. It also names no
+reviewer, for the same reason a comment reports only `agent` or `human`.
+
+Treat a section above 0 as settled and leave its text alone. Rewriting a section
+changes its digest, which drops the approval and puts the section back in front
+of the reviewer. See [Documents and review](documents.md).
 
 ## Two things agents get wrong
 

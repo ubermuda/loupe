@@ -6,6 +6,10 @@ namespace App\Tests\Module\Review\Mcp;
 
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Command\CreateDocumentCommand;
+use App\Module\Review\Command\CreateDocumentHandler;
+use App\Module\Review\Command\SetSectionApprovalCommand;
+use App\Module\Review\Command\SetSectionApprovalHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Mcp\DocumentGetReviewTool;
 use App\Tests\Support\McpTokenScenario;
@@ -83,6 +87,35 @@ final class DocumentGetReviewToolTest extends KernelTestCase
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('not found or not accessible');
         ($this->tool)((string) $document->id);
+    }
+
+    public function test_reports_which_sections_a_reviewer_has_approved(): void
+    {
+        $owner = $this->user('getreview-sections@example.com');
+
+        $project = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($project);
+        $this->em->flush();
+
+        $create = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $create);
+        $document = $create(new CreateDocumentCommand(
+            $project,
+            'Sectioned',
+            "## Alpha\n\nAlpha body.\n\n## Beta\n\nBeta body.\n",
+        ));
+
+        $approve = self::getContainer()->get(SetSectionApprovalHandler::class);
+        self::assertInstanceOf(SetSectionApprovalHandler::class, $approve);
+        $approve(new SetSectionApprovalCommand($document, $owner, 'heading-alpha', true, 1));
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        $sections = ($this->tool)((string) $document->id)['sections'];
+
+        self::assertSame(['heading-alpha', 'heading-beta'], array_column($sections, 'heading_id'));
+        self::assertSame(1, $sections[0]['standing_approval_count']);
+        self::assertSame(0, $sections[1]['standing_approval_count']);
     }
 
     public function test_unbound_mcp_token_is_rejected(): void

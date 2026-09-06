@@ -1,0 +1,18 @@
+{# Rows of the contents panel: one section per row, in document order, each a
+   link to its heading and each stating whether that section is approved.
+   An overview only. The button beside each heading is where a reviewer acts. #}
+{% for row in rows %}
+<li class="lp-review-contents__item">
+    {# title= so a heading truncated by the panel width is still readable on hover. #}
+    <a class="lp-review-contents__link" data-level="{{ row.level }}" href="#{{ row.headingId }}"
+       data-action="click->metadata-tabs#jump" title="{{ row.label }}">{{ row.label }}</a>
+    {% if row.approved %}
+    <span class="lp-section-approvals__approved" data-section-approved="{{ row.headingId }}">
+        <twig:ux:icon name="lucide:check" class="lp-section-approvals__check" />
+        {{ 'review.document.sections.approved'|trans }}
+    </span>
+    {% else %}
+    <span class="lp-section-approvals__pending">{{ 'review.document.sections.pending'|trans }}</span>
+    {% endif %}
+</li>
+{% endfor %}

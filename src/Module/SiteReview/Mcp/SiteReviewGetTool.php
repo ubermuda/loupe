@@ -24,7 +24,7 @@ final readonly class SiteReviewGetTool
      * @param string|null $site   optional site id or site name; must match the project your MCP token is bound to
      * @param string|null $status which comments to return: pending (the default), addressed, resolved, or all
      *
-     * @return array{site: array{id: string, name: string}, comments: list<array{id: string, url: string, anchors: list<array{selector: string, text: string, quote: string|null, quotePrefix: string|null, quoteSuffix: string|null}>, body: string, status: string, createdAt: string}>}
+     * @return array{site: array{id: string, name: string}, comments: list<array{id: string, url: string, anchors: list<array{selector: string, text: string, quote: string|null, quotePrefix: string|null, quoteSuffix: string|null}>, body: string, hasDrawing: bool, status: string, createdAt: string}>}
      */
     public function __invoke(?string $site = null, ?string $status = null): array
     {
@@ -59,6 +59,11 @@ final readonly class SiteReviewGetTool
                             $c->anchors->toArray(),
                         )),
                         'body' => $c->body,
+                        // The strokes themselves are vector points over a live
+                        // page, which an agent cannot render or act on. The
+                        // flag says the comment points at something the words
+                        // may not name, so ask the reviewer rather than guess.
+                        'hasDrawing' => null !== $c->strokes && [] !== $c->strokes,
                         'status' => $c->status->value,
                         'createdAt' => $c->createdAt->format(\DateTimeInterface::ATOM),
                     ],
