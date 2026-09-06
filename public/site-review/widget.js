@@ -663,7 +663,10 @@
          animate the slide-away; visibility flips to hidden only after the collapse (the
          .24s delay) so the buttons are genuinely non-interactive once gone, and back
          immediately on expand. */
-      .lp-launch-quick{display:flex;align-items:center;gap:3px;overflow:hidden;max-width:120px;opacity:1;visibility:visible;transition:max-width .24s cubic-bezier(.4,0,.2,1),opacity .18s ease,visibility 0s 0s}
+      /* max-width is the collapse animation's start, so it has to clear the row
+         and stay near it. Three actions and the divider measure 118px, and the
+         travel above that is time the collapse spends going nowhere. */
+      .lp-launch-quick{display:flex;align-items:center;gap:3px;overflow:hidden;max-width:130px;opacity:1;visibility:visible;transition:max-width .24s cubic-bezier(.4,0,.2,1),opacity .18s ease,visibility 0s 0s}
       .lp-launcher.open .lp-launch-quick{max-width:0;opacity:0;visibility:hidden;transition:max-width .24s cubic-bezier(.4,0,.2,1),opacity .18s ease,visibility 0s .24s}
       .lp-launch-action{flex:0 0 auto;width:34px;height:34px;border:0;background:transparent;color:var(--bar-mute);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .14s ease,color .14s ease}
       .lp-launch-action:hover{background:var(--bar-raised);color:var(--accent)}
@@ -807,6 +810,7 @@
       <div class="lp-launch-quick" id="lp-launch-quick">
         <button class="lp-launch-action" id="lp-launch-note" aria-label="Add note" data-tip="Add note">${ICON.comment(16)}</button>
         <button class="lp-launch-action" id="lp-launch-target" aria-label="Pick element" data-tip="Pick element">${ICON.target(16)}</button>
+        <button class="lp-launch-action" id="lp-launch-draw" aria-label="Draw" data-tip="Draw">${ICON.pen(16)}</button>
         <span class="lp-launch-div"></span>
       </div>
       <button class="lp-launch-main" id="lp-launch-main" aria-label="Review">
@@ -1021,6 +1025,7 @@
   const errorNode = $('lp-error');
   const emptyAnim = $('lp-empty-anim');
   const launchQuick = $('lp-launch-quick');
+  const launchDrawBtn = $('lp-launch-draw');
   const listWrap = $('lp-list-wrap');
   const listAnim = $('lp-list-anim');
   const listNode = $('lp-list');
@@ -1735,6 +1740,10 @@
     // chip list a pick behind the anchors it lists.
     const picking = state.target && !state.addAnchor;
     launcherNode.style.display = picking ? 'none' : '';
+    // Absent rather than disabled while the instance offers no drawing, the
+    // same as the in-panel control. The collapsed launcher has no room to
+    // explain a control that does nothing.
+    launchDrawBtn.style.display = drawingEnabled ? '' : 'none';
     // The launcher's quick actions duplicate the in-panel ones, so hide them (keeping only
     // the Review toggle) whenever the panel is open — or fatal, where they'd only launch a
     // composer the critical state immediately hides.
@@ -2896,6 +2905,7 @@
   $('lp-launch-main').addEventListener('click', togglePanel);
   $('lp-launch-note').addEventListener('click', openNoteComposer);
   $('lp-launch-target').addEventListener('click', toggleTarget);
+  $('lp-launch-draw').addEventListener('click', toggleDraw);
   // The launcher starts expanded (panel closed), so allow tooltip overflow now; it is
   // re-clipped on collapse and re-opened here once the expand transition finishes.
   launchQuick.style.overflow = 'visible';

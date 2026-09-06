@@ -2584,6 +2584,7 @@ test('an instance with drawing off offers no Draw, and still renders saved strok
     // The shortcut is gone too, so nothing opens a composer the API refuses.
     await page.keyboard.press('d');
     await expect(page.locator('#lp-composer')).toHaveCSS('max-height', '0px');
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
 /**
@@ -2669,6 +2670,116 @@ test('the offer to quote a selection stands down while drawing', async ({
     // Leaving draw mode gives the offer back, because the selection is intact.
     await page.getByRole('button', { name: 'Done' }).click();
     await expect(offer).toBeVisible();
+});
+
+/**
+ * The collapsed launcher offers the capture modes without opening the panel
+ * first, and drawing is one of them. The launcher is also draggable, so a press
+ * on this button has to tell a click from the start of a drag.
+ */
+test('the launcher offers a quick draw, and tells a click from a drag', async ({
+    page,
+}) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    const launcher = page.locator('#lp-launcher');
+    const quickDraw = launcher.getByRole('button', {
+        name: 'Draw',
+        exact: true,
+    });
+    await expect(quickDraw).toBeVisible();
+
+    // A click opens drawing straight from the closed state, and leaves the
+    // launcher where it was.
+    const corner = () =>
+        page.evaluate(() =>
+            document.documentElement.getAttribute('data-loupe-review-corner'),
+        );
+    expect(await corner()).toBe('bottom-right');
+
+    // The drags go first, while nothing is animating. A manual mouse.move takes
+    // no stability wait of its own, and the quick actions slide for 240ms
+    // whenever the panel opens or closes.
+    const box = (await quickDraw.boundingBox())!;
+    const centre = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+
+    // A short drag releases with the pointer still over the button, so the
+    // browser does fire a click there. That press meant "move", so the launcher
+    // has to swallow it and drawing must not open. A long drag releases over
+    // the page and never reaches this button, which is why the short one is
+    // what proves the swallow.
+    await page.mouse.move(centre.x, centre.y);
+    await page.mouse.down();
+    await page.mouse.move(centre.x + 14, centre.y - 8, { steps: 4 });
+    await page.mouse.up();
+    await expect.poll(corner).toBe('bottom-right');
+    await expect(page.locator('#lp-draw-toast')).toBeHidden();
+    await expect(page.locator('#lp-panel')).toBeHidden();
+
+    // A long drag moves the launcher, and still opens nothing.
+    await page.mouse.move(centre.x, centre.y);
+    await page.mouse.down();
+    for (let step = 1; step <= 10; step++) {
+        await page.mouse.move(centre.x - step * 90, centre.y - step * 70);
+    }
+    await page.mouse.up();
+    await expect.poll(corner).toBe('top-left');
+    await expect(page.locator('#lp-draw-toast')).toBeHidden();
+
+    // A click on the same button opens drawing from the closed state, and
+    // leaves the launcher in the corner the drag put it in.
+    await quickDraw.click();
+    await expect(page.locator('#lp-draw-toast')).toBeVisible();
+    await expect(page.locator('#lp-panel')).toBeVisible();
+    expect(await corner()).toBe('top-left');
+
+    // A stroke started from that quick entry lands like any other.
+    await drawStroke(page, { x: 500, y: 500 }, { x: 620, y: 560 });
+    await waitForInk(page);
+
+    // With the panel open the quick actions collapse, drawing among them.
+    await expect(quickDraw).toBeHidden();
+});
+
+/**
+ * An instance with drawing switched off must not advertise it on the launcher
+ * either. The other two quick actions stay, so an assertion cannot pass merely
+ * because the launcher rendered nothing at all.
+ */
+test('the launcher drops its quick draw when drawing is off', async ({
+    page,
+}) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.route('**/api/site-review/review', async (route) => {
+        const response = await route.fetch();
+        const payload = (await response.json()) as Record<string, unknown>;
+        await route.fulfill({
+            response,
+            json: { ...payload, drawingEnabled: false },
+        });
+    });
+    await page.goto(keepHarnessUrl);
+
+    const launcher = page.locator('#lp-launcher');
+    // The two that do not depend on the flag prove the launcher rendered.
+    await expect(
+        launcher.getByRole('button', { name: 'Add note' }),
+    ).toBeVisible();
+    await expect(
+        launcher.getByRole('button', { name: 'Pick element' }),
+    ).toBeVisible();
+    await expect(
+        launcher.getByRole('button', { name: 'Draw', exact: true }),
+    ).toBeHidden();
+
+    // The boot load can still be in flight when the test ends, and a route
+    // handler that outlives its page fails the run on teardown.
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
 /**

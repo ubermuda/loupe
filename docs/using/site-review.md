@@ -90,8 +90,9 @@ shows no pin, as before.
 ## Drawing on the page
 
 **Draw** is the third way to capture something, beside picking an element and
-writing a page note. Press it, or press **D** with the panel open, and drag on
-the page to draw. Every drag adds a stroke. **Undo** drops the last one,
+writing a page note. Press it in the panel, press the pen on the launcher
+without opening the panel, or press **D** with the panel open. Then drag on the
+page to draw. Every drag adds a stroke. **Undo** drops the last one,
 **Clear** drops the whole drawing, and **Done** (or **Esc**) puts the caret back
 in the text box. Your draft and your elements stay where they are.
 
@@ -123,8 +124,8 @@ the drawing as something you and it discuss, and put the point in words too.
 
 Drawing sits behind the `site_review.drawing.enabled` feature flag, which is on
 after an install and after an upgrade. Turn it off in `/admin/feature-flags` and
-the widget stops offering **Draw**, and the API refuses a drawing rather than
-saving a comment without it. Drawings already saved keep rendering on the page,
+the widget drops **Draw** from the panel and from the launcher, and the API
+refuses a drawing rather than saving a comment without it. Drawings already saved keep rendering on the page,
 so the switch takes the tool away and never the work.
 
 ## Moving the launcher
