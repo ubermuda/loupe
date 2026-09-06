@@ -16,7 +16,6 @@ class CreateCardRequest
         #[Assert\Length(max: Card::MAX_TITLE_LENGTH, normalizer: 'trim')]
         #[Assert\NotBlank(normalizer: 'trim')]
         public ?string $title = null,
-
         public ?string $body = null,
 
         /** Nullable so a submit that omits the select fails validation rather than throwing out of the property mapper. */
@@ -28,7 +27,6 @@ class CreateCardRequest
 
         #[Assert\NotNull]
         public ?CardStatus $status = CardStatus::Backlog,
-
         /** One URL per line, as typed. The list is replaced whole on every save. */
         public ?string $pullRequestUrls = null,
     ) {

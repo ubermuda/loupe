@@ -109,7 +109,9 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertSame(CardStatus::InProgress, $fresh->status);
         self::assertSame(CardPriority::High, $fresh->priority);
         self::assertCount(1, $fresh->pullRequests);
-        self::assertSame('https://github.com/loupe/loupe/pull/99', $fresh->pullRequests->first()->url);
+        $link = $fresh->pullRequests->first();
+        self::assertInstanceOf(CardPullRequest::class, $link);
+        self::assertSame('https://github.com/loupe/loupe/pull/99', $link->url);
     }
 
     public function test_an_emptied_url_box_clears_every_link(): void

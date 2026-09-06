@@ -8,7 +8,13 @@
         <twig:ux:icon name="lucide:grip-vertical" class="w-4 h-4" />
     </span>
     <a class="lp-board-card__title"
-       href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}">{{ card.title }}</a>
+       href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}">
+        {# The per-project number is the handle a person quotes, so it reads
+           beside the title rather than instead of it. Guarded because the column
+           arrives on the model branch after this one. #}
+        {% if card.number is defined %}<span class="lp-board-card__number">#{{ card.number }}</span>{% endif %}
+        {{ card.title }}
+    </a>
     <div class="lp-board-card__meta">
         <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>
         {% if card.pullRequests|length > 0 %}

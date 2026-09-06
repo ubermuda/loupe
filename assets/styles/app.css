@@ -3635,14 +3635,21 @@
         @apply fixed z-50 pointer-events-none shadow-lg opacity-90;
     }
     .lp-board-card__grip {
-        @apply absolute top-2 right-2 cursor-grab text-fg-faint;
-        touch-action: none;
+        @apply absolute top-2 right-2 cursor-grab touch-none text-fg-faint;
     }
     .lp-board-card__grip:active {
         @apply cursor-grabbing;
     }
     .lp-board-card__title {
         @apply pr-6 text-sm font-semibold text-ink no-underline hover:text-accent-ink;
+    }
+    /* A card's per-project number, sized like the documents list's version chip
+       so the two identifiers read at the same weight across the app. */
+    .lp-board-card__number {
+        @apply font-mono text-xs font-semibold text-fg-dim;
+    }
+    .lp-card-number {
+        @apply font-mono align-middle text-2xl font-semibold text-fg-dim;
     }
     .lp-board-card__meta {
         @apply flex flex-wrap items-center gap-2;

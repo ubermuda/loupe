@@ -10,6 +10,7 @@ use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\Forge;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 
 final class ShowBoardControllerTest extends WebTestCase
@@ -38,7 +39,7 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertCount(2, $crawler->filter('[data-board-drag-target="card"]'));
 
         $counts = $crawler->filter('.lp-board__column-count')->each(
-            static fn ($node): string => trim($node->text()),
+            static fn (Crawler $node): string => trim($node->text()),
         );
         self::assertSame(['1', '1', '0', '0'], $counts);
     }

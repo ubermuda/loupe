@@ -10,7 +10,10 @@
 
 {% block body %}
 <div class="lp-workspace">
-    <h1 class="lp-workspace-title lp-workspace-title--doc">{{ card.title }}</h1>
+    <h1 class="lp-workspace-title lp-workspace-title--doc">
+        {% if card.number is defined %}<span class="lp-card-number">#{{ card.number }}</span>{% endif %}
+        {{ card.title }}
+    </h1>
 
     <div class="lp-card-facts">
         <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>

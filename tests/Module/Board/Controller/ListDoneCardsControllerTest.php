@@ -8,6 +8,7 @@ use App\Module\Board\Command\ListDoneCardsHandler;
 use App\Module\Board\Entity\CardStatus;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 
 final class ListDoneCardsControllerTest extends WebTestCase
@@ -34,7 +35,7 @@ final class ListDoneCardsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         $titles = $crawler->filter('.lp-done-row__title')->each(
-            static fn ($node): string => trim($node->text()),
+            static fn (Crawler $node): string => trim($node->text()),
         );
         self::assertSame(['Newer card', 'Older card'], $titles);
     }

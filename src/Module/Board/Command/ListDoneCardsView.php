@@ -9,8 +9,8 @@ use App\Module\Board\Entity\Card;
 final readonly class ListDoneCardsView
 {
     /**
-     * @param list<Card>      $items
-     * @param list<int|null>  $pageList
+     * @param list<Card>     $items
+     * @param list<int|null> $pageList
      */
     public function __construct(
         public array $items,

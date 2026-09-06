@@ -7,7 +7,12 @@
  * written it and answered with the board it now holds.
  */
 
-import { test as base, expect, type Page } from '@playwright/test';
+import {
+    test as base,
+    expect,
+    type APIRequestContext,
+    type Page,
+} from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
 
 const RUN = Date.now();
@@ -20,8 +25,11 @@ const HIGH = 0;
 const CARD = '[data-board-drag-target="card"]';
 const GROUP = '[data-board-drag-target="group"]';
 
-async function setBoardFlag(page: Page, enabled: boolean): Promise<void> {
-    const response = await page.request.post('/dev/e2e/feature-flag', {
+async function setBoardFlag(
+    request: APIRequestContext,
+    enabled: boolean,
+): Promise<void> {
+    const response = await request.post('/dev/e2e/feature-flag', {
         form: { name: 'board.enabled', enabled: enabled ? 1 : 0 },
     });
     expect(response.ok()).toBeTruthy();
@@ -81,10 +89,16 @@ function group(page: Page, column: number, priority: number) {
         .nth(priority);
 }
 
+/**
+ * The card titles in one group. The link also carries the card's per-project
+ * number, so each title is read from the card's own data attribute instead.
+ */
 function titlesIn(page: Page, column: number, priority: number) {
     return group(page, column, priority)
-        .locator('.lp-board-card__title')
-        .allTextContents();
+        .locator('[data-board-drag-target="card"]')
+        .evaluateAll((cards) =>
+            cards.map((card) => card.getAttribute('data-card-title') ?? ''),
+        );
 }
 
 /**
@@ -97,7 +111,9 @@ async function dragCardTo(
     title: string,
     target: { x: number; y: number },
 ): Promise<void> {
-    const grip = page.locator(`[data-card-title="${title}"] .lp-board-card__grip`);
+    const grip = page.locator(
+        `[data-card-title="${title}"] .lp-board-card__grip`,
+    );
     const from = await grip.boundingBox();
     expect(from).not.toBeNull();
     if (from === null) {
@@ -150,7 +166,7 @@ const test = base.extend<{ board: Board }>({
         async ({ page }, use, testInfo) => {
             await suppressToolbar(page);
             await suppressWidget(page);
-            await setBoardFlag(page, true);
+            await setBoardFlag(page.request, true);
 
             const tag = testInfo.testId.replace(/[^a-z0-9]/gi, '');
             const email = `e2e+board+${tag}+${RUN}@example.com`;
@@ -179,10 +195,8 @@ test.use({
 
 // The flag is global, so it goes back off: left on, it would change what every
 // later spec's sidebar and routing table look like.
-test.afterAll(async ({ browser }) => {
-    const page = await browser.newPage();
-    await setBoardFlag(page, false);
-    await page.close();
+test.afterAll(async ({ request }) => {
+    await setBoardFlag(request, false);
 });
 
 test('a drag inside a priority group reorders it, and the order survives a reload', async ({
@@ -215,7 +229,10 @@ test('a drag into another column changes the status, and it survives a reload', 
     expect(await titlesIn(page, BACKLOG, HIGH)).toEqual(['Bravo']);
 });
 
-test('the move form moves a card without a pointer', async ({ page, board }) => {
+test('the move form moves a card without a pointer', async ({
+    page,
+    board,
+}) => {
     const card = page.locator('[data-card-title="Bravo"]');
     await card.locator('summary').click();
     await card.getByLabel('Column').selectOption('next');

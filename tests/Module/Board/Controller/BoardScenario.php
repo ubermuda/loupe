@@ -31,9 +31,14 @@ trait BoardScenario
         self::getContainer()->get(EntityManagerInterface::class)->flush();
     }
 
+    /** @param non-empty-string $email */
     private function user(EntityManagerInterface $em, string $email): User
     {
         $user = new User(fullName: 'Riley Chen', email: $email, password: 'hashed');
+        // Both gates divert an authenticated HTML request before the board sees
+        // it: an unverified address goes to /register/check-email, and an
+        // unstamped user to /terms/accept.
+        $user->emailVerifiedAt = new \DateTimeImmutable();
         AcceptedTerms::stamp($user, static::getContainer());
         $em->persist($user);
         $em->flush();
