@@ -16,6 +16,9 @@ env:
   COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
 
 jobs:
+  # A job key is the check-run name GitHub matches required checks against. Never
+  # reuse one from ci.yml: lint, cs-check, phpstan, arkitect, gamache, audit,
+  # phpunit, cli-test, e2e. `infection` collides with none of them.
   infection:
     runs-on: ubuntu-latest
     # Backstop only. A job-level timeout cancels the job, so the upload below
