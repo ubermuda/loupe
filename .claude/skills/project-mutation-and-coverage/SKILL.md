@@ -88,6 +88,12 @@ self::assertLessThan(3.0, $fullElapsed / $halfElapsed);
 Coverage slows both halves by the same factor, so the ratio survives it, and so
 does a loaded machine.
 
+Playwright has the same bound and it is not yours to rewrite. Its `expect`
+timeout is an absolute 5 seconds. Per-request collection takes one page render
+from about 0.5s to about 4.7s, so a coverage run sits on that bound and fails on
+timeouts rather than on anything a spec asserts. `playwright.config.ts` raises
+the timeouts when `COVERAGE` is set, and the per-pull-request gate keeps 5s.
+
 ## Never size a run from a local timing
 
 A workload that starts one process per unit of work runs about 8 times slower on

@@ -25,7 +25,8 @@ env:
 jobs:
   phpunit:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # A measured run took 4m 50s.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
 
@@ -61,7 +62,9 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # A page render costs about 4.7s under coverage against about 0.5s without,
+    # so this job is long by nature. Re-size it from a passing run.
+    timeout-minutes: 120
     # ci.yaml pins XDEBUG_MODE to off, because a normal CI run reads no coverage
     # and pays double for it. This job is the one that does read it.
     env:
@@ -99,10 +102,14 @@ jobs:
 
       - run: date -u +'e2e run starts %H:%M:%S UTC'
 
-      # Confirms the driver is really on. A silent 'off' collects nothing and
-      # still produces an empty report, which reads as zero coverage.
+      # A silent 'off' collects nothing and still produces an empty report,
+      # which reads as zero coverage. Read getenv, not ini_get: xdebug honours
+      # the environment variable and ini_get keeps reporting the ini file.
       - name: Confirm the coverage driver is live
-        run: docker compose exec -T php-fpm php -r 'echo ini_get("xdebug.mode"), PHP_EOL;'
+        run: |
+          mode=$(docker compose exec -T php-fpm php -r 'echo getenv("XDEBUG_MODE");')
+          echo "XDEBUG_MODE=$mode"
+          case "$mode" in *coverage*) ;; *) echo 'coverage is off; the report would be empty'; exit 1 ;; esac
 
       - run: just e2e-coverage
         env:
