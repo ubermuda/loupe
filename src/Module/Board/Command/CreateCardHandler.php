@@ -35,7 +35,8 @@ final readonly class CreateCardHandler
 
         // MAX(position) + 1 is read-then-write: two calls into the same group
         // would otherwise allocate the same rank and leave the order unstable.
-        // Same PESSIMISTIC_WRITE-on-the-project idiom AddCommentHandler uses.
+        // Same PESSIMISTIC_WRITE-on-the-project idiom
+        // App\Module\SiteReview\Command\AddCommentHandler uses.
         $card = $this->em->wrapInTransaction(function () use ($command, $title): Card {
             $this->em->lock($command->project, LockMode::PESSIMISTIC_WRITE);
 

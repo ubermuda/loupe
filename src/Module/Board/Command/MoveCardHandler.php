@@ -36,7 +36,8 @@ final readonly class MoveCardHandler
 
         // Reading a group and renumbering it is read-then-write, so two moves in
         // one project would otherwise interleave into duplicate ranks. Same
-        // PESSIMISTIC_WRITE-on-the-project idiom AddCommentHandler uses.
+        // PESSIMISTIC_WRITE-on-the-project idiom
+        // App\Module\SiteReview\Command\AddCommentHandler uses.
         $this->em->wrapInTransaction(function () use ($command, $card): void {
             $this->em->lock($card->project, LockMode::PESSIMISTIC_WRITE);
 
