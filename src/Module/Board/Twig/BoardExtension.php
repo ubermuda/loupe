@@ -32,6 +32,7 @@ final class BoardExtension extends AbstractExtension
     {
         return [
             new TwigFunction('card_move_form', $this->cardMoveForm(...)),
+            new TwigFunction('safe_pull_request_url', $this->safePullRequestUrl(...)),
         ];
     }
 
@@ -58,5 +59,23 @@ final class BoardExtension extends AbstractExtension
     public function cardBody(string $markdown): string
     {
         return $this->markdown->render($markdown);
+    }
+
+    /**
+     * The URL when it is safe to put in an href, else null.
+     *
+     * A pull request link is kept exactly as it was given, from an agent as
+     * readily as from a person, and escaping does not disarm a scheme: a
+     * `javascript:` link would run on click. Only http and https reach an href,
+     * and everything else is shown as text.
+     */
+    public function safePullRequestUrl(string $url): ?string
+    {
+        $trimmed = trim($url);
+        $scheme = mb_strtolower($trimmed);
+
+        return str_starts_with($scheme, 'http://') || str_starts_with($scheme, 'https://')
+            ? $trimmed
+            : null;
     }
 }

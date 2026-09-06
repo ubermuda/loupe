@@ -3712,6 +3712,14 @@
     .lp-card-pulls__number {
         @apply font-mono font-semibold text-accent-ink;
     }
+    /* A link whose scheme is not http or https is rendered inert, so it keeps
+       the shape of the others without being clickable. */
+    .lp-card-pulls__link--inert {
+        @apply text-fg-mute;
+    }
+    .lp-card-pulls__unsafe {
+        @apply block text-xs text-fg-dim;
+    }
     .lp-card-pulls__url {
         @apply font-mono text-xs break-all text-fg-mute;
     }

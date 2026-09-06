@@ -13,6 +13,7 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 
 final class CardCrudControllerTest extends WebTestCase
@@ -248,5 +249,37 @@ final class CardCrudControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/new');
 
         self::assertResponseStatusCodeSame(404);
+    }
+
+    public function test_a_link_with_an_unsafe_scheme_is_shown_but_never_href(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'card-unsafe-link@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Carries a hostile link');
+        // A link is stored as given by whoever wrote the card, so the render is
+        // the last place that can refuse the scheme.
+        $card->replacePullRequests(
+            new CardPullRequest(card: $card, url: 'javascript:alert(1)'),
+            new CardPullRequest(card: $card, url: 'https://github.com/loupe/loupe/pull/4'),
+        );
+        $em->flush();
+        $cardId = $card->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$cardId);
+
+        self::assertResponseIsSuccessful();
+        $hrefs = $crawler->filter('.lp-card-pulls__item a')->each(
+            static fn (Crawler $node): string => (string) $node->attr('href'),
+        );
+        // Guard: the safe link proves the list rendered at all.
+        self::assertSame(['https://github.com/loupe/loupe/pull/4'], $hrefs);
+        // Shown, not hidden: the reader still sees what the card carries.
+        self::assertStringContainsString('javascript:alert(1)', $crawler->filter('.lp-card-pulls')->text());
     }
 }

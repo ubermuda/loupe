@@ -94,6 +94,16 @@ export default class extends Controller {
             return;
         }
 
+        // A card that leaves its group takes the end of the one it joins,
+        // whatever the pointer is over: the handler re-grades or re-columns it
+        // and appends. Showing an insertion point it will not honour would
+        // promise an order the answer then contradicts.
+        if (group !== this.originGroup) {
+            group.append(this.placeholder);
+
+            return;
+        }
+
         const others = this.otherCardsIn(group);
         const before = others.find((element) => {
             const rectangle = element.getBoundingClientRect();
@@ -150,10 +160,8 @@ export default class extends Controller {
         const wantedStatus = group.dataset.status;
         const wantedPriority = group.dataset.priority;
         const rankable = group.dataset.rankable === '1';
-        const samePlace =
-            status.value === wantedStatus &&
-            (wantedPriority === '' || priority.value === wantedPriority) &&
-            (!rankable || position === this.originIndex);
+        const staysInGroup = group === this.originGroup;
+        const samePlace = staysInGroup && position === this.originIndex;
 
         if (samePlace) {
             return;
@@ -165,7 +173,10 @@ export default class extends Controller {
         if (wantedPriority !== '') {
             priority.value = wantedPriority;
         }
-        rank.value = rankable && position >= 0 ? String(position) : '';
+        // A rank is only sent for a move inside one group. The handler appends
+        // on every other move, so sending one would be a number it discards.
+        rank.value =
+            staysInGroup && rankable && position >= 0 ? String(position) : '';
 
         form.requestSubmit();
     }

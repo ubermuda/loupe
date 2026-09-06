@@ -38,18 +38,28 @@
         {% if card.pullRequests|length > 0 %}
         <ul class="lp-card-pulls__list">
             {% for link in card.pullRequests %}
+            {# The forge, the repository and the number when a parser read them;
+               a URL nothing recognised is shown as it was given. #}
+            {% set linkBody %}
+                {% if link.repository and link.number %}
+                <span class="lp-card-pulls__forge">{{ ('board.card.forge.' ~ link.forge.value)|trans }}</span>
+                <span class="lp-card-pulls__repo">{{ link.repository }}</span>
+                <span class="lp-card-pulls__number">#{{ link.number }}</span>
+                {% else %}
+                <span class="lp-card-pulls__url">{{ link.url }}</span>
+                {% endif %}
+            {% endset %}
             <li class="lp-card-pulls__item">
-                <a href="{{ link.url }}" rel="noopener noreferrer" target="_blank" class="lp-card-pulls__link">
-                    {# The forge, the repository and the number when a parser read
-                       them; a URL nothing recognised is shown as it was given. #}
-                    {% if link.repository and link.number %}
-                    <span class="lp-card-pulls__forge">{{ ('board.card.forge.' ~ link.forge.value)|trans }}</span>
-                    <span class="lp-card-pulls__repo">{{ link.repository }}</span>
-                    <span class="lp-card-pulls__number">#{{ link.number }}</span>
-                    {% else %}
-                    <span class="lp-card-pulls__url">{{ link.url }}</span>
-                    {% endif %}
-                </a>
+                {# A link is stored as given, by an agent as readily as by a
+                   person, and escaping does not disarm a scheme. Only http and
+                   https become an href; anything else stays plain text. #}
+                {% set href = safe_pull_request_url(link.url) %}
+                {% if href %}
+                <a href="{{ href }}" rel="noopener noreferrer" target="_blank" class="lp-card-pulls__link">{{ linkBody }}</a>
+                {% else %}
+                <span class="lp-card-pulls__link lp-card-pulls__link--inert">{{ linkBody }}</span>
+                <span class="lp-card-pulls__unsafe">{{ 'board.card.pull_requests.not_linkable'|trans }}</span>
+                {% endif %}
             </li>
             {% endfor %}
         </ul>

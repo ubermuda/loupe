@@ -4268,6 +4268,10 @@
                 <source>board.card.pull_requests.count</source>
                 <target>{0}no pull requests|{1}one pull request|]1,Inf[ %count% pull requests</target>
             </trans-unit>
+            <trans-unit id="board.card.pull_requests.not_linkable">
+                <source>board.card.pull_requests.not_linkable</source>
+                <target>Not a web address, so it is shown rather than linked.</target>
+            </trans-unit>
             <trans-unit id="board.card.move.open">
                 <source>board.card.move.open</source>
                 <target>Move</target>
