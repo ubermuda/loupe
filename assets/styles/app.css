@@ -1216,16 +1216,17 @@
 
     /* The 972px review block: a 640px reading column, a 36px gutter, and a
        296px comment column. Centred, and the offset parent the comment stack
-       and the floating panels are positioned against. */
+       and the floating panels are positioned against. Below lg the 972px is a
+       ceiling rather than a width, so the reading column fills a phone. */
     .lp-review-block {
-        @apply relative w-243 mx-auto pt-13 pb-30;
+        @apply relative w-full max-w-243 mx-auto px-5 pt-13 pb-30 lg:px-0;
     }
 
     /* ── Document pane ──────────────────────────────────────────────────
        The reading column. position:relative so the composer and toolbar
        position against it. Plain prose — no card, no line numbers. */
     .lp-review-doc {
-        @apply relative w-160;
+        @apply relative w-full max-w-160;
     }
     .lp-review-doc__head {
         @apply flex flex-col gap-2.5 mb-9;
@@ -1234,11 +1235,31 @@
         @apply font-display font-extrabold text-ink m-0 text-4xl tracking-tight leading-tight;
     }
 
-    /* The comment column. Absolutely positioned, and every card inside it is
-       too: a paragraph carrying five comments has to be exactly as tall as one
-       carrying none, which it cannot be if the cards are in flow. */
+    /* The comment column, from lg up. Absolutely positioned, and every card
+       inside it is too: a paragraph carrying five comments has to be exactly as
+       tall as one carrying none, which it cannot be if the cards are in flow.
+       Below lg there is no gutter to hold it, so comment_anchor_controller moves
+       each card into the prose and only unplaceable ones stay here. */
     .lp-review-margin {
-        @apply absolute left-169 top-0 w-74;
+        @apply flex flex-col gap-3 w-full lg:block lg:absolute lg:left-169 lg:top-0 lg:w-74;
+    }
+    .lp-review-margin > .lp-comment-thread:last-child {
+        @apply mb-9 lg:mb-0;
+    }
+
+    /* Holds the cards for one paragraph below lg, in normal flow right after it.
+       The type reset undoes .lp-review-doc__prose, which the slot sits inside;
+       the typography plugin's own `not-prose` rides beside this class. The
+       clearance rides on the cards, so a slot whose every card is a hidden
+       resolved one leaves no gap in the prose. */
+    .lp-review-inline-threads {
+        @apply flex flex-col gap-3 text-sm leading-normal text-fg;
+    }
+    .lp-review-inline-threads > .lp-comment-thread:first-child {
+        @apply mt-6;
+    }
+    .lp-review-inline-threads > .lp-comment-thread:last-child {
+        @apply mb-6;
     }
 
     .lp-version-pill {
@@ -1258,8 +1279,15 @@
     .lp-doc-meta-bar {
         @apply sticky top-0 z-10 bg-app;
     }
+    /* Scrolls rather than wraps below the reading column's own width: the tabs
+       are one row by design, and a wrapped row would move the prose down by a
+       line on every narrow screen. */
     .lp-doc-meta {
-        @apply flex items-center gap-1 py-1.5 border-y border-line;
+        @apply flex items-center gap-1 py-1.5 border-y border-line overflow-x-auto whitespace-nowrap;
+        scrollbar-width: none;
+    }
+    .lp-doc-meta::-webkit-scrollbar {
+        display: none;
     }
     .lp-doc-meta__tab {
         @apply inline-flex items-center gap-2 h-8.5 px-3.5 rounded-lg bg-transparent border-0 cursor-pointer text-sm font-semibold text-ink transition-colors;
@@ -1302,15 +1330,16 @@
        "Add general comment" plus the hint that select-to-comment exists, with
        the resolved toggle pushed out over the comment column. */
     .lp-review-actions {
-        @apply flex items-center gap-3 mb-5.5;
+        @apply flex flex-wrap items-center gap-x-3 gap-y-2 mb-5.5;
     }
     .lp-review-actions__hint {
         @apply text-sm text-fg-mute;
     }
-    /* Sits above the comment column rather than the reading column, so it reads
-       as a control on the comments and not on the prose. */
+    /* From lg up it sits above the comment column rather than the reading
+       column, so it reads as a control on the comments and not on the prose.
+       Below lg there is no such column, so it ends the action row instead. */
     .lp-review-actions__resolved {
-        @apply absolute left-169 whitespace-nowrap bg-transparent border-0 p-0 cursor-pointer text-sm text-fg-mute transition-colors;
+        @apply ml-auto whitespace-nowrap bg-transparent border-0 p-0 cursor-pointer text-sm text-fg-mute transition-colors lg:absolute lg:left-169 lg:ml-0;
     }
     .lp-review-actions__resolved:hover {
         @apply text-ink;
@@ -1563,7 +1592,7 @@
     /* Long-form reading type: 18px on a 32px line, in the faintly cool prose ink
        rather than the warm UI ink. The measure is fixed by .lp-review-doc. */
     .lp-review-doc__prose {
-        @apply mt-0 max-w-none text-lg leading-8 text-prose;
+        @apply mt-0 max-w-none text-lg leading-8 text-prose break-words;
     }
     /* The paper scrolls, not this pane, so a jump from the contents or decisions
        panel would otherwise land its target under the sticky metadata bar. */
@@ -1686,7 +1715,7 @@
        Shown on text selection: a dark pill floating above the selection with
        the selection-toolbar shadow. */
     .lp-anchor-toolbar {
-        @apply absolute z-20 flex items-center gap-1 p-1.5 rounded-xl bg-chrome shadow-toolbar;
+        @apply absolute z-20 flex flex-wrap items-center gap-1 max-w-full p-1.5 rounded-xl bg-chrome shadow-toolbar;
         animation: lp-appear 120ms ease-out both;
     }
     .lp-anchor-toolbar__btn {
@@ -1705,9 +1734,9 @@
     }
 
     /* Standing error region for a strike, which posts with no composer open.
-       Fixed rather than absolute: .lp-review-doc is the internal scroll container,
-       so an absolutely-positioned child sits in scrolled content space and would
-       render above the viewport for a reviewer working further down the page. */
+       Fixed rather than absolute: .lp-main scrolls, so an absolutely-positioned
+       child sits in scrolled content space and would render above the viewport
+       for a reviewer working further down the page. */
     .lp-review-action-error {
         @apply fixed bottom-6 left-1/2 z-30 m-0 rounded-lg border border-line bg-elev shadow-composer py-2 px-3 text-xs text-danger;
         transform: translateX(-50%);
@@ -1720,7 +1749,7 @@
        A 340px white card anchored at the selection. Shows the quoted selection
        (targeted) or a "General comment" label (untargeted). */
     .lp-comment-composer {
-        @apply absolute z-20 bg-app border-0 rounded-xl shadow-composer p-4 flex flex-col gap-3 w-90;
+        @apply absolute z-20 bg-app border-0 rounded-xl shadow-composer p-4 flex flex-col gap-3 w-full max-w-90;
         animation: lp-appear 120ms ease-out both;
     }
     /* The `flex`/`display` in the rules above outranks the UA `[hidden]` rule
@@ -1782,11 +1811,12 @@
     }
 
     /* ── Comment thread card ───────────────────────────────────────────
-       Absolutely positioned inside .lp-review-margin; comment_anchor_controller
-       sets each card's `top` so it sits level with the passage it is anchored
-       to. Cards never move on hover — only the ring and shadow appear. */
+       Absolutely positioned inside .lp-review-margin from lg up, with its `top`
+       set by comment_anchor_controller so it sits level with its passage. Below
+       lg it is in normal flow, inside the slot the controller opens after that
+       passage's block. Cards never move on hover — only the ring appears. */
     .lp-comment-thread {
-        @apply absolute left-0 right-0 flex flex-col gap-3 rounded-xl bg-surface-3 py-3.5 px-4 transition-shadow;
+        @apply static lg:absolute left-0 right-0 flex flex-col gap-3 rounded-xl bg-surface-3 py-3.5 px-4 transition-shadow;
     }
     .lp-comment-thread:hover,
     .lp-comment-thread--active {
@@ -2052,9 +2082,9 @@
     .lp-shell {
         @apply flex flex-1 flex-col min-w-0 pr-2.5 pb-2.5;
     }
-    /* overflow-x is auto, not hidden: the review block is a fixed 972px and a
-       narrow window must be able to scroll to the comment column rather than
-       have it clipped away where nothing can reach it. */
+    /* overflow-x is auto, not hidden: from lg up the review block is 972px, and
+       a window narrower than that must be able to scroll to the comment column
+       rather than have it clipped away where nothing can reach it. */
     .lp-main {
         @apply flex-1 min-h-0 bg-app rounded-lg overflow-x-auto overflow-y-auto;
     }
@@ -3096,8 +3126,16 @@
     .lp-landing-mock__toolbar {
         @apply left-0 top-76;
     }
+    /* The still is a fixed-width frame, so its review geometry answers to the
+       frame and never to the viewport. */
+    .lp-landing-mock .lp-review-block {
+        @apply w-243 px-0;
+    }
     .lp-landing-mock__margin {
-        @apply top-72;
+        @apply block absolute left-169 top-72 w-74;
+    }
+    .lp-landing-mock .lp-comment-thread {
+        @apply absolute;
     }
     .lp-landing-mock__reply {
         @apply mt-7;
@@ -3744,10 +3782,17 @@
     .lp-btn,
     .lp-code-dark__copy,
     .lp-flash__dismiss,
+    .lp-anchor-toolbar__btn,
     .auth-forgot,
     .auth-footer__link,
     .lp-landing-footer__link {
         @apply inline-flex items-center justify-center min-h-11 min-w-11;
+    }
+
+    /* No keyboard to press it, and the width it costs is the width the three
+       buttons need on a phone. */
+    .lp-anchor-toolbar__key {
+        @apply hidden;
     }
 
     /* Padding, not display or min-width: this link is `hidden sm:inline`, so a

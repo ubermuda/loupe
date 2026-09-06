@@ -24,7 +24,9 @@ import {
  * Display: each existing thread's anchor is highlighted in the document (CSS
  * Custom Highlight API — no DOM mutation, so `textContent` stays intact) and the
  * thread card is positioned vertically near its anchor. Positioning degrades to
- * normal document flow on any failure.
+ * normal document flow on any failure. Where the stylesheet gives the page no
+ * comment column, the cards move into the prose instead, into slots the text
+ * passes skip so the anchor basis is unchanged.
  *
  * Three actions share that one captured selection. Comment and Suggest open a
  * composer; Strike submits a hidden form outright, which is what lets it also be
@@ -146,6 +148,15 @@ export default class extends Controller {
     // follows them across documents.
     static HIDE_RESOLVED_KEY = 'loupe:review:hide-resolved';
 
+    // Wraps the cards for one paragraph where the margin column is not
+    // available. The class is also what the text passes skip, so a card's own
+    // words never enter the anchor basis.
+    static INLINE_SLOT_CLASS = 'lp-review-inline-threads';
+
+    // A touch selection settles over several selectionchange events as the
+    // handles are dragged, so the toolbar waits for the last of them.
+    static SELECTION_SETTLE_MS = 250;
+
     connect() {
         this.transport = this.demoValue
             ? new DemoTransport(this)
@@ -154,6 +165,9 @@ export default class extends Controller {
         this.strikeInFlight = false;
         this.hoveredThread = null;
         this.hoverProbeScheduled = false;
+        this.docTextCache = null;
+        this.pointerDown = false;
+        this.selectionSettle = null;
         this.#restoreHideResolved();
         this.#hideToolbar();
         this.#hideComposer();
@@ -185,6 +199,30 @@ export default class extends Controller {
         this.onKeydown = (event) => this.#onKeydown(event);
         document.addEventListener('keydown', this.onKeydown);
 
+        // A touch selection raises no mouseup, so selectionchange carries the
+        // touch path. Only a mouse arms the guard below, and a touch that becomes
+        // a scroll or a long press ends in pointercancel rather than pointerup.
+        this.onPointerDown = (event) => {
+            this.pointerDown = event.pointerType === 'mouse';
+        };
+        this.onPointerUp = () => {
+            this.pointerDown = false;
+        };
+        this.onSelectionChange = () => this.#scheduleSelectionCapture();
+        document.addEventListener('pointerdown', this.onPointerDown, true);
+        document.addEventListener('pointerup', this.onPointerUp, true);
+        document.addEventListener('pointercancel', this.onPointerUp, true);
+        document.addEventListener('selectionchange', this.onSelectionChange);
+
+        // A stream replaces #comment-threads, which no longer holds the cards
+        // moved into the prose. Returning them first is what stops the swap
+        // leaving a stale copy of every one of them behind.
+        this.onBeforeStreamRender = () => this.#collectInlineThreads();
+        document.addEventListener(
+            'turbo:before-stream-render',
+            this.onBeforeStreamRender,
+        );
+
         // Re-measure once layout settles (connect() fires before layout during
         // Turbo navigation, when getBoundingClientRect would read zeros).
         this.resizeObserver = new ResizeObserver(() => this.#scheduleLayout());
@@ -206,6 +244,17 @@ export default class extends Controller {
     disconnect() {
         window.removeEventListener('resize', this.onResize);
         document.removeEventListener('keydown', this.onKeydown);
+        document.removeEventListener('pointerdown', this.onPointerDown, true);
+        document.removeEventListener('pointerup', this.onPointerUp, true);
+        document.removeEventListener('pointercancel', this.onPointerUp, true);
+        document.removeEventListener('selectionchange', this.onSelectionChange);
+        document.removeEventListener(
+            'turbo:before-stream-render',
+            this.onBeforeStreamRender,
+        );
+        if (this.selectionSettle !== null) {
+            clearTimeout(this.selectionSettle);
+        }
         this.resizeObserver?.disconnect();
         this.threadObserver?.disconnect();
         if (this.scheduledLayout !== null) {
@@ -255,10 +304,55 @@ export default class extends Controller {
             return;
         }
 
+        if (!this.#captureSelection(range)) {
+            this.#clearPendingSelection();
+        }
+    }
+
+    /**
+     * The touch path's own trigger. A finger lift raises no mouseup, and the
+     * mouse path must not run twice, so this takes every other pointer type.
+     */
+    onDocPointerup(event) {
+        if (event.pointerType === 'mouse') {
+            return;
+        }
+        this.onDocMouseup(event);
+    }
+
+    /**
+     * A tap has no hover to give, so it stands in for one: tapping a highlighted
+     * passage rings its card and tints the passage. A tap on bare prose drops the
+     * pairing, which is how a reader lets one go.
+     *
+     * It does not scroll to the card. The card is already beside the passage in
+     * the margin, or directly under it in the prose, and a scroll would move the
+     * passage out from under the finger that named it.
+     */
+    onDocClick(event) {
+        if (
+            event.target.closest?.(
+                '.lp-comment-thread, .lp-anchor-toolbar, .lp-comment-composer',
+            )
+        ) {
+            return;
+        }
+        const selection = window.getSelection();
+        if (selection !== null && !selection.isCollapsed) {
+            return;
+        }
+        try {
+            this.#probeAnchorAt(event.clientX, event.clientY);
+        } catch {
+            this.#clearAnchorHover();
+        }
+    }
+
+    /** Captures the anchor for a settled selection. False when it yields none. */
+    #captureSelection(range) {
         const anchor = this.#extractAnchor(range);
         if (anchor === null) {
-            this.#clearPendingSelection();
-            return;
+            return false;
         }
 
         this.pendingSelection = { ...anchor, range: range.cloneRange() };
@@ -266,6 +360,54 @@ export default class extends Controller {
             this.#showActionError('');
         }
         this.#showToolbarNear(range);
+
+        return true;
+    }
+
+    #scheduleSelectionCapture() {
+        if (this.selectionSettle !== null) {
+            clearTimeout(this.selectionSettle);
+        }
+        this.selectionSettle = window.setTimeout(() => {
+            this.selectionSettle = null;
+            this.#captureSettledSelection();
+        }, this.constructor.SELECTION_SETTLE_MS);
+    }
+
+    /**
+     * Never clears anything, unlike the mouse path: this also fires when the
+     * reader clicks into the composer, and the capture it would drop is the one
+     * the composer is about to submit. Skipped mid-drag, so a mouse selection
+     * still raises the toolbar once, when the drag ends.
+     */
+    #captureSettledSelection() {
+        if (
+            this.pointerDown ||
+            this.#demoUnavailable() ||
+            this.#composerOpen()
+        ) {
+            return;
+        }
+
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+            return;
+        }
+
+        const range = selection.getRangeAt(0);
+        if (!this.docTarget.contains(range.commonAncestorContainer)) {
+            return;
+        }
+
+        this.#captureSelection(range);
+    }
+
+    #composerOpen() {
+        return (
+            (this.hasComposerTarget && !this.composerTarget.hidden) ||
+            (this.hasSuggestComposerTarget &&
+                !this.suggestComposerTarget.hidden)
+        );
     }
 
     // Read at interaction time, not connect(): a resize or a rotation must
@@ -589,13 +731,22 @@ export default class extends Controller {
             return this.#extractDiffAnchor(range);
         }
 
+        // A drag that ends on an inlined card has no offset in the document
+        // text, and the walkers below would give it the end of the document.
+        if (
+            this.#insideInlineSlot(range.startContainer) ||
+            this.#insideInlineSlot(range.endContainer)
+        ) {
+            return null;
+        }
+
         const start = this.#textOffset(range.startContainer, range.startOffset);
         const end = this.#textOffset(range.endContainer, range.endOffset);
         if (end <= start) {
             return null;
         }
 
-        const fullText = this.docTarget.textContent;
+        const fullText = this.#docText();
 
         return {
             quote: fullText.slice(start, end),
@@ -809,11 +960,7 @@ export default class extends Controller {
 
     /** Every text node of the diff pane, in document order. */
     *#diffTextNodes() {
-        const walker = document.createTreeWalker(
-            this.docTarget,
-            NodeFilter.SHOW_TEXT,
-            null,
-        );
+        const walker = this.#textWalker();
         for (
             let node = walker.nextNode();
             node !== null;
@@ -877,16 +1024,19 @@ export default class extends Controller {
         if (targetNode.nodeType === Node.ELEMENT_NODE) {
             const childrenBefore = [...targetNode.childNodes]
                 .slice(0, offsetInNode)
-                .reduce((total, child) => total + child.textContent.length, 0);
+                .reduce(
+                    (total, child) =>
+                        total +
+                        (this.#isInlineSlot(child)
+                            ? 0
+                            : child.textContent.length),
+                    0,
+                );
 
             return this.#elementStartOffset(targetNode) + childrenBefore;
         }
 
-        const walker = document.createTreeWalker(
-            this.docTarget,
-            NodeFilter.SHOW_TEXT,
-            null,
-        );
+        const walker = this.#textWalker();
         let offset = 0;
         let node = walker.nextNode();
         while (node !== null) {
@@ -901,11 +1051,7 @@ export default class extends Controller {
 
     /** Character offset at which an element's own text begins. */
     #elementStartOffset(element) {
-        const walker = document.createTreeWalker(
-            this.docTarget,
-            NodeFilter.SHOW_TEXT,
-            null,
-        );
+        const walker = this.#textWalker();
         let offset = 0;
         let node = walker.nextNode();
         while (node !== null) {
@@ -921,6 +1067,57 @@ export default class extends Controller {
             node = walker.nextNode();
         }
         return offset;
+    }
+
+    #isInlineSlot(node) {
+        return (
+            node.nodeType === Node.ELEMENT_NODE &&
+            node.classList.contains(this.constructor.INLINE_SLOT_CLASS)
+        );
+    }
+
+    #insideInlineSlot(node) {
+        const element =
+            node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+
+        return (
+            element !== null &&
+            element.closest(`.${this.constructor.INLINE_SLOT_CLASS}`) !== null
+        );
+    }
+
+    /**
+     * Every text node of the document pane, skipping the cards moved into it.
+     * The anchor basis has to stay identical to the server's plain text, which
+     * knows nothing about a comment card sitting between two paragraphs.
+     */
+    #textWalker() {
+        return document.createTreeWalker(this.docTarget, NodeFilter.SHOW_TEXT, {
+            acceptNode: (node) =>
+                this.#insideInlineSlot(node)
+                    ? NodeFilter.FILTER_REJECT
+                    : NodeFilter.FILTER_ACCEPT,
+        });
+    }
+
+    /** The pane's text on that same basis. Rebuilt once per layout pass. */
+    #docText() {
+        if (this.docTextCache !== null) {
+            return this.docTextCache;
+        }
+
+        let text = '';
+        const walker = this.#textWalker();
+        for (
+            let node = walker.nextNode();
+            node !== null;
+            node = walker.nextNode()
+        ) {
+            text += node.data;
+        }
+        this.docTextCache = text;
+
+        return this.docTextCache;
     }
 
     /**
@@ -939,12 +1136,7 @@ export default class extends Controller {
             return this.#findDiffRange(quote, prefix, suffix);
         }
 
-        const start = bestQuoteStart(
-            this.docTarget.textContent,
-            quote,
-            prefix,
-            suffix,
-        );
+        const start = bestQuoteStart(this.#docText(), quote, prefix, suffix);
         if (start === null) {
             return null;
         }
@@ -954,11 +1146,7 @@ export default class extends Controller {
 
     /** Maps a [start, end) span of the doc's textContent to a DOM Range. */
     #rangeForTextSpan(start, end) {
-        const walker = document.createTreeWalker(
-            this.docTarget,
-            NodeFilter.SHOW_TEXT,
-            null,
-        );
+        const walker = this.#textWalker();
         const range = document.createRange();
         let offset = 0;
         let startSet = false;
@@ -1171,6 +1359,7 @@ export default class extends Controller {
     // from different elements, so one unlocatable comment quote must not take
     // every agent mark on the page down with it, nor leave every card unplaced.
     #layout() {
+        this.docTextCache = null;
         // Locating a quote means an indexOf sweep of the whole document plus a
         // TreeWalker, so every pass below shares one map rather than each
         // re-locating the same anchors. The pointer probe reads it too, which is
@@ -1201,7 +1390,12 @@ export default class extends Controller {
             this.agentHighlight?.clear();
         }
         try {
-            this.#positionThreads();
+            if (this.#threadsInMargin()) {
+                this.#collectInlineThreads();
+                this.#positionThreads();
+            } else {
+                this.#inlineThreads();
+            }
         } catch {
             this.#releaseThreads();
         }
@@ -1209,6 +1403,139 @@ export default class extends Controller {
         // resolves or deletes a thread reaches the controller only through this
         // path.
         this.#syncResolvedToggle();
+    }
+
+    /**
+     * Whether a comment column exists to place the cards in.
+     *
+     * Read off the margin's own computed position rather than a pixel width
+     * repeated here: the stylesheet is where the breakpoint is written down, and
+     * a second copy of it in JavaScript is a copy that goes stale.
+     */
+    #threadsInMargin() {
+        if (!this.hasMarginTarget) {
+            return true;
+        }
+
+        return getComputedStyle(this.marginTarget).position === 'absolute';
+    }
+
+    /**
+     * Places each card in normal flow, in a slot opened after the block its
+     * passage starts in. This is the layout below the margin's breakpoint, where
+     * there is no gutter beside the prose to hold a column of cards.
+     *
+     * Every move is conditional. The thread observer watches the controller root
+     * for childList changes, so a pass that re-appended a card already in place
+     * would schedule the next layout and never settle.
+     */
+    #inlineThreads() {
+        if (!this.hasMarginTarget) {
+            return;
+        }
+        if (this.hasBlockTarget) {
+            this.blockTarget.style.minHeight = '';
+        }
+
+        const grouped = new Map();
+        for (const thread of this.threadTargets) {
+            if (thread.dataset.commentGeneral === 'true') {
+                continue;
+            }
+            const range = this.anchorRanges.get(thread);
+            if (range === undefined) {
+                continue;
+            }
+            const host = this.#inlineHost(range);
+            if (host === null) {
+                continue;
+            }
+            thread.style.top = '';
+            thread.style.position = '';
+            const group = grouped.get(host);
+            if (group === undefined) {
+                grouped.set(host, [thread]);
+            } else {
+                group.push(thread);
+            }
+        }
+
+        for (const [host, threads] of grouped) {
+            const slot = this.#inlineSlotAfter(host);
+            let previous = null;
+            for (const thread of threads) {
+                const wanted =
+                    previous === null ? slot.firstChild : previous.nextSibling;
+                if (wanted !== thread) {
+                    slot.insertBefore(thread, wanted);
+                }
+                previous = thread;
+            }
+        }
+
+        this.#pruneInlineSlots();
+    }
+
+    /** The block element the passage starts in, or null when it is not one. */
+    #inlineHost(range) {
+        let node = range.startContainer;
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+            node = node.parentElement;
+        }
+        while (
+            node !== null &&
+            node !== this.docTarget &&
+            node.parentElement !== this.docTarget
+        ) {
+            node = node.parentElement;
+        }
+
+        return node === null || node === this.docTarget ? null : node;
+    }
+
+    #inlineSlotAfter(host) {
+        const next = host.nextElementSibling;
+        if (
+            next !== null &&
+            next.classList.contains(this.constructor.INLINE_SLOT_CLASS)
+        ) {
+            return next;
+        }
+
+        const slot = document.createElement('div');
+        // not-prose is the typography plugin's own opt-out, and the slot needs
+        // it because it sits inside the rendered prose.
+        slot.className = `${this.constructor.INLINE_SLOT_CLASS} not-prose`;
+        host.after(slot);
+
+        return slot;
+    }
+
+    #pruneInlineSlots() {
+        for (const slot of this.#inlineSlots()) {
+            if (slot.querySelector('.lp-comment-thread') === null) {
+                slot.remove();
+            }
+        }
+    }
+
+    /** Returns every inlined card to the margin and closes the slots. */
+    #collectInlineThreads() {
+        if (!this.hasMarginTarget) {
+            return;
+        }
+        for (const slot of this.#inlineSlots()) {
+            for (const thread of [...slot.children]) {
+                this.marginTarget.append(thread);
+            }
+            slot.remove();
+        }
+    }
+
+    #inlineSlots() {
+        return this.element.querySelectorAll(
+            `.${this.constructor.INLINE_SLOT_CLASS}`,
+        );
     }
 
     /**
@@ -1405,9 +1732,10 @@ export default class extends Controller {
      * the comment anchors use.
      *
      * The marks are carried by empty elements outside the doc pane rather than by
-     * wrapping the passages themselves: the pane's textContent has to stay
+     * wrapping the passages themselves: the pane's text has to stay
      * byte-identical to the server's plain-text basis, and any element inserted
-     * into it would shift every anchor offset after it.
+     * into it would shift every anchor offset after it. The inline thread slots
+     * are the one exception, and #textWalker skips them for that reason.
      */
     #highlightAgentMarks() {
         if (!this.agentHighlight) {
