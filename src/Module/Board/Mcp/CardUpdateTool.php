@@ -9,7 +9,7 @@ use App\Mcp\FlagGatedToolInterface;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Install\BoardInstallFlags;
-use App\Module\Board\Security\CardVoter;
+use App\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
@@ -69,7 +69,7 @@ final readonly class CardUpdateTool implements FlagGatedToolInterface
         $this->gate->requireEnabled();
 
         try {
-            $card = $this->subjects->requireCard($cardId, CardVoter::WRITE);
+            $card = $this->subjects->requireCard($cardId, McpBoundProjectVoter::CARD_WRITE);
 
             $card = ($this->updateCard)(new UpdateCardCommand(
                 card: $card,

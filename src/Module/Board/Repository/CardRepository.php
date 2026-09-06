@@ -11,7 +11,6 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
-use Symfony\Component\Uid\Uuid;
 
 /**
  * @extends ServiceEntityRepository<Card>
@@ -21,15 +20,6 @@ class CardRepository extends ServiceEntityRepository
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Card::class);
-    }
-
-    /**
-     * Scoped to the project rather than looked up by id alone, so a caller
-     * holding an id from another project reads nothing.
-     */
-    public function findOneByIdAndProject(Uuid $id, Project $project): ?Card
-    {
-        return $this->findOneBy(['id' => $id, 'project' => $project]);
     }
 
     /**

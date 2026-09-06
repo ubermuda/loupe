@@ -8,7 +8,7 @@ use App\Module\SiteReview\Command\MarkSiteReviewCommentAddressedOutcome;
 use App\Module\SiteReview\Command\MarkSiteReviewCommentsAddressedCommand;
 use App\Module\SiteReview\Command\MarkSiteReviewCommentsAddressedHandler;
 use App\Module\SiteReview\Entity\SiteReviewComment;
-use App\Module\SiteReview\Security\SiteReviewMcpBoundProjectVoter;
+use App\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 use Symfony\Component\Uid\Uuid;
@@ -72,7 +72,7 @@ final readonly class SiteReviewMarkCommentAddressedTool
                     continue;
                 }
 
-                $comment = $this->subjects->findComment($uuid, SiteReviewMcpBoundProjectVoter::WRITE);
+                $comment = $this->subjects->findComment($uuid, McpBoundProjectVoter::SITE_REVIEW_WRITE);
                 if (null === $comment) {
                     $plan[] = ['id' => $id, 'reason' => 'unknown'];
                     continue;

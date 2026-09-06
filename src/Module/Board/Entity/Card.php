@@ -6,6 +6,7 @@ namespace App\Module\Board\Entity;
 
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
+use App\Security\ProjectScopedSubject;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
@@ -18,7 +19,7 @@ use Symfony\Component\Uid\Uuid;
 // read query filters on project and status, then sorts by priority and position.
 #[ORM\Index(name: 'idx_board_cards_board_order', columns: ['project_id', 'status', 'priority', 'position'])]
 #[ORM\Table(name: 'board_cards')]
-class Card
+class Card implements ProjectScopedSubject
 {
     /** Mirrors the title column's length so callers can reject an over-long title before Postgres does. */
     public const int MAX_TITLE_LENGTH = 255;
@@ -85,5 +86,17 @@ class Card
         foreach ($links as $link) {
             $this->pullRequests->add($link);
         }
+    }
+
+    #[\Override]
+    public function scopedProject(): Project
+    {
+        return $this->project;
+    }
+
+    #[\Override]
+    public function scopedSubjectType(): string
+    {
+        return 'card';
     }
 }

@@ -6,7 +6,7 @@ namespace App\Module\Board\Mcp;
 
 use App\Mcp\FlagGatedToolInterface;
 use App\Module\Board\Install\BoardInstallFlags;
-use App\Module\Board\Security\CardVoter;
+use App\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
@@ -49,7 +49,7 @@ final readonly class CardGetTool implements FlagGatedToolInterface
         $this->gate->requireEnabled();
 
         try {
-            return $this->payload->forCard($this->subjects->requireCard($cardId, CardVoter::VIEW));
+            return $this->payload->forCard($this->subjects->requireCard($cardId, McpBoundProjectVoter::CARD_READ));
         } catch (ToolCallException $e) {
             throw $e;
         } catch (\Throwable $e) {

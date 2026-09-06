@@ -11,9 +11,9 @@ use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Security\CardVoter;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
+use App\Security\McpBoundProjectVoter;
 use Mcp\Exception\ToolCallException;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Component\Uid\Uuid;
@@ -21,10 +21,12 @@ use Symfony\Component\Uid\Uuid;
 /**
  * Resolves the cards and the enum arguments an MCP tool call may act on.
  *
- * The lookup is scoped to the project the authenticating token is bound to,
- * which is a different question from the one CardVoter answers: the token
- * authenticates as the project owner, so an ownership check alone would let a
- * token bound to one of a user's projects reach cards in another.
+ * A card is looked up by id alone and scoped by McpBoundProjectVoter, which is
+ * a different question from the one CardVoter answers: the token authenticates
+ * as the project owner, so an ownership check alone would let a token bound to
+ * one of a user's projects reach cards in another. The voter also writes the
+ * audit record a refusal leaves, which a project-scoped query cannot, because
+ * it returns nothing and the vote never runs.
  */
 final readonly class BoardSubjectResolver
 {
@@ -42,14 +44,14 @@ final readonly class BoardSubjectResolver
         return $this->requireBoundProject($this->projectResolver);
     }
 
-    /** @param CardVoter::VIEW|CardVoter::WRITE $attribute */
+    /** @param McpBoundProjectVoter::CARD_READ|McpBoundProjectVoter::CARD_WRITE $attribute */
     public function requireCard(string $cardId, string $attribute): Card
     {
         // An unbound token is a setup mistake with its own fix, so it is
         // reported before the scope check turns it into "not accessible".
-        $project = $this->requireBoundProject($this->projectResolver);
+        $this->requireBoundProject($this->projectResolver);
 
-        $card = $this->cards->findOneByIdAndProject($this->parseId($cardId), $project);
+        $card = $this->cards->find($this->parseId($cardId));
 
         if (null === $card || !$this->authorization->isGranted($attribute, $card)) {
             // Deliberately identical for "does not exist" and "belongs to
