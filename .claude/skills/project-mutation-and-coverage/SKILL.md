@@ -84,10 +84,13 @@ follows the summary. The HTML tree downloads as about 7.7 MB and expands to
 about 87 MB, so fetch it only when you need a per-file breakdown.
 
 A run with no artifact means the job failed before it wrote one. It does not mean
-zero coverage, and it does not mean the upload step is missing. `just
-e2e-coverage` writes its report in a `phpcov merge` at the very end, so a suite
-that fails takes the whole artifact with it, and `if-no-files-found: warn`
-uploads nothing without failing the step. Read the job log instead.
+zero coverage, and it does not mean the upload step is missing. Read the job log.
+
+A red run on its own still produces a report. `just e2e-coverage` runs its
+`phpcov merge` before the exit check, deliberately, so a suite that loses a spec
+still yields coverage for the specs that passed, and the run still reads as red.
+So a missing artifact means the job died earlier than the merge: an app it could
+not reach, a stylesheet build that failed, a container that never came up.
 
 `infection.log` is about 380 KB and holds four sections: `Escaped mutants:`,
 `Timed Out mutants:`, `Skipped mutants:` and `Not Covered mutants:`. An escaped
