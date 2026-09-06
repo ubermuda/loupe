@@ -156,9 +156,9 @@ final class ProjectsPageTest extends WebTestCase
         $owner = $this->user($em, 'projects-cards@example.com');
         $project = new Project($owner, 'cards');
         $em->persist($project);
-        $em->persist(new Card(project: $project, title: 'Open one', body: ''));
-        $em->persist(new Card(project: $project, title: 'Open two', body: ''));
-        $em->persist(new Card(project: $project, title: 'Finished', body: '', status: CardStatus::Done));
+        $em->persist(new Card(project: $project, title: 'Open one', body: '', number: 1));
+        $em->persist(new Card(project: $project, title: 'Open two', body: '', number: 2));
+        $em->persist(new Card(project: $project, title: 'Finished', body: '', number: 3, status: CardStatus::Done));
 
         $flags = static::getContainer()->get(FeatureFlagRepository::class);
         self::assertInstanceOf(FeatureFlagRepository::class, $flags);

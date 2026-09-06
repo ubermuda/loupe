@@ -74,7 +74,7 @@ final class BoardAccountDeletionTest extends KernelTestCase
         $project = new Project($owner, 'board-purge-'.uniqid());
         $em->persist($project);
 
-        $card = new Card(project: $project, title: 'Ship it', body: 'Body');
+        $card = new Card(project: $project, title: 'Ship it', body: 'Body', number: 1);
         $card->pullRequests->add(new CardPullRequest($card, 'https://github.com/ubermuda/loupe/pull/1', Forge::GitHub, 'ubermuda/loupe', 1));
         $em->persist($card);
 

@@ -58,6 +58,7 @@ final class CardExporterTest extends KernelTestCase
             project: $project,
             title: 'Rotate the signing key',
             body: 'The key is a year old.',
+            number: 1,
             type: CardType::Bug,
             priority: CardPriority::High,
             status: CardStatus::Done,
@@ -117,8 +118,8 @@ final class CardExporterTest extends KernelTestCase
         $theirs = new Project($stranger, 'theirs-'.uniqid());
         $this->em->persist($mine);
         $this->em->persist($theirs);
-        $this->em->persist(new Card(project: $mine, title: 'Mine', body: ''));
-        $this->em->persist(new Card(project: $theirs, title: 'Theirs', body: ''));
+        $this->em->persist(new Card(project: $mine, title: 'Mine', body: '', number: 1));
+        $this->em->persist(new Card(project: $theirs, title: 'Theirs', body: '', number: 1));
         $this->em->flush();
         $this->em->clear();
 

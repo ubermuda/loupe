@@ -47,11 +47,11 @@ final class CardProjectStatsProviderTest extends KernelTestCase
     {
         $this->enableBoard();
         $finished = $this->makeProject('stats-done');
-        $this->em->persist(new Card(project: $finished, title: 'Shipped', body: '', status: CardStatus::Done));
+        $this->em->persist(new Card(project: $finished, title: 'Shipped', body: '', number: 1, status: CardStatus::Done));
         // A sibling with one open card, so the absence below cannot pass on a
         // provider that reported nothing at all.
         $busy = $this->makeProject('stats-still-going');
-        $this->em->persist(new Card(project: $busy, title: 'Underway', body: ''));
+        $this->em->persist(new Card(project: $busy, title: 'Underway', body: '', number: 1));
         $this->em->flush();
 
         $stats = $this->provider->statsFor([$finished, $busy]);
@@ -65,8 +65,8 @@ final class CardProjectStatsProviderTest extends KernelTestCase
         $this->enableBoard();
         $busy = $this->makeProject('stats-busy');
         $quiet = $this->makeProject('stats-quiet');
-        $this->em->persist(new Card(project: $busy, title: 'One', body: ''));
-        $this->em->persist(new Card(project: $busy, title: 'Two', body: ''));
+        $this->em->persist(new Card(project: $busy, title: 'One', body: '', number: 1));
+        $this->em->persist(new Card(project: $busy, title: 'Two', body: '', number: 2));
         $this->em->flush();
 
         $stats = $this->provider->statsFor([$busy, $quiet]);
@@ -88,8 +88,8 @@ final class CardProjectStatsProviderTest extends KernelTestCase
 
     private function seedOnePerStatus(Project $project): void
     {
-        foreach (CardStatus::cases() as $status) {
-            $this->em->persist(new Card(project: $project, title: $status->value, body: '', status: $status));
+        foreach (CardStatus::cases() as $index => $status) {
+            $this->em->persist(new Card(project: $project, title: $status->value, body: '', number: $index + 1, status: $status));
         }
         $this->em->flush();
     }
