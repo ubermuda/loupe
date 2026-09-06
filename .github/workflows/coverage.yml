@@ -27,7 +27,7 @@ env:
 jobs:
   phpunit-coverage:
     runs-on: ubuntu-latest
-    # A measured run took 4m 50s.
+    # Run 34036090686 on main took 6m 23s.
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
@@ -65,8 +65,11 @@ jobs:
   e2e-coverage:
     runs-on: ubuntu-latest
     # A page render costs about 4.7s under coverage against about 0.5s without,
-    # so this job is long by nature. Re-size it from a passing run.
-    timeout-minutes: 120
+    # so this job is long by nature. Run 34036090686 on main took 94 minutes.
+    # Two measured runs of the same work on the same runner type differed by
+    # 1.8x, so 180 keeps about 1.9x of headroom. A timeout kill looks the same
+    # as a broken suite to a reader.
+    timeout-minutes: 180
     # ci.yaml pins XDEBUG_MODE to off, because a normal CI run reads no coverage
     # and pays double for it. This job is the one that does read it.
     env:
