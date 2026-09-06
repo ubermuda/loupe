@@ -21,7 +21,6 @@
 
 ###> symfony/asset-mapper ###
 /public/assets/
-/assets/vendor/
 ###< symfony/asset-mapper ###
 
 # Icon SVGs under /assets/icons/ are COMMITTED deliberately — do not add them
