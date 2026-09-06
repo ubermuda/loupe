@@ -1,0 +1,61 @@
+name: Mutation testing
+
+on:
+  schedule:
+    # Mondays, 04:00 UTC. A schedule fires from the default branch only, so this
+    # first runs after the branch merges. Use workflow_dispatch before then.
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+# A run takes 15 to 25 minutes. Two against the same ref would only compete.
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  COMPOSER_AUTH: '{"github-oauth":{"github.com":"${{ github.token }}"}}'
+
+jobs:
+  # A job key is the check-run name GitHub matches required checks against. Never
+  # reuse one from ci.yml: lint, cs-check, phpstan, arkitect, gamache, audit,
+  # phpunit, cli-test, e2e. `infection` collides with none of them.
+  infection:
+    runs-on: ubuntu-latest
+    # Backstop only. A job-level timeout cancels the job, so the upload below
+    # would not run. The step timeout is what has to fire first.
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v7
+
+      # A timing is only readable beside the machine that produced it, and the
+      # thread count in infection.json5 is chosen against a core count.
+      - name: Runner conditions
+        run: |
+          nproc
+          free -g | head -2
+          date -u +'stack build starts %H:%M:%S UTC'
+
+      - uses: ./.github/actions/setup
+        with:
+          docker: 'true'
+
+      - name: Coverage driver and build time
+        run: |
+          date -u +'stack build ends %H:%M:%S UTC'
+          docker compose exec -T php-fpm php -m | grep -iE 'xdebug|pcov' || echo 'NO COVERAGE DRIVER'
+
+      # Two measured runs took 14m and 25m on identical runners, so 60 leaves
+      # room for that variance and still fails fast. Infection writes its logs at
+      # the end, so a run stopped here uploads nothing.
+      - run: just mutation
+        timeout-minutes: 60
+
+      - name: Mutation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infection-report
+          path: |
+            var/infection/infection.log
+            var/infection/summary.log
+          if-no-files-found: warn

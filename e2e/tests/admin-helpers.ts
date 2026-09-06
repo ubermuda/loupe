@@ -1,5 +1,6 @@
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import { type Credentials, registerAndVerify } from './helpers';
+import { coverageScaled } from './timeouts';
 
 /**
  * Matches ADMIN_EMAIL in compose.yaml (see admin-smoke.spec.ts) — logging in
@@ -95,5 +96,5 @@ export async function setRegistrationCap(
                 .locator('tr', { hasText: 'registration.cap' })
                 .getByText(String(value), { exact: true }),
         ).toBeVisible();
-    }).toPass({ timeout: 15000 });
+    }).toPass({ timeout: coverageScaled(15000) });
 }

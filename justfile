@@ -157,6 +157,44 @@ phpunit *args:
 js-test *args:
     npx vitest run "$@"
 
+# Mutation testing over all of `src`, which a weekly GitHub Action also runs.
+# Never run it beside another test run in this worktree, because both use one
+# database. `--list-tests` runs the PHPUnit bootstrap alone, which builds the
+# schema that TEST_SCHEMA_READY tells each mutant process to keep. Infection
+# deletes 8,500 mutant directories at the end, which needs more than 512M.
+mutation *args:
+    # An interrupted run leaves a half-written junit.xml that aborts the next one.
+    rm -rf var/infection/infection
+    bin/worktrees/compose-exec.sh vendor/bin/phpunit --list-tests > /dev/null
+    bin/worktrees/compose-exec.sh env TEST_SCHEMA_READY=1 XDEBUG_MODE=coverage php -d memory_limit=2G vendor/bin/infection --no-interaction --with-uncovered "$@"
+
+# Mutation testing over the src/ files this branch changed. The one to run while
+# you work, because it mutates your files alone. Usage: just mutation-diff [BASE]
+mutation-diff base="origin/main":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # git runs on the host. Infection's own --git-diff-lines shells out to git
+    # inside the container, where a worktree's .git points at a host path that
+    # does not exist, so it aborts. This resolves the same list from outside.
+    fork=$(git merge-base "{{base}}" HEAD)
+    # Against the merge base with no second commit, so the working tree counts:
+    # this runs on code you have not committed yet. ls-files adds new ones.
+    files=$( { git diff --name-only --diff-filter=AMR "$fork" -- 'src/***.php'; \
+               git ls-files --others --exclude-standard -- 'src/***.php'; } \
+             | sort -u | tr '\n' ' ' )
+    if [ -z "$files" ]; then
+        echo "mutation-diff: no added or modified files under src/ against {{base}}"
+        exit 0
+    fi
+    echo "mutation-diff: $files"
+    # An interrupted run leaves a half-written junit.xml that aborts the next one.
+    rm -rf var/infection/infection
+    bin/worktrees/compose-exec.sh vendor/bin/phpunit --list-tests > /dev/null
+    # Paths are positional; --filter is deprecated. Unquoted on purpose, so each
+    # path becomes its own argument.
+    bin/worktrees/compose-exec.sh env TEST_SCHEMA_READY=1 XDEBUG_MODE=coverage \
+        php -d memory_limit=2G vendor/bin/infection --no-interaction --with-uncovered -- $files
+
 cs: prettier lint rector cs-fix twig-cs-fix
 
 # Non-mutating counterpart of `cs` — reports instead of rewriting, for the gate.
@@ -440,11 +478,26 @@ e2e-coverage *args:
         echo "e2e: repairing $worktree (install-reset truncates its dev data)"
         ( cd "$main" && bin/worktrees/worktree-bootstrap.sh "$worktree" >/dev/null )
     fi
+    # Merge before the exit check. A suite that loses one spec still measured the
+    # other 120, and a run that exits first produces no report at all. The exit
+    # status is preserved below, so a red run still reads as red.
+    # clover.xml and summary.txt sit beside the HTML so a reader can grep a number.
+    bin/worktrees/compose-exec.sh vendor/bin/phpcov merge var/coverage --html var/coverage/html --clover var/coverage/clover.xml --text var/coverage/summary.txt
     [ "$status" -eq 0 ] || exit $status
-    bin/worktrees/compose-exec.sh vendor/bin/phpcov merge var/coverage --html var/coverage/html
 
 open-coverage:
     open var/coverage/html/index.html
+
+# PHPUnit-suite coverage, in its own tree. `e2e-coverage` above deletes
+# var/coverage on every run, so the two reports must not share a directory.
+# xdebug is the driver, as it is for `just mutation`. clover.xml and summary.txt
+# exist so a reader can grep a number without opening the HTML.
+phpunit-coverage *args:
+    bin/worktrees/compose-exec.sh env XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-html=var/phpunit-coverage/html --coverage-clover=var/phpunit-coverage/clover.xml --coverage-text=var/phpunit-coverage/summary.txt "$@"
+    @echo "coverage: var/phpunit-coverage/html/index.html — 'just open-phpunit-coverage'"
+
+open-phpunit-coverage:
+    open var/phpunit-coverage/html/index.html
 
 browser-sync:
     npx browser-sync start --proxy localhost --files "templates/**/*.html.twig, assets/**/*.css, assets/**/*.js"

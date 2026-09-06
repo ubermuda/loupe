@@ -10,6 +10,7 @@
 
 import { test as base, expect, type Page } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
+import { coverageScaled } from '../timeouts';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eReviewLoop1!';
@@ -188,9 +189,13 @@ async function selectKnownPhrase(page: Page, phrase: string): Promise<void> {
  */
 async function openComposer(page: Page): Promise<void> {
     await selectKnownPhrase(page, KNOWN_PHRASE);
-    await expect(page.locator(TOOLBAR)).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(TOOLBAR)).toBeVisible({
+        timeout: coverageScaled(5000),
+    });
     await page.getByRole('button', { name: 'Comment', exact: true }).click();
-    await expect(page.locator(COMPOSER)).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(COMPOSER)).toBeVisible({
+        timeout: coverageScaled(5000),
+    });
 }
 
 /**
@@ -201,9 +206,11 @@ async function postComment(page: Page): Promise<void> {
     await openComposer(page);
     await page.locator(COMPOSER_BODY).fill(COMMENT_BODY);
     await page.getByRole('button', { name: 'Post' }).click();
-    await expect(page.locator(COMPOSER)).toBeHidden({ timeout: 10000 });
+    await expect(page.locator(COMPOSER)).toBeHidden({
+        timeout: coverageScaled(10000),
+    });
     await expect(page.locator('.lp-comment-body').first()).toBeVisible({
-        timeout: 10000,
+        timeout: coverageScaled(10000),
     });
 }
 
@@ -234,10 +241,12 @@ test('posting a comment disables the submitter and renders the thread in the sid
     // The composer is a plain form submitted through Turbo; the controller returns
     // a Turbo Stream that replaces the thread list in place (no reload). The
     // composer hides on success and the new thread appears in the sidebar.
-    await expect(page.locator(COMPOSER)).toBeHidden({ timeout: 10000 });
+    await expect(page.locator(COMPOSER)).toBeHidden({
+        timeout: coverageScaled(10000),
+    });
 
     const commentBody = page.locator('.lp-comment-body').first();
-    await expect(commentBody).toBeVisible({ timeout: 10000 });
+    await expect(commentBody).toBeVisible({ timeout: coverageScaled(10000) });
     await expect(commentBody).toContainText(COMMENT_BODY);
 
     // The thread renders the anchored document text as a quote.
@@ -308,7 +317,7 @@ test('replying to a thread and resolving it re-render it in place', async ({
     // The reply appears in place as a .lp-comment--reply (Turbo replaced the thread).
     await expect(
         page.locator('.lp-comment--reply .lp-comment-body'),
-    ).toContainText(REPLY_BODY, { timeout: 10000 });
+    ).toContainText(REPLY_BODY, { timeout: coverageScaled(10000) });
 
     // Same form + Turbo Stream path; the thread is replaced in place and gains
     // the resolved modifier.
@@ -321,7 +330,7 @@ test('replying to a thread and resolving it re-render it in place', async ({
     expect(resolveResponse.headers()['content-type']).toContain('turbo-stream');
 
     await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
-        timeout: 10000,
+        timeout: coverageScaled(10000),
     });
 });
 
@@ -334,7 +343,7 @@ test('requesting changes shows the verdict on the project dashboard', async ({
     await postComment(page);
     await page.getByRole('button', { name: 'Resolve' }).click();
     await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
-        timeout: 10000,
+        timeout: coverageScaled(10000),
     });
 
     await page.getByRole('button', { name: 'Request changes' }).click();
@@ -344,7 +353,7 @@ test('requesting changes shows the verdict on the project dashboard', async ({
     // success flash, which only renders after the verdict is persisted — otherwise
     // navigating to the dashboard races the POST and reads a stale "In review" badge.
     await expect(page.locator('.lp-flash--success')).toBeVisible({
-        timeout: 10000,
+        timeout: coverageScaled(10000),
     });
 
     // Scoped to THIS document's row.
@@ -352,7 +361,7 @@ test('requesting changes shows the verdict on the project dashboard', async ({
     const badge = page.locator(
         `[data-document-id="${review.documentId}"] .lp-badge`,
     );
-    await expect(badge).toBeVisible({ timeout: 5000 });
+    await expect(badge).toBeVisible({ timeout: coverageScaled(5000) });
     await expect(badge).toHaveText('Changes requested');
 
     // Leave and come back: the verdict is stored, not a property of the response
@@ -370,13 +379,15 @@ test('a resolved comment survives a reload and can then be deleted for good', as
 
     await page.getByRole('button', { name: 'Resolve' }).click();
     await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
-        timeout: 10000,
+        timeout: coverageScaled(10000),
     });
 
     await page.goto(review.reviewUrl);
     await expect(page.locator(DOC)).toBeVisible();
     const persistedCommentBody = page.locator('.lp-comment-body').first();
-    await expect(persistedCommentBody).toBeVisible({ timeout: 5000 });
+    await expect(persistedCommentBody).toBeVisible({
+        timeout: coverageScaled(5000),
+    });
     await expect(persistedCommentBody).toContainText(COMMENT_BODY);
     await expect(page.locator('.lp-comment-thread')).toHaveCount(1);
 
@@ -385,7 +396,7 @@ test('a resolved comment survives a reload and can then be deleted for good', as
     page.on('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: 'Delete' }).click();
     await expect(page.locator('.lp-comment-thread')).toHaveCount(0, {
-        timeout: 10000,
+        timeout: coverageScaled(10000),
     });
 
     await page.goto(review.reviewUrl);
@@ -412,9 +423,11 @@ test('the composer submits on Ctrl/Cmd+Enter', async ({ page, review }) => {
 
     // Same success signal the click path asserts: the Turbo Stream comes back,
     // the composer hides, and the thread appears.
-    await expect(page.locator(COMPOSER)).toBeHidden({ timeout: 10000 });
+    await expect(page.locator(COMPOSER)).toBeHidden({
+        timeout: coverageScaled(10000),
+    });
     const commentBody = page.locator('.lp-comment-body').first();
-    await expect(commentBody).toBeVisible({ timeout: 10000 });
+    await expect(commentBody).toBeVisible({ timeout: coverageScaled(10000) });
     await expect(commentBody).toContainText(COMMENT_BODY);
 
     // Guard against a double submit: the keydown must not also trigger the
@@ -442,7 +455,7 @@ test('hovering an anchored passage activates its comment card', async ({
     const thread = page
         .locator('[data-comment-anchor-target="thread"]')
         .first();
-    await expect(thread).toBeVisible({ timeout: 10000 });
+    await expect(thread).toBeVisible({ timeout: coverageScaled(10000) });
     await expect(thread).not.toHaveClass(/lp-comment-thread--active/);
 
     // Aim at the middle of the anchored phrase and move the real pointer there,
@@ -472,12 +485,12 @@ test('hovering an anchored passage activates its comment card', async ({
 
     await page.mouse.move(box.x, box.y);
     await expect(thread).toHaveClass(/lp-comment-thread--active/, {
-        timeout: 5000,
+        timeout: coverageScaled(5000),
     });
 
     // Moving off it releases the pairing again.
     await page.mouse.move(box.x, box.y - 200);
     await expect(thread).not.toHaveClass(/lp-comment-thread--active/, {
-        timeout: 5000,
+        timeout: coverageScaled(5000),
     });
 });

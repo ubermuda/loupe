@@ -12,11 +12,15 @@ if ($_SERVER['APP_DEBUG']) {
     umask(0000);
 }
 
-// Create the test database schema once before the PHPUnit run.
-// DAMA\DoctrineTestBundle\PHPUnit\PHPUnitExtension then wraps each test
-// in a transaction that is rolled back, providing isolation without the
-// overhead of dropping and recreating the schema for every test.
+// Create the test database schema once before the PHPUnit run. DAMA's
+// PHPUnitExtension then wraps each test in a rolled-back transaction.
+// TEST_SCHEMA_READY skips the reset, which costs about six seconds, for a
+// caller that built the schema first and then spawns many PHPUnit processes.
 (function (): void {
+    if (filter_var(getenv('TEST_SCHEMA_READY'), \FILTER_VALIDATE_BOOL)) {
+        return;
+    }
+
     $kernel = new App\Kernel('test', (bool) ($_SERVER['APP_DEBUG'] ?? false));
 
     // test.log then holds exactly one run, which a date-based rotation cannot

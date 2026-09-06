@@ -26,6 +26,7 @@ import { expect, type Page } from '@playwright/test';
 import { ADMIN, setRegistrationCap } from '../admin-helpers';
 import { createTest } from '../fixtures';
 import { extractLink, getEmailWithSubject } from '../helpers';
+import { coverageScaled } from '../timeouts';
 
 const test = createTest(ADMIN);
 const RUN = Date.now();
@@ -60,7 +61,7 @@ async function expectWaitlistStatus(
                 .locator('tr[data-waitlist-entry-id]', { hasText: email })
                 .getByText(status, { exact: true }),
         ).toBeVisible();
-    }).toPass({ timeout: 15000 });
+    }).toPass({ timeout: coverageScaled(15000) });
 }
 
 test.describe.serial('registration cap and waitlist', () => {
