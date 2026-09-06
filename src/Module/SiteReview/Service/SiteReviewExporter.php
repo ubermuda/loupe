@@ -39,6 +39,7 @@ final readonly class SiteReviewExporter implements UserDataExporterInterface
                     ],
                     $comment->anchors->toArray(),
                 )),
+                'strokes' => $comment->strokes ?? [],
                 'url' => $comment->url,
                 'status' => $comment->status->value,
                 'createdAt' => $comment->createdAt->format(\DateTimeInterface::ATOM),

@@ -10,8 +10,10 @@ use App\Module\SiteReview\Command\ShowPendingCommentsCommand;
 use App\Module\SiteReview\Command\ShowPendingCommentsHandler;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentAnchor;
+use App\Module\SiteReview\SiteReviewDrawing;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
+use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 /**
  * `/review` rather than `/comments`: the path is a public contract embedded in
@@ -28,6 +30,7 @@ final class ShowPendingCommentsController extends AppController
     public function __construct(
         private readonly ShowPendingCommentsHandler $showPendingComments,
         private readonly AuthenticatedProjectResolver $projectResolver,
+        private readonly FeatureFlagService $featureFlags,
     ) {
     }
 
@@ -40,34 +43,40 @@ final class ShowPendingCommentsController extends AppController
 
         $view = ($this->showPendingComments)(new ShowPendingCommentsCommand($project));
 
-        return $this->json(['comments' => array_values(array_map(
-            static function (SiteReviewComment $c): array {
-                $anchors = array_values($c->anchors->toArray());
-                $first = $anchors[0] ?? null;
+        // The widget carries no flag of its own. Its snippet lives in someone
+        // else's page and nobody re-pastes it, so the boot load is the only
+        // place the instance can tell it whether drawing is offered.
+        return $this->json([
+            'drawingEnabled' => $this->featureFlags->isEnabled(SiteReviewDrawing::FLAG, SiteReviewDrawing::DEFAULT),
+            'comments' => array_values(array_map(
+                static function (SiteReviewComment $c): array {
+                    $anchors = array_values($c->anchors->toArray());
+                    $first = $anchors[0] ?? null;
 
-                // selector/text repeat the first anchor for a widget copy that
-                // predates anchors[]. The script URL carries no version, so a
-                // browser can hold one for a long time, and a widget that reads
-                // no selector renders every comment as an unanchored note.
-                return [
-                    'id' => (string) $c->id,
-                    'body' => $c->body,
-                    'selector' => null === $first ? '' : $first->selector,
-                    'text' => null === $first ? '' : $first->text,
-                    'url' => $c->url,
-                    'anchors' => array_values(array_map(
-                        static fn (SiteReviewCommentAnchor $a): array => [
-                            'selector' => $a->selector,
-                            'text' => $a->text,
-                            'quote' => $a->quote,
-                            'quotePrefix' => $a->quotePrefix,
-                            'quoteSuffix' => $a->quoteSuffix,
-                        ],
-                        $anchors,
-                    )),
-                ];
-            },
-            $view->comments,
-        ))]);
+                    // selector/text repeat the first anchor for a widget copy that
+                    // predates anchors[]. The script URL carries no version, so a
+                    // browser can hold one for a long time, and a widget that reads
+                    // no selector renders every comment as an unanchored note.
+                    return [
+                        'id' => (string) $c->id,
+                        'body' => $c->body,
+                        'selector' => null === $first ? '' : $first->selector,
+                        'text' => null === $first ? '' : $first->text,
+                        'url' => $c->url,
+                        'anchors' => array_values(array_map(
+                            static fn (SiteReviewCommentAnchor $a): array => [
+                                'selector' => $a->selector,
+                                'text' => $a->text,
+                                'quote' => $a->quote,
+                                'quotePrefix' => $a->quotePrefix,
+                                'quoteSuffix' => $a->quoteSuffix,
+                            ],
+                            $anchors,
+                        )),
+                        'strokes' => $c->strokes ?? [],
+                    ];
+                },
+                $view->comments,
+            ))]);
     }
 }

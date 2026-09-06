@@ -9,10 +9,13 @@ use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
+use App\Module\SiteReview\SiteReviewDrawing;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class SiteReviewApiTest extends WebTestCase
 {
@@ -84,6 +87,172 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertSame(['.card', '.panel'], array_map(static fn ($a) => $a->selector, $anchors));
         self::assertSame([0, 1], array_map(static fn ($a) => $a->position, $anchors));
         self::assertNull($anchors[0]->quote);
+    }
+
+    public function test_a_comment_can_carry_a_freehand_drawing(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw, $project] = $this->projectWithToken($em, 'api-strokes@example.com');
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
+            'body' => 'Move this to the right',
+            'url' => 'https://app/x',
+            'anchors' => [['selector' => '.card', 'text' => 'Save']],
+            'strokes' => [['space' => 'anchor', 'points' => [[0.1, 0.2], [0.9, 0.8]]]],
+        ]);
+        self::assertResponseStatusCodeSame(201);
+
+        $pending = static::getContainer()->get(SiteReviewCommentRepository::class)->findPendingForProject($project);
+        self::assertSame(
+            [['space' => 'anchor', 'points' => [[0.1, 0.2], [0.9, 0.8]]]],
+            $pending[0]->strokes,
+        );
+
+        $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame(
+            [['space' => 'anchor', 'points' => [[0.1, 0.2], [0.9, 0.8]]]],
+            $data['comments'][0]['strokes'],
+        );
+    }
+
+    /**
+     * A widget cached from before the flag went off still offers Draw. Its save
+     * has to be refused, so the reviewer is told, rather than accepted with the
+     * drawing dropped on the floor.
+     */
+    public function test_strokes_are_refused_while_drawing_is_off(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw, $project] = $this->projectWithToken($em, 'api-drawing-off@example.com');
+        // The migration seeds the row, so this moves it rather than creating it.
+        $flags = static::getContainer()->get(FeatureFlagRepository::class);
+        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
+        $flags->findAllIndexed()[SiteReviewDrawing::FLAG]->value = false;
+        $em->flush();
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
+            'body' => 'Move this to the right',
+            'url' => 'https://app/x',
+            'strokes' => [['space' => 'page', 'points' => [[0.1, 0.2], [0.3, 0.4]]]],
+        ]);
+        self::assertResponseStatusCodeSame(422);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('drawing_disabled', $data['error']);
+
+        // A comment with no drawing is unaffected, and the boot load says the
+        // control is gone so the widget stops offering it.
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw,
+            ['body' => 'a page note', 'url' => 'https://app/x']);
+        self::assertResponseStatusCodeSame(201);
+        self::assertCount(1, static::getContainer()->get(SiteReviewCommentRepository::class)->findPendingForProject($project));
+
+        $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
+        $payload = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($payload);
+        self::assertFalse($payload['drawingEnabled']);
+    }
+
+    /**
+     * The widget picks the space from the anchors it is saving, so only another
+     * client sends this. An anchor-space stroke measures against anchor 0, so
+     * with no anchor it could be stored and never drawn again.
+     */
+    public function test_an_anchor_space_stroke_needs_an_anchor(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw, $project] = $this->projectWithToken($em, 'api-orphan-stroke@example.com');
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
+            'body' => 'Look here',
+            'url' => 'https://app/x',
+            'strokes' => [['space' => 'anchor', 'points' => [[0.1, 0.2], [0.9, 0.8]]]],
+        ]);
+        self::assertResponseStatusCodeSame(422);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('anchor_stroke_without_anchor', $data['error']);
+        self::assertCount(0, static::getContainer()->get(SiteReviewCommentRepository::class)->findPendingForProject($project));
+
+        // The same stroke with an anchor to measure against is accepted.
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
+            'body' => 'Look here',
+            'url' => 'https://app/x',
+            'anchors' => [['selector' => '.card', 'text' => 'Save']],
+            'strokes' => [['space' => 'anchor', 'points' => [[0.1, 0.2], [0.9, 0.8]]]],
+        ]);
+        self::assertResponseStatusCodeSame(201);
+    }
+
+    public function test_the_boot_load_reports_drawing_on_for_an_untouched_instance(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw] = $this->projectWithToken($em, 'api-drawing-default@example.com');
+
+        // Nothing has moved the flag, so this reads the value the migration
+        // and the install seeder both write.
+        $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
+        $payload = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($payload);
+        self::assertTrue($payload['drawingEnabled']);
+    }
+
+    public function test_a_comment_with_no_drawing_stores_null(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw, $project] = $this->projectWithToken($em, 'api-no-strokes@example.com');
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw,
+            ['body' => 'a page note', 'url' => 'https://app/x']);
+        self::assertResponseStatusCodeSame(201);
+
+        $pending = static::getContainer()->get(SiteReviewCommentRepository::class)->findPendingForProject($project);
+        self::assertNull($pending[0]->strokes);
+
+        $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame([], $data['comments'][0]['strokes']);
+    }
+
+    /**
+     * Strokes are drawn on the page and rendered back onto it, so a malformed
+     * payload has to be refused at the boundary rather than stored.
+     *
+     * @param array<string, mixed> $stroke
+     */
+    #[DataProvider('malformedStrokes')]
+    public function test_a_malformed_drawing_is_refused(array $stroke): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw] = $this->projectWithToken($em, 'api-bad-strokes@example.com');
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
+            'body' => 'Look here',
+            'url' => 'https://app/x',
+            'strokes' => [$stroke],
+        ]);
+        self::assertResponseStatusCodeSame(422);
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>}>
+     */
+    public static function malformedStrokes(): iterable
+    {
+        yield 'unknown space' => [['space' => 'screen', 'points' => [[0.1, 0.2], [0.3, 0.4]]]];
+        yield 'a single point' => [['space' => 'page', 'points' => [[0.1, 0.2]]]];
+        yield 'a point that is not a pair' => [['space' => 'page', 'points' => [[0.1], [0.3, 0.4]]]];
+        yield 'a point that is not numeric' => [['space' => 'page', 'points' => [['a', 'b'], [0.3, 0.4]]]];
+        yield 'a point far off the page' => [['space' => 'page', 'points' => [[0.1, 0.2], [999999.0, 0.4]]]];
     }
 
     /**
@@ -254,7 +423,10 @@ final class SiteReviewApiTest extends WebTestCase
         [$raw, $project] = $this->projectWithToken($em, 'api-c@example.com');
 
         $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
-        self::assertSame(['comments' => []], json_decode((string) $client->getResponse()->getContent(), true));
+        self::assertSame(
+            ['drawingEnabled' => true, 'comments' => []],
+            json_decode((string) $client->getResponse()->getContent(), true),
+        );
 
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => 'one', 'url' => 'https://app/x']);
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => 'two', 'url' => 'https://app/y']);

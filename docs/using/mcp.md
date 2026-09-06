@@ -159,7 +159,8 @@ longer reports the `selector` and `text` fields, which held one element each.
   "anchors": [
     { "selector": ".plan-card", "text": "Starter", "quote": null, "quotePrefix": null, "quoteSuffix": null },
     { "selector": ".plan-note", "text": "Billed yearly per seat", "quote": "per seat", "quotePrefix": "Billed yearly ", "quoteSuffix": "" }
-  ]
+  ],
+  "hasDrawing": false
 }
 ```
 
@@ -178,6 +179,18 @@ A live page has no version boundary, so a quote can stop matching. The widget
 then falls back to drawing the element, and the payload keeps the quote. An
 agent that cannot find a quote on the page should report that rather than guess
 which text replaced it.
+
+### A drawing is reported as a flag, not as points
+
+A reviewer can draw freehand over the page as part of a comment.
+`site_review_get` reports `hasDrawing` and nothing more. The strokes are vector
+points measured against a live page, which no agent can render, so the points
+would cost a large payload and buy nothing.
+
+Read `hasDrawing: true` as "the reviewer pointed at something the words may not
+name". Act on the words. Ask the reviewer when they do not say enough, rather
+than guessing what the drawing meant. The reviewer's own data export carries the
+points in full, under `strokes` in `site_reviews.json`.
 
 ## Which sections are settled
 

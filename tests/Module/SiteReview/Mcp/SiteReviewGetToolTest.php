@@ -133,6 +133,34 @@ final class SiteReviewGetToolTest extends KernelTestCase
         self::assertSame([], $result['comments'][1]['anchors']);
     }
 
+    /**
+     * Vector points over a live page are something an agent cannot render, so
+     * the payload reports only that a drawing exists and stays small.
+     */
+    public function test_a_comment_reports_whether_it_carries_a_drawing(): void
+    {
+        $user = new User(fullName: 'U', email: 'get-strokes@example.com', password: 'x');
+        $this->em->persist($user);
+        $project = new Project($user, 'drawing-site');
+        $this->em->persist($project);
+
+        $drawn = new SiteReviewComment($project, 0, 'Move this right', 'https://app/x')
+            ->addAnchor('.card', 'Save');
+        $drawn->strokes = [['space' => 'anchor', 'points' => [[0.1, 0.2], [0.9, 0.8]]]];
+        $this->em->persist($drawn);
+
+        $plain = new SiteReviewComment($project, 1, 'a page note', 'https://app/y');
+        $this->em->persist($plain);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+        $result = ($this->tool)();
+
+        self::assertTrue($result['comments'][0]['hasDrawing']);
+        self::assertFalse($result['comments'][1]['hasDrawing']);
+        self::assertArrayNotHasKey('strokes', $result['comments'][0]);
+    }
+
     public function test_addressed_and_resolved_comments_are_excluded(): void
     {
         $userEmail = 'get-status@example.com';
