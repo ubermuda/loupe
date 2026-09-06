@@ -38,6 +38,12 @@ export default defineConfig({
     workers: 1,
     forbidOnly: !!process.env.CI,
     retries: 0,
+    // Stop at the first failure. `waitlist`, `trial-end-lifecycle` and
+    // `install-reset` depend on `chromium`, and Playwright skips a dependent
+    // project when its dependency fails. Without this the run continues and
+    // reports "N did not run" beside the failure, which reads as a deliberate
+    // skip: one red test withheld all three suites for hours and nobody noticed.
+    maxFailures: 1,
     reporter: [['html', { open: 'never' }]],
     use: {
         baseURL,

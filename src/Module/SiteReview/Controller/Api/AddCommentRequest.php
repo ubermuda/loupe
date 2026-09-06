@@ -18,6 +18,7 @@ final class AddCommentRequest
 {
     /**
      * @param list<SiteReviewAnchorInput> $anchors
+     * @param list<SiteReviewStrokeInput> $strokes
      */
     public function __construct(
         #[Assert\Length(max: 10000)]
@@ -33,6 +34,11 @@ final class AddCommentRequest
         #[Assert\Count(max: 10)]
         #[Assert\Valid]
         public array $anchors = [],
+
+        #[Assert\All([new Assert\Type(SiteReviewStrokeInput::class)])]
+        #[Assert\Count(max: 50)]
+        #[Assert\Valid]
+        public array $strokes = [],
 
         #[Assert\Length(max: 2000)]
         public string $selector = '',

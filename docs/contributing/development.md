@@ -28,14 +28,21 @@ Tailwind rebuilds automatically in the dev container. Do not run
 `tailwind:build` by hand after editing templates — wait a second and re-check.
 The same goes for `cache:clear`.
 
-Run one unit test with `just phpunit --filter TestClassName`, one e2e spec with
+Run one unit test with `just phpunit --filter TestClassName`, one JavaScript
+test with `just js-test tests/js/<name>.test.js`, one e2e spec with
 `just e2e tests/<area>/<spec>.spec.ts`.
+
+`just js-test` runs Vitest over `tests/js/`. It needs Node alone, with no
+container, no database and no browser. It is the fastest way to cover front-end
+logic, so put a test there whenever the behaviour is reachable without a booted
+application. The suite runs in Node by default. A file that needs a DOM asks for
+one with `/** @vitest-environment jsdom */` on its first line.
 
 ## The gate
 
 ```sh
 just cs        # apply formatter + Rector fixes
-just ci        # check-only: lint, style, phpstan, arkitect, gamache, phpunit
+just ci        # check-only: lint, style, phpstan, arkitect, gamache, phpunit, js-test
 just e2e       # Playwright end-to-end
 ```
 

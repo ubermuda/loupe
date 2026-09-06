@@ -13,11 +13,12 @@ use Mcp\Exception\ToolCallException;
 
 /**
  * Submit a revised Markdown document. Unresolved comments are carried forward by fuzzy re-anchoring;
- * comments whose quoted text no longer appears are flagged orphaned. Returns the re-anchoring summary.
+ * comments whose quoted text no longer appears are flagged orphaned. A section approval survives only
+ * while its heading and its text both read as before. Returns both summaries.
  *
- * @phpstan-import-type ReanchoringSummary from ReviseDocumentHandler
+ * @phpstan-import-type RevisionSummary from ReviseDocumentHandler
  */
-#[McpTool(name: 'document_revise', description: 'Submit a new Markdown version of a document, described by what changed in it. Open comments are re-anchored onto the new version; those whose quoted text no longer appears are flagged orphaned. Pass title to correct the document title at the same time, and references to replace the documents this one points at. Pass series with seriesOrdinal to move the document to a place in an ordered set, or an empty series to take it out of one.')]
+#[McpTool(name: 'document_revise', description: 'Submit a new Markdown version of a document, described by what changed in it. Open comments are re-anchored onto the new version; those whose quoted text no longer appears are flagged orphaned. Approved sections whose heading and text are unchanged carry forward; the rest are dropped. Pass title to correct the document title at the same time, and references to replace the documents this one points at. Pass series with seriesOrdinal to move the document to a place in an ordered set, or an empty series to take it out of one.')]
 final readonly class DocumentReviseTool
 {
     public function __construct(
@@ -36,7 +37,7 @@ final readonly class DocumentReviseTool
      * @param string|null        $series        Name of the ordered set this document belongs to, stored as you spell it and created if the project does not have it yet; omit to leave the placement alone, pass an empty string to take the document out of its series
      * @param int|null           $seriesOrdinal Position of this document in that series, counting from 1; required whenever series is given
      *
-     * @return ReanchoringSummary
+     * @return RevisionSummary
      */
     public function __invoke(string $documentId, string $markdown, string $description, ?string $title = null, ?array $references = null, ?string $series = null, ?int $seriesOrdinal = null): array
     {

@@ -13,6 +13,8 @@ use App\Module\Review\Command\ReviseDocumentCommand;
 use App\Module\Review\Command\ReviseDocumentHandler;
 use App\Module\Review\Command\SelectDecisionOptionCommand;
 use App\Module\Review\Command\SelectDecisionOptionHandler;
+use App\Module\Review\Command\SetSectionApprovalCommand;
+use App\Module\Review\Command\SetSectionApprovalHandler;
 use App\Module\Review\Command\ShowDocumentDataCommand;
 use App\Module\Review\Command\ShowDocumentDataHandler;
 use App\Module\Review\Command\ShowReviewCommand;
@@ -531,6 +533,126 @@ final class ShowReviewHandlerTest extends KernelTestCase
         $this->em->flush();
 
         self::assertSame([], ($this->getReview)(new ShowReviewCommand($doc))['decisions']);
+    }
+
+    /**
+     * The count is every reviewer's, not the caller's own. A payload scoped to one
+     * identity would report a second reviewer's settled section as unsettled, which
+     * is the answer this test pins before a second reviewer can exist.
+     */
+    public function test_sections_count_the_standing_approvals_of_every_reviewer(): void
+    {
+        $doc = $this->sectionedDocument('Two reviewers');
+
+        $second = new User(fullName: 'Second Reviewer', email: 'second-'.uniqid().'@example.com', password: 'hashed');
+        $this->em->persist($second);
+        $this->em->flush();
+
+        $this->approve($doc, $this->owner, 'heading-alpha');
+        $this->approve($doc, $second, 'heading-alpha');
+
+        $sections = ($this->getReview)(new ShowReviewCommand($doc))['sections'];
+
+        self::assertSame(['heading-alpha', 'heading-beta'], array_column($sections, 'heading_id'));
+        self::assertSame(2, $sections[0]['standing_approval_count']);
+        self::assertSame(0, $sections[1]['standing_approval_count'], 'a section nobody approved stands at zero');
+    }
+
+    public function test_a_section_rewritten_after_its_approval_is_no_longer_approved(): void
+    {
+        $doc = $this->sectionedDocument('Rewritten');
+
+        $this->approve($doc, $this->owner, 'heading-alpha');
+        $this->approve($doc, $this->owner, 'heading-beta');
+
+        $revise = self::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
+        $revise(new ReviseDocumentCommand(
+            $doc,
+            "## Alpha\n\nAlpha body.\n\n## Beta\n\nBeta body, rewritten entirely.\n",
+            'Rewrote Beta only.',
+        ));
+
+        $sections = ($this->getReview)(new ShowReviewCommand($doc))['sections'];
+
+        self::assertSame(1, $sections[0]['standing_approval_count'], 'an untouched section stays approved');
+        self::assertSame(0, $sections[1]['standing_approval_count'], 'a rewritten section loses its approval');
+    }
+
+    /**
+     * A version minted without carry-forward leaves the stale row in place, so the
+     * digest re-check is the only thing that can drop the approval. `app:review:rerender-versions`
+     * writes a version's HTML this way.
+     */
+    public function test_a_section_rewritten_without_carry_forward_is_no_longer_approved(): void
+    {
+        $doc = $this->sectionedDocument('Rewritten in place');
+
+        $this->approve($doc, $this->owner, 'heading-alpha');
+        $this->approve($doc, $this->owner, 'heading-beta');
+
+        // Only the text after the Beta heading changes, so Alpha's slice, and both
+        // heading offsets, are byte-identical to the version that was approved.
+        $doc->addVersion(
+            "## Alpha\n\nAlpha body.\n\n## Beta\n\nBeta body, rewritten in place.\n",
+            str_replace('Beta body.', 'Beta body, rewritten in place.', $doc->currentVersion()->renderedHtml),
+        );
+        $this->em->flush();
+
+        $sections = ($this->getReview)(new ShowReviewCommand($doc))['sections'];
+
+        self::assertSame(1, $sections[0]['standing_approval_count'], 'an untouched section stays approved');
+        self::assertSame(0, $sections[1]['standing_approval_count'], 'a rewritten section loses its approval');
+    }
+
+    public function test_sections_report_their_heading_level_and_title_and_name_no_reviewer(): void
+    {
+        $doc = $this->sectionedDocument('Shape');
+        $this->approve($doc, $this->owner, 'heading-alpha');
+
+        $sections = ($this->getReview)(new ShowReviewCommand($doc))['sections'];
+
+        self::assertSame(2, $sections[0]['level']);
+        self::assertSame('Alpha', $sections[0]['title']);
+
+        foreach (self::IDENTIFYING_KEYS as $key) {
+            self::assertArrayNotHasKey($key, $sections[0], \sprintf('A section must not report %s', $key));
+        }
+    }
+
+    public function test_a_document_with_no_headings_reports_an_empty_section_list(): void
+    {
+        $doc = new Document(owner: $this->owner, project: $this->project, title: 'Headless');
+        $doc->addVersion('Plain.', '<p>Plain.</p>');
+        $this->em->persist($doc);
+        $this->em->flush();
+
+        self::assertSame([], ($this->getReview)(new ShowReviewCommand($doc))['sections']);
+    }
+
+    private function sectionedDocument(string $title): Document
+    {
+        $create = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $create);
+
+        return $create(new CreateDocumentCommand(
+            $this->project,
+            $title,
+            "## Alpha\n\nAlpha body.\n\n## Beta\n\nBeta body.\n",
+        ));
+    }
+
+    private function approve(Document $document, User $reviewer, string $headingId): void
+    {
+        $handler = self::getContainer()->get(SetSectionApprovalHandler::class);
+        self::assertInstanceOf(SetSectionApprovalHandler::class, $handler);
+        $handler(new SetSectionApprovalCommand(
+            $document,
+            $reviewer,
+            $headingId,
+            true,
+            $document->currentVersion()->versionNumber,
+        ));
     }
 
     public function test_get_document_returns_correct_shape(): void

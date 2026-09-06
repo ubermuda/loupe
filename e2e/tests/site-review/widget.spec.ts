@@ -4,7 +4,8 @@
  * The dev-only harness page (/dev/site-review-harness) finds-or-creates the
  * `e2e-harness` site for the user, deletes its comments and mints a fresh
  * site-bound token on every load — so each test starts from a clean site
- * simply by loading the harness (no localStorage involved).
+ * simply by loading the harness. No comment ever lives in the browser; the one
+ * thing the widget keeps there is which corner the launcher sits in.
  *
  * There is no send step. Every saved comment POSTs to
  * /api/site-review/comments and is Pending — live for the agent — from that
@@ -82,14 +83,18 @@ const addGeneralNote = async (
  * reloading — a harness reload deliberately purges them, so "survives reload"
  * cannot be asserted against the harness.
  */
+type ReviewAnchor = {
+    selector: string;
+    text: string;
+    quote: string | null;
+    quotePrefix: string | null;
+    quoteSuffix: string | null;
+};
+
 const fetchReviewComments = (
     page: Page,
 ): Promise<
-    Array<{
-        body: string;
-        selector: string;
-        anchors: Array<{ selector: string; text: string }>;
-    }>
+    Array<{ body: string; selector: string; anchors: ReviewAnchor[] }>
 > =>
     page.evaluate(async () => {
         const script = document.querySelector(
@@ -103,7 +108,13 @@ const fetchReviewComments = (
             comments: Array<{
                 body: string;
                 selector: string;
-                anchors: Array<{ selector: string; text: string }>;
+                anchors: Array<{
+                    selector: string;
+                    text: string;
+                    quote: string | null;
+                    quotePrefix: string | null;
+                    quoteSuffix: string | null;
+                }>;
             }>;
         };
         return comments;
@@ -1683,4 +1694,1411 @@ test('hovering one anchor outlines every anchor of the same comment', async ({
     await page.mouse.move(2, 2);
     await expect(framed).toBeHidden();
     await expect(siblings).toHaveCount(0);
+});
+
+// The harness paragraph reads "The quick brown fox jumps over the lazy dog.",
+// with <em> around "jumps over". These offsets quote across that markup.
+const PROSE_QUOTE = { selector: '#prose', start: 4, end: 38 };
+const PROSE_TEXT = 'quick brown fox jumps over the laz';
+const REPEATED = 'the same phrase here';
+const repeatSpan = (start: number) => ({
+    selector: '#prose-repeat',
+    start,
+    end: start + REPEATED.length,
+});
+
+type Span = { selector: string; start: number; end: number };
+
+/**
+ * Address a run of an element's textContent by character offsets, walking text
+ * nodes so a boundary inside inline markup is reachable. Returns the run's
+ * viewport box, and with `select` also puts it in the page's selection.
+ */
+const spanIn = (
+    page: Page,
+    span: Span,
+    select = false,
+): Promise<{ x: number; width: number }> =>
+    page.evaluate(
+        (args) => {
+            const el = document.querySelector(args.selector)!;
+            const walker = document.createTreeWalker(
+                el,
+                NodeFilter.SHOW_TEXT,
+                null,
+            );
+            const nodes: Text[] = [];
+            for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+                nodes.push(n as Text);
+            }
+            const at = (offset: number): [Text, number] => {
+                let seen = 0;
+                for (const n of nodes) {
+                    if (offset <= seen + n.data.length)
+                        return [n, offset - seen];
+                    seen += n.data.length;
+                }
+                throw new Error(`offset ${offset} is past ${args.selector}`);
+            };
+            const range = document.createRange();
+            range.setStart(...at(args.start));
+            range.setEnd(...at(args.end));
+            if (args.select) {
+                const selection = document.getSelection()!;
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
+            const r = range.getBoundingClientRect();
+            return { x: r.left, width: r.width };
+        },
+        { ...span, select },
+    );
+
+/**
+ * Select a run of text on the host page. A programmatic range rather than a
+ * pixel drag: the widget reads `selectionchange`, which both fire, and a drag
+ * across inline markup lands on different characters at different viewports.
+ */
+const selectText = async (page: Page, span: Span): Promise<void> => {
+    await spanIn(page, span, true);
+};
+
+/**
+ * Fill the composer and save, waiting for the API to accept the comment. The
+ * head count alone races the POST, which takes seconds on a loaded container,
+ * and the widget counts a comment only once the server has taken it.
+ */
+const saveComposed = async (page: Page, body: string): Promise<void> => {
+    await page.getByPlaceholder(/Describe the issue/).fill(body);
+    await Promise.all([
+        page.waitForResponse(
+            (response) =>
+                response.url().includes('/api/site-review/comments') &&
+                response.request().method() === 'POST',
+        ),
+        page.getByRole('button', { name: 'Save' }).click(),
+    ]);
+    await expect(page.locator('#lp-head-count')).toHaveText('1');
+};
+
+/** Load a harness URL and wait for the widget's boot fetch to land. */
+const openWithComments = async (page: Page, url: string): Promise<void> => {
+    await Promise.all([
+        page.waitForResponse((response) =>
+            response.url().includes('/api/site-review/review'),
+        ),
+        page.goto(url),
+    ]);
+};
+
+/** Where `REPEATED` starts, on the nth occurrence inside #prose-repeat. */
+const occurrenceAt = (page: Page, nth: number): Promise<number> =>
+    page.evaluate(
+        (args) => {
+            const text = document.querySelector('#prose-repeat')!.textContent!;
+            let at = -1;
+            for (let i = 0; i <= args.nth; i++)
+                at = text.indexOf(args.needle, at + 1);
+            return at;
+        },
+        { needle: REPEATED, nth },
+    );
+
+/**
+ * The widget takes a selection only while the panel is open. A page nobody is
+ * reviewing must keep its own text selection, because the reviewer is reading
+ * or copying rather than commenting.
+ */
+test('the offer to quote a selection waits for the panel to be open', async ({
+    page,
+}) => {
+    await openHarness(page);
+    const offer = page.locator('#lp-quote-btn');
+
+    await selectText(page, PROSE_QUOTE);
+    await expect(offer).toBeHidden();
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, PROSE_QUOTE);
+    await expect(offer).toBeVisible();
+
+    // Collapsing the selection withdraws the offer.
+    await page.evaluate(() => document.getSelection()!.removeAllRanges());
+    await expect(offer).toBeHidden();
+
+    // So does closing the panel while the selection is still held. The offer
+    // renders from the same sync pass as the pins, so no state that hides the
+    // panel can leave it behind.
+    await selectText(page, PROSE_QUOTE);
+    await expect(offer).toBeVisible();
+    await page.locator('#lp-close').click();
+    await expect(offer).toBeHidden();
+
+    // Re-opening with the selection still held brings it back.
+    await page.getByRole('button', { name: 'Review' }).click();
+    await expect(offer).toBeVisible();
+});
+
+/**
+ * A comment can quote the exact run of text the reviewer selected, across the
+ * inline markup inside it, rather than pointing at the whole element.
+ */
+test('a comment can quote a run of text inside an element', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+
+    let saved: {
+        anchors: Array<{
+            selector: string;
+            text: string;
+            quote?: string;
+            quotePrefix?: string;
+            quoteSuffix?: string;
+        }>;
+    } | null = null;
+    page.on('request', (request) => {
+        if (
+            request.method() === 'POST' &&
+            request.url().includes('/api/site-review/comments')
+        ) {
+            saved = JSON.parse(request.postData() ?? '{}');
+        }
+    });
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, PROSE_QUOTE);
+    await page.locator('#lp-quote-btn').click();
+
+    // The composer names the quote, not the paragraph holding it.
+    const chip = page.locator('#lp-compose-head .lp-compose-chip');
+    await expect(chip).toHaveCount(1);
+    await expect(chip).toHaveAttribute('data-anchor-kind', 'quote');
+    await expect(chip).toContainText('quick brown fox');
+
+    await saveComposed(page, 'This reads oddly');
+
+    // The quote crosses the <em>, so a capture that read only one text node
+    // would stop at "fox " and never reach "the laz".
+    expect(saved).not.toBeNull();
+    expect(saved!.anchors).toHaveLength(1);
+    expect(saved!.anchors[0].selector).toBe('#prose');
+    expect(saved!.anchors[0].quote).toBe(PROSE_TEXT);
+    expect(saved!.anchors[0].quotePrefix).toBe('The ');
+    expect(saved!.anchors[0].quoteSuffix).toBe('y dog.');
+
+    // The pin and the outline are drawn around the quoted run, which is what
+    // separates this from an anchor on the whole paragraph.
+    const pin = page.locator('.pin');
+    await expect(pin).toHaveCount(1);
+    await expect(pin).toHaveAttribute('data-anchor-kind', 'quote');
+
+    await pin.hover();
+    const outline = await page.locator('#lp-hl').boundingBox();
+    const quoted = await spanIn(page, PROSE_QUOTE);
+    const paragraph = await page.locator('#prose').boundingBox();
+    expect(Math.abs(outline!.width - (quoted.width + 16))).toBeLessThan(2);
+    expect(outline!.width).toBeLessThan(paragraph!.width);
+});
+
+/**
+ * One comment can hold both kinds of anchor, because a reviewer comparing a
+ * sentence with a control is talking about one thing.
+ */
+test('a comment can mix a quoted passage and a whole element', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    const modifier = await addAnchorKey(page);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, PROSE_QUOTE);
+    await page.locator('#lp-quote-btn').click();
+
+    await page.keyboard.down(modifier);
+    await page.locator('#target-me').click();
+    await page.keyboard.up(modifier);
+
+    const chips = page.locator('#lp-compose-head .lp-compose-chip');
+    await expect(chips).toHaveCount(2);
+    await expect(chips.nth(0)).toHaveAttribute('data-anchor-kind', 'quote');
+    await expect(chips.nth(1)).toHaveAttribute('data-anchor-kind', 'element');
+
+    await saveComposed(page, 'This sentence contradicts that button');
+
+    // One comment, two anchors, and only the quoted one carries quote fields.
+    const comments = await fetchReviewComments(page);
+    expect(comments).toHaveLength(1);
+    expect(comments[0].anchors).toHaveLength(2);
+    expect(comments[0].anchors[0].quote).toBe(PROSE_TEXT);
+    expect(comments[0].anchors[1].selector).toBe('#target-me');
+    expect(comments[0].anchors[1].quote).toBeNull();
+
+    // Both anchors get a pin, numbered alike, each measured on its own kind.
+    const pins = page.locator('.pin');
+    await expect(pins).toHaveCount(2);
+    await expect(pins.nth(0)).toHaveText('1');
+    await expect(pins.nth(1)).toHaveText('1');
+    await expect(pins.nth(0)).toHaveAttribute('data-anchor-kind', 'quote');
+    await expect(pins.nth(1)).toHaveAttribute('data-anchor-kind', 'element');
+});
+
+/**
+ * A live page has no version boundary, so a quote can stop reading at any time.
+ * The anchor then falls back to the element it was taken from: the comment keeps
+ * its pin and its outline, and only the precision is lost.
+ */
+test('a quote that no longer reads falls back to its element', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, PROSE_QUOTE);
+    await page.locator('#lp-quote-btn').click();
+    await saveComposed(page, 'Reword this');
+
+    // Re-anchoring from storage is the starting point, so the degrade below is
+    // the quote failing to match rather than the comment never resolving.
+    await openWithComments(page, keepHarnessUrl);
+    const pin = page.locator('.pin');
+    await expect(pin).toHaveCount(1);
+    await expect(pin).toHaveAttribute('data-anchor-kind', 'quote');
+
+    // The paragraph is rewritten under the saved comment, as a live page does.
+    // Its selector still matches; its quote no longer reads anywhere in it.
+    await page.evaluate(() => {
+        document.querySelector('#prose')!.textContent =
+            'The rewritten sentence says something else now.';
+        window.dispatchEvent(new Event('resize'));
+    });
+    await expect(pin).toHaveCount(1);
+    await expect(pin).toHaveAttribute('data-anchor-kind', 'element');
+
+    // The outline is the paragraph now, not a narrower run inside it.
+    await pin.hover();
+    const outline = await page.locator('#lp-hl').boundingBox();
+    const paragraph = await page.locator('#prose').boundingBox();
+    expect(Math.abs(outline!.width - (paragraph!.width + 16))).toBeLessThan(2);
+
+    // The stored quote survives for the agent; only the drawing degrades.
+    const comments = await fetchReviewComments(page);
+    expect(comments[0].anchors[0].quote).toBe(PROSE_TEXT);
+});
+
+/**
+ * The widget's panel lives in a shadow root, and `Node.contains` does not cross
+ * that boundary. Text selected inside the widget must not be offered as a page
+ * quote: no selector reaches into a shadow root, so the anchor could never
+ * resolve, and would be built from the widget's own markup.
+ */
+test('text selected inside the widget is not offered as a quote', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.getByRole('button', { name: 'Review' }).click();
+
+    const selected = await page.evaluate(() => {
+        const roots = [...document.querySelectorAll('*')]
+            .map((node) => node.shadowRoot)
+            .filter(Boolean) as ShadowRoot[];
+        const panel = roots.find((root) => root.getElementById('lp-panel'))!;
+        const copy = panel.querySelector('.lp-empty-sub')!;
+        const text = [...copy.childNodes].find(
+            (node) => node.nodeType === Node.TEXT_NODE,
+        ) as Text;
+        const range = document.createRange();
+        range.setStart(text, 0);
+        range.setEnd(text, Math.min(10, text.data.length));
+        const selection = document.getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return selection.toString();
+    });
+
+    // The selection really happened; the widget declines to act on it.
+    expect(selected.length).toBeGreaterThan(0);
+    await expect(page.locator('#lp-quote-btn')).toBeHidden();
+});
+
+/**
+ * A pin is anchored to the URL it was made on, and so is a selection waiting to
+ * become one. A client-side route change must withdraw the offer, or a click
+ * would store the old page's selector and quote against the new URL.
+ */
+test('a same-document navigation withdraws a waiting quote offer', async ({
+    page,
+}) => {
+    await openHarness(page);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, PROSE_QUOTE);
+    const offer = page.locator('#lp-quote-btn');
+    await expect(offer).toBeVisible();
+
+    await page.evaluate(() =>
+        history.pushState(
+            {},
+            '',
+            `${location.pathname}${location.search}&page=2`,
+        ),
+    );
+    await expect(offer).toBeHidden();
+});
+
+/**
+ * Two surviving occurrences that the stored context no longer separates are a
+ * coin flip. Naming one would put the comment on a passage the reviewer may not
+ * have meant, so the anchor degrades to its element instead.
+ */
+test('a quote whose context no longer separates its twins degrades', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+
+    const second = await occurrenceAt(page, 1);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, repeatSpan(second));
+    await page.locator('#lp-quote-btn').click();
+    await saveComposed(page, 'The second one again');
+
+    await openWithComments(page, keepHarnessUrl);
+    const pin = page.locator('.pin');
+    await expect(pin).toHaveAttribute('data-anchor-kind', 'quote');
+
+    // Both phrases survive, and the words before them are rewritten so neither
+    // prefix matches. Both still end in the stored suffix, so both score one:
+    // a tie, which says the context no longer separates them.
+    await page.evaluate(() => {
+        document.querySelector('#prose-repeat')!.textContent =
+            'Zzz the same phrase here. Yyy the same phrase here.';
+        window.dispatchEvent(new Event('resize'));
+    });
+    await expect(pin).toHaveCount(1);
+    await expect(pin).toHaveAttribute('data-anchor-kind', 'element');
+});
+
+/**
+ * An edit PATCHes the body alone, so the composer offers nothing that would
+ * change the anchors. The quote offer has to obey that too: taking a selection
+ * mid-edit would start a new comment and throw the draft away.
+ */
+test('editing a comment withdraws the offer to quote a selection', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, PROSE_QUOTE);
+    await page.locator('#lp-quote-btn').click();
+    await saveComposed(page, 'The original body');
+
+    await page.getByRole('button', { name: /Show .* comment/ }).click();
+    await page.locator('#lp-list .lp-edit').first().click();
+    const textarea = page.getByPlaceholder(/Describe the issue/);
+    await textarea.fill('An edit in progress');
+
+    // Selecting page text mid-edit changes nothing: no offer, one chip still,
+    // and the draft intact.
+    await selectText(page, repeatSpan(await occurrenceAt(page, 0)));
+    await expect(page.locator('#lp-quote-btn')).toBeHidden();
+    await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
+        1,
+    );
+    await expect(textarea).toHaveValue('An edit in progress');
+});
+
+/**
+ * A second selection extends the open comment, the way a second element pick
+ * does. Two occurrences of one phrase are two anchors, because the text around
+ * them differs — the composer must not collapse them into one.
+ */
+test('a second selection adds another quote to the same comment', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    const first = await occurrenceAt(page, 0);
+    const second = await occurrenceAt(page, 1);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, repeatSpan(first));
+    await page.locator('#lp-quote-btn').click();
+    await selectText(page, repeatSpan(second));
+    await page.locator('#lp-quote-btn').click();
+
+    const chips = page.locator('#lp-compose-head .lp-compose-chip');
+    await expect(chips).toHaveCount(2);
+    await saveComposed(page, 'Both of these say the same thing');
+
+    // Same element and same words, told apart only by the text around them.
+    const comments = await fetchReviewComments(page);
+    expect(comments[0].anchors).toHaveLength(2);
+    expect(comments[0].anchors[0].quote).toBe(REPEATED);
+    expect(comments[0].anchors[1].quote).toBe(REPEATED);
+    expect(comments[0].anchors[0].quotePrefix).not.toBe(
+        comments[0].anchors[1].quotePrefix,
+    );
+    await expect(page.locator('.pin')).toHaveCount(2);
+});
+
+/**
+ * A phrase repeated inside one element cannot be told apart by its selector or
+ * by the quote, so the stored prefix and suffix are the only thing that picks
+ * the occurrence the reviewer meant.
+ */
+test('a repeated quote re-anchors to the occurrence it was taken from', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+
+    const start = await occurrenceAt(page, 1);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await selectText(page, repeatSpan(start));
+    await page.locator('#lp-quote-btn').click();
+    await saveComposed(page, 'The second one');
+
+    // The prefix reaches back past the first occurrence, which is what makes the
+    // two distinguishable at all.
+    const comments = await fetchReviewComments(page);
+    expect(comments[0].anchors[0].quote).toBe(REPEATED);
+    expect(comments[0].anchors[0].quotePrefix).toContain('Second run:');
+
+    // Re-anchor from storage on a fresh load, then measure which run it found.
+    await openWithComments(page, keepHarnessUrl);
+    const pin = page.locator('.pin');
+    await expect(pin).toHaveCount(1);
+    await pin.hover();
+    const outline = await page.locator('#lp-hl').boundingBox();
+    const second = await spanIn(page, repeatSpan(start));
+    const first = await spanIn(page, repeatSpan(await occurrenceAt(page, 0)));
+    expect(Math.abs(outline!.x - (second.x - 8))).toBeLessThan(2);
+    expect(Math.abs(outline!.x - (first.x - 8))).toBeGreaterThan(20);
+});
+
+/**
+ * The bounding box of every painted pixel on the widget's stroke canvas, in CSS
+ * pixels of the viewport. The canvas carries the drawing and nothing else — the
+ * outlines, pins and labels are all DOM — so this measures the strokes alone.
+ */
+type Ink = {
+    count: number;
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+};
+
+const inkBounds = (page: Page): Promise<Ink> =>
+    page.evaluate(() => {
+        const canvas = [...document.documentElement.children]
+            .map((node) => node.shadowRoot?.getElementById('lp-canvas'))
+            .find(Boolean) as HTMLCanvasElement | undefined;
+        if (!canvas || canvas.width === 0) {
+            return { count: 0, left: 0, top: 0, right: 0, bottom: 0 };
+        }
+        const { width, height } = canvas;
+        const pixels = canvas
+            .getContext('2d')!
+            .getImageData(0, 0, width, height).data;
+        // The backing store is scaled by the device pixel ratio.
+        const scale = width / window.innerWidth;
+        let count = 0;
+        let left = Infinity;
+        let top = Infinity;
+        let right = -Infinity;
+        let bottom = -Infinity;
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                if (pixels[(y * width + x) * 4 + 3] <= 12) {
+                    continue;
+                }
+                count++;
+                left = Math.min(left, x);
+                right = Math.max(right, x);
+                top = Math.min(top, y);
+                bottom = Math.max(bottom, y);
+            }
+        }
+        if (count === 0) {
+            return { count: 0, left: 0, top: 0, right: 0, bottom: 0 };
+        }
+        return {
+            count,
+            left: left / scale,
+            top: top / scale,
+            right: right / scale,
+            bottom: bottom / scale,
+        };
+    });
+
+const inkTimeout = { timeout: 25000 };
+
+const waitForInk = async (page: Page): Promise<Ink> => {
+    await expect
+        .poll(async () => (await inkBounds(page)).count, inkTimeout)
+        .toBeGreaterThan(0);
+
+    return inkBounds(page);
+};
+
+/**
+ * Drag a stroke across the page. Draw mode has to be on already, because the
+ * canvas is the node that takes these events.
+ */
+const drawStroke = async (
+    page: Page,
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+): Promise<void> => {
+    const steps = 8;
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    for (let step = 1; step <= steps; step++) {
+        await page.mouse.move(
+            from.x + ((to.x - from.x) * step) / steps,
+            from.y + ((to.y - from.y) * step) / steps,
+        );
+    }
+    await page.mouse.up();
+};
+
+/** The stored strokes of the site's live comments, read with the widget's token. */
+const fetchReviewStrokes = (
+    page: Page,
+): Promise<
+    Array<{
+        anchorCount: number;
+        strokes: Array<{ space: string; points: Array<[number, number]> }>;
+    }>
+> =>
+    page.evaluate(async () => {
+        const script = document.querySelector(
+            'script[src*="site-review/widget.js"]',
+        )!;
+        const response = await fetch('/api/site-review/review', {
+            headers: {
+                Authorization: `Bearer ${script.getAttribute('data-token')!}`,
+            },
+        });
+        const { comments } = (await response.json()) as {
+            comments: Array<{
+                anchors: unknown[];
+                strokes: Array<{
+                    space: string;
+                    points: Array<[number, number]>;
+                }>;
+            }>;
+        };
+        return comments.map((comment) => ({
+            anchorCount: comment.anchors.length,
+            strokes: comment.strokes,
+        }));
+    });
+
+/** Open the panel, pick `#target-wide`, then turn the canvas on. */
+const composeDrawingOnWideBlock = async (page: Page): Promise<void> => {
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await page.locator('#target-wide').click();
+    await expect(page.locator('[data-anchor-chip]')).toHaveCount(1);
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Draw', exact: true })
+        .click();
+};
+
+const saveComposer = async (page: Page, body: string): Promise<void> => {
+    await page.getByRole('button', { name: 'Done' }).click();
+    await page.getByPlaceholder(/Describe the issue/).fill(body);
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#lp-head-count')).toHaveText('1', inkTimeout);
+    // The "saved" toast clears itself on a timer, and that timer repaints the
+    // whole overlay. Wait it out, so any later repaint can only have come from
+    // the gesture under test.
+    await expect(page.locator('#lp-saved')).toBeHidden({ timeout: 15000 });
+};
+
+/**
+ * A stroke on an anchored comment is stored as fractions of its first anchor's
+ * box, so the drawing reflows with the element instead of staying at the pixels
+ * the reviewer happened to draw it at.
+ */
+test('a stroke on an anchored comment moves with its element', async ({
+    page,
+}) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await composeDrawingOnWideBlock(page);
+
+    const wideBox = (await page.locator('#target-wide').boundingBox())!;
+    await drawStroke(
+        page,
+        { x: wideBox.x + 4, y: wideBox.y + 4 },
+        {
+            x: wideBox.x + wideBox.width - 4,
+            y: wideBox.y + wideBox.height - 4,
+        },
+    );
+    await waitForInk(page);
+    await saveComposer(page, 'Move this block to the right');
+
+    const [saved] = await fetchReviewStrokes(page);
+    expect(saved.anchorCount).toBe(1);
+    expect(saved.strokes).toHaveLength(1);
+    expect(saved.strokes[0].space).toBe('anchor');
+
+    // The saved comment re-renders from those fractions, over the same element.
+    const wideInk = await waitForInk(page);
+    expect(wideInk.right).toBeGreaterThan(wideBox.x + wideBox.width - 16);
+
+    // Narrow the window. #target-wide is a percentage width, so it genuinely
+    // reflows, and the drawing has to reflow with it.
+    await page.setViewportSize({ width: 760, height: 800 });
+    const narrowBox = (await page.locator('#target-wide').boundingBox())!;
+    expect(narrowBox.width).toBeLessThan(wideBox.width - 200);
+
+    await expect
+        .poll(async () => (await inkBounds(page)).right, inkTimeout)
+        .toBeLessThan(narrowBox.x + narrowBox.width + 8);
+    const narrowInk = await inkBounds(page);
+    // Still spanning the element, and still inside it. Page coordinates would
+    // put the drawing well above the block, because the whole page scales.
+    expect(narrowInk.right - narrowInk.left).toBeGreaterThan(
+        narrowBox.width * 0.8,
+    );
+    expect(narrowInk.top).toBeGreaterThan(narrowBox.y - 8);
+    expect(narrowInk.bottom).toBeLessThan(narrowBox.y + narrowBox.height + 8);
+});
+
+/**
+ * A stroke that crosses the page from a small element is a page-scale gesture,
+ * not a mark on that element's box. Measuring it against the box would multiply
+ * every fraction by a small width, so a few pixels of reflow would fling the
+ * far end of the stroke across the screen — and the fractions themselves grow
+ * large enough for the API to refuse the save.
+ */
+test('a stroke that reaches far past its element falls back to page space', async ({
+    page,
+}) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    // 21px tall, so a 600px drag reaches far more than 20 box heights.
+    await page.locator('#target-me').click();
+    await expect(page.locator('[data-anchor-chip]')).toHaveCount(1);
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Draw', exact: true })
+        .click();
+
+    const small = (await page.locator('#target-me').boundingBox())!;
+    expect(small.height).toBeLessThan(40);
+    await drawStroke(
+        page,
+        { x: small.x + 4, y: small.y + 4 },
+        { x: small.x + 300, y: small.y + 600 },
+    );
+    await waitForInk(page);
+    await saveComposer(page, 'This belongs down there');
+
+    const [saved] = await fetchReviewStrokes(page);
+    expect(saved.anchorCount).toBe(1);
+    expect(saved.strokes[0].space).toBe('page');
+    // Whatever the space, the drawing has to come back on the page.
+    const reloaded = await waitForInk(page);
+    expect(reloaded.bottom).toBeGreaterThan(small.y + 500);
+});
+
+/**
+ * A comment with no anchor has no box to measure against, so its strokes are
+ * page coordinates. They survive a scroll, and the widget says so in the docs
+ * rather than pretending they survive a reflow.
+ */
+test('a stroke on a page note keeps its place as the page scrolls', async ({
+    page,
+}) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Draw', exact: true })
+        .click();
+
+    const linkBox = (await page.locator('#target-link').boundingBox())!;
+    await drawStroke(
+        page,
+        { x: linkBox.x + 2, y: linkBox.y + 2 },
+        { x: linkBox.x + 150, y: linkBox.y + 70 },
+    );
+    await waitForInk(page);
+    await saveComposer(page, 'This whole area needs work');
+
+    const [saved] = await fetchReviewStrokes(page);
+    expect(saved.anchorCount).toBe(0);
+    expect(saved.strokes[0].space).toBe('page');
+
+    const before = await waitForInk(page);
+    await page.mouse.wheel(0, 120);
+    await expect
+        .poll(
+            async () =>
+                Math.abs((await inkBounds(page)).top - (before.top - 120)),
+            inkTimeout,
+        )
+        .toBeLessThan(4);
+});
+
+/**
+ * A stroke is not a pick. It creates no anchor, it promotes nothing under it,
+ * and the add-another-element hold does nothing while the canvas has the
+ * pointer — otherwise every drag over an element would silently anchor it.
+ */
+test('drawing never picks the element under the stroke', async ({ page }) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await composeDrawingOnWideBlock(page);
+
+    const modifier = await addAnchorKey(page);
+    const secondBox = (await page.locator('#target-two').boundingBox())!;
+    await page.keyboard.down(modifier);
+    await drawStroke(
+        page,
+        { x: secondBox.x + 3, y: secondBox.y + 3 },
+        {
+            x: secondBox.x + secondBox.width - 3,
+            y: secondBox.y + secondBox.height - 3,
+        },
+    );
+    await page.keyboard.up(modifier);
+
+    // The anchor count first: a hold that reached the picker would have added
+    // the second button on the drag's own click.
+    await expect(page.locator('[data-anchor-chip]')).toHaveCount(1);
+    await expect(page.locator('#lp-scrim')).toBeHidden();
+    await waitForInk(page);
+
+    await saveComposer(page, 'The drawing points at the second button');
+    const [saved] = await fetchReviewStrokes(page);
+    expect(saved.anchorCount).toBe(1);
+});
+
+/**
+ * The drawing is stored with the comment, so it comes back on the next visit
+ * the way the pins do.
+ */
+test("a saved comment's drawing comes back on reload", async ({ page }) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await composeDrawingOnWideBlock(page);
+
+    const wideBox = (await page.locator('#target-wide').boundingBox())!;
+    await drawStroke(
+        page,
+        { x: wideBox.x + 6, y: wideBox.y + 6 },
+        { x: wideBox.x + 200, y: wideBox.y + wideBox.height - 6 },
+    );
+    await saveComposer(page, 'Still here after a reload');
+    const before = await waitForInk(page);
+
+    await page.goto(keepHarnessUrl);
+    const after = await waitForInk(page);
+    expect(Math.abs(after.left - before.left)).toBeLessThan(4);
+    expect(Math.abs(after.top - before.top)).toBeLessThan(4);
+    expect(Math.abs(after.right - before.right)).toBeLessThan(4);
+});
+
+/**
+ * The instance decides whether drawing is offered, and the boot load is where
+ * the widget learns it. Turning the flag off has to remove the control without
+ * hiding a drawing a reviewer already left, or the switch destroys their work.
+ */
+test('an instance with drawing off offers no Draw, and still renders saved strokes', async ({
+    page,
+}) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await composeDrawingOnWideBlock(page);
+
+    const wideBox = (await page.locator('#target-wide').boundingBox())!;
+    await drawStroke(
+        page,
+        { x: wideBox.x + 6, y: wideBox.y + 6 },
+        { x: wideBox.x + 220, y: wideBox.y + wideBox.height - 6 },
+    );
+    await saveComposer(page, 'Drawn while the flag was on');
+    const drawn = await waitForInk(page);
+
+    // Come back to an instance that no longer offers drawing.
+    await page.route('**/api/site-review/review', async (route) => {
+        const response = await route.fetch();
+        const payload = (await response.json()) as Record<string, unknown>;
+        await route.fulfill({
+            response,
+            json: { ...payload, drawingEnabled: false },
+        });
+    });
+    await page.goto(keepHarnessUrl);
+
+    const kept = await waitForInk(page);
+    expect(Math.abs(kept.left - drawn.left)).toBeLessThan(4);
+    expect(Math.abs(kept.top - drawn.top)).toBeLessThan(4);
+
+    await page.getByRole('button', { name: 'Review' }).click();
+    await expect(
+        page.locator('#lp-panel').getByRole('button', { name: 'Pick element' }),
+    ).toBeVisible();
+    await expect(page.locator('#draw')).toBeHidden();
+
+    // The shortcut is gone too, so nothing opens a composer the API refuses.
+    await page.keyboard.press('d');
+    await expect(page.locator('#lp-composer')).toHaveCSS('max-height', '0px');
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
+/**
+ * Every toast rests on the same edge, so drawing again inside the saved
+ * notice's 2.4 second window must not bury the stroke count and its controls.
+ */
+test('the saved notice gives way to the drawing toast', async ({ page }) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Add note' })
+        .click();
+    await page.getByPlaceholder(/Describe the issue/).fill('A plain note');
+    await page.getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#lp-head-count')).toHaveText('1', inkTimeout);
+
+    // The notice clears itself after 2.4 seconds, so a retrying matcher would
+    // pass on the timer rather than on the behaviour. Press Draw and read both
+    // toasts in the same evaluate, with no round trip in between.
+    const toasts = await page.evaluate(() => {
+        const roots = [...document.documentElement.children]
+            .map((node) => node.shadowRoot)
+            .filter((root): root is ShadowRoot => root !== null);
+        const panel = roots.find((root) => root.getElementById('lp-panel'))!;
+        const overlay = roots.find((root) => root.getElementById('lp-ov'))!;
+        const savedBefore = overlay.getElementById('lp-saved')!.style.display;
+        panel.getElementById('draw')!.click();
+        return {
+            savedBefore,
+            savedAfter: overlay.getElementById('lp-saved')!.style.display,
+            drawAfter: overlay.getElementById('lp-draw-toast')!.style.display,
+        };
+    });
+
+    // Guard: without this the two assertions below also pass on a notice that
+    // had already timed out, which proves nothing.
+    expect(toasts.savedBefore).toBe('flex');
+    expect(toasts.drawAfter).toBe('flex');
+    expect(toasts.savedAfter).toBe('none');
+    await expect(page.locator('#lp-draw-text')).toHaveText('Drag to draw');
+});
+
+/**
+ * The canvas sits under the offer to quote a selection, so an offer left up
+ * during a drag would eat part of the stroke and could add a quote without
+ * leaving draw mode. Draw mode hides it the way pick mode already does, and the
+ * selection survives, so the offer returns when the mode ends.
+ */
+test('the offer to quote a selection stands down while drawing', async ({
+    page,
+}) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await page.getByRole('button', { name: 'Review' }).click();
+
+    const offer = page.locator('#lp-quote-btn');
+    await selectText(page, PROSE_QUOTE);
+    await expect(offer).toBeVisible();
+
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Draw', exact: true })
+        .click();
+    await expect(offer).toBeHidden();
+
+    // A stroke drawn across the offer's own place still lands.
+    const box = (await page.locator('#prose').boundingBox())!;
+    await drawStroke(
+        page,
+        { x: box.x + 8, y: box.y + box.height + 12 },
+        { x: box.x + 180, y: box.y + box.height + 30 },
+    );
+    await waitForInk(page);
+
+    // Leaving draw mode gives the offer back, because the selection is intact.
+    await page.getByRole('button', { name: 'Done' }).click();
+    await expect(offer).toBeVisible();
+});
+
+/**
+ * The collapsed launcher offers the capture modes without opening the panel
+ * first, and drawing is one of them. The launcher is also draggable, so a press
+ * on this button has to tell a click from the start of a drag.
+ */
+test('the launcher offers a quick draw, and tells a click from a drag', async ({
+    page,
+}) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    const launcher = page.locator('#lp-launcher');
+    const quickDraw = launcher.getByRole('button', {
+        name: 'Draw',
+        exact: true,
+    });
+    await expect(quickDraw).toBeVisible();
+
+    // A click opens drawing straight from the closed state, and leaves the
+    // launcher where it was.
+    const corner = () =>
+        page.evaluate(() =>
+            document.documentElement.getAttribute('data-loupe-review-corner'),
+        );
+    expect(await corner()).toBe('bottom-right');
+
+    // The drags go first, while nothing is animating. A manual mouse.move takes
+    // no stability wait of its own, and the quick actions slide for 240ms
+    // whenever the panel opens or closes.
+    const box = (await quickDraw.boundingBox())!;
+    const centre = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+
+    // A short drag releases with the pointer still over the button, so the
+    // browser does fire a click there. That press meant "move", so the launcher
+    // has to swallow it and drawing must not open. A long drag releases over
+    // the page and never reaches this button, which is why the short one is
+    // what proves the swallow.
+    await page.mouse.move(centre.x, centre.y);
+    await page.mouse.down();
+    await page.mouse.move(centre.x + 14, centre.y - 8, { steps: 4 });
+    await page.mouse.up();
+    await expect.poll(corner).toBe('bottom-right');
+    await expect(page.locator('#lp-draw-toast')).toBeHidden();
+    await expect(page.locator('#lp-panel')).toBeHidden();
+
+    // A long drag moves the launcher, and still opens nothing.
+    await page.mouse.move(centre.x, centre.y);
+    await page.mouse.down();
+    for (let step = 1; step <= 10; step++) {
+        await page.mouse.move(centre.x - step * 90, centre.y - step * 70);
+    }
+    await page.mouse.up();
+    await expect.poll(corner).toBe('top-left');
+    await expect(page.locator('#lp-draw-toast')).toBeHidden();
+
+    // A click on the same button opens drawing from the closed state, and
+    // leaves the launcher in the corner the drag put it in.
+    await quickDraw.click();
+    await expect(page.locator('#lp-draw-toast')).toBeVisible();
+    await expect(page.locator('#lp-panel')).toBeVisible();
+    expect(await corner()).toBe('top-left');
+
+    // A stroke started from that quick entry lands like any other.
+    await drawStroke(page, { x: 500, y: 500 }, { x: 620, y: 560 });
+    await waitForInk(page);
+
+    // With the panel open the quick actions collapse, drawing among them.
+    await expect(quickDraw).toBeHidden();
+});
+
+/**
+ * An instance with drawing switched off must not advertise it on the launcher
+ * either. The other two quick actions stay, so an assertion cannot pass merely
+ * because the launcher rendered nothing at all.
+ */
+test('the launcher drops its quick draw when drawing is off', async ({
+    page,
+}) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.route('**/api/site-review/review', async (route) => {
+        const response = await route.fetch();
+        const payload = (await response.json()) as Record<string, unknown>;
+        await route.fulfill({
+            response,
+            json: { ...payload, drawingEnabled: false },
+        });
+    });
+    await page.goto(keepHarnessUrl);
+
+    const launcher = page.locator('#lp-launcher');
+    // The two that do not depend on the flag prove the launcher rendered.
+    await expect(
+        launcher.getByRole('button', { name: 'Add note' }),
+    ).toBeVisible();
+    await expect(
+        launcher.getByRole('button', { name: 'Pick element' }),
+    ).toBeVisible();
+    await expect(
+        launcher.getByRole('button', { name: 'Draw', exact: true }),
+    ).toBeHidden();
+
+    // The boot load can still be in flight when the test ends, and a route
+    // handler that outlives its page fails the run on teardown.
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
+/**
+ * Undo drops the last stroke and Clear drops the drawing. There is no per-stroke
+ * eraser, so these two are the whole of what a reviewer can take back.
+ */
+test('a stroke can be undone, and the whole drawing cleared', async ({
+    page,
+}) => {
+    // Several server round trips plus a canvas read per poll. The default
+    // budget is too tight for that when the app host is busy.
+    test.slow();
+    await openHarness(page);
+    await page.goto(keepHarnessUrl);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Draw', exact: true })
+        .click();
+
+    await drawStroke(page, { x: 60, y: 240 }, { x: 160, y: 300 });
+    await drawStroke(page, { x: 400, y: 240 }, { x: 500, y: 300 });
+    const both = await waitForInk(page);
+    expect(both.right).toBeGreaterThan(480);
+    await expect(page.locator('#lp-draw-text')).toHaveText('2 strokes');
+
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect(page.locator('#lp-draw-text')).toHaveText('1 stroke');
+    await expect
+        .poll(async () => (await inkBounds(page)).right, inkTimeout)
+        .toBeLessThan(200);
+
+    // Leaving draw mode keeps the stroke, and the composer names it. Going back
+    // in and out again must not disturb it.
+    await page.getByRole('button', { name: 'Done' }).click();
+    const strokeChip = page.locator('[data-stroke-clear]');
+    await expect(strokeChip).toHaveCount(1);
+    await expect(page.locator('#lp-compose-head')).toContainText('1 stroke');
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Draw', exact: true })
+        .click();
+    await expect(page.locator('#lp-draw-text')).toHaveText('1 stroke');
+
+    await page.getByRole('button', { name: 'Clear' }).click();
+    await expect(page.locator('#lp-draw-text')).toHaveText('Drag to draw');
+    await expect
+        .poll(async () => (await inkBounds(page)).count, inkTimeout)
+        .toBe(0);
+    await expect(strokeChip).toHaveCount(0);
+
+    // The chip's own × is the erase control once draw mode is off.
+    await drawStroke(page, { x: 220, y: 260 }, { x: 320, y: 320 });
+    await page.getByRole('button', { name: 'Done' }).click();
+    await expect(strokeChip).toHaveCount(1);
+    await waitForInk(page);
+    await strokeChip.click();
+    await expect(strokeChip).toHaveCount(0);
+    await expect
+        .poll(async () => (await inkBounds(page)).count, inkTimeout)
+        .toBe(0);
+});
+
+/**
+ * Moving the launcher.
+ *
+ * The launcher is fixed to one corner, and a host page pins its own chrome to
+ * corners too. Two routes move it: the panel's corner control, and a drag that
+ * snaps on drop. The corner it lands in is kept in the host origin's
+ * localStorage, and the widget tells the page which corner it is in through
+ * `data-loupe-review-corner` on <html>.
+ */
+
+const cornerAttribute = (page: Page): Promise<string | null> =>
+    page.evaluate(() =>
+        document.documentElement.getAttribute('data-loupe-review-corner'),
+    );
+
+/**
+ * The panel opens and closes on a max-height transition, so a box read straight
+ * after a click is mid-animation and smaller than the one that has to fit. Wait
+ * until two consecutive reads agree before measuring.
+ */
+const settledBox = async (page: Page, selector: string) => {
+    const locator = page.locator(selector);
+    let previous = -1;
+    await expect
+        .poll(async () => {
+            const height = (await locator.boundingBox())!.height;
+            const stable = height === previous;
+            previous = height;
+            return stable;
+        })
+        .toBe(true);
+    return (await locator.boundingBox())!;
+};
+
+const expectInsideViewport = async (
+    page: Page,
+    selector: string,
+): Promise<void> => {
+    const viewport = page.viewportSize()!;
+    const box = await settledBox(page, selector);
+    expect(box.x, `${selector} left edge`).toBeGreaterThanOrEqual(0);
+    expect(box.y, `${selector} top edge`).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width, `${selector} right edge`).toBeLessThanOrEqual(
+        viewport.width,
+    );
+    expect(box.y + box.height, `${selector} bottom edge`).toBeLessThanOrEqual(
+        viewport.height,
+    );
+};
+
+/**
+ * The panel must open out of the launcher's own corner, touching it. Staying on
+ * screen is not enough on its own, and neither is being on the right side of
+ * it: a panel that keeps its bottom-right offsets while the launcher moves to
+ * the top still fits the viewport, and is still "below" the launcher, at the
+ * far end of the screen from the thing it belongs to. So measure the gap.
+ */
+const MAX_PANEL_GAP = 40;
+
+const expectPanelMeetsLauncher = async (
+    page: Page,
+    corner: string,
+): Promise<void> => {
+    const launcher = await settledBox(page, '#lp-launcher');
+    const panel = await settledBox(page, '#lp-panel');
+
+    const gap = corner.startsWith('top')
+        ? panel.y - (launcher.y + launcher.height)
+        : launcher.y - (panel.y + panel.height);
+    expect(
+        gap,
+        `gap between the panel and a ${corner} launcher`,
+    ).toBeGreaterThanOrEqual(0);
+    expect(gap, `gap between the panel and a ${corner} launcher`).toBeLessThan(
+        MAX_PANEL_GAP,
+    );
+
+    if (corner.endsWith('left')) {
+        expect(
+            Math.abs(panel.x - launcher.x),
+            'left edges line up',
+        ).toBeLessThan(4);
+    } else {
+        expect(
+            Math.abs(panel.x + panel.width - (launcher.x + launcher.width)),
+            'right edges line up',
+        ).toBeLessThan(4);
+    }
+};
+
+/** Open the panel and put the composer in it, which is the panel at its tallest. */
+const openTallestPanel = async (page: Page): Promise<void> => {
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Add note' })
+        .click();
+    await page.getByPlaceholder(/Describe the issue/).fill('x'.repeat(200));
+};
+
+test('the corner control walks the launcher round every corner, each on screen', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await expect(page.locator('#lp-panel')).toBeVisible();
+
+    const visited: Array<string | null> = [];
+    for (let step = 0; step < 4; step++) {
+        const corner = (await cornerAttribute(page))!;
+        visited.push(corner);
+
+        // Measured with the composer open, which is the panel at its tallest.
+        await openTallestPanel(page);
+        await expectInsideViewport(page, '#lp-launcher');
+        await expectInsideViewport(page, '#lp-panel');
+        await expectInsideViewport(page, '#lp-composer');
+        await expectPanelMeetsLauncher(page, corner);
+
+        await page.locator('#lp-cancel').click();
+        await page.locator('#lp-move').click();
+    }
+
+    expect(visited).toEqual([
+        'bottom-right',
+        'bottom-left',
+        'top-left',
+        'top-right',
+    ]);
+    // Four presses return it to where it started.
+    await expect.poll(() => cornerAttribute(page)).toBe('bottom-right');
+});
+
+test('dragging the launcher snaps it to the nearest corner, and is not a click', async ({
+    page,
+}) => {
+    await openHarness(page);
+    const launcher = page.locator('#lp-launcher');
+    const review = launcher.getByRole('button', { name: 'Review' });
+
+    // A short drag off the Review button releases with the pointer still over
+    // it, so the browser does fire a click there. That press meant "move", so
+    // the panel must stay shut. A long drag releases over the page instead and
+    // never reaches this button, which is why the short one is the real test.
+    const button = (await review.boundingBox())!;
+    await page.mouse.move(
+        button.x + button.width / 2,
+        button.y + button.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+        button.x + button.width / 2 + 14,
+        button.y + button.height / 2 - 8,
+        { steps: 4 },
+    );
+    await page.mouse.up();
+    await expect.poll(() => cornerAttribute(page)).toBe('bottom-right');
+    await expect(page.locator('#lp-panel')).toBeHidden();
+
+    const start = (await launcher.boundingBox())!;
+    await page.mouse.move(
+        start.x + start.width / 2,
+        start.y + start.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+        start.x + start.width / 2 - 40,
+        start.y + start.height / 2 - 40,
+        { steps: 5 },
+    );
+    await page.mouse.move(160, 160, { steps: 10 });
+    await page.mouse.up();
+
+    // Dropped nearer the top-left quadrant than any other, so that is where it goes.
+    await expect.poll(() => cornerAttribute(page)).toBe('top-left');
+    const dropped = (await launcher.boundingBox())!;
+    expect(dropped.x).toBeLessThan(100);
+    expect(dropped.y).toBeLessThan(100);
+
+    // A drag is not a click. The press that moved it must not open the panel.
+    await expect(page.locator('#lp-panel')).toBeHidden();
+
+    // A press that goes nowhere still is a click, so the panel still opens.
+    await page.getByRole('button', { name: 'Review' }).click();
+    await expect(page.locator('#lp-panel')).toBeVisible();
+});
+
+test('the chosen corner survives a reload', async ({ page }) => {
+    await openHarness(page);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page.locator('#lp-move').click();
+    await page.locator('#lp-move').click();
+    await expect.poll(() => cornerAttribute(page)).toBe('top-left');
+
+    await page.reload();
+    await expect(page.locator('#lp-launcher')).toBeVisible();
+
+    await expect.poll(() => cornerAttribute(page)).toBe('top-left');
+    const box = (await page.locator('#lp-launcher').boundingBox())!;
+    expect(box.x).toBeLessThan(100);
+    expect(box.y).toBeLessThan(100);
+});
+
+test('the corner control is reachable and operable from the keyboard', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await expect(page.locator('#lp-panel')).toBeVisible();
+
+    // The control names where it will move the launcher, so a screen reader
+    // hears the destination rather than "button".
+    const move = page.locator('#lp-move');
+    await expect(move).toHaveAttribute(
+        'aria-label',
+        'Move the launcher to the bottom left',
+    );
+
+    // In the tab order, not merely focusable by script: Close follows it in the
+    // header, so Shift+Tab from Close has to land on it.
+    await page.locator('#lp-close').focus();
+    await page.keyboard.press('Shift+Tab');
+    await expect(move).toBeFocused();
+
+    await page.keyboard.press('Enter');
+    await expect.poll(() => cornerAttribute(page)).toBe('bottom-left');
+
+    // Focus stays on the control, so a second press keeps walking the corners.
+    await expect(move).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect.poll(() => cornerAttribute(page)).toBe('top-left');
+});
+
+// The widget ships to other people's sites, where a private window or blocked
+// site data makes every localStorage access throw. Guarded, it must still mount.
+test('a page that blocks site data still gets a working launcher', async ({
+    page,
+}) => {
+    await registerUser(page);
+    await page.addInitScript(() => {
+        Object.defineProperty(window, 'localStorage', {
+            get() {
+                throw new DOMException(
+                    'The operation is insecure.',
+                    'SecurityError',
+                );
+            },
+        });
+    });
+    await page.goto(HARNESS_URL);
+
+    await expect(page.locator('#lp-launcher')).toBeVisible();
+    await expect.poll(() => cornerAttribute(page)).toBe('bottom-right');
+
+    // The corner still moves for this page, with nowhere to record it.
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page.locator('#lp-move').click();
+    await expect.poll(() => cornerAttribute(page)).toBe('bottom-left');
 });

@@ -27,9 +27,12 @@ class SiteReviewComment
     public SiteReviewCommentStatus $status = SiteReviewCommentStatus::Pending;
 
     /**
-     * Freehand drawing over the page. Nothing writes it yet.
+     * Freehand strokes drawn over the page, held as fractions rather than
+     * pixels so they move with the page. `space` says what of: `anchor`
+     * measures each point against the box of anchor 0, and `page` divides both
+     * axes by the document width. Null when the reviewer drew nothing.
      *
-     * @var list<mixed>|null
+     * @var list<array{space: string, points: list<array{float, float}>}>|null
      */
     #[ORM\Column(type: Types::JSON, nullable: true)]
     public ?array $strokes = null;

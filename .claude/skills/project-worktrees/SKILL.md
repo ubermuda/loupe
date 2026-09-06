@@ -95,6 +95,18 @@ a worktree"). Running from main is also correct by construction, because the bar
 `docker compose` calls inside the bootstrap script resolve their compose file
 from the current directory.
 
+One php-fpm container serves every worktree. `bin/worktrees/compose-exec.sh`
+execs into `loupe-php-fpm-1` and varies only `--workdir`. Isolation between
+worktrees is per test database, through the `TEST_TOKEN` that
+`worktree-bootstrap.sh` writes into each `.env.test.local`, never per container.
+
+Two consequences. `docker compose exec php-fpm pkill -f phpunit` kills every
+worktree's run, so match the path instead: `pkill -f 'phpunit.*worktrees/<name>'`,
+after reading `docker exec loupe-php-fpm-1 ps aux | grep phpunit`. And two gates
+in one worktree share a token, hit one database, and crash in `tests/bootstrap.php`
+with `duplicate key value violates unique constraint "pg_type_typname_nsp_index"`.
+Gates in different worktrees are safe.
+
 Before you trust any write, confirm the path is in `git worktree list`. Existence
 on disk is exactly what misleads here. When a worktree is removed while an agent
 is still bound to it, a write to the old path **reports success**: it recreates a

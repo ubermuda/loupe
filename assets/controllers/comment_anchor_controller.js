@@ -1,5 +1,12 @@
 import { Controller } from '@hotwired/stimulus';
 import { DemoTransport, ServerTransport } from '../lib/review_transport.js';
+import {
+    after,
+    before,
+    bestQuoteStart,
+    CONTEXT,
+    FINGERPRINT,
+} from '../lib/anchor_matching.js';
 
 /**
  * Drives the review document's commenting UX.
@@ -100,12 +107,6 @@ export default class extends Controller {
         hover: 4,
         active: 5,
     };
-
-    static CONTEXT = 32;
-
-    // Leading/trailing characters of a context window used to confirm a match,
-    // mirroring AnchorService::FINGERPRINT.
-    static FINGERPRINT = 8;
 
     // Below this the page has no gutter a card could sit in, so demo mode
     // declines the selection rather than covering the copy it points at. The
@@ -595,12 +596,11 @@ export default class extends Controller {
         }
 
         const fullText = this.docTarget.textContent;
-        const context = this.constructor.CONTEXT;
 
         return {
             quote: fullText.slice(start, end),
-            prefix: this.#before(fullText, start, context),
-            suffix: this.#after(fullText, end, context),
+            prefix: before(fullText, start, CONTEXT),
+            suffix: after(fullText, end, CONTEXT),
         };
     }
 
@@ -671,14 +671,13 @@ export default class extends Controller {
         const characters = Array.from(holder.text);
         const from = start - holder.offset;
         const to = end - holder.offset;
-        const context = this.constructor.CONTEXT;
 
         return {
             quote: characters.slice(from, to).join(''),
             prefix: characters
-                .slice(Math.max(0, from - context), from)
+                .slice(Math.max(0, from - CONTEXT), from)
                 .join(''),
-            suffix: characters.slice(to, to + context).join(''),
+            suffix: characters.slice(to, to + CONTEXT).join(''),
         };
     }
 
@@ -695,8 +694,6 @@ export default class extends Controller {
             return null;
         }
 
-        const context = this.constructor.CONTEXT;
-        const fingerprint = this.constructor.FINGERPRINT;
         let best = null;
 
         for (const run of this.#diffRuns()) {
@@ -705,19 +702,17 @@ export default class extends Controller {
                 let score = 0;
                 if (
                     prefix !== '' &&
-                    this.#before(run.text, at, context).endsWith(
-                        this.#before(prefix, prefix.length, fingerprint),
+                    before(run.text, at, CONTEXT).endsWith(
+                        before(prefix, prefix.length, FINGERPRINT),
                     )
                 ) {
                     score += 1;
                 }
                 if (
                     suffix !== '' &&
-                    this.#after(
-                        run.text,
-                        at + quote.length,
-                        context,
-                    ).startsWith(this.#after(suffix, 0, fingerprint))
+                    after(run.text, at + quote.length, CONTEXT).startsWith(
+                        after(suffix, 0, FINGERPRINT),
+                    )
                 ) {
                     score += 1;
                 }
@@ -871,24 +866,6 @@ export default class extends Controller {
     }
 
     /**
-     * The last `count` codepoints of `text` ending at the UTF-16 offset `index`.
-     * The server slices its window in codepoints, so a plain slice would build a
-     * shorter one — and could halve a surrogate pair — around an emoji.
-     */
-    #before(text, index, count) {
-        return Array.from(text.slice(Math.max(0, index - count * 2), index))
-            .slice(-count)
-            .join('');
-    }
-
-    /** The first `count` codepoints of `text` starting at the UTF-16 offset `index`. */
-    #after(text, index, count) {
-        return Array.from(text.slice(index, index + count * 2))
-            .slice(0, count)
-            .join('');
-    }
-
-    /**
      * Character offset of (node, offsetInNode) from the start of the doc
      * container, summing text-node lengths in document order. Matches the basis
      * the server uses (plainText()).
@@ -962,46 +939,16 @@ export default class extends Controller {
             return this.#findDiffRange(quote, prefix, suffix);
         }
 
-        if (quote === '') {
+        const start = bestQuoteStart(
+            this.docTarget.textContent,
+            quote,
+            prefix,
+            suffix,
+        );
+        if (start === null) {
             return null;
         }
 
-        const fullText = this.docTarget.textContent;
-        const occurrences = [];
-        let from = fullText.indexOf(quote);
-        while (from !== -1) {
-            occurrences.push(from);
-            from = fullText.indexOf(quote, from + 1);
-        }
-        if (occurrences.length === 0) {
-            return null;
-        }
-
-        const context = this.constructor.CONTEXT;
-        const fingerprint = this.constructor.FINGERPRINT;
-        const score = (start) => {
-            let value = 0;
-            const before = this.#before(fullText, start, context);
-            const after = this.#after(fullText, start + quote.length, context);
-            if (
-                prefix !== '' &&
-                before.endsWith(
-                    this.#before(prefix, prefix.length, fingerprint),
-                )
-            ) {
-                value += 1;
-            }
-            if (
-                suffix !== '' &&
-                after.startsWith(this.#after(suffix, 0, fingerprint))
-            ) {
-                value += 1;
-            }
-            return value;
-        };
-        occurrences.sort((a, b) => score(b) - score(a) || a - b);
-
-        const start = occurrences[0];
         return this.#rangeForTextSpan(start, start + quote.length);
     }
 

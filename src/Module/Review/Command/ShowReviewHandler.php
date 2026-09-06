@@ -12,8 +12,11 @@ use App\Module\Review\Repository\DecisionSelectionRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Repository\ReviewRepository;
 use App\Module\Review\Service\DecisionBlockService;
+use App\Module\Review\Service\HeadingExtractor;
+use App\Module\Review\Service\SectionApprovalReader;
 use App\Module\Review\ValueObject\Anchor;
 use App\Module\Review\ValueObject\DecisionType;
+use App\Module\Review\ValueObject\DocumentHeading;
 
 /**
  * @phpstan-type ReviewPayload array{
@@ -21,7 +24,8 @@ use App\Module\Review\ValueObject\DecisionType;
  *     verdict: string|null,
  *     version: int,
  *     comments: list<array{id: string, quote: string, body: string, replacement: string|null, author: 'agent'|'human', status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, author: 'agent'|'human', orphaned: bool}>}>,
- *     decisions: list<array{id: string, type: string, options: list<string>, selected: string|null, selected_index: int|null, answered_at: string|null, answered_at_version: int|null, selections: list<array{option: string, index: int|null, answered_at: string, answered_at_version: int}>}>
+ *     decisions: list<array{id: string, type: string, options: list<string>, selected: string|null, selected_index: int|null, answered_at: string|null, answered_at_version: int|null, selections: list<array{option: string, index: int|null, answered_at: string, answered_at_version: int}>}>,
+ *     sections: list<array{heading_id: string, level: int, title: string, standing_approval_count: int}>
  * }
  */
 final readonly class ShowReviewHandler
@@ -32,6 +36,8 @@ final readonly class ShowReviewHandler
         private ReviewRepository $reviews,
         private DecisionSelectionRepository $decisionSelections,
         private DecisionBlockService $decisionBlocks,
+        private HeadingExtractor $headings,
+        private SectionApprovalReader $sectionApprovals,
     ) {
     }
 
@@ -71,6 +77,12 @@ final readonly class ShowReviewHandler
      * both kinds, so one reader serves both. A multi-choice block reports null
      * in `selected`, `selected_index`, `answered_at` and `answered_at_version`,
      * because a block with several answers has no one answer to name there.
+     *
+     * `sections` lists every section of the current version. `standing_approval_count`
+     * counts EVERY reviewer whose approval still matches the section's text, not the
+     * caller's own: a machine-facing caller reads this to learn what the review has
+     * settled. It stays identity-free for the same reason `author` does, and it holds
+     * its meaning once several people can approve one section.
      *
      * @return ReviewPayload
      */
@@ -170,12 +182,26 @@ final readonly class ShowReviewHandler
             ];
         }
 
+        $headings = $this->headings->extract($currentVersion->renderedHtml);
+        $standing = $this->sectionApprovals->standingCounts($document, $currentVersion, $headings);
+
         return [
             'status' => $document->status->value,
             'verdict' => $review?->verdict->value,
             'version' => $currentVersion->versionNumber,
             'comments' => $threadedComments,
             'decisions' => $decisions,
+            'sections' => array_map(
+                static fn (DocumentHeading $heading): array => [
+                    'heading_id' => $heading->id,
+                    'level' => $heading->level,
+                    // A heading with no derivable label falls back to its id, so an
+                    // agent always has something to name the section by.
+                    'title' => '' === $heading->text ? $heading->id : $heading->text,
+                    'standing_approval_count' => $standing[$heading->id] ?? 0,
+                ],
+                $headings,
+            ),
         ];
     }
 
