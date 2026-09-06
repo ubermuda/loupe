@@ -212,7 +212,7 @@ final class CardCrudControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$cardId);
         self::assertResponseIsSuccessful();
 
-        $name = 'move_card_'.$cardId->toRfc4122();
+        $name = 'move_card_'.$cardId;
         // Turbo is off on this form. Its answer is a redirect to the board
         // rather than a stream, because this page holds no board to replace.
         self::assertCount(1, $crawler->filter('form[data-turbo="false"] select[name="'.$name.'[status]"]'));
