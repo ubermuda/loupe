@@ -92,6 +92,43 @@ final class CardListToolTest extends KernelTestCase
         self::assertNotNull($result['cards'][0]['completedAt']);
     }
 
+    public function test_an_unfiltered_read_returns_the_columns_in_board_order(): void
+    {
+        $this->boardWith('card-list-columns');
+        ($this->createTool)('Waiting', 'Body', 'feature', 'high', status: 'next');
+        ($this->createTool)('Finished', 'Body', 'docs', 'high', status: 'done');
+
+        $result = ($this->tool)();
+
+        self::assertSame(
+            ['High one', 'Medium one', 'Medium two', 'Waiting', 'Finished'],
+            array_column($result['cards'], 'title'),
+        );
+    }
+
+    public function test_an_unfiltered_read_still_sorts_done_by_completion(): void
+    {
+        $this->boardWith('card-list-done-order');
+        // The earlier completion carries the higher priority, so a read that
+        // ranked Done by priority would put them the other way round.
+        $first = ($this->createTool)('Finished first', 'Body', 'docs', 'high', status: 'done');
+        ($this->createTool)('Finished second', 'Body', 'docs', 'low', status: 'done');
+        // Two cards created in the same second share a completion instant, which
+        // would make the order below arbitrary.
+        $this->em->getConnection()->executeStatement(
+            "UPDATE board_cards SET completed_at = completed_at - INTERVAL '1 hour' WHERE id = :id",
+            ['id' => $first['cardId']],
+        );
+
+        $done = array_values(array_filter(
+            ($this->tool)()['cards'],
+            static fn (array $card): bool => 'done' === $card['status'],
+        ));
+
+        self::assertCount(2, $done);
+        self::assertSame(['Finished second', 'Finished first'], array_column($done, 'title'));
+    }
+
     public function test_another_projects_cards_are_not_listed(): void
     {
         $this->boardWith('card-list-mine');

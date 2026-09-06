@@ -63,20 +63,38 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /**
-     * The board's read query. Done sorts by completion, newest first, because it
-     * maintains no position; every other column sorts by priority then position.
+     * The board's read query, one column at a time.
+     *
+     * A column is read on its own even when the caller asks for the whole
+     * board, because Done sorts by completion while every other column sorts by
+     * priority then position. One query with both orderings in it would have to
+     * rank Done rows by a priority they no longer use. The cost is up to four
+     * queries for an unfiltered read, each on the composite index.
+     *
+     * `CardStatus::cases()` is the column order, so the enum's declaration
+     * order is what a whole-board read comes back in.
      *
      * @return list<Card>
      */
     public function findForBoard(Project $project, ?CardStatus $status = null, ?CardType $type = null, ?CardPriority $priority = null): array
     {
+        $cards = [];
+        foreach (null === $status ? CardStatus::cases() : [$status] as $column) {
+            $cards = [...$cards, ...$this->findColumn($project, $column, $type, $priority)];
+        }
+
+        return $cards;
+    }
+
+    /** @return list<Card> */
+    private function findColumn(Project $project, CardStatus $status, ?CardType $type, ?CardPriority $priority): array
+    {
         $qb = $this->createQueryBuilder('c')
             ->andWhere('c.project = :project')
-            ->setParameter('project', $project);
+            ->andWhere('c.status = :status')
+            ->setParameter('project', $project)
+            ->setParameter('status', $status);
 
-        if (null !== $status) {
-            $qb->andWhere('c.status = :status')->setParameter('status', $status);
-        }
         if (null !== $type) {
             $qb->andWhere('c.type = :type')->setParameter('type', $type);
         }
@@ -85,12 +103,14 @@ class CardRepository extends ServiceEntityRepository
         }
 
         if (CardStatus::Done === $status) {
-            $qb->orderBy('c.completedAt', 'DESC')->addOrderBy('c.createdAt', 'DESC');
+            $qb->orderBy('c.completedAt', 'DESC');
         } else {
-            $qb->orderBy('c.status', 'ASC')
-                ->addOrderBy('c.priority', 'ASC')
-                ->addOrderBy('c.position', 'ASC');
+            $qb->orderBy('c.priority', 'ASC')->addOrderBy('c.position', 'ASC');
         }
+
+        // Last, so two rows that tie on everything above still come back in a
+        // stable order rather than in whatever order Postgres read them.
+        $qb->addOrderBy('c.createdAt', 'ASC')->addOrderBy('c.id', 'ASC');
 
         return array_values($qb->getQuery()->getResult());
     }

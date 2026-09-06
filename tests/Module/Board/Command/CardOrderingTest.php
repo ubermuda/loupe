@@ -112,6 +112,33 @@ final class CardOrderingTest extends KernelTestCase
         self::assertSame(1, $mover->position);
     }
 
+    public function test_a_move_out_of_a_group_closes_the_gap_it_leaves(): void
+    {
+        $first = $this->card('First');
+        $mover = $this->card('Middle');
+        $last = $this->card('Last');
+        self::assertSame([0, 1, 2], [$first->position, $mover->position, $last->position]);
+
+        ($this->moveCard)(new MoveCardCommand($mover, CardStatus::Next, CardPriority::Medium));
+
+        self::assertSame(0, $first->position);
+        self::assertSame(1, $last->position);
+        self::assertSame(0, $mover->position);
+    }
+
+    public function test_a_move_to_the_end_of_its_own_group_leaves_no_gap(): void
+    {
+        $first = $this->card('First');
+        $second = $this->card('Second');
+        $third = $this->card('Third');
+
+        ($this->moveCard)(new MoveCardCommand($first, CardStatus::Backlog, CardPriority::Medium));
+
+        self::assertSame(0, $second->position);
+        self::assertSame(1, $third->position);
+        self::assertSame(2, $first->position);
+    }
+
     public function test_entering_done_stamps_the_completion(): void
     {
         $card = $this->card('Finish me');
