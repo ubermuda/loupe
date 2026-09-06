@@ -6,7 +6,7 @@ This file guides Claude Code (claude.ai/code) when it works in this repository.
 
 These skills hold the detailed conventions for one area each. Invoke the relevant skill before you write or edit anything in that area. There are no exceptions. "I already know the pattern" and "this is a small change" are not exceptions, because the skills carry project-specific conventions that differ from the defaults and from each other.
 
-A skill's name prefix says which side of the product you stand on. A `loupe-*` skill covers using the Loupe product through the `loupe` MCP. A `project-*` skill covers developing this codebase. A `symfony-*` skill covers generic framework mechanics that any Symfony project shares. `project-site-review` and `loupe-site-review` show the split: one builds the widget, the other acts on the feedback the widget produces.
+A skill's name prefix says which side of the product you stand on. A `loupe-*` skill covers using the Loupe product through the `loupe` MCP, a `project-*` skill covers developing this codebase, and a `symfony-*` skill covers generic framework mechanics that any Symfony project shares. `project-site-review` and `loupe-site-review` show the split: one builds the widget, the other acts on the feedback the widget produces.
 
 | Skill | Use when working on… |
 |---|---|

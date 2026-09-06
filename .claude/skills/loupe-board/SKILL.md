@@ -106,8 +106,8 @@ the three automatically.
 A URL from a host the app does not recognise is kept as you sent it. The app
 rejects no link, because a self-hosted forge is a legitimate answer.
 
-Nothing reads the forge either. A merged pull request does not move its card. An
-agent or a person moves the card to `done`.
+The app never contacts the forge. A merged pull request does not move its card.
+An agent or a person moves the card to `done`.
 
 ## Common mistakes
 
@@ -118,5 +118,5 @@ agent or a person moves the card to `done`.
 | Sending an empty `pullRequestUrls` to leave the links alone | An empty list clears them. Omit the field instead. |
 | Passing a card number as `cardId` | `cardId` is a UUID. Find it with `card_list`. |
 | Fixing a wrong `origin` with `card_update` | `origin` is set once, when the card is created. |
-| Expecting a merged pull request to move its card | Nothing reads the forge. Move the card yourself. |
+| Expecting a merged pull request to move its card | The app never contacts the forge. Move the card yourself. |
 | Writing "Task 3" or "phase 2" in a body | Those names die with the session. Name the class, the route or the file. |
