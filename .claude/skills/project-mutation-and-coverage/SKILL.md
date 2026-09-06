@@ -76,8 +76,14 @@ characters around the numbers.
 
 Read `summary.log` or `summary.txt` first. A mutation `summary.log` is a few
 hundred bytes. A coverage `summary.txt` is about 80 KB, because every class
-follows the summary. The HTML tree is about 87 MB, so open it only when you need
-a per-file breakdown.
+follows the summary. The HTML tree downloads as about 7.7 MB and expands to
+about 87 MB, so fetch it only when you need a per-file breakdown.
+
+A run with no artifact means the job failed before it wrote one. It does not mean
+zero coverage, and it does not mean the upload step is missing. `just
+e2e-coverage` writes its report in a `phpcov merge` at the very end, so a suite
+that fails takes the whole artifact with it, and `if-no-files-found: warn`
+uploads nothing without failing the step. Read the job log instead.
 
 `infection.log` is about 380 KB and holds four sections: `Escaped mutants:`,
 `Timed Out mutants:`, `Skipped mutants:` and `Not Covered mutants:`. An escaped
@@ -128,6 +134,31 @@ Two runs of identical work on identical runners differed by 1.8x, so read one
 hosted timing as a sample. Set `timeout-minutes` from a measurement, at a few
 multiples of it. A loose timeout turns a degraded run into an hour of runner time
 nobody watches.
+
+## These tools fail with a signal that looks valid
+
+Every failure here so far has produced an answer a reader would accept. Distrust
+a number from a run you have not confirmed finished.
+
+| What you see | What it means |
+|---|---|
+| A fast, complete-looking mutation run | It may have crashed in cleanup after printing the metrics. Check the exit status. |
+| `ini_get("xdebug.mode")` says `develop` | Nothing. xdebug honours the `XDEBUG_MODE` environment variable, and `ini_get` reports the ini file. Read `getenv`. |
+| No artifact on a run | The job failed before writing one. It is not zero coverage. |
+| `Command terminated by signal 7` | The container died on host memory, past PHP's own limit. No PHP error and no stack trace. |
+
+## Raising PHPUnit's memory limit
+
+`php -d memory_limit=...` does not reach PHPUnit. `phpunit.dist.xml` sets the
+limit with an `<ini>` directive, and PHPUnit applies it with `ini_set()` after
+startup, so the command line loses. A run started with `-d memory_limit=4G`
+still died at exactly 536870912 bytes. Change the value in `phpunit.dist.xml`,
+and note that doing so raises the ceiling for `just phpunit` and the gate too,
+which gives a memory regression more room to hide.
+
+This came up while measuring `--path-coverage`, which this project does not use.
+Path coverage held 492 MB for 51 tests and killed the container at about 250 of
+2,262 tests, so it does not fit this suite.
 
 ## Infection needs 2 GB
 
