@@ -76,6 +76,23 @@ The `{resource}` half of the attribute names the thing acted on, which is not al
 
 Rule: the `#[IsGranted]` `subject:` must reference the most-specific resource in the route. Never check a project-scoped action against an org subject. That skips the project-level ownership chain.
 
+## Keep the attribute-to-class pairing through a merge
+
+An agent can keep every attribute string and still change which class each attribute votes on. The pairing is the security property, and only `supports()` records it.
+
+The MCP scoping voters in this repo show two shapes. One pairs each attribute with a single concrete class through a `match`. `document.mcp_read` and `document.mcp_write` vote on `Document` only. `comment.mcp_read` and `comment.mcp_write` vote on `Comment` only. `series.mcp_write` votes on `Series` only. Another tests the attribute with `in_array` and the subject with `instanceof` against `Project` and `SiteReviewComment`, so both of its attributes vote on both classes.
+
+Use `in_array` when every attribute votes on every listed class. Use a `match` when the attributes accept different classes.
+
+A merge that produces one voter accepting any `.mcp_read` attribute, on any subject with a marker interface, keeps every attribute string. That voter also supports `document.mcp_read` on a `Series`. Today `supports()` returns `false` for that pair, the voter abstains, and the decision manager denies. The merged voter grants it whenever the `Series` belongs to the bound project.
+
+- A subject that implements the marker interface is not grounds to vote. Keep an explicit map from each attribute to the classes it may vote on. Reproduce that map exactly when you merge voters.
+- Test the denials, not only the grants. A widening leaves every grant test green, so a suite that asserts grants alone cannot see it. Write one denial test for each attribute-and-class pair that must stay refused.
+
+The `@extends Voter<...>` PHPDoc lists the attributes and the subjects as two independent unions, so PHPStan cannot check the pairing.
+
+A missing or misspelled attribute fails closed, and the 403 is loud. The dangerous direction is widening, which is why the review effort belongs on `supports()`.
+
 ## `is_granted()` in Twig
 
 Templates run the same check with the same constants. Use `constant()` so the attribute string is never duplicated as a literal.
