@@ -54,8 +54,12 @@ gh run download <run-id> --name <artifact> --dir /tmp/report
 | Report | `<workflow>` | Job | `<artifact>` | Holds |
 |---|---|---|---|---|
 | mutation | `Mutation testing` | `infection` | `infection-report` | `summary.log`, `infection.log` |
-| PHPUnit coverage | `Coverage report` | `phpunit` | `phpunit-coverage` | `summary.txt`, `clover.xml`, `html/` |
-| e2e coverage | `Coverage report` | `e2e` | `e2e-coverage` | `summary.txt`, `clover.xml`, `html/` |
+| PHPUnit coverage | `Coverage report` | `phpunit-coverage` | `phpunit-coverage` | `summary.txt`, `clover.xml`, `html/` |
+| e2e coverage | `Coverage report` | `e2e-coverage` | `e2e-coverage` | `summary.txt`, `clover.xml`, `html/` |
+
+The first two rows were checked by downloading the artifact. The third names what
+`just e2e-coverage` writes locally and what the workflow uploads. No hosted e2e
+coverage artifact has been fetched, because no such run has gone green yet.
 
 Download outside the repository, so nothing commits a report. `--name` is
 required, because one run holds more than one artifact. A `--name` from the wrong
