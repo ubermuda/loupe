@@ -24,16 +24,16 @@ stating what changed from the reader's side; the reasoning behind a change
 belongs in the PR body and the commit message, which the SHA and the PR number
 both point at. Anchor to the first-parent commit that landed the work on `main`
 (what `git log --first-parent` shows), so this list and the log walk the same
-history, and name the PR after it. Work that never surfaces in the product or
+history, and name the PR after it. A pull request whose whole content is this file or `docs/NEXT_STEPS.md` earns no
+entry: recording that the changelog was written, or that resolved entries were
+closed, tells a reader nothing they cannot see by reading them.
+
+Work that never surfaces in the product or
 the development workflow — tracker churn in `docs/NEXT_STEPS.md` — gets no
 entry.
 
 ## [Unreleased]
 
-- `d65c559` (#363) — **Changed:** the changelog records the merges that followed
-  #349; this entry is the one #363 could not carry itself.
-- `33b6cbc` (#364) — **Removed:** nine tracker entries the review wave settled,
-  either by shipping the work or by deciding against it.
 - `9123005` (#335) — **Added:** a reviewer can approve a document one section at
   a time, with a control beside each heading. The Contents and Sections panels
   become one, and a document with a single heading now shows it, so a one-section
