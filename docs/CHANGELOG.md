@@ -34,6 +34,9 @@ entry.
 
 ## [Unreleased]
 
+- `b90416b` (#367) — **Fixed:** the build no longer fetches JavaScript from a CDN.
+  `assets/vendor/` is committed, so `importmap:install` has nothing to download
+  and a failed fetch can no longer turn an unrelated branch red.
 - `c71cec3` (#359) — **Added:** mutation testing over all of `src` and code
   coverage, both on their own weekly schedules and neither gating a merge.
   `just mutation`, `just mutation-diff`, `just phpunit-coverage` and
