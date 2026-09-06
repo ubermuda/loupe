@@ -15,7 +15,7 @@ use Mcp\Exception\ToolCallException;
  *
  * @phpstan-import-type CardSummary from CardPayload
  */
-#[McpTool(name: self::NAME, description: 'Read one card from the project board, with its full Markdown body and every pull request linked to it. Use a card id from card_list or card_create.')]
+#[McpTool(name: self::NAME, description: 'Read one card from the project board, with its full Markdown body and every pull request linked to it. Use a card id from card_list or card_create. The response also carries a number, the short label that counts from 1 inside this project. Use the number to name the card to a person. Pass the cardId here, never the number.')]
 final readonly class CardGetTool implements FlagGatedToolInterface
 {
     public const string NAME = 'card_get';

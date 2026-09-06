@@ -19,6 +19,7 @@ use Symfony\Component\Uid\Uuid;
 // read query filters on project and status, then sorts by priority and position.
 #[ORM\Index(name: 'idx_board_cards_board_order', columns: ['project_id', 'status', 'priority', 'position'])]
 #[ORM\Table(name: 'board_cards')]
+#[ORM\UniqueConstraint(name: 'uniq_board_card_project_number', columns: ['project_id', 'number'])]
 class Card implements ProjectScopedSubject
 {
     /** Mirrors the title column's length so callers can reject an over-long title before Postgres does. */
@@ -55,6 +56,10 @@ class Card implements ProjectScopedSubject
 
         #[ORM\Column(type: Types::TEXT)]
         public string $body,
+
+        /** The short number a person says out loud, counting from 1 inside the project. Never unique across projects. */
+        #[ORM\Column]
+        public readonly int $number,
 
         #[ORM\Column(length: 20, enumType: CardType::class)]
         public CardType $type = CardType::Feature,

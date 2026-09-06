@@ -270,6 +270,11 @@ records who first raised the card.
 the one field where an omitted list and an empty list differ: omit it and the
 links stay, send `[]` and every link is removed.
 
+Every card carries a `number` beside its `cardId`. The number counts from 1
+inside one project, so a person can say "card 42" and an agent can name a branch
+after it. Two projects each have a card 1. The tools still take the `cardId`,
+never the number.
+
 `MCP_ALLOWED_HOSTS` is a DNS-rebinding allowlist — hostnames only, no port. It
 must contain the hostname agents actually use, or every call is rejected with a
 403 that names the variable and echoes the host it rejected. See

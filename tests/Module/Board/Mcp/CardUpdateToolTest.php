@@ -64,6 +64,8 @@ final class CardUpdateToolTest extends KernelTestCase
         self::assertSame($created['body'], $card['body']);
         self::assertSame($created['type'], $card['type']);
         self::assertSame($created['status'], $card['status']);
+        self::assertSame($created['number'], $card['number']);
+        self::assertSame(1, $card['number']);
     }
 
     public function test_an_omitted_pull_request_list_leaves_the_links_alone(): void

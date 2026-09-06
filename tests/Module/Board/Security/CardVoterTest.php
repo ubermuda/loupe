@@ -63,7 +63,7 @@ final class CardVoterTest extends TestCase
 
     private function makeCard(User $owner): Card
     {
-        return new Card(project: new Project($owner, 'p'), title: 'Ship the board', body: 'Body');
+        return new Card(project: new Project($owner, 'p'), title: 'Ship the board', body: 'Body', number: 1);
     }
 
     private function makeUser(string $username): User

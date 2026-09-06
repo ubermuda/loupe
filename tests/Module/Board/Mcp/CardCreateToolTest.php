@@ -49,6 +49,7 @@ final class CardCreateToolTest extends KernelTestCase
 
         $card = ($this->tool)('Ship the board', '## Why', 'feature', 'high');
 
+        self::assertSame(1, $card['number']);
         self::assertSame('Ship the board', $card['title']);
         self::assertSame('## Why', $card['body']);
         self::assertSame('feature', $card['type']);

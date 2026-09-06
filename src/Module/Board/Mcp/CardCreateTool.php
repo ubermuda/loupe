@@ -19,7 +19,7 @@ use Mcp\Exception\ToolCallException;
  *
  * @phpstan-import-type CardSummary from CardPayload
  */
-#[McpTool(name: self::NAME, description: 'Add a card to the project board. Give it a title, a Markdown body, a type (feature, bug, security, tooling, docs, idea) and a priority (high, medium, low). It lands in the backlog unless you pass status. Pass pullRequestUrls to link the pull requests that carry the work; a URL from an unrecognised forge is kept as given rather than rejected. The card records origin agent unless you pass human, which says a person raised it and you are only writing it down.')]
+#[McpTool(name: self::NAME, description: 'Add a card to the project board. Give it a title, a Markdown body, a type (feature, bug, security, tooling, docs, idea) and a priority (high, medium, low). It lands in the backlog unless you pass status. Pass pullRequestUrls to link the pull requests that carry the work; a URL from an unrecognised forge is kept as given rather than rejected. The card records origin agent unless you pass human, which says a person raised it and you are only writing it down. The response carries a number, the short label that counts from 1 inside this project. Say "card 42" and name a branch after it. It is not the cardId, and another project has its own card 42.')]
 final readonly class CardCreateTool implements FlagGatedToolInterface
 {
     public const string NAME = 'card_create';

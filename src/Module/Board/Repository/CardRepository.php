@@ -35,6 +35,19 @@ class CardRepository extends ServiceEntityRepository
         );
     }
 
+    /** The number the project's next card takes. The first card of a project is 1. */
+    public function nextNumber(Project $project): int
+    {
+        $highest = $this->createQueryBuilder('c')
+            ->select('MAX(c.number)')
+            ->andWhere('c.project = :project')
+            ->setParameter('project', $project)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return null === $highest ? 1 : ((int) $highest) + 1;
+    }
+
     /** The rank a card appended to the end of that group takes. */
     public function nextPosition(Project $project, CardStatus $status, CardPriority $priority): int
     {

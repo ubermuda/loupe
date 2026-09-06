@@ -21,7 +21,7 @@ use Mcp\Exception\ToolCallException;
  *
  * @phpstan-import-type CardSummary from CardPayload
  */
-#[McpTool(name: self::NAME, description: 'Change a card on the project board. Every field but the card id is optional, and a field you leave out keeps the value it has. Moving a card to done stamps its completion time; moving it out of done clears that stamp. A change of status or priority appends the card to the end of the column it arrives in. pullRequestUrls is the one field where leaving it out and sending an empty list differ: leave it out and the links stay, send an empty list and every link is removed. Origin cannot be changed, because it records who first raised the card. To finish a card, move it to done rather than asking for it to be deleted.')]
+#[McpTool(name: self::NAME, description: 'Change a card on the project board. Every field but the card id is optional, and a field you leave out keeps the value it has. Moving a card to done stamps its completion time; moving it out of done clears that stamp. A change of status or priority appends the card to the end of the column it arrives in. pullRequestUrls is the one field where leaving it out and sending an empty list differ: leave it out and the links stay, send an empty list and every link is removed. Origin cannot be changed, because it records who first raised the card. To finish a card, move it to done rather than asking for it to be deleted. The card number does not change, and you cannot set it. It is the short label that counts from 1 inside this project, and the cardId stays the value you pass here.')]
 final readonly class CardUpdateTool implements FlagGatedToolInterface
 {
     public const string NAME = 'card_update';

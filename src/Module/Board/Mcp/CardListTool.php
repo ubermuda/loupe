@@ -15,7 +15,7 @@ use Mcp\Exception\ToolCallException;
  *
  * @phpstan-import-type CardSummary from CardPayload
  */
-#[McpTool(name: self::NAME, description: 'List the cards on the project board. Filter by status (backlog, next, in-progress, done), by type (feature, bug, security, tooling, docs, idea) or by priority (high, medium, low). Every column except done reads in board order, highest priority first and then by position. Done reads newest completion first. The whole board is returned, done cards included, with no time window on them.')]
+#[McpTool(name: self::NAME, description: 'List the cards on the project board. Filter by status (backlog, next, in-progress, done), by type (feature, bug, security, tooling, docs, idea) or by priority (high, medium, low). Every column except done reads in board order, highest priority first and then by position. Done reads newest completion first. The whole board is returned, done cards included, with no time window on them. Every card carries a number, the short label that counts from 1 inside this project. Use it to name a card to a person, and use the cardId to read or change it.')]
 final readonly class CardListTool implements FlagGatedToolInterface
 {
     public const string NAME = 'card_list';

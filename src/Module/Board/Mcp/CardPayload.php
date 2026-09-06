@@ -12,7 +12,7 @@ use App\Module\Board\Entity\CardPullRequest;
  * and a card read by card_get describe themselves the same way.
  *
  * @phpstan-type CardPullRequestSummary array{url: string, forge: string, repository: ?string, number: ?int}
- * @phpstan-type CardSummary array{cardId: string, title: string, body: string, type: string, priority: string, status: string, origin: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>}
+ * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, priority: string, status: string, origin: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>}
  */
 final readonly class CardPayload
 {
@@ -21,6 +21,8 @@ final readonly class CardPayload
     {
         return [
             'cardId' => (string) $card->id,
+            // The short per-project label a person says out loud. Not the id.
+            'number' => $card->number,
             'title' => $card->title,
             'body' => $card->body,
             'type' => $card->type->value,

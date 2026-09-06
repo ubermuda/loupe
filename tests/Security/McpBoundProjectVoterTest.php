@@ -72,7 +72,7 @@ final class McpBoundProjectVoterTest extends KernelTestCase
 
     private function cardIn(Project $project): Card
     {
-        $card = new Card(project: $project, title: 'Ship it', body: 'Body');
+        $card = new Card(project: $project, title: 'Ship it', body: 'Body', number: 1);
         $this->em->persist($card);
         $this->em->flush();
 

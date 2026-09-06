@@ -57,6 +57,9 @@ final class CardListToolTest extends KernelTestCase
             ['High one', 'Medium one', 'Medium two'],
             array_column($result['cards'], 'title'),
         );
+        // The creation order, not the board order, so the number is plainly not
+        // the rank the column reads in.
+        self::assertSame([3, 1, 2], array_column($result['cards'], 'number'));
     }
 
     public function test_a_type_filter_narrows_the_board(): void

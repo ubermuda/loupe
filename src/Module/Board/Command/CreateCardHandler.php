@@ -33,9 +33,9 @@ final readonly class CreateCardHandler
             throw new DomainErrors(['title' => 'board.card.error.title_too_long']);
         }
 
-        // MAX(position) + 1 is read-then-write: two calls into the same group
-        // would otherwise allocate the same rank and leave the order unstable.
-        // Same PESSIMISTIC_WRITE-on-the-project idiom
+        // MAX(position) + 1 and MAX(number) + 1 are both read-then-write: two
+        // calls into the same project would otherwise allocate the same rank,
+        // and the same card number. Same PESSIMISTIC_WRITE-on-the-project idiom
         // App\Module\SiteReview\Command\AddCommentHandler uses.
         $card = $this->em->wrapInTransaction(function () use ($command, $title): Card {
             $this->em->lock($command->project, LockMode::PESSIMISTIC_WRITE);
@@ -44,6 +44,7 @@ final readonly class CreateCardHandler
                 project: $command->project,
                 title: $title,
                 body: $command->body,
+                number: $this->cards->nextNumber($command->project),
                 type: $command->type,
                 priority: $command->priority,
                 status: $command->status,
@@ -69,6 +70,7 @@ final readonly class CreateCardHandler
 
         $this->logger->info('board.card_created', [
             'cardId' => (string) $card->id,
+            'cardNumber' => $card->number,
             'projectId' => (string) $command->project->id,
             'status' => $card->status->value,
             'origin' => $card->origin->value,

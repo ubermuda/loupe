@@ -20,6 +20,7 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardGroupOrder;
 use App\Module\Project\Entity\Project;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -76,6 +77,42 @@ final class CardOrderingTest extends KernelTestCase
         $third = $this->card('Third');
 
         self::assertSame([0, 1, 2], [$first->position, $second->position, $third->position]);
+    }
+
+    public function test_card_numbers_count_up_inside_one_project(): void
+    {
+        $first = $this->card('First');
+        $second = $this->card('Second');
+
+        self::assertSame([1, 2], [$first->number, $second->number]);
+    }
+
+    public function test_every_project_starts_its_own_numbering_at_one(): void
+    {
+        $here = $this->card('First here');
+
+        $other = new Project($this->project->owner, 'board-'.uniqid());
+        $this->em->persist($other);
+        $this->em->flush();
+        $there = ($this->createCard)(new CreateCardCommand(
+            project: $other,
+            title: 'First there',
+            body: 'Body',
+            type: CardType::Feature,
+            priority: CardPriority::Medium,
+            status: CardStatus::Backlog,
+        ));
+
+        self::assertSame([1, 1], [$here->number, $there->number]);
+    }
+
+    public function test_the_same_number_cannot_be_used_twice_in_one_project(): void
+    {
+        $this->em->persist(new Card(project: $this->project, title: 'First', body: 'Body', number: 1));
+        $this->em->persist(new Card(project: $this->project, title: 'Second', body: 'Body', number: 1));
+
+        $this->expectException(UniqueConstraintViolationException::class);
+        $this->em->flush();
     }
 
     public function test_a_move_inside_a_group_renumbers_that_group(): void
