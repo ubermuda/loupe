@@ -13,6 +13,7 @@
 
 import { test, expect, type Page } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
+import { coverageScaled } from '../timeouts';
 
 // Guest by default — each test logs in as the user it just created.
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -125,7 +126,9 @@ async function selectKnownPhrase(page: Page): Promise<void> {
         docEl.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
     }, KNOWN_PHRASE);
 
-    await expect(page.locator(TOOLBAR)).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(TOOLBAR)).toBeVisible({
+        timeout: coverageScaled(5000),
+    });
 }
 
 async function strikes(page: Page, documentId: string): Promise<ReviewState> {
@@ -167,7 +170,7 @@ test('a keystroke strikes the selection without ever opening a composer', async 
     // The strike renders as struck-through text under a STRIKE status label —
     // the whole premise is that this took one gesture and no typing.
     await expect(page.locator('.lp-comment-status--strike')).toBeVisible({
-        timeout: 10000,
+        timeout: coverageScaled(10000),
     });
     await expect(page.locator('.lp-comment-quote--struck')).toContainText(
         KNOWN_PHRASE,
@@ -194,7 +197,9 @@ test('clicking away disarms the shortcut instead of leaving it on a stale anchor
     // changing their mind would. The toolbar going away is the signal the
     // controller processed the mouseup.
     await page.locator(DOC).click();
-    await expect(page.locator(TOOLBAR)).toBeHidden({ timeout: 5000 });
+    await expect(page.locator(TOOLBAR)).toBeHidden({
+        timeout: coverageScaled(5000),
+    });
 
     // This must do nothing at all.
     await page.keyboard.press('s');
@@ -205,7 +210,7 @@ test('clicking away disarms the shortcut instead of leaving it on a stale anchor
     await selectKnownPhrase(page);
     await page.keyboard.press('s');
     await expect(page.locator('.lp-comment-status--strike')).toBeVisible({
-        timeout: 10000,
+        timeout: coverageScaled(10000),
     });
 
     expect(posts).toHaveLength(1);
@@ -232,7 +237,7 @@ test('holding the strike key posts one strike, not one per repeat', async ({
     // released the in-flight flag, that guard can no longer suppress anything, so
     // the repeats below are held back by nothing else.
     await expect(page.locator('.lp-comment-status--strike')).toBeVisible({
-        timeout: 10000,
+        timeout: coverageScaled(10000),
     });
 
     await page.keyboard.down('s');
@@ -256,7 +261,7 @@ test('two fast keypresses post one strike, not two', async ({ page }) => {
     await page.keyboard.press('s');
 
     await expect(page.locator('.lp-comment-status--strike')).toBeVisible({
-        timeout: 10000,
+        timeout: coverageScaled(10000),
     });
 
     expect(posts).toHaveLength(1);

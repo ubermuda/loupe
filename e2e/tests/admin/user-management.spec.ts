@@ -15,6 +15,7 @@ import { expect, type Page } from '@playwright/test';
 import { ADMIN } from '../admin-helpers';
 import { createTest } from '../fixtures';
 import { type Credentials, registerAndVerify } from '../helpers';
+import { coverageScaled } from '../timeouts';
 
 const test = createTest(ADMIN);
 const RUN = Date.now();
@@ -131,10 +132,10 @@ test.describe.serial('admin user management', () => {
         // fonts after first paint; at 5s a slow runner never got there.
         await expect(
             admin.locator('[data-testid="suspension-details"]'),
-        ).toContainText(SUSPENSION_REASON, { timeout: 15000 });
+        ).toContainText(SUSPENSION_REASON, { timeout: coverageScaled(15000) });
         await expect(admin.locator('[data-testid="user-status"]')).toHaveText(
             'Suspended',
-            { timeout: 15000 },
+            { timeout: coverageScaled(15000) },
         );
 
         // The account holder is now pinned: any safe navigation lands on the

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { extractLink, getLatestEmailTo } from '../helpers';
+import { coverageScaled } from '../timeouts';
 
 /**
  * Runs in the dedicated `install-reset` project (after every chromium spec):
@@ -68,7 +69,7 @@ test('first-install wizard creates an unverified admin who is gated until they f
     // page first, and give it longer than 5s, because a loaded runner needs it.
     await expect(
         page.getByRole('heading', { name: 'Check your email' }),
-    ).toBeVisible({ timeout: 15000 });
+    ).toBeVisible({ timeout: coverageScaled(15000) });
     await page.goto('/admin/feature-flags');
     await expect(
         page.getByRole('heading', { name: 'Check your email' }),
