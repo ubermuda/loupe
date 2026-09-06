@@ -65,6 +65,7 @@ however old it is, and applies no time window to the column.
 
 | Field | What it is |
 |---|---|
+| Number | A short number, counting from 1, unique inside the project. |
 | Title | Plain text, up to 255 characters. Loupe trims it and refuses a blank one. |
 | Body | Markdown. It says what the card asks for. |
 | Type | One of `feature`, `bug`, `security`, `tooling`, `docs`, `idea`. |
@@ -75,6 +76,17 @@ however old it is, and applies no time window to the column.
 
 A card also carries the moment it was created and the moment it last changed. A
 card in Done carries its completion time as well.
+
+### The number is for people, the id is for tools
+
+The number is the handle a person uses. Say "card 42" in conversation, in a pull
+request body, or in a branch name. It counts from 1 inside one project, so two
+projects each have a card 1.
+
+The MCP tools do not take the number. `cardId` is the card's UUID, and every
+tool that reads or writes a card wants that value. `card_create`, `card_get`,
+`card_list` and `card_update` all report the number in what they return. No tool
+looks a card up by its number.
 
 Origin never changes. `card_update` refuses that field, because it answers who
 first raised the card rather than who touched it last. An MCP request
@@ -88,15 +100,22 @@ A card links to any number of pull requests. Nothing about a link is
 GitHub-specific. Loupe stores the URL as you give it, up to 512 characters, and
 puts whatever a parser could read beside it.
 
-Loupe ships one parser, for `https://github.com/<owner>/<repo>/pull/<number>`.
-Such a URL is stored with the forge `github`, the `owner/repo` pair and the
-number. Every other URL is stored with the forge `other`, and with no repository
-and no number. That covers a URL from another forge, a self-hosted one, and one
-that matches no shape Loupe knows.
+Loupe ships one parser, and it reads a GitHub pull request URL. It accepts the
+host `github.com` or `www.github.com`, in any case, with the path
+`/<owner>/<repo>/pull/<number>`. The scheme, a trailing slash and a query string
+make no difference. Such a URL is stored with the forge `github`, the
+`owner/repo` pair and the number.
 
-Loupe refuses no URL. A link it cannot read is still the link a reviewer wants
-on the card. Two identical URLs in one call are stored once, a blank entry is
-dropped, and the links read back in the order they were added.
+Every other URL is stored with the forge `other`, and with no repository and no
+number. That covers a URL from another forge, a self-hosted one, and one that
+matches no shape Loupe knows.
+
+Loupe refuses no URL for its shape. A link it cannot read is still the link a
+reviewer wants on the card. Length is the one limit: a URL longer than 512
+characters does not fit the column, and the call that carries it fails.
+
+Two identical URLs in one call are stored once, a blank entry is dropped, and
+the links read back in the order they were added.
 
 ### Loupe reads no forge
 
