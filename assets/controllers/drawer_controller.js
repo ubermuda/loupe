@@ -86,6 +86,9 @@ export default class extends Controller {
         if (this.hasContentTarget) {
             this.contentTarget.inert = true;
         }
+        // Safe in this tick only because app.css flips the panel's `visibility`
+        // with no delay on the way in. A `visibility: hidden` element refuses
+        // focus and reports no error.
         if (this.hasDismissTarget) {
             this.dismissTarget.focus();
         }

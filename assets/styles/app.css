@@ -2065,16 +2065,33 @@
 
     /* Below lg the sidebar slides in over the paper. Only the app shell opts
        in: the landing still reuses .lp-sidebar inside a fixed 1260px frame,
-       which a viewport media query would pin to the window. `visibility` rides
-       the transition, so the panel is untabbable while it is off-canvas. */
+       which a viewport media query would pin to the window. The closed panel is
+       `visibility: hidden`, so it is untabbable and untappable off-canvas. */
     .lp-sidebar--drawer {
-        @apply fixed inset-y-0 left-0 z-50 overflow-y-auto bg-sidebar invisible -translate-x-full duration-200 ease-out lg:static lg:visible lg:translate-x-0 lg:overflow-visible;
+        @apply fixed inset-y-0 left-0 z-50 overflow-y-auto bg-sidebar invisible -translate-x-full lg:static lg:visible lg:translate-x-0 lg:overflow-visible;
         /* `translate`, not `transform`: that is the property -translate-x-full
-           writes, and a transition on `transform` never fires. */
-        transition-property: translate, visibility;
+           writes. Hiding waits out the slide, so the panel does not vanish
+           mid-motion. */
+        transition:
+            translate 200ms ease-out,
+            visibility 0s linear 200ms;
     }
+    /* No delay on the way in, so the panel is focusable in the same tick the
+       drawer opens. An interpolated `visibility` still reads `hidden` there and
+       makes focus() a silent no-op. */
     .lp-sidebar--drawer.lp-sidebar--open {
         @apply visible translate-x-0;
+        transition:
+            translate 200ms ease-out,
+            visibility 0s linear 0s;
+    }
+    /* The sidebar is static above lg, so a window that crosses the breakpoint
+       must snap rather than slide. */
+    @media (width >= 64rem) {
+        .lp-sidebar--drawer,
+        .lp-sidebar--drawer.lp-sidebar--open {
+            transition: none;
+        }
     }
     /* Closes the drawer. Absolute, so it does not shift the brand it sits beside. */
     .lp-sidebar__close {
@@ -3769,7 +3786,8 @@
         animation: none;
     }
 
-    .lp-sidebar--drawer {
+    .lp-sidebar--drawer,
+    .lp-sidebar--drawer.lp-sidebar--open {
         transition: none;
     }
 

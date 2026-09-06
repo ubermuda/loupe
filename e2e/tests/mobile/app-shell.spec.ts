@@ -129,6 +129,11 @@ test('the hamburger opens the sidebar drawer and Escape closes it', async ({
     await expect(sidebar).toBeVisible();
     await expect(trigger).toHaveAttribute('aria-expanded', 'true');
     await expect(page.locator(SCRIM)).toBeVisible();
+    // Focus enters the drawer, rather than being left on a shell that is now
+    // inert. Restore on close is asserted below and does not cover this.
+    await expect(
+        page.getByRole('button', { name: 'Close navigation' }),
+    ).toBeFocused();
 
     await page.keyboard.press('Escape');
     await expect(sidebar).toBeHidden();
