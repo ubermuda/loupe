@@ -11,10 +11,12 @@ The board is behind the `board.enabled` feature flag, and the flag ships off. A
 fresh install has no board until an operator switches it on. See
 [Turning the board on](#turning-the-board-on).
 
+This version has no board screen. The four MCP tools are the only way to read
+the board or write to it.
+
 ## The four columns
 
-A card sits in exactly one column. The tools write the value in the right-hand
-column of this table.
+A card sits in exactly one column, and the tools name it by the value beside it.
 
 | Column | Value |
 |---|---|
@@ -130,8 +132,9 @@ links stay. Send `[]` and every link is removed.
 
 ### There is no delete tool
 
-The board offers no `card_delete`. An agent finishes a card by moving it to
-`done`, which keeps the record of the work. Deletion is not an agent operation.
+The board offers no `card_delete`, and nothing on the MCP surface deletes a
+card. An agent finishes a card by moving it to `done`, which keeps the record of
+the work.
 
 ## Turning the board on
 

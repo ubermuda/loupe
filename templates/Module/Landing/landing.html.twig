@@ -76,7 +76,7 @@
     <section id="features" class="lp-landing-section lp-landing-section--tight">
         <div class="lp-landing-inner">
             <div class="lp-landing-features">
-                {% for feature in ['anchors', 'suggest', 'versions', 'tokens', 'decisions', 'site_review', 'board'] %}
+                {% for feature in ['anchors', 'suggest', 'versions', 'tokens', 'decisions', 'site_review'] %}
                 <div class="lp-landing-feature">
                     <h3 class="lp-landing-feature__title">{{ ('landing.feature.' ~ feature ~ '.title')|trans }}</h3>
                     <p class="lp-landing-feature__text">{{ ('landing.feature.' ~ feature ~ '.text')|trans }}</p>
@@ -255,7 +255,7 @@
                         {{ 'landing.faq.agents.answer_before'|trans }} <code>{{ 'landing.tech.tools.tool_create'|trans }}</code> {{ 'landing.faq.agents.answer_or'|trans }} <code>{{ 'landing.tech.tools.tool_revise'|trans }}</code>{{ 'landing.faq.agents.answer_after'|trans }}
                     </p>
                 </div>
-                {% for question in ['technical', 'anchors', 'migrate'] %}
+                {% for question in ['board', 'technical', 'anchors', 'migrate'] %}
                 <div class="lp-landing-faq__item">
                     <h3 class="lp-landing-faq__question">{{ ('landing.faq.' ~ question ~ '.question')|trans }}</h3>
                     <p class="lp-landing-faq__answer">{{ ('landing.faq.' ~ question ~ '.answer')|trans }}</p>

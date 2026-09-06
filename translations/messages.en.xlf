@@ -3729,14 +3729,6 @@
                 <source>landing.feature.site_review.text</source>
                 <target>An embeddable widget that brings the same select-and-comment flow to a live page. Quote a passage of text, or point one comment at several elements to say how they relate.</target>
             </trans-unit>
-            <trans-unit id="landing.feature.board.title">
-                <source>landing.feature.board.title</source>
-                <target>Project board</target>
-            </trans-unit>
-            <trans-unit id="landing.feature.board.text">
-                <source>landing.feature.board.text</source>
-                <target>Turn it on and your agent tracks work in four columns over MCP, with the pull requests that carry each card. Loupe stores those links and reads no forge.</target>
-            </trans-unit>
             <trans-unit id="landing.tech.title">
                 <source>landing.tech.title</source>
                 <target>How it plugs in.</target>
@@ -4024,6 +4016,14 @@
             <trans-unit id="landing.faq.agents.answer_after">
                 <source>landing.faq.agents.answer_after</source>
                 <target>, and gets a shareable review URL back.</target>
+            </trans-unit>
+            <trans-unit id="landing.faq.board.question">
+                <source>landing.faq.board.question</source>
+                <target>Can my agent track work in Loupe?</target>
+            </trans-unit>
+            <trans-unit id="landing.faq.board.answer">
+                <source>landing.faq.board.answer</source>
+                <target>Yes, once you turn the project board on. Your agent then files cards in four columns over MCP, and links the pull requests that carry each one. Loupe stores those links and never calls out to check them.</target>
             </trans-unit>
             <trans-unit id="landing.faq.technical.question">
                 <source>landing.faq.technical.question</source>
