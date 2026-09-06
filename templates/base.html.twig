@@ -4,8 +4,14 @@
         {% if app.user %}
         {% set project = current_project() %}
         {% set route = app.request.attributes.get('_route') %}
-        <div class="lp-app">
-            <aside class="lp-sidebar">
+        <div class="lp-app" data-controller="drawer">
+            <aside class="lp-sidebar lp-sidebar--drawer" id="lp-sidebar" data-drawer-target="panel">
+                <button type="button" class="lp-sidebar__close"
+                        data-drawer-target="dismiss"
+                        data-action="click->drawer#close"
+                        aria-label="{{ 'nav.drawer.close'|trans }}">
+                    <twig:ux:icon name="lucide:x" />
+                </button>
                 <a href="{{ path('app_projects') }}" class="lp-sidebar__brand">{{ 'nav.brand'|trans }}</a>
                 {% if project %}
                 <div class="lp-switcher" data-controller="popover">
@@ -120,8 +126,19 @@
                     </form>
                 </div>
             </aside>
-            <div class="lp-shell">
+            <div class="lp-scrim" data-drawer-target="scrim" data-action="click->drawer#close" hidden></div>
+            <div class="lp-shell" data-drawer-target="content">
                 <header class="lp-topbar">
+                    {# Outside `block topbar`, so a page that replaces the block
+                       cannot take the only way back to the nav with it. #}
+                    <button type="button" class="lp-topbar__menu"
+                            data-drawer-target="trigger"
+                            data-action="click->drawer#toggle"
+                            aria-controls="lp-sidebar"
+                            aria-expanded="false"
+                            aria-label="{{ 'nav.drawer.open'|trans }}">
+                        <twig:ux:icon name="lucide:menu" />
+                    </button>
                     {% block topbar %}
                         {# Crumbs and meta share one baseline row: they are set at
                            different sizes, so centring each against the bar

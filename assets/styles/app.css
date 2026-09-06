@@ -838,9 +838,11 @@
         @apply flex flex-col mt-2;
     }
     /* Divider on top rather than bottom, so the last row does not end on a rule
-       the eye reads as "more below". */
+       the eye reads as "more below". Below lg the badge and the actions drop to
+       their own line: held on one row they leave the title about 50px, which
+       renders every document on the list as one letter and an ellipsis. */
     .lp-document-row {
-        @apply relative flex items-center gap-4 border-t border-line-strong transition-colors py-5 px-1;
+        @apply relative flex flex-wrap items-center gap-x-4 gap-y-2.5 border-t border-line-strong transition-colors py-5 px-1 lg:flex-nowrap lg:gap-y-0;
     }
     .lp-document-row:hover {
         @apply bg-tint;
@@ -851,14 +853,16 @@
         @apply absolute inset-0;
     }
     .lp-document-row__main {
-        @apply min-w-0 flex-1 flex flex-col gap-1;
+        @apply min-w-0 basis-full flex flex-col gap-1 lg:flex-1;
     }
     /* Line 1: title + version pill inline. */
     .lp-document-row__head {
-        @apply flex items-baseline gap-2 min-w-0;
+        @apply flex flex-wrap items-baseline gap-2 min-w-0 lg:flex-nowrap;
     }
+    /* The title wraps below lg and truncates above it. A phone has the vertical
+       room, and one ellipsised letter tells the reader nothing. */
     .lp-document-row__title {
-        @apply font-display font-semibold text-ink truncate text-2xl tracking-tight;
+        @apply font-display font-semibold text-ink min-w-0 break-words text-xl tracking-tight lg:truncate lg:text-2xl;
     }
     /* Bare mono version marker, e.g. "v3" — a pill here would compete with the
        status badge at the other end of the same row. */
@@ -2049,18 +2053,67 @@
         @apply flex bg-sidebar;
         height: 100dvh;
     }
+    /* The right and bottom inset frames the paper against the sidebar. Below lg
+       the sidebar is out of flow, so nothing balances it on the left and it
+       reads as a stray black strip. */
     .lp-shell {
-        @apply flex flex-1 flex-col min-w-0 pr-2.5 pb-2.5;
+        @apply flex flex-1 flex-col min-w-0 lg:pr-2.5 lg:pb-2.5;
     }
     /* overflow-x is auto, not hidden: the review block is a fixed 972px and a
        narrow window must be able to scroll to the comment column rather than
        have it clipped away where nothing can reach it. */
     .lp-main {
-        @apply flex-1 min-h-0 bg-app rounded-lg overflow-x-auto overflow-y-auto;
+        @apply flex-1 min-h-0 bg-app rounded-t-lg overflow-x-auto overflow-y-auto lg:rounded-lg;
     }
 
     .lp-sidebar {
         @apply flex flex-col gap-1 w-59 shrink-0 pt-5 px-3.5 pb-3.5;
+    }
+
+    /* Below lg the sidebar slides in over the paper. Only the app shell opts
+       in: the landing still reuses .lp-sidebar inside a fixed 1260px frame,
+       which a viewport media query would pin to the window. The closed panel is
+       `visibility: hidden`, so it is untabbable and untappable off-canvas. */
+    .lp-sidebar--drawer {
+        @apply fixed inset-y-0 left-0 z-50 overflow-y-auto bg-sidebar invisible -translate-x-full lg:static lg:visible lg:translate-x-0 lg:overflow-visible;
+        /* `translate`, not `transform`: that is the property -translate-x-full
+           writes. Hiding waits out the slide, so the panel does not vanish
+           mid-motion. */
+        transition:
+            translate 200ms ease-out,
+            visibility 0s linear 200ms;
+    }
+    /* No delay on the way in, so the panel is focusable in the same tick the
+       drawer opens. An interpolated `visibility` still reads `hidden` there and
+       makes focus() a silent no-op. */
+    .lp-sidebar--drawer.lp-sidebar--open {
+        @apply visible translate-x-0;
+        transition:
+            translate 200ms ease-out,
+            visibility 0s linear 0s;
+    }
+    /* The sidebar is static above lg, so a window that crosses the breakpoint
+       must snap rather than slide. */
+    @media (width >= 64rem) {
+        .lp-sidebar--drawer,
+        .lp-sidebar--drawer.lp-sidebar--open {
+            transition: none;
+        }
+    }
+    /* Closes the drawer. Absolute, so it does not shift the brand it sits beside. */
+    .lp-sidebar__close {
+        @apply absolute top-4 right-3 inline-flex items-center justify-center w-9 h-9 rounded-lg text-chrome-mute cursor-pointer transition-colors lg:hidden;
+    }
+    .lp-sidebar__close:hover {
+        @apply bg-chrome-raised text-chrome-fg;
+    }
+    .lp-sidebar__close svg {
+        @apply w-5 h-5 shrink-0;
+    }
+
+    /* Dims the paper behind an open drawer, and catches the tap that closes it. */
+    .lp-scrim {
+        @apply fixed inset-0 z-40 bg-ink/60 lg:hidden;
     }
 
     /* Wordmark. There is no logo mark by design — do not add one back. */
@@ -2213,15 +2266,30 @@
     /* ── Top bar ────────────────────────────────────────────────────────── */
 
     /* Transparent over the chrome, above the paper. Carries the breadcrumb
-       trail, a per-screen metadata line, and (on review) the verdict actions. */
+       trail, a per-screen metadata line, and (on review) the verdict actions.
+       It sits outside .lp-main, so anything it cannot fit widens the whole page
+       instead of scrolling. Below lg it wraps and grows a row. */
     .lp-topbar {
-        @apply flex items-center gap-3.5 h-16 px-3.5 shrink-0;
+        @apply flex flex-wrap items-center gap-x-3.5 gap-y-2 min-h-16 px-3.5 py-2.5 shrink-0 lg:flex-nowrap lg:h-16 lg:py-0;
     }
+    /* Opens the sidebar drawer. Present only where the sidebar is off-canvas. */
+    .lp-topbar__menu {
+        @apply inline-flex items-center justify-center shrink-0 w-9 h-9 rounded-lg text-chrome-mute cursor-pointer transition-colors lg:hidden;
+    }
+    .lp-topbar__menu:hover {
+        @apply bg-chrome-raised text-chrome-fg;
+    }
+    .lp-topbar__menu svg {
+        @apply w-5 h-5 shrink-0;
+    }
+    /* The basis is a floor, not a width. `flex-1` alone lets the lead collapse
+       to a dozen pixels beside the review verdict buttons, and its content then
+       paints straight across them. A floor makes the actions wrap instead. */
     .lp-topbar__lead {
-        @apply flex items-baseline gap-3.5 min-w-0;
+        @apply flex flex-wrap items-baseline gap-x-3.5 gap-y-1 min-w-0 flex-1 basis-50 lg:basis-0;
     }
     .lp-topbar__trail {
-        @apply flex items-baseline gap-2 min-w-0;
+        @apply flex items-baseline gap-2 min-w-0 max-w-full;
     }
     .lp-topbar__crumb {
         @apply text-sm text-chrome-mute no-underline transition-colors;
@@ -2232,14 +2300,16 @@
     .lp-topbar__sep {
         @apply text-sm text-chrome-dim;
     }
+    /* Wraps below lg for the same reason the document title does: there is no
+       width to truncate into, and the reader gets one word and a dot. */
     .lp-topbar__here {
-        @apply text-base font-medium text-white truncate;
+        @apply text-base font-medium text-white min-w-0 break-words lg:truncate;
     }
     .lp-topbar__meta {
-        @apply text-sm text-chrome-dim whitespace-nowrap;
+        @apply text-sm text-chrome-dim lg:whitespace-nowrap;
     }
     .lp-topbar__actions {
-        @apply flex items-center gap-2.5 ml-auto;
+        @apply flex flex-wrap items-center gap-2.5 ml-auto;
     }
 
     /* ── Code / pre blocks ──────────────────────────────────────────────── */
@@ -3728,6 +3798,11 @@
         animation: none;
     }
 
+    .lp-sidebar--drawer,
+    .lp-sidebar--drawer.lp-sidebar--open {
+        transition: none;
+    }
+
     @keyframes lp-appear {
         from {
             opacity: 0;
@@ -3744,10 +3819,20 @@
     .lp-btn,
     .lp-code-dark__copy,
     .lp-flash__dismiss,
+    .lp-topbar__menu,
+    .lp-sidebar__close,
     .auth-forgot,
     .auth-footer__link,
     .lp-landing-footer__link {
         @apply inline-flex items-center justify-center min-h-11 min-w-11;
+    }
+
+    /* iOS Safari zooms the page in when it focuses a control under 16px. */
+    .lp-comment-composer textarea,
+    .lp-comment-reply-form textarea,
+    .lp-filter-input,
+    .lp-filter-select {
+        @apply text-base;
     }
 
     /* Padding, not display or min-width: this link is `hidden sm:inline`, so a
