@@ -6,10 +6,6 @@ on:
     # the default branch only, so this first runs after the branch merges.
     - cron: '0 3 * * 1'
   workflow_dispatch:
-  # TEMPORARY, removed before merge. workflow_dispatch is registered from the
-  # default branch only, so this is the one way to measure a run on a runner.
-  push:
-    branches: [tooling/scoped-mutation-testing]
 
 concurrency:
   group: coverage-${{ github.ref }}

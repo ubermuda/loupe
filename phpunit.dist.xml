@@ -16,7 +16,7 @@
         <!-- 512M matches docker/dev/php-fpm/memory.ini. The suite peaks around
              240M, and at 256M it was dying intermittently in whichever test
              happened to make a large allocation late in the run. -->
-        <ini name="memory_limit" value="4G" />
+        <ini name="memory_limit" value="512M" />
         <server name="APP_ENV" value="test" force="true" />
         <server name="SHELL_VERBOSITY" value="-1" />
     </php>

@@ -472,10 +472,12 @@ e2e-coverage *args:
         echo "e2e: repairing $worktree (install-reset truncates its dev data)"
         ( cd "$main" && bin/worktrees/worktree-bootstrap.sh "$worktree" >/dev/null )
     fi
-    [ "$status" -eq 0 ] || exit $status
-    # clover.xml and summary.txt beside the HTML, so a reader can grep a number
-    # without opening a browser. `just phpunit-coverage` writes the same pair.
+    # Merge before the exit check. A suite that loses one spec still measured the
+    # other 120, and a run that exits first produces no report at all. The exit
+    # status is preserved below, so a red run still reads as red.
+    # clover.xml and summary.txt sit beside the HTML so a reader can grep a number.
     bin/worktrees/compose-exec.sh vendor/bin/phpcov merge var/coverage --html var/coverage/html --clover var/coverage/clover.xml --text var/coverage/summary.txt
+    [ "$status" -eq 0 ] || exit $status
 
 open-coverage:
     open var/coverage/html/index.html
@@ -485,7 +487,7 @@ open-coverage:
 # xdebug is the driver, as it is for `just mutation`. clover.xml and summary.txt
 # exist so a reader can grep a number without opening the HTML.
 phpunit-coverage *args:
-    bin/worktrees/compose-exec.sh env XDEBUG_MODE=coverage vendor/bin/phpunit --path-coverage --coverage-html=var/phpunit-coverage/html --coverage-clover=var/phpunit-coverage/clover.xml --coverage-text=var/phpunit-coverage/summary.txt "$@"
+    bin/worktrees/compose-exec.sh env XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-html=var/phpunit-coverage/html --coverage-clover=var/phpunit-coverage/clover.xml --coverage-text=var/phpunit-coverage/summary.txt "$@"
     @echo "coverage: var/phpunit-coverage/html/index.html — 'just open-phpunit-coverage'"
 
 open-phpunit-coverage:
