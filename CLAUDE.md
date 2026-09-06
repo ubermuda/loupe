@@ -26,6 +26,7 @@ These skills hold the detailed conventions for one area each. Invoke the relevan
 | `symfony-authorization` | Generic Symfony authorization mechanics: Voter classes, attribute naming, `#[IsGranted]` placement, `subject:` resolution, `is_granted()` in Twig |
 | `symfony-entity-route-mapping` | Routes that resolve entities from URL parameters: `{param:variable}` notation, `#[MapEntity]`, multi-entity routes |
 | `project-comments` | Writing or reviewing code comments and docblocks anywhere in `src/`, `assets/` or `tests/` |
+| `project-mutation-and-coverage` | Mutation testing, code coverage, fetching a weekly report artifact, or a test that asserts on elapsed time |
 | `working-with-prs` | Opening, gating, reviewing or merging a pull request |
 
 A subagent does not inherit the skills you have loaded. When you delegate PHP, entity, migration or command work, state the relevant skill conventions in the prompt, or tell the subagent to invoke the skill first. A convention that lives only in a skill is silently missed otherwise. The brand-new-table migration rule in `project-backend` is the example that bit.
@@ -245,6 +246,9 @@ just cs                       # Write-mode fixer pipeline: prettier, lint, recto
 just ci                       # Check-only gate (never rewrites files): lint, cs-check (rector/cs-fixer/twig-cs-fixer dry-run), phpstan, arkitect, gamache, composer audit, PHPUnit, Vitest (e2e is separate)
 just audit                    # Security advisories against composer.lock (also runs inside `just ci`)
 just gamache                  # Run Gamache convention checker (replaces the seven custom check scripts)
+just mutation                 # Infection over all of `src`; 15-25 min on a CI runner, far longer on a Mac
+just mutation-diff            # Infection over the lines this branch changed; the one to run while developing
+just phpunit-coverage         # PHPUnit coverage report at var/phpunit-coverage/html (separate from `e2e-coverage`)
 just migrate-diff             # Generate migrations from entities
 just migrate-run              # Run migrations
 just js-test                  # Run Vitest over tests/js (needs Node alone)

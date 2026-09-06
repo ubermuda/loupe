@@ -1,4 +1,5 @@
 import { APIRequestContext, expect, Page } from '@playwright/test';
+import { coverageScaled } from './timeouts';
 
 const mailpitUrl =
     process.env['MAILPIT_URL'] ?? 'https://mailpit.loupe.dev.localhost';
@@ -34,7 +35,7 @@ export async function fetchVerificationUrl(
                 verifyUrl = match[0];
                 return true;
             },
-            { timeout: 10000 },
+            { timeout: coverageScaled(10000) },
         )
         .toBe(true);
     return verifyUrl;
@@ -84,7 +85,7 @@ export async function getLatestEmailTo(
                 };
                 return true;
             },
-            { timeout: 10000 },
+            { timeout: coverageScaled(10000) },
         )
         .toBe(true);
     return result;

@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
+import { coverageScaled } from '../timeouts';
 
 /**
  * Browser coverage for reviewer-selectable decision blocks.
@@ -111,7 +112,7 @@ test('choosing an option records the answer and survives a reload', async ({
     // whether or not the POST ever landed. Reloading on that signal cancels the
     // request in flight and the answer is silently lost.
     await expect(page.locator('#decision-status')).toHaveText(/^Saved/, {
-        timeout: 15000,
+        timeout: coverageScaled(15000),
     });
 
     await page.reload();
@@ -135,7 +136,7 @@ test('the answer reaches the review payload', async ({ page }) => {
         .locator('input[type="radio"][data-decision-option]');
     await radios.nth(0).check();
     await expect(page.locator('#decision-status')).toHaveText(/^Saved/, {
-        timeout: 15000,
+        timeout: coverageScaled(15000),
     });
 
     const stateRes = await page.request.get(`/dev/review/${documentId}/state`);
@@ -197,7 +198,7 @@ test('selecting text below the block still anchors where the reviewer put it', a
     // "Add comment" (untargeted) button.
     await expect(
         page.locator('[data-comment-anchor-target="toolbar"]'),
-    ).toBeVisible({ timeout: 5000 });
+    ).toBeVisible({ timeout: coverageScaled(5000) });
     await page.getByRole('button', { name: 'Comment', exact: true }).click();
     await page
         .locator('[data-comment-anchor-target="composerBody"]')
@@ -206,7 +207,7 @@ test('selecting text below the block still anchors where the reviewer put it', a
 
     await expect(page.locator('.lp-comment-quote').first()).toContainText(
         BELOW_BLOCK_PHRASE,
-        { timeout: 15000 },
+        { timeout: coverageScaled(15000) },
     );
 
     const stateRes = await page.request.get(`/dev/review/${documentId}/state`);
@@ -277,7 +278,7 @@ test('the toolbar reports the decisions and tracks the answer', async ({
     // against which version. It is aria-live, so this is also what is read out.
     await expect(page.locator('#decision-status')).toHaveText(
         `Saved “${OPTION_TWO}” for version 1.`,
-        { timeout: 15000 },
+        { timeout: coverageScaled(15000) },
     );
     // Streamed with `update`, so the panel the reviewer opened is still open.
     await expect(page.locator('#decision-summary-count')).toHaveText('1/1');
@@ -392,14 +393,14 @@ test('a multi-choice block records several answers and clears one', async ({
     // status region already reads "saved" from the answer before this one.
     await boxes.nth(0).check();
     await expect(page.locator('#decision-status')).toHaveText(/saved/i, {
-        timeout: 15000,
+        timeout: coverageScaled(15000),
     });
     await boxes.nth(1).check();
     await expect
         .poll(
             async () =>
                 (await readDecision(page, body.documentId))?.selections.length,
-            { timeout: 15000 },
+            { timeout: coverageScaled(15000) },
         )
         .toBe(2);
 
@@ -416,7 +417,7 @@ test('a multi-choice block records several answers and clears one', async ({
         .poll(
             async () =>
                 (await readDecision(page, body.documentId))?.selections.length,
-            { timeout: 15000 },
+            { timeout: coverageScaled(15000) },
         )
         .toBe(1);
 

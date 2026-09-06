@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { countEmailsTo, getLatestEmailTo, extractLink } from '../helpers';
+import { coverageScaled } from '../timeouts';
 
 // Guest by default — make the unauthenticated starting state explicit.
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -65,7 +66,9 @@ test('resend sends a new verification email', async ({ page, request }) => {
     // A second message for this address proves resend actually sent one —
     // the subject alone can't, since the signup email has the same subject.
     await expect
-        .poll(() => countEmailsTo(request, email), { timeout: 10000 })
+        .poll(() => countEmailsTo(request, email), {
+            timeout: coverageScaled(10000),
+        })
         .toBe(2);
     const received = await getLatestEmailTo(request, email);
     expect(received.subject).toBe('Confirm your account');

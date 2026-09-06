@@ -20,6 +20,7 @@
 
 import { test, expect, type Page } from '@playwright/test';
 import { suppressToolbar } from '../fixtures';
+import { coverageScaled } from '../timeouts';
 
 // Guest flow — no session cookie should be carried in.
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -257,7 +258,7 @@ test('saving a comment confirms it is live', async ({ page }) => {
     ]);
 
     // It is a toast, not a screen: it clears itself and the panel stays usable.
-    await expect(saved).toBeHidden({ timeout: 10000 });
+    await expect(saved).toBeHidden({ timeout: coverageScaled(10000) });
     await expect(page.locator('#lp-main')).toBeVisible();
 });
 
