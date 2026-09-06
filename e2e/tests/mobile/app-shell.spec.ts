@@ -40,7 +40,9 @@ async function login(
     await page.getByRole('button', { name: 'Sign in' }).click();
     // A fresh user owns no project, so the first-run wizard takes the landing.
     // seedDocument below creates the project the wizard would have created.
-    await expect(page).toHaveURL('/welcome');
+    // The generous timeout covers a cold PHP cache on the first login of a run,
+    // which outran the 5s default and read as a rejected sign-in.
+    await expect(page).toHaveURL('/welcome', { timeout: 20000 });
 }
 
 async function seedDocument(page: Page): Promise<string> {
@@ -133,6 +135,25 @@ test('the hamburger opens the sidebar drawer and Escape closes it', async ({
     await expect(trigger).toHaveAttribute('aria-expanded', 'false');
     // Focus returns to what opened the drawer, not to the document body.
     await expect(trigger).toBeFocused();
+});
+
+test('the open drawer keeps Tab off the page behind it', async ({
+    page,
+    projectId,
+}) => {
+    await page.goto(`/projects/${projectId}/documents`);
+    await page.getByRole('button', { name: 'Open navigation' }).tap();
+    await expect(page.locator(SIDEBAR)).toBeVisible();
+
+    // The scrim stops a tap on the covered page; this proves the keyboard
+    // cannot reach it either.
+    for (let step = 0; step < 20; step += 1) {
+        await page.keyboard.press('Tab');
+        const escaped = await page.evaluate(() =>
+            Boolean(document.activeElement?.closest('.lp-shell')),
+        );
+        expect(escaped, `Tab ${step + 1} landed behind the drawer`).toBe(false);
+    }
 });
 
 test('tapping the scrim closes the drawer', async ({ page, projectId }) => {

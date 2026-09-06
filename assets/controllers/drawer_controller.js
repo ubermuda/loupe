@@ -10,14 +10,16 @@ import { Controller } from '@hotwired/stimulus';
  *   <div data-controller="drawer">
  *     <aside data-drawer-target="panel"> ... </aside>
  *     <div data-drawer-target="scrim" data-action="click->drawer#close" hidden></div>
- *     <button data-drawer-target="trigger" data-action="click->drawer#toggle"
- *             aria-expanded="false"> ... </button>
+ *     <div data-drawer-target="content">
+ *       <button data-drawer-target="trigger" data-action="click->drawer#toggle"
+ *               aria-expanded="false"> ... </button>
+ *     </div>
  *   </div>
  */
 const OPEN_CLASS = 'lp-sidebar--open';
 
 export default class extends Controller {
-    static targets = ['trigger', 'panel', 'scrim', 'dismiss'];
+    static targets = ['trigger', 'panel', 'scrim', 'dismiss', 'content'];
 
     connect() {
         this.previouslyFocused = null;
@@ -67,6 +69,11 @@ export default class extends Controller {
         if (this.hasScrimTarget) {
             this.scrimTarget.hidden = false;
         }
+        // The scrim stops a tap on what it covers; `inert` stops Tab reaching
+        // the same controls, which is the half a scrim cannot do.
+        if (this.hasContentTarget) {
+            this.contentTarget.inert = true;
+        }
         if (this.hasDismissTarget) {
             this.dismissTarget.focus();
         }
@@ -83,12 +90,17 @@ export default class extends Controller {
         }
     }
 
+    // Clears `inert` before close() restores focus, or the element it aims at
+    // is still unfocusable.
     #reset() {
         this.previouslyFocused = null;
         this.panelTarget.classList.remove(OPEN_CLASS);
         this.#setExpanded(false);
         if (this.hasScrimTarget) {
             this.scrimTarget.hidden = true;
+        }
+        if (this.hasContentTarget) {
+            this.contentTarget.inert = false;
         }
     }
 
