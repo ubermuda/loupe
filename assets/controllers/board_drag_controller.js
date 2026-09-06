@@ -97,25 +97,30 @@ export default class extends Controller {
         this.draggedCard.style.top = `${event.clientY - this.grabOffsetY}px`;
 
         const group = this.groupUnder(event.clientX, event.clientY);
-        if (group === null) {
-            return;
+        if (group !== null) {
+            this.markPlaceIn(group, event.clientY);
         }
+    }
 
-        // A card that leaves its group takes the end of the one it joins,
-        // whatever the pointer is over: the handler re-grades or re-columns it
-        // and appends. Showing an insertion point it will not honour would
-        // promise an order the answer then contradicts.
+    /**
+     * Puts the drop marker where a release at this point would land the card.
+     *
+     * A card that leaves its group takes the end of the one it joins, whatever
+     * the pointer is over: the handler re-grades or re-columns it and appends.
+     * Marking an insertion point it will not honour would promise an order the
+     * answer then contradicts.
+     */
+    markPlaceIn(group, clientY) {
         if (group !== this.originGroup) {
             group.append(this.placeholder);
 
             return;
         }
 
-        const others = this.otherCardsIn(group);
-        const before = others.find((element) => {
+        const before = this.otherCardsIn(group).find((element) => {
             const rectangle = element.getBoundingClientRect();
 
-            return event.clientY < rectangle.top + rectangle.height / 2;
+            return clientY < rectangle.top + rectangle.height / 2;
         });
 
         if (before === undefined) {
@@ -131,18 +136,19 @@ export default class extends Controller {
         }
 
         const card = this.draggedCard;
-        // The release point decides, not the placeholder: the placeholder stays
-        // where the pointer last was over a group, so letting go away from the
-        // board would otherwise commit that last hovered spot instead of
-        // abandoning the drag.
-        const overGroup = this.groupUnder(event.clientX, event.clientY);
-        const group =
-            overGroup === null
-                ? null
-                : this.placeholder.closest('[data-board-drag-target="group"]');
-        // Counted among the other cards only, which is the rank the move
-        // endpoint expects: the dragged card is spliced back in at that index.
-        const position = group === null ? -1 : this.rankOfPlaceholder(group);
+        // The release point decides, and the marker is re-placed from it rather
+        // than read where it sits. A pointerup can arrive at a spot no
+        // pointermove reported, so trusting the marker would commit the last
+        // place the pointer was seen, and a release away from the board would
+        // commit that instead of abandoning the drag.
+        const group = this.groupUnder(event.clientX, event.clientY);
+        let position = -1;
+        if (group !== null) {
+            this.markPlaceIn(group, event.clientY);
+            // Counted among the other cards only, which is the rank the move
+            // endpoint expects: the card is spliced back in at that index.
+            position = this.rankOfPlaceholder(group);
+        }
 
         this.abandon();
         this.submitMove(card, group, position);
