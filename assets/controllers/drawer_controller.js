@@ -17,6 +17,8 @@ import { Controller } from '@hotwired/stimulus';
  *   </div>
  */
 const OPEN_CLASS = 'lp-sidebar--open';
+/** Tailwind's `lg`, where app.css puts the sidebar back in the flow. */
+const DESKTOP_QUERY = '(min-width: 64rem)';
 
 export default class extends Controller {
     static targets = ['trigger', 'panel', 'scrim', 'dismiss', 'content'];
@@ -38,9 +40,18 @@ export default class extends Controller {
         // Turbo caches the page as it leaves it, and an open drawer in that
         // snapshot comes back open on the next restore visit.
         this.onBeforeCache = () => this.#reset();
+        // A window that grows past lg hides the scrim and both close controls,
+        // and would strand the shell inert with nothing left to release it.
+        this.desktopQuery = window.matchMedia(DESKTOP_QUERY);
+        this.onDesktop = (event) => {
+            if (event.matches) {
+                this.#reset();
+            }
+        };
         document.addEventListener('click', this.onDocumentClick);
         document.addEventListener('keydown', this.onKeydown);
         document.addEventListener('turbo:before-cache', this.onBeforeCache);
+        this.desktopQuery.addEventListener('change', this.onDesktop);
         this.#reset();
     }
 
@@ -48,6 +59,7 @@ export default class extends Controller {
         document.removeEventListener('click', this.onDocumentClick);
         document.removeEventListener('keydown', this.onKeydown);
         document.removeEventListener('turbo:before-cache', this.onBeforeCache);
+        this.desktopQuery.removeEventListener('change', this.onDesktop);
     }
 
     toggle(event) {

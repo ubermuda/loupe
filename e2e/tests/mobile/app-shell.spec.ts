@@ -156,6 +156,22 @@ test('the open drawer keeps Tab off the page behind it', async ({
     }
 });
 
+test('growing the window past lg releases the drawer', async ({
+    page,
+    projectId,
+}) => {
+    await page.goto(`/projects/${projectId}/documents`);
+    await page.getByRole('button', { name: 'Open navigation' }).tap();
+    await expect(page.locator('.lp-shell')).toHaveAttribute('inert', '');
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+
+    // The scrim and both close controls are display:none at lg, so an inert
+    // shell would leave the desktop page unclickable with nothing to fix it.
+    await expect(page.locator('.lp-shell')).not.toHaveAttribute('inert', '');
+    await expect(page.getByRole('link', { name: 'Connect' })).toBeVisible();
+});
+
 test('tapping the scrim closes the drawer', async ({ page, projectId }) => {
     await page.goto(`/projects/${projectId}/documents`);
 
