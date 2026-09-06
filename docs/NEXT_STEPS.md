@@ -156,43 +156,6 @@ token scopes per resource, webhook subscription storage + signing (HMAC),
 delivery retries (the existing Messenger worker is the natural transport),
 and dogfooding the API from the CLI/widget.
 
-## Set up ADRs and a stated list of architectural priorities
-
-
-**Author:** Geoffrey · **Type:** docs · **Priority:** medium · **Status:** pending
-
-Two artifacts, one purpose: make architectural judgement explicit and durable
-instead of re-deriving it per decision, per session, per agent.
-
-**Architecture Decision Records** — one short document per significant decision:
-what was chosen, what was rejected, and why. Several decisions made on
-2026-08-03 have their reasoning only in PR comments and code docblocks, where it
-is discoverable by accident at best: adopting
-`martin-georgiev/postgresql-for-doctrine` over four hand-rolled Doctrine
-classes (with the `php: <8.6` bound as an accepted cost); keeping search
-indexing synchronous; resolving a stale decision-form submission by refusing it
-rather than resolving against the version the reviewer saw; and the sanitizer
-moving to an explicit per-element allowlist. Each one is a question that will be
-asked again.
-
-**A stated ranking of architectural priorities** — performance versus
-correctness versus simplicity versus shipping speed, ordered rather than merely
-listed. Every one of them sounds good in isolation; the value is entirely in
-knowing which yields when two collide.
-
-That list is the durable fix for a problem recorded separately in 'The owner
-sets the quality bar, not the agent'. Without it, an agent facing "this is
-technically wrong but nobody would notice" has to either guess or ask every
-time — and guessing has produced both over-engineering and misplaced
-blocking. With it, most of those calls answer themselves and only genuine edge
-cases need escalating.
-
-Owner decision (2026-09-04): an ADR is written on judgement. No class of change
-requires one.
-
-Write the ranked list of architectural priorities first. It is the cheaper
-artifact, and it changes agent behaviour immediately.
-
 ## A better framework for planning and running multi-branch waves
 
 
@@ -291,39 +254,6 @@ Two things to protect in any reduction:
 2. **Convert rather than delete.** A spec removed without its assertions
    reappearing at a lower layer is coverage lost, and the loss is invisible
    because the suite still passes.
-
-## Reduce how much the test suite logs by default
-
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-One `just ci` run writes roughly **4.6 MB** to `var/log/test.log`. That is noise
-for the overwhelming majority of runs: nobody reads it, it grows without bound
-across a working day, and it makes the file useless for spotting anything by
-eye. `config/packages/monolog.yaml`'s `when@test` handler is where to change it.
-
-**Do not simply silence it.** On 2026-08-03 that volume was the evidence that
-settled a real question. Doctrine logs a deprecation on *every* mapping read
-when `nullable: false` is set on a many-to-many join column — a no-op annotation
-that becomes a hard error in Doctrine 4, and one that `just ci` cannot fail on.
-Proving a branch was clean of it meant pointing at a 4.6 MB log written by a
-suite that had read every mapping thousands of times and showing it contained
-zero deprecation lines. A quiet log would have made that a much weaker argument,
-and the same shape recurs whenever the question is "did this *not* happen".
-
-Owner decision (2026-09-04): route deprecations to their own always-on file,
-independent of the `fingers_crossed` main handler. The `when@prod` block already
-has that split. It declares a `deprecation` stream handler on the `deprecation`
-channel, and its `main` handler excludes that channel. Mirror the same shape in
-`when@test`.
-
-Verify the change like this. Reinstate a `nullable: false` on a many-to-many
-join column, then confirm the deprecation still appears. A logging change that
-passes its own tests while removing the ability to answer "did this not happen"
-has made things worse.
-
-Rotation or per-run truncation is still worth doing on its own. One checkout's
-`var/log/test.log` reached 181 MB on 2026-09-04.
 
 ## Site-review comments have no agent-reply data model
 
@@ -774,55 +704,6 @@ human's accepted rewording should be visible to the agent that wrote the
 document, and an agent should plausibly be able to *make* suggestions on a human
 edit. Neither needs building first, but the comment model should not make them
 awkward later.
-
-## Two patterns now exist for fieldless POST actions — converge them
-
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-Archiving and unarchiving a document were converted (2026-08-02, review comment
-on pull request #118) from a hand-written `<form>` plus
-`#[CsrfToken('document-archive')]` to a real Symfony form —
-`Module/Review/Form/ArchiveDocumentFormType`, built per row by
-`ReviewExtension::documentArchiveForm()` and rebuilt by name in the controller,
-with the form component issuing and checking the token. The
-`document-archive` entry came out of `config/packages/csrf.yaml` with it.
-
-`ArchiveDocumentFormType` is the outlier, and the attribute is the norm. A
-count on 2026-09-04 found 32 `#[CsrfToken]` attribute sites under `src/`, with
-`grep -rn "^#\[CsrfToken(" src/`. `config/packages/csrf.yaml` declares 30 ids in
-`stateless_token_ids`, and the framework owns three of them: `submit`,
-`authenticate` and `logout`. So the divergence is much wider than the four
-comment controllers this entry first named.
-
-Those four carry the comment actions:
-
-- `Module/Review/Controller/DeleteCommentController` and `ResolveCommentController`
-  (`comment-action`), submitted from `templates/Module/Review/components/CommentThread.html.twig`
-- `Module/SiteReview/Controller/ReopenSiteReviewCommentController` and
-  `ResolveSiteReviewCommentController` (`site-review-comment-action`), submitted
-  from `templates/Module/SiteReview/show_site_review.html.twig`
-
-They were left alone deliberately, because they sat outside the branch that made
-the archive change. The divergence is known rather than accidental.
-
-Owner decision (2026-09-04): convert every fieldless POST action to a Symfony
-form, not only the four comment controllers.
-
-Three hybrid admin forms fall inside that scope. `SuspendUserFormType`,
-`DeleteUserFormType` and `InviteOldestWaitlistFormType` are real forms that set
-`'csrf_protection' => false`. Each one leans on the controller's `#[CsrfToken]`
-attribute instead. Convert them so the form owns the token.
-
-The work is large enough for its own wave. Do not attach it to an unrelated
-branch.
-
-`SubmitReviewController` (`submit-review`) is not part of this. It submits a
-verdict value, so it is not the fieldless shape.
-
-One thing the conversion surfaced that the attribute form hides: a per-row
-fieldless form still needs a unique name (`createNamed`), or every row renders
-the same DOM id on its hidden token input.
 
 ## A symfony/yaml bump can silently move every anchor in a document
 
@@ -1601,27 +1482,6 @@ Neither is broken now. Both are the kind of coupling that breaks silently and
 far from the change that caused it, which is why they are written down rather
 than commented in the query.
 
-## Drop `.env` from CommentBudgetCheck's patterns
-
-**Author:** Geoffrey · **Type:** tooling · **Priority:** low · **Status:** pending
-
-The repo-wide sweep took `CommentBudgetCheck` from 151 findings to 10, and every
-other file — `src/`, `templates/`, `assets/`, `config/`, `tests/`, `e2e/`, the
-`justfile`, the compose topologies — is at zero. The 10 that remain are all in
-`.env`, and none of them is obviously wrong.
-
-Its first block is Symfony's own shipped header, which `composer
-recipes:update` would restore if rewritten. The rest document environment
-variables for whoever deploys the app, which is that file's whole purpose.
-
-Owner decision (2026-09-04): drop `.env` from the check's `patterns` in
-`gamache.php` at the project root. Marking each block with
-`@comment-budget-ignore` trades documentation for a number, which is the
-opposite of what the check is for.
-
-Accepted cost: the check then polices nothing in that file. A long comment block
-could land in `.env` and nothing would report it.
-
 ## An HTML comment inside a raw HTML block still renders as nothing
 
 
@@ -2032,7 +1892,9 @@ reading further, cannot revise it. The verdict side of this already shipped —
 there is a pattern to follow for what an undo does to the stored answer and to
 anything derived from it.
 
-Related: 'A decision card cannot show its own recorded answer'.
+The recorded answer is now reported back: #331 made the shared status region
+name the chosen option and the version it was recorded against. So a reviewer
+can see what they chose and still cannot change it.
 
 ## A decision card offers no free-text option
 
@@ -2043,7 +1905,8 @@ none of them has nowhere to put it, so the answer ends up in a comment,
 decoupled from the decision it belongs to. Wanted: an "other" choice carrying
 a free-text field, stored alongside the predefined options.
 
-Related: 'Decision controls: multi-select, and whether a choice should carry a comment'.
+#336 added multi-select, so an answer is stored as one row per chosen option
+rather than one row per decision. A free-text answer has to fit that shape.
 
 ## A decision card cannot mark one option as recommended
 
@@ -2057,7 +1920,8 @@ as recommended by the authoring agent, through the document MCP surface
 (`document_create` / `document_revise`), and the review UI renders that tag on
 the option itself.
 
-Related: 'Decision controls: multi-select, and whether a choice should carry a comment'.
+#336 gave the fence two option markers, `- ( )` for single choice and `- [ ]`
+for multi. A recommendation marker must not collide with either.
 
 ## Some log lines stay diagnostics, and one of them is worth revisiting
 
