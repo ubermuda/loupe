@@ -34,6 +34,11 @@ entry.
 
 ## [Unreleased]
 
+- `c71cec3` (#359) — **Added:** mutation testing over all of `src` and code
+  coverage, both on their own weekly schedules and neither gating a merge.
+  `just mutation`, `just mutation-diff`, `just phpunit-coverage` and
+  `just e2e-coverage` run them, and the `project-mutation-and-coverage` skill
+  says how to fetch a weekly report.
 - `aabed3a` (#368) — **Added:** a JavaScript test harness. `just js-test` runs
   vitest over `tests/js`, covering comment-anchor matching and the site-review
   widget's fatal state, and a `js-test` CI job runs it on every pull request.
