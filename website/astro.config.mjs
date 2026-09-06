@@ -77,6 +77,7 @@ export default defineConfig({
           collapsed: true,
           items: [
             { slug: 'using/documents' },
+            { slug: 'using/board' },
             { slug: 'using/mcp' },
             { slug: 'using/site-review' },
             { slug: 'using/admin' },
