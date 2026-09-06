@@ -34,6 +34,9 @@ entry.
 
 ## [Unreleased]
 
+- `aabed3a` (#368) — **Added:** a JavaScript test harness. `just js-test` runs
+  vitest over `tests/js`, covering comment-anchor matching and the site-review
+  widget's fatal state, and a `js-test` CI job runs it on every pull request.
 - `2eb21ad` (#355) — **Changed:** `public/site-review/` is in prettier's scope,
   so the widget is formatted like the rest of the JavaScript.
 - `fd66350` (#362) — **Added:** a reviewer can draw freehand over the page and
