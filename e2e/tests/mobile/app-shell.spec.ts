@@ -221,8 +221,8 @@ test('no touch control renders below the 16px iOS zoom threshold', async ({
         ).toBeGreaterThanOrEqual(16);
     }
 
-    // The composer and the reply form mount only on the review screen, which
-    // another branch owns. Measure the compiled rule itself instead.
+    // The composer and the reply form mount only on the review screen.
+    // Measure the compiled rule itself instead.
     const sizes = await page.evaluate(() => {
         const probe = document.createElement('div');
         probe.innerHTML =
