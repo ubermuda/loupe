@@ -24,6 +24,13 @@ const HIGH = 0;
 
 const CARD = '[data-board-drag-target="card"]';
 const GROUP = '[data-board-drag-target="group"]';
+// The drag controller sets this when it connects. A grab before that reaches no
+// listener, so every drag waits for it rather than for the cards alone.
+const READY = '#board[data-board-drag-ready="true"]';
+
+async function waitForDragReady(page: Page): Promise<void> {
+    await expect(page.locator(READY)).toBeAttached();
+}
 
 async function setBoardFlag(
     request: APIRequestContext,
@@ -181,6 +188,7 @@ const test = base.extend<{ board: Board }>({
             const boardUrl = `/projects/${projectId}/board`;
             await page.goto(boardUrl);
             await expect(page.locator(CARD)).toHaveCount(2);
+            await waitForDragReady(page);
 
             await use({ projectId, boardUrl });
         },
@@ -212,6 +220,7 @@ test('a drag inside a priority group reorders it, and the order survives a reloa
         .toEqual(['Bravo', 'Alpha']);
 
     await page.goto(board.boardUrl);
+    await waitForDragReady(page);
     expect(await titlesIn(page, BACKLOG, HIGH)).toEqual(['Bravo', 'Alpha']);
 });
 

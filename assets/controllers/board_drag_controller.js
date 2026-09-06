@@ -1,4 +1,4 @@
-/* stimulusFetch: 'lazy' */
+/* stimulusFetch: 'eager' */
 import { Controller } from '@hotwired/stimulus';
 
 /**
@@ -12,6 +12,10 @@ import { Controller } from '@hotwired/stimulus';
  *
  * The move form is also the keyboard and no-JS path, so this adds a faster way
  * to reach an endpoint that is reachable without it.
+ *
+ * Eagerly loaded, and it marks the board ready when it connects. Dragging is the
+ * board's primary gesture, and a lazily fetched controller leaves a window in
+ * which a card can be grabbed and nothing happens.
  */
 export default class extends Controller {
     static targets = ['card', 'group', 'moveForm'];
@@ -30,10 +34,13 @@ export default class extends Controller {
                 this.abandon();
             }
         };
+
+        this.element.dataset.boardDragReady = 'true';
     }
 
     disconnect() {
         this.abandon();
+        delete this.element.dataset.boardDragReady;
     }
 
     start(event) {
