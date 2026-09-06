@@ -34,6 +34,8 @@ entry.
 
 ## [Unreleased]
 
+- `2eb21ad` (#355) — **Changed:** `public/site-review/` is in prettier's scope,
+  so the widget is formatted like the rest of the JavaScript.
 - `fd66350` (#362) — **Added:** a reviewer can draw freehand over the page and
   attach the strokes to a comment, from the composer or from the collapsed
   launcher. It is behind the `site_review.drawing.enabled` flag, on by default.
