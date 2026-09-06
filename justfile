@@ -118,7 +118,7 @@ worktree-tailwind:
 
 lint:
     vendor/bin/parallel-lint --exclude vendor --exclude var --exclude node_modules --exclude .claude .
-    npx prettier --check --log-level warn assets/ e2e/ public/site-review/
+    npx prettier --check --log-level warn assets/ e2e/ public/site-review/ tests/js/
     npx eslint public/site-review/widget.js assets/controllers/
     cd e2e && npx eslint .
 
@@ -132,7 +132,7 @@ twig-cs-fix:
     vendor/bin/twig-cs-fixer fix
 
 prettier:
-    npx prettier --write --log-level warn assets/ e2e/ public/site-review/
+    npx prettier --write --log-level warn assets/ e2e/ public/site-review/ tests/js/
 
 rector:
     vendor/bin/rector
@@ -151,6 +151,11 @@ arkitect:
 
 phpunit *args:
     bin/worktrees/compose-exec.sh vendor/bin/phpunit "$@"
+
+# Vitest over tests/js. Runs on the host, not in the container: it needs Node
+# alone, and the app it tests is a browser script.
+js-test *args:
+    npx vitest run "$@"
 
 cs: prettier lint rector cs-fix twig-cs-fix
 
@@ -188,8 +193,9 @@ secrets-scan:
     trufflehog git file://. --results=verified --fail --exclude-detectors=lob
 
 # lint already covers parallel-lint, prettier --check and eslint (incl. e2e).
-# Check-only gate: lint, style dry-run, phpstan, arkitect, gamache, advisories, PHPUnit, Go CLI.
-ci: lint cs-check phpstan arkitect gamache audit phpunit cli-test
+# Check-only gate: lint, style dry-run, phpstan, arkitect, gamache, advisories,
+# PHPUnit, Vitest, Go CLI.
+ci: lint cs-check phpstan arkitect gamache audit phpunit js-test cli-test
 
 # One argument per word: `set positional-arguments` forwards a quoted string to
 # compose-exec.sh whole, so Docker looks for a binary with a space in its name.
