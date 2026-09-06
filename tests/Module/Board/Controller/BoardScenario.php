@@ -19,6 +19,16 @@ use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 trait BoardScenario
 {
     /**
+     * The next card number to hand out, per project.
+     *
+     * A card number counts from 1 and is unique inside its project only, so two
+     * projects both start at 1 rather than sharing one run of numbers.
+     *
+     * @var array<string, int>
+     */
+    private array $nextCardNumber = [];
+
+    /**
      * The board ships off, so every test that opens a board route has to switch
      * it on. The container is read fresh, so this stays correct after a request
      * has rebooted the kernel.
@@ -64,10 +74,15 @@ trait BoardScenario
         int $position = 0,
         string $body = '',
     ): Card {
+        $projectKey = (string) $project->id;
+        $number = $this->nextCardNumber[$projectKey] ?? 1;
+        $this->nextCardNumber[$projectKey] = $number + 1;
+
         $card = new Card(
             project: $project,
             title: $title,
             body: $body,
+            number: $number,
             type: CardType::Feature,
             priority: $priority,
             status: $status,
