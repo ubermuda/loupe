@@ -24,26 +24,18 @@
         </span>
         {% endif %}
     </div>
-    {# The keyboard and no-JS path for the same endpoint the drop posts to. The
-       drag controller fills these fields rather than fetching by hand. #}
-    <details class="lp-card-move">
-        <summary class="lp-card-move__summary">{{ 'board.card.move.open'|trans }}</summary>
-        {% set moveForm = card_move_form(card) %}
-        <form method="post"
-              action="{{ path('app_board_card_move', {projectId: card.project.id, cardId: card.id}) }}"
-              class="lp-card-move__form"
-              data-board-drag-target="moveForm">
-            {{ form_widget(moveForm._token) }}
-            <div class="lp-card-move__field">
-                {{ form_label(moveForm.status, null, {label_attr: {class: 'lp-label'}}) }}
-                {{ form_widget(moveForm.status, {attr: {class: 'lp-input lp-select lp-card-move__select'}}) }}
-            </div>
-            <div class="lp-card-move__field">
-                {{ form_label(moveForm.priority, null, {label_attr: {class: 'lp-label'}}) }}
-                {{ form_widget(moveForm.priority, {attr: {class: 'lp-input lp-select lp-card-move__select'}}) }}
-            </div>
-            {{ form_widget(moveForm.position, {attr: {hidden: 'hidden'}}) }}
-            <button type="submit" class="lp-btn lp-btn--sm lp-btn--primary">{{ 'board.card.move.submit'|trans }}</button>
-        </form>
-    </details>
+    {# Dragging is the only interaction a card face offers. These fields carry
+       no controls: the drag controller fills them and submits, which keeps
+       Turbo and the CSRF controller in the path. The same form is on the card
+       page with its labels, where a keyboard reaches it. #}
+    {% set moveForm = card_move_form(card) %}
+    <form hidden
+          method="post"
+          action="{{ path('app_board_card_move', {projectId: card.project.id, cardId: card.id}) }}"
+          data-board-drag-target="moveForm">
+        {{ form_widget(moveForm._token) }}
+        {{ form_widget(moveForm.status) }}
+        {{ form_widget(moveForm.priority) }}
+        {{ form_widget(moveForm.position) }}
+    </form>
 </article>

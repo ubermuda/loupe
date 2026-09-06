@@ -48,6 +48,31 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertSame(['1', '1', '0', '0'], $counts);
     }
 
+    public function test_a_card_face_carries_the_move_fields_and_no_move_control(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-face@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Draggable');
+        $cardId = $card->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+
+        self::assertResponseIsSuccessful();
+        // The drag submits this form, so the fields are on the face. Dragging is
+        // the only interaction the face offers, so nothing renders a control.
+        $face = $crawler->filter('[data-card-id="'.$cardId.'"]');
+        self::assertCount(1, $face->filter('form[hidden][data-board-drag-target="moveForm"]'));
+        self::assertCount(1, $face->filter('select[name$="[status]"]'));
+        self::assertCount(0, $face->filter('details'));
+        self::assertCount(0, $face->filter('button'));
+    }
+
     public function test_a_card_shows_its_type_and_a_pull_request_indicator(): void
     {
         $client = static::createClient();

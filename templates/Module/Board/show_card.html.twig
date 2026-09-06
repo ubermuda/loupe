@@ -68,6 +68,33 @@
         {% endif %}
     </section>
 
+    <section class="lp-card-move">
+        <h2 class="lp-card-move__title">{{ 'board.card.move.title'|trans }}</h2>
+        {% set moveForm = card_move_form(card) %}
+        {# Turbo is switched off here. The endpoint answers a Turbo submission
+           with a stream that replaces the board, and this page holds no board
+           to replace, so the stream would land nowhere. A plain submission
+           takes the redirect instead and arrives on the board. #}
+        <form method="post"
+              data-turbo="false"
+              action="{{ path('app_board_card_move', {projectId: card.project.id, cardId: card.id}) }}"
+              class="lp-card-move__form">
+            {{ form_widget(moveForm._token) }}
+            <div class="lp-card-move__field">
+                {{ form_label(moveForm.status, null, {label_attr: {class: 'lp-label'}}) }}
+                {{ form_widget(moveForm.status, {attr: {class: 'lp-input lp-select'}}) }}
+            </div>
+            <div class="lp-card-move__field">
+                {{ form_label(moveForm.priority, null, {label_attr: {class: 'lp-label'}}) }}
+                {{ form_widget(moveForm.priority, {attr: {class: 'lp-input lp-select'}}) }}
+            </div>
+            {# No rank from here. An empty rank appends, and a person choosing a
+               column has no view of the ranks in it. #}
+            {{ form_widget(moveForm.position, {attr: {hidden: 'hidden'}}) }}
+            <button type="submit" class="lp-btn lp-btn--primary lp-card-move__submit">{{ 'board.card.move.submit'|trans }}</button>
+        </form>
+    </section>
+
     <div class="lp-card-actions">
         <a class="lp-btn lp-btn--primary" href="{{ path('app_board_card_edit', {projectId: card.project.id, cardId: card.id}) }}">
             {{ 'board.card.edit.action'|trans }}

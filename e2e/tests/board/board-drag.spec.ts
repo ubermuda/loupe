@@ -238,16 +238,21 @@ test('a drag into another column changes the status, and it survives a reload', 
     expect(await titlesIn(page, BACKLOG, HIGH)).toEqual(['Bravo']);
 });
 
-test('the move form moves a card without a pointer', async ({
+test("the card's own page moves it without a pointer", async ({
     page,
     board,
 }) => {
-    const card = page.locator('[data-card-title="Bravo"]');
-    await card.locator('summary').click();
-    await card.getByLabel('Column').selectOption('next');
-    await card.getByRole('button', { name: 'Move card' }).click();
+    // The board face offers dragging and nothing else, so the keyboard path to
+    // the same endpoint is the form on the card page.
+    await page.locator('[data-card-title="Bravo"] a').click();
+    await expect(page.getByRole('button', { name: 'Move card' })).toBeVisible();
 
-    await expect.poll(() => titlesIn(page, NEXT, HIGH)).toEqual(['Bravo']);
+    await page.getByLabel('Column').selectOption('next');
+    await page.getByRole('button', { name: 'Move card' }).click();
+
+    await expect(page).toHaveURL(board.boardUrl);
+    await waitForDragReady(page);
+    expect(await titlesIn(page, NEXT, HIGH)).toEqual(['Bravo']);
 
     await page.goto(board.boardUrl);
     expect(await titlesIn(page, NEXT, HIGH)).toEqual(['Bravo']);

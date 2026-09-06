@@ -10,8 +10,9 @@ import { Controller } from '@hotwired/stimulus';
  * is abandoned, refused or interrupted therefore leaves the page showing the
  * order it already had, never an invented one.
  *
- * The move form is also the keyboard and no-JS path, so this adds a faster way
- * to reach an endpoint that is reachable without it.
+ * A card face carries that form with no controls on it, because dragging is the
+ * only interaction the board offers. The card's own page carries the same form
+ * with its labels, which is the keyboard and no-JS path to this endpoint.
  *
  * Eagerly loaded, and it marks the board ready when it connects. Dragging is the
  * board's primary gesture, and a lazily fetched controller leaves a window in
@@ -155,9 +156,9 @@ export default class extends Controller {
     }
 
     /**
-     * Fills the card's own move form and submits it, which lets Turbo carry the
-     * request and the eager CSRF controller stamp the token. A hand-rolled fetch
-     * would have to re-implement both.
+     * Fills the card's own hidden move form and submits it, which lets Turbo
+     * carry the request and the eager CSRF controller stamp the token. A
+     * hand-rolled fetch would have to re-implement both.
      */
     submitMove(card, group, position) {
         if (group === null) {

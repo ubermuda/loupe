@@ -196,6 +196,40 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertInstanceOf(Card::class, $em->find(Card::class, $cardId));
     }
 
+    public function test_the_card_page_moves_a_card_without_a_pointer(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'card-move-page@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Reachable by keyboard', CardStatus::Backlog, CardPriority::Low);
+        $cardId = $card->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$cardId);
+        self::assertResponseIsSuccessful();
+
+        $name = 'move_card_'.$cardId->toRfc4122();
+        // Turbo is off on this form. Its answer is a redirect to the board
+        // rather than a stream, because this page holds no board to replace.
+        self::assertCount(1, $crawler->filter('form[data-turbo="false"] select[name="'.$name.'[status]"]'));
+
+        $client->submitForm('Move card', [
+            $name.'[status]' => CardStatus::InProgress->value,
+            $name.'[priority]' => (string) CardPriority::High->value,
+        ]);
+
+        self::assertResponseRedirects('/projects/'.$project->id.'/board');
+        $em->clear();
+        $moved = static::getContainer()->get(CardRepository::class)->find($cardId);
+        self::assertInstanceOf(Card::class, $moved);
+        self::assertSame(CardStatus::InProgress, $moved->status);
+        self::assertSame(CardPriority::High, $moved->priority);
+    }
+
     public function test_a_stranger_cannot_reach_a_card(): void
     {
         $client = static::createClient();

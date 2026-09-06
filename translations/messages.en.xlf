@@ -4272,9 +4272,9 @@
                 <source>board.card.pull_requests.not_linkable</source>
                 <target>Not a web address, so it is shown rather than linked.</target>
             </trans-unit>
-            <trans-unit id="board.card.move.open">
-                <source>board.card.move.open</source>
-                <target>Move</target>
+            <trans-unit id="board.card.move.title">
+                <source>board.card.move.title</source>
+                <target>Move this card</target>
             </trans-unit>
             <trans-unit id="board.card.move.submit">
                 <source>board.card.move.submit</source>
