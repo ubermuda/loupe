@@ -108,9 +108,9 @@
         {# .lp-review-doc is position:relative: the offset parent the floating
            composer and toolbar are placed against, and the frame the comment
            margin is measured within. The inner [data-comment-anchor-target="doc"]
-           is the TreeWalker root and must hold ONLY the rendered HTML — no
-           template whitespace — so its textContent === plainText(). #}
-        {% set docActions = (canComment ? ['mouseup->comment-anchor#onDocMouseup', 'mousemove->comment-anchor#onDocMousemove'] : [])|merge(readOnly ? [] : ['change->decision#select']) %}
+           is the TreeWalker root and must hold ONLY the rendered HTML, so its
+           text === plainText(). The controller's own slots are the exception. #}
+        {% set docActions = (canComment ? ['mouseup->comment-anchor#onDocMouseup', 'pointerup->comment-anchor#onDocPointerup', 'mousemove->comment-anchor#onDocMousemove', 'click->comment-anchor#onDocClick'] : [])|merge(readOnly ? [] : ['change->decision#select']) %}
         <div class="lp-review-doc" data-comment-anchor-target="block" data-controller="decision"{% if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}>
 
             <div class="lp-review-doc__head">
