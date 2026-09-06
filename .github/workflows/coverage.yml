@@ -47,7 +47,7 @@ jobs:
 
       - name: Coverage summary
         if: always()
-        run: tail -20 var/phpunit-coverage/summary.txt || echo 'no summary written'
+        run: head -12 var/phpunit-coverage/summary.txt || echo "no summary written"
 
       - name: PHPUnit coverage report
         if: always()
@@ -118,7 +118,7 @@ jobs:
 
       - name: Coverage summary
         if: always()
-        run: tail -20 var/coverage/summary.txt || echo 'no summary written'
+        run: head -12 var/coverage/summary.txt || echo 'no summary written'
 
       - name: e2e coverage report
         if: always()

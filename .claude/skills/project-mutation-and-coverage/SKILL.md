@@ -43,22 +43,41 @@ worktree's tests on the machine.
 
 The reports exist only as artifacts. Retention is 90 days.
 
+Take `<workflow>` and `<artifact>` from the table below. Both are parameters, and
+two workflows produce three artifacts.
+
 ```
-gh run list --workflow "Mutation testing" --limit 5 --json databaseId,conclusion,createdAt
+gh run list --workflow <workflow> --limit 5 --json databaseId,conclusion,createdAt
 gh run download <run-id> --name <artifact> --dir /tmp/report
 ```
 
+| Report | `<workflow>` | Job | `<artifact>` | Holds |
+|---|---|---|---|---|
+| mutation | `Mutation testing` | `infection` | `infection-report` | `summary.log`, `infection.log` |
+| PHPUnit coverage | `Coverage report` | `phpunit` | `phpunit-coverage` | `summary.txt`, `clover.xml`, `html/` |
+| e2e coverage | `Coverage report` | `e2e` | `e2e-coverage` | `summary.txt`, `clover.xml`, `html/` |
+
 Download outside the repository, so nothing commits a report. `--name` is
-required, because a run can hold more than one artifact.
+required, because one run holds more than one artifact. A `--name` from the wrong
+workflow fails with an error that does not say the name was the problem.
 
-| Workflow | Job | Artifact | Holds |
-|---|---|---|---|
-| `Mutation testing` | `infection` | `infection-report` | `summary.log`, `infection.log` |
-| `Coverage report` | `phpunit` | `phpunit-coverage` | `summary.txt`, `clover.xml`, `html/` |
-| `Coverage report` | `e2e` | `e2e-coverage` | `summary.txt`, `clover.xml`, `html/` |
+Worked example, for the PHPUnit coverage number:
 
-Read `summary.log` or `summary.txt` first. Each is a few hundred bytes and
-carries the numbers. Open the HTML only when you need a per-file breakdown.
+```
+gh run list --workflow "Coverage report" --limit 5 --json databaseId,conclusion,createdAt
+gh run download 34000093901 --name phpunit-coverage --dir /tmp/report
+head -12 /tmp/report/summary.txt
+```
+
+That prints `Classes: 71.64%`, `Methods: 83.40%` and `Lines: 90.89% (8585/9446)`.
+The Summary block is at the top of the file, so read the head of it. The file
+carries terminal colour codes, which is why a plain `grep` shows escape
+characters around the numbers.
+
+Read `summary.log` or `summary.txt` first. A mutation `summary.log` is a few
+hundred bytes. A coverage `summary.txt` is about 80 KB, because every class
+follows the summary. The HTML tree is about 87 MB, so open it only when you need
+a per-file breakdown.
 
 `infection.log` is about 380 KB and holds four sections: `Escaped mutants:`,
 `Timed Out mutants:`, `Skipped mutants:` and `Not Covered mutants:`. An escaped
@@ -88,7 +107,7 @@ self::assertLessThan(3.0, $fullElapsed / $halfElapsed);
 Coverage slows both halves by the same factor, so the ratio survives it, and so
 does a loaded machine.
 
-Playwright has the same bound and it is not yours to rewrite. Its `expect`
+Playwright carries the same kind of bound in its own config. Its `expect`
 timeout is an absolute 5 seconds. Per-request collection takes one page render
 from about 0.5s to about 4.7s, so a coverage run sits on that bound and fails on
 timeouts rather than on anything a spec asserts. `playwright.config.ts` raises
