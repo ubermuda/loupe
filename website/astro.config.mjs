@@ -79,6 +79,7 @@ export default defineConfig({
             { slug: 'using/documents' },
             { slug: 'using/mcp' },
             { slug: 'using/site-review' },
+            { slug: 'using/board' },
             { slug: 'using/admin' },
             { slug: 'using/data-exports' },
           ],

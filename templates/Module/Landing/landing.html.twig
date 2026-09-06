@@ -255,7 +255,7 @@
                         {{ 'landing.faq.agents.answer_before'|trans }} <code>{{ 'landing.tech.tools.tool_create'|trans }}</code> {{ 'landing.faq.agents.answer_or'|trans }} <code>{{ 'landing.tech.tools.tool_revise'|trans }}</code>{{ 'landing.faq.agents.answer_after'|trans }}
                     </p>
                 </div>
-                {% for question in ['technical', 'anchors', 'migrate'] %}
+                {% for question in ['board', 'technical', 'anchors', 'migrate'] %}
                 <div class="lp-landing-faq__item">
                     <h3 class="lp-landing-faq__question">{{ ('landing.faq.' ~ question ~ '.question')|trans }}</h3>
                     <p class="lp-landing-faq__answer">{{ ('landing.faq.' ~ question ~ '.answer')|trans }}</p>
