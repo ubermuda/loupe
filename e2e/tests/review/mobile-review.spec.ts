@@ -309,7 +309,9 @@ async function givePhoneWidthReadingArea(page: Page): Promise<void> {
  * The diff pane is its own template, and this branch does not touch it. The
  * sweep still runs there, because nothing else looks at it below lg.
  */
-async function seedDiffUrl(page: Page): Promise<string> {
+async function seedRevisedDocument(
+    page: Page,
+): Promise<{ documentId: string; projectId: string }> {
     const response = await page.request.post('/dev/seed/document', {
         form: {
             title: 'E2E Mobile Diff Document',
@@ -323,7 +325,10 @@ async function seedDiffUrl(page: Page): Promise<string> {
     expect(response.status()).toBe(201);
     const body = await response.json();
 
-    return `/projects/${body.projectId}/documents/${body.documentId}/review/diff/1/2`;
+    return {
+        documentId: body.documentId as string,
+        projectId: body.projectId as string,
+    };
 }
 
 interface SeededReview {
@@ -495,8 +500,10 @@ test('a comment card flows into the prose below lg and returns above it', async 
 });
 
 test('the diff pane holds a phone column too', async ({ page }) => {
-    const diffUrl = await seedDiffUrl(page);
-    await page.goto(diffUrl);
+    const { documentId, projectId } = await seedRevisedDocument(page);
+    await page.goto(
+        `/projects/${projectId}/documents/${documentId}/review/diff/1/2`,
+    );
     await expect(page.locator('.lp-diff-doc')).toBeVisible();
     await givePhoneWidthReadingArea(page);
 
@@ -514,6 +521,52 @@ test('the diff pane holds a phone column too', async ({ page }) => {
     });
     expect(diff.paneRight).toBeLessThanOrEqual(diff.mainRight + 1);
     expect(diff.mainScrollWidth).toBeLessThanOrEqual(diff.mainClientWidth);
+});
+
+test('a read-only version leaves the strike key alone', async ({ page }) => {
+    const { documentId, projectId } = await seedRevisedDocument(page);
+    await page.goto(
+        `/projects/${projectId}/documents/${documentId}/review/versions/1`,
+    );
+    await expect(page.locator(DOC)).toBeVisible();
+    // The controller stays on an old version to paint its highlights, and the
+    // page renders no toolbar and no strike form.
+    await expect(page.locator(TOOLBAR)).toHaveCount(0);
+
+    const swallowed = await page.evaluate(async () => {
+        const docEl = document.querySelector(
+            '[data-comment-anchor-target="doc"]',
+        )!;
+        const range = document.createRange();
+        range.selectNodeContents(docEl.querySelector('p')!);
+        const selection = window.getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+        // Longer than the controller's own settle delay, so the capture it
+        // would make has happened by the time the key arrives.
+        await new Promise((resolve) => setTimeout(resolve, 600));
+
+        return new Promise<boolean>((resolve) => {
+            // Registered after the controller's, so it reads the flag the
+            // controller would have set.
+            document.addEventListener(
+                'keydown',
+                (event) => resolve(event.defaultPrevented),
+                { once: true },
+            );
+            document.body.dispatchEvent(
+                // cancelable, or preventDefault() is a no-op and this reads
+                // false however the controller behaves.
+                new KeyboardEvent('keydown', {
+                    key: 's',
+                    bubbles: true,
+                    cancelable: true,
+                }),
+            );
+        });
+    });
+
+    expect(swallowed).toBe(false);
 });
 
 test('a slot whose only card is hidden takes no room in the prose', async ({

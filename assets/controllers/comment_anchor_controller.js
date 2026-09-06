@@ -381,7 +381,11 @@ export default class extends Controller {
      * still raises the toolbar once, when the drag ends.
      */
     #captureSettledSelection() {
+        // A read-only version keeps the controller for its highlights and
+        // renders no toolbar. Capturing there would arm the strike shortcut on a
+        // page that cannot strike, and `s` would be swallowed for nothing.
         if (
+            !this.hasToolbarTarget ||
             this.pointerDown ||
             this.#demoUnavailable() ||
             this.#composerOpen()
@@ -483,7 +487,6 @@ export default class extends Controller {
      * composer, no field — fill the hidden form and post it.
      */
     strike(event) {
-        event?.preventDefault();
         if (this.pendingSelection === null) {
             return;
         }
@@ -496,6 +499,9 @@ export default class extends Controller {
         if (this.strikeInFlight) {
             return;
         }
+        // After the guards, not before: a page with nothing to strike must leave
+        // the key to the browser rather than swallow it.
+        event?.preventDefault();
         this.strikeInFlight = true;
 
         this.#hideToolbar();
