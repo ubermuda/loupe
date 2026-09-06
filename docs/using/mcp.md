@@ -126,6 +126,10 @@ Roughly in the order an agent uses them:
 | `series_rename` | Rename a series; every document in it keeps its position |
 | `site_review_get` | Comments submitted through the widget |
 | `site_review_mark_comment_addressed` | Mark a widget comment acted on, so the next `site_review_get` skips it |
+| `card_create` | Put a card on the project board (off by default — see below) |
+| `card_list` | Read the board, filtered by status, type or priority |
+| `card_get` | Read one card, with the pull requests linked to it |
+| `card_update` | Change a card, or move it to another column |
 
 ### The language a document is searched in
 
@@ -251,6 +255,20 @@ it is off the tool is absent from `tools/list` and from the Connect page, so an
 agent never learns of a tool this instance would refuse — switch it on in
 **Admin → Feature flags**. A client holding a tool list from before the flag
 changed and calling it anyway gets a plain refusal, not a broken call.
+
+The four `card_*` tools are behind the `board.enabled` feature flag, seeded
+**off**. A board an agent writes to is a second place work is tracked, so the
+operator opts in. The gate behaves the same way as the one above: while the flag
+is off the tools are absent from `tools/list` and from the Connect page, and a
+client that calls one anyway gets a plain refusal.
+
+The board has no delete tool. An agent moves a card to `done`; only a person
+removes one. `card_update` also refuses to change `origin`, because that field
+records who first raised the card.
+
+`card_update` reads an omitted field as "leave it alone". `pullRequestUrls` is
+the one field where an omitted list and an empty list differ: omit it and the
+links stay, send `[]` and every link is removed.
 
 `MCP_ALLOWED_HOSTS` is a DNS-rebinding allowlist — hostnames only, no port. It
 must contain the hostname agents actually use, or every call is rejected with a
