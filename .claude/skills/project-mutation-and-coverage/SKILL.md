@@ -55,7 +55,7 @@ required, because a run can hold more than one artifact.
 |---|---|---|---|
 | `Mutation testing` | `infection` | `infection-report` | `summary.log`, `infection.log` |
 | `Coverage report` | `phpunit` | `phpunit-coverage` | `summary.txt`, `clover.xml`, `html/` |
-| `Coverage report` | `e2e` | `e2e-coverage` | `html/` |
+| `Coverage report` | `e2e` | `e2e-coverage` | `summary.txt`, `clover.xml`, `html/` |
 
 Read `summary.log` or `summary.txt` first. Each is a few hundred bytes and
 carries the numbers. Open the HTML only when you need a per-file breakdown.

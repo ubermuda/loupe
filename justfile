@@ -473,7 +473,9 @@ e2e-coverage *args:
         ( cd "$main" && bin/worktrees/worktree-bootstrap.sh "$worktree" >/dev/null )
     fi
     [ "$status" -eq 0 ] || exit $status
-    bin/worktrees/compose-exec.sh vendor/bin/phpcov merge var/coverage --html var/coverage/html
+    # clover.xml and summary.txt beside the HTML, so a reader can grep a number
+    # without opening a browser. `just phpunit-coverage` writes the same pair.
+    bin/worktrees/compose-exec.sh vendor/bin/phpcov merge var/coverage --html var/coverage/html --clover var/coverage/clover.xml --text var/coverage/summary.txt
 
 open-coverage:
     open var/coverage/html/index.html

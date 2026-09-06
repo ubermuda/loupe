@@ -109,10 +109,17 @@ jobs:
           E2E_BASE_URL: http://localhost
           MAILPIT_URL: http://localhost:8025
 
+      - name: Coverage summary
+        if: always()
+        run: tail -20 var/coverage/summary.txt || echo 'no summary written'
+
       - name: e2e coverage report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-coverage
-          path: var/coverage/html
+          path: |
+            var/coverage/summary.txt
+            var/coverage/clover.xml
+            var/coverage/html
           if-no-files-found: warn
