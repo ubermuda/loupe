@@ -2063,6 +2063,35 @@
         @apply flex flex-col gap-1 w-59 shrink-0 pt-5 px-3.5 pb-3.5;
     }
 
+    /* Below lg the sidebar slides in over the paper. Only the app shell opts
+       in: the landing still reuses .lp-sidebar inside a fixed 1260px frame,
+       which a viewport media query would pin to the window. `visibility` rides
+       the transition, so the panel is untabbable while it is off-canvas. */
+    .lp-sidebar--drawer {
+        @apply fixed inset-y-0 left-0 z-50 overflow-y-auto bg-sidebar invisible -translate-x-full duration-200 ease-out lg:static lg:visible lg:translate-x-0 lg:overflow-visible;
+        /* `translate`, not `transform`: that is the property -translate-x-full
+           writes, and a transition on `transform` never fires. */
+        transition-property: translate, visibility;
+    }
+    .lp-sidebar--drawer.lp-sidebar--open {
+        @apply visible translate-x-0;
+    }
+    /* Closes the drawer. Absolute, so it does not shift the brand it sits beside. */
+    .lp-sidebar__close {
+        @apply absolute top-4 right-3 inline-flex items-center justify-center w-9 h-9 rounded-lg text-chrome-mute cursor-pointer transition-colors lg:hidden;
+    }
+    .lp-sidebar__close:hover {
+        @apply bg-chrome-raised text-chrome-fg;
+    }
+    .lp-sidebar__close svg {
+        @apply w-5 h-5 shrink-0;
+    }
+
+    /* Dims the paper behind an open drawer, and catches the tap that closes it. */
+    .lp-scrim {
+        @apply fixed inset-0 z-40 bg-ink/60 lg:hidden;
+    }
+
     /* Wordmark. There is no logo mark by design — do not add one back. */
     .lp-sidebar__brand {
         @apply block px-2 pb-3.5 font-display font-extrabold text-2xl tracking-tight lowercase text-accent no-underline;
@@ -2213,15 +2242,27 @@
     /* ── Top bar ────────────────────────────────────────────────────────── */
 
     /* Transparent over the chrome, above the paper. Carries the breadcrumb
-       trail, a per-screen metadata line, and (on review) the verdict actions. */
+       trail, a per-screen metadata line, and (on review) the verdict actions.
+       It sits outside .lp-main, so anything it cannot fit widens the whole page
+       instead of scrolling. Below lg it wraps and grows a row. */
     .lp-topbar {
-        @apply flex items-center gap-3.5 h-16 px-3.5 shrink-0;
+        @apply flex flex-wrap items-center gap-x-3.5 gap-y-2 min-h-16 px-3.5 py-2.5 shrink-0 lg:flex-nowrap lg:h-16 lg:py-0;
+    }
+    /* Opens the sidebar drawer. Present only where the sidebar is off-canvas. */
+    .lp-topbar__menu {
+        @apply inline-flex items-center justify-center shrink-0 w-9 h-9 rounded-lg text-chrome-mute cursor-pointer transition-colors lg:hidden;
+    }
+    .lp-topbar__menu:hover {
+        @apply bg-chrome-raised text-chrome-fg;
+    }
+    .lp-topbar__menu svg {
+        @apply w-5 h-5 shrink-0;
     }
     .lp-topbar__lead {
-        @apply flex items-baseline gap-3.5 min-w-0;
+        @apply flex flex-wrap items-baseline gap-x-3.5 gap-y-1 min-w-0 flex-1;
     }
     .lp-topbar__trail {
-        @apply flex items-baseline gap-2 min-w-0;
+        @apply flex items-baseline gap-2 min-w-0 max-w-full;
     }
     .lp-topbar__crumb {
         @apply text-sm text-chrome-mute no-underline transition-colors;
@@ -2239,7 +2280,7 @@
         @apply text-sm text-chrome-dim whitespace-nowrap;
     }
     .lp-topbar__actions {
-        @apply flex items-center gap-2.5 ml-auto;
+        @apply flex flex-wrap items-center gap-2.5 ml-auto;
     }
 
     /* ── Code / pre blocks ──────────────────────────────────────────────── */
@@ -3728,6 +3769,10 @@
         animation: none;
     }
 
+    .lp-sidebar--drawer {
+        transition: none;
+    }
+
     @keyframes lp-appear {
         from {
             opacity: 0;
@@ -3744,10 +3789,20 @@
     .lp-btn,
     .lp-code-dark__copy,
     .lp-flash__dismiss,
+    .lp-topbar__menu,
+    .lp-sidebar__close,
     .auth-forgot,
     .auth-footer__link,
     .lp-landing-footer__link {
         @apply inline-flex items-center justify-center min-h-11 min-w-11;
+    }
+
+    /* iOS Safari zooms the page in when it focuses a control under 16px. */
+    .lp-comment-composer textarea,
+    .lp-comment-reply-form textarea,
+    .lp-filter-input,
+    .lp-filter-select {
+        @apply text-base;
     }
 
     /* Padding, not display or min-width: this link is `hidden sm:inline`, so a
