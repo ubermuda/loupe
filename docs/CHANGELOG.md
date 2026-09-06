@@ -30,6 +30,10 @@ entry.
 
 ## [Unreleased]
 
+- `d65c559` (#363) — **Changed:** the changelog records the merges that followed
+  #349; this entry is the one #363 could not carry itself.
+- `33b6cbc` (#364) — **Removed:** nine tracker entries the review wave settled,
+  either by shipping the work or by deciding against it.
 - `9123005` (#335) — **Added:** a reviewer can approve a document one section at
   a time, with a control beside each heading. The Contents and Sections panels
   become one, and a document with a single heading now shows it, so a one-section
