@@ -2066,29 +2066,6 @@ a reconnect gap loses events and a pull path stays necessary. The run used a
 wildcard subscriber token rather than `StreamCredentialsController`, so
 per-project topic scoping is unproven.
 
-## The Board module registers no purger, exporter or stats provider
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-`src/Module/Board/` stores project-scoped rows in `board_cards` and
-`board_card_pull_requests`, and it registers none of the three interfaces the
-feature checklist in `CLAUDE.md` names for such a module.
-
-Three consequences, each silent:
-
-- No `Account/Export/UserDataExporterInterface`, so a user's data export omits
-  every card they raised.
-- No `Project/Stats/ProjectStatsProviderInterface`, so the projects list
-  undercounts a project that holds cards.
-- No `Account/Deletion/AccountDataPurgerInterface`. This one may already be
-  covered: `Board/EventListener/DeleteBoardDataOnProjectDeleting` removes the
-  rows when a project goes, and `ProjectAccountPurger` deletes a departing
-  user's projects. Confirm that chain before writing a purger, rather than
-  adding a second deleter for the same rows.
-
-Found while building the board UI. The UI branch left the model alone on
-purpose, so the work belongs wherever the Board model is next opened.
-
 ## The MCP connection drops repeatedly, and reconnecting does not restore the tools
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
