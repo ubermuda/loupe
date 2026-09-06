@@ -44,6 +44,12 @@ final readonly class AddCommentHandler
                     quoteSuffix: $anchor->quoteSuffix,
                 );
             }
+            // Null rather than an empty list, so "drew nothing" reads the same
+            // way for a comment saved before drawing shipped.
+            $comment->strokes = [] === $command->strokes ? null : array_map(
+                static fn (NewStroke $stroke): array => ['space' => $stroke->space, 'points' => $stroke->points],
+                $command->strokes,
+            );
             $this->em->persist($comment);
             $this->em->flush();
 

@@ -19,12 +19,16 @@
     {# Focusable targets: picking one must not move focus onto the host page. #}
     <p><input id="target-input" type="text" value="A field to comment on"></p>
     <p><a id="target-link" href="#somewhere">A link to comment on</a></p>
+    {# A target whose box follows the viewport, so a resize really reflows it. #}
+    <div id="target-wide" style="width: 60%; padding: 14px; background: #eee">A block that resizes with the window</div>
     {# Prose targets for text-range anchors. The <em> is inside the quotable
        run, so a selection across it exercises more than one text node. #}
     <p id="prose">The quick brown fox <em>jumps over</em> the lazy dog.</p>
     {# One element holding the same phrase twice, so only the prefix and suffix
        tell the two apart. #}
     <p id="prose-repeat">First run: the same phrase here. Second run: the same phrase here.</p>
+    {# Room to scroll, and last so it pushes no target below the fold. #}
+    <div id="spacer" style="height: 1600px"></div>
     <script src="/site-review/widget.js" data-token="{{ token }}"></script>
 </body>
 </html>

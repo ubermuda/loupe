@@ -87,6 +87,48 @@ border, the popover says how many elements are missing, and the list row reads
 "1 of 2 elements". A comment on a single element that no longer matches simply
 shows no pin, as before.
 
+## Drawing on the page
+
+**Draw** is the third way to capture something, beside picking an element and
+writing a page note. Press it in the panel, press the pen on the launcher
+without opening the panel, or press **D** with the panel open. Then drag on the
+page to draw. Every drag adds a stroke. **Undo** drops the last one,
+**Clear** drops the whole drawing, and **Done** (or **Esc**) puts the caret back
+in the text box. Your draft and your elements stay where they are.
+
+A stroke creates no anchor. Drawing over an element does not point the comment
+at it, and an arrow that ends on a button does not attach to that button. Pick
+the element with the picker when you want the comment anchored, then draw. One
+comment carries elements and a drawing together, which is how you say "move this
+box over there".
+
+Where the drawing goes when the page changes depends on whether the comment has
+an element:
+
+- **With an element.** The strokes are stored as fractions of the first
+  element's box, so the drawing moves and resizes with that element. It survives
+  a window resize and a responsive breakpoint.
+- **Without an element.** The strokes are stored as fractions of the document
+  width. They survive a scroll and a reload. They do not follow a reflow: the
+  drawing scales with the page's width and stays where the page put it, so
+  content that moves leaves the drawing behind. Anchor the comment to an
+  element when that matters.
+
+Two things the first release leaves out. There is no per-stroke eraser, so Undo
+and Clear are the whole of what you can take back. Editing a saved comment
+changes its text alone, so the drawing and the elements stay as you saved them,
+the same way they already do for elements.
+
+Your agent is told only **that** a comment carries a drawing, not what the
+drawing looks like. It cannot render vector points over a live page, so treat
+the drawing as something you and it discuss, and put the point in words too.
+
+Drawing sits behind the `site_review.drawing.enabled` feature flag, which is on
+after an install and after an upgrade. Turn it off in `/admin/feature-flags` and
+the widget drops **Draw** from the panel and from the launcher, and the API
+refuses a drawing rather than saving a comment without it. Drawings already saved keep rendering on the page,
+so the switch takes the tool away and never the work.
+
 ## Moving the launcher
 
 The launcher sits in the bottom-right corner, which is where many pages pin
@@ -98,7 +140,7 @@ their own controls. Move it to another corner in either of two ways.
 - Drag the launcher. It follows the pointer, and on release it snaps to the
   nearest corner. A drag never opens the panel.
 
-The panel, the composer and the pick-mode toast all follow the launcher, so
+The panel, the composer and every toast follow the launcher, so
 every corner keeps them on screen. The widget remembers the corner in the
 reviewed page's own browser storage, so it survives a reload. A private window,
 or a browser that blocks site data, gets the bottom-right corner every time and

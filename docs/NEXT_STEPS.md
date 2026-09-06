@@ -557,38 +557,13 @@ committing to an extension:
 Whichever path: the widget must hide its own overlay (pins, panel, scrim) before
 capturing and restore it after, or every screenshot contains the review UI. Also
 needs a decision on where the image is stored and how it is served, since
-`SiteReviewComment` today carries only text, a selector and a URL. Related:
-'Drawing on the page in the site-review widget' — the two are usually one
-gesture, and a stroke drawn on a frozen screenshot is a very different feature
-from one drawn on live DOM.
+`SiteReviewComment` today carries text, anchors, strokes and a URL.
 
-## Drawing on the page in the site-review widget
-
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Owner note (2026-07-27): let the reviewer draw on the page — circle the thing
-that is wrong, arrow at it — rather than only clicking one element.
-
-The decision that shapes everything else is what the strokes are drawn *on*:
-
-- **Live DOM.** Strokes are vector data in the widget's overlay, anchored the
-  way pins already are, and re-render on the real page later. Survives a redeploy
-  in the sense that the page stays current, but reflow, responsive breakpoints
-  and any content change move the page out from under the drawing.
-- **A frozen screenshot.** Capture first, then annotate the image (see 'Attach a
-  screenshot to a site-review comment'). Always shows what the reviewer saw, and
-  sidesteps anchoring entirely, but the annotation is dead pixels the agent
-  cannot map back to an element.
-
-Drawing also gives the widget a capture mode that is neither "pick one element"
-nor "general page note", so it needs its own entry in the composer alongside
-those two, and a selector-less comment shape. The overlay already owns a
-fixed-position layer above the page, which is where the canvas would live.
-
-`site_review_comments` now has a nullable `strokes` JSON column, added by the
-multi-anchor work so the agent-facing payload widens once. Nothing reads or
-writes it yet, so this entry owns it.
+Drawing already ships, on the live DOM rather than on an image: strokes are
+vector points in the widget's overlay, stored in the `strokes` column. So a
+screenshot is now the second half of a gesture the widget half-supports, and the
+open question is whether an annotated screenshot is a separate capture or the
+same drawing rendered over a frozen frame.
 
 ## Public feedback widget (a public pendant to the site-review widget)
 
