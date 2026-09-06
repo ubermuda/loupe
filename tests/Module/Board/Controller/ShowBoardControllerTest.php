@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Controller;
 
+use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\Forge;
+use App\Module\Project\Entity\Project;
+use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Profiler\Profile;
 
 final class ShowBoardControllerTest extends WebTestCase
 {
@@ -152,5 +156,68 @@ final class ShowBoardControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/documents');
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('a[href$="/board"]'));
+    }
+
+    public function test_the_board_loads_every_card_pull_request_with_the_cards(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-queries@example.com');
+        $project = $this->project($em, $owner, 'many-cards');
+        for ($index = 0; $index < 12; ++$index) {
+            $this->linkedCard($em, $project, 'Card '.$index);
+        }
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->enableProfiler();
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+        self::assertResponseIsSuccessful();
+
+        $profile = $client->getProfile();
+        self::assertInstanceOf(Profile::class, $profile);
+        $collector = $profile->getCollector('db');
+        self::assertInstanceOf(DoctrineDataCollector::class, $collector);
+
+        $boardReads = 0;
+        $lazyLinkReads = 0;
+        foreach ($collector->getQueries() as $queries) {
+            foreach ($queries as $query) {
+                $sql = (string) $query['sql'];
+                if (!str_starts_with($sql, 'SELECT')) {
+                    continue;
+                }
+                if (str_contains($sql, 'FROM board_cards')) {
+                    ++$boardReads;
+                }
+                if (str_contains($sql, 'FROM board_card_pull_requests')) {
+                    ++$lazyLinkReads;
+                }
+            }
+        }
+
+        // Guard: without it the link assertion below would also hold for a
+        // request that read no cards at all.
+        self::assertGreaterThan(0, $boardReads);
+        // The links ride along on the board's own query. Drop the fetch-join in
+        // CardRepository and each card on the page loads its own.
+        self::assertSame(0, $lazyLinkReads);
+    }
+
+    private function linkedCard(EntityManagerInterface $em, Project $project, string $title): Card
+    {
+        $card = $this->card($em, $project, $title);
+        $card->replacePullRequests(new CardPullRequest(
+            card: $card,
+            url: 'https://github.com/loupe/loupe/pull/1',
+            forge: Forge::GitHub,
+            repository: 'loupe/loupe',
+            number: 1,
+        ));
+        $em->flush();
+
+        return $card;
     }
 }

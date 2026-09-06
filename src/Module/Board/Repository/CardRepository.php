@@ -11,6 +11,7 @@ use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
+use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -70,7 +71,7 @@ class CardRepository extends ServiceEntityRepository
     public function findDoneSince(Project $project, \DateTimeImmutable $since): array
     {
         return array_values(
-            $this->doneQuery($project)
+            $this->withPullRequests($this->doneQuery($project))
                 ->andWhere('c.completedAt >= :since')
                 ->setParameter('since', $since)
                 ->getQuery()
@@ -81,17 +82,19 @@ class CardRepository extends ServiceEntityRepository
     /**
      * One page of the whole Done history, newest first.
      *
+     * Through a Paginator, because the fetch-join multiplies the rows a LIMIT
+     * counts: without it a page of 25 cards is cut short by their links.
+     *
      * @return list<Card>
      */
     public function findDonePage(Project $project, int $offset, int $limit): array
     {
-        return array_values(
-            $this->doneQuery($project)
-                ->setFirstResult($offset)
-                ->setMaxResults($limit)
-                ->getQuery()
-                ->getResult(),
-        );
+        $query = $this->withPullRequests($this->doneQuery($project))
+            ->setFirstResult($offset)
+            ->setMaxResults($limit)
+            ->getQuery();
+
+        return array_values(iterator_to_array(new Paginator($query, fetchJoinCollection: true), false));
     }
 
     public function countDone(Project $project): int
@@ -173,7 +176,25 @@ class CardRepository extends ServiceEntityRepository
         // stable order rather than in whatever order Postgres read them.
         $qb->addOrderBy('c.createdAt', 'ASC')->addOrderBy('c.id', 'ASC');
 
-        return array_values($qb->getQuery()->getResult());
+        return array_values($this->withPullRequests($qb)->getQuery()->getResult());
+    }
+
+    /**
+     * Hydrates each card's pull request links with the card.
+     *
+     * Every board and history row reads the link count, and the association is
+     * lazy, so without this each card on the page costs its own query.
+     *
+     * Call it after the card ordering is set, never before: it appends the
+     * association's own order, which a later orderBy() would drop. A fetch-join
+     * ignores the #[ORM\OrderBy] on the property, so the DQL has to carry it.
+     */
+    private function withPullRequests(QueryBuilder $qb): QueryBuilder
+    {
+        return $qb
+            ->leftJoin('c.pullRequests', 'pullRequest')
+            ->addSelect('pullRequest')
+            ->addOrderBy('pullRequest.addedAt', 'ASC');
     }
 
     /** Done in the order the column reads it: by completion, newest first. */
