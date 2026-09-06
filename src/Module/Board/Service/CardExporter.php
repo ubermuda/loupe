@@ -46,6 +46,7 @@ final readonly class CardExporter implements UserDataExporterInterface
                 'position' => $card->position,
                 'completedAt' => $card->completedAt?->format(\DateTimeInterface::ATOM),
                 'createdAt' => $card->createdAt->format(\DateTimeInterface::ATOM),
+                'updatedAt' => $card->updatedAt->format(\DateTimeInterface::ATOM),
                 'pullRequests' => array_values(array_map(
                     static fn (CardPullRequest $link): array => [
                         'url' => $link->url,

@@ -48,6 +48,9 @@ final class CardExporterTest extends KernelTestCase
 
         $completedAt = new \DateTimeImmutable('2026-03-04 10:11:12');
         $createdAt = new \DateTimeImmutable('2026-03-01 09:00:00');
+        // Distinct from $createdAt, which the constructor copies it from, so the
+        // assertion cannot pass on an export that reads the wrong field.
+        $updatedAt = new \DateTimeImmutable('2026-03-05 14:00:00');
         $firstAddedAt = new \DateTimeImmutable('2026-03-02 08:00:00');
         $secondAddedAt = new \DateTimeImmutable('2026-03-03 08:00:00');
 
@@ -63,6 +66,7 @@ final class CardExporterTest extends KernelTestCase
             createdAt: $createdAt,
         );
         $card->completedAt = $completedAt;
+        $card->updatedAt = $updatedAt;
         $card->pullRequests->add(new CardPullRequest($card, 'https://github.com/ubermuda/loupe/pull/42', Forge::GitHub, 'ubermuda/loupe', 42, $firstAddedAt));
         $card->pullRequests->add(new CardPullRequest($card, 'https://git.example.test/patch', Forge::Other, addedAt: $secondAddedAt));
         $this->em->persist($card);
@@ -84,6 +88,7 @@ final class CardExporterTest extends KernelTestCase
             'position' => 7,
             'completedAt' => $completedAt->format(\DateTimeInterface::ATOM),
             'createdAt' => $createdAt->format(\DateTimeInterface::ATOM),
+            'updatedAt' => $updatedAt->format(\DateTimeInterface::ATOM),
             'pullRequests' => [
                 [
                     'url' => 'https://github.com/ubermuda/loupe/pull/42',
