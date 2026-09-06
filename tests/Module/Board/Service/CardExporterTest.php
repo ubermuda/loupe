@@ -117,9 +117,11 @@ final class CardExporterTest extends KernelTestCase
         $this->em->flush();
         $this->em->clear();
 
-        $titles = array_column(iterator_to_array($this->exporter->export($owner), false), 'title');
+        $rows = iterator_to_array($this->exporter->export($owner), false);
 
-        self::assertSame(['Mine'], $titles);
+        self::assertCount(1, $rows);
+        self::assertIsArray($rows[0]);
+        self::assertSame('Mine', $rows[0]['title']);
     }
 
     /** @param non-empty-string $label */

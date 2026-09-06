@@ -46,12 +46,18 @@ final class CardProjectStatsProviderTest extends KernelTestCase
     public function test_a_project_whose_cards_are_all_done_is_absent(): void
     {
         $this->enableBoard();
-        $project = $this->makeProject('stats-done');
-        $this->em->persist(new Card(project: $project, title: 'Shipped', body: '', status: CardStatus::Done));
+        $finished = $this->makeProject('stats-done');
+        $this->em->persist(new Card(project: $finished, title: 'Shipped', body: '', status: CardStatus::Done));
+        // A sibling with one open card, so the absence below cannot pass on a
+        // provider that reported nothing at all.
+        $busy = $this->makeProject('stats-still-going');
+        $this->em->persist(new Card(project: $busy, title: 'Underway', body: ''));
         $this->em->flush();
-        $this->assertCardRowCount($project, 1);
 
-        self::assertSame([], $this->provider->statsFor([$project]));
+        $stats = $this->provider->statsFor([$finished, $busy]);
+
+        self::assertSame(1, $stats[(string) $busy->id]->openCardCount);
+        self::assertArrayNotHasKey((string) $finished->id, $stats);
     }
 
     public function test_it_counts_each_project_separately(): void
