@@ -24,12 +24,32 @@ stating what changed from the reader's side; the reasoning behind a change
 belongs in the PR body and the commit message, which the SHA and the PR number
 both point at. Anchor to the first-parent commit that landed the work on `main`
 (what `git log --first-parent` shows), so this list and the log walk the same
-history, and name the PR after it. Work that never surfaces in the product or
+history, and name the PR after it. A pull request whose whole content is this file or `docs/NEXT_STEPS.md` earns no
+entry: recording that the changelog was written, or that resolved entries were
+closed, tells a reader nothing they cannot see by reading them.
+
+Work that never surfaces in the product or
 the development workflow — tracker churn in `docs/NEXT_STEPS.md` — gets no
 entry.
 
 ## [Unreleased]
 
+- `b90416b` (#367) — **Fixed:** the build no longer fetches JavaScript from a CDN.
+  `assets/vendor/` is committed, so `importmap:install` has nothing to download
+  and a failed fetch can no longer turn an unrelated branch red.
+- `c71cec3` (#359) — **Added:** mutation testing over all of `src` and code
+  coverage, both on their own weekly schedules and neither gating a merge.
+  `just mutation`, `just mutation-diff`, `just phpunit-coverage` and
+  `just e2e-coverage` run them, and the `project-mutation-and-coverage` skill
+  says how to fetch a weekly report.
+- `aabed3a` (#368) — **Added:** a JavaScript test harness. `just js-test` runs
+  vitest over `tests/js`, covering comment-anchor matching and the site-review
+  widget's fatal state, and a `js-test` CI job runs it on every pull request.
+- `2eb21ad` (#355) — **Changed:** `public/site-review/` is in prettier's scope,
+  so the widget is formatted like the rest of the JavaScript.
+- `fd66350` (#362) — **Added:** a reviewer can draw freehand over the page and
+  attach the strokes to a comment, from the composer or from the collapsed
+  launcher. It is behind the `site_review.drawing.enabled` flag, on by default.
 - `9123005` (#335) — **Added:** a reviewer can approve a document one section at
   a time, with a control beside each heading. The Contents and Sections panels
   become one, and a document with a single heading now shows it, so a one-section

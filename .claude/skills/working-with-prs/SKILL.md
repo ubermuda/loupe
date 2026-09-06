@@ -345,7 +345,7 @@ other's mail. Serialise those, or give each its own `MAILPIT_URL`.
 
 ## After the merge, write the changelog entry
 
-Every merged pull request earns one line in `docs/CHANGELOG.md`, under `[Unreleased]`, newest first. Tag it `Added`, `Changed`, `Removed` or `Fixed`. Write one sentence saying what changed from the reader's side, and leave the reasoning to the PR body, which the SHA and the PR number both point at.
+Every merged pull request earns one line in `docs/CHANGELOG.md`, under `[Unreleased]`, newest first, except one whose whole content is `docs/CHANGELOG.md` or `docs/NEXT_STEPS.md`. A changelog pull request does not record itself, and closing resolved tracker entries is bookkeeping rather than a change a reader can act on. Tag it `Added`, `Changed`, `Removed` or `Fixed`. Write one sentence saying what changed from the reader's side, and leave the reasoning to the PR body, which the SHA and the PR number both point at.
 
 ```
 - `0406b9c` (#209) — **Fixed:** what changed, from the reader's side.
