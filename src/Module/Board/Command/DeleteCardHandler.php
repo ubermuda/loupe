@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
+use App\Module\Board\Service\CardGroupOrder;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -11,6 +12,7 @@ use Psr\Log\LoggerInterface;
 final readonly class DeleteCardHandler
 {
     public function __construct(
+        private CardGroupOrder $groupOrder,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
     ) {
@@ -18,10 +20,15 @@ final readonly class DeleteCardHandler
 
     public function __invoke(DeleteCardCommand $command): void
     {
-        $cardId = (string) $command->card->id;
-        $projectId = (string) $command->card->project->id;
+        $card = $command->card;
+        $cardId = (string) $card->id;
+        $projectId = (string) $card->project->id;
 
-        $this->em->remove($command->card);
+        // Before the remove, so the delete and the renumbering it causes reach
+        // the database in one flush.
+        $this->groupOrder->compact($card->project, $card->status, $card->priority, $card);
+
+        $this->em->remove($card);
         $this->em->flush();
 
         $this->logger->info('board.card_deleted', [

@@ -7,6 +7,8 @@ namespace App\Tests\Module\Board\Command;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
+use App\Module\Board\Command\DeleteCardCommand;
+use App\Module\Board\Command\DeleteCardHandler;
 use App\Module\Board\Command\MoveCardCommand;
 use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
@@ -15,8 +17,11 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\CardGroupOrder;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class CardOrderingTest extends KernelTestCase
@@ -25,6 +30,8 @@ final class CardOrderingTest extends KernelTestCase
     private CreateCardHandler $createCard;
     private MoveCardHandler $moveCard;
     private UpdateCardHandler $updateCard;
+    private DeleteCardHandler $deleteCard;
+    private CardRepository $cards;
     private Project $project;
 
     protected function setUp(): void
@@ -46,6 +53,14 @@ final class CardOrderingTest extends KernelTestCase
         $updateCard = self::getContainer()->get(UpdateCardHandler::class);
         self::assertInstanceOf(UpdateCardHandler::class, $updateCard);
         $this->updateCard = $updateCard;
+
+        $cards = self::getContainer()->get(CardRepository::class);
+        self::assertInstanceOf(CardRepository::class, $cards);
+        $this->cards = $cards;
+
+        // Built by hand rather than fetched: nothing injects the delete handler
+        // until the board has a controller, so the container inlines it away.
+        $this->deleteCard = new DeleteCardHandler(new CardGroupOrder($cards), $this->em, new NullLogger());
 
         $owner = new User(fullName: 'Riley', email: 'board-ordering-'.uniqid().'@example.com', password: 'hashed');
         $this->em->persist($owner);
@@ -137,6 +152,20 @@ final class CardOrderingTest extends KernelTestCase
         self::assertSame(0, $second->position);
         self::assertSame(1, $third->position);
         self::assertSame(2, $first->position);
+    }
+
+    public function test_deleting_a_card_closes_the_gap_it_leaves(): void
+    {
+        $first = $this->card('First');
+        $doomed = $this->card('Middle');
+        $last = $this->card('Last');
+        self::assertSame([0, 1, 2], [$first->position, $doomed->position, $last->position]);
+
+        ($this->deleteCard)(new DeleteCardCommand($doomed));
+
+        self::assertSame(0, $first->position);
+        self::assertSame(1, $last->position);
+        self::assertSame(2, $this->cards->nextPosition($this->project, CardStatus::Backlog, CardPriority::Medium));
     }
 
     public function test_entering_done_stamps_the_completion(): void

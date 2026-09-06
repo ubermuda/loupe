@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Project\Entity\Project;
+use App\Module\Board\Service\CardGroupOrder;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -24,6 +23,7 @@ final readonly class MoveCardHandler
 {
     public function __construct(
         private CardRepository $cards,
+        private CardGroupOrder $groupOrder,
         private EntityManagerInterface $em,
         private LoggerInterface $logger,
     ) {
@@ -48,19 +48,17 @@ final readonly class MoveCardHandler
             $card->completedAt = null;
 
             if ($staysInGroup) {
-                // No target rank means the end of the group, which the renumber
+                // No target rank means the end of the group, which place()
                 // clamps to. Going through it rather than through nextPosition()
                 // is what stops the card's old rank becoming a gap.
-                $this->renumber($card, $command->position ?? \PHP_INT_MAX);
+                $this->groupOrder->place($card, $command->position ?? \PHP_INT_MAX);
             } else {
                 $card->position = $this->cards->nextPosition($card->project, $command->status, $command->priority);
             }
         }
 
-        // The group the card left keeps its own numbering. Done is skipped
-        // because it maintains no position to compact.
-        if (!$staysInGroup && CardStatus::Done !== $sourceStatus) {
-            $this->compact($card, $card->project, $sourceStatus, $sourcePriority);
+        if (!$staysInGroup) {
+            $this->groupOrder->compact($card->project, $sourceStatus, $sourcePriority, $card);
         }
 
         $card->updatedAt = new \DateTimeImmutable();
@@ -75,42 +73,5 @@ final readonly class MoveCardHandler
         ]);
 
         return $card;
-    }
-
-    /** Puts the card at the wanted rank in its own group, then renumbers the group from 0. */
-    private function renumber(Card $card, int $position): void
-    {
-        $others = $this->groupWithout($card, $card->project, $card->status, $card->priority);
-
-        $target = max(0, min($position, \count($others)));
-        array_splice($others, $target, 0, [$card]);
-
-        foreach ($others as $index => $member) {
-            $member->position = $index;
-        }
-    }
-
-    /** Closes the gap the card left behind in the group it came from. */
-    private function compact(Card $card, Project $project, CardStatus $status, CardPriority $priority): void
-    {
-        foreach ($this->groupWithout($card, $project, $status, $priority) as $index => $member) {
-            $member->position = $index;
-        }
-    }
-
-    /**
-     * The group read in board order, without the card being moved.
-     *
-     * The read happens before the flush, so the card is still in its source
-     * group in the database and has to be dropped by identity.
-     *
-     * @return list<Card>
-     */
-    private function groupWithout(Card $card, Project $project, CardStatus $status, CardPriority $priority): array
-    {
-        return array_values(array_filter(
-            $this->cards->findGroup($project, $status, $priority),
-            static fn (Card $member): bool => $member !== $card,
-        ));
     }
 }
