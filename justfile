@@ -485,7 +485,7 @@ open-coverage:
 # xdebug is the driver, as it is for `just mutation`. clover.xml and summary.txt
 # exist so a reader can grep a number without opening the HTML.
 phpunit-coverage *args:
-    bin/worktrees/compose-exec.sh env XDEBUG_MODE=coverage vendor/bin/phpunit --coverage-html=var/phpunit-coverage/html --coverage-clover=var/phpunit-coverage/clover.xml --coverage-text=var/phpunit-coverage/summary.txt "$@"
+    bin/worktrees/compose-exec.sh env XDEBUG_MODE=coverage vendor/bin/phpunit --path-coverage --coverage-html=var/phpunit-coverage/html --coverage-clover=var/phpunit-coverage/clover.xml --coverage-text=var/phpunit-coverage/summary.txt "$@"
     @echo "coverage: var/phpunit-coverage/html/index.html — 'just open-phpunit-coverage'"
 
 open-phpunit-coverage:
