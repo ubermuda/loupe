@@ -26,6 +26,7 @@ These skills hold the detailed conventions for one area each. Invoke the relevan
 | `symfony-authorization` | Generic Symfony authorization mechanics: Voter classes, attribute naming, `#[IsGranted]` placement, `subject:` resolution, `is_granted()` in Twig |
 | `symfony-entity-route-mapping` | Routes that resolve entities from URL parameters: `{param:variable}` notation, `#[MapEntity]`, multi-entity routes |
 | `project-comments` | Writing or reviewing code comments and docblocks anywhere in `src/`, `assets/` or `tests/` |
+| `project-mutation-and-coverage` | Mutation testing, code coverage, fetching a weekly report artifact, or a test that asserts on elapsed time |
 | `working-with-prs` | Opening, gating, reviewing or merging a pull request |
 
 A subagent does not inherit the skills you have loaded. When you delegate PHP, entity, migration or command work, state the relevant skill conventions in the prompt, or tell the subagent to invoke the skill first. A convention that lives only in a skill is silently missed otherwise. The brand-new-table migration rule in `project-backend` is the example that bit.
