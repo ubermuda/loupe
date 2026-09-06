@@ -342,17 +342,45 @@ other's mail. Serialise those, or give each its own `MAILPIT_URL`.
 
    Count `pass`, `fail` and `pending` against the number of checks the ruleset
    requires. A green reading is `pass=<that number>` and nothing else. Observe
-   all-green, and never infer it from an absence.
+   all-green, and never infer it from an absence. The rule covers the polling
+   monitor and the one-shot check before a merge. A monitor that reports early
+   costs you a wait. A pre-merge check that reports a false green is acted on at
+   once, and the merge happens.
 
-   The rule covers the polling monitor and the one-shot check before a merge. A
-   monitor that reports early costs you a wait. A pre-merge check that reports a
-   false green is acted on at once, and the merge happens.
+   Lead with `gh pr checks`. Its `--required` flag reads the ruleset, so your
+   denominator cannot go stale the way a written list does. It prints an
+   explicit `pending` bucket, so it routes around the field problem below rather
+   than navigating it. Its `--json` mode exits 0 while checks are pending, so
+   read the counts rather than the exit code.
 
-   Prefer `gh pr checks`, because it prints an explicit `pending` bucket.
-   `gh pr view --json statusCheckRollup` returns `conclusion` as an empty string
-   for a queued check. jq's `//` falls through on `null` and `false` only. So
-   `(.conclusion//.state//"PENDING")` emits that empty string and joins to
-   `SUCCESS,,SUCCESS`. A test for the word `PENDING` never matches.
+   `gh pr view --json statusCheckRollup` gives you the raw rollup, and it needs
+   care. A GitHub Actions entry is a `CheckRun`, whose progress field is
+   `status`, with `QUEUED`, `IN_PROGRESS` and `COMPLETED`. Its `state` is always
+   null, because `state` belongs to `StatusContext`. Its `conclusion` is an
+   empty string until the run finishes, and jq's `//` falls through on `null`
+   and `false` only. Read `conclusion`, then `status`, then `state`:
+
+   ```bash
+   gh pr view <n> --json headRefOid,statusCheckRollup -q '
+     def st: if (.conclusion // "") != "" then .conclusion
+             elif (.status // "") != "" then .status
+             elif (.state // "") != "" then .state
+             else "PENDING" end;
+     "\(.headRefOid) \([.statusCheckRollup[]|st]|join(","))"'
+   ```
+
+   The two expressions on the same ten checks, five of them unfinished:
+
+   ```
+   NEW: SUCCESS,IN_PROGRESS,IN_PROGRESS,SUCCESS,SUCCESS,IN_PROGRESS,IN_PROGRESS,SUCCESS,SUCCESS,IN_PROGRESS
+   OLD: SUCCESS,,,SUCCESS,SUCCESS,,,SUCCESS,SUCCESS,
+   ```
+
+   Test any replacement against a pull request that has an unfinished check.
+   Two expressions agree once everything has completed, so a settled pull
+   request proves nothing. Build a fixture by copying a row from a real `gh`
+   call, with its `status` and its null `state`. A hand-composed row that looks
+   right is not evidence.
 
    A rollup with fewer entries than the ruleset requires is the same hole one
    level up: a run that has not registered reads identically to "nothing left to
@@ -385,8 +413,19 @@ id=$(gh api repos/ubermuda/loupe/rulesets -q '.[0].id')
 gh api repos/ubermuda/loupe/rulesets/$id -q '.rules[]|select(.type=="pull_request")|.parameters'
 ```
 
-It requires eight CI checks (`lint`, `cs-check`, `phpstan`, `arkitect`,
-`gamache`, `audit`, `phpunit`, `e2e`) and **one approving review**.
+That prints **one approving review**. It also sets `require_code_owner_review`,
+which is inert while the repository has no `CODEOWNERS` file. Read the required
+checks from the same ruleset, named `main`:
+
+```bash
+gh api repos/ubermuda/loupe/rulesets/$id \
+  -q '.rules[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context'
+```
+
+On 2026-09-06 it printed ten contexts: `lint`, `cs-check`, `phpstan`,
+`arkitect`, `gamache`, `audit`, `phpunit`, `e2e`, `js-test` and `cli-test`. Run
+the command rather than trust that snapshot. It read eight until `js-test` and
+`cli-test` arrived, and nothing in the repository fails when it goes stale.
 
 An approval in chat is not a GitHub approval. Check before concluding a merge is
 blocked by something else:
