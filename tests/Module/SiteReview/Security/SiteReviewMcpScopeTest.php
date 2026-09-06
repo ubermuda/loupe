@@ -22,7 +22,8 @@ use Ubermuda\AuditBundle\AuditActorProviderInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 
-final class SiteReviewMcpBoundProjectVoterTest extends KernelTestCase
+/** McpBoundProjectVoter over the site and the comments site-review puts on the MCP surface. */
+final class SiteReviewMcpScopeTest extends KernelTestCase
 {
     use McpTokenScenario;
 

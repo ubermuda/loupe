@@ -24,7 +24,8 @@ use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 
-final class ReviewMcpBoundProjectVoterTest extends KernelTestCase
+/** McpBoundProjectVoter over the documents, comments and series review puts on the MCP surface. */
+final class ReviewMcpScopeTest extends KernelTestCase
 {
     use McpTokenScenario;
 
