@@ -8,9 +8,10 @@ use App\Module\Project\Entity\Project;
 
 /**
  * One row on the projects index: the project plus its cross-module rollup
- * counts (documents, submitted reviews, open review comments). The counts are
- * gathered in the controller — the only place allowed to read across module
- * boundaries — so this view model never imports another module.
+ * counts (documents, submitted reviews, open review comments, open board
+ * cards). The counts are gathered in the controller — the only place allowed to
+ * read across module boundaries — so this view model never imports another
+ * module.
  */
 final readonly class ProjectListItem
 {
@@ -19,6 +20,7 @@ final readonly class ProjectListItem
         public int $documentCount,
         public int $commentCount,
         public int $openCount,
+        public int $openCardCount = 0,
     ) {
     }
 }
