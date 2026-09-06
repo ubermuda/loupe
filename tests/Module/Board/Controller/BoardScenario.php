@@ -82,11 +82,11 @@ trait BoardScenario
             project: $project,
             title: $title,
             body: $body,
-            number: $number,
             type: CardType::Feature,
             priority: $priority,
             status: $status,
             position: $position,
+            number: $number,
         );
 
         if (CardStatus::Done === $status) {
