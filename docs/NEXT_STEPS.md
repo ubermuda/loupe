@@ -1683,35 +1683,6 @@ from one in attribute position needs an HTML tokeniser, which is the sanitizer's
 job — so any real fix has to run after sanitization, on parsed markup, rather
 than on the raw literal.
 
-## A document cannot render a checkbox, by either route
-
-
-
-
-**Author:** Claude · **Type:** feature · **Priority:** low · **Status:** pending
-
-Neither route works today, and that is deliberate rather than an oversight.
-`MarkdownRenderer` does not allow `<input>`, so a checkbox written as raw HTML is
-dropped; and `TaskListExtension` is not registered, so Markdown's `- [ ] item`
-renders literally as `[ ] item`.
-
-The allowance existed briefly and was removed for want of a consumer: rendering
-every document in the development database that mentions `<input>` produced zero
-inputs, because every occurrence is inside a code fence or backticks. Dropping it
-costs no text — `input` is void — so the anchor basis is unaffected either way.
-
-**Do not close this gap by registering `TaskListExtension`.** It deletes the two
-characters between the brackets from the rendered text and therefore from
-`DocumentVersion::plainText()`, so every comment anchor below the first task list
-moves; existing document versions use that syntax, and their open comments would
-orphan on the next revision. Like the sanitizer default above, it needs a rerender
-plus a reanchor pass, which `bin/console app:review:rerender-versions --reanchor`
-now performs. Re-allowing `<input>` is the cheaper half and
-has no anchor cost, but on its own it only serves hand-written HTML.
-
-Note the review screen's decision controls are **not** this: they are minted after
-sanitization and so never pass through the allowlist.
-
 ## Review anchoring — structural fallback anchor (low priority)
 
 
