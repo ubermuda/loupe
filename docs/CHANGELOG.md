@@ -34,6 +34,8 @@ entry.
 
 ## [Unreleased]
 
+- `e06c292` (#370) — **Fixed:** the e2e job in the weekly coverage workflow has
+  180 minutes, so its own timeout no longer kills a slow run.
 - `b90416b` (#367) — **Fixed:** the build no longer fetches JavaScript from a CDN.
   `assets/vendor/` is committed, so `importmap:install` has nothing to download
   and a failed fetch can no longer turn an unrelated branch red.
