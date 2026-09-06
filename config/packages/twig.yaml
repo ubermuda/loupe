@@ -11,6 +11,7 @@ twig:
         '%kernel.project_dir%/templates/Module/Account': 'Account'
         '%kernel.project_dir%/templates/Module/Admin': 'Admin'
         '%kernel.project_dir%/templates/Module/Billing': 'Billing'
+        '%kernel.project_dir%/templates/Module/Board': 'Board'
         '%kernel.project_dir%/templates/Module/Diagnostics': 'Diagnostics'
         '%kernel.project_dir%/templates/Module/Landing': 'Landing'
         '%kernel.project_dir%/templates/Module/Legal': 'Legal'

@@ -21,6 +21,7 @@ framework:
             - regenerate-project-widget-token
             - toggle-project-widget-forwarding
             - site-review-comment-action
+            - board-card-delete
             - billing-checkout
             - billing-portal
             - wizard-skip

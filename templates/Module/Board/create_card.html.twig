@@ -1,0 +1,23 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'board.card.create.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <a class="lp-topbar__crumb" href="{{ path('app_project_board', {id: project.id}) }}">{{ 'nav.link.board'|trans }}</a>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'board.card.create.page.title'|trans }}</span>
+{% endblock %}
+
+{% block body %}
+<div class="lp-workspace">
+    <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'board.card.create.page.title'|trans }}</h1>
+    <p class="lp-workspace-desc">{{ 'board.card.create.page.description'|trans }}</p>
+
+    {% include '@Board/_card_form.html.twig' with {
+        form: form,
+        action: path('app_board_card_create', {id: project.id}),
+        submitLabel: 'board.card.create.submit',
+        cancelUrl: path('app_project_board', {id: project.id}),
+    } only %}
+</div>
+{% endblock %}

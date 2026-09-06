@@ -1,0 +1,6 @@
+{# The move endpoint's answer: the whole board as the database now holds it. #}
+<turbo-stream action="replace" target="board">
+    <template>
+        {% include '@Board/_board_columns.html.twig' with {board: board} only %}
+    </template>
+</turbo-stream>

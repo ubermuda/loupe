@@ -4150,6 +4150,373 @@
                 <target>Cart</target>
             </trans-unit>
 
+
+            <!-- Board -->
+            <trans-unit id="nav.link.board">
+                <source>nav.link.board</source>
+                <target>Board</target>
+            </trans-unit>
+            <trans-unit id="board.page.title">
+                <source>board.page.title</source>
+                <target>Board</target>
+            </trans-unit>
+            <trans-unit id="board.page.description">
+                <source>board.page.description</source>
+                <target>Four columns of work, ranked by hand inside each priority group.</target>
+            </trans-unit>
+            <trans-unit id="board.card.create.action">
+                <source>board.card.create.action</source>
+                <target>New card</target>
+            </trans-unit>
+
+            <!-- Board columns and card vocabulary -->
+            <trans-unit id="board.card.status.backlog">
+                <source>board.card.status.backlog</source>
+                <target>Backlog</target>
+            </trans-unit>
+            <trans-unit id="board.card.status.next">
+                <source>board.card.status.next</source>
+                <target>Next</target>
+            </trans-unit>
+            <trans-unit id="board.card.status.in-progress">
+                <source>board.card.status.in-progress</source>
+                <target>In progress</target>
+            </trans-unit>
+            <trans-unit id="board.card.status.done">
+                <source>board.card.status.done</source>
+                <target>Done</target>
+            </trans-unit>
+            <trans-unit id="board.card.priority.high">
+                <source>board.card.priority.high</source>
+                <target>High</target>
+            </trans-unit>
+            <trans-unit id="board.card.priority.medium">
+                <source>board.card.priority.medium</source>
+                <target>Medium</target>
+            </trans-unit>
+            <trans-unit id="board.card.priority.low">
+                <source>board.card.priority.low</source>
+                <target>Low</target>
+            </trans-unit>
+            <trans-unit id="board.card.type.feature">
+                <source>board.card.type.feature</source>
+                <target>Feature</target>
+            </trans-unit>
+            <trans-unit id="board.card.type.bug">
+                <source>board.card.type.bug</source>
+                <target>Bug</target>
+            </trans-unit>
+            <trans-unit id="board.card.type.security">
+                <source>board.card.type.security</source>
+                <target>Security</target>
+            </trans-unit>
+            <trans-unit id="board.card.type.tooling">
+                <source>board.card.type.tooling</source>
+                <target>Tooling</target>
+            </trans-unit>
+            <trans-unit id="board.card.type.docs">
+                <source>board.card.type.docs</source>
+                <target>Docs</target>
+            </trans-unit>
+            <trans-unit id="board.card.type.idea">
+                <source>board.card.type.idea</source>
+                <target>Idea</target>
+            </trans-unit>
+            <trans-unit id="board.card.origin.human">
+                <source>board.card.origin.human</source>
+                <target>Raised by a person</target>
+            </trans-unit>
+            <trans-unit id="board.card.origin.agent">
+                <source>board.card.origin.agent</source>
+                <target>Raised by an agent</target>
+            </trans-unit>
+            <trans-unit id="board.card.forge.github">
+                <source>board.card.forge.github</source>
+                <target>GitHub</target>
+            </trans-unit>
+            <trans-unit id="board.card.forge.gitlab">
+                <source>board.card.forge.gitlab</source>
+                <target>GitLab</target>
+            </trans-unit>
+            <trans-unit id="board.card.forge.bitbucket">
+                <source>board.card.forge.bitbucket</source>
+                <target>Bitbucket</target>
+            </trans-unit>
+            <trans-unit id="board.card.forge.other">
+                <source>board.card.forge.other</source>
+                <target>Other forge</target>
+            </trans-unit>
+
+            <!-- Card detail -->
+            <trans-unit id="board.card.completed_at">
+                <source>board.card.completed_at</source>
+                <target>Finished %time%</target>
+            </trans-unit>
+            <trans-unit id="board.card.body.empty">
+                <source>board.card.body.empty</source>
+                <target>This card has no description.</target>
+            </trans-unit>
+            <trans-unit id="board.card.pull_requests.title">
+                <source>board.card.pull_requests.title</source>
+                <target>Pull requests</target>
+            </trans-unit>
+            <trans-unit id="board.card.pull_requests.empty">
+                <source>board.card.pull_requests.empty</source>
+                <target>No pull request is linked to this card.</target>
+            </trans-unit>
+            <trans-unit id="board.card.pull_requests.count">
+                <source>board.card.pull_requests.count</source>
+                <target>{0}no pull requests|{1}one pull request|]1,Inf[ %count% pull requests</target>
+            </trans-unit>
+            <trans-unit id="board.card.move.open">
+                <source>board.card.move.open</source>
+                <target>Move</target>
+            </trans-unit>
+            <trans-unit id="board.card.move.submit">
+                <source>board.card.move.submit</source>
+                <target>Move card</target>
+            </trans-unit>
+            <trans-unit id="board.card.edit.action">
+                <source>board.card.edit.action</source>
+                <target>Edit card</target>
+            </trans-unit>
+            <trans-unit id="board.card.delete.action">
+                <source>board.card.delete.action</source>
+                <target>Delete card</target>
+            </trans-unit>
+            <trans-unit id="board.card.delete.confirm.title">
+                <source>board.card.delete.confirm.title</source>
+                <target>Delete this card?</target>
+            </trans-unit>
+            <trans-unit id="board.card.delete.confirm.body">
+                <source>board.card.delete.confirm.body</source>
+                <target>“%title%” and its pull request links go for good. You cannot undo this.</target>
+            </trans-unit>
+            <trans-unit id="board.card.delete.confirm.cancel">
+                <source>board.card.delete.confirm.cancel</source>
+                <target>Keep the card</target>
+            </trans-unit>
+            <trans-unit id="board.card.delete.confirm.submit">
+                <source>board.card.delete.confirm.submit</source>
+                <target>Delete it</target>
+            </trans-unit>
+            <trans-unit id="board.card.flash.deleted">
+                <source>board.card.flash.deleted</source>
+                <target>Deleted the card “%title%”.</target>
+            </trans-unit>
+            <trans-unit id="board.card.flash.move_rejected">
+                <source>board.card.flash.move_rejected</source>
+                <target>That move was not accepted. Reload the board and try again.</target>
+            </trans-unit>
+            <trans-unit id="board.card.error.title_blank">
+                <source>board.card.error.title_blank</source>
+                <target>Give the card a title.</target>
+            </trans-unit>
+            <trans-unit id="board.card.error.title_too_long">
+                <source>board.card.error.title_too_long</source>
+                <target>That title is too long.</target>
+            </trans-unit>
+
+            <!-- Card create and edit pages -->
+            <trans-unit id="board.card.create.page.title">
+                <source>board.card.create.page.title</source>
+                <target>New card</target>
+            </trans-unit>
+            <trans-unit id="board.card.create.page.description">
+                <source>board.card.create.page.description</source>
+                <target>A card describes one piece of work. Give it a grade and a column.</target>
+            </trans-unit>
+            <trans-unit id="board.card.create.submit">
+                <source>board.card.create.submit</source>
+                <target>Create card</target>
+            </trans-unit>
+            <trans-unit id="board.card.edit.page.title">
+                <source>board.card.edit.page.title</source>
+                <target>Edit card</target>
+            </trans-unit>
+            <trans-unit id="board.card.edit.page.description">
+                <source>board.card.edit.page.description</source>
+                <target>Change what the card says, where it sits and which pull requests carry it.</target>
+            </trans-unit>
+            <trans-unit id="board.card.edit.submit">
+                <source>board.card.edit.submit</source>
+                <target>Save card</target>
+            </trans-unit>
+            <trans-unit id="board.card.form.cancel">
+                <source>board.card.form.cancel</source>
+                <target>Cancel</target>
+            </trans-unit>
+
+            <!-- Done history -->
+            <trans-unit id="board.done.window">
+                <source>board.done.window</source>
+                <target>Finished in the last %days% days.</target>
+            </trans-unit>
+            <trans-unit id="board.done.history_link">
+                <source>board.done.history_link</source>
+                <target>{0}No card is finished yet|{1}See the one finished card|]1,Inf[ See all %count% finished cards</target>
+            </trans-unit>
+            <trans-unit id="board.done.page.title">
+                <source>board.done.page.title</source>
+                <target>Finished work</target>
+            </trans-unit>
+            <trans-unit id="board.done.page.description">
+                <source>board.done.page.description</source>
+                <target>Every card the project has finished, newest first.</target>
+            </trans-unit>
+            <trans-unit id="board.done.meta.total">
+                <source>board.done.meta.total</source>
+                <target>{0}nothing finished|{1}1 card|]1,Inf[ %count% cards</target>
+            </trans-unit>
+            <trans-unit id="board.done.no_completion">
+                <source>board.done.no_completion</source>
+                <target>No completion time</target>
+            </trans-unit>
+            <trans-unit id="board.done.empty.title">
+                <source>board.done.empty.title</source>
+                <target>Nothing is finished yet</target>
+            </trans-unit>
+            <trans-unit id="board.done.empty.body">
+                <source>board.done.empty.body</source>
+                <target>A card lands here when it reaches the Done column.</target>
+            </trans-unit>
+            <trans-unit id="board.done.empty.action">
+                <source>board.done.empty.action</source>
+                <target>Back to the board</target>
+            </trans-unit>
+
+            <!-- Card form -->
+            <trans-unit id="board.form.create_card_form.title.label">
+                <source>board.form.create_card_form.title.label</source>
+                <target>Title</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.title.placeholder">
+                <source>board.form.create_card_form.title.placeholder</source>
+                <target>What has to be done</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.body.label">
+                <source>board.form.create_card_form.body.label</source>
+                <target>Description</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.body.help">
+                <source>board.form.create_card_form.body.help</source>
+                <target>Markdown. It shows on the card detail rather than on the card face.</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.type.label">
+                <source>board.form.create_card_form.type.label</source>
+                <target>Type</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.type.choice.feature">
+                <source>board.form.create_card_form.type.choice.feature</source>
+                <target>Feature</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.type.choice.bug">
+                <source>board.form.create_card_form.type.choice.bug</source>
+                <target>Bug</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.type.choice.security">
+                <source>board.form.create_card_form.type.choice.security</source>
+                <target>Security</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.type.choice.tooling">
+                <source>board.form.create_card_form.type.choice.tooling</source>
+                <target>Tooling</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.type.choice.docs">
+                <source>board.form.create_card_form.type.choice.docs</source>
+                <target>Docs</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.type.choice.idea">
+                <source>board.form.create_card_form.type.choice.idea</source>
+                <target>Idea</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.priority.label">
+                <source>board.form.create_card_form.priority.label</source>
+                <target>Priority</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.priority.choice.high">
+                <source>board.form.create_card_form.priority.choice.high</source>
+                <target>High</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.priority.choice.medium">
+                <source>board.form.create_card_form.priority.choice.medium</source>
+                <target>Medium</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.priority.choice.low">
+                <source>board.form.create_card_form.priority.choice.low</source>
+                <target>Low</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.status.label">
+                <source>board.form.create_card_form.status.label</source>
+                <target>Column</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.status.choice.backlog">
+                <source>board.form.create_card_form.status.choice.backlog</source>
+                <target>Backlog</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.status.choice.next">
+                <source>board.form.create_card_form.status.choice.next</source>
+                <target>Next</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.status.choice.in-progress">
+                <source>board.form.create_card_form.status.choice.in-progress</source>
+                <target>In progress</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.status.choice.done">
+                <source>board.form.create_card_form.status.choice.done</source>
+                <target>Done</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.pull_request_urls.label">
+                <source>board.form.create_card_form.pull_request_urls.label</source>
+                <target>Pull requests</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.pull_request_urls.help">
+                <source>board.form.create_card_form.pull_request_urls.help</source>
+                <target>One URL per line. Saving replaces the whole list, so an empty box clears it.</target>
+            </trans-unit>
+            <trans-unit id="board.form.create_card_form.pull_request_urls.placeholder">
+                <source>board.form.create_card_form.pull_request_urls.placeholder</source>
+                <target>https://github.com/owner/repo/pull/1</target>
+            </trans-unit>
+
+            <!-- Move form -->
+            <trans-unit id="board.form.move_card_form.status.label">
+                <source>board.form.move_card_form.status.label</source>
+                <target>Column</target>
+            </trans-unit>
+            <trans-unit id="board.form.move_card_form.status.choice.backlog">
+                <source>board.form.move_card_form.status.choice.backlog</source>
+                <target>Backlog</target>
+            </trans-unit>
+            <trans-unit id="board.form.move_card_form.status.choice.next">
+                <source>board.form.move_card_form.status.choice.next</source>
+                <target>Next</target>
+            </trans-unit>
+            <trans-unit id="board.form.move_card_form.status.choice.in-progress">
+                <source>board.form.move_card_form.status.choice.in-progress</source>
+                <target>In progress</target>
+            </trans-unit>
+            <trans-unit id="board.form.move_card_form.status.choice.done">
+                <source>board.form.move_card_form.status.choice.done</source>
+                <target>Done</target>
+            </trans-unit>
+            <trans-unit id="board.form.move_card_form.priority.label">
+                <source>board.form.move_card_form.priority.label</source>
+                <target>Priority</target>
+            </trans-unit>
+            <trans-unit id="board.form.move_card_form.priority.choice.high">
+                <source>board.form.move_card_form.priority.choice.high</source>
+                <target>High</target>
+            </trans-unit>
+            <trans-unit id="board.form.move_card_form.priority.choice.medium">
+                <source>board.form.move_card_form.priority.choice.medium</source>
+                <target>Medium</target>
+            </trans-unit>
+            <trans-unit id="board.form.move_card_form.priority.choice.low">
+                <source>board.form.move_card_form.priority.choice.low</source>
+                <target>Low</target>
+            </trans-unit>
+
             <!-- Audit log (admin) -->
         </body>
     </file>

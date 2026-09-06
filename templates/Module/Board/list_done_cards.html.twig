@@ -1,0 +1,49 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'board.done.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <a class="lp-topbar__crumb" href="{{ path('app_project_board', {id: project.id}) }}">{{ 'nav.link.board'|trans }}</a>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'board.done.page.title'|trans }}</span>
+{% endblock %}
+
+{% block topbar_meta %}
+    <span class="lp-topbar__meta">{{ 'board.done.meta.total'|trans({'%count%': total}) }}</span>
+{% endblock %}
+
+{% block body %}
+<div class="lp-workspace">
+    <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'board.done.page.title'|trans }}</h1>
+    <p class="lp-workspace-desc">{{ 'board.done.page.description'|trans }}</p>
+
+    {% if items|length > 0 %}
+    <div class="lp-done-list">
+        {% for card in items %}
+        <div class="lp-done-row" data-card-id="{{ card.id }}">
+            <a class="lp-done-row__title" href="{{ path('app_board_card', {projectId: project.id, cardId: card.id}) }}">{{ card.title }}</a>
+            <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>
+            {% if card.pullRequests|length > 0 %}
+            <span class="lp-board-card__pulls">
+                <twig:ux:icon name="lucide:git-pull-request" class="w-3.5 h-3.5 shrink-0" />
+                {{ card.pullRequests|length }}
+            </span>
+            {% endif %}
+            <span class="lp-done-row__when">
+                {% if card.completedAt %}{{ card.completedAt|relative_time }}{% else %}{{ 'board.done.no_completion'|trans }}{% endif %}
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+
+    <twig:Pagination route="app_project_board_done" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}" />
+    {% else %}
+    <div class="lp-empty-state">
+        <twig:ux:icon name="lucide:square-check-big" class="lp-empty-state__icon w-12 h-12" />
+        <h2 class="lp-empty-state__title">{{ 'board.done.empty.title'|trans }}</h2>
+        <p class="lp-empty-state__body">{{ 'board.done.empty.body'|trans }}</p>
+        <a class="lp-btn" href="{{ path('app_project_board', {id: project.id}) }}">{{ 'board.done.empty.action'|trans }}</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ card.title }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <a class="lp-topbar__crumb" href="{{ path('app_project_board', {id: card.project.id}) }}">{{ 'nav.link.board'|trans }}</a>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ card.title }}</span>
+{% endblock %}
+
+{% block body %}
+<div class="lp-workspace">
+    <h1 class="lp-workspace-title lp-workspace-title--doc">{{ card.title }}</h1>
+
+    <div class="lp-card-facts">
+        <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>
+        <span class="lp-tag">{{ ('board.card.status.' ~ card.status.value)|trans }}</span>
+        <span class="lp-tag">{{ ('board.card.priority.' ~ card.priority.label())|trans }}</span>
+        <span class="lp-tag">{{ ('board.card.origin.' ~ card.origin.value)|trans }}</span>
+        {% if card.completedAt %}
+        <span class="lp-tag">{{ 'board.card.completed_at'|trans({'%time%': card.completedAt|relative_time}) }}</span>
+        {% endif %}
+    </div>
+
+    <div class="lp-card-detail">
+        {% if card.body|trim is not empty %}
+        <div class="prose lp-prose lp-card-detail__body">{{ card.body|card_body }}</div>
+        {% else %}
+        <p class="lp-card-detail__empty">{{ 'board.card.body.empty'|trans }}</p>
+        {% endif %}
+    </div>
+
+    <section class="lp-card-pulls">
+        <h2 class="lp-card-pulls__title">{{ 'board.card.pull_requests.title'|trans }}</h2>
+        {% if card.pullRequests|length > 0 %}
+        <ul class="lp-card-pulls__list">
+            {% for link in card.pullRequests %}
+            <li class="lp-card-pulls__item">
+                <a href="{{ link.url }}" rel="noopener noreferrer" target="_blank" class="lp-card-pulls__link">
+                    {# The forge, the repository and the number when a parser read
+                       them; a URL nothing recognised is shown as it was given. #}
+                    {% if link.repository and link.number %}
+                    <span class="lp-card-pulls__forge">{{ ('board.card.forge.' ~ link.forge.value)|trans }}</span>
+                    <span class="lp-card-pulls__repo">{{ link.repository }}</span>
+                    <span class="lp-card-pulls__number">#{{ link.number }}</span>
+                    {% else %}
+                    <span class="lp-card-pulls__url">{{ link.url }}</span>
+                    {% endif %}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="lp-card-pulls__empty">{{ 'board.card.pull_requests.empty'|trans }}</p>
+        {% endif %}
+    </section>
+
+    <div class="lp-card-actions">
+        <a class="lp-btn lp-btn--primary" href="{{ path('app_board_card_edit', {projectId: card.project.id, cardId: card.id}) }}">
+            {{ 'board.card.edit.action'|trans }}
+        </a>
+        {# Deleting a card cannot be undone, so it goes through a dialog rather
+           than an inline disclosure. #}
+        <div data-controller="modal">
+            <button type="button" class="lp-btn lp-btn--danger" data-action="click->modal#open">
+                {{ 'board.card.delete.action'|trans }}
+            </button>
+            <dialog data-modal-target="dialog" class="lp-dialog">
+                <h3 class="lp-dialog-title">{{ 'board.card.delete.confirm.title'|trans }}</h3>
+                <p class="lp-dialog-desc">{{ 'board.card.delete.confirm.body'|trans({'%title%': card.title}) }}</p>
+                <form method="post"
+                      action="{{ path('app_board_card_delete', {projectId: card.project.id, cardId: card.id}) }}"
+                      class="flex items-center justify-end gap-3 pt-2">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('board-card-delete') }}">
+                    <button type="button" class="lp-btn" data-action="click->modal#close">{{ 'board.card.delete.confirm.cancel'|trans }}</button>
+                    <button type="submit" class="lp-btn lp-btn--danger">{{ 'board.card.delete.confirm.submit'|trans }}</button>
+                </form>
+            </dialog>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,34 @@
+{# The board itself. Rendered by the page and again by the move endpoint's
+   stream, so the two can never drift apart. Props: board (BoardView). #}
+<div id="board" class="lp-board" data-controller="board-drag">
+    {% for column in board.columns %}
+    <section class="lp-board__column" aria-label="{{ ('board.card.status.' ~ column.status.value)|trans }}">
+        <header class="lp-board__column-head">
+            <h2 class="lp-board__column-title">{{ ('board.card.status.' ~ column.status.value)|trans }}</h2>
+            <span class="lp-board__column-count">{{ column.count }}</span>
+        </header>
+
+        {% for group in column.groups %}
+        <div class="lp-board__group"
+             data-board-drag-target="group"
+             data-status="{{ column.status.value }}"
+             data-priority="{{ group.priority ? group.priority.value : '' }}"
+             data-rankable="{{ column.rankable ? '1' : '0' }}">
+            {% if group.priority %}
+            <h3 class="lp-board__group-title">{{ ('board.card.priority.' ~ group.priority.label())|trans }}</h3>
+            {% endif %}
+            {% for card in group.cards %}
+                {% include '@Board/_card.html.twig' with {card: card} only %}
+            {% endfor %}
+        </div>
+        {% endfor %}
+
+        {% if not column.rankable %}
+        <p class="lp-board__column-note">{{ 'board.done.window'|trans({'%days%': board.doneWindowDays}) }}</p>
+        <a class="lp-board__column-link" href="{{ path('app_project_board_done', {id: board.project.id}) }}">
+            {{ 'board.done.history_link'|trans({'%count%': board.doneTotal}) }}
+        </a>
+        {% endif %}
+    </section>
+    {% endfor %}
+</div>

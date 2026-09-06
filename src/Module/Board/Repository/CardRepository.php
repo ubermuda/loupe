@@ -10,7 +10,10 @@ use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Bridge\Doctrine\Types\UuidType;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * @extends ServiceEntityRepository<Card>
@@ -33,6 +36,74 @@ class CardRepository extends ServiceEntityRepository
             ['project' => $project, 'status' => $status, 'priority' => $priority],
             ['position' => 'ASC', 'createdAt' => 'ASC'],
         );
+    }
+
+    /**
+     * One card, scoped to its project.
+     *
+     * The project id is part of the lookup rather than checked afterwards, so a
+     * URL that pairs one project with another project's card is a 404.
+     */
+    public function findOneByIdAndProjectId(string $cardId, string $projectId): ?Card
+    {
+        if (!Uuid::isValid($cardId) || !Uuid::isValid($projectId)) {
+            return null;
+        }
+
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.id = :cardId')
+            ->andWhere('c.project = :projectId')
+            ->setParameter('cardId', Uuid::fromString($cardId), UuidType::NAME)
+            ->setParameter('projectId', Uuid::fromString($projectId), UuidType::NAME)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * The Done cards finished on or after the given moment, newest first.
+     *
+     * The board shows a recent slice of Done rather than all of it, so a column
+     * that only ever grows does not become the page's whole height.
+     *
+     * @return list<Card>
+     */
+    public function findDoneSince(Project $project, \DateTimeImmutable $since): array
+    {
+        return array_values(
+            $this->doneQuery($project)
+                ->andWhere('c.completedAt >= :since')
+                ->setParameter('since', $since)
+                ->getQuery()
+                ->getResult(),
+        );
+    }
+
+    /**
+     * One page of the whole Done history, newest first.
+     *
+     * @return list<Card>
+     */
+    public function findDonePage(Project $project, int $offset, int $limit): array
+    {
+        return array_values(
+            $this->doneQuery($project)
+                ->setFirstResult($offset)
+                ->setMaxResults($limit)
+                ->getQuery()
+                ->getResult(),
+        );
+    }
+
+    public function countDone(Project $project): int
+    {
+        return (int) $this->createQueryBuilder('c')
+            ->select('COUNT(c.id)')
+            ->andWhere('c.project = :project')
+            ->andWhere('c.status = :status')
+            ->setParameter('project', $project)
+            ->setParameter('status', CardStatus::Done)
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 
     /** The rank a card appended to the end of that group takes. */
@@ -103,5 +174,18 @@ class CardRepository extends ServiceEntityRepository
         $qb->addOrderBy('c.createdAt', 'ASC')->addOrderBy('c.id', 'ASC');
 
         return array_values($qb->getQuery()->getResult());
+    }
+
+    /** Done in the order the column reads it: by completion, newest first. */
+    private function doneQuery(Project $project): QueryBuilder
+    {
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.project = :project')
+            ->andWhere('c.status = :status')
+            ->setParameter('project', $project)
+            ->setParameter('status', CardStatus::Done)
+            ->orderBy('c.completedAt', 'DESC')
+            ->addOrderBy('c.createdAt', 'DESC')
+            ->addOrderBy('c.id', 'ASC');
     }
 }

@@ -3580,6 +3580,158 @@
     .lp-btn--lg {
         @apply h-11 px-6 text-base;
     }
+
+    /* ── Board ──────────────────────────────────────────────────────────
+       Four columns side by side. The row scrolls rather than wraps: a column
+       that wrapped below its neighbours would stop reading as a column. */
+    .lp-workspace--board {
+        @apply max-w-none pr-12;
+    }
+    .lp-board-head {
+        @apply flex items-start justify-between gap-4;
+    }
+    .lp-board {
+        @apply flex items-start gap-4 overflow-x-auto pb-4;
+    }
+    .lp-board__column {
+        @apply flex flex-col gap-3 grow basis-0 min-w-64 rounded-xl bg-surface-2 p-3.5;
+    }
+    .lp-board__column-head {
+        @apply flex items-center justify-between gap-2;
+    }
+    .lp-board__column-title {
+        @apply font-display font-extrabold text-base tracking-tight text-ink m-0;
+    }
+    .lp-board__column-count {
+        @apply inline-flex items-center justify-center min-w-6 rounded-full bg-surface-3 px-2 py-0.5 text-xs font-bold text-fg-mute;
+    }
+    .lp-board__column-note {
+        @apply text-xs text-fg-dim m-0;
+    }
+    .lp-board__column-link {
+        @apply text-xs font-semibold text-accent-ink underline underline-offset-2 hover:text-ink;
+    }
+    /* A group is a drop target, so it keeps a minimum height even when empty:
+       an empty grade with no area under it cannot be dropped into. */
+    .lp-board__group {
+        @apply flex flex-col gap-2 min-h-12 rounded-lg transition-colors;
+    }
+    .lp-board__group-title {
+        @apply uppercase text-fg-dim m-0 text-xs font-bold tracking-widest;
+    }
+    .lp-board__placeholder {
+        @apply rounded-xl border-2 border-dashed border-accent-border bg-accent-faint;
+    }
+    /* Text selection during a drag would highlight every card the pointer
+       crosses, so it is suppressed for the length of the gesture only. */
+    .lp-board--dragging {
+        @apply select-none;
+    }
+
+    .lp-board-card {
+        @apply relative flex flex-col gap-2 rounded-xl bg-surface-1 py-3 px-3.5 transition-shadow;
+    }
+    .lp-board-card--dragging {
+        @apply fixed z-50 pointer-events-none shadow-lg opacity-90;
+    }
+    .lp-board-card__grip {
+        @apply absolute top-2 right-2 cursor-grab text-fg-faint;
+        touch-action: none;
+    }
+    .lp-board-card__grip:active {
+        @apply cursor-grabbing;
+    }
+    .lp-board-card__title {
+        @apply pr-6 text-sm font-semibold text-ink no-underline hover:text-accent-ink;
+    }
+    .lp-board-card__meta {
+        @apply flex flex-wrap items-center gap-2;
+    }
+    .lp-board-card__pulls {
+        @apply inline-flex items-center gap-1 text-xs font-semibold text-fg-mute;
+    }
+
+    /* The move controls. Collapsed by default, because they repeat on every
+       card; open, they are the keyboard path to the same endpoint a drop uses. */
+    .lp-card-move {
+        @apply border-t border-line-faint pt-2;
+    }
+    .lp-card-move__summary {
+        @apply cursor-pointer text-xs font-semibold text-fg-dim hover:text-fg;
+    }
+    .lp-card-move__form {
+        @apply flex flex-col gap-2 pt-2;
+    }
+    .lp-card-move__field {
+        @apply flex flex-col gap-1;
+    }
+    .lp-card-move__select {
+        @apply py-1.5 px-2.5 text-xs;
+    }
+
+    /* ── Card detail and card form ──────────────────────────────────── */
+
+    .lp-card-facts {
+        @apply flex flex-wrap items-center gap-2 mb-6;
+    }
+    .lp-card-detail {
+        @apply rounded-xl bg-surface-2 py-5 px-6;
+    }
+    .lp-card-detail__empty,
+    .lp-card-pulls__empty {
+        @apply text-sm text-fg-dim m-0;
+    }
+    .lp-card-pulls {
+        @apply mt-8;
+    }
+    .lp-card-pulls__title {
+        @apply font-display font-extrabold text-lg tracking-tight text-ink m-0 mb-3;
+    }
+    .lp-card-pulls__list {
+        @apply flex flex-col gap-2 list-none p-0 m-0;
+    }
+    .lp-card-pulls__item {
+        @apply rounded-xl bg-surface-2 py-2.5 px-3.5;
+    }
+    .lp-card-pulls__link {
+        @apply flex flex-wrap items-center gap-2 text-sm no-underline;
+    }
+    .lp-card-pulls__forge {
+        @apply text-xs font-bold uppercase tracking-widest text-fg-dim;
+    }
+    .lp-card-pulls__repo {
+        @apply font-mono text-fg;
+    }
+    .lp-card-pulls__number {
+        @apply font-mono font-semibold text-accent-ink;
+    }
+    .lp-card-pulls__url {
+        @apply font-mono text-xs break-all text-fg-mute;
+    }
+    .lp-card-actions {
+        @apply flex items-center gap-3 mt-8;
+    }
+    .lp-card-form-row {
+        @apply grid gap-4 sm:grid-cols-3;
+    }
+    .lp-card-form-textarea {
+        @apply font-mono text-sm leading-relaxed;
+    }
+
+    /* ── Done history ───────────────────────────────────────────────── */
+
+    .lp-done-list {
+        @apply flex flex-col gap-2.5;
+    }
+    .lp-done-row {
+        @apply flex flex-wrap items-center gap-3 rounded-xl bg-surface-2 py-4 px-4.5;
+    }
+    .lp-done-row__title {
+        @apply mr-auto text-sm font-semibold text-ink no-underline hover:text-accent-ink;
+    }
+    .lp-done-row__when {
+        @apply text-xs text-fg-dim;
+    }
 }
 
 /* The typography plugin wraps inline code in literal backticks. Unlayered, not

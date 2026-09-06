@@ -1,0 +1,43 @@
+{# One card face. `rankable` says whether its column keeps a hand-made rank. #}
+<article class="lp-board-card"
+         data-board-drag-target="card"
+         data-card-id="{{ card.id }}"
+         data-card-title="{{ card.title }}">
+    <span class="lp-board-card__grip" aria-hidden="true"
+          data-action="pointerdown->board-drag#start">
+        <twig:ux:icon name="lucide:grip-vertical" class="w-4 h-4" />
+    </span>
+    <a class="lp-board-card__title"
+       href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}">{{ card.title }}</a>
+    <div class="lp-board-card__meta">
+        <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>
+        {% if card.pullRequests|length > 0 %}
+        <span class="lp-board-card__pulls" title="{{ 'board.card.pull_requests.count'|trans({'%count%': card.pullRequests|length}) }}">
+            <twig:ux:icon name="lucide:git-pull-request" class="w-3.5 h-3.5 shrink-0" />
+            {{ card.pullRequests|length }}
+        </span>
+        {% endif %}
+    </div>
+    {# The keyboard and no-JS path for the same endpoint the drop posts to. The
+       drag controller fills these fields rather than fetching by hand. #}
+    <details class="lp-card-move">
+        <summary class="lp-card-move__summary">{{ 'board.card.move.open'|trans }}</summary>
+        {% set moveForm = card_move_form(card) %}
+        <form method="post"
+              action="{{ path('app_board_card_move', {projectId: card.project.id, cardId: card.id}) }}"
+              class="lp-card-move__form"
+              data-board-drag-target="moveForm">
+            {{ form_widget(moveForm._token) }}
+            <div class="lp-card-move__field">
+                {{ form_label(moveForm.status, null, {label_attr: {class: 'lp-label'}}) }}
+                {{ form_widget(moveForm.status, {attr: {class: 'lp-input lp-select lp-card-move__select'}}) }}
+            </div>
+            <div class="lp-card-move__field">
+                {{ form_label(moveForm.priority, null, {label_attr: {class: 'lp-label'}}) }}
+                {{ form_widget(moveForm.priority, {attr: {class: 'lp-input lp-select lp-card-move__select'}}) }}
+            </div>
+            {{ form_widget(moveForm.position, {attr: {hidden: 'hidden'}}) }}
+            <button type="submit" class="lp-btn lp-btn--sm lp-btn--primary">{{ 'board.card.move.submit'|trans }}</button>
+        </form>
+    </details>
+</article>
