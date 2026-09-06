@@ -242,11 +242,12 @@ just rector                   # Run Rector (PHP modernization)
 just phpstan                  # Run static analysis (level 8)
 just arkitect                 # Check module boundary rules (phparkitect)
 just cs                       # Write-mode fixer pipeline: prettier, lint, rector, cs-fix, twig-cs-fix
-just ci                       # Check-only gate (never rewrites files): lint, cs-check (rector/cs-fixer/twig-cs-fixer dry-run), phpstan, arkitect, gamache, composer audit, PHPUnit (e2e is separate)
+just ci                       # Check-only gate (never rewrites files): lint, cs-check (rector/cs-fixer/twig-cs-fixer dry-run), phpstan, arkitect, gamache, composer audit, PHPUnit, Vitest (e2e is separate)
 just audit                    # Security advisories against composer.lock (also runs inside `just ci`)
 just gamache                  # Run Gamache convention checker (replaces the seven custom check scripts)
 just migrate-diff             # Generate migrations from entities
 just migrate-run              # Run migrations
+just js-test                  # Run Vitest over tests/js (needs Node alone)
 just e2e                      # Run Playwright e2e tests
 just e2e-coverage             # Run e2e with per-request PHP coverage, merged to var/coverage/html
 just open-coverage            # Open the merged HTML coverage report
@@ -258,6 +259,8 @@ bin/console cache:clear       # Clear cache
 ```
 
 To run a single test: `php vendor/bin/phpunit --filter TestClassName`
+
+To run a single JavaScript test: `just js-test tests/js/<name>.test.js`
 
 To run a single e2e spec: `just e2e tests/<area>/<spec>.spec.ts`
 

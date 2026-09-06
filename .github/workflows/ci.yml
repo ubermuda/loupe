@@ -83,6 +83,17 @@ jobs:
           docker: 'true'
       - run: just phpunit
 
+  # Node alone: vitest runs the browser code as source, with no container and
+  # no database behind it.
+  js-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          node: 'true'
+      - run: just js-test
+
   # The Go CLI needs neither PHP nor the project's dependencies, so this leg
   # skips the setup action and takes just alone; the recipe brings its own
   # toolchain in a container.
