@@ -77,6 +77,12 @@ however old it is, and applies no time window to the column.
 A card also carries the moment it was created and the moment it last changed. A
 card in Done carries its completion time as well.
 
+Origin never changes. `card_update` refuses that field, because it answers who
+first raised the card rather than who touched it last. An MCP request
+authenticates as the project owner, so the tools cannot tell an agent's own card
+from one a person dictated. An agent writing down what a person asked for passes
+`human` at creation.
+
 ### The number is for people, the id is for tools
 
 The number is the handle a person uses. Say "card 42" in conversation, in a pull
@@ -87,12 +93,6 @@ The MCP tools do not take the number. `cardId` is the card's UUID, and every
 tool that reads or writes a card wants that value. `card_create`, `card_get`,
 `card_list` and `card_update` all report the number in what they return. No tool
 looks a card up by its number.
-
-Origin never changes. `card_update` refuses that field, because it answers who
-first raised the card rather than who touched it last. An MCP request
-authenticates as the project owner, so the tools cannot tell an agent's own card
-from one a person dictated. An agent writing down what a person asked for passes
-`human` at creation.
 
 ## Pull request links
 
