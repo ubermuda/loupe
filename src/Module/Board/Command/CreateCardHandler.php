@@ -9,6 +9,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\PullRequestUrlResolver;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -32,29 +33,38 @@ final readonly class CreateCardHandler
             throw new DomainErrors(['title' => 'board.card.error.title_too_long']);
         }
 
-        $card = new Card(
-            project: $command->project,
-            title: $title,
-            body: $command->body,
-            type: $command->type,
-            priority: $command->priority,
-            status: $command->status,
-            origin: $command->origin,
-            position: CardStatus::Done === $command->status
-                ? 0
-                : $this->cards->nextPosition($command->project, $command->status, $command->priority),
-        );
+        // MAX(position) + 1 is read-then-write: two calls into the same group
+        // would otherwise allocate the same rank and leave the order unstable.
+        // Same PESSIMISTIC_WRITE-on-the-project idiom AddCommentHandler uses.
+        $card = $this->em->wrapInTransaction(function () use ($command, $title): Card {
+            $this->em->lock($command->project, LockMode::PESSIMISTIC_WRITE);
 
-        // Done is entered here as much as by a move, so a card created straight
-        // into Done still carries the completion the column sorts on.
-        if (CardStatus::Done === $command->status) {
-            $card->completedAt = new \DateTimeImmutable();
-        }
+            $card = new Card(
+                project: $command->project,
+                title: $title,
+                body: $command->body,
+                type: $command->type,
+                priority: $command->priority,
+                status: $command->status,
+                origin: $command->origin,
+                position: CardStatus::Done === $command->status
+                    ? 0
+                    : $this->cards->nextPosition($command->project, $command->status, $command->priority),
+            );
 
-        $card->replacePullRequests(...$this->pullRequests->linksFor($card, array_values($command->pullRequestUrls)));
+            // Done is entered here as much as by a move, so a card created
+            // straight into Done still carries the completion the column sorts on.
+            if (CardStatus::Done === $command->status) {
+                $card->completedAt = new \DateTimeImmutable();
+            }
 
-        $this->em->persist($card);
-        $this->em->flush();
+            $card->replacePullRequests(...$this->pullRequests->linksFor($card, array_values($command->pullRequestUrls)));
+
+            $this->em->persist($card);
+            $this->em->flush();
+
+            return $card;
+        });
 
         $this->logger->info('board.card_created', [
             'cardId' => (string) $card->id,

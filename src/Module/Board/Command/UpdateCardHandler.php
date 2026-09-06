@@ -48,14 +48,17 @@ final readonly class UpdateCardHandler
         }
 
         $card->updatedAt = new \DateTimeImmutable();
-        $this->em->flush();
 
-        // After the field writes, because a status or priority change is a move:
-        // it renumbers a group and decides the completion timestamp.
+        // One write for the whole update. A status or priority change is a move,
+        // which renumbers a group and decides the completion timestamp, and the
+        // move's own flush carries the field changes above with it. Flushing
+        // them first would commit half an update whose move then failed.
         $status = $command->status ?? $card->status;
         $priority = $command->priority ?? $card->priority;
         if ($status !== $card->status || $priority !== $card->priority) {
             ($this->moveCard)(new MoveCardCommand($card, $status, $priority));
+        } else {
+            $this->em->flush();
         }
 
         $this->logger->info('board.card_updated', [

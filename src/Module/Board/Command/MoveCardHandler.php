@@ -8,6 +8,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardGroupOrder;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 
@@ -32,37 +33,46 @@ final readonly class MoveCardHandler
     public function __invoke(MoveCardCommand $command): Card
     {
         $card = $command->card;
-        $sourceStatus = $card->status;
-        $sourcePriority = $card->priority;
-        $staysInGroup = $sourceStatus === $command->status && $sourcePriority === $command->priority;
 
-        $card->status = $command->status;
-        $card->priority = $command->priority;
+        // Reading a group and renumbering it is read-then-write, so two moves in
+        // one project would otherwise interleave into duplicate ranks. Same
+        // PESSIMISTIC_WRITE-on-the-project idiom AddCommentHandler uses.
+        $this->em->wrapInTransaction(function () use ($command, $card): void {
+            $this->em->lock($card->project, LockMode::PESSIMISTIC_WRITE);
 
-        if (CardStatus::Done === $command->status) {
-            // Done sorts by completion and maintains no position, so the rank is
-            // parked at 0 and the card keeps the moment it was first finished.
-            $card->completedAt ??= new \DateTimeImmutable();
-            $card->position = 0;
-        } else {
-            $card->completedAt = null;
+            $sourceStatus = $card->status;
+            $sourcePriority = $card->priority;
+            $staysInGroup = $sourceStatus === $command->status && $sourcePriority === $command->priority;
 
-            if ($staysInGroup) {
-                // No target rank means the end of the group, which place()
-                // clamps to. Going through it rather than through nextPosition()
-                // is what stops the card's old rank becoming a gap.
-                $this->groupOrder->place($card, $command->position ?? \PHP_INT_MAX);
+            $card->status = $command->status;
+            $card->priority = $command->priority;
+
+            if (CardStatus::Done === $command->status) {
+                // Done sorts by completion and maintains no position, so the rank
+                // is parked at 0 and the card keeps the moment it was first
+                // finished.
+                $card->completedAt ??= new \DateTimeImmutable();
+                $card->position = 0;
             } else {
-                $card->position = $this->cards->nextPosition($card->project, $command->status, $command->priority);
+                $card->completedAt = null;
+
+                if ($staysInGroup) {
+                    // No target rank means the end of the group, which place()
+                    // clamps to. Going through it rather than through
+                    // nextPosition() is what stops the old rank becoming a gap.
+                    $this->groupOrder->place($card, $command->position ?? \PHP_INT_MAX);
+                } else {
+                    $card->position = $this->cards->nextPosition($card->project, $command->status, $command->priority);
+                }
             }
-        }
 
-        if (!$staysInGroup) {
-            $this->groupOrder->compact($card->project, $sourceStatus, $sourcePriority, $card);
-        }
+            if (!$staysInGroup) {
+                $this->groupOrder->compact($card->project, $sourceStatus, $sourcePriority, $card);
+            }
 
-        $card->updatedAt = new \DateTimeImmutable();
-        $this->em->flush();
+            $card->updatedAt = new \DateTimeImmutable();
+            $this->em->flush();
+        });
 
         $this->logger->info('board.card_moved', [
             'cardId' => (string) $card->id,
