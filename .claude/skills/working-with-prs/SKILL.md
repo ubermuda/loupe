@@ -332,16 +332,31 @@ other's mail. Serialise those, or give each its own `MAILPIT_URL`.
 8. Read the checks against the head you are about to merge. After you sync a
    branch, the rollup can still describe the *previous* head, so a green reading
    is evidence about a commit that no longer matters. Key the wait on
-   `headRefOid`, require the full set of required checks to be present, and only
-   then treat green as green:
+   `headRefOid`, then count the checks:
 
    ```bash
-   gh pr view <n> --json headRefOid,statusCheckRollup \
-     -q '"\(.headRefOid) \([.statusCheckRollup[]|(.conclusion//.state//"PENDING")]|join(","))"'
+   gh pr view <n> --json headRefOid -q .headRefOid
+   gh pr checks <n> --required --json bucket \
+     -q 'group_by(.bucket)|map("\(.[0].bucket)=\(length)")|join(" ")'
    ```
 
-   A rollup with fewer entries than the ruleset requires means runs have not
-   registered yet, which reads identically to "nothing left to wait for".
+   Count `pass`, `fail` and `pending` against the number of checks the ruleset
+   requires. A green reading is `pass=<that number>` and nothing else. Observe
+   all-green, and never infer it from an absence.
+
+   The rule covers the polling monitor and the one-shot check before a merge. A
+   monitor that reports early costs you a wait. A pre-merge check that reports a
+   false green is acted on at once, and the merge happens.
+
+   Prefer `gh pr checks`, because it prints an explicit `pending` bucket.
+   `gh pr view --json statusCheckRollup` returns `conclusion` as an empty string
+   for a queued check. jq's `//` falls through on `null` and `false` only. So
+   `(.conclusion//.state//"PENDING")` emits that empty string and joins to
+   `SUCCESS,,SUCCESS`. A test for the word `PENDING` never matches.
+
+   A rollup with fewer entries than the ruleset requires is the same hole one
+   level up: a run that has not registered reads identically to "nothing left to
+   wait for". Counting closes both.
 
 ## After the merge, write the changelog entry
 
