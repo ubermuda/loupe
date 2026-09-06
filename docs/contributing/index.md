@@ -18,7 +18,7 @@ failures you notice:
 
 ```bash
 just cs     # applies PHP CS Fixer + Rector fixes — commit anything it changes
-just ci     # check-only: PHPStan (level 8), phparkitect, gamache, ESLint, PHPUnit
+just ci     # check-only: PHPStan (level 8), phparkitect, gamache, ESLint, PHPUnit, Vitest
 just e2e    # Playwright end-to-end tests
 ```
 
