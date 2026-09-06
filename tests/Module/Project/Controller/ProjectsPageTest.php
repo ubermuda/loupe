@@ -6,6 +6,9 @@ namespace App\Tests\Module\Project\Controller;
 
 use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
+use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardStatus;
+use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Review\Entity\Document;
@@ -15,6 +18,7 @@ use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class ProjectsPageTest extends WebTestCase
 {
@@ -141,6 +145,31 @@ final class ProjectsPageTest extends WebTestCase
         self::assertStringContainsString('3 open', $meta);
         // The open figure is the amber-tinted span.
         self::assertSame('3 open', trim($crawler->filter('[data-project-id] .lp-project-row__open')->text()));
+        // The board ships off, so the row claims no card count.
+        self::assertCount(0, $crawler->filter('[data-project-id] .lp-project-row__cards'));
+    }
+
+    public function test_row_renders_the_open_card_count_once_the_board_is_on(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'projects-cards@example.com');
+        $project = new Project($owner, 'cards');
+        $em->persist($project);
+        $em->persist(new Card(project: $project, title: 'Open one', body: ''));
+        $em->persist(new Card(project: $project, title: 'Open two', body: ''));
+        $em->persist(new Card(project: $project, title: 'Finished', body: '', status: CardStatus::Done));
+
+        $flags = static::getContainer()->get(FeatureFlagRepository::class);
+        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
+        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
+        $em->flush();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('2 open cards', trim($crawler->filter('[data-project-id] .lp-project-row__cards')->text()));
     }
 
     public function test_create_project_persists_and_redirects(): void

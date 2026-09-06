@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Repository;
 
+use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardStatus;
@@ -74,6 +75,64 @@ class CardRepository extends ServiceEntityRepository
         }
 
         return $cards;
+    }
+
+    /**
+     * How many cards each project still has open, for the projects list.
+     *
+     * Open is every column except Done, so a board whose work is finished
+     * counts zero rather than counting its history.
+     *
+     * @param list<Project> $projects
+     *
+     * @return array<string, int> project id => count, projects with none omitted
+     */
+    public function countOpenByProjects(array $projects): array
+    {
+        if ([] === $projects) {
+            return [];
+        }
+
+        /** @var list<array{id: mixed, total: mixed}> $rows */
+        $rows = $this->createQueryBuilder('c')
+            ->select('IDENTITY(c.project) AS id, COUNT(c.id) AS total')
+            ->andWhere('c.project IN (:projects)')
+            ->andWhere('c.status != :done')
+            ->setParameter('projects', $projects)
+            ->setParameter('done', CardStatus::Done)
+            ->groupBy('c.project')
+            ->getQuery()
+            ->getArrayResult();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(string) $row['id']] = (int) $row['total'];
+        }
+
+        return $counts;
+    }
+
+    /**
+     * Every card on every project the user owns, for the account data export.
+     *
+     * The pull request links are fetch-joined, because the export reads them on
+     * every row and they are lazy otherwise.
+     *
+     * @return list<Card>
+     */
+    public function findByOwner(User $user): array
+    {
+        return array_values($this->createQueryBuilder('c')
+            ->join('c.project', 'p')
+            ->leftJoin('c.pullRequests', 'l')
+            ->addSelect('l')
+            ->andWhere('p.owner = :user')
+            ->setParameter('user', $user)
+            ->orderBy('c.createdAt', 'ASC')
+            ->addOrderBy('c.id', 'ASC')
+            ->addOrderBy('l.addedAt', 'ASC')
+            ->getQuery()
+            ->getResult());
     }
 
     /** @return list<Card> */
