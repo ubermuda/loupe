@@ -45,17 +45,41 @@ async function login(
     await expect(page).toHaveURL('/welcome', { timeout: 20000 });
 }
 
-async function seedDocument(page: Page): Promise<string> {
+interface Seeded {
+    projectId: string;
+    documentId: string;
+}
+
+// A title long enough to be clipped by a row that does not give it room. A
+// short one would let a broken row pass.
+const DOCUMENT_TITLE =
+    'Quarterly platform architecture review and migration plan';
+
+async function seedDocument(page: Page): Promise<Seeded> {
     const response = await page.request.post('/dev/seed/document', {
         form: {
-            title: 'E2E Mobile Shell Document',
+            title: DOCUMENT_TITLE,
             markdown:
                 '# Mobile\n\nA seeded document, so the filter bar renders.',
         },
     });
     expect(response.status()).toBe(201);
     const body = await response.json();
-    return body.projectId as string;
+    return {
+        projectId: body.projectId as string,
+        documentId: body.documentId as string,
+    };
+}
+
+/**
+ * How far an element's content spills past the box that holds it. Text that is
+ * clipped, ellipsised or painted over a neighbour reports a positive number
+ * here and adds nothing to the document's own scrollWidth.
+ */
+async function overflowOf(page: Page, selector: string): Promise<number[]> {
+    return page.$$eval(selector, (elements) =>
+        elements.map((element) => element.scrollWidth - element.clientWidth),
+    );
 }
 
 /** Widest rendered box against the window. A page that fits never scrolls sideways. */
@@ -65,8 +89,8 @@ async function horizontalOverflow(page: Page): Promise<number> {
     );
 }
 
-const test = base.extend<{ projectId: string }>({
-    projectId: [
+const test = base.extend<{ seeded: Seeded }>({
+    seeded: [
         async ({ page }, use, testInfo) => {
             await suppressToolbar(page);
             await suppressWidget(page);
@@ -91,8 +115,9 @@ test.use({
 
 test('no authenticated page scrolls sideways at 375px', async ({
     page,
-    projectId,
+    seeded,
 }) => {
+    const projectId = seeded.projectId;
     const paths = [
         '/projects',
         `/projects/${projectId}/documents`,
@@ -112,11 +137,74 @@ test('no authenticated page scrolls sideways at 375px', async ({
     }
 });
 
+test('a document title is readable rather than clipped to one letter', async ({
+    page,
+    seeded,
+}) => {
+    await page.goto(`/projects/${seeded.projectId}/documents`);
+
+    const title = page.locator('.lp-document-row__title').first();
+    await expect(title).toBeVisible();
+    await expect(title).toHaveText(DOCUMENT_TITLE);
+
+    // The row is the app's index. A title squeezed to an ellipsis makes every
+    // row look the same, and costs the list its whole job.
+    for (const spill of await overflowOf(page, '.lp-document-row__title')) {
+        expect(spill, 'a document title is clipped').toBeLessThanOrEqual(0);
+    }
+});
+
+test('the review top bar does not print over its own actions', async ({
+    page,
+    seeded,
+}) => {
+    await page.goto(
+        `/projects/${seeded.projectId}/documents/${seeded.documentId}/review`,
+    );
+    await expect(page.locator('.lp-topbar__actions')).toBeVisible();
+
+    // The review screen is the only page with verdict actions, so it is the
+    // only one that can squeeze the lead. The element rectangles do not
+    // overlap: the lead's content escapes a collapsed box, and only a
+    // scrollWidth reading catches that.
+    for (const spill of await overflowOf(page, '.lp-topbar__lead')) {
+        expect(
+            spill,
+            'the top bar lead spills past its box',
+        ).toBeLessThanOrEqual(0);
+    }
+    for (const spill of await overflowOf(page, '.lp-topbar__trail')) {
+        expect(
+            spill,
+            'the breadcrumb trail spills past its box',
+        ).toBeLessThanOrEqual(0);
+    }
+});
+
+test('the paper reaches the window edge below lg', async ({ page, seeded }) => {
+    await page.goto(`/projects/${seeded.projectId}/documents`);
+
+    // The shell's right and bottom padding frames the paper against the sidebar
+    // on desktop. With the sidebar out of flow nothing balances it on the left,
+    // so it reads as a stray black strip.
+    const box = await page.locator('.lp-main').evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+            right: Math.round(rect.right),
+            bottom: Math.round(rect.bottom),
+            innerWidth: window.innerWidth,
+            innerHeight: window.innerHeight,
+        };
+    });
+    expect(box.right).toBe(box.innerWidth);
+    expect(box.bottom).toBe(box.innerHeight);
+});
+
 test('the hamburger opens the sidebar drawer and Escape closes it', async ({
     page,
-    projectId,
+    seeded,
 }) => {
-    await page.goto(`/projects/${projectId}/documents`);
+    await page.goto(`/projects/${seeded.projectId}/documents`);
 
     const sidebar = page.locator(SIDEBAR);
     const trigger = page.getByRole('button', { name: 'Open navigation' });
@@ -144,9 +232,9 @@ test('the hamburger opens the sidebar drawer and Escape closes it', async ({
 
 test('the open drawer keeps Tab off the page behind it', async ({
     page,
-    projectId,
+    seeded,
 }) => {
-    await page.goto(`/projects/${projectId}/documents`);
+    await page.goto(`/projects/${seeded.projectId}/documents`);
     await page.getByRole('button', { name: 'Open navigation' }).tap();
     await expect(page.locator(SIDEBAR)).toBeVisible();
 
@@ -163,9 +251,9 @@ test('the open drawer keeps Tab off the page behind it', async ({
 
 test('growing the window past lg releases the drawer', async ({
     page,
-    projectId,
+    seeded,
 }) => {
-    await page.goto(`/projects/${projectId}/documents`);
+    await page.goto(`/projects/${seeded.projectId}/documents`);
     await page.getByRole('button', { name: 'Open navigation' }).tap();
     await expect(page.locator('.lp-shell')).toHaveAttribute('inert', '');
 
@@ -177,8 +265,8 @@ test('growing the window past lg releases the drawer', async ({
     await expect(page.getByRole('link', { name: 'Connect' })).toBeVisible();
 });
 
-test('tapping the scrim closes the drawer', async ({ page, projectId }) => {
-    await page.goto(`/projects/${projectId}/documents`);
+test('tapping the scrim closes the drawer', async ({ page, seeded }) => {
+    await page.goto(`/projects/${seeded.projectId}/documents`);
 
     await page.getByRole('button', { name: 'Open navigation' }).tap();
     await expect(page.locator(SIDEBAR)).toBeVisible();
@@ -191,8 +279,9 @@ test('tapping the scrim closes the drawer', async ({ page, projectId }) => {
 
 test('the drawer closes on the page a nav link goes to', async ({
     page,
-    projectId,
+    seeded,
 }) => {
+    const projectId = seeded.projectId;
     await page.goto(`/projects/${projectId}/documents`);
 
     await page.getByRole('button', { name: 'Open navigation' }).tap();
@@ -211,9 +300,9 @@ test('the drawer closes on the page a nav link goes to', async ({
 
 test('no touch control renders below the 16px iOS zoom threshold', async ({
     page,
-    projectId,
+    seeded,
 }) => {
-    await page.goto(`/projects/${projectId}/documents`);
+    await page.goto(`/projects/${seeded.projectId}/documents`);
 
     for (const selector of ['.lp-filter-input', '.lp-filter-select']) {
         const control = page.locator(selector).first();

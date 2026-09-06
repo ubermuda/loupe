@@ -838,9 +838,11 @@
         @apply flex flex-col mt-2;
     }
     /* Divider on top rather than bottom, so the last row does not end on a rule
-       the eye reads as "more below". */
+       the eye reads as "more below". Below lg the badge and the actions drop to
+       their own line: held on one row they leave the title about 50px, which
+       renders every document on the list as one letter and an ellipsis. */
     .lp-document-row {
-        @apply relative flex items-center gap-4 border-t border-line-strong transition-colors py-5 px-1;
+        @apply relative flex flex-wrap items-center gap-x-4 gap-y-2.5 border-t border-line-strong transition-colors py-5 px-1 lg:flex-nowrap lg:gap-y-0;
     }
     .lp-document-row:hover {
         @apply bg-tint;
@@ -851,14 +853,16 @@
         @apply absolute inset-0;
     }
     .lp-document-row__main {
-        @apply min-w-0 flex-1 flex flex-col gap-1;
+        @apply min-w-0 basis-full flex flex-col gap-1 lg:flex-1;
     }
     /* Line 1: title + version pill inline. */
     .lp-document-row__head {
-        @apply flex items-baseline gap-2 min-w-0;
+        @apply flex flex-wrap items-baseline gap-2 min-w-0 lg:flex-nowrap;
     }
+    /* The title wraps below lg and truncates above it. A phone has the vertical
+       room, and one ellipsised letter tells the reader nothing. */
     .lp-document-row__title {
-        @apply font-display font-semibold text-ink truncate text-2xl tracking-tight;
+        @apply font-display font-semibold text-ink min-w-0 break-words text-xl tracking-tight lg:truncate lg:text-2xl;
     }
     /* Bare mono version marker, e.g. "v3" — a pill here would compete with the
        status badge at the other end of the same row. */
@@ -2049,14 +2053,17 @@
         @apply flex bg-sidebar;
         height: 100dvh;
     }
+    /* The right and bottom inset frames the paper against the sidebar. Below lg
+       the sidebar is out of flow, so nothing balances it on the left and it
+       reads as a stray black strip. */
     .lp-shell {
-        @apply flex flex-1 flex-col min-w-0 pr-2.5 pb-2.5;
+        @apply flex flex-1 flex-col min-w-0 lg:pr-2.5 lg:pb-2.5;
     }
     /* overflow-x is auto, not hidden: the review block is a fixed 972px and a
        narrow window must be able to scroll to the comment column rather than
        have it clipped away where nothing can reach it. */
     .lp-main {
-        @apply flex-1 min-h-0 bg-app rounded-lg overflow-x-auto overflow-y-auto;
+        @apply flex-1 min-h-0 bg-app rounded-t-lg overflow-x-auto overflow-y-auto lg:rounded-lg;
     }
 
     .lp-sidebar {
@@ -2275,8 +2282,11 @@
     .lp-topbar__menu svg {
         @apply w-5 h-5 shrink-0;
     }
+    /* The basis is a floor, not a width. `flex-1` alone lets the lead collapse
+       to a dozen pixels beside the review verdict buttons, and its content then
+       paints straight across them. A floor makes the actions wrap instead. */
     .lp-topbar__lead {
-        @apply flex flex-wrap items-baseline gap-x-3.5 gap-y-1 min-w-0 flex-1;
+        @apply flex flex-wrap items-baseline gap-x-3.5 gap-y-1 min-w-0 flex-1 basis-50 lg:basis-0;
     }
     .lp-topbar__trail {
         @apply flex items-baseline gap-2 min-w-0 max-w-full;
@@ -2290,11 +2300,13 @@
     .lp-topbar__sep {
         @apply text-sm text-chrome-dim;
     }
+    /* Wraps below lg for the same reason the document title does: there is no
+       width to truncate into, and the reader gets one word and a dot. */
     .lp-topbar__here {
-        @apply text-base font-medium text-white truncate;
+        @apply text-base font-medium text-white min-w-0 break-words lg:truncate;
     }
     .lp-topbar__meta {
-        @apply text-sm text-chrome-dim whitespace-nowrap;
+        @apply text-sm text-chrome-dim lg:whitespace-nowrap;
     }
     .lp-topbar__actions {
         @apply flex flex-wrap items-center gap-2.5 ml-auto;
