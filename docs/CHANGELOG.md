@@ -34,6 +34,9 @@ entry.
 
 ## [Unreleased]
 
+- `fd66350` (#362) — **Added:** a reviewer can draw freehand over the page and
+  attach the strokes to a comment, from the composer or from the collapsed
+  launcher. It is behind the `site_review.drawing.enabled` flag, on by default.
 - `9123005` (#335) — **Added:** a reviewer can approve a document one section at
   a time, with a control beside each heading. The Contents and Sections panels
   become one, and a document with a single heading now shows it, so a one-section
