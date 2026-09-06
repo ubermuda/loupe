@@ -146,27 +146,17 @@ from the project's Connect page. An agent never learns of a tool this instance
 would refuse. A client that holds an older tool list and calls one anyway gets a
 plain refusal rather than a broken call.
 
-### On a fresh install
+Open the flags page at **`/admin/feature-flags`** and switch `board.enabled`
+on. The change needs no restart. See [The admin area](admin.md).
 
-The install wizard writes a `board.enabled` row and sets it off. Open the flags
-page at **`/admin/feature-flags`** and switch it on. The change needs no restart.
+Every instance has the row. The install wizard writes it on a fresh install, and
+a database migration writes it on an instance that upgrades. Run the migrations
+as part of the upgrade, and the flags page lists `board.enabled`, set off.
 
-### On an instance installed before the board existed
-
-Such an instance has no `board.enabled` row at all. A missing row reads as off,
-so the board stays invisible and the flags page offers no switch for it.
-Upgrading does not create the row either, because a deploy runs the database
-migrations and nothing else.
-
-Create the row first, in one of two ways:
-
-- Open **`/admin/feature-flags/scan`**. It lists every flag the code references
-  that the database does not define, and it creates those rows on request.
-- Open **`/admin/feature-flags/new`**. Set **Name** to `board.enabled`, set
-  **Type** to `Bool`, then set the value.
-
-Switch the flag on at **`/admin/feature-flags`** afterwards. See
-[The admin area](admin.md).
+A missing row reads as off. If the flags page does not list the flag, the
+migration has not run. **`/admin/feature-flags/scan`** lists every flag the code
+references that the database does not define, and it creates those rows on
+request.
 
 ## Deleting a project
 
