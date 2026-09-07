@@ -47,10 +47,13 @@ class CardRepository extends ServiceEntityRepository
             ->setMaxResults($limit);
 
         if ('' !== $query) {
-            // ESCAPE, because _ and % in a reviewer's search string would
-            // otherwise be wildcards and quietly widen the match.
+            // Escaped with the character the ESCAPE clause declares, not with a
+            // backslash: a backslash is a literal here, so addcslashes() would
+            // leave % and _ as wildcards and quietly widen the match. The
+            // escape character itself goes first, or it doubles the others.
+            $escaped = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], mb_strtolower($query));
             $qb->andWhere('LOWER(c.title) LIKE :q ESCAPE \'!\'')
-                ->setParameter('q', '%'.addcslashes(mb_strtolower($query), '%_!').'%');
+                ->setParameter('q', '%'.$escaped.'%');
         }
 
         /* @var list<Card> */

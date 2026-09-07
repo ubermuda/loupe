@@ -78,7 +78,15 @@ final class BoardCardsApiTest extends WebTestCase
         self::assertSame([1], array_column($narrowed['cards'], 'number'));
     }
 
-    public function test_a_wildcard_in_the_search_is_matched_literally(): void
+    /**
+     * The first version of this test asserted that searching `%` returned
+     * nothing, and it passed against a broken escape: the pattern became a
+     * search for a backslash, which matched nothing either. A test whose
+     * assertion holds for the wrong reason is worse than none, so this one
+     * asserts a positive match on a card whose title really contains the
+     * wildcard, and that the other card is excluded.
+     */
+    public function test_a_wildcard_in_the_search_matches_only_a_literal_one(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -86,15 +94,21 @@ final class BoardCardsApiTest extends WebTestCase
         $this->enableBoard($em);
 
         $em->persist(new Card($project, 'Rotate the signing key', '', 1));
+        $em->persist(new Card($project, 'Progress bar sticks at 50% forever', '', 2));
+        $em->persist(new Card($project, 'Rename user_id across the export', '', 3));
         $em->flush();
 
-        // Guard: the card is findable, so the empty result below is the escape
-        // working rather than an empty project.
-        $this->api($client, Request::METHOD_GET, '/api/board/cards?q=rotate', $raw);
-        self::assertCount(1, json_decode((string) $client->getResponse()->getContent(), true)['cards']);
-
         $this->api($client, Request::METHOD_GET, '/api/board/cards?q='.urlencode('%'), $raw);
-        self::assertSame([], json_decode((string) $client->getResponse()->getContent(), true)['cards']);
+        self::assertSame([2], array_column(
+            json_decode((string) $client->getResponse()->getContent(), true)['cards'],
+            'number',
+        ));
+
+        $this->api($client, Request::METHOD_GET, '/api/board/cards?q='.urlencode('_'), $raw);
+        self::assertSame([3], array_column(
+            json_decode((string) $client->getResponse()->getContent(), true)['cards'],
+            'number',
+        ));
     }
 
     public function test_both_endpoints_are_absent_while_the_board_is_switched_off(): void
