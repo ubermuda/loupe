@@ -2232,3 +2232,38 @@ this.
 
 Any fix has to keep the desktop row on one line. A fix can wrap the address
 below the name. It can also drop the truncation below `lg`.
+
+## `SelfContainedCommentsCheck` never reads the e2e specs
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`SelfContainedCommentsCheck` in `ubermuda/gamache` scans `src/**/*.php`,
+`tests/**/*.php` and `templates/**/*.twig`. It never reads `e2e/**/*.ts`. A
+comment in a Playwright spec can name an ephemeral development artifact and
+still pass every gate.
+
+Neither the check nor its `AbstractCheck` parent takes constructor arguments,
+so `gamache.php` cannot widen the patterns from this repository.
+`CommentBudgetCheck` does take a `patterns` argument, and this project already
+passes `e2e/**/*.ts` to it. That contrast reads as an oversight.
+
+The evidence that it matters: a comment in
+`e2e/tests/review/mobile-review.spec.ts` said a sibling branch owned the app
+shell overflow. That branch merged in the same commit, so the sentence was
+false and self-referential. It passed every gate. A human found it by reading.
+Commit 564618ca removed it.
+
+The fix needs both halves, because either one alone is not enough.
+
+- The check must read `e2e/**/*.ts`.
+- The check needs patterns for git branch references.
+
+Its ten current patterns target `Task \d+`, `handoff`, `§\d`, `spec §`,
+`Phase \d+`, `Part \d+`, `plan header`, `owner decision`,
+`MANDATORY conventions` and `BLOCKER-grade`. None of them match "a sibling
+branch" or "this branch", so wider file patterns alone catch nothing.
+`scanPhpComments` uses `token_get_all`, so TypeScript coverage also needs a new
+comment scanner.
+
+Do this work in a pull request on https://github.com/ubermuda/gamache. Rules
+live in that package. Never add a check class to this repository.
