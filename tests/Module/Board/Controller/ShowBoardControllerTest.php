@@ -67,6 +67,8 @@ final class ShowBoardControllerTest extends WebTestCase
         // The drag submits this form, so the fields are on the face. Dragging is
         // the only interaction the face offers, so nothing renders a control.
         $face = $crawler->filter('[data-card-id="'.$cardId.'"]');
+        self::assertSame('pointerdown->board-drag#press', $face->attr('data-action'));
+        self::assertCount(1, $crawler->filter('#board [data-board-drag-target="message"]'));
         self::assertCount(1, $face->filter('form[hidden][data-board-drag-target="moveForm"]'));
         self::assertCount(1, $face->filter('select[name$="[status]"]'));
         self::assertCount(0, $face->filter('details'));

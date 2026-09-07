@@ -3591,7 +3591,13 @@
         @apply flex items-start justify-between gap-4;
     }
     .lp-board {
+        @apply flex flex-col gap-2;
+    }
+    .lp-board__columns {
         @apply flex items-start gap-4 overflow-x-auto pb-4;
+    }
+    .lp-board__message {
+        @apply text-sm font-semibold text-danger m-0 empty:hidden;
     }
     .lp-board__column {
         @apply flex flex-col gap-3 grow basis-0 min-w-64 rounded-xl bg-surface-2 p-3.5;
@@ -3628,16 +3634,22 @@
         @apply select-none;
     }
 
+    /* The whole card is the drag handle, so its own text is not selectable.
+       A selection started on a card would fight the gesture. The card's page
+       carries the same text, and there it selects normally. */
     .lp-board-card {
-        @apply relative flex flex-col gap-2 rounded-xl bg-surface-1 py-3 px-3.5 transition-shadow;
+        @apply relative flex flex-col gap-2 rounded-xl bg-surface-1 py-3 px-3.5 transition-shadow select-none cursor-grab;
+    }
+    .lp-board-card[aria-busy='true'] {
+        @apply opacity-60;
     }
     .lp-board-card--dragging {
         @apply fixed z-50 pointer-events-none shadow-lg opacity-90;
     }
     .lp-board-card__grip {
-        @apply absolute top-2 right-2 cursor-grab touch-none text-fg-faint;
+        @apply absolute top-2 right-2 touch-none text-fg-faint;
     }
-    .lp-board-card__grip:active {
+    .lp-board-card:active {
         @apply cursor-grabbing;
     }
     .lp-board-card__title {

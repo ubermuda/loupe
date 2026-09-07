@@ -4276,6 +4276,10 @@
                 <source>board.card.move.title</source>
                 <target>Move this card</target>
             </trans-unit>
+            <trans-unit id="board.drag.failed">
+                <source>board.drag.failed</source>
+                <target>The card went back. The move did not reach the server.</target>
+            </trans-unit>
             <trans-unit id="board.card.move.submit">
                 <source>board.card.move.submit</source>
                 <target>Move card</target>

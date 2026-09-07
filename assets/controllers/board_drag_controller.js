@@ -4,29 +4,38 @@ import { Controller } from '@hotwired/stimulus';
 /**
  * Drag and drop for the board.
  *
- * The server stays the authority. A drop never reorders the board itself: it
- * fills the dragged card's own move form and submits it, and the Turbo Stream
- * that comes back replaces the board with what the database holds. A drag that
- * is abandoned, refused or interrupted therefore leaves the page showing the
- * order it already had, never an invented one.
+ * A drop moves the card in the page at once, then posts. The server stays the
+ * authority: its answer replaces the whole board, so a prediction that was
+ * wrong is corrected, and a request that fails puts the card back where it came
+ * from and says so. The board never keeps an order the database refused.
  *
- * A card face carries that form with no controls on it, because dragging is the
- * only interaction the board offers. The card's own page carries the same form
- * with its labels, which is the keyboard and no-JS path to this endpoint.
+ * The whole card is the handle. A press becomes a drag only after the pointer
+ * travels far enough, so a click on the title still opens the card.
  *
  * Eagerly loaded, and it marks the board ready when it connects. Dragging is the
  * board's primary gesture, and a lazily fetched controller leaves a window in
  * which a card can be grabbed and nothing happens.
  */
+
+/**
+ * Pixels the pointer must travel before a press becomes a drag. Above the jitter
+ * of a mouse click, below the distance a person reads as movement.
+ */
+const DRAG_THRESHOLD = 5;
+
 export default class extends Controller {
-    static targets = ['card', 'group', 'moveForm'];
+    static targets = ['card', 'group', 'moveForm', 'message'];
 
     connect() {
         this.pointerId = null;
+        this.pressedCard = null;
         this.draggedCard = null;
         this.placeholder = null;
         this.originGroup = null;
+        this.originNextCard = null;
         this.originIndex = -1;
+        this.pendingForm = null;
+        this.swallowClick = false;
 
         this.onPointerMove = (event) => this.pointerMove(event);
         this.onPointerUp = (event) => this.pointerUp(event);
@@ -35,20 +44,37 @@ export default class extends Controller {
                 this.abandon();
             }
         };
+        // A drag that ends on the title would otherwise open the card it just
+        // moved, because a click follows the pointerup.
+        this.onClick = (event) => {
+            if (!this.swallowClick) {
+                return;
+            }
+            this.swallowClick = false;
+            event.preventDefault();
+            event.stopPropagation();
+        };
 
+        this.element.addEventListener('click', this.onClick, true);
         this.element.dataset.boardDragReady = 'true';
     }
 
     disconnect() {
         this.abandon();
+        this.element.removeEventListener('click', this.onClick, true);
         delete this.element.dataset.boardDragReady;
     }
 
-    start(event) {
-        if (this.draggedCard !== null) {
+    press(event) {
+        if (this.pressedCard !== null) {
             return;
         }
-        if (event.pointerType === 'mouse' && event.button !== 0) {
+        // One move at a time. A second drag started before the first answer
+        // would rank a card against a position the server has not accepted.
+        if (this.pendingForm !== null) {
+            return;
+        }
+        if (event.pointerType === 'mouse' && 0 !== event.button) {
             return;
         }
 
@@ -61,14 +87,30 @@ export default class extends Controller {
             return;
         }
 
-        event.preventDefault();
+        this.swallowClick = false;
+        this.clearMessage();
 
-        const rectangle = card.getBoundingClientRect();
         this.pointerId = event.pointerId;
+        this.pressedCard = card;
         this.originGroup = group;
-        this.originIndex = this.allCardsIn(group).indexOf(card);
-        this.grabOffsetX = event.clientX - rectangle.left;
-        this.grabOffsetY = event.clientY - rectangle.top;
+        this.pressX = event.clientX;
+        this.pressY = event.clientY;
+
+        window.addEventListener('pointermove', this.onPointerMove);
+        window.addEventListener('pointerup', this.onPointerUp);
+        window.addEventListener('pointercancel', this.onPointerUp);
+        window.addEventListener('keydown', this.onKeydown);
+    }
+
+    /** Turns the press into a drag once the pointer has travelled far enough. */
+    begin() {
+        const card = this.pressedCard;
+        const rectangle = card.getBoundingClientRect();
+
+        this.originNextCard = this.cardAfter(card);
+        this.originIndex = this.allCardsIn(this.originGroup).indexOf(card);
+        this.grabOffsetX = this.pressX - rectangle.left;
+        this.grabOffsetY = this.pressY - rectangle.top;
 
         this.placeholder = document.createElement('div');
         this.placeholder.className = 'lp-board__placeholder';
@@ -81,16 +123,22 @@ export default class extends Controller {
         card.style.top = `${rectangle.top}px`;
         this.draggedCard = card;
         this.element.classList.add('lp-board--dragging');
-
-        window.addEventListener('pointermove', this.onPointerMove);
-        window.addEventListener('pointerup', this.onPointerUp);
-        window.addEventListener('pointercancel', this.onPointerUp);
-        window.addEventListener('keydown', this.onKeydown);
     }
 
     pointerMove(event) {
-        if (this.draggedCard === null || event.pointerId !== this.pointerId) {
+        if (this.pressedCard === null || event.pointerId !== this.pointerId) {
             return;
+        }
+
+        if (this.draggedCard === null) {
+            const travelled = Math.hypot(
+                event.clientX - this.pressX,
+                event.clientY - this.pressY,
+            );
+            if (travelled < DRAG_THRESHOLD) {
+                return;
+            }
+            this.begin();
         }
 
         event.preventDefault();
@@ -132,11 +180,17 @@ export default class extends Controller {
     }
 
     pointerUp(event) {
-        if (this.draggedCard === null || event.pointerId !== this.pointerId) {
+        if (this.pressedCard === null || event.pointerId !== this.pointerId) {
             return;
         }
 
         const card = this.draggedCard;
+        if (card === null) {
+            this.abandon();
+
+            return;
+        }
+
         // The release point decides, and the marker is re-placed from it rather
         // than read where it sits. A pointerup can arrive at a spot no
         // pointermove reported, so trusting the marker would commit the last
@@ -151,20 +205,34 @@ export default class extends Controller {
             position = this.rankOfPlaceholder(group);
         }
 
+        const origin = { group: this.originGroup, before: this.originNextCard };
+        const moves =
+            group !== null &&
+            !(group === this.originGroup && position === this.originIndex);
+
+        if (moves) {
+            this.placeholder.replaceWith(card);
+        }
+
+        this.swallowClick = true;
         this.abandon();
-        this.submitMove(card, group, position);
+
+        if (moves) {
+            this.submitMove(card, group, position, origin);
+        }
     }
 
     /**
      * Fills the card's own hidden move form and submits it, which lets Turbo
      * carry the request and the eager CSRF controller stamp the token. A
      * hand-rolled fetch would have to re-implement both.
+     *
+     * The card has already moved in the page. A refusal, a failure or a lost
+     * connection puts it back, because `turbo:submit-end` reports all three.
+     * A success answers with the whole board, which replaces this one and makes
+     * the prediction moot rather than applying it twice.
      */
-    submitMove(card, group, position) {
-        if (group === null) {
-            return;
-        }
-
+    submitMove(card, group, position, origin) {
         const form = card.querySelector('[data-board-drag-target="moveForm"]');
         if (form === null) {
             return;
@@ -177,20 +245,14 @@ export default class extends Controller {
             return;
         }
 
-        const wantedStatus = group.dataset.status;
         const wantedPriority = group.dataset.priority;
-        const rankable = group.dataset.rankable === '1';
-        const staysInGroup = group === this.originGroup;
-        const samePlace = staysInGroup && position === this.originIndex;
+        const rankable = '1' === group.dataset.rankable;
+        const staysInGroup = group === origin.group;
 
-        if (samePlace) {
-            return;
-        }
-
-        status.value = wantedStatus;
+        status.value = group.dataset.status;
         // A column that keeps no rank grades nothing either, so the card holds
         // the grade it already had rather than taking an empty one.
-        if (wantedPriority !== '') {
+        if ('' !== wantedPriority) {
             priority.value = wantedPriority;
         }
         // A rank is only sent for a move inside one group. The handler appends
@@ -198,7 +260,49 @@ export default class extends Controller {
         rank.value =
             staysInGroup && rankable && position >= 0 ? String(position) : '';
 
+        const finished = (event) => {
+            form.removeEventListener('turbo:submit-end', finished);
+            this.pendingForm = null;
+            card.removeAttribute('aria-busy');
+            if (event.detail.success) {
+                return;
+            }
+            this.restore(card, origin);
+        };
+
+        this.pendingForm = form;
+        card.setAttribute('aria-busy', 'true');
+        form.addEventListener('turbo:submit-end', finished);
         form.requestSubmit();
+    }
+
+    /** Puts a card back where the drag took it from, and says that it moved back. */
+    restore(card, origin) {
+        if (!this.element.isConnected || !card.isConnected) {
+            return;
+        }
+
+        if (origin.before !== null && origin.before.isConnected) {
+            origin.before.before(card);
+        } else if (origin.group.isConnected) {
+            origin.group.append(card);
+        }
+
+        this.showMessage();
+    }
+
+    showMessage() {
+        if (!this.hasMessageTarget) {
+            return;
+        }
+
+        this.messageTarget.textContent = this.messageTarget.dataset.message;
+    }
+
+    clearMessage() {
+        if (this.hasMessageTarget) {
+            this.messageTarget.textContent = '';
+        }
     }
 
     /** Restores the page to the state it was in before the drag started. */
@@ -220,8 +324,10 @@ export default class extends Controller {
         this.element.classList.remove('lp-board--dragging');
 
         this.pointerId = null;
+        this.pressedCard = null;
         this.draggedCard = null;
         this.placeholder = null;
+        this.originNextCard = null;
     }
 
     groupUnder(x, y) {
@@ -247,6 +353,13 @@ export default class extends Controller {
         )
             .filter((element) => element !== this.draggedCard)
             .indexOf(this.placeholder);
+    }
+
+    /** The next card in the same group, or null when this one is last. */
+    cardAfter(card) {
+        const cards = this.allCardsIn(card.parentElement);
+
+        return cards[cards.indexOf(card) + 1] ?? null;
     }
 
     allCardsIn(group) {

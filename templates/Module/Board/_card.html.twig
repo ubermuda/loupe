@@ -1,13 +1,15 @@
-{# One card face. `rankable` says whether its column keeps a hand-made rank. #}
+{# One card face. The whole card is the drag handle, and the grip says so. #}
 <article class="lp-board-card"
          data-board-drag-target="card"
+         data-action="pointerdown->board-drag#press"
          data-card-id="{{ card.id }}"
          data-card-title="{{ card.title }}">
-    <span class="lp-board-card__grip" aria-hidden="true"
-          data-action="pointerdown->board-drag#start">
+    <span class="lp-board-card__grip" aria-hidden="true">
         <twig:ux:icon name="lucide:grip-vertical" class="w-4 h-4" />
     </span>
+    {# draggable="false" stops the browser's own link drag taking the gesture. #}
     <a class="lp-board-card__title"
+       draggable="false"
        href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}">
         {# The per-project number is the handle a person quotes, so it reads
            beside the title rather than instead of it. Guarded because the column

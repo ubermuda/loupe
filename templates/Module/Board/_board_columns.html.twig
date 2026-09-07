@@ -1,6 +1,13 @@
 {# The board itself. Rendered by the page and again by the move endpoint's
    stream, so the two can never drift apart. Props: board (BoardView). #}
 <div id="board" class="lp-board" data-controller="board-drag">
+    {# A drop moves the card at once. This says so when the server refuses. #}
+    <p class="lp-board__message"
+       data-board-drag-target="message"
+       data-message="{{ 'board.drag.failed'|trans }}"
+       role="status"
+       aria-live="polite"></p>
+    <div class="lp-board__columns">
     {% for column in board.columns %}
     <section class="lp-board__column" aria-label="{{ ('board.card.status.' ~ column.status.value)|trans }}">
         <header class="lp-board__column-head">
@@ -31,4 +38,5 @@
         {% endif %}
     </section>
     {% endfor %}
+    </div>
 </div>

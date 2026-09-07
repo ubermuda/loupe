@@ -1,10 +1,14 @@
 /**
  * Browser coverage for dragging a card on the board.
  *
- * Two cases: a drag inside one priority group, which reorders it, and a drag
- * into another column, which changes the card's status. Both assert the order
- * again after a reload, because the drop is only honoured once the server has
- * written it and answered with the board it now holds.
+ * A drag inside one priority group reorders it, and a drag into another column
+ * changes the card's status. Both assert the order again after a reload,
+ * because a drop moves the card in the page before the server has answered, and
+ * a reload is what shows whether the server agreed.
+ *
+ * Two more cases guard the parts a drop can get wrong. A request that never
+ * arrives must put the card back and say so. A click on the card title, which
+ * is a link inside the drag handle, must still open the card.
  */
 
 import {
@@ -109,9 +113,10 @@ function titlesIn(page: Page, column: number, priority: number) {
 }
 
 /**
- * Drags a card by its grip to a point, with pointer events rather than the
+ * Drags a card by its title to a point, with pointer events rather than the
  * HTML5 drag API, which is what the controller listens for and what Playwright
- * drives deterministically.
+ * drives deterministically. The title is a link, so this also proves that a
+ * drag which starts on it moves the card rather than opening it.
  */
 async function dragCardTo(
     page: Page,
@@ -119,7 +124,7 @@ async function dragCardTo(
     target: { x: number; y: number },
 ): Promise<void> {
     const grip = page.locator(
-        `[data-card-title="${title}"] .lp-board-card__grip`,
+        `[data-card-title="${title}"] .lp-board-card__title`,
     );
     const from = await grip.boundingBox();
     expect(from).not.toBeNull();
@@ -236,6 +241,26 @@ test('a drag into another column changes the status, and it survives a reload', 
     await page.goto(board.boardUrl);
     expect(await titlesIn(page, NEXT, HIGH)).toEqual(['Alpha']);
     expect(await titlesIn(page, BACKLOG, HIGH)).toEqual(['Bravo']);
+});
+
+test('a move the server never receives puts the card back and says so', async ({
+    page,
+    board,
+}) => {
+    expect(await titlesIn(page, BACKLOG, HIGH)).toEqual(['Alpha', 'Bravo']);
+
+    await page.route('**/board/cards/*/move', (route) => route.abort());
+    await dragCardTo(page, 'Alpha', await centreOfGroup(page, NEXT, HIGH));
+
+    const message = page.locator('.lp-board__message');
+    await expect(message).toHaveText(/./);
+    expect(await titlesIn(page, BACKLOG, HIGH)).toEqual(['Alpha', 'Bravo']);
+    expect(await titlesIn(page, NEXT, HIGH)).toEqual([]);
+
+    await page.unroute('**/board/cards/*/move');
+    await page.goto(board.boardUrl);
+    await waitForDragReady(page);
+    expect(await titlesIn(page, BACKLOG, HIGH)).toEqual(['Alpha', 'Bravo']);
 });
 
 test("the card's own page moves it without a pointer", async ({
