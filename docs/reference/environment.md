@@ -102,6 +102,22 @@ they are already wired to those variables: replacing a reference there breaks
 [Object storage](../extending/object-storage.md) covers them, including the
 `EXPORT_STORAGE_ACL` value each provider needs.
 
+## Adding a row to this page
+
+Write the variable's full name. A shorthand that folds two names into one row,
+such as `OAUTH_GOOGLE_ID` / `_SECRET`, reads well and hides the second name from
+every search a person or a tool makes for it.
+
+That is not hypothetical. `EXPORT_STORAGE_SECRET` sat in no page at all until
+`DeploymentConfigParityCheck` gained its documentation scan. Six existing scans
+passed over it, because each one compares two files a machine reads, and the
+shorthand row satisfied a reader skimming the page. The check found it only once
+someone spelled the family out.
+
+Delegating a whole family to another page, as the paragraph above does for
+`EXPORT_STORAGE_*`, is a different thing and stays correct. Say where the
+variables live, and make sure that page names each one in full.
+
 ## Secrets
 
 Generate once, then keep them somewhere durable.
