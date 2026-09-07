@@ -203,11 +203,15 @@ form.
 ## Auditing a domain event
 
 A handler records its domain event through `Ubermuda\AuditBundle\Auditor`. Inject
-`Auditor` and call `record()`. Do not inject `LoggerInterface` beside it, because
-the package's Monolog sink writes the log line for the record. A logger kept
-there emits the same event twice. Keep `LoggerInterface` for a call to an
-external service, or for a batch job, such as Stripe or the site-review outbox
-drain.
+`Auditor` and call `record()`. Do not log the same event beside the record,
+because the package's Monolog sink writes the log line for it. A second logger
+emits the event twice, and no assertion on the record can see that.
+
+A handler that also calls an external service, or runs a batch job, keeps its
+logger for that call. Stripe, the async export and the site-review outbox drain
+do this. The record answers what happened and to whom. The log line beside it
+carries the diagnostics the trail must not hold.
+`DirectLogging::assertDiagnosticsLoggedBeside()` pins that split.
 
 ```php
 $this->auditor->record(
