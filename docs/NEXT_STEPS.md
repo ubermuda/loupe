@@ -1313,17 +1313,26 @@ PR merges — it lands when this project's pin moves. Three are in flight:
 After any of these merges, repoint the pin per the `ubermuda/*` pinning rule in
 `CLAUDE.md` and only then delete the corresponding entry here.
 
-## A site-review comment on a worktree preview does not know which pull request it belongs to
+## A site-review comment carries a context but nothing links it to a card
 
 **Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
 
-Every worktree serves its branch at `https://<slug>.loupe.dev.localhost`, and the site-review widget works there like anywhere else. A comment left on that preview lands against the project, with nothing recording that it was made against a branch under review. The reviewer then has to carry the connection by hand, and the agent picking the feedback up through `site_review_get` cannot tell which branch the comment is about.
+Pull request 382 did the first half. The widget embed takes an optional `data-context`, fed by `SITE_REVIEW_WIDGET_CONTEXT`, and `SiteReviewComment` stores that marker in a nullable `context` column which SiteReview never parses. `site_review_get` reports it and the account export carries it. `just worktree-up NAME CONTEXT` writes the value into a worktree's `.env.local`. `AddCommentHandler` dispatches `SiteReviewCommentCreated` inside its transaction, after the comment has an id.
 
-The wanted behaviour is that a comment made on a worktree preview attaches to that branch's pull request. What "attaches" means is open, and the options differ a lot in cost: store the branch or PR number on the comment so `site_review_get` reports it, post the comment to the PR as a review comment, or link the two so the widget shows the PR and the PR shows the comments.
+Nothing listens to that event. So a comment made on a worktree preview now records which card it was made against, and no card shows it.
 
-Resolving the PR from the request is the first question to answer. The widget knows the host it is loaded on, `bin/worktrees/` resolves a slug to a worktree, and `gh pr view --json number` resolves a branch to a PR, so the chain exists but nothing joins it up today. Note that a worktree can exist before its PR does.
+What is left is the Board half, settled in design and not built:
 
-Relevant code: `public/site-review/widget.js`, `src/Module/SiteReview/`, and the site-review API routes. See also "Site-review comments have no agent-reply data model" and "Let the agent close the loop when a human approves the work".
+- A Board listener on `SiteReviewCommentCreated` reads the `card:<uuid>` context and persists a Board-owned link entity. The dependency runs from Board to SiteReview, never the reverse, which the arkitect rule fencing Board as a leaf also requires.
+- The listener must fail soft. It runs inside `AddCommentHandler`'s transaction, so anything it throws aborts the comment save. It skips on a malformed context, an unknown card, a card whose project is not the comment's project, and on `board.enabled` being off.
+- The project check is not optional. `data-context` is client-supplied and a widget token is per-project, so without it a card in one project collects comments made on another project's site.
+- The card page lists its linked comments, `CardPayload::forCard()` returns them so `card_get` includes them, and `ShowBoardHandler` counts the pending ones per card with one aggregate rather than a query per card.
+- The link's comment foreign key cascades on delete, so `DeleteCommentHandler` needs no change. Check the ordering against `DeleteSiteReviewDataOnProjectDeleting`, which bulk-deletes comments by DQL.
+- `CardExporter` and `docs/using/board.md` both go stale when the payload changes, and so does `.claude/skills/loupe-board/SKILL.md`, which documents what `card_get` returns.
+
+Writing to a GitHub pull request is deliberately not in scope. The app persists no GitHub credential, so posting from the app needs a whole credential subsystem. Once a comment is on a card, the card's own `CardPullRequest` links put the pull request one hop away, so an agent can post it with `gh` from what `card_get` already returns.
+
+Relevant code: `src/Module/Board/`, `src/Module/SiteReview/Event/SiteReviewCommentCreated.php`, `src/Module/SiteReview/Entity/SiteReviewComment.php`. See also "Site-review comments have no agent-reply data model" and "Let the agent close the loop when a human approves the work".
 
 ## Consider scoped mutation testing, because a green suite proved little here
 
@@ -2217,3 +2226,38 @@ this.
 
 Any fix has to keep the desktop row on one line. A fix can wrap the address
 below the name. It can also drop the truncation below `lg`.
+
+## `SelfContainedCommentsCheck` never reads the e2e specs
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`SelfContainedCommentsCheck` in `ubermuda/gamache` scans `src/**/*.php`,
+`tests/**/*.php` and `templates/**/*.twig`. It never reads `e2e/**/*.ts`. A
+comment in a Playwright spec can name an ephemeral development artifact and
+still pass every gate.
+
+Neither the check nor its `AbstractCheck` parent takes constructor arguments,
+so `gamache.php` cannot widen the patterns from this repository.
+`CommentBudgetCheck` does take a `patterns` argument, and this project already
+passes `e2e/**/*.ts` to it. That contrast reads as an oversight.
+
+The evidence that it matters: a comment in
+`e2e/tests/review/mobile-review.spec.ts` said a sibling branch owned the app
+shell overflow. That branch merged in the same commit, so the sentence was
+false and self-referential. It passed every gate. A human found it by reading.
+Commit 564618ca removed it.
+
+The fix needs both halves, because either one alone is not enough.
+
+- The check must read `e2e/**/*.ts`.
+- The check needs patterns for git branch references.
+
+Its ten current patterns target `Task \d+`, `handoff`, `§\d`, `spec §`,
+`Phase \d+`, `Part \d+`, `plan header`, `owner decision`,
+`MANDATORY conventions` and `BLOCKER-grade`. None of them match "a sibling
+branch" or "this branch", so wider file patterns alone catch nothing.
+`scanPhpComments` uses `token_get_all`, so TypeScript coverage also needs a new
+comment scanner.
+
+Do this work in a pull request on https://github.com/ubermuda/gamache. Rules
+live in that package. Never add a check class to this repository.
