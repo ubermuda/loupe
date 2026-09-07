@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Service;
 
+use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Service\GitHubPullRequestUrlParser;
 use App\Module\Board\Service\PullRequestUrlResolver;
@@ -66,5 +67,31 @@ final class GitHubPullRequestUrlParserTest extends TestCase
         $ref = $resolver->resolve('https://github.com/ubermuda/loupe/pull/1');
 
         self::assertSame(Forge::GitHub, $ref->forge);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function unstorableReferences(): iterable
+    {
+        $owner = str_repeat('a', CardPullRequest::MAX_REPOSITORY_LENGTH);
+
+        yield 'repository past its column' => ['https://github.com/'.$owner.'/loupe/pull/1'];
+        yield 'number past a 32-bit integer' => ['https://github.com/ubermuda/loupe/pull/2147483648'];
+        yield 'number past a 64-bit integer' => ['https://github.com/ubermuda/loupe/pull/99999999999999999999'];
+    }
+
+    /**
+     * A URL short enough to store can still carry parts that no column holds.
+     * The link stays, and only the parts that do not fit are dropped.
+     */
+    #[DataProvider('unstorableReferences')]
+    public function test_a_reference_no_column_can_hold_is_dropped_and_the_link_kept(string $url): void
+    {
+        self::assertLessThanOrEqual(CardPullRequest::MAX_URL_LENGTH, mb_strlen($url));
+
+        $ref = new PullRequestUrlResolver([$this->parser])->resolve($url);
+
+        self::assertSame(Forge::GitHub, $ref->forge);
+        self::assertNull($ref->repository);
+        self::assertNull($ref->number);
     }
 }

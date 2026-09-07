@@ -157,6 +157,10 @@ characters does not fit the column, so Loupe refuses the whole call. The form
 shows the error on the pull request links field, and an MCP tool answers with
 the limit.
 
+A short enough URL can still name a repository or a number too large to store.
+Loupe keeps the link and the forge, and leaves the repository and the number
+empty.
+
 Two identical URLs in one call are stored once, a blank entry is dropped, and
 the links read back in the order they were added.
 

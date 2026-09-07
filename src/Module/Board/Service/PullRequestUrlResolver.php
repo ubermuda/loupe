@@ -28,7 +28,12 @@ final readonly class PullRequestUrlResolver
     {
         foreach ($this->parsers as $parser) {
             if ($parser->supports($url)) {
-                return $parser->parse($url);
+                $ref = $parser->parse($url);
+
+                // The forge stands even when the reference it read does not
+                // fit its columns, so the link is kept and only the parts that
+                // do not fit are dropped.
+                return $ref->isStorable() ? $ref : new ForgeRef($ref->forge);
             }
         }
 

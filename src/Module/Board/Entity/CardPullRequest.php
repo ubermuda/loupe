@@ -22,6 +22,12 @@ class CardPullRequest
     /** Mirrors the url column's length so callers can reject an over-long URL before Postgres does. */
     public const int MAX_URL_LENGTH = 512;
 
+    /** Mirrors the repository column's length, for the same reason. */
+    public const int MAX_REPOSITORY_LENGTH = 255;
+
+    /** The largest value the number column holds, which Postgres stores as a 32-bit integer. */
+    public const int MAX_NUMBER = 2147483647;
+
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
@@ -40,7 +46,7 @@ class CardPullRequest
         public Forge $forge = Forge::Other,
 
         /** The `owner/repo` pair, when the forge's URL shape carries one. */
-        #[ORM\Column(length: 255, nullable: true)]
+        #[ORM\Column(length: self::MAX_REPOSITORY_LENGTH, nullable: true)]
         public ?string $repository = null,
 
         #[ORM\Column(nullable: true)]
