@@ -7,7 +7,9 @@ namespace App\Module\Board\Command;
 use App\Module\Board\Service\CardGroupOrder;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 
 /** Deletes a card and its pull request links, which orphanRemoval takes with it. */
 final readonly class DeleteCardHandler
@@ -15,15 +17,21 @@ final readonly class DeleteCardHandler
     public function __construct(
         private CardGroupOrder $groupOrder,
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
     public function __invoke(DeleteCardCommand $command): void
     {
         $card = $command->card;
+
+        // Read before the remove: the row is gone afterwards, and the detached
+        // entity carries no id.
         $cardId = (string) $card->id;
+        $cardNumber = $card->number;
         $projectId = (string) $card->project->id;
+        $status = $card->status->value;
+        $priority = $card->priority->value;
 
         $this->em->wrapInTransaction(function () use ($card): void {
             // The renumbering below reads the group first, so it takes the same
@@ -38,9 +46,19 @@ final readonly class DeleteCardHandler
             $this->em->flush();
         });
 
-        $this->logger->info('board.card_deleted', [
-            'cardId' => $cardId,
-            'projectId' => $projectId,
-        ]);
+        // After the commit, never inside it: the sink drains at kernel.terminate,
+        // so a record written in the closure outlives a rollback.
+        $this->auditor->record(
+            'board.card_deleted',
+            AuditOutcome::Success,
+            [
+                'cardId' => $cardId,
+                'cardNumber' => $cardNumber,
+                'projectId' => $projectId,
+                'status' => $status,
+                'priority' => $priority,
+            ],
+            new AuditSubject('card', $cardId),
+        );
     }
 }

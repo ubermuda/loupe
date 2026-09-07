@@ -8,7 +8,9 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Service\PullRequestUrlResolver;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 
 final readonly class UpdateCardHandler
 {
@@ -16,13 +18,19 @@ final readonly class UpdateCardHandler
         private MoveCardHandler $moveCard,
         private PullRequestUrlResolver $pullRequests,
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
     public function __invoke(UpdateCardCommand $command): Card
     {
         $card = $command->card;
+
+        // A field the command carries may hold what the card already holds, so
+        // the record reports what changed rather than what was submitted.
+        $originalTitle = $card->title;
+        $originalBody = $card->body;
+        $originalType = $card->type;
 
         if (null !== $command->title) {
             $title = trim($command->title);
@@ -55,18 +63,31 @@ final readonly class UpdateCardHandler
         // them first would commit half an update whose move then failed.
         $status = $command->status ?? $card->status;
         $priority = $command->priority ?? $card->priority;
-        if ($status !== $card->status || $priority !== $card->priority) {
+        $moved = $status !== $card->status || $priority !== $card->priority;
+        if ($moved) {
             ($this->moveCard)(new MoveCardCommand($card, $status, $priority));
         } else {
             $this->em->flush();
         }
 
-        $this->logger->info('board.card_updated', [
-            'cardId' => (string) $card->id,
-            'projectId' => (string) $card->project->id,
-            'status' => $card->status->value,
-            'pullRequestsReplaced' => null !== $command->pullRequestUrls,
-        ]);
+        // After the write, and after the move that carries it. `moved` names the
+        // paired board.card_moved record, which holds the status and priority
+        // this one does not.
+        $this->auditor->record(
+            'board.card_updated',
+            AuditOutcome::Success,
+            [
+                'cardId' => (string) $card->id,
+                'cardNumber' => $card->number,
+                'projectId' => (string) $card->project->id,
+                'titleChanged' => $originalTitle !== $card->title,
+                'bodyChanged' => $originalBody !== $card->body,
+                'typeChanged' => $originalType !== $card->type,
+                'pullRequestsReplaced' => null !== $command->pullRequestUrls,
+                'moved' => $moved,
+            ],
+            new AuditSubject('card', (string) $card->id),
+        );
 
         return $card;
     }

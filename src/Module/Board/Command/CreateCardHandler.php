@@ -11,7 +11,9 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\PullRequestUrlResolver;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 
 final readonly class CreateCardHandler
 {
@@ -19,7 +21,7 @@ final readonly class CreateCardHandler
         private CardRepository $cards,
         private PullRequestUrlResolver $pullRequests,
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -68,14 +70,24 @@ final readonly class CreateCardHandler
             return $card;
         });
 
-        $this->logger->info('board.card_created', [
-            'cardId' => (string) $card->id,
-            'cardNumber' => $card->number,
-            'projectId' => (string) $command->project->id,
-            'status' => $card->status->value,
-            'origin' => $card->origin->value,
-            'pullRequestCount' => \count($card->pullRequests),
-        ]);
+        // After the commit, never inside it: the sink drains at kernel.terminate,
+        // so a record written in the closure outlives a rollback. The title stays
+        // out, because it is a sentence a person wrote.
+        $this->auditor->record(
+            'board.card_created',
+            AuditOutcome::Success,
+            [
+                'cardId' => (string) $card->id,
+                'cardNumber' => $card->number,
+                'projectId' => (string) $command->project->id,
+                'type' => $card->type->value,
+                'priority' => $card->priority->value,
+                'status' => $card->status->value,
+                'origin' => $card->origin->value,
+                'pullRequestCount' => \count($card->pullRequests),
+            ],
+            new AuditSubject('card', (string) $card->id),
+        );
 
         return $card;
     }

@@ -10,7 +10,9 @@ use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardGroupOrder;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
-use Psr\Log\LoggerInterface;
+use Ubermuda\AuditBundle\Auditor;
+use Ubermuda\AuditBundle\AuditOutcome;
+use Ubermuda\AuditBundle\AuditSubject;
 
 /**
  * Moves a card inside the board.
@@ -26,7 +28,7 @@ final readonly class MoveCardHandler
         private CardRepository $cards,
         private CardGroupOrder $groupOrder,
         private EntityManagerInterface $em,
-        private LoggerInterface $logger,
+        private Auditor $auditor,
     ) {
     }
 
@@ -34,15 +36,19 @@ final readonly class MoveCardHandler
     {
         $card = $command->card;
 
+        // Read here rather than in the closure, so the record can still name the
+        // group the card left. lock() takes the row and leaves the loaded entity
+        // as it was, so these are the values the closure reads too.
+        $sourceStatus = $card->status;
+        $sourcePriority = $card->priority;
+
         // Reading a group and renumbering it is read-then-write, so two moves in
         // one project would otherwise interleave into duplicate ranks. Same
         // PESSIMISTIC_WRITE-on-the-project idiom
         // App\Module\SiteReview\Command\AddCommentHandler uses.
-        $this->em->wrapInTransaction(function () use ($command, $card): void {
+        $this->em->wrapInTransaction(function () use ($command, $card, $sourceStatus, $sourcePriority): void {
             $this->em->lock($card->project, LockMode::PESSIMISTIC_WRITE);
 
-            $sourceStatus = $card->status;
-            $sourcePriority = $card->priority;
             $staysInGroup = $sourceStatus === $command->status && $sourcePriority === $command->priority;
 
             $card->status = $command->status;
@@ -75,13 +81,24 @@ final readonly class MoveCardHandler
             $this->em->flush();
         });
 
-        $this->logger->info('board.card_moved', [
-            'cardId' => (string) $card->id,
-            'projectId' => (string) $card->project->id,
-            'status' => $card->status->value,
-            'priority' => $card->priority->value,
-            'position' => $card->position,
-        ]);
+        // After the commit, never inside it: the sink drains at kernel.terminate,
+        // so a record written in the closure outlives a rollback. Both ends of
+        // the move, so the trail answers what a card was moved out of.
+        $this->auditor->record(
+            'board.card_moved',
+            AuditOutcome::Success,
+            [
+                'cardId' => (string) $card->id,
+                'cardNumber' => $card->number,
+                'projectId' => (string) $card->project->id,
+                'fromStatus' => $sourceStatus->value,
+                'fromPriority' => $sourcePriority->value,
+                'toStatus' => $card->status->value,
+                'toPriority' => $card->priority->value,
+                'position' => $card->position,
+            ],
+            new AuditSubject('card', (string) $card->id),
+        );
 
         return $card;
     }
