@@ -566,6 +566,26 @@
             {% endif %}
         </div>
 
+        {# A sibling of the document pane, so the resolved toggle it carries is
+           still inside the comment-anchor controller that drives it. #}
+        {% set showVerdict = not readOnly and not diffMode and document.status.value == 'in-review' %}
+        {% set showResolvedToggle = not diffMode or diffCommenting %}
+        {% if showContents or showVersions or referenceCount > 0 or decisionRows|length > 0 or showResolvedToggle or showVerdict %}
+        {% include '@Review/_review_menu.html.twig' with {
+            document: document,
+            version: version,
+            versions: versions,
+            showVersions: showVersions,
+            showContents: showContents,
+            sectionRows: sectionRows,
+            approvedSections: approvedSections,
+            referenceCount: referenceCount,
+            decisionRows: decisionRows,
+            answeredDecisions: answeredDecisions,
+            showResolvedToggle: showResolvedToggle,
+            showVerdict: showVerdict,
+        } only %}
+        {% endif %}
     </div>
 
     {# The verdict, once there is one. The buttons that produce it live in the

@@ -1332,6 +1332,18 @@
     .lp-doc-meta__panel[hidden] {
         @apply hidden;
     }
+    /* Below lg the four tabs are rows of the review menu instead. A display
+       utility outside this query would outrank the UA [hidden] rule above and
+       hold every panel open on desktop. */
+    @media (width < 64rem) {
+        .lp-doc-meta__tab,
+        .lp-doc-meta__panel {
+            @apply hidden;
+        }
+        .lp-doc-meta:not(:has(.lp-doc-meta__series, .lp-doc-meta__tags)) {
+            @apply hidden;
+        }
+    }
 
     /* ── Review action row ──────────────────────────────────────────────
        "Add general comment" plus the hint that select-to-comment exists, with
@@ -1355,6 +1367,102 @@
        and costs no round trip. */
     .lp-review-block--hide-resolved .lp-comment-thread--resolved {
         @apply hidden;
+    }
+
+    /* ── Review menu ────────────────────────────────────────────────────
+       Everything the top bar and the metadata tabs carry on desktop, reached
+       from one round button in the bottom right where a thumb rests. The panel
+       opens upward from the button and drills down in place. */
+    .lp-review-menu {
+        @apply lg:hidden;
+    }
+    .lp-review-menu[hidden] {
+        @apply hidden;
+    }
+    .lp-review-menu__trigger {
+        @apply fixed bottom-5 right-5 z-30 inline-flex items-center justify-center w-14 h-14 rounded-full bg-chrome-raised border border-chrome-line text-chrome-fg shadow-card cursor-pointer transition-colors;
+    }
+    .lp-review-menu__trigger:hover {
+        @apply bg-chrome-line;
+    }
+    .lp-review-menu__trigger svg {
+        @apply w-5 h-5 shrink-0;
+    }
+    /* Stops short of the top bar, which keeps reporting where the reader is. */
+    .lp-review-menu__scrim {
+        @apply fixed inset-x-0 bottom-0 top-16 z-20 bg-ink/60;
+    }
+    .lp-review-menu__panel {
+        @apply fixed bottom-21 right-5 z-30 w-63 flex flex-col p-1.5 rounded-xl bg-chrome-raised border border-chrome-line shadow-composer overflow-y-auto;
+        max-height: calc(100dvh - calc(var(--spacing) * 48));
+    }
+    .lp-review-menu__view {
+        @apply flex flex-col;
+    }
+    /* A display utility in a layered class outranks the UA [hidden] rule, so
+       each of these has to restate it. */
+    .lp-review-menu__panel[hidden],
+    .lp-review-menu__scrim[hidden],
+    .lp-review-menu__view[hidden] {
+        @apply hidden;
+    }
+    .lp-review-menu__row {
+        @apply flex items-center gap-2.5 w-full min-h-11 px-3 py-2 rounded-lg bg-transparent border-0 cursor-pointer text-left text-sm text-chrome-fg transition-colors;
+    }
+    .lp-review-menu__row:hover {
+        @apply bg-chrome-line;
+    }
+    .lp-review-menu__row svg {
+        @apply w-4.5 h-4.5 shrink-0 text-chrome-mute;
+    }
+    .lp-review-menu__label {
+        @apply min-w-0 truncate;
+    }
+    .lp-review-menu__count {
+        @apply ml-auto shrink-0 font-mono text-chrome-dim text-xs;
+    }
+    .lp-review-menu__rule {
+        @apply border-0 border-t border-chrome-line my-1.5;
+    }
+    .lp-review-menu__verdict {
+        @apply w-full min-h-11;
+    }
+    .lp-review-menu__verdict + .lp-review-menu__verdict {
+        @apply mt-1.5;
+    }
+    /* Names the list the reader drilled into, so the panel never loses its place. */
+    .lp-review-menu__head {
+        @apply flex items-center gap-2.5 px-3 py-2 font-mono uppercase tracking-widest text-chrome-dim text-xs;
+    }
+    .lp-review-menu__head-count {
+        @apply ml-auto shrink-0 normal-case tracking-normal;
+    }
+    .lp-review-menu__section {
+        @apply flex items-center gap-2.5 min-h-11 px-3 py-2 rounded-lg no-underline text-sm text-chrome-fg transition-colors hover:bg-chrome-line;
+    }
+    .lp-review-menu__section[data-level='3'] {
+        @apply pl-6;
+    }
+    .lp-review-menu__section[data-level='4'] {
+        @apply pl-9;
+    }
+    .lp-review-menu__section[data-level='5'] {
+        @apply pl-12;
+    }
+    .lp-review-menu__section[data-level='6'] {
+        @apply pl-15;
+    }
+    .lp-review-menu__section--sub {
+        @apply pl-9 text-chrome-mute;
+    }
+    .lp-review-menu__mark {
+        @apply inline-flex items-center justify-center shrink-0 w-3.75 h-3.75 rounded-full border border-chrome-line;
+    }
+    .lp-review-menu__mark--approved {
+        @apply bg-accent border-accent text-ink;
+    }
+    .lp-review-menu__mark svg {
+        @apply w-2.5 h-2.5 shrink-0;
     }
 
     /* ── General comments group ─────────────────────────────────────────
@@ -2304,12 +2412,12 @@
 
     /* ── Top bar ────────────────────────────────────────────────────────── */
 
-    /* Transparent over the chrome, above the paper. Carries the breadcrumb
-       trail, a per-screen metadata line, and (on review) the verdict actions.
-       It sits outside .lp-main, so anything it cannot fit widens the whole page
-       instead of scrolling. Below lg it wraps and grows a row. */
+    /* Transparent over the chrome, above the paper. It sits outside .lp-main,
+       so anything it cannot fit widens the whole page instead of scrolling.
+       One row at every width: below lg the lead stacks its two lines and
+       everything else leaves the bar. */
     .lp-topbar {
-        @apply flex flex-wrap items-center gap-x-3.5 gap-y-2 min-h-16 px-3.5 py-2.5 shrink-0 lg:flex-nowrap lg:h-16 lg:py-0;
+        @apply flex items-center gap-3.5 h-16 px-3.5 shrink-0;
     }
     /* Opens the sidebar drawer. Present only where the sidebar is off-canvas. */
     .lp-topbar__menu {
@@ -2321,14 +2429,22 @@
     .lp-topbar__menu svg {
         @apply w-5 h-5 shrink-0;
     }
-    /* The basis is a floor, not a width. `flex-1` alone lets the lead collapse
-       to a dozen pixels beside the review verdict buttons, and its content then
-       paints straight across them. A floor makes the actions wrap instead. */
+    /* Below lg the trail and the meta stack, which is the whole bar. Above lg
+       they share one baseline row, and no width floor is needed: the actions
+       are the only other child and they are gone below lg. */
     .lp-topbar__lead {
-        @apply flex flex-wrap items-baseline gap-x-3.5 gap-y-1 min-w-0 flex-1 basis-50 lg:basis-0;
+        @apply flex flex-col justify-center gap-y-0.5 min-w-0 flex-1 basis-0 lg:flex-row lg:flex-wrap lg:items-baseline lg:gap-x-3.5 lg:gap-y-1;
     }
     .lp-topbar__trail {
         @apply flex items-baseline gap-2 min-w-0 max-w-full;
+    }
+    /* Below lg the bar holds the document title alone. A crumb, a separator and
+       a version pill beside it leave the title nothing to truncate into. */
+    .lp-topbar__crumb,
+    .lp-topbar__sep,
+    .lp-topbar__trail .lp-version-pill,
+    .lp-topbar__lead .lp-signal {
+        @apply hidden lg:inline-flex;
     }
     .lp-topbar__crumb {
         @apply text-sm text-chrome-mute no-underline transition-colors;
@@ -2339,16 +2455,15 @@
     .lp-topbar__sep {
         @apply text-sm text-chrome-dim;
     }
-    /* Wraps below lg for the same reason the document title does: there is no
-       width to truncate into, and the reader gets one word and a dot. */
     .lp-topbar__here {
-        @apply text-base font-medium text-white min-w-0 break-words lg:truncate;
+        @apply text-base font-medium text-white min-w-0 truncate;
     }
     .lp-topbar__meta {
-        @apply text-sm text-chrome-dim lg:whitespace-nowrap;
+        @apply text-chrome-dim truncate text-xs lg:text-sm lg:whitespace-nowrap;
     }
+    /* Below lg the verdict actions move into the review menu. */
     .lp-topbar__actions {
-        @apply flex flex-wrap items-center gap-2.5 ml-auto;
+        @apply hidden items-center gap-2.5 ml-auto lg:flex lg:flex-wrap;
     }
 
     /* ── Code / pre blocks ──────────────────────────────────────────────── */
@@ -3867,13 +3982,19 @@
     .lp-btn,
     .lp-code-dark__copy,
     .lp-flash__dismiss,
-    .lp-topbar__menu,
-    .lp-sidebar__close,
     .lp-anchor-toolbar__btn,
     .auth-forgot,
     .auth-footer__link,
     .lp-landing-footer__link {
         @apply inline-flex items-center justify-center min-h-11 min-w-11;
+    }
+
+    /* Size only. Both are `lg:hidden`, and a `display` here comes later in the
+       sheet than that variant, so a touch screen at desktop width showed both
+       drawer controls beside a sidebar that is already in the flow. */
+    .lp-topbar__menu,
+    .lp-sidebar__close {
+        @apply min-h-11 min-w-11;
     }
 
     /* iOS Safari zooms the page in when it focuses a control under 16px. */

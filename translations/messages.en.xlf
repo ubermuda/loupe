@@ -1517,6 +1517,26 @@
                 <source>review.document.sections.count</source>
                 <target>%approved% of %total% approved</target>
             </trans-unit>
+            <trans-unit id="review.document.sections.count_compact">
+                <source>review.document.sections.count_compact</source>
+                <target>%approved%/%total%</target>
+            </trans-unit>
+            <trans-unit id="review.document.menu.label">
+                <source>review.document.menu.label</source>
+                <target>Review actions</target>
+            </trans-unit>
+            <trans-unit id="review.document.menu.open">
+                <source>review.document.menu.open</source>
+                <target>Open review actions</target>
+            </trans-unit>
+            <trans-unit id="review.document.menu.close">
+                <source>review.document.menu.close</source>
+                <target>Close review actions</target>
+            </trans-unit>
+            <trans-unit id="review.document.menu.back">
+                <source>review.document.menu.back</source>
+                <target>Back</target>
+            </trans-unit>
             <trans-unit id="review.document.sections.approved">
                 <source>review.document.sections.approved</source>
                 <target>Approved</target>
