@@ -4312,6 +4312,18 @@
                 <source>board.card.site_review.count</source>
                 <target>{0}no unaddressed review comments|{1}one unaddressed review comment|]1,Inf[ %count% unaddressed review comments</target>
             </trans-unit>
+            <trans-unit id="board.card.documents.title">
+                <source>board.card.documents.title</source>
+                <target>Documents</target>
+            </trans-unit>
+            <trans-unit id="board.card.documents.empty">
+                <source>board.card.documents.empty</source>
+                <target>No document is linked to this card.</target>
+            </trans-unit>
+            <trans-unit id="board.card.error.document_unknown">
+                <source>board.card.error.document_unknown</source>
+                <target>One of those documents is not in this project.</target>
+            </trans-unit>
             <trans-unit id="board.card.pull_requests.title">
                 <source>board.card.pull_requests.title</source>
                 <target>Pull requests</target>

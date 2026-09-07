@@ -6,6 +6,7 @@ namespace App\Module\Board\Service;
 
 use App\Module\Account\Entity\User;
 use App\Module\Account\Export\UserDataExporterInterface;
+use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Repository\CardRepository;
@@ -59,6 +60,12 @@ final readonly class CardExporter implements UserDataExporterInterface
                         'addedAt' => $link->addedAt->format(\DateTimeInterface::ATOM),
                     ],
                     $card->pullRequests->toArray(),
+                )),
+                // Ids alone, for the same reason as the comments below: a
+                // document's own text belongs to the Review exporter.
+                'documents' => array_values(array_map(
+                    static fn (CardDocument $link): string => (string) $link->document->id,
+                    $card->documents->toArray(),
                 )),
                 // The comment ids alone. The comments themselves are the
                 // SiteReview exporter's to state, and repeating their bodies
