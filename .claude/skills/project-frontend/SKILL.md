@@ -97,6 +97,8 @@ A CSS `max-height` transition animates a `<details>` for a simple one-shot discl
 
 Setting `canvas.width` clears the canvas. ResizeObserver callbacks fire after `requestAnimationFrame` in the rendering pipeline, so a resize inside the callback leaves a blank canvas in the paint queue until the next rAF. Call your draw function immediately after you resize the canvas inside the callback, rather than waiting for the next frame.
 
+Read `references/board-drag.md` before you change the board drag controller, or before you write any pointer-driven drag with an optimistic update. It carries the 5-pixel threshold, the three pointer traps, `turbo:submit-end` as the one failure hook, restore-by-following-card, and the test race an optimistic move introduces.
+
 ## Turbo patterns
 
 Never submit through `fetch()` or JS. Send every mutation through a plain `<form method="POST">`, or a Symfony form, which is preferred, and Turbo handles the async submit and the in-place update. A hand-rolled `fetch()` POST in a Stimulus controller bypasses the eager document-level `submit` listener in `csrf_protection_controller.js`, so you must re-implement the stateless double-submit CSRF dance by hand, a recurring source of silent 403s. It also duplicates the error handling Turbo gives you free. Reach for `fetch()` only for a genuine non-form interaction with no good Turbo equivalent, and that bar is high. A fieldless action such as "resolve" is still a `<form>` with a submit button and a CSRF token, only without a Symfony FormType. Return a Turbo Stream for an in-place update without a full-page visit, or scope the form to a `<turbo-frame>`.
