@@ -802,6 +802,9 @@
 
       .lp-context{display:flex;align-items:center;gap:5px;margin-top:6px;font-size:11.5px;line-height:1.4;color:#6b7280;white-space:nowrap}
       .lp-context svg{flex:0 0 auto;opacity:.75}
+      /* The icon replaced the words "Saves to" on screen. A screen reader would
+         otherwise hear a bare card title with nothing saying what it is for. */
+      .lp-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
       /* A card title runs to 255 characters and the composer is a fixed height
          with overflow hidden, so a wrapped label would push Save out of sight.
          The ellipsis lives on this element rather than on .lp-context, because
@@ -2031,6 +2034,11 @@
             // are gone: two rows of muted prose under the textarea read as
             // clutter, and the card is context rather than an instruction.
             contextNode.innerHTML = ICON.kanban(13);
+            contextNode.firstChild.setAttribute('aria-hidden', 'true');
+            const said = document.createElement('span');
+            said.className = 'lp-sr-only';
+            said.textContent = 'Saves to ';
+            contextNode.appendChild(said);
             const label = document.createElement(
                 contextLabel.url ? 'a' : 'span',
             );
