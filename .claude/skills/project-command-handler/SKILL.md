@@ -200,6 +200,36 @@ In the controller, catch the exception and map it onto the form. Inject
 Then re-render with `renderFormResponse()`, which sets HTTP 422 on a submitted
 form.
 
+## Auditing a domain event
+
+A handler records its domain event through `Ubermuda\AuditBundle\Auditor`. Inject
+`Auditor` and call `record()`. Do not inject `LoggerInterface` beside it, because
+the package's Monolog sink writes the log line for the record. A logger kept
+there emits the same event twice. Keep `LoggerInterface` for a call to an
+external service, or for a batch job, such as Stripe or the site-review outbox
+drain.
+
+```php
+$this->auditor->record(
+    'board.card_deleted',
+    AuditOutcome::Success,
+    ['cardId' => $cardId, 'projectId' => $projectId],
+    new AuditSubject('card', $cardId),
+);
+```
+
+The operation name matches `/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/`. Write the
+module first, then one snake_case outcome phrase, and keep one namespace per
+module. gamache's `AuditOperationNameRule` enforces the pattern through PHPStan.
+
+Record after the transaction commits, never inside the closure. The sink drains
+at `kernel.terminate`, so a record written inside outlives a rollback. Snapshot
+the ids and the scalars before a delete, because the removed entity carries no
+id. Put in the context what answers a later question, such as the source status
+and the target status of a move. Keep user prose out, and record a count or a
+boolean instead. `RecordingAuditor` and `DirectLogging::assertRemovedFrom()` in
+`tests/Support/` assert the record and the absent logger.
+
 ## Handler composition
 
 A handler may inject another handler and call it as a callable,
