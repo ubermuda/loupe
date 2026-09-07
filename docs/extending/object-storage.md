@@ -18,7 +18,7 @@ every download 404s.
 | `EXPORT_STORAGE_PREFIX` | Key prefix. Empty stores archives at the bucket root, which is what a dedicated bucket wants. |
 | `EXPORT_STORAGE_REGION` | Empty falls back to AWS's default, `us-east-1`. |
 | `EXPORT_STORAGE_ENDPOINT` | Set for any non-AWS provider, e.g. `https://tor1.digitaloceanspaces.com`. Empty targets AWS S3 itself. |
-| `EXPORT_STORAGE_KEY` / `_SECRET` | Empty falls back to the ambient AWS credential chain, which only helps when running on AWS with an attached role. |
+| `EXPORT_STORAGE_KEY`, `EXPORT_STORAGE_SECRET` | Empty falls back to the ambient AWS credential chain, which only helps when running on AWS with an attached role. |
 | `EXPORT_STORAGE_USE_PATH_STYLE` | `true` for MinIO and most non-AWS providers, which address buckets as `https://host/bucket/key` rather than `https://bucket.host/key`. |
 | `EXPORT_STORAGE_ACL` | Canned ACL sent with every upload. **No single value works everywhere** — see [Known gaps](../known-gaps.md). |
 
