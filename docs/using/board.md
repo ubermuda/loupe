@@ -1,18 +1,16 @@
 ---
 title: "The project board"
-description: "The four columns, how cards are ordered, and the four MCP tools an agent drives them with."
+description: "The four columns, how cards are ordered, the board screen a person drags cards on, and the four MCP tools an agent drives them with."
 ---
 
 Every project has one board, and the board holds cards. A card describes one
 piece of work: what it asks for, how urgent it is, and which column it sits in.
-An agent reads and writes the board through the MCP endpoint.
+A person works the board on its own screen. An agent reads and writes the same
+board through the MCP endpoint.
 
 The board is behind the `board.enabled` feature flag, and the flag ships off. A
 fresh install has no board until an operator switches it on. See
 [Turning the board on](#turning-the-board-on).
-
-This version has no board screen. The four MCP tools are the only way to read
-the board or write to it.
 
 ## The four columns
 
@@ -40,7 +38,7 @@ place in its list.
 A move inside one group takes a target rank and puts the card there. A move that
 changes the column or the priority behaves differently. It appends the card to
 the end of the group it arrives in, and it renumbers the group the card left so
-no gap remains.
+no gap remains. A delete renumbers the group the card leaves in the same way.
 
 The MCP tools carry no rank argument. `card_create` appends a new card to its
 group, and `card_update` appends a card whose column or priority changed. An
@@ -58,8 +56,50 @@ A card that enters Done is stamped with the moment it arrived. A card that moves
 inside Done keeps that first stamp. A card that leaves Done loses the stamp, and
 takes a new one if it comes back.
 
-This version shows the whole of Done. `card_list` returns every done card,
-however old it is, and applies no time window to the column.
+The board screen shows the last 7 days of Done, and a history page carries the
+rest. `card_list` applies no such window. It returns every done card, however
+old it is.
+
+## The board screen
+
+The board is at **`/projects/<project>/board`**, and the project sidebar links
+to it. The four columns read side by side. Each card shows its number, its
+title, its type, and how many pull requests it links to. The priority is the
+group the card sits in, so the card face does not repeat it.
+
+Drag a card to move it. The whole card is the handle, and the grip on its left
+says so. Where you drop the card decides what the move does.
+
+- Drop it inside its own priority group to change its rank in that group.
+- Drop it in another priority group in the same column to re-grade it. The card
+  takes the end of the group it joins.
+- Drop it in another column to change its status. The card takes the end of the
+  group it joins there.
+
+Done takes a drop like any other column. It keeps no rank, and a card dropped
+in Done keeps the priority it had.
+
+The card follows the pointer as you drag, and the server answers a drop with the
+whole board. A move the server refuses puts the card back where it started.
+
+**New card** opens the create form. Under the Done column, a link opens the
+history page at **`/projects/<project>/board/done`**, which lists every done
+card, newest completion first, 25 to a page.
+
+### The card page
+
+A card has its own page at **`/projects/<project>/board/cards/<card id>`**. The
+card id is the UUID, not the number.
+
+The page carries the full Markdown body, every pull request link, and the times
+the card was created, last changed and completed. It also carries status and
+priority controls, which move a card with no drag. That is the way to move a
+card from a keyboard.
+
+**Edit** opens the card for a change to its title, body, type, priority, status
+and links. **Delete** asks for a confirmation first, then removes the card and
+its links. A delete cannot be undone, and the number the card held is not
+issued again.
 
 ## What a card holds
 
@@ -149,11 +189,14 @@ linked to it. Use a card id that `card_list` or `card_create` gave you.
 the one field where an omitted list and an empty list differ. Omit it and the
 links stay. Send `[]` and every link is removed.
 
-### There is no delete tool
+### A person deletes a card, an agent does not
 
 The board offers no `card_delete`, and nothing on the MCP surface deletes a
 card. An agent finishes a card by moving it to `done`, which keeps the record of
 the work.
+
+A person deletes a card from the card page. See
+[The card page](#the-card-page).
 
 ## Turning the board on
 
