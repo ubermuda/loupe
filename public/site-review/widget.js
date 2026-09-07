@@ -792,9 +792,13 @@
       .lp-iconbtn:hover{background:var(--panel-elev);color:var(--text)}
       .lp-iconbtn:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
 
-      .lp-context{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11.5px;line-height:1.4;color:#6b7280}
-      .lp-context a{color:inherit;text-decoration:underline;text-underline-offset:2px}
-      .lp-context a:hover{color:#111827}
+      .lp-context{display:flex;align-items:baseline;gap:4px;margin-top:8px;font-size:11.5px;line-height:1.4;color:#6b7280;white-space:nowrap}
+      /* A card title runs to 255 characters and the composer is a fixed height
+         with overflow hidden, so a wrapped label would push Save out of sight.
+         The ellipsis lives on this element rather than on .lp-context, because
+         a flex container cannot ellipse its own anonymous text run. */
+      .lp-context-label{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:inherit;text-decoration:underline;text-underline-offset:2px}
+      a.lp-context-label:hover{color:#111827}
       .lp-composer{flex:0 0 auto;overflow:hidden;transition:max-height .27s cubic-bezier(.4,0,.2,1),opacity .2s ease}
       .lp-composer-inner{padding:2px 16px 14px}
       /* The composer's height is fixed and it clips, so the chips scroll rather
@@ -2014,19 +2018,21 @@
             state.composing && state.editId == null && contextLabel;
         contextNode.style.display = showContext ? 'flex' : 'none';
         if (showContext) {
-            const text = document.createTextNode(contextLabel.label);
             contextNode.textContent = '';
-            contextNode.appendChild(document.createTextNode('Saves to '));
+            contextNode.appendChild(document.createTextNode('Saves to'));
+            const label = document.createElement(
+                contextLabel.url ? 'a' : 'span',
+            );
+            label.className = 'lp-context-label';
+            label.textContent = contextLabel.label;
+            // The full title on hover, since the visible one may be cut.
+            label.title = contextLabel.label;
             if (contextLabel.url) {
-                const link = document.createElement('a');
-                link.href = contextLabel.url;
-                link.target = '_blank';
-                link.rel = 'noopener noreferrer';
-                link.appendChild(text);
-                contextNode.appendChild(link);
-            } else {
-                contextNode.appendChild(text);
+                label.href = contextLabel.url;
+                label.target = '_blank';
+                label.rel = 'noopener noreferrer';
             }
+            contextNode.appendChild(label);
         }
         composerNode.style.maxHeight = state.composing ? '264px' : '0px';
         composerNode.style.opacity = state.composing ? '1' : '0';
