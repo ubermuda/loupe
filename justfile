@@ -47,9 +47,9 @@ composer *args:
 # Provisions its own URL, dev DB (migrated + seeded), test DB, vendor and CSS.
 # Safe to re-run; also repairs a lost sidecar. Prefer the NAME form, which works
 # from the main checkout, so no session has to cd into a worktree.
-# Provision (or repair) a worktree. Usage: just worktree-up NAME
-worktree-up name="":
-    bin/worktrees/worktree-bootstrap.sh {{name}}
+# Provision (or repair) a worktree. Usage: just worktree-up NAME [CONTEXT]
+worktree-up name="" context="":
+    bin/worktrees/worktree-bootstrap.sh {{name}} {{context}}
 
 # Remove a worktree along with its sidecar, route and both DBs. Usage: just worktree-down NAME
 worktree-down name:

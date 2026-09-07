@@ -188,6 +188,12 @@ variable "site_review_widget_backend" {
   description = "SITE_REVIEW_WIDGET_BACKEND: origin serving the site-review widget, and therefore the instance its comments file into. Empty (the default) means this instance."
 }
 
+variable "site_review_widget_context" {
+  type        = string
+  default     = ""
+  description = "SITE_REVIEW_WIDGET_CONTEXT: an opaque marker stored on every comment the widget files, saying what this deployment was serving. Empty (the default) is right for production, which stores nothing. A preview instance sets it so a comment carries the work it was made against."
+}
+
 variable "site_review_widget_public" {
   type        = string
   default     = ""

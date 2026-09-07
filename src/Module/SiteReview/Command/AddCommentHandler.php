@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Module\SiteReview\Command;
 
 use App\Module\SiteReview\Entity\SiteReviewComment;
+use App\Module\SiteReview\Event\SiteReviewCommentCreated;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -18,6 +20,7 @@ final readonly class AddCommentHandler
         private SiteReviewCommentRepository $siteReviewComments,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -34,6 +37,7 @@ final readonly class AddCommentHandler
                 position: $this->siteReviewComments->nextPositionForProject($command->project),
                 body: $command->body,
                 url: $command->url,
+                context: $command->context,
             );
             foreach ($command->anchors as $anchor) {
                 $comment->addAnchor(
@@ -52,6 +56,7 @@ final readonly class AddCommentHandler
             );
             $this->em->persist($comment);
             $this->em->flush();
+            $this->events->dispatch(new SiteReviewCommentCreated($comment));
 
             return $comment;
         });

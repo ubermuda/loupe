@@ -124,7 +124,7 @@ Roughly in the order an agent uses them:
 | `tag_list` | The project's existing tag vocabulary |
 | `series_list` | The project's series, each with its document count and highest position |
 | `series_rename` | Rename a series; every document in it keeps its position |
-| `site_review_get` | Comments submitted through the widget |
+| `site_review_get` | Comments submitted through the widget, each with the `context` its page carried |
 | `site_review_mark_comment_addressed` | Mark a widget comment acted on, so the next `site_review_get` skips it |
 | `card_create` | Put a card on the project board (off by default — see below) |
 | `card_list` | Read the board, filtered by status, type or priority |

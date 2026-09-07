@@ -14,6 +14,11 @@
     // a visitor can try the flow before signing up. It swaps the transport and
     // nothing else — every behaviour below is the widget customers embed.
     const DEMO = script.hasAttribute('data-demo');
+    // Opaque to the widget and to the API alike: it is echoed onto every comment
+    // this page produces, and only the module that set it knows what it means.
+    // The attribute is absent on an ordinary deployment, which is why an empty
+    // value is never sent rather than stored as one.
+    const CONTEXT = script.getAttribute('data-context') || '';
     // Every comment is saved to the API as it is written and is live from that
     // moment — there is no send step. `comments` mirrors the project's Pending
     // comments, the ones this reviewer may still edit or delete; once the agent marks
@@ -2760,6 +2765,7 @@
                     strokes,
                     selector: first ? first.selector : '',
                     text: first ? first.text : '',
+                    ...(CONTEXT ? { context: CONTEXT } : {}),
                 };
                 const { commentId } = await api(
                     'POST',

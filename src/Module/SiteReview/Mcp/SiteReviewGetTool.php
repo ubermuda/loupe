@@ -24,7 +24,7 @@ final readonly class SiteReviewGetTool
      * @param string|null $site   optional site id or site name; must match the project your MCP token is bound to
      * @param string|null $status which comments to return: pending (the default), addressed, resolved, or all
      *
-     * @return array{site: array{id: string, name: string}, comments: list<array{id: string, url: string, anchors: list<array{selector: string, text: string, quote: string|null, quotePrefix: string|null, quoteSuffix: string|null}>, body: string, hasDrawing: bool, status: string, createdAt: string}>}
+     * @return array{site: array{id: string, name: string}, comments: list<array{id: string, url: string, anchors: list<array{selector: string, text: string, quote: string|null, quotePrefix: string|null, quoteSuffix: string|null}>, body: string, hasDrawing: bool, status: string, context: string|null, createdAt: string}>}
      */
     public function __invoke(?string $site = null, ?string $status = null): array
     {
@@ -65,6 +65,10 @@ final readonly class SiteReviewGetTool
                         // may not name, so ask the reviewer rather than guess.
                         'hasDrawing' => null !== $c->strokes && [] !== $c->strokes,
                         'status' => $c->status->value,
+                        // What the page said it was when the comment was made.
+                        // A preview deployment sets it; an ordinary one does
+                        // not, so null is the common answer rather than a gap.
+                        'context' => $c->context,
                         'createdAt' => $c->createdAt->format(\DateTimeInterface::ATOM),
                     ],
                     $comments,
