@@ -19,10 +19,14 @@ final class WidgetFileTest extends TestCase
         self::assertStringContainsString('data-context', $src);
         // The boot load is the only place the instance can tell the widget what
         // the marker resolves to, so the context has to travel with it.
-        self::assertStringContainsString("'?context=' + encodeURIComponent(CONTEXT)", $src);
+        // pageMarker() rather than CONTEXT: an SPA swap replaces the script
+        // tag, and the marker on the new page is the one that counts.
+        self::assertStringContainsString('encodeURIComponent(pageMarker())', $src);
         // The marker the page proposes is a default, not a verdict: the picker
         // lets a reviewer swap or drop it, and the save reads the live value.
-        self::assertStringContainsString('let currentContext = CONTEXT;', $src);
+        // Empty until the server confirms the page's marker resolves, so a
+        // comment saved before that answer carries nothing it cannot show.
+        self::assertStringContainsString("let currentContext = '';", $src);
         self::assertStringContainsString('/api/board/cards', $src);
         // The save reads the live marker, never the page's attribute. This
         // assertion replaces one that required the opposite, which was correct

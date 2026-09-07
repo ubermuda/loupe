@@ -19,6 +19,17 @@
     // The attribute is absent on an ordinary deployment, which is why an empty
     // value is never sent rather than stored as one.
     const CONTEXT = script.getAttribute('data-context') || '';
+    // Read again rather than kept, because an SPA swap replaces the tag and may
+    // carry a different marker. `script` is the one this ran from and goes
+    // stale; the document is the source of truth afterwards.
+    const pageMarker = () => {
+        const tag = document.querySelector(
+            'script[src*="site-review/widget.js"]',
+        );
+
+        return (tag && tag.getAttribute('data-context')) || CONTEXT;
+    };
+    let lastSeenMarker = CONTEXT;
     // Every comment is saved to the API as it is written and is live from that
     // moment — there is no send step. `comments` mirrors the project's Pending
     // comments, the ones this reviewer may still edit or delete; once the agent marks
@@ -42,12 +53,15 @@
     // The page proposes a marker; the reviewer may accept it, swap it or drop
     // it. This is what a comment actually saves with, so every path below sets
     // it and the save reads it rather than the page's attribute.
-    let currentContext = CONTEXT;
+    // Empty until the boot answer confirms the page's marker names something.
+    // Starting from the raw attribute meant a comment saved before that answer
+    // landed, or after it failed, carried a marker the composer had not shown —
+    // the row read "Attach to a card" while the save said otherwise.
+    let currentContext = '';
     let contextChosen = false;
-    // What the page proposes, after the boot answer said whether it resolves.
-    // A reviewer's choice belongs to one draft, and this is what the next draft
-    // goes back to.
-    let pageContext = CONTEXT;
+    // What the page proposes, once resolved. A reviewer's choice belongs to one
+    // draft, and this is what the next draft goes back to.
+    let pageContext = '';
     let pageContextLabel = null;
     let pickerCards = [];
     let pickerError = null;
@@ -250,19 +264,19 @@
             const payload = await api(
                 'GET',
                 '/api/site-review/review' +
-                    (CONTEXT ? '?context=' + encodeURIComponent(CONTEXT) : ''),
+                    (pageMarker()
+                        ? '?context=' + encodeURIComponent(pageMarker())
+                        : ''),
             );
             comments = payload.comments || [];
             drawingEnabled = true === payload.drawingEnabled;
             // Only while the page's marker is still the one in play. A
             // reviewer who chose before this landed owns the label now.
             pageContextLabel = payload.context || null;
-            // A marker naming a card that is deleted, malformed or another
-            // project's resolves to nothing, and the save must drop it too.
-            // Keeping it would file a comment against a card the row said it
-            // was not attached to, which is the one thing the silence is
-            // supposed to prevent.
-            if (!pageContextLabel) pageContext = '';
+            // Only a resolved marker is ever carried. One naming a card that is
+            // deleted, malformed or another project's resolves to nothing, and
+            // filing against it would contradict the row.
+            pageContext = pageContextLabel ? pageMarker() : '';
             if (!contextChosen) {
                 contextLabel = pageContextLabel;
                 currentContext = pageContext;
@@ -3827,6 +3841,14 @@
     const handleLocationChange = () => {
         if (location.href === lastSeenUrl) return;
         lastSeenUrl = location.href;
+        // An SPA swap does not re-run this script, so a page carrying a
+        // different marker would otherwise keep the first one and file comments
+        // against that card. Re-resolve when it changes.
+        if (pageMarker() !== lastSeenMarker) {
+            lastSeenMarker = pageMarker();
+            contextChosen = false;
+            refresh();
+        }
         state.hoverId = null;
         state.hoverPinId = null;
         state.pinConfirmId = null;
