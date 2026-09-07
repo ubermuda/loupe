@@ -29,22 +29,38 @@ is_stale() {
     local root=$1 built=$2 hit
     for dir in assets templates; do
         [ -d "$root/$dir" ] || continue
-        hit=$(find "$root/$dir" \( "${prune[@]}" \) -prune -o -type f -newer "$built" -print -quit 2>/dev/null)
+        # Directories count as well as files. Deleting the last template that
+        # used a class leaves no surviving file newer than the sheet, and the
+        # class would sit in the output for ever; the parent directory's own
+        # timestamp is what records the removal.
+        hit=$(find "$root/$dir" \( "${prune[@]}" \) -prune -o -newer "$built" -print -quit 2>/dev/null)
         [ -n "$hit" ] && return 0
     done
 
     return 1
 }
 
+# Every provisioned worktree, at any depth. A name may carry path segments, so
+# `.claude/worktrees/*/` would look at `foo` and never reach `foo/bar`.
+worktree_roots() {
+    find "$trees" -type f -path '*/var/tailwind/app.built.css' -print 2>/dev/null \
+        | while read -r sheet; do dirname "$(dirname "$(dirname "$sheet")")"; done
+}
+
 echo "tailwind-watch: polling $trees every ${interval}s"
 
 while true; do
     if [ -d "$trees" ]; then
-        for root in "$trees"/*/; do
-            root=${root%/}
+        while read -r root; do
+            [ -n "$root" ] || continue
             built="$root/var/tailwind/app.built.css"
-            [ -f "$built" ] || continue
             is_stale "$root" "$built" || continue
+
+            # Taken before the build, and stamped onto the sheet after it. A
+            # file saved while Tailwind was already reading would otherwise end
+            # up older than the output that missed it, and the edit would sit
+            # unbuilt until the next one.
+            started=$(mktemp)
 
             echo "tailwind-watch: rebuilding $(basename "$root")"
             # Failure is reported and the loop carries on. A worktree mid-rebase
@@ -55,11 +71,12 @@ while true; do
                 # so its timestamp would stay behind the source that triggered
                 # this and every pass would rebuild for ever. Stamping it is
                 # what makes the comparison settle. Found by running it.
-                touch "$built"
+                touch -r "$started" "$built"
             else
                 echo "tailwind-watch: $(basename "$root") failed, will retry"
             fi
-        done
+            rm -f "$started"
+        done < <(worktree_roots)
     fi
     sleep "$interval"
 done
