@@ -528,9 +528,9 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         self::assertStringNotContainsString('lp-review-doc__prose', $body);
         self::assertStringNotContainsString('data-comment-anchor-target', $body);
         self::assertSame(
-            4,
+            7,
             substr_count($body, '<turbo-stream'),
-            'exactly the block, the status line, the running total and the panel list',
+            'the block, the status line, and the running total and list of each of the two panels',
         );
     }
 
