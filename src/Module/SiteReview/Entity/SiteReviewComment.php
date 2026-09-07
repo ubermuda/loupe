@@ -69,6 +69,18 @@ class SiteReviewComment
         #[ORM\Column(type: Types::TEXT)]
         public readonly string $url,
 
+        /**
+         * What the embed's `data-context` said the page was, echoed back
+         * unread. Null on every ordinary deployment, because the attribute is
+         * rendered only where something set the variable.
+         *
+         * Deliberately a plain string and not a relation. The value names a
+         * row this module cannot see, and resolving it belongs to whichever
+         * module recognises the shape it wrote.
+         */
+        #[ORM\Column(length: 255, nullable: true)]
+        public readonly ?string $context = null,
+
         #[ORM\Column]
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
     ) {

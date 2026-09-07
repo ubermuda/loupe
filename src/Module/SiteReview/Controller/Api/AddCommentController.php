@@ -66,9 +66,22 @@ final class AddCommentController extends AppController
             url: trim($payload->url ?? ''),
             anchors: $anchors,
             strokes: $strokes,
+            context: $this->contextOf($payload),
         ));
 
         return $this->json(['commentId' => (string) $comment->id], JsonResponse::HTTP_CREATED);
+    }
+
+    /**
+     * An absent attribute and a blank one both mean "no context", so both
+     * become null rather than one of them reaching the column as an empty
+     * string that later reads like data.
+     */
+    private function contextOf(AddCommentRequest $payload): ?string
+    {
+        $context = trim($payload->context ?? '');
+
+        return '' === $context ? null : $context;
     }
 
     /**

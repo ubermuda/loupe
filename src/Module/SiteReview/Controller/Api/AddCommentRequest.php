@@ -45,6 +45,14 @@ final class AddCommentRequest
 
         #[Assert\Length(max: 2000)]
         public string $text = '',
+
+        /**
+         * Whatever the embed's `data-context` carried. Nothing here reads it:
+         * it is stored as given and interpreted by whichever module recognises
+         * the value it wrote.
+         */
+        #[Assert\Length(max: 255)]
+        public ?string $context = null,
     ) {
     }
 }
