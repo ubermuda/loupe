@@ -46,6 +46,11 @@ class Card implements ProjectScopedSubject
     #[ORM\OrderBy(['addedAt' => 'ASC'])]
     public Collection $pullRequests;
 
+    /** @var Collection<int, CardDocument> */
+    #[ORM\OneToMany(targetEntity: CardDocument::class, mappedBy: 'card', cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['linkedAt' => 'ASC'])]
+    public Collection $documents;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\ManyToOne(targetEntity: Project::class)]
@@ -81,6 +86,7 @@ class Card implements ProjectScopedSubject
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
     ) {
         $this->pullRequests = new ArrayCollection();
+        $this->documents = new ArrayCollection();
         $this->updatedAt = $this->createdAt;
     }
 
@@ -90,6 +96,15 @@ class Card implements ProjectScopedSubject
         $this->pullRequests->clear();
         foreach ($links as $link) {
             $this->pullRequests->add($link);
+        }
+    }
+
+    /** Replaces every document link with the given set. An empty list clears them. */
+    public function replaceDocuments(CardDocument ...$links): void
+    {
+        $this->documents->clear();
+        foreach ($links as $link) {
+            $this->documents->add($link);
         }
     }
 

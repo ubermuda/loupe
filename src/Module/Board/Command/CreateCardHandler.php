@@ -6,10 +6,13 @@ namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestUrlResolver;
+use App\Module\Review\Entity\Document;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
@@ -21,6 +24,7 @@ final readonly class CreateCardHandler
     public function __construct(
         private CardRepository $cards,
         private PullRequestUrlResolver $pullRequests,
+        private DocumentLinkResolver $documentLinks,
         private EntityManagerInterface $em,
         private Auditor $auditor,
     ) {
@@ -42,11 +46,15 @@ final readonly class CreateCardHandler
             }
         }
 
+        // Outside the transaction: a refusal inside one rolls it back and
+        // closes the EntityManager.
+        $documents = $this->documentLinks->resolve($command->project, array_values($command->documentIds));
+
         // MAX(position) + 1 and MAX(number) + 1 are both read-then-write: two
         // calls into the same project would otherwise allocate the same rank,
         // and the same card number. Same PESSIMISTIC_WRITE-on-the-project idiom
         // App\Module\SiteReview\Command\AddCommentHandler uses.
-        $card = $this->em->wrapInTransaction(function () use ($command, $title): Card {
+        $card = $this->em->wrapInTransaction(function () use ($command, $title, $documents): Card {
             $this->em->lock($command->project, LockMode::PESSIMISTIC_WRITE);
 
             $card = new Card(
@@ -70,6 +78,10 @@ final readonly class CreateCardHandler
             }
 
             $card->replacePullRequests(...$this->pullRequests->linksFor($card, array_values($command->pullRequestUrls)));
+            $card->replaceDocuments(...array_map(
+                static fn (Document $document): CardDocument => new CardDocument($card, $document),
+                $documents,
+            ));
 
             $this->em->persist($card);
             $this->em->flush();
@@ -92,6 +104,7 @@ final readonly class CreateCardHandler
                 'status' => $card->status->value,
                 'origin' => $card->origin->value,
                 'pullRequestCount' => \count($card->pullRequests),
+                'documentCount' => \count($card->documents),
             ],
             new AuditSubject('card', (string) $card->id),
         );

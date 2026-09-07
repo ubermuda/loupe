@@ -6,10 +6,13 @@ namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardMover;
+use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestUrlResolver;
+use App\Module\Review\Entity\Document;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
@@ -22,6 +25,7 @@ final readonly class UpdateCardHandler
         private CardRepository $cards,
         private CardMover $mover,
         private PullRequestUrlResolver $pullRequests,
+        private DocumentLinkResolver $documentLinks,
         private EntityManagerInterface $em,
         private Auditor $auditor,
     ) {
@@ -48,12 +52,17 @@ final readonly class UpdateCardHandler
             }
         }
 
+        // Outside the transaction, for the reason in CreateCardHandler.
+        $documents = null === $command->documentIds
+            ? null
+            : $this->documentLinks->resolve($card->project, array_values($command->documentIds));
+
         // One write for the whole update, and one lock. A status or priority
         // change is a move, which renumbers a group and decides the completion
         // timestamp, so this handler owns the transaction the move runs in.
         // Flushing the fields first would commit half an update whose move
         // then failed.
-        $outcome = $this->em->wrapInTransaction(function () use ($command, $card, $title): UpdateCardOutcome {
+        $outcome = $this->em->wrapInTransaction(function () use ($command, $card, $title, $documents): UpdateCardOutcome {
             $this->em->lock($card->project, LockMode::PESSIMISTIC_WRITE);
             // lock() takes the project row and leaves the loaded card as the
             // request read it, which may be before the caller ahead of us in
@@ -83,6 +92,12 @@ final readonly class UpdateCardHandler
             }
             if (null !== $command->type) {
                 $card->type = $command->type;
+            }
+            if (null !== $documents) {
+                $card->replaceDocuments(...array_map(
+                    static fn (Document $document): CardDocument => new CardDocument($card, $document),
+                    $documents,
+                ));
             }
             if (null !== $command->pullRequestUrls) {
                 $card->replacePullRequests(...$this->pullRequests->linksFor($card, array_values($command->pullRequestUrls)));
@@ -119,6 +134,7 @@ final readonly class UpdateCardHandler
                 'bodyChanged' => $outcome->bodyChanged,
                 'typeChanged' => $outcome->typeChanged,
                 'pullRequestsReplaced' => null !== $command->pullRequestUrls,
+                'documentsReplaced' => null !== $command->documentIds,
                 'moved' => null !== $outcome->move,
             ],
             new AuditSubject('card', (string) $card->id),

@@ -195,6 +195,24 @@ priority first and then by rank. Done reads newest completion first.
 linked to it, and every site-review comment pointing at it. Use a card id that
 `card_list` or `card_create` gave you.
 
+## Documents on a card
+
+A card links to any number of documents in the same project, and the card page
+lists them with a link through to each review. Pass `documentIds` to
+`card_create` or `card_update`.
+
+An id that names no document of the project is **refused**, which is where this
+differs from a pull request link. A pull request URL is kept as given, because a
+self-hosted forge is a legitimate answer nothing can check. A document id can be
+checked, so a wrong one is an error rather than a stored string.
+
+`documentIds` follows the same omit-versus-empty rule as `pullRequestUrls`: omit
+it and the links stay, send an empty list and every one is removed.
+
+The link is one-way. A document does not list the cards that point at it,
+because the module boundary runs one way: Board may read Review, and Review must
+not learn that cards exist.
+
 ## Review feedback on a card
 
 A site-review comment reaches a card when the page it was made on said which
