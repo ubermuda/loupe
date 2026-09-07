@@ -43,6 +43,7 @@
     // it. This is what a comment actually saves with, so every path below sets
     // it and the save reads it rather than the page's attribute.
     let currentContext = CONTEXT;
+    let contextChosen = false;
     let pickerCards = [];
     let pickerError = null;
     let pickerBusy = false;
@@ -93,6 +94,12 @@
     // same shapes, same 404 for a row that is gone — so the widget cannot tell.
     const demoStore = { comments: [], nextId: 1 };
     const demoApi = async (method, path, body) => {
+        // The demo is a comment store and nothing else. Without this, GET fell
+        // through to the review payload and POST created a phantom comment
+        // whose id then became the card marker.
+        if (path.startsWith('/api/board/')) {
+            throw Object.assign(new Error('HTTP 404'), { status: 404 });
+        }
         if (method === 'GET') {
             return {
                 // The demo has no instance behind it, so it shows the whole widget.
@@ -191,7 +198,9 @@
             );
             comments = payload.comments || [];
             drawingEnabled = true === payload.drawingEnabled;
-            contextLabel = payload.context || null;
+            // Only while the page's marker is still the one in play. A
+            // reviewer who chose before this landed owns the label now.
+            if (!contextChosen) contextLabel = payload.context || null;
         } catch (error) {
             // Catch a rejected token at the earliest possible point — the boot load — so the
             // widget opens straight into its critical state instead of a misleading empty list.
@@ -2821,12 +2830,18 @@
         focusTextarea();
     };
     let pickerDebounce = null;
+    let pickerGeneration = 0;
     // The card picker. It loads only when opened, so an instance with the board
     // switched off costs nothing: that endpoint answers 404 and the panel says
     // so, rather than the widget needing to be told at boot.
     const setContext = (marker, label) => {
         currentContext = marker;
         contextLabel = label;
+        // The boot request may still be in flight, and its answer describes the
+        // page's marker rather than this one. Without this the row could name
+        // one card while the save carried another, which is the exact promise
+        // the label exists not to break.
+        contextChosen = true;
         state.picking = false;
         sync();
     };
@@ -2861,6 +2876,11 @@
         });
     };
     const loadPickerCards = async (query) => {
+        // Debouncing spaces the requests out; it does not order the answers. Two
+        // searches can still overlap, and the slower one would otherwise land
+        // last and show results for a query the reviewer has moved past.
+        const generation = ++pickerGeneration;
+        const current = () => generation === pickerGeneration;
         pickerBusy = true;
         pickerError = null;
         renderPicker();
@@ -2868,9 +2888,12 @@
             const path =
                 '/api/board/cards' +
                 (query ? '?q=' + encodeURIComponent(query) : '');
-            pickerCards = (await api('GET', path)).cards || [];
+            const answer = await api('GET', path);
+            if (!current()) return;
+            pickerCards = answer.cards || [];
         } catch (error) {
             if (authFailed(error)) return enterFatal(error);
+            if (!current()) return;
             pickerCards = [];
             // 404 is the board switched off, which is a configuration answer
             // rather than a failure, so it reads differently from a broken call.
