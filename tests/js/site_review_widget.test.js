@@ -110,6 +110,47 @@ describe('a card chosen for one comment', () => {
             '#1 The card this page is for',
         );
     });
+
+    it('does not outlive a draft that was saved either', async () => {
+        // Saving ends a draft as surely as cancelling does, and its teardown is
+        // a separate block.
+        bootWidget({
+            context: 'card:01a0-page',
+            respond: () =>
+                ok({
+                    comments: [],
+                    context: {
+                        label: '#1 The card this page is for',
+                        url: null,
+                    },
+                    commentId: 'c1',
+                }),
+        });
+        await settle();
+
+        const root = panelRoot();
+        root.getElementById('lp-launch-main').click();
+        root.getElementById('general').click();
+        await settle();
+        root.querySelector('.lp-context-label').click();
+        await settle();
+        root.getElementById('lp-picker-detach').click();
+        await settle();
+
+        const textarea = root.getElementById('lp-textarea');
+        textarea.value = 'Detached for this one only';
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        await settle();
+        root.getElementById('lp-save').click();
+        await settle();
+
+        root.getElementById('general').click();
+        await settle();
+
+        expect(root.querySelector('.lp-context-label').textContent).toBe(
+            '#1 The card this page is for',
+        );
+    });
 });
 
 describe('boot', () => {

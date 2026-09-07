@@ -3111,6 +3111,11 @@
             state.composing = false;
             state.composeTarget = null;
             state.editId = null;
+            state.picking = false;
+            // A saved draft ends the same way a cancelled one does. This block
+            // is indented one level deeper than the other two, which is why it
+            // was missed.
+            resetContextToPage();
             state.draft = '';
             state.strokes = [];
             textareaNode.value = '';
