@@ -68,6 +68,50 @@ describe('an unresolved page marker', () => {
     });
 });
 
+describe('a card chosen for one comment', () => {
+    it('does not outlive the draft that chose it', async () => {
+        // The page's marker says what this preview is for. An override that
+        // outlived its draft would make that mean less with every comment:
+        // detach once, and every later comment would stay detached.
+        bootWidget({
+            context: 'card:01a0-page',
+            respond: () =>
+                ok({
+                    comments: [],
+                    context: {
+                        label: '#1 The card this page is for',
+                        url: null,
+                    },
+                }),
+        });
+        await settle();
+
+        const root = panelRoot();
+        root.getElementById('lp-launch-main').click();
+        root.getElementById('general').click();
+        await settle();
+        expect(root.querySelector('.lp-context-label').textContent).toBe(
+            '#1 The card this page is for',
+        );
+
+        root.querySelector('.lp-context-label').click();
+        await settle();
+        root.getElementById('lp-picker-detach').click();
+        await settle();
+        expect(root.querySelector('.lp-context-label').textContent).toBe(
+            'Attach to a card',
+        );
+
+        root.getElementById('lp-cancel').click();
+        root.getElementById('general').click();
+        await settle();
+
+        expect(root.querySelector('.lp-context-label').textContent).toBe(
+            '#1 The card this page is for',
+        );
+    });
+});
+
 describe('boot', () => {
     it('reads the backend from its own src and sends the data-token', async () => {
         const fetchMock = bootWidget({ respond: () => ok({ comments: [] }) });

@@ -44,6 +44,11 @@
     // it and the save reads it rather than the page's attribute.
     let currentContext = CONTEXT;
     let contextChosen = false;
+    // What the page proposes, after the boot answer said whether it resolves.
+    // A reviewer's choice belongs to one draft, and this is what the next draft
+    // goes back to.
+    let pageContext = CONTEXT;
+    let pageContextLabel = null;
     let pickerCards = [];
     let pickerError = null;
     let pickerBusy = false;
@@ -231,6 +236,7 @@
         state.composeTarget = null;
         state.editId = null;
         state.picking = false;
+        resetContextToPage();
         state.draft = '';
         state.actionError = null;
         state.savedNotice = null;
@@ -250,14 +256,16 @@
             drawingEnabled = true === payload.drawingEnabled;
             // Only while the page's marker is still the one in play. A
             // reviewer who chose before this landed owns the label now.
+            pageContextLabel = payload.context || null;
+            // A marker naming a card that is deleted, malformed or another
+            // project's resolves to nothing, and the save must drop it too.
+            // Keeping it would file a comment against a card the row said it
+            // was not attached to, which is the one thing the silence is
+            // supposed to prevent.
+            if (!pageContextLabel) pageContext = '';
             if (!contextChosen) {
-                contextLabel = payload.context || null;
-                // A marker naming a card that is deleted, malformed or another
-                // project's resolves to nothing, and the save must drop it too.
-                // Keeping it would file a comment against a card the row said
-                // it was not attached to, which is the one thing the silence is
-                // supposed to prevent.
-                if (!contextLabel) currentContext = '';
+                contextLabel = pageContextLabel;
+                currentContext = pageContext;
             }
         } catch (error) {
             // Catch a rejected token at the earliest possible point — the boot load — so the
@@ -2892,6 +2900,15 @@
     // The card picker. It loads only when opened, so an instance with the board
     // switched off costs nothing: that endpoint answers 404 and the panel says
     // so, rather than the widget needing to be told at boot.
+    // A choice belongs to the draft that made it. The page's marker says what
+    // this preview is for, and an override that outlived its draft would make
+    // that configuration mean less with every comment: detach once and every
+    // later comment stays detached.
+    const resetContextToPage = () => {
+        currentContext = pageContext;
+        contextLabel = pageContextLabel;
+        contextChosen = false;
+    };
     const setContext = (marker, label) => {
         currentContext = marker;
         contextLabel = label;
@@ -2972,7 +2989,10 @@
         // which would otherwise replace a creation error with a card list and
         // leave the reviewer believing the card was made.
         clearTimeout(pickerDebounce);
+        // The superseded search returns early and never clears its own flag, so
+        // a creation error would render behind a "Loading…" that never lifts.
         pickerGeneration++;
+        pickerBusy = false;
         pickerCreating = true;
         renderPicker();
         try {
@@ -3018,6 +3038,7 @@
         state.composeTarget = null;
         state.editId = null;
         state.picking = false;
+        resetContextToPage();
         state.draft = '';
         state.strokes = [];
         textareaNode.value = '';
