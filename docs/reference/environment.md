@@ -60,7 +60,7 @@ agent, and the publish failure is only logged — it degrades silently.
 |---|---|---|
 | `APP_ENCRYPTION_KEY` | Only once an `encrypted_string` column is in use. **Losing it makes existing encrypted columns unreadable.** | No |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Billing. Nothing instantiates the Stripe client until the `billing.enabled` feature flag is on. | No |
-| `OAUTH_GOOGLE_ID` / `_SECRET`, `OAUTH_GITHUB_ID` / `_SECRET` | Social login. A provider becomes reachable only when its credentials **and** its feature flag (`auth.google.enabled` / `auth.github.enabled`) are both set. | No |
+| `OAUTH_GOOGLE_ID`, `OAUTH_GOOGLE_SECRET`, `OAUTH_GITHUB_ID`, `OAUTH_GITHUB_SECRET` | Social login. A provider becomes reachable only when its credentials **and** its feature flag (`auth.google.enabled` / `auth.github.enabled`) are both set. | No |
 | `HEALTH_PROBE_TOKEN` | Adds the build version to `GET /healthz`, for a caller presenting it as an `X-Probe-Token` header — so a post-deploy check can prove which build went live without a session. Unset, the field never appears: an instance must not advertise its build to anyone who asks. | No |
 | `SITE_REVIEW_WIDGET_PUBLIC` | Serves the site-review widget to every visitor instead of administrators only. Its comments are instructions an agent may act on, so set it only where you trust everyone who can reach the site — **production should leave it empty**. | No |
 | `SITE_REVIEW_WIDGET_BACKEND` | Overrides the instance the widget talks to. Empty means the host that served the script, which is what you want unless the widget is embedded from somewhere else. | No |
