@@ -570,7 +570,13 @@
            still inside the comment-anchor controller that drives it. #}
         {% set showVerdict = not readOnly and not diffMode and document.status.value == 'in-review' %}
         {% set showResolvedToggle = not diffMode or diffCommenting %}
-        {% if showContents or showVersions or referenceCount > 0 or decisionRows|length > 0 or showResolvedToggle or showVerdict %}
+        {# The resolved toggle is the one row that can be the menu's only content
+           and still be hidden, which would leave the button opening an empty
+           panel. It counts towards the menu only once it has something to hide. #}
+        {% set menuHasRows = showContents or showVersions or referenceCount > 0
+            or decisionRows|length > 0 or showVerdict
+            or (showResolvedToggle and signals.resolvedThreadCount > 0) %}
+        {% if menuHasRows %}
         {% include '@Review/_review_menu.html.twig' with {
             document: document,
             version: version,
