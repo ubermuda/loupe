@@ -41,7 +41,11 @@ a number.
 
 There is no delete tool. You finish a card by moving it to `done`, which stamps
 its completion time. Moving it out of `done` clears that stamp. Only a person
-deletes a card.
+deletes a card, from the card page.
+
+`card_list` returns every done card, however old it is. The board screen shows
+the last 7 days of Done and puts the rest on a history page, so a person sees
+less of Done than you do.
 
 ## Origin says who raised the card
 
@@ -88,9 +92,15 @@ Three steps carry the link, and you do all three by hand. Nothing automates any
 of them.
 
 1. Name the branch after the card number, for example `feat/42-drag-ordering`.
-2. Put the card's URL in the pull request body.
+2. Put the card's URL in the pull request body. A card page is at
+   `<instance>/projects/<projectId>/board/cards/<cardId>`. The last segment is
+   the UUID, never the number.
 3. Call `card_update` after you open the pull request, with its URL in
    `pullRequestUrls`.
+
+No board tool reports the project id, so take it from a project URL you already
+hold. Every project URL carries it, including the Connect page at
+`/projects/<projectId>/connect`.
 
 `pullRequestUrls` replaces the whole set. Send every URL the card carries. A
 call that sends the new URL alone drops the links that were already there. Omit
