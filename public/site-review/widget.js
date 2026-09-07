@@ -561,6 +561,14 @@
         `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" ` +
         `stroke-width="${stroke || 2}" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
     const ICON = {
+        // lucide:square-kanban, the board's own icon. Traced by hand because
+        // this script is standalone and cannot use <twig:UX:Icon>.
+        kanban: (s) =>
+            svg(
+                s,
+                '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7m4-7v4m4-4v9"/>',
+                1.9,
+            ),
         comment: (s) =>
             svg(
                 s,
@@ -792,7 +800,8 @@
       .lp-iconbtn:hover{background:var(--panel-elev);color:var(--text)}
       .lp-iconbtn:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
 
-      .lp-context{display:flex;align-items:baseline;gap:4px;margin-top:8px;font-size:11.5px;line-height:1.4;color:#6b7280;white-space:nowrap}
+      .lp-context{display:flex;align-items:center;gap:5px;margin-top:6px;font-size:11.5px;line-height:1.4;color:#6b7280;white-space:nowrap}
+      .lp-context svg{flex:0 0 auto;opacity:.75}
       /* A card title runs to 255 characters and the composer is a fixed height
          with overflow hidden, so a wrapped label would push Save out of sight.
          The ellipsis lives on this element rather than on .lp-context, because
@@ -2018,8 +2027,10 @@
             state.composing && state.editId == null && contextLabel;
         contextNode.style.display = showContext ? 'flex' : 'none';
         if (showContext) {
-            contextNode.textContent = '';
-            contextNode.appendChild(document.createTextNode('Saves to'));
+            // The icon carries "which board thing", so the words that said it
+            // are gone: two rows of muted prose under the textarea read as
+            // clutter, and the card is context rather than an instruction.
+            contextNode.innerHTML = ICON.kanban(13);
             const label = document.createElement(
                 contextLabel.url ? 'a' : 'span',
             );
