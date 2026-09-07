@@ -301,6 +301,25 @@ test('a read-only version offers no verdict rows at all', async ({ page }) => {
     await expect(page.locator('.lp-review-menu__rule')).toHaveCount(0);
 });
 
+test('the open menu keeps Tab off the page behind it', async ({
+    page,
+    seeded,
+}) => {
+    await page.goto(reviewPath(seeded));
+    await page.locator(TRIGGER).tap();
+    await expect(page.locator(PANEL)).toBeVisible();
+
+    // The scrim stops a tap on the covered page; this proves the keyboard
+    // cannot reach it either.
+    for (let step = 0; step < 20; step += 1) {
+        await page.keyboard.press('Tab');
+        const inside = await page.evaluate(() =>
+            Boolean(document.activeElement?.closest('.lp-review-menu')),
+        );
+        expect(inside, `Tab ${step + 1} landed behind the menu`).toBe(true);
+    }
+});
+
 test('the versions list keeps the way in to a diff', async ({ page }) => {
     const revised = await seedDocument(
         page,

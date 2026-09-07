@@ -32,6 +32,10 @@ export default class extends Controller {
         this.onKeydown = (event) => {
             if (event.key === 'Escape') {
                 this.close();
+                return;
+            }
+            if (event.key === 'Tab' && this.#isOpen()) {
+                this.#trapTab(event);
             }
         };
         // A long list scrolls inside the panel, and that scroll is not the
@@ -189,15 +193,40 @@ export default class extends Controller {
         return this.viewTargets.find((view) => view.dataset.view === name);
     }
 
+    /**
+     * The scrim stops a tap on what it covers. This is the half a scrim cannot
+     * do. The trigger closes the cycle, because it is the way out.
+     */
+    #trapTab(event) {
+        const stops = this.#focusableIn(this.panelTarget);
+        stops.push(this.triggerTarget);
+        const active = document.activeElement;
+        const outside = !this.element.contains(active);
+        if (event.shiftKey && (outside || active === stops[0])) {
+            event.preventDefault();
+            stops[stops.length - 1].focus({ preventScroll: true });
+        } else if (
+            !event.shiftKey &&
+            (outside || active === stops[stops.length - 1])
+        ) {
+            event.preventDefault();
+            stops[0].focus({ preventScroll: true });
+        }
+    }
+
+    #focusableIn(container) {
+        return [
+            ...container.querySelectorAll('a[href], button:not([disabled])'),
+        ].filter((element) => element.closest('[hidden]') === null);
+    }
+
     #focusFirstIn(container) {
-        const focusable = container.querySelector(
-            'a[href], button:not([disabled])',
-        );
-        if (focusable === null) {
+        const [first] = this.#focusableIn(container);
+        if (first === undefined) {
             this.panelTarget.focus({ preventScroll: true });
             return;
         }
-        focusable.focus({ preventScroll: true });
+        first.focus({ preventScroll: true });
     }
 
     /** The icon and the label follow the state, because the button is all three. */
