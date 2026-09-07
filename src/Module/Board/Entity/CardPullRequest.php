@@ -19,6 +19,9 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Table(name: 'board_card_pull_requests')]
 class CardPullRequest
 {
+    /** Mirrors the url column's length so callers can reject an over-long URL before Postgres does. */
+    public const int MAX_URL_LENGTH = 512;
+
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
@@ -30,7 +33,7 @@ class CardPullRequest
         #[ORM\ManyToOne(targetEntity: Card::class, inversedBy: 'pullRequests')]
         public readonly Card $card,
 
-        #[ORM\Column(length: 512)]
+        #[ORM\Column(length: self::MAX_URL_LENGTH)]
         public string $url,
 
         #[ORM\Column(length: 20, enumType: Forge::class)]

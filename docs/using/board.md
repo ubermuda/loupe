@@ -152,8 +152,10 @@ number. That covers a URL from another forge, a self-hosted one, and one that
 matches no shape Loupe knows.
 
 Loupe refuses no URL for its shape. A link it cannot read is still the link a
-reviewer wants on the card. Length is the one limit: a URL longer than 512
-characters does not fit the column, and the call that carries it fails.
+reviewer wants on the card. Length is the one limit. A URL longer than 512
+characters does not fit the column, so Loupe refuses the whole call. The form
+shows the error on the pull request links field, and an MCP tool answers with
+the limit.
 
 Two identical URLs in one call are stored once, a blank entry is dropped, and
 the links read back in the order they were added.

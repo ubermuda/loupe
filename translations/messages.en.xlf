@@ -4336,6 +4336,10 @@
                 <source>board.card.error.title_too_long</source>
                 <target>That title is too long.</target>
             </trans-unit>
+            <trans-unit id="board.card.error.pull_request_url_too_long">
+                <source>board.card.error.pull_request_url_too_long</source>
+                <target>One of those pull request links is too long.</target>
+            </trans-unit>
 
             <!-- Card create and edit pages -->
             <trans-unit id="board.card.create.page.title">

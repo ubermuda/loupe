@@ -6,6 +6,7 @@ namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardMover;
 use App\Module\Board\Service\PullRequestUrlResolver;
@@ -38,6 +39,12 @@ final readonly class UpdateCardHandler
             }
             if (mb_strlen($title) > Card::MAX_TITLE_LENGTH) {
                 throw new DomainErrors(['title' => 'board.card.error.title_too_long']);
+            }
+        }
+
+        foreach ($command->pullRequestUrls ?? [] as $url) {
+            if (mb_strlen(trim($url)) > CardPullRequest::MAX_URL_LENGTH) {
+                throw new DomainErrors(['pullRequestUrls' => 'board.card.error.pull_request_url_too_long']);
             }
         }
 
