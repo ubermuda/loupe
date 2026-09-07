@@ -339,6 +339,38 @@ test('the versions list keeps the way in to a diff', async ({ page }) => {
     await expect(page.locator('.lp-version-banner')).toBeVisible();
 });
 
+test('the diff bar names the document, not the comparison', async ({
+    page,
+}) => {
+    const revised = await seedDocument(
+        page,
+        DOCUMENT_TITLE,
+        JSON.stringify(['## Scope\n\nRevised.\n']),
+    );
+    await page.goto(`${reviewPath(revised)}/diff/1/2`);
+
+    const here = page.locator('.lp-topbar__here');
+    await expect(here).toHaveText(DOCUMENT_TITLE);
+
+    // The title has to hold the bar as well as read it. A lead squeezed to
+    // nothing reports no overflow and still renders one letter and a dot.
+    const widths = await page.evaluate(() => {
+        const lead = document.querySelector('.lp-topbar__lead');
+        const slot = document.querySelector('.lp-topbar__here');
+        return {
+            lead: lead === null ? 0 : lead.getBoundingClientRect().width,
+            here: slot === null ? 0 : slot.getBoundingClientRect().width,
+        };
+    });
+    expect(widths.here).toBeGreaterThan(widths.lead * 0.8);
+
+    // The bar drops the version pill below lg, so the banner is what says which
+    // two versions the page compares.
+    await expect(page.locator('.lp-version-banner')).toContainText(
+        'between version 1 and version 2',
+    );
+});
+
 test('a verdict leaves no button that opens an empty panel', async ({
     page,
 }) => {

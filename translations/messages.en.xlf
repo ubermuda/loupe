@@ -3520,10 +3520,6 @@
                 <source>review.document.diff.page.title</source>
                 <target>Changes since v%from%</target>
             </trans-unit>
-            <trans-unit id="review.document.diff.crumb">
-                <source>review.document.diff.crumb</source>
-                <target>Changes</target>
-            </trans-unit>
             <trans-unit id="review.document.diff.back">
                 <source>review.document.diff.back</source>
                 <target>Back to document</target>
