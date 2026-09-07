@@ -561,13 +561,17 @@
         `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" ` +
         `stroke-width="${stroke || 2}" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
     const ICON = {
-        // lucide:square-kanban, the board's own icon. Traced by hand because
-        // this script is standalone and cannot use <twig:UX:Icon>.
-        kanban: (s) =>
+        // lucide:playing-cards-fan. Traced by hand because this script is
+        // standalone and cannot use <twig:UX:Icon>. Note the paths assume a
+        // 24-unit box and a 2-unit stroke, so scaling the stroke down as the
+        // other icons do here would thin the fan unevenly.
+        cards: (s) =>
             svg(
                 s,
-                '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7m4-7v4m4-4v9"/>',
-                1.9,
+                '<path d="M12.65 7.65a2 2 0 0 1 2.629-1.046l5.51 2.374a2 2 0 0 1 1.046 2.628l-3.957 9.184a2 2 0 0 1-2.628 1.046l-5.51-2.374a2 2 0 0 1-1.046-2.628z"/>' +
+                    '<path d="M18 7.777V4a2 2 0 0 0-2-2h-6a2 2 0 0 0-2 2v10a2 2 0 0 0 1.137 1.805"/>' +
+                    '<path d="m8 4.389l-4.364.809a2 2 0 0 0-1.602 2.33l1.822 9.833a2 2 0 0 0 2.331 1.602l2.542-.47"/>',
+                2,
             ),
         comment: (s) =>
             svg(
@@ -2033,7 +2037,7 @@
             // The icon carries "which board thing", so the words that said it
             // are gone: two rows of muted prose under the textarea read as
             // clutter, and the card is context rather than an instruction.
-            contextNode.innerHTML = ICON.kanban(13);
+            contextNode.innerHTML = ICON.cards(13);
             contextNode.firstChild.setAttribute('aria-hidden', 'true');
             const said = document.createElement('span');
             said.className = 'lp-sr-only';
