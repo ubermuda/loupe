@@ -205,6 +205,52 @@ final class CardOrderingTest extends KernelTestCase
         self::assertSame(2, $this->cards->nextPosition($this->project, CardStatus::Backlog, CardPriority::Medium));
     }
 
+    public function test_two_cards_finished_in_the_same_second_read_newest_first(): void
+    {
+        // completed_at holds whole seconds, so a tie here is reachable rather than
+        // theoretical. The Done column states newest first; the tie-break has to
+        // agree with it.
+        $sameSecond = new \DateTimeImmutable('2026-09-07 12:00:00');
+
+        $earlier = new Card(project: $this->project, title: 'Started earlier', body: '', number: 901, status: CardStatus::Done, createdAt: new \DateTimeImmutable('2026-09-01 09:00:00'));
+        $later = new Card(project: $this->project, title: 'Started later', body: '', number: 902, status: CardStatus::Done, createdAt: new \DateTimeImmutable('2026-09-02 09:00:00'));
+        $earlier->completedAt = $sameSecond;
+        $later->completedAt = $sameSecond;
+        $this->em->persist($earlier);
+        $this->em->persist($later);
+        $this->em->flush();
+
+        $titles = array_map(
+            static fn (Card $card): string => $card->title,
+            $this->cards->findForBoard($this->project, CardStatus::Done),
+        );
+
+        self::assertSame(['Started later', 'Started earlier'], $titles);
+    }
+
+    public function test_the_board_and_the_done_history_agree_on_a_total_tie(): void
+    {
+        // Both columns hold whole seconds, so two cards can tie on completion and
+        // creation. The board reads one query and the history page reads another;
+        // a reader moving between them must not see the pair swap.
+        $completed = new \DateTimeImmutable('2026-09-07 12:00:00');
+        $created = new \DateTimeImmutable('2026-09-01 09:00:00');
+
+        foreach ([911, 912] as $number) {
+            $card = new Card(project: $this->project, title: 'Tied '.$number, body: '', number: $number, status: CardStatus::Done, createdAt: $created);
+            $card->completedAt = $completed;
+            $this->em->persist($card);
+        }
+        $this->em->flush();
+
+        $titles = static fn (array $cards): array => array_map(static fn (Card $card): string => $card->title, $cards);
+
+        self::assertSame(
+            $titles($this->cards->findForBoard($this->project, CardStatus::Done)),
+            $titles($this->cards->findDonePage($this->project, 0, 10)),
+        );
+    }
+
     public function test_entering_done_stamps_the_completion(): void
     {
         $card = $this->card('Finish me');
