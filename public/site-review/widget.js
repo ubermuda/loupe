@@ -938,7 +938,7 @@
       .lp-picker{margin-top:8px;border:1px solid #e5e7eb;border-radius:10px;padding:8px;background:#fff}
       .lp-picker-search{width:100%;box-sizing:border-box;border:1px solid #e5e7eb;border-radius:8px;padding:6px 8px;font:inherit;font-size:12px;outline:none}
       .lp-picker-search:focus{border-color:#9ca3af}
-      .lp-picker-list{max-height:132px;overflow:auto;margin-top:6px}
+      .lp-picker-list{max-height:min(132px,20vh);overflow:auto;margin-top:6px}
       .lp-picker-row{display:block;width:100%;text-align:left;border:0;background:none;padding:5px 6px;border-radius:6px;font:inherit;font-size:12px;color:#111827;cursor:pointer}
       .lp-picker-row:hover,.lp-picker-row:focus{background:#f3f4f6;outline:none}
       .lp-picker-row .n{color:#6b7280;margin-right:5px}
@@ -2218,9 +2218,13 @@
             });
             contextNode.appendChild(label);
         }
+        // The panel is capped at calc(100vh - 160px) and both it and the
+        // composer hide their overflow, so a fixed 470px put Create, Detach and
+        // Save out of reach on anything shorter than about 630px, with nothing
+        // to scroll. The list shrinks with the viewport as well.
         composerNode.style.maxHeight = state.composing
             ? state.picking
-                ? '470px'
+                ? 'min(470px, calc(100vh - 300px))'
                 : '264px'
             : '0px';
         composerNode.style.opacity = state.composing ? '1' : '0';
