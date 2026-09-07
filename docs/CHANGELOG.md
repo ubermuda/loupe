@@ -34,6 +34,12 @@ entry.
 
 ## [Unreleased]
 
+- `0a1fcac` (#385) — **Changed:** the `project-backend` skill says what an
+  environment variable can carry, and that normalising a payload field belongs
+  on the request DTO rather than in the controller.
+- `ed9f573` (#382) — **Added:** the site-review widget embed takes an optional
+  `data-context`, set by `SITE_REVIEW_WIDGET_CONTEXT`, and every comment made
+  through it stores that marker and reports it in `site_review_get`.
 - `c84fdf8` (#371) — **Added:** a project board, behind the `board.enabled` flag
   which ships off, shows four columns with cards grouped by priority. A drag
   re-ranks a card, re-grades it or moves it to another column, and each card has
