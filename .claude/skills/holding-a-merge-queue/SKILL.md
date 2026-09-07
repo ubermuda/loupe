@@ -91,9 +91,31 @@ one-line version is what produced the mistakes.
 | `git diff A..B` | the two trees compared. This produced a 272-file count for a one-commit branch. |
 | `git diff A...B` | what B changed since diverging. **Want this for "what did this branch change".** |
 
-A squash-merged branch is never an ancestor of `main`, so diffing it against
-`main` measures nothing about whether its work landed. The pull request's merged
-state is the authority.
+## Ancestry is not merge state
+
+Where `main` takes `--squash`, a merge mints a new commit and the branch ref
+never becomes an ancestor. Every ancestry-based test therefore reports a merged
+branch as unmerged, and cannot distinguish that from one which never merged:
+
+```bash
+git branch -r --merged origin/main | grep -c <branch>   # 0 for a MERGED branch
+git diff origin/main..<branch>                           # never empty
+```
+
+Measured on three branches merged the same day: `--merged` returned 0 for all
+three. `grep -c` also exits 1 on zero matches, so a `&&` chain after it silently
+skips whatever came next, which is how a teardown got reported that never ran.
+
+The pull request's merged state is the authority:
+
+```bash
+gh pr list --state merged --head <branch> --json number,mergeCommit
+```
+
+Ancestry still answers a different question correctly. `git merge-base
+--is-ancestor A B` is the right test for whether one *unmerged* branch contains
+another, which is how you tell that a stacked branch has been absorbed. Use it
+for that and never for "did this land on `main`".
 
 ## A peer's report is data, not a result
 
