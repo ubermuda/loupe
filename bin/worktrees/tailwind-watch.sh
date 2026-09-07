@@ -16,6 +16,8 @@
 # sheet belongs to worktree-bootstrap.sh, which builds one as it provisions, and
 # leaving that case alone is what stops the two building the same file at once.
 set -uo pipefail
+# An unmatched glob must expand to nothing rather than to itself.
+shopt -s nullglob
 
 main=${WORKTREE_TAILWIND_ROOT:-/var/www/html}
 interval=${WORKTREE_TAILWIND_INTERVAL:-3}
@@ -40,11 +42,26 @@ is_stale() {
     return 1
 }
 
-# Every provisioned worktree, at any depth. A name may carry path segments, so
-# `.claude/worktrees/*/` would look at `foo` and never reach `foo/bar`.
+# Every provisioned worktree, as a glob rather than a walk. The second pattern
+# is a name carrying one path segment, such as `foo/bar`. A name with two is not
+# found, and nothing in this repository uses one.
+#
+# The cost of getting this wrong is why it is spelled out. A worktree holds a
+# real vendor/ of about 28,000 files, so a find for the sheets took 14.6 seconds
+# a pass against a three-second interval, because `-path` filters what is
+# printed rather than what is walked. Pruning the big directories brought that
+# to 0.9s. These globs answer in 23ms, because the shell stats named paths and
+# walks nothing.
+#
+# `git worktree list` would be the authoritative source and cannot be used: it
+# reports the paths a worktree was created with, which are the host's, and this
+# runs in a container where those do not exist.
 worktree_roots() {
-    find "$trees" -type f -path '*/var/tailwind/app.built.css' -print 2>/dev/null \
-        | while read -r sheet; do dirname "$(dirname "$(dirname "$sheet")")"; done
+    local sheet
+    for sheet in "$trees"/*/var/tailwind/app.built.css \
+                 "$trees"/*/*/var/tailwind/app.built.css; do
+        [ -f "$sheet" ] && dirname "$(dirname "$(dirname "$sheet")")"
+    done
 }
 
 echo "tailwind-watch: polling $trees every ${interval}s"

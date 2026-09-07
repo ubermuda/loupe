@@ -59,6 +59,14 @@ It rebuilds only a sheet that already exists. A missing sheet belongs to
 bootstrap, and leaving that case alone is what stops the two writing the same
 file at once.
 
+It finds worktrees by globbing two levels of `.claude/worktrees`, never by
+walking them. A worktree holds a real `vendor/` of about 28,000 files, so a
+`find` for the compiled sheets cost 14.6 seconds a pass against a three-second
+interval: `-path` filters what is printed rather than what is walked. The globs
+answer in 23ms. `git worktree list` is the authoritative source and cannot be
+used here, because it reports the host paths a worktree was created with and the
+watcher runs in a container.
+
 It stamps the built file after a successful build. Tailwind leaves the file
 alone when the output is unchanged, so the timestamp would otherwise stay behind
 the source that triggered the build and every pass would rebuild for ever.
