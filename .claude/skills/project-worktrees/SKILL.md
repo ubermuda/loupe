@@ -67,11 +67,17 @@ one 1.7. The globs cost 0.3. The shared php-fpm serves every worktree, and
 background load there skews e2e timings enough to produce failures that read as
 real, so a cheap watcher matters more than a name nobody uses.
 
-It reads `composer.lock` rather than the vendored tree. `app.css` imports
-`vendor/ubermuda/admin-bundle/assets/admin.css` and scans two vendored template
-directories, so a `composer install` on a branch switch is a real reason to
-rebuild. Watching that subtree costs 688 stats per worktree per pass, and the
-lockfile changes exactly when it does for one.
+It scans the whole worktree, not just `assets/` and `templates/`. Tailwind's
+automatic detection covers the checkout, which is why `app.css` excludes
+`.claude` and `docs` explicitly, and a class can sit anywhere:
+`config/packages/ubermuda_admin.yaml` carries `!bg-sunken`. Scanning the root
+also picks up `composer.lock`, so a `composer install` on a branch switch
+rebuilds too, which matters because `app.css` imports a vendored bundle's CSS.
+
+Two of its prunes are load-bearing rather than an optimisation. `var` holds the
+log and the cache, which change on every request, so without it the watcher
+rebuilds for ever. `.claude` is where worktrees live, so without it a worktree
+scans its siblings.
 
 A whole pass costs 0.42 seconds against a ten-second interval. Ten seconds
 because this is the safety net for a sheet nobody rebuilt; `just
