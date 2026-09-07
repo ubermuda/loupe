@@ -48,15 +48,27 @@ export default class extends Controller {
                 this.#reset();
             }
         };
+        // The resolved toggle is revealed by another controller once a thread is
+        // resolved, so the button has to appear and disappear with it.
+        this.presenceObserver = new MutationObserver(() =>
+            this.#syncPresence(),
+        );
+        this.presenceObserver.observe(this.rootTarget, {
+            attributes: true,
+            attributeFilter: ['hidden'],
+            subtree: true,
+        });
         document.addEventListener('click', this.onDocumentClick, true);
         document.addEventListener('keydown', this.onKeydown);
         document.addEventListener('scroll', this.onScroll, true);
         document.addEventListener('turbo:before-cache', this.onBeforeCache);
         this.desktopQuery.addEventListener('change', this.onDesktop);
         this.#reset();
+        this.#syncPresence();
     }
 
     disconnect() {
+        this.presenceObserver.disconnect();
         document.removeEventListener('click', this.onDocumentClick, true);
         document.removeEventListener('keydown', this.onKeydown);
         document.removeEventListener('scroll', this.onScroll, true);
@@ -150,6 +162,18 @@ export default class extends Controller {
         this.rootTarget.hidden = false;
         for (const view of this.viewTargets) {
             view.hidden = true;
+        }
+    }
+
+    /** A button that opens an empty panel is worse than no button. */
+    #syncPresence() {
+        const hasRow =
+            this.rootTarget.querySelector(
+                '.lp-review-menu__row:not([hidden]), .lp-review-menu__verdict',
+            ) !== null;
+        this.element.hidden = !hasRow;
+        if (!hasRow && this.#isOpen()) {
+            this.#reset();
         }
     }
 

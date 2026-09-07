@@ -1344,6 +1344,9 @@
     .lp-review-menu {
         @apply lg:hidden;
     }
+    .lp-review-menu[hidden] {
+        @apply hidden;
+    }
     .lp-review-menu__trigger {
         @apply fixed bottom-5 right-5 z-30 inline-flex items-center justify-center w-14 h-14 rounded-full bg-chrome-raised border border-chrome-line text-chrome-fg shadow-card cursor-pointer transition-colors;
     }
@@ -1416,6 +1419,9 @@
     }
     .lp-review-menu__section[data-level='6'] {
         @apply pl-15;
+    }
+    .lp-review-menu__section--sub {
+        @apply pl-9 text-chrome-mute;
     }
     .lp-review-menu__mark {
         @apply inline-flex items-center justify-center shrink-0 w-3.75 h-3.75 rounded-full border border-chrome-line;

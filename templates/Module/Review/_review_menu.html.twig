@@ -120,6 +120,14 @@
                 <span class="lp-review-menu__label">{{ meta.description ?: ('v' ~ meta.versionNumber) }}</span>
                 <span class="lp-review-menu__count">{{ 'v' ~ meta.versionNumber }}</span>
             </a>
+            {# The desktop panel is hidden below lg, so without this row the diff
+               screen has no way in from the review page. #}
+            {% if meta.versionNumber > 1 %}
+            <a class="lp-review-menu__section lp-review-menu__section--sub"
+               href="{{ path('app_document_review_diff', {projectId: document.project.id, documentId: document.id, fromVersionNumber: meta.versionNumber - 1, toVersionNumber: meta.versionNumber}) }}">
+                <span class="lp-review-menu__label">{{ 'review.document.diff.link'|trans({'%from%': meta.versionNumber - 1}) }}</span>
+            </a>
+            {% endif %}
             {% endfor %}
         </div>
         {% endif %}

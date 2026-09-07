@@ -67,8 +67,9 @@ async function seedDocument(
     page: Page,
     title: string,
     revisions?: string,
+    markdown: string = MARKDOWN,
 ): Promise<Seeded> {
-    const form: Record<string, string> = { title, markdown: MARKDOWN };
+    const form: Record<string, string> = { title, markdown };
     if (revisions !== undefined) {
         form.revisions = revisions;
     }
@@ -298,6 +299,45 @@ test('a read-only version offers no verdict rows at all', async ({ page }) => {
     // Absent, not disabled: a control that cannot act is worse than no control.
     await expect(page.locator(VERDICT)).toHaveCount(0);
     await expect(page.locator('.lp-review-menu__rule')).toHaveCount(0);
+});
+
+test('the versions list keeps the way in to a diff', async ({ page }) => {
+    const revised = await seedDocument(
+        page,
+        DOCUMENT_TITLE,
+        JSON.stringify(['## Scope\n\nRevised.\n']),
+    );
+    await page.goto(reviewPath(revised));
+
+    await page.locator(TRIGGER).tap();
+    await page.locator(ROW, { hasText: 'Versions' }).tap();
+
+    // The desktop versions panel is hidden below lg, so this row is the only
+    // route from the review page to the comparison.
+    const diff = page.getByRole('link', { name: 'What changed since v1' });
+    await expect(diff).toBeVisible();
+    await diff.tap();
+    await expect(page.locator('.lp-version-banner')).toBeVisible();
+});
+
+test('a verdict leaves no button that opens an empty panel', async ({
+    page,
+}) => {
+    const plain = await seedDocument(
+        page,
+        SHORT_TITLE,
+        undefined,
+        'A document with no headings at all.\n',
+    );
+    await page.goto(reviewPath(plain));
+
+    await page.locator(TRIGGER).tap();
+    await page.getByRole('button', { name: 'Approve' }).tap();
+    await expect(page.locator('.lp-verdict-bar')).toBeVisible();
+
+    // Nothing is left to choose: no headings, one version, no references, no
+    // decisions, no verdict to give and no resolved thread to hide.
+    await expect(page.locator(TRIGGER)).toBeHidden();
 });
 
 test('scrolling the paper closes the menu', async ({ page, seeded }) => {
