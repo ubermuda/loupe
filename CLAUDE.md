@@ -6,6 +6,8 @@ This file guides Claude Code (claude.ai/code) when it works in this repository.
 
 These skills hold the detailed conventions for one area each. Invoke the relevant skill before you write or edit anything in that area. There are no exceptions. "I already know the pattern" and "this is a small change" are not exceptions, because the skills carry project-specific conventions that differ from the defaults and from each other.
 
+A skill's name prefix says which side of the product you stand on. A `loupe-*` skill covers using the Loupe product through the `loupe` MCP, a `project-*` skill covers developing this codebase, and a `symfony-*` skill covers generic framework mechanics that any Symfony project shares. `project-site-review` and `loupe-site-review` show the split: one builds the widget, the other acts on the feedback the widget produces.
+
 | Skill | Use when working on… |
 |---|---|
 | `project-backend` | PHP code under `src/`: forms, DTOs, entities, controllers, flash messages |
@@ -23,6 +25,7 @@ These skills hold the detailed conventions for one area each. Invoke the relevan
 | `loupe-documents` | Writing or revising any document submitted to the Loupe app through the `loupe` MCP |
 | `project-tech-design` | A technical design that settles an architecture, an entity model, a module boundary, or a subsystem |
 | `loupe-site-review` | Acting on site-review feedback through the `loupe` MCP: `site_review_get`, fixing comments, marking them addressed |
+| `loupe-board` | Working a project board through the `loupe` MCP: `card_create`, `card_list`, `card_get`, `card_update`, writing a card, linking a pull request |
 | `symfony-authorization` | Generic Symfony authorization mechanics: Voter classes, attribute naming, `#[IsGranted]` placement, `subject:` resolution, `is_granted()` in Twig |
 | `symfony-entity-route-mapping` | Routes that resolve entities from URL parameters: `{param:variable}` notation, `#[MapEntity]`, multi-entity routes |
 | `project-comments` | Writing or reviewing code comments and docblocks anywhere in `src/`, `assets/` or `tests/` |
