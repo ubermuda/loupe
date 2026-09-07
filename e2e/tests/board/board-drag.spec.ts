@@ -139,6 +139,17 @@ async function dragCardTo(
     await page.mouse.up();
 }
 
+/**
+ * Resolves when the move endpoint has answered.
+ *
+ * A drop moves the card in the page before it posts, so the order on screen is
+ * true the moment the drag ends. A reload asserted before the answer would race
+ * the write, and pass or fail with the load on the stack.
+ */
+function movePosted(page: Page): Promise<unknown> {
+    return page.waitForResponse((response) => response.url().endsWith('/move'));
+}
+
 async function topEdgeOf(
     page: Page,
     title: string,
@@ -218,7 +229,9 @@ test('a drag inside a priority group reorders it, and the order survives a reloa
 }) => {
     expect(await titlesIn(page, BACKLOG, HIGH)).toEqual(['Alpha', 'Bravo']);
 
+    const written = movePosted(page);
     await dragCardTo(page, 'Bravo', await topEdgeOf(page, 'Alpha'));
+    await written;
 
     await expect
         .poll(() => titlesIn(page, BACKLOG, HIGH))
@@ -233,7 +246,9 @@ test('a drag into another column changes the status, and it survives a reload', 
     page,
     board,
 }) => {
+    const written = movePosted(page);
     await dragCardTo(page, 'Alpha', await centreOfGroup(page, NEXT, HIGH));
+    await written;
 
     await expect.poll(() => titlesIn(page, NEXT, HIGH)).toEqual(['Alpha']);
     expect(await titlesIn(page, BACKLOG, HIGH)).toEqual(['Bravo']);

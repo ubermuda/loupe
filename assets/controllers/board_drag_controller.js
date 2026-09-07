@@ -184,7 +184,9 @@ export default class extends Controller {
             return;
         }
 
-        const card = this.draggedCard;
+        // The browser took the gesture back, usually to scroll. It never became
+        // a drop, so nothing is submitted.
+        const card = 'pointercancel' === event.type ? null : this.draggedCard;
         if (card === null) {
             this.abandon();
 
@@ -214,7 +216,10 @@ export default class extends Controller {
             this.placeholder.replaceWith(card);
         }
 
-        this.swallowClick = true;
+        // Armed only when the click that follows will reach the board. A
+        // release outside it sends the click to a shared ancestor instead, and
+        // an armed flag would then swallow the next click on the board.
+        this.swallowClick = this.element.contains(event.target);
         this.abandon();
 
         if (moves) {
