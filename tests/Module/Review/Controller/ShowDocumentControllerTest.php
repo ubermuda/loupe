@@ -462,7 +462,9 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$documentId.'/review');
         self::assertSelectorNotExists('.lp-verdict-bar');
-        self::assertCount(2, $crawler->filter('button[name="submit_review_form[verdict]"]'));
+        // The top bar carries the pair above lg and the review menu below it.
+        self::assertCount(2, $crawler->filter('.lp-topbar__actions button[name="submit_review_form[verdict]"]'));
+        self::assertCount(2, $crawler->filter('.lp-review-menu button[name="submit_review_form[verdict]"]'));
     }
 
     public function test_a_comment_card_shows_its_age_and_an_undated_one_shows_none(): void
@@ -656,7 +658,8 @@ final class ShowDocumentControllerTest extends WebTestCase
         // Two composers: one for a comment, one for a rewording.
         self::assertCount(2, $latest->filter('.lp-comment-composer'));
         self::assertCount(1, $latest->filter('form[name="strike_passage_form"]'));
-        self::assertCount(2, $latest->filter('button[name="submit_review_form[verdict]"]'));
+        self::assertCount(2, $latest->filter('.lp-topbar__actions button[name="submit_review_form[verdict]"]'));
+        self::assertCount(2, $latest->filter('.lp-review-menu button[name="submit_review_form[verdict]"]'));
         self::assertGreaterThan(0, $latest->filter('.lp-comment-thread form')->count());
     }
 

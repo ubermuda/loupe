@@ -8,6 +8,7 @@ use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Repository\ProjectRepository;
+use App\Security\ProjectScopedSubject;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -15,7 +16,7 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Entity(repositoryClass: ProjectRepository::class)]
 #[ORM\Table(name: 'projects')]
 #[ORM\UniqueConstraint(name: 'uniq_project_owner_name', columns: ['owner_id', 'name'])]
-class Project
+class Project implements ProjectScopedSubject
 {
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
@@ -65,5 +66,17 @@ class Project
         #[ORM\Column]
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
     ) {
+    }
+
+    #[\Override]
+    public function scopedProject(): Project
+    {
+        return $this;
+    }
+
+    #[\Override]
+    public function scopedSubjectType(): string
+    {
+        return 'project';
     }
 }

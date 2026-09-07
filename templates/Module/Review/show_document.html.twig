@@ -108,9 +108,9 @@
         {# .lp-review-doc is position:relative: the offset parent the floating
            composer and toolbar are placed against, and the frame the comment
            margin is measured within. The inner [data-comment-anchor-target="doc"]
-           is the TreeWalker root and must hold ONLY the rendered HTML — no
-           template whitespace — so its textContent === plainText(). #}
-        {% set docActions = (canComment ? ['mouseup->comment-anchor#onDocMouseup', 'mousemove->comment-anchor#onDocMousemove'] : [])|merge(readOnly ? [] : ['change->decision#select']) %}
+           is the TreeWalker root and must hold ONLY the rendered HTML, so its
+           text === plainText(). The controller's own slots are the exception. #}
+        {% set docActions = (canComment ? ['mouseup->comment-anchor#onDocMouseup', 'pointerup->comment-anchor#onDocPointerup', 'mousemove->comment-anchor#onDocMousemove', 'click->comment-anchor#onDocClick'] : [])|merge(readOnly ? [] : ['change->decision#select']) %}
         <div class="lp-review-doc" data-comment-anchor-target="block" data-controller="decision"{% if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}>
 
             <div class="lp-review-doc__head">
@@ -566,6 +566,26 @@
             {% endif %}
         </div>
 
+        {# A sibling of the document pane, so the resolved toggle it carries is
+           still inside the comment-anchor controller that drives it. #}
+        {% set showVerdict = not readOnly and not diffMode and document.status.value == 'in-review' %}
+        {% set showResolvedToggle = not diffMode or diffCommenting %}
+        {% if showContents or showVersions or referenceCount > 0 or decisionRows|length > 0 or showResolvedToggle or showVerdict %}
+        {% include '@Review/_review_menu.html.twig' with {
+            document: document,
+            version: version,
+            versions: versions,
+            showVersions: showVersions,
+            showContents: showContents,
+            sectionRows: sectionRows,
+            approvedSections: approvedSections,
+            referenceCount: referenceCount,
+            decisionRows: decisionRows,
+            answeredDecisions: answeredDecisions,
+            showResolvedToggle: showResolvedToggle,
+            showVerdict: showVerdict,
+        } only %}
+        {% endif %}
     </div>
 
     {# The verdict, once there is one. The buttons that produce it live in the

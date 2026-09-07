@@ -838,9 +838,11 @@
         @apply flex flex-col mt-2;
     }
     /* Divider on top rather than bottom, so the last row does not end on a rule
-       the eye reads as "more below". */
+       the eye reads as "more below". Below lg the badge and the actions drop to
+       their own line: held on one row they leave the title about 50px, which
+       renders every document on the list as one letter and an ellipsis. */
     .lp-document-row {
-        @apply relative flex items-center gap-4 border-t border-line-strong transition-colors py-5 px-1;
+        @apply relative flex flex-wrap items-center gap-x-4 gap-y-2.5 border-t border-line-strong transition-colors py-5 px-1 lg:flex-nowrap lg:gap-y-0;
     }
     .lp-document-row:hover {
         @apply bg-tint;
@@ -851,14 +853,16 @@
         @apply absolute inset-0;
     }
     .lp-document-row__main {
-        @apply min-w-0 flex-1 flex flex-col gap-1;
+        @apply min-w-0 basis-full flex flex-col gap-1 lg:flex-1;
     }
     /* Line 1: title + version pill inline. */
     .lp-document-row__head {
-        @apply flex items-baseline gap-2 min-w-0;
+        @apply flex flex-wrap items-baseline gap-2 min-w-0 lg:flex-nowrap;
     }
+    /* The title wraps below lg and truncates above it. A phone has the vertical
+       room, and one ellipsised letter tells the reader nothing. */
     .lp-document-row__title {
-        @apply font-display font-semibold text-ink truncate text-2xl tracking-tight;
+        @apply font-display font-semibold text-ink min-w-0 break-words text-xl tracking-tight lg:truncate lg:text-2xl;
     }
     /* Bare mono version marker, e.g. "v3" — a pill here would compete with the
        status badge at the other end of the same row. */
@@ -1216,16 +1220,17 @@
 
     /* The 972px review block: a 640px reading column, a 36px gutter, and a
        296px comment column. Centred, and the offset parent the comment stack
-       and the floating panels are positioned against. */
+       and the floating panels are positioned against. Below lg the 972px is a
+       ceiling rather than a width, so the reading column fills a phone. */
     .lp-review-block {
-        @apply relative w-243 mx-auto pt-13 pb-30;
+        @apply relative w-full max-w-243 mx-auto px-5 pt-6 pb-19 lg:px-0 lg:pt-13 lg:pb-30;
     }
 
     /* ── Document pane ──────────────────────────────────────────────────
        The reading column. position:relative so the composer and toolbar
        position against it. Plain prose — no card, no line numbers. */
     .lp-review-doc {
-        @apply relative w-160;
+        @apply relative w-full max-w-160;
     }
     .lp-review-doc__head {
         @apply flex flex-col gap-2.5 mb-9;
@@ -1234,11 +1239,34 @@
         @apply font-display font-extrabold text-ink m-0 text-4xl tracking-tight leading-tight;
     }
 
-    /* The comment column. Absolutely positioned, and every card inside it is
-       too: a paragraph carrying five comments has to be exactly as tall as one
-       carrying none, which it cannot be if the cards are in flow. */
+    /* The comment column, from lg up. Absolutely positioned, and every card
+       inside it is too: a paragraph carrying five comments has to be exactly as
+       tall as one carrying none, which it cannot be if the cards are in flow.
+       Below lg there is no gutter to hold it, so comment_anchor_controller moves
+       each card into the prose and only unplaceable ones stay here. */
     .lp-review-margin {
-        @apply absolute left-169 top-0 w-74;
+        @apply flex flex-col gap-3 w-full lg:block lg:absolute lg:left-169 lg:top-0 lg:w-74;
+    }
+    /* Clears the prose below it while it holds a card. */
+    .lp-review-margin:has(.lp-comment-thread) {
+        @apply mb-9 lg:mb-0;
+    }
+
+    /* Holds the cards for one paragraph below lg, in normal flow right after it.
+       The type reset undoes .lp-review-doc__prose, which the slot sits inside;
+       the typography plugin's own `not-prose` rides beside this class. */
+    .lp-review-inline-threads {
+        @apply flex flex-col gap-3 my-6 text-sm leading-normal text-fg;
+    }
+
+    /* A hidden card is still a card to :has and to a slot's own box, so both
+       take their space back when hiding resolved threads leaves them with
+       nothing on screen. */
+    .lp-review-block--hide-resolved
+        :is(.lp-review-margin, .lp-review-inline-threads):not(
+            :has(.lp-comment-thread:not(.lp-comment-thread--resolved))
+        ) {
+        @apply my-0;
     }
 
     .lp-version-pill {
@@ -1258,8 +1286,15 @@
     .lp-doc-meta-bar {
         @apply sticky top-0 z-10 bg-app;
     }
+    /* Scrolls rather than wraps below the reading column's own width: the tabs
+       are one row by design, and a wrapped row would move the prose down by a
+       line on every narrow screen. */
     .lp-doc-meta {
-        @apply flex items-center gap-1 py-1.5 border-y border-line;
+        @apply flex items-center gap-1 py-1.5 border-y border-line overflow-x-auto whitespace-nowrap;
+        scrollbar-width: none;
+    }
+    .lp-doc-meta::-webkit-scrollbar {
+        display: none;
     }
     .lp-doc-meta__tab {
         @apply inline-flex items-center gap-2 h-8.5 px-3.5 rounded-lg bg-transparent border-0 cursor-pointer text-sm font-semibold text-ink transition-colors;
@@ -1297,20 +1332,35 @@
     .lp-doc-meta__panel[hidden] {
         @apply hidden;
     }
+    /* Below lg the four tabs are rows of the review menu instead. A display
+       utility outside this query would outrank the UA [hidden] rule above and
+       hold every panel open on desktop. */
+    @media (width < 64rem) {
+        .lp-doc-meta__tab,
+        .lp-doc-meta__panel {
+            @apply hidden;
+        }
+        .lp-doc-meta:not(:has(.lp-doc-meta__series, .lp-doc-meta__tags)) {
+            @apply hidden;
+        }
+    }
 
     /* ── Review action row ──────────────────────────────────────────────
        "Add general comment" plus the hint that select-to-comment exists, with
        the resolved toggle pushed out over the comment column. */
     .lp-review-actions {
-        @apply flex items-center gap-3 mb-5.5;
+        @apply flex flex-wrap items-center gap-x-3 gap-y-2 mb-5.5;
     }
     .lp-review-actions__hint {
         @apply text-sm text-fg-mute;
     }
-    /* Sits above the comment column rather than the reading column, so it reads
-       as a control on the comments and not on the prose. */
+    /* Sits above the comment column, so it reads as a control on the comments
+       rather than on the prose. Below lg the review menu carries the only copy.
+       `max-lg:` and not a plain `hidden`, because above lg this class must
+       declare no display: the controller reveals the button with the `hidden`
+       attribute, which a display utility in this layer outranks. */
     .lp-review-actions__resolved {
-        @apply absolute left-169 whitespace-nowrap bg-transparent border-0 p-0 cursor-pointer text-sm text-fg-mute transition-colors;
+        @apply max-lg:hidden absolute left-169 whitespace-nowrap bg-transparent border-0 p-0 cursor-pointer text-sm text-fg-mute transition-colors;
     }
     .lp-review-actions__resolved:hover {
         @apply text-ink;
@@ -1319,6 +1369,102 @@
        and costs no round trip. */
     .lp-review-block--hide-resolved .lp-comment-thread--resolved {
         @apply hidden;
+    }
+
+    /* ── Review menu ────────────────────────────────────────────────────
+       Everything the top bar and the metadata tabs carry on desktop, reached
+       from one round button in the bottom right where a thumb rests. The panel
+       opens upward from the button and drills down in place. */
+    .lp-review-menu {
+        @apply lg:hidden;
+    }
+    .lp-review-menu[hidden] {
+        @apply hidden;
+    }
+    .lp-review-menu__trigger {
+        @apply fixed bottom-5 right-5 z-30 inline-flex items-center justify-center w-14 h-14 rounded-full bg-chrome-raised border border-chrome-line text-chrome-fg shadow-card cursor-pointer transition-colors;
+    }
+    .lp-review-menu__trigger:hover {
+        @apply bg-chrome-line;
+    }
+    .lp-review-menu__trigger svg {
+        @apply w-5 h-5 shrink-0;
+    }
+    /* Stops short of the top bar, which keeps reporting where the reader is. */
+    .lp-review-menu__scrim {
+        @apply fixed inset-x-0 bottom-0 top-16 z-20 bg-ink/60;
+    }
+    .lp-review-menu__panel {
+        @apply fixed bottom-21 right-5 z-30 w-63 flex flex-col p-1.5 rounded-xl bg-chrome-raised border border-chrome-line shadow-composer overflow-y-auto;
+        max-height: calc(100dvh - calc(var(--spacing) * 48));
+    }
+    .lp-review-menu__view {
+        @apply flex flex-col;
+    }
+    /* A display utility in a layered class outranks the UA [hidden] rule, so
+       each of these has to restate it. */
+    .lp-review-menu__panel[hidden],
+    .lp-review-menu__scrim[hidden],
+    .lp-review-menu__view[hidden] {
+        @apply hidden;
+    }
+    .lp-review-menu__row {
+        @apply flex items-center gap-2.5 w-full min-h-11 px-3 py-2 rounded-lg bg-transparent border-0 cursor-pointer text-left text-sm text-chrome-fg transition-colors;
+    }
+    .lp-review-menu__row:hover {
+        @apply bg-chrome-line;
+    }
+    .lp-review-menu__row svg {
+        @apply w-4.5 h-4.5 shrink-0 text-chrome-mute;
+    }
+    .lp-review-menu__label {
+        @apply min-w-0 truncate;
+    }
+    .lp-review-menu__count {
+        @apply ml-auto shrink-0 font-mono text-chrome-dim text-xs;
+    }
+    .lp-review-menu__rule {
+        @apply border-0 border-t border-chrome-line my-1.5;
+    }
+    .lp-review-menu__verdict {
+        @apply w-full min-h-11;
+    }
+    .lp-review-menu__verdict + .lp-review-menu__verdict {
+        @apply mt-1.5;
+    }
+    /* Names the list the reader drilled into, so the panel never loses its place. */
+    .lp-review-menu__head {
+        @apply flex items-center gap-2.5 px-3 py-2 font-mono uppercase tracking-widest text-chrome-dim text-xs;
+    }
+    .lp-review-menu__head-count {
+        @apply ml-auto shrink-0 normal-case tracking-normal;
+    }
+    .lp-review-menu__section {
+        @apply flex items-center gap-2.5 min-h-11 px-3 py-2 rounded-lg no-underline text-sm text-chrome-fg transition-colors hover:bg-chrome-line;
+    }
+    .lp-review-menu__section[data-level='3'] {
+        @apply pl-6;
+    }
+    .lp-review-menu__section[data-level='4'] {
+        @apply pl-9;
+    }
+    .lp-review-menu__section[data-level='5'] {
+        @apply pl-12;
+    }
+    .lp-review-menu__section[data-level='6'] {
+        @apply pl-15;
+    }
+    .lp-review-menu__section--sub {
+        @apply pl-9 text-chrome-mute;
+    }
+    .lp-review-menu__mark {
+        @apply inline-flex items-center justify-center shrink-0 w-3.75 h-3.75 rounded-full border border-chrome-line;
+    }
+    .lp-review-menu__mark--approved {
+        @apply bg-accent border-accent text-ink;
+    }
+    .lp-review-menu__mark svg {
+        @apply w-2.5 h-2.5 shrink-0;
     }
 
     /* ── General comments group ─────────────────────────────────────────
@@ -1563,7 +1709,7 @@
     /* Long-form reading type: 18px on a 32px line, in the faintly cool prose ink
        rather than the warm UI ink. The measure is fixed by .lp-review-doc. */
     .lp-review-doc__prose {
-        @apply mt-0 max-w-none text-lg leading-8 text-prose;
+        @apply mt-0 max-w-none text-lg leading-8 text-prose break-words;
     }
     /* The paper scrolls, not this pane, so a jump from the contents or decisions
        panel would otherwise land its target under the sticky metadata bar. */
@@ -1581,6 +1727,12 @@
     .lp-review-doc__prose code {
         @apply font-mono bg-surface-3 rounded-md text-ink py-0.5 px-1.5;
         font-size: 0.82em;
+    }
+    /* A wide table is the one block a phone column cannot reflow, so below lg it
+       scrolls inside itself rather than pushing the whole paper sideways. Its
+       scrollbar stays, because it is the only thing that says it scrolls. */
+    .lp-review-doc__prose table {
+        @apply block max-w-full overflow-x-auto lg:table;
     }
 
     /* ── Table of contents ──────────────────────────────────────────────
@@ -1686,7 +1838,7 @@
        Shown on text selection: a dark pill floating above the selection with
        the selection-toolbar shadow. */
     .lp-anchor-toolbar {
-        @apply absolute z-20 flex items-center gap-1 p-1.5 rounded-xl bg-chrome shadow-toolbar;
+        @apply absolute z-20 flex flex-wrap items-center gap-1 max-w-full p-1.5 rounded-xl bg-chrome shadow-toolbar;
         animation: lp-appear 120ms ease-out both;
     }
     .lp-anchor-toolbar__btn {
@@ -1705,9 +1857,9 @@
     }
 
     /* Standing error region for a strike, which posts with no composer open.
-       Fixed rather than absolute: .lp-review-doc is the internal scroll container,
-       so an absolutely-positioned child sits in scrolled content space and would
-       render above the viewport for a reviewer working further down the page. */
+       Fixed rather than absolute: .lp-main scrolls, so an absolutely-positioned
+       child sits in scrolled content space and would render above the viewport
+       for a reviewer working further down the page. */
     .lp-review-action-error {
         @apply fixed bottom-6 left-1/2 z-30 m-0 rounded-lg border border-line bg-elev shadow-composer py-2 px-3 text-xs text-danger;
         transform: translateX(-50%);
@@ -1720,7 +1872,7 @@
        A 340px white card anchored at the selection. Shows the quoted selection
        (targeted) or a "General comment" label (untargeted). */
     .lp-comment-composer {
-        @apply absolute z-20 bg-app border-0 rounded-xl shadow-composer p-4 flex flex-col gap-3 w-90;
+        @apply absolute z-20 bg-app border-0 rounded-xl shadow-composer p-4 flex flex-col gap-3 w-full max-w-90;
         animation: lp-appear 120ms ease-out both;
     }
     /* The `flex`/`display` in the rules above outranks the UA `[hidden]` rule
@@ -1782,11 +1934,12 @@
     }
 
     /* ── Comment thread card ───────────────────────────────────────────
-       Absolutely positioned inside .lp-review-margin; comment_anchor_controller
-       sets each card's `top` so it sits level with the passage it is anchored
-       to. Cards never move on hover — only the ring and shadow appear. */
+       Absolutely positioned inside .lp-review-margin from lg up, with its `top`
+       set by comment_anchor_controller so it sits level with its passage. Below
+       lg it is in normal flow, inside the slot the controller opens after that
+       passage's block. Cards never move on hover — only the ring appears. */
     .lp-comment-thread {
-        @apply absolute left-0 right-0 flex flex-col gap-3 rounded-xl bg-surface-3 py-3.5 px-4 transition-shadow;
+        @apply static lg:absolute left-0 right-0 flex flex-col gap-3 rounded-xl bg-surface-3 py-3.5 px-4 transition-shadow;
     }
     .lp-comment-thread:hover,
     .lp-comment-thread--active {
@@ -2049,18 +2202,67 @@
         @apply flex bg-sidebar;
         height: 100dvh;
     }
+    /* The right and bottom inset frames the paper against the sidebar. Below lg
+       the sidebar is out of flow, so nothing balances it on the left and it
+       reads as a stray black strip. */
     .lp-shell {
-        @apply flex flex-1 flex-col min-w-0 pr-2.5 pb-2.5;
+        @apply flex flex-1 flex-col min-w-0 lg:pr-2.5 lg:pb-2.5;
     }
-    /* overflow-x is auto, not hidden: the review block is a fixed 972px and a
-       narrow window must be able to scroll to the comment column rather than
-       have it clipped away where nothing can reach it. */
+    /* overflow-x is auto, not hidden: from lg up the review block is 972px, and
+       a window narrower than that must be able to scroll to the comment column
+       rather than have it clipped away where nothing can reach it. */
     .lp-main {
-        @apply flex-1 min-h-0 bg-app rounded-lg overflow-x-auto overflow-y-auto;
+        @apply flex-1 min-h-0 bg-app rounded-t-lg overflow-x-auto overflow-y-auto lg:rounded-lg;
     }
 
     .lp-sidebar {
         @apply flex flex-col gap-1 w-59 shrink-0 pt-5 px-3.5 pb-3.5;
+    }
+
+    /* Below lg the sidebar slides in over the paper. Only the app shell opts
+       in: the landing still reuses .lp-sidebar inside a fixed 1260px frame,
+       which a viewport media query would pin to the window. The closed panel is
+       `visibility: hidden`, so it is untabbable and untappable off-canvas. */
+    .lp-sidebar--drawer {
+        @apply fixed inset-y-0 left-0 z-50 overflow-y-auto bg-sidebar invisible -translate-x-full lg:static lg:visible lg:translate-x-0 lg:overflow-visible;
+        /* `translate`, not `transform`: that is the property -translate-x-full
+           writes. Hiding waits out the slide, so the panel does not vanish
+           mid-motion. */
+        transition:
+            translate 200ms ease-out,
+            visibility 0s linear 200ms;
+    }
+    /* No delay on the way in, so the panel is focusable in the same tick the
+       drawer opens. An interpolated `visibility` still reads `hidden` there and
+       makes focus() a silent no-op. */
+    .lp-sidebar--drawer.lp-sidebar--open {
+        @apply visible translate-x-0;
+        transition:
+            translate 200ms ease-out,
+            visibility 0s linear 0s;
+    }
+    /* The sidebar is static above lg, so a window that crosses the breakpoint
+       must snap rather than slide. */
+    @media (width >= 64rem) {
+        .lp-sidebar--drawer,
+        .lp-sidebar--drawer.lp-sidebar--open {
+            transition: none;
+        }
+    }
+    /* Closes the drawer. Absolute, so it does not shift the brand it sits beside. */
+    .lp-sidebar__close {
+        @apply absolute top-4 right-3 inline-flex items-center justify-center w-9 h-9 rounded-lg text-chrome-mute cursor-pointer transition-colors lg:hidden;
+    }
+    .lp-sidebar__close:hover {
+        @apply bg-chrome-raised text-chrome-fg;
+    }
+    .lp-sidebar__close svg {
+        @apply w-5 h-5 shrink-0;
+    }
+
+    /* Dims the paper behind an open drawer, and catches the tap that closes it. */
+    .lp-scrim {
+        @apply fixed inset-0 z-40 bg-ink/60 lg:hidden;
     }
 
     /* Wordmark. There is no logo mark by design — do not add one back. */
@@ -2212,16 +2414,39 @@
 
     /* ── Top bar ────────────────────────────────────────────────────────── */
 
-    /* Transparent over the chrome, above the paper. Carries the breadcrumb
-       trail, a per-screen metadata line, and (on review) the verdict actions. */
+    /* Transparent over the chrome, above the paper. It sits outside .lp-main,
+       so anything it cannot fit widens the whole page instead of scrolling.
+       One row at every width: below lg the lead stacks its two lines and
+       everything else leaves the bar. */
     .lp-topbar {
         @apply flex items-center gap-3.5 h-16 px-3.5 shrink-0;
     }
+    /* Opens the sidebar drawer. Present only where the sidebar is off-canvas. */
+    .lp-topbar__menu {
+        @apply inline-flex items-center justify-center shrink-0 w-9 h-9 rounded-lg text-chrome-mute cursor-pointer transition-colors lg:hidden;
+    }
+    .lp-topbar__menu:hover {
+        @apply bg-chrome-raised text-chrome-fg;
+    }
+    .lp-topbar__menu svg {
+        @apply w-5 h-5 shrink-0;
+    }
+    /* Below lg the trail and the meta stack, which is the whole bar. Above lg
+       they share one baseline row, and no width floor is needed: the actions
+       are the only other child and they are gone below lg. */
     .lp-topbar__lead {
-        @apply flex items-baseline gap-3.5 min-w-0;
+        @apply flex flex-col justify-center gap-y-0.5 min-w-0 flex-1 basis-0 lg:flex-row lg:flex-wrap lg:items-baseline lg:gap-x-3.5 lg:gap-y-1;
     }
     .lp-topbar__trail {
-        @apply flex items-baseline gap-2 min-w-0;
+        @apply flex items-baseline gap-2 min-w-0 max-w-full;
+    }
+    /* Below lg the bar holds the document title alone. A crumb, a separator and
+       a version pill beside it leave the title nothing to truncate into. */
+    .lp-topbar__crumb,
+    .lp-topbar__sep,
+    .lp-topbar__trail .lp-version-pill,
+    .lp-topbar__lead .lp-signal {
+        @apply hidden lg:inline-flex;
     }
     .lp-topbar__crumb {
         @apply text-sm text-chrome-mute no-underline transition-colors;
@@ -2233,13 +2458,14 @@
         @apply text-sm text-chrome-dim;
     }
     .lp-topbar__here {
-        @apply text-base font-medium text-white truncate;
+        @apply text-base font-medium text-white min-w-0 truncate;
     }
     .lp-topbar__meta {
-        @apply text-sm text-chrome-dim whitespace-nowrap;
+        @apply text-chrome-dim truncate text-xs lg:text-sm lg:whitespace-nowrap;
     }
+    /* Below lg the verdict actions move into the review menu. */
     .lp-topbar__actions {
-        @apply flex items-center gap-2.5 ml-auto;
+        @apply hidden items-center gap-2.5 ml-auto lg:flex lg:flex-wrap;
     }
 
     /* ── Code / pre blocks ──────────────────────────────────────────────── */
@@ -3096,8 +3322,17 @@
     .lp-landing-mock__toolbar {
         @apply left-0 top-76;
     }
+    /* The still is a fixed-width frame, so its review geometry answers to the
+       frame and never to the viewport. The padding is part of that: the margin
+       below is placed from the block's top edge. */
+    .lp-landing-mock .lp-review-block {
+        @apply w-243 px-0 pt-13 pb-30;
+    }
     .lp-landing-mock__margin {
-        @apply top-72;
+        @apply block absolute left-169 top-72 w-74;
+    }
+    .lp-landing-mock .lp-comment-thread {
+        @apply absolute;
     }
     .lp-landing-mock__reply {
         @apply mt-7;
@@ -3580,6 +3815,185 @@
     .lp-btn--lg {
         @apply h-11 px-6 text-base;
     }
+
+    /* ── Board ──────────────────────────────────────────────────────────
+       Four columns side by side. The row scrolls rather than wraps: a column
+       that wrapped below its neighbours would stop reading as a column. */
+    .lp-workspace--board {
+        @apply max-w-none pr-12;
+    }
+    .lp-board-head {
+        @apply flex items-start justify-between gap-4;
+    }
+    .lp-board {
+        @apply flex flex-col gap-2;
+    }
+    .lp-board__columns {
+        @apply flex items-start gap-4 overflow-x-auto pb-4;
+    }
+    .lp-board__message {
+        @apply text-sm font-semibold text-danger m-0 empty:hidden;
+    }
+    .lp-board__column {
+        @apply flex flex-col gap-3 grow basis-0 min-w-64 rounded-xl bg-surface-2 p-3.5;
+    }
+    .lp-board__column-head {
+        @apply flex items-center justify-between gap-2;
+    }
+    .lp-board__column-title {
+        @apply font-display font-extrabold text-base tracking-tight text-ink m-0;
+    }
+    .lp-board__column-count {
+        @apply inline-flex items-center justify-center min-w-6 rounded-full bg-surface-3 px-2 py-0.5 text-xs font-bold text-fg-mute;
+    }
+    .lp-board__column-note {
+        @apply text-xs text-fg-dim m-0;
+    }
+    .lp-board__column-link {
+        @apply text-xs font-semibold text-accent-ink underline underline-offset-2 hover:text-ink;
+    }
+    /* A group is a drop target, so it keeps a minimum height even when empty:
+       an empty grade with no area under it cannot be dropped into. */
+    .lp-board__group {
+        @apply flex flex-col gap-2 min-h-12 rounded-lg transition-colors;
+    }
+    .lp-board__group-title {
+        @apply uppercase text-fg-dim m-0 text-xs font-bold tracking-widest;
+    }
+    .lp-board__placeholder {
+        @apply rounded-xl border-2 border-dashed border-accent-border bg-accent-faint;
+    }
+    /* Text selection during a drag would highlight every card the pointer
+       crosses, so it is suppressed for the length of the gesture only. */
+    .lp-board--dragging {
+        @apply select-none;
+    }
+
+    /* The whole card is the drag handle, so its own text is not selectable.
+       A selection started on a card would fight the gesture. The card's page
+       carries the same text, and there it selects normally. */
+    .lp-board-card {
+        @apply relative flex flex-col gap-2 rounded-xl bg-surface-1 py-3 px-3.5 transition-shadow select-none cursor-grab;
+    }
+    .lp-board-card[aria-busy='true'] {
+        @apply opacity-60;
+    }
+    .lp-board-card--dragging {
+        @apply fixed z-50 pointer-events-none shadow-lg opacity-90;
+    }
+    .lp-board-card__grip {
+        @apply absolute top-2 right-2 touch-none text-fg-faint;
+    }
+    .lp-board-card:active {
+        @apply cursor-grabbing;
+    }
+    .lp-board-card__title {
+        @apply pr-6 text-sm font-semibold text-ink no-underline hover:text-accent-ink;
+    }
+    /* A card's per-project number, sized like the documents list's version chip
+       so the two identifiers read at the same weight across the app. */
+    .lp-board-card__number {
+        @apply font-mono text-xs font-semibold text-fg-dim;
+    }
+    .lp-card-number {
+        @apply font-mono align-middle text-2xl font-semibold text-fg-dim;
+    }
+    .lp-board-card__meta {
+        @apply flex flex-wrap items-center gap-2;
+    }
+    .lp-board-card__pulls {
+        @apply inline-flex items-center gap-1 text-xs font-semibold text-fg-mute;
+    }
+
+    /* The move controls, on the card's own page. The board face carries the
+       same form with no controls, because dragging is its one interaction. */
+    .lp-card-move {
+        @apply mt-8;
+    }
+    .lp-card-move__title {
+        @apply font-display font-extrabold text-lg tracking-tight text-ink m-0 mb-3;
+    }
+    .lp-card-move__form {
+        @apply flex flex-wrap items-end gap-4 rounded-xl bg-surface-2 py-4 px-5;
+    }
+    .lp-card-move__field {
+        @apply flex flex-col gap-1;
+    }
+    .lp-card-move__submit {
+        @apply shrink-0;
+    }
+
+    /* ── Card detail and card form ──────────────────────────────────── */
+
+    .lp-card-facts {
+        @apply flex flex-wrap items-center gap-2 mb-6;
+    }
+    .lp-card-detail {
+        @apply rounded-xl bg-surface-2 py-5 px-6;
+    }
+    .lp-card-detail__empty,
+    .lp-card-pulls__empty {
+        @apply text-sm text-fg-dim m-0;
+    }
+    .lp-card-pulls {
+        @apply mt-8;
+    }
+    .lp-card-pulls__title {
+        @apply font-display font-extrabold text-lg tracking-tight text-ink m-0 mb-3;
+    }
+    .lp-card-pulls__list {
+        @apply flex flex-col gap-2 list-none p-0 m-0;
+    }
+    .lp-card-pulls__item {
+        @apply rounded-xl bg-surface-2 py-2.5 px-3.5;
+    }
+    .lp-card-pulls__link {
+        @apply flex flex-wrap items-center gap-2 text-sm no-underline;
+    }
+    .lp-card-pulls__forge {
+        @apply text-xs font-bold uppercase tracking-widest text-fg-dim;
+    }
+    .lp-card-pulls__repo {
+        @apply font-mono text-fg;
+    }
+    .lp-card-pulls__number {
+        @apply font-mono font-semibold text-accent-ink;
+    }
+    /* A link whose scheme is not http or https is rendered inert, so it keeps
+       the shape of the others without being clickable. */
+    .lp-card-pulls__link--inert {
+        @apply text-fg-mute;
+    }
+    .lp-card-pulls__unsafe {
+        @apply block text-xs text-fg-dim;
+    }
+    .lp-card-pulls__url {
+        @apply font-mono text-xs break-all text-fg-mute;
+    }
+    .lp-card-actions {
+        @apply flex items-center gap-3 mt-8;
+    }
+    .lp-card-form-row {
+        @apply grid gap-4 sm:grid-cols-3;
+    }
+    .lp-card-form-textarea {
+        @apply font-mono text-sm leading-relaxed;
+    }
+
+    /* ── Done history ───────────────────────────────────────────────── */
+
+    .lp-done-list {
+        @apply flex flex-col gap-2.5;
+    }
+    .lp-done-row {
+        @apply flex flex-wrap items-center gap-3 rounded-xl bg-surface-2 py-4 px-4.5;
+    }
+    .lp-done-row__title {
+        @apply mr-auto text-sm font-semibold text-ink no-underline hover:text-accent-ink;
+    }
+    .lp-done-row__when {
+        @apply text-xs text-fg-dim;
+    }
 }
 
 /* The typography plugin wraps inline code in literal backticks. Unlayered, not
@@ -3728,6 +4142,11 @@
         animation: none;
     }
 
+    .lp-sidebar--drawer,
+    .lp-sidebar--drawer.lp-sidebar--open {
+        transition: none;
+    }
+
     @keyframes lp-appear {
         from {
             opacity: 0;
@@ -3744,10 +4163,33 @@
     .lp-btn,
     .lp-code-dark__copy,
     .lp-flash__dismiss,
+    .lp-anchor-toolbar__btn,
     .auth-forgot,
     .auth-footer__link,
     .lp-landing-footer__link {
         @apply inline-flex items-center justify-center min-h-11 min-w-11;
+    }
+
+    /* Size only. Both are `lg:hidden`, and a `display` here comes later in the
+       sheet than that variant, so a touch screen at desktop width showed both
+       drawer controls beside a sidebar that is already in the flow. */
+    .lp-topbar__menu,
+    .lp-sidebar__close {
+        @apply min-h-11 min-w-11;
+    }
+
+    /* iOS Safari zooms the page in when it focuses a control under 16px. */
+    .lp-comment-composer textarea,
+    .lp-comment-reply-form textarea,
+    .lp-filter-input,
+    .lp-filter-select {
+        @apply text-base;
+    }
+
+    /* No keyboard to press it, and the width it costs is the width the three
+       buttons need on a phone. */
+    .lp-anchor-toolbar__key {
+        @apply hidden;
     }
 
     /* Padding, not display or min-width: this link is `hidden sm:inline`, so a

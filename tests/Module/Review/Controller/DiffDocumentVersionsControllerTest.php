@@ -493,7 +493,8 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertCount(1, $latest->filter('[data-controller~="comment-anchor"]'));
         self::assertCount(1, $latest->filter('[data-comment-anchor-target="doc"]'));
         self::assertCount(1, $latest->filter('#comment-threads'));
-        self::assertCount(2, $latest->filter('button[name="submit_review_form[verdict]"]'));
+        self::assertCount(2, $latest->filter('.lp-topbar__actions button[name="submit_review_form[verdict]"]'));
+        self::assertCount(2, $latest->filter('.lp-review-menu button[name="submit_review_form[verdict]"]'));
         // Not an exact count: how many composers the review page offers is the
         // business of whatever review actions exist, and it has already grown from
         // one to two. What this control has to establish is that the selector

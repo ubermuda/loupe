@@ -1,0 +1,11 @@
+{# Decision rows of the review menu. Rendered by the page and again by the stream
+   that follows an answer, so both must be given `rows` in the same shape. #}
+{% for row in rows %}
+<a class="lp-review-menu__section" href="#{{ row.elementId }}"
+   data-action="click->review-menu#jump" title="{{ row.label }}">
+    <span class="lp-review-menu__mark{{ row.selected is empty ? '' : ' lp-review-menu__mark--approved' }}">
+        {% if row.selected is not empty %}<twig:ux:icon name="lucide:check" />{% endif %}
+    </span>
+    <span class="lp-review-menu__label">{{ row.label }}</span>
+</a>
+{% endfor %}

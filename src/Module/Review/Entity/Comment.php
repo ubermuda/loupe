@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Module\Review\Entity;
 
 use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\ValueObject\Anchor;
+use App\Security\ProjectScopedSubject;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -14,7 +16,7 @@ use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: CommentRepository::class)]
 #[ORM\Table(name: 'comments')]
-class Comment
+class Comment implements ProjectScopedSubject
 {
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
@@ -82,5 +84,17 @@ class Comment
         #[ORM\Column(nullable: true)]
         public readonly ?\DateTimeImmutable $createdAt = new \DateTimeImmutable(),
     ) {
+    }
+
+    #[\Override]
+    public function scopedProject(): Project
+    {
+        return $this->version->document->project;
+    }
+
+    #[\Override]
+    public function scopedSubjectType(): string
+    {
+        return 'comment';
     }
 }

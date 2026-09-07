@@ -1,0 +1,185 @@
+{# The review screen's menu below the lg breakpoint. Above lg it is display:none
+   and the same controls live in the top bar and the metadata tabs.
+   Params: document, version, versions, showVersions, showContents, sectionRows,
+   approvedSections, referenceCount, decisionRows, answeredDecisions,
+   showResolvedToggle, showVerdict. #}
+<div class="lp-review-menu" data-controller="review-menu">
+    <div class="lp-review-menu__scrim"
+         data-review-menu-target="scrim"
+         data-action="click->review-menu#close" hidden></div>
+
+    <div class="lp-review-menu__panel" id="review-menu-panel" tabindex="-1"
+         data-review-menu-target="panel"
+         aria-label="{{ 'review.document.menu.label'|trans }}" hidden>
+
+        {# Reach order, not reading order: the row nearest the thumb is last. #}
+        <div class="lp-review-menu__view" data-review-menu-target="root">
+            {% if showContents %}
+            <button type="button" class="lp-review-menu__row"
+                    data-review-menu-view-param="contents"
+                    data-action="click->review-menu#drill">
+                <twig:ux:icon name="lucide:list" />
+                <span class="lp-review-menu__label">{{ 'review.document.contents.label'|trans }}</span>
+                <span class="lp-review-menu__count">{{ 'review.document.sections.count_compact'|trans({
+                    '%approved%': approvedSections,
+                    '%total%': sectionRows|length,
+                }) }}</span>
+            </button>
+            {% endif %}
+            {% if showVersions %}
+            <button type="button" class="lp-review-menu__row"
+                    data-review-menu-view-param="versions"
+                    data-action="click->review-menu#drill">
+                <twig:ux:icon name="lucide:history" />
+                <span class="lp-review-menu__label">{{ 'review.document.meta.versions'|trans }}</span>
+                <span class="lp-review-menu__count">{{ 'v' ~ version.versionNumber }}</span>
+            </button>
+            {% endif %}
+            {% if referenceCount > 0 %}
+            <button type="button" class="lp-review-menu__row"
+                    data-review-menu-view-param="references"
+                    data-action="click->review-menu#drill">
+                <twig:ux:icon name="lucide:link" />
+                <span class="lp-review-menu__label">{{ 'review.document.meta.references'|trans }}</span>
+                <span class="lp-review-menu__count">{{ referenceCount }}</span>
+            </button>
+            {% endif %}
+            {% if decisionRows|length > 0 %}
+            <button type="button" class="lp-review-menu__row"
+                    data-review-menu-view-param="decisions"
+                    data-action="click->review-menu#drill">
+                <twig:ux:icon name="lucide:scale" />
+                <span class="lp-review-menu__label">{{ 'review.document.meta.decisions'|trans }}</span>
+                <span class="lp-review-menu__count" id="review-menu-decisions-count">{{ 'review.document.decisions.count'|trans({
+                    '%answered%': answeredDecisions,
+                    '%total%': decisionRows|length,
+                }) }}</span>
+            </button>
+            {% endif %}
+            {# The comment-anchor controller hides this until a resolved thread
+               exists, and rewrites its text, so the row carries no child. #}
+            {% if showResolvedToggle %}
+            <button type="button" class="lp-review-menu__row"
+                    data-resolved-toggle
+                    data-label-hide="{{ 'review.document.threads.hide_resolved'|trans }}"
+                    data-label-show="{{ 'review.document.threads.show_resolved'|trans }}"
+                    data-action="comment-anchor#toggleResolved review-menu#close"
+                    hidden>{{ 'review.document.threads.hide_resolved'|trans }}</button>
+            {% endif %}
+            {% if showVerdict %}
+            <hr class="lp-review-menu__rule">
+            <form method="POST" action="{{ path('app_document_review_submit', {projectId: document.project.id, documentId: document.id}) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('submit-review') }}">
+                <button type="submit" name="submit_review_form[verdict]" value="changes-requested"
+                        class="lp-btn lp-btn--outline lp-review-menu__verdict"
+                        data-action="click->review-menu#close">
+                    {{ 'review.document.verdict.request_changes'|trans }}
+                </button>
+                <button type="submit" name="submit_review_form[verdict]" value="approved"
+                        class="lp-btn lp-btn--primary lp-review-menu__verdict"
+                        data-action="click->review-menu#close">
+                    {{ 'review.document.verdict.approve'|trans }}
+                </button>
+            </form>
+            {% endif %}
+        </div>
+
+        {% if showContents %}
+        <div class="lp-review-menu__view" data-review-menu-target="view" data-view="contents" hidden>
+            <p class="lp-review-menu__head">
+                <span>{{ 'review.document.contents.label'|trans }}</span>
+                <span class="lp-review-menu__head-count">{{ 'review.document.sections.count_compact'|trans({
+                    '%approved%': approvedSections,
+                    '%total%': sectionRows|length,
+                }) }}</span>
+            </p>
+            {% for row in sectionRows %}
+            <a class="lp-review-menu__section" data-level="{{ row.level }}" href="#{{ row.headingId }}"
+               data-action="click->review-menu#jump" title="{{ row.label }}">
+                <span class="lp-review-menu__mark{{ row.approved ? ' lp-review-menu__mark--approved' }}">
+                    {% if row.approved %}<twig:ux:icon name="lucide:check" />{% endif %}
+                </span>
+                <span class="lp-review-menu__label">{{ row.label }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if showVersions %}
+        <div class="lp-review-menu__view" data-review-menu-target="view" data-view="versions" hidden>
+            <p class="lp-review-menu__head">
+                <span>{{ 'review.document.meta.versions'|trans }}</span>
+                <span class="lp-review-menu__head-count">{{ versions|length }}</span>
+            </p>
+            {% for meta in versions %}
+            <a class="lp-review-menu__section"
+               href="{{ loop.first
+                   ? path('app_document_review', {projectId: document.project.id, documentId: document.id})
+                   : path('app_document_review_version', {projectId: document.project.id, documentId: document.id, versionNumber: meta.versionNumber}) }}"
+               {% if meta.versionNumber == version.versionNumber %}aria-current="page"{% endif %}>
+                <span class="lp-review-menu__label">{{ meta.description ?: ('v' ~ meta.versionNumber) }}</span>
+                <span class="lp-review-menu__count">{{ 'v' ~ meta.versionNumber }}</span>
+            </a>
+            {# The desktop panel is hidden below lg, so without this row the diff
+               screen has no way in from the review page. #}
+            {% if meta.versionNumber > 1 %}
+            <a class="lp-review-menu__section lp-review-menu__section--sub"
+               href="{{ path('app_document_review_diff', {projectId: document.project.id, documentId: document.id, fromVersionNumber: meta.versionNumber - 1, toVersionNumber: meta.versionNumber}) }}">
+                <span class="lp-review-menu__label">{{ 'review.document.diff.link'|trans({'%from%': meta.versionNumber - 1}) }}</span>
+            </a>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if referenceCount > 0 %}
+        <div class="lp-review-menu__view" data-review-menu-target="view" data-view="references" hidden>
+            <p class="lp-review-menu__head">
+                <span>{{ 'review.document.meta.references'|trans }}</span>
+                <span class="lp-review-menu__head-count">{{ referenceCount }}</span>
+            </p>
+            {% for group in [
+                {label: 'review.document.references.outgoing', documents: document.references},
+                {label: 'review.document.references.incoming', documents: document.referencedBy},
+            ] %}
+                {% for reference in group.documents %}
+                <a class="lp-review-menu__section" href="{{ path('app_document_review', {projectId: reference.project.id, documentId: reference.id}) }}"
+                   title="{{ reference.title }}">
+                    <span class="lp-review-menu__label">{{ reference.title }}</span>
+                    <span class="lp-review-menu__count">{{ group.label|trans }}</span>
+                </a>
+                {% endfor %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if decisionRows|length > 0 %}
+        <div class="lp-review-menu__view" data-review-menu-target="view" data-view="decisions" hidden>
+            <p class="lp-review-menu__head">
+                <span>{{ 'review.document.meta.decisions'|trans }}</span>
+                <span class="lp-review-menu__head-count" id="review-menu-decisions-head-count">{{ 'review.document.decisions.count'|trans({
+                    '%answered%': answeredDecisions,
+                    '%total%': decisionRows|length,
+                }) }}</span>
+            </p>
+            <div id="review-menu-decisions-list">
+                {% include '@Review/_menu_decision_rows.html.twig' with {rows: decisionRows} only %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <button type="button" class="lp-review-menu__trigger"
+            data-review-menu-target="trigger"
+            data-action="click->review-menu#toggle"
+            data-label-menu="{{ 'review.document.menu.open'|trans }}"
+            data-label-close="{{ 'review.document.menu.close'|trans }}"
+            data-label-back="{{ 'review.document.menu.back'|trans }}"
+            aria-controls="review-menu-panel"
+            aria-expanded="false"
+            aria-label="{{ 'review.document.menu.open'|trans }}">
+        <span data-review-menu-target="iconMenu"><twig:ux:icon name="lucide:ellipsis-vertical" /></span>
+        <span data-review-menu-target="iconClose" hidden><twig:ux:icon name="lucide:x" /></span>
+        <span data-review-menu-target="iconBack" hidden><twig:ux:icon name="lucide:arrow-left" /></span>
+    </button>
+</div>
