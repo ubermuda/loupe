@@ -7,9 +7,7 @@
  *
  * Geometry is measured against `.lp-main`, the app's scroll container, and not
  * against the window. `.lp-main` carries overflow-x, so a column wider than the
- * screen shows up as horizontal overflow there and never on the document. The
- * app shell around it still overflows a 375px window, and a sibling branch owns
- * the sidebar and the topbar that do it.
+ * screen shows up as horizontal overflow there and never on the document.
  */
 
 import { test as base, expect, type Page } from '@playwright/test';
@@ -286,15 +284,7 @@ async function readLayout(page: Page) {
     });
 }
 
-/**
- * Widens the window until the reading area itself is 375px.
- *
- * The sidebar takes its own width at every viewport today, so a 375px window
- * leaves the review screen about 129px. That is the app shell's geometry rather
- * than this screen's, and a sibling branch collapses the sidebar at the same
- * breakpoint. Measuring the shell and adding it back gives this screen the width
- * a phone hands it once that branch lands.
- */
+/** Widens the window until the reading area itself is 375px. */
 async function givePhoneWidthReadingArea(page: Page): Promise<void> {
     const shell = await page.evaluate(
         () =>
@@ -306,12 +296,6 @@ async function givePhoneWidthReadingArea(page: Page): Promise<void> {
     });
 }
 
-/**
- * Seeds a second document with two versions and returns its diff URL.
- *
- * The diff pane is its own template, and this branch does not touch it. The
- * sweep still runs there, because nothing else looks at it below lg.
- */
 async function seedRevisedDocument(
     page: Page,
 ): Promise<{ documentId: string; projectId: string }> {
