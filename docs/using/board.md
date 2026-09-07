@@ -64,8 +64,9 @@ old it is.
 
 The board is at **`/projects/<project>/board`**, and the project sidebar links
 to it. The four columns read side by side. Each card shows its number, its
-title, its type, and how many pull requests it links to. The priority is the
-group the card sits in, so the card face does not repeat it.
+title, its type, how many pull requests it links to, and how many review
+comments still wait on it. The priority is the group the card sits in, so the
+card face does not repeat it.
 
 Drag a card to move it. The whole card is the handle, and the grip on its left
 says so. Where you drop the card decides what the move does.
@@ -92,8 +93,9 @@ card, newest completion first, 25 to a page.
 A card has its own page at **`/projects/<project>/board/cards/<card id>`**. The
 card id is the UUID, not the number.
 
-The page carries the full Markdown body, every pull request link, and the times
-the card was created, last changed and completed. It also carries status and
+The page carries the full Markdown body, every pull request link, the review
+feedback pointing at the card, and the times the card was created, last changed
+and completed. It also carries status and
 priority controls, which move a card with no drag. That is the way to move a
 card from a keyboard.
 
@@ -189,8 +191,24 @@ An agent drives the board through the MCP endpoint. See
 cards and their total. Every column except Done reads in board order, highest
 priority first and then by rank. Done reads newest completion first.
 
-`card_get` returns one card with its full Markdown body and every pull request
-linked to it. Use a card id that `card_list` or `card_create` gave you.
+`card_get` returns one card with its full Markdown body, every pull request
+linked to it, and every site-review comment pointing at it. Use a card id that
+`card_list` or `card_create` gave you.
+
+## Review feedback on a card
+
+A site-review comment reaches a card when the page it was made on said which
+card it was about. The widget embed carries `data-context`, fed by
+`SITE_REVIEW_WIDGET_CONTEXT`, and a preview instance sets it to `card:` followed
+by the card id. See [Environment variables](../reference/environment.md).
+
+The link is one-way and read-only from the board's side. The card shows the
+comment and its status, and the site-review screen still owns that status.
+`site_review_mark_comment_addressed` is what marks one done.
+
+Nothing is linked while the board is switched off, and a comment naming a card
+of another project is refused. The marker travels through a page, so anyone able
+to load it can name any card, and a widget token belongs to one project.
 
 `card_update` reads an omitted field as "leave it alone". `pullRequestUrls` is
 the one field where an omitted list and an empty list differ. Omit it and the

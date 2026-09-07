@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Board\Controller;
 
 use App\Controller\AppController;
+use App\Module\Board\Command\ShowCardCommand;
+use App\Module\Board\Command\ShowCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Security\CardVoter;
 use App\Module\Board\Service\BoardAvailability;
@@ -25,6 +27,7 @@ final class ShowCardController extends AppController
 {
     public function __construct(
         private readonly BoardAvailability $board,
+        private readonly ShowCardHandler $handler,
     ) {
     }
 
@@ -33,6 +36,11 @@ final class ShowCardController extends AppController
     ): Response {
         $this->board->requireEnabled();
 
-        return $this->render('@Board/show_card.html.twig', ['card' => $card]);
+        $view = ($this->handler)(new ShowCardCommand($card));
+
+        return $this->render('@Board/show_card.html.twig', [
+            'card' => $view->card,
+            'siteReviewLinks' => $view->siteReviewLinks,
+        ]);
     }
 }

@@ -20,11 +20,17 @@ instance."
 |---|---|
 | `card_create` | Put a new card on the board. It lands in `backlog` unless you pass `status`. |
 | `card_list` | Read the board. Filter by `status`, `type` or `priority`. Done reads newest completion first, and every other column reads highest priority first. |
-| `card_get` | Read one card, with its full Markdown body and its pull request links. |
+| `card_get` | Read one card, with its full Markdown body, its pull request links and the site-review comments pointing at it. |
 | `card_update` | Change a card. A field you leave out keeps the value it has. A new status or priority puts the card at the end of the column it arrives in. |
 
 `card_get` and `card_update` take a `cardId`, which you read from `card_list` or
 `card_create`.
+
+`siteReviewComments` is read-only, on `card_get` and `card_list` alike. Each item
+carries `commentId`, `body`, `url`, `status` and `createdAt`. A comment reaches a
+card because the page it was made on named that card, and no board tool writes
+that link. Mark one done with `site_review_mark_comment_addressed`, which takes
+the same `commentId`, rather than by editing the card.
 
 `card_create` and `card_update` take a `type` of `feature`, `bug`, `security`,
 `tooling`, `docs` or `idea`.
