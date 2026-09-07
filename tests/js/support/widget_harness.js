@@ -17,7 +17,7 @@ export const TOKEN = 'wt_test_token';
  * jsdom has no matchMedia and no canvas context, and the widget reads both
  * before it paints. Neither takes part in what these tests assert.
  */
-export function bootWidget({ token = TOKEN, respond } = {}) {
+export function bootWidget({ token = TOKEN, respond, demo = false } = {}) {
     window.matchMedia = () => ({
         matches: false,
         addEventListener() {},
@@ -28,7 +28,11 @@ export function bootWidget({ token = TOKEN, respond } = {}) {
 
     const script = document.createElement('script');
     script.src = `${BACKEND}/site-review/widget.js`;
-    script.setAttribute('data-token', token);
+    // The landing page's demo carries no token and swaps the transport out, so
+    // a demo boot must not set one: the widget reads the attribute, not the
+    // flag, when it decides whether it has a credential.
+    if (demo) script.setAttribute('data-demo', '');
+    else script.setAttribute('data-token', token);
     Object.defineProperty(document, 'currentScript', {
         value: script,
         configurable: true,
