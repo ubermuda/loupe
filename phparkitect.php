@@ -34,4 +34,11 @@ return static function (Config $config): void {
             ->should(new NotDependsOnTheseNamespaces(['App\Module\Billing']))
             ->because('Billing is a leaf: the paywall reaches out through its own listener, never the other way round'),
     );
+
+    $config->add($src,
+        Rule::allClasses()
+            ->that(new NotResideInTheseNamespaces('App\Module\Board'))
+            ->should(new NotDependsOnTheseNamespaces(['App\Module\Board']))
+            ->because('Board is a leaf: a card belongs to a project, so Board depends on Project and Project must not depend back. Folding a card export into ProjectExporter reads as the convenient move and closes the cycle'),
+    );
 };

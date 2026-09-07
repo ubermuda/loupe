@@ -7,6 +7,7 @@ namespace App\Tests\Module\Project\Controller;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
+use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Mcp\DocumentHighlightTool;
 use App\Tests\Support\AcceptedTerms;
@@ -48,8 +49,9 @@ final class ConnectAgentControllerTest extends WebTestCase
         $em->persist($project);
         // Parity is between the page and the registry, so the flag-gated tools
         // have to be on for both sides to be comparable at all.
-        static::getContainer()->get(FeatureFlagRepository::class)
-            ->findAllIndexed()[DocumentHighlightTool::FLAG]->value = true;
+        $installedFlags = static::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed();
+        $installedFlags[DocumentHighlightTool::FLAG]->value = true;
+        $installedFlags[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
         // The tool list only renders once a token exists; without one the page
         // shows the mint step instead and this would compare against nothing.
         [$token] = ApiToken::issue($owner, 'MCP: connect-site-tools', ApiTokenScope::Mcp);

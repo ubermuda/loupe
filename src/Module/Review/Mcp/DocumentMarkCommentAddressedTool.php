@@ -10,7 +10,7 @@ use App\Module\Review\Command\MarkCommentAddressedOutcome;
 use App\Module\Review\Command\MarkCommentsAddressedCommand;
 use App\Module\Review\Command\MarkCommentsAddressedHandler;
 use App\Module\Review\Entity\Comment;
-use App\Module\Review\Security\McpBoundProjectVoter;
+use App\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 use Symfony\Component\Uid\Uuid;

@@ -1,0 +1,48 @@
+{# The card form, shared by create and edit. Props: form, action, submitLabel,
+   cancelUrl. #}
+{{ form_start(form, {action: action, attr: {class: 'lp-form'}}) }}
+    <div class="lp-field-errors">{{ form_errors(form) }}</div>
+
+    <div class="lp-form-field">
+        {{ form_label(form.title, null, {label_attr: {class: 'lp-label'}}) }}
+        {{ form_widget(form.title, {attr: {class: 'lp-input'}}) }}
+        <div class="lp-field-errors">{{ form_errors(form.title) }}</div>
+    </div>
+
+    <div class="lp-card-form-row">
+        <div class="lp-form-field">
+            {{ form_label(form.type, null, {label_attr: {class: 'lp-label'}}) }}
+            {{ form_widget(form.type, {attr: {class: 'lp-input lp-select'}}) }}
+            <div class="lp-field-errors">{{ form_errors(form.type) }}</div>
+        </div>
+        <div class="lp-form-field">
+            {{ form_label(form.priority, null, {label_attr: {class: 'lp-label'}}) }}
+            {{ form_widget(form.priority, {attr: {class: 'lp-input lp-select'}}) }}
+            <div class="lp-field-errors">{{ form_errors(form.priority) }}</div>
+        </div>
+        <div class="lp-form-field">
+            {{ form_label(form.status, null, {label_attr: {class: 'lp-label'}}) }}
+            {{ form_widget(form.status, {attr: {class: 'lp-input lp-select'}}) }}
+            <div class="lp-field-errors">{{ form_errors(form.status) }}</div>
+        </div>
+    </div>
+
+    <div class="lp-form-field">
+        {{ form_label(form.body, null, {label_attr: {class: 'lp-label'}}) }}
+        {{ form_widget(form.body, {attr: {class: 'lp-input lp-card-form-textarea'}}) }}
+        {{ form_help(form.body) }}
+        <div class="lp-field-errors">{{ form_errors(form.body) }}</div>
+    </div>
+
+    <div class="lp-form-field">
+        {{ form_label(form.pullRequestUrls, null, {label_attr: {class: 'lp-label'}}) }}
+        {{ form_widget(form.pullRequestUrls, {attr: {class: 'lp-input lp-card-form-textarea'}}) }}
+        {{ form_help(form.pullRequestUrls) }}
+        <div class="lp-field-errors">{{ form_errors(form.pullRequestUrls) }}</div>
+    </div>
+
+    <div class="flex items-center justify-end gap-3 pt-2">
+        <a class="lp-btn lp-btn--ghost mr-auto" href="{{ cancelUrl }}">{{ 'board.card.form.cancel'|trans }}</a>
+        <button type="submit" class="lp-btn lp-btn--primary">{{ submitLabel|trans }}</button>
+    </div>
+{{ form_end(form) }}

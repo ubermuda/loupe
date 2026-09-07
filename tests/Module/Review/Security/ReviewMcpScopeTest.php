@@ -10,8 +10,8 @@ use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\Series;
-use App\Module\Review\Security\McpBoundProjectVoter;
 use App\Module\Review\ValueObject\Anchor;
+use App\Security\McpBoundProjectVoter;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\McpTokenScenario;
 use App\Tests\Support\RecordingAuditor;
@@ -24,7 +24,8 @@ use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 
-final class McpBoundProjectVoterTest extends KernelTestCase
+/** McpBoundProjectVoter over the documents, comments and series review puts on the MCP surface. */
+final class ReviewMcpScopeTest extends KernelTestCase
 {
     use McpTokenScenario;
 
