@@ -47,53 +47,6 @@ Still open:
 Closing this means one export against a real Spaces bucket with the ACL
 Terraform sets.
 
-
-## The authenticated app has no mobile layout — deferred by decision, not overlooked
-
-**Author:** Geoffrey · **Type:** bug · **Priority:** high · **Status:** pending
-
-A mobile usability audit on 2026-08-13 measured every surface at a 375px
-viewport against the running dev app. Full report is in Loupe:
-https://loupe.dev.localhost/projects/019fde6f-6b71-781e-a358-bf44c8cf3c2f/documents/019ffbf4-9009-7e55-92e8-45dbcb0c9ec9/review
-Every finding is stated numerically there, so nothing depends on the
-screenshots: those were verification aids written to the gitignored
-`var/mobile-audit/` and are not retained. Re-measure at 375px rather than
-hunting for the captures.
-
-Read this as a standing choice. Asked how far mobile support for the
-authenticated app should go, the owner chose to defer rather than to build it or
-to declare the app desktop-only. So the items below are open *by decision*, and
-a future session should not treat them as a backlog miss and quietly start on
-them. The auth flow and landing page were fixed separately (PR #179).
-
-The structural fact behind all of it: before PR #179, `assets/styles/app.css`
-contained 13 responsive variants in 3,027 lines and all 13 sat inside the
-`.lp-landing-*` block (lines 2562–2886). Nothing else in the stylesheet, and no
-template, had any responsive treatment. Measured consequences at 375px:
-
-- `.lp-sidebar` is a fixed 236px that never collapses, leaving `.lp-main` 129px
-  wide on every authenticated screen (the `<aside>`/`<main>` pair in
-  `templates/base.html.twig`, `.lp-sidebar` in `app.css`).
-- `.lp-review-block` is a fixed 972px (`w-243`, not a max-width) with the
-  comment margin absolutely positioned at `left-169`, so on the review screen
-  139px of the 640px prose column is visible and comments start 537px off-screen
-  (`app.css`, `templates/Module/Review/show_document.html.twig`).
-- The comment flow binds only `mouseup`/`mousemove`/`mouseenter`; there is no
-  `touchend`, `pointerup` or `selectionchange` handler in
-  `assets/controllers/comment_anchor_controller.js`, so text selection likely
-  cannot trigger the comment toolbar on touch. Needs confirming on real hardware.
-- The review topbar sits outside the `.lp-main` scroll container, so it widens
-  the whole page to 517px and the verdict buttons overprint the breadcrumb
-  (the topbar block in `templates/Module/Review/show_document.html.twig`).
-- Four controls are 14px and will trigger iOS Safari's zoom-on-focus:
-  `.lp-comment-composer textarea`, `.lp-comment-reply-form textarea`,
-  `.lp-filter-input`, `.lp-filter-select` (all four in `app.css`).
-  `.lp-input` and `.auth-input` are already correct at 16px.
-
-One cost of deferring rather than declaring the app desktop-only: a phone
-currently gets a broken layout instead of an honest "not supported here" notice.
-If this stays deferred for long, that notice is the cheap interim step.
-
 ## No database restore has ever been rehearsed
 
 **Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
@@ -2066,6 +2019,37 @@ a reconnect gap loses events and a pull path stays necessary. The run used a
 wildcard subscriber token rather than `StreamCredentialsController`, so
 per-project topic scoping is unproven.
 
+## The mobile work has never run on real iOS Safari
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+Chromium proved the responsive work in pull request #381, at a 375px viewport
+with `hasTouch: true`. That combination shows that the CSS applies. It does not
+show that Safari behaves as the rules intend, because Chromium emulates a
+coarse pointer and not a browser.
+
+Two rules carry the risk. `@media (pointer: coarse)` in
+`assets/styles/app.css` raises four controls to 16px, so that iOS Safari does
+not zoom the page in when it focuses one: `.lp-comment-composer textarea`,
+`.lp-comment-reply-form textarea`, `.lp-filter-input` and `.lp-filter-select`.
+The same block gives the tap targets a `min-h-11 min-w-11` floor. Nobody has
+seen either rule work on a phone.
+
+The touch path to the comment toolbar has the same gap.
+`assets/controllers/comment_anchor_controller.js` raises the toolbar from a
+debounced `selectionchange`, with `pointerup` and `pointercancel` around it,
+because a finger lift raises no `mouseup`. iOS Safari may schedule
+`selectionchange` differently, and it may draw its own selection callout over
+the text. Nothing here tests either possibility.
+
+The specs are `e2e/tests/mobile/app-shell.spec.ts`,
+`e2e/tests/mobile/review-menu.spec.ts` and
+`e2e/tests/review/mobile-review.spec.ts`. Playwright's WebKit is closer than
+Chromium, and it is still not iOS Safari. Close this with a run on real
+hardware. Focus each of the four controls, and confirm that the page does not
+zoom. Select text, and confirm that the comment toolbar appears. Tap the
+sidebar drawer and the review menu button.
+
 ## The MCP connection drops repeatedly, and reconnecting does not restore the tools
 
 **Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
@@ -2217,3 +2201,25 @@ take the same caveat wording as the site-review tool, or another treatment.
 Decide that first. Then apply it to the `#[McpTool]` description, the `__invoke`
 docblock, the `loupe-documents` skill, which lists no skip reasons today, and
 the `document_mark_comment_addressed` row in `docs/using/mcp.md`.
+
+## Account settings truncates the profile email on a phone
+
+**Author:** Claude · **Type:** bug · **Priority:** low · **Status:** pending
+
+At a 375px viewport the profile block on `/account` shows the signed-in address
+as `dev@loupe.te…`. The address is the one field that identifies the account,
+and a reader cannot recover it from that page.
+
+The markup is the identity row in
+`templates/Module/Account/show_account_settings.html.twig`, which puts
+`view.user.email` in a `.lp-identity-row__meta` span beside an Edit link.
+`.lp-identity-row__meta` in `assets/styles/app.css` carries `truncate`. The row
+is a flex line, so the text gets whatever the avatar and the link leave.
+
+The responsive wave in pull request #381 found this on 2026-09-07. It sat
+outside that branch, so nobody fixed it. The page does not overflow the
+viewport, so the mobile overflow assertions stay green and nothing catches
+this.
+
+Any fix has to keep the desktop row on one line. A fix can wrap the address
+below the name. It can also drop the truncation below `lg`.
