@@ -34,6 +34,34 @@ entry.
 
 ## [Unreleased]
 
+- `c84fdf8` (#371) — **Added:** a project board, behind the `board.enabled` flag
+  which ships off, shows four columns with cards grouped by priority. A drag
+  re-ranks a card, re-grades it or moves it to another column, and each card has
+  its own page.
+- `c84fdf8` (#371) — **Added:** the board's Done column shows the last 7 days,
+  and a history page carries every card that finished before that.
+- `c84fdf8` (#371) — **Added:** four MCP tools, `card_create`, `card_list`,
+  `card_get` and `card_update`, let an agent read and write the board.
+- `c84fdf8` (#371) — **Added:** every card carries a number that counts from 1
+  inside its project, so a person and an agent have a short handle for it.
+- `c84fdf8` (#371) — **Added:** a card holds pull request links. Loupe reads the
+  forge, the repository and the number out of a URL it recognises, and it calls
+  no forge.
+- `c84fdf8` (#371) — **Added:** a user's data export includes their cards.
+- `c84fdf8` (#371) — **Added:** the projects list shows how many open cards each
+  project has.
+- `c84fdf8` (#371) — **Added:** the `loupe-board` skill tells an agent how to
+  work a board, and `CLAUDE.md` says what a skill's name prefix means.
+- `c84fdf8` (#371) — **Changed:** one voter, `App\Security\McpBoundProjectVoter`,
+  scopes every MCP subject to the token's own project, and it replaces the two
+  per-module voters.
+- `c84fdf8` (#371) — **Added:** a phparkitect rule fences `App\Module\Board` as a
+  leaf, so no code outside the module may depend on it.
+- `c84fdf8` (#371) — **Added:** the creation, the update, the move and the
+  deletion of a card each write an audit record, which `/admin/audit-log` shows.
+- `5a64e74` (#374) — **Changed:** the `symfony-authorization` skill says to keep
+  an explicit attribute-to-class pairing in a voter's `supports()`, and to test
+  the denials.
 - `e06c292` (#370) — **Fixed:** the e2e job in the weekly coverage workflow has
   180 minutes, so its own timeout no longer kills a slow run.
 - `b90416b` (#367) — **Fixed:** the build no longer fetches JavaScript from a CDN.
