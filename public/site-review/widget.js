@@ -299,6 +299,11 @@
                 sync();
             }
         } catch (error) {
+            // A superseded failure says nothing about the state a newer answer
+            // has already established. Its firstLoad branch would blank a list
+            // that had just loaded, and even its auth branch is wrong here: a
+            // newer request that succeeded is proof the token works.
+            if (generation !== refreshGeneration) return;
             // Catch a rejected token at the earliest possible point — the boot load — so the
             // widget opens straight into its critical state instead of a misleading empty list.
             if (authFailed(error)) {
