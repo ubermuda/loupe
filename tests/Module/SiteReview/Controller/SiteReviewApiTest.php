@@ -65,6 +65,41 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertCount(1, $pending);
     }
 
+    public function test_the_embed_context_reaches_the_comment_and_a_blank_one_stores_null(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw, $project] = $this->projectWithToken($em, 'api-context@example.com');
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
+            'body' => 'on the preview',
+            'url' => 'https://preview/x',
+            'context' => 'card:0199c0de-0000-7000-8000-000000000001',
+        ]);
+        self::assertResponseStatusCodeSame(201);
+
+        // A deployment that renders the attribute with nothing in it must not
+        // leave an empty string behind, which later reads like a real marker.
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
+            'body' => 'ordinary page',
+            'url' => 'https://app/x',
+            'context' => '   ',
+        ]);
+        self::assertResponseStatusCodeSame(201);
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, [
+            'body' => 'no attribute at all',
+            'url' => 'https://app/y',
+        ]);
+        self::assertResponseStatusCodeSame(201);
+
+        $pending = static::getContainer()->get(SiteReviewCommentRepository::class)->findPendingForProject($project);
+        self::assertSame(
+            ['card:0199c0de-0000-7000-8000-000000000001', null, null],
+            array_map(static fn ($c) => $c->context, $pending),
+        );
+    }
+
     public function test_a_comment_can_point_at_several_elements(): void
     {
         $client = static::createClient();
