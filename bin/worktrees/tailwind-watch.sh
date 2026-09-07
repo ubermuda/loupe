@@ -48,8 +48,19 @@ prune=(
     -o -name test-results -o -name build
 )
 
+# Checked by name because they sit inside a pruned directory. composer writes
+# installed.json when an install finishes, which is the signal the lockfile
+# cannot give: switching branches updates composer.lock first, so the watcher
+# can rebuild from it and stamp the sheet while composer is still replacing the
+# vendored CSS and templates app.css imports.
+watched_files=(vendor/composer/installed.json)
+
 is_stale() {
-    local root=$1 built=$2
+    local root=$1 built=$2 file
+    for file in "${watched_files[@]}"; do
+        [ "$root/$file" -nt "$built" ] && return 0
+    done
+
     [ -n "$(find "$root" \( "${prune[@]}" \) -prune -o -newer "$built" -print -quit 2>/dev/null)" ]
 }
 
