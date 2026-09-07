@@ -1715,6 +1715,10 @@
                 <source>project.list.meta.open</source>
                 <target>%count% open</target>
             </trans-unit>
+            <trans-unit id="project.list.meta.cards">
+                <source>project.list.meta.cards</source>
+                <target>{0}0 open cards|{1}1 open card|]1,Inf[%count% open cards</target>
+            </trans-unit>
             <trans-unit id="project.list.form.submit">
                 <source>project.list.form.submit</source>
                 <target>Add project</target>
