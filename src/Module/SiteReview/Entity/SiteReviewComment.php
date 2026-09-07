@@ -6,6 +6,7 @@ namespace App\Module\SiteReview\Entity;
 
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
+use App\Security\ProjectScopedSubject;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
@@ -15,7 +16,7 @@ use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: SiteReviewCommentRepository::class)]
 #[ORM\Table(name: 'site_review_comments')]
-class SiteReviewComment
+class SiteReviewComment implements ProjectScopedSubject
 {
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
@@ -103,5 +104,17 @@ class SiteReviewComment
         ));
 
         return $this;
+    }
+
+    #[\Override]
+    public function scopedProject(): Project
+    {
+        return $this->project;
+    }
+
+    #[\Override]
+    public function scopedSubjectType(): string
+    {
+        return 'site_review_comment';
     }
 }

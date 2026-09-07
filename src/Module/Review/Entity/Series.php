@@ -7,6 +7,7 @@ namespace App\Module\Review\Entity;
 use App\Exception\DomainErrors;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Repository\SeriesRepository;
+use App\Security\ProjectScopedSubject;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -21,7 +22,7 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Entity(repositoryClass: SeriesRepository::class)]
 #[ORM\Table(name: 'series')]
 #[ORM\UniqueConstraint(name: 'uniq_series_project_normalized_name', columns: ['project_id', 'normalized_name'])]
-class Series
+class Series implements ProjectScopedSubject
 {
     /** Mirrors both name columns' length so callers can reject an over-long name before Postgres does. */
     public const int MAX_NAME_LENGTH = 100;
@@ -133,5 +134,17 @@ class Series
         }
 
         return [$name, $ordinal];
+    }
+
+    #[\Override]
+    public function scopedProject(): Project
+    {
+        return $this->project;
+    }
+
+    #[\Override]
+    public function scopedSubjectType(): string
+    {
+        return 'series';
     }
 }

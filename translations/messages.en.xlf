@@ -2158,6 +2158,22 @@
                 <source>project.connect.tool.site_review_mark_comment_addressed</source>
                 <target>Mark site-review comments as addressed after fixing them. Accepts the comment ids returned by site_review_get. Comments that are unknown, already addressed, or resolved are skipped, not fatal.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.card_create">
+                <source>project.connect.tool.card_create</source>
+                <target>Add a card to the project board, with a type, a priority and the pull requests that carry the work.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.card_list">
+                <source>project.connect.tool.card_list</source>
+                <target>List the cards on the project board, in board order, filtered by status, type or priority.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.card_get">
+                <source>project.connect.tool.card_get</source>
+                <target>Read one card, with its full Markdown body and every pull request linked to it.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.card_update">
+                <source>project.connect.tool.card_update</source>
+                <target>Change a card. Omitted fields keep their value, and moving a card to done stamps its completion time.</target>
+            </trans-unit>
 
             <!-- First-run wizard -->
             <trans-unit id="project.wizard.progress.step_1">

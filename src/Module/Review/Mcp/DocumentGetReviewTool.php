@@ -6,7 +6,7 @@ namespace App\Module\Review\Mcp;
 
 use App\Module\Review\Command\ShowReviewCommand;
 use App\Module\Review\Command\ShowReviewHandler;
-use App\Module\Review\Security\McpBoundProjectVoter;
+use App\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
