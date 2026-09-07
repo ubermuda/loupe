@@ -29,7 +29,7 @@ the CLI alike.
 | `just worktrees` | Every worktree with its URL, database and sidecar status |
 | `just worktree-down <name>` | Remove worktree + sidecar + both databases |
 | `just worktree-prune` | Clean up sidecars/databases orphaned by `git worktree remove` |
-| `just worktree-tailwind` | Tailwind watch mode for the current worktree |
+| `just worktree-tailwind` | Tailwind watch mode for the current worktree. Rarely needed: the `tailwind-worktrees` service already rebuilds every worktree. |
 
 Each worktree gets `https://<slug>.loupe.dev.localhost`, dev DB `app_wt_<slug>`,
 test DB `app_test_<slug>`, compose project `loupe-wt-<slug>`, and a Mailpit
@@ -44,6 +44,56 @@ against that worktree only. It does not expire.
 
 Run `just up` first. Bootstrap fails fast rather than leave a worktree whose
 `.env.local` points at a database that was never created.
+
+## The compiled stylesheet keeps itself current
+
+`worktree-bootstrap.sh` builds `var/tailwind/app.built.css` as it provisions,
+and the `tailwind-worktrees` service keeps it current afterwards. That service
+polls every worktree every few seconds and rebuilds any whose `assets/` or
+`templates/` are newer than its built sheet. One container covers them all, and
+a worktree created later needs no wiring.
+
+Two rules it follows, both of which matter if you change it.
+
+It rebuilds only a sheet that already exists. A missing sheet belongs to
+bootstrap, and leaving that case alone is what stops the two writing the same
+file at once.
+
+It globs `.claude/worktrees` rather than walking it, and a worktree name may
+carry up to two path segments. That limit is deliberate. A worktree holds a real
+`vendor/` of about 28,000 files, and `-path` filters what `find` prints rather
+than what it walks, so an exhaustive scan cost 13.8 seconds a pass and a pruned
+one 1.7. The globs cost 0.3. The shared php-fpm serves every worktree, and
+background load there skews e2e timings enough to produce failures that read as
+real, so a cheap watcher matters more than a name nobody uses.
+
+It scans the whole worktree, not just `assets/` and `templates/`. Tailwind's
+automatic detection covers the checkout, which is why `app.css` excludes
+`.claude` and `docs` explicitly, and a class can sit anywhere:
+`config/packages/ubermuda_admin.yaml` carries `!bg-sunken`. Scanning the root
+also picks up `composer.lock`, so a `composer install` on a branch switch
+rebuilds too, which matters because `app.css` imports a vendored bundle's CSS.
+
+Two of its prunes are load-bearing rather than an optimisation. `var` holds the
+log and the cache, which change on every request, so without it the watcher
+rebuilds for ever. `.claude` is where worktrees live, so without it a worktree
+scans its siblings.
+
+A whole pass costs 0.42 seconds against a ten-second interval. Ten seconds
+because this is the safety net for a sheet nobody rebuilt; `just
+worktree-tailwind` is the real watcher when you are iterating on CSS.
+
+`git worktree list` is the authoritative source and cannot be used here. It
+reports the host paths a worktree was created with, the watcher runs in a
+container, and it fails by returning an empty list rather than an error.
+
+It stamps the built file after a successful build. Tailwind leaves the file
+alone when the output is unchanged, so the timestamp would otherwise stay behind
+the source that triggered the build and every pass would rebuild for ever.
+
+This does not conflict with the `tailwind` service or with `just tailwind`, which
+watch the main checkout. Each worktree has its own `var/tailwind`, so the two
+never write the same file. Two watchers on **one** tree still race.
 
 ## The lifecycle runs itself
 
@@ -253,7 +303,7 @@ suspect the branch.
 | Worktree URL returns **502** | The route exists but the backend does not, usually a worktree removed with bare `git worktree remove`. `just worktree-prune`. |
 | nginx exits with `host not found in upstream "php-fpm"` | The container reached the shared network *after* start. Attach every network at creation; this is why the sidecar is a compose file, not `docker run` + `docker network connect`. |
 | A class added in the worktree renders unstyled | `var/tailwind` must be a real directory per worktree, not a symlink to main's. `just worktree-up` fixes it; `just worktree-tailwind` watches. |
-| Layout looks like an older design; a hover/position spec fails but the page logs nothing | Different cause from the row above. `just worktree-up` builds `var/tailwind/app.built.css` **once** and nothing rebuilds it, so a worktree alive across a merge of `main` serves its provision-time CSS while its PHP, Twig and JS are current. `just e2e` rebuilds it before every worktree run; for a browser session use `bin/worktrees/compose-exec.sh bin/console tailwind:build` (under a second) or `just worktree-tailwind` to watch. Diff the compiled sheet for a class the design introduced before blaming the branch. |
+| Layout looks like an older design; a hover/position spec fails but the page logs nothing | The `tailwind-worktrees` service is down. It polls every worktree and rebuilds any whose `assets/` or `templates/` are newer than its `var/tailwind/app.built.css`, which is what keeps a worktree from serving its provision-time CSS while its Twig and PHP are current. Check `docker compose logs tailwind-worktrees`, and `docker compose up -d tailwind-worktrees` if it is not running. A one-off rebuild is `bin/worktrees/compose-exec.sh bin/console tailwind:build`, under a second. Diff the compiled sheet for a class the design introduced before blaming the branch. |
 | The site-review widget shows its rejected-token state (a red `!` on the launcher) | `SITE_REVIEW_WIDGET_TOKEN` does not resolve **at the backend the widget actually talks to**, which is `SITE_REVIEW_WIDGET_BACKEND`, not the host serving the page. A worktree keeps the main checkout's token, which production knows, so suspect an `.env.local` that carries no token, one copied before production regenerated its token, or a widget branch pointed at its own tree with a token it never minted. See "Which backend the widget talks to". |
 | The widget does not appear **at all**, no launcher and no error badge | The `<script>` failed to load, so nothing ever ran. A rejected token still renders the widget; an unreachable script renders nothing. Check the backend host resolves and serves `/site-review/widget.js`: a `SERVFAIL` on `loupe.ac` from the machine's own resolver produces exactly this, while the same request succeeds through `1.1.1.1`. |
 | Mail-asserting specs never see their message, or read another run's | Each worktree has its own sidecar, so a run must be pointed at it. Suspect a run launched without `just e2e` (which exports `MAILPIT_URL`) or with `E2E_BASE_URL` set alone, which falls back to the shared instance: the worktree's app then sends where nothing is reading, every registration/login/verification spec times out, and it looks like an auth regression. Set `MAILPIT_URL=https://mailpit-<slug>.<project>.dev.localhost` alongside it. `bin/e2e-target.sh` prints the Mailpit URL it resolved as its fourth line. |
