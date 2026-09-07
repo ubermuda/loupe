@@ -15,6 +15,7 @@ final readonly class ProjectStats
         public int $documentCount = 0,
         public int $commentCount = 0,
         public int $openCommentCount = 0,
+        public int $openCardCount = 0,
     ) {
     }
 
@@ -24,6 +25,7 @@ final readonly class ProjectStats
             $this->documentCount + $other->documentCount,
             $this->commentCount + $other->commentCount,
             $this->openCommentCount + $other->openCommentCount,
+            $this->openCardCount + $other->openCardCount,
         );
     }
 }

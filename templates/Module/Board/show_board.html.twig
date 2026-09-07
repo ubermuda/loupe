@@ -1,0 +1,26 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'board.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <a class="lp-topbar__crumb" href="{{ path('app_project_documents', {id: board.project.id}) }}">{{ board.project.name }}</a>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'nav.link.board'|trans }}</span>
+{% endblock %}
+
+{% block body %}
+<div class="lp-workspace lp-workspace--board">
+    <div class="lp-board-head">
+        <div>
+            <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'board.page.title'|trans }}</h1>
+            <p class="lp-workspace-desc">{{ 'board.page.description'|trans }}</p>
+        </div>
+        <a class="lp-btn lp-btn--primary" href="{{ path('app_board_card_create', {id: board.project.id}) }}">
+            <twig:ux:icon name="lucide:plus" class="w-4 h-4 shrink-0" />
+            {{ 'board.card.create.action'|trans }}
+        </a>
+    </div>
+
+    {% include '@Board/_board_columns.html.twig' with {board: board} only %}
+</div>
+{% endblock %}

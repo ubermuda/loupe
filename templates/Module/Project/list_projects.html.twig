@@ -30,6 +30,10 @@
                     <span>{{ 'project.list.meta.comments'|trans({'%count%': item.commentCount}) }}</span>
                     <span class="lp-project-row__sep">·</span>
                     <span class="lp-project-row__open">{{ 'project.list.meta.open'|trans({'%count%': item.openCount}) }}</span>
+                    {% if is_feature_enabled('board.enabled') %}
+                    <span class="lp-project-row__sep">·</span>
+                    <span class="lp-project-row__cards">{{ 'project.list.meta.cards'|trans({'%count%': item.openCardCount}) }}</span>
+                    {% endif %}
                 </div>
             </div>
             <a href="{{ path('app_project_edit', {id: project.id}) }}"

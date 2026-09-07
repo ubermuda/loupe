@@ -12,7 +12,7 @@ use App\Module\Review\Entity\Series;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentRepository;
 use App\Module\Review\Repository\SeriesRepository;
-use App\Module\Review\Security\McpBoundProjectVoter;
+use App\Security\McpBoundProjectVoter;
 use Mcp\Exception\ToolCallException;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Component\Uid\Uuid;

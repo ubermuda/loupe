@@ -9,6 +9,7 @@ use App\Module\Account\Controller\Install\SeedFlagsController;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Analytics\Twig\AnalyticsScript;
+use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Review\Mcp\DocumentHighlightTool;
 use App\Module\SiteReview\SiteReviewDrawing;
 use App\Service\UpdateCheck;
@@ -59,7 +60,7 @@ final class SeedFlagsControllerTest extends WebTestCase
         // prefilled default, and that default has to be "on" or a freshly
         // installed instance cannot register anybody.
         self::assertTrue($flags[RegistrationGate::ENABLED_FLAG]->value);
-        self::assertCount(14, $flags);
+        self::assertCount(15, $flags);
         // Seeded on: drawing is additive, and a flag that installs off would
         // ship the widget's Draw control invisible on every fresh instance.
         self::assertTrue($flags[SiteReviewDrawing::FLAG]->value);
@@ -68,6 +69,8 @@ final class SeedFlagsControllerTest extends WebTestCase
         // outbound request, so an install must not start making it unasked.
         self::assertFalse($flags[UpdateCheck::FLAG]->value);
         self::assertFalse($flags[DocumentHighlightTool::FLAG]->value);
+        // Seeded off: the operator opts the board in.
+        self::assertFalse($flags[BoardInstallFlags::FLAG_BOARD_ENABLED]->value);
         // Same reasoning as the update check: an install sends nothing to a
         // third party until someone decides it should.
         self::assertFalse($flags[AnalyticsScript::ENABLED_FLAG]->value);

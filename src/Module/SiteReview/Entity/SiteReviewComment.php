@@ -6,6 +6,7 @@ namespace App\Module\SiteReview\Entity;
 
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
+use App\Security\ProjectScopedSubject;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
@@ -15,7 +16,7 @@ use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: SiteReviewCommentRepository::class)]
 #[ORM\Table(name: 'site_review_comments')]
-class SiteReviewComment
+class SiteReviewComment implements ProjectScopedSubject
 {
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
@@ -69,6 +70,18 @@ class SiteReviewComment
         #[ORM\Column(type: Types::TEXT)]
         public readonly string $url,
 
+        /**
+         * What the embed's `data-context` said the page was, echoed back
+         * unread. Null on every ordinary deployment, because the attribute is
+         * rendered only where something set the variable.
+         *
+         * Deliberately a plain string and not a relation. The value names a
+         * row this module cannot see, and resolving it belongs to whichever
+         * module recognises the shape it wrote.
+         */
+        #[ORM\Column(length: 255, nullable: true)]
+        public readonly ?string $context = null,
+
         #[ORM\Column]
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
     ) {
@@ -103,5 +116,17 @@ class SiteReviewComment
         ));
 
         return $this;
+    }
+
+    #[\Override]
+    public function scopedProject(): Project
+    {
+        return $this->project;
+    }
+
+    #[\Override]
+    public function scopedSubjectType(): string
+    {
+        return 'site_review_comment';
     }
 }
