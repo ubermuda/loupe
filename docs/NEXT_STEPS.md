@@ -9,6 +9,29 @@ tracker entry.
 Entries are ordered by priority (high → medium → low); insert new entries at
 the end of their priority band. Format and rules: `project-next-steps` skill.
 
+## No database restore has ever been rehearsed
+
+**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
+
+Nobody has restored a Loupe database from a dump, on either deployment path.
+`docs/operating/restoring.md` is a runbook written from how the stack is built,
+not from a drill somebody ran, and both it and `docs/operating/backups.md` say
+so. An unrehearsed restore is not a backup; this entry closes by proving one on
+a scratch instance and correcting whatever the runbook gets wrong.
+
+The single-host stack now takes dumps: the `backup` service in
+`docker/compose/prod.yaml`, behind `--profile backup`, runs
+`pg_dump --format=custom` on an interval, uploads to S3-compatible storage and
+prunes past a retention window. What remains untested is putting one back.
+
+The DigitalOcean path is still uncovered: `terraform/main.tf` provisions a
+managed cluster, so DigitalOcean's own daily backups apply, but nothing adds an
+independent copy or a retention window beyond the platform default. There is no
+second location and no second custodian, and the compose backup job does not run
+there.
+
+Found by an audit on 2026-08-20.
+
 ## Data-export object storage is proven on Garage, not on a hosted provider
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
@@ -46,50 +69,6 @@ Still open:
 
 Closing this means one export against a real Spaces bucket with the ACL
 Terraform sets.
-
-## No database restore has ever been rehearsed
-
-**Author:** Claude · **Type:** tooling · **Priority:** high · **Status:** pending
-
-Nobody has restored a Loupe database from a dump, on either deployment path.
-`docs/operating/restoring.md` is a runbook written from how the stack is built,
-not from a drill somebody ran, and both it and `docs/operating/backups.md` say
-so. An unrehearsed restore is not a backup; this entry closes by proving one on
-a scratch instance and correcting whatever the runbook gets wrong.
-
-The single-host stack now takes dumps: the `backup` service in
-`docker/compose/prod.yaml`, behind `--profile backup`, runs
-`pg_dump --format=custom` on an interval, uploads to S3-compatible storage and
-prunes past a retention window. What remains untested is putting one back.
-
-The DigitalOcean path is still uncovered: `terraform/main.tf` provisions a
-managed cluster, so DigitalOcean's own daily backups apply, but nothing adds an
-independent copy or a retention window beyond the platform default. There is no
-second location and no second custodian, and the compose backup job does not run
-there.
-
-Found by an audit on 2026-08-20.
-
-## `digitalocean_app` shows a perpetual diff, so every apply redeploys
-
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
-
-`terraform plan` never reaches "no changes" against a live deployment. It
-reports the app as updated in place every time, with ten `env` blocks removed
-and ten re-added (the same ten, reordered — the provider treats them as a set
-and does not stabilise the order), `job.instance_count` drifting `1 -> null`,
-and the `image` blocks re-rendering.
-
-Nothing is wrong with the result and no value actually changes, but each apply
-consequently rolls a fresh deployment, so an apply is never free and `plan` can
-no longer be used to answer "is anything outstanding". This matches the upstream
-report at
-https://github.com/digitalocean/terraform-provider-digitalocean/issues/1075.
-
-Observed on provider 2.99.1. Not established whether 2.93.0 was clean — the
-lockfile was upgraded mid-deploy, so the two were never compared on the same
-state. Worth checking before anything more elaborate: if it is a regression, the
-fix is pinning rather than chasing the provider.
 
 ## Proper HTTP API + outbound webhooks
 
@@ -1352,30 +1331,6 @@ Resolving the PR from the request is the first question to answer. The widget kn
 
 Relevant code: `public/site-review/widget.js`, `src/Module/SiteReview/`, and the site-review API routes. See also "Site-review comments have no agent-reply data model" and "Let the agent close the loop when a human approves the work".
 
-## The listeners' `/logout` exemptions are dead in production but live in their unit tests
-
-**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
-
-`RequireTermsAcceptanceListener::isExempt()` and
-`RequireNotSuspendedListener::isExempt()` both exempt `/logout`. In the real HTTP
-stack the branch never runs: the firewall's `LogoutListener` answers that path at
-priority 8 and calls `setResponse()`, which stops propagation, so neither gate
-(priority 3 and 6) sees it. Verified with a throwing probe that never fired.
-
-Removing them is not free, though, and an attempt on 2026-08-21 was reverted for
-this reason. `RequireTermsAcceptanceListenerTest` instantiates the listener
-directly and passes it a synthetic `Request::create('/logout')` with no firewall
-involved, so in that context the exemption **is** load-bearing — deleting it
-fails the test. The test case is the only place the invariant "a gated user can
-always leave" is written down at that layer, and that is precisely the invariant
-the terms Decline bug violated.
-
-Sequence it like this. Once the Decline fix has merged, `AcceptTermsControllerTest`
-covers the invariant functionally (it submits the page's own control and asserts
-the redirect to `/login`). At that point the unit-test entries can go along with
-the exemptions, because the guarantee has a better home. Doing it in the other
-order trades a real assertion for three lines of tidiness.
-
 ## Consider scoped mutation testing, because a green suite proved little here
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
@@ -1409,6 +1364,362 @@ Build the scoped command over those two directories. Measure one run, because
 Infection reruns the suite once per mutant, and a full-repo pass against ~1450
 tests is coffee-break length. Then decide how the weekly run is triggered. That
 trigger mechanism is the remaining open question.
+
+## Connect's code panels still emit the literal `YOUR_TOKEN`
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+On the Connect screen, `templates/Module/Project/_connect_instructions.html.twig`
+and `templates/Module/Project/_widget_snippet.html.twig` fall back to the string
+`YOUR_TOKEN` whenever the page is loaded without having just minted a token. So
+the CLI one-liner, the plugin install, the `.mcp.json` block and the widget
+`<script>` tag are all copyable but not runnable: the reader has to substitute a
+value they no longer have.
+
+`ApiToken` now stores a four-character `tokenTail`, which is enough to *identify*
+a token on that screen but nowhere near enough to reconstruct one. A working
+snippet needs the whole 64-hex value, and only the request that issued the token
+ever held it — `ApiToken::issue()` returns the raw string once and persists only
+`sha256(raw)` plus the tail.
+
+So there is no cheap fix. Storing the token reversibly would close it and was
+rejected: it puts a decryptable credential at rest, which is a security-posture
+change rather than a feature. The open options are all UI-side — keep the
+placeholder but say plainly in copy that the reader must paste their own token,
+or move the snippets behind a "regenerate to see this filled in" affordance that
+is honest about destroying the old token.
+
+## The site-review push subsystem has no producer left
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+Dropping the widget's send step (2026-08-13) removed the only code that ever
+created a `SiteReviewEvent`. Everything downstream of it is still in place and
+still tested — the outbox table, `DrainOutboxHandler`, the drain scheduler, the
+per-project and admin outbox pages, `StreamCredentialsController`,
+`SiteReviewTopicBuilder`, and the `site_review.push.enabled` feature flag — but
+nothing writes a row, so the outbox is permanently empty, the "N reviews have
+not reached your agent yet" notice on `/projects/{id}/site-review` never shows,
+and a connected bridge CLI receives nothing.
+
+This is deliberate, not an oversight: the push feature is still under
+development and the owner accepted a temporarily producer-less state rather
+than deleting it. Open work is deciding what re-triggers a push now that there
+is no batch boundary to hang it on — per comment on save (which makes any
+visitor of a public page able to nudge the owner's agent, the exact risk the
+`widgetToken.forwardsToAgent` check was added for), debounced per project, or
+something else. Whatever it becomes, it belongs in
+`src/Module/SiteReview/Command/AddCommentHandler.php` or a listener beside it,
+and the forwardable decision from the deleted `SubmitReviewHandler` is worth
+re-reading in git history before rebuilding it.
+
+## The admin user detail page shows no project or billing context
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+`/admin/users/{id}` (`src/Module/Account/Controller/Admin/ShowUserController.php`,
+served by `ShowUserHandler` → `UserDetailView`) shows only Account-owned context:
+roles, status, verification, terms, connected accounts, active API token count and
+data exports. It shows nothing about how many projects the account owns or what its
+billing state is, which is usually the first thing an admin wants before suspending
+or deleting someone.
+
+Both live in other modules, and reaching for them from Account would add two more
+edges to the module graph that the boundaries sweep is meant to remove. The shape
+that fits is the one `AccountDataPurgerInterface` and `UserDataExporterInterface`
+already use here: a tagged `AdminUserContextProviderInterface` declared in Account,
+implemented by Project and Billing, iterated by `ShowUserHandler`, with the view
+rendering whatever labelled values come back. Deliberately not built up front — an
+unused tagged interface with no implementations is dead code.
+
+Do this with, or after, the boundaries sweep; see "Domain boundaries sweep — and the
+arkitect gate that has never rejected anything".
+
+## The admin sidebar is pinned from the app's CSS, reaching into the bundle's markup
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+`.admin-sidebar` is `position: fixed` in `assets/styles/app.css`, and because
+that takes the nav out of flow, the sibling that holds the page content carries
+a matching `ml-56`. That offset is applied through an adjacent-sibling selector,
+`.admin-sidebar + div`, because the element belongs to
+`ubermuda/admin-bundle`'s `templates/base.html.twig` and the app cannot put a
+class on it.
+
+Two things to know. Sticky is not an option here: the bundle gives `<html>` a
+hard `100dvh` height, so a sticky item has no travel range and rides the scroll
+away — measured, not assumed. And the offset is silently fragile: if the bundle
+ever wraps or reorders that content div, the selector stops matching, the
+content slides under the fixed nav, and nothing fails loudly. A bundle version
+bump is what would trigger it.
+
+The fix is a PR on `ubermuda/admin-bundle` — the aside and the content wrapper
+have to change together, which is exactly why it belongs there. Then delete
+both rules from `app.css`.
+
+Landed 2026-08-22 in PR #241 (admin user page redesign), in response to a
+site-review comment asking for a fixed admin menu.
+
+## A recorded decision cannot be undone
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+A decision card in a document review records an answer and then offers no way
+back: a reviewer who picks the wrong option, or who changes their mind after
+reading further, cannot revise it. The verdict side of this already shipped —
+`src/Module/Review/Command/UndoVerdictHandler.php` withdraws a verdict — so
+there is a pattern to follow for what an undo does to the stored answer and to
+anything derived from it.
+
+The recorded answer is now reported back: #331 made the shared status region
+name the chosen option and the version it was recorded against. So a reviewer
+can see what they chose and still cannot change it.
+
+## A decision card offers no free-text option
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+A decision card presents a fixed set of choices. A reviewer whose answer is
+none of them has nowhere to put it, so the answer ends up in a comment,
+decoupled from the decision it belongs to. Wanted: an "other" choice carrying
+a free-text field, stored alongside the predefined options.
+
+#336 added multi-select, so an answer is stored as one row per chosen option
+rather than one row per decision. A free-text answer has to fit that shape.
+
+## A decision card cannot mark one option as recommended
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+An agent authoring a decision card presents its options as a flat set, with no
+way to say which one it would pick. The recommendation is the agent's actual
+opinion and it currently has to go in surrounding prose, where it is detached
+from the choice it refers to and easy to miss. Wanted: an option can be tagged
+as recommended by the authoring agent, through the document MCP surface
+(`document_create` / `document_revise`), and the review UI renders that tag on
+the option itself.
+
+#336 gave the fence two option markers, `- ( )` for single choice and `- [ ]`
+for multi. A recommendation marker must not collide with either.
+
+## Some log lines stay diagnostics, and one of them is worth revisiting
+
+**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
+
+The audit migration is complete for every operation an actor asked for. The
+lines below stay on `LoggerInterface` on purpose, because no actor asked for
+them: a scheduler tick reporting counts, an infrastructure row, a service
+reporting its own internals, or an external read that degraded.
+
+Per-tick counts: `site_review.outbox_drained`,
+`site_review.outbox_drain_skipped_push_disabled`, `billing.trial_sweep_completed`,
+`billing.trial_sweep_skipped_billing_disabled`,
+`account.data_export_purge_completed`, `audit.purge_completed`.
+
+Infrastructure and internals: `site_review.outbox_publish_failed`,
+`account.data_export_purge_unlink_failed`, `account.data_export_purge_failed`,
+`billing.trial_sweep_skipped_after_lock`, `billing.webhook_tie_broken_by_lookup`,
+`billing.webhook_malformed`, `billing.webhook_unknown_customer`,
+`review.markdown_front_matter_not_tabulated`,
+`site_review.widget_origin_mismatch`,
+`account.system_status_agent_account_unreadable`,
+`billing.survey_skipped_no_url`.
+
+Input normalisation on a request that succeeded: `project.list_page_clamped`,
+`review.document_list_page_clamped`, `account.api_token_return_to_rejected`.
+
+External reads that degraded: `billing.price_fetch_failed`,
+`update_check.unavailable`, `update_check.failed`.
+
+The one worth revisiting is `site_review.widget_origin_mismatch` in
+`src/Module/SiteReview/EventListener/LogWidgetOriginMismatch.php`. It is a
+security observation about a token holder, so it reads like a record. Every
+value it carries is banned from an audit context: the `Origin` header and the
+project's free-text `domain`. A record would hold the project id alone and say
+less than the log line does. Decide whether a project-scoped
+"traffic arrived from an unregistered origin" record earns its place with no
+detail at all.
+
+## Audit operation names have two shapes, and nothing keeps them to one
+
+**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
+
+The trail holds 78 operation names in two shapes. `project.created` and
+`account.deleted` have two segments. `review.comment.added` and
+`site_review.comment.resolved` have three. A reader who filters the admin screen
+by prefix must first know which shape the module chose.
+
+The plan is one shape for every name, `<module>.<outcome>`. A gamache PHPStan
+rule then reads the first argument of every `Auditor::record()` call and fails a
+name that does not match. Open a PR on https://github.com/ubermuda/gamache for
+the rule, because gamache is an external package.
+
+Do this before the table carries much history. A rename does not rewrite the
+rows already written, and the admin filter is a prefix `LIKE` on `operation`, so
+the old name and the new name read as two separate operations from that day on.
+
+## A document cannot be marked as implemented, so the work it specifies has to be re-verified
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+An agent can create, revise, rename and archive a document. Nothing records that
+the work a document specifies is now built. The two signals that exist do not
+carry that meaning. `DocumentStatus` holds `in-review`, `approved` and
+`changes-requested`, which state review agreement rather than delivery.
+`Document::$archivedAt` hides the document, which is not the same as shipping it.
+
+The cost shows up on every re-read. On 2026-09-03 a session was asked whether two
+decisions documents had been implemented. It had to grep the tree for each
+decision, one by one, because the documents themselves said nothing. Both were
+fully implemented.
+
+Three shapes to choose between:
+
+1. A fourth `DocumentStatus` case. Cheapest, but it conflates delivery with
+   review agreement, and a document can be implemented without ever being
+   approved.
+2. A separate nullable `implementedAt`, orthogonal to status the way
+   `archivedAt` already is. An approved document can also be implemented, so
+   the orthogonality argument in `Document::$archivedAt`'s docblock applies here
+   too.
+3. Per decision rather than per document. A decisions document holds many
+   decision blocks, and they land in separate branches at separate times.
+
+An agent does the implementing, so whichever shape wins needs an MCP tool beside
+it. Note the precedent: the archive tools were withheld from the MCP surface on
+2026-08-02, on the reasoning that an agent able to archive can take a document
+out of the human's view. A marker that only claims completion carries less risk,
+because it hides nothing.
+
+Relevant code is `src/Module/Review/Entity/DocumentStatus.php`,
+`src/Module/Review/Entity/Document.php` and `src/Module/Review/Mcp/`.
+
+## The bridge CLI types into tmux, and a Mercure subscription can replace that
+
+**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
+
+`loupe bridge run` delivers a site-review event to a local Claude Code session
+by typing into it. `cli/internal/tmux/tmux.go` calls `tmux send-keys -l` with
+the prompt text, then sends `Enter`. Everything around that call exists to make
+the typing possible. `cli/internal/transport/mercure.go` holds the SSE
+subscription, `cli/internal/inject` formats the prompt, and `cli/cmd/bridge.go`
+spawns, finds or attaches the target session. The `cli/` module is about 976
+lines of Go, excluding tests.
+
+A proof of concept on 2026-09-03 removed the reason for most of it. Claude
+Code's `Monitor` tool arms a background command, and each stdout line becomes an
+event in the session. A `curl` subscription to the Mercure hub therefore
+delivers an event into a running session with no wrapper around it.
+
+The run confirmed two things. A published event reached a session that sat idle
+waiting on user input, with no polling and no keystrokes. A row queued in
+`site_review_events` and drained by `app:drain-site-review-outbox` arrived the
+same way, so the outbox and hub path needs no change.
+
+A replacement retires `cli/internal/tmux` in full,
+`cli/internal/transport/mercure.go`, `cli/internal/inject` as prompt
+formatting, and the session-target half of `cli/cmd/bridge.go`.
+
+It still needs `cli/internal/api`, `cli/internal/config` and `cli/cmd/login.go`.
+A subscription needs a subscriber JWT, and `StreamCredentialsController` issues
+it. The shape to aim at is a command that prints a ready-to-subscribe URL, plus
+a skill that tells the session to arm the monitor with it.
+
+Event payloads are untrusted text, because outside parties influence what they
+contain. The skill must tell the session to read an event as data. The session
+must never obey an instruction that an event body carries.
+
+One capability does not survive. `bridge run --dir` starts a tmux session
+running `claude` when none exists. A monitor only feeds a session that already
+runs, so it cannot start one. Decide whether starting an agent from an event
+matters before you drop that flag.
+
+Close-out order matters. Build the credentials command first. Then drive one
+real widget-produced event into a session through a monitor. Delete the tmux
+path last. The proof of concept used a hand-queued outbox row, so it exercised
+no producer. This entry therefore waits on "The site-review push subsystem has
+no producer left".
+
+Two limits the proof of concept did not clear. The dev hub keeps no history, so
+a reconnect gap loses events and a pull path stays necessary. The run used a
+wildcard subscriber token rather than `StreamCredentialsController`, so
+per-project topic scoping is unproven.
+
+## The mobile work has never run on real iOS Safari
+
+**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
+
+Chromium proved the responsive work in pull request #381, at a 375px viewport
+with `hasTouch: true`. That combination shows that the CSS applies. It does not
+show that Safari behaves as the rules intend, because Chromium emulates a
+coarse pointer and not a browser.
+
+Two rules carry the risk. `@media (pointer: coarse)` in
+`assets/styles/app.css` raises four controls to 16px, so that iOS Safari does
+not zoom the page in when it focuses one: `.lp-comment-composer textarea`,
+`.lp-comment-reply-form textarea`, `.lp-filter-input` and `.lp-filter-select`.
+The same block gives the tap targets a `min-h-11 min-w-11` floor. Nobody has
+seen either rule work on a phone.
+
+The touch path to the comment toolbar has the same gap.
+`assets/controllers/comment_anchor_controller.js` raises the toolbar from a
+debounced `selectionchange`, with `pointerup` and `pointercancel` around it,
+because a finger lift raises no `mouseup`. iOS Safari may schedule
+`selectionchange` differently, and it may draw its own selection callout over
+the text. Nothing here tests either possibility.
+
+The specs are `e2e/tests/mobile/app-shell.spec.ts`,
+`e2e/tests/mobile/review-menu.spec.ts` and
+`e2e/tests/review/mobile-review.spec.ts`. Playwright's WebKit is closer than
+Chromium, and it is still not iOS Safari. Close this with a run on real
+hardware. Focus each of the four controls, and confirm that the page does not
+zoom. Select text, and confirm that the comment toolbar appears. Tap the
+sidebar drawer and the review menu button.
+
+## `digitalocean_app` shows a perpetual diff, so every apply redeploys
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`terraform plan` never reaches "no changes" against a live deployment. It
+reports the app as updated in place every time, with ten `env` blocks removed
+and ten re-added (the same ten, reordered — the provider treats them as a set
+and does not stabilise the order), `job.instance_count` drifting `1 -> null`,
+and the `image` blocks re-rendering.
+
+Nothing is wrong with the result and no value actually changes, but each apply
+consequently rolls a fresh deployment, so an apply is never free and `plan` can
+no longer be used to answer "is anything outstanding". This matches the upstream
+report at
+https://github.com/digitalocean/terraform-provider-digitalocean/issues/1075.
+
+Observed on provider 2.99.1. Not established whether 2.93.0 was clean — the
+lockfile was upgraded mid-deploy, so the two were never compared on the same
+state. Worth checking before anything more elaborate: if it is a regression, the
+fix is pinning rather than chasing the provider.
+
+## The listeners' `/logout` exemptions are dead in production but live in their unit tests
+
+**Author:** Claude · **Type:** tooling · **Priority:** low · **Status:** pending
+
+`RequireTermsAcceptanceListener::isExempt()` and
+`RequireNotSuspendedListener::isExempt()` both exempt `/logout`. In the real HTTP
+stack the branch never runs: the firewall's `LogoutListener` answers that path at
+priority 8 and calls `setResponse()`, which stops propagation, so neither gate
+(priority 3 and 6) sees it. Verified with a throwing probe that never fired.
+
+Removing them is not free, though, and an attempt on 2026-08-21 was reverted for
+this reason. `RequireTermsAcceptanceListenerTest` instantiates the listener
+directly and passes it a synthetic `Request::create('/logout')` with no firewall
+involved, so in that context the exemption **is** load-bearing — deleting it
+fails the test. The test case is the only place the invariant "a gated user can
+always leave" is written down at that layer, and that is precisely the invariant
+the terms Decline bug violated.
+
+Sequence it like this. Once the Decline fix has merged, `AcceptTermsControllerTest`
+covers the invariant functionally (it submits the page's own control and asserts
+the redirect to `/login`). At that point the unit-test entries can go along with
+the exemptions, because the guarantee has a better home. Doing it in the other
+order trades a real assertion for three lines of tidiness.
 
 ## `countActiveAdmins()` depends on two rules that live somewhere else
 
@@ -1738,317 +2049,6 @@ The widget now goes through an esbuild build step. `docker/prod/Dockerfile` runs
 
 This reformat commit must land before the vitest work in "There is no JavaScript
 test harness, and the JS is no longer trivial".
-
-## Connect's code panels still emit the literal `YOUR_TOKEN`
-
-**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
-
-On the Connect screen, `templates/Module/Project/_connect_instructions.html.twig`
-and `templates/Module/Project/_widget_snippet.html.twig` fall back to the string
-`YOUR_TOKEN` whenever the page is loaded without having just minted a token. So
-the CLI one-liner, the plugin install, the `.mcp.json` block and the widget
-`<script>` tag are all copyable but not runnable: the reader has to substitute a
-value they no longer have.
-
-`ApiToken` now stores a four-character `tokenTail`, which is enough to *identify*
-a token on that screen but nowhere near enough to reconstruct one. A working
-snippet needs the whole 64-hex value, and only the request that issued the token
-ever held it — `ApiToken::issue()` returns the raw string once and persists only
-`sha256(raw)` plus the tail.
-
-So there is no cheap fix. Storing the token reversibly would close it and was
-rejected: it puts a decryptable credential at rest, which is a security-posture
-change rather than a feature. The open options are all UI-side — keep the
-placeholder but say plainly in copy that the reader must paste their own token,
-or move the snippets behind a "regenerate to see this filled in" affordance that
-is honest about destroying the old token.
-
-## The site-review push subsystem has no producer left
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-Dropping the widget's send step (2026-08-13) removed the only code that ever
-created a `SiteReviewEvent`. Everything downstream of it is still in place and
-still tested — the outbox table, `DrainOutboxHandler`, the drain scheduler, the
-per-project and admin outbox pages, `StreamCredentialsController`,
-`SiteReviewTopicBuilder`, and the `site_review.push.enabled` feature flag — but
-nothing writes a row, so the outbox is permanently empty, the "N reviews have
-not reached your agent yet" notice on `/projects/{id}/site-review` never shows,
-and a connected bridge CLI receives nothing.
-
-This is deliberate, not an oversight: the push feature is still under
-development and the owner accepted a temporarily producer-less state rather
-than deleting it. Open work is deciding what re-triggers a push now that there
-is no batch boundary to hang it on — per comment on save (which makes any
-visitor of a public page able to nudge the owner's agent, the exact risk the
-`widgetToken.forwardsToAgent` check was added for), debounced per project, or
-something else. Whatever it becomes, it belongs in
-`src/Module/SiteReview/Command/AddCommentHandler.php` or a listener beside it,
-and the forwardable decision from the deleted `SubmitReviewHandler` is worth
-re-reading in git history before rebuilding it.
-
-## The admin user detail page shows no project or billing context
-
-**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
-
-`/admin/users/{id}` (`src/Module/Account/Controller/Admin/ShowUserController.php`,
-served by `ShowUserHandler` → `UserDetailView`) shows only Account-owned context:
-roles, status, verification, terms, connected accounts, active API token count and
-data exports. It shows nothing about how many projects the account owns or what its
-billing state is, which is usually the first thing an admin wants before suspending
-or deleting someone.
-
-Both live in other modules, and reaching for them from Account would add two more
-edges to the module graph that the boundaries sweep is meant to remove. The shape
-that fits is the one `AccountDataPurgerInterface` and `UserDataExporterInterface`
-already use here: a tagged `AdminUserContextProviderInterface` declared in Account,
-implemented by Project and Billing, iterated by `ShowUserHandler`, with the view
-rendering whatever labelled values come back. Deliberately not built up front — an
-unused tagged interface with no implementations is dead code.
-
-Do this with, or after, the boundaries sweep; see "Domain boundaries sweep — and the
-arkitect gate that has never rejected anything".
-
-## The admin sidebar is pinned from the app's CSS, reaching into the bundle's markup
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-`.admin-sidebar` is `position: fixed` in `assets/styles/app.css`, and because
-that takes the nav out of flow, the sibling that holds the page content carries
-a matching `ml-56`. That offset is applied through an adjacent-sibling selector,
-`.admin-sidebar + div`, because the element belongs to
-`ubermuda/admin-bundle`'s `templates/base.html.twig` and the app cannot put a
-class on it.
-
-Two things to know. Sticky is not an option here: the bundle gives `<html>` a
-hard `100dvh` height, so a sticky item has no travel range and rides the scroll
-away — measured, not assumed. And the offset is silently fragile: if the bundle
-ever wraps or reorders that content div, the selector stops matching, the
-content slides under the fixed nav, and nothing fails loudly. A bundle version
-bump is what would trigger it.
-
-The fix is a PR on `ubermuda/admin-bundle` — the aside and the content wrapper
-have to change together, which is exactly why it belongs there. Then delete
-both rules from `app.css`.
-
-Landed 2026-08-22 in PR #241 (admin user page redesign), in response to a
-site-review comment asking for a fixed admin menu.
-
-## A recorded decision cannot be undone
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-A decision card in a document review records an answer and then offers no way
-back: a reviewer who picks the wrong option, or who changes their mind after
-reading further, cannot revise it. The verdict side of this already shipped —
-`src/Module/Review/Command/UndoVerdictHandler.php` withdraws a verdict — so
-there is a pattern to follow for what an undo does to the stored answer and to
-anything derived from it.
-
-The recorded answer is now reported back: #331 made the shared status region
-name the chosen option and the version it was recorded against. So a reviewer
-can see what they chose and still cannot change it.
-
-## A decision card offers no free-text option
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-A decision card presents a fixed set of choices. A reviewer whose answer is
-none of them has nowhere to put it, so the answer ends up in a comment,
-decoupled from the decision it belongs to. Wanted: an "other" choice carrying
-a free-text field, stored alongside the predefined options.
-
-#336 added multi-select, so an answer is stored as one row per chosen option
-rather than one row per decision. A free-text answer has to fit that shape.
-
-## A decision card cannot mark one option as recommended
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-An agent authoring a decision card presents its options as a flat set, with no
-way to say which one it would pick. The recommendation is the agent's actual
-opinion and it currently has to go in surrounding prose, where it is detached
-from the choice it refers to and easy to miss. Wanted: an option can be tagged
-as recommended by the authoring agent, through the document MCP surface
-(`document_create` / `document_revise`), and the review UI renders that tag on
-the option itself.
-
-#336 gave the fence two option markers, `- ( )` for single choice and `- [ ]`
-for multi. A recommendation marker must not collide with either.
-
-## Some log lines stay diagnostics, and one of them is worth revisiting
-
-**Author:** Claude · **Type:** feature · **Priority:** medium · **Status:** pending
-
-The audit migration is complete for every operation an actor asked for. The
-lines below stay on `LoggerInterface` on purpose, because no actor asked for
-them: a scheduler tick reporting counts, an infrastructure row, a service
-reporting its own internals, or an external read that degraded.
-
-Per-tick counts: `site_review.outbox_drained`,
-`site_review.outbox_drain_skipped_push_disabled`, `billing.trial_sweep_completed`,
-`billing.trial_sweep_skipped_billing_disabled`,
-`account.data_export_purge_completed`, `audit.purge_completed`.
-
-Infrastructure and internals: `site_review.outbox_publish_failed`,
-`account.data_export_purge_unlink_failed`, `account.data_export_purge_failed`,
-`billing.trial_sweep_skipped_after_lock`, `billing.webhook_tie_broken_by_lookup`,
-`billing.webhook_malformed`, `billing.webhook_unknown_customer`,
-`review.markdown_front_matter_not_tabulated`,
-`site_review.widget_origin_mismatch`,
-`account.system_status_agent_account_unreadable`,
-`billing.survey_skipped_no_url`.
-
-Input normalisation on a request that succeeded: `project.list_page_clamped`,
-`review.document_list_page_clamped`, `account.api_token_return_to_rejected`.
-
-External reads that degraded: `billing.price_fetch_failed`,
-`update_check.unavailable`, `update_check.failed`.
-
-The one worth revisiting is `site_review.widget_origin_mismatch` in
-`src/Module/SiteReview/EventListener/LogWidgetOriginMismatch.php`. It is a
-security observation about a token holder, so it reads like a record. Every
-value it carries is banned from an audit context: the `Origin` header and the
-project's free-text `domain`. A record would hold the project id alone and say
-less than the log line does. Decide whether a project-scoped
-"traffic arrived from an unregistered origin" record earns its place with no
-detail at all.
-
-## Audit operation names have two shapes, and nothing keeps them to one
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-The trail holds 78 operation names in two shapes. `project.created` and
-`account.deleted` have two segments. `review.comment.added` and
-`site_review.comment.resolved` have three. A reader who filters the admin screen
-by prefix must first know which shape the module chose.
-
-The plan is one shape for every name, `<module>.<outcome>`. A gamache PHPStan
-rule then reads the first argument of every `Auditor::record()` call and fails a
-name that does not match. Open a PR on https://github.com/ubermuda/gamache for
-the rule, because gamache is an external package.
-
-Do this before the table carries much history. A rename does not rewrite the
-rows already written, and the admin filter is a prefix `LIKE` on `operation`, so
-the old name and the new name read as two separate operations from that day on.
-
-## A document cannot be marked as implemented, so the work it specifies has to be re-verified
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-An agent can create, revise, rename and archive a document. Nothing records that
-the work a document specifies is now built. The two signals that exist do not
-carry that meaning. `DocumentStatus` holds `in-review`, `approved` and
-`changes-requested`, which state review agreement rather than delivery.
-`Document::$archivedAt` hides the document, which is not the same as shipping it.
-
-The cost shows up on every re-read. On 2026-09-03 a session was asked whether two
-decisions documents had been implemented. It had to grep the tree for each
-decision, one by one, because the documents themselves said nothing. Both were
-fully implemented.
-
-Three shapes to choose between:
-
-1. A fourth `DocumentStatus` case. Cheapest, but it conflates delivery with
-   review agreement, and a document can be implemented without ever being
-   approved.
-2. A separate nullable `implementedAt`, orthogonal to status the way
-   `archivedAt` already is. An approved document can also be implemented, so
-   the orthogonality argument in `Document::$archivedAt`'s docblock applies here
-   too.
-3. Per decision rather than per document. A decisions document holds many
-   decision blocks, and they land in separate branches at separate times.
-
-An agent does the implementing, so whichever shape wins needs an MCP tool beside
-it. Note the precedent: the archive tools were withheld from the MCP surface on
-2026-08-02, on the reasoning that an agent able to archive can take a document
-out of the human's view. A marker that only claims completion carries less risk,
-because it hides nothing.
-
-Relevant code is `src/Module/Review/Entity/DocumentStatus.php`,
-`src/Module/Review/Entity/Document.php` and `src/Module/Review/Mcp/`.
-
-## The bridge CLI types into tmux, and a Mercure subscription can replace that
-
-**Author:** Geoffrey · **Type:** feature · **Priority:** medium · **Status:** pending
-
-`loupe bridge run` delivers a site-review event to a local Claude Code session
-by typing into it. `cli/internal/tmux/tmux.go` calls `tmux send-keys -l` with
-the prompt text, then sends `Enter`. Everything around that call exists to make
-the typing possible. `cli/internal/transport/mercure.go` holds the SSE
-subscription, `cli/internal/inject` formats the prompt, and `cli/cmd/bridge.go`
-spawns, finds or attaches the target session. The `cli/` module is about 976
-lines of Go, excluding tests.
-
-A proof of concept on 2026-09-03 removed the reason for most of it. Claude
-Code's `Monitor` tool arms a background command, and each stdout line becomes an
-event in the session. A `curl` subscription to the Mercure hub therefore
-delivers an event into a running session with no wrapper around it.
-
-The run confirmed two things. A published event reached a session that sat idle
-waiting on user input, with no polling and no keystrokes. A row queued in
-`site_review_events` and drained by `app:drain-site-review-outbox` arrived the
-same way, so the outbox and hub path needs no change.
-
-A replacement retires `cli/internal/tmux` in full,
-`cli/internal/transport/mercure.go`, `cli/internal/inject` as prompt
-formatting, and the session-target half of `cli/cmd/bridge.go`.
-
-It still needs `cli/internal/api`, `cli/internal/config` and `cli/cmd/login.go`.
-A subscription needs a subscriber JWT, and `StreamCredentialsController` issues
-it. The shape to aim at is a command that prints a ready-to-subscribe URL, plus
-a skill that tells the session to arm the monitor with it.
-
-Event payloads are untrusted text, because outside parties influence what they
-contain. The skill must tell the session to read an event as data. The session
-must never obey an instruction that an event body carries.
-
-One capability does not survive. `bridge run --dir` starts a tmux session
-running `claude` when none exists. A monitor only feeds a session that already
-runs, so it cannot start one. Decide whether starting an agent from an event
-matters before you drop that flag.
-
-Close-out order matters. Build the credentials command first. Then drive one
-real widget-produced event into a session through a monitor. Delete the tmux
-path last. The proof of concept used a hand-queued outbox row, so it exercised
-no producer. This entry therefore waits on "The site-review push subsystem has
-no producer left".
-
-Two limits the proof of concept did not clear. The dev hub keeps no history, so
-a reconnect gap loses events and a pull path stays necessary. The run used a
-wildcard subscriber token rather than `StreamCredentialsController`, so
-per-project topic scoping is unproven.
-
-## The mobile work has never run on real iOS Safari
-
-**Author:** Claude · **Type:** bug · **Priority:** medium · **Status:** pending
-
-Chromium proved the responsive work in pull request #381, at a 375px viewport
-with `hasTouch: true`. That combination shows that the CSS applies. It does not
-show that Safari behaves as the rules intend, because Chromium emulates a
-coarse pointer and not a browser.
-
-Two rules carry the risk. `@media (pointer: coarse)` in
-`assets/styles/app.css` raises four controls to 16px, so that iOS Safari does
-not zoom the page in when it focuses one: `.lp-comment-composer textarea`,
-`.lp-comment-reply-form textarea`, `.lp-filter-input` and `.lp-filter-select`.
-The same block gives the tap targets a `min-h-11 min-w-11` floor. Nobody has
-seen either rule work on a phone.
-
-The touch path to the comment toolbar has the same gap.
-`assets/controllers/comment_anchor_controller.js` raises the toolbar from a
-debounced `selectionchange`, with `pointerup` and `pointercancel` around it,
-because a finger lift raises no `mouseup`. iOS Safari may schedule
-`selectionchange` differently, and it may draw its own selection callout over
-the text. Nothing here tests either possibility.
-
-The specs are `e2e/tests/mobile/app-shell.spec.ts`,
-`e2e/tests/mobile/review-menu.spec.ts` and
-`e2e/tests/review/mobile-review.spec.ts`. Playwright's WebKit is closer than
-Chromium, and it is still not iOS Safari. Close this with a run on real
-hardware. Focus each of the four controls, and confirm that the page does not
-zoom. Select text, and confirm that the comment toolbar appears. Tap the
-sidebar drawer and the review menu button.
 
 ## The MCP connection drops repeatedly, and reconnecting does not restore the tools
 
