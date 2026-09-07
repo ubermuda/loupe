@@ -33,6 +33,12 @@
     // the API then refuses would lose the reviewer's gesture. Strokes already
     // saved render whatever this says, so switching the flag off hides no data.
     let drawingEnabled = false;
+    // What the backend says this page's data-context resolves to, or null when
+    // it resolves to nothing. Null is the honest answer for a marker naming a
+    // card that was deleted, or one belonging to another project, both of which
+    // the save would refuse — so the composer stays silent rather than promising
+    // something that will not happen.
+    let contextLabel = null;
     const MAX_ANCHORS = 10; // AddCommentRequest's cap — over it the API 422s
     const AT_CAP_MESSAGE = `A comment can point at ${MAX_ANCHORS} elements at most.`;
     // AddCommentRequest's caps for the drawing. A stroke past the point cap stops
@@ -166,9 +172,14 @@
     // Rehydrate the list from the project's Pending comments.
     const refresh = async ({ firstLoad = false } = {}) => {
         try {
-            const payload = await api('GET', '/api/site-review/review');
+            const payload = await api(
+                'GET',
+                '/api/site-review/review' +
+                    (CONTEXT ? '?context=' + encodeURIComponent(CONTEXT) : ''),
+            );
             comments = payload.comments || [];
             drawingEnabled = true === payload.drawingEnabled;
+            contextLabel = payload.context || null;
         } catch (error) {
             // Catch a rejected token at the earliest possible point — the boot load — so the
             // widget opens straight into its critical state instead of a misleading empty list.
@@ -781,6 +792,9 @@
       .lp-iconbtn:hover{background:var(--panel-elev);color:var(--text)}
       .lp-iconbtn:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
 
+      .lp-context{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:11.5px;line-height:1.4;color:#6b7280}
+      .lp-context a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+      .lp-context a:hover{color:#111827}
       .lp-composer{flex:0 0 auto;overflow:hidden;transition:max-height .27s cubic-bezier(.4,0,.2,1),opacity .2s ease}
       .lp-composer-inner{padding:2px 16px 14px}
       /* The composer's height is fixed and it clips, so the chips scroll rather
@@ -913,6 +927,7 @@
             <div class="lp-composer-inner">
               <div class="lp-compose-head" id="lp-compose-head"></div>
               <textarea class="lp-textarea" id="lp-textarea" placeholder="Describe the issue or idea…"></textarea>
+              <div class="lp-context" id="lp-context" style="display:none"></div>
               <div class="lp-compose-foot">
                 <span class="lp-hint"><span class="lp-mono">⌘↵</span> to save</span>
                 <div class="lp-spacer"></div>
@@ -1100,6 +1115,7 @@
     const mainNode = $('lp-main');
     const fatalNode = $('lp-fatal');
     const composerNode = $('lp-composer');
+    const contextNode = $('lp-context');
     const composeHead = $('lp-compose-head');
     const textareaNode = $('lp-textarea');
     const errorNode = $('lp-error');
@@ -1992,7 +2008,27 @@
         }
 
         // composer
-        composerNode.style.maxHeight = state.composing ? '240px' : '0px';
+        // Only while composing, and only when the marker resolved. Editing an
+        // existing comment does not re-send the context, so it says nothing.
+        const showContext =
+            state.composing && state.editId == null && contextLabel;
+        contextNode.style.display = showContext ? 'flex' : 'none';
+        if (showContext) {
+            const text = document.createTextNode(contextLabel.label);
+            contextNode.textContent = '';
+            contextNode.appendChild(document.createTextNode('Saves to '));
+            if (contextLabel.url) {
+                const link = document.createElement('a');
+                link.href = contextLabel.url;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
+                link.appendChild(text);
+                contextNode.appendChild(link);
+            } else {
+                contextNode.appendChild(text);
+            }
+        }
+        composerNode.style.maxHeight = state.composing ? '264px' : '0px';
         composerNode.style.opacity = state.composing ? '1' : '0';
         composerNode.style.pointerEvents = state.composing ? 'auto' : 'none';
         // The save is the composer's own action, so its progress belongs on the Save button.
