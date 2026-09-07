@@ -12,9 +12,8 @@
        draggable="false"
        href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}">
         {# The per-project number is the handle a person quotes, so it reads
-           beside the title rather than instead of it. Guarded because the column
-           arrives on the model branch after this one. #}
-        {% if card.number is defined %}<span class="lp-board-card__number">#{{ card.number }}</span>{% endif %}
+           beside the title rather than instead of it. #}
+        <span class="lp-board-card__number">#{{ card.number }}</span>
         {{ card.title }}
     </a>
     <div class="lp-board-card__meta">
