@@ -277,12 +277,12 @@
                 '/api/site-review/review' +
                     (asked ? '?context=' + encodeURIComponent(asked) : ''),
             );
+            // Before anything is written. A superseded answer is a snapshot
+            // from before the newer one, so letting it through would resurrect
+            // a deleted comment or drop a new one, not only mislabel the card.
+            if (generation !== refreshGeneration) return;
             comments = payload.comments || [];
             drawingEnabled = true === payload.drawingEnabled;
-            // A superseded answer still carries this page's comments, which are
-            // project-wide, but its context describes a marker nobody is on any
-            // more.
-            if (generation !== refreshGeneration) return;
             pageContextLabel = payload.context || null;
             // Only a resolved marker is ever carried, and only the one this
             // answer describes. A marker naming a card that is deleted,
