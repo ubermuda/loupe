@@ -20,10 +20,19 @@ final class WidgetFileTest extends TestCase
         // The boot load is the only place the instance can tell the widget what
         // the marker resolves to, so the context has to travel with it.
         self::assertStringContainsString("'?context=' + encodeURIComponent(CONTEXT)", $src);
-        // An ordinary deployment renders no attribute, and a misconfigured one
-        // renders an empty attribute. Neither may reach the API as a value, so
-        // the key is sent only when there is something in it.
-        self::assertStringContainsString('...(CONTEXT ? { context: CONTEXT } : {})', $src);
+        // The marker the page proposes is a default, not a verdict: the picker
+        // lets a reviewer swap or drop it, and the save reads the live value.
+        self::assertStringContainsString('let currentContext = CONTEXT;', $src);
+        self::assertStringContainsString('/api/board/cards', $src);
+        // The save reads the live marker, never the page's attribute. This
+        // assertion replaces one that required the opposite, which was correct
+        // while the page's attribute was the only source.
+        self::assertStringNotContainsString('{ context: CONTEXT }', $src);
+        // An ordinary deployment renders no attribute, a misconfigured one
+        // renders an empty attribute, and a reviewer may detach. None of the
+        // three may reach the API as a value, so the key is sent only when
+        // there is something in it.
+        self::assertStringContainsString('...(currentContext ? { context: currentContext } : {})', $src);
         self::assertStringContainsString('/api/site-review/comments', $src);
         // The widget saves as the reviewer writes; there is no send step to call.
         self::assertStringNotContainsString('/api/site-review/review/submit', $src);

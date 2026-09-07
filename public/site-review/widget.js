@@ -39,6 +39,17 @@
     // the save would refuse — so the composer stays silent rather than promising
     // something that will not happen.
     let contextLabel = null;
+    // The page proposes a marker; the reviewer may accept it, swap it or drop
+    // it. This is what a comment actually saves with, so every path below sets
+    // it and the save reads it rather than the page's attribute.
+    let currentContext = CONTEXT;
+    let pickerCards = [];
+    let pickerError = null;
+    let pickerBusy = false;
+    // Separate from pickerBusy on purpose. Typing a title and clicking Create
+    // is the fastest path through this panel, and the search it triggered is
+    // usually still in flight: a shared flag made Create do nothing at all.
+    let pickerCreating = false;
     const MAX_ANCHORS = 10; // AddCommentRequest's cap — over it the API 422s
     const AT_CAP_MESSAGE = `A comment can point at ${MAX_ANCHORS} elements at most.`;
     // AddCommentRequest's caps for the drawing. A stroke past the point cap stops
@@ -162,6 +173,7 @@
         state.composing = false;
         state.composeTarget = null;
         state.editId = null;
+        state.picking = false;
         state.draft = '';
         state.actionError = null;
         state.savedNotice = null;
@@ -685,6 +697,9 @@
         // page can scroll or the anchor can change between the drag and the save.
         strokes: [],
         composing: false,
+        // The card picker is open. Composer state, so cancelling a comment
+        // closes it too.
+        picking: false,
         // { type:'general' } | { type:'element', anchors: [{ el, selector, text, label }] }
         composeTarget: null,
         draft: '',
@@ -808,6 +823,16 @@
       .lp-context svg{flex:0 0 auto;opacity:.75}
       /* The icon replaced the words "Saves to" on screen. A screen reader would
          otherwise hear a bare card title with nothing saying what it is for. */
+      .lp-context-label[data-role="picker"]{cursor:pointer;background:none;border:0;padding:0;font:inherit}
+      .lp-picker{margin-top:8px;border:1px solid #e5e7eb;border-radius:10px;padding:8px;background:#fff}
+      .lp-picker-search{width:100%;box-sizing:border-box;border:1px solid #e5e7eb;border-radius:8px;padding:6px 8px;font:inherit;font-size:12px;outline:none}
+      .lp-picker-search:focus{border-color:#9ca3af}
+      .lp-picker-list{max-height:132px;overflow:auto;margin-top:6px}
+      .lp-picker-row{display:block;width:100%;text-align:left;border:0;background:none;padding:5px 6px;border-radius:6px;font:inherit;font-size:12px;color:#111827;cursor:pointer}
+      .lp-picker-row:hover,.lp-picker-row:focus{background:#f3f4f6;outline:none}
+      .lp-picker-row .n{color:#6b7280;margin-right:5px}
+      .lp-picker-note{padding:6px;font-size:11.5px;color:#6b7280}
+      .lp-picker-foot{display:flex;align-items:center;gap:8px;margin-top:6px}
       .lp-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
       /* A card title runs to 255 characters and the composer is a fixed height
          with overflow hidden, so a wrapped label would push Save out of sight.
@@ -948,6 +973,16 @@
               <div class="lp-compose-head" id="lp-compose-head"></div>
               <textarea class="lp-textarea" id="lp-textarea" placeholder="Describe the issue or idea…"></textarea>
               <div class="lp-context" id="lp-context" style="display:none"></div>
+              <div class="lp-picker" id="lp-picker" style="display:none">
+                <input class="lp-picker-search" id="lp-picker-search" placeholder="Search cards, or type a new title…" autocomplete="off">
+                <div class="lp-picker-list" id="lp-picker-list"></div>
+                <div class="lp-picker-foot">
+                  <button type="button" class="lp-ghost" id="lp-picker-create">Create card</button>
+                  <div class="lp-spacer"></div>
+                  <button type="button" class="lp-ghost" id="lp-picker-detach">Detach</button>
+                  <button type="button" class="lp-ghost" id="lp-picker-close">Close</button>
+                </div>
+              </div>
               <div class="lp-compose-foot">
                 <span class="lp-hint"><span class="lp-mono">⌘↵</span> to save</span>
                 <div class="lp-spacer"></div>
@@ -1136,6 +1171,9 @@
     const fatalNode = $('lp-fatal');
     const composerNode = $('lp-composer');
     const contextNode = $('lp-context');
+    const pickerNode = $('lp-picker');
+    const pickerSearchNode = $('lp-picker-search');
+    const pickerListNode = $('lp-picker-list');
     const composeHead = $('lp-compose-head');
     const textareaNode = $('lp-textarea');
     const errorNode = $('lp-error');
@@ -2028,11 +2066,13 @@
         }
 
         // composer
-        // Only while composing, and only when the marker resolved. Editing an
-        // existing comment does not re-send the context, so it says nothing.
-        const showContext =
-            state.composing && state.editId == null && contextLabel;
+        // While composing a new comment, whether or not a card is attached:
+        // with none, this row is how a reviewer attaches one. An edit does not
+        // re-send the marker, so it stays hidden there.
+        const showContext = state.composing && state.editId == null;
         contextNode.style.display = showContext ? 'flex' : 'none';
+        pickerNode.style.display =
+            showContext && state.picking ? 'block' : 'none';
         if (showContext) {
             // The icon carries "which board thing", so the words that said it
             // are gone: two rows of muted prose under the textarea read as
@@ -2041,23 +2081,37 @@
             contextNode.firstChild.setAttribute('aria-hidden', 'true');
             const said = document.createElement('span');
             said.className = 'lp-sr-only';
-            said.textContent = 'Saves to ';
+            said.textContent = contextLabel ? 'Saves to ' : '';
             contextNode.appendChild(said);
-            const label = document.createElement(
-                contextLabel.url ? 'a' : 'span',
-            );
+            // A button rather than a link: choosing the card is the action
+            // here, and the card's own page is one click further in.
+            const label = document.createElement('button');
+            label.type = 'button';
             label.className = 'lp-context-label';
-            label.textContent = contextLabel.label;
+            label.dataset.role = 'picker';
+            label.textContent = contextLabel
+                ? contextLabel.label
+                : 'Attach to a card';
             // The full title on hover, since the visible one may be cut.
-            label.title = contextLabel.label;
-            if (contextLabel.url) {
-                label.href = contextLabel.url;
-                label.target = '_blank';
-                label.rel = 'noopener noreferrer';
-            }
+            label.title = contextLabel
+                ? contextLabel.label
+                : 'Choose or create a card for this comment';
+            label.addEventListener('click', () => {
+                state.picking = !state.picking;
+                sync();
+                if (state.picking) {
+                    pickerSearchNode.value = '';
+                    loadPickerCards('');
+                    pickerSearchNode.focus();
+                }
+            });
             contextNode.appendChild(label);
         }
-        composerNode.style.maxHeight = state.composing ? '264px' : '0px';
+        composerNode.style.maxHeight = state.composing
+            ? state.picking
+                ? '470px'
+                : '264px'
+            : '0px';
         composerNode.style.opacity = state.composing ? '1' : '0';
         composerNode.style.pointerEvents = state.composing ? 'auto' : 'none';
         // The save is the composer's own action, so its progress belongs on the Save button.
@@ -2766,10 +2820,119 @@
         sync();
         focusTextarea();
     };
+    let pickerDebounce = null;
+    // The card picker. It loads only when opened, so an instance with the board
+    // switched off costs nothing: that endpoint answers 404 and the panel says
+    // so, rather than the widget needing to be told at boot.
+    const setContext = (marker, label) => {
+        currentContext = marker;
+        contextLabel = label;
+        state.picking = false;
+        sync();
+    };
+    const renderPicker = () => {
+        pickerListNode.textContent = '';
+        const note = (text) => {
+            const el = document.createElement('div');
+            el.className = 'lp-picker-note';
+            el.textContent = text;
+            pickerListNode.appendChild(el);
+        };
+        if (pickerCreating) return note('Creating…');
+        if (pickerBusy) return note('Loading…');
+        if (pickerError) return note(pickerError);
+        if (!pickerCards.length) return note('No open cards match.');
+        pickerCards.forEach((card) => {
+            const row = document.createElement('button');
+            row.type = 'button';
+            row.className = 'lp-picker-row';
+            const n = document.createElement('span');
+            n.className = 'n';
+            n.textContent = `#${card.number}`;
+            row.appendChild(n);
+            row.appendChild(document.createTextNode(card.title));
+            row.addEventListener('click', () =>
+                setContext(`card:${card.cardId}`, {
+                    label: `#${card.number} ${card.title}`,
+                    url: null,
+                }),
+            );
+            pickerListNode.appendChild(row);
+        });
+    };
+    const loadPickerCards = async (query) => {
+        pickerBusy = true;
+        pickerError = null;
+        renderPicker();
+        try {
+            const path =
+                '/api/board/cards' +
+                (query ? '?q=' + encodeURIComponent(query) : '');
+            pickerCards = (await api('GET', path)).cards || [];
+        } catch (error) {
+            if (authFailed(error)) return enterFatal(error);
+            pickerCards = [];
+            // 404 is the board switched off, which is a configuration answer
+            // rather than a failure, so it reads differently from a broken call.
+            pickerError =
+                error && error.status === 404
+                    ? 'This instance has no board.'
+                    : 'Could not load cards.';
+        }
+        pickerBusy = false;
+        renderPicker();
+    };
+    const createCardFromPicker = async () => {
+        const title = pickerSearchNode.value.trim();
+        if (!title || pickerCreating) return;
+        // A search may still be running, and its result would overwrite this
+        // panel underneath the create. Cancelling it keeps the two apart.
+        clearTimeout(pickerDebounce);
+        pickerCreating = true;
+        renderPicker();
+        try {
+            const card = await api('POST', '/api/board/cards', { title });
+            setContext(`card:${card.cardId}`, {
+                label: card.label,
+                url: card.url,
+            });
+        } catch (error) {
+            if (authFailed(error)) return enterFatal(error);
+            pickerError =
+                error && error.status === 404
+                    ? 'This instance has no board.'
+                    : 'Could not create the card.';
+        }
+        pickerCreating = false;
+        renderPicker();
+    };
+
+    pickerSearchNode.addEventListener('input', () => {
+        clearTimeout(pickerDebounce);
+        // Debounced, because this is a keystroke on a public endpoint.
+        pickerDebounce = setTimeout(
+            () => loadPickerCards(pickerSearchNode.value.trim()),
+            250,
+        );
+    });
+    pickerSearchNode.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            state.picking = false;
+            sync();
+        }
+    });
+    $('lp-picker-create').addEventListener('click', createCardFromPicker);
+    $('lp-picker-close').addEventListener('click', () => {
+        state.picking = false;
+        sync();
+    });
+    $('lp-picker-detach').addEventListener('click', () => setContext('', null));
+
     const cancelCompose = () => {
         state.composing = false;
         state.composeTarget = null;
         state.editId = null;
+        state.picking = false;
         state.draft = '';
         state.strokes = [];
         textareaNode.value = '';
@@ -2830,7 +2993,7 @@
                     strokes,
                     selector: first ? first.selector : '',
                     text: first ? first.text : '',
-                    ...(CONTEXT ? { context: CONTEXT } : {}),
+                    ...(currentContext ? { context: currentContext } : {}),
                 };
                 const { commentId } = await api(
                     'POST',
