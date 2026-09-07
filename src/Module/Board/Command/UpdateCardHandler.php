@@ -6,7 +6,10 @@ namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\CardMover;
 use App\Module\Board\Service\PullRequestUrlResolver;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -15,7 +18,8 @@ use Ubermuda\AuditBundle\AuditSubject;
 final readonly class UpdateCardHandler
 {
     public function __construct(
-        private MoveCardHandler $moveCard,
+        private CardRepository $cards,
+        private CardMover $mover,
         private PullRequestUrlResolver $pullRequests,
         private EntityManagerInterface $em,
         private Auditor $auditor,
@@ -26,12 +30,7 @@ final readonly class UpdateCardHandler
     {
         $card = $command->card;
 
-        // A field the command carries may hold what the card already holds, so
-        // the record reports what changed rather than what was submitted.
-        $originalTitle = $card->title;
-        $originalBody = $card->body;
-        $originalType = $card->type;
-
+        $title = null;
         if (null !== $command->title) {
             $title = trim($command->title);
             if ('' === $title) {
@@ -40,39 +39,68 @@ final readonly class UpdateCardHandler
             if (mb_strlen($title) > Card::MAX_TITLE_LENGTH) {
                 throw new DomainErrors(['title' => 'board.card.error.title_too_long']);
             }
-            $card->title = $title;
         }
 
-        if (null !== $command->body) {
-            $card->body = $command->body;
-        }
+        // One write for the whole update, and one lock. A status or priority
+        // change is a move, which renumbers a group and decides the completion
+        // timestamp, so this handler owns the transaction the move runs in.
+        // Flushing the fields first would commit half an update whose move
+        // then failed.
+        $outcome = $this->em->wrapInTransaction(function () use ($command, $card, $title): UpdateCardOutcome {
+            $this->em->lock($card->project, LockMode::PESSIMISTIC_WRITE);
+            // lock() takes the project row and leaves the loaded card as the
+            // request read it, which may be before the caller ahead of us in
+            // the queue committed. Both the decision below and the move it
+            // makes read the group, so both need the group as it is now.
+            $this->cards->refreshGroup($card);
 
-        if (null !== $command->type) {
-            $card->type = $command->type;
-        }
+            $status = $command->status ?? $card->status;
+            $priority = $command->priority ?? $card->priority;
+            $move = $status !== $card->status || $priority !== $card->priority
+                ? $this->mover->move($card, $status, $priority)
+                : null;
 
-        if (null !== $command->pullRequestUrls) {
-            $card->replacePullRequests(...$this->pullRequests->linksFor($card, array_values($command->pullRequestUrls)));
-        }
+            // After the move, which must read the card as the database holds
+            // it. A field the command carries may hold what the card already
+            // holds, so the record reports what changed rather than what was
+            // submitted.
+            $titleChanged = null !== $title && $title !== $card->title;
+            $bodyChanged = null !== $command->body && $command->body !== $card->body;
+            $typeChanged = null !== $command->type && $command->type !== $card->type;
 
-        $card->updatedAt = new \DateTimeImmutable();
+            if (null !== $title) {
+                $card->title = $title;
+            }
+            if (null !== $command->body) {
+                $card->body = $command->body;
+            }
+            if (null !== $command->type) {
+                $card->type = $command->type;
+            }
+            if (null !== $command->pullRequestUrls) {
+                $card->replacePullRequests(...$this->pullRequests->linksFor($card, array_values($command->pullRequestUrls)));
+            }
 
-        // One write for the whole update. A status or priority change is a move,
-        // which renumbers a group and decides the completion timestamp, and the
-        // move's own flush carries the field changes above with it. Flushing
-        // them first would commit half an update whose move then failed.
-        $status = $command->status ?? $card->status;
-        $priority = $command->priority ?? $card->priority;
-        $moved = $status !== $card->status || $priority !== $card->priority;
-        if ($moved) {
-            ($this->moveCard)(new MoveCardCommand($card, $status, $priority));
-        } else {
+            $card->updatedAt = new \DateTimeImmutable();
             $this->em->flush();
+
+            return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged);
+        });
+
+        // After the commit, never inside it: the sink drains at kernel.terminate,
+        // so a record written in the closure outlives a rollback. The move comes
+        // first, so the pair reads in the order the board applied it.
+        if (null !== $outcome->move) {
+            $this->auditor->record(
+                'board.card_moved',
+                AuditOutcome::Success,
+                $outcome->move->auditContext($card),
+                new AuditSubject('card', (string) $card->id),
+            );
         }
 
-        // After the write, and after the move that carries it. `moved` names the
-        // paired board.card_moved record, which holds the status and priority
-        // this one does not.
+        // `moved` names the paired board.card_moved record, which holds the
+        // status and priority this one does not.
         $this->auditor->record(
             'board.card_updated',
             AuditOutcome::Success,
@@ -80,11 +108,11 @@ final readonly class UpdateCardHandler
                 'cardId' => (string) $card->id,
                 'cardNumber' => $card->number,
                 'projectId' => (string) $card->project->id,
-                'titleChanged' => $originalTitle !== $card->title,
-                'bodyChanged' => $originalBody !== $card->body,
-                'typeChanged' => $originalType !== $card->type,
+                'titleChanged' => $outcome->titleChanged,
+                'bodyChanged' => $outcome->bodyChanged,
+                'typeChanged' => $outcome->typeChanged,
                 'pullRequestsReplaced' => null !== $command->pullRequestUrls,
-                'moved' => $moved,
+                'moved' => null !== $outcome->move,
             ],
             new AuditSubject('card', (string) $card->id),
         );

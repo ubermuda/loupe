@@ -68,7 +68,7 @@ final class CardAuditTrailTest extends KernelTestCase
 
         // Built by hand rather than fetched: nothing injects the delete handler
         // until the board has a controller, so the container inlines it away.
-        $this->deleteCard = new DeleteCardHandler(new CardGroupOrder($cards), $this->em, $this->audit->auditor);
+        $this->deleteCard = new DeleteCardHandler($cards, new CardGroupOrder($cards), $this->em, $this->audit->auditor);
 
         $owner = new User(fullName: 'Riley', email: 'board-audit-'.uniqid().'@example.com', password: 'hashed');
         $this->em->persist($owner);

@@ -40,6 +40,31 @@ class CardRepository extends ServiceEntityRepository
         );
     }
 
+    /**
+     * Reads onto the card the two fields that say which group it is in.
+     *
+     * A board write locks the project row, and lock() leaves a card loaded
+     * before that lock exactly as the request read it. EntityManager::refresh()
+     * cannot stand in here, because it rehydrates every column and Doctrine
+     * refuses to rewrite the readonly ones a Card carries. A card the database
+     * no longer holds is left alone, which is what the flush already does with
+     * it.
+     */
+    public function refreshGroup(Card $card): void
+    {
+        $row = $this->getEntityManager()->getConnection()->fetchAssociative(
+            'SELECT status, priority FROM board_cards WHERE id = :id',
+            ['id' => (string) $card->id],
+        );
+
+        if (false === $row) {
+            return;
+        }
+
+        $card->status = CardStatus::from((string) $row['status']);
+        $card->priority = CardPriority::from((int) $row['priority']);
+    }
+
     /** The number the project's next card takes. The first card of a project is 1. */
     public function nextNumber(Project $project): int
     {

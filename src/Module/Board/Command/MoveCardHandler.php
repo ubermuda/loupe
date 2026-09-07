@@ -5,28 +5,21 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Service\CardGroupOrder;
+use App\Module\Board\Service\CardMove;
+use App\Module\Board\Service\CardMover;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
-/**
- * Moves a card inside the board.
- *
- * Ranks are plain integers renumbered per group rather than fractional, so a
- * group's order is readable in the table and an ORDER BY needs no tie-break.
- * A group holds the cards of one (project, status, priority) triple, and every
- * group this handler touches comes out numbered from 0 with no gaps.
- */
+/** Moves a card inside the board. CardMover carries the ranking rules. */
 final readonly class MoveCardHandler
 {
     public function __construct(
         private CardRepository $cards,
-        private CardGroupOrder $groupOrder,
+        private CardMover $mover,
         private EntityManagerInterface $em,
         private Auditor $auditor,
     ) {
@@ -36,49 +29,22 @@ final readonly class MoveCardHandler
     {
         $card = $command->card;
 
-        // Read here rather than in the closure, so the record can still name the
-        // group the card left. lock() takes the row and leaves the loaded entity
-        // as it was, so these are the values the closure reads too.
-        $sourceStatus = $card->status;
-        $sourcePriority = $card->priority;
-
         // Reading a group and renumbering it is read-then-write, so two moves in
         // one project would otherwise interleave into duplicate ranks. Same
         // PESSIMISTIC_WRITE-on-the-project idiom
         // App\Module\SiteReview\Command\AddCommentHandler uses.
-        $this->em->wrapInTransaction(function () use ($command, $card, $sourceStatus, $sourcePriority): void {
+        $move = $this->em->wrapInTransaction(function () use ($command, $card): CardMove {
             $this->em->lock($card->project, LockMode::PESSIMISTIC_WRITE);
+            // lock() takes the project row and leaves the loaded card as this
+            // request read it, which may be before the caller ahead of us in
+            // the queue committed. Without the re-read, the move compacts a
+            // group the card has already left.
+            $this->cards->refreshGroup($card);
 
-            $staysInGroup = $sourceStatus === $command->status && $sourcePriority === $command->priority;
-
-            $card->status = $command->status;
-            $card->priority = $command->priority;
-
-            if (CardStatus::Done === $command->status) {
-                // Done sorts by completion and maintains no position, so the rank
-                // is parked at 0 and the card keeps the moment it was first
-                // finished.
-                $card->completedAt ??= new \DateTimeImmutable();
-                $card->position = 0;
-            } else {
-                $card->completedAt = null;
-
-                if ($staysInGroup) {
-                    // No target rank means the end of the group, which place()
-                    // clamps to. Going through it rather than through
-                    // nextPosition() is what stops the old rank becoming a gap.
-                    $this->groupOrder->place($card, $command->position ?? \PHP_INT_MAX);
-                } else {
-                    $card->position = $this->cards->nextPosition($card->project, $command->status, $command->priority);
-                }
-            }
-
-            if (!$staysInGroup) {
-                $this->groupOrder->compact($card->project, $sourceStatus, $sourcePriority, $card);
-            }
-
-            $card->updatedAt = new \DateTimeImmutable();
+            $move = $this->mover->move($card, $command->status, $command->priority, $command->position);
             $this->em->flush();
+
+            return $move;
         });
 
         // After the commit, never inside it: the sink drains at kernel.terminate,
@@ -87,16 +53,7 @@ final readonly class MoveCardHandler
         $this->auditor->record(
             'board.card_moved',
             AuditOutcome::Success,
-            [
-                'cardId' => (string) $card->id,
-                'cardNumber' => $card->number,
-                'projectId' => (string) $card->project->id,
-                'fromStatus' => $sourceStatus->value,
-                'fromPriority' => $sourcePriority->value,
-                'toStatus' => $card->status->value,
-                'toPriority' => $card->priority->value,
-                'position' => $card->position,
-            ],
+            $move->auditContext($card),
             new AuditSubject('card', (string) $card->id),
         );
 

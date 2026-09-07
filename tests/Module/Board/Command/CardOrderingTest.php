@@ -61,7 +61,7 @@ final class CardOrderingTest extends KernelTestCase
 
         // Built by hand rather than fetched: nothing injects the delete handler
         // until the board has a controller, so the container inlines it away.
-        $this->deleteCard = new DeleteCardHandler(new CardGroupOrder($cards), $this->em, SilentAuditor::create());
+        $this->deleteCard = new DeleteCardHandler($cards, new CardGroupOrder($cards), $this->em, SilentAuditor::create());
 
         $owner = new User(fullName: 'Riley', email: 'board-ordering-'.uniqid().'@example.com', password: 'hashed');
         $this->em->persist($owner);
@@ -267,6 +267,32 @@ final class CardOrderingTest extends KernelTestCase
         self::assertSame(CardStatus::Next, $card->status);
         self::assertSame(0, $incumbent->position);
         self::assertSame(1, $card->position);
+    }
+
+    public function test_an_update_that_changes_the_fields_and_the_column_applies_both(): void
+    {
+        $incumbent = $this->card('Already high', CardPriority::High, CardStatus::Next);
+        $card = $this->card('Change me');
+
+        ($this->updateCard)(new UpdateCardCommand(
+            card: $card,
+            title: 'Changed',
+            body: 'Rewritten',
+            type: CardType::Bug,
+            priority: CardPriority::High,
+            status: CardStatus::Next,
+        ));
+
+        $this->em->clear();
+        $stored = $this->cards->find($card->id);
+        $storedIncumbent = $this->cards->find($incumbent->id);
+        self::assertInstanceOf(Card::class, $stored);
+        self::assertInstanceOf(Card::class, $storedIncumbent);
+        self::assertSame(['Changed', 'Rewritten'], [$stored->title, $stored->body]);
+        self::assertSame(CardType::Bug, $stored->type);
+        self::assertSame(CardStatus::Next, $stored->status);
+        self::assertSame(CardPriority::High, $stored->priority);
+        self::assertSame([0, 1], [$storedIncumbent->position, $stored->position]);
     }
 
     /** Read back over SQL, so the assertion covers what was written rather than what is in memory. */
