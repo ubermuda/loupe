@@ -153,6 +153,28 @@ describe('a card chosen for one comment', () => {
     });
 });
 
+describe('a token revoked while the picker is open', () => {
+    it('shows the critical panel rather than a stuck Loading', async () => {
+        const fetchMock = bootWidget({
+            respond: () => ok({ comments: [], context: null }),
+        });
+        await settle();
+
+        const root = panelRoot();
+        root.getElementById('lp-launch-main').click();
+        root.getElementById('general').click();
+        await settle();
+
+        fetchMock.mockImplementation(async () =>
+            rejected(403, { error: 'token_not_bound_to_site' }),
+        );
+        root.querySelector('.lp-context-label').click();
+        await settle();
+
+        expect(root.getElementById('lp-fatal').style.display).not.toBe('none');
+    });
+});
+
 describe('navigating to a page that names a different card', () => {
     /** Turbo swaps the tag after the URL changes, so the marker lands late. */
     async function navigate(to, marker) {

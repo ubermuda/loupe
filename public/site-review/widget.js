@@ -3003,7 +3003,15 @@
             if (!current()) return;
             pickerCards = answer.cards || [];
         } catch (error) {
-            if (authFailed(error)) return enterFatal(error);
+            if (authFailed(error)) {
+                // enterFatal only sets state. Returning without a repaint left
+                // a revoked token showing the picker's "Loading…" for ever
+                // instead of the critical panel.
+                enterFatal(error);
+                sync();
+
+                return;
+            }
             if (!current()) return;
             pickerCards = [];
             // 404 is the board switched off, which is a configuration answer
@@ -3038,7 +3046,15 @@
                 url: card.url,
             });
         } catch (error) {
-            if (authFailed(error)) return enterFatal(error);
+            if (authFailed(error)) {
+                // enterFatal only sets state. Returning without a repaint left
+                // a revoked token showing the picker's "Loading…" for ever
+                // instead of the critical panel.
+                enterFatal(error);
+                sync();
+
+                return;
+            }
             pickerError =
                 error && error.status === 404
                     ? 'This instance has no board.'
