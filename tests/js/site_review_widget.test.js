@@ -182,6 +182,49 @@ describe('navigating to a page that names a different card', () => {
         );
     });
 
+    it('never pairs one page label with another page marker', async () => {
+        // Two refreshes overlap when navigation is quick. Deriving the marker
+        // at response time rather than at request time let the row show the
+        // first page's card while the save carried the second page's.
+        const answers = [];
+        const fetchMock = bootWidget({
+            context: 'card:first',
+            respond: () => {
+                const label = { label: '#1 First page card', url: null };
+                const payload = ok({ comments: [], context: label });
+                answers.push(payload);
+
+                return payload;
+            },
+        });
+        await settle();
+
+        // The second page resolves to nothing, so its marker must be dropped
+        // and the first page's label must not survive alongside it.
+        fetchMock.mockImplementation(async () =>
+            ok({ comments: [], context: null }),
+        );
+        await navigate('/second', 'card:second');
+
+        const root = panelRoot();
+        root.getElementById('lp-launch-main').click();
+        root.getElementById('general').click();
+        const textarea = root.getElementById('lp-textarea');
+        textarea.value = 'About the second page';
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        await settle();
+        root.getElementById('lp-save').click();
+        await settle();
+
+        expect(root.querySelector('.lp-context-label').textContent).toBe(
+            'Attach to a card',
+        );
+        const save = fetchMock.mock.calls.find(
+            ([, init]) => init && init.method === 'POST',
+        );
+        expect(JSON.parse(save[1].body)).not.toHaveProperty('context');
+    });
+
     it('drops the marker when the new page names no card', async () => {
         // The fallback for a missing tag must not apply to a tag that is
         // present and says nothing: that is the page stating it names no card.

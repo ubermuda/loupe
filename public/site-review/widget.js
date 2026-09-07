@@ -35,6 +35,7 @@
         return tag ? tag.getAttribute('data-context') || '' : CONTEXT;
     };
     let lastSeenMarker = CONTEXT;
+    let refreshGeneration = 0;
     // Every comment is saved to the API as it is written and is live from that
     // moment — there is no send step. `comments` mirrors the project's Pending
     // comments, the ones this reviewer may still edit or delete; once the agent marks
@@ -265,26 +266,37 @@
 
     // Rehydrate the list from the project's Pending comments.
     const refresh = async ({ firstLoad = false } = {}) => {
+        // The marker this answer will describe, read once. Navigation can start
+        // a second refresh while this one is in flight, and re-reading it below
+        // would pair one page's label with another page's marker.
+        const asked = pageMarker();
+        const generation = ++refreshGeneration;
         try {
             const payload = await api(
                 'GET',
                 '/api/site-review/review' +
-                    (pageMarker()
-                        ? '?context=' + encodeURIComponent(pageMarker())
-                        : ''),
+                    (asked ? '?context=' + encodeURIComponent(asked) : ''),
             );
             comments = payload.comments || [];
             drawingEnabled = true === payload.drawingEnabled;
-            // Only while the page's marker is still the one in play. A
-            // reviewer who chose before this landed owns the label now.
+            // A superseded answer still carries this page's comments, which are
+            // project-wide, but its context describes a marker nobody is on any
+            // more.
+            if (generation !== refreshGeneration) return;
             pageContextLabel = payload.context || null;
-            // Only a resolved marker is ever carried. One naming a card that is
-            // deleted, malformed or another project's resolves to nothing, and
-            // filing against it would contradict the row.
-            pageContext = pageContextLabel ? pageMarker() : '';
+            // Only a resolved marker is ever carried, and only the one this
+            // answer describes. A marker naming a card that is deleted,
+            // malformed or another project's resolves to nothing, and filing
+            // against it would contradict the row.
+            pageContext = pageContextLabel ? asked : '';
+            // A reviewer who chose while this was in flight owns the label now.
             if (!contextChosen) {
                 contextLabel = pageContextLabel;
                 currentContext = pageContext;
+                // Repaint, or the row keeps the previous page's card while the
+                // save already carries the new one. Every other caller of this
+                // renders afterwards; a navigation refresh has nobody to do it.
+                sync();
             }
         } catch (error) {
             // Catch a rejected token at the earliest possible point — the boot load — so the

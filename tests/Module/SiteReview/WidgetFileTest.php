@@ -17,11 +17,10 @@ final class WidgetFileTest extends TestCase
         self::assertStringContainsString('attachShadow', $src);
         self::assertStringContainsString('data-token', $src);
         self::assertStringContainsString('data-context', $src);
-        // The boot load is the only place the instance can tell the widget what
-        // the marker resolves to, so the context has to travel with it.
-        // pageMarker() rather than CONTEXT: an SPA swap replaces the script
-        // tag, and the marker on the new page is the one that counts.
-        self::assertStringContainsString('encodeURIComponent(pageMarker())', $src);
+        // Read once per request and carried through the answer, never re-read
+        // when it lands: an SPA swap can change it in between.
+        self::assertStringContainsString('const asked = pageMarker();', $src);
+        self::assertStringContainsString('encodeURIComponent(asked)', $src);
         // The marker the page proposes is a default, not a verdict: the picker
         // lets a reviewer swap or drop it, and the save reads the live value.
         // Empty until the server confirms the page's marker resolves, so a

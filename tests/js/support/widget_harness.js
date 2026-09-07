@@ -112,6 +112,10 @@ export function openPanel() {
  */
 export function resetWidget(history) {
     delete window.__loupeSiteReviewLoaded;
+    // jsdom keeps the URL between tests in a file, and the widget only reacts
+    // to a change. A navigation test landing where a previous one left off saw
+    // no change at all and passed or failed on test order.
+    history.replaceState.call(window.history, {}, '', '/');
     document.head
         .querySelectorAll('script[src*="site-review/widget.js"]')
         .forEach((element) => element.remove());
