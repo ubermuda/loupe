@@ -19,6 +19,7 @@ final readonly class AddCommentCommand
         public string $url,
         public array $anchors = [],
         public array $strokes = [],
+        public ?string $context = null,
     ) {
     }
 }

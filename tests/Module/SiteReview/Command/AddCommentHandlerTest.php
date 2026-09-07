@@ -12,11 +12,13 @@ use App\Module\SiteReview\Command\NewAnchor;
 use App\Module\SiteReview\Command\NewStroke;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
+use App\Module\SiteReview\Event\SiteReviewCommentCreated;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\EventDispatcher\EventDispatcher;
 use Ubermuda\AuditBundle\AuditActorProviderInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -26,6 +28,9 @@ final class AddCommentHandlerTest extends KernelTestCase
     private EntityManagerInterface $em;
     private AddCommentHandler $handler;
     private RecordingAuditor $audit;
+    private EventDispatcher $events;
+    /** @var list<SiteReviewCommentCreated> */
+    private array $dispatched = [];
 
     protected function setUp(): void
     {
@@ -38,7 +43,13 @@ final class AddCommentHandlerTest extends KernelTestCase
         $actors = self::getContainer()->get(AuditActorProviderInterface::class);
         self::assertInstanceOf(AuditActorProviderInterface::class, $actors);
         $this->audit = new RecordingAuditor($actors);
-        $this->handler = new AddCommentHandler($comments, $this->em, $this->audit->auditor);
+        $this->dispatched = [];
+        $this->events = new EventDispatcher();
+        $this->events->addListener(
+            SiteReviewCommentCreated::class,
+            function (SiteReviewCommentCreated $event): void { $this->dispatched[] = $event; },
+        );
+        $this->handler = new AddCommentHandler($comments, $this->em, $this->audit->auditor, $this->events);
     }
 
     public function test_first_comment_is_pending_at_position_zero(): void
@@ -49,6 +60,40 @@ final class AddCommentHandlerTest extends KernelTestCase
         self::assertNotNull($comment->id);
         self::assertSame(SiteReviewCommentStatus::Pending, $comment->status);
         self::assertSame(0, $comment->position);
+    }
+
+    public function test_the_context_is_stored_as_given_and_defaults_to_null(): void
+    {
+        $project = $this->project('add-context@example.com');
+        $marked = ($this->handler)(new AddCommentCommand(
+            $project,
+            'on the preview',
+            'https://preview/x',
+            context: 'card:0199c0de-0000-7000-8000-000000000001',
+        ));
+        $plain = ($this->handler)(new AddCommentCommand($project, 'anywhere else', 'https://app/x'));
+
+        $this->em->clear();
+        $reloaded = $this->em->find(SiteReviewComment::class, $marked->id);
+        self::assertNotNull($reloaded);
+        self::assertSame('card:0199c0de-0000-7000-8000-000000000001', $reloaded->context);
+
+        $reloadedPlain = $this->em->find(SiteReviewComment::class, $plain->id);
+        self::assertNotNull($reloadedPlain);
+        self::assertNull($reloadedPlain->context);
+    }
+
+    public function test_a_saved_comment_is_announced_with_an_id_a_listener_can_use(): void
+    {
+        $project = $this->project('add-event@example.com');
+        $comment = ($this->handler)(new AddCommentCommand($project, 'hello', 'https://app/x', context: 'card:abc'));
+
+        self::assertCount(1, $this->dispatched);
+        self::assertSame($comment, $this->dispatched[0]->comment);
+        // A listener resolving the context has to be able to name the row it
+        // links to, so the id must already exist when the event goes out.
+        self::assertNotNull($this->dispatched[0]->comment->id);
+        self::assertSame('card:abc', $this->dispatched[0]->comment->context);
     }
 
     public function test_strokes_are_persisted_and_an_empty_drawing_stores_null(): void

@@ -19,3 +19,14 @@
 <turbo-stream action="update" target="decision-summary-list">
     <template>{% include '@Review/_decision_summary_rows.html.twig' with {rows: rows} only %}</template>
 </turbo-stream>
+{# The review menu carries a second copy of the same three figures below lg.
+   Left out, it reports the state the page was loaded with. #}
+<turbo-stream action="update" target="review-menu-decisions-count">
+    <template>{{ 'review.document.decisions.count'|trans({'%answered%': answeredCount, '%total%': rows|length}) }}</template>
+</turbo-stream>
+<turbo-stream action="update" target="review-menu-decisions-head-count">
+    <template>{{ 'review.document.decisions.count'|trans({'%answered%': answeredCount, '%total%': rows|length}) }}</template>
+</turbo-stream>
+<turbo-stream action="update" target="review-menu-decisions-list">
+    <template>{% include '@Review/_menu_decision_rows.html.twig' with {rows: rows} only %}</template>
+</turbo-stream>

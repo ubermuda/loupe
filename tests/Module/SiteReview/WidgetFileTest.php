@@ -16,6 +16,11 @@ final class WidgetFileTest extends TestCase
         $src = (string) file_get_contents($path);
         self::assertStringContainsString('attachShadow', $src);
         self::assertStringContainsString('data-token', $src);
+        self::assertStringContainsString('data-context', $src);
+        // An ordinary deployment renders no attribute, and a misconfigured one
+        // renders an empty attribute. Neither may reach the API as a value, so
+        // the key is sent only when there is something in it.
+        self::assertStringContainsString('...(CONTEXT ? { context: CONTEXT } : {})', $src);
         self::assertStringContainsString('/api/site-review/comments', $src);
         // The widget saves as the reviewer writes; there is no send step to call.
         self::assertStringNotContainsString('/api/site-review/review/submit', $src);

@@ -198,6 +198,8 @@ A controller that consumes or produces JSON for a machine client, such as a widg
 - The DTO lives beside the controller, in the same `Controller/Api/` directory and namespace, not in a separate `Dto/` or `Form/` directory. Name the top-level payload `<Action>Request` to mirror its controller, so `SubmitBatchController` takes `SubmitBatchRequest`. This is convention only, because the gamache `dto.requestSuffix` rule enforces the suffix only for DTOs in a `Form/` namespace.
 - A nested DTO is not a request. A collection item or sub-object inside the payload exists so the Serializer hydrates a typed element and `#[Assert\Valid]` can cascade per item. It has no controller, so do not give it a `*Request` suffix, which wrongly implies a top-level payload. Name it for what it holds, such as `SiteReviewCommentInput`. It lives beside the payload.
 - The DTO is a plain class with constructor-promoted public properties and validation constraints. An `#[Assert\NotBlank]` property must be `?string`, which the gamache `dto.notBlankNotNullable` rule enforces. Narrow it at the boundary where you map to the command, with `$dto->field ?? ''`, or `?: throw` for a `non-empty-string`. A nested collection needs `#[Assert\Valid]` to cascade, plus a PHPDoc `@param list<ItemInput> $items` so the Serializer knows the element class. Use `#[Assert\Count(min: 1)]` to reject an empty collection with a 422.
+- Normalise a payload field on the DTO, not in the controller. A controller that carries a `private function fooOf(FooRequest $payload)` has put a rule about the wire shape in the wrong class. Give the DTO a method instead, so the rule is testable with no kernel and every caller gets the same answer. This does not conflict with the public-property rule above, because such a method transforms the value rather than exposing it.
+- A DTO method may share its property's name. `AddCommentRequest` has both a promoted `public ?string $context` and a `context()` method that trims it and maps a blank value to null. Neither `#[MapRequestPayload]` nor the validator reads the method as a second source for the field, because the Serializer hydrates through the constructor and a property constraint is read by reflection. Prove it with a test that drives a real value, a blank one and an absent one through the endpoint, rather than reasoning about the Serializer.
 - Path-scoped subscribers and firewall rules handle CORS and auth, not the controller. See the firewall notes in `project-authz` and the per-endpoint CORS subscriber pattern. The 401, 403 and preflight paths run before the controller, so `#[MapRequestPayload]` never sees an unauthenticated request.
 
 ## Route conventions
@@ -266,6 +268,22 @@ final readonly class TopicBuilder
     }
 }
 ```
+
+## Environment variables and their processors
+
+Every environment variable is a string. A processor such as `%env(json:VAR)%` or `%env(csv:VAR)%` converts it, and the conversion has a failure mode worth knowing before you choose a shape.
+
+Do not put JSON in an environment variable. Symfony's dotenv strips the inner quotes, so `{"card":"abc"}` arrives as `{card:abc}`. Nothing raises. The value travels through the application and reaches its column unparseable.
+
+Single quotes around the whole value survive. That is not a fix, because the operator must then get the quoting right in `.env`, `prod.env`, `terraform.tfvars` and the compose file independently, and each has its own rules.
+
+`%env(json:VAR)%` does not rescue this. It throws `Invalid JSON in env var`, at **request** time rather than at build time. The container still compiles. A Twig global resolves on every render, so one malformed value answers every page of the application with a 500. A variable that only a preview instance sets can therefore take the whole site down.
+
+Prefer a shape that needs no quoting. A prefixed string such as `card:<uuid>` carries one fact. A query string such as `card=<uuid>&branch=feat/x` carries several, survives every config layer unquoted, and `%env(query_string:VAR)%` reads it into an array.
+
+A new key must reach seven places: `.env`, `terraform/variables.tf`, `terraform/main.tf`, `terraform/terraform.tfvars.example`, `docker/compose/prod.yaml`, `docker/compose/prod.env.example` and `docs/reference/environment.md`. `DeploymentConfigParityCheck` covers the first six under `just gamache`. The documentation page is yours, and nothing goes red when you forget it.
+
+`terraform.tfvars.example` names the **HCL variable**, so `site_review_widget_context` rather than `SITE_REVIEW_WIDGET_CONTEXT`. Grep that file for the environment key and it returns nothing, which reads exactly like a missing entry. Search for the lower-case variable name before you report one.
 
 ## Nullability: production decides, never the tests
 

@@ -71,14 +71,34 @@ resolve route on `main` at all.
 So an ownership voter's result is not a meaningful check on what an agent may
 do. When you add a tool, do not reason "`SiteReviewCommentVoter` will stop it."
 
-`SiteReviewMcpBoundProjectVoter` (`site_review.mcp_read` /
-`site_review.mcp_write`) is the one voter that does constrain an agent. It
-compares the subject's project against the project the *token* is bound to,
-which is narrower than ownership: a token minted for project A cannot reach
-project B, even when one user owns both. Every caller-supplied site or comment
-id reaching an MCP tool goes through `SiteReviewSubjectResolver`, which asks
-that voter and nothing else. Resolve a new tool's ids there instead of
-re-deriving the scope.
+`App\Security\McpBoundProjectVoter` (`site_review.mcp_read` /
+`site_review.mcp_write`) is the one voter that does constrain an agent. It is
+shared with the review and board modules, and it reaches a subject's project
+through `App\Security\ProjectScopedSubject`. It compares the subject's project
+against the project the *token* is bound to, which is narrower than ownership:
+a token minted for project A cannot reach project B, even when one user owns
+both. Every caller-supplied site or comment id reaching an MCP tool goes
+through `SiteReviewSubjectResolver`, which asks that voter and nothing else.
+Resolve a new tool's ids there instead of re-deriving the scope.
+
+## A comment carries an opaque context, and SiteReview never reads it
+
+`SiteReviewComment::$context` holds whatever the embed's `data-context`
+attribute said, fed by `SITE_REVIEW_WIDGET_CONTEXT`. It is null on an ordinary
+deployment, because the template renders no attribute when the variable is
+empty, and the controller turns a blank value into null.
+
+The column is a plain string and not a relation, on purpose. The value names a
+row this module cannot see. `card:<uuid>` is the first shape, written by a
+worktree preview, and the Board module is what resolves it. Do not add a
+foreign key, and do not parse the value here: a `pr:` or `branch:` prefix must
+cost no migration and no change to this module.
+
+`AddCommentHandler` dispatches `SiteReviewCommentCreated` inside its
+transaction, after the comment has an id. That event is the module's public
+API, the same contract `ProjectDeleting` carries. A listener that persists rows
+needs no flush of its own, and **must never throw**: anything it raises aborts
+the comment save it was told about.
 
 ## The push subsystem has no producer
 
@@ -175,7 +195,7 @@ request carrying `X-Playwright: 1` is handled inline.
 |---|---|
 | Applying `project-frontend`'s token rules to `widget.js` | It is standalone; raw hex and px are correct there. |
 | Running prettier on `widget.js` | ~1400-line phantom diff. |
-| Trusting an ownership voter to stop an agent | Ownership voters return true for every MCP call; `SiteReviewMcpBoundProjectVoter` is the one that does not. |
+| Trusting an ownership voter to stop an agent | Ownership voters return true for every MCP call; `App\Security\McpBoundProjectVoter` is the one that does not. |
 | Assuming a comment is private until "sent" | There is no send step. It is live on save. |
 | Adding a `Draft` branch | The status no longer exists. |
 | Wiring a Mercure trigger to "fix" the empty outbox | Producer-less is a decision, not a bug. |

@@ -10,7 +10,7 @@ use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
-use App\Module\SiteReview\Security\SiteReviewMcpBoundProjectVoter;
+use App\Security\McpBoundProjectVoter;
 use Mcp\Exception\ToolCallException;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Component\Uid\Uuid;
@@ -50,7 +50,7 @@ final readonly class SiteReviewSubjectResolver
 
         $named = $this->projects->findOneByIdOrNameForOwner($site, $bound->owner);
 
-        if (null === $named || !$this->authorization->isGranted(SiteReviewMcpBoundProjectVoter::READ, $named)) {
+        if (null === $named || !$this->authorization->isGranted(McpBoundProjectVoter::SITE_REVIEW_READ, $named)) {
             // Deliberately identical for "does not exist" and "belongs to
             // another project", so a tool cannot be used to probe what exists
             // outside the token's project.
@@ -64,7 +64,7 @@ final readonly class SiteReviewSubjectResolver
      * The comment, or null when it does not exist or sits outside the token's
      * project. The two are one answer for the same anti-probing reason.
      *
-     * @param SiteReviewMcpBoundProjectVoter::READ|SiteReviewMcpBoundProjectVoter::WRITE $attribute
+     * @param McpBoundProjectVoter::SITE_REVIEW_READ|McpBoundProjectVoter::SITE_REVIEW_WRITE $attribute
      */
     public function findComment(Uuid $id, string $attribute): ?SiteReviewComment
     {

@@ -8,6 +8,7 @@ use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Repository\DocumentRepository;
+use App\Security\ProjectScopedSubject;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
@@ -29,7 +30,7 @@ use Symfony\Component\Uid\Uuid;
 // Postgres treats NULLs as distinct here, so every document outside a series
 // keeps a (NULL, NULL) pair of its own and only real numbering collides.
 #[ORM\UniqueConstraint(name: 'uniq_document_series_ordinal', columns: ['series_id', 'series_ordinal'])]
-class Document
+class Document implements ProjectScopedSubject
 {
     /** Mirrors the title column's length so callers can reject an over-long title before Postgres does. */
     public const int MAX_TITLE_LENGTH = 255;
@@ -215,5 +216,17 @@ class Document
         }
 
         $this->references->clear();
+    }
+
+    #[\Override]
+    public function scopedProject(): Project
+    {
+        return $this->project;
+    }
+
+    #[\Override]
+    public function scopedSubjectType(): string
+    {
+        return 'document';
     }
 }

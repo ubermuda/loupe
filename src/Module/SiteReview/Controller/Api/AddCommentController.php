@@ -66,6 +66,7 @@ final class AddCommentController extends AppController
             url: trim($payload->url ?? ''),
             anchors: $anchors,
             strokes: $strokes,
+            context: $payload->context(),
         ));
 
         return $this->json(['commentId' => (string) $comment->id], JsonResponse::HTTP_CREATED);

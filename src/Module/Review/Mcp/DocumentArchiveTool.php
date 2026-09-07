@@ -7,7 +7,7 @@ namespace App\Module\Review\Mcp;
 use App\Exception\DomainErrors;
 use App\Module\Review\Command\ArchiveDocumentCommand;
 use App\Module\Review\Command\ArchiveDocumentHandler;
-use App\Module\Review\Security\McpBoundProjectVoter;
+use App\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 

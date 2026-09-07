@@ -29,6 +29,9 @@ set -euo pipefail
 
 main=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
 
+# Optional second argument: the site-review widget context this preview carries.
+context="${2:-}"
+
 # Target resolution. With a NAME the target is explicit, so this can be run
 # from anywhere — in particular from the main checkout, which is where the
 # session is supposed to stay (CLAUDE.md, "The main session never moves into a
@@ -226,6 +229,18 @@ case ",$mcp_hosts," in
     *) mcp_hosts="$mcp_hosts,$host" ;;
 esac
 set_env "$root/.env.local" MCP_ALLOWED_HOSTS "$mcp_hosts"
+
+# What this preview is serving, stored on every comment made through the
+# widget. Written only when the caller names one, because worktree-up doubles
+# as the repair command: setting it unconditionally would clear the marker of
+# every worktree anyone re-provisioned.
+#
+# The marker names a row in the database the *widget backend* holds, which for
+# a worktree is production rather than this tree. See the project-worktrees
+# skill, "Which backend the widget talks to".
+if [ -n "$context" ]; then
+    set_env "$root/.env.local" SITE_REVIEW_WIDGET_CONTEXT "$context"
+fi
 
 # 5. Per-worktree dev database, created, migrated and seeded. WORKTREE_DB_SUFFIX
 #    is already in .env.local above, so every command below — and every browser

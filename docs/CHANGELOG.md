@@ -34,6 +34,11 @@ entry.
 
 ## [Unreleased]
 
+- `23764c5` (#381) — **Added:** the authenticated app and the review screen work
+  on a phone. Below the `lg` breakpoint the sidebar becomes a drawer behind a
+  hamburger, comment cards sit inline under the paragraph they anchor to, the
+  review top bar keeps its controls behind one round button, a touch selection
+  raises the comment toolbar, and a wide table scrolls inside itself.
 - `e06c292` (#370) — **Fixed:** the e2e job in the weekly coverage workflow has
   180 minutes, so its own timeout no longer kills a slow run.
 - `b90416b` (#367) — **Fixed:** the build no longer fetches JavaScript from a CDN.

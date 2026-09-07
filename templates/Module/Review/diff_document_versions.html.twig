@@ -5,18 +5,11 @@
    renderedDiff, diffRefusal, diffCommenting. #}
 {% extends '@Review/show_document.html.twig' %}
 
-{% set documentPath = path('app_document_review', {projectId: document.project.id, documentId: document.id}) %}
-
 {% block title %}{{ 'review.document.diff.page.title'|trans({'%from%': diffFromVersion}) }} — {{ 'app.name'|trans }}{% endblock %}
 
-{% block topbar_crumbs %}
-    <a class="lp-topbar__crumb" href="{{ path('app_project_documents', {id: document.project.id}) }}">{{ 'nav.link.documents'|trans }}</a>
-    <span class="lp-topbar__sep">/</span>
-    <a class="lp-topbar__crumb" href="{{ documentPath }}">{{ document.title }}</a>
-    <span class="lp-topbar__sep">/</span>
-    <span class="lp-topbar__here">{{ 'review.document.diff.crumb'|trans }}</span>
-    <span class="lp-version-pill">{{ 'v' ~ version.versionNumber }}</span>
-{% endblock %}
+{# topbar_crumbs is inherited, so the bar names the document here as it does on
+   the review page. Below lg the crumbs are hidden and the here slot is all that
+   survives, and the banner under the bar carries the version range. #}
 
 {% block documentPane %}
     {# Any two versions, not only the adjacent pair the version list links to: a

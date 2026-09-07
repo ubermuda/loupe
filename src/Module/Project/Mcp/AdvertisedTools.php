@@ -49,6 +49,10 @@ final class AdvertisedTools
         'series_rename',
         'site_review_get',
         'site_review_mark_comment_addressed',
+        'card_create',
+        'card_list',
+        'card_get',
+        'card_update',
     ];
 
     /** @var list<array{name: string, descriptionKey: string}>|null */
