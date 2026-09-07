@@ -237,7 +237,7 @@ the same workaround unless `ProjectDeleter` is fixed at the source (e.g.
 instead, once a second real call site exists, to stop every caller from having
 to know this.
 
-## Domain boundaries sweep — and the arkitect gate that has never rejected anything
+## Domain boundaries sweep across `src/Module/`
 
 
 **Author:** Geoffrey · **Type:** tooling · **Priority:** medium · **Status:** pending
@@ -248,16 +248,18 @@ dependencies, tighten or add boundary rules where modules have grown entangled, 
 any misplaced code to the module that should own it. Treat it as its own branch, not a
 rider on feature work.
 
-**The sweep has no working gate, and writing one is part of it.** `phparkitect.php` at the
-project root contains no rules — only the commented-out example from the package's own
-documentation, wrapped around a `ClassSet` assigned to an unused variable. `just arkitect`
-runs on every commit as part of `just ci`, passes every time, and has never checked a
-single thing. A gate that reports success for doing nothing is worse than no gate: it
-occupies the slot where architecture enforcement is supposed to be, so nobody notices the
-enforcement is absent. This is the same class of failure as the php-cs-fixer finder that
-matched zero files and let a formatting bug through a green pipeline — fixed since by
-switching `.php-cs-fixer.dist.php` to explicit excludes plus a throw when the finder
-matches nothing. The arkitect equivalent has no such guard.
+The gate covers two modules. `phparkitect.php` at the project root holds two
+rules: Billing is a leaf, and Board is a leaf. Every other module pair is
+unchecked, so `just arkitect` passes on every commit while saying nothing about them. An
+earlier version of this entry said the file held no rules at all. That was true until the
+Billing rule landed, and the remaining problem is coverage rather than an empty file.
+
+Two different jobs hide behind one title, and collapsing them cost an argument.
+Fencing the module a branch introduces travels with that branch. The Billing and Board
+rules both arrived that way, and a new module owes its own rule at the moment it lands.
+Auditing every existing module pair is the sweep, and the sweep stays its own branch. The
+owner's decision of 2026-07-25 said "not a rider on feature work". That applies to the
+audit. It does not forbid the one rule a new module brings with it.
 
 Known cycles to break, re-confirmed in the code on 2026-08-17: Project↔Review and
 Project↔SiteReview (`Project/Command/ListProjectsHandler.php` imports
@@ -289,8 +291,9 @@ module, and Billing and Account contribute their own tagged checks to it.
 
 Two pieces of work, in order:
 
-1. Write real rules. The obvious first candidates are the module boundaries under
-   `src/Module/` (a module must not depend on another module's internals) and the
+1. Extend the rules past Billing and Board. The obvious next candidates are the module
+   boundaries under `src/Module/` (a module must not depend on another module's
+   internals) and the
    domain/infrastructure direction: a dependency rule catches infrastructure leaking
    *into* the domain, which is the half that is mechanically checkable — it says nothing
    about domain logic leaking *out* into an adapter, since adapters may depend on
@@ -1122,65 +1125,76 @@ Pi's publishing path is self-serve: an npm package that carries the `pi-package`
 keyword. This entry owns that listing. The packaging entry named above lists the
 other directories, and it does not list Pi.
 
-## A step-ca thread leak takes down `docker exec` for every other container
+## A BusyBox healthcheck fills step-ca with zombies and stops `docker exec` everywhere
 
 **Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
 
-Observed 2026-08-05, and again 2026-08-09. Every `docker exec` into `loupe-php-fpm-1` began failing
-with `OCI runtime exec failed: ... procReady not received`, and once with the
-more informative `error starting setns process: fork/exec /proc/self/fd/6:
-resource temporarily unavailable`. That second message is `EAGAIN` on `fork` —
-the VM had run out of process slots. `just exec`, and therefore `just ci`,
-`just cs`, `just phpunit` and the whole e2e path, were all dead.
+Observed 2026-08-05, and again 2026-08-09. Every `docker exec` into
+`loupe-php-fpm-1` failed with `OCI runtime exec failed: ... procReady not
+received`, and once with `error starting setns process: fork/exec
+/proc/self/fd/6: resource temporarily unavailable`. The second message is
+`EAGAIN` on `fork`, so the virtual machine had run out of process slots. `just
+exec` died, and with it `just ci`, `just cs`, `just phpunit` and the whole e2e
+path.
 
-**The container at fault is not this project's.** `docker stats` showed
-`traefik-step-ca-1` holding **49,702 PIDs**, against 13 for php-fpm and under
-20 for everything else. step-ca lives in the separate `traefik` stack, so
-nothing in this repository's logs or containers points at it, and php-fpm looks
-blameless because it is.
+The container at fault is not this project's. `docker stats` showed
+`traefik-step-ca-1` holding 49,702 PIDs on 2026-08-05 and 49,699 on 2026-08-09,
+against 13 for php-fpm and under 20 for everything else. step-ca lives in the
+separate `traefik` stack, so nothing in this repository points at it, and
+php-fpm looks blameless because it is.
 
-Recovery is a restart of the offending container, and it is immediate:
+The mechanism is a zombie flood. step-ca itself held 11 threads throughout. The
+container accumulated roughly 43,600 unreaped `ssl_client` zombie processes. The healthcheck in the traefik stack's compose
+file ran BusyBox `wget` against `https://localhost:9000/health`. BusyBox `wget`
+cannot do TLS on its own, so it forks `/usr/bin/ssl_client` and never waits for
+it. The orphan reparents to PID 1, which is the step-ca Go binary, and a Go
+binary reaps no children.
 
-```bash
-docker compose -f <your traefik stack> restart step-ca
-```
+The healthcheck interval is five seconds, so the container gains one zombie
+every five seconds until the process table fills. That ceiling is why both
+occurrences landed within three PIDs of each other from two different uptimes.
+An earlier version of this entry read the same convergence as a per-tick timer,
+and named a thread leak in its own title.
 
-Afterwards `docker exec` works again and TLS still verifies
-(`curl -o /dev/null -w '%{ssl_verify_result}'` returns 0), so no certificate
-re-issue is needed.
+`docker compose restart` reaps the zombies and applies no change to the compose
+file. The container comes back healthy, so a fix reads as applied when it is not,
+and the count climbs again. Use `docker compose up -d`, which
+recreates the container from the current definition. That trap outlives the
+fix, because it makes any later compose edit to this service look effective.
 
-Worth recording for the diagnosis, which is the expensive part: the symptom
-appears as a **Docker or php-fpm fault** and invites restarting this project's
-stack, which changes nothing. The tell is that exec fails for *every* container
-rather than one, and the fix is to find the PID hog with
-`docker stats --no-stream --format '{{.Name}} pids={{.PIDs}}'` before
-restarting anything.
+A working remedy is not evidence for a diagnosis. This entry survived two
+occurrences with the wrong mechanism in its title. The restart worked every
+time, and it destroyed the zombie table that would have falsified the
+diagnosis. Treat any entry here whose only evidence is a successful fix the
+same way.
 
-**A second tell, cheaper to spot: several unrelated containers report
-`(unhealthy)` at once.** On 2026-08-09 `database`, `mailer` and `mercure` were
-all unhealthy while the app served 200s against that same database — because a
-healthcheck has to fork a process too, and there were none left. All three
-returned to healthy on the step-ca restart with nothing else touched. The dev
-`worker` had also died and stayed dead despite `restart: unless-stopped`, for
-the same reason: the daemon could not fork it back up. So a spread of unhealthy
-containers plus a missing worker is this bug, not several bugs — do not go
-restarting them one by one.
+Diagnosis for the next time:
 
-**The second occurrence points at a timer rather than at load.** Both times
-step-ca had been up for days (8 on 2026-08-05, 4 on 2026-08-09) and both times
-it landed within three PIDs of the same number — 49,702 then 49,699. A leak
-driven by certificate issuance or by request volume would not converge on the
-same figure from two different uptimes and two very different weeks of use; a
-thread spawned per tick, against a ceiling the VM imposes, would. The remaining
-unknown is what the ceiling actually is, since ~49.7k is suspiciously close to
-a `threads-max`-style limit rather than to anything step-ca configures.
+- `docker exec` fails for every container rather than for one. That tell says
+  the machine is out of process slots, and it is why restarting this project's
+  stack changes nothing.
+- Find the PID hog before you restart anything, with
+  `docker stats --no-stream --format '{{.Name}} pids={{.PIDs}}'`.
+- Several unrelated containers report `(unhealthy)` at once, because a
+  healthcheck has to fork a process too. On 2026-08-09 `database`, `mailer` and
+  `mercure` were all unhealthy while the app served 200s against that same
+  database. The dev `worker` had died and stayed dead despite
+  `restart: unless-stopped`, because the daemon could not fork it back up. A
+  spread of unhealthy containers plus a missing worker is this one bug, so do
+  not restart them one by one.
 
-**Worth doing regardless of the root cause: put a `pids_limit` on that service.**
-Both outages took down `docker exec` for every container on the machine —
-`just ci`, `just cs`, the whole e2e path — when the fault was one container in
-an unrelated stack. A limit turns that into one failing container that names
-itself, which is the difference between a five-minute fix and the hour the
-diagnosis cost the first time.
+What is still open, and it lives in the `traefik` repository rather than here:
+
+- The fix runs and is not committed. The traefik checkout on the development
+  machine now runs `step ca health` as the healthcheck and sets
+  `init: true`, which gives the container a real child reaper. The running
+  container carries both, and held 12 PIDs on 2026-09-07. `git status` in that
+  repository still reports `compose.yml` and `justfile` as modified, so a fresh
+  clone brings the BusyBox healthcheck back. Commit it there.
+- `pids_limit` is still absent from that service. Add one. Both outages took
+  down `docker exec` for every container on the machine when the fault was
+  one container in an unrelated stack. A limit turns that into one failing
+  container that names itself.
 
 Same family as 'Host `pkill` does not kill a process inside the php-fpm
 container': the host-visible symptom names the wrong process.
@@ -1277,26 +1291,6 @@ already uses that shape.
    grant".
 3. Move it onto `BillingProfile`. This pays the same port cost, adds a
    migration, and keeps the lag.
-
-## The `cli-test` CI check is not required, so a broken CLI cannot block a merge
-
-**Author:** Claude · **Type:** tooling · **Priority:** medium · **Status:** pending
-
-`just ci` now ends in `cli-test`, and `.github/workflows/ci.yml` runs it as its
-own job, but the branch ruleset on `main` still requires only the original eight
-checks — `lint`, `cs-check`, `phpstan`, `arkitect`, `gamache`, `audit`,
-`phpunit`, `e2e`. A red `cli-test` therefore reports failure and merges anyway,
-which makes the job decoration rather than a gate.
-
-Adding it is a repository setting and cannot be done from a branch. The ruleset
-is readable with:
-
-```bash
-id=$(gh api repos/ubermuda/loupe/rulesets -q '.[0].id')
-gh api repos/ubermuda/loupe/rulesets/$id
-```
-
-Until it is required, treat a green merge as saying nothing about the Go bridge.
 
 ## Three external bundle and package PRs are open, and their tracker entries stay open until the pins move
 
@@ -1441,8 +1435,8 @@ implemented by Project and Billing, iterated by `ShowUserHandler`, with the view
 rendering whatever labelled values come back. Deliberately not built up front — an
 unused tagged interface with no implementations is dead code.
 
-Do this with, or after, the boundaries sweep; see "Domain boundaries sweep — and the
-arkitect gate that has never rejected anything".
+Do this with, or after, the boundaries sweep; see "Domain boundaries sweep across
+`src/Module/`".
 
 ## The admin sidebar is pinned from the app's CSS, reaching into the bundle's markup
 

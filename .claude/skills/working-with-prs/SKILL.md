@@ -181,6 +181,13 @@ placeholder left for the reader to substitute. Write the full
 when that repeats the host five times, and paste one into a browser before
 opening the PR.
 
+Strip the `## Preview` section out of the body before you merge. `main` squashes,
+so the body becomes the permanent commit message, and a signed
+`*.dev.localhost` link points at a worktree that is torn down within hours. Name
+the commit the preview was built from, so a later reader knows which code the
+links showed. Never write "this branch's head": the phrase is true of every
+branch at every moment, so no reader can check it.
+
 The same rule covers a branch with no worktree of its own: link the page on
 whatever instance does serve it, rather than describing the route and leaving
 the reader to construct it.
@@ -322,6 +329,27 @@ other's mail. Serialise those, or give each its own `MAILPIT_URL`.
    result is a runtime `ArgumentCountError`. Grepping for the changed symbol is
    a good first pass and not sufficient: it finds only the shapes you thought to
    search for, and goes stale at the next merge.
+
+   A formatter that reads a signature belongs to the same family. `just cs`
+   moved a `number:` argument to the last position, on a branch whose `Card`
+   class had no `$number` property because the parent branch added it. The rule
+   is Rector's built-in `SortCallLikeNamedArgsRector`, reached through
+   `GamacheSetList::CONVENTIONS` and declared in
+   `vendor/ubermuda/gamache/src/Rector/config/conventions.php`, so a grep of
+   `rector.php` finds nothing. It sorts by `$order[$name] ?? \PHP_INT_MAX`, so a
+   name the constructor does not carry sorts last.
+
+   An unchanged file does not prove the ordering is correct. The rule bails out
+   when it cannot resolve the class, and a silent no-op reads exactly like a
+   pass. A green `cs-check` dry-run does not prove it either: one branch's
+   dry-run flagged nothing, and `just cs` then reordered that file with the same
+   rule set in both legs.
+
+   Verify on a detached HEAD that merges the branch onto its parent. Run the
+   tests there, then return with the branch ref unmoved. That tests the change
+   in its destination rather than in the tree it was written in. Read the
+   parent's version of one file with `git show origin/<parent>:<path>`, which
+   has no effect on the cut point.
 6. Resolving a conflict by taking one side can silently revert the other side's
    fix. Before accepting a resolution, re-verify the *behaviour* both branches
    were protecting, not just that the markers are gone. The sharpest form is
@@ -395,6 +423,8 @@ Every merged pull request earns one line in `docs/CHANGELOG.md`, under `[Unrelea
 ```
 
 The entry anchors to the first-parent squash commit on `main`, which is what `git log --first-parent` shows. That commit does not exist until you merge, so the entry cannot ride the pull request it describes. Write it immediately after the merge, in the next documentation pull request.
+
+An entry's position follows its anchor's place in `git log --first-parent`, and not the order the lines were written. A later pull request often adds a line for an earlier commit, and that line belongs below every line whose commit came after it. Read the first-parent log and insert by anchor. Two sessions got this backwards on the same file within an hour.
 
 One entry per pull request, not one per branch. A branch that shipped six features earns six lines, because a reader looking for when tags arrived should find a line about tags rather than a paragraph about the wave that contained them. Tracker churn in `docs/NEXT_STEPS.md` earns no entry.
 
