@@ -20,16 +20,37 @@ set -uo pipefail
 shopt -s nullglob
 
 main=${WORKTREE_TAILWIND_ROOT:-/var/www/html}
-interval=${WORKTREE_TAILWIND_INTERVAL:-3}
+# Ten seconds, not one. This is the safety net for a stylesheet nobody rebuilt,
+# not the tool for iterating on CSS: `just worktree-tailwind` is a real watcher
+# on one tree. A longer interval is what makes an exhaustive scan affordable.
+interval=${WORKTREE_TAILWIND_INTERVAL:-10}
 trees="$main/.claude/worktrees"
 
-# Committed and rarely touched, and big enough that scanning them every few
-# seconds is the only real cost here.
-prune=(-name vendor -o -name icons -o -name fonts -o -name node_modules)
+# Committed and rarely touched, and big enough that scanning them is the only
+# real cost here. `vendor` is not among them: app.css imports
+# vendor/ubermuda/admin-bundle/assets/admin.css and scans two vendored template
+# directories, so a composer install on a branch switch is a real reason to
+# rebuild. Only that one vendor subtree is scanned, and it is 688 files.
+prune=(-name icons -o -name fonts -o -name node_modules -o -name test-results)
+
+# Where a stylesheet's inputs live, relative to a worktree root, kept in step
+# with the @import and @source lines at the top of assets/styles/app.css.
+#
+# composer.lock stands in for the vendored inputs. app.css imports
+# vendor/ubermuda/admin-bundle/assets/admin.css and scans two vendored template
+# directories, so a composer install on a branch switch is a real reason to
+# rebuild. Watching that subtree costs 688 stats per worktree per pass; the
+# lockfile changes exactly when the vendored tree does, and costs one.
+sources=(assets templates)
+source_files=(composer.lock)
 
 is_stale() {
     local root=$1 built=$2 hit
-    for dir in assets templates; do
+    for file in "${source_files[@]}"; do
+        [ "$root/$file" -nt "$built" ] && return 0
+    done
+
+    for dir in "${sources[@]}"; do
         [ -d "$root/$dir" ] || continue
         # Directories count as well as files. Deleting the last template that
         # used a class leaves no surviving file newer than the sheet, and the
@@ -42,24 +63,27 @@ is_stale() {
     return 1
 }
 
-# Every provisioned worktree, as a glob rather than a walk. The second pattern
-# is a name carrying one path segment, such as `foo/bar`. A name with two is not
-# found, and nothing in this repository uses one.
+# Every provisioned worktree, as globs rather than a walk. Three patterns, so a
+# name carrying up to two path segments is found. A deeper one is not, and this
+# is the deliberate limit rather than an oversight.
 #
-# The cost of getting this wrong is why it is spelled out. A worktree holds a
-# real vendor/ of about 28,000 files, so a find for the sheets took 14.6 seconds
-# a pass against a three-second interval, because `-path` filters what is
-# printed rather than what is walked. Pruning the big directories brought that
-# to 0.9s. These globs answer in 23ms, because the shell stats named paths and
-# walks nothing.
+# An exhaustive find is what the limit buys off. A worktree holds about 28,000
+# vendored files and `-path` filters what find prints rather than what it walks,
+# so an unpruned walk cost 13.8 seconds a pass and a pruned one 1.7. These globs
+# cost 0.3, because the shell stats named paths and walks nothing. A watcher
+# loading the bind mount all day is a worse failure than a name nobody uses
+# going unwatched: the shared php-fpm serves every worktree, and background load
+# there skews the e2e timings enough to produce failures that read as real.
 #
 # `git worktree list` would be the authoritative source and cannot be used: it
 # reports the paths a worktree was created with, which are the host's, and this
-# runs in a container where those do not exist.
+# runs in a container where those do not exist. It fails by returning an empty
+# list rather than an error, which is worth knowing before reaching for it.
 worktree_roots() {
     local sheet
     for sheet in "$trees"/*/var/tailwind/app.built.css \
-                 "$trees"/*/*/var/tailwind/app.built.css; do
+                 "$trees"/*/*/var/tailwind/app.built.css \
+                 "$trees"/*/*/*/var/tailwind/app.built.css; do
         [ -f "$sheet" ] && dirname "$(dirname "$(dirname "$sheet")")"
     done
 }
@@ -71,6 +95,7 @@ while true; do
         while read -r root; do
             [ -n "$root" ] || continue
             built="$root/var/tailwind/app.built.css"
+            [ -f "$built" ] || continue
             is_stale "$root" "$built" || continue
 
             # Taken before the build, and stamped onto the sheet after it. A

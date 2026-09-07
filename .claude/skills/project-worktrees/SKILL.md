@@ -59,13 +59,27 @@ It rebuilds only a sheet that already exists. A missing sheet belongs to
 bootstrap, and leaving that case alone is what stops the two writing the same
 file at once.
 
-It finds worktrees by globbing two levels of `.claude/worktrees`, never by
-walking them. A worktree holds a real `vendor/` of about 28,000 files, so a
-`find` for the compiled sheets cost 14.6 seconds a pass against a three-second
-interval: `-path` filters what is printed rather than what is walked. The globs
-answer in 23ms. `git worktree list` is the authoritative source and cannot be
-used here, because it reports the host paths a worktree was created with and the
-watcher runs in a container.
+It globs `.claude/worktrees` rather than walking it, and a worktree name may
+carry up to two path segments. That limit is deliberate. A worktree holds a real
+`vendor/` of about 28,000 files, and `-path` filters what `find` prints rather
+than what it walks, so an exhaustive scan cost 13.8 seconds a pass and a pruned
+one 1.7. The globs cost 0.3. The shared php-fpm serves every worktree, and
+background load there skews e2e timings enough to produce failures that read as
+real, so a cheap watcher matters more than a name nobody uses.
+
+It reads `composer.lock` rather than the vendored tree. `app.css` imports
+`vendor/ubermuda/admin-bundle/assets/admin.css` and scans two vendored template
+directories, so a `composer install` on a branch switch is a real reason to
+rebuild. Watching that subtree costs 688 stats per worktree per pass, and the
+lockfile changes exactly when it does for one.
+
+A whole pass costs 0.42 seconds against a ten-second interval. Ten seconds
+because this is the safety net for a sheet nobody rebuilt; `just
+worktree-tailwind` is the real watcher when you are iterating on CSS.
+
+`git worktree list` is the authoritative source and cannot be used here. It
+reports the host paths a worktree was created with, the watcher runs in a
+container, and it fails by returning an empty list rather than an error.
 
 It stamps the built file after a successful build. Tailwind leaves the file
 alone when the output is unchanged, so the timestamp would otherwise stay behind
