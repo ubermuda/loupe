@@ -6,13 +6,11 @@ namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestUrlResolver;
-use App\Module\Review\Entity\Document;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
@@ -78,10 +76,7 @@ final readonly class CreateCardHandler
             }
 
             $card->replacePullRequests(...$this->pullRequests->linksFor($card, array_values($command->pullRequestUrls)));
-            $card->replaceDocuments(...array_map(
-                static fn (Document $document): CardDocument => new CardDocument($card, $document),
-                $documents,
-            ));
+            $card->syncDocuments(...$documents);
 
             $this->em->persist($card);
             $this->em->flush();

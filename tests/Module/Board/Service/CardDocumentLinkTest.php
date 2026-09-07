@@ -99,6 +99,36 @@ final class CardDocumentLinkTest extends KernelTestCase
         self::assertCount(0, $card->documents);
     }
 
+    public function test_resubmitting_the_same_document_is_not_a_conflict(): void
+    {
+        // Doctrine issues inserts before orphan-removal deletes, so clearing
+        // the collection and rebuilding it puts a second row with the same
+        // (card, document) pair on the wire before the first is gone. The
+        // unique index then refuses it. CardPullRequest has no such index,
+        // which is why the shape this was copied from does not hit it.
+        [$project, $doc] = $this->projectWithDocument('link-resubmit');
+        $second = new Document($project->owner, $project, 'Another design');
+        $this->em->persist($second);
+        $this->em->flush();
+
+        $card = ($this->createCard)($this->newCard($project, [(string) $doc->id]));
+
+        ($this->updateCard)(new UpdateCardCommand($card, documentIds: [(string) $doc->id]));
+        self::assertCount(1, $card->documents);
+
+        ($this->updateCard)(new UpdateCardCommand(
+            $card,
+            documentIds: [(string) $doc->id, (string) $second->id],
+        ));
+        self::assertSame(
+            [(string) $doc->id, (string) $second->id],
+            array_map(
+                static fn ($link): string => (string) $link->document->id,
+                array_values($card->documents->toArray()),
+            ),
+        );
+    }
+
     public function test_deleting_the_document_takes_the_link_and_leaves_the_card(): void
     {
         [$project, $doc] = $this->projectWithDocument('link-cascade');

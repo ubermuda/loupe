@@ -6,6 +6,7 @@ namespace App\Module\Board\Entity;
 
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Entity\Document;
 use App\Security\ProjectScopedSubject;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -99,12 +100,33 @@ class Card implements ProjectScopedSubject
         }
     }
 
-    /** Replaces every document link with the given set. An empty list clears them. */
-    public function replaceDocuments(CardDocument ...$links): void
+    /**
+     * Makes the card's document links match the given set exactly.
+     *
+     * A diff rather than a clear-and-rebuild, which is what the pull request
+     * links do. Doctrine issues inserts before orphan-removal deletes, so
+     * rebuilding puts a second row with the same (card, document) pair on the
+     * wire before the first is gone, and the unique index refuses it.
+     */
+    public function syncDocuments(Document ...$documents): void
     {
-        $this->documents->clear();
-        foreach ($links as $link) {
-            $this->documents->add($link);
+        $wanted = [];
+        foreach ($documents as $document) {
+            $wanted[(string) $document->id] = $document;
+        }
+
+        foreach ($this->documents as $link) {
+            $id = (string) $link->document->id;
+            if (isset($wanted[$id])) {
+                unset($wanted[$id]);
+
+                continue;
+            }
+            $this->documents->removeElement($link);
+        }
+
+        foreach ($wanted as $document) {
+            $this->documents->add(new CardDocument($this, $document));
         }
     }
 
