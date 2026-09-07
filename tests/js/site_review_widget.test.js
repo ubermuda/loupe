@@ -225,6 +225,55 @@ describe('navigating to a page that names a different card', () => {
         expect(JSON.parse(save[1].body)).not.toHaveProperty('context');
     });
 
+    it('detaches the moment the marker changes, not when the answer lands', async () => {
+        // A reviewer who saves while the new page's context is still resolving,
+        // or after that request fails, must not file against the page they have
+        // already left.
+        let release;
+        const fetchMock = bootWidget({
+            context: 'card:first',
+            respond: () =>
+                ok({
+                    comments: [],
+                    context: { label: '#1 First page card', url: null },
+                }),
+        });
+        await settle();
+
+        const root = panelRoot();
+        root.getElementById('lp-launch-main').click();
+        root.getElementById('general').click();
+        await settle();
+        expect(root.querySelector('.lp-context-label').textContent).toBe(
+            '#1 First page card',
+        );
+
+        // The next answer never arrives, which is the window under test.
+        fetchMock.mockImplementation(
+            () => new Promise((resolve) => (release = resolve)),
+        );
+        await navigate('/second', 'card:second');
+
+        expect(release).toBeTypeOf('function');
+        expect(root.querySelector('.lp-context-label').textContent).toBe(
+            'Attach to a card',
+        );
+
+        const textarea = root.getElementById('lp-textarea');
+        textarea.value = 'Saved while the new page was still resolving';
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        await settle();
+        fetchMock.mockImplementation(async () => ok({ commentId: 'c9' }));
+        root.getElementById('lp-save').click();
+        await settle();
+
+        const save = fetchMock.mock.calls.find(
+            ([, init]) => init && init.method === 'POST',
+        );
+        expect(save).toBeTruthy();
+        expect(JSON.parse(save[1].body)).not.toHaveProperty('context');
+    });
+
     it('drops the marker when the new page names no card', async () => {
         // The fallback for a missing tag must not apply to a tag that is
         // present and says nothing: that is the page stating it names no card.

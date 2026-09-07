@@ -3861,6 +3861,14 @@
         if (marker === lastSeenMarker) return;
         lastSeenMarker = marker;
         contextChosen = false;
+        // Cleared now, not when the answer lands. Leaving the old card in place
+        // would attach a comment saved during the request, or after it failed,
+        // to the page the reviewer has already left.
+        pageContext = '';
+        pageContextLabel = null;
+        currentContext = '';
+        contextLabel = null;
+        sync();
         refresh();
     };
     let lastSeenUrl = location.href;
@@ -3901,7 +3909,13 @@
     // Turbo swaps the body without a history method we wrap; re-anchor on its render
     // events too (harmless no-ops when Turbo is absent).
     ['turbo:load', 'turbo:render', 'turbo:frame-load'].forEach((evt) =>
-        document.addEventListener(evt, rerenderAnchors),
+        document.addEventListener(evt, () => {
+            rerenderAnchors();
+            // A Turbo navigation that bypasses the wrapped history methods
+            // notifies through these events alone, so without this the widget
+            // keeps saving against the previous page's card indefinitely.
+            recheckMarker();
+        }),
     );
 
     applyCorner();
