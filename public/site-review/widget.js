@@ -2566,6 +2566,13 @@
     };
     const openNoteComposer = () => {
         if (state.fatal) return;
+        // The last chance to notice a page that swapped its marker after the
+        // window the navigation handler watches. It lands exactly where being
+        // wrong would cost something, since nothing attaches until a comment is
+        // composed, and it costs one querySelector. A MutationObserver over the
+        // document would close the same gap on every DOM change of somebody
+        // else's page.
+        recheckMarker();
         state.composing = true;
         state.composeTarget = { type: 'general' };
         state.editId = null;
@@ -2692,6 +2699,13 @@
             if (!stayed && root.activeElement !== textareaNode) focusTextarea();
             return;
         }
+        // The last chance to notice a page that swapped its marker after the
+        // window the navigation handler watches. It lands exactly where being
+        // wrong would cost something, since nothing attaches until a comment is
+        // composed, and it costs one querySelector. A MutationObserver over the
+        // document would close the same gap on every DOM change of somebody
+        // else's page.
+        recheckMarker();
         state.composing = true;
         state.composeTarget = { type: 'element', anchors: [anchor] };
         state.editId = null;
@@ -2799,6 +2813,9 @@
         }
         if (state.editId != null) return;
         if (!state.composing) {
+            // Same reason as the other two entry points: a new comment must be
+            // attached to the card this page names, not the last one.
+            recheckMarker();
             state.composing = true;
             state.composeTarget = { type: 'general' };
             state.strokes = [];
