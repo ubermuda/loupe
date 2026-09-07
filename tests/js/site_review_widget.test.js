@@ -39,6 +39,35 @@ function alerting() {
     );
 }
 
+describe('an unresolved page marker', () => {
+    it('is dropped from the save, not only from the label', async () => {
+        // The resolver answers null for a card that is deleted, malformed or
+        // another project's. Keeping the marker would file the comment against
+        // it anyway, while the composer said it was attached to nothing.
+        const fetchMock = bootWidget({
+            context: 'card:01a0-deleted',
+            respond: () => ok({ comments: [], context: null }),
+        });
+        await settle();
+
+        const root = panelRoot();
+        root.getElementById('lp-launch-main').click();
+        root.getElementById('general').click();
+        const textarea = root.getElementById('lp-textarea');
+        textarea.value = 'Something is wrong here';
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        await settle();
+        root.getElementById('lp-save').click();
+        await settle();
+
+        const save = fetchMock.mock.calls.find(
+            ([, init]) => init && init.method === 'POST',
+        );
+        expect(save).toBeTruthy();
+        expect(JSON.parse(save[1].body)).not.toHaveProperty('context');
+    });
+});
+
 describe('boot', () => {
     it('reads the backend from its own src and sends the data-token', async () => {
         const fetchMock = bootWidget({ respond: () => ok({ comments: [] }) });

@@ -250,7 +250,15 @@
             drawingEnabled = true === payload.drawingEnabled;
             // Only while the page's marker is still the one in play. A
             // reviewer who chose before this landed owns the label now.
-            if (!contextChosen) contextLabel = payload.context || null;
+            if (!contextChosen) {
+                contextLabel = payload.context || null;
+                // A marker naming a card that is deleted, malformed or another
+                // project's resolves to nothing, and the save must drop it too.
+                // Keeping it would file a comment against a card the row said
+                // it was not attached to, which is the one thing the silence is
+                // supposed to prevent.
+                if (!contextLabel) currentContext = '';
+            }
         } catch (error) {
             // Catch a rejected token at the earliest possible point — the boot load — so the
             // widget opens straight into its critical state instead of a misleading empty list.
@@ -2959,8 +2967,12 @@
         const title = pickerSearchNode.value.trim();
         if (!title || pickerCreating) return;
         // A search may still be running, and its result would overwrite this
-        // panel underneath the create. Cancelling it keeps the two apart.
+        // panel underneath the create. Cancelling the timer stops one that has
+        // not started; bumping the generation discards one already in flight,
+        // which would otherwise replace a creation error with a card list and
+        // leave the reviewer believing the card was made.
         clearTimeout(pickerDebounce);
+        pickerGeneration++;
         pickerCreating = true;
         renderPicker();
         try {
