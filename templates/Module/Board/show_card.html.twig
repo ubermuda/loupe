@@ -33,6 +33,37 @@
         {% endif %}
     </div>
 
+    <section class="lp-card-reviews">
+        <h2 class="lp-card-reviews__title">{{ 'board.card.site_review.title'|trans }}</h2>
+        {% if siteReviewLinks|length > 0 %}
+        <ul class="lp-card-reviews__list">
+            {% for link in siteReviewLinks %}
+            <li class="lp-card-reviews__item">
+                <p class="lp-card-reviews__body">{{ link.comment.body }}</p>
+                <p class="lp-card-reviews__meta">
+                    <span class="lp-status-chip lp-status-chip--{{ link.comment.status.value }} shrink-0">
+                        <span class="lp-status-chip__dot"></span>
+                        {{ ('site_review.comment.status.' ~ link.comment.status.value)|trans }}
+                    </span>
+                    {# The page the reviewer was on. Stored as given, so only
+                       http and https become an href, as the links above. #}
+                    {% if link.comment.url starts with 'https://' or link.comment.url starts with 'http://' %}
+                    <a class="lp-card-reviews__url" href="{{ link.comment.url }}" rel="noopener noreferrer nofollow">{{ link.comment.url }}</a>
+                    {% else %}
+                    <span class="lp-card-reviews__url">{{ link.comment.url }}</span>
+                    {% endif %}
+                </p>
+            </li>
+            {% endfor %}
+        </ul>
+        <a class="lp-card-reviews__all" href="{{ path('app_project_site_review', {id: card.project.id}) }}">
+            {{ 'board.card.site_review.all'|trans }}
+        </a>
+        {% else %}
+        <p class="lp-card-detail__empty">{{ 'board.card.site_review.empty'|trans }}</p>
+        {% endif %}
+    </section>
+
     <section class="lp-card-pulls">
         <h2 class="lp-card-pulls__title">{{ 'board.card.pull_requests.title'|trans }}</h2>
         {% if card.pullRequests|length > 0 %}

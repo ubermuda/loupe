@@ -4292,6 +4292,22 @@
                 <source>board.card.body.empty</source>
                 <target>This card has no description.</target>
             </trans-unit>
+            <trans-unit id="board.card.site_review.title">
+                <source>board.card.site_review.title</source>
+                <target>Review feedback</target>
+            </trans-unit>
+            <trans-unit id="board.card.site_review.empty">
+                <source>board.card.site_review.empty</source>
+                <target>No review comment points at this card.</target>
+            </trans-unit>
+            <trans-unit id="board.card.site_review.all">
+                <source>board.card.site_review.all</source>
+                <target>See every review comment on this project</target>
+            </trans-unit>
+            <trans-unit id="board.card.site_review.count">
+                <source>board.card.site_review.count</source>
+                <target>{0}no unaddressed review comments|{1}one unaddressed review comment|]1,Inf[ %count% unaddressed review comments</target>
+            </trans-unit>
             <trans-unit id="board.card.pull_requests.title">
                 <source>board.card.pull_requests.title</source>
                 <target>Pull requests</target>

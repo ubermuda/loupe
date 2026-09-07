@@ -65,7 +65,7 @@ final readonly class CardListTool implements FlagGatedToolInterface
             );
 
             return [
-                'cards' => array_map($this->payload->forCard(...), $cards),
+                'cards' => $this->payload->forCards($cards),
                 'total' => \count($cards),
             ];
         } catch (ToolCallException $e) {

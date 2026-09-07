@@ -106,6 +106,9 @@ final class CardExporterTest extends KernelTestCase
                     'addedAt' => $secondAddedAt->format(\DateTimeInterface::ATOM),
                 ],
             ],
+            // Ids only. The comments themselves are the SiteReview exporter's
+            // to state, so the two files never repeat one reviewer's words.
+            'siteReviewComments' => [],
         ], $rows[0]);
     }
 
