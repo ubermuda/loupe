@@ -65,6 +65,10 @@ db_server_version = "18" # the cluster's actual PG major version
 # The origin serving the widget, and so the instance its comments file into.
 # Unset is this one; point it elsewhere to review this deployment from another.
 # site_review_widget_backend = "https://loupe.ac"
+# An opaque marker stored on every comment the widget files, saying what this
+# deployment serves. Unset is right here: a real deployment stores nothing. A
+# preview instance sets it so a comment carries the work it was made against.
+# site_review_widget_context = "card:0199c0de-0000-7000-8000-000000000001"
 # --- Analytics (Umami) ---
 # The first two, plus the analytics.enabled feature flag, before any tag is
 # emitted. The origins go in the policy: the script's in script-src, the one

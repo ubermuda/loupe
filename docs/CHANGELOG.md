@@ -59,6 +59,11 @@ entry.
   leaf, so no code outside the module may depend on it.
 - `c84fdf8` (#371) — **Added:** the creation, the update, the move and the
   deletion of a card each write an audit record, which `/admin/audit-log` shows.
+- `23764c5` (#381) — **Added:** the authenticated app and the review screen work
+  on a phone. Below the `lg` breakpoint the sidebar becomes a drawer behind a
+  hamburger, comment cards sit inline under the paragraph they anchor to, the
+  review top bar keeps its controls behind one round button, a touch selection
+  raises the comment toolbar, and a wide table scrolls inside itself.
 - `5a64e74` (#374) — **Changed:** the `symfony-authorization` skill says to keep
   an explicit attribute-to-class pairing in a voter's `supports()`, and to test
   the denials.
