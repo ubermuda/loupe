@@ -1,4 +1,5 @@
-{# One card face. The whole card is the drag handle, and the grip says so. #}
+{# One card face. The whole card is the drag handle, and the grip says so.
+   Props: card (Card), pendingComments (int). #}
 <article class="lp-board-card"
          data-board-drag-target="card"
          data-action="pointerdown->board-drag#press"
@@ -18,6 +19,12 @@
     </a>
     <div class="lp-board-card__meta">
         <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>
+        {% if pendingComments > 0 %}
+        <span class="lp-board-card__reviews" title="{{ 'board.card.site_review.count'|trans({'%count%': pendingComments}) }}">
+            <twig:ux:icon name="lucide:message-square" class="w-3.5 h-3.5 shrink-0" />
+            {{ pendingComments }}
+        </span>
+        {% endif %}
         {% if card.pullRequests|length > 0 %}
         <span class="lp-board-card__pulls" title="{{ 'board.card.pull_requests.count'|trans({'%count%': card.pullRequests|length}) }}">
             <twig:ux:icon name="lucide:git-pull-request" class="w-3.5 h-3.5 shrink-0" />

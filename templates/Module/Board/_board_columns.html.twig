@@ -25,7 +25,8 @@
             <h3 class="lp-board__group-title">{{ ('board.card.priority.' ~ group.priority.label())|trans }}</h3>
             {% endif %}
             {% for card in group.cards %}
-                {% include '@Board/_card.html.twig' with {card: card} only %}
+                {# `~ ''` casts the Uuid, which cannot itself be an array key. #}
+                {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0)} only %}
             {% endfor %}
         </div>
         {% endfor %}

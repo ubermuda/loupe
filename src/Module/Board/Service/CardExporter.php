@@ -7,7 +7,9 @@ namespace App\Module\Board\Service;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Export\UserDataExporterInterface;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 
 /**
  * The board cards in the account data export.
@@ -19,6 +21,7 @@ final readonly class CardExporter implements UserDataExporterInterface
 {
     public function __construct(
         private CardRepository $cards,
+        private CardSiteReviewCommentRepository $cardSiteReviewComments,
     ) {
     }
 
@@ -57,6 +60,13 @@ final readonly class CardExporter implements UserDataExporterInterface
                     ],
                     $card->pullRequests->toArray(),
                 )),
+                // The comment ids alone. The comments themselves are the
+                // SiteReview exporter's to state, and repeating their bodies
+                // here would put one reviewer's words in two files.
+                'siteReviewComments' => array_map(
+                    static fn (CardSiteReviewComment $link): string => (string) $link->comment->id,
+                    $this->cardSiteReviewComments->findForCard($card),
+                ),
             ];
         }
     }

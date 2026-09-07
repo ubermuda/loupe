@@ -8,6 +8,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 
 final readonly class ShowBoardHandler
 {
@@ -21,6 +22,7 @@ final readonly class ShowBoardHandler
 
     public function __construct(
         private CardRepository $cards,
+        private CardSiteReviewCommentRepository $cardSiteReviewComments,
     ) {
     }
 
@@ -57,6 +59,14 @@ final readonly class ShowBoardHandler
             $columns[] = new BoardColumnView($status, $groups, \count($cards), rankable: true);
         }
 
-        return new BoardView($project, $columns, $this->cards->countDone($project), self::DONE_WINDOW_DAYS);
+        return new BoardView(
+            $project,
+            $columns,
+            $this->cards->countDone($project),
+            self::DONE_WINDOW_DAYS,
+            // One aggregate for the whole board. A count per card would be a
+            // query per card, on the page that renders the most of them.
+            $this->cardSiteReviewComments->pendingCountsForProject($project),
+        );
     }
 }
