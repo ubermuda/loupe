@@ -1,0 +1,43 @@
+{# One card face. The whole card is the drag handle, and the grip says so. #}
+<article class="lp-board-card"
+         data-board-drag-target="card"
+         data-action="pointerdown->board-drag#press"
+         data-card-id="{{ card.id }}"
+         data-card-title="{{ card.title }}">
+    <span class="lp-board-card__grip" aria-hidden="true">
+        <twig:ux:icon name="lucide:grip-vertical" class="w-4 h-4" />
+    </span>
+    {# draggable="false" stops the browser's own link drag taking the gesture. #}
+    <a class="lp-board-card__title"
+       draggable="false"
+       href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}">
+        {# The per-project number is the handle a person quotes, so it reads
+           beside the title rather than instead of it. Guarded because the column
+           arrives on the model branch after this one. #}
+        {% if card.number is defined %}<span class="lp-board-card__number">#{{ card.number }}</span>{% endif %}
+        {{ card.title }}
+    </a>
+    <div class="lp-board-card__meta">
+        <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>
+        {% if card.pullRequests|length > 0 %}
+        <span class="lp-board-card__pulls" title="{{ 'board.card.pull_requests.count'|trans({'%count%': card.pullRequests|length}) }}">
+            <twig:ux:icon name="lucide:git-pull-request" class="w-3.5 h-3.5 shrink-0" />
+            {{ card.pullRequests|length }}
+        </span>
+        {% endif %}
+    </div>
+    {# Dragging is the only interaction a card face offers. These fields carry
+       no controls: the drag controller fills them and submits, which keeps
+       Turbo and the CSRF controller in the path. The same form is on the card
+       page with its labels, where a keyboard reaches it. #}
+    {% set moveForm = card_move_form(card) %}
+    <form hidden
+          method="post"
+          action="{{ path('app_board_card_move', {projectId: card.project.id, cardId: card.id}) }}"
+          data-board-drag-target="moveForm">
+        {{ form_widget(moveForm._token) }}
+        {{ form_widget(moveForm.status) }}
+        {{ form_widget(moveForm.priority) }}
+        {{ form_widget(moveForm.position) }}
+    </form>
+</article>

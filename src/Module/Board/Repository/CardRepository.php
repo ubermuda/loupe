@@ -10,7 +10,11 @@ use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
+use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Bridge\Doctrine\Types\UuidType;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * @extends ServiceEntityRepository<Card>
@@ -46,6 +50,76 @@ class CardRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
 
         return null === $highest ? 1 : ((int) $highest) + 1;
+    }
+
+    /**
+     * One card, scoped to its project.
+     *
+     * The project id is part of the lookup rather than checked afterwards, so a
+     * URL that pairs one project with another project's card is a 404.
+     */
+    public function findOneByIdAndProjectId(string $cardId, string $projectId): ?Card
+    {
+        if (!Uuid::isValid($cardId) || !Uuid::isValid($projectId)) {
+            return null;
+        }
+
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.id = :cardId')
+            ->andWhere('c.project = :projectId')
+            ->setParameter('cardId', Uuid::fromString($cardId), UuidType::NAME)
+            ->setParameter('projectId', Uuid::fromString($projectId), UuidType::NAME)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * The Done cards finished on or after the given moment, newest first.
+     *
+     * The board shows a recent slice of Done rather than all of it, so a column
+     * that only ever grows does not become the page's whole height.
+     *
+     * @return list<Card>
+     */
+    public function findDoneSince(Project $project, \DateTimeImmutable $since): array
+    {
+        return array_values(
+            $this->withPullRequests($this->doneQuery($project))
+                ->andWhere('c.completedAt >= :since')
+                ->setParameter('since', $since)
+                ->getQuery()
+                ->getResult(),
+        );
+    }
+
+    /**
+     * One page of the whole Done history, newest first.
+     *
+     * Through a Paginator, because the fetch-join multiplies the rows a LIMIT
+     * counts: without it a page of 25 cards is cut short by their links.
+     *
+     * @return list<Card>
+     */
+    public function findDonePage(Project $project, int $offset, int $limit): array
+    {
+        $query = $this->withPullRequests($this->doneQuery($project))
+            ->setFirstResult($offset)
+            ->setMaxResults($limit)
+            ->getQuery();
+
+        return array_values(iterator_to_array(new Paginator($query, fetchJoinCollection: true), false));
+    }
+
+    public function countDone(Project $project): int
+    {
+        return (int) $this->createQueryBuilder('c')
+            ->select('COUNT(c.id)')
+            ->andWhere('c.project = :project')
+            ->andWhere('c.status = :status')
+            ->setParameter('project', $project)
+            ->setParameter('status', CardStatus::Done)
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 
     /** The rank a card appended to the end of that group takes. */
@@ -115,6 +189,37 @@ class CardRepository extends ServiceEntityRepository
         // stable order rather than in whatever order Postgres read them.
         $qb->addOrderBy('c.createdAt', 'ASC')->addOrderBy('c.id', 'ASC');
 
-        return array_values($qb->getQuery()->getResult());
+        return array_values($this->withPullRequests($qb)->getQuery()->getResult());
+    }
+
+    /**
+     * Hydrates each card's pull request links with the card.
+     *
+     * Every board and history row reads the link count, and the association is
+     * lazy, so without this each card on the page costs its own query.
+     *
+     * Call it after the card ordering is set, never before: it appends the
+     * association's own order, which a later orderBy() would drop. A fetch-join
+     * ignores the #[ORM\OrderBy] on the property, so the DQL has to carry it.
+     */
+    private function withPullRequests(QueryBuilder $qb): QueryBuilder
+    {
+        return $qb
+            ->leftJoin('c.pullRequests', 'pullRequest')
+            ->addSelect('pullRequest')
+            ->addOrderBy('pullRequest.addedAt', 'ASC');
+    }
+
+    /** Done in the order the column reads it: by completion, newest first. */
+    private function doneQuery(Project $project): QueryBuilder
+    {
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.project = :project')
+            ->andWhere('c.status = :status')
+            ->setParameter('project', $project)
+            ->setParameter('status', CardStatus::Done)
+            ->orderBy('c.completedAt', 'DESC')
+            ->addOrderBy('c.createdAt', 'DESC')
+            ->addOrderBy('c.id', 'ASC');
     }
 }

@@ -48,6 +48,17 @@
                         <span class="lp-sidebar__link-label">{{ 'nav.link.documents'|trans }}</span>
                         <span class="lp-sidebar__pill">{{ project_document_count(project) }}</span>
                     </a>
+                    {# Opt-in: the flag ships off, so an instance nobody has told
+                       otherwise shows no link to a page that answers 404. #}
+                    {% if is_feature_enabled('board.enabled') %}
+                    {% set boardActive = route starts with 'app_project_board' or route starts with 'app_board_card' %}
+                    <a href="{{ path('app_project_board', {id: project.id}) }}"
+                       class="lp-sidebar__link{% if boardActive %} lp-sidebar__link--active{% endif %}"
+                       {% if boardActive %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:square-kanban" />
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.board'|trans }}</span>
+                    </a>
+                    {% endif %}
                     <a href="{{ path('app_project_site_review', {id: project.id}) }}"
                        class="lp-sidebar__link{% if route == 'app_project_site_review' %} lp-sidebar__link--active{% endif %}"
                        {% if route == 'app_project_site_review' %}aria-current="page"{% endif %}>
