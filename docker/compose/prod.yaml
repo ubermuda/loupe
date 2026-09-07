@@ -94,6 +94,7 @@ x-app-environment: &app-environment
   # Origin serving the widget, hence the instance its comments file into.
   # Empty is this one.
   SITE_REVIEW_WIDGET_BACKEND: "${SITE_REVIEW_WIDGET_BACKEND:-}"
+  SITE_REVIEW_WIDGET_CONTEXT: "${SITE_REVIEW_WIDGET_CONTEXT:-}"
   # Umami. The first two, plus the analytics.enabled flag, before a tag is
   # emitted. The two origins are the script's and the one events post to.
   ANALYTICS_SCRIPT_URL: "${ANALYTICS_SCRIPT_URL:-}"

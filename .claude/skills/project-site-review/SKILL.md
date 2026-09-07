@@ -80,6 +80,25 @@ id reaching an MCP tool goes through `SiteReviewSubjectResolver`, which asks
 that voter and nothing else. Resolve a new tool's ids there instead of
 re-deriving the scope.
 
+## A comment carries an opaque context, and SiteReview never reads it
+
+`SiteReviewComment::$context` holds whatever the embed's `data-context`
+attribute said, fed by `SITE_REVIEW_WIDGET_CONTEXT`. It is null on an ordinary
+deployment, because the template renders no attribute when the variable is
+empty, and the controller turns a blank value into null.
+
+The column is a plain string and not a relation, on purpose. The value names a
+row this module cannot see. `card:<uuid>` is the first shape, written by a
+worktree preview, and the Board module is what resolves it. Do not add a
+foreign key, and do not parse the value here: a `pr:` or `branch:` prefix must
+cost no migration and no change to this module.
+
+`AddCommentHandler` dispatches `SiteReviewCommentCreated` inside its
+transaction, after the comment has an id. That event is the module's public
+API, the same contract `ProjectDeleting` carries. A listener that persists rows
+needs no flush of its own, and **must never throw**: anything it raises aborts
+the comment save it was told about.
+
 ## The push subsystem has no producer
 
 `SiteReviewEvent`, the outbox, `DrainOutboxHandler`, the drain scheduler, both
