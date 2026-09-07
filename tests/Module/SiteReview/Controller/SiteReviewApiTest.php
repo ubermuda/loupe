@@ -7,6 +7,8 @@ namespace App\Tests\Module\SiteReview\Controller;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
+use App\Module\Board\Entity\Card;
+use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use App\Module\SiteReview\SiteReviewDrawing;
@@ -98,6 +100,36 @@ final class SiteReviewApiTest extends WebTestCase
             ['card:0199c0de-0000-7000-8000-000000000001', null, null],
             array_map(static fn ($c) => $c->context, $pending),
         );
+    }
+
+    public function test_the_boot_load_names_what_the_page_marker_resolves_to(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw, $project] = $this->projectWithToken($em, 'api-ctx-label@example.com');
+
+        $flags = static::getContainer()->get(FeatureFlagRepository::class);
+        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
+        $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
+        $card = new Card($project, 'Footer overlaps the launcher', 'body', 1);
+        $em->persist($card);
+        $em->flush();
+
+        $this->api($client, Request::METHOD_GET, '/api/site-review/review?context='.urlencode('card:'.$card->id), $raw);
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertIsArray($data['context']);
+        self::assertSame('#1 Footer overlaps the launcher', $data['context']['label']);
+
+        // No marker at all is the ordinary deployment, and the key is present
+        // as null rather than absent so the widget never has to tell the two
+        // apart.
+        $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
+        $plain = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($plain);
+        self::assertArrayHasKey('context', $plain);
+        self::assertNull($plain['context']);
     }
 
     public function test_a_comment_can_point_at_several_elements(): void
@@ -459,7 +491,9 @@ final class SiteReviewApiTest extends WebTestCase
 
         $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
         self::assertSame(
-            ['drawingEnabled' => true, 'comments' => []],
+            // context is always present and null on a page with no marker, so
+            // the widget never has to tell an absent key from a resolved one.
+            ['drawingEnabled' => true, 'context' => null, 'comments' => []],
             json_decode((string) $client->getResponse()->getContent(), true),
         );
 

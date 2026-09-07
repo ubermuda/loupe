@@ -33,6 +33,12 @@
     // the API then refuses would lose the reviewer's gesture. Strokes already
     // saved render whatever this says, so switching the flag off hides no data.
     let drawingEnabled = false;
+    // What the backend says this page's data-context resolves to, or null when
+    // it resolves to nothing. Null is the honest answer for a marker naming a
+    // card that was deleted, or one belonging to another project, both of which
+    // the save would refuse — so the composer stays silent rather than promising
+    // something that will not happen.
+    let contextLabel = null;
     const MAX_ANCHORS = 10; // AddCommentRequest's cap — over it the API 422s
     const AT_CAP_MESSAGE = `A comment can point at ${MAX_ANCHORS} elements at most.`;
     // AddCommentRequest's caps for the drawing. A stroke past the point cap stops
@@ -166,9 +172,14 @@
     // Rehydrate the list from the project's Pending comments.
     const refresh = async ({ firstLoad = false } = {}) => {
         try {
-            const payload = await api('GET', '/api/site-review/review');
+            const payload = await api(
+                'GET',
+                '/api/site-review/review' +
+                    (CONTEXT ? '?context=' + encodeURIComponent(CONTEXT) : ''),
+            );
             comments = payload.comments || [];
             drawingEnabled = true === payload.drawingEnabled;
+            contextLabel = payload.context || null;
         } catch (error) {
             // Catch a rejected token at the earliest possible point — the boot load — so the
             // widget opens straight into its critical state instead of a misleading empty list.
@@ -550,6 +561,18 @@
         `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" ` +
         `stroke-width="${stroke || 2}" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
     const ICON = {
+        // lucide:playing-cards-fan. Traced by hand because this script is
+        // standalone and cannot use <twig:UX:Icon>. Note the paths assume a
+        // 24-unit box and a 2-unit stroke, so scaling the stroke down as the
+        // other icons do here would thin the fan unevenly.
+        cards: (s) =>
+            svg(
+                s,
+                '<path d="M12.65 7.65a2 2 0 0 1 2.629-1.046l5.51 2.374a2 2 0 0 1 1.046 2.628l-3.957 9.184a2 2 0 0 1-2.628 1.046l-5.51-2.374a2 2 0 0 1-1.046-2.628z"/>' +
+                    '<path d="M18 7.777V4a2 2 0 0 0-2-2h-6a2 2 0 0 0-2 2v10a2 2 0 0 0 1.137 1.805"/>' +
+                    '<path d="m8 4.389l-4.364.809a2 2 0 0 0-1.602 2.33l1.822 9.833a2 2 0 0 0 2.331 1.602l2.542-.47"/>',
+                2,
+            ),
         comment: (s) =>
             svg(
                 s,
@@ -781,6 +804,17 @@
       .lp-iconbtn:hover{background:var(--panel-elev);color:var(--text)}
       .lp-iconbtn:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
 
+      .lp-context{display:flex;align-items:center;gap:5px;margin-top:6px;font-size:11.5px;line-height:1.4;color:#6b7280;white-space:nowrap}
+      .lp-context svg{flex:0 0 auto;opacity:.75}
+      /* The icon replaced the words "Saves to" on screen. A screen reader would
+         otherwise hear a bare card title with nothing saying what it is for. */
+      .lp-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+      /* A card title runs to 255 characters and the composer is a fixed height
+         with overflow hidden, so a wrapped label would push Save out of sight.
+         The ellipsis lives on this element rather than on .lp-context, because
+         a flex container cannot ellipse its own anonymous text run. */
+      .lp-context-label{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:inherit;text-decoration:underline;text-underline-offset:2px}
+      a.lp-context-label:hover{color:#111827}
       .lp-composer{flex:0 0 auto;overflow:hidden;transition:max-height .27s cubic-bezier(.4,0,.2,1),opacity .2s ease}
       .lp-composer-inner{padding:2px 16px 14px}
       /* The composer's height is fixed and it clips, so the chips scroll rather
@@ -913,6 +947,7 @@
             <div class="lp-composer-inner">
               <div class="lp-compose-head" id="lp-compose-head"></div>
               <textarea class="lp-textarea" id="lp-textarea" placeholder="Describe the issue or idea…"></textarea>
+              <div class="lp-context" id="lp-context" style="display:none"></div>
               <div class="lp-compose-foot">
                 <span class="lp-hint"><span class="lp-mono">⌘↵</span> to save</span>
                 <div class="lp-spacer"></div>
@@ -1100,6 +1135,7 @@
     const mainNode = $('lp-main');
     const fatalNode = $('lp-fatal');
     const composerNode = $('lp-composer');
+    const contextNode = $('lp-context');
     const composeHead = $('lp-compose-head');
     const textareaNode = $('lp-textarea');
     const errorNode = $('lp-error');
@@ -1992,7 +2028,36 @@
         }
 
         // composer
-        composerNode.style.maxHeight = state.composing ? '240px' : '0px';
+        // Only while composing, and only when the marker resolved. Editing an
+        // existing comment does not re-send the context, so it says nothing.
+        const showContext =
+            state.composing && state.editId == null && contextLabel;
+        contextNode.style.display = showContext ? 'flex' : 'none';
+        if (showContext) {
+            // The icon carries "which board thing", so the words that said it
+            // are gone: two rows of muted prose under the textarea read as
+            // clutter, and the card is context rather than an instruction.
+            contextNode.innerHTML = ICON.cards(13);
+            contextNode.firstChild.setAttribute('aria-hidden', 'true');
+            const said = document.createElement('span');
+            said.className = 'lp-sr-only';
+            said.textContent = 'Saves to ';
+            contextNode.appendChild(said);
+            const label = document.createElement(
+                contextLabel.url ? 'a' : 'span',
+            );
+            label.className = 'lp-context-label';
+            label.textContent = contextLabel.label;
+            // The full title on hover, since the visible one may be cut.
+            label.title = contextLabel.label;
+            if (contextLabel.url) {
+                label.href = contextLabel.url;
+                label.target = '_blank';
+                label.rel = 'noopener noreferrer';
+            }
+            contextNode.appendChild(label);
+        }
+        composerNode.style.maxHeight = state.composing ? '264px' : '0px';
         composerNode.style.opacity = state.composing ? '1' : '0';
         composerNode.style.pointerEvents = state.composing ? 'auto' : 'none';
         // The save is the composer's own action, so its progress belongs on the Save button.

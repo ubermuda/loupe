@@ -17,6 +17,9 @@ final class WidgetFileTest extends TestCase
         self::assertStringContainsString('attachShadow', $src);
         self::assertStringContainsString('data-token', $src);
         self::assertStringContainsString('data-context', $src);
+        // The boot load is the only place the instance can tell the widget what
+        // the marker resolves to, so the context has to travel with it.
+        self::assertStringContainsString("'?context=' + encodeURIComponent(CONTEXT)", $src);
         // An ordinary deployment renders no attribute, and a misconfigured one
         // renders an empty attribute. Neither may reach the API as a value, so
         // the key is sent only when there is something in it.
