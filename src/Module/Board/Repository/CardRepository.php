@@ -263,15 +263,20 @@ class CardRepository extends ServiceEntityRepository
             $qb->andWhere('c.priority = :priority')->setParameter('priority', $priority);
         }
 
+        // The tie-break runs with its column, not after both branches. Done sorts
+        // newest first and completed_at holds whole seconds, so two cards finished
+        // in the same second need a tie-break that also runs newest first. A shared
+        // ascending one resolved them against the rule the column states.
         if (CardStatus::Done === $status) {
-            $qb->orderBy('c.completedAt', 'DESC');
+            $qb->orderBy('c.completedAt', 'DESC')
+                ->addOrderBy('c.createdAt', 'DESC')
+                ->addOrderBy('c.id', 'DESC');
         } else {
-            $qb->orderBy('c.priority', 'ASC')->addOrderBy('c.position', 'ASC');
+            $qb->orderBy('c.priority', 'ASC')
+                ->addOrderBy('c.position', 'ASC')
+                ->addOrderBy('c.createdAt', 'ASC')
+                ->addOrderBy('c.id', 'ASC');
         }
-
-        // Last, so two rows that tie on everything above still come back in a
-        // stable order rather than in whatever order Postgres read them.
-        $qb->addOrderBy('c.createdAt', 'ASC')->addOrderBy('c.id', 'ASC');
 
         return array_values($this->withPullRequests($qb)->getQuery()->getResult());
     }
@@ -304,6 +309,6 @@ class CardRepository extends ServiceEntityRepository
             ->setParameter('status', CardStatus::Done)
             ->orderBy('c.completedAt', 'DESC')
             ->addOrderBy('c.createdAt', 'DESC')
-            ->addOrderBy('c.id', 'ASC');
+            ->addOrderBy('c.id', 'DESC');
     }
 }
