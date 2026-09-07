@@ -79,8 +79,9 @@ says so. Where you drop the card decides what the move does.
 Done takes a drop like any other column. It keeps no rank, and a card dropped
 in Done keeps the priority it had.
 
-The card follows the pointer as you drag, and the server answers a drop with the
-whole board. A move the server refuses puts the card back where it started.
+The card follows the pointer as you drag, and a gap opens where a release would
+put it. The server answers a drop with the whole board. A move the server
+refuses puts the card back where it started.
 
 **New card** opens the create form. Under the Done column, a link opens the
 history page at **`/projects/<project>/board/done`**, which lists every done
