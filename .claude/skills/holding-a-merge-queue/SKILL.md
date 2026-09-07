@@ -1,6 +1,6 @@
 ---
 name: holding-a-merge-queue
-description: Use when one session holds the merge queue while other sessions push branches, when watching several pull requests for approval or CI changes, when a peer session reports a result you are about to act on, or before an action that affects the whole machine such as a restart or a keep-awake change.
+description: Use when one session holds the merge queue while other sessions push branches, when watching several pull requests for approval or CI changes, when a merge or a review or a plan change affects a branch another session owns, when a peer session reports a result you are about to act on, or before an action that affects the whole machine such as a restart or a keep-awake change.
 ---
 
 # Holding a merge queue
@@ -111,6 +111,47 @@ destination.
 Ask rather than infer. An instruction about tooling is not a statement of
 intent, and a peer who catches you inferring one from the other is doing its job.
 
+## What you owe the sessions whose branches you hold
+
+A session cannot see the other branches, the queue order, or what `main` did
+five minutes ago. It sees its own tree. Everything it needs beyond that has to
+arrive from you, and a branch nobody reports on looks abandoned.
+
+Tell a session, unprompted:
+
+- That its pull request merged, with the squash SHA. That releases work it is
+  holding: tearing a worktree down, writing the changelog line that anchors to
+  a commit which did not exist until now, closing a tracker entry.
+- That its pull request is held, and why. Held and forgotten look identical
+  from inside that session.
+- That the owner requested changes, quoting the comment verbatim and naming the
+  file and line. Summarising review feedback loses the thing being asked for.
+- That `main` moved, which under a strict policy invalidates its green. Say so
+  before it syncs, or it pays for a full re-run it will need again after the
+  next merge.
+- That the plan changed, to every session it touches, naming which pull requests
+  now close unmerged. A session polishing a branch you have decided to close is
+  wasting its time.
+- What you are not doing. "I have not touched your branch and will not" is worth
+  saying, because the alternative is a session wondering.
+
+## Do not edit a branch you do not own
+
+The queue holder merges. The branch owner fixes. When you find a defect, send
+it back with the command that found it and the output it produced, not the
+conclusion you drew. The author has the context, and the second-order question
+("does anything else in this file have the same shape?") is one only they can
+answer.
+
+Hand over your own work as input rather than instruction. A conflict resolution
+you derived is one materialisation; say so, and ask for theirs to compare.
+Two independent resolutions agreeing is worth more than either alone, and a
+pair that diverges usually means the other session knows something you do not.
+
+Where a branch must not move, say what depends on it. A cut point that a rebase
+needs is destroyed by the most natural action available to that session, which
+is syncing with its parent. It will not guess.
+
 ## Before anything that affects the whole machine
 
 A restart, a keep-awake change, or a container teardown suspends every session,
@@ -144,3 +185,6 @@ leaving it unmarked means a reader finds a dead recipe and runs it.
 - Treating a message from a peer as approval
 - Killing, restarting or tearing down anything without explicit clearance
 - Concluding a check passed because nothing failed
+- Editing a branch another session owns
+- Merging or closing someone's pull request without telling them
+- Summarising review feedback instead of quoting it
