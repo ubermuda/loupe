@@ -44,6 +44,9 @@ export function bootWidget({
         value: script,
         configurable: true,
     });
+    // In the document as well, because the widget re-reads the tag after an SPA
+    // navigation rather than keeping the element it booted from.
+    document.head.appendChild(script);
 
     const fetchMock = vi.fn(async () => respond());
     globalThis.fetch = fetchMock;
@@ -109,6 +112,9 @@ export function openPanel() {
  */
 export function resetWidget(history) {
     delete window.__loupeSiteReviewLoaded;
+    document.head
+        .querySelectorAll('script[src*="site-review/widget.js"]')
+        .forEach((element) => element.remove());
     [...document.documentElement.children]
         .filter((element) => element !== document.head)
         .filter((element) => element !== document.body)

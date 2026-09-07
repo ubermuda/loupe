@@ -153,6 +153,53 @@ describe('a card chosen for one comment', () => {
     });
 });
 
+describe('navigating to a page that names a different card', () => {
+    /** Turbo swaps the tag after the URL changes, so the marker lands late. */
+    async function navigate(to, marker) {
+        const tag = document.querySelector(
+            'script[src*="site-review/widget.js"]',
+        );
+        window.history.pushState({}, '', to);
+        // The swap happens after pushState, which is the whole difficulty.
+        if (marker === null) tag.removeAttribute('data-context');
+        else tag.setAttribute('data-context', marker);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await settle();
+    }
+
+    it('re-resolves against the new page marker', async () => {
+        const fetchMock = bootWidget({
+            context: 'card:first',
+            respond: () => ok({ comments: [], context: null }),
+        });
+        await settle();
+
+        await navigate('/second', 'card:second');
+
+        const asked = fetchMock.mock.calls.map(([url]) => url);
+        expect(asked.some((url) => url.includes('context=card%3Asecond'))).toBe(
+            true,
+        );
+    });
+
+    it('drops the marker when the new page names no card', async () => {
+        // The fallback for a missing tag must not apply to a tag that is
+        // present and says nothing: that is the page stating it names no card.
+        const fetchMock = bootWidget({
+            context: 'card:first',
+            respond: () => ok({ comments: [], context: null }),
+        });
+        await settle();
+        fetchMock.mockClear();
+
+        await navigate('/plain', null);
+
+        const asked = fetchMock.mock.calls.map(([url]) => url);
+        expect(asked.length).toBeGreaterThan(0);
+        expect(asked.every((url) => !url.includes('context='))).toBe(true);
+    });
+});
+
 describe('boot', () => {
     it('reads the backend from its own src and sends the data-token', async () => {
         const fetchMock = bootWidget({ respond: () => ok({ comments: [] }) });

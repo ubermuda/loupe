@@ -27,7 +27,12 @@
             'script[src*="site-review/widget.js"]',
         );
 
-        return (tag && tag.getAttribute('data-context')) || CONTEXT;
+        // A tag with no attribute means this page names no card, and must not
+        // fall back to the marker the widget booted with: navigating from a
+        // marked page to an unmarked one would otherwise keep the first card.
+        // Only the absence of a tag falls back, which is the swap-in-progress
+        // case rather than a statement about the page.
+        return tag ? tag.getAttribute('data-context') || '' : CONTEXT;
     };
     let lastSeenMarker = CONTEXT;
     // Every comment is saved to the API as it is written and is live from that
@@ -3837,18 +3842,20 @@
         renderStrokes();
         renderQuoteButton();
     };
+    // Re-resolve when the page starts naming a different card. Safe to call
+    // repeatedly: it does nothing until the marker actually changes.
+    const recheckMarker = () => {
+        const marker = pageMarker();
+        if (marker === lastSeenMarker) return;
+        lastSeenMarker = marker;
+        contextChosen = false;
+        refresh();
+    };
     let lastSeenUrl = location.href;
     const handleLocationChange = () => {
         if (location.href === lastSeenUrl) return;
         lastSeenUrl = location.href;
-        // An SPA swap does not re-run this script, so a page carrying a
-        // different marker would otherwise keep the first one and file comments
-        // against that card. Re-resolve when it changes.
-        if (pageMarker() !== lastSeenMarker) {
-            lastSeenMarker = pageMarker();
-            contextChosen = false;
-            refresh();
-        }
+        recheckMarker();
         state.hoverId = null;
         state.hoverPinId = null;
         state.pinConfirmId = null;
@@ -3862,6 +3869,12 @@
         requestAnimationFrame(rerenderAnchors);
         setTimeout(rerenderAnchors, 60);
         setTimeout(rerenderAnchors, 240);
+        // The script tag is swapped on the same schedule, so the marker read
+        // above is the old page's. These re-reads are what actually catch a
+        // navigation to a page naming a different card.
+        requestAnimationFrame(recheckMarker);
+        setTimeout(recheckMarker, 60);
+        setTimeout(recheckMarker, 240);
     };
     ['pushState', 'replaceState'].forEach((method) => {
         const original = history[method];
