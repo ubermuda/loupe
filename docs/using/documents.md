@@ -34,6 +34,24 @@ and resolved counts, a chip that counts the addressed threads, and **All
 answered** when no thread is pending. The banner above the document counts the
 orphaned threads. Every count is a thread count, so a reply never adds to one.
 
+### On a narrow screen
+
+On a narrow screen the bar keeps the document title and the two counts, and a
+round button in the bottom corner carries the rest. The button opens the
+contents, the versions, the references, the decisions, the resolved-thread
+toggle and the two verdict buttons. Each list opens inside the same panel, and
+the button becomes the way back out of it.
+
+A wide window puts the comment cards in a column beside the document, each one
+level with the passage it points at. A narrow window has no room for that
+column, so each card moves into the document instead, directly after the
+paragraph it points at.
+
+Touch works the same way as a mouse. Select a passage and the comment toolbar
+appears. A highlighted passage has no hover, so a tap on one takes its place: the
+passage and its card light up together, and a tap on plain text drops the pair
+again.
+
 Two views help across versions:
 
 - `/review/versions/{versionNumber}` — any earlier version as it read then.
