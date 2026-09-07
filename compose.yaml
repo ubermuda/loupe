@@ -98,6 +98,22 @@ services:
       XDEBUG_MODE: "off"
       DATABASE_URL: "postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-!ChangeMe!}@database:5432/${POSTGRES_DB:-app}?serverVersion=16&charset=utf8"
 
+  # The same job for every git worktree. They live inside the main checkout, so
+  # this container already sees them all through the mount below, and one poller
+  # covers a tree created after it started. See bin/worktrees/tailwind-watch.sh
+  # for why it polls rather than watching, and why it never builds a sheet that
+  # does not exist yet.
+  tailwind-worktrees:
+    build:
+      dockerfile: ./docker/dev/php-fpm/Dockerfile
+    restart: unless-stopped
+    command: bin/worktrees/tailwind-watch.sh
+    volumes:
+      - .:/var/www/html
+    environment:
+      XDEBUG_MODE: "off"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-!ChangeMe!}@database:5432/${POSTGRES_DB:-app}?serverVersion=16&charset=utf8"
+
 ###> symfony/mailer ###
   # mailpit is reached via traefik at mailpit.${COMPOSE_PROJECT_NAME}.dev.localhost
   # (the e2e suite uses that URL); no host port is published.
