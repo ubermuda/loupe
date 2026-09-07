@@ -89,6 +89,19 @@ return (new GamacheConfig())->registerChecks([
             'VAR_DUMPER_SERVER',
             'WORKTREE_DB_SUFFIX',
         ],
+        documentationPath: 'docs/reference/environment.md',
+        undocumentedEnvKeys: [
+            // environment.md deliberately delegates the whole family to
+            // docs/extending/object-storage.md, and says so where it stops
+            // listing them. Every one of these is named there.
+            'EXPORT_STORAGE_BUCKET',
+            'EXPORT_STORAGE_ENDPOINT',
+            'EXPORT_STORAGE_KEY',
+            'EXPORT_STORAGE_PREFIX',
+            'EXPORT_STORAGE_REGION',
+            'EXPORT_STORAGE_SECRET',
+            'EXPORT_STORAGE_USE_PATH_STYLE',
+        ],
     ),
     new CommentBudgetCheck(
         /*
