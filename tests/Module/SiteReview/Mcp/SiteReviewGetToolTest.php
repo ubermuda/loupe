@@ -229,6 +229,30 @@ final class SiteReviewGetToolTest extends KernelTestCase
         self::assertSame('pending', $result['comments'][0]['status']);
     }
 
+    public function test_a_comment_reports_the_context_its_page_carried(): void
+    {
+        $email = 'get-context@example.com';
+        $user = new User(fullName: 'U', email: $email, password: 'x');
+        $this->em->persist($user);
+        $project = new Project($user, 'context-site');
+        $this->em->persist($project);
+        $marked = new SiteReviewComment($project, 0, 'on the preview', 'https://preview/x', context: 'card:0199c0de-0000-7000-8000-000000000001');
+        $plain = new SiteReviewComment($project, 1, 'anywhere else', 'https://app/y');
+        $this->em->persist($marked);
+        $this->em->persist($plain);
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+        $result = ($this->tool)();
+
+        // Null is the ordinary answer, so the key is always present rather
+        // than appearing only on the comments that carry a marker.
+        self::assertSame(
+            ['card:0199c0de-0000-7000-8000-000000000001', null],
+            array_column($result['comments'], 'context'),
+        );
+    }
+
     public function test_an_unknown_status_is_refused_rather_than_silently_ignored(): void
     {
         $email = 'get-bad-status@example.com';
