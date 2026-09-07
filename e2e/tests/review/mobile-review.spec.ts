@@ -41,6 +41,9 @@ const COMPOSER_BODY = '[data-comment-anchor-target="composerBody"]';
 const THREAD = '.lp-comment-thread';
 const ACTIVE_THREAD = '.lp-comment-thread.lp-comment-thread--active';
 const SLOT = '.lp-review-inline-threads';
+const MENU_TRIGGER = '.lp-review-menu__trigger';
+const MENU_ROW = '.lp-review-menu__row';
+const IN_PAGE_RESOLVED = '.lp-review-actions__resolved';
 
 const PHONE = { width: 375, height: 812 };
 const DESKTOP = { width: 1440, height: 900 };
@@ -578,10 +581,18 @@ test('a slot whose only card is hidden takes no room in the prose', async ({
     await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
         timeout: coverageScaled(10000),
     });
+    // Above lg the action row keeps its own toggle, and it is the only one:
+    // the review menu does not exist at this width.
+    await expect(page.locator(IN_PAGE_RESOLVED)).toBeVisible();
+
     await givePhoneWidthReadingArea(page);
     await expect(page.locator(SLOT)).toHaveCount(1);
 
-    await page.getByRole('button', { name: 'Hide resolved' }).click();
+    // Below lg the review menu carries the only resolved toggle. The row is
+    // revealed once a thread resolves, and it closes the menu as it fires.
+    await expect(page.locator(IN_PAGE_RESOLVED)).toBeHidden();
+    await page.locator(MENU_TRIGGER).click();
+    await page.locator(MENU_ROW, { hasText: 'Hide resolved' }).click();
 
     const slot = await page.evaluate(() => {
         const element = document.querySelector('.lp-review-inline-threads')!;
@@ -595,4 +606,23 @@ test('a slot whose only card is hidden takes no room in the prose', async ({
     expect(slot.height).toBe(0);
     expect(slot.marginTop).toBe('0px');
     expect(slot.marginBottom).toBe('0px');
+});
+
+test('the action row still hides resolved threads above lg', async ({
+    page,
+}) => {
+    await page.setViewportSize(DESKTOP);
+    await postComment(page);
+    await page.getByRole('button', { name: 'Resolve' }).click();
+    const resolved = page.locator('.lp-comment-thread--resolved');
+    await expect(resolved).toBeVisible({ timeout: coverageScaled(10000) });
+
+    // The review menu is the phone copy of this control, so the desktop one
+    // has to keep working on its own.
+    await expect(page.locator(MENU_TRIGGER)).toBeHidden();
+    await page.locator(IN_PAGE_RESOLVED).click();
+    await expect(resolved).toBeHidden();
+
+    await page.locator(IN_PAGE_RESOLVED).click();
+    await expect(resolved).toBeVisible();
 });

@@ -1354,11 +1354,13 @@
     .lp-review-actions__hint {
         @apply text-sm text-fg-mute;
     }
-    /* From lg up it sits above the comment column rather than the reading
-       column, so it reads as a control on the comments and not on the prose.
-       Below lg there is no such column, so it ends the action row instead. */
+    /* Sits above the comment column, so it reads as a control on the comments
+       rather than on the prose. Below lg the review menu carries the only copy.
+       `max-lg:` and not a plain `hidden`, because above lg this class must
+       declare no display: the controller reveals the button with the `hidden`
+       attribute, which a display utility in this layer outranks. */
     .lp-review-actions__resolved {
-        @apply ml-auto whitespace-nowrap bg-transparent border-0 p-0 cursor-pointer text-sm text-fg-mute transition-colors lg:absolute lg:left-169 lg:ml-0;
+        @apply max-lg:hidden absolute left-169 whitespace-nowrap bg-transparent border-0 p-0 cursor-pointer text-sm text-fg-mute transition-colors;
     }
     .lp-review-actions__resolved:hover {
         @apply text-ink;
