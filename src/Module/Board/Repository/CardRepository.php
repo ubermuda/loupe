@@ -28,6 +28,36 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /**
+     * Open cards of a project for the widget's picker, newest first, optionally
+     * narrowed by a substring of the title.
+     *
+     * Done is excluded: the picker exists to attach feedback to work in flight,
+     * and a finished card is the one answer a reviewer almost never wants.
+     *
+     * @return list<Card>
+     */
+    public function searchOpenForProject(Project $project, string $query, int $limit): array
+    {
+        $qb = $this->createQueryBuilder('c')
+            ->where('c.project = :project')
+            ->andWhere('c.status != :done')
+            ->setParameter('project', $project)
+            ->setParameter('done', CardStatus::Done)
+            ->orderBy('c.number', 'DESC')
+            ->setMaxResults($limit);
+
+        if ('' !== $query) {
+            // ESCAPE, because _ and % in a reviewer's search string would
+            // otherwise be wildcards and quietly widen the match.
+            $qb->andWhere('LOWER(c.title) LIKE :q ESCAPE \'!\'')
+                ->setParameter('q', '%'.addcslashes(mb_strtolower($query), '%_!').'%');
+        }
+
+        /* @var list<Card> */
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
      * The cards of one (project, status, priority) group, in board order.
      *
      * @return list<Card>

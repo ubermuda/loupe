@@ -4258,6 +4258,10 @@
                 <source>board.card.type.idea</source>
                 <target>Idea</target>
             </trans-unit>
+            <trans-unit id="board.card.origin.reviewer">
+                <source>board.card.origin.reviewer</source>
+                <target>Reviewer</target>
+            </trans-unit>
             <trans-unit id="board.card.origin.human">
                 <source>board.card.origin.human</source>
                 <target>Raised by a person</target>
