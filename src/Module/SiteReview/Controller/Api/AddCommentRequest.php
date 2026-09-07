@@ -55,4 +55,18 @@ final class AddCommentRequest
         public ?string $context = null,
     ) {
     }
+
+    /**
+     * An absent attribute and a blank one both mean "no context", so both
+     * become null rather than one of them reaching the column as an empty
+     * string that later reads like data. A deployment that leaves the variable
+     * empty renders no attribute at all, so the blank case is a misconfigured
+     * one rather than a theoretical one.
+     */
+    public function context(): ?string
+    {
+        $context = trim($this->context ?? '');
+
+        return '' === $context ? null : $context;
+    }
 }
