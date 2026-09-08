@@ -944,7 +944,13 @@
       .lp-picker-search:focus{border-color:var(--accent-border);background:var(--field-focus)}
       .lp-picker-list{max-height:min(132px,20vh);overflow:auto;margin-top:6px}
       .lp-picker-row{display:block;width:100%;text-align:left;border:0;background:none;padding:5px 6px;border-radius:6px;font:inherit;font-size:12px;color:var(--text);cursor:pointer}
-      .lp-picker-row:hover,.lp-picker-row:focus{background:var(--chip-bg);outline:none}
+      /* Three cues, because one is not enough here. --chip-bg was the first
+         attempt and is the same value as --panel-elev in dark, so the hover was
+         invisible; every other fill measured under 1.2:1 against the panel in
+         light, where the whole palette is pale. The 1px edge is what carries
+         light mode: a crisp border reads where a wash does not. */
+      .lp-picker-row:hover,.lp-picker-row:focus-visible{background:var(--accent-fill);box-shadow:inset 0 0 0 1px var(--accent-border);outline:none}
+      .lp-picker-row:hover .n,.lp-picker-row:focus-visible .n{color:var(--accent-ink)}
       .lp-picker-row .n{color:var(--muted);margin-right:5px}
       .lp-picker-note{padding:6px;font-size:11.5px;color:var(--muted)}
       .lp-picker-foot{display:flex;align-items:center;gap:8px;margin-top:6px}
