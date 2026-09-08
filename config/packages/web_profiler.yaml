@@ -2,6 +2,10 @@ when@dev:
     web_profiler:
         toolbar: true
 
+    framework:
+        profiler:
+            only_exceptions: false
+
 when@test:
     framework:
         profiler:

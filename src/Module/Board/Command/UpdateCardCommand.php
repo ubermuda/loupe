@@ -12,14 +12,18 @@ use App\Module\Board\Entity\CardType;
 /**
  * Every field is optional and null means "leave it alone".
  *
- * $pullRequestUrls is the one place where null and an empty array differ: null
- * keeps the links the card has, and an empty array removes them all.
+ * $pullRequestUrls and $documentIds are the places where null and an empty
+ * array differ: null keeps the links the card has, and an empty array removes
+ * them all.
  *
  * $origin is absent on purpose. It records who first raised the card.
  */
 final readonly class UpdateCardCommand
 {
-    /** @param list<string>|null $pullRequestUrls */
+    /**
+     * @param list<string>|null $pullRequestUrls
+     * @param list<string>|null $documentIds
+     */
     public function __construct(
         public Card $card,
         public ?string $title = null,
@@ -28,6 +32,7 @@ final readonly class UpdateCardCommand
         public ?CardPriority $priority = null,
         public ?CardStatus $status = null,
         public ?array $pullRequestUrls = null,
+        public ?array $documentIds = null,
     ) {
     }
 }

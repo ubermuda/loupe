@@ -1,4 +1,27 @@
-# Accepted: a widget token reads, edits and deletes every pending comment
+# Accepted: a widget token reaches the comments and the board
+
+## The board half
+
+A widget token lists every open card in its project and creates new ones.
+`GET /api/board/cards` returns the number, title and status of the project's
+open cards, and `POST /api/board/cards` files a new one. Card titles are
+planning content, so this publishes them to anyone who can view an instrumented
+page's source.
+
+This was decided rather than inherited. The Loupe document 'Picking and creating
+cards from the site-review widget' records the choice, the alternatives and what
+each cost, including the observation that it reverses the reasoning behind
+`/sites` refusing widget tokens. Read it before you reopen this.
+
+What bounds it. `board.enabled` ships off, and both endpoints re-check it, so an
+instance that never switched the board on exposes nothing. Creation takes no
+`status` and no `pullRequestUrls`, so a caller cannot file into a column or
+attach a URL of their choosing. A card records `CardOrigin::Reviewer`, which
+says the app could not name who raised it. The write joins the
+`site_review_write` limiter through `WidgetApiPaths`, so the board is not an
+unbounded spam target. Nothing bounds the read beyond the twenty-card page.
+
+## The comment half
 
 What is accepted. Any holder of a widget token can read, edit and delete every
 **pending** comment in that token's project, whoever wrote it.

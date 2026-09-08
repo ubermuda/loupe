@@ -480,6 +480,36 @@ So autonomous work means: open the PR, then merge it once the owner has approved
 it and CI is green. Never merge something unapproved. Never merge past a failing
 or pending check. Never use `--admin` to bypass either.
 
+## Keep working, and stack when you are waiting
+
+**Do not stop because a pull request is unmerged. Stack on it and carry on.**
+Stacking is the owner's recommendation, and waiting for an approval is not being
+blocked. Branch off the pull request your work needs, build the next piece, and
+say in the body which branch it stands on and why.
+
+Genuinely blocked means there is nothing you can do: a decision only the owner
+can make, a credential you do not have, a service that is down. An unapproved
+pull request is none of those. Neither is a queue.
+
+This overrides the caution a session may carry from a bad wave. One wave of five
+stacked board branches went wrong and was collapsed into a single pull request,
+and that history is worth knowing, because it says what to watch rather than
+what to avoid. Every failure in it was a merge that git could not see:
+
+1. A formatter reversed a fix because the branch could not see its parent's
+   signature.
+2. A required constructor parameter broke four files with no conflict reported.
+3. A `CONFLICTING` pull request never ran CI at all, because `pull_request`
+   does not fire without a merge commit.
+
+So the discipline is merge-protocol item 5, not abstinence. Run `just ci` on the
+merged result rather than trusting a clean `git merge`, and check that the stack
+is not `CONFLICTING` before you believe a green check.
+
+Say in the body which pull request the branch stacks on. The reviewer needs it,
+and so does whoever holds the merge queue, because a stack has an order that
+approvals arriving out of sequence will not respect.
+
 ## Running several branches at once
 
 Give each branch its own worktree and keep them off each other's files. The

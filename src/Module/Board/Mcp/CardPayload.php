@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Mcp;
 
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
@@ -15,7 +16,8 @@ use App\Module\Board\Repository\CardSiteReviewCommentRepository;
  *
  * @phpstan-type CardPullRequestSummary array{url: string, forge: string, repository: ?string, number: ?int}
  * @phpstan-type CardSiteReviewCommentSummary array{commentId: string, body: string, url: string, status: string, createdAt: string}
- * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, priority: string, status: string, origin: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>, siteReviewComments: list<CardSiteReviewCommentSummary>}
+ * @phpstan-type CardDocumentSummary array{documentId: string, title: string, status: string}
+ * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, priority: string, status: string, origin: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>, documents: list<CardDocumentSummary>, siteReviewComments: list<CardSiteReviewCommentSummary>}
  */
 final readonly class CardPayload
 {
@@ -79,6 +81,16 @@ final readonly class CardPayload
                     'number' => $link->number,
                 ],
                 array_values($card->pullRequests->toArray()),
+            ),
+            // The documents this card's work is written up in. Read only here:
+            // a document is written and revised through its own tools.
+            'documents' => array_map(
+                static fn (CardDocument $link): array => [
+                    'documentId' => (string) $link->document->id,
+                    'title' => $link->document->title,
+                    'status' => $link->document->status->value,
+                ],
+                array_values($card->documents->toArray()),
             ),
             // Feedback a reviewer left on a page that named this card. Read
             // only: an agent marks one addressed through

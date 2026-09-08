@@ -126,6 +126,15 @@ notice stay event-sourced on purpose, because zero is *correct* there.
 | `/api/site-review/comments/{id}` | DELETE | Delete (Pending only) |
 | `/api/site-review/sites` | GET | List sites for a token |
 | `/api/site-review/stream` | GET | Subscriber credentials, behind the push flag |
+| `/api/board/cards` | GET | Open cards, for the widget's picker |
+| `/api/board/cards` | POST | Create a card from the widget |
+
+The last two are Board paths on a widget token, and `config/packages/security.yaml`
+grants them in their own `access_control` line rather than under the
+`^/api/site-review` prefix, so the grant is visible to anyone reading that file.
+`WidgetApiPaths` is what keeps CORS and the write rate limit covering them: both
+listeners tested one prefix before, and a listener that tests one prefix
+silently exempts every other endpoint the widget reaches.
 
 Widget tokens are project-bound and public, because they ship in page source.
 Widget-scoped endpoints reject account-level tokens, and account-scoped

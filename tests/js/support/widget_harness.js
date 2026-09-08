@@ -17,7 +17,12 @@ export const TOKEN = 'wt_test_token';
  * jsdom has no matchMedia and no canvas context, and the widget reads both
  * before it paints. Neither takes part in what these tests assert.
  */
-export function bootWidget({ token = TOKEN, respond } = {}) {
+export function bootWidget({
+    token = TOKEN,
+    respond,
+    demo = false,
+    context = null,
+} = {}) {
     window.matchMedia = () => ({
         matches: false,
         addEventListener() {},
@@ -28,11 +33,20 @@ export function bootWidget({ token = TOKEN, respond } = {}) {
 
     const script = document.createElement('script');
     script.src = `${BACKEND}/site-review/widget.js`;
-    script.setAttribute('data-token', token);
+    // The landing page's demo carries no token and swaps the transport out, so
+    // a demo boot must not set one: the widget reads the attribute, not the
+    // flag, when it decides whether it has a credential.
+    if (demo) script.setAttribute('data-demo', '');
+    else script.setAttribute('data-token', token);
+    // The marker a preview page proposes. Absent on an ordinary deployment.
+    if (context !== null) script.setAttribute('data-context', context);
     Object.defineProperty(document, 'currentScript', {
         value: script,
         configurable: true,
     });
+    // In the document as well, because the widget re-reads the tag after an SPA
+    // navigation rather than keeping the element it booted from.
+    document.head.appendChild(script);
 
     const fetchMock = vi.fn(async () => respond());
     globalThis.fetch = fetchMock;
@@ -98,6 +112,13 @@ export function openPanel() {
  */
 export function resetWidget(history) {
     delete window.__loupeSiteReviewLoaded;
+    // jsdom keeps the URL between tests in a file, and the widget only reacts
+    // to a change. A navigation test landing where a previous one left off saw
+    // no change at all and passed or failed on test order.
+    history.replaceState.call(window.history, {}, '', '/');
+    document.head
+        .querySelectorAll('script[src*="site-review/widget.js"]')
+        .forEach((element) => element.remove());
     [...document.documentElement.children]
         .filter((element) => element !== document.head)
         .filter((element) => element !== document.body)
