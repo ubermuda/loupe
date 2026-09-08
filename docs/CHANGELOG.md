@@ -34,6 +34,27 @@ entry.
 
 ## [Unreleased]
 
+- `f8d778b` (#394) — **Fixed:** the contributor guide named a console command
+  that does not exist for seeding a feature flag, and said `main` requires
+  eight CI checks when the ruleset requires ten.
+- `f8d778b` (#394) — **Added:** `working-with-prs` says where a changelog entry
+  sits, to strip a preview link before merging, and that a formatter can
+  reorder arguments against a signature its branch cannot see;
+  `project-frontend` gains a reference for the board's drag controller.
+- `a778fcd` (#393) — **Fixed:** two cards finished in the same second read newest
+  first in the board's Done column, and the Done history now agrees with it.
+- `fe3c518` (#391) — **Changed:** the environment reference says to write each
+  variable's full name, because a shorthand row that folds two names together
+  hides the second.
+- `564618c` (#389) — **Changed:** the mobile review end-to-end spec drops three
+  stale comments. Two said the app shell still overflowed a 375px window, which
+  `23764c51` fixed in the same wave, and one described a return value the helper
+  does not have.
+- `b3adc03` (#388) — **Added:** `DeploymentConfigParityCheck` reads
+  `docs/reference/environment.md`, so an environment variable that no page
+  documents fails `just gamache`.
+- `f2a7e2e` (#383) — **Added:** a `holding-a-merge-queue` skill records how one
+  session holds the merge queue while other sessions push branches to it.
 - `0a1fcac` (#385) — **Changed:** the `project-backend` skill says what an
   environment variable can carry, and that normalising a payload field belongs
   on the request DTO rather than in the controller.
