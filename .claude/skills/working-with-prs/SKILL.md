@@ -432,7 +432,11 @@ So re-derive the list against `git log --first-parent` immediately before mergin
 
 The hole is findable afterwards, because the ordering rule above puts it above the file's previous top entry. That is the anchor doing work, and it is a reason to keep the anchor strict rather than a reason to trust memory.
 
+Derive the short SHA with `git rev-parse --short=7`, never with `git log --format=%h`. The file uses 7 characters everywhere. `%h` honours `core.abbrev`, which is unset in this repository, so git picks a length from the object count and returns 8 today. A grep built on `%h` therefore reports zero hits on every commit, which reads as a file that records nothing. One session hit that and re-ran with `rev-parse` to find every entry already present. A row of zeros is a fault in the check before it is a hole in the file.
+
 One entry per pull request, not one per branch. A branch that shipped six features earns six lines, because a reader looking for when tags arrived should find a line about tags rather than a paragraph about the wave that contained them. Tracker churn in `docs/NEXT_STEPS.md` earns no entry.
+
+The exemption keys on a pull request's content, and not on its subject. A pull request whose whole diff is `docs/CHANGELOG.md` or `docs/NEXT_STEPS.md` earns no entry. A pull request *about* changelog discipline that changes a skill file does earn one. This is what stops the rule recursing: the entry for a skill change is itself a changelog-only pull request, so nothing follows it. A version keyed on subject would not terminate, and a branch about the changelog reads as exempt when it is not.
 
 ## What the ruleset actually requires
 
