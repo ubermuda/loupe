@@ -428,10 +428,20 @@ Anchor the entry to the pull request number:
 
 The number exists as soon as you open the pull request. The squash SHA does not,
 which is why the old rule sent the entry to a later branch. The squash commit's
-subject ends with `(#209)`, so `git log --first-parent --grep='(#209)'` recovers
+subject ends with `(#209)`, so `git log --first-parent --grep='(#209)$'` recovers
 the commit from the number, and `gh pr view 209 --json mergeCommit` gives the
 SHA directly. Entries written before this rule carry a SHA as well. Leave them
 alone.
+
+Keep the `$` on that grep. `--grep` reads the whole commit message, and a body
+that cites another pull request in the same `(#209)` form matches as well. The
+log already holds 50 such citations, and `--grep='(#371)'` returns five commits
+with the real one last. The anchor ties the match to the end of the subject
+line, where the squash number lives, and returns exactly one.
+
+Re-read your own entry when review changes what the branch does. The entry now
+rides the branch, so a feature cut in review leaves a line describing work that
+never shipped. It is your own diff, which is the one you stop reading.
 
 Put a new entry at the top of `[Unreleased]`. Two branches that both add a top
 line will conflict. That is the correct outcome, and the resolution is to keep

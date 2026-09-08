@@ -11,7 +11,9 @@ Loupe carries no release tags yet, so all entries live under **Unreleased**.
 Entries are listed **newest first**. Each one is anchored to the pull request
 that introduced it, and entries written before 2026-09-08 also carry the squash
 SHA. To recover the commit from a number, run
-`git log --first-parent --grep='(#209)'`, or `gh pr view 209 --json mergeCommit`.
+`git log --first-parent --grep='(#209)$'`, or `gh pr view 209 --json mergeCommit`.
+Keep the `$`: `--grep` reads the whole message, and commit bodies cite other
+pull requests in the same form.
 For an exhaustive diff between two points, run `git log --oneline <older>..<newer>`
 and cross-check, rather than trusting this file alone. Each entry is tagged
 `Added` / `Changed` / `Removed` / `Fixed`.
