@@ -34,6 +34,12 @@ entry.
 
 ## [Unreleased]
 
+- `891ca70` (#408) — **Added:** `working-with-prs` says to match a changelog
+  SHA with `git rev-parse --short=7`, because `%h` returns a wider one and
+  makes a recorded commit look missing.
+- `891ca70` (#408) — **Added:** `working-with-prs` says the changelog exemption
+  keys on a pull request's content rather than its subject, so a skill change
+  about the changelog earns a line.
 - `34b2732` (#406) — **Added:** `working-with-prs` says to re-derive a
   changelog branch's entry list immediately before merging it, because merges
   that land while it waits leave no visible sign.
