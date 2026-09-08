@@ -91,7 +91,7 @@ Decide two things at planning time, and say in the plan which of them the change
 
 **Landing page.** Ask whether the change adds, removes or alters a capability the landing page claims, or should now claim. The page is `templates/Module/Landing/landing.html.twig` with its partials in `templates/Module/Landing/landing/`, and the marketing footer is `templates/_marketing_footer.html.twig`. A landing page that describes a product one release behind is worse than one that says less.
 
-The third check, the changelog entry, happens after the merge. `working-with-prs` carries it, because its entry anchors to a commit that does not exist until then.
+The third check is the changelog entry, and it rides the branch that makes the change. `working-with-prs` carries the format. The entry anchors to the pull request number, so it does not need a commit that exists only after the merge.
 
 ### What a new entity or feature must also register
 
