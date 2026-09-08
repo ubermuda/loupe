@@ -8,25 +8,29 @@ All notable changes to this project are documented in this file.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Loupe carries no release tags yet, so all entries live under **Unreleased**.
 
-Entries are listed **newest first** and each is anchored to the commit SHA(s)
-that introduced it, so the list mirrors `git log` order. To see what changed
-between two commits, find the two SHAs in the list and read every entry between
-them (the newer one at the top, down to — but excluding — the older one). The
-SHAs are the source of truth: for an exhaustive diff, run
-`git log --oneline <older>..<newer>` and cross-check, rather than trusting this
-file alone. Each entry is tagged `Added` / `Changed` / `Removed` / `Fixed`.
+Entries are listed **newest first**. Each one is anchored to the pull request
+that introduced it, and entries written before 2026-09-08 also carry the squash
+SHA. To recover the commit from a number, run
+`git log --first-parent --grep='(#209)$'`, or `gh pr view 209 --json mergeCommit`.
+Keep the `$`: `--grep` reads the whole message, and commit bodies cite other
+pull requests in the same form.
+For an exhaustive diff between two points, run `git log --oneline <older>..<newer>`
+and cross-check, rather than trusting this file alone. Each entry is tagged
+`Added` / `Changed` / `Removed` / `Fixed`.
 
 **Granularity: one entry per merged pull request, one line each.** A branch that
 shipped six features gets six entries, not one entry covering the branch — a
 reader looking for when tags arrived should find a line about tags, not a
 paragraph about the wave that contained them. Each entry is a single sentence
 stating what changed from the reader's side; the reasoning behind a change
-belongs in the PR body and the commit message, which the SHA and the PR number
-both point at. Anchor to the first-parent commit that landed the work on `main`
-(what `git log --first-parent` shows), so this list and the log walk the same
-history, and name the PR after it. A pull request whose whole content is this file or `docs/NEXT_STEPS.md` earns no
-entry: recording that the changelog was written, or that resolved entries were
-closed, tells a reader nothing they cannot see by reading them.
+belongs in the PR body and the commit message, which the PR number points at.
+The entry rides the pull request it describes: write it in the same branch, at
+the top of `[Unreleased]`, and anchor it to the pull request number. Two
+branches that both add a top line will conflict, and the resolution is to keep
+both in merge order. A pull request whose whole content is this file or
+`docs/NEXT_STEPS.md` earns no entry: recording that the changelog was written,
+or that resolved entries were closed, tells a reader nothing they cannot see by
+reading them.
 
 Work that never surfaces in the product or
 the development workflow — tracker churn in `docs/NEXT_STEPS.md` — gets no
@@ -34,6 +38,15 @@ entry.
 
 ## [Unreleased]
 
+- (#409) — **Changed:** a changelog entry now rides the pull request it
+  describes, anchored to the pull request number, so a change and its entry
+  land together instead of needing a second pull request.
+- `891ca70` (#408) — **Added:** `working-with-prs` says to match a changelog
+  SHA with `git rev-parse --short=7`, because `%h` returns a wider one and
+  makes a recorded commit look missing.
+- `891ca70` (#408) — **Added:** `working-with-prs` says the changelog exemption
+  keys on a pull request's content rather than its subject, so a skill change
+  about the changelog earns a line.
 - `34b2732` (#406) — **Added:** `working-with-prs` says to re-derive a
   changelog branch's entry list immediately before merging it, because merges
   that land while it waits leave no visible sign.

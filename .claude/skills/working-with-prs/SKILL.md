@@ -414,29 +414,60 @@ other's mail. Serialise those, or give each its own `MAILPIT_URL`.
    level up: a run that has not registered reads identically to "nothing left to
    wait for". Counting closes both.
 
-## After the merge, write the changelog entry
+## The changelog entry rides the pull request it describes
 
-Every merged pull request earns one line in `docs/CHANGELOG.md`, under `[Unreleased]`, newest first, except one whose whole content is `docs/CHANGELOG.md` or `docs/NEXT_STEPS.md`. A changelog pull request does not record itself, and closing resolved tracker entries is bookkeeping rather than a change a reader can act on. Tag it `Added`, `Changed`, `Removed` or `Fixed`. Write one sentence saying what changed from the reader's side, and leave the reasoning to the PR body, which the SHA and the PR number both point at.
+Every pull request that changes something a reader can act on carries its own
+changelog line, in its own branch, under `[Unreleased]` in `docs/CHANGELOG.md`.
+Write it as you write the change. Do not open a second pull request for it.
+
+Anchor the entry to the pull request number:
 
 ```
-- `0406b9c` (#209) — **Fixed:** what changed, from the reader's side.
+- (#209) — **Fixed:** what changed, from the reader's side.
 ```
 
-The entry anchors to the first-parent squash commit on `main`, which is what `git log --first-parent` shows. That commit does not exist until you merge, so the entry cannot ride the pull request it describes. Write it immediately after the merge, in the next documentation pull request.
+The number exists as soon as you open the pull request. The squash SHA does not,
+which is why the old rule sent the entry to a later branch. The squash commit's
+subject ends with `(#209)`, so `git log --first-parent --grep='(#209)$'` recovers
+the commit from the number, and `gh pr view 209 --json mergeCommit` gives the
+SHA directly. Entries written before this rule carry a SHA as well. Leave them
+alone.
 
-An entry's position follows its anchor's place in `git log --first-parent`, and not the order the lines were written. A later pull request often adds a line for an earlier commit, and that line belongs below every line whose commit came after it. Read the first-parent log and insert by anchor. Two sessions got this backwards on the same file within an hour.
+Keep the `$` on that grep. `--grep` reads the whole commit message, and a body
+that cites another pull request in the same `(#209)` form matches as well. The
+log already holds 50 such citations, and `--grep='(#371)'` returns five commits
+with the real one last. The anchor ties the match to the end of the subject
+line, where the squash number lives, and returns exactly one.
 
-**A changelog branch goes stale while it waits, and its own diff is the last one you will think to re-check.** It lists the merges that existed when you opened it. Every merge that lands while it waits for approval is a line it does not have, and nothing about the branch looks wrong: it is green, it conflicts with nothing, and the missing entry is for a commit the author never saw.
+Re-read your own entry when review changes what the branch does. The entry now
+rides the branch, so a feature cut in review leaves a line describing work that
+never shipped. It is your own diff, which is the one you stop reading.
 
-So re-derive the list against `git log --first-parent` immediately before merging it, not when you wrote it. This is not hypothetical. One session opened a changelog pull request listing six merges, a seventh landed underneath it, and that session merged its own branch without re-reading the log, having spent the evening checking every other branch's freshness.
+Put a new entry at the top of `[Unreleased]`. Two branches that both add a top
+line will conflict. That is the correct outcome, and the resolution is to keep
+both in merge order, newest first. An older entry keeps the position its SHA
+gives it in `git log --first-parent`.
 
-The hole is findable afterwards, because the ordering rule above puts it above the file's previous top entry. That is the anchor doing work, and it is a reason to keep the anchor strict rather than a reason to trust memory.
+Tag it `Added`, `Changed`, `Removed` or `Fixed`. Write one sentence saying what
+changed from the reader's side, and leave the reasoning to the pull request
+body.
 
-Derive the short SHA with `git rev-parse --short=7`, never with `git log --format=%h`. The file uses 7 characters everywhere. `%h` honours `core.abbrev`, which is unset in this repository, so git picks a length from the object count and returns 8 today. A grep built on `%h` therefore reports zero hits on every commit, which reads as a file that records nothing. One session hit that and re-ran with `rev-parse` to find every entry already present. A row of zeros is a fault in the check before it is a hole in the file.
+One entry per pull request, not one per branch. A branch that shipped six
+features earns six lines, because a reader looking for when tags arrived should
+find a line about tags rather than a paragraph about the wave that contained
+them.
 
-One entry per pull request, not one per branch. A branch that shipped six features earns six lines, because a reader looking for when tags arrived should find a line about tags rather than a paragraph about the wave that contained them. Tracker churn in `docs/NEXT_STEPS.md` earns no entry.
+A pull request whose whole diff is `docs/CHANGELOG.md` or `docs/NEXT_STEPS.md`
+earns no entry. The exemption keys on content, not on subject: a pull request
+about changelog discipline that changes a skill file does earn one, and it
+carries that line itself.
 
-The exemption keys on a pull request's content, and not on its subject. A pull request whose whole diff is `docs/CHANGELOG.md` or `docs/NEXT_STEPS.md` earns no entry. A pull request *about* changelog discipline that changes a skill file does earn one. This is what stops the rule recursing: the entry for a skill change is itself a changelog-only pull request, so nothing follows it. A version keyed on subject would not terminate, and a branch about the changelog reads as exempt when it is not.
+Reading an older entry means matching a 7-character SHA. Derive it with
+`git rev-parse --short=7`, never with `git log --format=%h`. `%h` honours
+`core.abbrev`, which is unset here, so git picks a length from the object count
+and returns 8 today. A grep built on `%h` reports zero hits on every commit,
+which reads as a file that records nothing. A row of zeros is a fault in the
+check before it is a hole in the file.
 
 ## What the ruleset actually requires
 
