@@ -34,6 +34,26 @@ entry.
 
 ## [Unreleased]
 
+- `0096491` (#403) — **Added:** the site-review widget's composer says which
+  board card a comment will attach to, and lets a reviewer search the board,
+  pick a different card, create one, or detach.
+- `0096491` (#403) — **Added:** a card links to the documents its work is
+  written up in, through `documentIds` on `card_create` and `card_update`, and
+  the card page lists them.
+- `0096491` (#403) — **Added:** a card raised through the review widget records
+  its origin as `reviewer`, which says the app could not name who raised it.
+- `0096491` (#403) — **Changed:** a widget token may now list and create board
+  cards, through `/api/board/cards`. It is a public token, so this publishes
+  card titles to anyone who can read an instrumented page's source. Off unless
+  `board.enabled` is on.
+- `0096491` (#403) — **Fixed:** every worktree's compiled stylesheet stays
+  current, so a preview no longer serves the CSS it was provisioned with while
+  its templates are newer.
+- `a254574` (#399) — **Fixed:** the development profiler collects every request
+  again, not only the ones that threw.
+- `306c57b` (#395) — **Added:** a site-review comment made on a preview that
+  names a card attaches to it, and the card page and board show the feedback
+  waiting on it.
 - `f8d778b` (#394) — **Fixed:** the contributor guide named a console command
   that does not exist for seeding a feature flag, and said `main` requires
   eight CI checks when the ruleset requires ten.
