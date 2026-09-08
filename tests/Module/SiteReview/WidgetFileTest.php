@@ -17,10 +17,33 @@ final class WidgetFileTest extends TestCase
         self::assertStringContainsString('attachShadow', $src);
         self::assertStringContainsString('data-token', $src);
         self::assertStringContainsString('data-context', $src);
-        // An ordinary deployment renders no attribute, and a misconfigured one
-        // renders an empty attribute. Neither may reach the API as a value, so
-        // the key is sent only when there is something in it.
-        self::assertStringContainsString('...(CONTEXT ? { context: CONTEXT } : {})', $src);
+        // Read once per request and carried through the answer, never re-read
+        // when it lands: an SPA swap can change it in between.
+        self::assertStringContainsString('const asked = pageMarker();', $src);
+        self::assertStringContainsString('encodeURIComponent(asked)', $src);
+        // The marker the page proposes is a default, not a verdict: the picker
+        // lets a reviewer swap or drop it, and the save reads the live value.
+        // Empty until the server confirms the page's marker resolves, so a
+        // comment saved before that answer carries nothing it cannot show.
+        self::assertStringContainsString("let currentContext = '';", $src);
+        self::assertStringContainsString('/api/board/cards', $src);
+        // Raw hex is correct in this file, which carries its own palette. It is
+        // wrong in the picker, which sits inside a themed shadow root: a
+        // hardcoded white panel appeared inside the dark widget.
+        preg_match_all('/^\s*\.lp-(picker|context)[^{]*\{[^}]*\}/m', $src, $rules);
+        self::assertNotEmpty($rules[0]);
+        foreach ($rules[0] as $rule) {
+            self::assertDoesNotMatchRegularExpression('/#[0-9a-fA-F]{3,8}\b/', $rule, $rule);
+        }
+        // The save reads the live marker, never the page's attribute. This
+        // assertion replaces one that required the opposite, which was correct
+        // while the page's attribute was the only source.
+        self::assertStringNotContainsString('{ context: CONTEXT }', $src);
+        // An ordinary deployment renders no attribute, a misconfigured one
+        // renders an empty attribute, and a reviewer may detach. None of the
+        // three may reach the API as a value, so the key is sent only when
+        // there is something in it.
+        self::assertStringContainsString('...(currentContext ? { context: currentContext } : {})', $src);
         self::assertStringContainsString('/api/site-review/comments', $src);
         // The widget saves as the reviewer writes; there is no send step to call.
         self::assertStringNotContainsString('/api/site-review/review/submit', $src);

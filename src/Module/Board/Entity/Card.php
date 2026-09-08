@@ -6,6 +6,7 @@ namespace App\Module\Board\Entity;
 
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Entity\Document;
 use App\Security\ProjectScopedSubject;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -46,6 +47,11 @@ class Card implements ProjectScopedSubject
     #[ORM\OrderBy(['addedAt' => 'ASC'])]
     public Collection $pullRequests;
 
+    /** @var Collection<int, CardDocument> */
+    #[ORM\OneToMany(targetEntity: CardDocument::class, mappedBy: 'card', cascade: ['persist'], orphanRemoval: true)]
+    #[ORM\OrderBy(['linkedAt' => 'ASC'])]
+    public Collection $documents;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\ManyToOne(targetEntity: Project::class)]
@@ -81,6 +87,7 @@ class Card implements ProjectScopedSubject
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
     ) {
         $this->pullRequests = new ArrayCollection();
+        $this->documents = new ArrayCollection();
         $this->updatedAt = $this->createdAt;
     }
 
@@ -90,6 +97,36 @@ class Card implements ProjectScopedSubject
         $this->pullRequests->clear();
         foreach ($links as $link) {
             $this->pullRequests->add($link);
+        }
+    }
+
+    /**
+     * Makes the card's document links match the given set exactly.
+     *
+     * A diff rather than a clear-and-rebuild, which is what the pull request
+     * links do. Doctrine issues inserts before orphan-removal deletes, so
+     * rebuilding puts a second row with the same (card, document) pair on the
+     * wire before the first is gone, and the unique index refuses it.
+     */
+    public function syncDocuments(Document ...$documents): void
+    {
+        $wanted = [];
+        foreach ($documents as $document) {
+            $wanted[(string) $document->id] = $document;
+        }
+
+        foreach ($this->documents as $link) {
+            $id = (string) $link->document->id;
+            if (isset($wanted[$id])) {
+                unset($wanted[$id]);
+
+                continue;
+            }
+            $this->documents->removeElement($link);
+        }
+
+        foreach ($wanted as $document) {
+            $this->documents->add(new CardDocument($this, $document));
         }
     }
 

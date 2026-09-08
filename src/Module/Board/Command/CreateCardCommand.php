@@ -12,7 +12,10 @@ use App\Module\Project\Entity\Project;
 
 final readonly class CreateCardCommand
 {
-    /** @param list<string> $pullRequestUrls raw URLs as given; the handler resolves the forge */
+    /**
+     * @param list<string> $pullRequestUrls raw URLs as given; the handler resolves the forge
+     * @param list<string> $documentIds     documents of this project; the handler refuses any other
+     */
     public function __construct(
         public Project $project,
         public string $title,
@@ -22,6 +25,8 @@ final readonly class CreateCardCommand
         public CardStatus $status = CardStatus::Backlog,
         public CardOrigin $origin = CardOrigin::Agent,
         public array $pullRequestUrls = [],
+        /** @param list<string> $documentIds */
+        public array $documentIds = [],
     ) {
     }
 }

@@ -32,6 +32,10 @@ final readonly class DeleteBoardDataOnProjectDeleting
         )->setParameter('project', $event->project)->execute();
 
         $this->em->createQuery(
+            'DELETE App\Module\Board\Entity\CardDocument d WHERE d.card IN (SELECT c.id FROM App\Module\Board\Entity\Card c WHERE c.project = :project)',
+        )->setParameter('project', $event->project)->execute();
+
+        $this->em->createQuery(
             'DELETE App\Module\Board\Entity\CardPullRequest l WHERE l.card IN (SELECT c.id FROM App\Module\Board\Entity\Card c WHERE c.project = :project)',
         )->setParameter('project', $event->project)->execute();
 

@@ -97,10 +97,26 @@ final readonly class BoardSubjectResolver
         return null === $priority ? null : $this->requirePriority($priority);
     }
 
+    /**
+     * An agent may claim only the two origins it can honestly claim.
+     *
+     * `reviewer` says the app could not name who raised the card, which is true
+     * of the site-review widget and of nothing an MCP caller does. Leaving it to
+     * the tool description would make the rule a request rather than a
+     * constraint, and the value would be forgeable from any client.
+     *
+     * @var list<CardOrigin>
+     */
+    private const array MCP_ORIGINS = [CardOrigin::Human, CardOrigin::Agent];
+
     public function requireOrigin(string $origin): CardOrigin
     {
-        return CardOrigin::tryFrom($origin)
-            ?? throw new ToolCallException(\sprintf('Unknown origin "%s". Use one of: %s.', $origin, implode(', ', CardOrigin::values())));
+        $parsed = CardOrigin::tryFrom($origin);
+        if (null === $parsed || !\in_array($parsed, self::MCP_ORIGINS, true)) {
+            throw new ToolCallException(\sprintf('Unknown origin "%s". Use one of: %s.', $origin, implode(', ', array_map(static fn (CardOrigin $o): string => $o->value, self::MCP_ORIGINS))));
+        }
+
+        return $parsed;
     }
 
     public function optionalOrigin(?string $origin): ?CardOrigin

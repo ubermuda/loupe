@@ -21,7 +21,7 @@ use Mcp\Exception\ToolCallException;
  *
  * @phpstan-import-type CardSummary from CardPayload
  */
-#[McpTool(name: self::NAME, description: 'Change a card on the project board. Every field but the card id is optional, and a field you leave out keeps the value it has. Moving a card to done stamps its completion time; moving it out of done clears that stamp. A change of status or priority appends the card to the end of the column it arrives in. pullRequestUrls is the one field where leaving it out and sending an empty list differ: leave it out and the links stay, send an empty list and every link is removed. Origin cannot be changed, because it records who first raised the card. To finish a card, move it to done rather than asking for it to be deleted. The card number does not change, and you cannot set it. It is the short label that counts from 1 inside this project, and the cardId stays the value you pass here.')]
+#[McpTool(name: self::NAME, description: 'Change a card on the project board. Every field but the card id is optional, and a field you leave out keeps the value it has. Moving a card to done stamps its completion time; moving it out of done clears that stamp. A change of status or priority appends the card to the end of the column it arrives in. pullRequestUrls and documentIds are the fields where leaving one out and sending an empty list differ: leave one out and those links stay, send an empty list and every link of that kind is removed. A documentId naming no document of this project is refused. Origin cannot be changed, because it records who first raised the card. To finish a card, move it to done rather than asking for it to be deleted. The card number does not change, and you cannot set it. It is the short label that counts from 1 inside this project, and the cardId stays the value you pass here.')]
 final readonly class CardUpdateTool implements FlagGatedToolInterface
 {
     public const string NAME = 'card_update';
@@ -61,10 +61,11 @@ final readonly class CardUpdateTool implements FlagGatedToolInterface
      * @param string|null   $priority        a new priority: high, medium or low
      * @param string|null   $status          a new column: backlog, next, in-progress or done
      * @param string[]|null $pullRequestUrls the full set of pull request URLs the card carries; omit to keep the current links, send an empty list to remove them all
+     * @param string[]|null $documentIds     the full set of document ids the card carries; omit to keep the current links, send an empty list to remove them all
      *
      * @return CardSummary
      */
-    public function __invoke(string $cardId, ?string $title = null, ?string $body = null, ?string $type = null, ?string $priority = null, ?string $status = null, ?array $pullRequestUrls = null): array
+    public function __invoke(string $cardId, ?string $title = null, ?string $body = null, ?string $type = null, ?string $priority = null, ?string $status = null, ?array $pullRequestUrls = null, ?array $documentIds = null): array
     {
         $this->gate->requireEnabled();
 
@@ -79,6 +80,7 @@ final readonly class CardUpdateTool implements FlagGatedToolInterface
                 priority: $this->subjects->optionalPriority($priority),
                 status: $this->subjects->optionalStatus($status),
                 pullRequestUrls: null === $pullRequestUrls ? null : array_values($pullRequestUrls),
+                documentIds: null === $documentIds ? null : array_values($documentIds),
             ));
 
             return $this->payload->forCard($card);

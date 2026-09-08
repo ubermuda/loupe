@@ -19,6 +19,23 @@
     // The attribute is absent on an ordinary deployment, which is why an empty
     // value is never sent rather than stored as one.
     const CONTEXT = script.getAttribute('data-context') || '';
+    // Read again rather than kept, because an SPA swap replaces the tag and may
+    // carry a different marker. `script` is the one this ran from and goes
+    // stale; the document is the source of truth afterwards.
+    const pageMarker = () => {
+        const tag = document.querySelector(
+            'script[src*="site-review/widget.js"]',
+        );
+
+        // A tag with no attribute means this page names no card, and must not
+        // fall back to the marker the widget booted with: navigating from a
+        // marked page to an unmarked one would otherwise keep the first card.
+        // Only the absence of a tag falls back, which is the swap-in-progress
+        // case rather than a statement about the page.
+        return tag ? tag.getAttribute('data-context') || '' : CONTEXT;
+    };
+    let lastSeenMarker = CONTEXT;
+    let refreshGeneration = 0;
     // Every comment is saved to the API as it is written and is live from that
     // moment — there is no send step. `comments` mirrors the project's Pending
     // comments, the ones this reviewer may still edit or delete; once the agent marks
@@ -33,6 +50,32 @@
     // the API then refuses would lose the reviewer's gesture. Strokes already
     // saved render whatever this says, so switching the flag off hides no data.
     let drawingEnabled = false;
+    // What the backend says this page's data-context resolves to, or null when
+    // it resolves to nothing. Null is the honest answer for a marker naming a
+    // card that was deleted, or one belonging to another project, both of which
+    // the save would refuse — so the composer stays silent rather than promising
+    // something that will not happen.
+    let contextLabel = null;
+    // The page proposes a marker; the reviewer may accept it, swap it or drop
+    // it. This is what a comment actually saves with, so every path below sets
+    // it and the save reads it rather than the page's attribute.
+    // Empty until the boot answer confirms the page's marker names something.
+    // Starting from the raw attribute meant a comment saved before that answer
+    // landed, or after it failed, carried a marker the composer had not shown —
+    // the row read "Attach to a card" while the save said otherwise.
+    let currentContext = '';
+    let contextChosen = false;
+    // What the page proposes, once resolved. A reviewer's choice belongs to one
+    // draft, and this is what the next draft goes back to.
+    let pageContext = '';
+    let pageContextLabel = null;
+    let pickerCards = [];
+    let pickerError = null;
+    let pickerBusy = false;
+    // Separate from pickerBusy on purpose. Typing a title and clicking Create
+    // is the fastest path through this panel, and the search it triggered is
+    // usually still in flight: a shared flag made Create do nothing at all.
+    let pickerCreating = false;
     const MAX_ANCHORS = 10; // AddCommentRequest's cap — over it the API 422s
     const AT_CAP_MESSAGE = `A comment can point at ${MAX_ANCHORS} elements at most.`;
     // AddCommentRequest's caps for the drawing. A stroke past the point cap stops
@@ -74,8 +117,64 @@
 
     // Demo transport: an in-memory list that dies with the page. Same four calls,
     // same shapes, same 404 for a row that is gone — so the widget cannot tell.
-    const demoStore = { comments: [], nextId: 1 };
+    const demoStore = {
+        comments: [],
+        nextId: 1,
+        // A board of its own, because the demo exists to show the flow before
+        // anyone signs up, and refusing the picker would demonstrate the one
+        // thing the page is not selling. board.enabled never reaches here: the
+        // demo swaps the transport out entirely and calls no server.
+        cards: [
+            {
+                cardId: 'demo-card-1',
+                number: 3,
+                title: 'Checkout button is hard to find on mobile',
+                status: 'in-progress',
+            },
+            {
+                cardId: 'demo-card-2',
+                number: 2,
+                title: 'Pricing table overflows at 320px',
+                status: 'next',
+            },
+            {
+                cardId: 'demo-card-3',
+                number: 1,
+                title: 'Sign-up form rejects a valid address',
+                status: 'backlog',
+            },
+        ],
+        nextCardNumber: 4,
+    };
     const demoApi = async (method, path, body) => {
+        // Board paths answer from the fake board above. Without this branch
+        // they fell through to the comment store: GET returned the review
+        // payload, so the picker showed nothing, and POST pushed a phantom
+        // comment whose id became the card marker, as card:undefined.
+        if (path.startsWith('/api/board/cards')) {
+            if (method === 'GET') {
+                const query = decodeURIComponent(
+                    (path.split('?q=')[1] || '').replace(/\+/g, ' '),
+                ).toLowerCase();
+                return {
+                    cards: demoStore.cards.filter(
+                        (card) =>
+                            !query || card.title.toLowerCase().includes(query),
+                    ),
+                };
+            }
+            const number = demoStore.nextCardNumber++;
+            const card = {
+                cardId: `demo-card-${number}`,
+                number,
+                title: body.title,
+                status: 'backlog',
+            };
+            demoStore.cards.unshift(card);
+            // No url: the demo has no card page to open, and a link that goes
+            // nowhere is worse than none.
+            return { ...card, label: `#${number} ${card.title}`, url: null };
+        }
         if (method === 'GET') {
             return {
                 // The demo has no instance behind it, so it shows the whole widget.
@@ -156,6 +255,8 @@
         state.composing = false;
         state.composeTarget = null;
         state.editId = null;
+        state.picking = false;
+        resetContextToPage();
         state.draft = '';
         state.actionError = null;
         state.savedNotice = null;
@@ -165,11 +266,44 @@
 
     // Rehydrate the list from the project's Pending comments.
     const refresh = async ({ firstLoad = false } = {}) => {
+        // The marker this answer will describe, read once. Navigation can start
+        // a second refresh while this one is in flight, and re-reading it below
+        // would pair one page's label with another page's marker.
+        const asked = pageMarker();
+        const generation = ++refreshGeneration;
         try {
-            const payload = await api('GET', '/api/site-review/review');
+            const payload = await api(
+                'GET',
+                '/api/site-review/review' +
+                    (asked ? '?context=' + encodeURIComponent(asked) : ''),
+            );
+            // Before anything is written. A superseded answer is a snapshot
+            // from before the newer one, so letting it through would resurrect
+            // a deleted comment or drop a new one, not only mislabel the card.
+            if (generation !== refreshGeneration) return;
             comments = payload.comments || [];
             drawingEnabled = true === payload.drawingEnabled;
+            pageContextLabel = payload.context || null;
+            // Only a resolved marker is ever carried, and only the one this
+            // answer describes. A marker naming a card that is deleted,
+            // malformed or another project's resolves to nothing, and filing
+            // against it would contradict the row.
+            pageContext = pageContextLabel ? asked : '';
+            // A reviewer who chose while this was in flight owns the label now.
+            if (!contextChosen) {
+                contextLabel = pageContextLabel;
+                currentContext = pageContext;
+                // Repaint, or the row keeps the previous page's card while the
+                // save already carries the new one. Every other caller of this
+                // renders afterwards; a navigation refresh has nobody to do it.
+                sync();
+            }
         } catch (error) {
+            // A superseded failure says nothing about the state a newer answer
+            // has already established. Its firstLoad branch would blank a list
+            // that had just loaded, and even its auth branch is wrong here: a
+            // newer request that succeeded is proof the token works.
+            if (generation !== refreshGeneration) return;
             // Catch a rejected token at the earliest possible point — the boot load — so the
             // widget opens straight into its critical state instead of a misleading empty list.
             if (authFailed(error)) {
@@ -550,6 +684,18 @@
         `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" ` +
         `stroke-width="${stroke || 2}" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
     const ICON = {
+        // lucide:playing-cards-fan. Traced by hand because this script is
+        // standalone and cannot use <twig:UX:Icon>. Note the paths assume a
+        // 24-unit box and a 2-unit stroke, so scaling the stroke down as the
+        // other icons do here would thin the fan unevenly.
+        cards: (s) =>
+            svg(
+                s,
+                '<path d="M12.65 7.65a2 2 0 0 1 2.629-1.046l5.51 2.374a2 2 0 0 1 1.046 2.628l-3.957 9.184a2 2 0 0 1-2.628 1.046l-5.51-2.374a2 2 0 0 1-1.046-2.628z"/>' +
+                    '<path d="M18 7.777V4a2 2 0 0 0-2-2h-6a2 2 0 0 0-2 2v10a2 2 0 0 0 1.137 1.805"/>' +
+                    '<path d="m8 4.389l-4.364.809a2 2 0 0 0-1.602 2.33l1.822 9.833a2 2 0 0 0 2.331 1.602l2.542-.47"/>',
+                2,
+            ),
         comment: (s) =>
             svg(
                 s,
@@ -662,6 +808,9 @@
         // page can scroll or the anchor can change between the drag and the save.
         strokes: [],
         composing: false,
+        // The card picker is open. Composer state, so cancelling a comment
+        // closes it too.
+        picking: false,
         // { type:'general' } | { type:'element', anchors: [{ el, selector, text, label }] }
         composeTarget: null,
         draft: '',
@@ -781,6 +930,37 @@
       .lp-iconbtn:hover{background:var(--panel-elev);color:var(--text)}
       .lp-iconbtn:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
 
+      .lp-context{display:flex;align-items:center;gap:5px;margin-top:6px;font-size:11.5px;line-height:1.4;color:var(--muted);white-space:nowrap}
+      .lp-context svg{flex:0 0 auto;opacity:.75}
+      /* The icon replaced the words "Saves to" on screen. A screen reader would
+         otherwise hear a bare card title with nothing saying what it is for. */
+      .lp-context-label[data-role="picker"]{cursor:pointer;background:none;border:0;padding:0;font:inherit}
+      /* The widget's own palette, not raw hex. Both themes are injected into
+         this shadow root, and hardcoding light values put a white panel inside
+         the dark widget. */
+      .lp-picker{margin-top:8px;border:1px solid var(--hairline);border-radius:10px;padding:8px;background:var(--panel-elev)}
+      .lp-picker-search{width:100%;box-sizing:border-box;background:var(--field-bg);color:var(--text);border:1px solid var(--hairline);border-radius:8px;padding:6px 8px;font:inherit;font-size:12px;outline:none}
+      .lp-picker-search::placeholder{color:var(--faint)}
+      .lp-picker-search:focus{border-color:var(--accent-border);background:var(--field-focus)}
+      .lp-picker-list{max-height:min(132px,20vh);overflow:auto;margin-top:6px}
+      .lp-picker-row{display:block;width:100%;text-align:left;border:0;background:none;padding:5px 6px;border-radius:6px;font:inherit;font-size:12px;color:var(--text);cursor:pointer}
+      /* Three cues, because one is not enough here. --chip-bg was the first
+         attempt and is the same value as --panel-elev in dark, so the hover was
+         invisible; every other fill measured under 1.2:1 against the panel in
+         light, where the whole palette is pale. The 1px edge is what carries
+         light mode: a crisp border reads where a wash does not. */
+      .lp-picker-row:hover,.lp-picker-row:focus-visible{background:var(--accent-fill);box-shadow:inset 0 0 0 1px var(--accent-border);outline:none}
+      .lp-picker-row:hover .n,.lp-picker-row:focus-visible .n{color:var(--accent-ink)}
+      .lp-picker-row .n{color:var(--muted);margin-right:5px}
+      .lp-picker-note{padding:6px;font-size:11.5px;color:var(--muted)}
+      .lp-picker-foot{display:flex;align-items:center;gap:8px;margin-top:6px}
+      .lp-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+      /* A card title runs to 255 characters and the composer is a fixed height
+         with overflow hidden, so a wrapped label would push Save out of sight.
+         The ellipsis lives on this element rather than on .lp-context, because
+         a flex container cannot ellipse its own anonymous text run. */
+      .lp-context-label{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:inherit;text-decoration:underline;text-underline-offset:2px}
+      a.lp-context-label:hover{color:var(--text)}
       .lp-composer{flex:0 0 auto;overflow:hidden;transition:max-height .27s cubic-bezier(.4,0,.2,1),opacity .2s ease}
       .lp-composer-inner{padding:2px 16px 14px}
       /* The composer's height is fixed and it clips, so the chips scroll rather
@@ -913,6 +1093,17 @@
             <div class="lp-composer-inner">
               <div class="lp-compose-head" id="lp-compose-head"></div>
               <textarea class="lp-textarea" id="lp-textarea" placeholder="Describe the issue or idea…"></textarea>
+              <div class="lp-context" id="lp-context" style="display:none"></div>
+              <div class="lp-picker" id="lp-picker" style="display:none">
+                <input class="lp-picker-search" id="lp-picker-search" placeholder="Search cards, or type a new title…" autocomplete="off">
+                <div class="lp-picker-list" id="lp-picker-list"></div>
+                <div class="lp-picker-foot">
+                  <button type="button" class="lp-ghost" id="lp-picker-create">Create card</button>
+                  <div class="lp-spacer"></div>
+                  <button type="button" class="lp-ghost" id="lp-picker-detach">Detach</button>
+                  <button type="button" class="lp-ghost" id="lp-picker-close">Close</button>
+                </div>
+              </div>
               <div class="lp-compose-foot">
                 <span class="lp-hint"><span class="lp-mono">⌘↵</span> to save</span>
                 <div class="lp-spacer"></div>
@@ -1100,6 +1291,10 @@
     const mainNode = $('lp-main');
     const fatalNode = $('lp-fatal');
     const composerNode = $('lp-composer');
+    const contextNode = $('lp-context');
+    const pickerNode = $('lp-picker');
+    const pickerSearchNode = $('lp-picker-search');
+    const pickerListNode = $('lp-picker-list');
     const composeHead = $('lp-compose-head');
     const textareaNode = $('lp-textarea');
     const errorNode = $('lp-error');
@@ -1992,7 +2187,56 @@
         }
 
         // composer
-        composerNode.style.maxHeight = state.composing ? '240px' : '0px';
+        // While composing a new comment, whether or not a card is attached:
+        // with none, this row is how a reviewer attaches one. An edit does not
+        // re-send the marker, so it stays hidden there.
+        const showContext = state.composing && state.editId == null;
+        contextNode.style.display = showContext ? 'flex' : 'none';
+        pickerNode.style.display =
+            showContext && state.picking ? 'block' : 'none';
+        if (showContext) {
+            // The icon carries "which board thing", so the words that said it
+            // are gone: two rows of muted prose under the textarea read as
+            // clutter, and the card is context rather than an instruction.
+            contextNode.innerHTML = ICON.cards(13);
+            contextNode.firstChild.setAttribute('aria-hidden', 'true');
+            const said = document.createElement('span');
+            said.className = 'lp-sr-only';
+            said.textContent = contextLabel ? 'Saves to ' : '';
+            contextNode.appendChild(said);
+            // A button rather than a link: choosing the card is the action
+            // here, and the card's own page is one click further in.
+            const label = document.createElement('button');
+            label.type = 'button';
+            label.className = 'lp-context-label';
+            label.dataset.role = 'picker';
+            label.textContent = contextLabel
+                ? contextLabel.label
+                : 'Attach to a card';
+            // The full title on hover, since the visible one may be cut.
+            label.title = contextLabel
+                ? contextLabel.label
+                : 'Choose or create a card for this comment';
+            label.addEventListener('click', () => {
+                state.picking = !state.picking;
+                sync();
+                if (state.picking) {
+                    pickerSearchNode.value = '';
+                    loadPickerCards('');
+                    pickerSearchNode.focus();
+                }
+            });
+            contextNode.appendChild(label);
+        }
+        // The panel is capped at calc(100vh - 160px) and both it and the
+        // composer hide their overflow, so a fixed 470px put Create, Detach and
+        // Save out of reach on anything shorter than about 630px, with nothing
+        // to scroll. The list shrinks with the viewport as well.
+        composerNode.style.maxHeight = state.composing
+            ? state.picking
+                ? 'min(470px, calc(100vh - 300px))'
+                : '264px'
+            : '0px';
         composerNode.style.opacity = state.composing ? '1' : '0';
         composerNode.style.pointerEvents = state.composing ? 'auto' : 'none';
         // The save is the composer's own action, so its progress belongs on the Save button.
@@ -2336,6 +2580,13 @@
     };
     const openNoteComposer = () => {
         if (state.fatal) return;
+        // The last chance to notice a page that swapped its marker after the
+        // window the navigation handler watches. It lands exactly where being
+        // wrong would cost something, since nothing attaches until a comment is
+        // composed, and it costs one querySelector. A MutationObserver over the
+        // document would close the same gap on every DOM change of somebody
+        // else's page.
+        recheckMarker();
         state.composing = true;
         state.composeTarget = { type: 'general' };
         state.editId = null;
@@ -2462,6 +2713,13 @@
             if (!stayed && root.activeElement !== textareaNode) focusTextarea();
             return;
         }
+        // The last chance to notice a page that swapped its marker after the
+        // window the navigation handler watches. It lands exactly where being
+        // wrong would cost something, since nothing attaches until a comment is
+        // composed, and it costs one querySelector. A MutationObserver over the
+        // document would close the same gap on every DOM change of somebody
+        // else's page.
+        recheckMarker();
         state.composing = true;
         state.composeTarget = { type: 'element', anchors: [anchor] };
         state.editId = null;
@@ -2569,6 +2827,9 @@
         }
         if (state.editId != null) return;
         if (!state.composing) {
+            // Same reason as the other two entry points: a new comment must be
+            // attached to the card this page names, not the last one.
+            recheckMarker();
             state.composing = true;
             state.composeTarget = { type: 'general' };
             state.strokes = [];
@@ -2701,10 +2962,166 @@
         sync();
         focusTextarea();
     };
+    let pickerDebounce = null;
+    let pickerGeneration = 0;
+    // The card picker. It loads only when opened, so an instance with the board
+    // switched off costs nothing: that endpoint answers 404 and the panel says
+    // so, rather than the widget needing to be told at boot.
+    // A choice belongs to the draft that made it. The page's marker says what
+    // this preview is for, and an override that outlived its draft would make
+    // that configuration mean less with every comment: detach once and every
+    // later comment stays detached.
+    const resetContextToPage = () => {
+        currentContext = pageContext;
+        contextLabel = pageContextLabel;
+        contextChosen = false;
+    };
+    const setContext = (marker, label) => {
+        currentContext = marker;
+        contextLabel = label;
+        // The boot request may still be in flight, and its answer describes the
+        // page's marker rather than this one. Without this the row could name
+        // one card while the save carried another, which is the exact promise
+        // the label exists not to break.
+        contextChosen = true;
+        state.picking = false;
+        sync();
+    };
+    const renderPicker = () => {
+        pickerListNode.textContent = '';
+        const note = (text) => {
+            const el = document.createElement('div');
+            el.className = 'lp-picker-note';
+            el.textContent = text;
+            pickerListNode.appendChild(el);
+        };
+        if (pickerCreating) return note('Creating…');
+        if (pickerBusy) return note('Loading…');
+        if (pickerError) return note(pickerError);
+        if (!pickerCards.length) return note('No open cards match.');
+        pickerCards.forEach((card) => {
+            const row = document.createElement('button');
+            row.type = 'button';
+            row.className = 'lp-picker-row';
+            const n = document.createElement('span');
+            n.className = 'n';
+            n.textContent = `#${card.number}`;
+            row.appendChild(n);
+            row.appendChild(document.createTextNode(card.title));
+            row.addEventListener('click', () =>
+                setContext(`card:${card.cardId}`, {
+                    label: `#${card.number} ${card.title}`,
+                    url: null,
+                }),
+            );
+            pickerListNode.appendChild(row);
+        });
+    };
+    const loadPickerCards = async (query) => {
+        // Debouncing spaces the requests out; it does not order the answers. Two
+        // searches can still overlap, and the slower one would otherwise land
+        // last and show results for a query the reviewer has moved past.
+        const generation = ++pickerGeneration;
+        const current = () => generation === pickerGeneration;
+        pickerBusy = true;
+        pickerError = null;
+        renderPicker();
+        try {
+            const path =
+                '/api/board/cards' +
+                (query ? '?q=' + encodeURIComponent(query) : '');
+            const answer = await api('GET', path);
+            if (!current()) return;
+            pickerCards = answer.cards || [];
+        } catch (error) {
+            if (authFailed(error)) {
+                // enterFatal only sets state. Returning without a repaint left
+                // a revoked token showing the picker's "Loading…" for ever
+                // instead of the critical panel.
+                enterFatal(error);
+                sync();
+
+                return;
+            }
+            if (!current()) return;
+            pickerCards = [];
+            // 404 is the board switched off, which is a configuration answer
+            // rather than a failure, so it reads differently from a broken call.
+            pickerError =
+                error && error.status === 404
+                    ? 'This instance has no board.'
+                    : 'Could not load cards.';
+        }
+        pickerBusy = false;
+        renderPicker();
+    };
+    const createCardFromPicker = async () => {
+        const title = pickerSearchNode.value.trim();
+        if (!title || pickerCreating) return;
+        // A search may still be running, and its result would overwrite this
+        // panel underneath the create. Cancelling the timer stops one that has
+        // not started; bumping the generation discards one already in flight,
+        // which would otherwise replace a creation error with a card list and
+        // leave the reviewer believing the card was made.
+        clearTimeout(pickerDebounce);
+        // The superseded search returns early and never clears its own flag, so
+        // a creation error would render behind a "Loading…" that never lifts.
+        pickerGeneration++;
+        pickerBusy = false;
+        pickerCreating = true;
+        renderPicker();
+        try {
+            const card = await api('POST', '/api/board/cards', { title });
+            setContext(`card:${card.cardId}`, {
+                label: card.label,
+                url: card.url,
+            });
+        } catch (error) {
+            if (authFailed(error)) {
+                // enterFatal only sets state. Returning without a repaint left
+                // a revoked token showing the picker's "Loading…" for ever
+                // instead of the critical panel.
+                enterFatal(error);
+                sync();
+
+                return;
+            }
+            pickerError =
+                error && error.status === 404
+                    ? 'This instance has no board.'
+                    : 'Could not create the card.';
+        }
+        pickerCreating = false;
+        renderPicker();
+    };
+
+    pickerSearchNode.addEventListener('input', () => {
+        clearTimeout(pickerDebounce);
+        // Debounced, because this is a keystroke on a public endpoint.
+        pickerDebounce = setTimeout(
+            () => loadPickerCards(pickerSearchNode.value.trim()),
+            250,
+        );
+    });
+    pickerSearchNode.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            state.picking = false;
+            sync();
+        }
+    });
+    $('lp-picker-create').addEventListener('click', createCardFromPicker);
+    $('lp-picker-close').addEventListener('click', () => {
+        state.picking = false;
+        sync();
+    });
+    $('lp-picker-detach').addEventListener('click', () => setContext('', null));
+
     const cancelCompose = () => {
         state.composing = false;
         state.composeTarget = null;
         state.editId = null;
+        state.picking = false;
+        resetContextToPage();
         state.draft = '';
         state.strokes = [];
         textareaNode.value = '';
@@ -2765,7 +3182,7 @@
                     strokes,
                     selector: first ? first.selector : '',
                     text: first ? first.text : '',
-                    ...(CONTEXT ? { context: CONTEXT } : {}),
+                    ...(currentContext ? { context: currentContext } : {}),
                 };
                 const { commentId } = await api(
                     'POST',
@@ -2777,6 +3194,11 @@
             state.composing = false;
             state.composeTarget = null;
             state.editId = null;
+            state.picking = false;
+            // A saved draft ends the same way a cancelled one does. This block
+            // is indented one level deeper than the other two, which is why it
+            // was missed.
+            resetContextToPage();
             state.draft = '';
             state.strokes = [];
             textareaNode.value = '';
@@ -3484,10 +3906,28 @@
         renderStrokes();
         renderQuoteButton();
     };
+    // Re-resolve when the page starts naming a different card. Safe to call
+    // repeatedly: it does nothing until the marker actually changes.
+    const recheckMarker = () => {
+        const marker = pageMarker();
+        if (marker === lastSeenMarker) return;
+        lastSeenMarker = marker;
+        contextChosen = false;
+        // Cleared now, not when the answer lands. Leaving the old card in place
+        // would attach a comment saved during the request, or after it failed,
+        // to the page the reviewer has already left.
+        pageContext = '';
+        pageContextLabel = null;
+        currentContext = '';
+        contextLabel = null;
+        sync();
+        refresh();
+    };
     let lastSeenUrl = location.href;
     const handleLocationChange = () => {
         if (location.href === lastSeenUrl) return;
         lastSeenUrl = location.href;
+        recheckMarker();
         state.hoverId = null;
         state.hoverPinId = null;
         state.pinConfirmId = null;
@@ -3501,6 +3941,12 @@
         requestAnimationFrame(rerenderAnchors);
         setTimeout(rerenderAnchors, 60);
         setTimeout(rerenderAnchors, 240);
+        // The script tag is swapped on the same schedule, so the marker read
+        // above is the old page's. These re-reads are what actually catch a
+        // navigation to a page naming a different card.
+        requestAnimationFrame(recheckMarker);
+        setTimeout(recheckMarker, 60);
+        setTimeout(recheckMarker, 240);
     };
     ['pushState', 'replaceState'].forEach((method) => {
         const original = history[method];
@@ -3515,7 +3961,13 @@
     // Turbo swaps the body without a history method we wrap; re-anchor on its render
     // events too (harmless no-ops when Turbo is absent).
     ['turbo:load', 'turbo:render', 'turbo:frame-load'].forEach((evt) =>
-        document.addEventListener(evt, rerenderAnchors),
+        document.addEventListener(evt, () => {
+            rerenderAnchors();
+            // A Turbo navigation that bypasses the wrapped history methods
+            // notifies through these events alone, so without this the widget
+            // keeps saving against the previous page's card indefinitely.
+            recheckMarker();
+        }),
     );
 
     applyCorner();

@@ -28,6 +28,39 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /**
+     * Open cards of a project for the widget's picker, newest first, optionally
+     * narrowed by a substring of the title.
+     *
+     * Done is excluded: the picker exists to attach feedback to work in flight,
+     * and a finished card is the one answer a reviewer almost never wants.
+     *
+     * @return list<Card>
+     */
+    public function searchOpenForProject(Project $project, string $query, int $limit): array
+    {
+        $qb = $this->createQueryBuilder('c')
+            ->where('c.project = :project')
+            ->andWhere('c.status != :done')
+            ->setParameter('project', $project)
+            ->setParameter('done', CardStatus::Done)
+            ->orderBy('c.number', 'DESC')
+            ->setMaxResults($limit);
+
+        if ('' !== $query) {
+            // Escaped with the character the ESCAPE clause declares, not with a
+            // backslash: a backslash is a literal here, so addcslashes() would
+            // leave % and _ as wildcards and quietly widen the match. The
+            // escape character itself goes first, or it doubles the others.
+            $escaped = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], mb_strtolower($query));
+            $qb->andWhere('LOWER(c.title) LIKE :q ESCAPE \'!\'')
+                ->setParameter('q', '%'.$escaped.'%');
+        }
+
+        /* @var list<Card> */
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
      * The cards of one (project, status, priority) group, in board order.
      *
      * @return list<Card>

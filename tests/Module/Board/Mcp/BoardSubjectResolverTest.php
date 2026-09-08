@@ -7,6 +7,7 @@ namespace App\Tests\Module\Board\Mcp;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Mcp\BoardSubjectResolver;
@@ -56,6 +57,22 @@ final class BoardSubjectResolverTest extends KernelTestCase
         self::assertInstanceOf(CreateCardHandler::class, $handler);
 
         return $handler(new CreateCardCommand($project, 'Ship it', 'Body', CardType::Feature, CardPriority::Medium));
+    }
+
+    /**
+     * The tool description asks an agent not to claim it. That is a request, and
+     * a value an MCP client can send is a constraint or it is nothing.
+     */
+    public function test_an_agent_cannot_claim_the_reviewer_origin(): void
+    {
+        // Guard: the two an agent may claim still resolve, so the refusal below
+        // is about this value rather than about origins being refused wholesale.
+        self::assertSame(CardOrigin::Human, $this->resolver->requireOrigin('human'));
+        self::assertSame(CardOrigin::Agent, $this->resolver->requireOrigin('agent'));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('Unknown origin "reviewer". Use one of: human, agent.');
+        $this->resolver->requireOrigin('reviewer');
     }
 
     public function test_a_card_of_the_bound_project_resolves(): void

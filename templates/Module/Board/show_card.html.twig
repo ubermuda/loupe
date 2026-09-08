@@ -64,6 +64,24 @@
         {% endif %}
     </section>
 
+    <section class="lp-card-docs">
+        <h2 class="lp-card-docs__title">{{ 'board.card.documents.title'|trans }}</h2>
+        {% if card.documents|length > 0 %}
+        <ul class="lp-card-docs__list">
+            {% for link in card.documents %}
+            <li class="lp-card-docs__item">
+                <a class="lp-card-docs__link" href="{{ path('app_document_review', {projectId: card.project.id, documentId: link.document.id}) }}">
+                    {{ link.document.title }}
+                </a>
+                <span class="lp-tag">{{ ('review.document.status.' ~ link.document.status.value)|trans }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="lp-card-detail__empty">{{ 'board.card.documents.empty'|trans }}</p>
+        {% endif %}
+    </section>
+
     <section class="lp-card-pulls">
         <h2 class="lp-card-pulls__title">{{ 'board.card.pull_requests.title'|trans }}</h2>
         {% if card.pullRequests|length > 0 %}

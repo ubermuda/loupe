@@ -3936,6 +3936,23 @@
     .lp-card-pulls__empty {
         @apply text-sm text-fg-dim m-0;
     }
+    /* The documents a card's work is written up in. Read only here: a
+       document is written and revised through its own screens. */
+    .lp-card-docs {
+        @apply mt-8;
+    }
+    .lp-card-docs__title {
+        @apply font-display font-extrabold text-lg tracking-tight text-ink m-0 mb-3;
+    }
+    .lp-card-docs__list {
+        @apply flex flex-col gap-2 list-none p-0 m-0;
+    }
+    .lp-card-docs__item {
+        @apply flex flex-wrap items-center gap-2 rounded-xl bg-surface-2 py-2.5 px-3.5;
+    }
+    .lp-card-docs__link {
+        @apply text-sm;
+    }
     .lp-card-pulls {
         @apply mt-8;
     }

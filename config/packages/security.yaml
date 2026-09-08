@@ -58,6 +58,12 @@ security:
 
     access_control:
         - { path: ^/api/site-review, roles: ROLE_API_SITE_REVIEW }
+        # The site-review widget creates and lists board cards, so its token
+        # reaches a Board path too. Stated here rather than folded under the
+        # prefix above, so a reader of this file sees that a widget token may
+        # write to the board. See the Loupe design 'Picking and creating cards
+        # from the site-review widget' for the exposure this accepts.
+        - { path: ^/api/board/cards, roles: ROLE_API_SITE_REVIEW }
         # Deny-by-default for the rest of /api: every API-token user also carries
         # ROLE_USER, so without this a new /api/<endpoint> falls through to the ^/
         # catch-all and authorizes ANY scoped token. Add new scope rules ABOVE this

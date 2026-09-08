@@ -8,10 +8,12 @@ use App\Controller\AppController;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Command\ShowPendingCommentsCommand;
 use App\Module\SiteReview\Command\ShowPendingCommentsHandler;
+use App\Module\SiteReview\Context\ContextLabelResolver;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentAnchor;
 use App\Module\SiteReview\SiteReviewDrawing;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
@@ -31,10 +33,11 @@ final class ShowPendingCommentsController extends AppController
         private readonly ShowPendingCommentsHandler $showPendingComments,
         private readonly AuthenticatedProjectResolver $projectResolver,
         private readonly FeatureFlagService $featureFlags,
+        private readonly ContextLabelResolver $contextLabels,
     ) {
     }
 
-    public function __invoke(): JsonResponse
+    public function __invoke(Request $request): JsonResponse
     {
         $project = $this->projectResolver->resolveWidgetProject();
         if (null === $project) {
@@ -43,11 +46,18 @@ final class ShowPendingCommentsController extends AppController
 
         $view = ($this->showPendingComments)(new ShowPendingCommentsCommand($project));
 
+        // The marker travels from the page rather than from the database,
+        // because it describes what this deployment is serving. The widget
+        // sends its own, and a marker nothing resolves comes back as null.
+        $context = $request->query->get('context');
+        $label = $this->contextLabels->resolve(\is_string($context) ? $context : null, $project);
+
         // The widget carries no flag of its own. Its snippet lives in someone
         // else's page and nobody re-pastes it, so the boot load is the only
         // place the instance can tell it whether drawing is offered.
         return $this->json([
             'drawingEnabled' => $this->featureFlags->isEnabled(SiteReviewDrawing::FLAG, SiteReviewDrawing::DEFAULT),
+            'context' => null === $label ? null : ['label' => $label->label, 'url' => $label->url],
             'comments' => array_values(array_map(
                 static function (SiteReviewComment $c): array {
                     $anchors = array_values($c->anchors->toArray());

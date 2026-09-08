@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\EventSubscriber;
 
+use App\Module\SiteReview\WidgetApiPaths;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -41,7 +42,7 @@ final class SiteReviewCorsSubscriber implements EventSubscriberInterface
 
     private function applies(Request $request): bool
     {
-        return str_starts_with($request->getPathInfo(), '/api/site-review');
+        return WidgetApiPaths::matches($request->getPathInfo());
     }
 
     /** @return array<string, string> */

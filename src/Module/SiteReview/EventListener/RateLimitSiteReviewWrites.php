@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\SiteReview\EventListener;
 
 use App\Module\Account\Security\ApiTokenAuthenticator;
+use App\Module\SiteReview\WidgetApiPaths;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\Request;
@@ -37,7 +38,7 @@ final readonly class RateLimitSiteReviewWrites
         }
 
         $request = $event->getRequest();
-        if (!str_starts_with($request->getPathInfo(), '/api/site-review') || $request->isMethodSafe()) {
+        if (!WidgetApiPaths::matches($request->getPathInfo()) || $request->isMethodSafe()) {
             return;
         }
 
