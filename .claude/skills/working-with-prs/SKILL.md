@@ -426,6 +426,12 @@ The entry anchors to the first-parent squash commit on `main`, which is what `gi
 
 An entry's position follows its anchor's place in `git log --first-parent`, and not the order the lines were written. A later pull request often adds a line for an earlier commit, and that line belongs below every line whose commit came after it. Read the first-parent log and insert by anchor. Two sessions got this backwards on the same file within an hour.
 
+**A changelog branch goes stale while it waits, and its own diff is the last one you will think to re-check.** It lists the merges that existed when you opened it. Every merge that lands while it waits for approval is a line it does not have, and nothing about the branch looks wrong: it is green, it conflicts with nothing, and the missing entry is for a commit the author never saw.
+
+So re-derive the list against `git log --first-parent` immediately before merging it, not when you wrote it. This is not hypothetical. One session opened a changelog pull request listing six merges, a seventh landed underneath it, and that session merged its own branch without re-reading the log, having spent the evening checking every other branch's freshness.
+
+The hole is findable afterwards, because the ordering rule above puts it above the file's previous top entry. That is the anchor doing work, and it is a reason to keep the anchor strict rather than a reason to trust memory.
+
 One entry per pull request, not one per branch. A branch that shipped six features earns six lines, because a reader looking for when tags arrived should find a line about tags rather than a paragraph about the wave that contained them. Tracker churn in `docs/NEXT_STEPS.md` earns no entry.
 
 ## What the ruleset actually requires
