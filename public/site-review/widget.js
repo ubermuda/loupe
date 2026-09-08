@@ -930,19 +930,23 @@
       .lp-iconbtn:hover{background:var(--panel-elev);color:var(--text)}
       .lp-iconbtn:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
 
-      .lp-context{display:flex;align-items:center;gap:5px;margin-top:6px;font-size:11.5px;line-height:1.4;color:#6b7280;white-space:nowrap}
+      .lp-context{display:flex;align-items:center;gap:5px;margin-top:6px;font-size:11.5px;line-height:1.4;color:var(--muted);white-space:nowrap}
       .lp-context svg{flex:0 0 auto;opacity:.75}
       /* The icon replaced the words "Saves to" on screen. A screen reader would
          otherwise hear a bare card title with nothing saying what it is for. */
       .lp-context-label[data-role="picker"]{cursor:pointer;background:none;border:0;padding:0;font:inherit}
-      .lp-picker{margin-top:8px;border:1px solid #e5e7eb;border-radius:10px;padding:8px;background:#fff}
-      .lp-picker-search{width:100%;box-sizing:border-box;border:1px solid #e5e7eb;border-radius:8px;padding:6px 8px;font:inherit;font-size:12px;outline:none}
-      .lp-picker-search:focus{border-color:#9ca3af}
+      /* The widget's own palette, not raw hex. Both themes are injected into
+         this shadow root, and hardcoding light values put a white panel inside
+         the dark widget. */
+      .lp-picker{margin-top:8px;border:1px solid var(--hairline);border-radius:10px;padding:8px;background:var(--panel-elev)}
+      .lp-picker-search{width:100%;box-sizing:border-box;background:var(--field-bg);color:var(--text);border:1px solid var(--hairline);border-radius:8px;padding:6px 8px;font:inherit;font-size:12px;outline:none}
+      .lp-picker-search::placeholder{color:var(--faint)}
+      .lp-picker-search:focus{border-color:var(--accent-border);background:var(--field-focus)}
       .lp-picker-list{max-height:min(132px,20vh);overflow:auto;margin-top:6px}
-      .lp-picker-row{display:block;width:100%;text-align:left;border:0;background:none;padding:5px 6px;border-radius:6px;font:inherit;font-size:12px;color:#111827;cursor:pointer}
-      .lp-picker-row:hover,.lp-picker-row:focus{background:#f3f4f6;outline:none}
-      .lp-picker-row .n{color:#6b7280;margin-right:5px}
-      .lp-picker-note{padding:6px;font-size:11.5px;color:#6b7280}
+      .lp-picker-row{display:block;width:100%;text-align:left;border:0;background:none;padding:5px 6px;border-radius:6px;font:inherit;font-size:12px;color:var(--text);cursor:pointer}
+      .lp-picker-row:hover,.lp-picker-row:focus{background:var(--chip-bg);outline:none}
+      .lp-picker-row .n{color:var(--muted);margin-right:5px}
+      .lp-picker-note{padding:6px;font-size:11.5px;color:var(--muted)}
       .lp-picker-foot{display:flex;align-items:center;gap:8px;margin-top:6px}
       .lp-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
       /* A card title runs to 255 characters and the composer is a fixed height
@@ -950,7 +954,7 @@
          The ellipsis lives on this element rather than on .lp-context, because
          a flex container cannot ellipse its own anonymous text run. */
       .lp-context-label{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:inherit;text-decoration:underline;text-underline-offset:2px}
-      a.lp-context-label:hover{color:#111827}
+      a.lp-context-label:hover{color:var(--text)}
       .lp-composer{flex:0 0 auto;overflow:hidden;transition:max-height .27s cubic-bezier(.4,0,.2,1),opacity .2s ease}
       .lp-composer-inner{padding:2px 16px 14px}
       /* The composer's height is fixed and it clips, so the chips scroll rather

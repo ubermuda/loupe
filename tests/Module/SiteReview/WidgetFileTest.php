@@ -27,6 +27,14 @@ final class WidgetFileTest extends TestCase
         // comment saved before that answer carries nothing it cannot show.
         self::assertStringContainsString("let currentContext = '';", $src);
         self::assertStringContainsString('/api/board/cards', $src);
+        // Raw hex is correct in this file, which carries its own palette. It is
+        // wrong in the picker, which sits inside a themed shadow root: a
+        // hardcoded white panel appeared inside the dark widget.
+        preg_match_all('/^\s*\.lp-(picker|context)[^{]*\{[^}]*\}/m', $src, $rules);
+        self::assertNotEmpty($rules[0]);
+        foreach ($rules[0] as $rule) {
+            self::assertDoesNotMatchRegularExpression('/#[0-9a-fA-F]{3,8}\b/', $rule, $rule);
+        }
         // The save reads the live marker, never the page's attribute. This
         // assertion replaces one that required the opposite, which was correct
         // while the page's attribute was the only source.
