@@ -34,6 +34,9 @@ entry.
 
 ## [Unreleased]
 
+- `34b2732` (#406) — **Added:** `working-with-prs` says to re-derive a
+  changelog branch's entry list immediately before merging it, because merges
+  that land while it waits leave no visible sign.
 - `0096491` (#403) — **Added:** the site-review widget's composer says which
   board card a comment will attach to, and lets a reviewer search the board,
   pick a different card, create one, or detach.
