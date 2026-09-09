@@ -17,7 +17,9 @@ use App\Module\Review\ValueObject\SideBySideRow;
  * its own, so it filters to nothing on the right and needs no case here.
  *
  * A side that filters to nothing is null rather than empty markup, so the page
- * can draw a slot the reader sees.
+ * can draw a slot the reader sees. A run of such removals zips with the run of
+ * additions straight after it, so a block that became another block reads
+ * opposite it rather than one row above.
  *
  * An unchanged block reaches both cells, so the older side renames every id the
  * renderer wrote, and every reference to it. A heading id would otherwise be in
@@ -75,7 +77,7 @@ final readonly class SideBySideDiffBuilder
         // in another block than the heading it names, and a label may precede
         // the control it names. Both need every rename before they are rewritten.
         $rows = [];
-        foreach ($pairs as [$old, $new]) {
+        foreach ($this->coalesce($pairs) as [$old, $new]) {
             if (null !== $old && [] !== $renamed) {
                 $this->rewriteReferences($old, $renamed);
             }
@@ -84,6 +86,55 @@ final readonly class SideBySideDiffBuilder
         }
 
         return new SideBySideDiff($rows);
+    }
+
+    /**
+     * Zips a run of removed blocks with the run of added blocks straight after
+     * it, so a block that became another block reads opposite the one it became.
+     *
+     * The pairing is by position alone. It is the same run
+     * {@see RenderedDiffBuilder} already counts as one change, which is marks
+     * with nothing unchanged drawn between them, so the columns agree with the
+     * count and the jump controls above them. Unchanged content between the two
+     * runs ends the first one, and a run with no counterpart keeps its void
+     * cells.
+     *
+     * @param list<array{0: ?\Dom\Element, 1: ?\Dom\Element}> $pairs
+     *
+     * @return list<array{0: ?\Dom\Element, 1: ?\Dom\Element}>
+     */
+    private function coalesce(array $pairs): array
+    {
+        $coalesced = [];
+        $index = 0;
+        $total = \count($pairs);
+
+        while ($index < $total) {
+            $removed = [];
+            while ($index < $total && null !== $pairs[$index][0] && null === $pairs[$index][1]) {
+                $removed[] = $pairs[$index][0];
+                ++$index;
+            }
+
+            $added = [];
+            while ($index < $total && null === $pairs[$index][0] && null !== $pairs[$index][1]) {
+                $added[] = $pairs[$index][1];
+                ++$index;
+            }
+
+            if ([] === $removed && [] === $added) {
+                $coalesced[] = $pairs[$index];
+                ++$index;
+
+                continue;
+            }
+
+            for ($step = 0; $step < max(\count($removed), \count($added)); ++$step) {
+                $coalesced[] = [$removed[$step] ?? null, $added[$step] ?? null];
+            }
+        }
+
+        return $coalesced;
     }
 
     /** @param string $dropped class of the marks the other side owns */

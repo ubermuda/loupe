@@ -96,15 +96,63 @@ final class SideBySideDiffBuilderTest extends TestCase
         $rows = $this->pair(
             '<p>Intro.</p>'
             .\sprintf('<del class="%s"><p>Cut section.</p></del>', self::DELETED)
+            .'<p>Kept.</p>'
             .\sprintf('<ins class="%s"><p>New section.</p></ins>', self::INSERTED)
             .'<p>Outro.</p>',
         );
 
-        self::assertCount(4, $rows);
+        self::assertCount(5, $rows);
         self::assertSame('Intro.', $this->text((string) $rows[0]->newHtml));
         self::assertNull($rows[1]->newHtml);
+        self::assertSame('Kept.', $this->text((string) $rows[2]->oldHtml));
+        self::assertNull($rows[3]->oldHtml);
+        self::assertSame('Outro.', $this->text((string) $rows[4]->oldHtml));
+    }
+
+    /**
+     * A removal with an addition straight after it is one change to the count and
+     * to the jump controls, so the two columns have to agree with them.
+     */
+    public function test_a_removal_and_the_addition_after_it_share_a_row(): void
+    {
+        $rows = $this->pair(
+            \sprintf('<del class="%s"><h2>Rollback</h2></del>', self::DELETED)
+            .\sprintf('<ins class="%s"><h2>Monitoring</h2></ins>', self::INSERTED),
+        );
+
+        self::assertCount(1, $rows);
+        self::assertSame('Rollback', $this->text((string) $rows[0]->oldHtml));
+        self::assertSame('Monitoring', $this->text((string) $rows[0]->newHtml));
+    }
+
+    /** The longer run keeps its rows, and the shorter one runs out into voids. */
+    public function test_runs_of_unequal_length_pair_by_position(): void
+    {
+        $rows = $this->pair(
+            \sprintf('<del class="%s"><h2>Old head</h2></del>', self::DELETED)
+            .\sprintf('<del class="%s"><p>Old body.</p></del>', self::DELETED)
+            .\sprintf('<ins class="%s"><h2>New head</h2></ins>', self::INSERTED),
+        );
+
+        self::assertCount(2, $rows);
+        self::assertSame('Old head', $this->text((string) $rows[0]->oldHtml));
+        self::assertSame('New head', $this->text((string) $rows[0]->newHtml));
+        self::assertSame('Old body.', $this->text((string) $rows[1]->oldHtml));
+        self::assertNull($rows[1]->newHtml);
+    }
+
+    /** Unchanged content between the two ends the run, so nothing pairs across it. */
+    public function test_unchanged_content_between_a_removal_and_an_addition_keeps_them_apart(): void
+    {
+        $rows = $this->pair(
+            \sprintf('<del class="%s"><p>Cut.</p></del>', self::DELETED)
+            .'<p>Kept.</p>'
+            .\sprintf('<ins class="%s"><p>Added.</p></ins>', self::INSERTED),
+        );
+
+        self::assertCount(3, $rows);
+        self::assertNull($rows[0]->newHtml);
         self::assertNull($rows[2]->oldHtml);
-        self::assertSame('Outro.', $this->text((string) $rows[3]->oldHtml));
     }
 
     /**

@@ -16,6 +16,10 @@ test.use({ storageState: { cookies: [], origins: [] } });
 const RUN = Date.now();
 const PASSWORD = 'E2eSideBySide1!';
 
+// The shapes the view has to get right: a reworded paragraph, a section removed
+// with unchanged text after it, a code fence rewritten in place, and a section
+// added. The fence is the one the diff emits as a removal with an addition
+// straight after it.
 const VERSION_ONE = [
     '# Rollout plan',
     '',
@@ -28,6 +32,16 @@ const VERSION_ONE = [
     '## Rollback',
     '',
     'Revert the release tag and redeploy the previous image.',
+    '',
+    '## Command',
+    '',
+    '```bash',
+    'deploy --dry-run',
+    '```',
+    '',
+    '## Owner',
+    '',
+    'The platform team owns this plan.',
 ].join('\n');
 
 const VERSION_TWO = [
@@ -39,9 +53,19 @@ const VERSION_TWO = [
     '',
     'The risk is low, because the change is small.',
     '',
+    '## Command',
+    '',
+    '```bash',
+    'deploy --now',
+    '```',
+    '',
     '## Monitoring',
     '',
     'Watch the worker queue depth for one hour after the release.',
+    '',
+    '## Owner',
+    '',
+    'The platform team owns this plan.',
 ].join('\n');
 
 const CELL = '.lp-diff-columns__cell';
@@ -191,7 +215,19 @@ test('the two columns pair the blocks and drop the comment rail', async ({
         cells.find((cell) => cell.row === added!.row && cell !== added)!.isVoid,
     ).toBe(true);
 
-    await expect(page.locator(VOID_CELL)).toHaveCount(2);
+    // Two removals and two additions, each kept apart by the unchanged Risk
+    // section, so all four keep a slot opposite them.
+    await expect(page.locator(VOID_CELL)).toHaveCount(4);
+
+    // The rewritten code fence is a removal with an addition straight after it,
+    // which the count above calls one change, so the columns pair it in one row.
+    const rewritten = cells.filter((cell) => cell.text.includes('deploy --'));
+    expect(rewritten).toHaveLength(2);
+    expect(rewritten[0].text).toContain('--dry-run');
+    expect(rewritten[1].text).toContain('--now');
+    expect(rewritten[0].row).toBe(rewritten[1].row);
+    expect(rewritten[0].isVoid).toBe(false);
+    expect(rewritten[1].isVoid).toBe(false);
 
     // Commenting is off, and the page says so rather than leaving the reader to
     // notice a missing column.
@@ -245,15 +281,21 @@ test('the jump controls still walk the changes across the two columns', async ({
     await page.goto(`${reviewPath}/diff/1/2?view=side-by-side`);
 
     const counter = page.locator('.lp-diff-nav__count');
-    await expect(counter).toHaveText('3 changes');
+    await expect(counter).toHaveText('4 changes');
 
-    // Each mark belongs to one column, so no jump target is numbered twice.
+    // Each mark belongs to one column, so no jump target is numbered twice, and
+    // the pane holds exactly the changes the count names.
     const ids = await page.evaluate(() =>
         [...document.querySelectorAll('[data-diff-navigation-target="hunk"]')]
             .map((hunk) => hunk.id)
             .sort(),
     );
-    expect(ids).toEqual(['diff-hunk-1', 'diff-hunk-2', 'diff-hunk-3']);
+    expect(ids).toEqual([
+        'diff-hunk-1',
+        'diff-hunk-2',
+        'diff-hunk-3',
+        'diff-hunk-4',
+    ]);
 
     // An unchanged heading reaches both cells, and only the newer one keeps the
     // id, or a fragment would land in whichever column came first.
@@ -274,7 +316,7 @@ test('the jump controls still walk the changes across the two columns', async ({
     ).toHaveCount(1);
 
     await page.getByRole('button', { name: 'Next change' }).click();
-    await expect(counter).toHaveText('Change 1 of 3');
+    await expect(counter).toHaveText('Change 1 of 4');
     await expect(page.locator('.lp-diff__hunk--current')).toHaveCount(1);
 });
 
