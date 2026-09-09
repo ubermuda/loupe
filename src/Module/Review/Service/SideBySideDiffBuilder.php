@@ -20,10 +20,10 @@ use App\Module\Review\ValueObject\SideBySideRow;
  * can draw a slot the reader sees.
  *
  * An unchanged block reaches both cells, so the older side renames every id the
- * renderer wrote, and the references to it inside that block. A heading id would
- * otherwise be in the page twice, and a fragment would land in the wrong column.
- * A jump target keeps its id, since a mark is either deleted or inserted and
- * reaches one cell only.
+ * renderer wrote, and every reference to it. A heading id would otherwise be in
+ * the page twice, and a fragment would land in the wrong column. A jump target
+ * keeps its id, since a mark is either deleted or inserted and reaches one cell
+ * only.
  */
 final readonly class SideBySideDiffBuilder
 {
@@ -48,29 +48,46 @@ final readonly class SideBySideDiffBuilder
         $body = \Dom\HTMLDocument::createFromString($html, \LIBXML_NOERROR, 'UTF-8')->body
             ?? throw new \RuntimeException('Rendered diff parsed to a document with no body.');
 
-        $rows = [];
+        /** @var list<array{0: ?\Dom\Element, 1: ?\Dom\Element}> $pairs */
+        $pairs = [];
+        /** @var array<string, string> $renamed */
+        $renamed = [];
+
         foreach ($body->childNodes as $node) {
             if (!$node instanceof \Dom\Element) {
                 continue;
             }
 
-            $old = $this->side($node, MarkdownRenderer::DIFF_MARK_CLASS.'--inserted', true);
-            $new = $this->side($node, MarkdownRenderer::DIFF_MARK_CLASS.'--deleted', false);
+            $old = $this->side($node, MarkdownRenderer::DIFF_MARK_CLASS.'--inserted');
+            $new = $this->side($node, MarkdownRenderer::DIFF_MARK_CLASS.'--deleted');
             if (null === $old && null === $new) {
                 continue;
             }
 
-            $rows[] = new SideBySideRow($old, $new);
+            if (null !== $old) {
+                $this->rename($old, $renamed);
+            }
+
+            $pairs[] = [$old, $new];
+        }
+
+        // A second pass, because a document's own `[jump](#heading-intro)` sits
+        // in another block than the heading it names, and a label may precede
+        // the control it names. Both need every rename before they are rewritten.
+        $rows = [];
+        foreach ($pairs as [$old, $new]) {
+            if (null !== $old && [] !== $renamed) {
+                $this->rewriteReferences($old, $renamed);
+            }
+
+            $rows[] = new SideBySideRow($old?->outerHTML, $new?->outerHTML);
         }
 
         return new SideBySideDiff($rows);
     }
 
-    /**
-     * @param string $dropped class of the marks the other side owns
-     * @param bool   $isOld   whether this side yields a shared id to the other
-     */
-    private function side(\Dom\Element $block, string $dropped, bool $isOld): ?string
+    /** @param string $dropped class of the marks the other side owns */
+    private function side(\Dom\Element $block, string $dropped): ?\Dom\Element
     {
         if ($block->classList->contains($dropped)) {
             return null;
@@ -87,24 +104,29 @@ final readonly class SideBySideDiffBuilder
             $mark->parentNode?->removeChild($mark);
         }
 
-        if ($isOld) {
-            $this->renameIds($clone);
-        }
-
-        return $this->isBlank($clone) ? null : $clone->outerHTML;
+        return $this->isBlank($clone) ? null : $clone;
     }
 
     /**
-     * Renames first and rewrites after, because a label may precede the control
-     * it names, and a rewrite has to know every rename before it starts.
+     * Collects before it removes, because removing during the walk mutates the
+     * live child list it reads.
+     *
+     * @param list<\Dom\Element> $marks
      */
-    private function renameIds(\Dom\Element $element): void
+    private function collectMarks(\Dom\Node $parent, string $dropped, array &$marks): void
     {
-        $renamed = [];
-        $this->rename($element, $renamed);
+        foreach ($parent->childNodes as $node) {
+            if (!$node instanceof \Dom\Element) {
+                continue;
+            }
 
-        if ([] !== $renamed) {
-            $this->rewriteReferences($element, $renamed);
+            if ($node->classList->contains($dropped)) {
+                $marks[] = $node;
+
+                continue;
+            }
+
+            $this->collectMarks($node, $dropped, $marks);
         }
     }
 
@@ -143,33 +165,15 @@ final readonly class SideBySideDiffBuilder
             )));
         }
 
+        $href = $element->getAttribute('href');
+        if (null !== $href && str_starts_with($href, '#') && isset($renamed[substr($href, 1)])) {
+            $element->setAttribute('href', '#'.$renamed[substr($href, 1)]);
+        }
+
         foreach ($element->childNodes as $node) {
             if ($node instanceof \Dom\Element) {
                 $this->rewriteReferences($node, $renamed);
             }
-        }
-    }
-
-    /**
-     * Collects before it removes, because removing during the walk mutates the
-     * live child list it reads.
-     *
-     * @param list<\Dom\Element> $marks
-     */
-    private function collectMarks(\Dom\Node $parent, string $dropped, array &$marks): void
-    {
-        foreach ($parent->childNodes as $node) {
-            if (!$node instanceof \Dom\Element) {
-                continue;
-            }
-
-            if ($node->classList->contains($dropped)) {
-                $marks[] = $node;
-
-                continue;
-            }
-
-            $this->collectMarks($node, $dropped, $marks);
         }
     }
 

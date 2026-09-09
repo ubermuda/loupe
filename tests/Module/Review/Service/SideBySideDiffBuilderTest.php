@@ -161,6 +161,22 @@ final class SideBySideDiffBuilderTest extends TestCase
     }
 
     /**
+     * The renderer mints heading ids and keeps a relative href, so a document's
+     * own jump link is live. It has to reach its own column, and the heading it
+     * names is a block of its own.
+     */
+    public function test_a_fragment_link_reaches_the_heading_in_its_own_column(): void
+    {
+        $rows = $this->pair(
+            '<p><a href="#heading-risk">Jump</a></p><h2 id="heading-risk">Risk</h2>',
+        );
+
+        self::assertStringContainsString('href="#diff-old-heading-risk"', (string) $rows[0]->oldHtml);
+        self::assertStringContainsString('href="#heading-risk"', (string) $rows[0]->newHtml);
+        self::assertStringContainsString('id="diff-old-heading-risk"', (string) $rows[1]->oldHtml);
+    }
+
+    /**
      * @param list<SideBySideRow> $rows
      *
      * @return list<string>
