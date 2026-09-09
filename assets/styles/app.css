@@ -1239,6 +1239,16 @@
         @apply font-display font-extrabold text-ink m-0 text-4xl tracking-tight leading-tight;
     }
 
+    /* The side-by-side comparison, which renders no comment rail and takes the
+       gutter and the comment column back for its second reading measure. Both
+       modifiers come after their base class, or the base would win. */
+    .lp-review-block--wide {
+        @apply max-w-280;
+    }
+    .lp-review-doc--wide {
+        @apply max-w-280;
+    }
+
     /* The comment column, from lg up. Absolutely positioned, and every card
        inside it is too: a paragraph carrying five comments has to be exactly as
        tall as one carrying none, which it cannot be if the cards are in flow.
@@ -1649,6 +1659,42 @@
     }
     .lp-diff-doc > .lp-diff__mark:has(+ .lp-diff__mark) {
         @apply mb-0 rounded-b-none;
+    }
+
+    /* ── Version diff, side-by-side view ────────────────────────────────
+       One grid for every cell, so the two cells of a pair share a row and the
+       taller one sets its height. That is the whole alignment mechanism, and
+       the columns scroll together because neither scrolls on its own. Below lg
+       a pair stacks into one column. */
+    .lp-diff-columns {
+        @apply grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-5;
+    }
+    .lp-diff-columns__cell {
+        @apply min-w-0;
+    }
+    /* A block one version does not hold. The dashed box keeps the pair level and
+       shows the side is empty; .lp-diff-columns__note says the same in words. */
+    .lp-diff-columns__cell--void {
+        @apply min-h-12 p-3 rounded-lg border border-dashed border-line bg-surface-2;
+    }
+    .lp-diff-columns__note {
+        @apply sr-only;
+    }
+    /* One heading per column above the first pair, and the same name on each
+       cell for the stacked layout, where those headings no longer sit over it. */
+    .lp-diff-columns__title {
+        @apply hidden m-0 font-mono text-fg-dim text-xs uppercase tracking-widest lg:block;
+    }
+    .lp-diff-columns__label {
+        @apply m-0 mb-1.5 font-mono text-fg-dim text-xs uppercase tracking-widest lg:hidden;
+    }
+    /* Prose margins would otherwise start the two cells of a pair at different
+       heights, which is the alignment the grid row exists to hold. */
+    .lp-diff-columns__cell > .lp-diff-doc > :first-child {
+        @apply mt-0;
+    }
+    .lp-diff-columns__cell > .lp-diff-doc > :last-child {
+        @apply mb-0;
     }
     /* ── Version diff, source view ──────────────────────────────────────
        The same pair as Markdown. It shows what the rendered view cannot mark:

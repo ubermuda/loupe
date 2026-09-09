@@ -95,6 +95,7 @@ final class DiffDocumentVersionsController extends AppController
             'diffView' => $view->view,
             'diff' => $view->diff,
             'renderedDiff' => $view->renderedDiff,
+            'diffSideBySide' => $view->sideBySide,
             'diffChangeCount' => $view->changeCount,
             'diffRefusal' => $view->diffRefusal,
             'diffFromVersion' => $fromVersionNumber,

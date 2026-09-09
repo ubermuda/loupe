@@ -3626,6 +3626,22 @@
                 <source>review.document.diff.view.source</source>
                 <target>Markdown</target>
             </trans-unit>
+            <trans-unit id="review.document.diff.view.side_by_side">
+                <source>review.document.diff.view.side_by_side</source>
+                <target>Side by side</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.side_by_side.column">
+                <source>review.document.diff.side_by_side.column</source>
+                <target>Version %version%</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.side_by_side.empty">
+                <source>review.document.diff.side_by_side.empty</source>
+                <target>This version has nothing here.</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.side_by_side.comments_hidden">
+                <source>review.document.diff.side_by_side.comments_hidden</source>
+                <target>Comments are hidden here, because the two columns take the width the comment column needs. Open the Document view to read and write them.</target>
+            </trans-unit>
             <trans-unit id="review.document.diff.mark.inserted">
                 <source>review.document.diff.mark.inserted</source>
                 <target>Added</target>

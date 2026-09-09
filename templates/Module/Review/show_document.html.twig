@@ -89,8 +89,11 @@
        two versions do differ, and the rendered view marked none of it, so the
        count says "No changes" about a revision that changed something. A null
        count is a refusal or two identical versions, and both say so already. #}
-    {% set diffUnmarked = diffNavigation and diffView.value == 'rendered' and diffChangeCount == 0 %}
-    <div class="lp-review-block"
+    {% set diffUnmarked = diffNavigation and diffView.value != 'source' and diffChangeCount == 0 %}
+    {# Two columns take the width the comment rail holds, and this view renders
+       no rail. #}
+    {% set diffColumns = diffMode and diffView is not null and diffView.value == 'side-by-side' %}
+    <div class="lp-review-block{{ diffColumns ? ' lp-review-block--wide' : '' }}"
         {%- if reviewControllers|length > 0 %} data-controller="{{ reviewControllers|join(' ') }}"{% endif %}
         {%- if diffNavigation %} data-diff-navigation-position-value="{{ 'review.document.diff.nav.position'|trans({'%total%': diffChangeCount}) }}"{% endif %}
         {%- if diffCommenting %} data-comment-anchor-diff-value="true"
@@ -102,7 +105,7 @@
            is the TreeWalker root and must hold ONLY the rendered HTML, so its
            text === plainText(). The controller's own slots are the exception. #}
         {% set docActions = (canComment ? ['mouseup->comment-anchor#onDocMouseup', 'pointerup->comment-anchor#onDocPointerup', 'mousemove->comment-anchor#onDocMousemove', 'click->comment-anchor#onDocClick'] : [])|merge(readOnly ? [] : ['change->decision#select']) %}
-        <div class="lp-review-doc" data-comment-anchor-target="block" data-controller="decision"{% if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}>
+        <div class="lp-review-doc{{ diffColumns ? ' lp-review-doc--wide' : '' }}" data-comment-anchor-target="block" data-controller="decision"{% if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}>
 
             <div class="lp-review-doc__head">
                 <h1 class="lp-review-doc__title">{{ document.title }}</h1>
@@ -256,7 +259,14 @@
                         <a class="lp-diff-views__link"
                            href="{{ path('app_document_review_diff', viewParams|merge({view: 'rendered'})) }}"
                            {% if diffView.value == 'rendered' %}aria-current="page"{% endif %}
+                           {% if diffColumns %}aria-describedby="diff-columns-notice"{% endif %}
                         >{{ 'review.document.diff.view.rendered'|trans }}</a>
+                        {# The same rendered blocks in two columns. The notice
+                           below says what it gives up, and this link opens it. #}
+                        <a class="lp-diff-views__link"
+                           href="{{ path('app_document_review_diff', viewParams|merge({view: 'side-by-side'})) }}"
+                           {% if diffColumns %}aria-current="page"{% endif %}
+                        >{{ 'review.document.diff.view.side_by_side'|trans }}</a>
                         {# describedby rather than a second link: the notice below says
                            why this view is worth opening, and this is the control that
                            opens it. #}
@@ -280,6 +290,13 @@
                         </button>
                     </div>
                 </div>
+                {% endif %}
+
+                {% if diffColumns %}
+                <p id="diff-columns-notice" class="lp-diff-notice">
+                    <twig:ux:icon name="lucide:info" class="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{{ 'review.document.diff.side_by_side.comments_hidden'|trans }}</span>
+                </p>
                 {% endif %}
 
                 {% if diffUnmarked %}
