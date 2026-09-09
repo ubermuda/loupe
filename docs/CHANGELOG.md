@@ -38,6 +38,8 @@ entry.
 
 ## [Unreleased]
 
+- (#410) — **Changed:** the Contents tab in the document review page shows its
+  count as `2/6`, the shape the Decisions tab beside it already used.
 - (#409) — **Changed:** a changelog entry now rides the pull request it
   describes, anchored to the pull request number, so a change and its entry
   land together instead of needing a second pull request.
