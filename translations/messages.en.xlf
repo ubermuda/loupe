@@ -1495,6 +1495,10 @@
                 <source>review.document.comment.reply</source>
                 <target>Reply</target>
             </trans-unit>
+            <trans-unit id="review.document.comment.reply_count">
+                <source>review.document.comment.reply_count</source>
+                <target>{0}No replies|{1}1 reply|]1,Inf[ %count% replies</target>
+            </trans-unit>
             <trans-unit id="review.document.comment.resolve">
                 <source>review.document.comment.resolve</source>
                 <target>Resolve</target>

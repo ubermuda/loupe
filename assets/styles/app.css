@@ -2011,6 +2011,67 @@
     .lp-comment-thread__header {
         @apply flex items-baseline gap-2;
     }
+    .lp-comment-thread__detail {
+        @apply flex flex-col gap-3;
+    }
+
+    /* ── Comment rail ──────────────────────────────────────────────────
+       One 32px marker per thread, one thread expanded at a time. Only the
+       review margin opts in: the landing hero mock and the try-it demo share
+       .lp-comment-thread and keep the full card. */
+    .lp-comment-marker {
+        @apply hidden w-full items-center gap-2 h-8 p-0 bg-transparent border-0 text-left cursor-pointer;
+    }
+    .lp-comment-rail .lp-comment-marker {
+        @apply flex;
+    }
+    .lp-comment-marker:focus-visible {
+        @apply rounded-lg outline-2 -outline-offset-2 outline-accent;
+    }
+    .lp-comment-marker__dot {
+        @apply inline-block shrink-0 rounded-full w-2 h-2 bg-accent;
+    }
+    .lp-comment-marker__dot--ok {
+        @apply bg-status-ok;
+    }
+    .lp-comment-marker__dot--strike {
+        @apply bg-strike;
+    }
+    .lp-comment-marker__author {
+        @apply min-w-0 truncate text-ink font-bold text-sm;
+    }
+    .lp-comment-marker__count {
+        @apply ml-auto shrink-0 text-fg-mute font-bold text-xs;
+    }
+    /* Expanded, the replies are on screen, so the tally has nothing to say. */
+    .lp-comment-thread--expanded .lp-comment-marker__count {
+        @apply hidden;
+    }
+    /* A collapsed thread keeps its box and its layout — hiding it any other way
+       would make offsetParent null, which is how a resolved card stops
+       advancing the floor in #positionThreads. */
+    .lp-comment-rail .lp-comment-thread:not(.lp-comment-thread--expanded) {
+        @apply py-0 gap-0;
+    }
+    .lp-comment-rail
+        .lp-comment-thread:not(.lp-comment-thread--expanded)
+        .lp-comment-thread__detail {
+        @apply hidden;
+    }
+    /* The marker names the author, so the header below it keeps the age and the
+       status alone. */
+    .lp-comment-rail .lp-comment-thread__header > .lp-comment-author {
+        @apply hidden;
+    }
+    /* The passage is highlighted in the prose level with the card, so quoting it
+       here repeats what the reader can already see. An orphaned thread keeps its
+       quote, because that passage is gone from this version; a suggestion keeps
+       the replacement, which is proposed wording rather than the passage. */
+    .lp-comment-rail
+        .lp-comment-thread:not(.lp-comment-thread--orphaned)
+        .lp-comment-quote:not(.lp-comment-quote--inserted) {
+        @apply hidden;
+    }
     /* Status as a plain label rather than a chip: on a card this small, six
        pills stacked down the margin read as the loudest thing on the page. */
     .lp-comment-status {

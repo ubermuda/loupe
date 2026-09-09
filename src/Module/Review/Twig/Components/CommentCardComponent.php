@@ -85,4 +85,17 @@ final class CommentCardComponent
     {
         return '' === $this->quote;
     }
+
+    /**
+     * The rail marker's dot colour. Kind outranks status, because a struck
+     * passage is not an open question at any status.
+     */
+    public function markerTone(): string
+    {
+        if ('strike' === $this->kind) {
+            return 'strike';
+        }
+
+        return in_array($this->status, ['addressed', 'resolved'], true) ? 'ok' : 'open';
+    }
 }
