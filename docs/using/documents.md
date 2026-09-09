@@ -42,10 +42,19 @@ contents, the versions, the references, the decisions, the resolved-thread
 toggle and the two verdict buttons. Each list opens inside the same panel, and
 the button becomes the way back out of it.
 
-A wide window puts the comment cards in a column beside the document, each one
-level with the passage it points at. A narrow window has no room for that
-column, so each card moves into the document instead, directly after the
-paragraph it points at.
+A wide window puts the comment threads in a rail beside the document, each one
+level with the passage it points at. A thread is one row there: a coloured dot
+for its state, its author, and how many replies it carries. Click the row and the
+thread opens in place, with its body, its replies, the reply box and the
+buttons. Only one thread is open at a time, so opening a second closes the first,
+and a click on an open row closes it. Press Escape to close it from the keyboard.
+
+An open thread does not repeat the passage it points at, because that passage is
+highlighted in the document level with the row. A thread whose passage is gone
+from this version still quotes it, because there is nothing left to highlight.
+
+A narrow window has no room for the rail, so each thread moves into the document
+instead, directly after the paragraph it points at, and shows in full.
 
 Touch works the same way as a mouse. Select a passage and the comment toolbar
 appears. A highlighted passage has no hover, so a tap on one takes its place: the
