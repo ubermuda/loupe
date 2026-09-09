@@ -182,7 +182,7 @@
                             {{ 'review.document.contents.label'|trans }}
                             {# Approved-of-total rather than a bare heading count:
                                it carries the same total and the state as well. #}
-                            <span class="lp-doc-meta__count" id="section-summary-count">{{ 'review.document.sections.count'|trans({
+                            <span class="lp-doc-meta__count" id="section-summary-count">{{ 'review.document.sections.count_compact'|trans({
                                 '%approved%': approvedSections,
                                 '%total%': sectionRows|length,
                             }) }}</span>

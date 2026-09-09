@@ -905,7 +905,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         // reports approval state, which is worth seeing for a single section.
         self::assertCount(1, $crawler->filter('.lp-review-contents'));
         self::assertCount(1, $crawler->filter('.lp-review-contents__link'));
-        self::assertStringContainsString('0 of 1 approved', $crawler->filter('#section-summary-count')->text());
+        self::assertStringContainsString('0/1', $crawler->filter('#section-summary-count')->text());
     }
 
     public function test_both_ends_of_a_reference_render_it_and_an_archived_target_is_marked(): void
