@@ -131,11 +131,33 @@ final class SideBySideDiffBuilderTest extends TestCase
      */
     public function test_an_unchanged_block_keeps_its_id_on_the_newer_side_alone(): void
     {
-        $rows = $this->pair('<h2 id="risk">Risk</h2><p>Unchanged <span id="inner">run</span>.</p>');
+        $rows = $this->pair('<h2 id="heading-risk">Risk</h2><p>Unchanged <span id="inner">run</span>.</p>');
 
-        self::assertSame(['risk', 'inner'], $this->ids($rows));
-        self::assertStringNotContainsString('id=', (string) $rows[0]->oldHtml);
-        self::assertStringContainsString('id="risk"', (string) $rows[0]->newHtml);
+        self::assertSame(
+            ['diff-old-heading-risk', 'heading-risk', 'diff-old-inner', 'inner'],
+            $this->ids($rows),
+        );
+    }
+
+    /**
+     * A decision block renders inside a diff, and its labels name their controls
+     * by id. Renaming one without the other would send a label to the control in
+     * the other column, or to none at all.
+     */
+    public function test_a_reference_to_a_renamed_id_follows_it(): void
+    {
+        $rows = $this->pair(
+            '<fieldset class="lp-decision" aria-describedby="hint">'
+            .'<label for="option-a">Ship it</label>'
+            .'<input type="radio" id="option-a" disabled>'
+            .'<p id="hint">Pick one.</p></fieldset>',
+        );
+
+        self::assertStringContainsString('for="diff-old-option-a"', (string) $rows[0]->oldHtml);
+        self::assertStringContainsString('id="diff-old-option-a"', (string) $rows[0]->oldHtml);
+        self::assertStringContainsString('aria-describedby="diff-old-hint"', (string) $rows[0]->oldHtml);
+        self::assertStringContainsString('for="option-a"', (string) $rows[0]->newHtml);
+        self::assertStringContainsString('aria-describedby="hint"', (string) $rows[0]->newHtml);
     }
 
     /**

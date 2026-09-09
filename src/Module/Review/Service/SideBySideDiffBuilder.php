@@ -19,15 +19,29 @@ use App\Module\Review\ValueObject\SideBySideRow;
  * A side that filters to nothing is null rather than empty markup, so the page
  * can draw a slot the reader sees.
  *
- * An unchanged block reaches both cells, so the older side gives up every id the
- * renderer wrote. A heading id would otherwise be in the page twice, and a
- * fragment would land in the wrong column. A jump target keeps its id, since a
- * mark is either deleted or inserted and reaches one cell only.
+ * An unchanged block reaches both cells, so the older side renames every id the
+ * renderer wrote, and the references to it inside that block. A heading id would
+ * otherwise be in the page twice, and a fragment would land in the wrong column.
+ * A jump target keeps its id, since a mark is either deleted or inserted and
+ * reaches one cell only.
  */
 final readonly class SideBySideDiffBuilder
 {
     /** What RenderedDiffBuilder marks the first mark of a run of changes with. */
     private const string NAVIGATION_ATTRIBUTE = 'data-diff-navigation-target';
+
+    /**
+     * The renderer namespaces a heading id with `heading-` and a decision id
+     * with `lp-decision-`, so nothing it mints starts with this.
+     */
+    private const string OLD_SIDE_PREFIX = 'diff-old-';
+
+    /** Attributes that name an id, so a renamed control keeps its label. */
+    private const array ID_REFERENCE_ATTRIBUTES = [
+        'for', 'form', 'list', 'headers', 'aria-activedescendant', 'aria-controls',
+        'aria-describedby', 'aria-details', 'aria-errormessage', 'aria-flowto',
+        'aria-labelledby', 'aria-owns',
+    ];
 
     public function build(string $html): SideBySideDiff
     {
@@ -53,10 +67,10 @@ final readonly class SideBySideDiffBuilder
     }
 
     /**
-     * @param string $dropped  class of the marks the other side owns
-     * @param bool   $giveUpId whether this side yields a shared id to the other
+     * @param string $dropped class of the marks the other side owns
+     * @param bool   $isOld   whether this side yields a shared id to the other
      */
-    private function side(\Dom\Element $block, string $dropped, bool $giveUpId): ?string
+    private function side(\Dom\Element $block, string $dropped, bool $isOld): ?string
     {
         if ($block->classList->contains($dropped)) {
             return null;
@@ -73,23 +87,65 @@ final readonly class SideBySideDiffBuilder
             $mark->parentNode?->removeChild($mark);
         }
 
-        if ($giveUpId) {
-            $this->dropIds($clone);
+        if ($isOld) {
+            $this->renameIds($clone);
         }
 
         return $this->isBlank($clone) ? null : $clone->outerHTML;
     }
 
-    /** A jump target keeps its id, because no other cell can hold that mark. */
-    private function dropIds(\Dom\Element $element): void
+    /**
+     * Renames first and rewrites after, because a label may precede the control
+     * it names, and a rewrite has to know every rename before it starts.
+     */
+    private function renameIds(\Dom\Element $element): void
     {
-        if (!$element->hasAttribute(self::NAVIGATION_ATTRIBUTE)) {
-            $element->removeAttribute('id');
+        $renamed = [];
+        $this->rename($element, $renamed);
+
+        if ([] !== $renamed) {
+            $this->rewriteReferences($element, $renamed);
+        }
+    }
+
+    /**
+     * A jump target keeps its id, because no other cell can hold that mark.
+     *
+     * @param array<string, string> $renamed
+     */
+    private function rename(\Dom\Element $element, array &$renamed): void
+    {
+        $id = $element->getAttribute('id');
+        if (null !== $id && '' !== $id && !$element->hasAttribute(self::NAVIGATION_ATTRIBUTE)) {
+            $renamed[$id] = self::OLD_SIDE_PREFIX.$id;
+            $element->setAttribute('id', $renamed[$id]);
         }
 
         foreach ($element->childNodes as $node) {
             if ($node instanceof \Dom\Element) {
-                $this->dropIds($node);
+                $this->rename($node, $renamed);
+            }
+        }
+    }
+
+    /** @param array<string, string> $renamed */
+    private function rewriteReferences(\Dom\Element $element, array $renamed): void
+    {
+        foreach (self::ID_REFERENCE_ATTRIBUTES as $attribute) {
+            $value = $element->getAttribute($attribute);
+            if (null === $value || '' === trim($value)) {
+                continue;
+            }
+
+            $element->setAttribute($attribute, implode(' ', array_map(
+                static fn (string $token): string => $renamed[$token] ?? $token,
+                preg_split('/\s+/', trim($value)) ?: [],
+            )));
+        }
+
+        foreach ($element->childNodes as $node) {
+            if ($node instanceof \Dom\Element) {
+                $this->rewriteReferences($node, $renamed);
             }
         }
     }
