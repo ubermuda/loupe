@@ -38,6 +38,9 @@ entry.
 
 ## [Unreleased]
 
+- (#414) — **Changed:** comparing two versions now names the pair with a chip in
+  the metadata bar and holds the view switch, the change count and the jump
+  controls on one row, so the document starts 214 pixels higher.
 - (#413) — **Changed:** the comment margin beside a document is now a rail of
   one-line markers, and one thread at a time opens in place beside its passage.
 - (#412) — **Added:** a document has a version history page listing every
