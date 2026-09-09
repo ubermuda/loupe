@@ -2016,11 +2016,10 @@
     }
 
     /* ── Comment rail ──────────────────────────────────────────────────
-       One 32px marker per thread, one thread expanded at a time. Two gates:
-       .lp-comment-rail, which the landing hero mock and the try-it demo do not
-       carry, and lg, below which a thread is a whole card wherever it sits —
-       including the ones #inlineThreads cannot place and leaves in the
-       margin. */
+       One 32px marker per thread, one open at a time. Two gates: the
+       .lp-comment-rail class, which the landing mock and the demo do not carry,
+       and lg, below which a thread is a whole card wherever it sits — including
+       one #inlineThreads cannot place and leaves in the margin. */
     .lp-comment-marker {
         @apply hidden w-full items-center gap-2 h-8 p-0 bg-transparent border-0 text-left cursor-pointer;
     }
