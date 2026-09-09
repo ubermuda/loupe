@@ -35,6 +35,9 @@ entry.
 
 ## [Unreleased]
 
+- (#411) — **Changed:** open work now lives on the Loupe project board
+  instead of `docs/NEXT_STEPS.md`, which is deleted along with the
+  `project-next-steps` skill.
 - (#409) — **Changed:** a changelog entry now rides the pull request it
   describes, anchored to the pull request number, so a change and its entry
   land together instead of needing a second pull request.
