@@ -1501,6 +1501,14 @@
     .lp-version-entry {
         @apply flex flex-col items-start gap-1;
     }
+    /* Pill, date and compare link on one line. The compare link used to sit
+       under the note, where it reads as the heading of the entry below it. */
+    .lp-version-entry__row {
+        @apply flex flex-wrap items-center gap-2.5;
+    }
+    .lp-version-entry__date {
+        @apply text-fg-dim text-xs;
+    }
     .lp-version-entry__description {
         @apply text-fg-dim m-0 text-xs;
     }
@@ -1510,6 +1518,53 @@
     }
     .lp-version-entry__diff[aria-current] {
         @apply text-accent;
+    }
+    /* Way out of the panel and into the full history. */
+    .lp-version-switcher__all {
+        @apply inline-flex items-center gap-1.5 text-fg-mute no-underline transition-colors text-xs hover:text-accent;
+    }
+
+    /* ── Version history page ───────────────────────────────────────────
+       Every version on a page of its own, newest first. A vertical rule with
+       one marker per row carries the order; the marker is filled for the
+       current version. */
+    .lp-history {
+        @apply list-none flex flex-col m-0 mt-8 p-0;
+    }
+    .lp-history__row {
+        @apply relative flex flex-col gap-1.5 border-l border-line pl-6 pb-6;
+    }
+    .lp-history__row:last-child {
+        @apply border-transparent pb-0;
+    }
+    .lp-history__row::before {
+        content: '';
+        @apply absolute left-0 top-2 w-2.5 h-2.5 -translate-x-1/2 rounded-full border border-line bg-surface-3;
+    }
+    .lp-history__row--current::before {
+        @apply border-accent bg-accent;
+    }
+    .lp-history__head {
+        @apply flex flex-wrap items-center gap-3;
+    }
+    .lp-history a.lp-version-pill {
+        @apply no-underline;
+    }
+    .lp-history__date {
+        @apply text-fg-dim text-xs;
+    }
+    /* Pushed to the right end of its own row rather than under the note. */
+    .lp-history__compare {
+        @apply ml-auto font-mono text-fg-dim no-underline transition-colors text-xs hover:text-accent;
+    }
+    .lp-history__note {
+        @apply text-fg-mute m-0 max-w-prose text-sm;
+    }
+    .lp-history-back {
+        @apply inline-flex items-center gap-1.5 text-fg-mute no-underline transition-colors text-sm hover:text-accent;
+    }
+    .lp-history-compare {
+        @apply flex flex-col gap-2 mt-8;
     }
 
     /* ── Version diff ───────────────────────────────────────────────────

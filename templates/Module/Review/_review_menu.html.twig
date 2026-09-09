@@ -129,6 +129,12 @@
             </a>
             {% endif %}
             {% endfor %}
+            {# The drawer keeps the whole list, because it overlays the document
+               rather than pushing it down. The row is here so the history page
+               is reachable below lg, where the desktop panel is display:none. #}
+            <a class="lp-review-menu__section" href="{{ path('app_document_review_history', {projectId: document.project.id, documentId: document.id}) }}">
+                <span class="lp-review-menu__label">{{ 'review.document.version.see_all'|trans({'%count%': versions|length}) }}</span>
+            </a>
         </div>
         {% endif %}
 

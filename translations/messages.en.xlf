@@ -1349,6 +1349,36 @@
                 <source>review.document.version.switcher_label</source>
                 <target>Document versions</target>
             </trans-unit>
+            <trans-unit id="review.document.version.see_all">
+                <source>review.document.version.see_all</source>
+                <target>{0}See the version history|{1}See the version history|]1,Inf[See all %count% versions</target>
+            </trans-unit>
+
+            <!-- Document version history -->
+            <trans-unit id="review.document.history.page.title">
+                <source>review.document.history.page.title</source>
+                <target>Version history</target>
+            </trans-unit>
+            <trans-unit id="review.document.history.count">
+                <source>review.document.history.count</source>
+                <target>{0}No versions|{1}1 version|]1,Inf[%count% versions</target>
+            </trans-unit>
+            <trans-unit id="review.document.history.back">
+                <source>review.document.history.back</source>
+                <target>Back to the document</target>
+            </trans-unit>
+            <trans-unit id="review.document.history.compare.submit">
+                <source>review.document.history.compare.submit</source>
+                <target>Compare these two</target>
+            </trans-unit>
+            <trans-unit id="review.document.history.compare.hint">
+                <source>review.document.history.compare.hint</source>
+                <target>You can compare any two versions, not only two that follow one another.</target>
+            </trans-unit>
+            <trans-unit id="review.document.history.compare_with">
+                <source>review.document.history.compare_with</source>
+                <target>Compare with v%from%</target>
+            </trans-unit>
 
             <!-- Document version diff -->
             <trans-unit id="review.document.diff.banner">

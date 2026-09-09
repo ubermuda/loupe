@@ -285,34 +285,46 @@
                 {% endif %}
 
                 {% if showVersions %}
+                {# The version on screen alone, plus the way to the rest. Every
+                   version with its note in full made this panel taller than the
+                   fold, so opening it pushed the document's first paragraph off
+                   the screen. #}
                 <nav class="lp-doc-meta__panel lp-version-switcher" data-metadata-tabs-target="panel" data-panel="versions" hidden
                      aria-label="{{ 'review.document.version.switcher_label'|trans }}">
-                    {% for meta in versions %}
-                    <div class="lp-version-entry">
-                        {# A diff is not one of the versions it compares, so in diff
-                           mode every pill stays a link — reading the newer version
-                           on its own is a click away, and the only element claiming
-                           to be the current page is the diff link below. #}
-                        {% if not diffMode and meta.versionNumber == version.versionNumber %}
-                            <span class="lp-version-pill" aria-current="page">{{ 'v' ~ meta.versionNumber }}</span>
-                        {% else %}
-                            <a class="lp-version-pill lp-version-pill--link"
-                               href="{{ loop.first
-                                   ? path('app_document_review', {projectId: document.project.id, documentId: document.id})
-                                   : path('app_document_review_version', {projectId: document.project.id, documentId: document.id, versionNumber: meta.versionNumber}) }}"
-                            >{{ 'v' ~ meta.versionNumber }}</a>
-                        {% endif %}
-                        {% if meta.description %}
-                        <p class="lp-version-entry__description">{{ meta.description }}</p>
-                        {% endif %}
-                        {% if meta.versionNumber > 1 %}
-                        <a class="lp-version-entry__diff"
-                           href="{{ path('app_document_review_diff', {projectId: document.project.id, documentId: document.id, fromVersionNumber: meta.versionNumber - 1, toVersionNumber: meta.versionNumber}) }}"
-                           {% if diffMode and diffFromVersion == meta.versionNumber - 1 and version.versionNumber == meta.versionNumber %}aria-current="page"{% endif %}
-                        >{{ 'review.document.diff.link'|trans({'%from%': meta.versionNumber - 1}) }}</a>
+                    <div class="lp-version-entry" data-version-number="{{ version.versionNumber }}">
+                        <div class="lp-version-entry__row">
+                            {# A diff is not one of the versions it compares, so in
+                               diff mode the pill stays a link — reading the newer
+                               version on its own is a click away, and the only
+                               element claiming to be the current page is the diff
+                               link beside it. #}
+                            {% if not diffMode %}
+                                <span class="lp-version-pill" aria-current="page">{{ 'v' ~ version.versionNumber }}</span>
+                            {% else %}
+                                <a class="lp-version-pill lp-version-pill--link"
+                                   href="{{ version.versionNumber == versions|first.versionNumber
+                                       ? path('app_document_review', {projectId: document.project.id, documentId: document.id})
+                                       : path('app_document_review_version', {projectId: document.project.id, documentId: document.id, versionNumber: version.versionNumber}) }}"
+                                >{{ 'v' ~ version.versionNumber }}</a>
+                            {% endif %}
+                            <span class="lp-version-entry__date">{{ version.createdAt|relative_time }}</span>
+                            {% if version.versionNumber > 1 %}
+                            {# Above the note rather than below it: below, a reader
+                               takes it as the heading of the entry that follows. #}
+                            <a class="lp-version-entry__diff"
+                               href="{{ path('app_document_review_diff', {projectId: document.project.id, documentId: document.id, fromVersionNumber: version.versionNumber - 1, toVersionNumber: version.versionNumber}) }}"
+                               {% if diffMode and diffFromVersion == version.versionNumber - 1 %}aria-current="page"{% endif %}
+                            >{{ 'review.document.diff.link'|trans({'%from%': version.versionNumber - 1}) }}</a>
+                            {% endif %}
+                        </div>
+                        {% if version.description %}
+                        <p class="lp-version-entry__description">{{ version.description }}</p>
                         {% endif %}
                     </div>
-                    {% endfor %}
+                    <a class="lp-version-switcher__all" href="{{ path('app_document_review_history', {projectId: document.project.id, documentId: document.id}) }}">
+                        <twig:ux:icon name="lucide:history" class="w-3.5 h-3.5 shrink-0" />
+                        <span>{{ 'review.document.version.see_all'|trans({'%count%': versions|length}) }}</span>
+                    </a>
                 </nav>
                 {% endif %}
 
