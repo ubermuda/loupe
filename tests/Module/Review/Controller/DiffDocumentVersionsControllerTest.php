@@ -258,6 +258,13 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         );
         self::assertCount(3, $crawler->filter('.lp-diff-views__link'));
 
+        // Side by side pairs the same rendered pane, so it marks nothing either
+        // and misleads in the same way.
+        $client->request(Request::METHOD_GET, $paths['unmarked'].'?view=side-by-side');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.lp-diff-nav__count', 'No changes');
+        self::assertSelectorExists('#diff-unmarked-notice');
+
         // The same pair as Markdown omits nothing, so it needs no caveat.
         $client->request(Request::METHOD_GET, $paths['unmarked'].'?view=source');
         self::assertResponseIsSuccessful();

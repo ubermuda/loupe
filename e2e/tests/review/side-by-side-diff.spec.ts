@@ -236,7 +236,7 @@ test('the two columns pair the blocks and drop the comment rail', async ({
         page.getByRole('button', { name: 'Add general comment' }),
     ).toHaveCount(0);
     await expect(page.locator('#diff-columns-notice')).toContainText(
-        'Comments are hidden here',
+        'Comments are hidden in this view',
     );
 
     // The block widens for the second reading measure, and the chrome above it

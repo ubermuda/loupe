@@ -3640,7 +3640,7 @@
             </trans-unit>
             <trans-unit id="review.document.diff.side_by_side.comments_hidden">
                 <source>review.document.diff.side_by_side.comments_hidden</source>
-                <target>Comments are hidden here, because the two columns take the width the comment column needs. Open the Document view to read and write them.</target>
+                <target>Comments are hidden in this view. Open the Document view to read and write them.</target>
             </trans-unit>
             <trans-unit id="review.document.diff.mark.inserted">
                 <source>review.document.diff.mark.inserted</source>
