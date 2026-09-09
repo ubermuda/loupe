@@ -255,6 +255,24 @@ test('the jump controls still walk the changes across the two columns', async ({
     );
     expect(ids).toEqual(['diff-hunk-1', 'diff-hunk-2', 'diff-hunk-3']);
 
+    // An unchanged heading reaches both cells, and only the newer one keeps the
+    // id, or a fragment would land in whichever column came first.
+    const duplicated = await page.evaluate(() => {
+        const seen = new Map<string, number>();
+        for (const element of document.querySelectorAll(
+            '.lp-diff-columns [id]',
+        )) {
+            seen.set(element.id, (seen.get(element.id) ?? 0) + 1);
+        }
+        return [...seen].filter(([, count]) => count > 1).map(([id]) => id);
+    });
+    expect(duplicated).toEqual([]);
+    // The unchanged heading is in both cells and carries its id in one, so the
+    // check above is about a real collision rather than an empty page.
+    await expect(
+        page.locator('.lp-diff-columns [id="heading-risk"]'),
+    ).toHaveCount(1);
+
     await page.getByRole('button', { name: 'Next change' }).click();
     await expect(counter).toHaveText('Change 1 of 3');
     await expect(page.locator('.lp-diff__hunk--current')).toHaveCount(1);

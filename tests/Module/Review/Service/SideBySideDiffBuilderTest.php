@@ -114,17 +114,44 @@ final class SideBySideDiffBuilderTest extends TestCase
     public function test_no_hunk_id_reaches_both_cells(): void
     {
         $rows = $this->pair(
-            \sprintf('<p>Takes <del class="%s" id="diff-hunk-1">one</del><ins class="%s">three</ins> steps.</p>', self::DELETED, self::INSERTED)
-            .\sprintf('<del class="%s" id="diff-hunk-2"><p>Cut.</p></del>', self::DELETED),
+            \sprintf(
+                '<p>Takes <del class="%s" id="diff-hunk-1" data-diff-navigation-target="hunk">one</del><ins class="%s">three</ins> steps.</p>',
+                self::DELETED,
+                self::INSERTED,
+            )
+            .\sprintf('<del class="%s" id="diff-hunk-2" data-diff-navigation-target="hunk"><p>Cut.</p></del>', self::DELETED),
         );
 
+        self::assertSame(['diff-hunk-1', 'diff-hunk-2'], $this->ids($rows));
+    }
+
+    /**
+     * An unchanged heading reaches both cells, and its id may only be in the
+     * page once, or a fragment lands in whichever column comes first.
+     */
+    public function test_an_unchanged_block_keeps_its_id_on_the_newer_side_alone(): void
+    {
+        $rows = $this->pair('<h2 id="risk">Risk</h2><p>Unchanged <span id="inner">run</span>.</p>');
+
+        self::assertSame(['risk', 'inner'], $this->ids($rows));
+        self::assertStringNotContainsString('id=', (string) $rows[0]->oldHtml);
+        self::assertStringContainsString('id="risk"', (string) $rows[0]->newHtml);
+    }
+
+    /**
+     * @param list<SideBySideRow> $rows
+     *
+     * @return list<string>
+     */
+    private function ids(array $rows): array
+    {
         $ids = [];
         foreach ($rows as $row) {
             preg_match_all('/id="([^"]+)"/', ($row->oldHtml ?? '').($row->newHtml ?? ''), $matches);
             $ids = [...$ids, ...$matches[1]];
         }
 
-        self::assertSame(['diff-hunk-1', 'diff-hunk-2'], $ids);
+        return $ids;
     }
 
     /** @return list<SideBySideRow> */

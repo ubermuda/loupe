@@ -17,11 +17,18 @@ use App\Module\Review\ValueObject\SideBySideRow;
  * its own, so it filters to nothing on the right and needs no case here.
  *
  * A side that filters to nothing is null rather than empty markup, so the page
- * can draw a slot the reader sees. The mark elements keep their ids, and each
- * one belongs to a single side, so the jump targets stay unique across the pane.
+ * can draw a slot the reader sees.
+ *
+ * An unchanged block reaches both cells, so the older side gives up every id the
+ * renderer wrote. A heading id would otherwise be in the page twice, and a
+ * fragment would land in the wrong column. A jump target keeps its id, since a
+ * mark is either deleted or inserted and reaches one cell only.
  */
 final readonly class SideBySideDiffBuilder
 {
+    /** What RenderedDiffBuilder marks the first mark of a run of changes with. */
+    private const string NAVIGATION_ATTRIBUTE = 'data-diff-navigation-target';
+
     public function build(string $html): SideBySideDiff
     {
         $body = \Dom\HTMLDocument::createFromString($html, \LIBXML_NOERROR, 'UTF-8')->body
@@ -33,8 +40,8 @@ final readonly class SideBySideDiffBuilder
                 continue;
             }
 
-            $old = $this->side($node, MarkdownRenderer::DIFF_MARK_CLASS.'--inserted');
-            $new = $this->side($node, MarkdownRenderer::DIFF_MARK_CLASS.'--deleted');
+            $old = $this->side($node, MarkdownRenderer::DIFF_MARK_CLASS.'--inserted', true);
+            $new = $this->side($node, MarkdownRenderer::DIFF_MARK_CLASS.'--deleted', false);
             if (null === $old && null === $new) {
                 continue;
             }
@@ -45,8 +52,11 @@ final readonly class SideBySideDiffBuilder
         return new SideBySideDiff($rows);
     }
 
-    /** @param string $dropped class of the marks the other side owns */
-    private function side(\Dom\Element $block, string $dropped): ?string
+    /**
+     * @param string $dropped  class of the marks the other side owns
+     * @param bool   $giveUpId whether this side yields a shared id to the other
+     */
+    private function side(\Dom\Element $block, string $dropped, bool $giveUpId): ?string
     {
         if ($block->classList->contains($dropped)) {
             return null;
@@ -63,7 +73,25 @@ final readonly class SideBySideDiffBuilder
             $mark->parentNode?->removeChild($mark);
         }
 
+        if ($giveUpId) {
+            $this->dropIds($clone);
+        }
+
         return $this->isBlank($clone) ? null : $clone->outerHTML;
+    }
+
+    /** A jump target keeps its id, because no other cell can hold that mark. */
+    private function dropIds(\Dom\Element $element): void
+    {
+        if (!$element->hasAttribute(self::NAVIGATION_ATTRIBUTE)) {
+            $element->removeAttribute('id');
+        }
+
+        foreach ($element->childNodes as $node) {
+            if ($node instanceof \Dom\Element) {
+                $this->dropIds($node);
+            }
+        }
     }
 
     /**
