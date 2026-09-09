@@ -38,6 +38,9 @@ entry.
 
 ## [Unreleased]
 
+- (#415) — **Added:** a comparison of two versions now offers a Side by side
+  view, which puts the two versions in two columns with each block opposite
+  the block it became.
 - (#414) — **Changed:** comparing two versions now names the pair with a chip in
   the metadata bar and holds the view switch, the change count and the jump
   controls on one row, so the document starts 214 pixels higher.
