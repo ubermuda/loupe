@@ -1694,9 +1694,11 @@
 
     /* One row of the document metadata bar, which is what makes it sticky: two
        bars pinned to the same edge would overlap. The view switch leads and the
-       count and its jumps ride the right end as one group. */
+       count and its jumps ride the right end as one group. It wraps rather than
+       overflows: at a 375px reading column the group is about 12px too wide,
+       and the bar has overflow:visible, so it would escape its own box. */
     .lp-diff-bar {
-        @apply flex items-center gap-3 py-1.5 border-b border-line;
+        @apply flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5 border-b border-line;
     }
     /* The two views of one comparison, as links rather than a control: each is
        addressable, and switching is a plain navigation. */
@@ -1715,7 +1717,7 @@
         @apply flex items-center gap-1.5 ml-auto;
     }
     .lp-diff-nav__count {
-        @apply font-mono text-fg-dim text-xs uppercase tracking-widest;
+        @apply font-mono text-fg-dim text-xs uppercase tracking-widest whitespace-nowrap;
     }
     /* Says what this view cannot show, so it reads as a note about the view
        rather than as something the reader got wrong. Muted like the count it
