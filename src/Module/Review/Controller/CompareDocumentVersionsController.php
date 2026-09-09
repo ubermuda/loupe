@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Review\Controller;
 
 use App\Controller\AppController;
+use App\Module\Review\Command\ShowDocumentHistoryCommand;
+use App\Module\Review\Command\ShowDocumentHistoryHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Security\DocumentVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -24,6 +26,11 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 )]
 final class CompareDocumentVersionsController extends AppController
 {
+    public function __construct(
+        private readonly ShowDocumentHistoryHandler $showDocumentHistory,
+    ) {
+    }
+
     public function __invoke(
         Request $request,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(documentId, projectId)')] Document $document,
@@ -33,16 +40,19 @@ final class CompareDocumentVersionsController extends AppController
         $from = $this->versionNumber($query['from'] ?? null);
         $to = $this->versionNumber($query['to'] ?? null);
 
-        $routeParameters = ['projectId' => $projectId, 'documentId' => (string) $document->id];
-
         // A pair chosen the wrong way round describes the same comparison, so it
-        // is answered rather than refused. One version against itself, and any
-        // number the picker cannot have produced, has no diff to show.
+        // is answered rather than refused.
         if ($from > $to) {
             [$from, $to] = [$to, $from];
         }
 
-        if ($from < 1 || $from === $to) {
+        $known = array_column(($this->showDocumentHistory)(new ShowDocumentHistoryCommand($document))->versions, 'versionNumber');
+        $routeParameters = ['projectId' => $projectId, 'documentId' => (string) $document->id];
+
+        // Anything that is not two different versions of this document goes back
+        // to the history, so the redirector lands on a diff or on a page and
+        // never on a URL the diff route answers with a 404.
+        if ($from === $to || !in_array($from, $known, true) || !in_array($to, $known, true)) {
             return $this->redirectToRoute('app_document_review_history', $routeParameters);
         }
 
@@ -53,7 +63,7 @@ final class CompareDocumentVersionsController extends AppController
         ]);
     }
 
-    /** 0 for anything that does not name a version, which the caller sends back to the history. */
+    /** 0 for anything that does not name a version, which no document has. */
     private function versionNumber(mixed $raw): int
     {
         return is_string($raw) && ctype_digit($raw) ? (int) $raw : 0;

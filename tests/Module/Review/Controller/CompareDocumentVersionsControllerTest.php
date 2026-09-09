@@ -110,11 +110,12 @@ final class CompareDocumentVersionsControllerTest extends WebTestCase
     }
 
     /**
-     * A missing or unreadable parameter reads as 0, which names no version. It
-     * goes back to the history rather than into a diff URL the route cannot
-     * answer.
+     * Every rejected pair lands on the same page, so the redirector has one
+     * contract rather than two: a missing parameter, an unreadable one and a
+     * number no version of this document carries all return to the history
+     * rather than to a diff URL that answers 404.
      */
-    public function test_a_pair_that_names_no_version_returns_to_the_history(): void
+    public function test_a_pair_that_names_no_version_of_this_document_returns_to_the_history(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -129,6 +130,10 @@ final class CompareDocumentVersionsControllerTest extends WebTestCase
         self::assertResponseRedirects($historyUrl);
 
         $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/compare?from=nonsense&to=3');
+        self::assertResponseRedirects($historyUrl);
+
+        // The document has three versions, so 999 names none of them.
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/compare?from=1&to=999');
         self::assertResponseRedirects($historyUrl);
     }
 
