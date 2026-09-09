@@ -52,10 +52,17 @@ appears. A highlighted passage has no hover, so a tap on one takes its place: th
 passage and its card light up together, and a tap on plain text drops the pair
 again.
 
-Two views help across versions:
+Three views help across versions:
 
 - `/review/versions/{versionNumber}` — any earlier version as it read then.
 - `/review/diff/{from}/{to}` — what changed between two versions.
+- `/review/history` — every version, newest first.
+
+The Versions tab on the review page carries the version you are reading: its
+number, its date, its note and the way into its comparison with the version
+before it. A link at the end of the tab opens the history page, which lists every
+version the same way. The history page also has a picker that compares any two
+versions, not only two that follow one another.
 
 ### Commenting on a diff
 
