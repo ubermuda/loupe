@@ -457,8 +457,7 @@ features earns six lines, because a reader looking for when tags arrived should
 find a line about tags rather than a paragraph about the wave that contained
 them.
 
-A pull request whose whole diff is `docs/CHANGELOG.md` or `docs/NEXT_STEPS.md`
-earns no entry. The exemption keys on content, not on subject: a pull request
+A pull request whose whole diff is `docs/CHANGELOG.md` earns no entry. The exemption keys on content, not on subject: a pull request
 about changelog discipline that changes a skill file does earn one, and it
 carries that line itself.
 
@@ -554,9 +553,10 @@ approvals arriving out of sequence will not respect.
 ## Running several branches at once
 
 Give each branch its own worktree and keep them off each other's files. The
-sharpest case is a shared tracker or changelog: if every branch deletes its own
-entry from `docs/NEXT_STEPS.md`, they all collide in the same region. Have wave
-branches leave it alone and clean it up in one trailing PR after the wave lands.
+sharpest case is `docs/CHANGELOG.md`: every branch adds its own line at the top
+of `[Unreleased]`, so they all collide in the same region. Resolve the conflict
+by keeping both lines in merge order, newest first. Open work no longer has this
+problem, because a card lives on the board rather than in the branch.
 
 Sequence by blast radius. A branch that changes shared infrastructure, such as
 compose files, environment resolution or CI wiring, should merge last, because

@@ -35,9 +35,9 @@ default path, which is worth knowing before debugging why a page did not appear.
 `docsSchema()` requires it. A page without it fails the build rather than
 rendering untitled — loud, which is what you want.
 
-**Three files are excluded** in `src/content.config.ts`: `NEXT_STEPS.md` (the
-open-work tracker), `MANUAL_TEST_PLAN.md` (an internal QA checklist naming dev
-credentials) and `AUTOMATIONS.md` (internal notes, and gitignored anyway). They
+**Two files are excluded** in `src/content.config.ts`: `MANUAL_TEST_PLAN.md`
+(an internal QA checklist naming dev credentials) and `AUTOMATIONS.md`
+(internal notes, and gitignored anyway). They
 carry no frontmatter, so the build would fail on them if the exclusion were
 dropped — the failure is the safety net, not the exclusion.
 

@@ -143,7 +143,7 @@ Tell a session, unprompted:
 
 - That its pull request merged, with the squash SHA. That releases work it is
   holding: tearing a worktree down, writing the changelog line that anchors to
-  a commit which did not exist until now, closing a tracker entry.
+  a commit which did not exist until now, moving a board card to done.
 - That its pull request is held, and why. Held and forgotten look identical
   from inside that session.
 - That the owner requested changes, quoting the comment verbatim and naming the

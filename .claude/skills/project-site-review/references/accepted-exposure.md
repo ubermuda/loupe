@@ -73,4 +73,4 @@ instead. Do not re-design it from scratch; the finished plan is a Loupe document
 named 'Per-project allowed origins for the site-review widget'.
 
 Per-reviewer identity would close it, and it arrives with the OAuth work rather
-than on its own. Both are deferred; see `docs/NEXT_STEPS.md`.
+than on its own. Both are deferred; see the project board.

@@ -108,7 +108,7 @@ flag are all present and tested. Nothing writes an event any more: dropping the
 send step removed the only producer.
 
 This is deliberate, not rot, because the push feature is unfinished. Do not wire
-a trigger without a decision; see the entry in `docs/NEXT_STEPS.md`. Expect a
+a trigger without a decision; see the card on the project board. Expect a
 permanently empty outbox, a "not reached your agent yet" notice that never
 shows, and a connected bridge CLI that receives nothing.
 
@@ -144,7 +144,7 @@ endpoints reject widget tokens. `/stream` refuses widget tokens outright.
 
 The owner accepted this exposure. It is not an open finding.
 
-- Do not re-file it in `docs/NEXT_STEPS.md`.
+- Do not re-file it as a card on the project board.
 - Do not report it as a new discovery in an audit.
 - Do not narrow `findOnePending()` or the CORS policy without a maintainer
   decision.
