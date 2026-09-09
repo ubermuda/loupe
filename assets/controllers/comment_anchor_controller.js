@@ -165,7 +165,7 @@ export default class extends Controller {
         this.strikeInFlight = false;
         this.expandedThreadId = this.#expandedFromHash();
         this.hoveredThread = null;
-        this.hoverProbeScheduled = false;
+        this.hoverProbeFrame = null;
         this.docTextCache = null;
         this.pointerDown = false;
         this.selectionSettle = null;
@@ -256,6 +256,7 @@ export default class extends Controller {
         if (this.selectionSettle !== null) {
             clearTimeout(this.selectionSettle);
         }
+        this.#cancelHoverProbe();
         this.resizeObserver?.disconnect();
         this.threadObserver?.disconnect();
         if (this.scheduledLayout !== null) {
@@ -1345,24 +1346,33 @@ export default class extends Controller {
      */
     onDocMousemove(event) {
         // The cards sit inside the element this is bound to, so a pointer resting
-        // on one still reaches here — and the probe would clear the pairing that
-        // card's own mouseenter just set.
+        // on one still reaches here. A probe already queued from the prose would
+        // run after that card's own mouseenter and clear the pairing it set, so
+        // the frame is cancelled rather than only skipped.
         if (event.target?.closest?.('.lp-comment-thread') != null) {
+            this.#cancelHoverProbe();
+
             return;
         }
-        if (this.hoverProbeScheduled) {
+        if (this.hoverProbeFrame !== null) {
             return;
         }
-        this.hoverProbeScheduled = true;
         const { clientX, clientY } = event;
-        requestAnimationFrame(() => {
-            this.hoverProbeScheduled = false;
+        this.hoverProbeFrame = requestAnimationFrame(() => {
+            this.hoverProbeFrame = null;
             try {
                 this.#probeAnchorAt(clientX, clientY);
             } catch {
                 this.#clearAnchorHover();
             }
         });
+    }
+
+    #cancelHoverProbe() {
+        if (this.hoverProbeFrame !== null) {
+            cancelAnimationFrame(this.hoverProbeFrame);
+            this.hoverProbeFrame = null;
+        }
     }
 
     #probeAnchorAt(clientX, clientY) {

@@ -2016,14 +2016,16 @@
     }
 
     /* ── Comment rail ──────────────────────────────────────────────────
-       One 32px marker per thread, one thread expanded at a time. Only the
-       review margin opts in: the landing hero mock and the try-it demo share
-       .lp-comment-thread and keep the full card. */
+       One 32px marker per thread, one thread expanded at a time. Two gates:
+       .lp-comment-rail, which the landing hero mock and the try-it demo do not
+       carry, and lg, below which a thread is a whole card wherever it sits —
+       including the ones #inlineThreads cannot place and leaves in the
+       margin. */
     .lp-comment-marker {
         @apply hidden w-full items-center gap-2 h-8 p-0 bg-transparent border-0 text-left cursor-pointer;
     }
     .lp-comment-rail .lp-comment-marker {
-        @apply flex;
+        @apply lg:flex;
     }
     .lp-comment-marker:focus-visible {
         @apply rounded-lg outline-2 -outline-offset-2 outline-accent;
@@ -2051,17 +2053,17 @@
        would make offsetParent null, which is how a resolved card stops
        advancing the floor in #positionThreads. */
     .lp-comment-rail .lp-comment-thread:not(.lp-comment-thread--expanded) {
-        @apply py-0 gap-0;
+        @apply lg:py-0 lg:gap-0;
     }
     .lp-comment-rail
         .lp-comment-thread:not(.lp-comment-thread--expanded)
         .lp-comment-thread__detail {
-        @apply hidden;
+        @apply lg:hidden;
     }
     /* The marker names the author, so the header below it keeps the age and the
        status alone. */
     .lp-comment-rail .lp-comment-thread__header > .lp-comment-author {
-        @apply hidden;
+        @apply lg:hidden;
     }
     /* The passage is highlighted in the prose level with the card, so quoting it
        here repeats what the reader can already see. An orphaned thread keeps its
@@ -2070,7 +2072,7 @@
     .lp-comment-rail
         .lp-comment-thread:not(.lp-comment-thread--orphaned)
         .lp-comment-quote:not(.lp-comment-quote--inserted) {
-        @apply hidden;
+        @apply lg:hidden;
     }
     /* Status as a plain label rather than a chip: on a card this small, six
        pills stacked down the margin read as the loudest thing on the page. */

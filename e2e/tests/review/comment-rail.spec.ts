@@ -256,6 +256,21 @@ test('hovering a marker highlights the passage it points at', async ({
     expect(painted).toBe(1);
 });
 
+test('below the rail breakpoint every thread is a whole card again', async ({
+    page,
+}) => {
+    await seedThreeThreads(page);
+    await expect(page.locator(MARKER).first()).toBeVisible();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    // The rail is a margin idea. A thread the inline pass cannot place stays in
+    // the margin, so the breakpoint has to gate the presentation as well.
+    await expect(page.locator(`${MARKER}:visible`)).toHaveCount(0);
+    await expect(page.locator('.lp-comment-body').first()).toBeVisible();
+    await expect(page.locator('.lp-comment-quote').first()).toBeVisible();
+});
+
 test('hiding resolved threads closes the gap the markers left', async ({
     page,
 }) => {
