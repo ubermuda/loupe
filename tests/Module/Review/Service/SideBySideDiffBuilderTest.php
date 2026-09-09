@@ -1,0 +1,140 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Module\Review\Service;
+
+use App\Module\Review\Service\SideBySideDiffBuilder;
+use App\Module\Review\ValueObject\SideBySideRow;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * The fixtures are the shape RenderedDiffBuilder leaves behind: a block wrapped
+ * in a mark for a whole block added or removed, and a mark inside a block for a
+ * reworded phrase.
+ */
+final class SideBySideDiffBuilderTest extends TestCase
+{
+    private const string DELETED = 'lp-diff__mark lp-diff__mark--deleted';
+    private const string INSERTED = 'lp-diff__mark lp-diff__mark--inserted';
+
+    private SideBySideDiffBuilder $builder;
+
+    protected function setUp(): void
+    {
+        $this->builder = new SideBySideDiffBuilder();
+    }
+
+    public function test_an_unchanged_block_fills_both_cells(): void
+    {
+        $rows = $this->pair('<p>The rollout takes one step.</p>');
+
+        self::assertCount(1, $rows);
+        self::assertSame($rows[0]->oldHtml, $rows[0]->newHtml);
+        self::assertStringContainsString('The rollout takes one step.', (string) $rows[0]->oldHtml);
+    }
+
+    public function test_a_removed_block_leaves_the_new_side_empty(): void
+    {
+        $rows = $this->pair(\sprintf('<del class="%s"><p>The risk section.</p></del>', self::DELETED));
+
+        self::assertCount(1, $rows);
+        self::assertNull($rows[0]->newHtml);
+        self::assertStringContainsString('The risk section.', (string) $rows[0]->oldHtml);
+    }
+
+    public function test_an_added_block_leaves_the_old_side_empty(): void
+    {
+        $rows = $this->pair(\sprintf('<ins class="%s"><p>A new caveat.</p></ins>', self::INSERTED));
+
+        self::assertCount(1, $rows);
+        self::assertNull($rows[0]->oldHtml);
+        self::assertStringContainsString('A new caveat.', (string) $rows[0]->newHtml);
+    }
+
+    public function test_inline_marks_split_one_block_across_both_cells(): void
+    {
+        $rows = $this->pair(\sprintf(
+            '<p>The rollout takes <del class="%s">one step</del><ins class="%s">three steps</ins>.</p>',
+            self::DELETED,
+            self::INSERTED,
+        ));
+
+        self::assertCount(1, $rows);
+        self::assertSame('The rollout takes one step.', $this->text((string) $rows[0]->oldHtml));
+        self::assertSame('The rollout takes three steps.', $this->text((string) $rows[0]->newHtml));
+    }
+
+    public function test_a_table_stays_one_row_of_the_pairing(): void
+    {
+        $rows = $this->pair(\sprintf(
+            '<table><thead><tr><th>Environment</th></tr></thead>'
+            .'<tbody><tr><td><del class="%s">staging</del><ins class="%s">production</ins></td></tr></tbody></table>',
+            self::DELETED,
+            self::INSERTED,
+        ));
+
+        self::assertCount(1, $rows);
+        self::assertStringContainsString('staging', $this->text((string) $rows[0]->oldHtml));
+        self::assertStringNotContainsString('production', $this->text((string) $rows[0]->oldHtml));
+        self::assertStringContainsString('production', $this->text((string) $rows[0]->newHtml));
+        self::assertStringNotContainsString('staging', $this->text((string) $rows[0]->newHtml));
+    }
+
+    /** A rule and an image carry no text, and the reader still sees them. */
+    public function test_a_block_that_draws_itself_is_not_read_as_empty(): void
+    {
+        $rows = $this->pair('<hr>');
+
+        self::assertCount(1, $rows);
+        self::assertNotNull($rows[0]->oldHtml);
+        self::assertNotNull($rows[0]->newHtml);
+    }
+
+    public function test_the_rows_keep_document_order(): void
+    {
+        $rows = $this->pair(
+            '<p>Intro.</p>'
+            .\sprintf('<del class="%s"><p>Cut section.</p></del>', self::DELETED)
+            .\sprintf('<ins class="%s"><p>New section.</p></ins>', self::INSERTED)
+            .'<p>Outro.</p>',
+        );
+
+        self::assertCount(4, $rows);
+        self::assertSame('Intro.', $this->text((string) $rows[0]->newHtml));
+        self::assertNull($rows[1]->newHtml);
+        self::assertNull($rows[2]->oldHtml);
+        self::assertSame('Outro.', $this->text((string) $rows[3]->oldHtml));
+    }
+
+    /**
+     * Each mark belongs to one side, so the jump targets the rendered pane
+     * numbered stay unique once the pane is split into two columns.
+     */
+    public function test_no_hunk_id_reaches_both_cells(): void
+    {
+        $rows = $this->pair(
+            \sprintf('<p>Takes <del class="%s" id="diff-hunk-1">one</del><ins class="%s">three</ins> steps.</p>', self::DELETED, self::INSERTED)
+            .\sprintf('<del class="%s" id="diff-hunk-2"><p>Cut.</p></del>', self::DELETED),
+        );
+
+        $ids = [];
+        foreach ($rows as $row) {
+            preg_match_all('/id="([^"]+)"/', ($row->oldHtml ?? '').($row->newHtml ?? ''), $matches);
+            $ids = [...$ids, ...$matches[1]];
+        }
+
+        self::assertSame(['diff-hunk-1', 'diff-hunk-2'], $ids);
+    }
+
+    /** @return list<SideBySideRow> */
+    private function pair(string $html): array
+    {
+        return $this->builder->build($html)->rows;
+    }
+
+    private function text(string $html): string
+    {
+        return trim(html_entity_decode(strip_tags($html), \ENT_QUOTES | \ENT_HTML5, 'UTF-8'));
+    }
+}
