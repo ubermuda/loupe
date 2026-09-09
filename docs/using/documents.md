@@ -73,6 +73,17 @@ before it. A link at the end of the tab opens the history page, which lists ever
 version the same way. The history page also has a picker that compares any two
 versions, not only two that follow one another.
 
+### What a comparison looks like
+
+A comparison is the review page with one pane replaced, so the document keeps its
+place on the screen. A green chip in the metadata bar names the pair, and the ×
+on the chip returns you to the latest version. One row under it holds the view
+switch, **Document** and **Markdown**, with the change count and the two jump
+arrows at the right end. `j` and `k` move between changes as well.
+
+While you compare, the Versions tab also holds a from/to picker, so any other
+pair is two clicks away. It keeps the view you are on.
+
 ### Commenting on a diff
 
 A diff accepts comments when its newer side is the current version. The comment

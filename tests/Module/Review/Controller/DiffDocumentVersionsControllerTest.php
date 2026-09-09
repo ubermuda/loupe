@@ -378,22 +378,21 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $rendered = $client->request(Request::METHOD_GET, $base);
         self::assertCount(2, $rendered->filter('.lp-diff-views__link'));
         self::assertSame(
-            'As the document reads',
+            'Document',
             $rendered->filter('.lp-diff-views__link[aria-current]')->text(),
         );
         self::assertStringContainsString('view=source', (string) $rendered->filter('.lp-diff-views__link')->eq(1)->attr('href'));
 
         $source = $client->request(Request::METHOD_GET, $base.'?view=source');
         self::assertSame(
-            'As the Markdown reads',
+            'Markdown',
             $source->filter('.lp-diff-views__link[aria-current]')->text(),
         );
         // The picker keeps the view, so comparing another pair does not silently
-        // send the reader back to the rendered one.
-        self::assertStringContainsString(
-            'view=source',
-            (string) $source->filter('[data-controller="version-compare"]')->attr('data-version-compare-url-value'),
-        );
+        // send the reader back to the rendered one. Two pickers, because the
+        // review menu carries one below lg where the panel is display:none.
+        self::assertCount(2, $source->filter('.lp-version-compare input[name="view"][value="source"]'));
+        self::assertCount(0, $rendered->filter('.lp-version-compare input[name="view"]'));
     }
 
     /**
@@ -769,9 +768,48 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
     }
 
     /**
+     * The chip in the metadata bar replaces the banner that used to sit above
+     * it: a row of its own put the document most of a screen down.
+     */
+    public function test_the_bar_names_the_pair_and_carries_the_way_out(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-chip', 'owner-diff-chip@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Chip Doc');
+        $doc->addVersion("The rollout takes one step.\n", '<p>v1</p>');
+        $doc->addVersion("The rollout takes three steps.\n", '<p>v2</p>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.lp-doc-meta__compare', 'Comparing v1 with v2');
+        self::assertSame(
+            '/projects/'.$projectId.'/documents/'.$id.'/review',
+            $crawler->filter('.lp-doc-meta__compare-stop')->attr('href'),
+        );
+        self::assertSame(
+            'Stop comparing',
+            $crawler->filter('.lp-doc-meta__compare-stop')->attr('aria-label'),
+        );
+        self::assertSelectorNotExists('.lp-version-banner');
+    }
+
+    /**
      * The only links into a diff compare a version with the one before it, so
      * without a picker on the page itself, comparing v1 with v4 means editing
-     * the URL by hand.
+     * the URL by hand. The picker lives in the versions panel, and posts to the
+     * redirect route that turns a pair into the diff path.
      */
     public function test_the_diff_offers_a_picker_for_any_pair_of_versions(): void
     {
@@ -797,25 +835,32 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, $base.'3/4');
 
         self::assertResponseIsSuccessful();
-        $picker = $crawler->filter('[data-controller="version-compare"]');
-        self::assertCount(1, $picker);
-        self::assertSame($base.'3/4', $picker->attr('data-version-compare-url-value'));
-        // The newest version is never an earlier side and the oldest never a
-        // later one, so neither appears in the select it could only 404 from.
-        self::assertSame(['1', '2', '3'], $crawler->filter('[data-version-compare-target="from"] option')->each(
+        // The desktop panel and the review menu each carry one, so the count is
+        // two and the ids differ.
+        $picker = $crawler->filter('.lp-version-compare');
+        self::assertCount(2, $picker);
+        self::assertSame(
+            '/projects/'.$projectId.'/documents/'.$id.'/review/compare',
+            $picker->first()->attr('action'),
+        );
+        // Every version in both selects, oldest first: the redirect route swaps a
+        // backwards pair and sends an unreal one to the history, so nothing the
+        // reader can choose here answers with a 404.
+        self::assertSame(['1', '2', '3', '4'], $crawler->filter('#diff-from option')->each(
             static fn (Crawler $node): string => (string) $node->attr('value'),
         ));
-        self::assertSame(['2', '3', '4'], $crawler->filter('[data-version-compare-target="to"] option')->each(
+        self::assertSame(['1', '2', '3', '4'], $crawler->filter('#diff-to option')->each(
             static fn (Crawler $node): string => (string) $node->attr('value'),
         ));
-        self::assertSame('3', $crawler->filter('[data-version-compare-target="from"] option[selected]')->attr('value'));
-        self::assertSame('4', $crawler->filter('[data-version-compare-target="to"] option[selected]')->attr('value'));
+        self::assertSame('3', $crawler->filter('#diff-from option[selected]')->attr('value'));
+        self::assertSame('4', $crawler->filter('#diff-to option[selected]')->attr('value'));
+        self::assertCount(1, $crawler->filter('#menu-diff-from'));
 
         // The non-adjacent pair the picker exists to reach.
         $spanning = $client->request(Request::METHOD_GET, $base.'1/4');
         self::assertResponseIsSuccessful();
         self::assertCount(1, $spanning->filter('.lp-diff-doc'));
-        self::assertSame($base.'1/4', $spanning->filter('[data-controller="version-compare"]')->attr('data-version-compare-url-value'));
+        self::assertSame('1', $spanning->filter('#diff-from option[selected]')->attr('value'));
     }
 
     public function test_unauthenticated_user_is_redirected(): void

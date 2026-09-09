@@ -79,8 +79,8 @@ test('the versions tab leads to the history, which compares two distant versions
     await expect(page).toHaveURL(
         `/projects/${projectId}/documents/${documentId}/review/diff/1/4`,
     );
-    await expect(page.locator('.lp-version-banner').first()).toContainText(
-        'between version 1 and version 4',
+    await expect(page.locator('.lp-doc-meta__compare')).toContainText(
+        'Comparing v1 with v4',
     );
     await expect(
         page.locator('.lp-diff__mark--deleted', { hasText: 'one step' }),

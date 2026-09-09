@@ -15,9 +15,10 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
-// The history page's compare picker posts here. The diff route carries its two
-// versions as path segments, which a GET form cannot build, so this reads them
-// as query parameters and sends the reader on.
+// The compare pickers on the history page and in the review page's versions
+// panel post here. The diff route carries its two versions as path segments,
+// which a GET form cannot build, so this reads them as query parameters and
+// sends the reader on.
 #[IsGranted(DocumentVoter::VIEW, subject: 'document')]
 #[Route(
     '/projects/{projectId}/documents/{documentId}/review/compare',
@@ -60,10 +61,16 @@ final class CompareDocumentVersionsController extends AppController
             return $this->redirectToRoute('app_document_review_history', $routeParameters);
         }
 
+        // The picker in the versions panel is used while a comparison is already
+        // on screen, so the reader keeps the view they chose. The diff route
+        // validates the value, and an absent one is the rendered view.
+        $view = $query['view'] ?? null;
+
         return $this->redirectToRoute('app_document_review_diff', [
             ...$routeParameters,
             'fromVersionNumber' => $from,
             'toVersionNumber' => $to,
+            ...(is_string($view) && '' !== $view ? ['view' => $view] : []),
         ]);
     }
 

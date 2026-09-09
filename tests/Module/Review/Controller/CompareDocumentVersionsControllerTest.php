@@ -13,8 +13,9 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * The history page's picker is a plain GET form, and the diff route carries its
- * two versions as path segments, so this route turns the pair into that path.
+ * The pickers on the history page and in the review page's versions panel are
+ * plain GET forms, and the diff route carries its two versions as path
+ * segments, so this route turns the pair into that path.
  */
 final class CompareDocumentVersionsControllerTest extends WebTestCase
 {
@@ -71,6 +72,29 @@ final class CompareDocumentVersionsControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/compare?from=1&to=3');
 
         self::assertResponseRedirects('/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/3');
+    }
+
+    /**
+     * The versions panel's picker is used while a comparison is on screen, so a
+     * reader on the Markdown view must not be sent back to the rendered one.
+     */
+    public function test_the_chosen_view_survives_the_redirect(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-compare-view', 'owner-compare-view@example.com');
+        [$projectId, $id] = $this->seedThreeVersions($em, $owner, 'Viewed Doc');
+
+        $client->loginUser($owner);
+        $base = '/projects/'.$projectId.'/documents/'.$id.'/review';
+        $client->request(Request::METHOD_GET, $base.'/compare?from=1&to=3&view=source');
+
+        self::assertResponseRedirects($base.'/diff/1/3?view=source');
+
+        // The history page's picker sends no view, and must not gain one.
+        $client->request(Request::METHOD_GET, $base.'/compare?from=1&to=3');
+        self::assertResponseRedirects($base.'/diff/1/3');
     }
 
     /**
