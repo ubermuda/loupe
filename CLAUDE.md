@@ -45,9 +45,7 @@ The project board in the Loupe app holds open work that has an addressee. Add a 
 
 Invoke the `loupe-board` skill before you write a card. It carries the four columns, the six types, the three priorities, and the rule that `origin` records who raised the card rather than who typed it. Never leave such a note in a code comment.
 
-The board replaced `docs/NEXT_STEPS.md` on 2026-09-08, and that file is gone. The old file argued against an API-backed tracker, because an agent reads a file in one `cat`. The owner reversed that: `card_list` is also one call, and the board adds columns, filters, pull request links and a screen a person can work. The migration also removed a real cost. The tracker was branch content, so two branches that both appended to it collided in the same region, and a wave had to leave it alone until the wave landed.
-
-A card whose body opens with `**Parked.**` is paused. Do not start it, and do not put it in `next` or `in-progress`, until the owner unparks it. The board has no parked column, so that line is the whole signal. Five cards carry it, all migrated from the old tracker's `Status: parked`. The old file enforced the same rule with prose alone, so nothing got weaker, but a real parked state is worth having and the board card 'Give the board a parked state' asks for one.
+A card whose body opens with `**Parked.**` is paused. Do not start it, and do not put it in `next` or `in-progress`, until the owner unparks it. The board has no parked column, so that line is the whole signal. A real parked state is worth having, and the board card 'Give the board a parked state' asks for one.
 
 The board is as public as the instance that holds it. Write every card as public text, with no secrets, no customer names, and no complaints about people.
 

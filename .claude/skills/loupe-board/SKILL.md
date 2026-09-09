@@ -64,8 +64,7 @@ less of Done than you do.
 
 The board has no parked state. A card whose body opens with `**Parked.**` waits
 for the owner. Leave it in `backlog`, and never move it to `next` or
-`in-progress` yourself. Five such cards came from the tracker file the board
-replaced, which carried a `Status: parked` field.
+`in-progress` yourself.
 
 Write that line yourself only when the owner parks the work. Board card 'Give
 the board a parked state' asks for a real field.
