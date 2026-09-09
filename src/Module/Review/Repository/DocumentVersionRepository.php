@@ -83,6 +83,31 @@ class DocumentVersionRepository extends ServiceEntityRepository
     }
 
     /**
+     * How many of these version numbers the document has.
+     *
+     * A COUNT over the numbers asked for, rather than a read of the whole
+     * history: each version row carries three TEXT columns, and the caller only
+     * needs to know whether a pair of numbers is real.
+     *
+     * @param list<int> $versionNumbers
+     */
+    public function countByNumbers(Document $document, array $versionNumbers): int
+    {
+        if ([] === $versionNumbers) {
+            return 0;
+        }
+
+        return (int) $this->createQueryBuilder('v')
+            ->select('COUNT(v.id)')
+            ->andWhere('v.document = :document')
+            ->andWhere('v.versionNumber IN (:versionNumbers)')
+            ->setParameter('document', $document)
+            ->setParameter('versionNumbers', $versionNumbers)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
      * Latest-version metadata for a batch of documents in one query — a
      * projection that selects only the version id, number, and timestamp and
      * never the two TEXT columns. Meant for list views (the document

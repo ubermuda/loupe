@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Review\Controller;
 
 use App\Controller\AppController;
-use App\Module\Review\Command\ShowDocumentHistoryCommand;
-use App\Module\Review\Command\ShowDocumentHistoryHandler;
+use App\Module\Review\Command\CountDocumentVersionsCommand;
+use App\Module\Review\Command\CountDocumentVersionsHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Security\DocumentVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -27,7 +27,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 final class CompareDocumentVersionsController extends AppController
 {
     public function __construct(
-        private readonly ShowDocumentHistoryHandler $showDocumentHistory,
+        private readonly CountDocumentVersionsHandler $countDocumentVersions,
     ) {
     }
 
@@ -46,13 +46,17 @@ final class CompareDocumentVersionsController extends AppController
             [$from, $to] = [$to, $from];
         }
 
-        $known = array_column(($this->showDocumentHistory)(new ShowDocumentHistoryCommand($document))->versions, 'versionNumber');
         $routeParameters = ['projectId' => $projectId, 'documentId' => (string) $document->id];
 
         // Anything that is not two different versions of this document goes back
         // to the history, so the redirector lands on a diff or on a page and
-        // never on a URL the diff route answers with a 404.
-        if ($from === $to || !in_array($from, $known, true) || !in_array($to, $known, true)) {
+        // never on a URL the diff route answers with a 404. The equality test
+        // comes first, because one number counted twice would count as two.
+        $found = $from === $to
+            ? 0
+            : ($this->countDocumentVersions)(new CountDocumentVersionsCommand($document, [$from, $to]));
+
+        if (2 !== $found) {
             return $this->redirectToRoute('app_document_review_history', $routeParameters);
         }
 
