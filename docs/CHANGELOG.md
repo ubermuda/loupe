@@ -38,6 +38,8 @@ entry.
 
 ## [Unreleased]
 
+- (#413) — **Changed:** the comment margin beside a document is now a rail of
+  one-line markers, and one thread at a time opens in place beside its passage.
 - (#412) — **Added:** a document has a version history page listing every
   version with its date and note, and a picker there compares any two versions;
   the review page's Versions tab now carries the current version alone plus a
