@@ -47,6 +47,7 @@ const VERSION_TWO = [
 const CELL = '.lp-diff-columns__cell';
 const VOID_CELL = '.lp-diff-columns__cell--void';
 const MARGIN = '.lp-review-margin';
+const VIEWS = '.lp-diff-views';
 
 async function signIn(page: Page, email: string): Promise<void> {
     const registered = await page.request.post('/dev/register-and-verify', {
@@ -135,7 +136,10 @@ test('the two columns pair the blocks and drop the comment rail', async ({
     // The Document view is where a comparison starts, and it carries the rail.
     await expect(page.locator(MARGIN)).toHaveCount(1);
 
-    await page.getByRole('link', { name: 'Side by side' }).click();
+    await page
+        .locator(VIEWS)
+        .getByRole('link', { name: 'Side by side' })
+        .click();
     await expect(page).toHaveURL(`${reviewPath}/diff/1/2?view=side-by-side`);
     await expect(page.locator('.lp-diff-views__link[aria-current]')).toHaveText(
         'Side by side',
@@ -218,7 +222,11 @@ test('the two columns pair the blocks and drop the comment rail', async ({
     expect(widths.chipLeft).toBeGreaterThanOrEqual(widths.blockLeft - 1);
 
     // Going back restores the rail, so the reader loses nothing by looking.
-    await page.getByRole('link', { name: 'Document' }).click();
+    // Scoped: the sidebar and the crumbs both carry a Documents link.
+    await page
+        .locator(VIEWS)
+        .getByRole('link', { name: 'Document', exact: true })
+        .click();
     await expect(page).toHaveURL(`${reviewPath}/diff/1/2?view=rendered`);
     await expect(page.locator(MARGIN)).toHaveCount(1);
     await expect(
