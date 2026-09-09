@@ -38,6 +38,10 @@ entry.
 
 ## [Unreleased]
 
+- (#412) — **Added:** a document has a version history page listing every
+  version with its date and note, and a picker there compares any two versions;
+  the review page's Versions tab now carries the current version alone plus a
+  link to that page.
 - (#410) — **Changed:** the Contents tab in the document review page shows its
   count as `2/6`, the shape the Decisions tab beside it already used.
 - (#409) — **Changed:** a changelog entry now rides the pull request it
