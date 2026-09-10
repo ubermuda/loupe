@@ -1225,7 +1225,7 @@
        parent of the comment stack and the floating panels, and padding moves
        the padding box they are placed against. */
     .lp-review-block {
-        @apply relative w-full max-w-243 px-5 pt-6 pb-19 lg:ml-12 lg:px-0 lg:pt-13 lg:pb-30;
+        @apply relative w-full max-w-243 px-5 pt-6 pb-19 lg:ml-12 lg:w-auto lg:px-0 lg:pt-13 lg:pb-30;
     }
 
     /* ── Document pane ──────────────────────────────────────────────────
