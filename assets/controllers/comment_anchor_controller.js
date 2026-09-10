@@ -228,6 +228,7 @@ export default class extends Controller {
         // Turbo navigation, when getBoundingClientRect would read zeros).
         this.resizeObserver = new ResizeObserver(() => this.#scheduleLayout());
         this.resizeObserver.observe(this.docTarget);
+        this.observedOrphans = null;
 
         // Turbo Streams swap the thread list (add/delete/resolve replace the
         // whole #comment-threads container; reply replaces a single thread), so
@@ -258,6 +259,7 @@ export default class extends Controller {
         }
         this.#cancelHoverProbe();
         this.resizeObserver?.disconnect();
+        this.observedOrphans = null;
         this.threadObserver?.disconnect();
         if (this.scheduledLayout !== null) {
             cancelAnimationFrame(this.scheduledLayout);
@@ -1435,6 +1437,19 @@ export default class extends Controller {
         });
     }
 
+    #watchOrphans(orphans) {
+        if (orphans === this.observedOrphans) {
+            return;
+        }
+        if (null !== this.observedOrphans) {
+            this.resizeObserver.unobserve(this.observedOrphans);
+        }
+        this.observedOrphans = orphans;
+        if (null !== orphans) {
+            this.resizeObserver.observe(orphans);
+        }
+    }
+
     // The three passes are independently guarded: they read different anchors
     // from different elements, so one unlocatable comment quote must not take
     // every agent mark on the page down with it, nor leave every card unplaced.
@@ -1662,6 +1677,9 @@ export default class extends Controller {
         // The orphan group leads the column in flow, so the positioned cards
         // start below it rather than on top of it.
         const orphans = this.marginTarget.querySelector('.lp-orphan-group');
+        // Its disclosure animates open, which changes no child list and does not
+        // resize the element the observer already watches.
+        this.#watchOrphans(orphans);
         let floor =
             null === orphans
                 ? 0
