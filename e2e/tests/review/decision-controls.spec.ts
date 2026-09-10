@@ -314,16 +314,26 @@ test('the metadata bar stays pinned while the document scrolls', async ({
     await expect(page.getByText(BELOW_BLOCK_PHRASE)).toBeInViewport();
     await expect(bar).toBeInViewport();
 
-    // And the jump target clears the bar rather than hiding under it.
+    // And the target clears the bar rather than hiding under it. The panel
+    // scrolls there rather than snapping, so this polls until it settles.
     await bar.getByRole('button', { name: /Decisions/ }).click();
     await page.locator('#decision-summary-list a').click();
-    const blockBox = await page
-        .locator(`[data-decision-id="${DECISION_ID}"]`)
-        .boundingBox();
-    const barBox = await bar.boundingBox();
-    expect(blockBox).not.toBeNull();
-    expect(barBox).not.toBeNull();
-    expect(blockBox!.y).toBeGreaterThanOrEqual(barBox!.y + barBox!.height);
+    await expect
+        .poll(
+            async () => {
+                const blockBox = await page
+                    .locator(`[data-decision-id="${DECISION_ID}"]`)
+                    .boundingBox();
+                const barBox = await bar.boundingBox();
+                if (null === blockBox || null === barBox) {
+                    return null;
+                }
+
+                return blockBox.y - (barBox.y + barBox.height);
+            },
+            { timeout: 5000 },
+        )
+        .toBeGreaterThanOrEqual(0);
 });
 
 const MULTIPLE_ID = 'ship-with';
