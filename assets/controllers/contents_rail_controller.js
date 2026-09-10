@@ -1,5 +1,7 @@
 import { Controller } from '@hotwired/stimulus';
-import { smoothScrollTo } from '../lib/smooth_scroll.js';
+import { scrollerFor, smoothScrollTo } from '../lib/smooth_scroll.js';
+
+const ACTIVATION_OFFSET = 72;
 
 /**
  * The contents and decisions rail beside a document. It scrolls the reader to a
@@ -21,7 +23,7 @@ export default class extends Controller {
     connect() {
         this.cancelScroll = () => {};
         this.observer = null;
-        this.visible = new Set();
+        this.headings = [];
         this.#observeHeadings();
     }
 
@@ -55,45 +57,72 @@ export default class extends Controller {
     }
 
     /**
-     * The heading nearest the top of what is on screen is the one the reader is
-     * in. rootMargin pulls the bottom edge up so a heading is "current" while
-     * its own section fills the view, rather than only while the heading itself
-     * is visible.
+     * The current section is the last heading the reader has passed, not a
+     * heading that happens to be on screen: a section longer than the viewport
+     * leaves no heading visible at all, and marking nothing for most of a long
+     * section is worse than marking none.
+     *
+     * The observer is a trigger rather than the answer. It fires when a heading
+     * crosses the top of the pane, which is exactly when the answer changes;
+     * between two crossings there is nothing to recompute.
      */
     #observeHeadings() {
+        this.headings = this.linkTargets
+            .map((link) => this.#targetOf(link))
+            .filter((heading) => null !== heading);
+
+        if (0 === this.headings.length) {
+            return;
+        }
+
+        this.#markCurrent(this.#passedHeading()?.id ?? null);
+
         if (!('IntersectionObserver' in window)) {
             return;
         }
 
-        const headings = this.linkTargets
-            .map((link) => this.#targetOf(link))
-            .filter((heading) => null !== heading);
-
-        if (0 === headings.length) {
-            return;
-        }
+        // The pane scrolls, not the window, so name it as the root: rootMargin
+        // is measured against the root, and against the viewport it would mean
+        // a band the pane does not have.
+        const scroller = scrollerFor(this.headings[0]);
+        const root =
+            scroller === document.scrollingElement ||
+            scroller === document.documentElement
+                ? null
+                : scroller;
 
         this.observer = new IntersectionObserver(
-            (entries) => {
-                for (const entry of entries) {
-                    if (entry.isIntersecting) {
-                        this.visible.add(entry.target.id);
-                    } else {
-                        this.visible.delete(entry.target.id);
-                    }
-                }
-
-                const current = headings.find((heading) =>
-                    this.visible.has(heading.id),
-                );
-                this.#markCurrent(current?.id ?? null);
-            },
-            { rootMargin: '-64px 0px -70% 0px', threshold: 0 },
+            () => this.#markCurrent(this.#passedHeading()?.id ?? null),
+            { root, rootMargin: '0px 0px -85% 0px', threshold: 0 },
         );
 
-        for (const heading of headings) {
+        for (const heading of this.headings) {
             this.observer.observe(heading);
         }
+    }
+
+    /**
+     * The activation line sits a sticky bar's height below the pane's top edge,
+     * which is the same offset the headings carry as `scroll-margin-top`.
+     */
+    #passedHeading() {
+        const scroller = scrollerFor(this.headings[0]);
+        const isDocument =
+            scroller === document.scrollingElement ||
+            scroller === document.documentElement;
+        const line =
+            (isDocument ? 0 : scroller.getBoundingClientRect().top) +
+            ACTIVATION_OFFSET;
+
+        let passed = null;
+        for (const heading of this.headings) {
+            if (heading.getBoundingClientRect().top > line) {
+                break;
+            }
+            passed = heading;
+        }
+
+        return passed ?? this.headings[0];
     }
 
     #markCurrent(id) {
