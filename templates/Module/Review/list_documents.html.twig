@@ -143,33 +143,24 @@
         <div class="lp-document-row{% if archived %} lp-document-row--archived{% endif %}" data-document-id="{{ document.id }}">
             <a href="{{ path('app_document_review', {projectId: project.id, documentId: document.id}) }}"
                class="lp-document-row__link" aria-label="{{ document.title }}"></a>
-            <div class="lp-document-row__main">
-                <div class="lp-document-row__head">
-                    <span class="lp-document-row__title">{{ document.title }}</span>
-                    <span class="lp-document-row__version">{{ 'v' ~ item.versionNumber }}</span>
-                    {% if document.series is not null %}
-                    <span class="lp-series">{{ 'review.dashboard.series.item'|trans({
-                        '%series%': document.series.name,
-                        '%ordinal%': document.seriesOrdinal,
-                    }) }}</span>
-                    {% endif %}
-                    {% if archived %}
-                    <span class="lp-document-row__archived">{{ 'review.dashboard.archived_tag'|trans }}</span>
-                    {% endif %}
-                </div>
-                <div class="lp-document-row__meta">
-                    <span>{{ 'review.dashboard.meta.updated'|trans({'%time%': item.updatedAt|relative_time}) }}</span>
-                </div>
-                {# Only the MCP tool requires a reason, so most archived rows have
-                   none — which is the ordinary case, not a gap. Nothing is
-                   rendered then: a label with an empty value beside it, or a
-                   dash, reads as a document whose reason went missing. #}
-                {% if archived and document.archiveReason %}
-                <p class="lp-document-row__archive-reason">{{ 'review.dashboard.archive_reason'|trans({'%reason%': document.archiveReason}) }}</p>
+            <div class="lp-document-row__head">
+                <span class="lp-document-row__title">{{ document.title }}</span>
+            </div>
+            <div class="lp-document-row__meta">
+                <span class="lp-document-row__version">{{ 'v' ~ item.versionNumber }}</span>
+                <span>{{ 'review.dashboard.meta.updated'|trans({'%time%': item.updatedAt|relative_time}) }}</span>
+                {% if document.series is not null %}
+                <span class="lp-series">{{ 'review.dashboard.series.item'|trans({
+                    '%series%': document.series.name,
+                    '%ordinal%': document.seriesOrdinal,
+                }) }}</span>
+                {% endif %}
+                {% if archived %}
+                <span class="lp-document-row__archived">{{ 'review.dashboard.archived_tag'|trans }}</span>
                 {% endif %}
                 {# A list, not a run of spans: without the semantics a screen
-                   reader reads the chips as a continuation of the meta line above
-                   them, with no boundary and no count. #}
+                   reader reads the chips as a continuation of the meta line
+                   beside them, with no boundary and no count. #}
                 {% if document.tags|length > 0 %}
                 <ul class="lp-document-row__tags" aria-label="{{ 'review.dashboard.tags.label'|trans }}">
                     {% for tag in document.tags %}
@@ -177,18 +168,17 @@
                     {% endfor %}
                 </ul>
                 {% endif %}
-            </div>
-            {# One indicator, and only when the reader owes the row something. A
-               row with nothing waiting shows nothing, because the absence is
-               what makes the waiting rows findable. The full breakdown lives on
-               the document page. #}
-            {% if item.signals.hasWaitingThreads %}
-            <span class="lp-document-row__waiting">{{ 'review.dashboard.meta.waiting_count'|trans({'%count%': item.signals.waitingThreadCount}) }}</span>
-            {% endif %}
-            <span class="lp-badge lp-badge--{{ document.status.value }}">
-                {{ document.status.translationKey()|trans }}
-            </span>
-            <div class="lp-document-row__actions">
+                {# One indicator, and only when the reader owes the row something. A
+                   row with nothing waiting shows nothing, because the absence is
+                   what makes the waiting rows findable. The full breakdown lives on
+                   the document page. #}
+                {% if item.signals.hasWaitingThreads %}
+                <span class="lp-document-row__waiting">{{ 'review.dashboard.meta.waiting_count'|trans({'%count%': item.signals.waitingThreadCount}) }}</span>
+                {% endif %}
+                <span class="lp-badge lp-badge--{{ document.status.value }}">
+                    {{ document.status.translationKey()|trans }}
+                </span>
+                <div class="lp-document-row__actions">
                 <a href="{{ path('app_document_rename', {projectId: project.id, documentId: document.id}|merge(listQuery.routeParams)) }}"
                    class="lp-document-row__action"
                    aria-label="{{ 'review.dashboard.rename'|trans({'%title%': document.title}) }}">
@@ -209,7 +199,15 @@
                         {% endif %}
                     </button>
                 {{ form_end(archiveForm) }}
+                </div>
             </div>
+            {# Only the MCP tool requires a reason, so most archived rows have
+               none — which is the ordinary case, not a gap. Nothing is
+               rendered then: a label with an empty value beside it, or a
+               dash, reads as a document whose reason went missing. #}
+            {% if archived and document.archiveReason %}
+            <p class="lp-document-row__archive-reason">{{ 'review.dashboard.archive_reason'|trans({'%reason%': document.archiveReason}) }}</p>
+            {% endif %}
         </div>
         {% endfor %}
     </div>

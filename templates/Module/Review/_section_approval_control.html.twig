@@ -20,7 +20,8 @@
         {% if approved %}
         <twig:ux:icon name="lucide:circle-check" class="lp-section-approve__icon" />
         {% else %}
-        <twig:ux:icon name="lucide:circle" class="lp-section-approve__icon" />
+        <twig:ux:icon name="lucide:circle" class="lp-section-approve__icon lp-section-approve__icon--rest" />
+        <twig:ux:icon name="lucide:circle-check" class="lp-section-approve__icon lp-section-approve__icon--hover" />
         {% endif %}
     </button>
 </form>

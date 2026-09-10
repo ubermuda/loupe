@@ -1293,6 +1293,10 @@
                 <source>review.document.meta.references</source>
                 <target>References</target>
             </trans-unit>
+            <trans-unit id="review.document.meta.tags">
+                <source>review.document.meta.tags</source>
+                <target>Tags</target>
+            </trans-unit>
             <trans-unit id="review.document.meta.decisions">
                 <source>review.document.meta.decisions</source>
                 <target>Decisions</target>

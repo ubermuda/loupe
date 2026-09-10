@@ -222,6 +222,16 @@
                             <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
                         </button>
                         {% endif %}
+                        {% if document.tags|length > 0 %}
+                        <button type="button" class="lp-doc-meta__tab" aria-expanded="false"
+                                data-metadata-tabs-target="tab"
+                                data-metadata-tabs-panel-param="tags"
+                                data-action="click->metadata-tabs#toggle">
+                            {{ 'review.document.meta.tags'|trans }}
+                            <span class="lp-doc-meta__count">{{ document.tags|length }}</span>
+                            <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
+                        </button>
+                        {% endif %}
                         {% if document.series is not null %}
                         <div class="lp-doc-meta__series">
                             <span class="lp-series">{{ 'review.document.series.item'|trans({
@@ -230,6 +240,9 @@
                             }) }}</span>
                         </div>
                         {% endif %}
+                        {# Below lg the tab and its panel are display:none, so the
+                           chips stay in the bar there. Above lg the panel holds
+                           them and this group is hidden. #}
                         {% if document.tags|length > 0 %}
                         <div class="lp-doc-meta__tags">
                             {% for tag in document.tags %}
@@ -238,6 +251,16 @@
                         </div>
                         {% endif %}
                     </div>
+
+                {% if document.tags|length > 0 %}
+                <div class="lp-doc-meta__panel lp-doc-tags" data-metadata-tabs-target="panel" data-panel="tags" hidden>
+                    <ul class="lp-doc-tags__list" aria-label="{{ 'review.document.meta.tags'|trans }}">
+                        {% for tag in document.tags %}
+                        <li class="lp-tag">{{ tag.name }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
 
                 {% if decisionRows|length > 0 %}
                 {# A row of its own in the bar: the longest refusal is a sentence

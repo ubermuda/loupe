@@ -838,11 +838,12 @@
         @apply flex flex-col mt-2;
     }
     /* Divider on top rather than bottom, so the last row does not end on a rule
-       the eye reads as "more below". Below lg the badge and the actions drop to
-       their own line: held on one row they leave the title about 50px, which
-       renders every document on the list as one letter and an ellipsis. */
+       the eye reads as "more below". A column at every width: the title owns the
+       first line whole, and every other thing the row says goes on the line
+       under it. Sharing one line left the title about 50px, which rendered every
+       document on the list as one letter and an ellipsis. */
     .lp-document-row {
-        @apply relative flex flex-wrap items-center gap-x-4 gap-y-2.5 border-t border-line-strong transition-colors py-5 px-1 lg:flex-nowrap lg:gap-y-0;
+        @apply relative flex flex-col gap-1.5 border-t border-line-strong transition-colors py-5 px-1;
     }
     .lp-document-row:hover {
         @apply bg-tint;
@@ -852,26 +853,28 @@
     .lp-document-row__link {
         @apply absolute inset-0;
     }
-    .lp-document-row__main {
-        @apply min-w-0 basis-full flex flex-col gap-1 lg:flex-1;
-    }
-    /* Line 1: title + version pill inline. */
+    /* Line 1: the title, and nothing else on it. */
     .lp-document-row__head {
-        @apply flex flex-wrap items-baseline gap-2 min-w-0 lg:flex-nowrap;
+        @apply flex min-w-0;
     }
-    /* The title wraps below lg and truncates above it. A phone has the vertical
-       room, and one ellipsised letter tells the reader nothing. */
+    /* The title has the line to itself, so it wraps rather than truncates at
+       every width. One ellipsised letter tells the reader nothing. */
     .lp-document-row__title {
-        @apply font-display font-semibold text-ink min-w-0 break-words text-xl tracking-tight lg:truncate lg:text-2xl;
+        @apply font-display font-semibold text-ink min-w-0 break-words text-xl tracking-tight lg:text-2xl;
     }
     /* Bare mono version marker, e.g. "v3" — a pill here would compete with the
        status badge at the other end of the same row. */
     .lp-document-row__version {
         @apply inline-flex items-center shrink-0 font-mono text-fg-dim text-xs;
     }
-    /* Line 2: the meta beneath the title. */
+    /* Line 2: everything else the row says, under the title. It wraps, because
+       a document may carry more tag names than one line holds. The actions ride
+       the right end. */
     .lp-document-row__meta {
-        @apply flex items-center gap-1.5 text-fg-dim text-sm;
+        @apply flex flex-wrap items-center gap-x-3 gap-y-1.5 text-fg-dim text-sm;
+    }
+    .lp-document-row__meta > .lp-document-row__actions {
+        @apply ml-auto;
     }
     .lp-document-row__sep {
         @apply text-fg-dim;
@@ -886,9 +889,7 @@
         content: '';
         @apply w-1.5 h-1.5 shrink-0 rounded-full bg-accent;
     }
-    /* Line 3: the document's tag chips. Wraps, because a document may carry more
-       names than fit the row and .lp-document-row__main is min-w-0. No margin —
-       __main is a flex column with its own gap. */
+    /* The document's tag chips, inline in the metadata line. */
     .lp-document-row__tags {
         @apply flex flex-wrap items-center gap-1.5;
     }
@@ -1219,11 +1220,15 @@
     }
 
     /* The 972px review block: a 640px reading column, a 36px gutter, and a
-       296px comment column. Centred, and the offset parent the comment stack
-       and the floating panels are positioned against. Below lg the 972px is a
-       ceiling rather than a width, so the reading column fills a phone. */
+       296px comment column. It starts at the same left edge as .lp-workspace,
+       so the breadcrumb above it and the content below it line up. The offset
+       parent the comment stack and the floating panels are positioned against,
+       so the left edge is a margin rather than padding: padding would move the
+       block's padding box and shift every absolute child with it. Below lg the
+       972px is a ceiling rather than a width, so the reading column fills a
+       phone. */
     .lp-review-block {
-        @apply relative w-full max-w-243 mx-auto px-5 pt-6 pb-19 lg:px-0 lg:pt-13 lg:pb-30;
+        @apply relative w-full max-w-243 px-5 pt-6 pb-19 lg:ml-12 lg:px-0 lg:pt-13 lg:pb-30;
     }
 
     /* ── Document pane ──────────────────────────────────────────────────
@@ -1333,8 +1338,13 @@
     .lp-doc-meta__compare-stop {
         @apply inline-flex items-center justify-center shrink-0 w-5 h-5 rounded-full text-status-ok-deep no-underline transition-colors hover:bg-status-ok-border;
     }
+    /* Chips in the bar itself below lg, where the tab that holds them is
+       display:none and the review menu carries no tags row. */
     .lp-doc-meta__tags {
-        @apply flex items-center gap-1.5 ml-auto;
+        @apply flex items-center gap-1.5 ml-auto lg:hidden;
+    }
+    .lp-doc-tags__list {
+        @apply flex flex-wrap items-center gap-1.5;
     }
     .lp-doc-meta__series {
         @apply flex items-center gap-1.5 ml-auto;
@@ -1626,7 +1636,7 @@
        the pane, because an inline mark always sits inside the element it
        changed — which is what makes this selector the block/inline split. */
     .lp-diff-doc > .lp-diff__mark {
-        @apply relative block my-6 py-2 pl-7 pr-3 rounded-lg border-l-4 no-underline;
+        @apply relative block my-6 py-2 px-3 rounded-lg border-l-4 no-underline;
     }
     /* Prose margins would otherwise push the block off its own tint. */
     .lp-diff-doc > .lp-diff__mark > :first-child {
@@ -1640,17 +1650,6 @@
     }
     .lp-diff-doc > .lp-diff__mark--inserted {
         @apply bg-status-ok-bg border-status-ok-border;
-    }
-    /* Gutter sign, in place of a strike-through that a reader has to see past to
-       read the paragraph it crosses. */
-    .lp-diff-doc > .lp-diff__mark::after {
-        @apply absolute left-2 top-2 select-none font-mono text-sm text-fg-dim;
-    }
-    .lp-diff-doc > .lp-diff__mark--deleted::after {
-        content: '−';
-    }
-    .lp-diff-doc > .lp-diff__mark--inserted::after {
-        content: '+';
     }
     /* Blocks split on blank lines, so a removed section is one wrapper per
        block. Adjacent wrappers close up into the single change they are. */
@@ -2612,7 +2611,7 @@
        One row at every width: below lg the lead stacks its two lines and
        everything else leaves the bar. */
     .lp-topbar {
-        @apply flex items-center gap-3.5 h-16 px-3.5 shrink-0;
+        @apply flex items-center gap-3.5 h-16 px-3.5 shrink-0 lg:px-12;
     }
     /* Opens the sidebar drawer. Present only where the sidebar is off-canvas. */
     .lp-topbar__menu {
@@ -2628,7 +2627,7 @@
        they share one baseline row, and no width floor is needed: the actions
        are the only other child and they are gone below lg. */
     .lp-topbar__lead {
-        @apply flex flex-col justify-center gap-y-0.5 min-w-0 flex-1 basis-0 lg:flex-row lg:flex-wrap lg:items-baseline lg:gap-x-3.5 lg:gap-y-1;
+        @apply flex flex-col justify-center gap-y-0.5 min-w-0 flex-1 basis-0 lg:flex-row lg:flex-wrap lg:items-baseline lg:justify-start lg:gap-x-3.5 lg:gap-y-1;
     }
     .lp-topbar__trail {
         @apply flex items-baseline gap-2 min-w-0 max-w-full;
@@ -3088,10 +3087,24 @@
         @apply translate-y-px scale-97;
     }
     .lp-section-approve__button--approved {
-        @apply text-accent-ink;
+        @apply text-status-ok-deep;
+    }
+    .lp-section-approve__button--approved:hover {
+        @apply bg-status-ok-bg text-status-ok-deep;
     }
     .lp-section-approve__icon {
         @apply w-5 h-5 shrink-0;
+    }
+    /* Hovering an unapproved section shows the tick the click would leave, so
+       the empty circle says what it does before the reviewer commits. */
+    .lp-section-approve__icon--hover {
+        @apply hidden;
+    }
+    .lp-section-approve__button:hover .lp-section-approve__icon--rest {
+        @apply hidden;
+    }
+    .lp-section-approve__button:hover .lp-section-approve__icon--hover {
+        @apply block;
     }
 
     /* ── Admin primitives ───────────────────────────────────────────────
