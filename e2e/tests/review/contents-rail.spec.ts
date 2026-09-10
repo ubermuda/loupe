@@ -127,3 +127,51 @@ test('the current row holds through a section taller than the pane', async ({
     await page.locator(RAIL_LINK).filter({ hasText: 'Gamma' }).click();
     await expect(page.locator(CURRENT)).toHaveText(/Gamma/);
 });
+
+/**
+ * The last heading sits within a screen of the end, so it never reaches the
+ * activation line however far the reader scrolls. Asking for it has to mark it
+ * anyway, or the rail answers a click by marking a different row.
+ */
+test('the last heading becomes current even though it never reaches the line', async ({
+    page,
+}) => {
+    await expect(page.locator(RAIL)).toBeVisible();
+
+    const last = page.locator(RAIL_LINK).last();
+    await expect(last).toHaveText(/Gamma/);
+    await last.click();
+
+    await expect(page.locator(CURRENT)).toHaveText(/Gamma/);
+    // And it stays marked once the scroll has settled at the bottom.
+    await expect
+        .poll(
+            () =>
+                page
+                    .locator('.lp-main')
+                    .evaluate(
+                        (pane) =>
+                            pane.scrollTop >=
+                            pane.scrollHeight - pane.clientHeight - 1,
+                    ),
+            { timeout: 5000 },
+        )
+        .toBe(true);
+    await expect(page.locator(CURRENT)).toHaveText(/Gamma/);
+});
+
+test('arriving at a heading names it for a moment', async ({ page }) => {
+    await expect(page.locator(RAIL)).toBeVisible();
+
+    await page.locator(RAIL_LINK).filter({ hasText: 'Beta' }).click();
+
+    const head = page
+        .locator('.lp-section-head')
+        .filter({ hasText: 'Beta' })
+        .first();
+    await expect(head).toHaveClass(/lp-section-head--arrived/);
+    // It names the heading rather than marking it permanently.
+    await expect(head).not.toHaveClass(/lp-section-head--arrived/, {
+        timeout: 5000,
+    });
+});

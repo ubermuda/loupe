@@ -2,6 +2,8 @@ import { Controller } from '@hotwired/stimulus';
 import { scrollerFor, smoothScrollTo } from '../lib/smooth_scroll.js';
 
 const ACTIVATION_OFFSET = 72;
+const ARRIVED_CLASS = 'lp-section-head--arrived';
+const FLASH_MS = 1400;
 
 /**
  * The contents and decisions rail beside a document. It scrolls the reader to a
@@ -26,6 +28,8 @@ export default class extends Controller {
         this.scroller = null;
         this.onScroll = () => {};
         this.frame = null;
+        this.flashTimer = 0;
+        this.flashed = null;
         this.#watchHeadings();
     }
 
@@ -45,8 +49,29 @@ export default class extends Controller {
 
         event.preventDefault();
         this.cancelScroll();
-        this.cancelScroll = smoothScrollTo(target, { align: 'start' });
-        this.#markCurrent(event.currentTarget.getAttribute('href')?.slice(1));
+        this.#markCurrent(target.id);
+        this.cancelScroll = smoothScrollTo(target, {
+            align: 'start',
+            onDone: () => this.#flash(target),
+        });
+    }
+
+    /**
+     * Names the heading the reader was taken to. Without it a scroll of a few
+     * hundred pixels ends with no sign of which of the headings on screen was
+     * the one asked for.
+     */
+    #flash(heading) {
+        // The whole head, so the approval control travels with its heading.
+        const head = heading.closest('.lp-section-head') ?? heading;
+        clearTimeout(this.flashTimer);
+        this.flashed?.classList.remove(ARRIVED_CLASS);
+        head.classList.add(ARRIVED_CLASS);
+        this.flashed = head;
+        this.flashTimer = setTimeout(() => {
+            head.classList.remove(ARRIVED_CLASS);
+            this.flashed = null;
+        }, FLASH_MS);
     }
 
     #targetOf(link) {
@@ -97,6 +122,8 @@ export default class extends Controller {
     }
 
     #unwatchHeadings() {
+        clearTimeout(this.flashTimer);
+        this.flashed?.classList.remove(ARRIVED_CLASS);
         if (null !== this.frame) {
             cancelAnimationFrame(this.frame);
             this.frame = null;
@@ -113,13 +140,21 @@ export default class extends Controller {
         const isDocument =
             this.scroller === document.scrollingElement ||
             this.scroller === document.documentElement;
-        const line =
-            (isDocument ? 0 : this.scroller.getBoundingClientRect().top) +
-            ACTIVATION_OFFSET;
+        const top = isDocument ? 0 : this.scroller.getBoundingClientRect().top;
+        const line = top + ACTIVATION_OFFSET;
+
+        // The end of the document cannot be scrolled past, so the last few
+        // headings never reach the line and would never be current however far
+        // the reader goes. At the bottom the answer is the last heading on
+        // screen, which is what asking for one of them scrolls to.
+        const atBottom =
+            this.scroller.scrollTop >=
+            this.scroller.scrollHeight - this.scroller.clientHeight - 1;
+        const limit = atBottom ? top + this.scroller.clientHeight : line;
 
         let passed = null;
         for (const heading of this.headings) {
-            if (heading.getBoundingClientRect().top > line) {
+            if (heading.getBoundingClientRect().top > limit) {
                 break;
             }
             passed = heading;

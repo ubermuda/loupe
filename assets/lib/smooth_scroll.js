@@ -65,9 +65,10 @@ export function targetScrollTop(scroller, element, align) {
 /**
  * Returns a function that stops the animation. Call the previous one before
  * starting the next, so holding a key tracks the newest target instead of
- * queueing behind it.
+ * queueing behind it. `onDone` runs when the element has arrived, and never
+ * when the scroll was cancelled.
  */
-export function smoothScrollTo(element, { align = 'start' } = {}) {
+export function smoothScrollTo(element, { align = 'start', onDone } = {}) {
     const scroller = scrollerFor(element);
     const from = scroller.scrollTop;
     const target = targetScrollTop(scroller, element, align);
@@ -75,6 +76,7 @@ export function smoothScrollTo(element, { align = 'start' } = {}) {
 
     if (distance < 1 || prefersReducedMotion()) {
         scroller.scrollTop = target;
+        onDone?.();
 
         return () => {};
     }
@@ -91,6 +93,9 @@ export function smoothScrollTo(element, { align = 'start' } = {}) {
         const eased = 1 - Math.pow(1 - progress, 3);
         scroller.scrollTop = from + (target - from) * eased;
         frame = progress < 1 ? requestAnimationFrame(step) : null;
+        if (null === frame) {
+            onDone?.();
+        }
     };
 
     frame = requestAnimationFrame(step);

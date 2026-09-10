@@ -1468,7 +1468,7 @@
        "Add general comment" plus the hint that select-to-comment exists, with
        the resolved toggle pushed out over the comment column. */
     .lp-review-actions {
-        @apply flex flex-wrap items-center gap-x-3 gap-y-2 mb-5.5;
+        @apply flex flex-wrap items-center gap-x-3 gap-y-2 mt-5.5 mb-5.5;
     }
     .lp-review-actions__hint {
         @apply text-sm text-fg-mute;
@@ -1659,11 +1659,24 @@
     .lp-history {
         @apply list-none flex flex-col m-0 mt-8 p-0;
     }
+    /* The rule joins one node to the next, so it starts at the first node's
+       centre and stops at the last one's. A border would run the whole height of
+       every row, overshooting above the first node and stopping a row short of
+       the last. The offset is the node's own: 8px down, half of a 10px dot. */
     .lp-history__row {
-        @apply relative flex flex-col gap-1.5 border-l border-line pl-6 pb-6;
+        @apply relative flex flex-col gap-1.5 pl-6 pb-6;
+        background-image: linear-gradient(var(--color-line), var(--color-line));
+        background-repeat: no-repeat;
+        background-position: left top;
+        background-size: 1px 100%;
+    }
+    .lp-history__row:first-child {
+        background-position: left calc(var(--spacing) * 3.25);
+        background-size: 1px calc(100% - var(--spacing) * 3.25);
     }
     .lp-history__row:last-child {
-        @apply border-transparent pb-0;
+        @apply pb-0;
+        background-size: 1px calc(var(--spacing) * 3.25);
     }
     .lp-history__row::before {
         content: '';
@@ -3046,10 +3059,22 @@
         @apply flex flex-col gap-2.5 mb-4;
     }
     .lp-orphan-group__title {
-        @apply flex items-center gap-2 m-0 uppercase font-mono text-status-pending-deep text-xs tracking-wider;
+        @apply flex items-center gap-2 w-full p-0 bg-transparent border-0 cursor-pointer text-left uppercase font-mono text-status-pending-deep text-xs tracking-wider transition-colors hover:text-status-pending;
     }
     .lp-orphan-group__icon {
         @apply w-3.5 h-3.5 shrink-0;
+    }
+    .lp-orphan-group__caret {
+        @apply w-3.5 h-3.5 shrink-0 transition-transform duration-100;
+    }
+    .lp-orphan-group.disclosure-open .lp-orphan-group__caret {
+        @apply rotate-90;
+    }
+    .lp-orphan-group__list {
+        @apply hidden flex-col gap-2.5;
+    }
+    .lp-orphan-group__list.open {
+        @apply flex;
     }
     /* In flow, against the rail's absolute placement: these cards are the group's
        own children and there is no passage to place them against. `!important`
@@ -3210,6 +3235,11 @@
         > .lp-section-head:first-child
         > :is(h1, h2, h3, h4, h5, h6) {
         @apply mt-0;
+    }
+    /* Names the heading a contents link took the reader to. The scroll ends
+       with several headings on screen and no sign of which was asked for. */
+    .lp-section-head--arrived {
+        animation: lp-arrived 1400ms ease-out both;
     }
     .lp-section-approve {
         @apply absolute right-0 top-0 m-0 flex;
@@ -4497,6 +4527,17 @@
     }
 }
 
+/* The arrival mark: a tint that fades out rather than a ring that lands and
+   sits there. A background is safe on a heading, which nothing else colours. */
+@keyframes lp-arrived {
+    from {
+        background-color: var(--color-accent-faint);
+    }
+    to {
+        background-color: transparent;
+    }
+}
+
 @keyframes lp-tab-countdown {
     from {
         transform: scaleX(0);
@@ -4523,6 +4564,16 @@
 
     .lp-demo-widget-hint {
         animation: none;
+    }
+
+    /* The mark still has to be seen, so it holds rather than fading. */
+    @keyframes lp-arrived {
+        from {
+            background-color: var(--color-accent-faint);
+        }
+        to {
+            background-color: var(--color-accent-faint);
+        }
     }
 
     .lp-sidebar--drawer,

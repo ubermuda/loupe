@@ -1379,10 +1379,6 @@
                 <source>review.document.history.compare.submit</source>
                 <target>Compare these two</target>
             </trans-unit>
-            <trans-unit id="review.document.history.compare.hint">
-                <source>review.document.history.compare.hint</source>
-                <target>You can compare any two versions, not only two that follow one another.</target>
-            </trans-unit>
             <trans-unit id="review.document.history.compare_with">
                 <source>review.document.history.compare_with</source>
                 <target>Compare with v%from%</target>
