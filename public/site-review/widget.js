@@ -2891,6 +2891,30 @@
     // Add-anchor mode. Holding the modifier over an open composer brings the picker
     // back, so a click adds another anchor without discarding the draft. The mode
     // lasts as long as the hold. At the cap it says so instead of picking.
+    // The mode arms on the keydown and shows itself on the pointer. A reveal on
+    // the keydown alone flashes the picker on and straight back off for every
+    // chord typed into the composer: ⌘Enter to save, ⌘A, ⌘C, ⌘V. The pointer has
+    // to move to reach the next element anyway, so nothing is lost.
+    const disarmReveal = () => {
+        document.removeEventListener('mousemove', revealAddAnchor, true);
+        document.removeEventListener('mousedown', revealAddAnchor, true);
+    };
+    const revealAddAnchor = (event) => {
+        // A synthetic move that carries no modifier is not the reviewer's pointer,
+        // so it must not spend the arm.
+        if (!state.addAnchor || !modHeld(event)) return;
+        disarmReveal();
+        if (composeAnchors().length >= MAX_ANCHORS) {
+            state.actionError = { message: AT_CAP_MESSAGE };
+        } else {
+            setTargeting(true);
+            // A listener added mid-dispatch does not get the event that added it, so
+            // the mousedown that revealed the picker would focus the host element
+            // `onDown` exists to protect. Run it by hand for that one event.
+            if (event.type === 'mousedown') onDown(event);
+        }
+        sync();
+    };
     const enterAddAnchor = () => {
         if (state.modCancelled || state.addAnchor) return;
         if (
@@ -2902,18 +2926,15 @@
             return;
         // A modifier held while drawing belongs to the drag, not to the picker.
         if (state.drawing) return;
-        if (composeAnchors().length >= MAX_ANCHORS) {
-            state.actionError = { message: AT_CAP_MESSAGE };
-        } else {
-            setTargeting(true);
-        }
         state.addAnchor = true;
-        sync();
+        document.addEventListener('mousemove', revealAddAnchor, true);
+        document.addEventListener('mousedown', revealAddAnchor, true);
     };
     // `cancelled` marks the hold spent, so another key pressed with the modifier
     // down does not re-enter the mode before the reviewer lets go.
     const exitAddAnchor = (cancelled) => {
         state.modCancelled = cancelled;
+        disarmReveal();
         if (!state.addAnchor) return;
         state.addAnchor = false;
         setTargeting(false);
