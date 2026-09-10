@@ -1313,10 +1313,6 @@
                 <source>review.document.decisions.pending</source>
                 <target>Not chosen yet</target>
             </trans-unit>
-            <trans-unit id="review.document.status.open">
-                <source>review.document.status.open</source>
-                <target>Open</target>
-            </trans-unit>
             <trans-unit id="review.document.status.pending">
                 <source>review.document.status.pending</source>
                 <target>Open</target>

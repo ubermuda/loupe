@@ -194,4 +194,11 @@ test('the current row survives an approval, which replaces the rows', async ({
     );
 
     await expect(page.locator(CURRENT)).toHaveText(/Alpha/);
+
+    // And the rail still follows the reader afterwards: it marks the headings
+    // of the document, which the stream never replaced.
+    await page.locator('.lp-main').evaluate((pane) => {
+        pane.scrollTop += 900;
+    });
+    await expect(page.locator(CURRENT)).toHaveText(/Beta/);
 });
