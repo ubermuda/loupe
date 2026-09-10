@@ -1,0 +1,28 @@
+{# The two versions of one comparison, in two columns paired block by block. One
+   grid holds every cell, so a pair shares a row and the taller of the two sets
+   its height. A void cell is a block that version does not hold, and its note is
+   screen-reader text, since the dashed box says the same to the eye.
+   Params: rows (list<SideBySideRow>), fromVersion, toVersion. #}
+<div class="lp-diff-columns">
+    <p class="lp-diff-columns__title">{{ 'review.document.diff.side_by_side.column'|trans({'%version%': fromVersion}) }}</p>
+    <p class="lp-diff-columns__title">{{ 'review.document.diff.side_by_side.column'|trans({'%version%': toVersion}) }}</p>
+
+    {% for row in rows %}
+    <div class="lp-diff-columns__cell{{ row.oldHtml is null ? ' lp-diff-columns__cell--void' : '' }}" data-diff-row="{{ loop.index }}">
+        <p class="lp-diff-columns__label">{{ 'review.document.diff.side_by_side.column'|trans({'%version%': fromVersion}) }}</p>
+        {% if row.oldHtml is null %}
+        <p class="lp-diff-columns__note">{{ 'review.document.diff.side_by_side.empty'|trans }}</p>
+        {% else %}
+        <div class="prose lp-prose lp-review-doc__prose lp-diff-doc">{{ row.oldHtml|raw }}</div>
+        {% endif %}
+    </div>
+    <div class="lp-diff-columns__cell{{ row.newHtml is null ? ' lp-diff-columns__cell--void' : '' }}" data-diff-row="{{ loop.index }}">
+        <p class="lp-diff-columns__label">{{ 'review.document.diff.side_by_side.column'|trans({'%version%': toVersion}) }}</p>
+        {% if row.newHtml is null %}
+        <p class="lp-diff-columns__note">{{ 'review.document.diff.side_by_side.empty'|trans }}</p>
+        {% else %}
+        <div class="prose lp-prose lp-review-doc__prose lp-diff-doc">{{ row.newHtml|raw }}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>

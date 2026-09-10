@@ -167,10 +167,17 @@ test('a keystroke strikes the selection without ever opening a composer', async 
     await selectKnownPhrase(page);
     await page.keyboard.press('s');
 
-    // The strike renders as struck-through text under a STRIKE status label —
-    // the whole premise is that this took one gesture and no typing.
-    await expect(page.locator('.lp-comment-status--strike')).toBeVisible({
+    // The strike lands in the rail as a marker carrying the strike colour — the
+    // whole premise is that this took one gesture and no typing.
+    await expect(page.locator('.lp-comment-marker__dot--strike')).toBeVisible({
         timeout: coverageScaled(10000),
+    });
+    // Opening it shows the STRIKE label. The rail hides the struck passage,
+    // because the prose carries it under the strike highlight, so the quote is
+    // read from the markup rather than the screen.
+    await page.locator('.lp-comment-marker').first().click();
+    await expect(page.locator('.lp-comment-status--strike')).toBeVisible({
+        timeout: coverageScaled(5000),
     });
     await expect(page.locator('.lp-comment-quote--struck')).toContainText(
         KNOWN_PHRASE,
@@ -209,7 +216,7 @@ test('clicking away disarms the shortcut instead of leaving it on a stale anchor
     // be zero for the boring reason that nothing was ever wired up.
     await selectKnownPhrase(page);
     await page.keyboard.press('s');
-    await expect(page.locator('.lp-comment-status--strike')).toBeVisible({
+    await expect(page.locator('.lp-comment-marker__dot--strike')).toBeVisible({
         timeout: coverageScaled(10000),
     });
 
@@ -236,7 +243,7 @@ test('holding the strike key posts one strike, not one per repeat', async ({
     // what makes the test about `event.repeat` specifically: once submit-end has
     // released the in-flight flag, that guard can no longer suppress anything, so
     // the repeats below are held back by nothing else.
-    await expect(page.locator('.lp-comment-status--strike')).toBeVisible({
+    await expect(page.locator('.lp-comment-marker__dot--strike')).toBeVisible({
         timeout: coverageScaled(10000),
     });
 
@@ -260,7 +267,7 @@ test('two fast keypresses post one strike, not two', async ({ page }) => {
     await page.keyboard.press('s');
     await page.keyboard.press('s');
 
-    await expect(page.locator('.lp-comment-status--strike')).toBeVisible({
+    await expect(page.locator('.lp-comment-marker__dot--strike')).toBeVisible({
         timeout: coverageScaled(10000),
     });
 

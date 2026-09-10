@@ -11,6 +11,7 @@ use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Service\MarkdownDiffer;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\Service\RenderedDiffBuilder;
+use App\Module\Review\Service\SideBySideDiffBuilder;
 use App\Module\Review\ValueObject\CommentSignals;
 use App\Module\Review\ValueObject\DiffRefusal;
 use App\Module\Review\ValueObject\DiffView;
@@ -27,6 +28,7 @@ final readonly class DiffDocumentVersionsHandler
         private MarkdownDiffer $markdownDiffer,
         private MarkdownRenderer $markdownRenderer,
         private RenderedDiffBuilder $renderedDiffs,
+        private SideBySideDiffBuilder $sideBySideDiffs,
         private Auditor $auditor,
     ) {
     }
@@ -41,6 +43,7 @@ final readonly class DiffDocumentVersionsHandler
 
         $diff = null;
         $renderedDiff = null;
+        $sideBySide = null;
         $diffRefusal = null;
         $changeCount = null;
         if ($result instanceof DiffRefusal) {
@@ -66,18 +69,26 @@ final readonly class DiffDocumentVersionsHandler
         // rendered diff would be measured against is not read at all.
         $isCurrent = $this->documentVersions->findLatest($command->document)->versionNumber === $version->versionNumber;
 
-        // Only the showing view is built. Rendering the other one costs a whole
+        // Only the showing view is built. Rendering another one costs a whole
         // Markdown pass, and its count would then be on the page describing jump
-        // targets that are not.
+        // targets that are not. Side by side pairs the rendered pane rather than
+        // showing it, and takes no comments, because its two columns need the
+        // width the comment rail otherwise holds.
         if (null !== $diff && $diff->hasChanges()) {
             if (DiffView::Source === $command->view) {
                 $changeCount = $diff->changeCount();
             } else {
-                $renderedDiff = $this->renderedDiffs->build(
+                $rendered = $this->renderedDiffs->build(
                     $this->markdownRenderer->renderDiff($diff),
-                    $isCurrent ? $version->plainText() : null,
+                    $isCurrent && DiffView::Rendered === $command->view ? $version->plainText() : null,
                 );
-                $changeCount = $renderedDiff->changeCount;
+                $changeCount = $rendered->changeCount;
+
+                if (DiffView::SideBySide === $command->view) {
+                    $sideBySide = $this->sideBySideDiffs->build($rendered->html);
+                } else {
+                    $renderedDiff = $rendered;
+                }
             }
         }
 
@@ -90,6 +101,7 @@ final readonly class DiffDocumentVersionsHandler
             view: $command->view,
             diff: $diff,
             renderedDiff: $renderedDiff,
+            sideBySide: $sideBySide,
             diffRefusal: $diffRefusal,
             changeCount: $changeCount,
             commentingEnabled: $isCurrent && null !== $renderedDiff,

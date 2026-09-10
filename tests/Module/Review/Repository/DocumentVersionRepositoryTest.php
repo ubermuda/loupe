@@ -119,6 +119,40 @@ final class DocumentVersionRepositoryTest extends KernelTestCase
     }
 
     /**
+     * The count is scoped to the document, so a version number another document
+     * carries never makes a pair look real.
+     */
+    public function test_count_by_numbers_counts_only_this_document_s_versions(): void
+    {
+        $owner = new User(fullName: 'DV Owner 4', email: 'dv-owner4@example.com', password: 'x');
+        $this->em->persist($owner);
+        $project = new Project($owner, 'p-'.uniqid());
+        $this->em->persist($project);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Counted history');
+        $doc->addVersion('# v1', '<h1>v1</h1>');
+        $doc->addVersion('# v2', '<h1>v2</h1>');
+        $this->em->persist($doc);
+
+        $other = new Document(owner: $owner, project: $project, title: 'Other history');
+        $other->addVersion('# v1', '<h1>v1</h1>');
+        $other->addVersion('# v2', '<h1>v2</h1>');
+        $other->addVersion('# v3', '<h1>v3</h1>');
+        $this->em->persist($other);
+        $this->em->flush();
+        $this->em->clear();
+
+        $fetched = $this->em->find(Document::class, $doc->id);
+        self::assertInstanceOf(Document::class, $fetched);
+
+        self::assertSame(2, $this->documentVersions->countByNumbers($fetched, [1, 2]));
+        // 3 belongs to the other document alone.
+        self::assertSame(1, $this->documentVersions->countByNumbers($fetched, [2, 3]));
+        self::assertSame(0, $this->documentVersions->countByNumbers($fetched, [0, 9]));
+        self::assertSame(0, $this->documentVersions->countByNumbers($fetched, []));
+    }
+
+    /**
      * Two properties the re-render guard depends on and a refactor would quietly
      * drop: the result is a cursor, and its rows are grouped by version.
      */

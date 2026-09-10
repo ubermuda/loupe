@@ -115,13 +115,13 @@ final class ShowDocumentLastSeenVersionTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$documentId.'/review');
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$documentId.'/review');
 
         self::assertResponseIsSuccessful();
         // The revision landed, so the page really is at a later version than the
         // one the other account commented on — the banner is absent because the
         // reader has never engaged with it, not because there is nothing to compare.
-        self::assertCount(2, $crawler->filter('.lp-version-entry'));
+        self::assertSelectorTextContains('.lp-version-switcher__all', 'See all 2 versions');
         self::assertSelectorNotExists('.lp-version-banner--unread');
     }
 }

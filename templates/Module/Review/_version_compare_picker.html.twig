@@ -1,0 +1,29 @@
+{# The from/to picker that starts another comparison. app_document_review_compare
+   swaps a backwards pair and sends an unreal one to the history, so no
+   client-side guard has to keep the selects in step.
+   Params: document, versions, fromVersionNumber, toVersionNumber, viewValue,
+   idPrefix. #}
+<form class="lp-version-compare" method="GET"
+      action="{{ path('app_document_review_compare', {projectId: document.project.id, documentId: document.id}) }}">
+    <label class="sr-only" for="{{ idPrefix }}-from">{{ 'review.document.diff.picker.from_label'|trans }}</label>
+    <select id="{{ idPrefix }}-from" name="from" class="lp-input lp-select lp-filter-select">
+        {% for meta in versions|reverse %}
+        <option value="{{ meta.versionNumber }}"{{ meta.versionNumber == fromVersionNumber ? ' selected' : '' }}>{{ 'v' ~ meta.versionNumber }}</option>
+        {% endfor %}
+    </select>
+
+    <span class="lp-form-hint">{{ 'review.document.diff.picker.separator'|trans }}</span>
+
+    <label class="sr-only" for="{{ idPrefix }}-to">{{ 'review.document.diff.picker.to_label'|trans }}</label>
+    <select id="{{ idPrefix }}-to" name="to" class="lp-input lp-select lp-filter-select">
+        {% for meta in versions|reverse %}
+        <option value="{{ meta.versionNumber }}"{{ meta.versionNumber == toVersionNumber ? ' selected' : '' }}>{{ 'v' ~ meta.versionNumber }}</option>
+        {% endfor %}
+    </select>
+
+    {# The reader keeps the view they chose, so comparing another pair does not
+       send them back to the rendered one. #}
+    {% if viewValue is not null and viewValue != 'rendered' %}<input type="hidden" name="view" value="{{ viewValue }}">{% endif %}
+
+    <button type="submit" class="lp-btn lp-btn--sm">{{ 'review.document.diff.picker.submit'|trans }}</button>
+</form>

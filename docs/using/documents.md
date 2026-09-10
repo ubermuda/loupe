@@ -42,20 +42,59 @@ contents, the versions, the references, the decisions, the resolved-thread
 toggle and the two verdict buttons. Each list opens inside the same panel, and
 the button becomes the way back out of it.
 
-A wide window puts the comment cards in a column beside the document, each one
-level with the passage it points at. A narrow window has no room for that
-column, so each card moves into the document instead, directly after the
-paragraph it points at.
+A wide window puts the comment threads in a rail beside the document, each one
+level with the passage it points at. A thread is one row there: a coloured dot
+for its state, its author, and how many replies it carries. Click the row and the
+thread opens in place, with its body, its replies, the reply box and the
+buttons. Only one thread is open at a time, so opening a second closes the first,
+and a click on an open row closes it. Press Escape to close it from the keyboard.
+
+An open thread does not repeat the passage it points at, because that passage is
+highlighted in the document level with the row. A thread whose passage is gone
+from this version still quotes it, because there is nothing left to highlight.
+
+A narrow window has no room for the rail, so each thread moves into the document
+instead, directly after the paragraph it points at, and shows in full.
 
 Touch works the same way as a mouse. Select a passage and the comment toolbar
 appears. A highlighted passage has no hover, so a tap on one takes its place: the
 passage and its card light up together, and a tap on plain text drops the pair
 again.
 
-Two views help across versions:
+Three views help across versions:
 
 - `/review/versions/{versionNumber}` — any earlier version as it read then.
 - `/review/diff/{from}/{to}` — what changed between two versions.
+- `/review/history` — every version, newest first.
+
+The Versions tab on the review page carries the version you are reading: its
+number, its date, its note and the way into its comparison with the version
+before it. A link at the end of the tab opens the history page, which lists every
+version the same way. The history page also has a picker that compares any two
+versions, not only two that follow one another.
+
+### What a comparison looks like
+
+A comparison is the review page with one pane replaced, so the document keeps its
+place on the screen. A green chip in the metadata bar names the pair, and the ×
+on the chip returns you to the latest version. One row under it holds the view
+switch, **Document**, **Side by side** and **Markdown**, with the change count
+and the two jump arrows at the right end. `j` and `k` move between changes as
+well.
+
+**Side by side** puts the two versions in two columns, the older one on the
+left. Each block sits opposite the block it became, so a reworded paragraph
+reads whole on both sides. Where one version has nothing, that side shows an
+empty slot and the pair stays level. The change count and the jump arrows work
+here too, and a jump can land in either column.
+
+The comment column is hidden in this view, because the second column takes its
+width. The page says so above the two columns, and the **Document** view brings
+the comments back. On a phone the two columns stack, older above newer, and each
+one names its version.
+
+While you compare, the Versions tab also holds a from/to picker, so any other
+pair is two clicks away. It keeps the view you are on.
 
 ### Commenting on a diff
 
