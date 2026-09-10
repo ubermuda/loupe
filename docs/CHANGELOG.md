@@ -35,6 +35,10 @@ entry.
 
 ## [Unreleased]
 
+- (#416) — **Fixed:** the site-review picker no longer flashes on and off when
+  a modifier chord such as Cmd+Enter is typed into the comment composer.
+- (#416) — **Fixed:** the diff view's `j` and `k` shortcuts no longer swallow
+  those letters typed into the site-review comment composer.
 - (#411) — **Changed:** open work now lives on the Loupe project board
   instead of `docs/NEXT_STEPS.md`, which is deleted along with the
   `project-next-steps` skill.
