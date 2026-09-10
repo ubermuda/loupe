@@ -1266,7 +1266,9 @@
         .lp-review-rail {
             @apply block;
         }
-        .lp-review-block {
+        /* Only a block that holds a rail. A diff page renders none, and a wide
+           side-by-side diff shifted by 324px overflows its own pane. */
+        .lp-review-block:has(.lp-review-rail) {
             @apply ml-81;
         }
     }
