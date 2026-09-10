@@ -26,7 +26,11 @@
 {% set rootComments = comments|filter(c => c.parent is null)|map(c => c) %}
 {# `is empty` would call a comment anchored to the literal text 0 general. #}
 {% set generalComments = rootComments|filter(c => c.anchor.quote == '')|map(c => c) %}
-{% set anchoredComments = rootComments|filter(c => c.anchor.quote != '')|map(c => c) %}
+{# A thread whose passage is gone from this version has no line to sit level
+   with, so it leads the column under its own heading instead of taking whatever
+   spot the running floor gives it. #}
+{% set orphanedComments = rootComments|filter(c => c.anchor.quote != '' and c.orphaned)|map(c => c) %}
+{% set anchoredComments = rootComments|filter(c => c.anchor.quote != '' and not c.orphaned)|map(c => c) %}
 {% set resolvedCount = rootComments|filter(c => c.threadStatus.value == 'resolved')|length %}
 <div id="comment-threads" class="lp-comment-threads" data-resolved-count="{{ resolvedCount }}">
     {% if generalComments|length > 0 %}
@@ -51,6 +55,18 @@
     {# lp-comment-rail is what turns the cards into markers. The landing hero mock
        reuses lp-review-margin, so the rail cannot key on that class. #}
     <div class="lp-review-margin lp-comment-rail" data-comment-anchor-target="margin">
+        {% if orphanedComments|length > 0 %}
+        <div class="lp-orphan-group">
+            <p class="lp-orphan-group__title">
+                <twig:ux:icon name="lucide:bell-off" class="lp-orphan-group__icon" />
+                {{ 'review.document.orphan_group'|trans({'%count%': orphanedComments|length}) }}
+            </p>
+            {% for comment in orphanedComments %}
+                {% set replies = comments|filter(c => c.parent is not null and c.parent.id == comment.id) %}
+                <twig:CommentThread :comment="comment" :replies="replies|map(c => c)" :readOnly="readOnly" />
+            {% endfor %}
+        </div>
+        {% endif %}
         {% for comment in anchoredComments %}
             {% set replies = comments|filter(c => c.parent is not null and c.parent.id == comment.id) %}
             <twig:CommentThread :comment="comment" :replies="replies|map(c => c)" :readOnly="readOnly" />

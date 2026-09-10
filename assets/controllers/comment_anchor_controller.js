@@ -1642,6 +1642,8 @@ export default class extends Controller {
         const anchored = this.threadTargets.filter(
             (thread) =>
                 thread.dataset.commentGeneral !== 'true' &&
+                // An orphaned card leads the column in its own group, in flow.
+                thread.dataset.commentOrphaned !== 'true' &&
                 // offsetParent is null for a display:none card, which is what
                 // hiding resolved threads does. Placing one would advance the
                 // floor by a card that is not on screen.
@@ -1657,7 +1659,13 @@ export default class extends Controller {
         }
 
         const marginTop = this.marginTarget.getBoundingClientRect().top;
-        let floor = 0;
+        // The orphan group leads the column in flow, so the positioned cards
+        // start below it rather than on top of it.
+        const orphans = this.marginTarget.querySelector('.lp-orphan-group');
+        let floor =
+            null === orphans
+                ? 0
+                : orphans.offsetHeight + this.constructor.CARD_GAP;
 
         for (const thread of anchored) {
             // #releaseThreads() pins every card static, and `top` alone means

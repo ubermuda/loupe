@@ -70,9 +70,9 @@ final class ShowDocumentLastSeenVersionTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$documentId.'/review');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('.lp-version-banner--unread');
+        self::assertSelectorExists('.lp-doc-meta__unread');
 
-        $link = $crawler->filter('.lp-version-banner--unread a')->attr('href');
+        $link = $crawler->filter('.lp-doc-meta__unread')->attr('href');
         self::assertSame(
             '/projects/'.$projectId.'/documents/'.$documentId.'/review/diff/1/3',
             $link,
@@ -122,6 +122,6 @@ final class ShowDocumentLastSeenVersionTest extends WebTestCase
         // one the other account commented on — the banner is absent because the
         // reader has never engaged with it, not because there is nothing to compare.
         self::assertSelectorTextContains('.lp-version-switcher__all', 'See all 2 versions');
-        self::assertSelectorNotExists('.lp-version-banner--unread');
+        self::assertSelectorNotExists('.lp-doc-meta__unread');
     }
 }

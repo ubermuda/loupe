@@ -1337,9 +1337,9 @@
                 <source>review.document.status.resolved</source>
                 <target>Resolved</target>
             </trans-unit>
-            <trans-unit id="review.document.orphan_banner">
-                <source>review.document.orphan_banner</source>
-                <target>{0}No comment threads refer to text that has been removed or changed.|{1}One comment thread refers to text that has been removed or changed.|]1,Inf[%count% comment threads refer to text that has been removed or changed.</target>
+            <trans-unit id="review.document.orphan_group">
+                <source>review.document.orphan_group</source>
+                <target>{0}No longer in the text|{1}No longer in the text · 1|]1,Inf[No longer in the text · %count%</target>
             </trans-unit>
             <trans-unit id="review.document.version.read_only">
                 <source>review.document.version.read_only</source>
@@ -1401,13 +1401,9 @@
                 <source>review.document.diff.link</source>
                 <target>What changed since v%from%</target>
             </trans-unit>
-            <trans-unit id="review.document.since_last_visit.banner">
-                <source>review.document.since_last_visit.banner</source>
-                <target>You last commented on or reviewed version %from% of this document. It is now at version %to%.</target>
-            </trans-unit>
-            <trans-unit id="review.document.since_last_visit.link">
-                <source>review.document.since_last_visit.link</source>
-                <target>See what changed</target>
+            <trans-unit id="review.document.since_last_visit.chip">
+                <source>review.document.since_last_visit.chip</source>
+                <target>New since v%from% · see what changed</target>
             </trans-unit>
             <trans-unit id="review.document.diff.notes_title">
                 <source>review.document.diff.notes_title</source>

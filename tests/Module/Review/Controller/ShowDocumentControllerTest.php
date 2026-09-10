@@ -284,7 +284,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertSelectorNotExists('.lp-signal--answered');
     }
 
-    public function test_the_orphan_banner_counts_threads_and_not_their_replies(): void
+    public function test_the_orphan_group_counts_threads_and_not_their_replies(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -311,10 +311,14 @@ final class ShowDocumentControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('.lp-orphan-banner', 'One comment thread refers to text that has been removed');
+        // The group leads the comment column and holds the thread itself, so the
+        // heading counts threads while the column below it holds none of them.
+        self::assertSelectorTextContains('.lp-orphan-group__title', 'No longer in the text · 1');
+        self::assertCount(1, $crawler->filter('.lp-orphan-group .lp-comment-thread'));
+        self::assertCount(0, $crawler->filter('.lp-comment-rail > .lp-comment-thread'));
     }
 
     public function test_resolving_a_comment_returns_the_whole_list_as_one_stream(): void

@@ -1414,6 +1414,11 @@
     .lp-doc-meta__compare {
         @apply inline-flex items-center gap-1.5 shrink-0 rounded-full bg-status-ok-bg text-status-ok-deep font-semibold text-xs py-1 pl-2.5 pr-1;
     }
+    /* Reads as an invitation rather than as a tab: the reader has not asked for
+       the comparison, and the row beside it is what the page already holds. */
+    .lp-doc-meta__unread {
+        @apply inline-flex items-center gap-2 shrink-0 h-7 px-2.75 rounded-full no-underline bg-accent-faint-2 border border-accent-border text-accent-ink text-xs font-semibold transition-colors hover:bg-accent-faint;
+    }
     .lp-doc-meta__compare-stop {
         @apply inline-flex items-center justify-center shrink-0 w-5 h-5 rounded-full text-status-ok-deep no-underline transition-colors hover:bg-status-ok-border;
     }
@@ -1906,11 +1911,6 @@
        composer, reply and verdict controls all act on the current version. */
     .lp-version-banner {
         @apply flex flex-wrap items-center gap-2.5 px-4 py-3 mb-4 rounded-lg border text-sm bg-surface-2 border-line text-fg-mute;
-    }
-    /* Tinted apart from the plain banner: this one invites a click rather than
-       explaining what the page is showing. */
-    .lp-version-banner--unread {
-        @apply bg-accent-faint-2 border-accent-border text-ink;
     }
     .lp-review-doc__byline {
         @apply text-fg-dim m-0 text-sm;
@@ -3039,8 +3039,45 @@
 
     /* ── Orphan banner ──────────────────────────────────────────────── */
 
-    .lp-orphan-banner {
-        @apply flex items-center gap-2.5 px-4 py-3 mb-4 rounded-lg border text-sm bg-status-pending-bg border-status-pending-border text-status-pending-deep;
+    /* Threads whose passage this version no longer holds. They lead the comment
+       column in flow, because there is no line for them to sit level with, and
+       the heading is what the banner above the document used to say. */
+    .lp-orphan-group {
+        @apply flex flex-col gap-2.5 mb-4;
+    }
+    .lp-orphan-group__title {
+        @apply flex items-center gap-2 m-0 uppercase font-mono text-status-pending-deep text-xs tracking-wider;
+    }
+    .lp-orphan-group__icon {
+        @apply w-3.5 h-3.5 shrink-0;
+    }
+    /* In flow, against the rail's absolute placement: these cards are the group's
+       own children and there is no passage to place them against. `!important`
+       because comment_anchor_controller writes `position` as an inline style. */
+    .lp-orphan-group .lp-comment-thread {
+        position: static !important;
+        @apply rounded-xl;
+        outline: 1px solid var(--color-status-pending-border);
+    }
+    /* Open, not collapsed to a marker: a marker names the author and points at a
+       passage, and this card has none to point at. Both selectors carry the
+       rail's own prefix, which is what the collapse rules use, or those would
+       out-rank these however late they come. */
+    .lp-comment-rail .lp-orphan-group .lp-comment-marker {
+        @apply hidden;
+    }
+    .lp-comment-rail
+        .lp-orphan-group
+        .lp-comment-thread
+        .lp-comment-thread__detail {
+        @apply block;
+    }
+    /* The marker is what names the author in the rail, and it is hidden here. */
+    .lp-comment-rail
+        .lp-orphan-group
+        .lp-comment-thread__header
+        > .lp-comment-author {
+        @apply inline;
     }
 
     /* ── Decision blocks ────────────────────────────────────────────────

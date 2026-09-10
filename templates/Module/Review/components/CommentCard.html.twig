@@ -21,6 +21,7 @@
     data-anchor-status="{{ this.status }}"
     data-anchor-kind="{{ this.kind }}"
     {% if this.isGeneral %}data-comment-general="true"{% endif %}
+    {% if this.orphaned %}data-comment-orphaned="true"{% endif %}
     data-action="mouseenter->comment-anchor#focusThread mouseleave->comment-anchor#blurThread focusin->comment-anchor#focusThread focusout->comment-anchor#blurThread keydown->comment-anchor#threadKeydown"
 >
     {# A keyboard reader gets the same passage highlight a hover gives, through
