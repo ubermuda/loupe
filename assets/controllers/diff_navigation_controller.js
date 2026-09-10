@@ -52,7 +52,11 @@ export default class extends Controller {
         if (event.metaKey || event.ctrlKey || event.altKey) {
             return;
         }
-        if (this.isTypingTarget(event.target)) {
+        // composedPath()[0], not event.target: the site-review widget composes in a
+        // shadow root, and a keydown retargets to its host — so the field test passed
+        // and j/k ate every one the reviewer typed. The widget loads on every
+        // authenticated page, so both are always live.
+        if (this.isTypingTarget(event.composedPath()[0] ?? event.target)) {
             return;
         }
 
