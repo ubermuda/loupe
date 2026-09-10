@@ -213,6 +213,18 @@ test('arriving at a heading names it for a moment', async ({ page }) => {
         .filter({ hasText: 'Beta' })
         .first();
     await expect(head).toHaveClass(/lp-arrived/);
+
+    // Both halves of the mark are shadows in one list, so neither can fade at
+    // its own rate and leave the other standing as a border.
+    const shadow = await head.evaluate(
+        (element) => getComputedStyle(element).boxShadow,
+    );
+    expect(shadow).not.toBe('none');
+    expect(shadow.match(/inset/g)).toHaveLength(1);
+    expect(
+        shadow.split(',').filter((part) => part.includes('rgb')),
+    ).toHaveLength(2);
+
     // It names the heading rather than marking it permanently.
     await expect(head).not.toHaveClass(/lp-arrived/, {
         timeout: 8000,

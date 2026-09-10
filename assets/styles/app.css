@@ -4529,21 +4529,20 @@
 }
 
 /* The arrival mark: a tint that fades out rather than a ring that lands and
-   sits there. A background IMAGE, with the spread of a shadow standing in for
-   padding it cannot have without moving the page: `background-color` is the
-   decision fence's own, and animating that would fade the fence to the page.
-   @comment-budget-ignore */
+   sits there. Both halves are shadows in ONE list, the inset filling the block
+   and the outer standing in for padding it cannot have without moving the page.
+   One property, so the two cannot fade at different rates, and neither is
+   `background-color`, which belongs to the decision fence. @comment-budget-ignore */
 @keyframes lp-arrived {
     from {
-        background-image: linear-gradient(
-            var(--color-accent-faint),
-            var(--color-accent-faint)
-        );
-        box-shadow: 0 0 0 0.6rem var(--color-accent-faint);
+        box-shadow:
+            inset 0 0 0 100vmax var(--color-accent-faint),
+            0 0 0 0.6rem var(--color-accent-faint);
     }
     to {
-        background-image: linear-gradient(transparent, transparent);
-        box-shadow: 0 0 0 0.6rem transparent;
+        box-shadow:
+            inset 0 0 0 100vmax transparent,
+            0 0 0 0.6rem transparent;
     }
 }
 
@@ -4579,11 +4578,9 @@
     @keyframes lp-arrived {
         from,
         to {
-            background-image: linear-gradient(
-                var(--color-accent-faint),
-                var(--color-accent-faint)
-            );
-            box-shadow: 0 0 0 0.6rem var(--color-accent-faint);
+            box-shadow:
+                inset 0 0 0 100vmax var(--color-accent-faint),
+                0 0 0 0.6rem var(--color-accent-faint);
         }
     }
 
