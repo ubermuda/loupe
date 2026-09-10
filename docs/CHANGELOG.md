@@ -35,6 +35,15 @@ entry.
 
 ## [Unreleased]
 
+- (#417) — **Changed:** the document review page stands its contents and its
+  decisions in a left rail on a wide window, moves tags into a dropdown, and
+  starts its content at the same left edge as every other screen.
+- (#417) — **Changed:** a document in the list keeps its title on a line of its
+  own, so a long title wraps instead of truncating to one letter.
+- (#417) — **Changed:** the section approval circle shows the tick a click would
+  leave, and turns green once the approval is saved.
+- (#417) — **Removed:** the `+` and `−` gutter signs on a whole block a revision
+  added or removed in the version diff.
 - (#411) — **Changed:** open work now lives on the Loupe project board
   instead of `docs/NEXT_STEPS.md`, which is deleted along with the
   `project-next-steps` skill.
