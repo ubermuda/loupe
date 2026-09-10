@@ -55,6 +55,12 @@ entry.
   a modifier chord such as Cmd+Enter is typed into the comment composer.
 - (#417) — **Fixed:** the diff view's `j` and `k` shortcuts no longer swallow
   those letters typed into the site-review comment composer.
+- (#417) — **Fixed:** a resolved comment thread whose passage is gone now says
+  Resolved instead of Open.
+- (#417) — **Changed:** the mark that names the heading you jumped to is slower,
+  has room around it, and no longer fades a decision block to white.
+- (#417) — **Fixed:** jumping to a heading near the end of a document now marks
+  that heading rather than the last one.
 - (#417) — **Changed:** approving a section now updates the page in place
   instead of reloading it, so an open panel stays open and the reading position
   is kept.
