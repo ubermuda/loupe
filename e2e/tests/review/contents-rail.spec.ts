@@ -32,7 +32,11 @@ ${FILLER}
 
 ## Gamma
 
-Gamma is short too.`;
+Gamma is short too.
+
+## Delta
+
+Delta is short as well, and it is what the bottom of the pane holds.`;
 
 const RAIL = '.lp-review-rail';
 const RAIL_LINK = `${RAIL} .lp-review-contents__link`;
@@ -139,10 +143,10 @@ test('the last heading becomes current even though it never reaches the line', a
     await expect(page.locator(RAIL)).toBeVisible();
 
     const last = page.locator(RAIL_LINK).last();
-    await expect(last).toHaveText(/Gamma/);
+    await expect(last).toHaveText(/Delta/);
     await last.click();
 
-    await expect(page.locator(CURRENT)).toHaveText(/Gamma/);
+    await expect(page.locator(CURRENT)).toHaveText(/Delta/);
     // And it stays marked once the scroll has settled at the bottom.
     await expect
         .poll(
@@ -157,7 +161,46 @@ test('the last heading becomes current even though it never reaches the line', a
             { timeout: 5000 },
         )
         .toBe(true);
+    await expect(page.locator(CURRENT)).toHaveText(/Delta/);
+});
+
+/**
+ * Every heading near the end scrolls the pane to the same place, so the rule
+ * that marks the last one on screen answers a click on Gamma with Delta. A
+ * click says which heading was wanted, and that outranks the guess.
+ */
+test('a heading that scrolls to the bottom is the one that stays marked', async ({
+    page,
+}) => {
+    await expect(page.locator(RAIL)).toBeVisible();
+
+    await page.locator(RAIL_LINK).filter({ hasText: 'Gamma' }).click();
+    await expect
+        .poll(
+            () =>
+                page
+                    .locator('.lp-main')
+                    .evaluate(
+                        (pane) =>
+                            pane.scrollTop >=
+                            pane.scrollHeight - pane.clientHeight - 1,
+                    ),
+            { timeout: 5000 },
+        )
+        .toBe(true);
     await expect(page.locator(CURRENT)).toHaveText(/Gamma/);
+
+    // The arrival mark says the animated scroll has finished. Scrolling before
+    // then only races it, because the animation owns the pane until it ends.
+    await expect(
+        page.locator('.lp-section-head').filter({ hasText: 'Gamma' }).first(),
+    ).toHaveClass(/lp-arrived/);
+
+    // The reader leaving the bottom hands the rail back to the scroll rule.
+    await page.locator('.lp-main').evaluate((pane) => {
+        pane.scrollTop = 0;
+    });
+    await expect(page.locator(CURRENT)).toHaveText(/Alpha/);
 });
 
 test('arriving at a heading names it for a moment', async ({ page }) => {
@@ -169,10 +212,10 @@ test('arriving at a heading names it for a moment', async ({ page }) => {
         .locator('.lp-section-head')
         .filter({ hasText: 'Beta' })
         .first();
-    await expect(head).toHaveClass(/lp-section-head--arrived/);
+    await expect(head).toHaveClass(/lp-arrived/);
     // It names the heading rather than marking it permanently.
-    await expect(head).not.toHaveClass(/lp-section-head--arrived/, {
-        timeout: 5000,
+    await expect(head).not.toHaveClass(/lp-arrived/, {
+        timeout: 8000,
     });
 });
 
@@ -189,7 +232,7 @@ test('the current row survives an approval, which replaces the rows', async ({
         .click();
     // The rail count is streamed alongside the rows, so it says the swap landed.
     await expect(page.locator('#review-rail-sections-count')).toHaveText(
-        '1/3',
+        '1/4',
         { timeout: 20000 },
     );
 

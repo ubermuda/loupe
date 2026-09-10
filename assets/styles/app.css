@@ -3236,10 +3236,11 @@
         > :is(h1, h2, h3, h4, h5, h6) {
         @apply mt-0;
     }
-    /* Names the heading a contents link took the reader to. The scroll ends
-       with several headings on screen and no sign of which was asked for. */
-    .lp-section-head--arrived {
-        animation: lp-arrived 1400ms ease-out both;
+    /* Names the block a contents link took the reader to. The scroll ends with
+       several of them on screen and no sign of which was asked for. */
+    .lp-arrived {
+        @apply rounded-lg;
+        animation: lp-arrived 2600ms ease-out both;
     }
     .lp-section-approve {
         @apply absolute right-0 top-0 m-0 flex;
@@ -4528,13 +4529,21 @@
 }
 
 /* The arrival mark: a tint that fades out rather than a ring that lands and
-   sits there. A background is safe on a heading, which nothing else colours. */
+   sits there. A background IMAGE, with the spread of a shadow standing in for
+   padding it cannot have without moving the page: `background-color` is the
+   decision fence's own, and animating that would fade the fence to the page.
+   @comment-budget-ignore */
 @keyframes lp-arrived {
     from {
-        background-color: var(--color-accent-faint);
+        background-image: linear-gradient(
+            var(--color-accent-faint),
+            var(--color-accent-faint)
+        );
+        box-shadow: 0 0 0 0.6rem var(--color-accent-faint);
     }
     to {
-        background-color: transparent;
+        background-image: linear-gradient(transparent, transparent);
+        box-shadow: 0 0 0 0.6rem transparent;
     }
 }
 
@@ -4568,11 +4577,13 @@
 
     /* The mark still has to be seen, so it holds rather than fading. */
     @keyframes lp-arrived {
-        from {
-            background-color: var(--color-accent-faint);
-        }
+        from,
         to {
-            background-color: var(--color-accent-faint);
+            background-image: linear-gradient(
+                var(--color-accent-faint),
+                var(--color-accent-faint)
+            );
+            box-shadow: 0 0 0 0.6rem var(--color-accent-faint);
         }
     }
 

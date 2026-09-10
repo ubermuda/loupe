@@ -2,8 +2,8 @@ import { Controller } from '@hotwired/stimulus';
 import { scrollerFor, smoothScrollTo } from '../lib/smooth_scroll.js';
 
 const ACTIVATION_OFFSET = 72;
-const ARRIVED_CLASS = 'lp-section-head--arrived';
-const FLASH_MS = 1400;
+const ARRIVED_CLASS = 'lp-arrived';
+const FLASH_MS = 2600;
 
 /**
  * The contents and decisions rail beside a document. It scrolls the reader to a
@@ -30,6 +30,8 @@ export default class extends Controller {
         this.frame = null;
         this.flashTimer = 0;
         this.flashed = null;
+        this.asked = null;
+        this.jumping = false;
         this.#watchHeadings();
     }
 
@@ -57,10 +59,15 @@ export default class extends Controller {
 
         event.preventDefault();
         this.cancelScroll();
+        this.asked = target.id;
+        this.jumping = true;
         this.#markCurrent(target.id);
         this.cancelScroll = smoothScrollTo(target, {
             align: 'start',
-            onDone: () => this.#flash(target),
+            onDone: () => {
+                this.jumping = false;
+                this.#flash(target);
+            },
         });
     }
 
@@ -158,6 +165,20 @@ export default class extends Controller {
         const atBottom =
             this.scroller.scrollTop >=
             this.scroller.scrollHeight - this.scroller.clientHeight - 1;
+        // Not while the jump is still running: every frame of it is short of
+        // the bottom, and clearing there would drop the answer before arrival.
+        if (!atBottom && !this.jumping) {
+            this.asked = null;
+        } else if (null !== this.asked) {
+            // A click is an answer, where the bottom rule is only a guess. It
+            // stands until the reader leaves the bottom of their own accord.
+            const asked = this.headings.find(
+                (heading) => heading.id === this.asked,
+            );
+            if (undefined !== asked) {
+                return asked;
+            }
+        }
         const limit = atBottom ? top + this.scroller.clientHeight : line;
 
         let passed = null;
