@@ -14,8 +14,9 @@ export const TOKEN = 'wt_test_token';
  * the requests it makes. `new Function` runs the source with the jsdom globals,
  * which is what `document.currentScript` and the script tag stand in for.
  *
- * jsdom has no matchMedia and no canvas context, and the widget reads both
- * before it paints. Neither takes part in what these tests assert.
+ * jsdom has no matchMedia, no canvas context and no Range geometry, and the
+ * widget reads all three before it paints. None takes part in what these tests
+ * assert.
  */
 export function bootWidget({
     token = TOKEN,
@@ -30,6 +31,15 @@ export function bootWidget({
     });
     HTMLCanvasElement.prototype.getContext = () =>
         new Proxy({}, { get: () => () => {}, set: () => true });
+    // jsdom has no Range geometry either, which the quote offer positions from.
+    Range.prototype.getBoundingClientRect = () => ({
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        width: 0,
+        height: 0,
+    });
 
     const script = document.createElement('script');
     script.src = `${BACKEND}/site-review/widget.js`;

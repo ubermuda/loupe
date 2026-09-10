@@ -175,3 +175,23 @@ test('arriving at a heading names it for a moment', async ({ page }) => {
         timeout: 5000,
     });
 });
+
+test('the current row survives an approval, which replaces the rows', async ({
+    page,
+}) => {
+    await expect(page.locator(RAIL)).toBeVisible();
+    await expect(page.locator(CURRENT)).toHaveText(/Alpha/);
+
+    await page
+        .locator(
+            '[data-comment-anchor-target="doc"] [data-section-approve="heading-alpha"]',
+        )
+        .click();
+    // The rail count is streamed alongside the rows, so it says the swap landed.
+    await expect(page.locator('#review-rail-sections-count')).toHaveText(
+        '1/3',
+        { timeout: 20000 },
+    );
+
+    await expect(page.locator(CURRENT)).toHaveText(/Alpha/);
+});

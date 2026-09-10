@@ -1,0 +1,36 @@
+{# `update` everywhere but the control: the counts sit in tabs whose open state
+   the reviewer owns, and swapping a panel out would close it. The control is a
+   whole form, so it is replaced. #}
+{% if controlId %}
+<turbo-stream action="replace" target="{{ controlId }}">
+    <template>{{ controlHtml|raw }}</template>
+</turbo-stream>
+{% endif %}
+{# Empty on a saved press: the control turning green is what reports it. #}
+<turbo-stream action="update" target="section-status">
+    <template>{% if message %}<span class="lp-decision-status__message lp-decision-status__message--failed">{{ message }}</span>{% endif %}</template>
+</turbo-stream>
+<turbo-stream action="update" target="section-summary-count">
+    <template>{{ 'review.document.sections.count_compact'|trans({'%approved%': approvedCount, '%total%': rows|length}) }}</template>
+</turbo-stream>
+<turbo-stream action="update" target="section-summary-list">
+    <template>{% include '@Review/_contents_rows.html.twig' with {rows: rows} only %}</template>
+</turbo-stream>
+{# The rail holds a second copy from 2xl up. #}
+<turbo-stream action="update" target="review-rail-sections-count">
+    <template>{{ 'review.document.sections.count_compact'|trans({'%approved%': approvedCount, '%total%': rows|length}) }}</template>
+</turbo-stream>
+<turbo-stream action="update" target="review-rail-sections-list">
+    <template>{% include '@Review/_contents_rows.html.twig' with {rows: rows} only %}</template>
+</turbo-stream>
+{# The review menu holds a third below lg. Left out, it reports the state the
+   page was loaded with. #}
+<turbo-stream action="update" target="review-menu-sections-count">
+    <template>{{ 'review.document.sections.count_compact'|trans({'%approved%': approvedCount, '%total%': rows|length}) }}</template>
+</turbo-stream>
+<turbo-stream action="update" target="review-menu-sections-head-count">
+    <template>{{ 'review.document.sections.count_compact'|trans({'%approved%': approvedCount, '%total%': rows|length}) }}</template>
+</turbo-stream>
+<turbo-stream action="update" target="review-menu-sections-list">
+    <template>{% include '@Review/_menu_section_rows.html.twig' with {rows: rows} only %}</template>
+</turbo-stream>

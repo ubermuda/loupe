@@ -440,3 +440,50 @@ describe('a transient failure', () => {
         expect(alerting()).toBe(false);
     });
 });
+
+describe('the quote offer', () => {
+    /** Selects the whole of a paragraph added under `wrapper`. */
+    async function selectTextIn(wrapper) {
+        const paragraph = document.createElement('p');
+        paragraph.textContent = 'A sentence the reviewer selects.';
+        wrapper.appendChild(paragraph);
+        const range = document.createRange();
+        range.selectNodeContents(paragraph.firstChild);
+        const selection = document.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        document.dispatchEvent(new Event('selectionchange'));
+        // The widget reads the selection in a frame, and jsdom runs those on a
+        // 16ms timer that settle() does not reach.
+        await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+
+    /** The offer lives in the overlay root, not the panel's. */
+    function quoteButton() {
+        return [...document.documentElement.children]
+            .filter((element) => element.shadowRoot)
+            .map((element) => element.shadowRoot.getElementById('lp-quote-btn'))
+            .find((element) => element != null);
+    }
+
+    it('is offered on an ordinary page', async () => {
+        bootWidget({ respond: () => ok({ comments: [] }) });
+        await settle();
+        openPanel();
+        await selectTextIn(document.body);
+
+        expect(quoteButton().style.display).toBe('inline-flex');
+    });
+
+    it('stays away inside an element that opts out', async () => {
+        bootWidget({ respond: () => ok({ comments: [] }) });
+        await settle();
+        openPanel();
+        const wrapper = document.createElement('div');
+        wrapper.setAttribute('data-site-review-quotes', 'off');
+        document.body.appendChild(wrapper);
+        await selectTextIn(wrapper);
+
+        expect(quoteButton().style.display).toBe('none');
+    });
+});

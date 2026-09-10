@@ -17,6 +17,7 @@ use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * The approval control beside each heading, as the page actually renders it.
@@ -114,6 +115,54 @@ final class ShowDocumentSectionControlTest extends WebTestCase
         // And the basis still holds once a control has changed state.
         $pane = $crawler->filter('[data-comment-anchor-target="doc"]');
         self::assertSame($document->currentVersion()->plainText(), $pane->text(null, false));
+    }
+
+    /**
+     * A Turbo press never leaves the page, so the stream carries every copy of
+     * the list back. The pane is not among them: replacing it would tear out the
+     * comment anchors for a change to one button.
+     */
+    public function test_a_press_streams_the_control_and_every_copy_of_the_list(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, $this->reviewUrl($document));
+        $client->submit(
+            $crawler->filter('[data-section-approve="heading-alpha"]')->form(),
+            [],
+            ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html'],
+        );
+
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('<turbo-stream action="replace" target="section-approve-heading-alpha">', $body);
+        foreach (['section-summary-count', 'section-summary-list', 'review-rail-sections-count', 'review-rail-sections-list', 'review-menu-sections-count', 'review-menu-sections-head-count', 'review-menu-sections-list'] as $target) {
+            self::assertStringContainsString('<turbo-stream action="update" target="'.$target.'">', $body);
+        }
+        self::assertMatchesRegularExpression('~target="section-summary-count">\s*<template>1/3</template>~', $body);
+        self::assertStringContainsString('aria-pressed="true"', $body);
+        self::assertStringNotContainsString('data-comment-anchor-target', $body);
+    }
+
+    public function test_a_refused_press_streams_the_reason_and_no_control(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, $this->reviewUrl($document));
+        $form = $crawler->filter('[data-section-approve="heading-alpha"]')->form();
+        $form['set_section_approval_form[versionNumber]'] = '99';
+        $client->submit($form, [], ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html']);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('<turbo-stream action="update" target="section-status">', $body);
+        self::assertStringContainsString('This document changed while you were reading it.', $body);
+        self::assertStringNotContainsString('action="replace"', $body);
+        self::assertMatchesRegularExpression('~target="section-summary-count">\s*<template>0/3</template>~', $body);
     }
 
     public function test_an_older_version_renders_no_control(): void

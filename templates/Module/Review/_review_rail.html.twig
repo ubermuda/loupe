@@ -26,7 +26,7 @@
                 '%total%': sectionRows|length,
             }) }}</span>
         </p>
-        <ul class="lp-review-contents__list">
+        <ul class="lp-review-contents__list" id="review-rail-sections-list">
             {% include '@Review/_contents_rows.html.twig' with {rows: sectionRows} only %}
         </ul>
         {% endif %}

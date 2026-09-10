@@ -1,0 +1,11 @@
+{# Section rows of the review menu. Rendered by the page and again by the stream
+   that follows a press, so both must be given `rows` in the same shape. #}
+{% for row in rows %}
+<a class="lp-review-menu__section" data-level="{{ row.level }}" href="#{{ row.headingId }}"
+   data-action="click->review-menu#jump" title="{{ row.label }}">
+    <span class="lp-review-menu__mark{{ row.approved ? ' lp-review-menu__mark--approved' }}">
+        {% if row.approved %}<twig:ux:icon name="lucide:check" />{% endif %}
+    </span>
+    <span class="lp-review-menu__label">{{ row.label }}</span>
+</a>
+{% endfor %}

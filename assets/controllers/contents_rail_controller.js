@@ -41,6 +41,14 @@ export default class extends Controller {
         this.#markCurrent(null);
     }
 
+    /**
+     * A stream swaps these rows out when a section is approved, which takes the
+     * marker with them. Re-measuring restores it.
+     */
+    linkTargetConnected() {
+        this.onScroll?.();
+    }
+
     jump(event) {
         const target = this.#targetOf(event.currentTarget);
         if (null === target) {

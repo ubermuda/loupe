@@ -101,15 +101,20 @@ const test = base.extend<{ review: SeededReview }>({
 // Guest by default — make the unauthenticated starting state explicit.
 test.use({ storageState: { cookies: [], origins: [] } });
 
-// A test here registers, logs in, seeds, and then makes up to four writes that
-// each redirect and re-render. One such write was measured at six seconds
-// against a php-fpm shared with every other worktree, which overruns the
-// 30-second default.
+// A test here registers, logs in, seeds, and then makes up to four writes.
+// One such write was measured at six seconds against a php-fpm shared with
+// every other worktree, which overruns the 30-second default.
 test.describe.configure({ timeout: 90000 });
 
-/** Open the contents panel, which carries the section states. */
+/**
+ * Open the contents panel, which carries the section states. A press streams
+ * its result rather than reloading, so the panel can already be open and a
+ * second click would close it.
+ */
 async function openSections(page: Page): Promise<void> {
-    await sectionsTab(page).click();
+    if ('true' !== (await sectionsTab(page).getAttribute('aria-expanded'))) {
+        await sectionsTab(page).click();
+    }
     await expect(page.locator(SECTIONS_PANEL)).toBeVisible();
 }
 
@@ -128,10 +133,10 @@ function sectionsTab(page: Page) {
 /**
  * Waits for the running count the tab carries.
  *
- * Every press redirects back to the page it came from, so the URL cannot say
- * the write landed and the count is the signal. The timeout is generous because
- * the whole write, redirect and re-render was measured at just over six seconds
- * against a php-fpm shared with every other worktree.
+ * A press streams its result back to the page it came from, so the URL cannot
+ * say the write landed and the count is the signal. The timeout is generous
+ * because the whole round trip was measured at just over six seconds against a
+ * php-fpm shared with every other worktree.
  */
 async function expectSectionCount(page: Page, count: string): Promise<void> {
     await expect(sectionsTab(page)).toContainText(count, { timeout: 20000 });
@@ -157,8 +162,8 @@ test.describe('per-section approval', () => {
         await expectSectionCount(page, '0/2');
 
         await headingControl(page, 'heading-alpha').click();
-        // The page returns to the same URL, so wait for the running count to
-        // change rather than for the URL, which already matches.
+        // The page never leaves the URL, so wait for the running count to
+        // change rather than for a navigation that does not happen.
         await expectSectionCount(page, '1/2');
 
         await headingControl(page, 'heading-beta').click();
@@ -222,8 +227,8 @@ test.describe('per-section approval', () => {
         await page
             .getByRole('button', { name: 'Approve', exact: true })
             .click();
-        // Same generous wait as the count above: this is a second write,
-        // a redirect and a re-render on the shared container.
+        // Same generous wait as the count above: the verdict still redirects
+        // and re-renders on the shared container.
         await expect(page.locator('.lp-verdict-bar')).toBeVisible({
             timeout: 20000,
         });
@@ -245,6 +250,24 @@ test.describe('per-section approval', () => {
         await openSections(page);
         await expect(sectionRow(page, 'Alpha')).toContainText('Approved');
         await expect(page.locator(`${SECTIONS_PANEL} button`)).toHaveCount(0);
+    });
+
+    test('a press updates the page in place and never reloads it', async ({
+        page,
+    }) => {
+        await page.evaluate(() => {
+            (window as unknown as Record<string, string>).__sectionMarker =
+                'kept';
+        });
+
+        await headingControl(page, 'heading-alpha').click();
+        await expectSectionCount(page, '1/2');
+
+        // A reload would have dropped the marker with the old document.
+        const marker = await page.evaluate(
+            () => (window as unknown as Record<string, string>).__sectionMarker,
+        );
+        expect(marker).toBe('kept');
     });
 
     test('the heading control carries its name on an attribute, not as text', async ({

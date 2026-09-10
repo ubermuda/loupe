@@ -37,7 +37,7 @@
 {% endblock %}
 
 {% block body %}
-<div class="lp-review">
+<div class="lp-review" data-site-review-quotes="off">
     {# Both controllers pass diffMode explicitly: Twig's `default` filter fires
        on any falsy value, so `|default(true)` would send every show-page render
        down the diff branch. A comparison names itself with the chip in the
@@ -275,6 +275,12 @@
                 <p id="decision-status" class="lp-decision-status" aria-live="polite"></p>
                 {% endif %}
 
+                {# The same shape for a refused press. Only where a control is
+                   rendered, which is the case the message can arise in. #}
+                {% if not diffMode and not readOnly and showContents %}
+                <p id="section-status" class="lp-decision-status" aria-live="polite"></p>
+                {% endif %}
+
                 {# One row of the sticky bar for both, rather than a bar of its
                    own: two elements stuck to the same edge overlap. The views
                    stay plain links, so each is addressable. The rendered one
@@ -397,7 +403,7 @@
                 {% if showContents %}
                 <nav class="lp-doc-meta__panel lp-review-contents" data-metadata-tabs-target="panel" data-panel="contents" hidden
                      aria-label="{{ 'review.document.contents.nav_label'|trans }}">
-                    <ul class="lp-review-contents__list">
+                    <ul class="lp-review-contents__list" id="section-summary-list">
                         {% include '@Review/_contents_rows.html.twig' with {rows: sectionRows} only %}
                     </ul>
                 </nav>

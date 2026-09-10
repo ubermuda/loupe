@@ -3761,6 +3761,16 @@
         commentOnSelection();
     });
 
+    // A page that reviews text of its own opts out: its own selection UI owns
+    // the selection there.
+    const quotesOff = (node) => {
+        const element = node.nodeType === 1 ? node : node.parentElement;
+        return (
+            element != null &&
+            element.closest('[data-site-review-quotes="off"]') != null
+        );
+    };
+
     // A selection offers to become a quoted anchor only while the panel is open
     // and no saved comment is being edited: an edit sends the body alone, so
     // taking the selection would start a new comment and lose the draft.
@@ -3779,6 +3789,7 @@
         if (!selection || selection.isCollapsed || !selection.rangeCount)
             return clearQuotePick();
         const range = selection.getRangeAt(0);
+        if (quotesOff(range.commonAncestorContainer)) return clearQuotePick();
         const anchor = anchorForRange(range.cloneRange());
         if (!anchor) return clearQuotePick();
         state.quotePick = { range: range.cloneRange(), anchor };
