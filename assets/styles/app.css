@@ -3066,11 +3066,18 @@
     .lp-comment-rail .lp-orphan-group .lp-comment-marker {
         @apply hidden;
     }
+    /* flex, not block: the detail is a flex column whose `gap` is the whole of
+       its vertical rhythm, and `display: block` drops every one of those gaps. */
     .lp-comment-rail
         .lp-orphan-group
         .lp-comment-thread
         .lp-comment-thread__detail {
-        @apply block;
+        @apply flex flex-col gap-3;
+    }
+    /* The rail flattens a collapsed card to marker height. These cards are never
+       collapsed, so they keep the padding and the gap a card has anywhere else. */
+    .lp-comment-rail .lp-orphan-group .lp-comment-thread {
+        @apply py-3.5 gap-3;
     }
     /* The marker is what names the author in the rail, and it is hidden here. */
     .lp-comment-rail
