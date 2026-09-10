@@ -1,4 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
+import { smoothScrollTo } from '../lib/smooth_scroll.js';
 
 /**
  * The document's metadata toolbar: Versions, Contents and References as three
@@ -27,12 +28,12 @@ export default class extends Controller {
     }
 
     /**
-     * Jumps to a block a panel links to, and closes the panel behind it.
+     * Scrolls to a block a panel links to, and closes the panel behind it.
      *
      * Not left to the browser's own `#hash` handling: the paper scrolls inside
-     * .lp-main rather than the window, so the jump has to name an element and
-     * let scrollIntoView find the scroller. scroll-margin-top on the target is
-     * what keeps it clear of this bar.
+     * .lp-main rather than the window, so the scroll has to name an element and
+     * find that scroller. scroll-margin-top on the target keeps it clear of
+     * this bar, and the shared helper reads it.
      */
     jump(event) {
         const id = event.currentTarget.getAttribute('href')?.slice(1);
@@ -43,7 +44,8 @@ export default class extends Controller {
 
         event.preventDefault();
         this.closeAll();
-        target.scrollIntoView({ block: 'start' });
+        this.cancelScroll?.();
+        this.cancelScroll = smoothScrollTo(target, { align: 'start' });
     }
 
     /** Called by the page on navigation away, and by Escape. */

@@ -1287,26 +1287,43 @@
     .lp-review-rail__count {
         @apply font-mono text-fg-dim text-xs normal-case tracking-normal;
     }
-    /* A 236px rail has no room for a label and its state on one line, and a
-       heading truncated to three words names nothing. */
+    /* A row in the rail is a tick and a heading, and the tick carries the
+       state: a "not approved" line under every heading is the state of most of
+       the list, so it reads as noise and buries the rows that did change. A
+       236px column also has no room for a label and its state side by side, and
+       a heading truncated to three words names nothing. */
     .lp-review-rail .lp-review-contents__item,
     .lp-review-rail .lp-decision-summary__item {
-        @apply flex-col items-start gap-0;
+        @apply items-start gap-2 py-0;
     }
-    .lp-review-rail .lp-review-contents__link {
-        @apply whitespace-normal overflow-visible;
+    /* self-start, against the base class's self-center: a two-line heading must
+       keep its tick level with the first line, not with the middle of the row. */
+    .lp-review-rail .lp-review-contents__tick {
+        @apply block self-start mt-1.5;
+    }
+    .lp-review-rail .lp-review-contents__link,
+    .lp-review-rail .lp-decision-summary__link {
+        @apply block flex-1 min-w-0 whitespace-normal overflow-visible rounded-lg no-underline py-1 px-2 transition-colors;
         text-overflow: clip;
     }
-    /* Only a settled row says anything. A "not approved" line under every
-       heading is the state of most of the list, so it reads as noise and buries
-       the rows that did change. The panel in the bar still states both. */
-    .lp-review-rail .lp-section-approvals__pending,
-    .lp-review-rail .lp-decision-summary__pending {
-        @apply hidden;
+    /* A decision reads as a heading here, not as the bolder thing the panel
+       makes of it. */
+    .lp-review-rail .lp-decision-summary__link {
+        @apply font-normal text-fg-mute;
+    }
+    .lp-review-rail .lp-review-contents__link:hover,
+    .lp-review-rail .lp-decision-summary__link:hover {
+        @apply bg-tint text-fg no-underline;
+    }
+    /* The section the reader is in, marked by contents_rail_controller. */
+    .lp-review-rail .lp-review-contents__link--current {
+        @apply bg-surface-3 text-ink font-semibold;
     }
     .lp-review-rail .lp-section-approvals__approved,
-    .lp-review-rail .lp-decision-summary__answer {
-        @apply ml-1.5;
+    .lp-review-rail .lp-section-approvals__pending,
+    .lp-review-rail .lp-decision-summary__answer,
+    .lp-review-rail .lp-decision-summary__pending {
+        @apply hidden;
     }
 
     /* The comment column, from lg up. Absolutely positioned, and every card
@@ -1936,6 +1953,12 @@
     }
     .lp-review-contents__item {
         @apply flex items-baseline gap-3;
+    }
+    .lp-review-contents__tick {
+        @apply hidden w-4 h-4 shrink-0 self-center text-fg-faint;
+    }
+    .lp-review-contents__tick--on {
+        @apply text-status-ok-deep;
     }
     .lp-review-contents__link {
         @apply block min-w-0 flex-1 truncate rounded no-underline text-fg-mute text-sm py-1 px-1.5 transition-colors hover:bg-tint hover:text-fg;

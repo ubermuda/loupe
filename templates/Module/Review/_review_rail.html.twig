@@ -16,7 +16,7 @@
     decisionRows       list              one row per decision block
     answeredDecisions  int               how many of them carry an answer
 #}
-<aside class="lp-review-rail" aria-label="{{ 'review.document.rail.label'|trans }}">
+<aside class="lp-review-rail" data-controller="contents-rail" aria-label="{{ 'review.document.rail.label'|trans }}">
     <div class="lp-review-rail__inner">
         {% if sectionRows|length > 0 %}
         <p class="lp-review-rail__title">
