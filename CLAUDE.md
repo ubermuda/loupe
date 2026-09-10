@@ -19,7 +19,6 @@ A skill's name prefix says which side of the product you stand on. A `loupe-*` s
 | `project-templates` | `.html.twig` files or Twig component PHP classes |
 | `project-worktrees` | Git worktrees: provisioning, URLs, per-worktree databases, worktree tooling |
 | `project-deploy` | Deploying to production, `terraform apply`, verifying the live version |
-| `project-next-steps` | Adding, editing, or closing entries in `docs/NEXT_STEPS.md` |
 | `project-translations` | UI strings, translation keys, or adding a new locale |
 | `project-site-review` | The site-review widget (`public/site-review/widget.js`), `src/Module/SiteReview/`, its API routes, dev harness or e2e specs |
 | `loupe-documents` | Writing or revising any document submitted to the Loupe app through the `loupe` MCP |
@@ -42,17 +41,15 @@ This applies only to a document meant for considered review. Keep ordinary conve
 
 ## Tracking open work
 
-`docs/NEXT_STEPS.md` holds open work that has an addressee. Add an entry when someone must do something later: a follow-up, a known issue, or a design decision to revisit. An observation asks nothing of anyone. Put an observation in the relevant skill or in `docs/` instead.
+The project board in the Loupe app holds open work that has an addressee. Add a card when someone must do something later: a follow-up, a known issue, or a design decision to revisit. An observation asks nothing of anyone. Put an observation in the relevant skill or in `docs/` instead.
 
-Invoke the `project-next-steps` skill before you append, because the entry format needs an author, type and priority line. Never leave such a note in a code comment.
+Invoke the `loupe-board` skill before you write a card. It carries the four columns, the six types, the three priorities, and the rule that `origin` records who raised the card rather than who typed it. Never leave such a note in a code comment.
 
-`docs/NEXT_STEPS.md` is committed, because a tracker only one checkout can see is a tracker the next session cannot read. That also makes it branch content. Two parallel branches that both append will conflict, and the resolution is to keep both entries. That holds for two branches that append. It is wrong for a branch that *resolves* entries, because the file's own rule is to delete a resolved entry, so keeping both sides restores work already done and nothing goes red. Hand that merge to the branch's author: an outside merger cannot tell a deliberate deletion from a lost one.
+A card whose body opens with `**Parked.**` is paused. Do not start it, and do not put it in `next` or `in-progress`, until the owner unparks it. The board has no parked column, so that line is the whole signal. A real parked state is worth having, and the board card 'Give the board a parked state' asks for one.
 
-The tracker is public, and stays public. Moving it to GitHub issues was once the plan for the visibility flip. It is not any more, because a tracker an agent reads in one `cat` beats one behind an API call. Write every entry as public text, with no secrets, no customer names, and no venting about people. It is already in git history, so deleting an entry does not unpublish it.
+The board is as public as the instance that holds it. Write every card as public text, with no secrets, no customer names, and no complaints about people.
 
-Tracker entries go through a branch and a pull request like anything else. `main` is protected, so the old commit-straight-to-main shortcut is gone.
-
-Delete a resolved entry entirely. Do not mark it "CLOSED", do not add a resolution note, and do not move it under a `CLOSED` heading. The file holds open work only.
+Finish a card by moving it to `done`. There is no delete tool, and only a person deletes a card from its own page.
 
 ## Git worktrees
 
@@ -134,7 +131,7 @@ Invoke the `working-with-prs` skill before you open, gate or merge a pull reques
 
 ## Writing style
 
-Write everything a human or another agent reads in ASD-STE100 Simplified Technical English, and remove the AI writing tells. This covers chat replies, commit messages, PR bodies, Loupe documents, skills, and `docs/NEXT_STEPS.md`. It does not cover code, which follows the conventions below.
+Write everything a human or another agent reads in ASD-STE100 Simplified Technical English, and remove the AI writing tells. This covers chat replies, commit messages, PR bodies, Loupe documents, board cards, and skills. It does not cover code, which follows the conventions below.
 
 Apply the STE writing rules, not the approved word list. Technical names and technical verbs stay as they are.
 
@@ -185,7 +182,7 @@ This sits in tension with the instruction not to capitulate under pressure, and 
 - Fix failing and flaky tests in any test run you observe, including ones that pass on retry, ones that pre-date your change, and ones unrelated to your task. A flaky test that passes on retry is a real failure that will break CI later. The only acceptable response to a flake is a fix.
 - Frontend assets are committed; PHP dependencies are not. `assets/vendor/` (144 KB), `assets/icons/` (256 KB) and `assets/fonts/` (332 KB) are in git so a build and a self-hosted instance need no egress. `vendor/` is 156 MB and stays ignored, restored by `composer install`. The asymmetry is a size judgement rather than a principle: about 730 KB total against roughly 200 times that. Committing an asset that grows past this scale is a new decision, not an application of this one.
 - Outbound network calls are allowed, but only as opt-in features. A self-hosted instance must work with no egress out of the box, which is why `assets/icons/` is committed and `iconify.on_demand` is off in prod. That is a default, not a prohibition. A feature that calls out is fine when an operator has to switch it on, and when the app behaves correctly both while it is off and when the call fails. `about.update_check.enabled` is the reference shape: the flag is seeded off, the HTTP client is scoped with bounded timeouts, the answer is cached, and every failure path returns null rather than breaking the page. Do not argue against an egress feature on principle. Argue about whether it is opt-in and degrades cleanly.
-- Never write a `TODO`, `FIXME` or `XXX` comment in code. Capture follow-up work in `docs/NEXT_STEPS.md` or an issue. An in-code TODO is invisible to future sessions and rots silently. `NoTodosCheck` enforces this under `just gamache`.
+- Never write a `TODO`, `FIXME` or `XXX` comment in code. Capture follow-up work in a card on the project board. An in-code TODO is invisible to future sessions and rots silently. `NoTodosCheck` enforces this under `just gamache`.
 - Keep comments short. The default is no comment at all. A comment earns its place only by recording something a reader cannot recover from the code, the tests or `git log`. The reasoning behind a change belongs in the commit message or the PR body. `CommentBudgetCheck` fails on any run of 6 or more consecutive comment lines, in PHP, Twig, JS, CSS, YAML and the justfile alike. It is binding: `just gamache` exits non-zero, so `just ci` goes red. Shorten the block, or mark it `@comment-budget-ignore` when it has earned its length. Invoke the `project-comments` skill before you write a comment longer than two lines.
 - Code comments must be self-contained. Never reference an internal or ephemeral development artifact a future reader cannot open: a numbered task (`Task 16`), a handoff or design document (`handoff screen 8`), a spec section (`§3.5`), a dev phase (`Part 1`), or a dated decision (`owner decision 2026-07-13`). State the underlying fact directly. `SelfContainedCommentsCheck` enforces this under `just gamache`.
 - Give a Doctrine migration a real current-datetime timestamp in its `VersionYYYYMMDDHHMMSS` class name. Never use a round placeholder such as `…000000`. Two parallel branches that both use a round number collide on the version prefix. The class names still differ, so it is harmless, but it is confusing and it breaks `migrate-diff` ordering assumptions.

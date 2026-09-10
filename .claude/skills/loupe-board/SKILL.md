@@ -60,6 +60,15 @@ deletes a card, from the card page.
 the last 7 days of Done and puts the rest on a history page, so a person sees
 less of Done than you do.
 
+## A card that opens with `**Parked.**` is paused
+
+The board has no parked state. A card whose body opens with `**Parked.**` waits
+for the owner. Leave it in `backlog`, and never move it to `next` or
+`in-progress` yourself.
+
+Write that line yourself only when the owner parks the work. Board card 'Give
+the board a parked state' asks for a real field.
+
 ## Origin says who raised the card
 
 `origin` records who first raised the card. The tools default it to `agent`.

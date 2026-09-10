@@ -46,7 +46,7 @@ Cut what the reader recovers from elsewhere:
 - The investigation behind the fix, which belongs in the commit message
 - Benchmark numbers and measurements, which belong in the PR body
 - Design-decision logs and alternatives considered, which belong in the PR body
-- Follow-up work, which belongs in `docs/NEXT_STEPS.md` and never in a `TODO`
+- Follow-up work, which belongs on the project board and never in a `TODO`
   comment
 
 ## Example
@@ -82,7 +82,7 @@ Three checks are hard failures. This skill is the judgment layer above all
 three: passing every check does not make a 17-line comment worth keeping.
 
 - `NoTodosCheck` (`just gamache`) fails on `TODO`, `FIXME` and `XXX`.
-  Follow-ups go in `docs/NEXT_STEPS.md`.
+  Follow-ups go on the project board.
 - `SelfContainedCommentsCheck` fails on references to tasks, phases, spec
   sections, handoff docs or dated decisions. State the underlying fact instead.
 - `CommentBudgetCheck` fails on any run of **6 or more** consecutive comment

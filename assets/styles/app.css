@@ -3020,10 +3020,8 @@
     .lp-decision__option:has(input:focus-visible) {
         @apply outline-2 outline-offset-2 outline-accent;
     }
-    /* The design puts this line inside the card it reports on. It stays outside
-       for now because there is one shared region for the whole page, not one per
-       block — see 'A decision card cannot show its own recorded answer' in
-       docs/NEXT_STEPS.md. */
+    /* One shared status region serves the whole page, so this line sits outside
+       the card it reports on rather than inside it. */
     /* Collapsed, not hidden: `display: none` drops a live region from the a11y tree. */
     .lp-decision-status {
         @apply m-0 pt-1.5 text-xs text-fg-mute empty:h-0 empty:overflow-hidden empty:pt-0;

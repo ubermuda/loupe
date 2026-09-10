@@ -27,17 +27,17 @@ belongs in the PR body and the commit message, which the PR number points at.
 The entry rides the pull request it describes: write it in the same branch, at
 the top of `[Unreleased]`, and anchor it to the pull request number. Two
 branches that both add a top line will conflict, and the resolution is to keep
-both in merge order. A pull request whose whole content is this file or
-`docs/NEXT_STEPS.md` earns no entry: recording that the changelog was written,
-or that resolved entries were closed, tells a reader nothing they cannot see by
-reading them.
+both in merge order. A pull request whose whole content is this file earns no entry: recording that
+the changelog was written tells a reader nothing they cannot see by reading it.
 
-Work that never surfaces in the product or
-the development workflow — tracker churn in `docs/NEXT_STEPS.md` — gets no
+Work that never surfaces in the product or the development workflow gets no
 entry.
 
 ## [Unreleased]
 
+- (#411) — **Changed:** open work now lives on the Loupe project board
+  instead of `docs/NEXT_STEPS.md`, which is deleted along with the
+  `project-next-steps` skill.
 - (#415) — **Added:** a comparison of two versions now offers a Side by side
   view, which puts the two versions in two columns with each block opposite
   the block it became.
