@@ -154,15 +154,15 @@ test.describe('per-section approval', () => {
     }) => {
         const { documentId, reviewUrl } = review;
 
-        await expectSectionCount(page, '0 of 2 approved');
+        await expectSectionCount(page, '0/2');
 
         await headingControl(page, 'heading-alpha').click();
         // The page returns to the same URL, so wait for the running count to
         // change rather than for the URL, which already matches.
-        await expectSectionCount(page, '1 of 2 approved');
+        await expectSectionCount(page, '1/2');
 
         await headingControl(page, 'heading-beta').click();
-        await expectSectionCount(page, '2 of 2 approved');
+        await expectSectionCount(page, '2/2');
 
         const revised = await page.request.post(
             `/dev/review/${documentId}/revise`,
@@ -180,7 +180,7 @@ test.describe('per-section approval', () => {
         });
 
         await page.goto(reviewUrl);
-        await expectSectionCount(page, '1 of 2 approved');
+        await expectSectionCount(page, '1/2');
 
         await expect(headingControl(page, 'heading-alpha')).toHaveAttribute(
             'aria-pressed',
@@ -199,14 +199,14 @@ test.describe('per-section approval', () => {
 
     test('a reviewer can withdraw a section approval', async ({ page }) => {
         await headingControl(page, 'heading-alpha').click();
-        await expectSectionCount(page, '1 of 2 approved');
+        await expectSectionCount(page, '1/2');
         await expect(headingControl(page, 'heading-alpha')).toHaveAttribute(
             'aria-pressed',
             'true',
         );
 
         await headingControl(page, 'heading-alpha').click();
-        await expectSectionCount(page, '0 of 2 approved');
+        await expectSectionCount(page, '0/2');
         await expect(headingControl(page, 'heading-alpha')).toHaveAttribute(
             'aria-pressed',
             'false',
@@ -217,7 +217,7 @@ test.describe('per-section approval', () => {
         page,
     }) => {
         await headingControl(page, 'heading-alpha').click();
-        await expectSectionCount(page, '1 of 2 approved');
+        await expectSectionCount(page, '1/2');
 
         await page
             .getByRole('button', { name: 'Approve', exact: true })
@@ -227,7 +227,7 @@ test.describe('per-section approval', () => {
         await expect(page.locator('.lp-verdict-bar')).toBeVisible({
             timeout: 20000,
         });
-        await expectSectionCount(page, '1 of 2 approved');
+        await expectSectionCount(page, '1/2');
     });
 
     test('the panel reports what the heading control did, and offers no control of its own', async ({
@@ -240,7 +240,7 @@ test.describe('per-section approval', () => {
         await expect(page.locator(`${SECTIONS_PANEL} button`)).toHaveCount(0);
 
         await headingControl(page, 'heading-alpha').click();
-        await expectSectionCount(page, '1 of 2 approved');
+        await expectSectionCount(page, '1/2');
 
         await openSections(page);
         await expect(sectionRow(page, 'Alpha')).toContainText('Approved');

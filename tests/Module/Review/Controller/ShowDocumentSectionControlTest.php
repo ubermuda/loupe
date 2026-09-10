@@ -97,7 +97,7 @@ final class ShowDocumentSectionControlTest extends WebTestCase
 
         // Contents and section approvals are one panel. It reports the same
         // rows, keeps its navigation links, and offers no control of its own.
-        self::assertStringContainsString('1 of 3 approved', $crawler->filter('#section-summary-count')->text());
+        self::assertStringContainsString('1/3', $crawler->filter('#section-summary-count')->text());
         self::assertCount(1, $crawler->filter('[data-section-approved="heading-alpha"]'));
         self::assertCount(0, $crawler->filter('[data-panel="contents"] button'));
         self::assertCount(0, $crawler->filter('[data-panel="sections"]'));

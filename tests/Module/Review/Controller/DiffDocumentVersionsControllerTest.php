@@ -183,7 +183,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertSelectorTextContains('.lp-diff-nav__count', 'No changes');
         // The way out of the state this view cannot describe. Gating the toggle
         // on a count above zero would strand the reader exactly here.
-        self::assertCount(2, $rendered->filter('.lp-diff-views__link'));
+        self::assertCount(3, $rendered->filter('.lp-diff-views__link'));
 
         $source = $client->request(Request::METHOD_GET, $base.'?view=source');
         self::assertResponseIsSuccessful();
@@ -254,9 +254,16 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         // reaches it by keyboard.
         self::assertSame(
             'diff-unmarked-notice',
-            $crawler->filter('.lp-diff-views__link')->eq(1)->attr('aria-describedby'),
+            $crawler->filter('.lp-diff-views__link')->eq(2)->attr('aria-describedby'),
         );
-        self::assertCount(2, $crawler->filter('.lp-diff-views__link'));
+        self::assertCount(3, $crawler->filter('.lp-diff-views__link'));
+
+        // Side by side pairs the same rendered pane, so it marks nothing either
+        // and misleads in the same way.
+        $client->request(Request::METHOD_GET, $paths['unmarked'].'?view=side-by-side');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.lp-diff-nav__count', 'No changes');
+        self::assertSelectorExists('#diff-unmarked-notice');
 
         // The same pair as Markdown omits nothing, so it needs no caveat.
         $client->request(Request::METHOD_GET, $paths['unmarked'].'?view=source');
@@ -376,24 +383,23 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $base = '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2';
 
         $rendered = $client->request(Request::METHOD_GET, $base);
-        self::assertCount(2, $rendered->filter('.lp-diff-views__link'));
+        self::assertCount(3, $rendered->filter('.lp-diff-views__link'));
         self::assertSame(
-            'As the document reads',
+            'Document',
             $rendered->filter('.lp-diff-views__link[aria-current]')->text(),
         );
-        self::assertStringContainsString('view=source', (string) $rendered->filter('.lp-diff-views__link')->eq(1)->attr('href'));
+        self::assertStringContainsString('view=source', (string) $rendered->filter('.lp-diff-views__link')->eq(2)->attr('href'));
 
         $source = $client->request(Request::METHOD_GET, $base.'?view=source');
         self::assertSame(
-            'As the Markdown reads',
+            'Markdown',
             $source->filter('.lp-diff-views__link[aria-current]')->text(),
         );
         // The picker keeps the view, so comparing another pair does not silently
-        // send the reader back to the rendered one.
-        self::assertStringContainsString(
-            'view=source',
-            (string) $source->filter('[data-controller="version-compare"]')->attr('data-version-compare-url-value'),
-        );
+        // send the reader back to the rendered one. Two pickers, because the
+        // review menu carries one below lg where the panel is display:none.
+        self::assertCount(2, $source->filter('.lp-version-compare input[name="view"][value="source"]'));
+        self::assertCount(0, $rendered->filter('.lp-version-compare input[name="view"]'));
     }
 
     /**
@@ -769,9 +775,48 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
     }
 
     /**
+     * The chip in the metadata bar replaces the banner that used to sit above
+     * it: a row of its own put the document most of a screen down.
+     */
+    public function test_the_bar_names_the_pair_and_carries_the_way_out(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-chip', 'owner-diff-chip@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Chip Doc');
+        $doc->addVersion("The rollout takes one step.\n", '<p>v1</p>');
+        $doc->addVersion("The rollout takes three steps.\n", '<p>v2</p>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.lp-doc-meta__compare', 'Comparing v1 with v2');
+        self::assertSame(
+            '/projects/'.$projectId.'/documents/'.$id.'/review',
+            $crawler->filter('.lp-doc-meta__compare-stop')->attr('href'),
+        );
+        self::assertSame(
+            'Stop comparing',
+            $crawler->filter('.lp-doc-meta__compare-stop')->attr('aria-label'),
+        );
+        self::assertSelectorNotExists('.lp-version-banner');
+    }
+
+    /**
      * The only links into a diff compare a version with the one before it, so
      * without a picker on the page itself, comparing v1 with v4 means editing
-     * the URL by hand.
+     * the URL by hand. The picker lives in the versions panel, and posts to the
+     * redirect route that turns a pair into the diff path.
      */
     public function test_the_diff_offers_a_picker_for_any_pair_of_versions(): void
     {
@@ -797,25 +842,89 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, $base.'3/4');
 
         self::assertResponseIsSuccessful();
-        $picker = $crawler->filter('[data-controller="version-compare"]');
-        self::assertCount(1, $picker);
-        self::assertSame($base.'3/4', $picker->attr('data-version-compare-url-value'));
-        // The newest version is never an earlier side and the oldest never a
-        // later one, so neither appears in the select it could only 404 from.
-        self::assertSame(['1', '2', '3'], $crawler->filter('[data-version-compare-target="from"] option')->each(
+        // The desktop panel and the review menu each carry one, so the count is
+        // two and the ids differ.
+        $picker = $crawler->filter('.lp-version-compare');
+        self::assertCount(2, $picker);
+        self::assertSame(
+            '/projects/'.$projectId.'/documents/'.$id.'/review/compare',
+            $picker->first()->attr('action'),
+        );
+        // Every version in both selects, oldest first: the redirect route swaps a
+        // backwards pair and sends an unreal one to the history, so nothing the
+        // reader can choose here answers with a 404.
+        self::assertSame(['1', '2', '3', '4'], $crawler->filter('#diff-from option')->each(
             static fn (Crawler $node): string => (string) $node->attr('value'),
         ));
-        self::assertSame(['2', '3', '4'], $crawler->filter('[data-version-compare-target="to"] option')->each(
+        self::assertSame(['1', '2', '3', '4'], $crawler->filter('#diff-to option')->each(
             static fn (Crawler $node): string => (string) $node->attr('value'),
         ));
-        self::assertSame('3', $crawler->filter('[data-version-compare-target="from"] option[selected]')->attr('value'));
-        self::assertSame('4', $crawler->filter('[data-version-compare-target="to"] option[selected]')->attr('value'));
+        self::assertSame('3', $crawler->filter('#diff-from option[selected]')->attr('value'));
+        self::assertSame('4', $crawler->filter('#diff-to option[selected]')->attr('value'));
+        self::assertCount(1, $crawler->filter('#menu-diff-from'));
 
         // The non-adjacent pair the picker exists to reach.
         $spanning = $client->request(Request::METHOD_GET, $base.'1/4');
         self::assertResponseIsSuccessful();
         self::assertCount(1, $spanning->filter('.lp-diff-doc'));
-        self::assertSame($base.'1/4', $spanning->filter('[data-controller="version-compare"]')->attr('data-version-compare-url-value'));
+        self::assertSame('1', $spanning->filter('#diff-from option[selected]')->attr('value'));
+    }
+
+    public function test_the_side_by_side_view_pairs_the_blocks_and_takes_no_comment(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-columns', 'owner-diff-columns@example.com');
+        $project = $this->project($em, $owner);
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Columns Doc');
+        $doc->addVersion("The rollout takes one step.\n\n## Rollback\n\nRevert the tag.\n", '<p>v1</p>');
+        $doc->addVersion("The rollout takes three steps.\n", '<p>v2</p>');
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $base = '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2';
+
+        $columns = $client->request(Request::METHOD_GET, $base.'?view=side-by-side');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $columns->filter('.lp-diff-columns'));
+        self::assertSame(
+            'Side by side',
+            $columns->filter('.lp-diff-views__link[aria-current]')->text(),
+        );
+
+        // Every cell belongs to a pair, and a block one version does not hold
+        // leaves a void slot rather than closing the pair up.
+        $cells = $columns->filter('.lp-diff-columns__cell');
+        self::assertSame(0, $cells->count() % 2);
+        self::assertGreaterThan(0, $columns->filter('.lp-diff-columns__cell--void')->count());
+
+        // The rail is off and the page says so, and the block takes the width
+        // the rail leaves behind.
+        self::assertCount(0, $columns->filter('.lp-review-margin'));
+        self::assertCount(1, $columns->filter('#diff-columns-notice'));
+        self::assertCount(1, $columns->filter('.lp-review-block--wide'));
+        self::assertCount(1, $columns->filter('.lp-review-doc--wide'));
+
+        // The picker keeps this view too, so another pair opens in two columns.
+        self::assertCount(
+            2,
+            $columns->filter('.lp-version-compare input[name="view"][value="side-by-side"]'),
+        );
+
+        // The rendered view is unchanged by any of that.
+        $rendered = $client->request(Request::METHOD_GET, $base);
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $rendered->filter('.lp-diff-columns'));
+        self::assertCount(0, $rendered->filter('#diff-columns-notice'));
+        self::assertCount(0, $rendered->filter('.lp-review-block--wide'));
+        self::assertCount(1, $rendered->filter('.lp-review-margin'));
     }
 
     public function test_unauthenticated_user_is_redirected(): void

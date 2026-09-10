@@ -44,20 +44,11 @@
     </div>
     {% endif %}
 
-    {# diffMode is passed explicitly by both controllers rather than defaulted
-       here, because Twig's `default` filter substitutes on any FALSY value, not
-       just an undefined one — it cannot tell an absent variable from one
-       deliberately passed as false. So `|default(true)` would send every
-       show-page render down the diff branch while looking entirely reasonable. #}
-    {% if diffMode %}
-    <div class="lp-version-banner">
-        <twig:ux:icon name="lucide:git-compare" class="w-4 h-4 shrink-0" />
-        <span>{{ 'review.document.diff.banner'|trans({'%from%': diffFromVersion, '%to%': version.versionNumber}) }}</span>
-        <a class="lp-btn lp-btn--ghost lp-btn--sm" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">
-            {{ 'review.document.version.back_to_latest'|trans }}
-        </a>
-    </div>
-    {% elseif readOnly %}
+    {# Both controllers pass diffMode explicitly: Twig's `default` filter fires
+       on any falsy value, so `|default(true)` would send every show-page render
+       down the diff branch. A comparison names itself with the chip in the
+       metadata bar below, so only an older version still earns a banner. #}
+    {% if readOnly and not diffMode %}
     <div class="lp-version-banner">
         <twig:ux:icon name="lucide:history" class="w-4 h-4 shrink-0" />
         <span>
@@ -98,8 +89,11 @@
        two versions do differ, and the rendered view marked none of it, so the
        count says "No changes" about a revision that changed something. A null
        count is a refusal or two identical versions, and both say so already. #}
-    {% set diffUnmarked = diffNavigation and diffView.value == 'rendered' and diffChangeCount == 0 %}
-    <div class="lp-review-block"
+    {% set diffUnmarked = diffNavigation and diffView.value != 'source' and diffChangeCount == 0 %}
+    {# Two columns take the width the comment rail holds, and this view renders
+       no rail. #}
+    {% set diffColumns = diffMode and diffView is not null and diffView.value == 'side-by-side' %}
+    <div class="lp-review-block{{ diffColumns ? ' lp-review-block--wide' : '' }}"
         {%- if reviewControllers|length > 0 %} data-controller="{{ reviewControllers|join(' ') }}"{% endif %}
         {%- if diffNavigation %} data-diff-navigation-position-value="{{ 'review.document.diff.nav.position'|trans({'%total%': diffChangeCount}) }}"{% endif %}
         {%- if diffCommenting %} data-comment-anchor-diff-value="true"
@@ -111,7 +105,7 @@
            is the TreeWalker root and must hold ONLY the rendered HTML, so its
            text === plainText(). The controller's own slots are the exception. #}
         {% set docActions = (canComment ? ['mouseup->comment-anchor#onDocMouseup', 'pointerup->comment-anchor#onDocPointerup', 'mousemove->comment-anchor#onDocMousemove', 'click->comment-anchor#onDocClick'] : [])|merge(readOnly ? [] : ['change->decision#select']) %}
-        <div class="lp-review-doc" data-comment-anchor-target="block" data-controller="decision"{% if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}>
+        <div class="lp-review-doc{{ diffColumns ? ' lp-review-doc--wide' : '' }}" data-comment-anchor-target="block" data-controller="decision"{% if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}>
 
             <div class="lp-review-doc__head">
                 <h1 class="lp-review-doc__title">{{ document.title }}</h1>
@@ -161,9 +155,25 @@
                used to push the first paragraph below the fold.
                A sibling of the head, not a child: the bar is sticky, and a
                sticky element cannot outlive its containing block. #}
-            {% if showVersions or showContents or referenceCount > 0 or decisionRows|length > 0 or document.tags|length > 0 or document.series is not null or diffNavigation %}
+            {% if showVersions or showContents or referenceCount > 0 or decisionRows|length > 0 or document.tags|length > 0 or document.series is not null or diffMode %}
             <div class="lp-doc-meta-bar" data-controller="metadata-tabs">
                     <div class="lp-doc-meta">
+                        {# The chip names the pair and carries the way out of the
+                           comparison, so the bar needs no banner above it. It
+                           leads the row and survives below lg, where the tabs
+                           beside it do not. #}
+                        {% if diffMode %}
+                        <span class="lp-doc-meta__compare">
+                            <twig:ux:icon name="lucide:git-compare" class="w-3.5 h-3.5 shrink-0" />
+                            <span>{{ 'review.document.diff.chip'|trans({'%from%': diffFromVersion, '%to%': version.versionNumber}) }}</span>
+                            <a class="lp-doc-meta__compare-stop"
+                               href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}"
+                               aria-label="{{ 'review.document.diff.stop'|trans }}"
+                               title="{{ 'review.document.diff.stop'|trans }}">
+                                <twig:ux:icon name="lucide:x" class="w-3.5 h-3.5 shrink-0" />
+                            </a>
+                        </span>
+                        {% endif %}
                         {% if showVersions %}
                         <button type="button" class="lp-doc-meta__tab" aria-expanded="false"
                                 data-metadata-tabs-target="tab"
@@ -182,7 +192,7 @@
                             {{ 'review.document.contents.label'|trans }}
                             {# Approved-of-total rather than a bare heading count:
                                it carries the same total and the state as well. #}
-                            <span class="lp-doc-meta__count" id="section-summary-count">{{ 'review.document.sections.count'|trans({
+                            <span class="lp-doc-meta__count" id="section-summary-count">{{ 'review.document.sections.count_compact'|trans({
                                 '%approved%': approvedSections,
                                 '%total%': sectionRows|length,
                             }) }}</span>
@@ -237,44 +247,56 @@
                 <p id="decision-status" class="lp-decision-status" aria-live="polite"></p>
                 {% endif %}
 
-                {# Two views of one comparison, as plain links so each is
-                   addressable and neither needs JavaScript. The rendered one
+                {# One row of the sticky bar for both, rather than a bar of its
+                   own: two elements stuck to the same edge overlap. The views
+                   stay plain links, so each is addressable. The rendered one
                    cannot mark front matter, a link reference definition or a
-                   setext underline, so the way to check any of those is to read
-                   the same pair as Markdown. #}
+                   setext underline, hence the Markdown one. #}
                 {% if diffNavigation %}
                 {% set viewParams = {projectId: document.project.id, documentId: document.id, fromVersionNumber: diffFromVersion, toVersionNumber: version.versionNumber} %}
-                <nav class="lp-diff-views" aria-label="{{ 'review.document.diff.view.label'|trans }}">
-                    <a class="lp-diff-views__link"
-                       href="{{ path('app_document_review_diff', viewParams|merge({view: 'rendered'})) }}"
-                       {% if diffView.value == 'rendered' %}aria-current="page"{% endif %}
-                    >{{ 'review.document.diff.view.rendered'|trans }}</a>
-                    {# describedby rather than a second link: the notice below says
-                       why this view is worth opening, and this is the control that
-                       opens it. #}
-                    <a class="lp-diff-views__link"
-                       href="{{ path('app_document_review_diff', viewParams|merge({view: 'source'})) }}"
-                       {% if diffView.value == 'source' %}aria-current="page"{% endif %}
-                       {% if diffUnmarked %}aria-describedby="diff-unmarked-notice"{% endif %}
-                    >{{ 'review.document.diff.view.source'|trans }}</a>
-                </nav>
+                <div class="lp-diff-bar">
+                    <nav class="lp-diff-views" aria-label="{{ 'review.document.diff.view.label'|trans }}">
+                        <a class="lp-diff-views__link"
+                           href="{{ path('app_document_review_diff', viewParams|merge({view: 'rendered'})) }}"
+                           {% if diffView.value == 'rendered' %}aria-current="page"{% endif %}
+                           {% if diffColumns %}aria-describedby="diff-columns-notice"{% endif %}
+                        >{{ 'review.document.diff.view.rendered'|trans }}</a>
+                        {# The same rendered blocks in two columns. The notice
+                           below says what it gives up, and this link opens it. #}
+                        <a class="lp-diff-views__link"
+                           href="{{ path('app_document_review_diff', viewParams|merge({view: 'side-by-side'})) }}"
+                           {% if diffColumns %}aria-current="page"{% endif %}
+                        >{{ 'review.document.diff.view.side_by_side'|trans }}</a>
+                        {# describedby rather than a second link: the notice below says
+                           why this view is worth opening, and this is the control that
+                           opens it. #}
+                        <a class="lp-diff-views__link"
+                           href="{{ path('app_document_review_diff', viewParams|merge({view: 'source'})) }}"
+                           {% if diffView.value == 'source' %}aria-current="page"{% endif %}
+                           {% if diffUnmarked %}aria-describedby="diff-unmarked-notice"{% endif %}
+                        >{{ 'review.document.diff.view.source'|trans }}</a>
+                    </nav>
+                    <div class="lp-diff-nav">
+                        <p class="lp-diff-nav__count" aria-live="polite" data-diff-navigation-target="counter">{{ 'review.document.diff.nav.count'|trans({'%count%': diffChangeCount}) }}</p>
+                        <button type="button" class="lp-btn lp-btn--icon" data-action="diff-navigation#previous"
+                                aria-label="{{ 'review.document.diff.nav.previous'|trans }}"
+                                title="{{ 'review.document.diff.nav.previous'|trans }}">
+                            <twig:ux:icon name="lucide:arrow-up" class="w-4 h-4 shrink-0" />
+                        </button>
+                        <button type="button" class="lp-btn lp-btn--icon" data-action="diff-navigation#next"
+                                aria-label="{{ 'review.document.diff.nav.next'|trans }}"
+                                title="{{ 'review.document.diff.nav.next'|trans }}">
+                            <twig:ux:icon name="lucide:arrow-down" class="w-4 h-4 shrink-0" />
+                        </button>
+                    </div>
+                </div>
                 {% endif %}
 
-                {# A row of the sticky bar rather than a bar of its own: two
-                   elements stuck to the same edge overlap, and the count has to
-                   stay readable while the reader jumps down the diff. #}
-                {% if diffNavigation %}
-                <div class="lp-diff-nav">
-                    <p class="lp-diff-nav__count" aria-live="polite" data-diff-navigation-target="counter">{{ 'review.document.diff.nav.count'|trans({'%count%': diffChangeCount}) }}</p>
-                    <button type="button" class="lp-btn lp-btn--sm" data-action="diff-navigation#previous">
-                        <twig:ux:icon name="lucide:arrow-up" class="w-4 h-4 shrink-0" />
-                        {{ 'review.document.diff.nav.previous'|trans }}
-                    </button>
-                    <button type="button" class="lp-btn lp-btn--sm" data-action="diff-navigation#next">
-                        <twig:ux:icon name="lucide:arrow-down" class="w-4 h-4 shrink-0" />
-                        {{ 'review.document.diff.nav.next'|trans }}
-                    </button>
-                </div>
+                {% if diffColumns %}
+                <p id="diff-columns-notice" class="lp-diff-notice">
+                    <twig:ux:icon name="lucide:info" class="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{{ 'review.document.diff.side_by_side.comments_hidden'|trans }}</span>
+                </p>
                 {% endif %}
 
                 {% if diffUnmarked %}
@@ -285,34 +307,59 @@
                 {% endif %}
 
                 {% if showVersions %}
+                {# The version on screen alone, plus the way to the rest. Every
+                   version with its note in full made this panel taller than the
+                   fold, so opening it pushed the document's first paragraph off
+                   the screen. #}
                 <nav class="lp-doc-meta__panel lp-version-switcher" data-metadata-tabs-target="panel" data-panel="versions" hidden
                      aria-label="{{ 'review.document.version.switcher_label'|trans }}">
-                    {% for meta in versions %}
-                    <div class="lp-version-entry">
-                        {# A diff is not one of the versions it compares, so in diff
-                           mode every pill stays a link — reading the newer version
-                           on its own is a click away, and the only element claiming
-                           to be the current page is the diff link below. #}
-                        {% if not diffMode and meta.versionNumber == version.versionNumber %}
-                            <span class="lp-version-pill" aria-current="page">{{ 'v' ~ meta.versionNumber }}</span>
-                        {% else %}
-                            <a class="lp-version-pill lp-version-pill--link"
-                               href="{{ loop.first
-                                   ? path('app_document_review', {projectId: document.project.id, documentId: document.id})
-                                   : path('app_document_review_version', {projectId: document.project.id, documentId: document.id, versionNumber: meta.versionNumber}) }}"
-                            >{{ 'v' ~ meta.versionNumber }}</a>
-                        {% endif %}
-                        {% if meta.description %}
-                        <p class="lp-version-entry__description">{{ meta.description }}</p>
-                        {% endif %}
-                        {% if meta.versionNumber > 1 %}
-                        <a class="lp-version-entry__diff"
-                           href="{{ path('app_document_review_diff', {projectId: document.project.id, documentId: document.id, fromVersionNumber: meta.versionNumber - 1, toVersionNumber: meta.versionNumber}) }}"
-                           {% if diffMode and diffFromVersion == meta.versionNumber - 1 and version.versionNumber == meta.versionNumber %}aria-current="page"{% endif %}
-                        >{{ 'review.document.diff.link'|trans({'%from%': meta.versionNumber - 1}) }}</a>
+                    <div class="lp-version-entry" data-version-number="{{ version.versionNumber }}">
+                        <div class="lp-version-entry__row">
+                            {# A diff is not one of the versions it compares, so in
+                               diff mode the pill stays a link — reading the newer
+                               version on its own is a click away, and the only
+                               element claiming to be the current page is the diff
+                               link beside it. #}
+                            {% if not diffMode %}
+                                <span class="lp-version-pill" aria-current="page">{{ 'v' ~ version.versionNumber }}</span>
+                            {% else %}
+                                <a class="lp-version-pill lp-version-pill--link"
+                                   href="{{ version.versionNumber == versions|first.versionNumber
+                                       ? path('app_document_review', {projectId: document.project.id, documentId: document.id})
+                                       : path('app_document_review_version', {projectId: document.project.id, documentId: document.id, versionNumber: version.versionNumber}) }}"
+                                >{{ 'v' ~ version.versionNumber }}</a>
+                            {% endif %}
+                            <span class="lp-version-entry__date">{{ version.createdAt|relative_time }}</span>
+                            {% if version.versionNumber > 1 %}
+                            {# Above the note rather than below it: below, a reader
+                               takes it as the heading of the entry that follows. #}
+                            <a class="lp-version-entry__diff"
+                               href="{{ path('app_document_review_diff', {projectId: document.project.id, documentId: document.id, fromVersionNumber: version.versionNumber - 1, toVersionNumber: version.versionNumber}) }}"
+                               {% if diffMode and diffFromVersion == version.versionNumber - 1 %}aria-current="page"{% endif %}
+                            >{{ 'review.document.diff.link'|trans({'%from%': version.versionNumber - 1}) }}</a>
+                            {% endif %}
+                        </div>
+                        {% if version.description %}
+                        <p class="lp-version-entry__description">{{ version.description }}</p>
                         {% endif %}
                     </div>
-                    {% endfor %}
+                    {# Only while comparing: on the review page the panel is about
+                       the version on screen, and a pair picker there would offer
+                       a comparison nobody asked for. #}
+                    {% if diffMode and versions|length > 1 %}
+                    {% include '@Review/_version_compare_picker.html.twig' with {
+                        document: document,
+                        versions: versions,
+                        fromVersionNumber: diffFromVersion,
+                        toVersionNumber: version.versionNumber,
+                        viewValue: diffView.value,
+                        idPrefix: 'diff',
+                    } only %}
+                    {% endif %}
+                    <a class="lp-version-switcher__all" href="{{ path('app_document_review_history', {projectId: document.project.id, documentId: document.id}) }}">
+                        <twig:ux:icon name="lucide:history" class="w-3.5 h-3.5 shrink-0" />
+                        <span>{{ 'review.document.version.see_all'|trans({'%count%': versions|length}) }}</span>
+                    </a>
                 </nav>
                 {% endif %}
 
@@ -584,6 +631,9 @@
             answeredDecisions: answeredDecisions,
             showResolvedToggle: showResolvedToggle,
             showVerdict: showVerdict,
+            diffMode: diffMode,
+            diffFromVersion: diffFromVersion,
+            diffViewValue: diffView is null ? null : diffView.value,
         } only %}
         {% endif %}
     </div>

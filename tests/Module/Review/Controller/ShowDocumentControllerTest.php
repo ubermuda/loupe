@@ -611,10 +611,15 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertStringNotContainsString('Settled in v1', $latest->text());
 
-        // The switcher is the way back — a route with no entry point would leave
-        // the discussion exactly as unreachable as before.
+        // The history page is the way back — a route with no entry point would
+        // leave the discussion exactly as unreachable as before.
+        $historyUrl = '/projects/'.$projectId.'/documents/'.$id.'/review/history';
+        self::assertCount(1, $latest->filter('.lp-version-switcher a[href="'.$historyUrl.'"]'));
+
         $versionUrl = '/projects/'.$projectId.'/documents/'.$id.'/review/versions/1';
-        self::assertCount(1, $latest->filter('.lp-version-switcher a[href="'.$versionUrl.'"]'));
+        $history = $client->request(Request::METHOD_GET, $historyUrl);
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $history->filter('.lp-history a[href="'.$versionUrl.'"]'));
 
         $earlier = $client->request(Request::METHOD_GET, $versionUrl);
         self::assertResponseIsSuccessful();
@@ -685,7 +690,11 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    public function test_each_version_entry_shows_what_that_version_changed(): void
+    /**
+     * The panel carries the current version's note, and the history page carries
+     * every note. Between them nothing a revision said is lost.
+     */
+    public function test_the_panel_shows_the_current_version_note_and_the_history_shows_them_all(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -708,13 +717,20 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
 
-        $descriptions = $crawler->filter('.lp-version-entry__description')->each(
+        $panelNotes = $crawler->filter('.lp-version-entry__description')->each(
             static fn (\Symfony\Component\DomCrawler\Crawler $node): string => trim($node->text()),
         );
 
+        self::assertSame(['Replaced the rollout section with a phased plan.'], $panelNotes);
+
+        $history = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/history');
+
+        self::assertResponseIsSuccessful();
         self::assertSame(
             ['Replaced the rollout section with a phased plan.', 'The original brief.'],
-            $descriptions,
+            $history->filter('.lp-history__note')->each(
+                static fn (\Symfony\Component\DomCrawler\Crawler $node): string => trim($node->text()),
+            ),
         );
     }
 
@@ -905,7 +921,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         // reports approval state, which is worth seeing for a single section.
         self::assertCount(1, $crawler->filter('.lp-review-contents'));
         self::assertCount(1, $crawler->filter('.lp-review-contents__link'));
-        self::assertStringContainsString('0 of 1 approved', $crawler->filter('#section-summary-count')->text());
+        self::assertStringContainsString('0/1', $crawler->filter('#section-summary-count')->text());
     }
 
     public function test_both_ends_of_a_reference_render_it_and_an_archived_target_is_marked(): void
@@ -1051,7 +1067,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('.lp-doc-references'));
     }
 
-    public function test_the_version_switcher_links_to_each_version_s_diff(): void
+    public function test_the_version_panel_links_to_the_current_version_s_diff(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -1076,11 +1092,11 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $base = '/projects/'.$projectId.'/documents/'.$id.'/review/diff/';
         self::assertSame(
-            [$base.'2/3', $base.'1/2'],
+            [$base.'2/3'],
             $crawler->filter('.lp-version-entry__diff')->each(
                 static fn (\Symfony\Component\DomCrawler\Crawler $node): string => (string) $node->attr('href'),
             ),
-            'the first version has no predecessor to compare against',
+            'the panel carries the current version alone, so it offers one comparison',
         );
     }
 

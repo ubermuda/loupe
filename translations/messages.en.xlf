@@ -1349,11 +1349,45 @@
                 <source>review.document.version.switcher_label</source>
                 <target>Document versions</target>
             </trans-unit>
+            <trans-unit id="review.document.version.see_all">
+                <source>review.document.version.see_all</source>
+                <target>{0}See the version history|{1}See the version history|]1,Inf[See all %count% versions</target>
+            </trans-unit>
+
+            <!-- Document version history -->
+            <trans-unit id="review.document.history.page.title">
+                <source>review.document.history.page.title</source>
+                <target>Version history</target>
+            </trans-unit>
+            <trans-unit id="review.document.history.count">
+                <source>review.document.history.count</source>
+                <target>{0}No versions|{1}1 version|]1,Inf[%count% versions</target>
+            </trans-unit>
+            <trans-unit id="review.document.history.back">
+                <source>review.document.history.back</source>
+                <target>Back to the document</target>
+            </trans-unit>
+            <trans-unit id="review.document.history.compare.submit">
+                <source>review.document.history.compare.submit</source>
+                <target>Compare these two</target>
+            </trans-unit>
+            <trans-unit id="review.document.history.compare.hint">
+                <source>review.document.history.compare.hint</source>
+                <target>You can compare any two versions, not only two that follow one another.</target>
+            </trans-unit>
+            <trans-unit id="review.document.history.compare_with">
+                <source>review.document.history.compare_with</source>
+                <target>Compare with v%from%</target>
+            </trans-unit>
 
             <!-- Document version diff -->
-            <trans-unit id="review.document.diff.banner">
-                <source>review.document.diff.banner</source>
-                <target>You are reading what changed between version %from% and version %to%, not the document itself. Commenting and the verdict apply to the current version.</target>
+            <trans-unit id="review.document.diff.chip">
+                <source>review.document.diff.chip</source>
+                <target>Comparing v%from% with v%to%</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.stop">
+                <source>review.document.diff.stop</source>
+                <target>Stop comparing</target>
             </trans-unit>
             <trans-unit id="review.document.diff.link">
                 <source>review.document.diff.link</source>
@@ -1465,6 +1499,10 @@
                 <source>review.document.comment.reply</source>
                 <target>Reply</target>
             </trans-unit>
+            <trans-unit id="review.document.comment.reply_count">
+                <source>review.document.comment.reply_count</source>
+                <target>{0}No replies|{1}1 reply|]1,Inf[ %count% replies</target>
+            </trans-unit>
             <trans-unit id="review.document.comment.resolve">
                 <source>review.document.comment.resolve</source>
                 <target>Resolve</target>
@@ -1512,10 +1550,6 @@
             <trans-unit id="review.decision.error.stale_version">
                 <source>review.decision.error.stale_version</source>
                 <target>This document changed while you were reading it. Reload the page and choose again.</target>
-            </trans-unit>
-            <trans-unit id="review.document.sections.count">
-                <source>review.document.sections.count</source>
-                <target>%approved% of %total% approved</target>
             </trans-unit>
             <trans-unit id="review.document.sections.count_compact">
                 <source>review.document.sections.count_compact</source>
@@ -3586,11 +3620,27 @@
             </trans-unit>
             <trans-unit id="review.document.diff.view.rendered">
                 <source>review.document.diff.view.rendered</source>
-                <target>As the document reads</target>
+                <target>Document</target>
             </trans-unit>
             <trans-unit id="review.document.diff.view.source">
                 <source>review.document.diff.view.source</source>
-                <target>As the Markdown reads</target>
+                <target>Markdown</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.view.side_by_side">
+                <source>review.document.diff.view.side_by_side</source>
+                <target>Side by side</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.side_by_side.column">
+                <source>review.document.diff.side_by_side.column</source>
+                <target>Version %version%</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.side_by_side.empty">
+                <source>review.document.diff.side_by_side.empty</source>
+                <target>This version has nothing here.</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.side_by_side.comments_hidden">
+                <source>review.document.diff.side_by_side.comments_hidden</source>
+                <target>Comments are hidden in this view. Open the Document view to read and write them.</target>
             </trans-unit>
             <trans-unit id="review.document.diff.mark.inserted">
                 <source>review.document.diff.mark.inserted</source>

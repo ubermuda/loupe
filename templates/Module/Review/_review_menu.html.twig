@@ -2,7 +2,7 @@
    and the same controls live in the top bar and the metadata tabs.
    Params: document, version, versions, showVersions, showContents, sectionRows,
    approvedSections, referenceCount, decisionRows, answeredDecisions,
-   showResolvedToggle, showVerdict. #}
+   showResolvedToggle, showVerdict, diffMode, diffFromVersion, diffViewValue. #}
 <div class="lp-review-menu" data-controller="review-menu">
     <div class="lp-review-menu__scrim"
          data-review-menu-target="scrim"
@@ -111,6 +111,18 @@
                 <span>{{ 'review.document.meta.versions'|trans }}</span>
                 <span class="lp-review-menu__head-count">{{ versions|length }}</span>
             </p>
+            {# The desktop versions panel is display:none below lg, so without
+               this the picker for an arbitrary pair is unreachable here. #}
+            {% if diffMode and versions|length > 1 %}
+            {% include '@Review/_version_compare_picker.html.twig' with {
+                document: document,
+                versions: versions,
+                fromVersionNumber: diffFromVersion,
+                toVersionNumber: version.versionNumber,
+                viewValue: diffViewValue,
+                idPrefix: 'menu-diff',
+            } only %}
+            {% endif %}
             {% for meta in versions %}
             <a class="lp-review-menu__section"
                href="{{ loop.first
@@ -129,6 +141,12 @@
             </a>
             {% endif %}
             {% endfor %}
+            {# The drawer keeps the whole list, because it overlays the document
+               rather than pushing it down. The row is here so the history page
+               is reachable below lg, where the desktop panel is display:none. #}
+            <a class="lp-review-menu__section" href="{{ path('app_document_review_history', {projectId: document.project.id, documentId: document.id}) }}">
+                <span class="lp-review-menu__label">{{ 'review.document.version.see_all'|trans({'%count%': versions|length}) }}</span>
+            </a>
         </div>
         {% endif %}
 

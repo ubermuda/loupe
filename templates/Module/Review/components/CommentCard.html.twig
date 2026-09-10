@@ -6,6 +6,10 @@
   The card's markup and every class on it live here so the review margin and the
   landing page's try-it prototype cannot drift apart. Anything route-bound —
   reply, resolve, delete — is passed in through the content block instead.
+
+  The marker button is the rail's collapsed state. It is display:none outside
+  .lp-comment-rail, so the demo, the inline mobile slots and general comments
+  keep the full card and never carry a control that does nothing.
 #}
 <div
     {% if this.domId != '' %}id="comment-thread-{{ this.domId }}"{% endif %}
@@ -17,56 +21,71 @@
     data-anchor-status="{{ this.status }}"
     data-anchor-kind="{{ this.kind }}"
     {% if this.isGeneral %}data-comment-general="true"{% endif %}
-    data-action="mouseenter->comment-anchor#focusThread mouseleave->comment-anchor#blurThread"
+    data-action="mouseenter->comment-anchor#focusThread mouseleave->comment-anchor#blurThread focusin->comment-anchor#focusThread focusout->comment-anchor#blurThread keydown->comment-anchor#threadKeydown"
 >
-    <div class="lp-comment-thread__header">
-        <span class="lp-comment-author">{{ this.author }}</span>
-        {# Blank for comments written before the timestamp column existed. #}
-        {% if this.age != '' %}
-        <span class="lp-comment-age">{{ this.age }}</span>
+    {# A keyboard reader gets the same passage highlight a hover gives, through
+       the focusin action on the card above. #}
+    <button type="button" class="lp-comment-marker" aria-expanded="false"
+            {% if this.domId != '' %}aria-controls="comment-detail-{{ this.domId }}"{% endif %}
+            data-action="comment-anchor#toggleThread">
+        <span class="lp-comment-marker__dot lp-comment-marker__dot--{{ this.markerTone }}" aria-hidden="true"></span>
+        <span class="lp-comment-marker__author">{{ this.author }}</span>
+        {% if this.replies|length > 0 %}
+        <span class="lp-comment-marker__count"
+              aria-label="{{ 'review.document.comment.reply_count'|trans({'%count%': this.replies|length}) }}">{{ this.replies|length }}</span>
         {% endif %}
-        <span class="lp-comment-status lp-comment-status--{{ this.statusLabel }}">{{ ('review.document.status.' ~ this.statusLabel)|trans }}</span>
-    </div>
+    </button>
 
-    {# The quoted passage is gone from this version, so there is no highlight in
-       the document to look for and the card has to say so itself. #}
-    {% if this.orphaned %}
-    <span class="lp-comment-orphan-pill">{{ 'review.document.comment.orphaned'|trans }}</span>
-    {% endif %}
-
-    {# A strike shows the doomed passage struck through; a rewording shows it
-       above what should replace it. Neither is markup from the document — these
-       are tags this template emits around escaped text. #}
-    {% if this.kind in ['suggestion', 'strike'] %}
-    <blockquote class="lp-comment-quote lp-comment-quote--struck"><del>{{ this.quote }}</del></blockquote>
-        {% if this.kind != 'strike' %}
-        <blockquote class="lp-comment-quote lp-comment-quote--inserted"><ins>{{ this.replacement }}</ins></blockquote>
-        {% endif %}
-    {% elseif this.quote != '' %}
-    <blockquote class="lp-comment-quote">{{ this.quote }}</blockquote>
-    {% endif %}
-
-    {# A strike carries no rationale — nothing was typed — so the body element is
-       omitted rather than rendered empty. #}
-    {% if this.body is not empty %}
-    <div class="lp-comment-body">{{ this.body }}</div>
-    {% endif %}
-
-    {% if this.replies|length > 0 %}
-    <div class="lp-comment-replies">
-        {% for reply in this.replies %}
-        <div class="lp-comment--reply">
-            <div class="lp-comment-reply__head">
-                <span class="lp-comment-author">{{ reply.author }}</span>
-                {% if reply.age != '' %}
-                <span class="lp-comment-age">{{ reply.age }}</span>
-                {% endif %}
-            </div>
-            <div class="lp-comment-body">{{ reply.body }}</div>
+    <div class="lp-comment-thread__detail"{% if this.domId != '' %} id="comment-detail-{{ this.domId }}"{% endif %}>
+        <div class="lp-comment-thread__header">
+            <span class="lp-comment-author">{{ this.author }}</span>
+            {# Blank for comments written before the timestamp column existed. #}
+            {% if this.age != '' %}
+            <span class="lp-comment-age">{{ this.age }}</span>
+            {% endif %}
+            <span class="lp-comment-status lp-comment-status--{{ this.statusLabel }}">{{ ('review.document.status.' ~ this.statusLabel)|trans }}</span>
         </div>
-        {% endfor %}
-    </div>
-    {% endif %}
 
-    {% block content %}{% endblock %}
+        {# The quoted passage is gone from this version, so there is no highlight in
+           the document to look for and the card has to say so itself. #}
+        {% if this.orphaned %}
+        <span class="lp-comment-orphan-pill">{{ 'review.document.comment.orphaned'|trans }}</span>
+        {% endif %}
+
+        {# A strike shows the doomed passage struck through; a rewording shows it
+           above what should replace it. Neither is markup from the document — these
+           are tags this template emits around escaped text. #}
+        {% if this.kind in ['suggestion', 'strike'] %}
+        <blockquote class="lp-comment-quote lp-comment-quote--struck"><del>{{ this.quote }}</del></blockquote>
+            {% if this.kind != 'strike' %}
+            <blockquote class="lp-comment-quote lp-comment-quote--inserted"><ins>{{ this.replacement }}</ins></blockquote>
+            {% endif %}
+        {% elseif this.quote != '' %}
+        <blockquote class="lp-comment-quote">{{ this.quote }}</blockquote>
+        {% endif %}
+
+        {# A strike carries no rationale — nothing was typed — so the body element is
+           omitted rather than rendered empty. #}
+        {% if this.body is not empty %}
+        <div class="lp-comment-body">{{ this.body }}</div>
+        {% endif %}
+
+        {% if this.replies|length > 0 %}
+        <div class="lp-comment-replies">
+            {% for reply in this.replies %}
+            <div class="lp-comment--reply">
+                <div class="lp-comment-reply__head">
+                    <span class="lp-comment-author">{{ reply.author }}</span>
+                    {% if reply.age != '' %}
+                    <span class="lp-comment-age">{{ reply.age }}</span>
+                    {% endif %}
+                </div>
+                <div class="lp-comment-body">{{ reply.body }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </div>
 </div>

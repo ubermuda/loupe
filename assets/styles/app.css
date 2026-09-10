@@ -1239,6 +1239,16 @@
         @apply font-display font-extrabold text-ink m-0 text-4xl tracking-tight leading-tight;
     }
 
+    /* The side-by-side comparison, which renders no comment rail and takes the
+       gutter and the comment column back for its second reading measure. Both
+       modifiers come after their base class, or the base would win. */
+    .lp-review-block--wide {
+        @apply max-w-280;
+    }
+    .lp-review-doc--wide {
+        @apply max-w-280;
+    }
+
     /* The comment column, from lg up. Absolutely positioned, and every card
        inside it is too: a paragraph carrying five comments has to be exactly as
        tall as one carrying none, which it cannot be if the cards are in flow.
@@ -1314,6 +1324,15 @@
     .lp-doc-meta__tab[aria-expanded='true'] .lp-doc-meta__caret {
         @apply rotate-90;
     }
+    /* Names the pair the pane holds, on the green status tint: comparing is a
+       state the reader turned on, not a failure. The stop control rides the chip
+       rather than the row, so the row stays the view switch and the jumps. */
+    .lp-doc-meta__compare {
+        @apply inline-flex items-center gap-1.5 shrink-0 rounded-full bg-status-ok-bg text-status-ok-deep font-semibold text-xs py-1 pl-2.5 pr-1;
+    }
+    .lp-doc-meta__compare-stop {
+        @apply inline-flex items-center justify-center shrink-0 w-5 h-5 rounded-full text-status-ok-deep no-underline transition-colors hover:bg-status-ok-border;
+    }
     .lp-doc-meta__tags {
         @apply flex items-center gap-1.5 ml-auto;
     }
@@ -1340,7 +1359,13 @@
         .lp-doc-meta__panel {
             @apply hidden;
         }
-        .lp-doc-meta:not(:has(.lp-doc-meta__series, .lp-doc-meta__tags)) {
+        .lp-doc-meta:not(
+            :has(
+                .lp-doc-meta__series,
+                .lp-doc-meta__tags,
+                .lp-doc-meta__compare
+            )
+        ) {
             @apply hidden;
         }
     }
@@ -1501,6 +1526,14 @@
     .lp-version-entry {
         @apply flex flex-col items-start gap-1;
     }
+    /* Pill, date and compare link on one line. The compare link used to sit
+       under the note, where it reads as the heading of the entry below it. */
+    .lp-version-entry__row {
+        @apply flex flex-wrap items-center gap-2.5;
+    }
+    .lp-version-entry__date {
+        @apply text-fg-dim text-xs;
+    }
     .lp-version-entry__description {
         @apply text-fg-dim m-0 text-xs;
     }
@@ -1510,6 +1543,62 @@
     }
     .lp-version-entry__diff[aria-current] {
         @apply text-accent;
+    }
+    /* Starts another comparison from inside the versions panel and the review
+       menu. Its selects are shorter than the filter bar's, because the panel is
+       the width of the reading column. */
+    .lp-version-compare {
+        @apply flex flex-wrap items-center gap-2 w-full;
+    }
+    .lp-version-compare .lp-filter-select {
+        @apply h-8.5;
+    }
+    /* Way out of the panel and into the full history. */
+    .lp-version-switcher__all {
+        @apply inline-flex items-center gap-1.5 text-fg-mute no-underline transition-colors text-xs hover:text-accent;
+    }
+
+    /* ── Version history page ───────────────────────────────────────────
+       Every version on a page of its own, newest first. A vertical rule with
+       one marker per row carries the order; the marker is filled for the
+       current version. */
+    .lp-history {
+        @apply list-none flex flex-col m-0 mt-8 p-0;
+    }
+    .lp-history__row {
+        @apply relative flex flex-col gap-1.5 border-l border-line pl-6 pb-6;
+    }
+    .lp-history__row:last-child {
+        @apply border-transparent pb-0;
+    }
+    .lp-history__row::before {
+        content: '';
+        @apply absolute left-0 top-2 w-2.5 h-2.5 -translate-x-1/2 rounded-full border border-line bg-surface-3;
+    }
+    .lp-history__row--current::before {
+        @apply border-accent bg-accent;
+    }
+    .lp-history__head {
+        @apply flex flex-wrap items-center gap-3;
+    }
+    .lp-history a.lp-version-pill {
+        @apply no-underline;
+    }
+    .lp-history__date {
+        @apply text-fg-dim text-xs;
+    }
+    /* Pushed to the right end of its own row rather than under the note. */
+    .lp-history__compare {
+        @apply ml-auto font-mono text-fg-dim no-underline transition-colors text-xs hover:text-accent;
+    }
+    .lp-history__note {
+        @apply text-fg-mute m-0 max-w-prose text-sm;
+    }
+    .lp-history-back {
+        @apply inline-flex items-center gap-1.5 text-fg-mute no-underline transition-colors text-sm hover:text-accent;
+    }
+    .lp-history-compare {
+        @apply flex flex-col gap-2 mt-8;
     }
 
     /* ── Version diff ───────────────────────────────────────────────────
@@ -1571,6 +1660,42 @@
     .lp-diff-doc > .lp-diff__mark:has(+ .lp-diff__mark) {
         @apply mb-0 rounded-b-none;
     }
+
+    /* ── Version diff, side-by-side view ────────────────────────────────
+       One grid for every cell, so the two cells of a pair share a row and the
+       taller one sets its height. That is the whole alignment mechanism, and
+       the columns scroll together because neither scrolls on its own. Below lg
+       a pair stacks into one column. */
+    .lp-diff-columns {
+        @apply grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-5;
+    }
+    .lp-diff-columns__cell {
+        @apply min-w-0;
+    }
+    /* A block one version does not hold. The dashed box keeps the pair level and
+       shows the side is empty; .lp-diff-columns__note says the same in words. */
+    .lp-diff-columns__cell--void {
+        @apply min-h-12 p-3 rounded-lg border border-dashed border-line bg-surface-2;
+    }
+    .lp-diff-columns__note {
+        @apply sr-only;
+    }
+    /* One heading per column above the first pair, and the same name on each
+       cell for the stacked layout, where those headings no longer sit over it. */
+    .lp-diff-columns__title {
+        @apply hidden m-0 font-mono text-fg-dim text-xs uppercase tracking-widest lg:block;
+    }
+    .lp-diff-columns__label {
+        @apply m-0 mb-1.5 font-mono text-fg-dim text-xs uppercase tracking-widest lg:hidden;
+    }
+    /* Prose margins would otherwise start the two cells of a pair at different
+       heights, which is the alignment the grid row exists to hold. */
+    .lp-diff-columns__cell > .lp-diff-doc > :first-child {
+        @apply mt-0;
+    }
+    .lp-diff-columns__cell > .lp-diff-doc > :last-child {
+        @apply mb-0;
+    }
     /* ── Version diff, source view ──────────────────────────────────────
        The same pair as Markdown. It shows what the rendered view cannot mark:
        front matter, a link reference definition, a setext underline. pre-wrap
@@ -1613,26 +1738,32 @@
         @apply block rounded-lg;
     }
 
+    /* One row of the document metadata bar, which is what makes it sticky: two
+       bars pinned to the same edge would overlap. The view switch leads and the
+       count and its jumps ride the right end as one group. It wraps rather than
+       overflows: at a 375px reading column the group is about 12px too wide,
+       and the bar has overflow:visible, so it would escape its own box. */
+    .lp-diff-bar {
+        @apply flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5 border-b border-line;
+    }
     /* The two views of one comparison, as links rather than a control: each is
        addressable, and switching is a plain navigation. */
     .lp-diff-views {
-        @apply flex items-center gap-1 py-2;
+        @apply inline-flex items-center gap-0.5 shrink-0 rounded-full bg-surface-2 p-0.5;
     }
     .lp-diff-views__link {
-        @apply rounded-md no-underline text-fg-dim text-xs py-1 px-2 transition-colors hover:bg-tint hover:text-fg;
+        @apply rounded-full no-underline text-fg-dim text-xs py-1 px-3 transition-colors hover:text-fg;
     }
     /* Weight and tint together, so the current view is not colour alone. */
     .lp-diff-views__link[aria-current] {
-        @apply font-semibold bg-tint text-ink;
+        @apply font-semibold bg-app text-ink;
     }
 
-    /* Jump-to-change row of the document metadata bar, which is what makes it
-       sticky: two bars pinned to the same edge would overlap. */
     .lp-diff-nav {
-        @apply flex items-center gap-2 py-2 border-b border-line;
+        @apply flex items-center gap-1.5 ml-auto;
     }
     .lp-diff-nav__count {
-        @apply mr-auto font-mono text-fg-dim text-xs uppercase tracking-widest;
+        @apply font-mono text-fg-dim text-xs uppercase tracking-widest whitespace-nowrap;
     }
     /* Says what this view cannot show, so it reads as a note about the view
        rather than as something the reader got wrong. Muted like the count it
@@ -1955,6 +2086,68 @@
     }
     .lp-comment-thread__header {
         @apply flex items-baseline gap-2;
+    }
+    .lp-comment-thread__detail {
+        @apply flex flex-col gap-3;
+    }
+
+    /* ── Comment rail ──────────────────────────────────────────────────
+       One 32px marker per thread, one open at a time. Two gates: the
+       .lp-comment-rail class, which the landing mock and the demo do not carry,
+       and lg, below which a thread is a whole card wherever it sits — including
+       one #inlineThreads cannot place and leaves in the margin. */
+    .lp-comment-marker {
+        @apply hidden w-full items-center gap-2 h-8 p-0 bg-transparent border-0 text-left cursor-pointer;
+    }
+    .lp-comment-rail .lp-comment-marker {
+        @apply lg:flex;
+    }
+    .lp-comment-marker:focus-visible {
+        @apply rounded-lg outline-2 -outline-offset-2 outline-accent;
+    }
+    .lp-comment-marker__dot {
+        @apply inline-block shrink-0 rounded-full w-2 h-2 bg-accent;
+    }
+    .lp-comment-marker__dot--ok {
+        @apply bg-status-ok;
+    }
+    .lp-comment-marker__dot--strike {
+        @apply bg-strike;
+    }
+    .lp-comment-marker__author {
+        @apply min-w-0 truncate text-ink font-bold text-sm;
+    }
+    .lp-comment-marker__count {
+        @apply ml-auto shrink-0 text-fg-mute font-bold text-xs;
+    }
+    /* Expanded, the replies are on screen, so the tally has nothing to say. */
+    .lp-comment-thread--expanded .lp-comment-marker__count {
+        @apply hidden;
+    }
+    /* A collapsed thread keeps its box and its layout — hiding it any other way
+       would make offsetParent null, which is how a resolved card stops
+       advancing the floor in #positionThreads. */
+    .lp-comment-rail .lp-comment-thread:not(.lp-comment-thread--expanded) {
+        @apply lg:py-0 lg:gap-0;
+    }
+    .lp-comment-rail
+        .lp-comment-thread:not(.lp-comment-thread--expanded)
+        .lp-comment-thread__detail {
+        @apply lg:hidden;
+    }
+    /* The marker names the author, so the header below it keeps the age and the
+       status alone. */
+    .lp-comment-rail .lp-comment-thread__header > .lp-comment-author {
+        @apply lg:hidden;
+    }
+    /* The passage is highlighted in the prose level with the card, so quoting it
+       here repeats what the reader can already see. An orphaned thread keeps its
+       quote, because that passage is gone from this version; a suggestion keeps
+       the replacement, which is proposed wording rather than the passage. */
+    .lp-comment-rail
+        .lp-comment-thread:not(.lp-comment-thread--orphaned)
+        .lp-comment-quote:not(.lp-comment-quote--inserted) {
+        @apply lg:hidden;
     }
     /* Status as a plain label rather than a chip: on a card this small, six
        pills stacked down the margin read as the loudest thing on the page. */
