@@ -928,6 +928,8 @@ test('a comment can be anchored to several elements at once', async ({
     // Holding the modifier brings the picker back, and the composer stays up so
     // the draft keeps its focus and the chips keep up with the picks.
     await page.keyboard.down(modifier);
+    // The picker shows itself on the pointer, not on the keydown alone.
+    await page.mouse.move(2, 2);
     await expect(page.locator('#lp-toast')).toContainText(
         'Click to add another element',
     );
@@ -1447,6 +1449,8 @@ test('the composer keeps Save reachable at the anchor cap', async ({
 
     // Holding the modifier at the cap says the same thing instead of picking.
     await page.keyboard.down(modifier);
+    // The picker shows itself on the pointer, not on the keydown alone.
+    await page.mouse.move(2, 2);
     await expect(page.locator('#lp-error')).toContainText(
         'A comment can point at 10 elements at most.',
     );
@@ -1557,6 +1561,8 @@ test('the add-anchor modifier can be held before the very first pick', async ({
     // No keyup arrives when the hold ends outside the page, so losing focus
     // stands the picker down too.
     await page.keyboard.down(modifier);
+    // The picker shows itself on the pointer, not on the keydown alone.
+    await page.mouse.move(2, 2);
     await expect(page.locator('#lp-toast')).toBeVisible();
     await page.evaluate(() => window.dispatchEvent(new Event('blur')));
     await expect(page.locator('#lp-toast')).toBeHidden();
@@ -1592,6 +1598,8 @@ test('a second key spends the add-anchor hold and leaves the shortcut alone', as
     await expect(textarea).toBeFocused();
 
     await page.keyboard.down(modifier);
+    // The picker shows itself on the pointer, not on the keydown alone.
+    await page.mouse.move(2, 2);
     await expect(page.locator('#lp-toast')).toBeVisible();
     // The composer stays up, so the draft never loses focus mid-hold.
     await expect(textarea).toBeFocused();
@@ -1611,6 +1619,8 @@ test('a second key spends the add-anchor hold and leaves the shortcut alone', as
     await expect(page.locator('#lp-toast')).toBeHidden();
     await page.keyboard.up(modifier);
     await page.keyboard.down(modifier);
+    // The picker shows itself on the pointer, not on the keydown alone.
+    await page.mouse.move(2, 2);
     await expect(page.locator('#lp-toast')).toBeVisible();
     await page.keyboard.up(modifier);
 });
