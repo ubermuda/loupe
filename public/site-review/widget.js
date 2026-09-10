@@ -2908,6 +2908,10 @@
             state.actionError = { message: AT_CAP_MESSAGE };
         } else {
             setTargeting(true);
+            // A listener added mid-dispatch does not get the event that added it, so
+            // the mousedown that revealed the picker would focus the host element
+            // `onDown` exists to protect. Run it by hand for that one event.
+            if (event.type === 'mousedown') onDown(event);
         }
         sync();
     };
