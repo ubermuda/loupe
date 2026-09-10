@@ -55,6 +55,24 @@ entry.
   a modifier chord such as Cmd+Enter is typed into the comment composer.
 - (#417) — **Fixed:** the diff view's `j` and `k` shortcuts no longer swallow
   those letters typed into the site-review comment composer.
+- (#417) — **Changed:** approving a section now updates the page in place
+  instead of reloading it, so an open panel stays open and the reading position
+  is kept.
+- (#417) — **Fixed:** the site-review widget no longer offers "Comment on this
+  text" over a Loupe document, which has commenting of its own.
+- (#417) — **Changed:** the version chip now leads the metadata bar of a
+  document review page.
+- (#417) — **Fixed:** clicking one of the last headings in the contents rail now
+  marks that row, which the end of a document could never reach before.
+- (#417) — **Added:** arriving at a heading from the contents rail tints its
+  section head for a moment, so the scroll says which heading it answered.
+- (#417) — **Changed:** the group of comment threads whose passage is gone now
+  starts collapsed, behind a heading that says how many there are.
+- (#417) — **Changed:** the action row below a document now has room above it.
+- (#417) — **Removed:** the compare hint on the version history page, which
+  said what the two pickers beside it already show.
+- (#417) — **Fixed:** the timeline on the version history page now runs from the
+  first node to the last, instead of overshooting above and stopping short.
 - (#411) — **Changed:** open work now lives on the Loupe project board
   instead of `docs/NEXT_STEPS.md`, which is deleted along with the
   `project-next-steps` skill.
