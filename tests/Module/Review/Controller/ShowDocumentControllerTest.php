@@ -850,7 +850,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame(
             ['#heading-first', '#heading-second'],
-            $crawler->filter('.lp-review-contents__link')->each(static fn ($node): string => (string) $node->attr('href')),
+            $crawler->filter('[data-panel="contents"] .lp-review-contents__link')->each(static fn ($node): string => (string) $node->attr('href')),
         );
         // The panel must sit outside the prose container, whose textContent has to
         // stay identical to DocumentVersion::plainText() for anchors to resolve.
@@ -884,12 +884,12 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame(
             ['#heading-first', '#heading-section', '#heading-second'],
-            $crawler->filter('.lp-review-contents__link')->each(static fn ($node): string => (string) $node->attr('href')),
+            $crawler->filter('[data-panel="contents"] .lp-review-contents__link')->each(static fn ($node): string => (string) $node->attr('href')),
         );
         // Labelled by its id, never blank: a blank link is what the old rule avoided.
         self::assertSame(
             ['First', 'heading-section', 'Second'],
-            $crawler->filter('.lp-review-contents__link')->each(static fn ($node): string => trim($node->text())),
+            $crawler->filter('[data-panel="contents"] .lp-review-contents__link')->each(static fn ($node): string => trim($node->text())),
         );
         // It keeps its id in the document, so anything already linking to it resolves.
         self::assertStringContainsString('id="heading-section"', (string) $client->getResponse()->getContent());
@@ -920,7 +920,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         // One section was too few for a table of contents. The panel now also
         // reports approval state, which is worth seeing for a single section.
         self::assertCount(1, $crawler->filter('.lp-review-contents'));
-        self::assertCount(1, $crawler->filter('.lp-review-contents__link'));
+        self::assertCount(1, $crawler->filter('[data-panel="contents"] .lp-review-contents__link'));
         self::assertStringContainsString('0/1', $crawler->filter('#section-summary-count')->text());
     }
 
@@ -1039,7 +1039,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$sourceId.'/review');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(2, $crawler->filter('.lp-review-contents__link'));
+        self::assertCount(2, $crawler->filter('[data-panel="contents"] .lp-review-contents__link'));
         self::assertSelectorTextContains('.lp-doc-references', 'The Spec');
     }
 

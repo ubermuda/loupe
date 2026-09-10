@@ -1,0 +1,47 @@
+{#
+  Contents and Decisions beside the reading column, from 2xl up. The same two
+  lists the metadata bar holds in its panels, standing open instead: a reviewer
+  reading a long document keeps the section list and the open decisions in view.
+
+  The bar keeps both tabs below 2xl, where the rail, the reading column and the
+  comment column do not fit one row together. Neither list is a copy of the
+  panel's DOM: the ids here are the rail's own, and
+  `_decision_status.stream.html.twig` updates all three copies after an answer,
+  the way it already updates the bar and the review menu.
+
+  Vars:  @comment-budget-ignore
+    document           Document          the document being reviewed
+    sectionRows        list              one row per heading, in document order
+    approvedSections   int               how many of them the reviewer approved
+    decisionRows       list              one row per decision block
+    answeredDecisions  int               how many of them carry an answer
+#}
+<aside class="lp-review-rail" aria-label="{{ 'review.document.rail.label'|trans }}">
+    <div class="lp-review-rail__inner">
+        {% if sectionRows|length > 0 %}
+        <p class="lp-review-rail__title">
+            {{ 'review.document.contents.label'|trans }}
+            <span class="lp-review-rail__count" id="review-rail-sections-count">{{ 'review.document.sections.count_compact'|trans({
+                '%approved%': approvedSections,
+                '%total%': sectionRows|length,
+            }) }}</span>
+        </p>
+        <ul class="lp-review-contents__list">
+            {% include '@Review/_contents_rows.html.twig' with {rows: sectionRows} only %}
+        </ul>
+        {% endif %}
+
+        {% if decisionRows|length > 0 %}
+        <p class="lp-review-rail__title">
+            {{ 'review.document.meta.decisions'|trans }}
+            <span class="lp-review-rail__count" id="review-rail-decisions-count">{{ 'review.document.decisions.count'|trans({
+                '%answered%': answeredDecisions,
+                '%total%': decisionRows|length,
+            }) }}</span>
+        </p>
+        <ul class="lp-decision-summary__list" id="review-rail-decisions-list">
+            {% include '@Review/_decision_summary_rows.html.twig' with {rows: decisionRows} only %}
+        </ul>
+        {% endif %}
+    </div>
+</aside>

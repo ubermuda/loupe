@@ -1293,6 +1293,10 @@
                 <source>review.document.meta.references</source>
                 <target>References</target>
             </trans-unit>
+            <trans-unit id="review.document.rail.label">
+                <source>review.document.rail.label</source>
+                <target>Contents and decisions</target>
+            </trans-unit>
             <trans-unit id="review.document.meta.tags">
                 <source>review.document.meta.tags</source>
                 <target>Tags</target>

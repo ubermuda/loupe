@@ -59,7 +59,10 @@ final class ShowDocumentSectionControlTest extends WebTestCase
             self::assertSame('', $node->text(null, false), 'the button must contribute no text to the pane');
             self::assertNotSame('', (string) $node->attr('aria-label'));
             self::assertSame('false', $node->attr('aria-pressed'));
-            self::assertCount(1, $node->filter('svg'));
+            // An unapproved control carries both glyphs: the ring it rests on
+            // and the tick CSS swaps in on hover.
+            self::assertCount(1, $node->filter('svg.lp-section-approve__icon--rest'));
+            self::assertCount(1, $node->filter('svg.lp-section-approve__icon--hover'));
         }
 
         self::assertSame(
@@ -89,16 +92,17 @@ final class ShowDocumentSectionControlTest extends WebTestCase
         // the ring; only the approved one carries the tick inside it.
         $stillOpen = $crawler->filter('[data-section-approve="heading-beta"]');
         self::assertSame('false', $stillOpen->attr('aria-pressed'));
+        $atRest = $stillOpen->filter('svg.lp-section-approve__icon--rest');
         self::assertCount(1, $control->filter('svg circle'));
-        self::assertCount(1, $stillOpen->filter('svg circle'));
+        self::assertCount(1, $atRest->filter('circle'));
         self::assertCount(1, $control->filter('svg path'), 'the approved glyph carries a tick');
-        self::assertCount(0, $stillOpen->filter('svg path'), 'the unapproved glyph is an empty ring');
-        self::assertNotSame($control->filter('svg')->html(), $stillOpen->filter('svg')->html());
+        self::assertCount(0, $atRest->filter('path'), 'the unapproved glyph rests as an empty ring');
+        self::assertNotSame($control->filter('svg')->html(), $atRest->html());
 
         // Contents and section approvals are one panel. It reports the same
         // rows, keeps its navigation links, and offers no control of its own.
         self::assertStringContainsString('1/3', $crawler->filter('#section-summary-count')->text());
-        self::assertCount(1, $crawler->filter('[data-section-approved="heading-alpha"]'));
+        self::assertCount(1, $crawler->filter('[data-panel="contents"] [data-section-approved="heading-alpha"]'));
         self::assertCount(0, $crawler->filter('[data-panel="contents"] button'));
         self::assertCount(0, $crawler->filter('[data-panel="sections"]'));
         self::assertCount(3, $crawler->filter('[data-panel="contents"] .lp-review-contents__link'));

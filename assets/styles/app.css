@@ -1220,13 +1220,10 @@
     }
 
     /* The 972px review block: a 640px reading column, a 36px gutter, and a
-       296px comment column. It starts at the same left edge as .lp-workspace,
-       so the breadcrumb above it and the content below it line up. The offset
-       parent the comment stack and the floating panels are positioned against,
-       so the left edge is a margin rather than padding: padding would move the
-       block's padding box and shift every absolute child with it. Below lg the
-       972px is a ceiling rather than a width, so the reading column fills a
-       phone. */
+       296px comment column. It starts at the same left edge as .lp-workspace.
+       The left offset must be a margin, never padding: this is the offset
+       parent of the comment stack and the floating panels, and padding moves
+       the padding box they are placed against. */
     .lp-review-block {
         @apply relative w-full max-w-243 px-5 pt-6 pb-19 lg:ml-12 lg:px-0 lg:pt-13 lg:pb-30;
     }
@@ -1252,6 +1249,62 @@
     }
     .lp-review-doc--wide {
         @apply max-w-280;
+    }
+
+    /* ── Contents and decisions rail ────────────────────────────────────
+       Left of the reading column on a wide window. 236px wide with a 40px
+       gutter, which is the 276px the block's extra left margin opens.
+       Absolute, like the comment column: the reading column is exactly as wide
+       with a rail as without one. */
+    .lp-review-rail {
+        @apply hidden absolute -left-69 top-0 bottom-0 w-59;
+    }
+    /* 100rem, not the 2xl token: the rail costs 276px and the block is 972px
+       wide, so the row needs 1296px of pane. A 1536px window leaves 1290 and
+       overflows by six. */
+    @media (width >= 100rem) {
+        .lp-review-rail {
+            @apply block;
+        }
+        .lp-review-block {
+            @apply ml-81;
+        }
+    }
+    /* The wrapper spans the block, so the list inside it can stick. It clears
+       the metadata bar, which is sticky at the same edge. */
+    .lp-review-rail__inner {
+        @apply sticky top-13 flex flex-col gap-0.5 overflow-y-auto;
+        max-height: calc(100dvh - 8rem);
+    }
+    .lp-review-rail__title {
+        @apply flex items-baseline gap-2 m-0 mb-1.5 uppercase font-mono text-fg-dim text-xs tracking-wider;
+    }
+    .lp-review-rail__title:not(:first-child) {
+        @apply mt-5.5;
+    }
+    .lp-review-rail__count {
+        @apply font-mono text-fg-dim text-xs normal-case tracking-normal;
+    }
+    /* A 236px rail has no room for a label and its state on one line, and a
+       heading truncated to three words names nothing. */
+    .lp-review-rail .lp-review-contents__item,
+    .lp-review-rail .lp-decision-summary__item {
+        @apply flex-col items-start gap-0;
+    }
+    .lp-review-rail .lp-review-contents__link {
+        @apply whitespace-normal overflow-visible;
+        text-overflow: clip;
+    }
+    /* Only a settled row says anything. A "not approved" line under every
+       heading is the state of most of the list, so it reads as noise and buries
+       the rows that did change. The panel in the bar still states both. */
+    .lp-review-rail .lp-section-approvals__pending,
+    .lp-review-rail .lp-decision-summary__pending {
+        @apply hidden;
+    }
+    .lp-review-rail .lp-section-approvals__approved,
+    .lp-review-rail .lp-decision-summary__answer {
+        @apply ml-1.5;
     }
 
     /* The comment column, from lg up. Absolutely positioned, and every card
@@ -1328,6 +1381,13 @@
     }
     .lp-doc-meta__tab[aria-expanded='true'] .lp-doc-meta__caret {
         @apply rotate-90;
+    }
+    /* The rail stands both lists open, so their tabs would open a second copy
+       of what is already on screen. */
+    @media (width >= 100rem) {
+        .lp-doc-meta__tab--railed {
+            @apply hidden;
+        }
     }
     /* Names the pair the pane holds, on the green status tint: comparing is a
        state the reader turned on, not a failure. The stop control rides the chip

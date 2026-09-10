@@ -151,6 +151,19 @@
                 version.versionNumber,
             ) %}
 
+            {# Left of the reading column from 2xl up, where there is room for it
+               beside the comment column. Absolutely positioned, so it neither
+               moves the prose nor joins the anchor pane's textContent. #}
+            {% if not diffMode and (sectionRows|length > 0 or decisionRows|length > 0) %}
+            {% include '@Review/_review_rail.html.twig' with {
+                document: document,
+                sectionRows: sectionRows,
+                approvedSections: approvedSections,
+                decisionRows: decisionRows,
+                answeredDecisions: answeredDecisions,
+            } only %}
+            {% endif %}
+
             {# Mutually-exclusive panels rather than stacked blocks: together they
                used to push the first paragraph below the fold.
                A sibling of the head, not a child: the bar is sticky, and a
@@ -185,7 +198,7 @@
                         </button>
                         {% endif %}
                         {% if showContents %}
-                        <button type="button" class="lp-doc-meta__tab" aria-expanded="false"
+                        <button type="button" class="lp-doc-meta__tab lp-doc-meta__tab--railed" aria-expanded="false"
                                 data-metadata-tabs-target="tab"
                                 data-metadata-tabs-panel-param="contents"
                                 data-action="click->metadata-tabs#toggle">
@@ -210,7 +223,7 @@
                         </button>
                         {% endif %}
                         {% if decisionRows|length > 0 %}
-                        <button type="button" class="lp-doc-meta__tab" aria-expanded="false"
+                        <button type="button" class="lp-doc-meta__tab lp-doc-meta__tab--railed" aria-expanded="false"
                                 data-metadata-tabs-target="tab"
                                 data-metadata-tabs-panel-param="decisions"
                                 data-action="click->metadata-tabs#toggle">
