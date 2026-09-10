@@ -35,9 +35,16 @@ entry.
 
 ## [Unreleased]
 
+- (#417) — **Changed:** the document review page no longer stacks notices above
+  the title: the since-your-last-visit note is a chip in the metadata bar, and a
+  comment thread whose passage is gone leads the comment column instead of
+  announcing itself across the page.
 - (#417) — **Changed:** the document review page stands its contents and its
-  decisions in a left rail on a wide window, moves tags into a dropdown, and
-  starts its content at the same left edge as every other screen.
+  decisions in a left rail on a wide window, marks the section you are reading,
+  moves tags into a dropdown, and starts its content at the same left edge as
+  every other screen.
+- (#417) — **Fixed:** a heading in the contents panel or the rail now scrolls to
+  its section instead of jumping to it.
 - (#417) — **Changed:** a document in the list keeps its title on a line of its
   own, so a long title wraps instead of truncating to one letter.
 - (#417) — **Changed:** the section approval circle shows the tick a click would
