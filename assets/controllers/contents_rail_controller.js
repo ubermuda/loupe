@@ -22,15 +22,16 @@ export default class extends Controller {
 
     connect() {
         this.cancelScroll = () => {};
-        this.observer = null;
         this.headings = [];
-        this.#observeHeadings();
+        this.scroller = null;
+        this.onScroll = () => {};
+        this.frame = null;
+        this.#watchHeadings();
     }
 
     disconnect() {
         this.cancelScroll();
-        this.observer?.disconnect();
-        this.observer = null;
+        this.#unwatchHeadings();
         // Turbo caches the page as it stands, so a marker left here would come
         // back on the restored snapshot with nothing driving it.
         this.#markCurrent(null);
@@ -57,16 +58,18 @@ export default class extends Controller {
     }
 
     /**
-     * The current section is the last heading the reader has passed, not a
-     * heading that happens to be on screen: a section longer than the viewport
-     * leaves no heading visible at all, and marking nothing for most of a long
-     * section is worse than marking none.
+     * The current section is the last heading the reader has passed, not one
+     * that happens to be on screen: a section taller than the pane leaves no
+     * heading visible at all, and marking nothing through a long section is
+     * worse than marking none.
      *
-     * The observer is a trigger rather than the answer. It fires when a heading
-     * crosses the top of the pane, which is exactly when the answer changes;
-     * between two crossings there is nothing to recompute.
+     * A scroll listener rather than an IntersectionObserver. An observer only
+     * reports a crossing of its own root box, which is never exactly the
+     * activation line, so the row changed a little before or a little after the
+     * heading really passed. Measuring is one pass over a handful of elements,
+     * throttled to one per frame.
      */
-    #observeHeadings() {
+    #watchHeadings() {
         this.headings = this.linkTargets
             .map((link) => this.#targetOf(link))
             .filter((heading) => null !== heading);
@@ -75,30 +78,31 @@ export default class extends Controller {
             return;
         }
 
+        this.scroller = scrollerFor(this.headings[0]);
+        this.onScroll = () => {
+            if (null !== this.frame) {
+                return;
+            }
+            this.frame = requestAnimationFrame(() => {
+                this.frame = null;
+                this.#markCurrent(this.#passedHeading()?.id ?? null);
+            });
+        };
+
+        this.scroller.addEventListener('scroll', this.onScroll, {
+            passive: true,
+        });
+        window.addEventListener('resize', this.onScroll, { passive: true });
         this.#markCurrent(this.#passedHeading()?.id ?? null);
+    }
 
-        if (!('IntersectionObserver' in window)) {
-            return;
+    #unwatchHeadings() {
+        if (null !== this.frame) {
+            cancelAnimationFrame(this.frame);
+            this.frame = null;
         }
-
-        // The pane scrolls, not the window, so name it as the root: rootMargin
-        // is measured against the root, and against the viewport it would mean
-        // a band the pane does not have.
-        const scroller = scrollerFor(this.headings[0]);
-        const root =
-            scroller === document.scrollingElement ||
-            scroller === document.documentElement
-                ? null
-                : scroller;
-
-        this.observer = new IntersectionObserver(
-            () => this.#markCurrent(this.#passedHeading()?.id ?? null),
-            { root, rootMargin: '0px 0px -85% 0px', threshold: 0 },
-        );
-
-        for (const heading of this.headings) {
-            this.observer.observe(heading);
-        }
+        this.scroller?.removeEventListener('scroll', this.onScroll);
+        window.removeEventListener('resize', this.onScroll);
     }
 
     /**
@@ -106,12 +110,11 @@ export default class extends Controller {
      * which is the same offset the headings carry as `scroll-margin-top`.
      */
     #passedHeading() {
-        const scroller = scrollerFor(this.headings[0]);
         const isDocument =
-            scroller === document.scrollingElement ||
-            scroller === document.documentElement;
+            this.scroller === document.scrollingElement ||
+            this.scroller === document.documentElement;
         const line =
-            (isDocument ? 0 : scroller.getBoundingClientRect().top) +
+            (isDocument ? 0 : this.scroller.getBoundingClientRect().top) +
             ACTIVATION_OFFSET;
 
         let passed = null;

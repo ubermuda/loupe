@@ -9,7 +9,6 @@
     <twig:ux:icon name="lucide:circle-check" class="lp-review-contents__tick lp-review-contents__tick--on" />
     {% endif %}
     <a class="lp-decision-summary__link" href="#{{ row.elementId }}"
-       data-contents-rail-target="link"
        data-action="click->metadata-tabs#jump click->contents-rail#jump">{{ row.label }}</a>
     {% if row.selected is empty %}
     <span class="lp-decision-summary__pending">{{ 'review.document.decisions.pending'|trans }}</span>
