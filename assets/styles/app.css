@@ -3079,6 +3079,11 @@
         > .lp-comment-author {
         @apply inline;
     }
+    /* The group's heading says this right above the card. The pill is for a card
+       that stands on its own, which one in this group never does. */
+    .lp-orphan-group .lp-comment-orphan-pill {
+        @apply hidden;
+    }
 
     /* ── Decision blocks ────────────────────────────────────────────────
        The eyebrow is generated content rather than markup: the card renders
