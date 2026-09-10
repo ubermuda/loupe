@@ -45,10 +45,24 @@ export default class extends Controller {
 
     /**
      * A stream swaps these rows out when a section is approved, which takes the
-     * marker with them. Re-measuring restores it.
+     * marker with them. The headings themselves are the document's and are not
+     * replaced, but reading them back off the new rows keeps this list the
+     * rows' own answer rather than the boot's. @comment-budget-ignore
      */
     linkTargetConnected() {
-        this.onScroll?.();
+        // Stimulus runs this for the rows already in the page, before connect()
+        // has anything to rebuild.
+        if (!this.headings?.length) {
+            return;
+        }
+        this.headings = this.#headingsOfRows();
+        this.onScroll();
+    }
+
+    #headingsOfRows() {
+        return this.linkTargets
+            .map((link) => this.#targetOf(link))
+            .filter((heading) => null !== heading);
     }
 
     jump(event) {
@@ -110,9 +124,7 @@ export default class extends Controller {
      * throttled to one per frame.
      */
     #watchHeadings() {
-        this.headings = this.linkTargets
-            .map((link) => this.#targetOf(link))
-            .filter((heading) => null !== heading);
+        this.headings = this.#headingsOfRows();
 
         if (0 === this.headings.length) {
             return;
