@@ -10,6 +10,7 @@ use App\Module\Review\ValueObject\CommentSignals;
 use App\Module\Review\ValueObject\DiffRefusal;
 use App\Module\Review\ValueObject\DiffView;
 use App\Module\Review\ValueObject\DocumentDiff;
+use App\Module\Review\ValueObject\DocumentHeading;
 use App\Module\Review\ValueObject\RenderedDiff;
 use App\Module\Review\ValueObject\SideBySideDiff;
 
@@ -28,7 +29,11 @@ final readonly class DiffDocumentVersionsView
      * comment would land on, which is the latest one. The side-by-side view
      * therefore never comments, since it leaves `renderedDiff` null.
      *
+     * `headings` lists the headings of the pane that is showing, in document
+     * order, and is empty for the source view, which renders none to link to.
+     *
      * @param list<Comment>                                                                        $comments
+     * @param list<DocumentHeading>                                                                $headings
      * @param list<array{versionNumber: int, createdAt: \DateTimeImmutable, description: ?string}> $versions
      */
     public function __construct(
@@ -39,6 +44,7 @@ final readonly class DiffDocumentVersionsView
         public ?SideBySideDiff $sideBySide,
         public ?DiffRefusal $diffRefusal,
         public ?int $changeCount,
+        public array $headings,
         public bool $commentingEnabled,
         public array $comments,
         public array $versions,

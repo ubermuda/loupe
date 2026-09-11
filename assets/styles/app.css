@@ -1402,9 +1402,10 @@
         @apply rotate-90;
     }
     /* The rail stands both lists open, so their tabs would open a second copy
-       of what is already on screen. */
+       of what is already on screen. Only a block that has a rail: a diff page
+       renders none, and the tab is the one way to its contents there. */
     @media (width >= 100rem) {
-        .lp-doc-meta__tab--railed {
+        .lp-review-block:has(.lp-review-rail) .lp-doc-meta__tab--railed {
             @apply hidden;
         }
     }

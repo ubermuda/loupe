@@ -8,6 +8,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
+use App\Module\Review\Service\HeadingExtractor;
 use App\Module\Review\Service\MarkdownDiffer;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\Service\RenderedDiffBuilder;
@@ -29,6 +30,7 @@ final readonly class DiffDocumentVersionsHandler
         private MarkdownRenderer $markdownRenderer,
         private RenderedDiffBuilder $renderedDiffs,
         private SideBySideDiffBuilder $sideBySideDiffs,
+        private HeadingExtractor $headings,
         private Auditor $auditor,
     ) {
     }
@@ -46,6 +48,7 @@ final readonly class DiffDocumentVersionsHandler
         $sideBySide = null;
         $diffRefusal = null;
         $changeCount = null;
+        $headings = [];
         if ($result instanceof DiffRefusal) {
             $diffRefusal = $result;
             $this->auditor->record(
@@ -83,6 +86,11 @@ final readonly class DiffDocumentVersionsHandler
                     $isCurrent && DiffView::Rendered === $command->view ? $version->plainText() : null,
                 );
                 $changeCount = $rendered->changeCount;
+                // Read back out of the merged render, not off the newer version:
+                // the renderer dedupes ids across both versions, so only these
+                // ids are on the page the contents panel links into. The source
+                // view builds no render and therefore lists no headings.
+                $headings = $this->headings->extract($rendered->html);
 
                 if (DiffView::SideBySide === $command->view) {
                     $sideBySide = $this->sideBySideDiffs->build($rendered->html);
@@ -104,6 +112,7 @@ final readonly class DiffDocumentVersionsHandler
             sideBySide: $sideBySide,
             diffRefusal: $diffRefusal,
             changeCount: $changeCount,
+            headings: $headings,
             commentingEnabled: $isCurrent && null !== $renderedDiff,
             comments: $comments,
             versions: $this->documentVersions->findAllMetaByDocument($command->document),

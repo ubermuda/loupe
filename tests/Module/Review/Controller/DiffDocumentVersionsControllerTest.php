@@ -254,7 +254,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         // reaches it by keyboard.
         self::assertSame(
             'diff-unmarked-notice',
-            $crawler->filter('.lp-diff-views__link')->eq(2)->attr('aria-describedby'),
+            $crawler->filter('.lp-diff-views__link')->eq(1)->attr('aria-describedby'),
         );
         self::assertCount(3, $crawler->filter('.lp-diff-views__link'));
 
@@ -388,7 +388,15 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
             'Document',
             $rendered->filter('.lp-diff-views__link[aria-current]')->text(),
         );
-        self::assertStringContainsString('view=source', (string) $rendered->filter('.lp-diff-views__link')->eq(2)->attr('href'));
+        // Document, Markdown, Side by side. Markdown reads the same document and
+        // sits next to it; the columns rebuild the page and go last.
+        self::assertSame(
+            ['Document', 'Markdown', 'Side by side'],
+            $rendered->filter('.lp-diff-views__link')->each(
+                static fn (Crawler $link): string => $link->text(),
+            ),
+        );
+        self::assertStringContainsString('view=source', (string) $rendered->filter('.lp-diff-views__link')->eq(1)->attr('href'));
 
         $source = $client->request(Request::METHOD_GET, $base.'?view=source');
         self::assertSame(
@@ -704,12 +712,13 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
     }
 
     /**
-     * The contents panel lists a version's own headings, and a diff's headings
-     * belong to two versions: a heading reworded across them appears once,
-     * carrying both texts and an id derived from the pair. So the panel stays
-     * off, while the ids themselves remain for a document's own in-page links.
+     * A diff's headings belong to two versions, and the renderer dedupes their
+     * ids across the pair, so the panel cannot list the newer version's own
+     * headings. It reads them back out of the merged render instead, which is
+     * what the page holds, and every row therefore points at an id on the page.
+     * Approval belongs to one version, so no row carries a state here.
      */
-    public function test_a_diff_renders_no_contents_panel(): void
+    public function test_a_diff_lists_the_headings_of_the_pane_it_shows(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -732,15 +741,37 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $diff = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
+        $base = '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2';
+        $diff = $client->request(Request::METHOD_GET, $base);
 
         self::assertResponseIsSuccessful();
-        self::assertCount(0, $diff->filter('.lp-review-contents'));
+        self::assertCount(1, $diff->filter('.lp-review-contents'));
 
-        // The review page for the same document, so the assertion cannot pass
-        // merely because this document never had a contents panel.
+        // Every row points at an id the pane holds. A link to an id the merged
+        // render deduped away would scroll nowhere and report no error.
+        $targets = $diff->filter('.lp-review-contents__link')->each(
+            static fn (Crawler $link): string => substr((string) $link->attr('href'), 1),
+        );
+        self::assertSame(['First', 'Second'], $diff->filter('.lp-review-contents__link')->each(
+            static fn (Crawler $link): string => $link->text(),
+        ));
+        foreach ($targets as $target) {
+            self::assertCount(1, $diff->filter('#'.$target), $target.' is not on the page.');
+        }
+
+        // A diff approves nothing, so no row offers or reports a state.
+        self::assertCount(0, $diff->filter('.lp-review-contents__tick'));
+        self::assertCount(0, $diff->filter('.lp-section-approvals__pending'));
+
+        // The Markdown view renders no headings to link to, so it lists none.
+        $source = $client->request(Request::METHOD_GET, $base.'?view=source');
+        self::assertCount(0, $source->filter('.lp-review-contents'));
+
+        // The review page for the same document still reports approval state, so
+        // the assertions above cannot pass by the panel having lost it outright.
         $latest = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
         self::assertCount(1, $latest->filter('.lp-review-contents'));
+        self::assertCount(2, $latest->filter('.lp-review-contents .lp-review-contents__tick'));
     }
 
     public function test_a_diff_that_does_not_run_forwards_is_not_found(): void

@@ -109,7 +109,14 @@
                the same headings, and the state belongs beside the link rather
                than a tab away. Diff mode replaces the HTML those ids live in and
                is passed no `sections`, hence the lazy-ternary guard. #}
-            {% set sectionRows = diffMode ? [] : sections.rows %}
+            {# A diff lists the headings of the pane that is showing, read back out
+               of the merged render, so a link points at an id the page holds. The
+               source view renders none and the panel stays off there. Approval
+               belongs to one version, so a diff row carries no state. #}
+            {% set sectionRows = diffMode
+                ? diffHeadings|map(heading => {level: heading.level, headingId: heading.id, label: heading.text, approved: false})
+                : sections.rows %}
+            {% set sectionsApprovable = not diffMode %}
             {% set approvedSections = diffMode ? 0 : sections.approvedCount %}
             {# One section is enough, where the old table of contents wanted two:
                the panel now reports approval state, which changes and is worth
@@ -196,11 +203,14 @@
                                 data-action="click->metadata-tabs#toggle">
                             {{ 'review.document.contents.label'|trans }}
                             {# Approved-of-total rather than a bare heading count:
-                               it carries the same total and the state as well. #}
-                            <span class="lp-doc-meta__count" id="section-summary-count">{{ 'review.document.sections.count_compact'|trans({
-                                '%approved%': approvedSections,
-                                '%total%': sectionRows|length,
-                            }) }}</span>
+                               it carries the same total and the state as well. A
+                               diff approves nothing, so it counts headings. #}
+                            <span class="lp-doc-meta__count" id="section-summary-count">{{ sectionsApprovable
+                                ? 'review.document.sections.count_compact'|trans({
+                                    '%approved%': approvedSections,
+                                    '%total%': sectionRows|length,
+                                })
+                                : sectionRows|length }}</span>
                             <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
                         </button>
                         {% endif %}
@@ -331,7 +341,7 @@
                 <nav class="lp-doc-meta__panel lp-review-contents" data-metadata-tabs-target="panel" data-panel="contents" hidden
                      aria-label="{{ 'review.document.contents.nav_label'|trans }}">
                     <ul class="lp-review-contents__list" id="section-summary-list">
-                        {% include '@Review/_contents_rows.html.twig' with {rows: sectionRows} only %}
+                        {% include '@Review/_contents_rows.html.twig' with {rows: sectionRows, approvable: sectionsApprovable} only %}
                     </ul>
                 </nav>
                 {% endif %}
@@ -674,6 +684,7 @@
             showVersions: showVersions,
             showContents: showContents,
             sectionRows: sectionRows,
+            sectionsApprovable: sectionsApprovable,
             approvedSections: approvedSections,
             referenceCount: referenceCount,
             decisionRows: decisionRows,
