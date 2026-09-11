@@ -12,6 +12,7 @@
   Vars:  @comment-budget-ignore
     document           Document          the document being reviewed
     sectionRows        list              one row per heading, in document order
+    sectionsApprovable bool              false on a diff, which approves nothing
     approvedSections   int               how many of them the reviewer approved
     decisionRows       list              one row per decision block
     answeredDecisions  int               how many of them carry an answer
@@ -21,13 +22,15 @@
         {% if sectionRows|length > 0 %}
         <p class="lp-review-rail__title">
             {{ 'review.document.contents.label'|trans }}
-            <span class="lp-review-rail__count" id="review-rail-sections-count">{{ 'review.document.sections.count_compact'|trans({
-                '%approved%': approvedSections,
-                '%total%': sectionRows|length,
-            }) }}</span>
+            <span class="lp-review-rail__count" id="review-rail-sections-count">{{ sectionsApprovable
+                ? 'review.document.sections.count_compact'|trans({
+                    '%approved%': approvedSections,
+                    '%total%': sectionRows|length,
+                })
+                : sectionRows|length }}</span>
         </p>
         <ul class="lp-review-contents__list" id="review-rail-sections-list">
-            {% include '@Review/_contents_rows.html.twig' with {rows: sectionRows} only %}
+            {% include '@Review/_contents_rows.html.twig' with {rows: sectionRows, approvable: sectionsApprovable} only %}
         </ul>
         {% endif %}
 

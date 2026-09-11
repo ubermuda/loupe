@@ -138,11 +138,13 @@
 
             {# Left of the reading column from 2xl up, where there is room for it
                beside the comment column. Absolutely positioned, so it neither
-               moves the prose nor joins the anchor pane's textContent. #}
-            {% if not diffMode and (sectionRows|length > 0 or decisionRows|length > 0) %}
+               moves the prose nor joins the anchor pane's textContent. Not on the
+               two-column diff, which already takes the width the rail needs. #}
+            {% if not diffColumns and (sectionRows|length > 0 or decisionRows|length > 0) %}
             {% include '@Review/_review_rail.html.twig' with {
                 document: document,
                 sectionRows: sectionRows,
+                sectionsApprovable: sectionsApprovable,
                 approvedSections: approvedSections,
                 decisionRows: decisionRows,
                 answeredDecisions: answeredDecisions,

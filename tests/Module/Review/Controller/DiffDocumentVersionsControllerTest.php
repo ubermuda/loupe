@@ -751,12 +751,15 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $diff->filter('.lp-review-contents'));
+        // The rail carries the same rows beside the reading column on a wide
+        // window, the way it does on the review page.
+        self::assertCount(1, $diff->filter('.lp-review-rail'));
 
         // Removed headings are listed too: they are on the page the reader has,
         // in the order the merged render holds them.
         self::assertSame(
             ['First', 'Gone', 'Renamed', 'Arrived', 'Second!'],
-            $diff->filter('.lp-review-contents__link')->each(
+            $diff->filter('.lp-review-contents .lp-review-contents__link')->each(
                 static fn (Crawler $link): string => $link->text(),
             ),
         );
@@ -782,7 +785,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $columns = $client->request(Request::METHOD_GET, $base.'?view=side-by-side');
         self::assertSame(
             ['First', 'Gone', 'Arrived', 'Renamed', 'Second', 'Second!'],
-            $columns->filter('.lp-review-contents__link')->each(
+            $columns->filter('.lp-review-contents .lp-review-contents__link')->each(
                 static fn (Crawler $link): string => $link->text(),
             ),
         );
@@ -800,7 +803,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
                 'diff-old-heading-second',
                 'heading-second',
             ],
-            $columns->filter('.lp-review-contents__link')->each(
+            $columns->filter('.lp-review-contents .lp-review-contents__link')->each(
                 static fn (Crawler $link): string => substr((string) $link->attr('href'), 1),
             ),
         );
@@ -850,7 +853,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame(
             ['heading-alpha', 'diff-old-heading-second', 'heading-second-2'],
-            $columns->filter('.lp-review-contents__link')->each(
+            $columns->filter('.lp-review-contents .lp-review-contents__link')->each(
                 static fn (Crawler $link): string => substr((string) $link->attr('href'), 1),
             ),
         );
