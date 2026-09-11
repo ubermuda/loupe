@@ -85,7 +85,7 @@ final class CardExporterTest extends KernelTestCase
             'status' => 'done',
             'priority' => 'high',
             'type' => 'bug',
-            'origin' => 'human',
+            'reporter' => 'human',
             'position' => 7,
             'completedAt' => $completedAt->format(\DateTimeInterface::ATOM),
             'createdAt' => $createdAt->format(\DateTimeInterface::ATOM),

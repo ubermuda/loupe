@@ -264,7 +264,7 @@ is off the tools are absent from `tools/list` and from the Connect page, and a
 client that calls one anyway gets a plain refusal.
 
 The board has no delete tool. An agent moves a card to `done`; only a person
-removes one. `card_update` also refuses to change `origin`, because that field
+removes one. `card_update` also refuses to change `reporter`, because that field
 records who first raised the card.
 
 `card_update` reads an omitted field as "leave it alone". `pullRequestUrls` is

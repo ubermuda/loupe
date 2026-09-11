@@ -94,7 +94,7 @@ final class CardAuditTrailTest extends KernelTestCase
             'type' => 'bug',
             'priority' => CardPriority::High->value,
             'status' => 'next',
-            'origin' => 'agent',
+            'reporter' => 'agent',
             'pullRequestCount' => 0,
             'documentCount' => 0,
         ], $record->context);
@@ -222,7 +222,7 @@ final class CardAuditTrailTest extends KernelTestCase
             type: CardType::Bug,
             priority: $priority,
             status: $status,
-            origin: CardOrigin::Agent,
+            reporter: CardOrigin::Agent,
         ));
     }
 }

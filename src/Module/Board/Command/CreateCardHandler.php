@@ -65,7 +65,7 @@ final readonly class CreateCardHandler
                 type: $command->type,
                 priority: $command->priority,
                 status: $command->status,
-                origin: $command->origin,
+                origin: $command->reporter,
                 position: CardStatus::Done === $command->status
                     ? 0
                     : $this->cards->nextPosition($command->project, $command->status, $command->priority),
@@ -107,7 +107,7 @@ final readonly class CreateCardHandler
                 'type' => $card->type->value,
                 'priority' => $card->priority->value,
                 'status' => $card->status->value,
-                'origin' => $card->origin->value,
+                'reporter' => $card->reporter->value,
                 'pullRequestCount' => \count($card->pullRequests),
                 'documentCount' => \count($card->documents),
             ],

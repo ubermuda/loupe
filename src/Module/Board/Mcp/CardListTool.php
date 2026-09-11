@@ -16,7 +16,7 @@ use Mcp\Exception\ToolCallException;
  * @phpstan-import-type CardSummary from CardPayload
  * @phpstan-import-type CardListSummary from CardPayload
  */
-#[McpTool(name: self::NAME, description: 'List the cards on the project board. Filter by status (backlog, next, in-progress, done), by type (feature, bug, security, tooling, docs, idea) or by priority (high, medium, low). Every column except done reads in board order, highest priority first and then by position. Done reads newest completion first, with no time window on it. Each row is a summary: cardId, number, title, type, priority, status, origin and updatedAt. Pass full to get the body and the pull request, document and site-review links as well, which is far larger. Paginated: pass page to walk further, and keep going while hasMore is true. Every card carries a number, the short label that counts from 1 inside this project. Use it to name a card to a person, and use the cardId to read or change it.')]
+#[McpTool(name: self::NAME, description: 'List the cards on the project board. Filter by status (backlog, next, in-progress, done), by type (feature, bug, security, tooling, docs, idea), by priority (high, medium, low) or by reporter (human, agent, reviewer), who raised the card. Every column except done reads in board order, highest priority first and then by position. Done reads newest completion first, with no time window on it. Each row is a summary: cardId, number, title, type, priority, status, reporter and updatedAt. Pass full to get the body and the pull request, document and site-review links as well, which is far larger. Paginated: pass page to walk further, and keep going while hasMore is true. Every card carries a number, the short label that counts from 1 inside this project. Use it to name a card to a person, and use the cardId to read or change it.')]
 final readonly class CardListTool implements FlagGatedToolInterface
 {
     public const string NAME = 'card_list';
@@ -56,13 +56,14 @@ final readonly class CardListTool implements FlagGatedToolInterface
      * @param string|null $status   only cards in this column: backlog, next, in-progress or done
      * @param string|null $type     only cards of this type: feature, bug, security, tooling, docs or idea
      * @param string|null $priority only cards at this priority: high, medium or low
+     * @param string|null $reporter only cards raised by this reporter: human, agent or reviewer
      * @param int         $page     the 1-based page to read
      * @param int         $perPage  how many cards to return per page
      * @param bool        $full     return the whole card, body and links included, rather than the summary
      *
      * @return ($full is true ? array{cards: list<CardSummary>, page: int, perPage: int, total: int, hasMore: bool} : array{cards: list<CardListSummary>, page: int, perPage: int, total: int, hasMore: bool})
      */
-    public function __invoke(?string $status = null, ?string $type = null, ?string $priority = null, int $page = 1, int $perPage = self::DEFAULT_PER_PAGE, bool $full = false): array
+    public function __invoke(?string $status = null, ?string $type = null, ?string $priority = null, ?string $reporter = null, int $page = 1, int $perPage = self::DEFAULT_PER_PAGE, bool $full = false): array
     {
         $this->gate->requireEnabled();
 
@@ -79,6 +80,7 @@ final readonly class CardListTool implements FlagGatedToolInterface
                 $this->subjects->optionalStatus($status),
                 $this->subjects->optionalType($type),
                 $this->subjects->optionalPriority($priority),
+                $this->subjects->optionalReporter($reporter),
             );
 
             $total = \count($cards);

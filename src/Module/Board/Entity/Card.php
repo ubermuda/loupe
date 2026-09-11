@@ -77,6 +77,18 @@ class Card implements ProjectScopedSubject
     #[ORM\OrderBy(['linkedAt' => 'ASC'])]
     public Collection $documents;
 
+    /**
+     * Null on a row an image without this column wrote, which is why nothing
+     * reads it directly. Read $reporter instead.
+     */
+    #[ORM\Column(name: 'reporter', length: 20, nullable: true, enumType: CardOrigin::class)]
+    private ?CardOrigin $storedReporter = null;
+
+    /** Who raised the card, falling back to the column release 2 drops. */
+    public CardOrigin $reporter {
+        get => $this->storedReporter ?? $this->origin;
+    }
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\ManyToOne(targetEntity: Project::class)]
@@ -101,6 +113,7 @@ class Card implements ProjectScopedSubject
         #[ORM\Column(length: 20, enumType: CardStatus::class)]
         public CardStatus $status = CardStatus::Backlog,
 
+        /** The column release 2 drops. Every write sets it, so an older image still reads the row. */
         #[ORM\Column(length: 20, enumType: CardOrigin::class)]
         public readonly CardOrigin $origin = CardOrigin::Agent,
 
@@ -120,6 +133,7 @@ class Card implements ProjectScopedSubject
         #[ORM\Column(name: 'search_language', length: 20, enumType: SearchLanguage::class, options: ['default' => SearchLanguage::DEFAULT->value])]
         public readonly SearchLanguage $searchLanguage = SearchLanguage::DEFAULT,
     ) {
+        $this->storedReporter = $this->origin;
         $this->pullRequests = new ArrayCollection();
         $this->documents = new ArrayCollection();
         $this->updatedAt = $this->createdAt;

@@ -7,6 +7,7 @@ namespace App\Module\Board\Repository;
 use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
@@ -294,11 +295,11 @@ class CardRepository extends ServiceEntityRepository
      *
      * @return list<Card>
      */
-    public function findForBoard(Project $project, ?CardStatus $status = null, ?CardType $type = null, ?CardPriority $priority = null): array
+    public function findForBoard(Project $project, ?CardStatus $status = null, ?CardType $type = null, ?CardPriority $priority = null, ?CardOrigin $reporter = null): array
     {
         $cards = [];
         foreach (null === $status ? CardStatus::cases() : [$status] as $column) {
-            $cards = [...$cards, ...$this->findColumn($project, $column, $type, $priority)];
+            $cards = [...$cards, ...$this->findColumn($project, $column, $type, $priority, $reporter)];
         }
 
         return $cards;
@@ -363,7 +364,7 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /** @return list<Card> */
-    private function findColumn(Project $project, CardStatus $status, ?CardType $type, ?CardPriority $priority): array
+    private function findColumn(Project $project, CardStatus $status, ?CardType $type, ?CardPriority $priority, ?CardOrigin $reporter): array
     {
         $qb = $this->createQueryBuilder('c')
             ->andWhere('c.project = :project')
@@ -376,6 +377,12 @@ class CardRepository extends ServiceEntityRepository
         }
         if (null !== $priority) {
             $qb->andWhere('c.priority = :priority')->setParameter('priority', $priority);
+        }
+        if (null !== $reporter) {
+            // COALESCE, not c.reporter: a row an older image wrote after this
+            // release carries origin alone, and it still has to match.
+            $qb->andWhere('COALESCE(c.storedReporter, c.origin) = :reporter')
+                ->setParameter('reporter', $reporter->value);
         }
 
         // The tie-break runs with its column, not after both branches. Done sorts
