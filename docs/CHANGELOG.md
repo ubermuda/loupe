@@ -35,6 +35,19 @@ entry.
 
 ## [Unreleased]
 
+- (#417) — **Added:** the version diff page carries a contents panel, listing
+  the headings of the view you are reading, including the ones the revision
+  removed.
+- (#417) — **Added:** the site-review widget shows a `Local` label in its
+  launcher when it saves to a local build, so you can see which instance your
+  comments reach.
+- (#417) — **Changed:** the general comment composer opens under the button that
+  asks for it, rather than over the middle of the document.
+- (#417) — **Changed:** a metadata panel opens directly under the bar that names
+  it, the diff view switch reads Document, Markdown, Side by side, and the
+  resolved-threads toggle is a button with an icon.
+- (#417) — **Fixed:** `j` and `k` on a diff now light the arrow button they
+  stand for.
 - (#417) — **Changed:** the document review page no longer stacks notices above
   the title: the since-your-last-visit note is a chip in the metadata bar, and a
   comment thread whose passage is gone leads the comment column instead of
