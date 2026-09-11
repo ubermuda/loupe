@@ -43,7 +43,7 @@ description: "Things the application needs that are not configured on your behal
    failure is only logged, so it degrades silently rather than erroring.
 
    The hub is in-memory: a restart drops undelivered updates. That is why
-   submissions are recorded in the `site_review_events` outbox and the bridge
+   submissions are recorded in the `outbox_events` outbox and the bridge
    resumes from `Last-Event-ID` — delivery is best effort, replay is not.
 
 5. **Nothing here has been applied against a live account.** `terraform

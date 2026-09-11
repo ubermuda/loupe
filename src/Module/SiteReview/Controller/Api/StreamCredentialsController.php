@@ -9,7 +9,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Command\ShowStreamCredentialsCommand;
 use App\Module\SiteReview\Command\ShowStreamCredentialsHandler;
-use App\Module\SiteReview\SiteReviewPush;
+use App\Outbox\AgentPush;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
@@ -34,7 +34,7 @@ use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
 // 404 rather than a disabled-looking 403: with push off there is no hub to
 // subscribe to, so there is nothing here to be authorized for. The bridge CLI
 // treats it as "this instance does not do push".
-#[RequireFeatureFlag(SiteReviewPush::FLAG)]
+#[RequireFeatureFlag(AgentPush::FLAG)]
 #[Route(
     '/api/site-review/stream',
     name: 'api_site_review_stream',
