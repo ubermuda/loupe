@@ -48,28 +48,40 @@ func HasSession(target string) bool {
 // Spawn creates a detached session named session, running `claude` in dir.
 //
 // claude is launched through an interactive shell so the user's aliases, shell
-// functions, and rc-defined PATH are honored. The flags travel as positional
-// shell arguments, so the shell command string stays a fixed literal.
+// functions, and rc-defined PATH are honored.
+//
+// Arguments are quoted into the command string rather than forwarded through
+// "$@". Positional forwarding is Bourne-only: fish puts them in $argv and has
+// no $@, so a fish user would get a session running claude with no name, no
+// permission mode and no prompt, silently. The command word stays unquoted,
+// because quoting any part of it suppresses alias expansion, which is what the
+// interactive shell is for.
 func Spawn(session, dir string, opts SpawnOptions) error {
 	shell := os.Getenv("SHELL")
 	if shell == "" {
 		shell = "/bin/sh"
 	}
 
-	claude := []string{"claude", "--name", session}
+	command := "claude " + shellQuote("--name") + " " + shellQuote(session)
 	if opts.PermissionMode != "" {
-		claude = append(claude, "--permission-mode", opts.PermissionMode)
+		command += " " + shellQuote("--permission-mode") + " " + shellQuote(opts.PermissionMode)
 	}
 	if opts.Prompt != "" {
-		claude = append(claude, opts.Prompt)
+		command += " " + shellQuote(opts.Prompt)
 	}
 
-	args := append([]string{"new-session", "-d", "-s", session, "-c", dir, shell, "-i", "-c", `claude "$@"`}, claude...)
-	if err := run(args...); err != nil {
+	if err := run("new-session", "-d", "-s", session, "-c", dir, shell, "-i", "-c", command); err != nil {
 		return fmt.Errorf("create tmux session: %w", err)
 	}
 
 	return nil
+}
+
+// shellQuote wraps a value so every shell that takes -c reads it as one literal
+// word. The '\'' idiom closes the quote, emits an escaped quote and reopens,
+// which sh, bash, zsh and fish all read the same way.
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'"
 }
 
 // Send injects text into target followed by Enter. text is sent literally (-l)

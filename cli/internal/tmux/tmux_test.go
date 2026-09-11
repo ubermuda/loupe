@@ -3,6 +3,7 @@ package tmux
 import (
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -63,7 +64,7 @@ func TestSpawnArgv(t *testing.T) {
 	}
 	want := []string{
 		"new-session", "-d", "-s", "card-87", "-c", "/src/app",
-		"/bin/zsh", "-i", "-c", `claude "$@"`, "claude", "--name", "card-87",
+		"/bin/zsh", "-i", "-c", `claude '--name' 'card-87'`,
 	}
 	if !reflect.DeepEqual((*calls)[0], want) {
 		t.Fatalf("argv = %q, want %q", (*calls)[0], want)
@@ -96,17 +97,19 @@ func TestSpawnWithPermissionModeAndPrompt(t *testing.T) {
 	}
 	want := []string{
 		"new-session", "-d", "-s", "card-87", "-c", "/src/app",
-		"/bin/bash", "-i", "-c", `claude "$@"`,
-		"claude", "--name", "card-87", "--permission-mode", "acceptEdits", "Card 87 moved to next.",
+		"/bin/bash", "-i", "-c",
+		`claude '--name' 'card-87' '--permission-mode' 'acceptEdits' 'Card 87 moved to next.'`,
 	}
 	if !reflect.DeepEqual((*calls)[0], want) {
 		t.Fatalf("argv = %q, want %q", (*calls)[0], want)
 	}
 }
 
-// TestSpawnPassesArgumentsPositionally proves no value is spliced into the
-// shell command string, which stays a fixed literal whatever the prompt says.
-func TestSpawnPassesArgumentsPositionally(t *testing.T) {
+// A value reaches claude as one literal word however it is written. Arguments
+// are quoted into the command string rather than forwarded through "$@",
+// because that forwarding is Bourne-only and a fish user would silently get a
+// session with no name, no permission mode and no prompt.
+func TestSpawnQuotesEveryArgument(t *testing.T) {
 	t.Setenv("SHELL", "/bin/zsh")
 	calls := record(t, nil)
 
@@ -114,12 +117,30 @@ func TestSpawnPassesArgumentsPositionally(t *testing.T) {
 	if err := Spawn("card-87", "/src/app", SpawnOptions{Prompt: hostile}); err != nil {
 		t.Fatalf("Spawn: %v", err)
 	}
-	argv := (*calls)[0]
-	if argv[9] != `claude "$@"` {
-		t.Fatalf("shell command string is not a fixed literal: %q", argv[9])
+	command := (*calls)[0][9]
+	if !strings.HasPrefix(command, "claude '") {
+		t.Fatalf("command word must stay unquoted so aliases still expand: %q", command)
 	}
-	if argv[len(argv)-1] != hostile {
-		t.Fatalf("prompt did not travel as its own argv entry: %q", argv)
+	if !strings.Contains(command, `'"; rm -rf / #'`) {
+		t.Fatalf("prompt was not quoted as one word: %q", command)
+	}
+	if strings.Contains(command, `"$@"`) {
+		t.Fatalf("still forwarding positionally, which fish does not support: %q", command)
+	}
+}
+
+// The '\'' idiom is what lets a value containing a single quote survive. sh,
+// bash, zsh and fish all read it as one word.
+func TestSpawnSurvivesASingleQuoteInThePrompt(t *testing.T) {
+	t.Setenv("SHELL", "/bin/zsh")
+	calls := record(t, nil)
+
+	if err := Spawn("card-87", "/src/app", SpawnOptions{Prompt: "it's a card"}); err != nil {
+		t.Fatalf("Spawn: %v", err)
+	}
+	command := (*calls)[0][9]
+	if !strings.Contains(command, `'it'\''s a card'`) {
+		t.Fatalf("single quote not escaped: %q", command)
 	}
 }
 
