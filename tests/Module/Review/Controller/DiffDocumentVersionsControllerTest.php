@@ -808,6 +808,51 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
     }
 
     /**
+     * A heading that only changes level keeps its text, so the two cells are
+     * told apart by neither label nor level. They are still listed separately,
+     * because the renderer suffixes the second id when one source holds the same
+     * heading twice. That is the renderer's behaviour rather than this panel's,
+     * so the panel breaks here if the renderer ever stops doing it.
+     */
+    public function test_a_heading_that_only_changes_level_is_listed_from_both_columns(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-level', 'owner-diff-level@example.com');
+        $project = $this->project($em, $owner);
+
+        $renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
+        $old = "## Alpha\n\nIntro.\n\n## Second\n\nBody.\n";
+        $new = "## Alpha\n\nIntro.\n\n### Second\n\nBody.\n";
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Level Diff');
+        $doc->addVersion($old, $renderer->render($old));
+        $doc->addVersion($new, $renderer->render($new));
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $columns = $client->request(
+            Request::METHOD_GET,
+            '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2?view=side-by-side',
+        );
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            ['heading-alpha', 'diff-old-heading-second', 'heading-second-2'],
+            $columns->filter('.lp-review-contents__link')->each(
+                static fn (Crawler $link): string => substr((string) $link->attr('href'), 1),
+            ),
+        );
+        $this->assertContentsRowsResolve($columns);
+    }
+
+    /**
      * Every contents row names an element the page holds. A row pointing at an
      * id the pane does not carry scrolls nowhere and reports nothing, so only
      * the page itself can settle whether a row works.
