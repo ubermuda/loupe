@@ -1479,14 +1479,10 @@
        `max-lg:` and not a plain `hidden`, because above lg this class must
        declare no display: the controller reveals the button with the `hidden`
        attribute, which a display utility in this layer outranks. */
+    /* Carries no display: this is a .lp-btn, and the two rules that hide it sit
+       unlayered below the coarse-pointer block. */
     .lp-review-actions__resolved {
-        @apply max-lg:hidden absolute left-169 whitespace-nowrap;
-    }
-    /* .lp-btn sets display, which outranks the UA [hidden] rule at equal
-       specificity. The controller reveals this button with that attribute, so
-       without this the toggle stands on a page that has no resolved thread. */
-    .lp-review-actions__resolved[hidden] {
-        display: none;
+        @apply absolute left-169 whitespace-nowrap;
     }
     /* One icon of the pair at a time, chosen by the state the controller writes
        onto the button. Specificity, not source order, does the picking. */
@@ -4663,5 +4659,20 @@
        display would reveal it below sm: and min-width never applies to inline. */
     .lp-landing-nav__link {
         @apply px-2 py-3;
+    }
+}
+
+/* The resolved-threads toggle is a .lp-btn, so the block above gives it a
+   display, and an unlayered rule beats @layer components at any specificity.
+   Both rules therefore live here, after it. The attribute is how the controller
+   reveals the button once a thread resolves; below lg the review menu carries
+   the only copy of the control. */
+.lp-review-actions__resolved[hidden] {
+    display: none;
+}
+
+@media (width < 64rem) {
+    .lp-review-actions__resolved {
+        display: none;
     }
 }
