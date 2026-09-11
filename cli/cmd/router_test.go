@@ -293,6 +293,17 @@ func TestEnsureSessionRequiresAnExistingAttachTarget(t *testing.T) {
 
 // Two projects number their cards from 1 independently, so the name must
 // separate them or one bridge drops the other's event as already running.
+// Dragging a card to a new rank inside the next column submits a move with next
+// on both sides. This is the real payload the producer writes for that drag.
+func TestAReorderInsideNextStartsNoWorker(t *testing.T) {
+	h := spawnHarness(defaultSession)
+	h.router.onData([]byte(`{"type":"board.card_moved","subject":{"type":"card","id":"01a0928e-9ea9-7358-aef5-4e1a629da79a"},"projectId":"01a0926f-fa42-7f8c-bfc4-18d17dd8cffb","cardNumber":1,"fromStatus":"next","toStatus":"next"}`))
+
+	if len(h.tmux.spawns) != 0 {
+		t.Fatalf("a reorder inside next spawned a worker: %+v", h.tmux.spawns)
+	}
+}
+
 func TestWorkerSessionNameSeparatesProjects(t *testing.T) {
 	const a = "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7"
 	const b = "0192f3a1-4b2c-7d3e-8f10-ffffffffffff"

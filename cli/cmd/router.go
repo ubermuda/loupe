@@ -104,11 +104,16 @@ func (r *router) onData(data []byte) {
 
 // onCardMoved starts a worker for a card that entered next.
 //
+// Entered, not sits in: a card dragged to a new rank inside the next column
+// submits a move with next on both sides, and prioritising that column is the
+// most ordinary thing a person does with it. Reacting to the target alone would
+// start a worker for every card they reorder.
+//
 // Every other move is dropped, which also closes the feedback loop: the
 // worker's own first act moves the card to in-progress and publishes a second
 // event that this filter rejects.
 func (r *router) onCardMoved(event inject.Event) {
-	if event.ToStatus != inject.StatusNext {
+	if event.ToStatus != inject.StatusNext || event.FromStatus == inject.StatusNext {
 		return
 	}
 

@@ -7,7 +7,7 @@ Code session running in tmux**, so what you do in the browser becomes the agent'
 next instruction with no copy-pasting. It acts on two events:
 
 - **A submitted site review** goes to the bridge's own session.
-- **A board card moved to `next`** starts its own worker session, named
+- **A board card that enters `next`** starts its own worker session, named
   `card-<number>-<project>`, which reads the card and plans it.
 
 ## Build
@@ -112,10 +112,15 @@ With `--dir`, the bridge owns two kinds of session:
 - **A worker session per card**, named `card-<number>-<project>`, where the
   project part is the last 12 hex digits of its id. Card numbers count from 1
   inside a project and repeat across them, so the number alone would make two
-  bridges on one tmux server drop each other's events. A card moved to `next`
-  spawns one, with the directive as `claude`'s first prompt. A fresh session is
+  bridges on one tmux server drop each other's events. A card that enters
+  `next` spawns one, with the directive as `claude`'s first prompt. A fresh session is
   not yet reading keystrokes, so the prompt travels in the launch command
   instead of through `send-keys`.
+
+The bridge reacts to the transition, not to the column. A card dragged to a
+new rank inside `next` submits a move with `next` on both sides, and
+prioritising that column is an ordinary thing to do, so reacting to the
+target alone would start a worker for every card reordered.
 
 The name is what makes a worker addressable, so it must be unique: the bridge
 passes it to `claude --name` as well. If `card-<number>-<project>` already exists, a worker
