@@ -44,9 +44,10 @@ the button becomes the way back out of it.
 
 A wide window puts the comment threads in a rail beside the document, each one
 level with the passage it points at. A thread is one row there: a coloured dot
-for its state, its author, and how many replies it carries. Click the row and the
-thread opens in place, with its body, its replies, the reply box and the
-buttons. Only one thread is open at a time, so opening a second closes the first,
+for its state, its author, how many replies it carries, its age and its status.
+Click the row and the thread opens in place, with its body, its replies, the
+reply box and the buttons. That row stays where it is as the thread opens.
+Only one thread is open at a time, so opening a second closes the first,
 and a click on an open row closes it. Press Escape to close it from the keyboard.
 
 An open thread does not repeat the passage it points at, because that passage is

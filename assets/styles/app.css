@@ -2203,8 +2203,16 @@
     .lp-comment-thread--general {
         @apply static;
     }
+    /* The one row a card shows in both states, so the author line sits at the
+       same offset whether the thread is collapsed or open. */
+    .lp-comment-thread__top {
+        @apply flex items-center gap-2;
+    }
     .lp-comment-thread__header {
         @apply flex items-baseline gap-2;
+    }
+    .lp-comment-thread__top > .lp-comment-thread__header {
+        @apply flex-1;
     }
     .lp-comment-thread__detail {
         @apply flex flex-col gap-3;
@@ -2219,7 +2227,7 @@
         @apply hidden w-full items-center gap-2 h-8 p-0 bg-transparent border-0 text-left cursor-pointer;
     }
     .lp-comment-rail .lp-comment-marker {
-        @apply lg:flex;
+        @apply lg:flex lg:w-auto lg:flex-1 lg:min-w-0;
     }
     .lp-comment-marker:focus-visible {
         @apply rounded-lg outline-2 -outline-offset-2 outline-accent;
@@ -2243,21 +2251,22 @@
     .lp-comment-thread--expanded .lp-comment-marker__count {
         @apply hidden;
     }
-    /* A collapsed thread keeps its box and its layout — hiding it any other way
+    /* Only the detail collapses. The card keeps its box and its padding, so the
+       marker row does not jump when a thread opens, and hiding it any other way
        would make offsetParent null, which is how a resolved card stops
        advancing the floor in #positionThreads. */
-    .lp-comment-rail .lp-comment-thread:not(.lp-comment-thread--expanded) {
-        @apply lg:py-0 lg:gap-0;
-    }
     .lp-comment-rail
         .lp-comment-thread:not(.lp-comment-thread--expanded)
         .lp-comment-thread__detail {
         @apply lg:hidden;
     }
-    /* The marker names the author, so the header below it keeps the age and the
-       status alone. */
+    /* The marker names the author, so the header beside it keeps the age and the
+       status alone, and yields the row's free space to the marker. */
     .lp-comment-rail .lp-comment-thread__header > .lp-comment-author {
         @apply lg:hidden;
+    }
+    .lp-comment-rail .lp-comment-thread__top > .lp-comment-thread__header {
+        @apply lg:flex-none;
     }
     /* The passage is highlighted in the prose level with the card, so quoting it
        here repeats what the reader can already see. An orphaned thread keeps its
@@ -3120,11 +3129,6 @@
         .lp-comment-thread
         .lp-comment-thread__detail {
         @apply flex flex-col gap-3;
-    }
-    /* The rail flattens a collapsed card to marker height. These cards are never
-       collapsed, so they keep the padding and the gap a card has anywhere else. */
-    .lp-comment-rail .lp-orphan-group .lp-comment-thread {
-        @apply py-3.5 gap-3;
     }
     /* The marker is what names the author in the rail, and it is hidden here. */
     .lp-comment-rail
