@@ -9,6 +9,7 @@ use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardGetTool;
 use App\Module\Board\Mcp\CardListTool;
+use App\Module\Board\Mcp\CardSearchTool;
 use App\Module\Board\Mcp\CardUpdateTool;
 use App\Module\Project\Mcp\AdvertisedTools;
 use Doctrine\ORM\EntityManagerInterface;
@@ -50,6 +51,7 @@ final class BoardToolRegistrationTest extends KernelTestCase
     {
         yield 'card_create' => [CardCreateTool::NAME, CardCreateTool::class];
         yield 'card_list' => [CardListTool::NAME, CardListTool::class];
+        yield 'card_search' => [CardSearchTool::NAME, CardSearchTool::class];
         yield 'card_get' => [CardGetTool::NAME, CardGetTool::class];
         yield 'card_update' => [CardUpdateTool::NAME, CardUpdateTool::class];
     }
@@ -72,6 +74,7 @@ final class BoardToolRegistrationTest extends KernelTestCase
         // Guard: an empty roster would satisfy the absence assertions below.
         self::assertContains('document_create', $names);
         self::assertNotContains(CardCreateTool::NAME, $names);
+        self::assertNotContains(CardSearchTool::NAME, $names);
         self::assertNotContains(CardUpdateTool::NAME, $names);
     }
 
@@ -87,7 +90,8 @@ final class BoardToolRegistrationTest extends KernelTestCase
 
         self::assertArrayHasKey(CardCreateTool::NAME, $order);
         self::assertLessThan($order[CardListTool::NAME], $order[CardCreateTool::NAME]);
-        self::assertLessThan($order[CardGetTool::NAME], $order[CardListTool::NAME]);
+        self::assertLessThan($order[CardSearchTool::NAME], $order[CardListTool::NAME]);
+        self::assertLessThan($order[CardGetTool::NAME], $order[CardSearchTool::NAME]);
         self::assertLessThan($order[CardUpdateTool::NAME], $order[CardGetTool::NAME]);
     }
 
@@ -126,6 +130,16 @@ final class BoardToolRegistrationTest extends KernelTestCase
         self::assertSame(CardListTool::DEFAULT_PER_PAGE, $properties['perPage']['default']);
         self::assertSame('boolean', $properties['full']['type']);
         self::assertFalse($properties['full']['default']);
+    }
+
+    public function test_card_search_requires_a_query_and_publishes_its_paging(): void
+    {
+        $schema = $this->registry->getTool(CardSearchTool::NAME)->tool->inputSchema;
+
+        self::assertSame(['query'], $schema['required']);
+        self::assertSame('string', $schema['properties']['query']['type']);
+        self::assertSame(['type' => 'integer', 'description' => 'the 1-based page to read', 'default' => 1], $schema['properties']['page']);
+        self::assertSame(CardSearchTool::DEFAULT_PER_PAGE, $schema['properties']['perPage']['default']);
     }
 
     public function test_card_update_takes_no_origin(): void

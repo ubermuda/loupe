@@ -2228,6 +2228,10 @@
                 <source>project.connect.tool.card_list</source>
                 <target>List the cards on the project board, in board order, filtered by status, type or priority. One page of summary rows at a time, or whole cards on request.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.card_search">
+                <source>project.connect.tool.card_search</source>
+                <target>Search the board by words, over the title and the body of every card, done ones included. Best match first, one page at a time.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.card_get">
                 <source>project.connect.tool.card_get</source>
                 <target>Read one card, with its full Markdown body and every pull request linked to it.</target>

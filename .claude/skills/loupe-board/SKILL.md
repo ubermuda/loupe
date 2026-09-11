@@ -14,17 +14,37 @@ The tools act on the project your token is bound to. An instance can switch the
 board off, and every tool then answers "The board is switched off on this
 instance."
 
-## The four tools
+## The five tools
 
 | Tool | Use it to |
 |---|---|
 | `card_create` | Put a new card on the board. It lands in `backlog` unless you pass `status`. |
 | `card_list` | Read one page of the board. Filter by `status`, `type` or `priority`. Done reads newest completion first, and every other column reads highest priority first. |
+| `card_search` | Ask whether a card about something already exists. It reads the title and the body of every card, done ones included. |
 | `card_get` | Read one card, with its full Markdown body, its pull request links, its linked documents and the site-review comments pointing at it. |
 | `card_update` | Change a card. A field you leave out keeps the value it has. A new status or priority puts the card at the end of the column it arrives in. |
 
-`card_get` and `card_update` take a `cardId`, which you read from `card_list` or
-`card_create`.
+`card_get` and `card_update` take a `cardId`, which you read from `card_list`,
+`card_search` or `card_create`.
+
+## Search before you write a card
+
+Call `card_search` with the words you would use to describe the work, before you
+call `card_create`. Reading the whole board to answer the same question costs
+far more, and it is the step a session skips.
+
+`query` is required. A blank one is refused rather than read as an empty board.
+Matching is by word, not by substring, and words are stemmed, so `paging` finds
+`pages`. Quote a phrase to require it, put `-` in front of a word to exclude it,
+and write `or` between two words to accept either. A stop word on its own, such
+as `the`, matches nothing.
+
+The search covers done cards. "Yes, and it is already done" is a true answer to
+"is there a card about this?", and it is the one a list of open cards hides.
+
+It pages the way `card_list` does, with `page`, `perPage`, `total` and
+`hasMore`, and `perPage` holds 25 rows by default. A row is the same eight-field
+summary, best match first, so call `card_get` for a body.
 
 ## `card_list` pages, and its rows are summaries
 
@@ -167,7 +187,9 @@ An agent or a person moves the card to `done`.
 | Looking for a `card_delete` tool | There is none. Move the card to `done`. |
 | Sending only the new URL in `pullRequestUrls` | The field replaces the whole set, so the older links go. |
 | Sending an empty `pullRequestUrls` to leave the links alone | An empty list clears them. Omit the field instead. |
-| Passing a card number as `cardId` | `cardId` is a UUID. Find it with `card_list`. |
+| Passing a card number as `cardId` | `cardId` is a UUID. Find it with `card_list` or `card_search`. |
+| Writing a card without checking for one | Call `card_search` first. A duplicate card costs someone a triage pass. |
+| Expecting `card_search` to match a substring | It matches whole stemmed words. `pag` finds neither `page` nor `paging`. |
 | Reading one `card_list` call as the whole board | It answers one page. Walk the pages while `hasMore` is true. |
 | Expecting a body from `card_list` | A row is a summary. Pass `full`, or call `card_get`. |
 | Fixing a wrong `origin` with `card_update` | `origin` is set once, when the card is created. |

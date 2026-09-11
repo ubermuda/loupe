@@ -184,6 +184,7 @@ An agent drives the board through the MCP endpoint. See
 |---|---|
 | `card_create` | `title`, `body`, `type` and `priority` are required. `status`, `origin` and `pullRequestUrls` are optional. |
 | `card_list` | `status`, `type` and `priority`, each optional, each a filter. `page`, `perPage` and `full` are optional as well. |
+| `card_search` | `query` is required. `page` and `perPage` are optional. |
 | `card_get` | `cardId`. |
 | `card_update` | `cardId` is required. `title`, `body`, `type`, `priority`, `status` and `pullRequestUrls` are optional. |
 
@@ -202,9 +203,23 @@ Each row is a summary: `cardId`, `number`, `title`, `type`, `priority`,
 pull request, document and site-review links as well. A full page is much larger,
 so read the board as summaries and call `card_get` for the card you want.
 
+`card_search` answers "is there already a card about this?" without reading the
+whole board. It searches the title and the body of every card in the project,
+done ones included, because a topic is often named only in a body and "yes, and
+it is already done" is a true answer.
+
+Matching is by word, not by substring, and words are stemmed, so `paging` finds
+`pages`. Quote a phrase to require it, put `-` in front of a word to exclude it,
+and write `or` between two words to accept either. A card whose title carries
+the word outranks one that carries it only in the body.
+
+It pages the same way `card_list` does: `perPage` holds 25 rows by default and
+100 at most, and the answer carries `page`, `perPage`, `total` and `hasMore`. A
+row is the same summary `card_list` returns, so call `card_get` for a body.
+
 `card_get` returns one card with its full Markdown body, every pull request
 linked to it, and every site-review comment pointing at it. Use a card id that
-`card_list` or `card_create` gave you.
+`card_list`, `card_search` or `card_create` gave you.
 
 ## Cards raised from the review widget
 
