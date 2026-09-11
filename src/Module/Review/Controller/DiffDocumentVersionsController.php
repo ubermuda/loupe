@@ -98,6 +98,7 @@ final class DiffDocumentVersionsController extends AppController
             'diffSideBySide' => $view->sideBySide,
             'diffChangeCount' => $view->changeCount,
             'diffHeadings' => $view->headings,
+            'diffSourceHeadings' => $view->sourceHeadings,
             'diffRefusal' => $view->diffRefusal,
             'diffFromVersion' => $fromVersionNumber,
             // The verdict and the decision controls describe one version, and a

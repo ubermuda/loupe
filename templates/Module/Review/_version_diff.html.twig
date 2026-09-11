@@ -15,19 +15,26 @@
 
     The jump bar lives in the metadata bar, which both diff views share.
 
+    A heading line carries the anchor the contents rail links to. The index
+    answers by loop position, so the ids on the page and the rows in the rail
+    come from one walk of the same diff and cannot describe different lines.
+
     Params:  @comment-budget-ignore
       diff — App\Module\Review\ValueObject\DocumentDiff
+      sourceHeadings — App\Module\Review\ValueObject\SourceHeadingIndex
 #}
-<div class="lp-diff">
+<div class="lp-diff" data-rail-align>
     {%- set hunkNumber = 0 -%}
     {%- for group in diff.groups -%}
+        {%- set groupIndex = loop.index0 -%}
         {%- if group.changed -%}
             {%- set hunkNumber = hunkNumber + 1 -%}
             <div class="lp-diff__hunk" id="diff-hunk-{{ hunkNumber }}" tabindex="-1" data-diff-navigation-target="hunk">
         {%- endif -%}
         {%- for line in group.lines -%}
             {%- set tag = {'inserted': 'ins', 'deleted': 'del'}[line.kind.value]|default('div') -%}
-            <{{ tag }} class="lp-diff__line lp-diff__line--{{ line.kind.value }}">
+            {%- set anchorId = sourceHeadings.idAt(groupIndex, loop.index0) -%}
+            <{{ tag }} class="lp-diff__line lp-diff__line--{{ line.kind.value }}{% if anchorId %} lp-diff__line--heading{% endif %}"{% if anchorId %} id="{{ anchorId }}"{% endif %}>
                 {%- for segment in line.segments -%}
                     {%- if segment.kind.value == 'unchanged' -%}
                         {{- segment.text -}}

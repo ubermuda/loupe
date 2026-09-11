@@ -39,7 +39,7 @@
     {% elseif not diff.hasChanges %}
         <p class="lp-empty">{{ 'review.document.diff.identical'|trans }}</p>
     {% elseif diffView.value == 'source' %}
-        {% include '@Review/_version_diff.html.twig' with {diff: diff} only %}
+        {% include '@Review/_version_diff.html.twig' with {diff: diff, sourceHeadings: diffSourceHeadings} only %}
     {% elseif diffView.value == 'side-by-side' %}
         {# What each block said before, beside what it says now. The pairing is a
            walk of the rendered pane's top-level blocks, so it holds the same

@@ -13,6 +13,7 @@ use App\Module\Review\Service\MarkdownDiffer;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\Service\RenderedDiffBuilder;
 use App\Module\Review\Service\SideBySideDiffBuilder;
+use App\Module\Review\Service\SourceHeadingIndexBuilder;
 use App\Module\Review\ValueObject\CommentSignals;
 use App\Module\Review\ValueObject\DiffRefusal;
 use App\Module\Review\ValueObject\DiffView;
@@ -32,6 +33,7 @@ final readonly class DiffDocumentVersionsHandler
         private MarkdownRenderer $markdownRenderer,
         private RenderedDiffBuilder $renderedDiffs,
         private SideBySideDiffBuilder $sideBySideDiffs,
+        private SourceHeadingIndexBuilder $sourceHeadingIndexes,
         private HeadingExtractor $headings,
         private Auditor $auditor,
     ) {
@@ -51,6 +53,7 @@ final readonly class DiffDocumentVersionsHandler
         $diffRefusal = null;
         $changeCount = null;
         $headings = [];
+        $sourceHeadings = null;
         if ($result instanceof DiffRefusal) {
             $diffRefusal = $result;
             $this->auditor->record(
@@ -82,6 +85,8 @@ final readonly class DiffDocumentVersionsHandler
         if (null !== $diff && $diff->hasChanges()) {
             if (DiffView::Source === $command->view) {
                 $changeCount = $diff->changeCount();
+                $sourceHeadings = $this->sourceHeadingIndexes->build($diff);
+                $headings = $sourceHeadings->headings;
             } else {
                 $rendered = $this->renderedDiffs->build(
                     $this->markdownRenderer->renderDiff($diff),
@@ -112,6 +117,7 @@ final readonly class DiffDocumentVersionsHandler
             diffRefusal: $diffRefusal,
             changeCount: $changeCount,
             headings: $headings,
+            sourceHeadings: $sourceHeadings,
             commentingEnabled: $isCurrent && null !== $renderedDiff,
             comments: $comments,
             versions: $this->documentVersions->findAllMetaByDocument($command->document),

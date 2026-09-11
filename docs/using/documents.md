@@ -93,6 +93,10 @@ width. The page says so above the two columns, and the **Document** view brings
 the comments back. On a phone the two columns stack, older above newer, and each
 one names its version.
 
+**Markdown** compares the two sources line by line, so it shows a change the
+other views cannot mark. Its contents list names every heading line, the removed
+ones included, and a row takes you to that line.
+
 While you compare, the Versions tab also holds a from/to picker, so any other
 pair is two clicks away. It keeps the view you are on.
 

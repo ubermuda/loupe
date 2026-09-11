@@ -774,9 +774,11 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertSame('5', trim($diff->filter('#review-menu-sections-count')->text()));
         self::assertSame('5', trim($diff->filter('#review-menu-sections-head-count')->text()));
 
-        // The Markdown view renders no headings to link to, so it lists none.
+        // The Markdown view lists headings too. Its ids are minted from the
+        // source lines, because it renders no heading element to read one from.
         $source = $client->request(Request::METHOD_GET, $base.'?view=source');
-        self::assertCount(0, $source->filter('.lp-review-contents'));
+        self::assertCount(1, $source->filter('.lp-review-contents'));
+        $this->assertContentsRowsResolve($source);
 
         // The columns pair by position, so Gone shares a row with Arrived and
         // both are on screen there. The order therefore differs from the merged
@@ -858,6 +860,74 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
             ),
         );
         $this->assertContentsRowsResolve($columns);
+    }
+
+    /**
+     * The Markdown view mints an id per heading line and the rail links to it.
+     *
+     * Each row is read back against the line it names, because an id that lands
+     * on the page is not yet an id on the right line: a walk that counted
+     * positions differently would still resolve, on a line the row does not
+     * describe. A `#` inside a code fence is not a heading and gets no row.
+     */
+    public function test_the_markdown_view_lists_the_headings_of_its_source_lines(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-source-toc', 'owner-source-toc@example.com');
+        $project = $this->project($em, $owner);
+
+        $renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
+        $fence = "```sh\n# not a heading\necho hi\n```";
+        $old = "# Guide\n\nIntro.\n\n## Removed\n\nGone.\n\n".$fence."\n\n### Stable ###\n\nBody.\n";
+        $new = "# Guide\n\nIntro.\n\n## Added\n\nNew.\n\n".$fence."\n\n### Stable ###\n\nBody.\n";
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Source Diff');
+        $doc->addVersion($old, $renderer->render($old));
+        $doc->addVersion($new, $renderer->render($new));
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $source = $client->request(
+            Request::METHOD_GET,
+            '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2?view=source',
+        );
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $source->filter('.lp-review-contents'));
+        self::assertCount(1, $source->filter('.lp-review-rail'));
+
+        $rows = $source->filter('.lp-review-contents .lp-review-contents__link');
+        self::assertSame(
+            ['Guide', 'Removed', 'Added', 'Stable'],
+            $rows->each(static fn (Crawler $link): string => $link->text()),
+        );
+        self::assertSame(
+            ['diff-source-heading-1', 'diff-source-heading-2', 'diff-source-heading-3', 'diff-source-heading-4'],
+            $rows->each(static fn (Crawler $link): string => substr((string) $link->attr('href'), 1)),
+        );
+        self::assertSame(
+            ['1', '2', '2', '3'],
+            $rows->each(static fn (Crawler $link): string => (string) $link->attr('data-level')),
+        );
+
+        $this->assertContentsRowsResolve($source);
+
+        // The row and the line it names say the same thing. A row that resolves
+        // to another line reads as a working jump and lands in the wrong place.
+        foreach ($rows->each(static fn (Crawler $link): array => [$link->text(), (string) $link->attr('href')]) as [$label, $href]) {
+            self::assertStringContainsString($label, $source->filter($href)->text(), $href.' names another line.');
+        }
+
+        // A diff approves nothing here either, and the count is the rail's own.
+        self::assertCount(0, $source->filter('.lp-review-contents__tick'));
+        self::assertSame('4', trim($source->filter('#review-rail-sections-count')->text()));
     }
 
     /**

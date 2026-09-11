@@ -1834,6 +1834,11 @@
     .lp-diff__line--inserted {
         @apply bg-status-ok-bg;
     }
+    /* A heading line the contents rail links to. It clears the sticky metadata
+       bar the way a hunk does, because the scroll helper reads this margin. */
+    .lp-diff__line--heading {
+        @apply scroll-mt-24;
+    }
     /* A source line already carries its own marker and tint, so a mark inside
        one needs neither the strike nor the underline the rendered view uses. */
     .lp-diff__line .lp-diff__mark {
