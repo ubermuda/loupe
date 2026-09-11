@@ -46,6 +46,13 @@ final readonly class ProjectDeleter
             $this->em->flush();
         });
 
+        // The listeners delete with bulk DQL, which bypasses the identity map.
+        // Without this, a stale object of one of those classes survives into the
+        // next flush(), where Doctrine reads its deleted project as a new,
+        // non-cascaded entity. A caller that deletes a second project must
+        // therefore re-fetch it, because this detaches everything.
+        $this->em->clear();
+
         $this->auditor->record(
             'project.deleted',
             AuditOutcome::Success,
