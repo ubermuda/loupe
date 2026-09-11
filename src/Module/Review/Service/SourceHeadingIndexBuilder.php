@@ -43,7 +43,11 @@ final readonly class SourceHeadingIndexBuilder
                 $inOld = $line->kind->isInOld();
                 $inNew = $line->kind->isInNew();
 
-                $inFence = ($inOld && null !== $oldFence) || ($inNew && null !== $newFence);
+                // Code on every side it appears on. A revision that fences a
+                // block leaves the lines inside it unchanged, so such a line is
+                // code in one version and a heading in the other, and the reader
+                // can see the heading. Either side fencing it lost that row.
+                $inFence = (!$inOld || null !== $oldFence) && (!$inNew || null !== $newFence);
                 $isFenceLine = $inOld && $this->toggleFence($oldFence, $text);
                 $isFenceLine = ($inNew && $this->toggleFence($newFence, $text)) || $isFenceLine;
 
