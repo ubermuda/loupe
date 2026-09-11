@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Mcp;
 
 use App\Doctrine\SearchLanguage;
+use App\Module\Board\Command\SearchBoardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardSearchTool;
@@ -213,7 +214,7 @@ final class CardSearchToolTest extends KernelTestCase
 
         self::assertSame(1, ($this->tool)('mailpit', page: -4)['page']);
         self::assertSame(1, ($this->tool)('mailpit', perPage: 0)['perPage']);
-        self::assertSame(CardSearchTool::MAX_PER_PAGE, ($this->tool)('mailpit', perPage: 500)['perPage']);
+        self::assertSame(SearchBoardHandler::MAX_PER_PAGE, ($this->tool)('mailpit', perPage: 500)['perPage']);
     }
 
     /**

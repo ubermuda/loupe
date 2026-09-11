@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Mcp;
 
+use App\Exception\DomainErrors;
 use App\Mcp\FlagGatedToolInterface;
+use App\Module\Board\Command\SearchBoardCommand;
+use App\Module\Board\Command\SearchBoardHandler;
 use App\Module\Board\Install\BoardInstallFlags;
-use App\Module\Board\Repository\CardRepository;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
@@ -20,15 +22,12 @@ final readonly class CardSearchTool implements FlagGatedToolInterface
 {
     public const string NAME = 'card_search';
 
-    public const int DEFAULT_PER_PAGE = 25;
-
-    public const int MAX_PER_PAGE = 100;
-
     public function __construct(
         private BoardFlagGate $gate,
         private BoardSubjectResolver $subjects,
-        private CardRepository $cards,
+        private SearchBoardHandler $searchBoard,
         private CardPayload $payload,
+        private BoardToolErrorMessages $errorMessages,
     ) {
     }
 
@@ -57,39 +56,27 @@ final readonly class CardSearchTool implements FlagGatedToolInterface
      *
      * @return array{cards: list<CardListSummary>, page: int, perPage: int, total: int, hasMore: bool}
      */
-    public function __invoke(string $query, int $page = 1, int $perPage = self::DEFAULT_PER_PAGE): array
+    public function __invoke(string $query, int $page = 1, int $perPage = SearchBoardHandler::DEFAULT_PER_PAGE): array
     {
         $this->gate->requireEnabled();
 
-        $query = trim($query);
-        if ('' === $query) {
-            // websearch_to_tsquery('') matches nothing and raises nothing, so a
-            // blank query would read as an empty board rather than as a mistake.
-            throw new ToolCallException('Pass a query to search for. To read the whole board instead, call card_list.');
-        }
-
-        // Clamped rather than rejected: an out-of-range page from an agent
-        // should return an empty page, not fail the tool call.
-        $page = max(1, $page);
-        $perPage = min(self::MAX_PER_PAGE, max(1, $perPage));
-        // A page near PHP_INT_MAX overflows the offset multiplication to a
-        // float, which setFirstResult() then refuses.
-        $page = min($page, intdiv(\PHP_INT_MAX, $perPage));
-
         try {
-            $project = $this->subjects->requireProject();
-
-            $paginator = $this->cards->searchByProject($project, $query, $page, $perPage);
-            $total = \count($paginator);
-            $cards = array_values(iterator_to_array($paginator, false));
+            $view = ($this->searchBoard)(new SearchBoardCommand(
+                project: $this->subjects->requireProject(),
+                query: $query,
+                page: $page,
+                perPage: $perPage,
+            ));
 
             return [
-                'cards' => $this->payload->forCardList($cards),
-                'page' => $page,
-                'perPage' => $perPage,
-                'total' => $total,
-                'hasMore' => ($page - 1) * $perPage + \count($cards) < $total,
+                'cards' => $this->payload->forCardList($view->cards),
+                'page' => $view->page,
+                'perPage' => $view->perPage,
+                'total' => $view->total,
+                'hasMore' => $view->hasMore,
             ];
+        } catch (DomainErrors $e) {
+            throw $this->errorMessages->forAgent($e);
         } catch (ToolCallException $e) {
             throw $e;
         } catch (\Throwable $e) {

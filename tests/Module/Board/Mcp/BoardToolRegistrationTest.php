@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Mcp;
 
 use App\Mcp\FlagGatedToolInterface;
+use App\Module\Board\Command\SearchBoardHandler;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardGetTool;
@@ -139,7 +140,7 @@ final class BoardToolRegistrationTest extends KernelTestCase
         self::assertSame(['query'], $schema['required']);
         self::assertSame('string', $schema['properties']['query']['type']);
         self::assertSame(['type' => 'integer', 'description' => 'the 1-based page to read', 'default' => 1], $schema['properties']['page']);
-        self::assertSame(CardSearchTool::DEFAULT_PER_PAGE, $schema['properties']['perPage']['default']);
+        self::assertSame(SearchBoardHandler::DEFAULT_PER_PAGE, $schema['properties']['perPage']['default']);
     }
 
     public function test_card_update_takes_no_origin(): void
