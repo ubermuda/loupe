@@ -727,7 +727,10 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
 
         $renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
-        $old = "## First\n\nBody.\n\n## Second\n\nMore.\n";
+        // Gone is dropped by the revision, so it reaches the columns on the older
+        // side alone, where every id is prefixed. It is the shape the panel got
+        // wrong, and a fixture that only revises a body never produces it.
+        $old = "## First\n\nBody.\n\n## Gone\n\nDropped.\n\n## Second\n\nMore.\n";
         $new = "## First\n\nRevised body.\n\n## Second\n\nMore.\n";
 
         $doc = new Document(owner: $owner, project: $project, title: 'Sectioned Diff');
@@ -747,17 +750,11 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(1, $diff->filter('.lp-review-contents'));
 
-        // Every row points at an id the pane holds. A link to an id the merged
-        // render deduped away would scroll nowhere and report no error.
-        $targets = $diff->filter('.lp-review-contents__link')->each(
-            static fn (Crawler $link): string => substr((string) $link->attr('href'), 1),
-        );
-        self::assertSame(['First', 'Second'], $diff->filter('.lp-review-contents__link')->each(
+        // The removed heading is listed too: it is on the page the reader has.
+        self::assertSame(['First', 'Gone', 'Second'], $diff->filter('.lp-review-contents__link')->each(
             static fn (Crawler $link): string => $link->text(),
         ));
-        foreach ($targets as $target) {
-            self::assertCount(1, $diff->filter('#'.$target), $target.' is not on the page.');
-        }
+        $this->assertContentsRowsResolve($diff);
 
         // A diff approves nothing, so no row offers or reports a state.
         self::assertCount(0, $diff->filter('.lp-review-contents__tick'));
@@ -767,11 +764,41 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $source = $client->request(Request::METHOD_GET, $base.'?view=source');
         self::assertCount(0, $source->filter('.lp-review-contents'));
 
+        // The columns prefix every id on the older side, so Gone is reachable
+        // under its renamed id alone. Reading the merged render named the id the
+        // columns no longer hold, and that row scrolled nowhere.
+        $columns = $client->request(Request::METHOD_GET, $base.'?view=side-by-side');
+        self::assertSame(['First', 'Gone', 'Second'], $columns->filter('.lp-review-contents__link')->each(
+            static fn (Crawler $link): string => $link->text(),
+        ));
+        $this->assertContentsRowsResolve($columns);
+        self::assertSame(
+            'diff-old-heading-gone',
+            substr((string) $columns->filter('.lp-review-contents__link')->eq(1)->attr('href'), 1),
+        );
+
         // The review page for the same document still reports approval state, so
         // the assertions above cannot pass by the panel having lost it outright.
         $latest = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
         self::assertCount(1, $latest->filter('.lp-review-contents'));
         self::assertCount(2, $latest->filter('.lp-review-contents .lp-review-contents__tick'));
+    }
+
+    /**
+     * Every contents row names an element the page holds. A row pointing at an
+     * id the pane does not carry scrolls nowhere and reports nothing, so only
+     * the page itself can settle whether a row works.
+     */
+    private function assertContentsRowsResolve(Crawler $page): void
+    {
+        $targets = $page->filter('.lp-review-contents__link')->each(
+            static fn (Crawler $link): string => substr((string) $link->attr('href'), 1),
+        );
+
+        self::assertNotEmpty($targets);
+        foreach ($targets as $target) {
+            self::assertCount(1, $page->filter('#'.$target), $target.' is not on the page.');
+        }
     }
 
     public function test_a_diff_that_does_not_run_forwards_is_not_found(): void

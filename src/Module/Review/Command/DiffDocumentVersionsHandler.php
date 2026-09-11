@@ -16,6 +16,8 @@ use App\Module\Review\Service\SideBySideDiffBuilder;
 use App\Module\Review\ValueObject\CommentSignals;
 use App\Module\Review\ValueObject\DiffRefusal;
 use App\Module\Review\ValueObject\DiffView;
+use App\Module\Review\ValueObject\SideBySideDiff;
+use App\Module\Review\ValueObject\SideBySideRow;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -86,16 +88,13 @@ final readonly class DiffDocumentVersionsHandler
                     $isCurrent && DiffView::Rendered === $command->view ? $version->plainText() : null,
                 );
                 $changeCount = $rendered->changeCount;
-                // Read back out of the merged render, not off the newer version:
-                // the renderer dedupes ids across both versions, so only these
-                // ids are on the page the contents panel links into. The source
-                // view builds no render and therefore lists no headings.
-                $headings = $this->headings->extract($rendered->html);
 
                 if (DiffView::SideBySide === $command->view) {
                     $sideBySide = $this->sideBySideDiffs->build($rendered->html);
+                    $headings = $this->headings->extract($this->linkableSide($sideBySide));
                 } else {
                     $renderedDiff = $rendered;
+                    $headings = $this->headings->extract($rendered->html);
                 }
             }
         }
@@ -118,6 +117,23 @@ final readonly class DiffDocumentVersionsHandler
             versions: $this->documentVersions->findAllMetaByDocument($command->document),
             signals: $this->comments->signalsByVersions([(string) $version->id])[(string) $version->id] ?? new CommentSignals(),
         );
+    }
+
+    /**
+     * The one cell of each row a link may name, in document order.
+     *
+     * The columns keep one id per block: the builder prefixes every id on the
+     * older side, so an unchanged heading is listed once from the newer cell,
+     * and a heading the revision removed is listed once from its renamed older
+     * one. Reading the merged render instead named ids the columns no longer
+     * hold, and such a row scrolled nowhere and reported nothing.
+     */
+    private function linkableSide(SideBySideDiff $sideBySide): string
+    {
+        return implode('', array_map(
+            static fn (SideBySideRow $row): string => $row->newHtml ?? $row->oldHtml ?? '',
+            $sideBySide->rows,
+        ));
     }
 
     private function version(Document $document, int $versionNumber): DocumentVersion
