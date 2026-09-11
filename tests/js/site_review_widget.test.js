@@ -586,4 +586,25 @@ describe('a stored selector that carries a stale class', () => {
 
         expect(chipText()).toBe('2 elements');
     });
+    it('refuses a unique match that no longer reads like the target', async () => {
+        // The anchored section is gone, and its :nth-of-type() seat now belongs
+        // to a section that says something else. Uniqueness alone would draw
+        // the comment on it.
+        twoSections();
+        bootWidget(
+            withAnchors([
+                {
+                    selector: 'div.panel > section.row.active:nth-of-type(1)',
+                    text: 'a heading that is no longer here',
+                },
+                {
+                    selector: 'div.panel > section.row:nth-of-type(2)',
+                    text: 'second',
+                },
+            ]),
+        );
+        await settle();
+
+        expect(chipText()).toBe('1 of 2 elements');
+    });
 });

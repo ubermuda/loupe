@@ -466,12 +466,20 @@
             .sort((a, b) => a.drops - b.drops)
             .map((entry) => entry.selector);
     };
+    const flatText = (value) =>
+        String(value || '')
+            .replace(/\s+/g, ' ')
+            .trim();
     // The element a stored anchor names. A relaxed selector counts only when it
-    // matches exactly one element: a second match means the classes just dropped
-    // were what told the two apart.
-    const queryAnchor = (selector) => {
+    // matches exactly one element and that element still reads like the one the
+    // reviewer picked. A second match means the classes just dropped were what
+    // told the two apart, and uniqueness alone says nothing about identity: the
+    // original element may be gone, leaving its :nth-of-type() seat to another.
+    // Drawing a comment on the wrong element is worse than drawing none.
+    const queryAnchor = (selector, text) => {
         const exact = queryOne(selector);
         if (exact) return exact;
+        const said = flatText(text);
         for (const candidate of relaxedSelectors(selector)) {
             let found;
             try {
@@ -479,7 +487,11 @@
             } catch {
                 continue;
             }
-            if (found.length === 1) return found[0];
+            if (found.length !== 1) continue;
+            const reads = flatText(found[0].innerText || found[0].textContent);
+            if (!said || reads === said) return found[0];
+            if (reads && (reads.includes(said) || said.includes(reads)))
+                return found[0];
         }
         return null;
     };
@@ -633,7 +645,9 @@
     const resolveAnchors = (comment) => {
         if (comment.url !== location.href) return [];
         return anchorsOf(comment).map((anchor, anchorIndex) => {
-            const el = anchor.selector ? queryAnchor(anchor.selector) : null;
+            const el = anchor.selector
+                ? queryAnchor(anchor.selector, anchor.text)
+                : null;
             return { anchor, anchorIndex, el, range: quoteRange(el, anchor) };
         });
     };
@@ -1497,7 +1511,9 @@
             first &&
             docRectOf(
                 first.el ||
-                    (first.selector ? queryAnchor(first.selector) : null),
+                    (first.selector
+                        ? queryAnchor(first.selector, first.text)
+                        : null),
             );
         return box && box.width > 0 && box.height > 0 ? box : null;
     };
@@ -3072,7 +3088,7 @@
                   type: 'element',
                   anchors: stored.map((anchor) => {
                       const el = onThisPage
-                          ? queryAnchor(anchor.selector)
+                          ? queryAnchor(anchor.selector, anchor.text)
                           : null; // null off-page — fine
                       return {
                           el,
