@@ -279,6 +279,11 @@ test('hiding resolved threads closes the gap the markers left', async ({
     const before = await markerTops(page);
     expect(before).toHaveLength(3);
 
+    // The toggle is a button, and a button class declares a display that beats
+    // the [hidden] rule the controller drives it with. Nothing is resolved yet,
+    // so a toggle on screen here means that override came back.
+    await expect(page.locator('.lp-review-actions__resolved')).toBeHidden();
+
     await page.locator(MARKER).nth(0).click();
     await page.getByRole('button', { name: 'Resolve', exact: true }).click();
     await expect(page.locator('.lp-comment-thread--resolved')).toHaveCount(1, {
