@@ -35,6 +35,14 @@ entry.
 
 ## [Unreleased]
 
+- (#425) — **Added:** the `card_list` MCP tool takes a `reporter` filter, which
+  reads `human`, `agent` and `reviewer` alike, so the cards the site-review
+  widget raised are listable.
+- (#425) — **Changed:** the board card field `origin` is now `reporter`, on the
+  card page, in `card_create` and in every `card_list` and `card_get` row. This
+  breaks the MCP surface: an agent that passes `origin:` to `card_create` is now
+  rejected, and must pass `reporter:` instead. The three values `human`, `agent`
+  and `reviewer` are unchanged.
 - (#422) — **Changed:** the `card_list` MCP tool answers one page of summary
   rows, with `page`, `perPage` and `full` to steer it, rather than the whole
   board with every card's full body.
