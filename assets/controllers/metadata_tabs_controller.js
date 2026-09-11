@@ -17,6 +17,17 @@ import { smoothScrollTo } from '../lib/smooth_scroll.js';
 export default class extends Controller {
     static targets = ['tab', 'panel'];
 
+    /**
+     * A jump's animation outlives the visit that started it otherwise. It writes
+     * scrollTop for as long as it runs, and the scroller survives a Turbo visit,
+     * so the page that arrives gets dragged towards the heading the last one
+     * asked for. The diff navigation controller cancels for the same reason.
+     */
+    disconnect() {
+        this.cancelScroll?.();
+        this.cancelScroll = undefined;
+    }
+
     toggle(event) {
         event.preventDefault();
         const name = event.params.panel;
