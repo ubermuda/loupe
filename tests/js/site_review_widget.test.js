@@ -560,4 +560,30 @@ describe('a stored selector that carries a stale class', () => {
 
         expect(chipText()).toBe('1 of 2 elements');
     });
+    it('keeps a class that escapes a child combinator', async () => {
+        // CSS.escape writes a Tailwind class such as [&>svg]:hidden with an
+        // escaped `>`. Splitting the selector there would cut the class in two
+        // and every relaxed candidate would be nonsense.
+        document.body.innerHTML =
+            '<div class="panel">' +
+            '<section class="[&>svg]:hidden">first</section>' +
+            '<section class="row">second</section>' +
+            '</div>';
+        bootWidget(
+            withAnchors([
+                {
+                    selector:
+                        'div.panel > section.\\[\\&\\>svg\\]\\:hidden.active:nth-of-type(1)',
+                    text: 'first',
+                },
+                {
+                    selector: 'div.panel > section.row:nth-of-type(2)',
+                    text: 'second',
+                },
+            ]),
+        );
+        await settle();
+
+        expect(chipText()).toBe('2 elements');
+    });
 });

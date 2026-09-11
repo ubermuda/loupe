@@ -422,13 +422,28 @@
         const nth = /:nth-of-type\(\d+\)$/.exec(compound);
         return tag[0] + (nth ? nth[0] : '');
     };
+    // `>` separates two compounds, unless a backslash escapes it: CSS.escape
+    // writes a Tailwind class such as [&>svg]:hidden with one, and splitting
+    // there would cut a class in half.
+    const splitCompounds = (selector) => {
+        const parts = [''];
+        for (let index = 0; index < selector.length; index += 1) {
+            const char = selector[index];
+            if (char === '\\') {
+                parts[parts.length - 1] += char + (selector[index + 1] || '');
+                index += 1;
+            } else if (char === '>') parts.push('');
+            else parts[parts.length - 1] += char;
+        }
+        return parts.map((part) => part.trim());
+    };
     // A stored selector carries every class the element had when the comment was
     // saved, including ones the host page adds for hover or an expanded state.
     // Those are gone on a later visit, so an exact match misses an element that
     // is still there. These are the same selector with classes dropped from some
     // of its compounds, fewest drops first.
     const relaxedSelectors = (selector) => {
-        const parts = selector.split('>').map((part) => part.trim());
+        const parts = splitCompounds(selector);
         const bare = parts.map(bareCompound);
         const loose = parts
             .map((part, index) =>
