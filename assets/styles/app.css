@@ -3137,6 +3137,14 @@
         > .lp-comment-author {
         @apply inline;
     }
+    /* The header has the row to itself here, so it takes the width back from
+       the hidden marker and the status keeps its flush-right place. */
+    .lp-comment-rail
+        .lp-orphan-group
+        .lp-comment-thread__top
+        > .lp-comment-thread__header {
+        @apply lg:flex-1;
+    }
     /* The group's heading says this right above the card. The pill is for a card
        that stands on its own, which one in this group never does. */
     .lp-orphan-group .lp-comment-orphan-pill {
