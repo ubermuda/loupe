@@ -38,6 +38,9 @@ entry.
 - (#422) — **Changed:** the `card_list` MCP tool answers one page of summary
   rows, with `page`, `perPage` and `full` to steer it, rather than the whole
   board with every card's full body.
+- (#420) — **Changed:** the development php-fpm now caches every checkout's
+  code rather than the first ~32,000 files it happened to see, so worktrees no
+  longer recompile on every request, and `/fpm-status` reports the shared pool.
 - (#418) — **Fixed:** a comment thread in the review rail keeps its author row
   in place when you open it, and carries its age and its status on that row
   rather than on a second row that appeared on expand.
