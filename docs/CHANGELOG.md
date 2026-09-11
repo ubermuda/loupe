@@ -35,6 +35,12 @@ entry.
 
 ## [Unreleased]
 
+- (#423) — **Changed:** the site-review outbox is now a general agent
+  outbox. Its table, drain, scheduler and listing pages moved to the root
+  namespace, every row records which producer wrote it, the per-project page
+  moved to `/projects/{id}/outbox`, and the `site_review.push.enabled` flag
+  became `agent.push.enabled`.
+
 - (#426) — **Added:** a `card_search` MCP tool, which searches the title and the
   body of every card on a project board, done cards included, and answers best
   match first.
