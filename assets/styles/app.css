@@ -1479,10 +1479,20 @@
        declare no display: the controller reveals the button with the `hidden`
        attribute, which a display utility in this layer outranks. */
     .lp-review-actions__resolved {
-        @apply max-lg:hidden absolute left-169 whitespace-nowrap bg-transparent border-0 p-0 cursor-pointer text-sm text-fg-mute transition-colors;
+        @apply max-lg:hidden absolute left-169 whitespace-nowrap;
     }
-    .lp-review-actions__resolved:hover {
-        @apply text-ink;
+    /* One icon of the pair at a time, chosen by the state the controller writes
+       onto the button. Specificity, not source order, does the picking. */
+    .lp-review-actions__resolved-icon--show {
+        @apply hidden;
+    }
+    .lp-review-actions__resolved[data-resolved-hidden='1']
+        .lp-review-actions__resolved-icon--hide {
+        @apply hidden;
+    }
+    .lp-review-actions__resolved[data-resolved-hidden='1']
+        .lp-review-actions__resolved-icon--show {
+        @apply block;
     }
     /* Resolved threads are hidden rather than removed, so the toggle is instant
        and costs no round trip. */
@@ -1858,6 +1868,12 @@
     .lp-diff-nav {
         @apply flex items-center gap-1.5 ml-auto;
     }
+    /* What `j` and `k` look like: the keyboard reaches the same two buttons the
+       pointer does, so the press has to be visible on them. Matches the hover
+       fill and the `:active` transform the pointer gets. */
+    .lp-btn--icon.lp-btn--pressed {
+        @apply bg-tint-strong text-ink translate-y-px scale-97;
+    }
     .lp-diff-nav__count {
         @apply font-mono text-fg-dim text-xs uppercase tracking-widest whitespace-nowrap;
     }
@@ -1880,8 +1896,10 @@
 
     /* What the author said a revision changed, sitting directly above what it
        actually changed. */
+    /* The same gap the action row takes below the bar, so the note does not sit
+       against the controls above it. */
     .lp-diff-notes {
-        @apply max-w-2xl flex flex-col gap-1.5 mb-6 p-4 rounded-lg border bg-surface-2 border-line;
+        @apply max-w-2xl flex flex-col gap-1.5 mt-5.5 mb-6 p-4 rounded-lg border bg-surface-2 border-line;
     }
     .lp-diff-notes__title {
         @apply font-mono text-fg-dim m-0 text-xs uppercase tracking-widest;
@@ -2135,11 +2153,11 @@
     .lp-comment-composer__error {
         @apply text-xs text-danger;
     }
-    /* Untargeted composer: a centred panel + a "General comment" label instead
-       of the quoted selection. */
+    /* Untargeted composer: it opens in the flow under the action row that asked
+       for it, with a "General comment" label instead of the quoted selection.
+       A panel over the middle of the page hid the document it was about. */
     .lp-comment-composer--untargeted {
-        @apply fixed left-1/2 top-1/2 z-30;
-        transform: translate(-50%, -50%);
+        @apply static mb-5.5 max-w-2xl shadow-none border border-line;
     }
     .lp-composer-general {
         display: none;

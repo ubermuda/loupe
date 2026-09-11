@@ -1770,7 +1770,13 @@ export default class extends Controller {
             '[data-resolved-toggle]',
         )) {
             toggle.hidden = !hasResolved;
-            toggle.textContent =
+            toggle.dataset.resolvedHidden = this.hideResolvedValue ? '1' : '0';
+            // The review-menu copy is a bare button and carries no span, so the
+            // label falls back to the button itself. Writing textContent on a
+            // button that holds icons would delete them.
+            const label =
+                toggle.querySelector('[data-resolved-toggle-label]') ?? toggle;
+            label.textContent =
                 toggle.dataset[
                     this.hideResolvedValue ? 'labelShow' : 'labelHide'
                 ];

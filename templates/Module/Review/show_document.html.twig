@@ -267,79 +267,6 @@
                 </div>
                 {% endif %}
 
-                {% if decisionRows|length > 0 %}
-                {# A row of its own in the bar: the longest refusal is a sentence
-                   and would squeeze the tabs out of the row above. Rendered
-                   empty rather than omitted — a live region must be in the
-                   accessibility tree before its text arrives. #}
-                <p id="decision-status" class="lp-decision-status" aria-live="polite"></p>
-                {% endif %}
-
-                {# The same shape for a refused press. Only where a control is
-                   rendered, which is the case the message can arise in. #}
-                {% if not diffMode and not readOnly and showContents %}
-                <p id="section-status" class="lp-decision-status" aria-live="polite"></p>
-                {% endif %}
-
-                {# One row of the sticky bar for both, rather than a bar of its
-                   own: two elements stuck to the same edge overlap. The views
-                   stay plain links, so each is addressable. The rendered one
-                   cannot mark front matter, a link reference definition or a
-                   setext underline, hence the Markdown one. #}
-                {% if diffNavigation %}
-                {% set viewParams = {projectId: document.project.id, documentId: document.id, fromVersionNumber: diffFromVersion, toVersionNumber: version.versionNumber} %}
-                <div class="lp-diff-bar">
-                    <nav class="lp-diff-views" aria-label="{{ 'review.document.diff.view.label'|trans }}">
-                        <a class="lp-diff-views__link"
-                           href="{{ path('app_document_review_diff', viewParams|merge({view: 'rendered'})) }}"
-                           {% if diffView.value == 'rendered' %}aria-current="page"{% endif %}
-                           {% if diffColumns %}aria-describedby="diff-columns-notice"{% endif %}
-                        >{{ 'review.document.diff.view.rendered'|trans }}</a>
-                        {# The same rendered blocks in two columns. The notice
-                           below says what it gives up, and this link opens it. #}
-                        <a class="lp-diff-views__link"
-                           href="{{ path('app_document_review_diff', viewParams|merge({view: 'side-by-side'})) }}"
-                           {% if diffColumns %}aria-current="page"{% endif %}
-                        >{{ 'review.document.diff.view.side_by_side'|trans }}</a>
-                        {# describedby rather than a second link: the notice below says
-                           why this view is worth opening, and this is the control that
-                           opens it. #}
-                        <a class="lp-diff-views__link"
-                           href="{{ path('app_document_review_diff', viewParams|merge({view: 'source'})) }}"
-                           {% if diffView.value == 'source' %}aria-current="page"{% endif %}
-                           {% if diffUnmarked %}aria-describedby="diff-unmarked-notice"{% endif %}
-                        >{{ 'review.document.diff.view.source'|trans }}</a>
-                    </nav>
-                    <div class="lp-diff-nav">
-                        <p class="lp-diff-nav__count" aria-live="polite" data-diff-navigation-target="counter">{{ 'review.document.diff.nav.count'|trans({'%count%': diffChangeCount}) }}</p>
-                        <button type="button" class="lp-btn lp-btn--icon" data-action="diff-navigation#previous"
-                                aria-label="{{ 'review.document.diff.nav.previous'|trans }}"
-                                title="{{ 'review.document.diff.nav.previous'|trans }}">
-                            <twig:ux:icon name="lucide:arrow-up" class="w-4 h-4 shrink-0" />
-                        </button>
-                        <button type="button" class="lp-btn lp-btn--icon" data-action="diff-navigation#next"
-                                aria-label="{{ 'review.document.diff.nav.next'|trans }}"
-                                title="{{ 'review.document.diff.nav.next'|trans }}">
-                            <twig:ux:icon name="lucide:arrow-down" class="w-4 h-4 shrink-0" />
-                        </button>
-                    </div>
-                </div>
-                {% endif %}
-
-                {% if diffColumns %}
-                <p id="diff-columns-notice" class="lp-diff-notice">
-                    <twig:ux:icon name="lucide:info" class="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{{ 'review.document.diff.side_by_side.comments_hidden'|trans }}</span>
-                </p>
-                {% endif %}
-
-                {% if diffUnmarked %}
-                <p id="diff-unmarked-notice" class="lp-diff-notice">
-                    <twig:ux:icon name="lucide:info" class="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{{ 'review.document.diff.unmarked_notice'|trans }}</span>
-                </p>
-                {% endif %}
-
                 {% if showVersions %}
                 {# The version on screen alone, plus the way to the rest. Every
                    version with its note in full made this panel taller than the
@@ -459,6 +386,84 @@
                 </div>
                 {% endif %}
 
+                {# Every panel above, and everything below it belongs to the bar
+                   rather than to a tab. A panel opens directly under the row that
+                   names it, the way the tags one does, and no control stands
+                   between the tab and what it opened. #}
+                {% if decisionRows|length > 0 %}
+                {# A row of its own in the bar: the longest refusal is a sentence
+                   and would squeeze the tabs out of the row above. Rendered
+                   empty rather than omitted — a live region must be in the
+                   accessibility tree before its text arrives. #}
+                <p id="decision-status" class="lp-decision-status" aria-live="polite"></p>
+                {% endif %}
+
+                {# The same shape for a refused press. Only where a control is
+                   rendered, which is the case the message can arise in. #}
+                {% if not diffMode and not readOnly and showContents %}
+                <p id="section-status" class="lp-decision-status" aria-live="polite"></p>
+                {% endif %}
+
+                {# One row of the sticky bar for both, rather than a bar of its
+                   own: two elements stuck to the same edge overlap. The views
+                   stay plain links, so each is addressable. The rendered one
+                   cannot mark front matter, a link reference definition or a
+                   setext underline, hence the Markdown one. #}
+                {% if diffNavigation %}
+                {% set viewParams = {projectId: document.project.id, documentId: document.id, fromVersionNumber: diffFromVersion, toVersionNumber: version.versionNumber} %}
+                <div class="lp-diff-bar">
+                    <nav class="lp-diff-views" aria-label="{{ 'review.document.diff.view.label'|trans }}">
+                        <a class="lp-diff-views__link"
+                           href="{{ path('app_document_review_diff', viewParams|merge({view: 'rendered'})) }}"
+                           {% if diffView.value == 'rendered' %}aria-current="page"{% endif %}
+                           {% if diffColumns %}aria-describedby="diff-columns-notice"{% endif %}
+                        >{{ 'review.document.diff.view.rendered'|trans }}</a>
+                        {# describedby rather than a second link: the notice below says
+                           why this view is worth opening, and this is the control that
+                           opens it. Second of the three: it reads the same document,
+                           where the columns rebuild the page. #}
+                        <a class="lp-diff-views__link"
+                           href="{{ path('app_document_review_diff', viewParams|merge({view: 'source'})) }}"
+                           {% if diffView.value == 'source' %}aria-current="page"{% endif %}
+                           {% if diffUnmarked %}aria-describedby="diff-unmarked-notice"{% endif %}
+                        >{{ 'review.document.diff.view.source'|trans }}</a>
+                        {# The same rendered blocks in two columns. The notice
+                           below says what it gives up, and this link opens it. #}
+                        <a class="lp-diff-views__link"
+                           href="{{ path('app_document_review_diff', viewParams|merge({view: 'side-by-side'})) }}"
+                           {% if diffColumns %}aria-current="page"{% endif %}
+                        >{{ 'review.document.diff.view.side_by_side'|trans }}</a>
+                    </nav>
+                    <div class="lp-diff-nav">
+                        <p class="lp-diff-nav__count" aria-live="polite" data-diff-navigation-target="counter">{{ 'review.document.diff.nav.count'|trans({'%count%': diffChangeCount}) }}</p>
+                        <button type="button" class="lp-btn lp-btn--icon" data-diff-navigation-target="previousButton" data-action="diff-navigation#previous"
+                                aria-label="{{ 'review.document.diff.nav.previous'|trans }}"
+                                title="{{ 'review.document.diff.nav.previous'|trans }}">
+                            <twig:ux:icon name="lucide:arrow-up" class="w-4 h-4 shrink-0" />
+                        </button>
+                        <button type="button" class="lp-btn lp-btn--icon" data-diff-navigation-target="nextButton" data-action="diff-navigation#next"
+                                aria-label="{{ 'review.document.diff.nav.next'|trans }}"
+                                title="{{ 'review.document.diff.nav.next'|trans }}">
+                            <twig:ux:icon name="lucide:arrow-down" class="w-4 h-4 shrink-0" />
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if diffColumns %}
+                <p id="diff-columns-notice" class="lp-diff-notice">
+                    <twig:ux:icon name="lucide:info" class="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{{ 'review.document.diff.side_by_side.comments_hidden'|trans }}</span>
+                </p>
+                {% endif %}
+
+                {% if diffUnmarked %}
+                <p id="diff-unmarked-notice" class="lp-diff-notice">
+                    <twig:ux:icon name="lucide:info" class="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{{ 'review.document.diff.unmarked_notice'|trans }}</span>
+                </p>
+                {% endif %}
+
             </div>
             {% endif %}
 
@@ -472,13 +477,59 @@
                    thread exists. Resolving replaces #comment-threads alone, and
                    this row sits outside it — gating it in Twig would leave the
                    control missing until the next full page load. #}
-                <button type="button" class="lp-review-actions__resolved"
+                {# Both icons ship and CSS picks one, because the controller
+                   rewrites the label and would drop a child it had to re-render. #}
+                <button type="button" class="lp-btn lp-btn--sm lp-btn--ghost lp-review-actions__resolved"
                         data-resolved-toggle
+                        data-resolved-hidden="0"
                         data-label-hide="{{ 'review.document.threads.hide_resolved'|trans }}"
                         data-label-show="{{ 'review.document.threads.show_resolved'|trans }}"
                         data-action="comment-anchor#toggleResolved"
-                        hidden>{{ 'review.document.threads.hide_resolved'|trans }}</button>
+                        hidden>
+                    <twig:ux:icon name="lucide:eye-off" class="lp-review-actions__resolved-icon lp-review-actions__resolved-icon--hide w-4 h-4 shrink-0" />
+                    <twig:ux:icon name="lucide:eye" class="lp-review-actions__resolved-icon lp-review-actions__resolved-icon--show w-4 h-4 shrink-0" />
+                    <span data-resolved-toggle-label>{{ 'review.document.threads.hide_resolved'|trans }}</span>
+                </button>
             </div>
+
+            {# A Symfony form, hidden until the reader opts in. The Stimulus
+               controller fills the anchor fields and Turbo applies the returned
+               stream. It sits directly under the action row, because an
+               untargeted comment opens in place here rather than over the page;
+               a targeted one is absolutely positioned at the selection, and
+               .lp-review-doc is the offset parent either way. #}
+            {{ form_start(addCommentForm, {attr: {
+                class: 'lp-comment-composer',
+                'data-comment-anchor-target': 'composer',
+                'data-controller': 'keyboard-submit',
+                'data-action': 'turbo:submit-end->comment-anchor#onSubmitEnd keydown->keyboard-submit#submit',
+                hidden: true,
+            }}) }}
+                {{ form_widget(addCommentForm.quote) }}
+                {{ form_widget(addCommentForm.prefix) }}
+                {{ form_widget(addCommentForm.suffix) }}
+                <blockquote class="lp-composer-quote" data-comment-anchor-target="quotePreview"></blockquote>
+                <span class="lp-composer-general">{{ 'review.document.comment.general'|trans }}</span>
+                {{ form_widget(addCommentForm.body) }}
+                <div class="lp-comment-composer__actions">
+                    <span class="lp-composer-hint">{{ 'review.document.comment.hint'|trans }}</span>
+                    <span
+                        id="composer-error"
+                        class="lp-comment-composer__error"
+                        data-comment-anchor-target="composerError"
+                    ></span>
+                    <button
+                        type="button"
+                        class="lp-btn lp-btn--ghost lp-btn--sm"
+                        data-action="comment-anchor#hideComposer"
+                    >{{ 'review.document.comment.cancel'|trans }}</button>
+                    <button
+                        type="submit"
+                        class="lp-btn lp-btn--primary lp-btn--sm"
+                        data-action="comment-anchor#submitComment"
+                    >{{ 'review.document.comment.submit'|trans }}</button>
+                </div>
+            {{ form_end(addCommentForm) }}
             {% endif %}
 
             {# Also on a diff that accepts comments: the add-comment stream
@@ -572,42 +623,6 @@
                 {{ form_widget(strikePassageForm.prefix) }}
                 {{ form_widget(strikePassageForm.suffix) }}
             {{ form_end(strikePassageForm) }}
-
-            {# Floating composer — a Symfony form, hidden until the user opts in.
-               The Stimulus controller positions it and fills the anchor fields;
-               Turbo submits it and applies the returned stream. #}
-            {{ form_start(addCommentForm, {attr: {
-                class: 'lp-comment-composer',
-                'data-comment-anchor-target': 'composer',
-                'data-controller': 'keyboard-submit',
-                'data-action': 'turbo:submit-end->comment-anchor#onSubmitEnd keydown->keyboard-submit#submit',
-                hidden: true,
-            }}) }}
-                {{ form_widget(addCommentForm.quote) }}
-                {{ form_widget(addCommentForm.prefix) }}
-                {{ form_widget(addCommentForm.suffix) }}
-                <blockquote class="lp-composer-quote" data-comment-anchor-target="quotePreview"></blockquote>
-                <span class="lp-composer-general">{{ 'review.document.comment.general'|trans }}</span>
-                {{ form_widget(addCommentForm.body) }}
-                <div class="lp-comment-composer__actions">
-                    <span class="lp-composer-hint">{{ 'review.document.comment.hint'|trans }}</span>
-                    <span
-                        id="composer-error"
-                        class="lp-comment-composer__error"
-                        data-comment-anchor-target="composerError"
-                    ></span>
-                    <button
-                        type="button"
-                        class="lp-btn lp-btn--ghost lp-btn--sm"
-                        data-action="comment-anchor#hideComposer"
-                    >{{ 'review.document.comment.cancel'|trans }}</button>
-                    <button
-                        type="submit"
-                        class="lp-btn lp-btn--primary lp-btn--sm"
-                        data-action="comment-anchor#submitComment"
-                    >{{ 'review.document.comment.submit'|trans }}</button>
-                </div>
-            {{ form_end(addCommentForm) }}
 
             {# Floating rewording composer — the same card as the comment composer,
                but leading with what the passage should become. The struck original

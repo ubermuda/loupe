@@ -19,12 +19,16 @@ import { smoothScrollTo } from '../lib/smooth_scroll.js';
  *     <del data-diff-navigation-target="hunk" tabindex="-1"> … </del>
  */
 export default class extends Controller {
-    static targets = ['hunk', 'counter'];
+    static targets = ['hunk', 'counter', 'previousButton', 'nextButton'];
     static values = { position: String };
+
+    /** How long a key press keeps its button lit, in milliseconds. */
+    static PRESS_FLASH_MS = 160;
 
     connect() {
         this.currentIndex = -1;
         this.cancelScroll = () => {};
+        this.pressTimers = new Map();
         this.onKeydown = this.handleKeydown.bind(this);
         document.addEventListener('keydown', this.onKeydown);
     }
@@ -32,6 +36,7 @@ export default class extends Controller {
     disconnect() {
         document.removeEventListener('keydown', this.onKeydown);
         this.cancelScroll();
+        this.clearPressFlashes();
         // Turbo caches the page as it stands, so a marker left here would come
         // back on the restored snapshot with nothing driving it.
         this.clearCurrent();
@@ -59,11 +64,46 @@ export default class extends Controller {
 
         if ('j' === event.key) {
             event.preventDefault();
+            this.flashPress(
+                this.hasNextButtonTarget ? this.nextButtonTarget : null,
+            );
             this.next();
         } else if ('k' === event.key) {
             event.preventDefault();
+            this.flashPress(
+                this.hasPreviousButtonTarget ? this.previousButtonTarget : null,
+            );
             this.previous();
         }
+    }
+
+    /**
+     * Lights the button the key stands for, so the shortcut and the pointer
+     * report the same press. Holding the key restarts the timer rather than
+     * queueing another, which keeps the button lit for as long as it repeats.
+     */
+    flashPress(button) {
+        if (null === button) {
+            return;
+        }
+
+        window.clearTimeout(this.pressTimers.get(button));
+        button.classList.add('lp-btn--pressed');
+        this.pressTimers.set(
+            button,
+            window.setTimeout(() => {
+                button.classList.remove('lp-btn--pressed');
+                this.pressTimers.delete(button);
+            }, this.constructor.PRESS_FLASH_MS),
+        );
+    }
+
+    clearPressFlashes() {
+        for (const [button, timer] of this.pressTimers) {
+            window.clearTimeout(timer);
+            button.classList.remove('lp-btn--pressed');
+        }
+        this.pressTimers.clear();
     }
 
     isTypingTarget(target) {
