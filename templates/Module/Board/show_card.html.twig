@@ -73,7 +73,7 @@
                 <a class="lp-card-docs__link" href="{{ path('app_document_review', {projectId: card.project.id, documentId: link.document.id}) }}">
                     {{ link.document.title }}
                 </a>
-                <span class="lp-tag">{{ ('review.document.status.' ~ link.document.status.value)|trans }}</span>
+                <span class="lp-tag">{{ link.document.status.translationKey()|trans }}</span>
             </li>
             {% endfor %}
         </ul>
