@@ -1475,12 +1475,8 @@
         @apply text-sm text-fg-mute;
     }
     /* Sits above the comment column, so it reads as a control on the comments
-       rather than on the prose. Below lg the review menu carries the only copy.
-       `max-lg:` and not a plain `hidden`, because above lg this class must
-       declare no display: the controller reveals the button with the `hidden`
-       attribute, which a display utility in this layer outranks. */
-    /* Carries no display: this is a .lp-btn, and the two rules that hide it sit
-       unlayered below the coarse-pointer block. */
+       rather than on the prose. It carries no display: this is a .lp-btn, and
+       the two rules that hide it are unlayered, below the coarse-pointer block. */
     .lp-review-actions__resolved {
         @apply absolute left-169 whitespace-nowrap;
     }
