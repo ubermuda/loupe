@@ -16,12 +16,11 @@ use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
  * Symfony's tagged_iterator does not guarantee a stable iteration order, so
  * ordering is explicit via deletionOrder() rather than relying on service
  * registration order. The one real cross-purger constraint today:
- * ProjectAccountPurger is the only ORM-based purger, and it calls
- * EntityManager::clear() as it iterates the user's projects (a pre-existing
- * SiteReview identity-map staleness workaround) — it MUST run first (lowest
- * deletionOrder()), and every purger that runs after it must treat $user as
- * potentially detached: read $user->id as a scalar, never pass $user itself
- * into an ORM query.
+ * ProjectAccountPurger is the only ORM-based purger, and ProjectDeleter clears
+ * the EntityManager on every project it deletes. That purger MUST run first
+ * (lowest deletionOrder()), and every purger that runs after it must treat
+ * $user as potentially detached: read $user->id as a scalar, never pass $user
+ * itself into an ORM query.
  */
 #[AutoconfigureTag('app.account_data_purger')]
 interface AccountDataPurgerInterface
