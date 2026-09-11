@@ -35,6 +35,9 @@ entry.
 
 ## [Unreleased]
 
+- (#427) — **Fixed:** a fresh clone now boots before Tailwind has ever been
+  built, because `var/tailwind/` ships in the repository as an empty directory.
+
 - (#420) — **Changed:** the development php-fpm now caches every checkout's
   code rather than the first ~32,000 files it happened to see, so worktrees no
   longer recompile on every request, and `/fpm-status` reports the shared pool.
