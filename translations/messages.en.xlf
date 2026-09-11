@@ -2150,7 +2150,7 @@
             </trans-unit>
             <trans-unit id="project.connect.tool.document_list">
                 <source>project.connect.tool.document_list</source>
-                <target>List all documents in the token's project, with their current status and version.</target>
+                <target>List the token's project documents, each with its status, version and that version's description. Search the full text, or filter by status, tag or series.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.document_get">
                 <source>project.connect.tool.document_get</source>
