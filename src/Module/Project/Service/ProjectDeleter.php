@@ -52,5 +52,12 @@ final readonly class ProjectDeleter
             ['projectId' => $projectId],
             new AuditSubject('project', $projectId),
         );
+
+        // Last, so the record above still reads a managed actor. The listeners
+        // delete with bulk DQL, which bypasses the identity map, so a stale
+        // object of one of those classes otherwise reaches the next flush(),
+        // where Doctrine reads its deleted project as a new entity. This
+        // detaches everything, so a second delete needs a re-fetched project.
+        $this->em->clear();
     }
 }
