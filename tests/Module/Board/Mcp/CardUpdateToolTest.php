@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Mcp;
 
-use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardPayload;
 use App\Module\Board\Mcp\CardUpdateTool;
@@ -102,11 +102,11 @@ final class CardUpdateToolTest extends KernelTestCase
     public function test_reporter_cannot_be_changed(): void
     {
         $created = $this->card('card-update-reporter');
-        self::assertSame(CardReporter::Agent->value, $created['reporter']);
+        self::assertSame(CardOrigin::Agent->value, $created['reporter']);
 
         $card = ($this->tool)($created['cardId'], title: 'Renamed');
 
-        self::assertSame(CardReporter::Agent->value, $card['reporter']);
+        self::assertSame(CardOrigin::Agent->value, $card['reporter']);
         self::assertArrayNotHasKey('reporter', $this->publishedParameters());
     }
 

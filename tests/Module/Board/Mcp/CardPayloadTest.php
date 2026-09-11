@@ -6,8 +6,8 @@ namespace App\Tests\Module\Board\Mcp;
 
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Mcp\CardPayload;
@@ -58,7 +58,7 @@ final class CardPayloadTest extends TestCase
             type: CardType::Feature,
             priority: CardPriority::High,
             status: CardStatus::Backlog,
-            reporter: CardReporter::Agent,
+            origin: CardOrigin::Agent,
         );
     }
 }

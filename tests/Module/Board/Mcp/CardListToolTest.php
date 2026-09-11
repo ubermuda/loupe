@@ -6,8 +6,8 @@ namespace App\Tests\Module\Board\Mcp;
 
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
+use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardListTool;
@@ -112,6 +112,22 @@ final class CardListToolTest extends KernelTestCase
         $result = ($this->tool)(reporter: 'reviewer');
 
         self::assertSame(['From the widget'], array_column($result['cards'], 'title'));
+    }
+
+    /**
+     * The row an image without the reporter column wrote. It carries origin
+     * alone, and both the filter and the payload have to fall back to it.
+     */
+    public function test_a_row_with_no_reporter_still_reads_and_filters_by_its_origin(): void
+    {
+        $this->boardWith('card-list-legacy-row');
+        $legacy = ($this->createTool)('Written by an older image', 'Body', 'bug', 'low', reporter: 'human');
+        $this->clearStoredReporter($legacy['cardId']);
+
+        $result = ($this->tool)(reporter: 'human');
+
+        self::assertSame(['Written by an older image'], array_column($result['cards'], 'title'));
+        self::assertSame('human', $result['cards'][0]['reporter']);
     }
 
     public function test_an_unknown_reporter_is_refused(): void
@@ -270,6 +286,16 @@ final class CardListToolTest extends KernelTestCase
         return $project;
     }
 
+    /** Makes a row look like one an image without the reporter column wrote. */
+    private function clearStoredReporter(string $cardId): void
+    {
+        $this->em->getConnection()->executeStatement(
+            'UPDATE board_cards SET reporter = NULL WHERE id = :id',
+            ['id' => $cardId],
+        );
+        $this->em->clear();
+    }
+
     /** The widget's own path, which is the only one that may write a reviewer card. */
     private function widgetCard(Project $project, string $title): void
     {
@@ -282,7 +308,7 @@ final class CardListToolTest extends KernelTestCase
             body: 'Body',
             type: CardType::Idea,
             priority: CardPriority::Low,
-            reporter: CardReporter::Reviewer,
+            reporter: CardOrigin::Reviewer,
         ));
     }
 }

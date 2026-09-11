@@ -63,7 +63,7 @@ final readonly class CreateCardHandler
                 type: $command->type,
                 priority: $command->priority,
                 status: $command->status,
-                reporter: $command->reporter,
+                origin: $command->reporter,
                 position: CardStatus::Done === $command->status
                     ? 0
                     : $this->cards->nextPosition($command->project, $command->status, $command->priority),

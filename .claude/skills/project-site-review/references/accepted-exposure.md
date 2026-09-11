@@ -16,7 +16,7 @@ each cost, including the observation that it reverses the reasoning behind
 What bounds it. `board.enabled` ships off, and both endpoints re-check it, so an
 instance that never switched the board on exposes nothing. Creation takes no
 `status` and no `pullRequestUrls`, so a caller cannot file into a column or
-attach a URL of their choosing. A card records `CardReporter::Reviewer`, which
+attach a URL of their choosing. A card records `CardOrigin::Reviewer`, which
 says the app could not name who raised it. The write joins the
 `site_review_write` limiter through `WidgetApiPaths`, so the board is not an
 unbounded spam target. Nothing bounds the read beyond the twenty-card page.

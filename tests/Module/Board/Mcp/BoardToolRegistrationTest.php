@@ -128,17 +128,30 @@ final class BoardToolRegistrationTest extends KernelTestCase
         self::assertFalse($properties['full']['default']);
     }
 
-    /** The rename is a breaking change to the published surface, so both names are asserted. */
-    public function test_the_board_tools_publish_reporter_and_no_longer_publish_origin(): void
+    public function test_the_board_tools_publish_reporter(): void
     {
         foreach ([CardCreateTool::NAME, CardListTool::NAME] as $toolName) {
             $properties = $this->registry->getTool($toolName)->tool->inputSchema['properties'];
 
             self::assertArrayHasKey('reporter', $properties, $toolName);
-            self::assertArrayNotHasKey('origin', $properties, $toolName);
             // Both tools take it as ?string, which publishes as a null/string union.
             self::assertContains('string', (array) $properties['reporter']['type'], $toolName);
+            self::assertNotContains('reporter', $properties['required'] ?? [], $toolName);
         }
+    }
+
+    /**
+     * Release 1 of the rename keeps the old name on the write tool alone, so an
+     * agent that still sends it is not broken by this release. The filter is new,
+     * so it never carried the old name.
+     */
+    public function test_only_card_create_still_publishes_the_deprecated_origin(): void
+    {
+        $create = $this->registry->getTool(CardCreateTool::NAME)->tool->inputSchema['properties'];
+        $list = $this->registry->getTool(CardListTool::NAME)->tool->inputSchema['properties'];
+
+        self::assertArrayHasKey('origin', $create);
+        self::assertArrayNotHasKey('origin', $list);
     }
 
     public function test_card_update_takes_no_reporter(): void

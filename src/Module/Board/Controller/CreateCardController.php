@@ -8,8 +8,8 @@ use App\Controller\AppController;
 use App\Exception\DomainErrors;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
+use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Form\CreateCardFormType;
@@ -61,7 +61,7 @@ final class CreateCardController extends AppController
                     priority: $data->priority ?? CardPriority::Medium,
                     status: $data->status ?? CardStatus::Backlog,
                     // A person filled this form in, whatever an agent may later do to the card.
-                    reporter: CardReporter::Human,
+                    reporter: CardOrigin::Human,
                     pullRequestUrls: CreateCardRequest::toUrlList($data->pullRequestUrls),
                 ));
 

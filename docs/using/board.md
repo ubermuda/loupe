@@ -131,6 +131,10 @@ An MCP caller may claim `human` or `agent` only. `card_create` refuses
 other way round: `card_list` matches all three, so the widget's cards stay
 readable.
 
+The field was called `origin` until this release. `card_create` still accepts
+`origin` for one release, so an agent written against the old name keeps
+working. Move to `reporter`. When a call sends both, `reporter` wins.
+
 ### The number is for people, the id is for tools
 
 The number is the handle a person uses. Say "card 42" in conversation, in a pull
@@ -187,7 +191,7 @@ An agent drives the board through the MCP endpoint. See
 
 | Tool | Arguments |
 |---|---|
-| `card_create` | `title`, `body`, `type` and `priority` are required. `status`, `reporter` and `pullRequestUrls` are optional. |
+| `card_create` | `title`, `body`, `type` and `priority` are required. `status`, `reporter` and `pullRequestUrls` are optional. `origin` is the old name for `reporter` and is deprecated. |
 | `card_list` | `status`, `type`, `priority` and `reporter`, each optional, each a filter. `page`, `perPage` and `full` are optional as well. |
 | `card_get` | `cardId`. |
 | `card_update` | `cardId` is required. `title`, `body`, `type`, `priority`, `status` and `pullRequestUrls` are optional. |

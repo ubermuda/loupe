@@ -6,9 +6,9 @@ namespace App\Tests\Module\Board\Service;
 
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
@@ -62,7 +62,7 @@ final class CardExporterTest extends KernelTestCase
             type: CardType::Bug,
             priority: CardPriority::High,
             status: CardStatus::Done,
-            reporter: CardReporter::Human,
+            origin: CardOrigin::Human,
             position: 7,
             createdAt: $createdAt,
         );

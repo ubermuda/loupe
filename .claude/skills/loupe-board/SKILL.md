@@ -102,6 +102,9 @@ you found on your own is `agent`. An unclear or unattributable card is also
 `card_create` refuses `reviewer`. The site-review widget writes that value, and
 it says the app could not name who raised the card.
 
+The field was called `origin`. `card_create` still accepts that name for one
+release, and `reporter` wins when you send both. Write `reporter`.
+
 `reporter` never changes after the card exists. `card_update` has no `reporter`
 field, so choose the value when you create the card.
 
@@ -177,7 +180,7 @@ An agent or a person moves the card to `done`.
 | Reading one `card_list` call as the whole board | It answers one page. Walk the pages while `hasMore` is true. |
 | Expecting a body from `card_list` | A row is a summary. Pass `full`, or call `card_get`. |
 | Fixing a wrong `reporter` with `card_update` | `reporter` is set once, when the card is created. |
-| Passing `origin` to `card_create` | The field is now `reporter`. `origin` is refused. |
+| Passing `origin` to `card_create` | It still works for one release. Write `reporter`. |
 | Passing `reporter: reviewer` to `card_create` | Only the site-review widget writes that value. Filtering on it is fine. |
 | Expecting a merged pull request to move its card | The app never contacts the forge. Move the card yourself. |
 | Writing "Task 3" or "phase 2" in a body | Those names die with the session. Name the class, the route or the file. |

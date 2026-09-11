@@ -7,8 +7,8 @@ namespace App\Module\Board\Controller\Api;
 use App\Controller\AppController;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
+use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
-use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
@@ -63,7 +63,7 @@ final class CreateCardController extends AppController
             type: $payload->type ?? CardType::Feature,
             priority: $payload->priority ?? CardPriority::Medium,
             // Not Human: nobody authenticated the person who typed this.
-            reporter: CardReporter::Reviewer,
+            reporter: CardOrigin::Reviewer,
         ));
 
         return $this->json([

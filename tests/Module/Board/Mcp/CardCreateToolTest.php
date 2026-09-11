@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Mcp;
 
-use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Tests\Support\McpTokenScenario;
@@ -55,7 +55,7 @@ final class CardCreateToolTest extends KernelTestCase
         self::assertSame('feature', $card['type']);
         self::assertSame('high', $card['priority']);
         self::assertSame('backlog', $card['status']);
-        self::assertSame(CardReporter::Agent->value, $card['reporter']);
+        self::assertSame(CardOrigin::Agent->value, $card['reporter']);
         self::assertNull($card['completedAt']);
         self::assertSame([], $card['pullRequests']);
     }
@@ -67,7 +67,28 @@ final class CardCreateToolTest extends KernelTestCase
 
         $card = ($this->tool)('Dictated', 'Body', 'idea', 'low', reporter: 'human');
 
-        self::assertSame(CardReporter::Human->value, $card['reporter']);
+        self::assertSame(CardOrigin::Human->value, $card['reporter']);
+    }
+
+    /** Release 1 keeps the old parameter working, so an agent mid-upgrade is not broken. */
+    public function test_the_deprecated_origin_parameter_still_sets_the_reporter(): void
+    {
+        $this->enableBoard();
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-create-origin-alias'));
+
+        $card = ($this->tool)('Old caller', 'Body', 'idea', 'low', origin: 'human');
+
+        self::assertSame(CardOrigin::Human->value, $card['reporter']);
+    }
+
+    public function test_reporter_wins_when_a_caller_sends_both_names(): void
+    {
+        $this->enableBoard();
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-create-both-names'));
+
+        $card = ($this->tool)('Both', 'Body', 'idea', 'low', reporter: 'human', origin: 'agent');
+
+        self::assertSame(CardOrigin::Human->value, $card['reporter']);
     }
 
     /** The widget owns `reviewer`, because it says the app could not name who raised the card. */
