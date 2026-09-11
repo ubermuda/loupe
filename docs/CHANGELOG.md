@@ -35,6 +35,14 @@ entry.
 
 ## [Unreleased]
 
+- (#418) — **Fixed:** a comment thread in the review rail keeps its author row
+  in place when you open it, and carries its age and its status on that row
+  rather than on a second row that appeared on expand.
+- (#418) — **Fixed:** the site-review widget finds an element again when the
+  page has dropped a class the stored anchor recorded, such as one the page adds
+  while an element is hovered or open.
+- (#418) — **Fixed:** a document linked to a board card shows its status as
+  words rather than as a translation key.
 - (#417) — **Added:** you can resolve a site-review comment from the widget,
   either in its list or on the card that opens from a pin. The comment leaves
   the widget and moves to Resolved on the project's site-review page.
