@@ -23,21 +23,27 @@ unbounded spam target. Nothing bounds the read beyond the twenty-card page.
 
 ## The comment half
 
-What is accepted. Any holder of a widget token can read, edit and delete every
-**pending** comment in that token's project, whoever wrote it.
+What is accepted. Any holder of a widget token can read, edit, resolve and
+delete every **pending** comment in that token's project, whoever wrote it.
 `GET /api/site-review/review` returns bodies, URLs, selectors and quoted page
-text for the whole project, not the current page. `PATCH` and
-`DELETE /api/site-review/comments/{id}` accept any pending id. The token is a
-`data-token` attribute in page HTML, so this covers anyone who can view an
-instrumented page. The acceptance covers the staging-and-preview-only deployment
+text for the whole project, not the current page. `PATCH`,
+`DELETE /api/site-review/comments/{id}` and
+`POST /api/site-review/comments/{id}/resolve` accept any pending id. The token
+is a `data-token` attribute in page HTML, so this covers anyone who can view an
+instrumented page.
+
+Resolve joined the list after delete, and widens nothing in kind: a holder who
+can delete a comment outright can already do worse than sign it off. It is also
+the only one of the four a person can undo, from the project's site-review page. The acceptance covers the staging-and-preview-only deployment
 model and no further. A deployment that serves the widget to the public has
 handed out all of that, and falls outside it.
 
 Why it is possible. `SiteReviewComment` has no author column:
 `AddCommentController` resolves a *project* from the token and stores nothing
 about the submitter, so nothing can scope a mutation to its writer.
-`UpdateCommentHandler` and `DeleteCommentHandler` both resolve through
-`findOnePending($commentId, $project)`, which is project scope only.
+`UpdateCommentHandler`, `DeleteCommentHandler` and `ResolveCommentHandler` all
+resolve through `findOnePending($commentId, $project)`, which is project scope
+only.
 `SiteReviewCorsSubscriber` reflects the request `Origin`, so the endpoints work
 from any page.
 

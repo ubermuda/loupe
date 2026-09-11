@@ -195,6 +195,19 @@
                 })),
             };
         }
+        // Before the generic POST branch: resolving ends with an id rather than
+        // naming the collection, so it would otherwise store a phantom comment.
+        if (path.endsWith('/resolve')) {
+            const target = path.slice(0, -'/resolve'.length);
+            const at = demoStore.comments.findIndex(
+                (comment) =>
+                    comment.id === target.slice(target.lastIndexOf('/') + 1),
+            );
+            if (at === -1)
+                throw Object.assign(new Error('HTTP 404'), { status: 404 });
+            demoStore.comments.splice(at, 1);
+            return null;
+        }
         if (method === 'POST') {
             const commentId = `demo-${demoStore.nextId++}`;
             demoStore.comments.push({ id: commentId, ...body });
@@ -1050,6 +1063,9 @@
       .lp-item-page{display:inline-flex;align-items:center;gap:4px;margin-top:6px;height:19px;padding:0 9px;background:transparent;border:1px solid var(--hairline);color:var(--muted);border-radius:999px;font-family:inherit;font-size:10.5px;font-weight:600;max-width:100%;cursor:pointer}
       .lp-item-page:hover{background:var(--chip-bg);color:var(--accent-ink)}
       .lp-item-page-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      /* Sits before Edit, because it is the one that finishes a comment. */
+      .lp-resolve{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
+      .lp-resolve:hover{opacity:1;background:var(--chip-bg);color:var(--accent-ink)}
       .lp-edit{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
       .lp-edit:hover{opacity:1;background:var(--chip-bg);color:var(--accent-ink)}
       .lp-del{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
@@ -1228,6 +1244,8 @@
       .lp-pop-degraded{margin-top:6px;font-size:11px;line-height:1.4;color:#b45309;word-break:break-word}
       .lp-pop-row{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:10px}
       .lp-pop-chip{display:inline-flex;align-items:center;height:19px;padding:0 9px;background:var(--chip-bg);color:var(--chip-text);border-radius:999px;font-size:10.5px;font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .lp-pop-resolve{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
+      .lp-pop-resolve:hover{opacity:1;background:var(--chip-bg);color:var(--accent-ink)}
       .lp-pop-edit{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
       .lp-pop-edit:hover{opacity:1;background:var(--chip-bg);color:var(--accent-ink)}
       .lp-pop-del{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
@@ -1826,6 +1844,7 @@
           <div class="lp-pop-row">
             ${label ? `<span class="lp-pop-chip">${escapeHtml(label)}</span>` : ''}
             <div style="flex:1"></div>
+            <button class="lp-pop-resolve" data-pin-resolve="${index}" aria-label="Resolve">${ICON.check(14, 2.2)}</button>
             <button class="lp-pop-edit" data-pin-edit="${index}" aria-label="Edit">${ICON.edit(14)}</button>
             <button class="lp-pop-del" data-pin-del="${index}" aria-label="Delete">${ICON.trash(14)}</button>
           </div>
@@ -1884,6 +1903,13 @@
         if (edit)
             edit.addEventListener('click', () =>
                 openEditComposer(commentIndex),
+            );
+        // No confirm step, unlike delete: resolving keeps the comment and the
+        // owner can reopen it from the project's site-review page.
+        const resolve = holder.querySelector('[data-pin-resolve]');
+        if (resolve)
+            resolve.addEventListener('click', () =>
+                resolveComment(commentIndex),
             );
     };
     const bindConfirm = (el, index) => {
@@ -2471,6 +2497,7 @@
                     `<div class="lp-item-body"><div class="lp-item-text"></div><span class="lp-chip" style="display:none"></span>` +
                     `<button class="lp-item-page" style="display:none" aria-label="Go to the page this comment was made on">` +
                     `${ICON.arrowOut(11)}<span class="lp-item-page-label"></span></button></div>` +
+                    `<button class="lp-resolve" aria-label="Resolve comment">${ICON.check(14, 2.2)}</button>` +
                     `<button class="lp-edit" aria-label="Edit comment">${ICON.edit(14)}</button>` +
                     `<button class="lp-del" aria-label="Delete comment">${ICON.trash(14)}</button>`;
                 row.addEventListener('mouseenter', () => {
@@ -2493,6 +2520,9 @@
                         const target = comments[index];
                         if (target && target.url) location.href = target.url;
                     },
+                );
+                row.querySelector('.lp-resolve').addEventListener('click', () =>
+                    resolveComment(index),
                 );
                 row.querySelector('.lp-edit').addEventListener('click', () =>
                     openEditComposer(index),
@@ -3248,6 +3278,35 @@
             }
         }
         state.saving = false;
+        sync();
+    };
+
+    // Resolving says the reviewer is done with a comment. It leaves this list,
+    // which holds the pending ones, and the owner can reopen it from the
+    // project's site-review page. It shares `state.deleting` with delete, so the
+    // footer and both rows disable together while one request is in flight.
+    const resolveComment = async (index) => {
+        const target = comments[index];
+        if (!target || state.deleting) return;
+        state.deleting = true;
+        sync();
+        try {
+            await ready;
+            await api('POST', `/api/site-review/comments/${target.id}/resolve`);
+            comments.splice(index, 1);
+        } catch (error) {
+            if (authFailed(error)) enterFatal(error);
+            else {
+                state.actionError = error;
+                if (error && error.status === 404) await refresh();
+            }
+        }
+        state.deleting = false;
+        state.confirmDeleteId = null;
+        state.pinConfirmId = null;
+        state.hoverId = null;
+        state.hoverPinId = null;
+        if (!comments.length) state.listExpanded = false;
         sync();
     };
 

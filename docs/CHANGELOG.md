@@ -35,6 +35,11 @@ entry.
 
 ## [Unreleased]
 
+- (#417) — **Added:** you can resolve a site-review comment from the widget,
+  either in its list or on the card that opens from a pin. The comment leaves
+  the widget and moves to Resolved on the project's site-review page.
+- (#417) — **Added:** the contents rail stands beside a version diff, and starts
+  level with the document rather than with the title above it.
 - (#417) — **Added:** the version diff page carries a contents panel, listing
   the headings of the view you are reading, including the ones the revision
   removed.
