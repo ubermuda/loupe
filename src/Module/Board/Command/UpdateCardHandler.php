@@ -9,6 +9,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardMover;
+use App\Module\Board\Service\CardSearchIndexer;
 use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestUrlResolver;
 use Doctrine\DBAL\LockMode;
@@ -24,6 +25,7 @@ final readonly class UpdateCardHandler
         private CardMover $mover,
         private PullRequestUrlResolver $pullRequests,
         private DocumentLinkResolver $documentLinks,
+        private CardSearchIndexer $searchIndexer,
         private EntityManagerInterface $em,
         private Auditor $auditor,
     ) {
@@ -100,6 +102,12 @@ final readonly class UpdateCardHandler
 
             $card->updatedAt = new \DateTimeImmutable();
             $this->em->flush();
+
+            // Only the two columns the vector is built from. A move or a link
+            // change leaves the searchable text alone, so it costs no reindex.
+            if ($titleChanged || $bodyChanged) {
+                $this->searchIndexer->index($card);
+            }
 
             return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged);
         });

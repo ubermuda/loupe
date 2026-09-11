@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Repository;
 
+use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
@@ -58,6 +59,87 @@ class CardRepository extends ServiceEntityRepository
 
         /* @var list<Card> */
         return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * One page of the project's cards matching a full-text query, best match
+     * first.
+     *
+     * Title and body are both searched, and every column is in scope. A done
+     * card is the answer to "has anyone raised this already?" as often as an
+     * open one, which is the opposite of what the picker's
+     * {@see searchOpenForProject()} wants.
+     *
+     * @return Paginator<Card>
+     */
+    public function searchByProject(Project $project, string $query, int $page, int $perPage): Paginator
+    {
+        $qb = $this->createQueryBuilder('c')
+            ->andWhere('c.project = :project')
+            ->setParameter('project', $project)
+            ->setFirstResult(($page - 1) * $perPage)
+            ->setMaxResults($perPage);
+
+        // One branch per language the project's cards hold, each with a constant
+        // configuration, because Postgres uses the GIN index only when the
+        // tsquery is the same for every row. Deriving the configuration from the
+        // row instead turns the match into a filter over every card.
+        $branches = [];
+        foreach ($this->searchLanguagesOf($project) as $index => $language) {
+            // The configuration is concatenated rather than bound: Postgres
+            // overloads websearch_to_tsquery as (regconfig, text) and (text), so
+            // a bound parameter has no type to resolve against and picks the
+            // wrong arity. It comes from the enum, never from user input.
+            $branches[] = \sprintf(
+                "(c.searchLanguage = :searchLanguage%d AND TSMATCH(c.searchVector, WEBSEARCH_TO_TSQUERY('%s', :search)) = true)",
+                $index,
+                $language->value,
+            );
+            $qb->setParameter('searchLanguage'.$index, $language);
+        }
+
+        $qb->andWhere('('.implode(' OR ', $branches).')')
+            ->setParameter('search', $query);
+
+        // The rank runs on the matches only, so the per-row cast costs nothing
+        // here. CAST because websearch_to_tsquery has no (varchar, text)
+        // overload, only (regconfig, text).
+        $qb->orderBy('TS_RANK(c.searchVector, WEBSEARCH_TO_TSQUERY(CAST(c.searchLanguage AS regconfig), :search))', 'DESC')
+            // Ranks tie often, and without a unique tiebreak an offset page can
+            // repeat or skip a card.
+            ->addOrderBy('c.number', 'DESC');
+
+        // No collection is fetch-joined, so the page LIMIT counts cards and the
+        // extra distinct-id query a fetch-join needs would buy nothing.
+        return new Paginator($qb->getQuery(), fetchJoinCollection: false);
+    }
+
+    /**
+     * The distinct languages the project's cards are stemmed in. An index-only
+     * scan of idx_board_cards_project_search_language, which is why the index
+     * exists.
+     *
+     * A project with no cards answers with the default, so the search query
+     * always has one branch to build. It matches nothing either way.
+     *
+     * @return list<SearchLanguage>
+     */
+    public function searchLanguagesOf(Project $project): array
+    {
+        /** @var list<SearchLanguage|string> $rows */
+        $rows = $this->createQueryBuilder('c')
+            ->select('DISTINCT c.searchLanguage')
+            ->andWhere('c.project = :project')
+            ->setParameter('project', $project)
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        $languages = array_map(
+            static fn (SearchLanguage|string $row): SearchLanguage => $row instanceof SearchLanguage ? $row : SearchLanguage::from($row),
+            $rows,
+        );
+
+        return [] === $languages ? [SearchLanguage::DEFAULT] : $languages;
     }
 
     /**

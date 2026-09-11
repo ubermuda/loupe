@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Entity;
 
+use App\Doctrine\SearchLanguage;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
@@ -12,6 +13,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use MartinGeorgiev\Doctrine\DBAL\Type as PostgresType;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
@@ -19,6 +21,13 @@ use Symfony\Component\Uid\Uuid;
 // Doctrine indexes the project join column and nothing else. The board's only
 // read query filters on project and status, then sorts by priority and position.
 #[ORM\Index(name: 'idx_board_cards_board_order', columns: ['project_id', 'status', 'priority', 'position'])]
+// No access method: DBAL's Postgres platform ignores index flags, and the
+// migration creates it USING gin. flags: ['gin'] would make the comparator emit
+// a DROP plus a plain CREATE INDEX, downgrading it to a B-tree that @@ never uses.
+#[ORM\Index(name: 'idx_board_cards_search_vector', columns: ['search_vector'])]
+// Read by card_search, which asks a project which languages its cards hold
+// before it builds one constant tsquery per language.
+#[ORM\Index(name: 'idx_board_cards_project_search_language', columns: ['project_id', 'search_language'])]
 #[ORM\Table(name: 'board_cards')]
 #[ORM\UniqueConstraint(name: 'uniq_board_card_project_number', columns: ['project_id', 'number'])]
 class Card implements ProjectScopedSubject
@@ -41,6 +50,22 @@ class Card implements ProjectScopedSubject
 
     #[ORM\Column]
     public \DateTimeImmutable $updatedAt;
+
+    /**
+     * Title and body, stemmed and weighted, as one searchable vector. It sits on
+     * the card rather than in a table of its own because card_search already
+     * filters this table by project, so the GIN scan and the project predicate
+     * stay together.
+     *
+     * The cost is on reads: the column is now in the SELECT list of every Card
+     * query in the app.
+     *
+     * Only Postgres can build a tsvector, so the ORM never writes this column:
+     * CardSearchIndexer maintains it, and the mapping exists so DQL can name it.
+     * Null until a card is next written — see the backfill migration.
+     */
+    #[ORM\Column(name: 'search_vector', type: PostgresType::TSVECTOR, nullable: true, insertable: false, updatable: false)]
+    public ?string $searchVector = null;
 
     /** @var Collection<int, CardPullRequest> */
     #[ORM\OneToMany(targetEntity: CardPullRequest::class, mappedBy: 'card', cascade: ['persist'], orphanRemoval: true)]
@@ -85,6 +110,15 @@ class Card implements ProjectScopedSubject
 
         #[ORM\Column]
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
+
+        /**
+         * The configuration $searchVector is built with, and the one a query is
+         * parsed in for this row. Both sides read it off the same row: a vector
+         * stemmed as French and a query parsed as English never meet. Readonly,
+         * so the pair cannot drift once CardSearchIndexer has written it.
+         */
+        #[ORM\Column(name: 'search_language', length: 20, enumType: SearchLanguage::class, options: ['default' => SearchLanguage::DEFAULT->value])]
+        public readonly SearchLanguage $searchLanguage = SearchLanguage::DEFAULT,
     ) {
         $this->pullRequests = new ArrayCollection();
         $this->documents = new ArrayCollection();
