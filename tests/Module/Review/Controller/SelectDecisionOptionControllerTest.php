@@ -65,6 +65,24 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         self::assertSelectorExists('[data-decision-target="decisionId"]');
     }
 
+    /**
+     * `form_end` renders whatever the template did not, as a row with its label.
+     * That is how "Version number" reached this hidden form as visible,
+     * untranslated text.
+     */
+    public function test_the_hidden_decision_form_renders_no_label(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, $this->reviewPath($document));
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('#select_decision_option_form_versionNumber'));
+        self::assertCount(0, $crawler->filter('label[for^="select_decision_option_form_"]'));
+    }
+
     public function test_answering_records_the_choice_and_shows_it_on_the_next_visit(): void
     {
         $client = static::createClient();

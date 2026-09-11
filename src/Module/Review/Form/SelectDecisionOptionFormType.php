@@ -47,9 +47,9 @@ class SelectDecisionOptionFormType extends AbstractType
             'attr' => ['data-decision-target' => 'chosen'],
         ]);
         // Server-filled, not Stimulus-filled: it names the version whose option
-        // list was rendered into the page, so it must come from the render and
-        // not from anything the browser could recompute later.
-        $builder->add('versionNumber', IntegerType::class, ['required' => false]);
+        // list was rendered into the page. Labelless because form_rest() renders
+        // this one as a row, and the auto label reaches the page untranslated.
+        $builder->add('versionNumber', IntegerType::class, ['required' => false, 'label' => false]);
     }
 
     #[\Override]
