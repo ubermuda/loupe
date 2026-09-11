@@ -35,6 +35,10 @@ entry.
 
 ## [Unreleased]
 
+- (#420) — **Changed:** the development php-fpm now caches every checkout's
+  code rather than the first ~32,000 files it happened to see, so worktrees no
+  longer recompile on every request, and `/fpm-status` reports the shared pool.
+
 - (#417) — **Added:** you can resolve a site-review comment from the widget,
   either in its list or on the card that opens from a pin. The comment leaves
   the widget and moves to Resolved on the project's site-review page.
