@@ -1,6 +1,6 @@
 ---
 title: "The project board"
-description: "The four columns, how cards are ordered, the board screen a person drags cards on, and the four MCP tools an agent drives them with."
+description: "The four columns, how cards are ordered, the board screen a person drags cards on, and the five MCP tools an agent drives them with."
 ---
 
 Every project has one board, and the board holds cards. A card describes one
@@ -184,7 +184,7 @@ A merged pull request therefore does not move its card. Nothing watches the
 forge, and there is no webhook to point at Loupe. Move the card to Done
 yourself, or have your agent move it with `card_update`.
 
-## The four MCP tools
+## The five MCP tools
 
 An agent drives the board through the MCP endpoint. See
 [The MCP endpoint](mcp.md) for the token and the client setup.
@@ -193,6 +193,7 @@ An agent drives the board through the MCP endpoint. See
 |---|---|
 | `card_create` | `title`, `body`, `type` and `priority` are required. `status`, `reporter` and `pullRequestUrls` are optional. `origin` is the old name for `reporter` and is deprecated. |
 | `card_list` | `status`, `type`, `priority` and `reporter`, each optional, each a filter. `page`, `perPage` and `full` are optional as well. |
+| `card_search` | `query` is required. `page` and `perPage` are optional. |
 | `card_get` | `cardId`. |
 | `card_update` | `cardId` is required. `title`, `body`, `type`, `priority`, `status` and `pullRequestUrls` are optional. |
 
@@ -211,9 +212,23 @@ Each row is a summary: `cardId`, `number`, `title`, `type`, `priority`,
 pull request, document and site-review links as well. A full page is much larger,
 so read the board as summaries and call `card_get` for the card you want.
 
+`card_search` answers "is there already a card about this?" without reading the
+whole board. It searches the title and the body of every card in the project,
+done ones included, because a topic is often named only in a body and "yes, and
+it is already done" is a true answer.
+
+Matching is by word, not by substring, and words are stemmed, so `paging` finds
+`pages`. Quote a phrase to require it, put `-` in front of a word to exclude it,
+and write `or` between two words to accept either. A card whose title carries
+the word outranks one that carries it only in the body.
+
+It pages the same way `card_list` does: `perPage` holds 25 rows by default and
+100 at most, and the answer carries `page`, `perPage`, `total` and `hasMore`. A
+row is the same summary `card_list` returns, so call `card_get` for a body.
+
 `card_get` returns one card with its full Markdown body, every pull request
 linked to it, and every site-review comment pointing at it. Use a card id that
-`card_list` or `card_create` gave you.
+`card_list`, `card_search` or `card_create` gave you.
 
 ## Cards raised from the review widget
 

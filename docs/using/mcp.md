@@ -128,6 +128,7 @@ Roughly in the order an agent uses them:
 | `site_review_mark_comment_addressed` | Mark a widget comment acted on, so the next `site_review_get` skips it |
 | `card_create` | Put a card on the project board (off by default — see below) |
 | `card_list` | Read a page of the board, filtered by status, type or priority |
+| `card_search` | Search every card's title and body by words, done ones included |
 | `card_get` | Read one card, with the pull requests linked to it |
 | `card_update` | Change a card, or move it to another column |
 
