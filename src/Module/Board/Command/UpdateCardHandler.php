@@ -7,6 +7,7 @@ namespace App\Module\Board\Command;
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardMover;
 use App\Module\Board\Service\CardSearchIndexer;
@@ -14,10 +15,12 @@ use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestUrlResolver;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
+/** The only handler that moves a card; MoveCardHandler is a shell over it. */
 final readonly class UpdateCardHandler
 {
     public function __construct(
@@ -28,6 +31,7 @@ final readonly class UpdateCardHandler
         private CardSearchIndexer $searchIndexer,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -72,8 +76,10 @@ final readonly class UpdateCardHandler
 
             $status = $command->status ?? $card->status;
             $priority = $command->priority ?? $card->priority;
-            $move = $status !== $card->status || $priority !== $card->priority
-                ? $this->mover->move($card, $status, $priority)
+            // A rank is a move of its own: a card dropped elsewhere in the
+            // column it already sits in changes neither status nor priority.
+            $move = $status !== $card->status || $priority !== $card->priority || null !== $command->position
+                ? $this->mover->move($card, $status, $priority, $command->position)
                 : null;
 
             // After the move, which must read the card as the database holds
@@ -109,6 +115,13 @@ final readonly class UpdateCardHandler
                 $this->searchIndexer->index($card);
             }
 
+            // Inside the transaction, so a listener's rows land in the same
+            // commit: nothing survives a rollback, and nothing is lost when the
+            // process dies after it.
+            if (null !== $move) {
+                $this->events->dispatch(new CardMoved($card, $move));
+            }
+
             return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged);
         });
 
@@ -122,6 +135,20 @@ final readonly class UpdateCardHandler
                 $outcome->move->auditContext($card),
                 new AuditSubject('card', (string) $card->id),
             );
+        }
+
+        // A replacement is a deliberate act even when the new list matches the
+        // old one, so a submitted list counts as a change. A call that only
+        // moves the card records the move alone, rather than an update whose
+        // every flag is false.
+        $changedSomething = $outcome->titleChanged
+            || $outcome->bodyChanged
+            || $outcome->typeChanged
+            || null !== $command->pullRequestUrls
+            || null !== $command->documentIds;
+
+        if (!$changedSomething) {
+            return $card;
         }
 
         // `moved` names the paired board.card_moved record, which holds the
