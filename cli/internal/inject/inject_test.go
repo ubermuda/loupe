@@ -66,10 +66,16 @@ func TestParseRejectsIncompleteCardEvents(t *testing.T) {
 	}
 }
 
-func TestParseAcceptsAnUppercaseProjectID(t *testing.T) {
-	e := parseOK(t, `{"type":"board.card_moved","subject":{"type":"card","id":"0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7"},"projectId":"0192F3A1-4B2C-7D3E-8F10-A2B3C4D5E6F7","cardNumber":87,"toStatus":"next"}`)
-	if e.ProjectID != "0192F3A1-4B2C-7D3E-8F10-A2B3C4D5E6F7" {
-		t.Fatalf("unexpected projectId: %q", e.ProjectID)
+// An uppercase id parses and is folded, so nothing downstream has to remember
+// that the pattern is case-insensitive. Two casings of one id must not yield
+// two different worker session names.
+func TestParseFoldsIdentifierCase(t *testing.T) {
+	e := parseOK(t, `{"type":"board.card_moved","subject":{"type":"card","id":"0192F3A1-9999-7D3E-8F10-A2B3C4D5E6F7"},"projectId":"0192F3A1-4B2C-7D3E-8F10-A2B3C4D5E6F7","cardNumber":87,"toStatus":"next"}`)
+	if e.ProjectID != "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7" {
+		t.Fatalf("projectId not folded: %q", e.ProjectID)
+	}
+	if e.Subject.ID != "0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7" {
+		t.Fatalf("subject id not folded: %q", e.Subject.ID)
 	}
 }
 

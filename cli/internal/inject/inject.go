@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 // Event mirrors the Mercure update payloads the server publishes.
@@ -77,6 +78,12 @@ func Parse(data []byte) (Event, error) {
 		if !uuidPattern.MatchString(e.Subject.ID) {
 			return e, fmt.Errorf("card event has a subject id that is not a uuid")
 		}
+		// The pattern above is case-insensitive, so fold the ids here rather
+		// than leaving every later comparison to remember that. A session name
+		// built from an unfolded id would differ by case alone, and the guard
+		// against starting a second worker for one card compares names.
+		e.ProjectID = strings.ToLower(e.ProjectID)
+		e.Subject.ID = strings.ToLower(e.Subject.ID)
 
 		return e, nil
 	default:
