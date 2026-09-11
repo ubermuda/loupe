@@ -136,16 +136,27 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
      * any other. Deciding that a card already in a column is not worth acting
      * on belongs to whatever reads the stream, because the payload carries both
      * ends and this side holds no policy about which transitions matter.
+     *
+     * The rank has to really change. A lone card in a group is created at 0, so
+     * moving it to 0 would publish only because a position was submitted, and
+     * the test would still pass under a "skip when nothing changed" filter,
+     * which is the filter it exists to catch.
      */
     public function test_a_reorder_inside_one_column_is_published_with_both_ends_equal(): void
     {
-        $card = $this->card('Reorderable', CardStatus::Next, CardPriority::Low);
+        $first = $this->card('Already first', CardStatus::Next, CardPriority::Low);
+        $second = $this->card('Reorderable', CardStatus::Next, CardPriority::Low);
+        self::assertSame(0, $first->position);
+        self::assertSame(1, $second->position);
 
-        ($this->moveCard)(new MoveCardCommand($card, CardStatus::Next, CardPriority::Low, 0));
+        ($this->moveCard)(new MoveCardCommand($second, CardStatus::Next, CardPriority::Low, 0));
+
+        self::assertSame(0, $second->position, 'the rank must really change, or this test proves nothing');
 
         $payload = $this->decode($this->onlyRow());
         self::assertSame('next', $payload['fromStatus']);
         self::assertSame('next', $payload['toStatus']);
+        self::assertSame($second->number, $payload['cardNumber']);
     }
 
     public function test_an_update_that_moves_nothing_writes_no_row(): void
