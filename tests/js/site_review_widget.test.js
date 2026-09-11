@@ -487,3 +487,124 @@ describe('the quote offer', () => {
         expect(quoteButton().style.display).toBe('none');
     });
 });
+
+describe('a stored selector that carries a stale class', () => {
+    /** The chip that names how many of a comment's elements were found. */
+    function chipText() {
+        openPanel();
+
+        return panelRoot().querySelector('.lp-chip').textContent;
+    }
+
+    function twoSections() {
+        document.body.innerHTML =
+            '<div class="panel">' +
+            '<section class="row">first</section>' +
+            '<section class="row">second</section>' +
+            '</div>';
+    }
+
+    function withAnchors(anchors) {
+        return {
+            respond: () =>
+                ok({
+                    comments: [
+                        {
+                            id: 1,
+                            body: 'a note',
+                            url: location.href,
+                            anchors,
+                        },
+                    ],
+                }),
+        };
+    }
+
+    it('still finds the element the classes no longer name', async () => {
+        // `active` was on the section while the reviewer had it open. The page
+        // drops it on the next visit, and the exact selector then misses an
+        // element that is still there.
+        twoSections();
+        bootWidget(
+            withAnchors([
+                {
+                    selector: 'div.panel > section.row.active:nth-of-type(1)',
+                    text: 'first',
+                },
+                {
+                    selector: 'div.panel > section.row:nth-of-type(2)',
+                    text: 'second',
+                },
+            ]),
+        );
+        await settle();
+
+        expect(chipText()).toBe('2 elements');
+    });
+
+    it('refuses a relaxed selector that names more than one element', async () => {
+        // Dropping the classes here leaves `div.panel > section`, which both
+        // sections answer. A guess between them would anchor the comment to
+        // whichever came first.
+        twoSections();
+        bootWidget(
+            withAnchors([
+                { selector: 'div.panel > section.gone', text: 'first' },
+                {
+                    selector: 'div.panel > section.row:nth-of-type(2)',
+                    text: 'second',
+                },
+            ]),
+        );
+        await settle();
+
+        expect(chipText()).toBe('1 of 2 elements');
+    });
+    it('keeps a class that escapes a child combinator', async () => {
+        // CSS.escape writes a Tailwind class such as [&>svg]:hidden with an
+        // escaped `>`. Splitting the selector there would cut the class in two
+        // and every relaxed candidate would be nonsense.
+        document.body.innerHTML =
+            '<div class="panel">' +
+            '<section class="[&>svg]:hidden">first</section>' +
+            '<section class="row">second</section>' +
+            '</div>';
+        bootWidget(
+            withAnchors([
+                {
+                    selector:
+                        'div.panel > section.\\[\\&\\>svg\\]\\:hidden.active:nth-of-type(1)',
+                    text: 'first',
+                },
+                {
+                    selector: 'div.panel > section.row:nth-of-type(2)',
+                    text: 'second',
+                },
+            ]),
+        );
+        await settle();
+
+        expect(chipText()).toBe('2 elements');
+    });
+    it('refuses a unique match that no longer reads like the target', async () => {
+        // The anchored section is gone, and its :nth-of-type() seat now belongs
+        // to a section that says something else. Uniqueness alone would draw
+        // the comment on it.
+        twoSections();
+        bootWidget(
+            withAnchors([
+                {
+                    selector: 'div.panel > section.row.active:nth-of-type(1)',
+                    text: 'a heading that is no longer here',
+                },
+                {
+                    selector: 'div.panel > section.row:nth-of-type(2)',
+                    text: 'second',
+                },
+            ]),
+        );
+        await settle();
+
+        expect(chipText()).toBe('1 of 2 elements');
+    });
+});
