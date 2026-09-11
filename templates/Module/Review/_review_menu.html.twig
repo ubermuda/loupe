@@ -20,10 +20,12 @@
                     data-action="click->review-menu#drill">
                 <twig:ux:icon name="lucide:list" />
                 <span class="lp-review-menu__label">{{ 'review.document.contents.label'|trans }}</span>
-                <span class="lp-review-menu__count" id="review-menu-sections-count">{{ 'review.document.sections.count_compact'|trans({
-                    '%approved%': approvedSections,
-                    '%total%': sectionRows|length,
-                }) }}</span>
+                <span class="lp-review-menu__count" id="review-menu-sections-count">{{ sectionsApprovable
+                    ? 'review.document.sections.count_compact'|trans({
+                        '%approved%': approvedSections,
+                        '%total%': sectionRows|length,
+                    })
+                    : sectionRows|length }}</span>
             </button>
             {% endif %}
             {% if showVersions %}

@@ -766,6 +766,11 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertCount(0, $diff->filter('.lp-review-contents__tick'));
         self::assertCount(0, $diff->filter('.lp-section-approvals__pending'));
 
+        // Both counts below lg say how many headings there are. An approved-of-
+        // total reading there claims every section of a diff awaits approval.
+        self::assertSame('5', trim($diff->filter('#review-menu-sections-count')->text()));
+        self::assertSame('5', trim($diff->filter('#review-menu-sections-head-count')->text()));
+
         // The Markdown view renders no headings to link to, so it lists none.
         $source = $client->request(Request::METHOD_GET, $base.'?view=source');
         self::assertCount(0, $source->filter('.lp-review-contents'));
