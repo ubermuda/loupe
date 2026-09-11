@@ -35,6 +35,9 @@ entry.
 
 ## [Unreleased]
 
+- (#422) — **Changed:** the `card_list` MCP tool answers one page of summary
+  rows, with `page`, `perPage` and `full` to steer it, rather than the whole
+  board with every card's full body.
 - (#421) — **Added:** the `document_list` MCP tool takes `search`, `status`,
   `tag` and `series`, and each row now carries the description of the
   document's current version.

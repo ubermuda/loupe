@@ -117,6 +117,17 @@ final class BoardToolRegistrationTest extends KernelTestCase
         }
     }
 
+    public function test_card_list_publishes_its_paging_and_summary_arguments(): void
+    {
+        $properties = $this->registry->getTool(CardListTool::NAME)->tool->inputSchema['properties'];
+
+        self::assertSame(['type' => 'integer', 'description' => 'the 1-based page to read', 'default' => 1], $properties['page']);
+        self::assertSame('integer', $properties['perPage']['type']);
+        self::assertSame(CardListTool::DEFAULT_PER_PAGE, $properties['perPage']['default']);
+        self::assertSame('boolean', $properties['full']['type']);
+        self::assertFalse($properties['full']['default']);
+    }
+
     public function test_card_update_takes_no_origin(): void
     {
         $schema = $this->registry->getTool(CardUpdateTool::NAME)->tool->inputSchema;
