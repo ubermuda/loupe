@@ -35,6 +35,9 @@ entry.
 
 ## [Unreleased]
 
+- (#426) — **Added:** a `card_search` MCP tool, which searches the title and the
+  body of every card on a project board, done cards included, and answers best
+  match first.
 - (#422) — **Changed:** the `card_list` MCP tool answers one page of summary
   rows, with `page`, `perPage` and `full` to steer it, rather than the whole
   board with every card's full body.
