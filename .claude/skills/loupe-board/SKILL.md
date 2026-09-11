@@ -19,12 +19,31 @@ instance."
 | Tool | Use it to |
 |---|---|
 | `card_create` | Put a new card on the board. It lands in `backlog` unless you pass `status`. |
-| `card_list` | Read the board. Filter by `status`, `type` or `priority`. Done reads newest completion first, and every other column reads highest priority first. |
+| `card_list` | Read one page of the board. Filter by `status`, `type` or `priority`. Done reads newest completion first, and every other column reads highest priority first. |
 | `card_get` | Read one card, with its full Markdown body, its pull request links, its linked documents and the site-review comments pointing at it. |
 | `card_update` | Change a card. A field you leave out keeps the value it has. A new status or priority puts the card at the end of the column it arrives in. |
 
 `card_get` and `card_update` take a `cardId`, which you read from `card_list` or
 `card_create`.
+
+## `card_list` pages, and its rows are summaries
+
+`card_list` answers one page at a time. `perPage` holds 50 cards by default and
+100 at most. `page` counts from 1. Both are clamped into range rather than
+refused, so a page past the end reads as an empty list.
+
+The answer carries `page`, `perPage`, `total` and `hasMore`. `total` counts
+every card the filters match, not the cards on the page. Keep reading while
+`hasMore` is true.
+
+A row carries eight fields: `cardId`, `number`, `title`, `type`, `priority`,
+`status`, `origin` and `updatedAt`. It carries no body and no links.
+
+Pass `full` to get the whole card on every row, with its Markdown body, its pull
+request links, its documents and its site-review comments. A full page is much
+larger than a summary page, and a whole board of full cards once overran a
+caller's token limit. Read the board as summaries, then call `card_get` for the
+one card you want.
 
 `documentIds` links the documents the work is written up in, on `card_create`
 and `card_update`. It follows the same omit-versus-empty rule as
@@ -33,11 +52,11 @@ project is **refused** rather than kept: a URL cannot be checked and an id can.
 `card_get` returns them as `documents`, each with `documentId`, `title` and
 `status`.
 
-`siteReviewComments` is read-only, on `card_get` and `card_list` alike. Each item
-carries `commentId`, `body`, `url`, `status` and `createdAt`. A comment reaches a
-card because the page it was made on named that card, and no board tool writes
-that link. Mark one done with `site_review_mark_comment_addressed`, which takes
-the same `commentId`, rather than by editing the card.
+`siteReviewComments` is read-only, on `card_get` and on `card_list` with `full`.
+Each item carries `commentId`, `body`, `url`, `status` and `createdAt`. A comment
+reaches a card because the page it was made on named that card, and no board tool
+writes that link. Mark one done with `site_review_mark_comment_addressed`, which
+takes the same `commentId`, rather than by editing the card.
 
 `card_create` and `card_update` take a `type` of `feature`, `bug`, `security`,
 `tooling`, `docs` or `idea`.
@@ -56,9 +75,9 @@ There is no delete tool. You finish a card by moving it to `done`, which stamps
 its completion time. Moving it out of `done` clears that stamp. Only a person
 deletes a card, from the card page.
 
-`card_list` returns every done card, however old it is. The board screen shows
-the last 7 days of Done and puts the rest on a history page, so a person sees
-less of Done than you do.
+`card_list` applies no time window to Done, so every done card is on the board it
+pages through, however old it is. The board screen shows the last 7 days of Done
+and puts the rest on a history page, so a person sees less of Done than you do.
 
 ## A card that opens with `**Parked.**` is paused
 
@@ -149,6 +168,8 @@ An agent or a person moves the card to `done`.
 | Sending only the new URL in `pullRequestUrls` | The field replaces the whole set, so the older links go. |
 | Sending an empty `pullRequestUrls` to leave the links alone | An empty list clears them. Omit the field instead. |
 | Passing a card number as `cardId` | `cardId` is a UUID. Find it with `card_list`. |
+| Reading one `card_list` call as the whole board | It answers one page. Walk the pages while `hasMore` is true. |
+| Expecting a body from `card_list` | A row is a summary. Pass `full`, or call `card_get`. |
 | Fixing a wrong `origin` with `card_update` | `origin` is set once, when the card is created. |
 | Expecting a merged pull request to move its card | The app never contacts the forge. Move the card yourself. |
 | Writing "Task 3" or "phase 2" in a body | Those names die with the session. Name the class, the route or the file. |

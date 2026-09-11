@@ -88,7 +88,7 @@ final class CardListToolTest extends KernelTestCase
         // nothing at all.
         self::assertSame(4, ($this->tool)()['total']);
 
-        $result = ($this->tool)('done');
+        $result = ($this->tool)('done', full: true);
 
         self::assertSame(1, $result['total']);
         self::assertSame('Finished long ago', $result['cards'][0]['title']);
@@ -141,6 +141,66 @@ final class CardListToolTest extends KernelTestCase
         $result = ($this->tool)();
 
         self::assertSame(0, $result['total']);
+    }
+
+    public function test_a_row_is_a_summary_by_default(): void
+    {
+        $this->boardWith('card-list-summary');
+
+        $row = ($this->tool)()['cards'][0];
+
+        self::assertSame(
+            ['cardId', 'number', 'title', 'type', 'priority', 'status', 'origin', 'updatedAt'],
+            array_keys($row),
+        );
+    }
+
+    public function test_full_returns_the_body_and_every_link_set(): void
+    {
+        $this->boardWith('card-list-full');
+
+        $row = ($this->tool)(full: true)['cards'][0];
+
+        self::assertSame('Body', $row['body']);
+        self::assertSame([], $row['pullRequests']);
+        self::assertSame([], $row['documents']);
+        self::assertSame([], $row['siteReviewComments']);
+    }
+
+    public function test_a_page_is_cut_from_the_board_and_total_counts_the_whole_set(): void
+    {
+        $this->boardWith('card-list-paging');
+
+        $first = ($this->tool)(perPage: 2);
+        $second = ($this->tool)(page: 2, perPage: 2);
+
+        self::assertSame(['High one', 'Medium one'], array_column($first['cards'], 'title'));
+        self::assertSame(3, $first['total']);
+        self::assertTrue($first['hasMore']);
+
+        self::assertSame(['Medium two'], array_column($second['cards'], 'title'));
+        self::assertSame(3, $second['total']);
+        self::assertFalse($second['hasMore']);
+    }
+
+    public function test_a_page_past_the_end_is_empty_rather_than_an_error(): void
+    {
+        $this->boardWith('card-list-overrun');
+
+        $result = ($this->tool)(page: 99);
+
+        self::assertSame([], $result['cards']);
+        self::assertSame(3, $result['total']);
+        self::assertFalse($result['hasMore']);
+    }
+
+    public function test_page_and_per_page_are_clamped_rather_than_refused(): void
+    {
+        $this->boardWith('card-list-clamp');
+
+        self::assertSame(1, ($this->tool)(page: -4)['page']);
+        self::assertSame(1, ($this->tool)(perPage: 0)['perPage']);
+        self::assertSame(CardListTool::MAX_PER_PAGE, ($this->tool)(perPage: 500)['perPage']);
     }
 
     private function boardWith(string $label): void
