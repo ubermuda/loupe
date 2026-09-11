@@ -18,6 +18,7 @@ use App\Module\Board\Repository\CardSiteReviewCommentRepository;
  * @phpstan-type CardSiteReviewCommentSummary array{commentId: string, body: string, url: string, status: string, createdAt: string}
  * @phpstan-type CardDocumentSummary array{documentId: string, title: string, status: string}
  * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, priority: string, status: string, origin: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>, documents: list<CardDocumentSummary>, siteReviewComments: list<CardSiteReviewCommentSummary>}
+ * @phpstan-type CardListSummary array{cardId: string, number: int, title: string, type: string, priority: string, status: string, origin: string, updatedAt: string}
  */
 final readonly class CardPayload
 {
@@ -46,6 +47,34 @@ final readonly class CardPayload
 
         return array_map(
             fn (Card $card): array => $this->render($card, $byCard[(string) $card->id] ?? []),
+            $cards,
+        );
+    }
+
+    /**
+     * The lean shape a board listing reads in, with no body and none of the
+     * three link sets.
+     *
+     * It runs no comment query at all, which is the point: the full shape costs
+     * one whether or not the caller reads the comments back.
+     *
+     * @param list<Card> $cards
+     *
+     * @return list<CardListSummary>
+     */
+    public function forCardList(array $cards): array
+    {
+        return array_map(
+            static fn (Card $card): array => [
+                'cardId' => (string) $card->id,
+                'number' => $card->number,
+                'title' => $card->title,
+                'type' => $card->type->value,
+                'priority' => $card->priority->label(),
+                'status' => $card->status->value,
+                'origin' => $card->origin->value,
+                'updatedAt' => $card->updatedAt->format(\DATE_ATOM),
+            ],
             $cards,
         );
     }

@@ -57,8 +57,8 @@ inside Done keeps that first stamp. A card that leaves Done loses the stamp, and
 takes a new one if it comes back.
 
 The board screen shows the last 7 days of Done, and a history page carries the
-rest. `card_list` applies no such window. It returns every done card, however
-old it is.
+rest. `card_list` applies no such window. Every done card is on the board it
+pages through, however old it is.
 
 ## The board screen
 
@@ -183,13 +183,24 @@ An agent drives the board through the MCP endpoint. See
 | Tool | Arguments |
 |---|---|
 | `card_create` | `title`, `body`, `type` and `priority` are required. `status`, `origin` and `pullRequestUrls` are optional. |
-| `card_list` | `status`, `type` and `priority`, each optional, each a filter. |
+| `card_list` | `status`, `type` and `priority`, each optional, each a filter. `page`, `perPage` and `full` are optional as well. |
 | `card_get` | `cardId`. |
 | `card_update` | `cardId` is required. `title`, `body`, `type`, `priority`, `status` and `pullRequestUrls` are optional. |
 
-`card_list` returns the whole board when you give it no filter. It reports the
-cards and their total. Every column except Done reads in board order, highest
-priority first and then by rank. Done reads newest completion first.
+`card_list` reads the whole board when you give it no filter. Every column
+except Done reads in board order, highest priority first and then by rank. Done
+reads newest completion first.
+
+It answers one page at a time. `perPage` holds 50 cards by default and 100 at
+most, and `page` counts from 1. Both are clamped into range rather than refused,
+so a page past the end reads as an empty list. The answer carries `page`,
+`perPage`, `total` and `hasMore`. `total` counts every card the filters match,
+not the cards on the page, so keep reading while `hasMore` is true.
+
+Each row is a summary: `cardId`, `number`, `title`, `type`, `priority`,
+`status`, `origin` and `updatedAt`. Pass `full` to get the Markdown body and the
+pull request, document and site-review links as well. A full page is much larger,
+so read the board as summaries and call `card_get` for the card you want.
 
 `card_get` returns one card with its full Markdown body, every pull request
 linked to it, and every site-review comment pointing at it. Use a card id that
