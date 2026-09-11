@@ -727,12 +727,13 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
 
         $renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
-        // Two shapes the columns treat differently. Gone is dropped, so it reaches
-        // them on the older side alone. Renamed becomes Arrived in place, so that
-        // row shows both, each under its own id. A fixture that only revises a
-        // body produces neither, and the panel then looks correct.
+        // Three shapes the columns treat differently: Gone is dropped, Renamed
+        // becomes Arrived in its place, and Second is edited where it stands.
+        // The last keeps its id, because an id is a slug and `Second` and
+        // `Second!` slug alike. A fixture that only revises a body makes none of
+        // them, and the panel then looks correct.
         $old = "## First\n\nBody.\n\n## Gone\n\nDropped.\n\n## Renamed\n\nKept.\n\n## Second\n\nMore.\n";
-        $new = "## First\n\nRevised body.\n\n## Arrived\n\nKept.\n\n## Second\n\nMore.\n";
+        $new = "## First\n\nRevised body.\n\n## Arrived\n\nKept.\n\n## Second!\n\nMore.\n";
 
         $doc = new Document(owner: $owner, project: $project, title: 'Sectioned Diff');
         $doc->addVersion($old, $renderer->render($old));
@@ -754,7 +755,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         // Removed headings are listed too: they are on the page the reader has,
         // in the order the merged render holds them.
         self::assertSame(
-            ['First', 'Gone', 'Renamed', 'Arrived', 'Second'],
+            ['First', 'Gone', 'Renamed', 'Arrived', 'Second!'],
             $diff->filter('.lp-review-contents__link')->each(
                 static fn (Crawler $link): string => $link->text(),
             ),
@@ -775,18 +776,25 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         // Gone from the list while it is still on the page.
         $columns = $client->request(Request::METHOD_GET, $base.'?view=side-by-side');
         self::assertSame(
-            ['First', 'Gone', 'Arrived', 'Renamed', 'Second'],
+            ['First', 'Gone', 'Arrived', 'Renamed', 'Second', 'Second!'],
             $columns->filter('.lp-review-contents__link')->each(
                 static fn (Crawler $link): string => $link->text(),
             ),
         );
         $this->assertContentsRowsResolve($columns);
 
-        // An older cell keeps the prefix the column pass gave it. First and
-        // Second are unchanged and stand in both cells, and each is listed once,
-        // under the id the newer cell carries.
+        // An older cell keeps the prefix the column pass gave it. First is
+        // unchanged and stands in both cells, and is listed once under the newer
+        // id. Second and Second! share that id and are two labels, so both stay.
         self::assertSame(
-            ['heading-first', 'diff-old-heading-gone', 'heading-arrived', 'diff-old-heading-renamed', 'heading-second'],
+            [
+                'heading-first',
+                'diff-old-heading-gone',
+                'heading-arrived',
+                'diff-old-heading-renamed',
+                'diff-old-heading-second',
+                'heading-second',
+            ],
             $columns->filter('.lp-review-contents__link')->each(
                 static fn (Crawler $link): string => substr((string) $link->attr('href'), 1),
             ),

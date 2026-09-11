@@ -124,8 +124,9 @@ final readonly class DiffDocumentVersionsHandler
      *
      * The builder prefixes every id on the older side, so reading the merged
      * render named ids the columns do not hold and those rows scrolled nowhere.
-     * Both cells are read, because a row that replaces one heading with another
-     * shows both and a reader may want either.
+     * Both cells are read, because a row can show two headings and a reader may
+     * want either. A heading the revision left alone stands in both cells and is
+     * listed once, under the id the newer one carries.
      *
      * @return list<DocumentHeading>
      */
@@ -134,12 +135,17 @@ final readonly class DiffDocumentVersionsHandler
         $headings = [];
         foreach ($sideBySide->rows as $row) {
             $new = $this->headings->extract($row->newHtml ?? '');
-            $newIds = array_column($new, 'id');
+            $unchanged = array_map(
+                static fn (DocumentHeading $heading): string => $heading->id."\0".$heading->text,
+                $new,
+            );
 
             foreach ($this->headings->extract($row->oldHtml ?? '') as $heading) {
-                // The same heading on both sides is one heading the revision
-                // left alone, and the newer cell already lists it.
-                if (!\in_array($this->documentId($heading->id), $newIds, true)) {
+                // Id and text together. A heading edited in place keeps its id,
+                // because the id is a slug and `Hello` and `Hello!` slug alike,
+                // so the id alone would call two different labels one heading.
+                $key = $this->documentId($heading->id)."\0".$heading->text;
+                if (!\in_array($key, $unchanged, true)) {
                     $headings[] = $heading;
                 }
             }
