@@ -35,6 +35,9 @@ entry.
 
 ## [Unreleased]
 
+- (#422) — **Changed:** the `card_list` MCP tool answers one page of summary
+  rows, with `page`, `perPage` and `full` to steer it, rather than the whole
+  board with every card's full body.
 - (#418) — **Fixed:** a comment thread in the review rail keeps its author row
   in place when you open it, and carries its age and its status on that row
   rather than on a second row that appeared on expand.
