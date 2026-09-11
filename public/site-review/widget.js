@@ -414,6 +414,61 @@
         }
     };
 
+    // A compound selectorFor writes: a tag, then its classes, then an optional
+    // :nth-of-type(). Dropping the classes leaves the two ends.
+    const bareCompound = (compound) => {
+        const tag = /^[a-z][a-z0-9-]*/i.exec(compound);
+        if (!tag) return null;
+        const nth = /:nth-of-type\(\d+\)$/.exec(compound);
+        return tag[0] + (nth ? nth[0] : '');
+    };
+    // A stored selector carries every class the element had when the comment was
+    // saved, including ones the host page adds for hover or an expanded state.
+    // Those are gone on a later visit, so an exact match misses an element that
+    // is still there. These are the same selector with classes dropped from some
+    // of its compounds, fewest drops first.
+    const relaxedSelectors = (selector) => {
+        const parts = selector.split('>').map((part) => part.trim());
+        const bare = parts.map(bareCompound);
+        const loose = parts
+            .map((part, index) =>
+                bare[index] && bare[index] !== part ? index : -1,
+            )
+            .filter((index) => index >= 0);
+        const candidates = [];
+        for (let mask = 1; mask < 1 << loose.length; mask++) {
+            const dropped = loose.filter((_, slot) => mask & (1 << slot));
+            candidates.push({
+                drops: dropped.length,
+                selector: parts
+                    .map((part, index) =>
+                        dropped.includes(index) ? bare[index] : part,
+                    )
+                    .join(' > '),
+            });
+        }
+        return candidates
+            .sort((a, b) => a.drops - b.drops)
+            .map((entry) => entry.selector);
+    };
+    // The element a stored anchor names. A relaxed selector counts only when it
+    // matches exactly one element: a second match means the classes just dropped
+    // were what told the two apart.
+    const queryAnchor = (selector) => {
+        const exact = queryOne(selector);
+        if (exact) return exact;
+        for (const candidate of relaxedSelectors(selector)) {
+            let found;
+            try {
+                found = document.querySelectorAll(candidate);
+            } catch {
+                continue;
+            }
+            if (found.length === 1) return found[0];
+        }
+        return null;
+    };
+
     // ---- text quotes (the W3C TextQuoteSelector shape) ----
     // Characters of context kept on each side of a quote, and how many of them a
     // match is confirmed on. Both mirror the document reviewer's AnchorService,
@@ -563,7 +618,7 @@
     const resolveAnchors = (comment) => {
         if (comment.url !== location.href) return [];
         return anchorsOf(comment).map((anchor, anchorIndex) => {
-            const el = anchor.selector ? queryOne(anchor.selector) : null;
+            const el = anchor.selector ? queryAnchor(anchor.selector) : null;
             return { anchor, anchorIndex, el, range: quoteRange(el, anchor) };
         });
     };
@@ -1426,7 +1481,8 @@
         const box =
             first &&
             docRectOf(
-                first.el || (first.selector ? queryOne(first.selector) : null),
+                first.el ||
+                    (first.selector ? queryAnchor(first.selector) : null),
             );
         return box && box.width > 0 && box.height > 0 ? box : null;
     };
@@ -3000,7 +3056,9 @@
             ? {
                   type: 'element',
                   anchors: stored.map((anchor) => {
-                      const el = onThisPage ? queryOne(anchor.selector) : null; // null off-page — fine
+                      const el = onThisPage
+                          ? queryAnchor(anchor.selector)
+                          : null; // null off-page — fine
                       return {
                           el,
                           range: quoteRange(el, anchor),
