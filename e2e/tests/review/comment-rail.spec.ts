@@ -1,6 +1,6 @@
 /**
  * Browser coverage for the comment rail: the margin column above the lg
- * breakpoint, where every thread is one 32px marker and one thread at a time
+ * breakpoint, where every thread is one marker row and one thread at a time
  * opens in place.
  *
  * Three passages in one short paragraph, so the three markers compete for the
@@ -179,13 +179,14 @@ test('threads anchored close together render as markers, not cards', async ({
     await expect(page.locator('.lp-comment-body:visible')).toHaveCount(0);
     await expect(page.locator(`${THREAD} textarea:visible`)).toHaveCount(0);
 
-    // Each marker is its own row rather than a card stacked on its neighbour.
+    // Each marker is its own row rather than a card stacked on its neighbour:
+    // one 32px marker row inside the padding every card keeps in both states.
     const heights = await page.evaluate(() =>
         [...document.querySelectorAll('.lp-comment-thread')].map(
             (thread) => (thread as HTMLElement).offsetHeight,
         ),
     );
-    expect(heights).toEqual([32, 32, 32]);
+    expect(heights).toEqual([60, 60, 60]);
 
     const tops = await markerTops(page);
     expect(tops[1]).toBeGreaterThan(tops[0]);

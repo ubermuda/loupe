@@ -414,6 +414,88 @@
         }
     };
 
+    // A compound selectorFor writes: a tag, then its classes, then an optional
+    // :nth-of-type(). Dropping the classes leaves the two ends.
+    const bareCompound = (compound) => {
+        const tag = /^[a-z][a-z0-9-]*/i.exec(compound);
+        if (!tag) return null;
+        const nth = /:nth-of-type\(\d+\)$/.exec(compound);
+        return tag[0] + (nth ? nth[0] : '');
+    };
+    // `>` separates two compounds, unless a backslash escapes it: CSS.escape
+    // writes a Tailwind class such as [&>svg]:hidden with one, and splitting
+    // there would cut a class in half.
+    const splitCompounds = (selector) => {
+        const parts = [''];
+        for (let index = 0; index < selector.length; index += 1) {
+            const char = selector[index];
+            if (char === '\\') {
+                parts[parts.length - 1] += char + (selector[index + 1] || '');
+                index += 1;
+            } else if (char === '>') parts.push('');
+            else parts[parts.length - 1] += char;
+        }
+        return parts.map((part) => part.trim());
+    };
+    // A stored selector carries every class the element had when the comment was
+    // saved, including ones the host page adds for hover or an expanded state.
+    // Those are gone on a later visit, so an exact match misses an element that
+    // is still there. These are the same selector with classes dropped from some
+    // of its compounds, fewest drops first.
+    const relaxedSelectors = (selector) => {
+        const parts = splitCompounds(selector);
+        const bare = parts.map(bareCompound);
+        const loose = parts
+            .map((part, index) =>
+                bare[index] && bare[index] !== part ? index : -1,
+            )
+            .filter((index) => index >= 0);
+        const candidates = [];
+        for (let mask = 1; mask < 1 << loose.length; mask++) {
+            const dropped = loose.filter((_, slot) => mask & (1 << slot));
+            candidates.push({
+                drops: dropped.length,
+                selector: parts
+                    .map((part, index) =>
+                        dropped.includes(index) ? bare[index] : part,
+                    )
+                    .join(' > '),
+            });
+        }
+        return candidates
+            .sort((a, b) => a.drops - b.drops)
+            .map((entry) => entry.selector);
+    };
+    const flatText = (value) =>
+        String(value || '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    // The element a stored anchor names. A relaxed selector counts only when it
+    // matches exactly one element and that element still reads like the one the
+    // reviewer picked. A second match means the classes just dropped were what
+    // told the two apart, and uniqueness alone says nothing about identity: the
+    // original element may be gone, leaving its :nth-of-type() seat to another.
+    // Drawing a comment on the wrong element is worse than drawing none.
+    const queryAnchor = (selector, text) => {
+        const exact = queryOne(selector);
+        if (exact) return exact;
+        const said = flatText(text);
+        for (const candidate of relaxedSelectors(selector)) {
+            let found;
+            try {
+                found = document.querySelectorAll(candidate);
+            } catch {
+                continue;
+            }
+            if (found.length !== 1) continue;
+            const reads = flatText(found[0].innerText || found[0].textContent);
+            if (!said || reads === said) return found[0];
+            if (reads && (reads.includes(said) || said.includes(reads)))
+                return found[0];
+        }
+        return null;
+    };
+
     // ---- text quotes (the W3C TextQuoteSelector shape) ----
     // Characters of context kept on each side of a quote, and how many of them a
     // match is confirmed on. Both mirror the document reviewer's AnchorService,
@@ -563,7 +645,9 @@
     const resolveAnchors = (comment) => {
         if (comment.url !== location.href) return [];
         return anchorsOf(comment).map((anchor, anchorIndex) => {
-            const el = anchor.selector ? queryOne(anchor.selector) : null;
+            const el = anchor.selector
+                ? queryAnchor(anchor.selector, anchor.text)
+                : null;
             return { anchor, anchorIndex, el, range: quoteRange(el, anchor) };
         });
     };
@@ -1426,7 +1510,10 @@
         const box =
             first &&
             docRectOf(
-                first.el || (first.selector ? queryOne(first.selector) : null),
+                first.el ||
+                    (first.selector
+                        ? queryAnchor(first.selector, first.text)
+                        : null),
             );
         return box && box.width > 0 && box.height > 0 ? box : null;
     };
@@ -3000,7 +3087,9 @@
             ? {
                   type: 'element',
                   anchors: stored.map((anchor) => {
-                      const el = onThisPage ? queryOne(anchor.selector) : null; // null off-page — fine
+                      const el = onThisPage
+                          ? queryAnchor(anchor.selector, anchor.text)
+                          : null; // null off-page — fine
                       return {
                           el,
                           range: quoteRange(el, anchor),
