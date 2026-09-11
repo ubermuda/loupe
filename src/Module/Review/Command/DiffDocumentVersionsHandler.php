@@ -16,8 +16,8 @@ use App\Module\Review\Service\SideBySideDiffBuilder;
 use App\Module\Review\ValueObject\CommentSignals;
 use App\Module\Review\ValueObject\DiffRefusal;
 use App\Module\Review\ValueObject\DiffView;
+use App\Module\Review\ValueObject\DocumentHeading;
 use App\Module\Review\ValueObject\SideBySideDiff;
-use App\Module\Review\ValueObject\SideBySideRow;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -91,7 +91,7 @@ final readonly class DiffDocumentVersionsHandler
 
                 if (DiffView::SideBySide === $command->view) {
                     $sideBySide = $this->sideBySideDiffs->build($rendered->html);
-                    $headings = $this->headings->extract($this->linkableSide($sideBySide));
+                    $headings = $this->columnHeadings($sideBySide);
                 } else {
                     $renderedDiff = $rendered;
                     $headings = $this->headings->extract($rendered->html);
@@ -120,20 +120,42 @@ final readonly class DiffDocumentVersionsHandler
     }
 
     /**
-     * The one cell of each row a link may name, in document order.
+     * Every heading the columns hold, in document order, older cell first.
      *
-     * The columns keep one id per block: the builder prefixes every id on the
-     * older side, so an unchanged heading is listed once from the newer cell,
-     * and a heading the revision removed is listed once from its renamed older
-     * one. Reading the merged render instead named ids the columns no longer
-     * hold, and such a row scrolled nowhere and reported nothing.
+     * The builder prefixes every id on the older side, so reading the merged
+     * render named ids the columns do not hold and those rows scrolled nowhere.
+     * Both cells are read, because a row that replaces one heading with another
+     * shows both and a reader may want either.
+     *
+     * @return list<DocumentHeading>
      */
-    private function linkableSide(SideBySideDiff $sideBySide): string
+    private function columnHeadings(SideBySideDiff $sideBySide): array
     {
-        return implode('', array_map(
-            static fn (SideBySideRow $row): string => $row->newHtml ?? $row->oldHtml ?? '',
-            $sideBySide->rows,
-        ));
+        $headings = [];
+        foreach ($sideBySide->rows as $row) {
+            $new = $this->headings->extract($row->newHtml ?? '');
+            $newIds = array_column($new, 'id');
+
+            foreach ($this->headings->extract($row->oldHtml ?? '') as $heading) {
+                // The same heading on both sides is one heading the revision
+                // left alone, and the newer cell already lists it.
+                if (!\in_array($this->documentId($heading->id), $newIds, true)) {
+                    $headings[] = $heading;
+                }
+            }
+
+            $headings = [...$headings, ...$new];
+        }
+
+        return $headings;
+    }
+
+    /** An older cell's id as the document minted it, before the column pass. */
+    private function documentId(string $id): string
+    {
+        return str_starts_with($id, SideBySideDiffBuilder::OLD_SIDE_PREFIX)
+            ? substr($id, \strlen(SideBySideDiffBuilder::OLD_SIDE_PREFIX))
+            : $id;
     }
 
     private function version(Document $document, int $versionNumber): DocumentVersion

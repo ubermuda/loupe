@@ -727,11 +727,12 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
 
         $renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
-        // Gone is dropped by the revision, so it reaches the columns on the older
-        // side alone, where every id is prefixed. It is the shape the panel got
-        // wrong, and a fixture that only revises a body never produces it.
-        $old = "## First\n\nBody.\n\n## Gone\n\nDropped.\n\n## Second\n\nMore.\n";
-        $new = "## First\n\nRevised body.\n\n## Second\n\nMore.\n";
+        // Two shapes the columns treat differently. Gone is dropped, so it reaches
+        // them on the older side alone. Renamed becomes Arrived in place, so that
+        // row shows both, each under its own id. A fixture that only revises a
+        // body produces neither, and the panel then looks correct.
+        $old = "## First\n\nBody.\n\n## Gone\n\nDropped.\n\n## Renamed\n\nKept.\n\n## Second\n\nMore.\n";
+        $new = "## First\n\nRevised body.\n\n## Arrived\n\nKept.\n\n## Second\n\nMore.\n";
 
         $doc = new Document(owner: $owner, project: $project, title: 'Sectioned Diff');
         $doc->addVersion($old, $renderer->render($old));
@@ -750,10 +751,14 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(1, $diff->filter('.lp-review-contents'));
 
-        // The removed heading is listed too: it is on the page the reader has.
-        self::assertSame(['First', 'Gone', 'Second'], $diff->filter('.lp-review-contents__link')->each(
-            static fn (Crawler $link): string => $link->text(),
-        ));
+        // Removed headings are listed too: they are on the page the reader has,
+        // in the order the merged render holds them.
+        self::assertSame(
+            ['First', 'Gone', 'Renamed', 'Arrived', 'Second'],
+            $diff->filter('.lp-review-contents__link')->each(
+                static fn (Crawler $link): string => $link->text(),
+            ),
+        );
         $this->assertContentsRowsResolve($diff);
 
         // A diff approves nothing, so no row offers or reports a state.
@@ -764,24 +769,34 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $source = $client->request(Request::METHOD_GET, $base.'?view=source');
         self::assertCount(0, $source->filter('.lp-review-contents'));
 
-        // The columns prefix every id on the older side, so Gone is reachable
-        // under its renamed id alone. Reading the merged render named the id the
-        // columns no longer hold, and that row scrolled nowhere.
+        // The columns pair by position, so Gone shares a row with Arrived and
+        // both are on screen there. The order therefore differs from the merged
+        // render's above, and reading only the newer cell of a row would drop
+        // Gone from the list while it is still on the page.
         $columns = $client->request(Request::METHOD_GET, $base.'?view=side-by-side');
-        self::assertSame(['First', 'Gone', 'Second'], $columns->filter('.lp-review-contents__link')->each(
-            static fn (Crawler $link): string => $link->text(),
-        ));
-        $this->assertContentsRowsResolve($columns);
         self::assertSame(
-            'diff-old-heading-gone',
-            substr((string) $columns->filter('.lp-review-contents__link')->eq(1)->attr('href'), 1),
+            ['First', 'Gone', 'Arrived', 'Renamed', 'Second'],
+            $columns->filter('.lp-review-contents__link')->each(
+                static fn (Crawler $link): string => $link->text(),
+            ),
+        );
+        $this->assertContentsRowsResolve($columns);
+
+        // An older cell keeps the prefix the column pass gave it. First and
+        // Second are unchanged and stand in both cells, and each is listed once,
+        // under the id the newer cell carries.
+        self::assertSame(
+            ['heading-first', 'diff-old-heading-gone', 'heading-arrived', 'diff-old-heading-renamed', 'heading-second'],
+            $columns->filter('.lp-review-contents__link')->each(
+                static fn (Crawler $link): string => substr((string) $link->attr('href'), 1),
+            ),
         );
 
         // The review page for the same document still reports approval state, so
         // the assertions above cannot pass by the panel having lost it outright.
         $latest = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
         self::assertCount(1, $latest->filter('.lp-review-contents'));
-        self::assertCount(2, $latest->filter('.lp-review-contents .lp-review-contents__tick'));
+        self::assertCount(3, $latest->filter('.lp-review-contents .lp-review-contents__tick'));
     }
 
     /**
