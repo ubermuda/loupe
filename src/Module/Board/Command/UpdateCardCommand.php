@@ -16,7 +16,7 @@ use App\Module\Board\Entity\CardType;
  * array differ: null keeps the links the card has, and an empty array removes
  * them all.
  *
- * $origin is absent on purpose. It records who first raised the card.
+ * $reporter is absent on purpose. It records who first raised the card.
  */
 final readonly class UpdateCardCommand
 {

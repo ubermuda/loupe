@@ -61,7 +61,7 @@ final class CreateCardController extends AppController
                     priority: $data->priority ?? CardPriority::Medium,
                     status: $data->status ?? CardStatus::Backlog,
                     // A person filled this form in, whatever an agent may later do to the card.
-                    origin: CardOrigin::Human,
+                    reporter: CardOrigin::Human,
                     pullRequestUrls: CreateCardRequest::toUrlList($data->pullRequestUrls),
                 ));
 

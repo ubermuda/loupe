@@ -4,8 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Mcp;
 
+use App\Module\Board\Command\CreateCardCommand;
+use App\Module\Board\Command\CreateCardHandler;
+use App\Module\Board\Entity\CardOrigin;
+use App\Module\Board\Entity\CardPriority;
+use App\Module\Board\Entity\CardType;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardListTool;
+use App\Module\Project\Entity\Project;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
@@ -80,6 +86,59 @@ final class CardListToolTest extends KernelTestCase
         self::assertSame(['Medium one', 'Medium two'], array_column($result['cards'], 'title'));
     }
 
+    public function test_a_reporter_filter_narrows_the_board(): void
+    {
+        $this->boardWith('card-list-reporter');
+        ($this->createTool)('Dictated', 'Body', 'feature', 'low', reporter: 'human');
+        // Without this the assertion below also passes on a board that stored
+        // no human card at all.
+        self::assertSame(4, ($this->tool)()['total']);
+
+        $result = ($this->tool)(reporter: 'human');
+
+        self::assertSame(['Dictated'], array_column($result['cards'], 'title'));
+    }
+
+    /**
+     * The widget writes `reviewer` and an agent may not claim it. A filter that
+     * reused the create-side rule would make those cards unlistable.
+     */
+    public function test_a_reporter_filter_reaches_the_cards_the_widget_raised(): void
+    {
+        $project = $this->boardWith('card-list-reviewer');
+        $this->widgetCard($project, 'From the widget');
+        self::assertSame(4, ($this->tool)()['total']);
+
+        $result = ($this->tool)(reporter: 'reviewer');
+
+        self::assertSame(['From the widget'], array_column($result['cards'], 'title'));
+    }
+
+    /**
+     * The row an image without the reporter column wrote. It carries origin
+     * alone, and both the filter and the payload have to fall back to it.
+     */
+    public function test_a_row_with_no_reporter_still_reads_and_filters_by_its_origin(): void
+    {
+        $this->boardWith('card-list-legacy-row');
+        $legacy = ($this->createTool)('Written by an older image', 'Body', 'bug', 'low', reporter: 'human');
+        $this->clearStoredReporter($legacy['cardId']);
+
+        $result = ($this->tool)(reporter: 'human');
+
+        self::assertSame(['Written by an older image'], array_column($result['cards'], 'title'));
+        self::assertSame('human', $result['cards'][0]['reporter']);
+    }
+
+    public function test_an_unknown_reporter_is_refused(): void
+    {
+        $this->boardWith('card-list-bad-reporter');
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('Unknown reporter "robot". Use one of: human, agent, reviewer.');
+        ($this->tool)(reporter: 'robot');
+    }
+
     public function test_done_cards_are_returned_with_no_time_window(): void
     {
         $this->boardWith('card-list-done');
@@ -150,7 +209,7 @@ final class CardListToolTest extends KernelTestCase
         $row = ($this->tool)()['cards'][0];
 
         self::assertSame(
-            ['cardId', 'number', 'title', 'type', 'priority', 'status', 'origin', 'updatedAt'],
+            ['cardId', 'number', 'title', 'type', 'priority', 'status', 'reporter', 'updatedAt'],
             array_keys($row),
         );
     }
@@ -214,7 +273,7 @@ final class CardListToolTest extends KernelTestCase
         self::assertSame(CardListTool::MAX_PER_PAGE, ($this->tool)(perPage: 500)['perPage']);
     }
 
-    private function boardWith(string $label): void
+    private function boardWith(string $label): Project
     {
         $this->enableBoard();
         $project = $this->makeProject($label);
@@ -223,5 +282,33 @@ final class CardListToolTest extends KernelTestCase
         ($this->createTool)('Medium one', 'Body', 'feature', 'medium');
         ($this->createTool)('Medium two', 'Body', 'feature', 'medium');
         ($this->createTool)('High one', 'Body', 'bug', 'high');
+
+        return $project;
+    }
+
+    /** Makes a row look like one an image without the reporter column wrote. */
+    private function clearStoredReporter(string $cardId): void
+    {
+        $this->em->getConnection()->executeStatement(
+            'UPDATE board_cards SET reporter = NULL WHERE id = :id',
+            ['id' => $cardId],
+        );
+        $this->em->clear();
+    }
+
+    /** The widget's own path, which is the only one that may write a reviewer card. */
+    private function widgetCard(Project $project, string $title): void
+    {
+        $handler = self::getContainer()->get(CreateCardHandler::class);
+        self::assertInstanceOf(CreateCardHandler::class, $handler);
+
+        $handler(new CreateCardCommand(
+            project: $project,
+            title: $title,
+            body: 'Body',
+            type: CardType::Idea,
+            priority: CardPriority::Low,
+            reporter: CardOrigin::Reviewer,
+        ));
     }
 }

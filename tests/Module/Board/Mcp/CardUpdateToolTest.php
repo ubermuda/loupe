@@ -99,15 +99,15 @@ final class CardUpdateToolTest extends KernelTestCase
         self::assertSame(9, $card['pullRequests'][0]['number']);
     }
 
-    public function test_origin_cannot_be_changed(): void
+    public function test_reporter_cannot_be_changed(): void
     {
-        $created = $this->card('card-update-origin');
-        self::assertSame(CardOrigin::Agent->value, $created['origin']);
+        $created = $this->card('card-update-reporter');
+        self::assertSame(CardOrigin::Agent->value, $created['reporter']);
 
         $card = ($this->tool)($created['cardId'], title: 'Renamed');
 
-        self::assertSame(CardOrigin::Agent->value, $card['origin']);
-        self::assertArrayNotHasKey('origin', $this->publishedParameters());
+        self::assertSame(CardOrigin::Agent->value, $card['reporter']);
+        self::assertArrayNotHasKey('reporter', $this->publishedParameters());
     }
 
     public function test_moving_to_done_stamps_the_completion_and_moving_out_clears_it(): void

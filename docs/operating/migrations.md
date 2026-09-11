@@ -179,6 +179,6 @@ variable is invisible to it. And with no prior schema in view it flags every
 boundary: the policy above is what people follow, and the rule catches the
 obvious slips.
 
-It is not switched on in this repository yet — run against the migrations
-already here it reports issues in several of them, and what to do about that
-back-catalogue is an open question. The policy binds from here on regardless.
+It is switched on in this repository, and it fails `just phpstan`. It does not
+report the migrations already here, so the back-catalogue is not a question you
+have to answer to get a green run.

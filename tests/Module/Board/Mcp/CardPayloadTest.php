@@ -26,7 +26,7 @@ final class CardPayloadTest extends TestCase
 
         self::assertCount(1, $rows);
         self::assertSame(
-            ['cardId', 'number', 'title', 'type', 'priority', 'status', 'origin', 'updatedAt'],
+            ['cardId', 'number', 'title', 'type', 'priority', 'status', 'reporter', 'updatedAt'],
             array_keys($rows[0]),
         );
         self::assertSame('Drag ordering', $rows[0]['title']);
