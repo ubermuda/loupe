@@ -131,6 +131,23 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
         self::assertSame('backlog', $this->decode($this->onlyRow())['toStatus']);
     }
 
+    /**
+     * A drag to a new rank inside one column is a move, and it publishes like
+     * any other. Deciding that a card already in a column is not worth acting
+     * on belongs to whatever reads the stream, because the payload carries both
+     * ends and this side holds no policy about which transitions matter.
+     */
+    public function test_a_reorder_inside_one_column_is_published_with_both_ends_equal(): void
+    {
+        $card = $this->card('Reorderable', CardStatus::Next, CardPriority::Low);
+
+        ($this->moveCard)(new MoveCardCommand($card, CardStatus::Next, CardPriority::Low, 0));
+
+        $payload = $this->decode($this->onlyRow());
+        self::assertSame('next', $payload['fromStatus']);
+        self::assertSame('next', $payload['toStatus']);
+    }
+
     public function test_an_update_that_moves_nothing_writes_no_row(): void
     {
         $card = $this->card('Editable', CardStatus::Next, CardPriority::Low);
