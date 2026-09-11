@@ -279,6 +279,11 @@ test('hiding resolved threads closes the gap the markers left', async ({
     const before = await markerTops(page);
     expect(before).toHaveLength(3);
 
+    // The toggle is a button, and a button class declares a display that beats
+    // the [hidden] rule the controller drives it with. Nothing is resolved yet,
+    // so a toggle on screen here means that override came back.
+    await expect(page.locator('.lp-review-actions__resolved')).toBeHidden();
+
     await page.locator(MARKER).nth(0).click();
     await page.getByRole('button', { name: 'Resolve', exact: true }).click();
     await expect(page.locator('.lp-comment-thread--resolved')).toHaveCount(1, {
@@ -294,4 +299,86 @@ test('hiding resolved threads closes the gap the markers left', async ({
     expect(after).toHaveLength(2);
     // The two survivors move up into the row the resolved marker held.
     expect(after[0]).toBeLessThan(before[1]);
+});
+
+/** The orphan group's rendered height, which its disclosure animates. */
+function groupHeight(page: Page): Promise<number> {
+    return page
+        .locator('.lp-orphan-group')
+        .evaluate((group) => (group as HTMLElement).offsetHeight);
+}
+
+/**
+ * How far the first anchored card sits below the orphan group. Negative means
+ * the card is under it.
+ */
+function cardGapBelowOrphans(page: Page): Promise<number | null> {
+    return page.evaluate(() => {
+        const orphans = document.querySelector('.lp-orphan-group');
+        // The group holds a marker of its own, hidden, and a hidden element
+        // measures as a zero box at the origin.
+        const card = [...document.querySelectorAll('.lp-comment-thread')].find(
+            (thread) => null === thread.closest('.lp-orphan-group'),
+        );
+        if (null === orphans || undefined === card) {
+            return null;
+        }
+
+        return Math.round(
+            card.getBoundingClientRect().top -
+                orphans.getBoundingClientRect().bottom,
+        );
+    });
+}
+
+test('expanding the orphan group pushes the anchored cards below it', async ({
+    page,
+    reviewUrl,
+}) => {
+    await seedThreeThreads(page);
+
+    // The revision drops the last two phrases, so their threads point at text
+    // this version no longer holds and lead the column in the orphan group.
+    // Two of them, because one is shorter than the anchored card's own offset
+    // and the cards would clear it whatever the layout did.
+    const documentId = reviewUrl.split('/')[4];
+    const revised = await page.request.post(
+        `/dev/review/${documentId}/revise`,
+        {
+            form: {
+                markdown: DOCUMENT_MARKDOWN.replace(
+                    ` and then a ${SECOND} and finally a ${THIRD}`,
+                    '',
+                ),
+                description: 'Dropped the last two passages.',
+            },
+        },
+    );
+    expect(revised.status()).toBe(200);
+
+    await page.goto(reviewUrl);
+    const group = page.locator('.lp-orphan-group');
+    await expect(group).toBeVisible({ timeout: coverageScaled(10000) });
+    await expect(page.locator(`${MARKER}:visible`)).toHaveCount(1);
+    const collapsed = await groupHeight(page);
+
+    await page.locator('.lp-orphan-group__title').click();
+    await expect(group).toHaveClass(/disclosure-open/);
+    // The disclosure sets `height: auto` when its tween finishes, and the gap
+    // below is still clear while the group is halfway open.
+    await expect(page.locator('.lp-orphan-group__list')).toHaveAttribute(
+        'style',
+        /height:\s*auto/,
+        { timeout: coverageScaled(5000) },
+    );
+    expect(await groupHeight(page)).toBeGreaterThan(collapsed);
+
+    // The layout re-runs on its own here, and a review asked whether it does:
+    // the group grows with no child-list change and no direct resize of the
+    // element the observer watches.
+    await expect
+        .poll(() => cardGapBelowOrphans(page), {
+            timeout: coverageScaled(5000),
+        })
+        .toBeGreaterThanOrEqual(0);
 });

@@ -1,11 +1,24 @@
-{# Rows of the contents panel: one section per row, in document order, each a
-   link to its heading and each stating whether that section is approved.
-   An overview only. The button beside each heading is where a reviewer acts. #}
+{# One section per row, in document order: a tick for its approval state, a link
+   to its heading, and that state in words for the panel. The rail hides the
+   words and the panel hides the tick.
+
+   Both jump actions are listed. Stimulus binds the one whose controller is on
+   an ancestor. @comment-budget-ignore #}
+{% set approvable = approvable ?? true %}
 {% for row in rows %}
 <li class="lp-review-contents__item">
+    {% if approvable %}
+    {% if row.approved %}
+    <twig:ux:icon name="lucide:circle-check" class="lp-review-contents__tick lp-review-contents__tick--on" />
+    {% else %}
+    <twig:ux:icon name="lucide:circle" class="lp-review-contents__tick" />
+    {% endif %}
+    {% endif %}
     {# title= so a heading truncated by the panel width is still readable on hover. #}
     <a class="lp-review-contents__link" data-level="{{ row.level }}" href="#{{ row.headingId }}"
-       data-action="click->metadata-tabs#jump" title="{{ row.label }}">{{ row.label }}</a>
+       data-contents-rail-target="link"
+       data-action="click->metadata-tabs#jump click->contents-rail#jump" title="{{ row.label }}">{{ row.label }}</a>
+    {% if approvable %}
     {% if row.approved %}
     <span class="lp-section-approvals__approved" data-section-approved="{{ row.headingId }}">
         <twig:ux:icon name="lucide:check" class="lp-section-approvals__check" />
@@ -13,6 +26,7 @@
     </span>
     {% else %}
     <span class="lp-section-approvals__pending">{{ 'review.document.sections.pending'|trans }}</span>
+    {% endif %}
     {% endif %}
 </li>
 {% endfor %}

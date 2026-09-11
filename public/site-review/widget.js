@@ -9,6 +9,14 @@
 
     const script = document.currentScript;
     const BACKEND = new URL(script.src).origin;
+    // A worktree preview serves this script from a local host, so the launcher
+    // can say where the comments land with no attribute and no API field. A
+    // public deployment cannot switch it on by accident.
+    const BACKEND_HOST = new URL(BACKEND).hostname;
+    const LOCAL =
+        /(^|\.)localhost$/.test(BACKEND_HOST) ||
+        /^127\./.test(BACKEND_HOST) ||
+        /\.local$/.test(BACKEND_HOST);
     const TOKEN = script.getAttribute('data-token') || '';
     // The landing page runs this widget over itself with no project behind it, so
     // a visitor can try the flow before signing up. It swaps the transport and
@@ -186,6 +194,19 @@
                     })),
                 })),
             };
+        }
+        // Before the generic POST branch: resolving ends with an id rather than
+        // naming the collection, so it would otherwise store a phantom comment.
+        if (path.endsWith('/resolve')) {
+            const target = path.slice(0, -'/resolve'.length);
+            const at = demoStore.comments.findIndex(
+                (comment) =>
+                    comment.id === target.slice(target.lastIndexOf('/') + 1),
+            );
+            if (at === -1)
+                throw Object.assign(new Error('HTTP 404'), { status: 404 });
+            demoStore.comments.splice(at, 1);
+            return null;
         }
         if (method === 'POST') {
             const commentId = `demo-${demoStore.nextId++}`;
@@ -900,6 +921,9 @@
       .lp-launch-action{flex:0 0 auto;width:34px;height:34px;border:0;background:transparent;color:var(--bar-mute);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .14s ease,color .14s ease}
       .lp-launch-action:hover{background:var(--bar-raised);color:var(--accent)}
       .lp-launch-div{flex:0 0 auto;width:1px;height:22px;background:var(--bar-line);margin:0 3px}
+      /* A label and not a control: the launcher's chrome weight, no hover state
+         and no pointer target of its own, so a press still drags the bar. */
+      .lp-local{flex:0 0 auto;height:22px;margin:0 5px 0 3px;padding:0 8px;display:inline-flex;align-items:center;background:var(--bar-raised);border:1px solid var(--bar-line);border-radius:999px;color:var(--bar-mute);font-family:inherit;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
       .lp-launch-main{display:flex;align-items:center;gap:9px;height:38px;padding:0 10px 0 9px;background:transparent;border:0;color:var(--bar-fg);font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;border-radius:999px;transition:background .14s ease}
       .lp-launch-main:hover{background:var(--bar-raised)}
       /* Styled tooltips for the launcher buttons, above each on hover. */
@@ -1039,6 +1063,9 @@
       .lp-item-page{display:inline-flex;align-items:center;gap:4px;margin-top:6px;height:19px;padding:0 9px;background:transparent;border:1px solid var(--hairline);color:var(--muted);border-radius:999px;font-family:inherit;font-size:10.5px;font-weight:600;max-width:100%;cursor:pointer}
       .lp-item-page:hover{background:var(--chip-bg);color:var(--accent-ink)}
       .lp-item-page-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      /* Sits before Edit, because it is the one that finishes a comment. */
+      .lp-resolve{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
+      .lp-resolve:hover{opacity:1;background:var(--chip-bg);color:var(--accent-ink)}
       .lp-edit{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
       .lp-edit:hover{opacity:1;background:var(--chip-bg);color:var(--accent-ink)}
       .lp-del{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.55;transition:opacity .12s ease}
@@ -1067,6 +1094,7 @@
       .lp-fatal-sub{max-width:252px;margin:6px auto 0;font-size:12.5px;color:var(--muted);line-height:1.55}
     </style>
     <div class="lp-launcher" id="lp-launcher">
+      ${LOCAL ? '<span class="lp-local" id="lp-local" data-tip="Comments save to this local build">Local</span>' : ''}
       <div class="lp-launch-quick" id="lp-launch-quick">
         <button class="lp-launch-action" id="lp-launch-note" aria-label="Add note" data-tip="Add note">${ICON.comment(16)}</button>
         <button class="lp-launch-action" id="lp-launch-target" aria-label="Pick element" data-tip="Pick element">${ICON.target(16)}</button>
@@ -1216,6 +1244,8 @@
       .lp-pop-degraded{margin-top:6px;font-size:11px;line-height:1.4;color:#b45309;word-break:break-word}
       .lp-pop-row{display:flex;align-items:center;gap:8px;margin-top:auto;padding-top:10px}
       .lp-pop-chip{display:inline-flex;align-items:center;height:19px;padding:0 9px;background:var(--chip-bg);color:var(--chip-text);border-radius:999px;font-size:10.5px;font-weight:600;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .lp-pop-resolve{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
+      .lp-pop-resolve:hover{opacity:1;background:var(--chip-bg);color:var(--accent-ink)}
       .lp-pop-edit{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
       .lp-pop-edit:hover{opacity:1;background:var(--chip-bg);color:var(--accent-ink)}
       .lp-pop-del{flex:0 0 auto;width:24px;height:24px;border:0;background:transparent;color:var(--faint);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.6;transition:opacity .12s ease}
@@ -1814,6 +1844,7 @@
           <div class="lp-pop-row">
             ${label ? `<span class="lp-pop-chip">${escapeHtml(label)}</span>` : ''}
             <div style="flex:1"></div>
+            <button class="lp-pop-resolve" data-pin-resolve="${index}" aria-label="Resolve">${ICON.check(14, 2.2)}</button>
             <button class="lp-pop-edit" data-pin-edit="${index}" aria-label="Edit">${ICON.edit(14)}</button>
             <button class="lp-pop-del" data-pin-del="${index}" aria-label="Delete">${ICON.trash(14)}</button>
           </div>
@@ -1872,6 +1903,13 @@
         if (edit)
             edit.addEventListener('click', () =>
                 openEditComposer(commentIndex),
+            );
+        // No confirm step, unlike delete: resolving keeps the comment and the
+        // owner can reopen it from the project's site-review page.
+        const resolve = holder.querySelector('[data-pin-resolve]');
+        if (resolve)
+            resolve.addEventListener('click', () =>
+                resolveComment(commentIndex),
             );
     };
     const bindConfirm = (el, index) => {
@@ -2459,6 +2497,7 @@
                     `<div class="lp-item-body"><div class="lp-item-text"></div><span class="lp-chip" style="display:none"></span>` +
                     `<button class="lp-item-page" style="display:none" aria-label="Go to the page this comment was made on">` +
                     `${ICON.arrowOut(11)}<span class="lp-item-page-label"></span></button></div>` +
+                    `<button class="lp-resolve" aria-label="Resolve comment">${ICON.check(14, 2.2)}</button>` +
                     `<button class="lp-edit" aria-label="Edit comment">${ICON.edit(14)}</button>` +
                     `<button class="lp-del" aria-label="Delete comment">${ICON.trash(14)}</button>`;
                 row.addEventListener('mouseenter', () => {
@@ -2481,6 +2520,9 @@
                         const target = comments[index];
                         if (target && target.url) location.href = target.url;
                     },
+                );
+                row.querySelector('.lp-resolve').addEventListener('click', () =>
+                    resolveComment(index),
                 );
                 row.querySelector('.lp-edit').addEventListener('click', () =>
                     openEditComposer(index),
@@ -2891,6 +2933,30 @@
     // Add-anchor mode. Holding the modifier over an open composer brings the picker
     // back, so a click adds another anchor without discarding the draft. The mode
     // lasts as long as the hold. At the cap it says so instead of picking.
+    // The mode arms on the keydown and shows itself on the pointer. A reveal on
+    // the keydown alone flashes the picker on and straight back off for every
+    // chord typed into the composer: ⌘Enter to save, ⌘A, ⌘C, ⌘V. The pointer has
+    // to move to reach the next element anyway, so nothing is lost.
+    const disarmReveal = () => {
+        document.removeEventListener('mousemove', revealAddAnchor, true);
+        document.removeEventListener('mousedown', revealAddAnchor, true);
+    };
+    const revealAddAnchor = (event) => {
+        // A synthetic move that carries no modifier is not the reviewer's pointer,
+        // so it must not spend the arm.
+        if (!state.addAnchor || !modHeld(event)) return;
+        disarmReveal();
+        if (composeAnchors().length >= MAX_ANCHORS) {
+            state.actionError = { message: AT_CAP_MESSAGE };
+        } else {
+            setTargeting(true);
+            // A listener added mid-dispatch does not get the event that added it, so
+            // the mousedown that revealed the picker would focus the host element
+            // `onDown` exists to protect. Run it by hand for that one event.
+            if (event.type === 'mousedown') onDown(event);
+        }
+        sync();
+    };
     const enterAddAnchor = () => {
         if (state.modCancelled || state.addAnchor) return;
         if (
@@ -2902,18 +2968,15 @@
             return;
         // A modifier held while drawing belongs to the drag, not to the picker.
         if (state.drawing) return;
-        if (composeAnchors().length >= MAX_ANCHORS) {
-            state.actionError = { message: AT_CAP_MESSAGE };
-        } else {
-            setTargeting(true);
-        }
         state.addAnchor = true;
-        sync();
+        document.addEventListener('mousemove', revealAddAnchor, true);
+        document.addEventListener('mousedown', revealAddAnchor, true);
     };
     // `cancelled` marks the hold spent, so another key pressed with the modifier
     // down does not re-enter the mode before the reviewer lets go.
     const exitAddAnchor = (cancelled) => {
         state.modCancelled = cancelled;
+        disarmReveal();
         if (!state.addAnchor) return;
         state.addAnchor = false;
         setTargeting(false);
@@ -3215,6 +3278,35 @@
             }
         }
         state.saving = false;
+        sync();
+    };
+
+    // Resolving says the reviewer is done with a comment. It leaves this list,
+    // which holds the pending ones, and the owner can reopen it from the
+    // project's site-review page. It shares `state.deleting` with delete, so the
+    // footer and both rows disable together while one request is in flight.
+    const resolveComment = async (index) => {
+        const target = comments[index];
+        if (!target || state.deleting) return;
+        state.deleting = true;
+        sync();
+        try {
+            await ready;
+            await api('POST', `/api/site-review/comments/${target.id}/resolve`);
+            comments.splice(index, 1);
+        } catch (error) {
+            if (authFailed(error)) enterFatal(error);
+            else {
+                state.actionError = error;
+                if (error && error.status === 404) await refresh();
+            }
+        }
+        state.deleting = false;
+        state.confirmDeleteId = null;
+        state.pinConfirmId = null;
+        state.hoverId = null;
+        state.hoverPinId = null;
+        if (!comments.length) state.listExpanded = false;
         sync();
     };
 
@@ -3740,6 +3832,16 @@
         commentOnSelection();
     });
 
+    // A page that reviews text of its own opts out: its own selection UI owns
+    // the selection there.
+    const quotesOff = (node) => {
+        const element = node.nodeType === 1 ? node : node.parentElement;
+        return (
+            element != null &&
+            element.closest('[data-site-review-quotes="off"]') != null
+        );
+    };
+
     // A selection offers to become a quoted anchor only while the panel is open
     // and no saved comment is being edited: an edit sends the body alone, so
     // taking the selection would start a new comment and lose the draft.
@@ -3758,6 +3860,7 @@
         if (!selection || selection.isCollapsed || !selection.rangeCount)
             return clearQuotePick();
         const range = selection.getRangeAt(0);
+        if (quotesOff(range.commonAncestorContainer)) return clearQuotePick();
         const anchor = anchorForRange(range.cloneRange());
         if (!anchor) return clearQuotePick();
         state.quotePick = { range: range.cloneRange(), anchor };

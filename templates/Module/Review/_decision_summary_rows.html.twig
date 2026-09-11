@@ -1,9 +1,15 @@
-{# Rows of the decisions panel. Rendered by the page and again by the stream that
-   follows an answer, so both must be given `rows` in the same shape. #}
+{# Rows of the decisions panel and of the rail. Rendered by the page and again by
+   the stream that follows an answer, so both must be given `rows` in the same
+   shape. Both jump actions are listed, as in `_contents_rows.html.twig`. #}
 {% for row in rows %}
 <li class="lp-decision-summary__item">
+    {% if row.selected is empty %}
+    <twig:ux:icon name="lucide:circle" class="lp-review-contents__tick" />
+    {% else %}
+    <twig:ux:icon name="lucide:circle-check" class="lp-review-contents__tick lp-review-contents__tick--on" />
+    {% endif %}
     <a class="lp-decision-summary__link" href="#{{ row.elementId }}"
-       data-action="click->metadata-tabs#jump">{{ row.label }}</a>
+       data-action="click->metadata-tabs#jump click->contents-rail#jump">{{ row.label }}</a>
     {% if row.selected is empty %}
     <span class="lp-decision-summary__pending">{{ 'review.document.decisions.pending'|trans }}</span>
     {% else %}

@@ -838,11 +838,12 @@
         @apply flex flex-col mt-2;
     }
     /* Divider on top rather than bottom, so the last row does not end on a rule
-       the eye reads as "more below". Below lg the badge and the actions drop to
-       their own line: held on one row they leave the title about 50px, which
-       renders every document on the list as one letter and an ellipsis. */
+       the eye reads as "more below". A column at every width: the title owns the
+       first line whole, and every other thing the row says goes on the line
+       under it. Sharing one line left the title about 50px, which rendered every
+       document on the list as one letter and an ellipsis. */
     .lp-document-row {
-        @apply relative flex flex-wrap items-center gap-x-4 gap-y-2.5 border-t border-line-strong transition-colors py-5 px-1 lg:flex-nowrap lg:gap-y-0;
+        @apply relative flex flex-col gap-1.5 border-t border-line-strong transition-colors py-5 px-1;
     }
     .lp-document-row:hover {
         @apply bg-tint;
@@ -852,26 +853,28 @@
     .lp-document-row__link {
         @apply absolute inset-0;
     }
-    .lp-document-row__main {
-        @apply min-w-0 basis-full flex flex-col gap-1 lg:flex-1;
-    }
-    /* Line 1: title + version pill inline. */
+    /* Line 1: the title, and nothing else on it. */
     .lp-document-row__head {
-        @apply flex flex-wrap items-baseline gap-2 min-w-0 lg:flex-nowrap;
+        @apply flex min-w-0;
     }
-    /* The title wraps below lg and truncates above it. A phone has the vertical
-       room, and one ellipsised letter tells the reader nothing. */
+    /* The title has the line to itself, so it wraps rather than truncates at
+       every width. One ellipsised letter tells the reader nothing. */
     .lp-document-row__title {
-        @apply font-display font-semibold text-ink min-w-0 break-words text-xl tracking-tight lg:truncate lg:text-2xl;
+        @apply font-display font-semibold text-ink min-w-0 break-words text-xl tracking-tight lg:text-2xl;
     }
     /* Bare mono version marker, e.g. "v3" — a pill here would compete with the
        status badge at the other end of the same row. */
     .lp-document-row__version {
         @apply inline-flex items-center shrink-0 font-mono text-fg-dim text-xs;
     }
-    /* Line 2: the meta beneath the title. */
+    /* Line 2: everything else the row says, under the title. It wraps, because
+       a document may carry more tag names than one line holds. The actions ride
+       the right end. */
     .lp-document-row__meta {
-        @apply flex items-center gap-1.5 text-fg-dim text-sm;
+        @apply flex flex-wrap items-center gap-x-3 gap-y-1.5 text-fg-dim text-sm;
+    }
+    .lp-document-row__meta > .lp-document-row__actions {
+        @apply ml-auto;
     }
     .lp-document-row__sep {
         @apply text-fg-dim;
@@ -886,9 +889,7 @@
         content: '';
         @apply w-1.5 h-1.5 shrink-0 rounded-full bg-accent;
     }
-    /* Line 3: the document's tag chips. Wraps, because a document may carry more
-       names than fit the row and .lp-document-row__main is min-w-0. No margin —
-       __main is a flex column with its own gap. */
+    /* The document's tag chips, inline in the metadata line. */
     .lp-document-row__tags {
         @apply flex flex-wrap items-center gap-1.5;
     }
@@ -1219,11 +1220,12 @@
     }
 
     /* The 972px review block: a 640px reading column, a 36px gutter, and a
-       296px comment column. Centred, and the offset parent the comment stack
-       and the floating panels are positioned against. Below lg the 972px is a
-       ceiling rather than a width, so the reading column fills a phone. */
+       296px comment column. It starts at the same left edge as .lp-workspace.
+       The left offset must be a margin, never padding: this is the offset
+       parent of the comment stack and the floating panels, and padding moves
+       the padding box they are placed against. */
     .lp-review-block {
-        @apply relative w-full max-w-243 mx-auto px-5 pt-6 pb-19 lg:px-0 lg:pt-13 lg:pb-30;
+        @apply relative w-full max-w-243 px-5 pt-6 pb-19 lg:ml-12 lg:w-auto lg:px-0 lg:pt-13 lg:pb-30;
     }
 
     /* ── Document pane ──────────────────────────────────────────────────
@@ -1247,6 +1249,81 @@
     }
     .lp-review-doc--wide {
         @apply max-w-280;
+    }
+
+    /* ── Contents and decisions rail ────────────────────────────────────
+       Left of the reading column on a wide window. 236px wide with a 40px
+       gutter, which is the 276px the block's extra left margin opens.
+       Absolute, like the comment column: the reading column is exactly as wide
+       with a rail as without one. */
+    .lp-review-rail {
+        @apply hidden absolute -left-69 top-0 bottom-0 w-59;
+    }
+    /* 100rem, not the 2xl token: the rail costs 276px and the block is 972px
+       wide, so the row needs 1296px of pane. A 1536px window leaves 1290 and
+       overflows by six. */
+    @media (width >= 100rem) {
+        .lp-review-rail {
+            @apply block;
+        }
+        /* Only a block that holds a rail. A diff page renders none, and a wide
+           side-by-side diff shifted by 324px overflows its own pane. */
+        .lp-review-block:has(.lp-review-rail) {
+            @apply ml-81;
+        }
+    }
+    /* The wrapper spans the block, so the list inside it can stick. It clears
+       the metadata bar, which is sticky at the same edge. */
+    .lp-review-rail__inner {
+        @apply sticky top-13 flex flex-col gap-0.5 overflow-y-auto;
+        max-height: calc(100dvh - 8rem);
+    }
+    .lp-review-rail__title {
+        @apply flex items-baseline gap-2 m-0 mb-1.5 uppercase font-mono text-fg-dim text-xs tracking-wider;
+    }
+    .lp-review-rail__title:not(:first-child) {
+        @apply mt-5.5;
+    }
+    .lp-review-rail__count {
+        @apply font-mono text-fg-dim text-xs normal-case tracking-normal;
+    }
+    /* A row in the rail is a tick and a heading, and the tick carries the
+       state: a "not approved" line under every heading is the state of most of
+       the list, so it reads as noise and buries the rows that did change. A
+       236px column also has no room for a label and its state side by side, and
+       a heading truncated to three words names nothing. */
+    .lp-review-rail .lp-review-contents__item,
+    .lp-review-rail .lp-decision-summary__item {
+        @apply items-start gap-2 py-0;
+    }
+    /* self-start, against the base class's self-center: a two-line heading must
+       keep its tick level with the first line, not with the middle of the row. */
+    .lp-review-rail .lp-review-contents__tick {
+        @apply block self-start mt-1.5;
+    }
+    .lp-review-rail .lp-review-contents__link,
+    .lp-review-rail .lp-decision-summary__link {
+        @apply block flex-1 min-w-0 whitespace-normal overflow-visible rounded-lg no-underline py-1 px-2 transition-colors;
+        text-overflow: clip;
+    }
+    /* A decision reads as a heading here, not as the bolder thing the panel
+       makes of it. */
+    .lp-review-rail .lp-decision-summary__link {
+        @apply font-normal text-fg-mute;
+    }
+    .lp-review-rail .lp-review-contents__link:hover,
+    .lp-review-rail .lp-decision-summary__link:hover {
+        @apply bg-tint text-fg no-underline;
+    }
+    /* The section the reader is in, marked by contents_rail_controller. */
+    .lp-review-rail .lp-review-contents__link--current {
+        @apply bg-surface-3 text-ink font-semibold;
+    }
+    .lp-review-rail .lp-section-approvals__approved,
+    .lp-review-rail .lp-section-approvals__pending,
+    .lp-review-rail .lp-decision-summary__answer,
+    .lp-review-rail .lp-decision-summary__pending {
+        @apply hidden;
     }
 
     /* The comment column, from lg up. Absolutely positioned, and every card
@@ -1324,17 +1401,35 @@
     .lp-doc-meta__tab[aria-expanded='true'] .lp-doc-meta__caret {
         @apply rotate-90;
     }
+    /* The rail stands both lists open, so their tabs would open a second copy
+       of what is already on screen. Only a block that has a rail: a diff page
+       renders none, and the tab is the one way to its contents there. */
+    @media (width >= 100rem) {
+        .lp-review-block:has(.lp-review-rail) .lp-doc-meta__tab--railed {
+            @apply hidden;
+        }
+    }
     /* Names the pair the pane holds, on the green status tint: comparing is a
        state the reader turned on, not a failure. The stop control rides the chip
        rather than the row, so the row stays the view switch and the jumps. */
     .lp-doc-meta__compare {
         @apply inline-flex items-center gap-1.5 shrink-0 rounded-full bg-status-ok-bg text-status-ok-deep font-semibold text-xs py-1 pl-2.5 pr-1;
     }
+    /* Reads as an invitation rather than as a tab: the reader has not asked for
+       the comparison, and the row beside it is what the page already holds. */
+    .lp-doc-meta__unread {
+        @apply inline-flex items-center gap-2 shrink-0 h-7 px-2.75 rounded-full no-underline bg-accent-faint-2 border border-accent-border text-accent-ink text-xs font-semibold transition-colors hover:bg-accent-faint;
+    }
     .lp-doc-meta__compare-stop {
         @apply inline-flex items-center justify-center shrink-0 w-5 h-5 rounded-full text-status-ok-deep no-underline transition-colors hover:bg-status-ok-border;
     }
+    /* Chips in the bar itself below lg, where the tab that holds them is
+       display:none and the review menu carries no tags row. */
     .lp-doc-meta__tags {
-        @apply flex items-center gap-1.5 ml-auto;
+        @apply flex items-center gap-1.5 ml-auto lg:hidden;
+    }
+    .lp-doc-tags__list {
+        @apply flex flex-wrap items-center gap-1.5;
     }
     .lp-doc-meta__series {
         @apply flex items-center gap-1.5 ml-auto;
@@ -1374,21 +1469,29 @@
        "Add general comment" plus the hint that select-to-comment exists, with
        the resolved toggle pushed out over the comment column. */
     .lp-review-actions {
-        @apply flex flex-wrap items-center gap-x-3 gap-y-2 mb-5.5;
+        @apply flex flex-wrap items-center gap-x-3 gap-y-2 mt-5.5 mb-5.5;
     }
     .lp-review-actions__hint {
         @apply text-sm text-fg-mute;
     }
     /* Sits above the comment column, so it reads as a control on the comments
-       rather than on the prose. Below lg the review menu carries the only copy.
-       `max-lg:` and not a plain `hidden`, because above lg this class must
-       declare no display: the controller reveals the button with the `hidden`
-       attribute, which a display utility in this layer outranks. */
+       rather than on the prose. It carries no display: this is a .lp-btn, and
+       the two rules that hide it are unlayered, below the coarse-pointer block. */
     .lp-review-actions__resolved {
-        @apply max-lg:hidden absolute left-169 whitespace-nowrap bg-transparent border-0 p-0 cursor-pointer text-sm text-fg-mute transition-colors;
+        @apply absolute left-169 whitespace-nowrap;
     }
-    .lp-review-actions__resolved:hover {
-        @apply text-ink;
+    /* One icon of the pair at a time, chosen by the state the controller writes
+       onto the button. Specificity, not source order, does the picking. */
+    .lp-review-actions__resolved-icon--show {
+        @apply hidden;
+    }
+    .lp-review-actions__resolved[data-resolved-hidden='1']
+        .lp-review-actions__resolved-icon--hide {
+        @apply hidden;
+    }
+    .lp-review-actions__resolved[data-resolved-hidden='1']
+        .lp-review-actions__resolved-icon--show {
+        @apply block;
     }
     /* Resolved threads are hidden rather than removed, so the toggle is instant
        and costs no round trip. */
@@ -1565,11 +1668,24 @@
     .lp-history {
         @apply list-none flex flex-col m-0 mt-8 p-0;
     }
+    /* The rule joins one node to the next, so it starts at the first node's
+       centre and stops at the last one's. A border would run the whole height of
+       every row, overshooting above the first node and stopping a row short of
+       the last. The offset is the node's own: 8px down, half of a 10px dot. */
     .lp-history__row {
-        @apply relative flex flex-col gap-1.5 border-l border-line pl-6 pb-6;
+        @apply relative flex flex-col gap-1.5 pl-6 pb-6;
+        background-image: linear-gradient(var(--color-line), var(--color-line));
+        background-repeat: no-repeat;
+        background-position: left top;
+        background-size: 1px 100%;
+    }
+    .lp-history__row:first-child {
+        background-position: left calc(var(--spacing) * 3.25);
+        background-size: 1px calc(100% - var(--spacing) * 3.25);
     }
     .lp-history__row:last-child {
-        @apply border-transparent pb-0;
+        @apply pb-0;
+        background-size: 1px calc(var(--spacing) * 3.25);
     }
     .lp-history__row::before {
         content: '';
@@ -1626,7 +1742,7 @@
        the pane, because an inline mark always sits inside the element it
        changed — which is what makes this selector the block/inline split. */
     .lp-diff-doc > .lp-diff__mark {
-        @apply relative block my-6 py-2 pl-7 pr-3 rounded-lg border-l-4 no-underline;
+        @apply relative block my-6 py-2 px-3 rounded-lg border-l-4 no-underline;
     }
     /* Prose margins would otherwise push the block off its own tint. */
     .lp-diff-doc > .lp-diff__mark > :first-child {
@@ -1640,17 +1756,6 @@
     }
     .lp-diff-doc > .lp-diff__mark--inserted {
         @apply bg-status-ok-bg border-status-ok-border;
-    }
-    /* Gutter sign, in place of a strike-through that a reader has to see past to
-       read the paragraph it crosses. */
-    .lp-diff-doc > .lp-diff__mark::after {
-        @apply absolute left-2 top-2 select-none font-mono text-sm text-fg-dim;
-    }
-    .lp-diff-doc > .lp-diff__mark--deleted::after {
-        content: '−';
-    }
-    .lp-diff-doc > .lp-diff__mark--inserted::after {
-        content: '+';
     }
     /* Blocks split on blank lines, so a removed section is one wrapper per
        block. Adjacent wrappers close up into the single change they are. */
@@ -1729,6 +1834,11 @@
     .lp-diff__line--inserted {
         @apply bg-status-ok-bg;
     }
+    /* A heading line the contents rail links to. It clears the sticky metadata
+       bar the way a hunk does, because the scroll helper reads this margin. */
+    .lp-diff__line--heading {
+        @apply scroll-mt-24;
+    }
     /* A source line already carries its own marker and tint, so a mark inside
        one needs neither the strike nor the underline the rendered view uses. */
     .lp-diff__line .lp-diff__mark {
@@ -1762,6 +1872,12 @@
     .lp-diff-nav {
         @apply flex items-center gap-1.5 ml-auto;
     }
+    /* What `j` and `k` look like: the keyboard reaches the same two buttons the
+       pointer does, so the press has to be visible on them. Matches the hover
+       fill and the `:active` transform the pointer gets. */
+    .lp-btn--icon.lp-btn--pressed {
+        @apply bg-tint-strong text-ink translate-y-px scale-97;
+    }
     .lp-diff-nav__count {
         @apply font-mono text-fg-dim text-xs uppercase tracking-widest whitespace-nowrap;
     }
@@ -1784,8 +1900,10 @@
 
     /* What the author said a revision changed, sitting directly above what it
        actually changed. */
+    /* The same gap the action row takes below the bar, so the note does not sit
+       against the controls above it. */
     .lp-diff-notes {
-        @apply max-w-2xl flex flex-col gap-1.5 mb-6 p-4 rounded-lg border bg-surface-2 border-line;
+        @apply max-w-2xl flex flex-col gap-1.5 mt-5.5 mb-6 p-4 rounded-lg border bg-surface-2 border-line;
     }
     .lp-diff-notes__title {
         @apply font-mono text-fg-dim m-0 text-xs uppercase tracking-widest;
@@ -1829,11 +1947,6 @@
     .lp-version-banner {
         @apply flex flex-wrap items-center gap-2.5 px-4 py-3 mb-4 rounded-lg border text-sm bg-surface-2 border-line text-fg-mute;
     }
-    /* Tinted apart from the plain banner: this one invites a click rather than
-       explaining what the page is showing. */
-    .lp-version-banner--unread {
-        @apply bg-accent-faint-2 border-accent-border text-ink;
-    }
     .lp-review-doc__byline {
         @apply text-fg-dim m-0 text-sm;
     }
@@ -1875,6 +1988,12 @@
     }
     .lp-review-contents__item {
         @apply flex items-baseline gap-3;
+    }
+    .lp-review-contents__tick {
+        @apply hidden w-4 h-4 shrink-0 self-center text-fg-faint;
+    }
+    .lp-review-contents__tick--on {
+        @apply text-status-ok-deep;
     }
     .lp-review-contents__link {
         @apply block min-w-0 flex-1 truncate rounded no-underline text-fg-mute text-sm py-1 px-1.5 transition-colors hover:bg-tint hover:text-fg;
@@ -2038,11 +2157,11 @@
     .lp-comment-composer__error {
         @apply text-xs text-danger;
     }
-    /* Untargeted composer: a centred panel + a "General comment" label instead
-       of the quoted selection. */
+    /* Untargeted composer: it opens in the flow under the action row that asked
+       for it, with a "General comment" label instead of the quoted selection.
+       A panel over the middle of the page hid the document it was about. */
     .lp-comment-composer--untargeted {
-        @apply fixed left-1/2 top-1/2 z-30;
-        transform: translate(-50%, -50%);
+        @apply static mb-5.5 max-w-2xl shadow-none border border-line;
     }
     .lp-composer-general {
         display: none;
@@ -2612,7 +2731,7 @@
        One row at every width: below lg the lead stacks its two lines and
        everything else leaves the bar. */
     .lp-topbar {
-        @apply flex items-center gap-3.5 h-16 px-3.5 shrink-0;
+        @apply flex items-center gap-3.5 h-16 px-3.5 shrink-0 lg:px-12;
     }
     /* Opens the sidebar drawer. Present only where the sidebar is off-canvas. */
     .lp-topbar__menu {
@@ -2628,7 +2747,7 @@
        they share one baseline row, and no width floor is needed: the actions
        are the only other child and they are gone below lg. */
     .lp-topbar__lead {
-        @apply flex flex-col justify-center gap-y-0.5 min-w-0 flex-1 basis-0 lg:flex-row lg:flex-wrap lg:items-baseline lg:gap-x-3.5 lg:gap-y-1;
+        @apply flex flex-col justify-center gap-y-0.5 min-w-0 flex-1 basis-0 lg:flex-row lg:flex-wrap lg:items-baseline lg:justify-start lg:gap-x-3.5 lg:gap-y-1;
     }
     .lp-topbar__trail {
         @apply flex items-baseline gap-2 min-w-0 max-w-full;
@@ -2955,8 +3074,69 @@
 
     /* ── Orphan banner ──────────────────────────────────────────────── */
 
-    .lp-orphan-banner {
-        @apply flex items-center gap-2.5 px-4 py-3 mb-4 rounded-lg border text-sm bg-status-pending-bg border-status-pending-border text-status-pending-deep;
+    /* Threads whose passage this version no longer holds. They lead the comment
+       column in flow, because there is no line for them to sit level with, and
+       the heading is what the banner above the document used to say. */
+    .lp-orphan-group {
+        @apply flex flex-col gap-2.5 mb-4;
+    }
+    .lp-orphan-group__title {
+        @apply flex items-center gap-2 w-full p-0 bg-transparent border-0 cursor-pointer text-left uppercase font-mono text-status-pending-deep text-xs tracking-wider transition-colors hover:text-status-pending;
+    }
+    .lp-orphan-group__icon {
+        @apply w-3.5 h-3.5 shrink-0;
+    }
+    .lp-orphan-group__caret {
+        @apply w-3.5 h-3.5 shrink-0 transition-transform duration-100;
+    }
+    .lp-orphan-group.disclosure-open .lp-orphan-group__caret {
+        @apply rotate-90;
+    }
+    .lp-orphan-group__list {
+        @apply hidden flex-col gap-2.5;
+    }
+    .lp-orphan-group__list.open {
+        @apply flex;
+    }
+    /* In flow, against the rail's absolute placement: these cards are the group's
+       own children and there is no passage to place them against. `!important`
+       because comment_anchor_controller writes `position` as an inline style. */
+    .lp-orphan-group .lp-comment-thread {
+        position: static !important;
+        @apply rounded-xl;
+        outline: 1px solid var(--color-status-pending-border);
+    }
+    /* Open, not collapsed to a marker: a marker names the author and points at a
+       passage, and this card has none to point at. Both selectors carry the
+       rail's own prefix, which is what the collapse rules use, or those would
+       out-rank these however late they come. */
+    .lp-comment-rail .lp-orphan-group .lp-comment-marker {
+        @apply hidden;
+    }
+    /* flex, not block: the detail is a flex column whose `gap` is the whole of
+       its vertical rhythm, and `display: block` drops every one of those gaps. */
+    .lp-comment-rail
+        .lp-orphan-group
+        .lp-comment-thread
+        .lp-comment-thread__detail {
+        @apply flex flex-col gap-3;
+    }
+    /* The rail flattens a collapsed card to marker height. These cards are never
+       collapsed, so they keep the padding and the gap a card has anywhere else. */
+    .lp-comment-rail .lp-orphan-group .lp-comment-thread {
+        @apply py-3.5 gap-3;
+    }
+    /* The marker is what names the author in the rail, and it is hidden here. */
+    .lp-comment-rail
+        .lp-orphan-group
+        .lp-comment-thread__header
+        > .lp-comment-author {
+        @apply inline;
+    }
+    /* The group's heading says this right above the card. The pill is for a card
+       that stands on its own, which one in this group never does. */
+    .lp-orphan-group .lp-comment-orphan-pill {
+        @apply hidden;
     }
 
     /* ── Decision blocks ────────────────────────────────────────────────
@@ -3078,6 +3258,12 @@
         > :is(h1, h2, h3, h4, h5, h6) {
         @apply mt-0;
     }
+    /* Names the block a contents link took the reader to. The scroll ends with
+       several of them on screen and no sign of which was asked for. */
+    .lp-arrived {
+        @apply rounded-lg;
+        animation: lp-arrived 2600ms ease-out both;
+    }
     .lp-section-approve {
         @apply absolute right-0 top-0 m-0 flex;
     }
@@ -3088,10 +3274,24 @@
         @apply translate-y-px scale-97;
     }
     .lp-section-approve__button--approved {
-        @apply text-accent-ink;
+        @apply text-status-ok-deep;
+    }
+    .lp-section-approve__button--approved:hover {
+        @apply bg-status-ok-bg text-status-ok-deep;
     }
     .lp-section-approve__icon {
         @apply w-5 h-5 shrink-0;
+    }
+    /* Hovering an unapproved section shows the tick the click would leave, so
+       the empty circle says what it does before the reviewer commits. */
+    .lp-section-approve__icon--hover {
+        @apply hidden;
+    }
+    .lp-section-approve__button:hover .lp-section-approve__icon--rest {
+        @apply hidden;
+    }
+    .lp-section-approve__button:hover .lp-section-approve__icon--hover {
+        @apply block;
     }
 
     /* ── Admin primitives ───────────────────────────────────────────────
@@ -4350,6 +4550,24 @@
     }
 }
 
+/* The arrival mark: a tint that fades out rather than a ring that lands and
+   sits there. Both halves are shadows in ONE list, the inset filling the block
+   and the outer standing in for padding it cannot have without moving the page.
+   One property, so the two cannot fade at different rates, and neither is
+   `background-color`, which belongs to the decision fence. @comment-budget-ignore */
+@keyframes lp-arrived {
+    from {
+        box-shadow:
+            inset 0 0 0 100vmax var(--color-accent-faint),
+            0 0 0 0.6rem var(--color-accent-faint);
+    }
+    to {
+        box-shadow:
+            inset 0 0 0 100vmax transparent,
+            0 0 0 0.6rem transparent;
+    }
+}
+
 @keyframes lp-tab-countdown {
     from {
         transform: scaleX(0);
@@ -4376,6 +4594,16 @@
 
     .lp-demo-widget-hint {
         animation: none;
+    }
+
+    /* The mark still has to be seen, so it holds rather than fading. */
+    @keyframes lp-arrived {
+        from,
+        to {
+            box-shadow:
+                inset 0 0 0 100vmax var(--color-accent-faint),
+                0 0 0 0.6rem var(--color-accent-faint);
+        }
     }
 
     .lp-sidebar--drawer,
@@ -4432,5 +4660,20 @@
        display would reveal it below sm: and min-width never applies to inline. */
     .lp-landing-nav__link {
         @apply px-2 py-3;
+    }
+}
+
+/* The resolved-threads toggle is a .lp-btn, so the block above gives it a
+   display, and an unlayered rule beats @layer components at any specificity.
+   Both rules therefore live here, after it. The attribute is how the controller
+   reveals the button once a thread resolves; below lg the review menu carries
+   the only copy of the control. */
+.lp-review-actions__resolved[hidden] {
+    display: none;
+}
+
+@media (width < 64rem) {
+    .lp-review-actions__resolved {
+        display: none;
     }
 }

@@ -43,7 +43,8 @@ Pending  →  Addressed  →  (Resolved)
 - `Pending`: the reviewer saved it and the agent has not acted. Comments are
   created in this state. There is no draft.
 - `Addressed`: the agent fixed it (`site_review_mark_comment_addressed`).
-- `Resolved`: the human signed it off in the web UI.
+- `Resolved`: a human signed it off, in the web UI or from the widget. An agent
+  cannot reach this state.
 
 `Draft` was removed with the send step. Any reference to it is stale.
 
@@ -124,6 +125,7 @@ notice stay event-sourced on purpose, because zero is *correct* there.
 | `/api/site-review/comments` | POST | Save a comment |
 | `/api/site-review/comments/{id}` | PATCH | Edit (Pending only) |
 | `/api/site-review/comments/{id}` | DELETE | Delete (Pending only) |
+| `/api/site-review/comments/{id}/resolve` | POST | Resolve (Pending only) |
 | `/api/site-review/sites` | GET | List sites for a token |
 | `/api/site-review/stream` | GET | Subscriber credentials, behind the push flag |
 | `/api/board/cards` | GET | Open cards, for the widget's picker |

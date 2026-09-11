@@ -35,8 +35,11 @@ final readonly class SideBySideDiffBuilder
     /**
      * The renderer namespaces a heading id with `heading-` and a decision id
      * with `lp-decision-`, so nothing it mints starts with this.
+     *
+     * Public because a caller listing the columns' headings has to tell an id
+     * this pass renamed from one the document minted.
      */
-    private const string OLD_SIDE_PREFIX = 'diff-old-';
+    public const string OLD_SIDE_PREFIX = 'diff-old-';
 
     /** Attributes that name an id, so a renamed control keeps its label. */
     private const array ID_REFERENCE_ATTRIBUTES = [

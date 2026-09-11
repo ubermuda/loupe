@@ -27,10 +27,20 @@ served from is the instance it talks to.
 
 **Install it on staging and preview environments only, never a public site.**
 The token appears in page source, so anyone who can view the page holds it — and
-that credential reads, edits and deletes every pending comment on the project,
-not only the ones its holder wrote. Keeping the widget off public pages is what
+that credential reads, edits, resolves and deletes every pending comment on the
+project, not only the ones its holder wrote. Keeping the widget off public pages is what
 bounds who that is. Use a dedicated site-review-scoped token, never an MCP token
 or a production credential.
+
+## Resolving a comment
+
+Press the tick on a comment, either in the widget's list or on the card that
+opens from its pin. The comment leaves the widget, because the widget lists the
+comments that are still open.
+
+Resolving keeps the comment. It moves to **Resolved** on the project's
+site-review page, where you can read it again and reopen it. Deleting is the
+control that removes a comment, and it asks you to confirm first.
 
 ## Quoting a passage of text
 

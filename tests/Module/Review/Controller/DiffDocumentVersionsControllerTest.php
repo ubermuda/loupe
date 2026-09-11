@@ -254,7 +254,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         // reaches it by keyboard.
         self::assertSame(
             'diff-unmarked-notice',
-            $crawler->filter('.lp-diff-views__link')->eq(2)->attr('aria-describedby'),
+            $crawler->filter('.lp-diff-views__link')->eq(1)->attr('aria-describedby'),
         );
         self::assertCount(3, $crawler->filter('.lp-diff-views__link'));
 
@@ -388,7 +388,15 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
             'Document',
             $rendered->filter('.lp-diff-views__link[aria-current]')->text(),
         );
-        self::assertStringContainsString('view=source', (string) $rendered->filter('.lp-diff-views__link')->eq(2)->attr('href'));
+        // Document, Markdown, Side by side. Markdown reads the same document and
+        // sits next to it; the columns rebuild the page and go last.
+        self::assertSame(
+            ['Document', 'Markdown', 'Side by side'],
+            $rendered->filter('.lp-diff-views__link')->each(
+                static fn (Crawler $link): string => $link->text(),
+            ),
+        );
+        self::assertStringContainsString('view=source', (string) $rendered->filter('.lp-diff-views__link')->eq(1)->attr('href'));
 
         $source = $client->request(Request::METHOD_GET, $base.'?view=source');
         self::assertSame(
@@ -704,12 +712,13 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
     }
 
     /**
-     * The contents panel lists a version's own headings, and a diff's headings
-     * belong to two versions: a heading reworded across them appears once,
-     * carrying both texts and an id derived from the pair. So the panel stays
-     * off, while the ids themselves remain for a document's own in-page links.
+     * A diff's headings belong to two versions, and the renderer dedupes their
+     * ids across the pair, so the panel cannot list the newer version's own
+     * headings. It reads them back out of the merged render instead, which is
+     * what the page holds, and every row therefore points at an id on the page.
+     * Approval belongs to one version, so no row carries a state here.
      */
-    public function test_a_diff_renders_no_contents_panel(): void
+    public function test_a_diff_lists_the_headings_of_the_pane_it_shows(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -718,8 +727,13 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $project = $this->project($em, $owner);
 
         $renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
-        $old = "## First\n\nBody.\n\n## Second\n\nMore.\n";
-        $new = "## First\n\nRevised body.\n\n## Second\n\nMore.\n";
+        // Three shapes the columns treat differently: Gone is dropped, Renamed
+        // becomes Arrived in its place, and Second is edited where it stands.
+        // The last keeps its id, because an id is a slug and `Second` and
+        // `Second!` slug alike. A fixture that only revises a body makes none of
+        // them, and the panel then looks correct.
+        $old = "## First\n\nBody.\n\n## Gone\n\nDropped.\n\n## Renamed\n\nKept.\n\n## Second\n\nMore.\n";
+        $new = "## First\n\nRevised body.\n\n## Arrived\n\nKept.\n\n## Second!\n\nMore.\n";
 
         $doc = new Document(owner: $owner, project: $project, title: 'Sectioned Diff');
         $doc->addVersion($old, $renderer->render($old));
@@ -732,15 +746,205 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $diff = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2');
+        $base = '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2';
+        $diff = $client->request(Request::METHOD_GET, $base);
 
         self::assertResponseIsSuccessful();
-        self::assertCount(0, $diff->filter('.lp-review-contents'));
+        self::assertCount(1, $diff->filter('.lp-review-contents'));
+        // The rail carries the same rows beside the reading column on a wide
+        // window, the way it does on the review page.
+        self::assertCount(1, $diff->filter('.lp-review-rail'));
 
-        // The review page for the same document, so the assertion cannot pass
-        // merely because this document never had a contents panel.
+        // Removed headings are listed too: they are on the page the reader has,
+        // in the order the merged render holds them.
+        self::assertSame(
+            ['First', 'Gone', 'Renamed', 'Arrived', 'Second!'],
+            $diff->filter('.lp-review-contents .lp-review-contents__link')->each(
+                static fn (Crawler $link): string => $link->text(),
+            ),
+        );
+        $this->assertContentsRowsResolve($diff);
+
+        // A diff approves nothing, so no row offers or reports a state.
+        self::assertCount(0, $diff->filter('.lp-review-contents__tick'));
+        self::assertCount(0, $diff->filter('.lp-section-approvals__pending'));
+
+        // Both counts below lg say how many headings there are. An approved-of-
+        // total reading there claims every section of a diff awaits approval.
+        self::assertSame('5', trim($diff->filter('#review-menu-sections-count')->text()));
+        self::assertSame('5', trim($diff->filter('#review-menu-sections-head-count')->text()));
+
+        // The Markdown view lists headings too. Its ids are minted from the
+        // source lines, because it renders no heading element to read one from.
+        $source = $client->request(Request::METHOD_GET, $base.'?view=source');
+        self::assertCount(1, $source->filter('.lp-review-contents'));
+        $this->assertContentsRowsResolve($source);
+
+        // The columns pair by position, so Gone shares a row with Arrived and
+        // both are on screen there. The order therefore differs from the merged
+        // render's above, and reading only the newer cell of a row would drop
+        // Gone from the list while it is still on the page.
+        $columns = $client->request(Request::METHOD_GET, $base.'?view=side-by-side');
+        self::assertSame(
+            ['First', 'Gone', 'Arrived', 'Renamed', 'Second', 'Second!'],
+            $columns->filter('.lp-review-contents .lp-review-contents__link')->each(
+                static fn (Crawler $link): string => $link->text(),
+            ),
+        );
+        $this->assertContentsRowsResolve($columns);
+
+        // An older cell keeps the prefix the column pass gave it. First is
+        // unchanged and stands in both cells, and is listed once under the newer
+        // id. Second and Second! share that id and are two labels, so both stay.
+        self::assertSame(
+            [
+                'heading-first',
+                'diff-old-heading-gone',
+                'heading-arrived',
+                'diff-old-heading-renamed',
+                'diff-old-heading-second',
+                'heading-second',
+            ],
+            $columns->filter('.lp-review-contents .lp-review-contents__link')->each(
+                static fn (Crawler $link): string => substr((string) $link->attr('href'), 1),
+            ),
+        );
+
+        // The review page for the same document still reports approval state, so
+        // the assertions above cannot pass by the panel having lost it outright.
         $latest = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
         self::assertCount(1, $latest->filter('.lp-review-contents'));
+        self::assertCount(3, $latest->filter('.lp-review-contents .lp-review-contents__tick'));
+    }
+
+    /**
+     * A heading that only changes level keeps its text, so the two cells are
+     * told apart by neither label nor level. They are still listed separately,
+     * because the renderer suffixes the second id when one source holds the same
+     * heading twice. That is the renderer's behaviour rather than this panel's,
+     * so the panel breaks here if the renderer ever stops doing it.
+     */
+    public function test_a_heading_that_only_changes_level_is_listed_from_both_columns(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-diff-level', 'owner-diff-level@example.com');
+        $project = $this->project($em, $owner);
+
+        $renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
+        $old = "## Alpha\n\nIntro.\n\n## Second\n\nBody.\n";
+        $new = "## Alpha\n\nIntro.\n\n### Second\n\nBody.\n";
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Level Diff');
+        $doc->addVersion($old, $renderer->render($old));
+        $doc->addVersion($new, $renderer->render($new));
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $columns = $client->request(
+            Request::METHOD_GET,
+            '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2?view=side-by-side',
+        );
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(
+            ['heading-alpha', 'diff-old-heading-second', 'heading-second-2'],
+            $columns->filter('.lp-review-contents .lp-review-contents__link')->each(
+                static fn (Crawler $link): string => substr((string) $link->attr('href'), 1),
+            ),
+        );
+        $this->assertContentsRowsResolve($columns);
+    }
+
+    /**
+     * The Markdown view mints an id per heading line and the rail links to it.
+     *
+     * Each row is read back against the line it names, because an id that lands
+     * on the page is not yet an id on the right line: a walk that counted
+     * positions differently would still resolve, on a line the row does not
+     * describe. A `#` inside a code fence is not a heading and gets no row.
+     */
+    public function test_the_markdown_view_lists_the_headings_of_its_source_lines(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'owner-source-toc', 'owner-source-toc@example.com');
+        $project = $this->project($em, $owner);
+
+        $renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
+        $fence = "```sh\n# not a heading\necho hi\n```";
+        $old = "# Guide\n\nIntro.\n\n## Removed\n\nGone.\n\n".$fence."\n\n### Stable ###\n\nBody.\n";
+        $new = "# Guide\n\nIntro.\n\n## Added\n\nNew.\n\n".$fence."\n\n### Stable ###\n\nBody.\n";
+
+        $doc = new Document(owner: $owner, project: $project, title: 'Source Diff');
+        $doc->addVersion($old, $renderer->render($old));
+        $doc->addVersion($new, $renderer->render($new));
+        $em->persist($doc);
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $id = (string) $doc->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $source = $client->request(
+            Request::METHOD_GET,
+            '/projects/'.$projectId.'/documents/'.$id.'/review/diff/1/2?view=source',
+        );
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $source->filter('.lp-review-contents'));
+        self::assertCount(1, $source->filter('.lp-review-rail'));
+
+        $rows = $source->filter('.lp-review-contents .lp-review-contents__link');
+        self::assertSame(
+            ['Guide', 'Removed', 'Added', 'Stable'],
+            $rows->each(static fn (Crawler $link): string => $link->text()),
+        );
+        self::assertSame(
+            ['diff-source-heading-1', 'diff-source-heading-2', 'diff-source-heading-3', 'diff-source-heading-4'],
+            $rows->each(static fn (Crawler $link): string => substr((string) $link->attr('href'), 1)),
+        );
+        self::assertSame(
+            ['1', '2', '2', '3'],
+            $rows->each(static fn (Crawler $link): string => (string) $link->attr('data-level')),
+        );
+
+        $this->assertContentsRowsResolve($source);
+
+        // The row and the line it names say the same thing. A row that resolves
+        // to another line reads as a working jump and lands in the wrong place.
+        foreach ($rows->each(static fn (Crawler $link): array => [$link->text(), (string) $link->attr('href')]) as [$label, $href]) {
+            self::assertStringContainsString($label, $source->filter($href)->text(), $href.' names another line.');
+        }
+
+        // A diff approves nothing here either, and the count is the rail's own.
+        self::assertCount(0, $source->filter('.lp-review-contents__tick'));
+        self::assertSame('4', trim($source->filter('#review-rail-sections-count')->text()));
+    }
+
+    /**
+     * Every contents row names an element the page holds. A row pointing at an
+     * id the pane does not carry scrolls nowhere and reports nothing, so only
+     * the page itself can settle whether a row works.
+     */
+    private function assertContentsRowsResolve(Crawler $page): void
+    {
+        $targets = $page->filter('.lp-review-contents__link')->each(
+            static fn (Crawler $link): string => substr((string) $link->attr('href'), 1),
+        );
+
+        self::assertNotEmpty($targets);
+        foreach ($targets as $target) {
+            self::assertCount(1, $page->filter('#'.$target), $target.' is not on the page.');
+        }
     }
 
     public function test_a_diff_that_does_not_run_forwards_is_not_found(): void

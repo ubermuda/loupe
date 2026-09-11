@@ -37,13 +37,7 @@
 {% endblock %}
 
 {% block body %}
-<div class="lp-review">
-    {% if signals.hasOrphanedThreads %}
-    <div class="lp-orphan-banner">
-        {{ 'review.document.orphan_banner'|trans({'%count%': signals.orphanedThreadCount}) }}
-    </div>
-    {% endif %}
-
+<div class="lp-review" data-site-review-quotes="off">
     {# Both controllers pass diffMode explicitly: Twig's `default` filter fires
        on any falsy value, so `|default(true)` would send every show-page render
        down the diff branch. A comparison names itself with the chip in the
@@ -65,18 +59,6 @@
     </div>
     {% endif %}
 
-    {# Only on the current version: the diff this offers ends at it, and on an
-       older one the reader is already looking at a specific point in the
-       history. #}
-    {% if not diffMode and not readOnly and lastSeenVersionNumber is not null and lastSeenVersionNumber < version.versionNumber %}
-    <div class="lp-version-banner lp-version-banner--unread">
-        <twig:ux:icon name="lucide:git-compare" class="w-4 h-4 shrink-0" />
-        <span>{{ 'review.document.since_last_visit.banner'|trans({'%from%': lastSeenVersionNumber, '%to%': version.versionNumber}) }}</span>
-        <a class="lp-btn lp-btn--ghost lp-btn--sm" href="{{ path('app_document_review_diff', {projectId: document.project.id, documentId: document.id, fromVersionNumber: lastSeenVersionNumber, toVersionNumber: version.versionNumber}) }}">
-            {{ 'review.document.since_last_visit.link'|trans }}
-        </a>
-    </div>
-    {% endif %}
 
     {# The comment-anchor controller attaches in diff mode only where the diff
        accepts comments, and its `diff` value tells it the pane holds two
@@ -123,11 +105,14 @@
                appears nowhere else. #}
             {% set hasVersionDescription = versions|filter(meta => meta.description is not empty)|length > 0 %}
             {% set showVersions = versions|length > 1 or hasVersionDescription %}
-            {# Contents and section approvals are one panel: both are a list of
-               the same headings, and the state belongs beside the link rather
-               than a tab away. Diff mode replaces the HTML those ids live in and
-               is passed no `sections`, hence the lazy-ternary guard. #}
-            {% set sectionRows = diffMode ? [] : sections.rows %}
+            {# Contents and section approvals are one panel: both list the same
+               headings. A diff is passed no `sections`, hence the lazy ternary,
+               and its rows come from the merged render, which is the markup the
+               page holds. A diff approves nothing, so its rows carry no state. #}
+            {% set sectionRows = diffMode
+                ? diffHeadings|map(heading => {level: heading.level, headingId: heading.id, label: heading.text, approved: false})
+                : sections.rows %}
+            {% set sectionsApprovable = not diffMode %}
             {% set approvedSections = diffMode ? 0 : sections.approvedCount %}
             {# One section is enough, where the old table of contents wanted two:
                the panel now reports approval state, which changes and is worth
@@ -151,6 +136,21 @@
                 version.versionNumber,
             ) %}
 
+            {# Left of the reading column from 2xl up, where there is room for it
+               beside the comment column. Absolutely positioned, so it neither
+               moves the prose nor joins the anchor pane's textContent. Not on the
+               two-column diff, which already takes the width the rail needs. #}
+            {% if not diffColumns and (sectionRows|length > 0 or decisionRows|length > 0) %}
+            {% include '@Review/_review_rail.html.twig' with {
+                document: document,
+                sectionRows: sectionRows,
+                sectionsApprovable: sectionsApprovable,
+                approvedSections: approvedSections,
+                decisionRows: decisionRows,
+                answeredDecisions: answeredDecisions,
+            } only %}
+            {% endif %}
+
             {# Mutually-exclusive panels rather than stacked blocks: together they
                used to push the first paragraph below the fold.
                A sibling of the head, not a child: the bar is sticky, and a
@@ -158,6 +158,16 @@
             {% if showVersions or showContents or referenceCount > 0 or decisionRows|length > 0 or document.tags|length > 0 or document.series is not null or diffMode %}
             <div class="lp-doc-meta-bar" data-controller="metadata-tabs">
                     <div class="lp-doc-meta">
+                        {# Only on the current version: the diff this offers ends
+                           at it, and on an older one the reader is already at a
+                           point in the history. #}
+                        {% if not diffMode and not readOnly and lastSeenVersionNumber is not null and lastSeenVersionNumber < version.versionNumber %}
+                        <a class="lp-doc-meta__unread"
+                           href="{{ path('app_document_review_diff', {projectId: document.project.id, documentId: document.id, fromVersionNumber: lastSeenVersionNumber, toVersionNumber: version.versionNumber}) }}">
+                            <twig:ux:icon name="lucide:git-compare" class="w-3.5 h-3.5 shrink-0" />
+                            {{ 'review.document.since_last_visit.chip'|trans({'%from%': lastSeenVersionNumber, '%to%': version.versionNumber}) }}
+                        </a>
+                        {% endif %}
                         {# The chip names the pair and carries the way out of the
                            comparison, so the bar needs no banner above it. It
                            leads the row and survives below lg, where the tabs
@@ -185,17 +195,20 @@
                         </button>
                         {% endif %}
                         {% if showContents %}
-                        <button type="button" class="lp-doc-meta__tab" aria-expanded="false"
+                        <button type="button" class="lp-doc-meta__tab lp-doc-meta__tab--railed" aria-expanded="false"
                                 data-metadata-tabs-target="tab"
                                 data-metadata-tabs-panel-param="contents"
                                 data-action="click->metadata-tabs#toggle">
                             {{ 'review.document.contents.label'|trans }}
                             {# Approved-of-total rather than a bare heading count:
-                               it carries the same total and the state as well. #}
-                            <span class="lp-doc-meta__count" id="section-summary-count">{{ 'review.document.sections.count_compact'|trans({
-                                '%approved%': approvedSections,
-                                '%total%': sectionRows|length,
-                            }) }}</span>
+                               it carries the same total and the state as well. A
+                               diff approves nothing, so it counts headings. #}
+                            <span class="lp-doc-meta__count" id="section-summary-count">{{ sectionsApprovable
+                                ? 'review.document.sections.count_compact'|trans({
+                                    '%approved%': approvedSections,
+                                    '%total%': sectionRows|length,
+                                })
+                                : sectionRows|length }}</span>
                             <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
                         </button>
                         {% endif %}
@@ -210,7 +223,7 @@
                         </button>
                         {% endif %}
                         {% if decisionRows|length > 0 %}
-                        <button type="button" class="lp-doc-meta__tab" aria-expanded="false"
+                        <button type="button" class="lp-doc-meta__tab lp-doc-meta__tab--railed" aria-expanded="false"
                                 data-metadata-tabs-target="tab"
                                 data-metadata-tabs-panel-param="decisions"
                                 data-action="click->metadata-tabs#toggle">
@@ -222,6 +235,16 @@
                             <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
                         </button>
                         {% endif %}
+                        {% if document.tags|length > 0 %}
+                        <button type="button" class="lp-doc-meta__tab" aria-expanded="false"
+                                data-metadata-tabs-target="tab"
+                                data-metadata-tabs-panel-param="tags"
+                                data-action="click->metadata-tabs#toggle">
+                            {{ 'review.document.meta.tags'|trans }}
+                            <span class="lp-doc-meta__count">{{ document.tags|length }}</span>
+                            <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
+                        </button>
+                        {% endif %}
                         {% if document.series is not null %}
                         <div class="lp-doc-meta__series">
                             <span class="lp-series">{{ 'review.document.series.item'|trans({
@@ -230,6 +253,9 @@
                             }) }}</span>
                         </div>
                         {% endif %}
+                        {# Below lg the tab and its panel are display:none, so the
+                           chips stay in the bar there. Above lg the panel holds
+                           them and this group is hidden. #}
                         {% if document.tags|length > 0 %}
                         <div class="lp-doc-meta__tags">
                             {% for tag in document.tags %}
@@ -239,71 +265,14 @@
                         {% endif %}
                     </div>
 
-                {% if decisionRows|length > 0 %}
-                {# A row of its own in the bar: the longest refusal is a sentence
-                   and would squeeze the tabs out of the row above. Rendered
-                   empty rather than omitted — a live region must be in the
-                   accessibility tree before its text arrives. #}
-                <p id="decision-status" class="lp-decision-status" aria-live="polite"></p>
-                {% endif %}
-
-                {# One row of the sticky bar for both, rather than a bar of its
-                   own: two elements stuck to the same edge overlap. The views
-                   stay plain links, so each is addressable. The rendered one
-                   cannot mark front matter, a link reference definition or a
-                   setext underline, hence the Markdown one. #}
-                {% if diffNavigation %}
-                {% set viewParams = {projectId: document.project.id, documentId: document.id, fromVersionNumber: diffFromVersion, toVersionNumber: version.versionNumber} %}
-                <div class="lp-diff-bar">
-                    <nav class="lp-diff-views" aria-label="{{ 'review.document.diff.view.label'|trans }}">
-                        <a class="lp-diff-views__link"
-                           href="{{ path('app_document_review_diff', viewParams|merge({view: 'rendered'})) }}"
-                           {% if diffView.value == 'rendered' %}aria-current="page"{% endif %}
-                           {% if diffColumns %}aria-describedby="diff-columns-notice"{% endif %}
-                        >{{ 'review.document.diff.view.rendered'|trans }}</a>
-                        {# The same rendered blocks in two columns. The notice
-                           below says what it gives up, and this link opens it. #}
-                        <a class="lp-diff-views__link"
-                           href="{{ path('app_document_review_diff', viewParams|merge({view: 'side-by-side'})) }}"
-                           {% if diffColumns %}aria-current="page"{% endif %}
-                        >{{ 'review.document.diff.view.side_by_side'|trans }}</a>
-                        {# describedby rather than a second link: the notice below says
-                           why this view is worth opening, and this is the control that
-                           opens it. #}
-                        <a class="lp-diff-views__link"
-                           href="{{ path('app_document_review_diff', viewParams|merge({view: 'source'})) }}"
-                           {% if diffView.value == 'source' %}aria-current="page"{% endif %}
-                           {% if diffUnmarked %}aria-describedby="diff-unmarked-notice"{% endif %}
-                        >{{ 'review.document.diff.view.source'|trans }}</a>
-                    </nav>
-                    <div class="lp-diff-nav">
-                        <p class="lp-diff-nav__count" aria-live="polite" data-diff-navigation-target="counter">{{ 'review.document.diff.nav.count'|trans({'%count%': diffChangeCount}) }}</p>
-                        <button type="button" class="lp-btn lp-btn--icon" data-action="diff-navigation#previous"
-                                aria-label="{{ 'review.document.diff.nav.previous'|trans }}"
-                                title="{{ 'review.document.diff.nav.previous'|trans }}">
-                            <twig:ux:icon name="lucide:arrow-up" class="w-4 h-4 shrink-0" />
-                        </button>
-                        <button type="button" class="lp-btn lp-btn--icon" data-action="diff-navigation#next"
-                                aria-label="{{ 'review.document.diff.nav.next'|trans }}"
-                                title="{{ 'review.document.diff.nav.next'|trans }}">
-                            <twig:ux:icon name="lucide:arrow-down" class="w-4 h-4 shrink-0" />
-                        </button>
-                    </div>
+                {% if document.tags|length > 0 %}
+                <div class="lp-doc-meta__panel lp-doc-tags" data-metadata-tabs-target="panel" data-panel="tags" hidden>
+                    <ul class="lp-doc-tags__list" aria-label="{{ 'review.document.meta.tags'|trans }}">
+                        {% for tag in document.tags %}
+                        <li class="lp-tag">{{ tag.name }}</li>
+                        {% endfor %}
+                    </ul>
                 </div>
-                {% endif %}
-
-                {% if diffColumns %}
-                <p id="diff-columns-notice" class="lp-diff-notice">
-                    <twig:ux:icon name="lucide:info" class="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{{ 'review.document.diff.side_by_side.comments_hidden'|trans }}</span>
-                </p>
-                {% endif %}
-
-                {% if diffUnmarked %}
-                <p id="diff-unmarked-notice" class="lp-diff-notice">
-                    <twig:ux:icon name="lucide:info" class="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{{ 'review.document.diff.unmarked_notice'|trans }}</span>
-                </p>
                 {% endif %}
 
                 {% if showVersions %}
@@ -369,8 +338,8 @@
                 {% if showContents %}
                 <nav class="lp-doc-meta__panel lp-review-contents" data-metadata-tabs-target="panel" data-panel="contents" hidden
                      aria-label="{{ 'review.document.contents.nav_label'|trans }}">
-                    <ul class="lp-review-contents__list">
-                        {% include '@Review/_contents_rows.html.twig' with {rows: sectionRows} only %}
+                    <ul class="lp-review-contents__list" id="section-summary-list">
+                        {% include '@Review/_contents_rows.html.twig' with {rows: sectionRows, approvable: sectionsApprovable} only %}
                     </ul>
                 </nav>
                 {% endif %}
@@ -425,6 +394,84 @@
                 </div>
                 {% endif %}
 
+                {# Every panel above, and everything below it belongs to the bar
+                   rather than to a tab. A panel opens directly under the row that
+                   names it, the way the tags one does, and no control stands
+                   between the tab and what it opened. #}
+                {% if decisionRows|length > 0 %}
+                {# A row of its own in the bar: the longest refusal is a sentence
+                   and would squeeze the tabs out of the row above. Rendered
+                   empty rather than omitted — a live region must be in the
+                   accessibility tree before its text arrives. #}
+                <p id="decision-status" class="lp-decision-status" aria-live="polite"></p>
+                {% endif %}
+
+                {# The same shape for a refused press. Only where a control is
+                   rendered, which is the case the message can arise in. #}
+                {% if not diffMode and not readOnly and showContents %}
+                <p id="section-status" class="lp-decision-status" aria-live="polite"></p>
+                {% endif %}
+
+                {# One row of the sticky bar for both, rather than a bar of its
+                   own: two elements stuck to the same edge overlap. The views
+                   stay plain links, so each is addressable. The rendered one
+                   cannot mark front matter, a link reference definition or a
+                   setext underline, hence the Markdown one. #}
+                {% if diffNavigation %}
+                {% set viewParams = {projectId: document.project.id, documentId: document.id, fromVersionNumber: diffFromVersion, toVersionNumber: version.versionNumber} %}
+                <div class="lp-diff-bar">
+                    <nav class="lp-diff-views" aria-label="{{ 'review.document.diff.view.label'|trans }}">
+                        <a class="lp-diff-views__link"
+                           href="{{ path('app_document_review_diff', viewParams|merge({view: 'rendered'})) }}"
+                           {% if diffView.value == 'rendered' %}aria-current="page"{% endif %}
+                           {% if diffColumns %}aria-describedby="diff-columns-notice"{% endif %}
+                        >{{ 'review.document.diff.view.rendered'|trans }}</a>
+                        {# describedby rather than a second link: the notice below says
+                           why this view is worth opening, and this is the control that
+                           opens it. Second of the three: it reads the same document,
+                           where the columns rebuild the page. #}
+                        <a class="lp-diff-views__link"
+                           href="{{ path('app_document_review_diff', viewParams|merge({view: 'source'})) }}"
+                           {% if diffView.value == 'source' %}aria-current="page"{% endif %}
+                           {% if diffUnmarked %}aria-describedby="diff-unmarked-notice"{% endif %}
+                        >{{ 'review.document.diff.view.source'|trans }}</a>
+                        {# The same rendered blocks in two columns. The notice
+                           below says what it gives up, and this link opens it. #}
+                        <a class="lp-diff-views__link"
+                           href="{{ path('app_document_review_diff', viewParams|merge({view: 'side-by-side'})) }}"
+                           {% if diffColumns %}aria-current="page"{% endif %}
+                        >{{ 'review.document.diff.view.side_by_side'|trans }}</a>
+                    </nav>
+                    <div class="lp-diff-nav">
+                        <p class="lp-diff-nav__count" aria-live="polite" data-diff-navigation-target="counter">{{ 'review.document.diff.nav.count'|trans({'%count%': diffChangeCount}) }}</p>
+                        <button type="button" class="lp-btn lp-btn--icon" data-diff-navigation-target="previousButton" data-action="diff-navigation#previous"
+                                aria-label="{{ 'review.document.diff.nav.previous'|trans }}"
+                                title="{{ 'review.document.diff.nav.previous'|trans }}">
+                            <twig:ux:icon name="lucide:arrow-up" class="w-4 h-4 shrink-0" />
+                        </button>
+                        <button type="button" class="lp-btn lp-btn--icon" data-diff-navigation-target="nextButton" data-action="diff-navigation#next"
+                                aria-label="{{ 'review.document.diff.nav.next'|trans }}"
+                                title="{{ 'review.document.diff.nav.next'|trans }}">
+                            <twig:ux:icon name="lucide:arrow-down" class="w-4 h-4 shrink-0" />
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if diffColumns %}
+                <p id="diff-columns-notice" class="lp-diff-notice">
+                    <twig:ux:icon name="lucide:info" class="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{{ 'review.document.diff.side_by_side.comments_hidden'|trans }}</span>
+                </p>
+                {% endif %}
+
+                {% if diffUnmarked %}
+                <p id="diff-unmarked-notice" class="lp-diff-notice">
+                    <twig:ux:icon name="lucide:info" class="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{{ 'review.document.diff.unmarked_notice'|trans }}</span>
+                </p>
+                {% endif %}
+
             </div>
             {% endif %}
 
@@ -434,17 +481,60 @@
                     {{ 'review.document.comment.untargeted'|trans }}
                 </button>
                 <span class="lp-review-actions__hint">{{ 'review.document.comment.select_hint'|trans }}</span>
-                {# Always rendered, shown by the controller only once a resolved
-                   thread exists. Resolving replaces #comment-threads alone, and
-                   this row sits outside it — gating it in Twig would leave the
-                   control missing until the next full page load. #}
-                <button type="button" class="lp-review-actions__resolved"
+                {# Always rendered, shown by the controller once a resolved thread
+                   exists. Resolving replaces #comment-threads alone, and this row
+                   sits outside it. Both icons ship and CSS picks one: the
+                   controller rewrites the label and would drop a re-rendered
+                   child, which is why the label has a span of its own. #}
+                <button type="button" class="lp-btn lp-btn--sm lp-btn--ghost lp-review-actions__resolved"
                         data-resolved-toggle
+                        data-resolved-hidden="0"
                         data-label-hide="{{ 'review.document.threads.hide_resolved'|trans }}"
                         data-label-show="{{ 'review.document.threads.show_resolved'|trans }}"
                         data-action="comment-anchor#toggleResolved"
-                        hidden>{{ 'review.document.threads.hide_resolved'|trans }}</button>
+                        hidden>
+                    <twig:ux:icon name="lucide:eye-off" class="lp-review-actions__resolved-icon lp-review-actions__resolved-icon--hide w-4 h-4 shrink-0" />
+                    <twig:ux:icon name="lucide:eye" class="lp-review-actions__resolved-icon lp-review-actions__resolved-icon--show w-4 h-4 shrink-0" />
+                    <span data-resolved-toggle-label>{{ 'review.document.threads.hide_resolved'|trans }}</span>
+                </button>
             </div>
+
+            {# Hidden until the reader opts in. It sits next to the button because
+               an untargeted comment opens in the flow here. A targeted one is
+               absolutely positioned at the selection, and .lp-review-doc is the
+               offset parent either way. #}
+            {{ form_start(addCommentForm, {attr: {
+                class: 'lp-comment-composer',
+                'data-comment-anchor-target': 'composer',
+                'data-controller': 'keyboard-submit',
+                'data-action': 'turbo:submit-end->comment-anchor#onSubmitEnd keydown->keyboard-submit#submit',
+                hidden: true,
+            }}) }}
+                {{ form_widget(addCommentForm.quote) }}
+                {{ form_widget(addCommentForm.prefix) }}
+                {{ form_widget(addCommentForm.suffix) }}
+                <blockquote class="lp-composer-quote" data-comment-anchor-target="quotePreview"></blockquote>
+                <span class="lp-composer-general">{{ 'review.document.comment.general'|trans }}</span>
+                {{ form_widget(addCommentForm.body) }}
+                <div class="lp-comment-composer__actions">
+                    <span class="lp-composer-hint">{{ 'review.document.comment.hint'|trans }}</span>
+                    <span
+                        id="composer-error"
+                        class="lp-comment-composer__error"
+                        data-comment-anchor-target="composerError"
+                    ></span>
+                    <button
+                        type="button"
+                        class="lp-btn lp-btn--ghost lp-btn--sm"
+                        data-action="comment-anchor#hideComposer"
+                    >{{ 'review.document.comment.cancel'|trans }}</button>
+                    <button
+                        type="submit"
+                        class="lp-btn lp-btn--primary lp-btn--sm"
+                        data-action="comment-anchor#submitComment"
+                    >{{ 'review.document.comment.submit'|trans }}</button>
+                </div>
+            {{ form_end(addCommentForm) }}
             {% endif %}
 
             {# Also on a diff that accepts comments: the add-comment stream
@@ -457,7 +547,7 @@
                Everything else on this page reads the same in both modes, which is
                why the diff overrides this block instead of being a page of its own. #}
             {% block documentPane %}
-            <div class="prose lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ documentPaneHtml|raw }}</div>
+            <div class="prose lp-prose lp-review-doc__prose" data-rail-align data-comment-anchor-target="doc">{{ documentPaneHtml|raw }}</div>
             {% endblock %}
 
             {# Outside the prose on purpose: that textContent must stay identical
@@ -539,42 +629,6 @@
                 {{ form_widget(strikePassageForm.suffix) }}
             {{ form_end(strikePassageForm) }}
 
-            {# Floating composer — a Symfony form, hidden until the user opts in.
-               The Stimulus controller positions it and fills the anchor fields;
-               Turbo submits it and applies the returned stream. #}
-            {{ form_start(addCommentForm, {attr: {
-                class: 'lp-comment-composer',
-                'data-comment-anchor-target': 'composer',
-                'data-controller': 'keyboard-submit',
-                'data-action': 'turbo:submit-end->comment-anchor#onSubmitEnd keydown->keyboard-submit#submit',
-                hidden: true,
-            }}) }}
-                {{ form_widget(addCommentForm.quote) }}
-                {{ form_widget(addCommentForm.prefix) }}
-                {{ form_widget(addCommentForm.suffix) }}
-                <blockquote class="lp-composer-quote" data-comment-anchor-target="quotePreview"></blockquote>
-                <span class="lp-composer-general">{{ 'review.document.comment.general'|trans }}</span>
-                {{ form_widget(addCommentForm.body) }}
-                <div class="lp-comment-composer__actions">
-                    <span class="lp-composer-hint">{{ 'review.document.comment.hint'|trans }}</span>
-                    <span
-                        id="composer-error"
-                        class="lp-comment-composer__error"
-                        data-comment-anchor-target="composerError"
-                    ></span>
-                    <button
-                        type="button"
-                        class="lp-btn lp-btn--ghost lp-btn--sm"
-                        data-action="comment-anchor#hideComposer"
-                    >{{ 'review.document.comment.cancel'|trans }}</button>
-                    <button
-                        type="submit"
-                        class="lp-btn lp-btn--primary lp-btn--sm"
-                        data-action="comment-anchor#submitComment"
-                    >{{ 'review.document.comment.submit'|trans }}</button>
-                </div>
-            {{ form_end(addCommentForm) }}
-
             {# Floating rewording composer — the same card as the comment composer,
                but leading with what the passage should become. The struck original
                sits above it so the before/after reads at a glance. #}
@@ -625,6 +679,7 @@
             showVersions: showVersions,
             showContents: showContents,
             sectionRows: sectionRows,
+            sectionsApprovable: sectionsApprovable,
             approvedSections: approvedSections,
             referenceCount: referenceCount,
             decisionRows: decisionRows,

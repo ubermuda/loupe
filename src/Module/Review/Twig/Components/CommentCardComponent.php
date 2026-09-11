@@ -61,15 +61,10 @@ final class CommentCardComponent
 
     /**
      * The status pill's label, which is not always the status: a general comment
-     * and a strike both read as their kind while still pending, and an orphaned
-     * passage reads as open whatever its status.
+     * and a strike both read as their kind while still pending.
      */
     public function statusLabel(): string
     {
-        if ($this->orphaned) {
-            return 'open';
-        }
-
         if ('pending' !== $this->status) {
             return $this->status;
         }

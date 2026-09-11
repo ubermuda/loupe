@@ -228,6 +228,7 @@ export default class extends Controller {
         // Turbo navigation, when getBoundingClientRect would read zeros).
         this.resizeObserver = new ResizeObserver(() => this.#scheduleLayout());
         this.resizeObserver.observe(this.docTarget);
+        this.observedOrphans = null;
 
         // Turbo Streams swap the thread list (add/delete/resolve replace the
         // whole #comment-threads container; reply replaces a single thread), so
@@ -258,6 +259,7 @@ export default class extends Controller {
         }
         this.#cancelHoverProbe();
         this.resizeObserver?.disconnect();
+        this.observedOrphans = null;
         this.threadObserver?.disconnect();
         if (this.scheduledLayout !== null) {
             cancelAnimationFrame(this.scheduledLayout);
@@ -1435,6 +1437,19 @@ export default class extends Controller {
         });
     }
 
+    #watchOrphans(orphans) {
+        if (orphans === this.observedOrphans) {
+            return;
+        }
+        if (null !== this.observedOrphans) {
+            this.resizeObserver.unobserve(this.observedOrphans);
+        }
+        this.observedOrphans = orphans;
+        if (null !== orphans) {
+            this.resizeObserver.observe(orphans);
+        }
+    }
+
     // The three passes are independently guarded: they read different anchors
     // from different elements, so one unlocatable comment quote must not take
     // every agent mark on the page down with it, nor leave every card unplaced.
@@ -1642,6 +1657,8 @@ export default class extends Controller {
         const anchored = this.threadTargets.filter(
             (thread) =>
                 thread.dataset.commentGeneral !== 'true' &&
+                // An orphaned card leads the column in its own group, in flow.
+                thread.dataset.commentOrphaned !== 'true' &&
                 // offsetParent is null for a display:none card, which is what
                 // hiding resolved threads does. Placing one would advance the
                 // floor by a card that is not on screen.
@@ -1657,7 +1674,16 @@ export default class extends Controller {
         }
 
         const marginTop = this.marginTarget.getBoundingClientRect().top;
-        let floor = 0;
+        // The orphan group leads the column in flow, so the positioned cards
+        // start below it rather than on top of it.
+        const orphans = this.marginTarget.querySelector('.lp-orphan-group');
+        // Its disclosure animates open, which changes no child list and does not
+        // resize the element the observer already watches.
+        this.#watchOrphans(orphans);
+        let floor =
+            null === orphans
+                ? 0
+                : orphans.offsetHeight + this.constructor.CARD_GAP;
 
         for (const thread of anchored) {
             // #releaseThreads() pins every card static, and `top` alone means
@@ -1744,7 +1770,13 @@ export default class extends Controller {
             '[data-resolved-toggle]',
         )) {
             toggle.hidden = !hasResolved;
-            toggle.textContent =
+            toggle.dataset.resolvedHidden = this.hideResolvedValue ? '1' : '0';
+            // The review-menu copy is a bare button and carries no span, so the
+            // label falls back to the button itself. Writing textContent on a
+            // button that holds icons would delete them.
+            const label =
+                toggle.querySelector('[data-resolved-toggle-label]') ?? toggle;
+            label.textContent =
                 toggle.dataset[
                     this.hideResolvedValue ? 'labelShow' : 'labelHide'
                 ];

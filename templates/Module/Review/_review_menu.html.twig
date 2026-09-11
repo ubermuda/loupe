@@ -1,7 +1,7 @@
 {# The review screen's menu below the lg breakpoint. Above lg it is display:none
    and the same controls live in the top bar and the metadata tabs.
    Params: document, version, versions, showVersions, showContents, sectionRows,
-   approvedSections, referenceCount, decisionRows, answeredDecisions,
+   sectionsApprovable, approvedSections, referenceCount, decisionRows, answeredDecisions,
    showResolvedToggle, showVerdict, diffMode, diffFromVersion, diffViewValue. #}
 <div class="lp-review-menu" data-controller="review-menu">
     <div class="lp-review-menu__scrim"
@@ -20,10 +20,12 @@
                     data-action="click->review-menu#drill">
                 <twig:ux:icon name="lucide:list" />
                 <span class="lp-review-menu__label">{{ 'review.document.contents.label'|trans }}</span>
-                <span class="lp-review-menu__count">{{ 'review.document.sections.count_compact'|trans({
-                    '%approved%': approvedSections,
-                    '%total%': sectionRows|length,
-                }) }}</span>
+                <span class="lp-review-menu__count" id="review-menu-sections-count">{{ sectionsApprovable
+                    ? 'review.document.sections.count_compact'|trans({
+                        '%approved%': approvedSections,
+                        '%total%': sectionRows|length,
+                    })
+                    : sectionRows|length }}</span>
             </button>
             {% endif %}
             {% if showVersions %}
@@ -88,20 +90,16 @@
         <div class="lp-review-menu__view" data-review-menu-target="view" data-view="contents" hidden>
             <p class="lp-review-menu__head">
                 <span>{{ 'review.document.contents.label'|trans }}</span>
-                <span class="lp-review-menu__head-count">{{ 'review.document.sections.count_compact'|trans({
-                    '%approved%': approvedSections,
-                    '%total%': sectionRows|length,
-                }) }}</span>
+                <span class="lp-review-menu__head-count" id="review-menu-sections-head-count">{{ sectionsApprovable
+                    ? 'review.document.sections.count_compact'|trans({
+                        '%approved%': approvedSections,
+                        '%total%': sectionRows|length,
+                    })
+                    : sectionRows|length }}</span>
             </p>
-            {% for row in sectionRows %}
-            <a class="lp-review-menu__section" data-level="{{ row.level }}" href="#{{ row.headingId }}"
-               data-action="click->review-menu#jump" title="{{ row.label }}">
-                <span class="lp-review-menu__mark{{ row.approved ? ' lp-review-menu__mark--approved' }}">
-                    {% if row.approved %}<twig:ux:icon name="lucide:check" />{% endif %}
-                </span>
-                <span class="lp-review-menu__label">{{ row.label }}</span>
-            </a>
-            {% endfor %}
+            <div id="review-menu-sections-list">
+                {% include '@Review/_menu_section_rows.html.twig' with {rows: sectionRows, approvable: sectionsApprovable} only %}
+            </div>
         </div>
         {% endif %}
 

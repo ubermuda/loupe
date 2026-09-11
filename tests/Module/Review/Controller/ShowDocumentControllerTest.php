@@ -284,7 +284,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertSelectorNotExists('.lp-signal--answered');
     }
 
-    public function test_the_orphan_banner_counts_threads_and_not_their_replies(): void
+    public function test_the_orphan_group_counts_threads_and_not_their_replies(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -311,10 +311,14 @@ final class ShowDocumentControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('.lp-orphan-banner', 'One comment thread refers to text that has been removed');
+        // The group leads the comment column and holds the thread itself, so the
+        // heading counts threads while the column below it holds none of them.
+        self::assertSelectorTextContains('.lp-orphan-group__title', 'No longer in the text · 1');
+        self::assertCount(1, $crawler->filter('.lp-orphan-group .lp-comment-thread'));
+        self::assertCount(0, $crawler->filter('.lp-comment-rail > .lp-comment-thread'));
     }
 
     public function test_resolving_a_comment_returns_the_whole_list_as_one_stream(): void
@@ -850,7 +854,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame(
             ['#heading-first', '#heading-second'],
-            $crawler->filter('.lp-review-contents__link')->each(static fn ($node): string => (string) $node->attr('href')),
+            $crawler->filter('[data-panel="contents"] .lp-review-contents__link')->each(static fn ($node): string => (string) $node->attr('href')),
         );
         // The panel must sit outside the prose container, whose textContent has to
         // stay identical to DocumentVersion::plainText() for anchors to resolve.
@@ -884,12 +888,12 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame(
             ['#heading-first', '#heading-section', '#heading-second'],
-            $crawler->filter('.lp-review-contents__link')->each(static fn ($node): string => (string) $node->attr('href')),
+            $crawler->filter('[data-panel="contents"] .lp-review-contents__link')->each(static fn ($node): string => (string) $node->attr('href')),
         );
         // Labelled by its id, never blank: a blank link is what the old rule avoided.
         self::assertSame(
             ['First', 'heading-section', 'Second'],
-            $crawler->filter('.lp-review-contents__link')->each(static fn ($node): string => trim($node->text())),
+            $crawler->filter('[data-panel="contents"] .lp-review-contents__link')->each(static fn ($node): string => trim($node->text())),
         );
         // It keeps its id in the document, so anything already linking to it resolves.
         self::assertStringContainsString('id="heading-section"', (string) $client->getResponse()->getContent());
@@ -920,7 +924,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         // One section was too few for a table of contents. The panel now also
         // reports approval state, which is worth seeing for a single section.
         self::assertCount(1, $crawler->filter('.lp-review-contents'));
-        self::assertCount(1, $crawler->filter('.lp-review-contents__link'));
+        self::assertCount(1, $crawler->filter('[data-panel="contents"] .lp-review-contents__link'));
         self::assertStringContainsString('0/1', $crawler->filter('#section-summary-count')->text());
     }
 
@@ -1039,7 +1043,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$sourceId.'/review');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(2, $crawler->filter('.lp-review-contents__link'));
+        self::assertCount(2, $crawler->filter('[data-panel="contents"] .lp-review-contents__link'));
         self::assertSelectorTextContains('.lp-doc-references', 'The Spec');
     }
 

@@ -10,6 +10,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
+use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use App\Module\SiteReview\SiteReviewDrawing;
 use Doctrine\ORM\EntityManagerInterface;
@@ -548,6 +549,53 @@ final class SiteReviewApiTest extends WebTestCase
     }
 
     /**
+     * The reviewer's own sign-off, reached with a widget token. The comment
+     * keeps its row in the project, and leaves the list the widget holds,
+     * because that list is the pending ones.
+     */
+    public function test_resolve_takes_a_comment_out_of_the_pending_list(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw, $project] = $this->projectWithToken($em, 'api-resolve@example.com');
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => 'done with this', 'url' => 'https://app/x']);
+        $id = json_decode((string) $client->getResponse()->getContent(), true)['commentId'];
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments/'.$id.'/resolve', $raw);
+        self::assertResponseStatusCodeSame(204);
+
+        $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
+        self::assertSame([], json_decode((string) $client->getResponse()->getContent(), true)['comments']);
+
+        // Resolved, not deleted: the owner can still see it and reopen it.
+        $comments = static::getContainer()->get(SiteReviewCommentRepository::class);
+        $resolved = $comments->findForProjectWithStatus($project, SiteReviewCommentStatus::Resolved);
+        self::assertCount(1, $resolved);
+        self::assertSame($id, (string) $resolved[0]->id);
+    }
+
+    /**
+     * The second press has nothing pending to act on, and says so rather than
+     * moving a comment the owner already signed off.
+     */
+    public function test_resolving_twice_reports_not_found(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw] = $this->projectWithToken($em, 'api-resolve-twice@example.com');
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, ['body' => 'once', 'url' => 'https://app/x']);
+        $id = json_decode((string) $client->getResponse()->getContent(), true)['commentId'];
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments/'.$id.'/resolve', $raw);
+        self::assertResponseStatusCodeSame(204);
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments/'.$id.'/resolve', $raw);
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    /**
      * NotBlank accepts "0" by design, so a comment body of exactly that reaches
      * the controller as a valid payload and must not be mistaken for empty.
      */
@@ -582,6 +630,9 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
 
         $this->api($client, Request::METHOD_DELETE, '/api/site-review/comments/'.$id, $rawB);
+        self::assertResponseStatusCodeSame(404);
+
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments/'.$id.'/resolve', $rawB);
         self::assertResponseStatusCodeSame(404);
     }
 

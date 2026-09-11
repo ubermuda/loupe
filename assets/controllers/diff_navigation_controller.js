@@ -1,8 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-
-const MINIMUM_SCROLL_DURATION = 250;
-const MAXIMUM_SCROLL_DURATION = 400;
-const SCROLL_MILLISECONDS_PER_PIXEL = 0.08;
+import { smoothScrollTo } from '../lib/smooth_scroll.js';
 
 /**
  * Jumps a reviewer between the changed hunks of a version diff, by button or by
@@ -22,12 +19,16 @@ const SCROLL_MILLISECONDS_PER_PIXEL = 0.08;
  *     <del data-diff-navigation-target="hunk" tabindex="-1"> … </del>
  */
 export default class extends Controller {
-    static targets = ['hunk', 'counter'];
+    static targets = ['hunk', 'counter', 'previousButton', 'nextButton'];
     static values = { position: String };
+
+    /** How long a key press keeps its button lit, in milliseconds. */
+    static PRESS_FLASH_MS = 160;
 
     connect() {
         this.currentIndex = -1;
-        this.animationFrame = null;
+        this.cancelScroll = () => {};
+        this.pressTimers = new Map();
         this.onKeydown = this.handleKeydown.bind(this);
         document.addEventListener('keydown', this.onKeydown);
     }
@@ -35,6 +36,7 @@ export default class extends Controller {
     disconnect() {
         document.removeEventListener('keydown', this.onKeydown);
         this.cancelScroll();
+        this.clearPressFlashes();
         // Turbo caches the page as it stands, so a marker left here would come
         // back on the restored snapshot with nothing driving it.
         this.clearCurrent();
@@ -52,17 +54,56 @@ export default class extends Controller {
         if (event.metaKey || event.ctrlKey || event.altKey) {
             return;
         }
-        if (this.isTypingTarget(event.target)) {
+        // composedPath()[0], not event.target: the site-review widget composes in a
+        // shadow root, and a keydown retargets to its host — so the field test passed
+        // and j/k ate every one the reviewer typed. The widget loads on every
+        // authenticated page, so both are always live.
+        if (this.isTypingTarget(event.composedPath()[0] ?? event.target)) {
             return;
         }
 
         if ('j' === event.key) {
             event.preventDefault();
+            this.flashPress(
+                this.hasNextButtonTarget ? this.nextButtonTarget : null,
+            );
             this.next();
         } else if ('k' === event.key) {
             event.preventDefault();
+            this.flashPress(
+                this.hasPreviousButtonTarget ? this.previousButtonTarget : null,
+            );
             this.previous();
         }
+    }
+
+    /**
+     * Lights the button the key stands for, so the shortcut and the pointer
+     * report the same press. Holding the key restarts the timer rather than
+     * queueing another, which keeps the button lit for as long as it repeats.
+     */
+    flashPress(button) {
+        if (null === button) {
+            return;
+        }
+
+        window.clearTimeout(this.pressTimers.get(button));
+        button.classList.add('lp-btn--pressed');
+        this.pressTimers.set(
+            button,
+            window.setTimeout(() => {
+                button.classList.remove('lp-btn--pressed');
+                this.pressTimers.delete(button);
+            }, this.constructor.PRESS_FLASH_MS),
+        );
+    }
+
+    clearPressFlashes() {
+        for (const [button, timer] of this.pressTimers) {
+            window.clearTimeout(timer);
+            button.classList.remove('lp-btn--pressed');
+        }
+        this.pressTimers.clear();
     }
 
     isTypingTarget(target) {
@@ -107,93 +148,12 @@ export default class extends Controller {
     /**
      * Eases the hunk to the middle of its scroller, so the reader sees where
      * they were taken rather than arriving with no sense of the distance.
-     *
-     * Hand-rolled rather than `behavior: 'smooth'` because a browser with
-     * smooth scrolling switched off drops that request entirely and never
-     * moves; writing `scrollTop` per frame is unaffected by that setting.
      */
     scrollToHunk(hunk) {
         // Each press restarts from wherever the last animation reached, so
         // holding `j` tracks the newest target instead of queueing behind it.
         this.cancelScroll();
-
-        const scroller = this.scrollerFor(hunk);
-        const from = scroller.scrollTop;
-        const target = this.centeredScrollTop(scroller, hunk);
-        const distance = Math.abs(target - from);
-
-        if (distance < 1 || this.prefersReducedMotion()) {
-            scroller.scrollTop = target;
-
-            return;
-        }
-
-        const duration = Math.min(
-            MAXIMUM_SCROLL_DURATION,
-            MINIMUM_SCROLL_DURATION + distance * SCROLL_MILLISECONDS_PER_PIXEL,
-        );
-        const startedAt = performance.now();
-
-        const step = (now) => {
-            const progress = Math.min(1, (now - startedAt) / duration);
-            const eased = 1 - Math.pow(1 - progress, 3);
-            scroller.scrollTop = from + (target - from) * eased;
-            this.animationFrame =
-                progress < 1 ? requestAnimationFrame(step) : null;
-        };
-
-        this.animationFrame = requestAnimationFrame(step);
-    }
-
-    cancelScroll() {
-        if (null !== this.animationFrame) {
-            cancelAnimationFrame(this.animationFrame);
-            this.animationFrame = null;
-        }
-    }
-
-    prefersReducedMotion() {
-        return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    }
-
-    scrollerFor(element) {
-        for (
-            let node = element.parentElement;
-            node;
-            node = node.parentElement
-        ) {
-            const overflowY = window.getComputedStyle(node).overflowY;
-            if (
-                ('auto' === overflowY || 'scroll' === overflowY) &&
-                node.scrollHeight > node.clientHeight
-            ) {
-                return node;
-            }
-        }
-
-        return document.scrollingElement ?? document.documentElement;
-    }
-
-    centeredScrollTop(scroller, element) {
-        // The document scroller has no box of its own to measure against: its
-        // rect top moves with the scroll, while the viewport's stays at zero.
-        const isDocumentScroller =
-            scroller === document.scrollingElement ||
-            scroller === document.documentElement;
-        const scrollerTop = isDocumentScroller
-            ? 0
-            : scroller.getBoundingClientRect().top;
-
-        const offset = element.getBoundingClientRect().top - scrollerTop;
-        const centered =
-            scroller.scrollTop +
-            offset -
-            (scroller.clientHeight - element.offsetHeight) / 2;
-
-        return Math.max(
-            0,
-            Math.min(centered, scroller.scrollHeight - scroller.clientHeight),
-        );
+        this.cancelScroll = smoothScrollTo(hunk, { align: 'center' });
     }
 
     clearCurrent() {

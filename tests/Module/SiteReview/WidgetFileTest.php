@@ -48,6 +48,20 @@ final class WidgetFileTest extends TestCase
         // The widget saves as the reviewer writes; there is no send step to call.
         self::assertStringNotContainsString('/api/site-review/review/submit', $src);
 
+        // The launcher says when the backend is a local build, so a reviewer
+        // sees that the comments land in a preview instance. The origin the
+        // script already computes is the only source, so production cannot
+        // switch it on. The label is a span, never a control.
+        self::assertStringContainsString('const LOCAL =', $src);
+        self::assertStringContainsString('/(^|\\.)localhost$/.test(BACKEND_HOST)', $src);
+        self::assertStringContainsString('/^127\\./.test(BACKEND_HOST)', $src);
+        self::assertStringContainsString('/\\.local$/.test(BACKEND_HOST)', $src);
+        // A false LOCAL emits no node at all, so the launcher keeps its width.
+        self::assertStringContainsString(
+            '${LOCAL ? \'<span class="lp-local" id="lp-local" data-tip="Comments save to this local build">Local</span>\' : \'\'}',
+            $src,
+        );
+
         // Comments live on the server alone. The launcher's corner is the one
         // thing the widget keeps in the browser, so one write is the budget.
         self::assertStringContainsString("'loupe.site-review.corner'", $src);

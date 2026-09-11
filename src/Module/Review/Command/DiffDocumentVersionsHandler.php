@@ -8,13 +8,17 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
+use App\Module\Review\Service\HeadingExtractor;
 use App\Module\Review\Service\MarkdownDiffer;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\Service\RenderedDiffBuilder;
 use App\Module\Review\Service\SideBySideDiffBuilder;
+use App\Module\Review\Service\SourceHeadingIndexBuilder;
 use App\Module\Review\ValueObject\CommentSignals;
 use App\Module\Review\ValueObject\DiffRefusal;
 use App\Module\Review\ValueObject\DiffView;
+use App\Module\Review\ValueObject\DocumentHeading;
+use App\Module\Review\ValueObject\SideBySideDiff;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -29,6 +33,8 @@ final readonly class DiffDocumentVersionsHandler
         private MarkdownRenderer $markdownRenderer,
         private RenderedDiffBuilder $renderedDiffs,
         private SideBySideDiffBuilder $sideBySideDiffs,
+        private SourceHeadingIndexBuilder $sourceHeadingIndexes,
+        private HeadingExtractor $headings,
         private Auditor $auditor,
     ) {
     }
@@ -46,6 +52,8 @@ final readonly class DiffDocumentVersionsHandler
         $sideBySide = null;
         $diffRefusal = null;
         $changeCount = null;
+        $headings = [];
+        $sourceHeadings = null;
         if ($result instanceof DiffRefusal) {
             $diffRefusal = $result;
             $this->auditor->record(
@@ -77,6 +85,8 @@ final readonly class DiffDocumentVersionsHandler
         if (null !== $diff && $diff->hasChanges()) {
             if (DiffView::Source === $command->view) {
                 $changeCount = $diff->changeCount();
+                $sourceHeadings = $this->sourceHeadingIndexes->build($diff);
+                $headings = $sourceHeadings->headings;
             } else {
                 $rendered = $this->renderedDiffs->build(
                     $this->markdownRenderer->renderDiff($diff),
@@ -86,8 +96,10 @@ final readonly class DiffDocumentVersionsHandler
 
                 if (DiffView::SideBySide === $command->view) {
                     $sideBySide = $this->sideBySideDiffs->build($rendered->html);
+                    $headings = $this->columnHeadings($sideBySide);
                 } else {
                     $renderedDiff = $rendered;
+                    $headings = $this->headings->extract($rendered->html);
                 }
             }
         }
@@ -104,11 +116,58 @@ final readonly class DiffDocumentVersionsHandler
             sideBySide: $sideBySide,
             diffRefusal: $diffRefusal,
             changeCount: $changeCount,
+            headings: $headings,
+            sourceHeadings: $sourceHeadings,
             commentingEnabled: $isCurrent && null !== $renderedDiff,
             comments: $comments,
             versions: $this->documentVersions->findAllMetaByDocument($command->document),
             signals: $this->comments->signalsByVersions([(string) $version->id])[(string) $version->id] ?? new CommentSignals(),
         );
+    }
+
+    /**
+     * Every heading the columns hold, in document order, older cell first.
+     *
+     * The builder prefixes every id on the older side, so reading the merged
+     * render named ids the columns do not hold and those rows scrolled nowhere.
+     * Both cells are read, because a row can show two headings and a reader may
+     * want either. A heading the revision left alone stands in both cells and is
+     * listed once, under the id the newer one carries.
+     *
+     * @return list<DocumentHeading>
+     */
+    private function columnHeadings(SideBySideDiff $sideBySide): array
+    {
+        $headings = [];
+        foreach ($sideBySide->rows as $row) {
+            $new = $this->headings->extract($row->newHtml ?? '');
+            $unchanged = array_map(
+                static fn (DocumentHeading $heading): string => $heading->id."\0".$heading->text,
+                $new,
+            );
+
+            foreach ($this->headings->extract($row->oldHtml ?? '') as $heading) {
+                // Id and text together. A heading edited in place keeps its id,
+                // because the id is a slug and `Hello` and `Hello!` slug alike,
+                // so the id alone would call two different labels one heading.
+                $key = $this->documentId($heading->id)."\0".$heading->text;
+                if (!\in_array($key, $unchanged, true)) {
+                    $headings[] = $heading;
+                }
+            }
+
+            $headings = [...$headings, ...$new];
+        }
+
+        return $headings;
+    }
+
+    /** An older cell's id as the document minted it, before the column pass. */
+    private function documentId(string $id): string
+    {
+        return str_starts_with($id, SideBySideDiffBuilder::OLD_SIDE_PREFIX)
+            ? substr($id, \strlen(SideBySideDiffBuilder::OLD_SIDE_PREFIX))
+            : $id;
     }
 
     private function version(Document $document, int $versionNumber): DocumentVersion

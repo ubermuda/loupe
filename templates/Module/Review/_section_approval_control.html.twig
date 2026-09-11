@@ -3,7 +3,7 @@
    every anchor below this heading. The name lives on aria-label, and
    `spaceless` clears the whitespace between the tags, which would be text. #}
 {% apply spaceless %}
-<form class="lp-section-approve" method="POST"
+<form class="lp-section-approve" id="section-approve-{{ headingId }}" method="POST"
       action="{{ path('app_document_section_approval', {projectId: document.project.id, documentId: document.id}) }}">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token('section-approval') }}">
     <input type="hidden" name="set_section_approval_form[headingId]" value="{{ headingId }}">
@@ -20,7 +20,8 @@
         {% if approved %}
         <twig:ux:icon name="lucide:circle-check" class="lp-section-approve__icon" />
         {% else %}
-        <twig:ux:icon name="lucide:circle" class="lp-section-approve__icon" />
+        <twig:ux:icon name="lucide:circle" class="lp-section-approve__icon lp-section-approve__icon--rest" />
+        <twig:ux:icon name="lucide:circle-check" class="lp-section-approve__icon lp-section-approve__icon--hover" />
         {% endif %}
     </button>
 </form>

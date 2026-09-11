@@ -17,6 +17,7 @@ use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * The approval control beside each heading, as the page actually renders it.
@@ -59,7 +60,10 @@ final class ShowDocumentSectionControlTest extends WebTestCase
             self::assertSame('', $node->text(null, false), 'the button must contribute no text to the pane');
             self::assertNotSame('', (string) $node->attr('aria-label'));
             self::assertSame('false', $node->attr('aria-pressed'));
-            self::assertCount(1, $node->filter('svg'));
+            // An unapproved control carries both glyphs: the ring it rests on
+            // and the tick CSS swaps in on hover.
+            self::assertCount(1, $node->filter('svg.lp-section-approve__icon--rest'));
+            self::assertCount(1, $node->filter('svg.lp-section-approve__icon--hover'));
         }
 
         self::assertSame(
@@ -89,16 +93,17 @@ final class ShowDocumentSectionControlTest extends WebTestCase
         // the ring; only the approved one carries the tick inside it.
         $stillOpen = $crawler->filter('[data-section-approve="heading-beta"]');
         self::assertSame('false', $stillOpen->attr('aria-pressed'));
+        $atRest = $stillOpen->filter('svg.lp-section-approve__icon--rest');
         self::assertCount(1, $control->filter('svg circle'));
-        self::assertCount(1, $stillOpen->filter('svg circle'));
+        self::assertCount(1, $atRest->filter('circle'));
         self::assertCount(1, $control->filter('svg path'), 'the approved glyph carries a tick');
-        self::assertCount(0, $stillOpen->filter('svg path'), 'the unapproved glyph is an empty ring');
-        self::assertNotSame($control->filter('svg')->html(), $stillOpen->filter('svg')->html());
+        self::assertCount(0, $atRest->filter('path'), 'the unapproved glyph rests as an empty ring');
+        self::assertNotSame($control->filter('svg')->html(), $atRest->html());
 
         // Contents and section approvals are one panel. It reports the same
         // rows, keeps its navigation links, and offers no control of its own.
         self::assertStringContainsString('1/3', $crawler->filter('#section-summary-count')->text());
-        self::assertCount(1, $crawler->filter('[data-section-approved="heading-alpha"]'));
+        self::assertCount(1, $crawler->filter('[data-panel="contents"] [data-section-approved="heading-alpha"]'));
         self::assertCount(0, $crawler->filter('[data-panel="contents"] button'));
         self::assertCount(0, $crawler->filter('[data-panel="sections"]'));
         self::assertCount(3, $crawler->filter('[data-panel="contents"] .lp-review-contents__link'));
@@ -110,6 +115,54 @@ final class ShowDocumentSectionControlTest extends WebTestCase
         // And the basis still holds once a control has changed state.
         $pane = $crawler->filter('[data-comment-anchor-target="doc"]');
         self::assertSame($document->currentVersion()->plainText(), $pane->text(null, false));
+    }
+
+    /**
+     * A Turbo press never leaves the page, so the stream carries every copy of
+     * the list back. The pane is not among them: replacing it would tear out the
+     * comment anchors for a change to one button.
+     */
+    public function test_a_press_streams_the_control_and_every_copy_of_the_list(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, $this->reviewUrl($document));
+        $client->submit(
+            $crawler->filter('[data-section-approve="heading-alpha"]')->form(),
+            [],
+            ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html'],
+        );
+
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('<turbo-stream action="replace" target="section-approve-heading-alpha">', $body);
+        foreach (['section-summary-count', 'section-summary-list', 'review-rail-sections-count', 'review-rail-sections-list', 'review-menu-sections-count', 'review-menu-sections-head-count', 'review-menu-sections-list'] as $target) {
+            self::assertStringContainsString('<turbo-stream action="update" target="'.$target.'">', $body);
+        }
+        self::assertMatchesRegularExpression('~target="section-summary-count">\s*<template>1/3</template>~', $body);
+        self::assertStringContainsString('aria-pressed="true"', $body);
+        self::assertStringNotContainsString('data-comment-anchor-target', $body);
+    }
+
+    public function test_a_refused_press_streams_the_reason_and_no_control(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, $this->reviewUrl($document));
+        $form = $crawler->filter('[data-section-approve="heading-alpha"]')->form();
+        $form['set_section_approval_form[versionNumber]'] = '99';
+        $client->submit($form, [], ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html']);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('<turbo-stream action="update" target="section-status">', $body);
+        self::assertStringContainsString('This document changed while you were reading it.', $body);
+        self::assertStringNotContainsString('action="replace"', $body);
+        self::assertMatchesRegularExpression('~target="section-summary-count">\s*<template>0/3</template>~', $body);
     }
 
     public function test_an_older_version_renders_no_control(): void

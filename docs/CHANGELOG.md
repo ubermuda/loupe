@@ -35,6 +35,68 @@ entry.
 
 ## [Unreleased]
 
+- (#417) — **Added:** you can resolve a site-review comment from the widget,
+  either in its list or on the card that opens from a pin. The comment leaves
+  the widget and moves to Resolved on the project's site-review page.
+- (#417) — **Added:** the contents rail stands beside a version diff, and starts
+  level with the document rather than with the title above it.
+- (#417) — **Added:** the version diff page carries a contents panel, listing
+  the headings of the view you are reading, including the ones the revision
+  removed.
+- (#417) — **Added:** the site-review widget shows a `Local` label in its
+  launcher when it saves to a local build, so you can see which instance your
+  comments reach.
+- (#417) — **Changed:** the general comment composer opens under the button that
+  asks for it, rather than over the middle of the document.
+- (#417) — **Changed:** a metadata panel opens directly under the bar that names
+  it, the diff view switch reads Document, Markdown, Side by side, and the
+  resolved-threads toggle is a button with an icon.
+- (#417) — **Fixed:** `j` and `k` on a diff now light the arrow button they
+  stand for.
+- (#417) — **Changed:** the document review page no longer stacks notices above
+  the title: the since-your-last-visit note is a chip in the metadata bar, and a
+  comment thread whose passage is gone leads the comment column instead of
+  announcing itself across the page.
+- (#417) — **Changed:** the document review page stands its contents and its
+  decisions in a left rail on a wide window, marks the section you are reading,
+  moves tags into a dropdown, and starts its content at the same left edge as
+  every other screen.
+- (#417) — **Fixed:** a heading in the contents panel or the rail now scrolls to
+  its section instead of jumping to it.
+- (#417) — **Changed:** a document in the list keeps its title on a line of its
+  own, so a long title wraps instead of truncating to one letter.
+- (#417) — **Changed:** the section approval circle shows the tick a click would
+  leave, and turns green once the approval is saved.
+- (#417) — **Removed:** the `+` and `−` gutter signs on a whole block a revision
+  added or removed in the version diff.
+- (#417) — **Fixed:** the site-review picker no longer flashes on and off when
+  a modifier chord such as Cmd+Enter is typed into the comment composer.
+- (#417) — **Fixed:** the diff view's `j` and `k` shortcuts no longer swallow
+  those letters typed into the site-review comment composer.
+- (#417) — **Fixed:** a resolved comment thread whose passage is gone now says
+  Resolved instead of Open.
+- (#417) — **Changed:** the mark that names the heading you jumped to is slower,
+  has room around it, and no longer fades a decision block to white.
+- (#417) — **Fixed:** jumping to a heading near the end of a document now marks
+  that heading rather than the last one.
+- (#417) — **Changed:** approving a section now updates the page in place
+  instead of reloading it, so an open panel stays open and the reading position
+  is kept.
+- (#417) — **Fixed:** the site-review widget no longer offers "Comment on this
+  text" over a Loupe document, which has commenting of its own.
+- (#417) — **Changed:** the version chip now leads the metadata bar of a
+  document review page.
+- (#417) — **Fixed:** clicking one of the last headings in the contents rail now
+  marks that row, which the end of a document could never reach before.
+- (#417) — **Added:** arriving at a heading from the contents rail tints its
+  section head for a moment, so the scroll says which heading it answered.
+- (#417) — **Changed:** the group of comment threads whose passage is gone now
+  starts collapsed, behind a heading that says how many there are.
+- (#417) — **Changed:** the action row below a document now has room above it.
+- (#417) — **Removed:** the compare hint on the version history page, which
+  said what the two pickers beside it already show.
+- (#417) — **Fixed:** the timeline on the version history page now runs from the
+  first node to the last, instead of overshooting above and stopping short.
 - (#411) — **Changed:** open work now lives on the Loupe project board
   instead of `docs/NEXT_STEPS.md`, which is deleted along with the
   `project-next-steps` skill.
