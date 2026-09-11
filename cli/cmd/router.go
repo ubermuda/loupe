@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/ubermuda/loupe/cli/internal/inject"
 	"github.com/ubermuda/loupe/cli/internal/tmux"
@@ -36,8 +37,22 @@ type router struct {
 // workerSession names the session that works one card. One card gets one
 // session: a repeated name resolves latest-wins in the agent addressing layer
 // and misroutes messages with no error.
-func workerSession(cardNumber int) string {
-	return fmt.Sprintf("card-%d", cardNumber)
+//
+// The card number alone is not enough. It counts from 1 inside a project and
+// repeats across them, so two bridges on one tmux server would each see the
+// other's card-87 and drop their own event as already running.
+//
+// The project is identified by the last 12 hex digits of its id rather than the
+// first. These ids are uuidv7, whose leading bits are a millisecond timestamp,
+// so two projects created in the same minute share a leading prefix. The
+// trailing digits come from the random block.
+func workerSession(cardNumber int, projectID string) string {
+	digits := strings.ReplaceAll(projectID, "-", "")
+	if len(digits) > 12 {
+		digits = digits[len(digits)-12:]
+	}
+
+	return fmt.Sprintf("card-%d-%s", cardNumber, digits)
 }
 
 // ensureSession spawns or validates the tmux session for site-review events.
@@ -104,7 +119,7 @@ func (r *router) onCardMoved(event inject.Event) {
 		return
 	}
 
-	session := workerSession(event.CardNumber)
+	session := workerSession(event.CardNumber, event.ProjectID)
 	if r.tmux.hasSession(session) {
 		fmt.Fprintf(r.errOut, "tmux session %q already exists, so a worker for card %d is already running; dropping event\n", session, event.CardNumber)
 

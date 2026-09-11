@@ -8,7 +8,7 @@ next instruction with no copy-pasting. It acts on two events:
 
 - **A submitted site review** goes to the bridge's own session.
 - **A board card moved to `next`** starts its own worker session, named
-  `card-<number>`, which reads the card and plans it.
+  `card-<number>-<project>`, which reads the card and plans it.
 
 ## Build
 
@@ -109,13 +109,16 @@ With `--dir`, the bridge owns two kinds of session:
 
 - **The bridge session**, named `loupe`. Site-review directives are typed into
   it with `tmux send-keys`.
-- **A worker session per card**, named `card-<number>`. A card moved to `next`
+- **A worker session per card**, named `card-<number>-<project>`, where the
+  project part is the last 12 hex digits of its id. Card numbers count from 1
+  inside a project and repeat across them, so the number alone would make two
+  bridges on one tmux server drop each other's events. A card moved to `next`
   spawns one, with the directive as `claude`'s first prompt. A fresh session is
   not yet reading keystrokes, so the prompt travels in the launch command
   instead of through `send-keys`.
 
 The name is what makes a worker addressable, so it must be unique: the bridge
-passes it to `claude --name` as well. If `card-<number>` already exists, a worker
+passes it to `claude --name` as well. If `card-<number>-<project>` already exists, a worker
 for that card is already running, so the bridge logs the event and drops it. It
 never starts a second one.
 
@@ -159,7 +162,7 @@ the display. Detach with `Ctrl-b d`; that also stops the bridge. While attached,
 4. Each event is read from its JSON `type` field and turned into a directive.
    A `site_review.submitted` event is typed into the bridge session with
    `tmux send-keys`. A `board.card_moved` event with `to` set to `next` spawns
-   `card-<number>` with the directive as its first prompt.
+   `card-<number>-<project>` with the directive as its first prompt.
 5. Any other event is dropped. A `board.card_moved` to any other column is
    dropped too, which is what stops a feedback loop: the worker's own first act
    moves the card to `in-progress`, and that second event goes nowhere.

@@ -118,7 +118,7 @@ func TestCardMovedToNextSpawnsItsOwnSession(t *testing.T) {
 		t.Fatalf("expected one spawn, got %+v", h.tmux.spawns)
 	}
 	got := h.tmux.spawns[0]
-	if got.session != "card-87" || got.dir != "/src/app" {
+	if got.session != "card-87-a2b3c4d5e6f7" || got.dir != "/src/app" {
 		t.Fatalf("unexpected spawn: %+v", got)
 	}
 	if got.opts.PermissionMode != "acceptEdits" {
@@ -138,7 +138,7 @@ func TestCardMovedToNextSpawnsItsOwnSession(t *testing.T) {
 // TestCardMovedToNextDropsWhenWorkerExists prevents a second worker on one
 // card, which would also give two sessions the same name.
 func TestCardMovedToNextDropsWhenWorkerExists(t *testing.T) {
-	h := spawnHarness(defaultSession, "card-87")
+	h := spawnHarness(defaultSession, "card-87-a2b3c4d5e6f7")
 
 	h.router.onData([]byte(cardMovedToNext))
 
@@ -291,8 +291,28 @@ func TestEnsureSessionRequiresAnExistingAttachTarget(t *testing.T) {
 	}
 }
 
-func TestWorkerSessionName(t *testing.T) {
-	if got := workerSession(87); got != "card-87" {
-		t.Fatalf("workerSession(87) = %q", got)
+// Two projects number their cards from 1 independently, so the name must
+// separate them or one bridge drops the other's event as already running.
+func TestWorkerSessionNameSeparatesProjects(t *testing.T) {
+	const a = "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7"
+	const b = "0192f3a1-4b2c-7d3e-8f10-ffffffffffff"
+
+	if got := workerSession(87, a); got != "card-87-a2b3c4d5e6f7" {
+		t.Fatalf("workerSession(87, a) = %q", got)
+	}
+	if workerSession(87, a) == workerSession(87, b) {
+		t.Fatalf("card 87 in two projects collided on %q", workerSession(87, a))
+	}
+}
+
+// These ids are uuidv7, so the leading digits are a millisecond timestamp and
+// two projects created close together share them. Naming a session from a
+// leading prefix would reintroduce the collision.
+func TestWorkerSessionNameIgnoresTheTimestampPrefix(t *testing.T) {
+	const sameMillisecond = "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7"
+	const alsoSameMillisecond = "0192f3a1-4b2c-7d3e-8f10-0000000000ff"
+
+	if workerSession(87, sameMillisecond) == workerSession(87, alsoSameMillisecond) {
+		t.Fatalf("two projects sharing a timestamp prefix collided")
 	}
 }
