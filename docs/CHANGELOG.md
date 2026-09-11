@@ -35,6 +35,9 @@ entry.
 
 ## [Unreleased]
 
+- (#421) — **Added:** the `document_list` MCP tool takes `search`, `status`,
+  `tag` and `series`, and each row now carries the description of the
+  document's current version.
 - (#418) — **Fixed:** a comment thread in the review rail keeps its author row
   in place when you open it, and carries its age and its status on that row
   rather than on a second row that appeared on expand.
