@@ -35,6 +35,10 @@ entry.
 
 ## [Unreleased]
 
+- (#424) — **Added:** `loupe bridge run` starts a Claude Code worker session
+  for a board card moved to `next`, one session per card, and `--permission-mode`
+  passes that flag through to each worker it spawns.
+
 - (#428) — **Added:** moving a board card now writes a durable outbox row,
   so a connected agent can react to the move. `board.card_updated` is recorded
   only when a field actually changed.
