@@ -82,8 +82,12 @@ final readonly class CardListTool implements FlagGatedToolInterface
             );
 
             $total = \count($cards);
-            $slice = \array_slice($cards, ($page - 1) * $perPage, $perPage);
-            $meta = ['page' => $page, 'perPage' => $perPage, 'total' => $total, 'hasMore' => $page * $perPage < $total];
+            // A page past the end reads empty. The offset is capped before the
+            // multiplication, because a page near PHP_INT_MAX would overflow to
+            // a float and array_slice() then refuses it.
+            $offset = $page - 1 > intdiv($total, $perPage) ? $total : ($page - 1) * $perPage;
+            $slice = \array_slice($cards, $offset, $perPage);
+            $meta = ['page' => $page, 'perPage' => $perPage, 'total' => $total, 'hasMore' => $offset + $perPage < $total];
 
             if ($full) {
                 return ['cards' => $this->payload->forCards($slice), ...$meta];

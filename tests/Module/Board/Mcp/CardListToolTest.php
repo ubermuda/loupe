@@ -194,6 +194,17 @@ final class CardListToolTest extends KernelTestCase
         self::assertFalse($result['hasMore']);
     }
 
+    public function test_the_largest_page_number_reads_empty_rather_than_overflowing(): void
+    {
+        $this->boardWith('card-list-overflow');
+
+        $result = ($this->tool)(page: \PHP_INT_MAX);
+
+        self::assertSame([], $result['cards']);
+        self::assertSame(3, $result['total']);
+        self::assertFalse($result['hasMore']);
+    }
+
     public function test_page_and_per_page_are_clamped_rather_than_refused(): void
     {
         $this->boardWith('card-list-clamp');
