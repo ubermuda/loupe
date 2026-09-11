@@ -51,6 +51,7 @@ final class AdvertisedTools
         'site_review_mark_comment_addressed',
         'card_create',
         'card_list',
+        'card_search',
         'card_get',
         'card_update',
     ];

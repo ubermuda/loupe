@@ -35,6 +35,9 @@ entry.
 
 ## [Unreleased]
 
+- (#426) — **Added:** a `card_search` MCP tool, which searches the title and the
+  body of every card on a project board, done cards included, and answers best
+  match first.
 - (#425) — **Added:** the `card_list` MCP tool takes a `reporter` filter, which
   reads `human`, `agent` and `reviewer` alike, so the cards the site-review
   widget raised are listable.

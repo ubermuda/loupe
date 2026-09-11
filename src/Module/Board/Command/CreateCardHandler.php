@@ -9,6 +9,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Service\CardSearchIndexer;
 use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestUrlResolver;
 use Doctrine\DBAL\LockMode;
@@ -23,6 +24,7 @@ final readonly class CreateCardHandler
         private CardRepository $cards,
         private PullRequestUrlResolver $pullRequests,
         private DocumentLinkResolver $documentLinks,
+        private CardSearchIndexer $searchIndexer,
         private EntityManagerInterface $em,
         private Auditor $auditor,
     ) {
@@ -67,6 +69,9 @@ final readonly class CreateCardHandler
                 position: CardStatus::Done === $command->status
                     ? 0
                     : $this->cards->nextPosition($command->project, $command->status, $command->priority),
+                // Read once, here: the card then carries its own language, so
+                // changing the project's leaves the cards already written alone.
+                searchLanguage: $command->project->searchLanguage,
             );
 
             // Done is entered here as much as by a move, so a card created
@@ -80,6 +85,11 @@ final readonly class CreateCardHandler
 
             $this->em->persist($card);
             $this->em->flush();
+
+            // After the flush, so the row the UPDATE reads its title and body
+            // from exists. Inside the transaction, so the card and its vector
+            // commit together.
+            $this->searchIndexer->index($card);
 
             return $card;
         });
