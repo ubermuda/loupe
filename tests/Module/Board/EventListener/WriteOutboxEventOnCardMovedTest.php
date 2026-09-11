@@ -222,7 +222,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
             type: CardType::Bug,
             priority: $priority,
             status: $status,
-            origin: CardOrigin::Agent,
+            reporter: CardOrigin::Agent,
         ));
     }
 
