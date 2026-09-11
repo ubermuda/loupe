@@ -51,11 +51,9 @@ func HasSession(target string) bool {
 // functions, and rc-defined PATH are honored.
 //
 // Arguments are quoted into the command string rather than forwarded through
-// "$@". Positional forwarding is Bourne-only: fish puts them in $argv and has
-// no $@, so a fish user would get a session running claude with no name, no
-// permission mode and no prompt, silently. The command word stays unquoted,
-// because quoting any part of it suppresses alias expansion, which is what the
-// interactive shell is for.
+// "$@". That forwarding is Bourne-only: fish rejects $@ and claude never
+// starts. The command word stays unquoted, because quoting any part of it
+// suppresses alias expansion, which is what the interactive shell is for.
 func Spawn(session, dir string, opts SpawnOptions) error {
 	shell := os.Getenv("SHELL")
 	if shell == "" {

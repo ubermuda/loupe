@@ -107,8 +107,8 @@ func TestSpawnWithPermissionModeAndPrompt(t *testing.T) {
 
 // A value reaches claude as one literal word however it is written. Arguments
 // are quoted into the command string rather than forwarded through "$@",
-// because that forwarding is Bourne-only and a fish user would silently get a
-// session with no name, no permission mode and no prompt.
+// because that forwarding is Bourne-only: fish rejects $@ outright and claude
+// never starts.
 func TestSpawnQuotesEveryArgument(t *testing.T) {
 	t.Setenv("SHELL", "/bin/zsh")
 	calls := record(t, nil)
