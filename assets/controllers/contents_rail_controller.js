@@ -32,11 +32,15 @@ export default class extends Controller {
         this.flashed = null;
         this.asked = null;
         this.jumping = false;
+        this.alignObserver = null;
         this.#watchHeadings();
+        this.#watchContentTop();
     }
 
     disconnect() {
         this.cancelScroll();
+        this.alignObserver?.disconnect();
+        this.alignObserver = null;
         this.#unwatchHeadings();
         // Turbo caches the page as it stands, so a marker left here would come
         // back on the restored snapshot with nothing driving it.
@@ -123,6 +127,32 @@ export default class extends Controller {
      * heading really passed. Measuring is one pass over a handful of elements,
      * throttled to one per frame.
      */
+    /**
+     * Starts the rail level with the prose rather than with the title, the
+     * metadata bar and the action row above it.
+     *
+     * The distance is not a constant: a long title wraps, the bar grows a row
+     * per panel, and a diff adds the author's change notes. A ResizeObserver
+     * reads it, because its first callback is the one entry point that runs
+     * after layout — connect() runs before it on a Turbo visit, where
+     * getBoundingClientRect() would answer 0. @comment-budget-ignore
+     */
+    #watchContentTop() {
+        const block = this.element.closest('.lp-review-doc');
+        const content = block?.querySelector('[data-rail-align]');
+        if (!block || !content) {
+            return;
+        }
+
+        this.alignObserver = new ResizeObserver(() => {
+            const offset =
+                content.getBoundingClientRect().top -
+                block.getBoundingClientRect().top;
+            this.element.style.top = `${Math.max(0, Math.round(offset))}px`;
+        });
+        this.alignObserver.observe(block);
+    }
+
     #watchHeadings() {
         this.headings = this.#headingsOfRows();
 

@@ -54,6 +54,6 @@
            added and removed marked in place. Its text belongs to two versions at
            once, so RenderedDiffBuilder marks the runs the newer version also
            holds and the controller anchors to those alone. #}
-        <div class="prose lp-prose lp-review-doc__prose lp-diff-doc"{% if diffCommenting %} data-comment-anchor-target="doc"{% endif %}>{{ renderedDiff.html|raw }}</div>
+        <div class="prose lp-prose lp-review-doc__prose lp-diff-doc" data-rail-align{% if diffCommenting %} data-comment-anchor-target="doc"{% endif %}>{{ renderedDiff.html|raw }}</div>
     {% endif %}
 {% endblock %}

@@ -547,7 +547,7 @@
                Everything else on this page reads the same in both modes, which is
                why the diff overrides this block instead of being a page of its own. #}
             {% block documentPane %}
-            <div class="prose lp-prose lp-review-doc__prose" data-comment-anchor-target="doc">{{ documentPaneHtml|raw }}</div>
+            <div class="prose lp-prose lp-review-doc__prose" data-rail-align data-comment-anchor-target="doc">{{ documentPaneHtml|raw }}</div>
             {% endblock %}
 
             {# Outside the prose on purpose: that textContent must stay identical
