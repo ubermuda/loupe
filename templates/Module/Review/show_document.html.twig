@@ -105,14 +105,10 @@
                appears nowhere else. #}
             {% set hasVersionDescription = versions|filter(meta => meta.description is not empty)|length > 0 %}
             {% set showVersions = versions|length > 1 or hasVersionDescription %}
-            {# Contents and section approvals are one panel: both are a list of
-               the same headings, and the state belongs beside the link rather
-               than a tab away. Diff mode replaces the HTML those ids live in and
-               is passed no `sections`, hence the lazy-ternary guard. #}
-            {# A diff lists the headings of the pane that is showing, read back out
-               of the merged render, so a link points at an id the page holds. The
-               source view renders none and the panel stays off there. Approval
-               belongs to one version, so a diff row carries no state. #}
+            {# Contents and section approvals are one panel: both list the same
+               headings. A diff is passed no `sections`, hence the lazy ternary,
+               and its rows come from the merged render, which is the markup the
+               page holds. A diff approves nothing, so its rows carry no state. #}
             {% set sectionRows = diffMode
                 ? diffHeadings|map(heading => {level: heading.level, headingId: heading.id, label: heading.text, approved: false})
                 : sections.rows %}
@@ -483,12 +479,11 @@
                     {{ 'review.document.comment.untargeted'|trans }}
                 </button>
                 <span class="lp-review-actions__hint">{{ 'review.document.comment.select_hint'|trans }}</span>
-                {# Always rendered, shown by the controller only once a resolved
-                   thread exists. Resolving replaces #comment-threads alone, and
-                   this row sits outside it — gating it in Twig would leave the
-                   control missing until the next full page load. #}
-                {# Both icons ship and CSS picks one, because the controller
-                   rewrites the label and would drop a child it had to re-render. #}
+                {# Always rendered, shown by the controller once a resolved thread
+                   exists. Resolving replaces #comment-threads alone, and this row
+                   sits outside it. Both icons ship and CSS picks one: the
+                   controller rewrites the label and would drop a re-rendered
+                   child, which is why the label has a span of its own. #}
                 <button type="button" class="lp-btn lp-btn--sm lp-btn--ghost lp-review-actions__resolved"
                         data-resolved-toggle
                         data-resolved-hidden="0"
@@ -502,12 +497,10 @@
                 </button>
             </div>
 
-            {# A Symfony form, hidden until the reader opts in. The Stimulus
-               controller fills the anchor fields and Turbo applies the returned
-               stream. It sits directly under the action row, because an
-               untargeted comment opens in place here rather than over the page;
-               a targeted one is absolutely positioned at the selection, and
-               .lp-review-doc is the offset parent either way. #}
+            {# Hidden until the reader opts in. It sits next to the button because
+               an untargeted comment opens in the flow here. A targeted one is
+               absolutely positioned at the selection, and .lp-review-doc is the
+               offset parent either way. #}
             {{ form_start(addCommentForm, {attr: {
                 class: 'lp-comment-composer',
                 'data-comment-anchor-target': 'composer',
