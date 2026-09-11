@@ -1,6 +1,6 @@
 ---
 title: "The project board"
-description: "The four columns, how cards are ordered, the board screen a person drags cards on, and the four MCP tools an agent drives them with."
+description: "The four columns, how cards are ordered, the board screen a person drags cards on, and the five MCP tools an agent drives them with."
 ---
 
 Every project has one board, and the board holds cards. A card describes one
@@ -175,7 +175,7 @@ A merged pull request therefore does not move its card. Nothing watches the
 forge, and there is no webhook to point at Loupe. Move the card to Done
 yourself, or have your agent move it with `card_update`.
 
-## The four MCP tools
+## The five MCP tools
 
 An agent drives the board through the MCP endpoint. See
 [The MCP endpoint](mcp.md) for the token and the client setup.
