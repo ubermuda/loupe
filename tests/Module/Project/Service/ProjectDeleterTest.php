@@ -123,6 +123,40 @@ final class ProjectDeleterTest extends KernelTestCase
         self::assertNotNull($spared->mcpToken);
     }
 
+    public function test_two_projects_delete_in_one_session(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+
+        $owner = $this->makeUser($em, 'looping-deleter-owner');
+        $first = $this->seedFullProject($em, $owner, 'looped-first');
+        $second = $this->seedFullProject($em, $owner, 'looped-second');
+        $em->flush();
+        $firstId = $first->id;
+        $secondId = $second->id;
+
+        // No clear() here: the seeded site-review rows stay in the identity map,
+        // and the listeners delete them with bulk DQL, which leaves the objects
+        // behind. The second flush() then reads the first project through one of
+        // them and reports it as a new entity.
+        $deleter = self::getContainer()->get(ProjectDeleter::class);
+        self::assertInstanceOf(ProjectDeleter::class, $deleter);
+        $deleter->delete($first);
+        $refetched = $em->find(Project::class, $secondId);
+        self::assertNotNull($refetched);
+        $deleter->delete($refetched);
+
+        $em->clear();
+        self::assertNull($em->find(Project::class, $firstId));
+        self::assertNull($em->find(Project::class, $secondId));
+        $conn = $em->getConnection();
+        foreach ([$firstId, $secondId] as $projectId) {
+            self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE project_id = :id', ['id' => (string) $projectId]));
+            self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM site_review_events WHERE project_id = :id', ['id' => (string) $projectId]));
+        }
+    }
+
     public function test_a_failing_listener_rolls_the_whole_deletion_back(): void
     {
         self::bootKernel();
