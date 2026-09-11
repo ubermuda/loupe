@@ -114,17 +114,26 @@ issued again.
 | Type | One of `feature`, `bug`, `security`, `tooling`, `docs`, `idea`. |
 | Priority | One of `high`, `medium`, `low`. |
 | Status | The column the card sits in. |
-| Origin | `human` or `agent`. It records who raised the card. |
+| Reporter | `human`, `agent` or `reviewer`. It records who raised the card. |
 | Pull requests | Any number of links. See below. |
 
 A card also carries the moment it was created and the moment it last changed. A
 card in Done carries its completion time as well.
 
-Origin never changes. `card_update` refuses that field, because it answers who
-first raised the card rather than who touched it last. An MCP request
+The reporter never changes. `card_update` refuses that field, because it answers
+who first raised the card rather than who touched it last. An MCP request
 authenticates as the project owner, so the tools cannot tell an agent's own card
 from one a person dictated. An agent writing down what a person asked for passes
 `human` at creation.
+
+An MCP caller may claim `human` or `agent` only. `card_create` refuses
+`reviewer`, because the site-review widget owns that value. A filter is the
+other way round: `card_list` matches all three, so the widget's cards stay
+readable.
+
+The field was called `origin` until this release. `card_create` still accepts
+`origin` for one release, so an agent written against the old name keeps
+working. Move to `reporter`. When a call sends both, `reporter` wins.
 
 ### The number is for people, the id is for tools
 
@@ -182,8 +191,8 @@ An agent drives the board through the MCP endpoint. See
 
 | Tool | Arguments |
 |---|---|
-| `card_create` | `title`, `body`, `type` and `priority` are required. `status`, `origin` and `pullRequestUrls` are optional. |
-| `card_list` | `status`, `type` and `priority`, each optional, each a filter. `page`, `perPage` and `full` are optional as well. |
+| `card_create` | `title`, `body`, `type` and `priority` are required. `status`, `reporter` and `pullRequestUrls` are optional. `origin` is the old name for `reporter` and is deprecated. |
+| `card_list` | `status`, `type`, `priority` and `reporter`, each optional, each a filter. `page`, `perPage` and `full` are optional as well. |
 | `card_get` | `cardId`. |
 | `card_update` | `cardId` is required. `title`, `body`, `type`, `priority`, `status` and `pullRequestUrls` are optional. |
 
@@ -198,7 +207,7 @@ so a page past the end reads as an empty list. The answer carries `page`,
 not the cards on the page, so keep reading while `hasMore` is true.
 
 Each row is a summary: `cardId`, `number`, `title`, `type`, `priority`,
-`status`, `origin` and `updatedAt`. Pass `full` to get the Markdown body and the
+`status`, `reporter` and `updatedAt`. Pass `full` to get the Markdown body and the
 pull request, document and site-review links as well. A full page is much larger,
 so read the board as summaries and call `card_get` for the card you want.
 
@@ -210,7 +219,7 @@ linked to it, and every site-review comment pointing at it. Use a card id that
 
 A reviewer using the site-review widget can pick which card their comment
 attaches to, and can create a card without leaving the page. A card raised that
-way records its origin as **reviewer**, which says the app could not name who
+way records its reporter as **reviewer**, which says the app could not name who
 raised it: the widget authenticates a project, never a person.
 
 Such a card always lands in the backlog, and carries no pull request link. The

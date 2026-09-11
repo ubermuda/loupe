@@ -7,7 +7,7 @@ description: "Use when working a project board in the Loupe app through the loup
 
 Each project in Loupe has one board, and the board has four columns: Backlog,
 Next, In progress, and Done. A card carries a title, a Markdown body, a type, a
-priority, a status and an origin. The status is the column the card sits in. The
+priority, a status and a reporter. The status is the column the card sits in. The
 tools spell the four columns `backlog`, `next`, `in-progress` and `done`.
 
 The tools act on the project your token is bound to. An instance can switch the
@@ -37,7 +37,7 @@ every card the filters match, not the cards on the page. Keep reading while
 `hasMore` is true.
 
 A row carries eight fields: `cardId`, `number`, `title`, `type`, `priority`,
-`status`, `origin` and `updatedAt`. It carries no body and no links.
+`status`, `reporter` and `updatedAt`. It carries no body and no links.
 
 Pass `full` to get the whole card on every row, with its Markdown body, its pull
 request links, its documents and its site-review comments. A full page is much
@@ -88,19 +88,28 @@ for the owner. Leave it in `backlog`, and never move it to `next` or
 Write that line yourself only when the owner parks the work. Board card 'Give
 the board a parked state' asks for a real field.
 
-## Origin says who raised the card
+## Reporter says who raised the card
 
-`origin` records who first raised the card. The tools default it to `agent`.
+`reporter` records who first raised the card. The tools default it to `agent`.
 Pass `human` when you write down something a person decided, rather than
 something you found yourself.
 
-Attribute a card to whoever originated it, not to whoever typed it. A card the
-owner dictated or decided is `human`, even when you write it down. A card you
-found on your own is `agent`. An unclear or unattributable card is also `agent`,
-because agents absorb the ambiguity, never the person.
+Attribute a card to whoever raised it, rather than to whoever typed it. A card
+the owner dictated or decided is `human`, even when you write it down. A card
+you found on your own is `agent`. An unclear or unattributable card is also
+`agent`, because agents absorb the ambiguity, never the person.
 
-`origin` never changes after the card exists. `card_update` has no `origin`
+`card_create` refuses `reviewer`. The site-review widget writes that value, and
+it says the app could not name who raised the card.
+
+The field was called `origin`. `card_create` still accepts that name for one
+release, and `reporter` wins when you send both. Write `reporter`.
+
+`reporter` never changes after the card exists. `card_update` has no `reporter`
 field, so choose the value when you create the card.
+
+`card_list` takes `reporter` as a filter, and the filter reads all three values.
+Pass `reviewer` to read the cards the widget raised.
 
 ## What makes a good card
 
@@ -170,6 +179,8 @@ An agent or a person moves the card to `done`.
 | Passing a card number as `cardId` | `cardId` is a UUID. Find it with `card_list`. |
 | Reading one `card_list` call as the whole board | It answers one page. Walk the pages while `hasMore` is true. |
 | Expecting a body from `card_list` | A row is a summary. Pass `full`, or call `card_get`. |
-| Fixing a wrong `origin` with `card_update` | `origin` is set once, when the card is created. |
+| Fixing a wrong `reporter` with `card_update` | `reporter` is set once, when the card is created. |
+| Passing `origin` to `card_create` | It still works for one release. Write `reporter`. |
+| Passing `reporter: reviewer` to `card_create` | Only the site-review widget writes that value. Filtering on it is fine. |
 | Expecting a merged pull request to move its card | The app never contacts the forge. Move the card yourself. |
 | Writing "Task 3" or "phase 2" in a body | Those names die with the session. Name the class, the route or the file. |
