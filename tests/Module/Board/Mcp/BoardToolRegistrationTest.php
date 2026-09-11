@@ -128,12 +128,25 @@ final class BoardToolRegistrationTest extends KernelTestCase
         self::assertFalse($properties['full']['default']);
     }
 
-    public function test_card_update_takes_no_origin(): void
+    /** The rename is a breaking change to the published surface, so both names are asserted. */
+    public function test_the_board_tools_publish_reporter_and_no_longer_publish_origin(): void
+    {
+        foreach ([CardCreateTool::NAME, CardListTool::NAME] as $toolName) {
+            $properties = $this->registry->getTool($toolName)->tool->inputSchema['properties'];
+
+            self::assertArrayHasKey('reporter', $properties, $toolName);
+            self::assertArrayNotHasKey('origin', $properties, $toolName);
+            // Both tools take it as ?string, which publishes as a null/string union.
+            self::assertContains('string', (array) $properties['reporter']['type'], $toolName);
+        }
+    }
+
+    public function test_card_update_takes_no_reporter(): void
     {
         $schema = $this->registry->getTool(CardUpdateTool::NAME)->tool->inputSchema;
 
         self::assertArrayHasKey('status', $schema['properties']);
-        self::assertArrayNotHasKey('origin', $schema['properties']);
+        self::assertArrayNotHasKey('reporter', $schema['properties']);
         self::assertSame(['cardId'], $schema['required']);
     }
 }

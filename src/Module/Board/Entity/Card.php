@@ -76,8 +76,8 @@ class Card implements ProjectScopedSubject
         #[ORM\Column(length: 20, enumType: CardStatus::class)]
         public CardStatus $status = CardStatus::Backlog,
 
-        #[ORM\Column(length: 20, enumType: CardOrigin::class)]
-        public readonly CardOrigin $origin = CardOrigin::Agent,
+        #[ORM\Column(length: 20, enumType: CardReporter::class)]
+        public readonly CardReporter $reporter = CardReporter::Agent,
 
         /** Rank inside the card's (project, status, priority) group, counting from 0. Done ignores it. */
         #[ORM\Column]

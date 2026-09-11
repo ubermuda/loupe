@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
-use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
@@ -23,7 +23,7 @@ final readonly class CreateCardCommand
         public CardType $type,
         public CardPriority $priority,
         public CardStatus $status = CardStatus::Backlog,
-        public CardOrigin $origin = CardOrigin::Agent,
+        public CardReporter $reporter = CardReporter::Agent,
         public array $pullRequestUrls = [],
         /** @param list<string> $documentIds */
         public array $documentIds = [],

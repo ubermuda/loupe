@@ -46,7 +46,7 @@ final readonly class CardExporter implements UserDataExporterInterface
                 // orders the board and means nothing to a reader.
                 'priority' => $card->priority->label(),
                 'type' => $card->type->value,
-                'origin' => $card->origin->value,
+                'reporter' => $card->reporter->value,
                 'position' => $card->position,
                 'completedAt' => $card->completedAt?->format(\DateTimeInterface::ATOM),
                 'createdAt' => $card->createdAt->format(\DateTimeInterface::ATOM),

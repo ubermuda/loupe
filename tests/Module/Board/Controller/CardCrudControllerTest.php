@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
@@ -52,7 +52,7 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertSame(CardPriority::High, $created->priority);
         self::assertSame(CardType::Tooling, $created->type);
         // A form is a person writing the card down, whatever an agent does later.
-        self::assertSame(CardOrigin::Human, $created->origin);
+        self::assertSame(CardReporter::Human, $created->reporter);
         self::assertCount(2, $created->pullRequests);
     }
 

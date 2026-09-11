@@ -6,8 +6,8 @@ namespace App\Module\Board\Mcp;
 
 use App\Mcp\ResolvesBoundProject;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
@@ -97,31 +97,44 @@ final readonly class BoardSubjectResolver
         return null === $priority ? null : $this->requirePriority($priority);
     }
 
+    /** Reads every value, so a filter reaches the reviewer cards the widget wrote. */
+    public function requireReporter(string $reporter): CardReporter
+    {
+        return CardReporter::tryFrom($reporter)
+            ?? throw new ToolCallException(\sprintf('Unknown reporter "%s". Use one of: %s.', $reporter, implode(', ', CardReporter::values())));
+    }
+
+    public function optionalReporter(?string $reporter): ?CardReporter
+    {
+        return null === $reporter ? null : $this->requireReporter($reporter);
+    }
+
     /**
-     * An agent may claim only the two origins it can honestly claim.
+     * An agent may claim only the two reporters it can honestly claim.
      *
      * `reviewer` says the app could not name who raised the card, which is true
      * of the site-review widget and of nothing an MCP caller does. Leaving it to
      * the tool description would make the rule a request rather than a
      * constraint, and the value would be forgeable from any client.
      *
-     * @var list<CardOrigin>
+     * @var list<CardReporter>
      */
-    private const array MCP_ORIGINS = [CardOrigin::Human, CardOrigin::Agent];
+    private const array CLAIMABLE_REPORTERS = [CardReporter::Human, CardReporter::Agent];
 
-    public function requireOrigin(string $origin): CardOrigin
+    /** Narrower than requireReporter(): a write claims a reporter, a filter only matches one. */
+    public function requireClaimedReporter(string $reporter): CardReporter
     {
-        $parsed = CardOrigin::tryFrom($origin);
-        if (null === $parsed || !\in_array($parsed, self::MCP_ORIGINS, true)) {
-            throw new ToolCallException(\sprintf('Unknown origin "%s". Use one of: %s.', $origin, implode(', ', array_map(static fn (CardOrigin $o): string => $o->value, self::MCP_ORIGINS))));
+        $parsed = CardReporter::tryFrom($reporter);
+        if (null === $parsed || !\in_array($parsed, self::CLAIMABLE_REPORTERS, true)) {
+            throw new ToolCallException(\sprintf('Unknown reporter "%s". Use one of: %s.', $reporter, implode(', ', array_map(static fn (CardReporter $r): string => $r->value, self::CLAIMABLE_REPORTERS))));
         }
 
         return $parsed;
     }
 
-    public function optionalOrigin(?string $origin): ?CardOrigin
+    public function optionalClaimedReporter(?string $reporter): ?CardReporter
     {
-        return null === $origin ? null : $this->requireOrigin($origin);
+        return null === $reporter ? null : $this->requireClaimedReporter($reporter);
     }
 
     private function parseId(string $id): Uuid

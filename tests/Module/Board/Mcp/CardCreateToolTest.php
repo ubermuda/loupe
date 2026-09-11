@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Mcp;
 
-use App\Module\Board\Entity\CardOrigin;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Tests\Support\McpTokenScenario;
@@ -42,7 +42,7 @@ final class CardCreateToolTest extends KernelTestCase
         ($this->tool)('Ship it', 'Body', 'feature', 'high');
     }
 
-    public function test_a_card_is_created_in_the_backlog_with_an_agent_origin(): void
+    public function test_a_card_is_created_in_the_backlog_with_an_agent_reporter(): void
     {
         $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create'));
@@ -55,7 +55,7 @@ final class CardCreateToolTest extends KernelTestCase
         self::assertSame('feature', $card['type']);
         self::assertSame('high', $card['priority']);
         self::assertSame('backlog', $card['status']);
-        self::assertSame(CardOrigin::Agent->value, $card['origin']);
+        self::assertSame(CardReporter::Agent->value, $card['reporter']);
         self::assertNull($card['completedAt']);
         self::assertSame([], $card['pullRequests']);
     }
@@ -65,9 +65,20 @@ final class CardCreateToolTest extends KernelTestCase
         $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-human'));
 
-        $card = ($this->tool)('Dictated', 'Body', 'idea', 'low', origin: 'human');
+        $card = ($this->tool)('Dictated', 'Body', 'idea', 'low', reporter: 'human');
 
-        self::assertSame(CardOrigin::Human->value, $card['origin']);
+        self::assertSame(CardReporter::Human->value, $card['reporter']);
+    }
+
+    /** The widget owns `reviewer`, because it says the app could not name who raised the card. */
+    public function test_a_caller_cannot_claim_the_reviewer_reporter(): void
+    {
+        $this->enableBoard();
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-create-reviewer'));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('Unknown reporter "reviewer". Use one of: human, agent.');
+        ($this->tool)('Forged', 'Body', 'idea', 'low', reporter: 'reviewer');
     }
 
     public function test_pull_request_urls_are_resolved_and_an_unknown_forge_is_kept(): void

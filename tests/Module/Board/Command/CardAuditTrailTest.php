@@ -14,8 +14,8 @@ use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
@@ -94,7 +94,7 @@ final class CardAuditTrailTest extends KernelTestCase
             'type' => 'bug',
             'priority' => CardPriority::High->value,
             'status' => 'next',
-            'origin' => 'agent',
+            'reporter' => 'agent',
             'pullRequestCount' => 0,
             'documentCount' => 0,
         ], $record->context);
@@ -222,7 +222,7 @@ final class CardAuditTrailTest extends KernelTestCase
             type: CardType::Bug,
             priority: $priority,
             status: $status,
-            origin: CardOrigin::Agent,
+            reporter: CardReporter::Agent,
         ));
     }
 }

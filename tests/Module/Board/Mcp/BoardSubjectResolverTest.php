@@ -7,8 +7,8 @@ namespace App\Tests\Module\Board\Mcp;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Mcp\BoardSubjectResolver;
 use App\Module\Project\Entity\Project;
@@ -63,16 +63,31 @@ final class BoardSubjectResolverTest extends KernelTestCase
      * The tool description asks an agent not to claim it. That is a request, and
      * a value an MCP client can send is a constraint or it is nothing.
      */
-    public function test_an_agent_cannot_claim_the_reviewer_origin(): void
+    public function test_an_agent_cannot_claim_the_reviewer_reporter(): void
     {
         // Guard: the two an agent may claim still resolve, so the refusal below
-        // is about this value rather than about origins being refused wholesale.
-        self::assertSame(CardOrigin::Human, $this->resolver->requireOrigin('human'));
-        self::assertSame(CardOrigin::Agent, $this->resolver->requireOrigin('agent'));
+        // is about this value rather than about reporters being refused wholesale.
+        self::assertSame(CardReporter::Human, $this->resolver->requireClaimedReporter('human'));
+        self::assertSame(CardReporter::Agent, $this->resolver->requireClaimedReporter('agent'));
 
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('Unknown origin "reviewer". Use one of: human, agent.');
-        $this->resolver->requireOrigin('reviewer');
+        $this->expectExceptionMessage('Unknown reporter "reviewer". Use one of: human, agent.');
+        $this->resolver->requireClaimedReporter('reviewer');
+    }
+
+    /** A filter matches a reporter rather than claiming one, so it reads the widget's cards too. */
+    public function test_a_filter_reads_every_reporter_including_reviewer(): void
+    {
+        self::assertSame(CardReporter::Reviewer, $this->resolver->requireReporter('reviewer'));
+        self::assertSame(CardReporter::Human, $this->resolver->requireReporter('human'));
+        self::assertSame(CardReporter::Agent, $this->resolver->requireReporter('agent'));
+    }
+
+    public function test_a_filter_refuses_a_reporter_that_is_not_a_value(): void
+    {
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('Unknown reporter "robot". Use one of: human, agent, reviewer.');
+        $this->resolver->requireReporter('robot');
     }
 
     public function test_a_card_of_the_bound_project_resolves(): void
