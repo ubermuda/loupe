@@ -748,6 +748,13 @@ test('the launcher exposes icon-only quick actions for note and pick', async ({
 
     const launcher = page.locator('#lp-launcher');
 
+    // The widget derives the label from its own script origin, and every e2e
+    // host is a local one. It is a status label, so no role lookup finds it.
+    await expect(launcher.locator('#lp-local')).toHaveText('Local');
+    await expect(launcher.getByRole('button', { name: 'Local' })).toHaveCount(
+        0,
+    );
+
     // "Add note" on the launcher opens the panel straight into the general composer,
     // without first having to open the panel and click the in-panel action.
     await launcher.getByRole('button', { name: 'Add note' }).click();

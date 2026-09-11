@@ -9,6 +9,14 @@
 
     const script = document.currentScript;
     const BACKEND = new URL(script.src).origin;
+    // A worktree preview serves this script from a local host, so the launcher
+    // can say where the comments land with no attribute and no API field. A
+    // public deployment cannot switch it on by accident.
+    const BACKEND_HOST = new URL(BACKEND).hostname;
+    const LOCAL =
+        /(^|\.)localhost$/.test(BACKEND_HOST) ||
+        /^127\./.test(BACKEND_HOST) ||
+        /\.local$/.test(BACKEND_HOST);
     const TOKEN = script.getAttribute('data-token') || '';
     // The landing page runs this widget over itself with no project behind it, so
     // a visitor can try the flow before signing up. It swaps the transport and
@@ -900,6 +908,9 @@
       .lp-launch-action{flex:0 0 auto;width:34px;height:34px;border:0;background:transparent;color:var(--bar-mute);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .14s ease,color .14s ease}
       .lp-launch-action:hover{background:var(--bar-raised);color:var(--accent)}
       .lp-launch-div{flex:0 0 auto;width:1px;height:22px;background:var(--bar-line);margin:0 3px}
+      /* A label and not a control: the launcher's chrome weight, no hover state
+         and no pointer target of its own, so a press still drags the bar. */
+      .lp-local{flex:0 0 auto;height:22px;margin:0 5px 0 3px;padding:0 8px;display:inline-flex;align-items:center;background:var(--bar-raised);border:1px solid var(--bar-line);border-radius:999px;color:var(--bar-mute);font-family:inherit;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
       .lp-launch-main{display:flex;align-items:center;gap:9px;height:38px;padding:0 10px 0 9px;background:transparent;border:0;color:var(--bar-fg);font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;border-radius:999px;transition:background .14s ease}
       .lp-launch-main:hover{background:var(--bar-raised)}
       /* Styled tooltips for the launcher buttons, above each on hover. */
@@ -1067,6 +1078,7 @@
       .lp-fatal-sub{max-width:252px;margin:6px auto 0;font-size:12.5px;color:var(--muted);line-height:1.55}
     </style>
     <div class="lp-launcher" id="lp-launcher">
+      ${LOCAL ? '<span class="lp-local" id="lp-local" data-tip="Comments save to this local build">Local</span>' : ''}
       <div class="lp-launch-quick" id="lp-launch-quick">
         <button class="lp-launch-action" id="lp-launch-note" aria-label="Add note" data-tip="Add note">${ICON.comment(16)}</button>
         <button class="lp-launch-action" id="lp-launch-target" aria-label="Pick element" data-tip="Pick element">${ICON.target(16)}</button>
