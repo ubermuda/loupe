@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Mcp;
 
+use App\Doctrine\SearchLanguage;
+use App\Module\Board\Entity\Card;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardSearchTool;
 use App\Module\Board\Mcp\CardUpdateTool;
+use App\Module\Board\Repository\CardRepository;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
@@ -211,6 +214,34 @@ final class CardSearchToolTest extends KernelTestCase
         self::assertSame(1, ($this->tool)('mailpit', page: -4)['page']);
         self::assertSame(1, ($this->tool)('mailpit', perPage: 0)['perPage']);
         self::assertSame(CardSearchTool::MAX_PER_PAGE, ($this->tool)('mailpit', perPage: 500)['perPage']);
+    }
+
+    /**
+     * The project's language is the card's, read once at creation. Without it a
+     * French project's cards are stemmed as English while the query that reads
+     * them is parsed as French, and the two never meet.
+     */
+    public function test_a_card_takes_its_projects_search_language(): void
+    {
+        $this->enableBoard();
+        $project = $this->makeProject('card-search-language');
+        $project->searchLanguage = SearchLanguage::French;
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+
+        $created = ($this->createTool)('Les cartes du tableau', 'Le corps parle de goeland.', 'feature', 'low');
+
+        $cards = self::getContainer()->get(CardRepository::class);
+        self::assertInstanceOf(CardRepository::class, $cards);
+        $card = $cards->find($created['cardId']);
+        self::assertInstanceOf(Card::class, $card);
+        self::assertSame(SearchLanguage::French, $card->searchLanguage);
+        self::assertSame([SearchLanguage::French], $cards->searchLanguagesOf($project));
+
+        // The vector and the query are both built as French, so the card is
+        // still findable rather than indexed under a configuration nothing asks
+        // for.
+        self::assertSame(1, ($this->tool)('goeland')['total']);
     }
 
     private function boardWith(string $label): void
