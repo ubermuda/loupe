@@ -12,6 +12,8 @@ final readonly class ListDocumentsCommand
     public function __construct(
         public Project $project,
         public DocumentListQuery $listQuery,
+        /** Clamped by the handler into 1..ListDocumentsHandler::MAX_PER_PAGE. */
+        public int $perPage = ListDocumentsHandler::PER_PAGE,
     ) {
     }
 }

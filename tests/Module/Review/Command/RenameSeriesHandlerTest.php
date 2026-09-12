@@ -92,8 +92,8 @@ final class RenameSeriesHandlerTest extends KernelTestCase
 
         $renamed = ($this->handler)(new RenameSeriesCommand($series, 'Blog Series'));
 
-        self::assertSame('Blog Series', $renamed->name);
-        self::assertSame('blog series', $renamed->normalizedName);
+        self::assertSame('Blog Series', $renamed->series->name);
+        self::assertSame('blog series', $renamed->series->normalizedName);
     }
 
     public function test_a_name_another_series_holds_is_refused_rather_than_merged(): void
@@ -121,7 +121,7 @@ final class RenameSeriesHandlerTest extends KernelTestCase
 
         $renamed = ($this->handler)(new RenameSeriesCommand($series, 'Rust Atomics'));
 
-        self::assertSame('Rust Atomics', $renamed->name);
+        self::assertSame('Rust Atomics', $renamed->series->name);
     }
 
     public function test_a_blank_name_is_refused(): void

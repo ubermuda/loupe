@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Board\Mcp;
 
 use App\Mcp\FlagGatedToolInterface;
+use App\Module\Board\Command\ListCardsCommand;
+use App\Module\Board\Command\ListCardsHandler;
 use App\Module\Board\Install\BoardInstallFlags;
-use App\Module\Board\Repository\CardRepository;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
@@ -21,14 +22,10 @@ final readonly class CardListTool implements FlagGatedToolInterface
 {
     public const string NAME = 'card_list';
 
-    public const int DEFAULT_PER_PAGE = 50;
-
-    public const int MAX_PER_PAGE = 100;
-
     public function __construct(
         private BoardFlagGate $gate,
         private BoardSubjectResolver $subjects,
-        private CardRepository $cards,
+        private ListCardsHandler $listCards,
         private CardPayload $payload,
     ) {
     }
@@ -49,10 +46,6 @@ final readonly class CardListTool implements FlagGatedToolInterface
      * The list is wrapped in a `cards` object key because the MCP spec requires
      * a tool result's `structuredContent` to be a JSON object, not a bare array.
      *
-     * The page is cut from the returned array rather than from SQL. The board
-     * order is up to four differently-ordered queries concatenated in PHP, one
-     * per column, so one LIMIT cannot express it.
-     *
      * @param string|null $status   only cards in this column: backlog, next, in-progress or done
      * @param string|null $type     only cards of this type: feature, bug, security, tooling, docs or idea
      * @param string|null $priority only cards at this priority: high, medium or low
@@ -63,39 +56,28 @@ final readonly class CardListTool implements FlagGatedToolInterface
      *
      * @return ($full is true ? array{cards: list<CardSummary>, page: int, perPage: int, total: int, hasMore: bool} : array{cards: list<CardListSummary>, page: int, perPage: int, total: int, hasMore: bool})
      */
-    public function __invoke(?string $status = null, ?string $type = null, ?string $priority = null, ?string $reporter = null, int $page = 1, int $perPage = self::DEFAULT_PER_PAGE, bool $full = false): array
+    public function __invoke(?string $status = null, ?string $type = null, ?string $priority = null, ?string $reporter = null, int $page = 1, int $perPage = ListCardsHandler::DEFAULT_PER_PAGE, bool $full = false): array
     {
         $this->gate->requireEnabled();
 
-        // Clamped rather than rejected: an out-of-range page from an agent
-        // should return an empty page, not fail the tool call.
-        $page = max(1, $page);
-        $perPage = min(self::MAX_PER_PAGE, max(1, $perPage));
-
         try {
-            $project = $this->subjects->requireProject();
+            $view = ($this->listCards)(new ListCardsCommand(
+                project: $this->subjects->requireProject(),
+                status: $this->subjects->optionalStatus($status),
+                type: $this->subjects->optionalType($type),
+                priority: $this->subjects->optionalPriority($priority),
+                reporter: $this->subjects->optionalReporter($reporter),
+                page: $page,
+                perPage: $perPage,
+            ));
 
-            $cards = $this->cards->findForBoard(
-                $project,
-                $this->subjects->optionalStatus($status),
-                $this->subjects->optionalType($type),
-                $this->subjects->optionalPriority($priority),
-                $this->subjects->optionalReporter($reporter),
-            );
-
-            $total = \count($cards);
-            // A page past the end reads empty. The offset is capped before the
-            // multiplication, because a page near PHP_INT_MAX would overflow to
-            // a float and array_slice() then refuses it.
-            $offset = $page - 1 > intdiv($total, $perPage) ? $total : ($page - 1) * $perPage;
-            $slice = \array_slice($cards, $offset, $perPage);
-            $meta = ['page' => $page, 'perPage' => $perPage, 'total' => $total, 'hasMore' => $offset + $perPage < $total];
+            $meta = ['page' => $view->page, 'perPage' => $view->perPage, 'total' => $view->total, 'hasMore' => $view->hasMore];
 
             if ($full) {
-                return ['cards' => $this->payload->forCards($slice), ...$meta];
+                return ['cards' => $this->payload->forCards($view->cards), ...$meta];
             }
 
-            return ['cards' => $this->payload->forCardList($slice), ...$meta];
+            return ['cards' => $this->payload->forCardList($view->cards), ...$meta];
         } catch (ToolCallException $e) {
             throw $e;
         } catch (\Throwable $e) {

@@ -6,6 +6,7 @@ namespace App\Tests\Module\Board\Mcp;
 
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
+use App\Module\Board\Command\ListCardsHandler;
 use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardType;
@@ -270,7 +271,7 @@ final class CardListToolTest extends KernelTestCase
 
         self::assertSame(1, ($this->tool)(page: -4)['page']);
         self::assertSame(1, ($this->tool)(perPage: 0)['perPage']);
-        self::assertSame(CardListTool::MAX_PER_PAGE, ($this->tool)(perPage: 500)['perPage']);
+        self::assertSame(ListCardsHandler::MAX_PER_PAGE, ($this->tool)(perPage: 500)['perPage']);
     }
 
     private function boardWith(string $label): Project

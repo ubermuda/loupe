@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Mcp;
 
+use App\Module\SiteReview\Command\ListSiteReviewCommentsCommand;
+use App\Module\SiteReview\Command\ListSiteReviewCommentsHandler;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentAnchor;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
-use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
@@ -15,7 +16,7 @@ use Mcp\Exception\ToolCallException;
 final readonly class SiteReviewGetTool
 {
     public function __construct(
-        private SiteReviewCommentRepository $siteReviewComments,
+        private ListSiteReviewCommentsHandler $listComments,
         private SiteReviewSubjectResolver $subjects,
     ) {
     }
@@ -34,13 +35,15 @@ final readonly class SiteReviewGetTool
             // Marking a comment addressed used to put it beyond every read path
             // in this server, so an agent could not report on, or revisit, its
             // own work.
-            $comments = match ($status) {
-                null, 'pending' => $this->siteReviewComments->findPendingForProject($project),
-                'all' => $this->siteReviewComments->findForProject($project),
-                'addressed' => $this->siteReviewComments->findForProjectWithStatus($project, SiteReviewCommentStatus::Addressed),
-                'resolved' => $this->siteReviewComments->findForProjectWithStatus($project, SiteReviewCommentStatus::Resolved),
+            $filter = match ($status) {
+                null, 'pending' => SiteReviewCommentStatus::Pending,
+                'all' => null,
+                'addressed' => SiteReviewCommentStatus::Addressed,
+                'resolved' => SiteReviewCommentStatus::Resolved,
                 default => throw new ToolCallException(\sprintf('Unknown status "%s". Use pending, addressed, resolved or all.', $status)),
             };
+
+            $comments = ($this->listComments)(new ListSiteReviewCommentsCommand($project, $filter))->comments;
 
             return [
                 'site' => ['id' => (string) $project->id, 'name' => $project->name],

@@ -27,10 +27,17 @@ final readonly class CardPayload
     ) {
     }
 
-    /** @return CardSummary */
-    public function forCard(Card $card): array
+    /**
+     * One card whose site-review links the caller already holds, from
+     * {@see \App\Module\Board\Command\ShowCardHandler}.
+     *
+     * @param list<CardSiteReviewComment> $links
+     *
+     * @return CardSummary
+     */
+    public function forCard(Card $card, array $links): array
     {
-        return $this->forCards([$card])[0];
+        return $this->render($card, $links);
     }
 
     /**
