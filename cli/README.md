@@ -2,10 +2,13 @@
 
 A small Go binary that closes the loop between Loupe and a local coding agent.
 
-When you submit a site review in the browser, the CLI receives it in real time
-and types it straight into a **Claude Code session running in tmux** — so the
-feedback you just left on a page becomes the agent's next instruction, without
-copy-pasting.
+The CLI subscribes to your Loupe event stream and hands each event to a **Claude
+Code session running in tmux**, so what you do in the browser becomes the agent's
+next instruction with no copy-pasting. It acts on two events:
+
+- **A submitted site review** goes to the bridge's own session.
+- **A board card that enters `next`** starts its own worker session, named
+  `card-<number>-<project>`, which reads the card and plans it.
 
 ## Build
 
@@ -42,10 +45,10 @@ repository, so a human confirms the CLI is what changed before it ships.
 - A Loupe API token with the **site-review** scope. Use an account-level token,
   not the project-bound widget token that gets embedded in page HTML: the widget
   token is public by design and is rejected by the endpoints the bridge needs.
-- The Loupe MCP server configured in the target tmux session's `claude`. The
-  injected directive only names the `site_review_get` MCP tool — it does not
-  carry a self-contained prompt — so the agent cannot act on it without the
-  MCP available.
+- The Loupe MCP server configured in the target tmux session's `claude`. Each
+  directive only names an MCP tool, `site_review_get` or `card_get`. It does not
+  carry a self-contained prompt, so the agent cannot act on it without the MCP
+  available.
 
 ## `loupe login`
 
@@ -77,8 +80,7 @@ stays authoritative.
 
 ## `loupe bridge run`
 
-Subscribes to a site's review stream and injects each submitted review into a
-tmux session.
+Subscribes to a site's event stream and delivers each event to a tmux session.
 
 You must pass exactly one of `--dir` or `--session`:
 
@@ -95,7 +97,54 @@ loupe bridge run --session my-session
 | `--dir` | — | Spawn `claude` in a **new** tmux session in this directory |
 | `--session` | — | Attach to an **existing** tmux session or target |
 | `--site` | interactive | Which site to bridge, by name or id. Omitted, you get a numbered picker (requires a TTY) |
+| `--permission-mode` | — | Pass `--permission-mode` to every `claude` the bridge spawns. Omitted, no flag is passed |
 | `--attach` | `true` | Attach to the tmux session and watch. `--attach=false` runs the bridge in the foreground, for headless use |
+
+`--dir` is ignored when a session named `loupe` is already running, and the
+bridge says so rather than reusing it in silence.
+
+### Sessions
+
+With `--dir`, the bridge owns two kinds of session:
+
+- **The bridge session**, named `loupe`. Site-review directives are typed into
+  it with `tmux send-keys`.
+- **A worker session per card**, named `card-<number>-<project>`, where the
+  project part is the last 12 hex digits of its id. Card numbers count from 1
+  inside a project and repeat across them, so the number alone would make two
+  bridges on one tmux server drop each other's events. A card that enters
+  `next` spawns one, with the directive as `claude`'s first prompt. A fresh session is
+  not yet reading keystrokes, so the prompt travels in the launch command
+  instead of through `send-keys`.
+
+The bridge reacts to the transition, not to the column. A card dragged to a
+new rank inside `next` submits a move with `next` on both sides, and
+prioritising that column is an ordinary thing to do, so reacting to the
+target alone would start a worker for every card reordered.
+
+The name is what makes a worker addressable, so it must be unique: the bridge
+passes it to `claude --name` as well. If `card-<number>-<project>` already exists, a worker
+for that card is already running, so the bridge logs the event and drops it. It
+never starts a second one.
+
+With `--session` the bridge owns nothing and spawns nothing. Both kinds of
+directive go to the one session you named.
+
+### `--permission-mode`
+
+This is the flag that makes an unattended run possible. Without it `claude`
+prompts before each tool use, so a worker started while you are away stops at the
+first prompt and waits.
+
+It is empty by default, and an empty value passes no flag at all. Switching it on
+is your decision, and it is a real one: a mode such as `bypassPermissions` lets
+an agent edit files and run commands in `--dir` with nobody watching. The cards
+it acts on come from your board, and the bridge never puts card text into a
+prompt, but the agent reads that text itself once it starts. Point `--dir` at a
+directory you are willing to have changed.
+
+`--permission-mode` applies only to sessions the bridge spawns, so it is refused
+with `--session`.
 
 ### Attached vs headless
 
@@ -115,21 +164,29 @@ the display. Detach with `Ctrl-b d`; that also stops the bridge. While attached,
    per-site topic, and a short-lived subscriber JWT.
 3. The CLI opens a Server-Sent Events connection to the hub. The connection is
    **outbound**, so it works from behind NAT with no inbound port.
-4. Each `site_review.submitted` event is turned into a directive and delivered
-   with `tmux send-keys`.
+4. Each event is read from its JSON `type` field and turned into a directive.
+   A `site_review.submitted` event is typed into the bridge session with
+   `tmux send-keys`. A `board.card_moved` event with `to` set to `next` spawns
+   `card-<number>-<project>` with the directive as its first prompt.
+5. Any other event is dropped. A `board.card_moved` to any other column is
+   dropped too, which is what stops a feedback loop: the worker's own first act
+   moves the card to `in-progress`, and that second event goes nowhere.
+6. A type this build does not handle is dropped without a word. A newer server
+   publishes events an older binary has never heard of, and that is normal. A
+   payload that will not parse is still logged.
 
-The directive carries only opaque, server-generated identifiers — the review
-id and a comment count — never reviewer-controlled text such as comment URLs,
-comment bodies, or the site name. Anyone who can post through the embedded
-widget controls that text, so it is never interpolated into the
-auto-submitted prompt; the agent fetches the actual comment content itself
-via the `site_review_get` MCP tool, which resolves the site from its own
-bound token.
+A directive carries only opaque, server-generated identifiers: nothing for a
+site review, and the project id plus the card number for a card. It never
+carries text a person wrote: a comment body or URL, the site name, a card title
+or a card body. Anyone who can post through the embedded widget or write to the
+board controls that text, so it is never interpolated into an auto-submitted
+prompt. The agent fetches the content itself through `site_review_get` or
+`card_get`, and the card directive tells it to treat what it reads as data.
 
 Dropped connections are retried with capped backoff, and a **fresh subscriber
 JWT is fetched for every attempt** — they are deliberately short-lived, so
 reusing one would make the hub reject each retry once it lapsed.
 
 Delivery is best-effort: events published while the bridge is disconnected are
-not replayed. If the tmux session disappears, the review is logged and dropped
-rather than injected somewhere unexpected.
+not replayed. If the target tmux session disappears, the event is logged and
+dropped rather than injected somewhere unexpected.
