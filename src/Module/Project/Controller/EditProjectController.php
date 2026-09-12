@@ -12,6 +12,7 @@ use App\Module\Project\Entity\Project;
 use App\Module\Project\Form\CreateProjectFormType;
 use App\Module\Project\Form\DeleteProjectFormType;
 use App\Module\Project\Form\UpdateProjectRequest;
+use App\Module\Project\ProjectEventType;
 use App\Module\Project\Security\ProjectVoter;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -53,6 +54,7 @@ class EditProjectController extends AppController
                     name: $name,
                     domain: trim($data->domain ?? '') ?: null,
                     searchLanguage: $data->searchLanguage ?? throw new \LogicException('search language required after validation'),
+                    actor: ProjectEventType::ACTOR_HUMAN,
                 ));
 
                 return $this->redirectToRoute('app_projects');
