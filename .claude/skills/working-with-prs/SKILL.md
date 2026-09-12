@@ -90,6 +90,12 @@ A tool reports what it did rather than what it found. Doing nothing successfully
 and finding nothing wrong produce the same output. So break the check on
 purpose, watch it go red, then restore it and trust the green.
 
+Confirm the break landed before you read the result. One session broke a rule
+with a `perl` one-liner whose escaping was wrong. The file did not change, the
+suite stayed green, and that green read as "the rule is fine". `git diff
+--quiet` caught it. A falsifier that silently does nothing is the same fault one
+level up, and it is the more convincing of the two.
+
 | Signal | What it cannot distinguish |
 |---|---|
 | `phpstan` exit 0 | a clean tree from a rule that never loaded |
