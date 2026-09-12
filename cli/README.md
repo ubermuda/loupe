@@ -157,6 +157,23 @@ the display. Detach with `Ctrl-b d`; that also stops the bridge. While attached,
 **Headless** (`--attach=false`) blocks in the foreground and logs to stdout;
 `Ctrl-C` or `SIGTERM` stops it. `--site` is required when there's no TTY.
 
+## `loupe version`
+
+Prints the commit the binary was built from, plus the Go version and the
+platform. `loupe --version` prints the same two lines.
+
+```
+loupe 0f4a2c9b1d7e3f5a6b8c9d0e1f2a3b4c5d6e7f80
+go1.26.0 darwin/arm64
+```
+
+The commit arrives through `-ldflags`, because the build container mounts `cli/`
+alone and has no `.git` to read. `just cli-build` and goreleaser both inject it.
+A binary built outside a repository says `loupe unknown`.
+
+`(dirty)` after the commit means the working tree held uncommitted changes at
+build time, so the binary matches no commit.
+
 ## How it works
 
 1. `GET /api/site-review/sites` lists your sites (the picker).

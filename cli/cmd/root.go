@@ -11,10 +11,14 @@ func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "loupe",
 		Short:         "Loupe command-line tools",
+		Version:       versionString(),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
-	root.AddCommand(newLoginCmd(), newBridgeCmd())
+	// Cobra's default template prefixes "loupe version", which the string
+	// already carries, and it spans two lines.
+	root.SetVersionTemplate("{{.Version}}\n")
+	root.AddCommand(newLoginCmd(), newBridgeCmd(), newVersionCmd())
 
 	return root
 }
