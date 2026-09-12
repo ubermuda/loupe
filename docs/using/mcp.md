@@ -17,6 +17,17 @@ token can be revoked from `/account/api-tokens/{tokenId}/revoke`.
 
 The first-run wizard mints one for you at `/welcome/connect`.
 
+Your account settings at `/account` mint an account-level token. Give it a name
+and copy the value from the page: Loupe stores only a hash, so the page shows
+the raw token once and never again. The same page lists every token you own and
+revokes any of them.
+
+An account-level token always gets site-review access, which is what the Loupe
+CLI needs. The page mints no MCP token, because an MCP tool reads its project
+from the token that is bound to it, and only the project's Connect page writes
+that binding. An account-level MCP token would authenticate and then fail on
+every tool call.
+
 ## The Claude Code plugin
 
 **Use this for the skills, not for the endpoint.** A plugin holds one set of

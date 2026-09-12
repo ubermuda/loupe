@@ -17,6 +17,35 @@ description: Use when working on `.html.twig` files, Twig components, or Turbo s
 
 `base.html.twig` runs `{% set project = current_project() %}` before it yields `block body`. On a route with no project `{id}` param it resolves to null and silently clobbers a controller-passed variable named `project`. Never pass `project` from a param-less route to a template inside the authenticated layout. Use a distinct name (`wizardProject`), or forward the raw id string so `current_project()` resolves it.
 
+## Render a form field by field, because there is no form theme
+
+This project registers no `form_themes`. `form_row()` therefore emits Symfony's
+default markup, which nothing here styles. The label sits against the
+placeholder, and the input has no box around it.
+
+Render each field yourself, with the semantic classes `assets/styles/app.css`
+defines:
+
+```twig
+{{ form_start(form, {'attr': {'class': 'lp-form'}}) }}
+    <div class="lp-form-field">
+        {{ form_label(form.title, null, {'label_attr': {'class': 'lp-label'}}) }}
+        {{ form_widget(form.title, {'attr': {'class': 'lp-input'}}) }}
+        <div class="lp-field-errors">{{ form_errors(form.title) }}</div>
+    </div>
+    <button type="submit" class="lp-btn lp-btn--primary">{{ 'x.submit'|trans }}</button>
+{{ form_end(form) }}
+```
+
+Keep `form_end()`. It renders the hidden CSRF field.
+
+Nothing fails when you use `form_row()` instead. The page returns 200, the form
+submits, every test passes, and the diff reads as correct Twig. Only a person
+looking at the page sees the problem, so no gate in this repository catches it.
+
+Nineteen templates render fields this way and none uses `form_row()`. Treat a
+`form_row()` in a diff as a mistake rather than a style choice.
+
 ## Module template namespaces
 
 Each module's `templates/Module/<Module>/` directory is registered as `@<Module>` in `config/packages/twig.yaml` under `twig.paths`. Reference module templates by that namespace, never by the plain `Module/<Module>/...` path.
