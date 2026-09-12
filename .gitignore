@@ -14,6 +14,16 @@
 /vendor/
 ###< symfony/framework-bundle ###
 
+# twig.yaml registers var/tailwind as a Twig namespace, and FilesystemLoader
+# throws when the directory is absent, so a clone that has never built Tailwind
+# cannot boot. Git refuses to re-include a file under an excluded directory, so
+# /var/ is un-excluded first, and everything but the marker is ignored again.
+!/var/
+/var/*
+!/var/tailwind/
+/var/tailwind/*
+!/var/tailwind/.gitkeep
+
 ###> phpunit/phpunit ###
 /phpunit.xml
 /.phpunit.cache/
