@@ -4,14 +4,15 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Controller;
 
-use App\Module\Board\Command\ListDoneCardsHandler;
+use App\Module\Board\Command\ListTerminalColumnCardsHandler;
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 
-final class ListDoneCardsControllerTest extends WebTestCase
+final class ListTerminalColumnCardsControllerTest extends WebTestCase
 {
     use BoardScenario;
 
@@ -49,7 +50,7 @@ final class ListDoneCardsControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'done-paging@example.com');
         $project = $this->project($em, $owner);
-        for ($index = 0; $index < ListDoneCardsHandler::PER_PAGE + 3; ++$index) {
+        for ($index = 0; $index < ListTerminalColumnCardsHandler::PER_PAGE + 3; ++$index) {
             $card = $this->card($em, $project, 'Finished '.$index, 'done');
             $card->completedAt = new \DateTimeImmutable(\sprintf('-%d minutes', $index));
         }
@@ -60,7 +61,7 @@ final class ListDoneCardsControllerTest extends WebTestCase
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, $url);
         self::assertResponseIsSuccessful();
-        self::assertCount(ListDoneCardsHandler::PER_PAGE, $crawler->filter('.lp-done-row'));
+        self::assertCount(ListTerminalColumnCardsHandler::PER_PAGE, $crawler->filter('.lp-done-row'));
 
         $crawler = $client->request(Request::METHOD_GET, $url.'?page=2');
         self::assertResponseIsSuccessful();
@@ -101,7 +102,7 @@ final class ListDoneCardsControllerTest extends WebTestCase
         $owner = $this->user($em, 'done-cross-board@example.com');
         $mine = $this->project($em, $owner, 'mine');
         $other = $this->project($em, $owner, 'other');
-        $url = '/projects/'.$mine->id.'/board/done/'.$this->column($other, 'done')->id;
+        $url = '/projects/'.$mine->id.'/board/terminal/'.$this->column($other, 'done')->id;
         $em->clear();
 
         $client->loginUser($owner);
@@ -144,8 +145,47 @@ final class ListDoneCardsControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
+    public function test_the_old_history_url_redirects_to_the_first_terminal_column(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'done-redirect@example.com');
+        $project = $this->project($em, $owner);
+        // A second terminal column placed first, so the redirect cannot pass on the slug "done".
+        $first = new BoardColumn(project: $project, label: 'Dropped', slug: 'dropped', position: -1, terminal: true);
+        $em->persist($first);
+        $em->flush();
+        $old = '/projects/'.$project->id.'/board/done';
+        $expected = '/projects/'.$project->id.'/board/terminal/'.$first->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $old);
+
+        self::assertResponseRedirects($expected);
+    }
+
+    public function test_the_old_history_url_is_forbidden_to_a_stranger(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'done-redirect-owner@example.com');
+        $stranger = $this->user($em, 'done-redirect-stranger@example.com');
+        $project = $this->project($em, $owner);
+        $em->clear();
+
+        $client->loginUser($stranger);
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/done');
+
+        self::assertResponseStatusCodeSame(403);
+    }
+
     private function historyUrl(Project $project, string $slug): string
     {
-        return '/projects/'.$project->id.'/board/done/'.$this->column($project, $slug)->id;
+        return '/projects/'.$project->id.'/board/terminal/'.$this->column($project, $slug)->id;
     }
 }

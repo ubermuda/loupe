@@ -28,6 +28,10 @@ final readonly class ListCardsHandler
 
     public function __invoke(ListCardsCommand $command): ListCardsView
     {
+        if (null !== $command->column && $command->column->project !== $command->project) {
+            throw new \LogicException('A board lists its own columns only.');
+        }
+
         // Clamped rather than refused: an out-of-range page should read empty,
         // not fail the call.
         $page = max(1, $command->page);

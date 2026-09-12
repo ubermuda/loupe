@@ -156,7 +156,7 @@ final class ShowBoardControllerTest extends WebTestCase
         // The link still counts every Done card, not only the ones on screen.
         self::assertStringContainsString('2', $done->filter('.lp-board__column-link')->text());
         self::assertStringContainsString(
-            '/board/done',
+            '/board/terminal/',
             (string) $done->filter('.lp-board__column-link')->attr('href'),
         );
     }

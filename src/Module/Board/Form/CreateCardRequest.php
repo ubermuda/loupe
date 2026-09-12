@@ -25,7 +25,7 @@ class CreateCardRequest
         #[Assert\NotNull]
         public ?CardPriority $priority = CardPriority::Medium,
 
-        /** Null until the form sets the board's default column. */
+        /** The controller passes the board's default column. */
         #[Assert\NotNull]
         public ?BoardColumn $column = null,
         /** One URL per line, as typed. The list is replaced whole on every save. */

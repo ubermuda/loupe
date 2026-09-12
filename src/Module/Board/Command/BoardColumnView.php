@@ -14,8 +14,8 @@ final readonly class BoardColumnView
         public BoardColumn $column,
         public array $groups,
         public int $count,
-        /** Every card the column holds, which for a terminal column is more than it shows. */
-        public int $total,
+        /** Every card a terminal column holds, which is more than it shows. Null for any other column. */
+        public ?int $terminalTotal = null,
     ) {
     }
 }

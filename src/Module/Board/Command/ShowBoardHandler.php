@@ -18,7 +18,7 @@ final readonly class ShowBoardHandler
      * A terminal column only ever grows, so it shows a recent slice and the
      * history page carries the rest.
      */
-    public const int DONE_WINDOW_DAYS = 7;
+    public const int TERMINAL_WINDOW_DAYS = 7;
 
     public function __construct(
         private CardRepository $cards,
@@ -36,7 +36,7 @@ final readonly class ShowBoardHandler
             if ($column->terminal) {
                 $recent = $this->cards->findCompletedSince(
                     $column,
-                    new \DateTimeImmutable(\sprintf('-%d days', self::DONE_WINDOW_DAYS)),
+                    new \DateTimeImmutable(\sprintf('-%d days', self::TERMINAL_WINDOW_DAYS)),
                 );
 
                 $columns[] = new BoardColumnView($column, [new BoardGroupView(null, $recent)], \count($recent), $this->cards->countInColumn($column));
@@ -57,13 +57,13 @@ final readonly class ShowBoardHandler
                 )));
             }
 
-            $columns[] = new BoardColumnView($column, $groups, \count($cards), \count($cards));
+            $columns[] = new BoardColumnView($column, $groups, \count($cards));
         }
 
         return new BoardView(
             $project,
             $columns,
-            self::DONE_WINDOW_DAYS,
+            self::TERMINAL_WINDOW_DAYS,
             // One aggregate for the whole board. A count per card would be a
             // query per card, on the page that renders the most of them.
             $this->cardSiteReviewComments->pendingCountsForProject($project),

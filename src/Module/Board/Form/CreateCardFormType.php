@@ -6,25 +6,17 @@ namespace App\Module\Board\Form;
 
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardType;
-use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Project\Entity\Project;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
-use Symfony\Component\Form\FormEvent;
-use Symfony\Component\Form\FormEvents;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
 /** @extends AbstractType<CreateCardRequest> */
 class CreateCardFormType extends AbstractType
 {
-    public function __construct(
-        private readonly BoardColumnRepository $boardColumns,
-    ) {
-    }
-
     #[\Override]
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
@@ -61,15 +53,6 @@ class CreateCardFormType extends AbstractType
                 'help_attr' => ['class' => 'lp-form-hint'],
                 'attr' => ['rows' => 4, 'placeholder' => 'board.form.create_card_form.pull_request_urls.placeholder'],
             ]);
-
-        // A new card starts in the board's default column, which need not be
-        // the first one the select lists.
-        $builder->addEventListener(FormEvents::PRE_SET_DATA, function (FormEvent $event) use ($options): void {
-            $data = $event->getData();
-            if ($data instanceof CreateCardRequest && null === $data->column) {
-                $data->column = $this->boardColumns->findDefaultFor($options['project']);
-            }
-        });
     }
 
     #[\Override]

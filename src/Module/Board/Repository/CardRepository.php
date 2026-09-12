@@ -178,7 +178,10 @@ class CardRepository extends ServiceEntityRepository
             return;
         }
 
-        $column = $this->getEntityManager()->find(BoardColumn::class, Uuid::fromString((string) $row['column_id']));
+        // Null only on a row the image before board columns wrote after the migration.
+        $column = null === $row['column_id']
+            ? null
+            : $this->getEntityManager()->find(BoardColumn::class, Uuid::fromString((string) $row['column_id']));
         if (null !== $column) {
             $card->column = $column;
         }

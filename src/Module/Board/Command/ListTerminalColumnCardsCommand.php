@@ -6,7 +6,7 @@ namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\BoardColumn;
 
-final readonly class ListDoneCardsCommand
+final readonly class ListTerminalColumnCardsCommand
 {
     public function __construct(
         /** A terminal column. */

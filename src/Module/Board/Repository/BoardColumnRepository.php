@@ -33,9 +33,19 @@ class BoardColumnRepository extends ServiceEntityRepository
         return $this->findOneBy(['project' => $project, 'isDefault' => true]);
     }
 
-    public function findOneByProjectAndSlug(Project $project, string $slug): ?BoardColumn
+    /** The same lookup from a raw route parameter, for a MapEntity expression. */
+    public function findDefaultForProjectId(string $projectId): ?BoardColumn
     {
-        return $this->findOneBy(['project' => $project, 'slug' => $slug]);
+        return Uuid::isValid($projectId)
+            ? $this->findOneBy(['project' => Uuid::fromString($projectId), 'isDefault' => true])
+            : null;
+    }
+
+    public function findFirstTerminalForProjectId(string $projectId): ?BoardColumn
+    {
+        return Uuid::isValid($projectId)
+            ? $this->findOneBy(['project' => Uuid::fromString($projectId), 'terminal' => true], ['position' => 'ASC'])
+            : null;
     }
 
     /** A URL that pairs one project with another project's column is a 404. */
