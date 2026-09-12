@@ -150,8 +150,9 @@ final class CardPostLockStateTest extends KernelTestCase
 
         ($this->updateCard)(new UpdateCardCommand(card: $mover, status: CardStatus::Next));
 
-        self::assertSame([], $this->audit->records('board.card_moved'));
-        self::assertFalse($this->audit->record('board.card_updated')->context['moved']);
+        // Nothing changed, so nothing is recorded: not the move the re-read
+        // ruled out, and not an update whose every flag is false.
+        self::assertSame([], $this->audit->operations());
         self::assertSame([0, 1, 2], [
             $this->storedPosition($next),
             $this->storedPosition($mover),

@@ -35,6 +35,10 @@ entry.
 
 ## [Unreleased]
 
+- (#428) — **Added:** moving a board card now writes a durable outbox row,
+  so a connected agent can react to the move. `board.card_updated` is recorded
+  only when a field actually changed.
+
 - (#423) — **Changed:** the site-review outbox is now a general agent
   outbox. Its table, drain, scheduler and listing pages moved to the root
   namespace, every row records which producer wrote it, the per-project page

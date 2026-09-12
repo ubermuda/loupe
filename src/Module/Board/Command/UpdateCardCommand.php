@@ -23,6 +23,9 @@ final readonly class UpdateCardCommand
     /**
      * @param list<string>|null $pullRequestUrls
      * @param list<string>|null $documentIds
+     * @param ?int              $position        the rank the card takes inside its group, counting
+     *                                           from 0; null leaves the rank alone, and a rank past
+     *                                           the end of the group is clamped to it
      */
     public function __construct(
         public Card $card,
@@ -33,6 +36,7 @@ final readonly class UpdateCardCommand
         public ?CardStatus $status = null,
         public ?array $pullRequestUrls = null,
         public ?array $documentIds = null,
+        public ?int $position = null,
     ) {
     }
 }
