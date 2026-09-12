@@ -131,6 +131,31 @@ field, so choose the value when you create the card.
 `card_list` takes `reporter` as a filter, and the filter reads all three values.
 Pass `reviewer` to read the cards the widget raised.
 
+## A card asks somebody to do something
+
+The board is not a notepad. Every card names work with an addressee, and it ends
+when somebody does that work and moves it to `done`.
+
+Before you write a card, say in one sentence what somebody must do. A card that
+cannot finish that sentence is an observation, and an observation asks nothing of
+anyone.
+
+| You have | Where it goes |
+|---|---|
+| Work somebody must do later | A card |
+| A lesson worth applying next time | The skill that covers that area |
+| A fact about how the system behaves | `docs/`, or the skill |
+| A record of what happened | The commit message or the pull request body |
+
+A lesson is the common mistake, because it feels valuable and it has no owner.
+Write it into the skill a future session already reads. A card holding a lesson
+sits in `backlog` forever, because nobody can finish it.
+
+The test survives the rewrite: a card whose body is mostly evidence, with one
+line at the end asking for the evidence to be written up, is a card. The write-up
+is the work. Put the evidence in the body, so whoever takes it needs no other
+source.
+
 ## What makes a good card
 
 - Keep one concern per card. Split the card when its body collects a second
@@ -235,6 +260,7 @@ An agent or a person moves the card to `done`.
 | Mistake | Reality |
 |---|---|
 | Looking for a `card_delete` tool | There is none. Move the card to `done`. |
+| Carding a lesson so it is not lost | Nobody can finish it. Write it into the skill. |
 | Sending only the new URL in `pullRequestUrls` | The field replaces the whole set, so the older links go. |
 | Sending an empty `pullRequestUrls` to leave the links alone | An empty list clears them. Omit the field instead. |
 | Passing a card number as `cardId` | `cardId` is a UUID. Find it with `card_list` or `card_search`. |
