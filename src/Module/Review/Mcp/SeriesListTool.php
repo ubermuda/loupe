@@ -6,7 +6,8 @@ namespace App\Module\Review\Mcp;
 
 use App\Mcp\ResolvesBoundProject;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
-use App\Module\Review\Repository\SeriesRepository;
+use App\Module\Review\Command\ListSeriesCommand;
+use App\Module\Review\Command\ListSeriesHandler;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
@@ -23,7 +24,7 @@ final readonly class SeriesListTool
     use ResolvesBoundProject;
 
     public function __construct(
-        private SeriesRepository $series,
+        private ListSeriesHandler $listSeries,
         private AuthenticatedProjectResolver $projectResolver,
     ) {
     }
@@ -37,7 +38,7 @@ final readonly class SeriesListTool
     public function __invoke(): array
     {
         try {
-            $project = $this->requireBoundProject($this->projectResolver);
+            $view = ($this->listSeries)(new ListSeriesCommand($this->requireBoundProject($this->projectResolver)));
 
             return [
                 'series' => array_map(
@@ -46,7 +47,7 @@ final readonly class SeriesListTool
                         'documentCount' => $row['documentCount'],
                         'highestOrdinal' => $row['highestOrdinal'],
                     ],
-                    $this->series->findByProjectWithDocumentCounts($project),
+                    $view->series,
                 ),
             ];
         } catch (ToolCallException $e) {

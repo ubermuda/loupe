@@ -6,7 +6,8 @@ namespace App\Module\Review\Mcp;
 
 use App\Mcp\ResolvesBoundProject;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
-use App\Module\Review\Repository\TagRepository;
+use App\Module\Review\Command\ListTagsCommand;
+use App\Module\Review\Command\ListTagsHandler;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
@@ -25,7 +26,7 @@ final readonly class TagListTool
     use ResolvesBoundProject;
 
     public function __construct(
-        private TagRepository $tags,
+        private ListTagsHandler $listTags,
         private AuthenticatedProjectResolver $projectResolver,
     ) {
     }
@@ -39,7 +40,7 @@ final readonly class TagListTool
     public function __invoke(): array
     {
         try {
-            $project = $this->requireBoundProject($this->projectResolver);
+            $view = ($this->listTags)(new ListTagsCommand($this->requireBoundProject($this->projectResolver)));
 
             return [
                 'tags' => array_map(
@@ -47,7 +48,7 @@ final readonly class TagListTool
                         'name' => $row['tag']->name,
                         'documentCount' => $row['documentCount'],
                     ],
-                    $this->tags->findByProjectWithDocumentCounts($project),
+                    $view->tags,
                 ),
             ];
         } catch (ToolCallException $e) {

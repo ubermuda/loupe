@@ -18,6 +18,12 @@ final readonly class ListDocumentsHandler
 {
     public const int PER_PAGE = 20;
 
+    /**
+     * The ceiling on a caller-chosen page size. The web list does not choose
+     * one; document_list does, and an agent may ask for any number.
+     */
+    public const int MAX_PER_PAGE = 100;
+
     public function __construct(
         private DocumentRepository $documents,
         private DocumentVersionRepository $documentVersions,
@@ -30,10 +36,13 @@ final readonly class ListDocumentsHandler
     public function __invoke(ListDocumentsCommand $command): ListDocumentsView
     {
         $listQuery = $command->listQuery;
+        // Clamped rather than refused: an out-of-range page size should be
+        // brought into range, not fail the call.
+        $perPage = min(self::MAX_PER_PAGE, max(1, $command->perPage));
         $paginator = $this->documents->findPaginatedByProject(
             $command->project,
             $listQuery->page,
-            self::PER_PAGE,
+            $perPage,
             $listQuery->includeArchived,
             $listQuery->search,
             $listQuery->status,
@@ -41,7 +50,7 @@ final readonly class ListDocumentsHandler
             $listQuery->seriesName,
         );
         $total = count($paginator);
-        $totalPages = max(1, (int) ceil($total / self::PER_PAGE));
+        $totalPages = max(1, (int) ceil($total / $perPage));
 
         $documents = iterator_to_array($paginator, false);
         $this->documents->preloadTags($documents);
@@ -64,6 +73,7 @@ final readonly class ListDocumentsHandler
                         versionNumber: $meta['versionNumber'],
                         updatedAt: $meta['createdAt'],
                         signals: $signals[(string) $meta['versionId']] ?? new CommentSignals(),
+                        description: $meta['description'],
                     );
                 },
                 $documents,
@@ -73,7 +83,7 @@ final readonly class ListDocumentsHandler
             pageList: PageList::build($listQuery->page, $totalPages),
             projectTags: $this->tags->findByProject($command->project),
             projectSeries: $this->series->findByProject($command->project),
-            clampedPage: PageList::clampedPage($listQuery->page, $total, self::PER_PAGE),
+            clampedPage: PageList::clampedPage($listQuery->page, $total, $perPage),
         );
     }
 }
