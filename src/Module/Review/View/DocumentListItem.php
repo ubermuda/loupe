@@ -10,7 +10,7 @@ use App\Module\Review\ValueObject\CommentSignals;
 /**
  * One row on the documents list: the document plus the derived values shown on
  * the row. That is the current version number, when that version was submitted,
- * and what its comment threads say about it.
+ * what that version said it changed, and what its comment threads say about it.
  */
 final readonly class DocumentListItem
 {
@@ -19,6 +19,8 @@ final readonly class DocumentListItem
         public int $versionNumber,
         public \DateTimeImmutable $updatedAt,
         public CommentSignals $signals,
+        /** What the current version says it is about. A version needs none. */
+        public ?string $description = null,
     ) {
     }
 }

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Board\Mcp;
 
 use App\Mcp\FlagGatedToolInterface;
+use App\Module\Board\Command\ShowCardCommand;
+use App\Module\Board\Command\ShowCardHandler;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
@@ -23,6 +25,7 @@ final readonly class CardGetTool implements FlagGatedToolInterface
     public function __construct(
         private BoardFlagGate $gate,
         private BoardSubjectResolver $subjects,
+        private ShowCardHandler $showCard,
         private CardPayload $payload,
     ) {
     }
@@ -49,7 +52,11 @@ final readonly class CardGetTool implements FlagGatedToolInterface
         $this->gate->requireEnabled();
 
         try {
-            return $this->payload->forCard($this->subjects->requireCard($cardId, McpBoundProjectVoter::CARD_READ));
+            $view = ($this->showCard)(new ShowCardCommand(
+                $this->subjects->requireCard($cardId, McpBoundProjectVoter::CARD_READ),
+            ));
+
+            return $this->payload->forCard($view->card, $view->siteReviewLinks);
         } catch (ToolCallException $e) {
             throw $e;
         } catch (\Throwable $e) {

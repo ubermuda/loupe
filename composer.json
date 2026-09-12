@@ -178,7 +178,7 @@
         "symfony/maker-bundle": "^1.67",
         "symfony/stopwatch": "8.1.*",
         "symfony/web-profiler-bundle": "8.1.*",
-        "ubermuda/gamache": "dev-main#54eee875a76d16d04ec3b86f5843d0b5bcbfad5f",
+        "ubermuda/gamache": "dev-main#07cae314dc5d587880b79cb025803dfd0a8a6e85",
         "vincentlanglet/twig-cs-fixer": ">=4.0.2"
     }
 }

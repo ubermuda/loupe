@@ -8,6 +8,8 @@ use App\Exception\DomainErrors;
 use App\Mcp\FlagGatedToolInterface;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
+use App\Module\Board\Command\ShowCardCommand;
+use App\Module\Board\Command\ShowCardHandler;
 use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Install\BoardInstallFlags;
@@ -28,6 +30,7 @@ final readonly class CardCreateTool implements FlagGatedToolInterface
         private BoardFlagGate $gate,
         private BoardSubjectResolver $subjects,
         private CreateCardHandler $createCard,
+        private ShowCardHandler $showCard,
         private CardPayload $payload,
         private BoardToolErrorMessages $errorMessages,
     ) {
@@ -85,7 +88,9 @@ final readonly class CardCreateTool implements FlagGatedToolInterface
                 documentIds: array_values($documentIds),
             ));
 
-            return $this->payload->forCard($card);
+            $view = ($this->showCard)(new ShowCardCommand($card));
+
+            return $this->payload->forCard($view->card, $view->siteReviewLinks);
         } catch (DomainErrors $e) {
             throw $this->errorMessages->forAgent($e);
         } catch (ToolCallException $e) {

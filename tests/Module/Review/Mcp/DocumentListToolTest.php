@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
+use App\Module\Review\Command\ListDocumentsHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Mcp\DocumentListTool;
@@ -242,7 +243,7 @@ final class DocumentListToolTest extends KernelTestCase
 
         $result = ($this->tool)(page: 0, perPage: 10_000);
         self::assertSame(1, $result['page']);
-        self::assertSame(DocumentListTool::MAX_PER_PAGE, $result['perPage']);
+        self::assertSame(ListDocumentsHandler::MAX_PER_PAGE, $result['perPage']);
 
         $result = ($this->tool)(perPage: 0);
         self::assertSame(1, $result['perPage']);
