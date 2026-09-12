@@ -33,6 +33,15 @@ token that is bound to it, and only the project's Connect page writes that
 binding. An account-level MCP token would authenticate and then fail on every
 tool call.
 
+An account-level token minted before the agent scope existed carries the
+site-review scope, and the CLI endpoints now answer it with
+`403 insufficient_scope`. Mint a replacement at `/account` and revoke the old
+one. No upgrade converts the stored scope. A stored site-review token that is
+bound to no project cannot be told apart from a widget token whose binding was
+cleared, and a widget token sits in page HTML that anyone can read, so a
+conversion could hand a page visitor your project list and your event streams.
+No widget token is affected, and no widget deployment changes.
+
 ## The Claude Code plugin
 
 **Use this for the skills, not for the endpoint.** A plugin holds one set of
