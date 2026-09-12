@@ -104,6 +104,8 @@ export default class extends Controller {
         }
         if (origin !== null && origin.isConnected) {
             origin.before(column);
+        } else {
+            column.parentElement.append(column);
         }
     }
 
