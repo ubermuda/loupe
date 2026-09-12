@@ -556,7 +556,14 @@ cli-test:
 # full release matrix is goreleaser's job — see cli/.goreleaser.yaml.
 # Cross-compile a static CLI binary into cli/dist/.
 cli-build goos="darwin" goarch="arm64":
-    docker run --rm -v "{{justfile_directory()}}/cli":/cli -w /cli -e GOTOOLCHAIN=local -e CGO_ENABLED=0 -e GOOS={{goos}} -e GOARCH={{goarch}} golang:1.26-alpine sh -c 'go build -o dist/loupe-{{goos}}-{{goarch}} .'
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # The container mounts cli/ alone, so it has no .git and no git binary. The
+    # host reads both values here. Outside a repository the commit is unknown.
+    commit="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+    dirty=""
+    [ -z "$(git status --porcelain 2>/dev/null)" ] || dirty=true
+    docker run --rm -v "{{justfile_directory()}}/cli":/cli -w /cli -e GOTOOLCHAIN=local -e CGO_ENABLED=0 -e GOOS={{goos}} -e GOARCH={{goarch}} -e LOUPE_COMMIT="$commit" -e LOUPE_DIRTY="$dirty" golang:1.26-alpine sh -c 'go build -ldflags "-X github.com/ubermuda/loupe/cli/cmd.commit=$LOUPE_COMMIT -X github.com/ubermuda/loupe/cli/cmd.dirty=$LOUPE_DIRTY" -o dist/loupe-{{goos}}-{{goarch}} .'
 
 # --- Production deploy (DigitalOcean App Platform) ---
 # Infra lives in terraform/; App Platform pulls {{prod_image}}.

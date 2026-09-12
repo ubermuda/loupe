@@ -12,8 +12,11 @@ builds:
       - CGO_ENABLED=0
     goos: [darwin, linux, windows]
     goarch: [amd64, arm64]
+    # goreleaser reads git itself, so `loupe version` needs no shell here.
     ldflags:
       - -s -w
+      - "-X github.com/ubermuda/loupe/cli/cmd.commit={{ .FullCommit }}"
+      - "-X github.com/ubermuda/loupe/cli/cmd.dirty={{ .IsGitDirty }}"
 
 archives:
   - id: loupe
