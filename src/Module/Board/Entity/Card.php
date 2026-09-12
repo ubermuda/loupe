@@ -81,11 +81,11 @@ class Card implements ProjectScopedSubject
      * Null on a row an image without this column wrote, which is why nothing
      * reads it directly. Read $reporter instead.
      */
-    #[ORM\Column(name: 'reporter', length: 20, nullable: true, enumType: CardOrigin::class)]
-    private ?CardOrigin $storedReporter = null;
+    #[ORM\Column(name: 'reporter', length: 20, nullable: true, enumType: CardReporter::class)]
+    private ?CardReporter $storedReporter = null;
 
     /** Who raised the card, falling back to the column release 2 drops. */
-    public CardOrigin $reporter {
+    public CardReporter $reporter {
         get => $this->storedReporter ?? $this->origin;
     }
 
@@ -114,8 +114,8 @@ class Card implements ProjectScopedSubject
         public CardStatus $status = CardStatus::Backlog,
 
         /** The column release 2 drops. Every write sets it, so an older image still reads the row. */
-        #[ORM\Column(length: 20, enumType: CardOrigin::class)]
-        public readonly CardOrigin $origin = CardOrigin::Agent,
+        #[ORM\Column(length: 20, enumType: CardReporter::class)]
+        public readonly CardReporter $origin = CardReporter::Agent,
 
         /** Rank inside the card's (project, status, priority) group, counting from 0. Done ignores it. */
         #[ORM\Column]

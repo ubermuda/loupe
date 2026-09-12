@@ -14,8 +14,8 @@ use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
@@ -108,7 +108,7 @@ final class CardAuditTrailTest extends KernelTestCase
         $card = $this->card('Movable', CardStatus::Backlog, CardPriority::Low);
         $this->audit->forget();
 
-        ($this->moveCard)(new MoveCardCommand($card, CardOrigin::Human, CardStatus::InProgress, CardPriority::High));
+        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, CardStatus::InProgress, CardPriority::High));
 
         $record = $this->audit->record('board.card_moved');
         self::assertNotNull($record->subject);
@@ -157,7 +157,7 @@ final class CardAuditTrailTest extends KernelTestCase
 
         ($this->updateCard)(new UpdateCardCommand(
             card: $card,
-            actor: CardOrigin::Agent,
+            actor: CardReporter::Agent,
             title: 'After',
             body: 'Body',
             type: CardType::Bug,
@@ -184,7 +184,7 @@ final class CardAuditTrailTest extends KernelTestCase
         $card = $this->card('Promotable', CardStatus::Backlog, CardPriority::Low);
         $this->audit->forget();
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardOrigin::Agent, status: CardStatus::Done));
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Agent, status: CardStatus::Done));
 
         $move = $this->audit->record('board.card_moved');
         self::assertSame('backlog', $move->context['fromStatus']);
@@ -198,7 +198,7 @@ final class CardAuditTrailTest extends KernelTestCase
         $card = $this->card('Promotable', CardStatus::Backlog, CardPriority::Low);
         $this->audit->forget();
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardOrigin::Agent, title: 'Promoted', status: CardStatus::Done));
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Agent, title: 'Promoted', status: CardStatus::Done));
 
         $update = $this->audit->record('board.card_updated');
         self::assertTrue($update->context['titleChanged']);
@@ -215,7 +215,7 @@ final class CardAuditTrailTest extends KernelTestCase
 
         ($this->updateCard)(new UpdateCardCommand(
             card: $card,
-            actor: CardOrigin::Agent,
+            actor: CardReporter::Agent,
             title: 'Unchanged',
             body: 'Body',
             type: CardType::Bug,
@@ -231,7 +231,7 @@ final class CardAuditTrailTest extends KernelTestCase
         $card = $this->card('Draggable', CardStatus::Backlog, CardPriority::Low);
         $this->audit->forget();
 
-        ($this->moveCard)(new MoveCardCommand($card, CardOrigin::Human, CardStatus::Next, CardPriority::Low, 0));
+        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, CardStatus::Next, CardPriority::Low, 0));
 
         self::assertSame(['board.card_moved'], $this->audit->operations());
         self::assertSame('next', $this->audit->record('board.card_moved')->context['toStatus']);
@@ -266,7 +266,7 @@ final class CardAuditTrailTest extends KernelTestCase
             type: CardType::Bug,
             priority: $priority,
             status: $status,
-            reporter: CardOrigin::Agent,
+            reporter: CardReporter::Agent,
         ));
     }
 }

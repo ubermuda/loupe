@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Form\MoveCardFormType;
 use App\Tests\Module\Board\CardMovedOutbox;
@@ -119,7 +119,7 @@ final class MoveCardControllerTest extends WebTestCase
 
         self::assertResponseRedirects();
         $payload = CardMovedOutbox::onlyPayload(static::getContainer(), $project);
-        self::assertSame(CardOrigin::Human->value, $payload['actor'] ?? null);
+        self::assertSame(CardReporter::Human->value, $payload['actor'] ?? null);
     }
 
     public function test_a_stranger_cannot_move_a_card(): void

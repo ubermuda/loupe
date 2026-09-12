@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 
@@ -32,7 +32,7 @@ final readonly class UpdateCardCommand
      */
     public function __construct(
         public Card $card,
-        public CardOrigin $actor,
+        public CardReporter $actor,
         public ?string $title = null,
         public ?string $body = null,
         public ?CardType $type = null,

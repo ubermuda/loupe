@@ -9,7 +9,7 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardOrigin;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Form\CreateCardFormType;
 use App\Module\Board\Form\UpdateCardRequest;
 use App\Module\Board\Security\CardVoter;
@@ -57,7 +57,7 @@ final class EditCardController extends AppController
             try {
                 ($this->updateCard)(new UpdateCardCommand(
                     card: $card,
-                    actor: CardOrigin::Human,
+                    actor: CardReporter::Human,
                     title: $title,
                     body: $data->body ?? '',
                     type: $data->type,

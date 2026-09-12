@@ -10,7 +10,7 @@ use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Command\ShowBoardCommand;
 use App\Module\Board\Command\ShowBoardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardOrigin;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Form\MoveCardFormType;
 use App\Module\Board\Form\MoveCardRequest;
 use App\Module\Board\Security\CardVoter;
@@ -75,7 +75,7 @@ final class MoveCardController extends AppController
 
         ($this->moveCard)(new MoveCardCommand(
             card: $card,
-            actor: CardOrigin::Human,
+            actor: CardReporter::Human,
             status: $data->status ?? throw new \LogicException('status required after validation'),
             priority: $data->priority ?? throw new \LogicException('priority required after validation'),
             position: $data->position,

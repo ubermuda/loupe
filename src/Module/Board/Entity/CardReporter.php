@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Module\Board\Entity;
 
 /**
- * Who first raised the card. It records the reporter and never changes after that.
+ * Who first raised the card. A card's reporter never changes after creation.
  * The same values name the `actor` that caused an outbox event.
  */
-enum CardOrigin: string
+enum CardReporter: string
 {
     case Human = 'human';
     case Agent = 'agent';

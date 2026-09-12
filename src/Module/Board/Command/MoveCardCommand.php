@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardStatus;
 
 final readonly class MoveCardCommand
@@ -17,7 +17,7 @@ final readonly class MoveCardCommand
      */
     public function __construct(
         public Card $card,
-        public CardOrigin $actor,
+        public CardReporter $actor,
         public CardStatus $status,
         public CardPriority $priority,
         public ?int $position = null,
