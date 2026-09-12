@@ -24,9 +24,9 @@ final class SuspendedAccountTokenAccessTest extends WebTestCase
     public function test_a_suspended_account_cannot_use_its_api_token(): void
     {
         $client = static::createClient();
-        $raw = $this->issueToken($client, ApiTokenScope::SiteReview, suspended: true);
+        $raw = $this->issueToken($client, ApiTokenScope::Agent, suspended: true);
 
-        $this->callSiteReviewApi($client, $raw);
+        $this->callAgentApi($client, $raw);
 
         self::assertResponseStatusCodeSame(401);
     }
@@ -34,9 +34,9 @@ final class SuspendedAccountTokenAccessTest extends WebTestCase
     public function test_an_active_account_can_use_its_api_token(): void
     {
         $client = static::createClient();
-        $raw = $this->issueToken($client, ApiTokenScope::SiteReview, suspended: false);
+        $raw = $this->issueToken($client, ApiTokenScope::Agent, suspended: false);
 
-        $this->callSiteReviewApi($client, $raw);
+        $this->callAgentApi($client, $raw);
 
         self::assertResponseIsSuccessful();
     }
@@ -61,9 +61,9 @@ final class SuspendedAccountTokenAccessTest extends WebTestCase
         self::assertResponseIsSuccessful();
     }
 
-    private function callSiteReviewApi(KernelBrowser $client, string $raw): void
+    private function callAgentApi(KernelBrowser $client, string $raw): void
     {
-        $client->request(Request::METHOD_GET, '/api/site-review/sites', server: [
+        $client->request(Request::METHOD_GET, '/api/agent/sites', server: [
             'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
         ]);
     }

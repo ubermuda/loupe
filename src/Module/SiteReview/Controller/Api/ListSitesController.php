@@ -7,7 +7,6 @@ namespace App\Module\SiteReview\Controller\Api;
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
-use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Command\ListSitesCommand;
 use App\Module\SiteReview\Command\ListSitesHandler;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -16,30 +15,27 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * Lists the caller's projects for the bridge CLI's site picker.
  *
- * Account-level tokens only. Project-bound widget tokens (embedded in page
- * HTML, public by design) are rejected with 403 — their contract is "one
- * project's comments, nothing else"; letting one enumerate the owner's
- * projects would leak the project inventory to any page visitor.
+ * Agent-scoped tokens only. The firewall grants `^/api/agent` to
+ * ROLE_API_AGENT alone, so a project-bound widget token gets 403
+ * `insufficient_scope` before this class runs. A widget token is embedded in
+ * public page HTML, and its contract is one project's comments and nothing
+ * else; enumerating the owner's projects would leak the inventory to any page
+ * visitor. Project ownership is enforced by the handler's owner-scoped lookup.
  */
 #[Route(
-    '/api/site-review/sites',
-    name: 'api_site_review_sites',
+    '/api/agent/sites',
+    name: 'api_agent_sites',
     methods: ['GET'],
 )]
 final class ListSitesController extends AppController
 {
     public function __construct(
-        private readonly AuthenticatedProjectResolver $projectResolver,
         private readonly ListSitesHandler $listSites,
     ) {
     }
 
     public function __invoke(): JsonResponse
     {
-        if (null !== $this->projectResolver->resolveWidgetProject()) {
-            return $this->json(['error' => 'site_bound_token_not_allowed'], JsonResponse::HTTP_FORBIDDEN);
-        }
-
         $user = $this->getUser();
         if (!$user instanceof User) {
             throw new \LogicException('Sites endpoint reached without an authenticated User.');

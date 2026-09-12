@@ -137,7 +137,7 @@ final class AcceptTermsControllerTest extends WebTestCase
         $client = static::createClient();
         $this->login($client, 'agent@example.com', termsVersion: null);
 
-        foreach (['/mcp', '/api/site-review/sites'] as $path) {
+        foreach (['/mcp', '/api/agent/sites'] as $path) {
             $client->request(Request::METHOD_GET, $path);
             self::assertNotSame(
                 self::ACCEPTANCE_PATH,

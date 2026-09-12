@@ -31,9 +31,9 @@ final class StreamCredentialsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, , $project] = $this->issue($em, ApiTokenScope::SiteReview, 'stream@example.com');
+        [$raw, , $project] = $this->issue($em, ApiTokenScope::Agent, 'stream@example.com');
 
-        $client->request(Request::METHOD_GET, '/api/site-review/stream',
+        $client->request(Request::METHOD_GET, '/api/agent/stream',
             ['site' => $project->name],
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
@@ -65,9 +65,9 @@ final class StreamCredentialsControllerTest extends WebTestCase
         // off: a valid credential for a real project, refused only because the
         // instance does not do push.
         $this->disablePush($em);
-        [$raw, , $project] = $this->issue($em, ApiTokenScope::SiteReview, 'stream-off@example.com');
+        [$raw, , $project] = $this->issue($em, ApiTokenScope::Agent, 'stream-off@example.com');
 
-        $client->request(Request::METHOD_GET, '/api/site-review/stream',
+        $client->request(Request::METHOD_GET, '/api/agent/stream',
             ['site' => $project->name],
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
@@ -82,9 +82,9 @@ final class StreamCredentialsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, , $project] = $this->issue($em, ApiTokenScope::SiteReview, 'stream-by-id@example.com');
+        [$raw, , $project] = $this->issue($em, ApiTokenScope::Agent, 'stream-by-id@example.com');
 
-        $client->request(Request::METHOD_GET, '/api/site-review/stream',
+        $client->request(Request::METHOD_GET, '/api/agent/stream',
             ['site' => (string) $project->id],
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
@@ -98,10 +98,10 @@ final class StreamCredentialsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw] = $this->issue($em, ApiTokenScope::SiteReview, 'stream-no-site@example.com');
+        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'stream-no-site@example.com');
 
-        // Missing site parameter → 400.
-        $client->request(Request::METHOD_GET, '/api/site-review/stream',
+        // Missing site parameter is a 400.
+        $client->request(Request::METHOD_GET, '/api/agent/stream',
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseStatusCodeSame(400);
@@ -110,7 +110,7 @@ final class StreamCredentialsControllerTest extends WebTestCase
         self::assertSame('missing_site_parameter', $data['error']);
 
         // Blank-after-trim site parameter (a space) is also a 400.
-        $client->request(Request::METHOD_GET, '/api/site-review/stream',
+        $client->request(Request::METHOD_GET, '/api/agent/stream',
             ['site' => ' '],
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
@@ -124,9 +124,9 @@ final class StreamCredentialsControllerTest extends WebTestCase
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw] = $this->issue($em, ApiTokenScope::SiteReview, 'stream-unknown@example.com');
+        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'stream-unknown@example.com');
 
-        $client->request(Request::METHOD_GET, '/api/site-review/stream',
+        $client->request(Request::METHOD_GET, '/api/agent/stream',
             ['site' => 'no-such-site'],
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
@@ -141,11 +141,11 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
-        [$raw] = $this->issue($em, ApiTokenScope::SiteReview, 'stream-owner1@example.com');
-        [, , $otherSite] = $this->issue($em, ApiTokenScope::SiteReview, 'stream-owner2@example.com');
+        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'stream-owner1@example.com');
+        [, , $otherSite] = $this->issue($em, ApiTokenScope::Agent, 'stream-owner2@example.com');
 
         // Request the other owner's site by ID — robust against name overlap.
-        $client->request(Request::METHOD_GET, '/api/site-review/stream',
+        $client->request(Request::METHOD_GET, '/api/agent/stream',
             ['site' => (string) $otherSite->id],
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
@@ -158,7 +158,7 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         [$raw] = $this->issue($em, ApiTokenScope::Mcp, 'mcp-stream@example.com');
 
-        $client->request(Request::METHOD_GET, '/api/site-review/stream',
+        $client->request(Request::METHOD_GET, '/api/agent/stream',
             ['site' => 'x'],
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
@@ -168,7 +168,7 @@ final class StreamCredentialsControllerTest extends WebTestCase
     public function test_no_token_is_unauthorized(): void
     {
         $client = static::createClient();
-        $client->request(Request::METHOD_GET, '/api/site-review/stream', ['site' => 'x']);
+        $client->request(Request::METHOD_GET, '/api/agent/stream', ['site' => 'x']);
         self::assertResponseStatusCodeSame(401);
     }
 
@@ -177,8 +177,8 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
-        // A widget token: SiteReview-scoped but BOUND to a site. It is embedded
-        // in public page HTML, so it must never mint subscriber JWTs — not even
+        // A widget token: SiteReview-scoped and BOUND to a site. It is embedded
+        // in public page HTML, so it must never mint subscriber JWTs, not even
         // for its own site.
         $email = 'stream-widget@example.com';
         $user = new User(fullName: 'U', email: $email, password: 'x');
@@ -191,14 +191,36 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $em->persist($project);
         $em->flush();
 
-        $client->request(Request::METHOD_GET, '/api/site-review/stream',
+        $client->request(Request::METHOD_GET, '/api/agent/stream',
+            ['site' => $project->name],
+            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+
+        // The firewall refuses it on scope, so the answer comes from
+        // ApiAccessDeniedHandler rather than from the controller.
+        self::assertResponseStatusCodeSame(403);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('insufficient_scope', $data['error'] ?? null);
+    }
+
+    /**
+     * An unbound site-review token is refused too. Scope alone decides here, so
+     * the binding is not what keeps a widget token out.
+     */
+    public function test_unbound_site_review_token_is_forbidden(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw, , $project] = $this->issue($em, ApiTokenScope::SiteReview, 'stream-unbound@example.com');
+
+        $client->request(Request::METHOD_GET, '/api/agent/stream',
             ['site' => $project->name],
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseStatusCodeSame(403);
         $data = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertIsArray($data);
-        self::assertSame('site_bound_token_not_allowed', $data['error'] ?? null);
+        self::assertSame('insufficient_scope', $data['error'] ?? null);
     }
 
     /**
