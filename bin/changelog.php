@@ -61,7 +61,15 @@ $errors = [];
 sort($names);
 
 foreach ($names as $name) {
+    if ('README.md' === $name) {
+        continue;
+    }
+
     if (1 !== preg_match('/^(\d+)\.md$/', $name, $matches)) {
+        if (str_ends_with($name, '.md')) {
+            $errors[] = sprintf('%s: name a fragment after its pull request, such as 429.md.', $name);
+        }
+
         continue;
     }
 

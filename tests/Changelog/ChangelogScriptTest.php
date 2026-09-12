@@ -172,6 +172,16 @@ final class ChangelogScriptTest extends TestCase
         self::assertFileExists($this->root.'/changelog.d/418.md');
     }
 
+    public function test_it_refuses_a_markdown_file_that_is_not_named_after_a_pull_request(): void
+    {
+        file_put_contents($this->root.'/changelog.d/43O.md', "- (#430) — **Added:** a mistyped file name.\n");
+
+        $result = $this->runScript('--check');
+
+        self::assertSame(1, $result['status']);
+        self::assertStringContainsString('name a fragment after its pull request', $result['output']);
+    }
+
     public function test_it_refuses_a_file_name_that_carries_a_leading_zero(): void
     {
         file_put_contents($this->root.'/changelog.d/0429.md', "- (#429) — **Added:** something.\n");
