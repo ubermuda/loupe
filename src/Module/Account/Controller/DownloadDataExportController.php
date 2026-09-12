@@ -5,19 +5,15 @@ declare(strict_types=1);
 namespace App\Module\Account\Controller;
 
 use App\Controller\AppController;
+use App\Module\Account\Command\DownloadDataExportCommand;
+use App\Module\Account\Command\DownloadDataExportHandler;
 use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\User;
-use League\Flysystem\FilesystemException;
-use League\Flysystem\FilesystemOperator;
-use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Attribute\Route;
-use Ubermuda\AuditBundle\Auditor;
-use Ubermuda\AuditBundle\AuditOutcome;
-use Ubermuda\AuditBundle\AuditSubject;
 
 #[Route(
     '/account/exports/{id:export}/download',
@@ -27,9 +23,7 @@ use Ubermuda\AuditBundle\AuditSubject;
 class DownloadDataExportController extends AppController
 {
     public function __construct(
-        #[Target('export.storage')]
-        private readonly FilesystemOperator $exportStorage,
-        private readonly Auditor $auditor,
+        private readonly DownloadDataExportHandler $downloadDataExport,
     ) {
     }
 
@@ -40,40 +34,21 @@ class DownloadDataExportController extends AppController
             throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s); this route must stay behind the ROLE_USER catch-all.', self::class, get_debug_type($user)));
         }
 
-        // Ownership is what authorises the download, so the signed-in owner needs no
-        // token — the emailed link's token stays honoured, and stays wrong when it
-        // does not match. The 48-hour window is a gate of its own either way.
-        $token = (string) $request->query->get('token', '');
-        $tokenAccepted = '' === $token || $export->isDownloadTokenValid($token);
+        $view = ($this->downloadDataExport)(new DownloadDataExportCommand(
+            export: $export,
+            user: $user,
+            token: (string) $request->query->get('token', ''),
+        ));
 
-        if (null === $export->user->id || null === $user->id
-            || !$export->user->id->equals($user->id)
-            || !$export->isDownloadable()
-            || !$tokenAccepted) {
-            $this->auditor->record(
-                'account.data_export_download_denied',
-                AuditOutcome::Refused,
-                ['id' => (string) $export->id],
-                new AuditSubject('data_export', (string) $export->id),
-                Auditor::CATEGORY_SECURITY,
-            );
-
+        if (null === $view) {
             throw $this->createNotFoundException();
         }
-
-        $exportId = $export->id ?? throw new \LogicException('resolved export always has an id');
-        $key = DataExport::computeArchiveKey($exportId);
 
         // Streamed rather than redirected, so the bucket need never be reachable
         // from the browser. No Content-Length: the expiry purge runs concurrently,
         // and an object deleted between the size lookup and the read would send a
         // short body — a corrupt ZIP rather than an error.
-        try {
-            $stream = $this->exportStorage->readStream($key);
-        } catch (FilesystemException) {
-            throw $this->createNotFoundException();
-        }
-
+        $stream = $view->stream;
         $response = new StreamedResponse(static function () use ($stream): void {
             $output = fopen('php://output', 'wb');
             if (false !== $output) {
@@ -85,7 +60,7 @@ class DownloadDataExportController extends AppController
         $response->headers->set('Content-Type', 'application/zip');
         $response->headers->set('Content-Disposition', HeaderUtils::makeDisposition(
             HeaderUtils::DISPOSITION_ATTACHMENT,
-            sprintf('loupe-export-%s.zip', (string) $exportId),
+            $view->fileName,
         ));
 
         return $response;
