@@ -17,7 +17,8 @@ use App\Module\Board\Repository\CardSiteReviewCommentRepository;
  * @phpstan-type CardPullRequestSummary array{url: string, forge: string, repository: ?string, number: ?int}
  * @phpstan-type CardSiteReviewCommentSummary array{commentId: string, body: string, url: string, status: string, createdAt: string}
  * @phpstan-type CardDocumentSummary array{documentId: string, title: string, status: string}
- * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, priority: string, status: string, origin: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>, documents: list<CardDocumentSummary>, siteReviewComments: list<CardSiteReviewCommentSummary>}
+ * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, priority: string, status: string, reporter: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>, documents: list<CardDocumentSummary>, siteReviewComments: list<CardSiteReviewCommentSummary>}
+ * @phpstan-type CardListSummary array{cardId: string, number: int, title: string, type: string, priority: string, status: string, reporter: string, updatedAt: string}
  */
 final readonly class CardPayload
 {
@@ -51,6 +52,34 @@ final readonly class CardPayload
     }
 
     /**
+     * The lean shape a board listing reads in, with no body and none of the
+     * three link sets.
+     *
+     * It runs no comment query at all, which is the point: the full shape costs
+     * one whether or not the caller reads the comments back.
+     *
+     * @param list<Card> $cards
+     *
+     * @return list<CardListSummary>
+     */
+    public function forCardList(array $cards): array
+    {
+        return array_map(
+            static fn (Card $card): array => [
+                'cardId' => (string) $card->id,
+                'number' => $card->number,
+                'title' => $card->title,
+                'type' => $card->type->value,
+                'priority' => $card->priority->label(),
+                'status' => $card->status->value,
+                'reporter' => $card->reporter->value,
+                'updatedAt' => $card->updatedAt->format(\DATE_ATOM),
+            ],
+            $cards,
+        );
+    }
+
+    /**
      * @param list<CardSiteReviewComment> $links
      *
      * @return CardSummary
@@ -68,7 +97,7 @@ final readonly class CardPayload
             // is not the vocabulary a caller writes with.
             'priority' => $card->priority->label(),
             'status' => $card->status->value,
-            'origin' => $card->origin->value,
+            'reporter' => $card->reporter->value,
             'position' => $card->position,
             'completedAt' => $card->completedAt?->format(\DATE_ATOM),
             'createdAt' => $card->createdAt->format(\DATE_ATOM),

@@ -6,7 +6,10 @@ namespace App\Tests\Module\Review\Mcp;
 
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Command\CreateDocumentCommand;
+use App\Module\Review\Command\CreateDocumentHandler;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Mcp\DocumentListTool;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
@@ -48,6 +51,42 @@ final class DocumentListToolTest extends KernelTestCase
         $this->em->persist($project);
 
         return $project;
+    }
+
+    /**
+     * Created through the handler because `Document.searchVector` is written by
+     * the indexer alone. A hand-built document is never found by a search.
+     *
+     * @param list<string> $tagNames
+     */
+    private function indexedDocument(Project $project, string $title, string $markdown, ?string $description = null, array $tagNames = [], ?string $seriesName = null, ?int $seriesOrdinal = null): Document
+    {
+        $handler = self::getContainer()->get(CreateDocumentHandler::class);
+        self::assertInstanceOf(CreateDocumentHandler::class, $handler);
+
+        // The handler writes tag and series rows that point at the project, so
+        // the project must already be in the database.
+        $this->em->flush();
+
+        return $handler(new CreateDocumentCommand(
+            project: $project,
+            title: $title,
+            markdown: $markdown,
+            description: $description,
+            tagNames: $tagNames,
+            seriesName: $seriesName,
+            seriesOrdinal: $seriesOrdinal,
+        ));
+    }
+
+    /**
+     * @param array{documents: list<array<string, mixed>>} $result
+     *
+     * @return list<mixed>
+     */
+    private function titles(array $result): array
+    {
+        return array_column($result['documents'], 'title');
     }
 
     public function test_returns_only_the_bound_projects_documents_even_for_the_same_owner(): void
@@ -237,5 +276,138 @@ final class DocumentListToolTest extends KernelTestCase
         $byId = array_column($withArchived['documents'], 'archived', 'documentId');
         self::assertTrue($byId[(string) $archived->id]);
         self::assertFalse($byId[(string) $live->id]);
+    }
+
+    public function test_search_keeps_the_matching_documents_and_drops_the_rest(): void
+    {
+        $owner = $this->user('list-search@example.com');
+        $project = $this->project($owner);
+
+        $this->indexedDocument($project, 'Rate limits', '# Rate limits'."\n\n".'A leaky bucket per token.');
+        $this->indexedDocument($project, 'Onboarding', '# Onboarding'."\n\n".'The first-run wizard.');
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        $matched = ($this->tool)(search: 'bucket');
+        self::assertSame(['Rate limits'], $this->titles($matched));
+        self::assertSame(1, $matched['total']);
+        self::assertFalse($matched['hasMore']);
+    }
+
+    public function test_a_search_that_matches_nothing_returns_an_empty_page(): void
+    {
+        $owner = $this->user('list-search-miss@example.com');
+        $project = $this->project($owner);
+
+        $this->indexedDocument($project, 'Rate limits', '# Rate limits'."\n\n".'A leaky bucket per token.');
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        // The guard: without it an empty answer would also pass on a tool that
+        // never reached the index at all.
+        self::assertSame(['Rate limits'], $this->titles(($this->tool)(search: 'bucket')));
+
+        $missed = ($this->tool)(search: 'kubernetes');
+        self::assertSame([], $missed['documents']);
+        self::assertSame(0, $missed['total']);
+        self::assertFalse($missed['hasMore']);
+    }
+
+    public function test_a_tag_argument_is_normalised_before_it_reaches_the_filter(): void
+    {
+        $owner = $this->user('list-tag@example.com');
+        $project = $this->project($owner);
+
+        $this->indexedDocument($project, 'Tagged', '# Tagged', tagNames: ['design spec']);
+        $this->indexedDocument($project, 'Untagged', '# Untagged');
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        // Stored lowercased with its interior run of spaces collapsed, so the
+        // raw argument matches nothing unless the tool normalises it.
+        $result = ($this->tool)(tag: '  Design   Spec ');
+        self::assertSame(['Tagged'], $this->titles($result));
+        self::assertSame(1, $result['total']);
+    }
+
+    public function test_a_series_argument_is_normalised_before_it_reaches_the_filter(): void
+    {
+        $owner = $this->user('list-series@example.com');
+        $project = $this->project($owner);
+
+        $this->indexedDocument($project, 'Part one', '# Part one', seriesName: 'Rollout Guide', seriesOrdinal: 1);
+        $this->indexedDocument($project, 'Part two', '# Part two', seriesName: 'Rollout Guide', seriesOrdinal: 2);
+        $this->indexedDocument($project, 'Loose note', '# Loose note');
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = ($this->tool)(series: ' ROLLOUT   guide ');
+        self::assertSame(['Part one', 'Part two'], $this->titles($result), 'the series numbering orders the rows');
+        self::assertSame(2, $result['total']);
+    }
+
+    public function test_the_status_filter_keeps_one_state(): void
+    {
+        $owner = $this->user('list-status@example.com');
+        $project = $this->project($owner);
+
+        $approved = $this->indexedDocument($project, 'Signed off', '# Signed off');
+        $approved->status = DocumentStatus::Approved;
+        $this->indexedDocument($project, 'Still going', '# Still going');
+        $this->em->flush();
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        self::assertSame(['Signed off'], $this->titles(($this->tool)(status: 'approved')));
+        self::assertSame(['Still going'], $this->titles(($this->tool)(status: 'in-review')));
+    }
+
+    public function test_an_unknown_status_is_refused_and_the_error_names_the_valid_values(): void
+    {
+        $owner = $this->user('list-bad-status@example.com');
+        $project = $this->project($owner);
+        $this->indexedDocument($project, 'Anything', '# Anything');
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        try {
+            ($this->tool)(status: 'done');
+            self::fail('an unknown status must be refused rather than ignored');
+        } catch (ToolCallException $e) {
+            self::assertSame('Unknown status "done". Use one of: in-review, approved, changes-requested.', $e->getMessage());
+        }
+    }
+
+    public function test_a_blank_filter_leaves_the_list_unnarrowed(): void
+    {
+        $owner = $this->user('list-blank@example.com');
+        $project = $this->project($owner);
+        $this->indexedDocument($project, 'Only one', '# Only one', tagNames: ['design']);
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        // Normalising a spaces-only argument yields '', which matches no tag and
+        // no series — the list must stay unfiltered instead.
+        $result = ($this->tool)(search: '   ', status: '', tag: '  ', series: ' ');
+        self::assertSame(['Only one'], $this->titles($result));
+        self::assertSame(1, $result['total']);
+    }
+
+    public function test_each_row_carries_its_current_versions_description(): void
+    {
+        $owner = $this->user('list-description@example.com');
+        $project = $this->project($owner);
+
+        $described = $this->indexedDocument($project, 'Described', '# Described', description: 'Settles the storage question.');
+        $bare = $this->indexedDocument($project, 'Bare', '# Bare');
+
+        $this->actAsMcpTokenBoundTo($project);
+
+        $byId = array_column(($this->tool)()['documents'], 'versionDescription', 'documentId');
+
+        self::assertSame('Settles the storage question.', $byId[(string) $described->id]);
+        // A version needs no description, and a null must reach the caller
+        // rather than fail the row's validation.
+        self::assertNull($byId[(string) $bare->id]);
     }
 }

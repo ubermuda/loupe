@@ -2,11 +2,11 @@
 
 Read this before you add a recurring job.
 
-A recurring job is an invokable task class under `src/Module/*/Scheduler/`. It carries `#[AsCronTask('<cron expression>')]` and delegates to a command handler. It needs no message class, no `#[AsMessageHandler]`, and no `messenger.yaml` routing.
+A recurring job is an invokable task class in a `Scheduler/` directory: `src/Module/*/Scheduler/` for a module, or `src/*/Scheduler/` for a root-namespace subsystem such as the outbox. It carries `#[AsCronTask('<cron expression>')]` and delegates to a command handler. It needs no message class, no `#[AsMessageHandler]`, and no `messenger.yaml` routing.
 
 ```php
 #[AsCronTask('*/5 * * * *')]
-final readonly class DrainSiteReviewOutboxTask
+final readonly class DrainOutboxTask
 {
     public function __construct(private DrainOutboxHandler $drainOutbox) {}
 
@@ -29,8 +29,8 @@ The wiring lives in an attribute and a compiler pass, so nothing else notices a 
 ```php
 self::assertSame(
     '*/5 * * * *',
-    ScheduledTasks::cronExpressions(self::getContainer())[DrainSiteReviewOutboxTask::class] ?? null,
+    ScheduledTasks::cronExpressions(self::getContainer())[DrainOutboxTask::class] ?? null,
 );
 ```
 
-`App\Tests\Support\ScheduledTasks` reads the built schedule back. See `tests/Module/SiteReview/Scheduler/DrainSiteReviewOutboxTaskTest.php`.
+`App\Tests\Support\ScheduledTasks` reads the built schedule back. See `tests/Outbox/Scheduler/DrainOutboxTaskTest.php`.

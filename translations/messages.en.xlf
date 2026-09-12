@@ -2150,7 +2150,7 @@
             </trans-unit>
             <trans-unit id="project.connect.tool.document_list">
                 <source>project.connect.tool.document_list</source>
-                <target>List all documents in the token's project, with their current status and version.</target>
+                <target>List the token's project documents, each with its status, version and that version's description. Search the full text, or filter by status, tag or series.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.document_get">
                 <source>project.connect.tool.document_get</source>
@@ -2222,11 +2222,15 @@
             </trans-unit>
             <trans-unit id="project.connect.tool.card_create">
                 <source>project.connect.tool.card_create</source>
-                <target>Add a card to the project board, with a type, a priority and the pull requests that carry the work.</target>
+                <target>Add a card to the project board, with a type, a priority, a reporter and the pull requests that carry the work.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.card_list">
                 <source>project.connect.tool.card_list</source>
-                <target>List the cards on the project board, in board order, filtered by status, type or priority.</target>
+                <target>List the cards on the project board, in board order, filtered by status, type, priority or reporter. One page of summary rows at a time, or whole cards on request.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.card_search">
+                <source>project.connect.tool.card_search</source>
+                <target>Search the board by words, over the title and the body of every card, done ones included. Best match first, one page at a time.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.card_get">
                 <source>project.connect.tool.card_get</source>
@@ -3316,96 +3320,100 @@
                 <source>site_review.page.unsent_notice</source>
                 <target>{0} All reviews delivered|{1} 1 review has not reached your agent yet|]1,Inf[ %count% reviews have not reached your agent yet</target>
             </trans-unit>
-            <trans-unit id="site_review.outbox.page.title">
-                <source>site_review.outbox.page.title</source>
-                <target>Undelivered reviews</target>
+            <trans-unit id="outbox.page.title">
+                <source>outbox.page.title</source>
+                <target>Undelivered events</target>
             </trans-unit>
-            <trans-unit id="site_review.outbox.page.description">
-                <source>site_review.outbox.page.description</source>
-                <target>Every submitted review is recorded before it is sent, so one that never reached your agent is kept here and retried automatically. Comments stay readable in the meantime — your agent can pull them at any time.</target>
+            <trans-unit id="outbox.page.description">
+                <source>outbox.page.description</source>
+                <target>Every event bound for your agent is recorded before it is sent, so one that never arrived is kept here and retried automatically. Nothing is lost in the meantime — your agent can pull the underlying data at any time.</target>
             </trans-unit>
-            <trans-unit id="site_review.outbox.count">
-                <source>site_review.outbox.count</source>
-                <target>{0} Nothing waiting|{1} 1 review waiting to be sent|]1,Inf[ %count% reviews waiting to be sent</target>
+            <trans-unit id="outbox.count">
+                <source>outbox.count</source>
+                <target>{0} Nothing waiting|{1} 1 event waiting to be sent|]1,Inf[ %count% events waiting to be sent</target>
             </trans-unit>
-            <trans-unit id="site_review.outbox.empty">
-                <source>site_review.outbox.empty</source>
-                <target>Every review has been delivered.</target>
+            <trans-unit id="outbox.empty">
+                <source>outbox.empty</source>
+                <target>Every event has been delivered.</target>
             </trans-unit>
-            <trans-unit id="site_review.outbox.event_label">
-                <source>site_review.outbox.event_label</source>
-                <target>Review submitted %date%</target>
+            <trans-unit id="outbox.event_label">
+                <source>outbox.event_label</source>
+                <target>Recorded %date%</target>
             </trans-unit>
-            <trans-unit id="site_review.outbox.status.unsent">
-                <source>site_review.outbox.status.unsent</source>
+            <trans-unit id="outbox.status.unsent">
+                <source>outbox.status.unsent</source>
                 <target>Not sent</target>
             </trans-unit>
-            <trans-unit id="site_review.outbox.attempts">
-                <source>site_review.outbox.attempts</source>
+            <trans-unit id="outbox.attempts">
+                <source>outbox.attempts</source>
                 <target>{0} Not attempted yet|{1} 1 attempt|]1,Inf[ %count% attempts</target>
             </trans-unit>
-            <trans-unit id="site_review.outbox.next_attempt.due_now">
-                <source>site_review.outbox.next_attempt.due_now</source>
+            <trans-unit id="outbox.next_attempt.due_now">
+                <source>outbox.next_attempt.due_now</source>
                 <target>Next attempt: due now</target>
             </trans-unit>
-            <trans-unit id="site_review.outbox.next_attempt.scheduled">
-                <source>site_review.outbox.next_attempt.scheduled</source>
+            <trans-unit id="outbox.next_attempt.scheduled">
+                <source>outbox.next_attempt.scheduled</source>
                 <target>Next attempt: %date%</target>
             </trans-unit>
-            <trans-unit id="site_review.admin.outbox.page.title">
-                <source>site_review.admin.outbox.page.title</source>
-                <target>Review outbox</target>
+            <trans-unit id="outbox.admin.page.title">
+                <source>outbox.admin.page.title</source>
+                <target>Agent outbox</target>
             </trans-unit>
-            <trans-unit id="site_review.admin.outbox.title">
-                <source>site_review.admin.outbox.title</source>
-                <target>Undelivered site reviews</target>
+            <trans-unit id="outbox.admin.title">
+                <source>outbox.admin.title</source>
+                <target>Undelivered agent events</target>
             </trans-unit>
-            <trans-unit id="site_review.admin.outbox.unit">
-                <source>site_review.admin.outbox.unit</source>
+            <trans-unit id="outbox.admin.unit">
+                <source>outbox.admin.unit</source>
                 <target>event</target>
             </trans-unit>
-            <trans-unit id="site_review.admin.outbox.unit_plural">
-                <source>site_review.admin.outbox.unit_plural</source>
+            <trans-unit id="outbox.admin.unit_plural">
+                <source>outbox.admin.unit_plural</source>
                 <target>events</target>
             </trans-unit>
-            <trans-unit id="site_review.admin.outbox.empty">
-                <source>site_review.admin.outbox.empty</source>
-                <target>Every site review has been delivered.</target>
+            <trans-unit id="outbox.admin.empty">
+                <source>outbox.admin.empty</source>
+                <target>Every event has been delivered.</target>
             </trans-unit>
-            <trans-unit id="site_review.admin.outbox.filter.project">
-                <source>site_review.admin.outbox.filter.project</source>
+            <trans-unit id="outbox.admin.filter.project">
+                <source>outbox.admin.filter.project</source>
                 <target>Project</target>
             </trans-unit>
-            <trans-unit id="site_review.admin.outbox.filter.all_projects">
-                <source>site_review.admin.outbox.filter.all_projects</source>
+            <trans-unit id="outbox.admin.filter.all_projects">
+                <source>outbox.admin.filter.all_projects</source>
                 <target>All projects</target>
             </trans-unit>
-            <trans-unit id="site_review.admin.outbox.filter.clear">
-                <source>site_review.admin.outbox.filter.clear</source>
+            <trans-unit id="outbox.admin.filter.clear">
+                <source>outbox.admin.filter.clear</source>
                 <target>Clear</target>
             </trans-unit>
-            <trans-unit id="site_review.admin.outbox.column.project">
-                <source>site_review.admin.outbox.column.project</source>
+            <trans-unit id="outbox.admin.column.project">
+                <source>outbox.admin.column.project</source>
                 <target>Project</target>
             </trans-unit>
-            <trans-unit id="site_review.admin.outbox.column.created">
-                <source>site_review.admin.outbox.column.created</source>
-                <target>Submitted</target>
+            <trans-unit id="outbox.admin.column.type">
+                <source>outbox.admin.column.type</source>
+                <target>Type</target>
             </trans-unit>
-            <trans-unit id="site_review.admin.outbox.column.attempts">
-                <source>site_review.admin.outbox.column.attempts</source>
+            <trans-unit id="outbox.admin.column.created">
+                <source>outbox.admin.column.created</source>
+                <target>Recorded</target>
+            </trans-unit>
+            <trans-unit id="outbox.admin.column.attempts">
+                <source>outbox.admin.column.attempts</source>
                 <target>Attempts</target>
             </trans-unit>
-            <trans-unit id="site_review.admin.outbox.column.next_attempt">
-                <source>site_review.admin.outbox.column.next_attempt</source>
+            <trans-unit id="outbox.admin.column.next_attempt">
+                <source>outbox.admin.column.next_attempt</source>
                 <target>Next attempt</target>
             </trans-unit>
-            <trans-unit id="site_review.admin.outbox.column.last_error">
-                <source>site_review.admin.outbox.column.last_error</source>
+            <trans-unit id="outbox.admin.column.last_error">
+                <source>outbox.admin.column.last_error</source>
                 <target>Last error</target>
             </trans-unit>
-            <trans-unit id="site_review.admin.outbox.due_now">
-                <source>site_review.admin.outbox.due_now</source>
+            <trans-unit id="outbox.admin.due_now">
+                <source>outbox.admin.due_now</source>
                 <target>Due now</target>
             </trans-unit>
             <trans-unit id="billing.subscribe.closed.heading">
@@ -4304,16 +4312,16 @@
                 <source>board.card.type.idea</source>
                 <target>Idea</target>
             </trans-unit>
-            <trans-unit id="board.card.origin.reviewer">
-                <source>board.card.origin.reviewer</source>
+            <trans-unit id="board.card.reporter.reviewer">
+                <source>board.card.reporter.reviewer</source>
                 <target>Reviewer</target>
             </trans-unit>
-            <trans-unit id="board.card.origin.human">
-                <source>board.card.origin.human</source>
+            <trans-unit id="board.card.reporter.human">
+                <source>board.card.reporter.human</source>
                 <target>Raised by a person</target>
             </trans-unit>
-            <trans-unit id="board.card.origin.agent">
-                <source>board.card.origin.agent</source>
+            <trans-unit id="board.card.reporter.agent">
+                <source>board.card.reporter.agent</source>
                 <target>Raised by an agent</target>
             </trans-unit>
             <trans-unit id="board.card.forge.github">

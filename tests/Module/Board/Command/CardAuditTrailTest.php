@@ -94,7 +94,7 @@ final class CardAuditTrailTest extends KernelTestCase
             'type' => 'bug',
             'priority' => CardPriority::High->value,
             'status' => 'next',
-            'origin' => 'agent',
+            'reporter' => 'agent',
             'pullRequestCount' => 0,
             'documentCount' => 0,
         ], $record->context);
@@ -178,19 +178,61 @@ final class CardAuditTrailTest extends KernelTestCase
         self::assertSame([], $this->audit->records('board.card_moved'));
     }
 
-    public function test_an_update_that_changes_the_group_pairs_with_a_move_record(): void
+    public function test_an_update_that_only_moves_the_card_records_the_move_alone(): void
     {
         $card = $this->card('Promotable', CardStatus::Backlog, CardPriority::Low);
         $this->audit->forget();
 
         ($this->updateCard)(new UpdateCardCommand(card: $card, status: CardStatus::Done));
 
-        $update = $this->audit->record('board.card_updated');
-        self::assertTrue($update->context['moved']);
-
         $move = $this->audit->record('board.card_moved');
         self::assertSame('backlog', $move->context['fromStatus']);
         self::assertSame('done', $move->context['toStatus']);
+
+        self::assertSame(['board.card_moved'], $this->audit->operations());
+    }
+
+    public function test_an_update_that_changes_a_field_and_the_group_pairs_both_records(): void
+    {
+        $card = $this->card('Promotable', CardStatus::Backlog, CardPriority::Low);
+        $this->audit->forget();
+
+        ($this->updateCard)(new UpdateCardCommand(card: $card, title: 'Promoted', status: CardStatus::Done));
+
+        $update = $this->audit->record('board.card_updated');
+        self::assertTrue($update->context['titleChanged']);
+        self::assertTrue($update->context['moved']);
+
+        $move = $this->audit->record('board.card_moved');
+        self::assertSame('done', $move->context['toStatus']);
+    }
+
+    public function test_a_resubmission_that_changes_nothing_records_nothing(): void
+    {
+        $card = $this->card('Unchanged', CardStatus::Next, CardPriority::High);
+        $this->audit->forget();
+
+        ($this->updateCard)(new UpdateCardCommand(
+            card: $card,
+            title: 'Unchanged',
+            body: 'Body',
+            type: CardType::Bug,
+            priority: CardPriority::High,
+            status: CardStatus::Next,
+        ));
+
+        self::assertSame([], $this->audit->operations());
+    }
+
+    public function test_a_drag_and_drop_move_records_one_transition_and_no_update(): void
+    {
+        $card = $this->card('Draggable', CardStatus::Backlog, CardPriority::Low);
+        $this->audit->forget();
+
+        ($this->moveCard)(new MoveCardCommand($card, CardStatus::Next, CardPriority::Low, 0));
+
+        self::assertSame(['board.card_moved'], $this->audit->operations());
+        self::assertSame('next', $this->audit->record('board.card_moved')->context['toStatus']);
     }
 
     /**
@@ -222,7 +264,7 @@ final class CardAuditTrailTest extends KernelTestCase
             type: CardType::Bug,
             priority: $priority,
             status: $status,
-            origin: CardOrigin::Agent,
+            reporter: CardOrigin::Agent,
         ));
     }
 }

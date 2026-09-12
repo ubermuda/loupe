@@ -35,10 +35,41 @@ entry.
 
 ## [Unreleased]
 
+- (#424) — **Added:** `loupe bridge run` starts a Claude Code worker session
+  for a board card moved to `next`, one session per card, and `--permission-mode`
+  passes that flag through to each worker it spawns.
+
+- (#428) — **Added:** moving a board card now writes a durable outbox row,
+  so a connected agent can react to the move. `board.card_updated` is recorded
+  only when a field actually changed.
+
+- (#423) — **Changed:** the site-review outbox is now a general agent
+  outbox. Its table, drain, scheduler and listing pages moved to the root
+  namespace, every row records which producer wrote it, the per-project page
+  moved to `/projects/{id}/outbox`, and the `site_review.push.enabled` flag
+  became `agent.push.enabled`.
+
+- (#426) — **Added:** a `card_search` MCP tool, which searches the title and the
+  body of every card on a project board, done cards included, and answers best
+  match first.
+- (#425) — **Added:** the `card_list` MCP tool takes a `reporter` filter, which
+  reads `human`, `agent` and `reviewer` alike, so the cards the site-review
+  widget raised are listable.
+- (#425) — **Changed:** the board card field `origin` is now called `reporter`
+  on the card page and in every `card_create`, `card_list` and `card_get` row.
+  The three values `human`, `agent` and `reviewer` are unchanged.
+- (#425) — **Deprecated:** the `origin` parameter on `card_create`. It still
+  works, and `reporter` replaces it. A call that sends both uses `reporter`. A
+  later release removes `origin`.
+- (#422) — **Changed:** the `card_list` MCP tool answers one page of summary
+  rows, with `page`, `perPage` and `full` to steer it, rather than the whole
+  board with every card's full body.
+- (#421) — **Added:** the `document_list` MCP tool takes `search`, `status`,
+  `tag` and `series`, and each row now carries the description of the
+  document's current version.
 - (#420) — **Changed:** the development php-fpm now caches every checkout's
   code rather than the first ~32,000 files it happened to see, so worktrees no
   longer recompile on every request, and `/fpm-status` reports the shared pool.
-
 - (#418) — **Fixed:** a comment thread in the review rail keeps its author row
   in place when you open it, and carries its age and its status on that row
   rather than on a second row that appeared on expand.

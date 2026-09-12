@@ -21,7 +21,8 @@ use App\Module\Review\Entity\Tag;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\ValueObject\Anchor;
 use App\Module\SiteReview\Entity\SiteReviewComment;
-use App\Module\SiteReview\Entity\SiteReviewEvent;
+use App\Module\SiteReview\SiteReviewEventType;
+use App\Outbox\Entity\OutboxEvent;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
@@ -87,7 +88,7 @@ final class ProjectDeleterTest extends KernelTestCase
         foreach ([
             'tags' => 'SELECT count(*) FROM tags WHERE project_id = :id',
             'series' => 'SELECT count(*) FROM series WHERE project_id = :id',
-            'site_review_events' => 'SELECT count(*) FROM site_review_events WHERE project_id = :id',
+            'outbox_events' => 'SELECT count(*) FROM outbox_events WHERE project_id = :id',
             'site_review_comments' => 'SELECT count(*) FROM site_review_comments WHERE project_id = :id',
             // A bulk DQL DELETE runs no ORM cascade, so the anchors need their
             // own statement in the listener or they outlive the project.
@@ -115,7 +116,7 @@ final class ProjectDeleterTest extends KernelTestCase
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM document_references r JOIN documents d ON r.source_document_id = d.id WHERE d.project_id = :id', ['id' => (string) $sparedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM site_review_comments WHERE project_id = :id', ['id' => (string) $sparedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM site_review_comment_anchors a JOIN site_review_comments c ON a.comment_id = c.id WHERE c.project_id = :id', ['id' => (string) $sparedId]));
-        self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM site_review_events WHERE project_id = :id', ['id' => (string) $sparedId]));
+        self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM outbox_events WHERE project_id = :id', ['id' => (string) $sparedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM tags WHERE project_id = :id', ['id' => (string) $sparedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM series WHERE project_id = :id', ['id' => (string) $sparedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT count(*) FROM document_tags WHERE document_id = :id', ['id' => $sparedDocumentId]));
@@ -153,7 +154,7 @@ final class ProjectDeleterTest extends KernelTestCase
         $conn = $em->getConnection();
         foreach ([$firstId, $secondId] as $projectId) {
             self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM documents WHERE project_id = :id', ['id' => (string) $projectId]));
-            self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM site_review_events WHERE project_id = :id', ['id' => (string) $projectId]));
+            self::assertSame(0, (int) $conn->fetchOne('SELECT count(*) FROM outbox_events WHERE project_id = :id', ['id' => (string) $projectId]));
         }
     }
 
@@ -284,7 +285,7 @@ final class ProjectDeleterTest extends KernelTestCase
         $em->persist(new SectionApproval($document, 'heading-hi', str_repeat('a', 64), $owner, 1));
 
         $em->persist(new SiteReviewComment(project: $project, position: 0, body: 'widget comment', url: 'https://example.test/')->addAnchor('body', 'x'));
-        $em->persist(new SiteReviewEvent($project, 'topic', '{}'));
+        $em->persist(new OutboxEvent($project, SiteReviewEventType::SUBMITTED, 'topic', '{}'));
 
         [$widgetToken] = ApiToken::issue($owner, $slug.'-widget', ApiTokenScope::SiteReview);
         [$mcpToken] = ApiToken::issue($owner, $slug.'-mcp', ApiTokenScope::Mcp);

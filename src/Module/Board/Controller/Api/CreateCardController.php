@@ -63,7 +63,7 @@ final class CreateCardController extends AppController
             type: $payload->type ?? CardType::Feature,
             priority: $payload->priority ?? CardPriority::Medium,
             // Not Human: nobody authenticated the person who typed this.
-            origin: CardOrigin::Reviewer,
+            reporter: CardOrigin::Reviewer,
         ));
 
         return $this->json([

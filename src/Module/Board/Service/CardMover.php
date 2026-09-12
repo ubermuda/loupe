@@ -25,6 +25,9 @@ use App\Module\Board\Repository\CardRepository;
  */
 final readonly class CardMover
 {
+    /** A rank past the end of a group, which place() clamps to the end. */
+    public const int END_OF_GROUP = \PHP_INT_MAX;
+
     public function __construct(
         private CardRepository $cards,
         private CardGroupOrder $groupOrder,
@@ -52,7 +55,7 @@ final readonly class CardMover
                 // No target rank means the end of the group, which place()
                 // clamps to. Going through it rather than through
                 // nextPosition() is what stops the old rank becoming a gap.
-                $this->groupOrder->place($card, $position ?? \PHP_INT_MAX);
+                $this->groupOrder->place($card, $position ?? self::END_OF_GROUP);
             } else {
                 $card->position = $this->cards->nextPosition($card->project, $status, $priority);
             }

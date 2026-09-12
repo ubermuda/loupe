@@ -7,24 +7,63 @@ description: "Use when working a project board in the Loupe app through the loup
 
 Each project in Loupe has one board, and the board has four columns: Backlog,
 Next, In progress, and Done. A card carries a title, a Markdown body, a type, a
-priority, a status and an origin. The status is the column the card sits in. The
+priority, a status and a reporter. The status is the column the card sits in. The
 tools spell the four columns `backlog`, `next`, `in-progress` and `done`.
 
 The tools act on the project your token is bound to. An instance can switch the
 board off, and every tool then answers "The board is switched off on this
 instance."
 
-## The four tools
+## The five tools
 
 | Tool | Use it to |
 |---|---|
 | `card_create` | Put a new card on the board. It lands in `backlog` unless you pass `status`. |
-| `card_list` | Read the board. Filter by `status`, `type` or `priority`. Done reads newest completion first, and every other column reads highest priority first. |
+| `card_list` | Read one page of the board. Filter by `status`, `type` or `priority`. Done reads newest completion first, and every other column reads highest priority first. |
+| `card_search` | Ask whether a card about something already exists. It reads the title and the body of every card, done ones included. |
 | `card_get` | Read one card, with its full Markdown body, its pull request links, its linked documents and the site-review comments pointing at it. |
 | `card_update` | Change a card. A field you leave out keeps the value it has. A new status or priority puts the card at the end of the column it arrives in. |
 
-`card_get` and `card_update` take a `cardId`, which you read from `card_list` or
-`card_create`.
+`card_get` and `card_update` take a `cardId`, which you read from `card_list`,
+`card_search` or `card_create`.
+
+## Search before you write a card
+
+Call `card_search` with the words you would use to describe the work, before you
+call `card_create`. Reading the whole board to answer the same question costs
+far more, and it is the step a session skips.
+
+`query` is required. A blank one is refused rather than read as an empty board.
+Matching is by word, not by substring, and words are stemmed, so `paging` finds
+`pages`. Quote a phrase to require it, put `-` in front of a word to exclude it,
+and write `or` between two words to accept either. A stop word on its own, such
+as `the`, matches nothing.
+
+The search covers done cards. "Yes, and it is already done" is a true answer to
+"is there a card about this?", and it is the one a list of open cards hides.
+
+It pages the way `card_list` does, with `page`, `perPage`, `total` and
+`hasMore`, and `perPage` holds 25 rows by default. A row is the same eight-field
+summary, best match first, so call `card_get` for a body.
+
+## `card_list` pages, and its rows are summaries
+
+`card_list` answers one page at a time. `perPage` holds 50 cards by default and
+100 at most. `page` counts from 1. Both are clamped into range rather than
+refused, so a page past the end reads as an empty list.
+
+The answer carries `page`, `perPage`, `total` and `hasMore`. `total` counts
+every card the filters match, not the cards on the page. Keep reading while
+`hasMore` is true.
+
+A row carries eight fields: `cardId`, `number`, `title`, `type`, `priority`,
+`status`, `reporter` and `updatedAt`. It carries no body and no links.
+
+Pass `full` to get the whole card on every row, with its Markdown body, its pull
+request links, its documents and its site-review comments. A full page is much
+larger than a summary page, and a whole board of full cards once overran a
+caller's token limit. Read the board as summaries, then call `card_get` for the
+one card you want.
 
 `documentIds` links the documents the work is written up in, on `card_create`
 and `card_update`. It follows the same omit-versus-empty rule as
@@ -33,11 +72,11 @@ project is **refused** rather than kept: a URL cannot be checked and an id can.
 `card_get` returns them as `documents`, each with `documentId`, `title` and
 `status`.
 
-`siteReviewComments` is read-only, on `card_get` and `card_list` alike. Each item
-carries `commentId`, `body`, `url`, `status` and `createdAt`. A comment reaches a
-card because the page it was made on named that card, and no board tool writes
-that link. Mark one done with `site_review_mark_comment_addressed`, which takes
-the same `commentId`, rather than by editing the card.
+`siteReviewComments` is read-only, on `card_get` and on `card_list` with `full`.
+Each item carries `commentId`, `body`, `url`, `status` and `createdAt`. A comment
+reaches a card because the page it was made on named that card, and no board tool
+writes that link. Mark one done with `site_review_mark_comment_addressed`, which
+takes the same `commentId`, rather than by editing the card.
 
 `card_create` and `card_update` take a `type` of `feature`, `bug`, `security`,
 `tooling`, `docs` or `idea`.
@@ -56,9 +95,9 @@ There is no delete tool. You finish a card by moving it to `done`, which stamps
 its completion time. Moving it out of `done` clears that stamp. Only a person
 deletes a card, from the card page.
 
-`card_list` returns every done card, however old it is. The board screen shows
-the last 7 days of Done and puts the rest on a history page, so a person sees
-less of Done than you do.
+`card_list` applies no time window to Done, so every done card is on the board it
+pages through, however old it is. The board screen shows the last 7 days of Done
+and puts the rest on a history page, so a person sees less of Done than you do.
 
 ## A card that opens with `**Parked.**` is paused
 
@@ -69,19 +108,28 @@ for the owner. Leave it in `backlog`, and never move it to `next` or
 Write that line yourself only when the owner parks the work. Board card 'Give
 the board a parked state' asks for a real field.
 
-## Origin says who raised the card
+## Reporter says who raised the card
 
-`origin` records who first raised the card. The tools default it to `agent`.
+`reporter` records who first raised the card. The tools default it to `agent`.
 Pass `human` when you write down something a person decided, rather than
 something you found yourself.
 
-Attribute a card to whoever originated it, not to whoever typed it. A card the
-owner dictated or decided is `human`, even when you write it down. A card you
-found on your own is `agent`. An unclear or unattributable card is also `agent`,
-because agents absorb the ambiguity, never the person.
+Attribute a card to whoever raised it, rather than to whoever typed it. A card
+the owner dictated or decided is `human`, even when you write it down. A card
+you found on your own is `agent`. An unclear or unattributable card is also
+`agent`, because agents absorb the ambiguity, never the person.
 
-`origin` never changes after the card exists. `card_update` has no `origin`
+`card_create` refuses `reviewer`. The site-review widget writes that value, and
+it says the app could not name who raised the card.
+
+The field was called `origin`. `card_create` still accepts that name for one
+release, and `reporter` wins when you send both. Write `reporter`.
+
+`reporter` never changes after the card exists. `card_update` has no `reporter`
 field, so choose the value when you create the card.
+
+`card_list` takes `reporter` as a filter, and the filter reads all three values.
+Pass `reviewer` to read the cards the widget raised.
 
 ## What makes a good card
 
@@ -178,8 +226,14 @@ An agent or a person moves the card to `done`.
 | Looking for a `card_delete` tool | There is none. Move the card to `done`. |
 | Sending only the new URL in `pullRequestUrls` | The field replaces the whole set, so the older links go. |
 | Sending an empty `pullRequestUrls` to leave the links alone | An empty list clears them. Omit the field instead. |
-| Passing a card number as `cardId` | `cardId` is a UUID. Find it with `card_list`. |
-| Fixing a wrong `origin` with `card_update` | `origin` is set once, when the card is created. |
+| Passing a card number as `cardId` | `cardId` is a UUID. Find it with `card_list` or `card_search`. |
+| Writing a card without checking for one | Call `card_search` first. A duplicate card costs someone a triage pass. |
+| Expecting `card_search` to match a substring | It matches whole stemmed words. `pag` finds neither `page` nor `paging`. |
+| Reading one `card_list` call as the whole board | It answers one page. Walk the pages while `hasMore` is true. |
+| Expecting a body from `card_list` | A row is a summary. Pass `full`, or call `card_get`. |
+| Fixing a wrong `reporter` with `card_update` | `reporter` is set once, when the card is created. |
+| Passing `origin` to `card_create` | It still works for one release. Write `reporter`. |
+| Passing `reporter: reviewer` to `card_create` | Only the site-review widget writes that value. Filtering on it is fine. |
 | Expecting a merged pull request to move its card | The app never contacts the forge. Move the card yourself. |
 | Linking a pull request only when it is ready for review | A draft has a URL. Link it when you open it. |
 | Leaving the card in `backlog` while you work on it | The board then shows no work in progress. Move it when you start. |

@@ -14,4 +14,4 @@ ubermuda_feature_flags:
         # MERCURE_JWT_SECRET ships with no default on purpose, so an unconfigured
         # instance has push off rather than failing when someone submits.
         # MERCURE_PUBLIC_URL too: blank, the endpoint returns an unusable hubUrl.
-        site_review.push.enabled: ['MERCURE_URL', 'MERCURE_PUBLIC_URL', 'MERCURE_JWT_SECRET']
+        agent.push.enabled: ['MERCURE_URL', 'MERCURE_PUBLIC_URL', 'MERCURE_JWT_SECRET']

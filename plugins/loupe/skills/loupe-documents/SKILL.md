@@ -170,6 +170,24 @@ reading context, not for a terminal or a README.
     comment in an HTML element that opens its own block. Loupe then keeps the
     element and drops the comment, so the annotation disappears with no error.
 
+14. **Find a document with `document_list`, not with `document_get` on every
+    row.** Each row carries the description of the document's current version,
+    so the list alone usually tells you which document you want. Four arguments
+    narrow it, and they combine:
+
+    1. `search` matches full-text terms against the title and the current
+       content of every document. Quotes and `OR` work as in a web search box.
+       The rows come back by relevance instead of by recency.
+    2. `status` keeps one state: `in-review`, `approved` or
+       `changes-requested`. An unknown value is refused.
+    3. `tag` keeps the documents that carry one tag, matched ignoring case.
+       Read `tag_list` for the project's vocabulary.
+    4. `series` keeps the documents in one series, matched ignoring case, and
+       orders them by their position in it. Read `series_list` for the names.
+
+    Archived documents stay out until you pass `includeArchived`. Keep paging
+    while `hasMore` is true, under a search as much as without one.
+
 ## Example
 
 Entry shape, lead sentence first and detail after:
@@ -214,6 +232,9 @@ Not: "Drop `x-forwarded-host` or generate these links from a pinned
   stable IDs (rule 3).
 - Holding comment ids across a `document_revise` call. They do not survive it
   (rule 7); re-read the review, or reply before revising.
+- Paging the whole document list to find one document. Pass `search`, or a
+  `status`, `tag` or `series` filter, and read each row's version description
+  (rule 14).
 - Quoting your own Markdown to `document_highlight`. It matches the rendered
   prose, so inline markup in the quote finds nothing (rule 11).
 - Answering a one-line comment with a structured essay: bold lead-ins,

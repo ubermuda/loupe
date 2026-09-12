@@ -109,14 +109,15 @@ class DocumentVersionRepository extends ServiceEntityRepository
 
     /**
      * Latest-version metadata for a batch of documents in one query — a
-     * projection that selects only the version id, number, and timestamp and
-     * never the two TEXT columns. Meant for list views (the document
-     * dashboard, the MCP document listing) that show many documents at once
-     * and need only these fields per row, not the full markdown/HTML.
+     * projection that never selects the markdown or the rendered HTML. Meant
+     * for list views (the document dashboard, the MCP document listing) that
+     * show many documents at once and need only these fields per row. The
+     * description is a third TEXT column but holds one line per version, and a
+     * list row says what the document is about with it.
      *
      * @param list<Document> $documents
      *
-     * @return array<string, array{versionId: Uuid, versionNumber: int, createdAt: \DateTimeImmutable}> keyed by document id
+     * @return array<string, array{versionId: Uuid, versionNumber: int, createdAt: \DateTimeImmutable, description: ?string}> keyed by document id
      */
     public function findLatestMetaByDocuments(array $documents): array
     {
@@ -125,7 +126,7 @@ class DocumentVersionRepository extends ServiceEntityRepository
         }
 
         $rows = $this->createQueryBuilder('v')
-            ->select('IDENTITY(v.document) AS documentId', 'v.id AS versionId', 'v.versionNumber AS versionNumber', 'v.createdAt AS createdAt')
+            ->select('IDENTITY(v.document) AS documentId', 'v.id AS versionId', 'v.versionNumber AS versionNumber', 'v.createdAt AS createdAt', 'v.description AS description')
             ->where('v.document IN (:documents)')
             ->andWhere('v.versionNumber = (SELECT MAX(v2.versionNumber) FROM App\Module\Review\Entity\DocumentVersion v2 WHERE v2.document = v.document)')
             ->setParameter('documents', $documents)
@@ -137,11 +138,14 @@ class DocumentVersionRepository extends ServiceEntityRepository
             $versionId = $row['versionId'];
             $versionNumber = $row['versionNumber'];
             $createdAt = $row['createdAt'];
+            $description = $row['description'];
 
             $result[(string) $row['documentId']] = [
                 'versionId' => $versionId instanceof Uuid ? $versionId : throw new \LogicException('versionId must be a Uuid.'),
                 'versionNumber' => is_int($versionNumber) ? $versionNumber : throw new \LogicException('versionNumber must be an int.'),
                 'createdAt' => $createdAt instanceof \DateTimeImmutable ? $createdAt : throw new \LogicException('createdAt must be a DateTimeImmutable.'),
+                // A version needs no description, so null is a valid row here.
+                'description' => null === $description || is_string($description) ? $description : throw new \LogicException('description must be a string or null.'),
             ];
         }
 

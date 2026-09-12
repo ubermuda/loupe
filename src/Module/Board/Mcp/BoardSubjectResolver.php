@@ -97,8 +97,20 @@ final readonly class BoardSubjectResolver
         return null === $priority ? null : $this->requirePriority($priority);
     }
 
+    /** Reads every value, so a filter reaches the reviewer cards the widget wrote. */
+    public function requireReporter(string $reporter): CardOrigin
+    {
+        return CardOrigin::tryFrom($reporter)
+            ?? throw new ToolCallException(\sprintf('Unknown reporter "%s". Use one of: %s.', $reporter, implode(', ', CardOrigin::values())));
+    }
+
+    public function optionalReporter(?string $reporter): ?CardOrigin
+    {
+        return null === $reporter ? null : $this->requireReporter($reporter);
+    }
+
     /**
-     * An agent may claim only the two origins it can honestly claim.
+     * An agent may claim only the two reporters it can honestly claim.
      *
      * `reviewer` says the app could not name who raised the card, which is true
      * of the site-review widget and of nothing an MCP caller does. Leaving it to
@@ -107,21 +119,22 @@ final readonly class BoardSubjectResolver
      *
      * @var list<CardOrigin>
      */
-    private const array MCP_ORIGINS = [CardOrigin::Human, CardOrigin::Agent];
+    private const array CLAIMABLE_REPORTERS = [CardOrigin::Human, CardOrigin::Agent];
 
-    public function requireOrigin(string $origin): CardOrigin
+    /** Narrower than requireReporter(): a write claims a reporter, a filter only matches one. */
+    public function requireClaimedReporter(string $reporter): CardOrigin
     {
-        $parsed = CardOrigin::tryFrom($origin);
-        if (null === $parsed || !\in_array($parsed, self::MCP_ORIGINS, true)) {
-            throw new ToolCallException(\sprintf('Unknown origin "%s". Use one of: %s.', $origin, implode(', ', array_map(static fn (CardOrigin $o): string => $o->value, self::MCP_ORIGINS))));
+        $parsed = CardOrigin::tryFrom($reporter);
+        if (null === $parsed || !\in_array($parsed, self::CLAIMABLE_REPORTERS, true)) {
+            throw new ToolCallException(\sprintf('Unknown reporter "%s". Use one of: %s.', $reporter, implode(', ', array_map(static fn (CardOrigin $r): string => $r->value, self::CLAIMABLE_REPORTERS))));
         }
 
         return $parsed;
     }
 
-    public function optionalOrigin(?string $origin): ?CardOrigin
+    public function optionalClaimedReporter(?string $reporter): ?CardOrigin
     {
-        return null === $origin ? null : $this->requireOrigin($origin);
+        return null === $reporter ? null : $this->requireClaimedReporter($reporter);
     }
 
     private function parseId(string $id): Uuid

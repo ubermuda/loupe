@@ -112,7 +112,7 @@ Roughly in the order an agent uses them:
 |---|---|
 | `document_create` | Submit Markdown as a new document; returns a review URL and the language it was stored in |
 | `document_revise` | Submit a new version, described by what changed |
-| `document_get` / `document_list` | Read a document, or enumerate the project's |
+| `document_get` / `document_list` | Read a document, or enumerate the project's, with search and filters |
 | `document_get_review` | Verdict, threaded comments, answered decision blocks, and approved sections |
 | `document_reply_to_comment` | Reply to a reviewer's thread |
 | `document_mark_comment_addressed` | Mark a thread acted on |
@@ -127,9 +127,32 @@ Roughly in the order an agent uses them:
 | `site_review_get` | Comments submitted through the widget, each with the `context` its page carried |
 | `site_review_mark_comment_addressed` | Mark a widget comment acted on, so the next `site_review_get` skips it |
 | `card_create` | Put a card on the project board (off by default — see below) |
-| `card_list` | Read the board, filtered by status, type or priority |
+| `card_list` | Read a page of the board, filtered by status, type or priority |
+| `card_search` | Search every card's title and body by words, done ones included |
 | `card_get` | Read one card, with the pull requests linked to it |
 | `card_update` | Change a card, or move it to another column |
+
+### Finding a document without reading every one
+
+`document_list` returns one row per document. Each row carries the description of
+the document's current version, which says what the document is about. Read that
+instead of calling `document_get` on every row.
+
+Four arguments narrow the list:
+
+- `search` matches full-text terms against every document's title and current
+  content. Quotes and `OR` work as they do in a web search box. The rows come
+  back by relevance instead of by recency.
+- `status` keeps one state: `in-review`, `approved` or `changes-requested`. An
+  unknown value is refused, and the error names the three.
+- `tag` keeps the documents that carry one tag. The match ignores case and
+  surrounding spaces. Read `tag_list` for the project's vocabulary.
+- `series` keeps the documents in one series and orders them by their position
+  in it. The match ignores case. Read `series_list` for the project's names.
+
+The arguments combine. Archived documents stay out of every result until you
+pass `includeArchived`. Paging works the same way under a search: pass `page`
+while `hasMore` is true.
 
 ### The language a document is searched in
 
@@ -263,7 +286,7 @@ is off the tools are absent from `tools/list` and from the Connect page, and a
 client that calls one anyway gets a plain refusal.
 
 The board has no delete tool. An agent moves a card to `done`; only a person
-removes one. `card_update` also refuses to change `origin`, because that field
+removes one. `card_update` also refuses to change `reporter`, because that field
 records who first raised the card.
 
 `card_update` reads an omitted field as "leave it alone". `pullRequestUrls` is

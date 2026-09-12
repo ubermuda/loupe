@@ -18,20 +18,21 @@ looking.
 
 ## The site-review outbox
 
-Every site-review submission is recorded in an outbox before its Mercure update
-is published, so a hub restart or an unreachable hub loses nothing permanently.
-Events whose publish never landed are visible in two places:
+Every event bound for an agent is recorded in an outbox before its Mercure
+update is published, so a hub restart or an unreachable hub loses nothing
+permanently. Each row carries the type of the producer that wrote it. Events
+whose publish never landed are visible in two places:
 
-- **`/admin/site-review-outbox`** — every undelivered event on the instance,
-  with attempt counts and next-retry times. `ROLE_ADMIN`.
-- **`/projects/<id>/site-review/outbox`** — the same, scoped to one project, for
+- **`/admin/outbox`** — every undelivered event on the instance,
+  with its type, attempt counts and next-retry times. `ROLE_ADMIN`.
+- **`/projects/<id>/outbox`** — the same, scoped to one project, for
   whoever can view that project.
 
 The worker retries them every five minutes on the scheduler. To force a pass —
 typically after an instance whose worker was down — run:
 
 ```bash
-bin/console app:drain-site-review-outbox            # or --limit=<n>
+bin/console app:drain-outbox            # or --limit=<n>
 ```
 
 It is safe to run alongside the worker; the claim is atomic.
