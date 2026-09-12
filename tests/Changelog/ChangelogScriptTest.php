@@ -8,7 +8,7 @@ use PHPUnit\Framework\TestCase;
 
 final class ChangelogScriptTest extends TestCase
 {
-    private const BASELINE = <<<'MARKDOWN'
+    private const string BASELINE = <<<'MARKDOWN'
         ---
         title: "Changelog"
         ---

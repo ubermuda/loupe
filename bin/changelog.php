@@ -12,7 +12,7 @@ const UNRELEASED_HEADING = "## [Unreleased]\n";
 $check = false;
 $root = \dirname(__DIR__);
 
-foreach (\array_slice($argv, 1) as $argument) {
+foreach (\array_slice($argv ?? [], 1) as $argument) {
     if ('--check' === $argument) {
         $check = true;
         continue;
