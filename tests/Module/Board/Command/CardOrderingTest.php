@@ -14,6 +14,7 @@ use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
@@ -307,7 +308,7 @@ final class CardOrderingTest extends KernelTestCase
         $incumbent = $this->card('Already done', CardPriority::Medium, CardStatus::Next);
         $card = $this->card('Change me');
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, title: 'Changed', status: CardStatus::Next));
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardOrigin::Agent, title: 'Changed', status: CardStatus::Next));
 
         self::assertSame('Changed', $card->title);
         self::assertSame(CardStatus::Next, $card->status);
@@ -322,6 +323,7 @@ final class CardOrderingTest extends KernelTestCase
 
         ($this->updateCard)(new UpdateCardCommand(
             card: $card,
+            actor: CardOrigin::Agent,
             title: 'Changed',
             body: 'Rewritten',
             type: CardType::Bug,

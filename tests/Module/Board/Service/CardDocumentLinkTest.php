@@ -10,6 +10,7 @@ use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
@@ -92,10 +93,10 @@ final class CardDocumentLinkTest extends KernelTestCase
         [$project, $doc] = $this->projectWithDocument('link-replace');
         $card = ($this->createCard)($this->newCard($project, [(string) $doc->id]));
 
-        ($this->updateCard)(new UpdateCardCommand($card, title: 'Renamed, links untouched'));
+        ($this->updateCard)(new UpdateCardCommand($card, CardOrigin::Agent, title: 'Renamed, links untouched'));
         self::assertCount(1, $card->documents);
 
-        ($this->updateCard)(new UpdateCardCommand($card, documentIds: []));
+        ($this->updateCard)(new UpdateCardCommand($card, CardOrigin::Agent, documentIds: []));
         self::assertCount(0, $card->documents);
     }
 
@@ -113,11 +114,12 @@ final class CardDocumentLinkTest extends KernelTestCase
 
         $card = ($this->createCard)($this->newCard($project, [(string) $doc->id]));
 
-        ($this->updateCard)(new UpdateCardCommand($card, documentIds: [(string) $doc->id]));
+        ($this->updateCard)(new UpdateCardCommand($card, CardOrigin::Agent, documentIds: [(string) $doc->id]));
         self::assertCount(1, $card->documents);
 
         ($this->updateCard)(new UpdateCardCommand(
             $card,
+            CardOrigin::Agent,
             documentIds: [(string) $doc->id, (string) $second->id],
         ));
         self::assertSame(

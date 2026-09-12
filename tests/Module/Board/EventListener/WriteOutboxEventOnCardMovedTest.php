@@ -22,6 +22,7 @@ use App\Module\Project\Entity\Project;
 use App\Outbox\Entity\OutboxEvent;
 use App\Outbox\Repository\OutboxEventRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
@@ -84,6 +85,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
             'cardNumber' => $card->number,
             'fromStatus' => 'backlog',
             'toStatus' => 'next',
+            'actor' => 'human',
         ], $this->decode($row));
     }
 
@@ -108,7 +110,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
     {
         $card = $this->card('Promotable', CardStatus::Backlog, CardPriority::Low);
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, title: 'Promoted', status: CardStatus::Done));
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardOrigin::Agent, title: 'Promoted', status: CardStatus::Done));
 
         $row = $this->onlyRow();
         self::assertSame([
@@ -118,7 +120,26 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
             'cardNumber' => $card->number,
             'fromStatus' => 'backlog',
             'toStatus' => 'done',
+            'actor' => 'agent',
         ], $this->decode($row));
+    }
+
+    #[DataProvider('actors')]
+    public function test_the_payload_names_the_actor_the_command_carries(CardOrigin $actor): void
+    {
+        $card = $this->card('Attributed', CardStatus::Backlog, CardPriority::Low);
+
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: $actor, status: CardStatus::Next));
+
+        self::assertSame($actor->value, $this->decode($this->onlyRow())['actor']);
+    }
+
+    /** @return iterable<string, array{CardOrigin}> */
+    public static function actors(): iterable
+    {
+        foreach (CardOrigin::cases() as $actor) {
+            yield $actor->value => [$actor];
+        }
     }
 
     public function test_a_move_back_to_the_backlog_is_published_like_any_other(): void
@@ -162,7 +183,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
     {
         $card = $this->card('Editable', CardStatus::Next, CardPriority::Low);
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, title: 'Renamed'));
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardOrigin::Human, title: 'Renamed'));
 
         self::assertSame('Renamed', $card->title);
         self::assertSame([], $this->rows());

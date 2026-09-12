@@ -11,6 +11,7 @@ use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardStatus;
@@ -80,7 +81,7 @@ final class CardPullRequestUrlLengthTest extends KernelTestCase
         $card = $this->create([]);
         $url = $this->url(CardPullRequest::MAX_URL_LENGTH);
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, pullRequestUrls: [$url]));
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardOrigin::Agent, pullRequestUrls: [$url]));
 
         self::assertSame([$url], $this->storedUrls($card));
     }
@@ -92,6 +93,7 @@ final class CardPullRequestUrlLengthTest extends KernelTestCase
         try {
             ($this->updateCard)(new UpdateCardCommand(
                 card: $card,
+                actor: CardOrigin::Agent,
                 pullRequestUrls: [$this->url(CardPullRequest::MAX_URL_LENGTH + 1)],
             ));
             self::fail('expected the over-long URL to be refused');

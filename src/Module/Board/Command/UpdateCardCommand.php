@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
@@ -17,6 +18,7 @@ use App\Module\Board\Entity\CardType;
  * them all.
  *
  * $reporter is absent on purpose. It records who first raised the card.
+ * $actor is who makes this change, and a move publishes it to the outbox.
  */
 final readonly class UpdateCardCommand
 {
@@ -29,6 +31,7 @@ final readonly class UpdateCardCommand
      */
     public function __construct(
         public Card $card,
+        public CardOrigin $actor,
         public ?string $title = null,
         public ?string $body = null,
         public ?CardType $type = null,

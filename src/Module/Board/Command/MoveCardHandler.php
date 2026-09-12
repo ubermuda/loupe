@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Service\CardMover;
 
 /**
@@ -29,6 +30,7 @@ final readonly class MoveCardHandler
         // rank alone" in an update, so it becomes an explicit rank.
         return ($this->updateCard)(new UpdateCardCommand(
             card: $command->card,
+            actor: CardOrigin::Human,
             priority: $command->priority,
             status: $command->status,
             position: $command->position ?? CardMover::END_OF_GROUP,

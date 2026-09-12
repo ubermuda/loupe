@@ -14,6 +14,7 @@ use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
@@ -127,6 +128,7 @@ final class CardPostLockStateTest extends KernelTestCase
 
         ($this->updateCard)(new UpdateCardCommand(
             card: $mover,
+            actor: CardOrigin::Agent,
             title: 'Renamed',
             body: 'Rewritten',
             status: CardStatus::InProgress,
@@ -148,7 +150,7 @@ final class CardPostLockStateTest extends KernelTestCase
         $behind = $this->card('Behind the mover', CardStatus::Next);
         $this->putInTheMiddleOfNext($mover, $behind);
 
-        ($this->updateCard)(new UpdateCardCommand(card: $mover, status: CardStatus::Next));
+        ($this->updateCard)(new UpdateCardCommand(card: $mover, actor: CardOrigin::Agent, status: CardStatus::Next));
 
         // Nothing changed, so nothing is recorded: not the move the re-read
         // ruled out, and not an update whose every flag is false.

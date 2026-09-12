@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Form\MoveCardFormType;
+use App\Outbox\Repository\OutboxEventRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -99,6 +101,30 @@ final class MoveCardControllerTest extends WebTestCase
         self::assertInstanceOf(Card::class, $moved);
         self::assertSame(CardStatus::Done, $moved->status);
         self::assertNotNull($moved->completedAt);
+    }
+
+    public function test_a_drag_is_published_as_a_human_action(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'move-actor@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Dragged', CardStatus::Backlog, CardPriority::Medium, 0);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $this->move($client, $card, CardStatus::Next, CardPriority::Medium, null);
+
+        self::assertResponseRedirects();
+        $outbox = static::getContainer()->get(OutboxEventRepository::class);
+        self::assertInstanceOf(OutboxEventRepository::class, $outbox);
+        $rows = $outbox->findBy(['project' => $project->id, 'type' => 'board.card_moved']);
+        self::assertCount(1, $rows);
+        $payload = json_decode($rows[0]->payload, true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+        self::assertSame(CardOrigin::Human->value, $payload['actor'] ?? null);
     }
 
     public function test_a_stranger_cannot_move_a_card(): void
