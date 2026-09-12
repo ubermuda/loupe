@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
-use App\Service\BuildIdentity;
-use App\Service\UpdateCheck;
+use App\Command\ShowAboutCommand;
+use App\Command\ShowAboutHandler;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -24,21 +24,17 @@ use Symfony\Component\Routing\Attribute\Route;
 final class ShowAboutController extends AppController
 {
     public function __construct(
-        private readonly BuildIdentity $build,
-        private readonly UpdateCheck $updateCheck,
+        private readonly ShowAboutHandler $showAbout,
     ) {
     }
 
     public function __invoke(): Response
     {
-        // Gated on the user, not just hidden in the template: an anonymous hit
-        // would otherwise spend this instance's GitHub rate limit for a card
-        // nobody is shown.
-        $signedIn = null !== $this->getUser();
+        $view = ($this->showAbout)(new ShowAboutCommand(signedIn: null !== $this->getUser()));
 
         return $this->render('show_about.html.twig', [
-            'version' => $signedIn ? $this->build->version : null,
-            'update' => $signedIn ? $this->updateCheck->status() : null,
+            'version' => $view->version,
+            'update' => $view->update,
         ]);
     }
 }

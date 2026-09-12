@@ -6,7 +6,6 @@ namespace App\Tests\Outbox\Controller\Admin;
 
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
-use App\Module\SiteReview\SiteReviewEventType;
 use App\Outbox\Entity\OutboxEvent;
 use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
@@ -132,7 +131,7 @@ final class ListOutboxControllerTest extends WebTestCase
     {
         $project = new Project($this->user($em, $email), 'admin-outbox-'.bin2hex(random_bytes(4)));
         $em->persist($project);
-        $em->persist(new OutboxEvent($project, SiteReviewEventType::SUBMITTED, 'https://app/topic', '{}'));
+        $em->persist(new OutboxEvent($project, 'test.event', 'https://app/topic', '{}'));
 
         return $project;
     }

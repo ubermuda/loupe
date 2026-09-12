@@ -15,6 +15,10 @@ parameters:
 
     gamache:
         controllerBaseClass: 'App\Controller\AppController'
+        # Symfony's security firewall handles the login POST, so the controller
+        # never sees the credentials and has no work to delegate.
+        controllerHandlerExemptClasses:
+            - 'App\Module\Account\Controller\LoginController'
         # Migrations older than this are deployed everywhere and no rollback will
         # ever land before them, so their schema shape is settled and unenforced.
         migrationsEnforcedFrom: '20260827014419'

@@ -53,7 +53,6 @@ class OutboxEventRepository extends ServiceEntityRepository
                 SELECT due.id
                 FROM outbox_events due
                 WHERE due.published_at IS NULL
-                  AND due.forwardable = true
                   AND (due.next_attempt_at IS NULL OR due.next_attempt_at <= :now)
                 ORDER BY due.sequence ASC
                 LIMIT :limit
@@ -138,19 +137,13 @@ class OutboxEventRepository extends ServiceEntityRepository
     }
 
     /**
-     * "Unsent" is not `published_at IS NULL`. A collect-only widget token writes
-     * a row that must never reach the agent, so an unforwardable row is settled,
-     * not owed — draining on the null check alone would deliver exactly the
-     * reviews the opt-in exists to withhold.
-     *
      * The table holds every producer's events, so a caller that speaks for one
      * of them narrows on `$type` rather than showing another's backlog.
      */
     private function unsentQueryBuilder(?Project $project, ?string $type = null): QueryBuilder
     {
         $qb = $this->createQueryBuilder('e')
-            ->andWhere('e.publishedAt IS NULL')
-            ->andWhere('e.forwardable = true');
+            ->andWhere('e.publishedAt IS NULL');
 
         if (null !== $project) {
             $qb->andWhere('e.project = :project')->setParameter('project', $project);

@@ -17,14 +17,6 @@
         <p class="lp-site-review-meta-line">
             {% if project.domain %}{{ project.domain }} · {% endif %}{{ 'site_review.page.comment_count'|trans({'%count%': comments|length}) }} · {{ 'site_review.page.pending_count'|trans({'%count%': pendingCount}) }}
         </p>
-        {% if unsentCount > 0 %}
-        <p class="lp-site-review-meta-line">
-            <a href="{{ path('app_project_outbox', {id: project.id}) }}">
-                <twig:ux:icon name="lucide:triangle-alert" class="w-3.5 h-3.5 shrink-0" />
-                {{ 'site_review.page.unsent_notice'|trans({'%count%': unsentCount}) }}
-            </a>
-        </p>
-        {% endif %}
     </header>
 
     {% if comments|length > 0 %}
