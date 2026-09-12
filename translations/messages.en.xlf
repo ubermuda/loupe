@@ -985,7 +985,7 @@
             </trans-unit>
             <trans-unit id="account.settings.api_tokens.mint_hint">
                 <source>account.settings.api_tokens.mint_hint</source>
-                <target>The new token gets Site review access. An agent needs a project token instead, which you mint from the project's Connect page.</target>
+                <target>The new token gets Agent access, which the loupe CLI needs. The review widget and an MCP agent each need a project token instead, which you mint from the project's Connect page.</target>
             </trans-unit>
 
             <!-- Account settings page — delete account danger zone -->
