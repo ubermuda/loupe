@@ -116,17 +116,26 @@ func (r *router) onCardMoved(e event.Event) {
 	}()
 }
 
-// report says how a worker ended. A non-zero exit carries the output, because
-// nothing else tells the operator why the worker failed.
+// report says how a worker ended, and carries the output it captured. The
+// bridge owns the worker's streams, so this report is the operator's only view
+// of what claude answered or why it failed.
 func (r *router) report(cardNumber int, res workerResult) {
 	switch {
 	case res.err != nil:
 		r.errf("worker for card %d failed: %v\n", cardNumber, res.err)
 	case res.exitCode != 0:
-		r.errf("worker for card %d exited %d\n%s\n", cardNumber, res.exitCode, res.output)
+		r.errf("worker for card %d exited %d\n%s", cardNumber, res.exitCode, withOutput(res.output))
 	default:
-		r.logf("worker for card %d exited 0\n", cardNumber)
+		r.logf("worker for card %d exited 0\n%s", cardNumber, withOutput(res.output))
 	}
+}
+
+func withOutput(output string) string {
+	if output == "" {
+		return ""
+	}
+
+	return output + "\n"
 }
 
 // claim reserves key for one worker. It reports false when a worker holds it.

@@ -99,6 +99,32 @@ func TestCardMovedToNextRunsAWorker(t *testing.T) {
 	}
 }
 
+// The bridge owns the worker's streams, so a report that drops the output on
+// success leaves the operator no view of what claude answered.
+func TestASuccessfulWorkerReportsWhatItSaid(t *testing.T) {
+	h := newHarness()
+	h.worker.result = workerResult{output: "moved card 87 to in-progress"}
+
+	h.router.onData([]byte(cardMovedToNext))
+	h.router.wg.Wait()
+
+	if !strings.Contains(h.out.String(), "moved card 87 to in-progress") {
+		t.Fatalf("the success report dropped the output: %q", h.out.String())
+	}
+}
+
+// A worker that printed nothing must not add a blank line to the log.
+func TestASilentWorkerAddsNoBlankLine(t *testing.T) {
+	h := newHarness()
+
+	h.router.onData([]byte(cardMovedToNext))
+	h.router.wg.Wait()
+
+	if !strings.HasSuffix(h.out.String(), "worker for card 87 exited 0\n") {
+		t.Fatalf("out = %q", h.out.String())
+	}
+}
+
 // TestAFinishedWorkerNoLongerBlocksItsCard is the bug this design fixes: the
 // old check asked whether a session existed, so a card that had been worked
 // once never started a worker again.

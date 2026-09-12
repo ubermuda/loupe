@@ -103,8 +103,9 @@ passed it. The prompt is an argv element, so no shell reads it.
 
 Each worker runs in its own goroutine, so a long run never blocks the event
 stream and two cards run at the same time. The bridge logs a line when a worker
-starts and a line when it ends, carrying the exit code. A non-zero exit also
-carries the worker's captured output.
+starts and a line when it ends, carrying the exit code. It owns the worker's
+streams, so it prints what the worker said as well, on a clean exit and on a
+failure alike. Output past 4 KB is dropped and the report says so.
 
 The bridge reacts to the transition, not to the column. A card dragged to a new
 rank inside `next` submits a move with `next` on both sides, and prioritising
