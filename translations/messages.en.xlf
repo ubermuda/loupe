@@ -3382,10 +3382,6 @@
                 <source>billing.subscribe.waitlist.button_label</source>
                 <target>Join the waitlist</target>
             </trans-unit>
-            <trans-unit id="site_review.page.unsent_notice">
-                <source>site_review.page.unsent_notice</source>
-                <target>{0} All reviews delivered|{1} 1 review has not reached your agent yet|]1,Inf[ %count% reviews have not reached your agent yet</target>
-            </trans-unit>
             <trans-unit id="outbox.page.title">
                 <source>outbox.page.title</source>
                 <target>Undelivered events</target>

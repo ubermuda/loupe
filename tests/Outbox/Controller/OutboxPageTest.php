@@ -6,7 +6,6 @@ namespace App\Tests\Outbox\Controller;
 
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
-use App\Module\SiteReview\SiteReviewEventType;
 use App\Outbox\Entity\OutboxEvent;
 use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
@@ -22,14 +21,12 @@ final class OutboxPageTest extends WebTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
 
         $project = $this->project($em, 'outbox-owner@example.com');
-        $stuck = new OutboxEvent($project, SiteReviewEventType::SUBMITTED, 'https://app/topic', '{}');
+        $stuck = new OutboxEvent($project, 'test.event', 'https://app/topic', '{}');
         $stuck->recordPublishFailure('hub unreachable', new \DateTimeImmutable());
-        $delivered = new OutboxEvent($project, SiteReviewEventType::SUBMITTED, 'https://app/topic', '{}');
+        $delivered = new OutboxEvent($project, 'test.event', 'https://app/topic', '{}');
         $delivered->markPublished();
-        $collectOnly = new OutboxEvent($project, SiteReviewEventType::SUBMITTED, 'https://app/topic', '{}', false);
         $em->persist($stuck);
         $em->persist($delivered);
-        $em->persist($collectOnly);
         $em->flush();
         $owner = $project->owner;
         $stuckId = $stuck->id;
@@ -92,31 +89,6 @@ final class OutboxPageTest extends WebTestCase
 
         self::assertResponseRedirects();
         self::assertStringContainsString('/login', (string) $client->getResponse()->headers->get('Location'));
-    }
-
-    public function test_the_site_review_page_links_to_the_outbox_only_when_something_is_stuck(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        self::assertInstanceOf(EntityManagerInterface::class, $em);
-
-        $project = $this->project($em, 'outbox-notice@example.com');
-        $owner = $project->owner;
-        $em->clear();
-
-        $client->loginUser($owner);
-        $outboxPath = '/projects/'.$project->id.'/outbox';
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
-        self::assertCount(0, $crawler->filter('a[href="'.$outboxPath.'"]'));
-
-        $reattached = $em->find(Project::class, $project->id);
-        self::assertNotNull($reattached);
-        $em->persist(new OutboxEvent($reattached, SiteReviewEventType::SUBMITTED, 'https://app/topic', '{}'));
-        $em->flush();
-        $em->clear();
-
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
-        self::assertCount(1, $crawler->filter('a[href="'.$outboxPath.'"]'));
     }
 
     /** @param non-empty-string $email */

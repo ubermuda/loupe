@@ -6,7 +6,6 @@ namespace App\Tests\Outbox\Repository;
 
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
-use App\Module\SiteReview\SiteReviewEventType;
 use App\Outbox\Entity\OutboxEvent;
 use App\Outbox\Repository\OutboxEventRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -35,7 +34,6 @@ final class OutboxEventRepositoryTest extends KernelTestCase
         $due = $this->event($project);
         $published = $this->event($project);
         $published->markPublished();
-        $collectOnly = $this->event($project, forwardable: false);
         $this->em->flush();
 
         $claimed = $this->outboxEvents->claimDueForPublish(10, new \DateTimeImmutable(), $this->inFiveMinutes());
@@ -43,10 +41,9 @@ final class OutboxEventRepositoryTest extends KernelTestCase
         self::assertSame(
             [(string) $due->id],
             array_map(static fn (OutboxEvent $event): string => (string) $event->id, $claimed),
-            'A published row is settled, and an unforwardable one must never be delivered.',
+            'A published row is settled, so the claim must pass over it.',
         );
         self::assertNotNull($published->id);
-        self::assertNotNull($collectOnly->id);
     }
 
     public function test_a_claimed_event_is_not_handed_to_the_next_claim(): void
@@ -99,7 +96,6 @@ final class OutboxEventRepositoryTest extends KernelTestCase
         $owed = $this->event($project);
         $published = $this->event($project);
         $published->markPublished();
-        $this->event($project, forwardable: false);
         $this->event($other);
         $this->em->flush();
 
@@ -125,10 +121,10 @@ final class OutboxEventRepositoryTest extends KernelTestCase
         $this->event($project, type: 'board.card_moved');
         $this->em->flush();
 
-        // The table is shared, so the site-review notice must not report a
-        // backlog that belongs to a different producer.
+        // The table is shared, so a caller that speaks for one producer must not
+        // report a backlog that belongs to another.
         self::assertSame(2, $this->outboxEvents->countUnsent($project));
-        self::assertSame(1, $this->outboxEvents->countUnsent($project, SiteReviewEventType::SUBMITTED));
+        self::assertSame(1, $this->outboxEvents->countUnsent($project, 'test.event'));
         self::assertSame(1, $this->outboxEvents->countUnsent($project, 'board.card_moved'));
     }
 
@@ -137,12 +133,9 @@ final class OutboxEventRepositoryTest extends KernelTestCase
         return ($from ?? new \DateTimeImmutable())->add(new \DateInterval('PT5M'));
     }
 
-    private function event(
-        Project $project,
-        bool $forwardable = true,
-        string $type = SiteReviewEventType::SUBMITTED,
-    ): OutboxEvent {
-        $event = new OutboxEvent($project, $type, 'https://app/topic', '{}', $forwardable);
+    private function event(Project $project, string $type = 'test.event'): OutboxEvent
+    {
+        $event = new OutboxEvent($project, $type, 'https://app/topic', '{}');
         $this->em->persist($event);
 
         return $event;
