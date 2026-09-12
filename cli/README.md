@@ -8,6 +8,9 @@ browser becomes an agent run with no copy-pasting. A worker is
 `claude -p <directive>`. It prints its answer and exits, and the bridge reports
 the exit code.
 
+The bridge runs three workers at once by default and queues the rest. It writes
+one JSON object per line, to stdout and to a log file.
+
 ## Build
 
 No host Go toolchain is needed; both recipes run in a throwaway container.
@@ -90,10 +93,12 @@ loupe bridge run --dir ~/Code/my-app
 | `--dir` | — | **Required.** Every worker runs in this directory |
 | `--site` | interactive | Which site to bridge, by name or id. Omitted, you get a numbered picker (requires a TTY) |
 | `--permission-mode` | — | Pass `--permission-mode` to every `claude` the bridge starts. Omitted, no flag is passed and a worker can approve nothing |
+| `--max-workers` | `3` | Run at most this many workers at once. Later events wait in a queue. Below 1 is a startup error |
+| `--log-file` | `bridge.log` in your config dir | Append the JSON log to this path |
 
-The command blocks in the foreground and logs to stdout. `Ctrl-C` or `SIGTERM`
-stops it, and that also stops every worker in flight. `--site` is required when
-there is no TTY.
+The command blocks in the foreground and writes JSON lines to stdout and to the
+log file. `Ctrl-C` or `SIGTERM` stops it, and that also stops every worker in
+flight. `--site` is required when there is no TTY.
 
 ### Workers
 
@@ -102,27 +107,82 @@ A card that enters `next` starts one worker. The bridge runs
 passed it. The prompt is an argv element, so no shell reads it.
 
 Each worker runs in its own goroutine, so a long run never blocks the event
-stream and two cards run at the same time. The bridge logs a line when a worker
-starts and a line when it ends, carrying the exit code. It owns the worker's
-streams, so it prints what the worker said as well, on a clean exit and on a
-failure alike. Output past 4 KB is dropped and the report says so.
+stream and several cards run at the same time. The bridge logs a line when a
+worker starts and a line when it ends, carrying the exit code and how long it
+took. It owns the worker's streams, so it reports what the worker said as well,
+on a clean exit and on a failure alike. Output past 4 KB is dropped and the
+report says so.
 
 The bridge reacts to the transition, not to the column. A card dragged to a new
 rank inside `next` submits a move with `next` on both sides, and prioritising
 that column is an ordinary thing to do, so reacting to the target alone would
 start a worker for every card reordered.
 
-One bridge gives a card one worker at a time. It holds a key per running
-worker, `card-<number>-<project>`, where the project part is the last 12 hex
-digits of its id. Card numbers count from 1 inside a project and repeat across
-them, so the number alone would let one project's card 87 block another's. A
-second event for a card whose worker still runs is logged and dropped. The key
-is released when the process exits, so the same card starts a new worker the
-next time somebody moves it into `next`.
+One bridge gives a card one worker at a time. It holds a key per accepted card,
+`card-<number>-<project>`, where the project part is the last 12 hex digits of
+its id. Card numbers count from 1 inside a project and repeat across them, so
+the number alone would let one project's card 87 block another's. The key is
+claimed when the event is accepted and released when that card's worker exits,
+so a card that waits in the queue is as firmly held as one that runs. A second
+event for a held card is logged and dropped. The same card starts a new worker
+the next time somebody moves it into `next`.
 
 The key lives in the bridge process. Two bridges following one site each keep
 their own, so they can both start a worker for the same card. Run one bridge
 per site.
+
+### The queue
+
+`--max-workers` bounds the processes, not the pending work. An event that
+arrives while every slot is busy waits in an in-memory queue, and the queue has
+no length limit. The bridge starts queued cards in arrival order as slots free.
+
+One worker at a time is a surprise for a queue you fill by dragging several
+cards, and no bound at all is a way to start twenty agents by accident. Three is
+the middle.
+
+Stopping the bridge drops whatever is still queued, because those workers never
+started. The bridge logs one `queue_dropped` line naming the count and the
+cards, so no trigger disappears in silence. Move those cards into `next` again
+to run them.
+
+### Output
+
+The bridge writes one JSON object per line, to stdout and to `--log-file` alike.
+A human running it in a terminal therefore reads JSON. That is deliberate: the
+bridge is a supervisor rather than a view, and a plain-text terminal mode is a
+separate piece of work.
+
+The log file is appended, never truncated, so it holds a history across runs.
+
+```json
+{"time":"2026-09-12T14:02:11.412Z","level":"INFO","event":"worker_finished","card":87,"project":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7","exit":0,"duration_ms":41207,"output":"moved card 87 to in-progress"}
+```
+
+Every line carries `time`, `level` and `event`. Select on `event`:
+
+| `event` | Fields |
+|---|---|
+| `bridge_started` | `dir`, `max_workers`, `log_file` |
+| `connected` | `topic`, `site` |
+| `stream_error` | `error` |
+| `event_malformed` | `error` |
+| `worker_queued` | `card`, `project`, `queue_depth` |
+| `worker_refused` | `card`, `project` — that card is already queued or running |
+| `worker_started` | `card`, `project` |
+| `worker_finished` | `card`, `project`, `exit`, `duration_ms`, `output` |
+| `worker_failed` | `card`, `project`, `error` — the process never ran |
+| `queue_dropped` | `count`, `cards` |
+
+`queue_depth` counts the accepted events waiting at that moment, the new one
+included. `worker_failed` and `worker_finished` name two different faults: a
+process that never ran, and a process that ran and returned a non-zero code.
+
+Read a live run with `jq`:
+
+```bash
+loupe bridge run --dir ~/Code/my-app | jq -c 'select(.event | startswith("worker"))'
+```
 
 ### `--permission-mode`
 

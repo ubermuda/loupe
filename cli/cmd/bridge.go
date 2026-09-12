@@ -3,10 +3,13 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -20,6 +23,11 @@ import (
 // all, so a single unanswered request would stall reconnection for good — the
 // bridge would sit there looking healthy and never receive anything again.
 const refreshTimeout = 15 * time.Second
+
+// defaultMaxWorkers bounds the workers that run at once. One at a time is a
+// surprise for a queue a person fills by dragging several cards, and no bound
+// is a way to start twenty agents by accident.
+const defaultMaxWorkers = 3
 
 // lookPath resolves the worker binary. Tests replace it.
 var lookPath = exec.LookPath
@@ -41,7 +49,8 @@ func newBridgeCmd() *cobra.Command {
 }
 
 func newBridgeRunCmd() *cobra.Command {
-	var dir, site, permissionMode string
+	var dir, site, permissionMode, logFile string
+	var maxWorkers int
 
 	cmd := &cobra.Command{
 		Use:   "run",
@@ -54,13 +63,19 @@ func newBridgeRunCmd() *cobra.Command {
 			"interactively from your list of sites. Use --permission-mode to pass that " +
 			"flag to every `claude` the bridge starts. A worker has no terminal, so it " +
 			"cannot answer a permission prompt: omit the flag and claude denies every " +
-			"tool call that needs approval.",
+			"tool call that needs approval.\n\n" +
+			"Use --max-workers to bound the workers that run at once. Events past the " +
+			"bound wait in a queue and start in arrival order. The bridge writes one JSON " +
+			"object per line to stdout and to --log-file.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if dir == "" {
 				return fmt.Errorf("--dir is required: it names the directory every worker runs in")
 			}
 			if err := requireDir(dir); err != nil {
 				return err
+			}
+			if maxWorkers < 1 {
+				return fmt.Errorf("--max-workers must be at least 1, got %d", maxWorkers)
 			}
 			if _, err := lookPath("claude"); err != nil {
 				return fmt.Errorf("claude is not installed or not on PATH")
@@ -83,13 +98,24 @@ func newBridgeRunCmd() *cobra.Command {
 				site = picked
 			}
 
+			logPath := logFile
+			if logPath == "" {
+				logPath = defaultLogPath()
+			}
+			f, err := openLogFile(logPath)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+
 			r := &router{
-				out:            cmd.OutOrStdout(),
-				errOut:         cmd.ErrOrStderr(),
+				log:            newBridgeLogger(io.MultiWriter(cmd.OutOrStdout(), f)),
 				dir:            dir,
 				permissionMode: permissionMode,
+				maxWorkers:     maxWorkers,
 				worker:         defaultWorkerOps(),
 			}
+			r.log.Info("bridge_started", "dir", dir, "max_workers", maxWorkers, "log_file", logPath)
 
 			return subscribe(cmd, cfg, site, r)
 		},
@@ -97,13 +123,60 @@ func newBridgeRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&dir, "dir", "", "run every worker in this `directory`")
 	cmd.Flags().StringVar(&site, "site", "", "the Loupe site to bridge (name or id); omitted: pick interactively")
 	cmd.Flags().StringVar(&permissionMode, "permission-mode", "", "pass this `mode` to every `claude` the bridge starts; empty passes no flag, and a worker cannot answer a prompt")
+	cmd.Flags().IntVar(&maxWorkers, "max-workers", defaultMaxWorkers, "run at most this `number` of workers at once; later events queue")
+	cmd.Flags().StringVar(&logFile, "log-file", "", "append the JSON log to this `path`; empty uses bridge.log in your config directory")
 
 	return cmd
+}
+
+// newBridgeLogger writes one JSON object per line to w.
+//
+// slog names the message "msg". The bridge names it "event", because a reader
+// selects lines by what happened rather than by a prose message.
+func newBridgeLogger(w io.Writer) *slog.Logger {
+	return slog.New(slog.NewJSONHandler(w, &slog.HandlerOptions{
+		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
+			if a.Key == slog.MessageKey {
+				a.Key = "event"
+			}
+
+			return a
+		},
+	}))
+}
+
+// defaultLogPath names the log the bridge appends to. The temp directory is the
+// fallback, because a host with no config directory must still keep a history.
+func defaultLogPath() string {
+	base, err := os.UserConfigDir()
+	if err != nil {
+		base = os.TempDir()
+	}
+
+	return filepath.Join(base, "loupe", "bridge.log")
+}
+
+// openLogFile appends to path and creates its directory. A supervisor's log is
+// a history, so the file is never truncated.
+func openLogFile(path string) (*os.File, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return nil, fmt.Errorf("create log directory: %w", err)
+	}
+
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("open log file: %w", err)
+	}
+
+	return f, nil
 }
 
 // subscribe blocks in the foreground until Ctrl-C or SIGTERM. Cancelling also
 // kills every worker in flight, so the bridge leaves no unattended claude
 // behind. It then waits for their reports before it returns.
+//
+// The shutdown drops the queue before it waits. Subscribe calls the handler on
+// this goroutine, so no event can arrive after it returns.
 func subscribe(cmd *cobra.Command, cfg config.Config, site string, r *router) error {
 	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -113,9 +186,10 @@ func subscribe(cmd *cobra.Command, cfg config.Config, site string, r *router) er
 	if err != nil {
 		return err
 	}
-	r.logf("Bridging Loupe events for site %q into workers in %s (topic %s)\n", creds.Site.Name, r.dir, creds.Topic)
+	r.site, r.topic = creds.Site.Name, creds.Topic
 
 	err = transport.Subscribe(ctx, &http.Client{}, creds.HubURL, creds.Topic, jwtRefresher(cfg, creds.Site.ID), r.handler())
+	r.shutdown()
 	r.wg.Wait()
 	if err != nil && ctx.Err() == nil {
 		return err

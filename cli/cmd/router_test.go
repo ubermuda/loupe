@@ -3,7 +3,9 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -20,21 +22,22 @@ type workerCall struct {
 
 // fakeWorker stands in for a claude process: it records what the router asked
 // for and answers with a fixed result. started and block make a test observe
-// and hold a running worker with no sleeping.
+// and hold a running worker with no sleeping. peak records how many ran at
+// once, which is what the bound has to hold down.
 type fakeWorker struct {
-	mu      sync.Mutex
-	calls   []workerCall
-	started chan workerCall
-	block   chan struct{}
-	result  workerResult
+	mu       sync.Mutex
+	calls    []workerCall
+	inFlight int
+	maxSeen  int
+	started  chan workerCall
+	block    chan struct{}
+	result   workerResult
 }
 
 func (f *fakeWorker) ops() workerOps {
 	return workerOps{run: func(_ context.Context, dir, permissionMode, prompt string) workerResult {
 		call := workerCall{dir, permissionMode, prompt}
-		f.mu.Lock()
-		f.calls = append(f.calls, call)
-		f.mu.Unlock()
+		f.enter(call)
 
 		if f.started != nil {
 			f.started <- call
@@ -42,9 +45,28 @@ func (f *fakeWorker) ops() workerOps {
 		if f.block != nil {
 			<-f.block
 		}
+		f.leave()
 
 		return f.result
 	}}
+}
+
+func (f *fakeWorker) enter(call workerCall) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.calls = append(f.calls, call)
+	f.inFlight++
+	if f.inFlight > f.maxSeen {
+		f.maxSeen = f.inFlight
+	}
+}
+
+func (f *fakeWorker) leave() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.inFlight--
 }
 
 func (f *fakeWorker) recorded() []workerCall {
@@ -54,30 +76,162 @@ func (f *fakeWorker) recorded() []workerCall {
 	return append([]workerCall(nil), f.calls...)
 }
 
+func (f *fakeWorker) peak() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.maxSeen
+}
+
+// syncBuffer collects the JSON log. slog serialises its own writes, and a test
+// reads the buffer while a worker still runs, so the read takes the same lock.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.buf.String()
+}
+
 type harness struct {
 	router *router
 	worker *fakeWorker
-	out    *bytes.Buffer
-	errOut *bytes.Buffer
+	log    *syncBuffer
 }
 
 func newHarness() *harness {
 	w := &fakeWorker{}
-	h := &harness{worker: w, out: &bytes.Buffer{}, errOut: &bytes.Buffer{}}
-	h.router = &router{out: h.out, errOut: h.errOut, dir: "/src/app", worker: w.ops()}
+	h := &harness{worker: w, log: &syncBuffer{}}
+	h.router = &router{
+		log:        newBridgeLogger(h.log),
+		dir:        "/src/app",
+		maxWorkers: defaultMaxWorkers,
+		worker:     w.ops(),
+	}
 
 	return h
 }
 
-const cardMovedToNext = `{"type":"board.card_moved","subject":{"type":"card","id":"0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7"},"projectId":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7","cardNumber":87,"fromStatus":"backlog","toStatus":"next"}`
+// lines parses the log. Every line must be one JSON object, so a test never
+// matches a substring of a formatted line.
+func (h *harness) lines(t *testing.T) []map[string]any {
+	t.Helper()
 
-const otherCardMovedToNext = `{"type":"board.card_moved","subject":{"type":"card","id":"0192f3a1-8888-7d3e-8f10-a2b3c4d5e6f7"},"projectId":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7","cardNumber":88,"fromStatus":"backlog","toStatus":"next"}`
+	var out []map[string]any
+	for _, raw := range strings.Split(strings.TrimSpace(h.log.String()), "\n") {
+		if raw == "" {
+			continue
+		}
+		var line map[string]any
+		if err := json.Unmarshal([]byte(raw), &line); err != nil {
+			t.Fatalf("log line %q is not JSON: %v", raw, err)
+		}
+		out = append(out, line)
+	}
+
+	return out
+}
+
+func (h *harness) events(t *testing.T, name string) []map[string]any {
+	t.Helper()
+
+	var out []map[string]any
+	for _, line := range h.lines(t) {
+		if line["event"] == name {
+			out = append(out, line)
+		}
+	}
+
+	return out
+}
+
+func (h *harness) only(t *testing.T, name string) map[string]any {
+	t.Helper()
+
+	got := h.events(t, name)
+	if len(got) != 1 {
+		t.Fatalf("expected one %s line, got %d: %v", name, len(got), got)
+	}
+
+	return got[0]
+}
+
+// num reads a JSON number, which decodes as a float64.
+func num(t *testing.T, line map[string]any, key string) int {
+	t.Helper()
+
+	v, ok := line[key].(float64)
+	if !ok {
+		t.Fatalf("%v has no numeric %q", line, key)
+	}
+
+	return int(v)
+}
+
+func str(t *testing.T, line map[string]any, key string) string {
+	t.Helper()
+
+	v, ok := line[key].(string)
+	if !ok {
+		t.Fatalf("%v has no string %q", line, key)
+	}
+
+	return v
+}
+
+// cards reads the card list a queue_dropped line carries.
+func cards(t *testing.T, line map[string]any) []int {
+	t.Helper()
+
+	raw, ok := line["cards"].([]any)
+	if !ok {
+		t.Fatalf("%v has no cards list", line)
+	}
+	out := make([]int, len(raw))
+	for i, v := range raw {
+		n, ok := v.(float64)
+		if !ok {
+			t.Fatalf("card %v is not a number", v)
+		}
+		out[i] = int(n)
+	}
+
+	return out
+}
+
+func startedCards(t *testing.T, h *harness) []int {
+	t.Helper()
+
+	var out []int
+	for _, line := range h.events(t, "worker_started") {
+		out = append(out, num(t, line, "card"))
+	}
+
+	return out
+}
+
+const testProject = "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7"
+
+func cardMoved(number int) string {
+	return fmt.Sprintf(`{"type":"board.card_moved","subject":{"type":"card","id":"0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7"},"projectId":%q,"cardNumber":%d,"fromStatus":"backlog","toStatus":"next"}`, testProject, number)
+}
 
 func TestCardMovedToNextRunsAWorker(t *testing.T) {
 	h := newHarness()
 	h.router.permissionMode = "acceptEdits"
 
-	h.router.onData([]byte(cardMovedToNext))
+	h.router.onData([]byte(cardMoved(87)))
 	h.router.wg.Wait()
 
 	calls := h.worker.recorded()
@@ -87,15 +241,44 @@ func TestCardMovedToNextRunsAWorker(t *testing.T) {
 	if calls[0].dir != "/src/app" || calls[0].permissionMode != "acceptEdits" {
 		t.Fatalf("unexpected worker: %+v", calls[0])
 	}
-	want := directive.CardDirective(event.Event{Subject: event.Subject{Type: "card", ID: "0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7"}, ProjectID: "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7", CardNumber: 87})
+	want := directive.CardDirective(event.Event{Subject: event.Subject{Type: "card", ID: "0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7"}, ProjectID: testProject, CardNumber: 87})
 	if calls[0].prompt != want {
 		t.Fatalf("prompt = %q, want %q", calls[0].prompt, want)
 	}
-	if !strings.Contains(h.out.String(), "Starting a worker for card 87") {
-		t.Fatalf("no start line: out = %q", h.out.String())
+
+	started := h.only(t, "worker_started")
+	if num(t, started, "card") != 87 || str(t, started, "project") != testProject {
+		t.Fatalf("worker_started = %v", started)
 	}
-	if !strings.Contains(h.out.String(), "worker for card 87 exited 0") {
-		t.Fatalf("no end line: out = %q", h.out.String())
+	finished := h.only(t, "worker_finished")
+	if num(t, finished, "exit") != 0 {
+		t.Fatalf("worker_finished = %v", finished)
+	}
+	if _, ok := finished["duration_ms"].(float64); !ok {
+		t.Fatalf("worker_finished carries no duration_ms: %v", finished)
+	}
+}
+
+// Every line has to be one JSON object named by a stable event key. slog calls
+// that key "msg" by default, so this pins the rename.
+func TestEveryLogLineIsJSONNamedByAnEventKey(t *testing.T) {
+	h := newHarness()
+
+	h.router.onData([]byte(cardMoved(87)))
+	h.router.wg.Wait()
+	h.router.onData([]byte(`not json`))
+
+	lines := h.lines(t)
+	if len(lines) == 0 {
+		t.Fatal("nothing was logged")
+	}
+	for _, line := range lines {
+		if str(t, line, "event") == "" {
+			t.Fatalf("line %v has an empty event", line)
+		}
+		if _, ok := line["msg"]; ok {
+			t.Fatalf("line %v still carries msg", line)
+		}
 	}
 }
 
@@ -105,23 +288,11 @@ func TestASuccessfulWorkerReportsWhatItSaid(t *testing.T) {
 	h := newHarness()
 	h.worker.result = workerResult{output: "moved card 87 to in-progress"}
 
-	h.router.onData([]byte(cardMovedToNext))
+	h.router.onData([]byte(cardMoved(87)))
 	h.router.wg.Wait()
 
-	if !strings.Contains(h.out.String(), "moved card 87 to in-progress") {
-		t.Fatalf("the success report dropped the output: %q", h.out.String())
-	}
-}
-
-// A worker that printed nothing must not add a blank line to the log.
-func TestASilentWorkerAddsNoBlankLine(t *testing.T) {
-	h := newHarness()
-
-	h.router.onData([]byte(cardMovedToNext))
-	h.router.wg.Wait()
-
-	if !strings.HasSuffix(h.out.String(), "worker for card 87 exited 0\n") {
-		t.Fatalf("out = %q", h.out.String())
+	if got := str(t, h.only(t, "worker_finished"), "output"); got != "moved card 87 to in-progress" {
+		t.Fatalf("output = %q", got)
 	}
 }
 
@@ -131,16 +302,16 @@ func TestASilentWorkerAddsNoBlankLine(t *testing.T) {
 func TestAFinishedWorkerNoLongerBlocksItsCard(t *testing.T) {
 	h := newHarness()
 
-	h.router.onData([]byte(cardMovedToNext))
+	h.router.onData([]byte(cardMoved(87)))
 	h.router.wg.Wait()
-	h.router.onData([]byte(cardMovedToNext))
+	h.router.onData([]byte(cardMoved(87)))
 	h.router.wg.Wait()
 
 	if calls := h.worker.recorded(); len(calls) != 2 {
 		t.Fatalf("expected two workers, got %+v", calls)
 	}
-	if strings.Contains(h.errOut.String(), "already running") {
-		t.Fatalf("a finished worker still blocked its card: %q", h.errOut.String())
+	if got := h.events(t, "worker_refused"); len(got) != 0 {
+		t.Fatalf("a finished worker still blocked its card: %v", got)
 	}
 }
 
@@ -150,18 +321,48 @@ func TestARunningWorkerBlocksASecondForTheSameCard(t *testing.T) {
 	h.worker.started = make(chan workerCall, 2)
 	h.worker.block = make(chan struct{})
 
-	h.router.onData([]byte(cardMovedToNext))
+	h.router.onData([]byte(cardMoved(87)))
 	<-h.worker.started
-	h.router.onData([]byte(cardMovedToNext))
+	h.router.onData([]byte(cardMoved(87)))
 
-	if !strings.Contains(h.errOut.String(), "a worker for card 87 is already running") {
-		t.Fatalf("errOut = %q", h.errOut.String())
+	refused := h.only(t, "worker_refused")
+	if num(t, refused, "card") != 87 {
+		t.Fatalf("worker_refused = %v", refused)
 	}
 
 	close(h.worker.block)
 	h.router.wg.Wait()
 	if calls := h.worker.recorded(); len(calls) != 1 {
 		t.Fatalf("expected one worker, got %+v", calls)
+	}
+}
+
+// A card that waits in the queue is claimed as firmly as one that runs. Without
+// that, a card moved into next twice while the bound is reached queues twice
+// and runs twice.
+func TestACardAlreadyQueuedIsRefused(t *testing.T) {
+	h := newHarness()
+	h.router.maxWorkers = 1
+	h.worker.started = make(chan workerCall, 3)
+	h.worker.block = make(chan struct{})
+
+	h.router.onData([]byte(cardMoved(87)))
+	<-h.worker.started
+	h.router.onData([]byte(cardMoved(88)))
+	h.router.onData([]byte(cardMoved(88)))
+
+	refused := h.only(t, "worker_refused")
+	if num(t, refused, "card") != 88 {
+		t.Fatalf("worker_refused = %v", refused)
+	}
+	if got := h.events(t, "worker_queued"); len(got) != 2 {
+		t.Fatalf("card 88 was queued twice: %v", got)
+	}
+
+	close(h.worker.block)
+	h.router.wg.Wait()
+	if got := startedCards(t, h); len(got) != 2 {
+		t.Fatalf("started %v, want one run each for 87 and 88", got)
 	}
 }
 
@@ -172,8 +373,8 @@ func TestTwoCardsRunConcurrently(t *testing.T) {
 	h.worker.started = make(chan workerCall, 2)
 	h.worker.block = make(chan struct{})
 
-	h.router.onData([]byte(cardMovedToNext))
-	h.router.onData([]byte(otherCardMovedToNext))
+	h.router.onData([]byte(cardMoved(87)))
+	h.router.onData([]byte(cardMoved(88)))
 
 	<-h.worker.started
 	<-h.worker.started
@@ -185,32 +386,204 @@ func TestTwoCardsRunConcurrently(t *testing.T) {
 	}
 }
 
+// TestTheBoundLimitsConcurrentWorkers is the whole point of --max-workers. peak
+// is monotonic, so the check after wg.Wait reads the highest concurrency the
+// run ever reached.
+func TestTheBoundLimitsConcurrentWorkers(t *testing.T) {
+	h := newHarness()
+	h.router.maxWorkers = 2
+	h.worker.started = make(chan workerCall, 4)
+	h.worker.block = make(chan struct{})
+
+	for _, card := range []int{87, 88, 89, 90} {
+		h.router.onData([]byte(cardMoved(card)))
+	}
+
+	// onData dispatches on this goroutine and nothing finishes while block is
+	// held, so the counts here are settled rather than sampled.
+	h.router.mu.Lock()
+	active, queued := h.router.active, len(h.router.queue)
+	h.router.mu.Unlock()
+	if active != 2 || queued != 2 {
+		t.Fatalf("active = %d, queued = %d; want 2 running and 2 waiting", active, queued)
+	}
+
+	<-h.worker.started
+	<-h.worker.started
+
+	close(h.worker.block)
+	h.router.wg.Wait()
+
+	if got := h.worker.peak(); got != 2 {
+		t.Fatalf("peak concurrency = %d, want 2", got)
+	}
+	if got := h.worker.recorded(); len(got) != 4 {
+		t.Fatalf("ran %d workers, want all 4", len(got))
+	}
+}
+
+// A bound that never releases is a stall. The fourth card has to run once a
+// slot frees, and the queue depth has to say how much work waits.
+func TestAQueuedEventRunsWhenASlotFrees(t *testing.T) {
+	h := newHarness()
+	h.router.maxWorkers = 1
+	h.worker.started = make(chan workerCall, 2)
+	h.worker.block = make(chan struct{})
+
+	h.router.onData([]byte(cardMoved(87)))
+	<-h.worker.started
+	h.router.onData([]byte(cardMoved(88)))
+
+	if got := h.worker.recorded(); len(got) != 1 {
+		t.Fatalf("the bound let %d workers run", len(got))
+	}
+	queued := h.events(t, "worker_queued")
+	if len(queued) != 2 || num(t, queued[1], "queue_depth") != 1 {
+		t.Fatalf("worker_queued = %v", queued)
+	}
+
+	close(h.worker.block)
+	<-h.worker.started
+	h.router.wg.Wait()
+
+	if got := startedCards(t, h); len(got) != 2 || got[1] != 88 {
+		t.Fatalf("started %v, want card 88 second", got)
+	}
+}
+
+// The queue is FIFO, so a card that waited longest starts first.
+func TestTheQueueIsFirstInFirstOut(t *testing.T) {
+	h := newHarness()
+	h.router.maxWorkers = 1
+	h.worker.started = make(chan workerCall, 4)
+	h.worker.block = make(chan struct{})
+
+	for _, card := range []int{87, 88, 89, 90} {
+		h.router.onData([]byte(cardMoved(card)))
+	}
+	<-h.worker.started
+
+	close(h.worker.block)
+	h.router.wg.Wait()
+
+	want := []int{87, 88, 89, 90}
+	got := startedCards(t, h)
+	if len(got) != len(want) {
+		t.Fatalf("started %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("started %v, want %v", got, want)
+		}
+	}
+}
+
+// Shutdown drops what never started. The count and the card numbers have to
+// reach the operator, because a dropped trigger nobody is told about is the
+// silence this design removes.
+func TestShutdownDropsTheQueueAndSaysSo(t *testing.T) {
+	h := newHarness()
+	h.router.maxWorkers = 1
+	h.worker.started = make(chan workerCall, 3)
+	h.worker.block = make(chan struct{})
+
+	for _, card := range []int{87, 88, 89} {
+		h.router.onData([]byte(cardMoved(card)))
+	}
+	<-h.worker.started
+
+	h.router.shutdown()
+
+	dropped := h.only(t, "queue_dropped")
+	if num(t, dropped, "count") != 2 {
+		t.Fatalf("queue_dropped = %v", dropped)
+	}
+	if got := cards(t, dropped); len(got) != 2 || got[0] != 88 || got[1] != 89 {
+		t.Fatalf("dropped cards = %v, want [88 89]", got)
+	}
+
+	close(h.worker.block)
+	h.router.wg.Wait()
+
+	if got := h.worker.recorded(); len(got) != 1 {
+		t.Fatalf("a dropped card still ran: %d workers", len(got))
+	}
+	if got := startedCards(t, h); len(got) != 1 || got[0] != 87 {
+		t.Fatalf("started %v, want only card 87", got)
+	}
+}
+
+// A shut queue starts nothing. Without that, a worker that finishes after the
+// shutdown admits the next card and starts an agent nobody watches.
+func TestAnEventAfterShutdownIsDropped(t *testing.T) {
+	h := newHarness()
+
+	h.router.shutdown()
+	h.router.onData([]byte(cardMoved(87)))
+	h.router.wg.Wait()
+
+	dropped := h.only(t, "queue_dropped")
+	if num(t, dropped, "count") != 1 {
+		t.Fatalf("queue_dropped = %v", dropped)
+	}
+	if got := cards(t, dropped); len(got) != 1 || got[0] != 87 {
+		t.Fatalf("dropped cards = %v, want [87]", got)
+	}
+	if got := h.worker.recorded(); len(got) != 0 {
+		t.Fatalf("a shut queue still ran %d workers", len(got))
+	}
+	if got := h.events(t, "worker_started"); len(got) != 0 {
+		t.Fatalf("a shut queue still started %v", got)
+	}
+}
+
+// A shutdown with nothing waiting says nothing.
+func TestShutdownWithAnEmptyQueueLogsNothing(t *testing.T) {
+	h := newHarness()
+
+	h.router.onData([]byte(cardMoved(87)))
+	h.router.wg.Wait()
+	h.router.shutdown()
+
+	if got := h.events(t, "queue_dropped"); len(got) != 0 {
+		t.Fatalf("queue_dropped = %v", got)
+	}
+}
+
 func TestANonZeroExitIsReported(t *testing.T) {
 	h := newHarness()
 	h.worker.result = workerResult{exitCode: 2, output: "claude: permission denied"}
 
-	h.router.onData([]byte(cardMovedToNext))
+	h.router.onData([]byte(cardMoved(87)))
 	h.router.wg.Wait()
 
-	if !strings.Contains(h.errOut.String(), "worker for card 87 exited 2") {
-		t.Fatalf("errOut = %q", h.errOut.String())
+	finished := h.only(t, "worker_finished")
+	if num(t, finished, "exit") != 2 {
+		t.Fatalf("worker_finished = %v", finished)
 	}
-	if !strings.Contains(h.errOut.String(), "claude: permission denied") {
-		t.Fatalf("the failure report dropped the output: %q", h.errOut.String())
+	if str(t, finished, "output") != "claude: permission denied" {
+		t.Fatalf("the failure report dropped the output: %v", finished)
+	}
+	if str(t, finished, "level") != "ERROR" {
+		t.Fatalf("a failed worker logged at %q", finished["level"])
 	}
 }
 
 // A worker that never ran reports no exit code, so the fault itself is all the
-// operator gets. It must still reach them.
+// operator gets. It is a different event from a process that ran and failed.
 func TestAWorkerThatNeverRanIsReported(t *testing.T) {
 	h := newHarness()
 	h.worker.result = workerResult{err: errors.New("boom")}
 
-	h.router.onData([]byte(cardMovedToNext))
+	h.router.onData([]byte(cardMoved(87)))
 	h.router.wg.Wait()
 
-	if !strings.Contains(h.errOut.String(), "worker for card 87 failed: boom") {
-		t.Fatalf("errOut = %q", h.errOut.String())
+	failed := h.only(t, "worker_failed")
+	if str(t, failed, "error") != "boom" {
+		t.Fatalf("worker_failed = %v", failed)
+	}
+	if got := h.events(t, "worker_finished"); len(got) != 0 {
+		t.Fatalf("a worker that never ran also reported finishing: %v", got)
 	}
 }
 
@@ -255,8 +628,8 @@ func TestUnknownTypeIsDroppedQuietly(t *testing.T) {
 		h.router.onData([]byte(payload))
 		h.router.wg.Wait()
 
-		if h.errOut.Len() != 0 || h.out.Len() != 0 {
-			t.Fatalf("%s was reported: out=%q errOut=%q", payload, h.out.String(), h.errOut.String())
+		if h.log.String() != "" {
+			t.Fatalf("%s was reported: %q", payload, h.log.String())
 		}
 		if calls := h.worker.recorded(); len(calls) != 0 {
 			t.Fatalf("%s acted on: %+v", payload, calls)
@@ -269,8 +642,8 @@ func TestMalformedEventIsReported(t *testing.T) {
 
 	h.router.onData([]byte(`not json`))
 
-	if !strings.Contains(h.errOut.String(), "skipping malformed event") {
-		t.Fatalf("errOut = %q", h.errOut.String())
+	if got := str(t, h.only(t, "event_malformed"), "error"); !strings.Contains(got, "parse event") {
+		t.Fatalf("event_malformed error = %q", got)
 	}
 }
 
@@ -280,11 +653,26 @@ func TestIncompleteCardEventIsReportedAndDropped(t *testing.T) {
 	h.router.onData([]byte(`{"type":"board.card_moved","subject":{"type":"card","id":"0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7"},"cardNumber":87,"toStatus":"next"}`))
 	h.router.wg.Wait()
 
-	if !strings.Contains(h.errOut.String(), "skipping malformed event") {
-		t.Fatalf("errOut = %q", h.errOut.String())
-	}
+	h.only(t, "event_malformed")
 	if calls := h.worker.recorded(); len(calls) != 0 {
 		t.Fatalf("acted on an incomplete card event: %+v", calls)
+	}
+}
+
+// The stream reports its own faults through the handler, so a retry is visible.
+func TestAStreamErrorIsReported(t *testing.T) {
+	h := newHarness()
+	h.router.site, h.router.topic = "Loupe", "https://loupe.test/board"
+
+	h.router.handler().OnConnect()
+	h.router.handler().OnError(errors.New("hub returned HTTP 401"))
+
+	connected := h.only(t, "connected")
+	if str(t, connected, "site") != "Loupe" || str(t, connected, "topic") != "https://loupe.test/board" {
+		t.Fatalf("connected = %v", connected)
+	}
+	if got := str(t, h.only(t, "stream_error"), "error"); got != "hub returned HTTP 401" {
+		t.Fatalf("stream_error = %q", got)
 	}
 }
 

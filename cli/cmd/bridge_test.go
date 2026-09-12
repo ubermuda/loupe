@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -79,5 +81,89 @@ func TestBridgeRunHasNoTmuxFlags(t *testing.T) {
 		if flags.Lookup(name) != nil {
 			t.Fatalf("--%s is still registered", name)
 		}
+	}
+}
+
+// One worker at a time surprises a person who drags several cards, and no bound
+// starts twenty agents by accident.
+func TestBridgeRunBoundsWorkersByDefault(t *testing.T) {
+	flag := newBridgeRunCmd().Flags().Lookup("max-workers")
+	if flag == nil {
+		t.Fatal("--max-workers is not registered")
+	}
+	if flag.DefValue != "3" {
+		t.Fatalf("--max-workers defaults to %q, want 3", flag.DefValue)
+	}
+}
+
+// A bound below 1 runs nothing and looks healthy, so it fails at startup beside
+// the --dir check rather than on the first card.
+func TestBridgeRunRejectsABoundBelowOne(t *testing.T) {
+	for _, bound := range []string{"0", "-1"} {
+		err := runBridge(t, "--dir", t.TempDir(), "--max-workers", bound)
+		if err == nil || !strings.Contains(err.Error(), "--max-workers must be at least 1") {
+			t.Fatalf("--max-workers %s: err = %v", bound, err)
+		}
+	}
+}
+
+func TestBridgeRunTakesALogFilePath(t *testing.T) {
+	flag := newBridgeRunCmd().Flags().Lookup("log-file")
+	if flag == nil {
+		t.Fatal("--log-file is not registered")
+	}
+	if flag.DefValue != "" {
+		t.Fatalf("--log-file defaults to %q, want empty", flag.DefValue)
+	}
+}
+
+func TestDefaultLogPathSitsUnderTheConfigDir(t *testing.T) {
+	got := defaultLogPath()
+	if filepath.Base(got) != "bridge.log" || filepath.Base(filepath.Dir(got)) != "loupe" {
+		t.Fatalf("defaultLogPath() = %q", got)
+	}
+}
+
+// A supervisor's log is a history. Truncating it per run loses the record of
+// every worker the previous run reported.
+func TestOpenLogFileAppends(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nested", "bridge.log")
+
+	for _, line := range []string{"first\n", "second\n"} {
+		f, err := openLogFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := f.WriteString(line); err != nil {
+			t.Fatal(err)
+		}
+		f.Close()
+	}
+
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "first\nsecond\n" {
+		t.Fatalf("log = %q, want both runs", got)
+	}
+}
+
+// The log reaches stdout and the file alike, so a terminal and a history never
+// disagree about what happened.
+func TestTheBridgeLoggerWritesJSONToEveryWriter(t *testing.T) {
+	var stdout, file bytes.Buffer
+
+	newBridgeLogger(io.MultiWriter(&stdout, &file)).Info("worker_queued", "card", 87)
+
+	if stdout.String() != file.String() {
+		t.Fatalf("stdout = %q, file = %q", stdout.String(), file.String())
+	}
+	var line map[string]any
+	if err := json.Unmarshal(stdout.Bytes(), &line); err != nil {
+		t.Fatalf("line %q is not JSON: %v", stdout.String(), err)
+	}
+	if line["event"] != "worker_queued" || line["card"] != float64(87) {
+		t.Fatalf("line = %v", line)
 	}
 }
