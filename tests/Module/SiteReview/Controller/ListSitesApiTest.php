@@ -22,7 +22,7 @@ final class ListSitesApiTest extends WebTestCase
         $owner = new User(fullName: 'Owner', email: 'list-sites@example.com', password: 'x');
         $owner->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($owner);
-        [$token, $raw] = ApiToken::issue($owner, 'tok', ApiTokenScope::SiteReview);
+        [$token, $raw] = ApiToken::issue($owner, 'tok', ApiTokenScope::Agent);
         $em->persist($token);
         $site1 = new Project($owner, 'my-site-one');
         $site2 = new Project($owner, 'my-site-two');
@@ -37,7 +37,7 @@ final class ListSitesApiTest extends WebTestCase
 
         $em->flush();
 
-        $client->request(Request::METHOD_GET, '/api/site-review/sites',
+        $client->request(Request::METHOD_GET, '/api/agent/sites',
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseIsSuccessful();
@@ -55,7 +55,7 @@ final class ListSitesApiTest extends WebTestCase
     public function test_no_token_is_unauthorized(): void
     {
         $client = static::createClient();
-        $client->request(Request::METHOD_GET, '/api/site-review/sites');
+        $client->request(Request::METHOD_GET, '/api/agent/sites');
         self::assertResponseStatusCodeSame(401);
     }
 
@@ -71,7 +71,7 @@ final class ListSitesApiTest extends WebTestCase
         $em->persist($token);
         $em->flush();
 
-        $client->request(Request::METHOD_GET, '/api/site-review/sites',
+        $client->request(Request::METHOD_GET, '/api/agent/sites',
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseStatusCodeSame(403);
@@ -82,7 +82,7 @@ final class ListSitesApiTest extends WebTestCase
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
-        // A widget token: SiteReview-scoped but BOUND to a site. It is embedded
+        // A widget token: SiteReview-scoped and BOUND to a site. It is embedded
         // in public page HTML, so it must never enumerate the owner's sites.
         $email = 'list-sites-widget@example.com';
         $user = new User(fullName: 'U', email: $email, password: 'x');
@@ -95,12 +95,39 @@ final class ListSitesApiTest extends WebTestCase
         $em->persist($project);
         $em->flush();
 
-        $client->request(Request::METHOD_GET, '/api/site-review/sites',
+        $client->request(Request::METHOD_GET, '/api/agent/sites',
+            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+
+        // The firewall refuses it on scope, so the answer comes from
+        // ApiAccessDeniedHandler rather than from the controller.
+        self::assertResponseStatusCodeSame(403);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('insufficient_scope', $data['error'] ?? null);
+    }
+
+    /**
+     * An unbound site-review token is refused too. Scope alone decides here, so
+     * the binding is not what keeps a widget token out.
+     */
+    public function test_unbound_site_review_token_is_forbidden(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $user = new User(fullName: 'U', email: 'list-sites-unbound@example.com', password: 'x');
+        $user->emailVerifiedAt = new \DateTimeImmutable();
+        $em->persist($user);
+        [$token, $raw] = ApiToken::issue($user, 'unbound-review-tok', ApiTokenScope::SiteReview);
+        $em->persist($token);
+        $em->flush();
+
+        $client->request(Request::METHOD_GET, '/api/agent/sites',
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseStatusCodeSame(403);
         $data = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertIsArray($data);
-        self::assertSame('site_bound_token_not_allowed', $data['error'] ?? null);
+        self::assertSame('insufficient_scope', $data['error'] ?? null);
     }
 }

@@ -13,6 +13,7 @@ enum AuditChannel: string
 {
     case Session = 'session';
     case Mcp = 'mcp';
+    case Agent = 'agent';
     case Widget = 'widget';
     case Webhook = 'webhook';
     case Console = 'console';

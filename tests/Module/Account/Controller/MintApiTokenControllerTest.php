@@ -34,8 +34,8 @@ final class MintApiTokenControllerTest extends WebTestCase
         $tokens = $repo->findActiveByOwner($user);
         self::assertCount(1, $tokens);
         self::assertSame('Laptop CLI', $tokens[0]->label);
-        // The form offers no scope: an account-level token is always site-review.
-        self::assertSame(ApiTokenScope::SiteReview, $tokens[0]->scope);
+        // The form offers no scope: an account-level token is always agent.
+        self::assertSame(ApiTokenScope::Agent, $tokens[0]->scope);
         // Only the hash and the tail are kept; the raw value is not recoverable.
         self::assertSame(hash('sha256', $raw), $tokens[0]->tokenHash);
         self::assertSame(substr($raw, -4), $tokens[0]->tokenTail);
@@ -70,9 +70,9 @@ final class MintApiTokenControllerTest extends WebTestCase
         $raw = $this->mint($client, 'Stream token');
 
         // Drop the session so the Bearer token is the only credential in play.
-        // ^/api/site-review needs ROLE_API_SITE_REVIEW, which this scope carries.
+        // ^/api/agent needs ROLE_API_AGENT, which this scope carries.
         $client->getCookieJar()->clear();
-        $client->request(Request::METHOD_GET, '/api/site-review/stream', server: [
+        $client->request(Request::METHOD_GET, '/api/agent/stream', server: [
             'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
         ]);
 
@@ -87,7 +87,7 @@ final class MintApiTokenControllerTest extends WebTestCase
         );
     }
 
-    public function test_a_site_review_token_is_refused_on_the_mcp_endpoint(): void
+    public function test_a_minted_token_is_refused_on_the_mcp_endpoint(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -103,6 +103,34 @@ final class MintApiTokenControllerTest extends WebTestCase
         ], content: self::MCP_INIT);
 
         self::assertResponseStatusCodeSame(403);
+    }
+
+    /**
+     * The agent scope does not reach the widget surface. That surface takes a
+     * project-bound widget token, which a project mints on its own Connect page.
+     */
+    public function test_a_minted_token_is_refused_on_the_widget_surface(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $user = $this->createVerifiedUser($em, 'Widgeteer', 'widgeteer@example.com');
+
+        $client->loginUser($user);
+        $raw = $this->mint($client, 'Agent token');
+        $client->getCookieJar()->clear();
+
+        foreach (['/api/site-review/review', '/api/board/cards'] as $path) {
+            $client->request(Request::METHOD_GET, $path, server: [
+                'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
+            ]);
+
+            self::assertResponseStatusCodeSame(403, $path.' must refuse an agent token');
+            self::assertJsonStringEqualsJsonString(
+                '{"error":"insufficient_scope"}',
+                (string) $client->getResponse()->getContent(),
+                $path.' must refuse it on scope, not on project binding',
+            );
+        }
     }
 
     public function test_the_form_offers_no_scope_because_an_unbound_mcp_token_fails_every_tool_call(): void

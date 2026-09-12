@@ -204,7 +204,7 @@ final class ApiTokenAuthenticationRateLimitTest extends WebTestCase
     {
         $client->request(
             Request::METHOD_GET,
-            '/api/site-review/sites',
+            '/api/agent/sites',
             server: ['HTTP_AUTHORIZATION' => 'Bearer not-a-real-token'],
         );
     }

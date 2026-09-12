@@ -42,6 +42,7 @@ final readonly class LoupeAuditActorProvider implements AuditActorProviderInterf
         $channel = $this->auditContext->channel ?? match (true) {
             null !== $apiToken => match ($apiToken->scope) {
                 ApiTokenScope::Mcp => AuditChannel::Mcp,
+                ApiTokenScope::Agent => AuditChannel::Agent,
                 ApiTokenScope::SiteReview => AuditChannel::Widget,
             },
             null !== $securityToken => AuditChannel::Session,
