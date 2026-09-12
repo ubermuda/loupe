@@ -52,8 +52,9 @@ func newBridgeRunCmd() *cobra.Command {
 			"exit code.\n\n" +
 			"Use --site to name the site to bridge, by name or id; omit it to pick " +
 			"interactively from your list of sites. Use --permission-mode to pass that " +
-			"flag to every `claude` the bridge starts, which is what an unattended worker " +
-			"needs; omitted, claude prompts for each tool as usual.",
+			"flag to every `claude` the bridge starts. A worker has no terminal, so it " +
+			"cannot answer a permission prompt: omit the flag and claude denies every " +
+			"tool call that needs approval.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if dir == "" {
 				return fmt.Errorf("--dir is required: it names the directory every worker runs in")
@@ -92,7 +93,7 @@ func newBridgeRunCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&dir, "dir", "", "run every worker in this `directory`")
 	cmd.Flags().StringVar(&site, "site", "", "the Loupe site to bridge (name or id); omitted: pick interactively")
-	cmd.Flags().StringVar(&permissionMode, "permission-mode", "", "pass this `mode` to every `claude` the bridge starts; empty means claude prompts as usual")
+	cmd.Flags().StringVar(&permissionMode, "permission-mode", "", "pass this `mode` to every `claude` the bridge starts; empty passes no flag, and a worker cannot answer a prompt")
 
 	return cmd
 }

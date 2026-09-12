@@ -89,7 +89,7 @@ loupe bridge run --dir ~/Code/my-app
 |---|---|---|
 | `--dir` | — | **Required.** Every worker runs in this directory |
 | `--site` | interactive | Which site to bridge, by name or id. Omitted, you get a numbered picker (requires a TTY) |
-| `--permission-mode` | — | Pass `--permission-mode` to every `claude` the bridge starts. Omitted, no flag is passed |
+| `--permission-mode` | — | Pass `--permission-mode` to every `claude` the bridge starts. Omitted, no flag is passed and a worker can approve nothing |
 
 The command blocks in the foreground and logs to stdout. `Ctrl-C` or `SIGTERM`
 stops it, and that also stops every worker in flight. `--site` is required when
@@ -122,9 +122,11 @@ somebody moves it into `next`.
 
 ### `--permission-mode`
 
-This is the flag that makes an unattended run possible. Without it `claude`
-prompts before each tool use, so a worker started while you are away stops at the
-first prompt and waits.
+This is the flag that makes an unattended run possible. A worker runs with no
+terminal, so it cannot answer a permission prompt. Without the flag, `claude`
+denies every tool call that needs approval, and the worker reports what it
+could not do. The directive tells the worker to call `card_update`, so leaving
+the flag off usually means the card never leaves `next`.
 
 It is empty by default, and an empty value passes no flag at all. Switching it on
 is your decision, and it is a real one: a mode such as `bypassPermissions` lets
