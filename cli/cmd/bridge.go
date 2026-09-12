@@ -109,7 +109,7 @@ func newBridgeRunCmd() *cobra.Command {
 			defer f.Close()
 
 			r := &router{
-				log:            newBridgeLogger(io.MultiWriter(cmd.OutOrStdout(), f)),
+				log:            newBridgeLogger(bridgeLogWriter(f, cmd.OutOrStdout())),
 				dir:            dir,
 				permissionMode: permissionMode,
 				maxWorkers:     maxWorkers,
@@ -127,6 +127,15 @@ func newBridgeRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&logFile, "log-file", "", "append the JSON log to this `path`; empty uses bridge.log in your config directory")
 
 	return cmd
+}
+
+// bridgeLogWriter fans one line out to the log file and to out.
+//
+// The file comes first. io.MultiWriter stops at the first writer that fails,
+// and a reader piped to stdout can leave mid-run, which breaks that pipe. The
+// history must survive that.
+func bridgeLogWriter(file, out io.Writer) io.Writer {
+	return io.MultiWriter(file, out)
 }
 
 // newBridgeLogger writes one JSON object per line to w.

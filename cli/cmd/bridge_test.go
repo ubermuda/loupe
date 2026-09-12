@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -149,12 +148,30 @@ func TestOpenLogFileAppends(t *testing.T) {
 	}
 }
 
+// brokenPipe stands in for a stdout whose reader has left, such as a `jq` the
+// operator stopped.
+type brokenPipe struct{}
+
+func (brokenPipe) Write([]byte) (int, error) { return 0, errors.New("broken pipe") }
+
+// A reader that leaves must not take the history with it. io.MultiWriter stops
+// at the first writer that fails, so the file has to come first.
+func TestTheLogFileOutlivesAFailedStdout(t *testing.T) {
+	var file bytes.Buffer
+
+	newBridgeLogger(bridgeLogWriter(&file, brokenPipe{})).Info("worker_queued", "card", 87)
+
+	if file.Len() == 0 {
+		t.Fatal("a failed stdout took the log file with it")
+	}
+}
+
 // The log reaches stdout and the file alike, so a terminal and a history never
 // disagree about what happened.
 func TestTheBridgeLoggerWritesJSONToEveryWriter(t *testing.T) {
 	var stdout, file bytes.Buffer
 
-	newBridgeLogger(io.MultiWriter(&stdout, &file)).Info("worker_queued", "card", 87)
+	newBridgeLogger(bridgeLogWriter(&file, &stdout)).Info("worker_queued", "card", 87)
 
 	if stdout.String() != file.String() {
 		t.Fatalf("stdout = %q, file = %q", stdout.String(), file.String())
