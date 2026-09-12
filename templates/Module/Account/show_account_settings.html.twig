@@ -118,10 +118,16 @@
 
         {# The action is set here rather than left to default: a FormView carries
            no action, and the page it renders on is GET-only. #}
-        {{ form_start(mintForm, {action: path('app_api_token_mint'), method: 'post', attr: {'data-testid': 'mint-api-token-form'}}) }}
-        {{ form_errors(mintForm) }}
-        {{ form_row(mintForm.label) }}
-        <button type="submit" class="lp-btn lp-btn--primary">{{ 'account.settings.api_tokens.mint_button'|trans }}</button>
+        {{ form_start(mintForm, {action: path('app_api_token_mint'), method: 'post', attr: {'class': 'lp-form', 'data-testid': 'mint-api-token-form'}}) }}
+            {{ form_errors(mintForm) }}
+            <div class="lp-form-field">
+                {{ form_label(mintForm.label, null, {'label_attr': {'class': 'lp-label'}}) }}
+                {{ form_widget(mintForm.label, {'attr': {'class': 'lp-input'}}) }}
+                <div class="lp-field-errors">{{ form_errors(mintForm.label) }}</div>
+            </div>
+            <div class="flex items-center justify-end pt-2">
+                <button type="submit" class="lp-btn lp-btn--primary">{{ 'account.settings.api_tokens.mint_button'|trans }}</button>
+            </div>
         {{ form_end(mintForm) }}
         <p class="lp-connect-hint">{{ 'account.settings.api_tokens.mint_hint'|trans }}</p>
         </div>
