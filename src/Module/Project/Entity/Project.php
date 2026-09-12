@@ -9,6 +9,8 @@ use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Security\ProjectScopedSubject;
+use App\Utils\Slug;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -16,6 +18,7 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Entity(repositoryClass: ProjectRepository::class)]
 #[ORM\Table(name: 'projects')]
 #[ORM\UniqueConstraint(name: 'uniq_project_owner_name', columns: ['owner_id', 'name'])]
+#[ORM\UniqueConstraint(name: 'uniq_project_owner_slug', columns: ['owner_id', 'slug'])]
 class Project implements ProjectScopedSubject
 {
     #[ORM\Column(type: UuidType::NAME, unique: true)]
@@ -52,13 +55,28 @@ class Project implements ProjectScopedSubject
     #[ORM\Column(name: 'search_language', length: 20, enumType: SearchLanguage::class, options: ['default' => SearchLanguage::DEFAULT->value])]
     public SearchLanguage $searchLanguage = SearchLanguage::DEFAULT;
 
+    /**
+     * The handle a rule file names the project by. Only a changed name moves it,
+     * so a suffixed slug the backfill gave a colliding project survives a save.
+     * Null only on a row an image older than the column wrote.
+     */
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    public private(set) ?string $slug = null;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\ManyToOne(targetEntity: User::class)]
         public readonly User $owner,
 
         #[ORM\Column(length: 100)]
-        public string $name,
+        public string $name {
+            set(string $name) {
+                if (null === $this->slug || $name !== $this->name) {
+                    $this->slug = Slug::fromName($name);
+                }
+                $this->name = $name;
+            }
+        },
 
         #[ORM\Column(length: 255, nullable: true)]
         public ?string $domain = null,

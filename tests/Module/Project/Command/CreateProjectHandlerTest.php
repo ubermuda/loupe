@@ -109,6 +109,55 @@ final class CreateProjectHandlerTest extends KernelTestCase
         }
     }
 
+    public function test_a_created_project_stores_the_slug_of_its_name(): void
+    {
+        $owner = $this->user('create-project-slug@example.com');
+
+        $project = ($this->handler)(new CreateProjectCommand($owner, 'Café Board', null, SearchLanguage::English));
+
+        $stored = $this->em->getConnection()->fetchOne(
+            'SELECT slug FROM projects WHERE id = :id',
+            ['id' => (string) $project->id],
+        );
+        self::assertSame('cafe-board', $stored);
+    }
+
+    public function test_a_name_whose_slug_is_empty_is_a_domain_error(): void
+    {
+        $owner = $this->user('create-project-empty-slug@example.com');
+
+        try {
+            ($this->handler)(new CreateProjectCommand($owner, '🚀', null, SearchLanguage::English));
+            self::fail('Expected DomainErrors for a name that gives an empty slug.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['name' => 'project.error.slug_empty'], $e->errors);
+        }
+
+        self::assertSame([], $this->audit->operations());
+    }
+
+    public function test_a_name_whose_slug_another_project_has_is_a_domain_error(): void
+    {
+        $owner = $this->user('create-project-slug-taken@example.com');
+        ($this->handler)(new CreateProjectCommand($owner, 'My App', null, SearchLanguage::English));
+
+        try {
+            ($this->handler)(new CreateProjectCommand($owner, 'my-app', null, SearchLanguage::English));
+            self::fail('Expected DomainErrors for a name whose slug is taken.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['name' => 'project.error.slug_taken'], $e->errors);
+        }
+    }
+
+    public function test_the_same_slug_for_a_different_owner_is_allowed(): void
+    {
+        ($this->handler)(new CreateProjectCommand($this->user('create-project-slug-f@example.com'), 'My App', null, SearchLanguage::English));
+
+        $project = ($this->handler)(new CreateProjectCommand($this->user('create-project-slug-g@example.com'), 'my-app', null, SearchLanguage::English));
+
+        self::assertSame('my-app', $project->slug);
+    }
+
     public function test_same_name_for_different_owner_is_allowed(): void
     {
         $a = $this->user('create-project-d@example.com');

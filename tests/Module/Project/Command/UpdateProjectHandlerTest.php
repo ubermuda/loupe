@@ -95,6 +95,94 @@ final class UpdateProjectHandlerTest extends KernelTestCase
         self::assertSame([], $this->audit->operations());
     }
 
+    public function test_a_rename_stores_the_slug_of_the_new_name(): void
+    {
+        $project = $this->project('update-project-slug@example.com', 'Before Name');
+
+        ($this->handler)(new UpdateProjectCommand($project, 'After Name', null, SearchLanguage::English));
+
+        $stored = $this->em->getConnection()->fetchOne(
+            'SELECT slug FROM projects WHERE id = :id',
+            ['id' => (string) $project->id],
+        );
+        self::assertSame('after-name', $stored);
+    }
+
+    public function test_a_rename_to_a_name_whose_slug_is_empty_records_nothing(): void
+    {
+        $project = $this->project('update-project-empty-slug@example.com', 'Rocket');
+
+        try {
+            ($this->handler)(new UpdateProjectCommand($project, '🚀', null, SearchLanguage::English));
+            self::fail('Expected DomainErrors for a name that gives an empty slug.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['name' => 'project.error.slug_empty'], $e->errors);
+        }
+
+        self::assertSame('Rocket', $project->name);
+        self::assertSame([], $this->audit->operations());
+    }
+
+    public function test_a_rename_to_a_slug_another_project_has_records_nothing(): void
+    {
+        $taken = $this->project('update-project-slug-taken@example.com', 'My App');
+        $project = new Project($taken->owner, 'Other');
+        $this->em->persist($project);
+        $this->em->flush();
+
+        try {
+            ($this->handler)(new UpdateProjectCommand($project, 'my-app', null, SearchLanguage::English));
+            self::fail('Expected DomainErrors for a name whose slug is taken.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['name' => 'project.error.slug_taken'], $e->errors);
+        }
+
+        self::assertSame('other', $project->slug);
+        self::assertSame([], $this->audit->operations());
+    }
+
+    public function test_an_update_that_keeps_the_name_keeps_a_suffixed_slug(): void
+    {
+        $project = $this->project('update-project-suffixed@example.com', 'Suffixed');
+        $id = $project->id;
+        self::assertNotNull($id);
+        $connection = $this->em->getConnection();
+        $connection->executeStatement("UPDATE projects SET slug = 'suffixed-2' WHERE id = :id", ['id' => (string) $id]);
+        $this->em->clear();
+        $loaded = $this->em->find(Project::class, $id);
+        self::assertInstanceOf(Project::class, $loaded);
+
+        ($this->handler)(new UpdateProjectCommand($loaded, 'Suffixed', 'new.example', SearchLanguage::English));
+
+        self::assertSame('suffixed-2', $connection->fetchOne('SELECT slug FROM projects WHERE id = :id', ['id' => (string) $id]));
+    }
+
+    public function test_an_update_fills_the_slug_an_older_image_left_empty(): void
+    {
+        $project = $this->project('update-project-null-slug@example.com', 'Left Empty');
+        $id = $project->id;
+        self::assertNotNull($id);
+        $connection = $this->em->getConnection();
+        $connection->executeStatement('UPDATE projects SET slug = NULL WHERE id = :id', ['id' => (string) $id]);
+        $this->em->clear();
+        $loaded = $this->em->find(Project::class, $id);
+        self::assertInstanceOf(Project::class, $loaded);
+
+        ($this->handler)(new UpdateProjectCommand($loaded, 'Left Empty', null, SearchLanguage::English));
+
+        self::assertSame('left-empty', $connection->fetchOne('SELECT slug FROM projects WHERE id = :id', ['id' => (string) $id]));
+    }
+
+    public function test_a_rename_that_keeps_the_slug_is_allowed(): void
+    {
+        $project = $this->project('update-project-same-slug@example.com', 'My App');
+
+        ($this->handler)(new UpdateProjectCommand($project, 'my app', null, SearchLanguage::English));
+
+        self::assertSame('my app', $project->name);
+        self::assertSame('my-app', $project->slug);
+    }
+
     public function test_the_handler_keeps_no_logger_beside_the_auditor(): void
     {
         DirectLogging::assertRemovedFrom(UpdateProjectHandler::class);

@@ -7,6 +7,7 @@ namespace App\Module\Project\Command;
 use App\Exception\DomainErrors;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
+use App\Utils\Slug;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -30,6 +31,17 @@ final readonly class UpdateProjectHandler
         $existing = $this->projects->findOneByOwnerAndName($project->owner, $command->name);
         if (null !== $existing && $existing !== $project) {
             throw new DomainErrors(['name' => 'project.error.name_taken']);
+        }
+
+        if ($command->name !== $project->name || null === $project->slug) {
+            $slug = Slug::fromName($command->name);
+            if ('' === $slug) {
+                throw new DomainErrors(['name' => 'project.error.slug_empty']);
+            }
+            $holder = $this->projects->findOneByOwnerAndSlug($project->owner, $slug);
+            if (null !== $holder && $holder !== $project) {
+                throw new DomainErrors(['name' => 'project.error.slug_taken']);
+            }
         }
 
         $project->name = $command->name;

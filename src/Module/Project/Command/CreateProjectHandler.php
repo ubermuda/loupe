@@ -7,6 +7,7 @@ namespace App\Module\Project\Command;
 use App\Exception\DomainErrors;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
+use App\Utils\Slug;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
@@ -28,6 +29,14 @@ final readonly class CreateProjectHandler
             throw new DomainErrors(['name' => 'project.error.name_taken']);
         }
 
+        $slug = Slug::fromName($command->name);
+        if ('' === $slug) {
+            throw new DomainErrors(['name' => 'project.error.slug_empty']);
+        }
+        if (null !== $this->projects->findOneByOwnerAndSlug($command->owner, $slug)) {
+            throw new DomainErrors(['name' => 'project.error.slug_taken']);
+        }
+
         $project = new Project($command->owner, $command->name, $command->domain);
         $project->searchLanguage = $command->searchLanguage;
 
@@ -35,8 +44,8 @@ final readonly class CreateProjectHandler
             $this->em->persist($project);
             $this->em->flush();
         } catch (UniqueConstraintViolationException) {
-            // A concurrent create won the race with the check above; uniq_project_owner_name
-            // caught it, so surface the same field error rather than letting the request 500.
+            // A concurrent create won the race with the checks above, and a unique
+            // index caught it. A taken name implies a taken slug, so one message covers both.
             throw new DomainErrors(['name' => 'project.error.name_taken']);
         }
 

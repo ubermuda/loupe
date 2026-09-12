@@ -48,7 +48,7 @@ final readonly class SiteReviewSubjectResolver
             return $bound;
         }
 
-        $named = $this->projects->findOneByIdOrNameForOwner($site, $bound->owner);
+        $named = $this->projects->findOneByHandleForOwner($site, $bound->owner);
 
         if (null === $named || !$this->authorization->isGranted(McpBoundProjectVoter::SITE_REVIEW_READ, $named)) {
             // Deliberately identical for "does not exist" and "belongs to

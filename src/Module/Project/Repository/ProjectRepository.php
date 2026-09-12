@@ -142,11 +142,16 @@ class ProjectRepository extends ServiceEntityRepository
         return null !== $id ? (string) $id : null;
     }
 
+    public function findOneByOwnerAndSlug(User $owner, string $slug): ?Project
+    {
+        return $this->findOneBy(['owner' => $owner, 'slug' => $slug]);
+    }
+
     /**
-     * Resolves a project from a user-supplied handle: a uuid or the project name.
-     * Owner-scoped — never returns another user's project.
+     * Resolves a project from a user-supplied handle: a uuid, the project name, or
+     * its slug, tried in that order. Owner-scoped: never returns another user's project.
      */
-    public function findOneByIdOrNameForOwner(string $handle, User $owner): ?Project
+    public function findOneByHandleForOwner(string $handle, User $owner): ?Project
     {
         // A handle can be both UUID-shaped and a legitimate project name, and an
         // id miss must still fall through to the name lookup — so never let a
@@ -164,6 +169,7 @@ class ProjectRepository extends ServiceEntityRepository
             }
         }
 
-        return $this->findOneByOwnerAndName($owner, $handle);
+        return $this->findOneByOwnerAndName($owner, $handle)
+            ?? $this->findOneByOwnerAndSlug($owner, $handle);
     }
 }

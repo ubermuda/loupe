@@ -62,7 +62,7 @@ final readonly class CurrentProjectProvider
         foreach (['id', 'project', 'projectId'] as $key) {
             $raw = $request->attributes->get($key);
             if (is_string($raw) && '' !== $raw) {
-                return $this->projects->findOneByIdOrNameForOwner($raw, $user);
+                return $this->projects->findOneByHandleForOwner($raw, $user);
             }
         }
 

@@ -94,6 +94,26 @@ final class StreamCredentialsControllerTest extends WebTestCase
         self::assertSame((string) $project->id, $data['site']['id']);
     }
 
+    public function test_site_resolves_by_slug_too(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        [$raw, $user] = $this->issue($em, ApiTokenScope::SiteReview, 'stream-by-slug@example.com');
+        $project = new Project($user, 'Stream Site');
+        $em->persist($project);
+        $em->flush();
+
+        $client->request(Request::METHOD_GET, '/api/site-review/stream',
+            ['site' => 'stream-site'],
+            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame((string) $project->id, $data['site']['id']);
+    }
+
     public function test_missing_site_is_400(): void
     {
         $client = static::createClient();

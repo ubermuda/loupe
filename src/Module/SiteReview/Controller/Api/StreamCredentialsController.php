@@ -19,7 +19,7 @@ use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
  * Hands an authenticated API client everything it needs to subscribe to ONE
  * project's site-review event stream: the public hub URL, the per-project
  * topic, and a subscriber-scoped Mercure JWT. The bridge CLI calls this with
- * its API token and a ?site= handle (project id or name), then opens an SSE
+ * its API token and a ?site= handle (project id, name or slug), then opens an SSE
  * connection to {hubUrl}?topic={topic} with the returned JWT.
  *
  * Account-level tokens only. Project-bound widget tokens (embedded in page
