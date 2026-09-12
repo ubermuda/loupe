@@ -59,6 +59,9 @@ func newBridgeRunCmd() *cobra.Command {
 			if dir == "" {
 				return fmt.Errorf("--dir is required: it names the directory every worker runs in")
 			}
+			if err := requireDir(dir); err != nil {
+				return err
+			}
 			if _, err := lookPath("claude"); err != nil {
 				return fmt.Errorf("claude is not installed or not on PATH")
 			}
@@ -140,6 +143,20 @@ func jwtRefresher(cfg config.Config, siteID string) transport.TokenFunc {
 
 		return creds.JWT, nil
 	}
+}
+
+// requireDir refuses a --dir no worker could run in. The bridge otherwise
+// subscribes, looks healthy, and fails only when the first card arrives.
+func requireDir(dir string) error {
+	info, err := os.Stat(dir)
+	if err != nil {
+		return fmt.Errorf("--dir %s: %w", dir, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("--dir %s is not a directory", dir)
+	}
+
+	return nil
 }
 
 func isTerminal(f *os.File) bool {

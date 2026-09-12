@@ -3,6 +3,8 @@ package cmd
 import (
 	"bytes"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -27,15 +29,30 @@ func TestBridgeRunRequiresDir(t *testing.T) {
 	}
 }
 
+// TestBridgeRunRejectsAnUnusableDir keeps the fault at the start of the run.
+// The bridge otherwise subscribes, looks healthy, and fails on the first card.
+func TestBridgeRunRejectsAnUnusableDir(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "notadir")
+	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, dir := range []string{filepath.Join(t.TempDir(), "missing"), file} {
+		err := runBridge(t, "--dir", dir)
+		if err == nil || !strings.Contains(err.Error(), "--dir "+dir) {
+			t.Fatalf("dir %q: err = %v", dir, err)
+		}
+	}
+}
+
 // TestBridgeRunFailsFastWithoutClaude keeps the missing-binary error at the
-// start of the run, where the operator sees it, rather than on the first card.
-// The --dir check comes first, so this test never depends on the host's PATH.
+// start of the run too. Reaching it also proves a real --dir passes its check.
 func TestBridgeRunFailsFastWithoutClaude(t *testing.T) {
 	original := lookPath
 	lookPath = func(string) (string, error) { return "", errors.New("not found") }
 	t.Cleanup(func() { lookPath = original })
 
-	err := runBridge(t, "--dir", "/src/app")
+	err := runBridge(t, "--dir", t.TempDir())
 	if err == nil || !strings.Contains(err.Error(), "claude is not installed") {
 		t.Fatalf("err = %v", err)
 	}
