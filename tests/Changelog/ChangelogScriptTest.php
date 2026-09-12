@@ -100,6 +100,24 @@ final class ChangelogScriptTest extends TestCase
         self::assertFileExists($this->root.'/changelog.d/429.md');
     }
 
+    public function test_it_refuses_an_entry_that_carries_no_tag(): void
+    {
+        $this->writeFragment(429, '- (#429) arbitrary text with no tag.');
+
+        $result = $this->runScript();
+
+        self::assertSame(1, $result['status']);
+        self::assertStringContainsString('an entry reads "- (#429) — **Tag:** text"', $result['output']);
+        self::assertSame(self::BASELINE, $this->changelog());
+    }
+
+    public function test_it_refuses_a_second_bullet_that_carries_no_anchor(): void
+    {
+        $this->writeFragment(429, "- (#429) — **Added:** a first entry.\n- a second bullet with no anchor.");
+
+        self::assertSame(1, $this->runScript('--check')['status']);
+    }
+
     public function test_it_refuses_a_fragment_that_does_not_start_with_an_entry(): void
     {
         $this->writeFragment(429, 'Added a thing.');

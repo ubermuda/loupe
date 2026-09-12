@@ -85,12 +85,19 @@ foreach ($names as $name) {
         continue;
     }
 
+    // An indented line continues the entry above it, so only a line that opens
+    // a bullet has to read as a whole entry.
     foreach (explode("\n", $text) as $line) {
-        if (!str_starts_with($line, '- (#')) {
+        if (!str_starts_with($line, '- ')) {
             continue;
         }
 
-        if (1 !== preg_match('/^- \(#(\d+)\) /', $line, $anchor) || $number !== (int) $anchor[1]) {
+        if (1 !== preg_match('/^- \(#(\d+)\) — \*\*[A-Za-z]+:\*\* \S/u', $line, $entry)) {
+            $errors[] = sprintf('%s: an entry reads "- (#%d) — **Tag:** text", not: %s', $name, $number, $line);
+            continue;
+        }
+
+        if ($number !== (int) $entry[1]) {
             $errors[] = sprintf('%s: an entry line anchors elsewhere than (#%d): %s', $name, $number, $line);
         }
     }
