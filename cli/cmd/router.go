@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
+	"log/slog"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/directive"
 	"github.com/ubermuda/loupe/cli/internal/event"
@@ -15,22 +16,33 @@ import (
 
 // router turns each event into a worker process and reports what it did.
 //
-// Workers run in their own goroutines, so every field a goroutine touches is
-// guarded: logMu serialises the two writers against each other, and mu guards
-// the in-flight set.
+// Workers run in their own goroutines. mu guards the queue, the claimed keys,
+// the running count and the closed flag. The logger needs no lock, because slog
+// serialises its own writes.
 type router struct {
 	ctx            context.Context
-	out, errOut    io.Writer
+	log            *slog.Logger
 	dir            string
+	site           string
+	topic          string
 	permissionMode string
+	maxWorkers     int
 	worker         workerOps
 
-	logMu   sync.Mutex
 	mu      sync.Mutex
-	running map[string]bool
+	claimed map[string]bool
+	queue   []pending
+	active  int
+	closed  bool
 
 	// wg counts the workers in flight. Tests wait on it instead of sleeping.
 	wg sync.WaitGroup
+}
+
+// pending is an accepted event that waits for a free worker slot.
+type pending struct {
+	key   string
+	event event.Event
 }
 
 // workerKey identifies the worker for one card. One card gets one worker at a
@@ -54,8 +66,8 @@ func workerKey(cardNumber int, projectID string) string {
 
 func (r *router) handler() transport.Handler {
 	return transport.Handler{
-		OnConnect: func() { r.logf("Connected to hub; waiting for events…\n") },
-		OnError:   func(err error) { r.errf("stream error (will retry): %v\n", err) },
+		OnConnect: func() { r.log.Info("connected", "topic", r.topic, "site", r.site) },
+		OnError:   func(err error) { r.log.Error("stream_error", "error", err.Error()) },
 		OnData:    r.onData,
 	}
 }
@@ -70,7 +82,7 @@ func (r *router) onData(data []byte) {
 		if errors.Is(err, event.ErrUnknownType) {
 			return
 		}
-		r.errf("skipping malformed event: %v\n", err)
+		r.log.Error("event_malformed", "error", err.Error())
 
 		return
 	}
@@ -80,7 +92,7 @@ func (r *router) onData(data []byte) {
 	}
 }
 
-// onCardMoved starts a worker for a card that entered next.
+// onCardMoved accepts a card that entered next.
 //
 // Entered, not sits in: a card dragged to a new rank inside the next column
 // submits a move with next on both sides, and prioritising that column is the
@@ -95,71 +107,182 @@ func (r *router) onCardMoved(e event.Event) {
 		return
 	}
 
-	// The key is claimed here rather than in the goroutine, so a second event
-	// for one card is refused however the two goroutines interleave.
+	r.enqueue(e)
+}
+
+// enqueue claims the card's key and puts the event at the back of the queue.
+//
+// The claim covers queued work as well as running work. A card moved into next
+// twice while every slot is busy would otherwise queue twice and run twice.
+//
+// queue_depth counts the accepted events that wait at this moment, this one
+// included.
+func (r *router) enqueue(e event.Event) {
 	key := workerKey(e.CardNumber, e.ProjectID)
 	if !r.claim(key) {
-		r.errf("a worker for card %d is already running; dropping event\n", e.CardNumber)
+		r.log.Warn("worker_refused", "card", e.CardNumber, "project", e.ProjectID)
 
 		return
 	}
 
-	prompt := directive.CardDirective(e)
-	r.logf("Starting a worker for card %d in %s\n", e.CardNumber, r.dir)
+	r.mu.Lock()
+	r.queue = append(r.queue, pending{key: key, event: e})
+	depth := len(r.queue)
+	r.mu.Unlock()
+
+	r.log.Info("worker_queued", "card", e.CardNumber, "project", e.ProjectID, "queue_depth", depth)
+	r.dispatch()
+}
+
+// dispatch starts queued workers while a slot is free. It runs on the goroutine
+// that accepted an event, and again on the one that finished a worker.
+//
+// A plain counter under the existing mutex bounds the workers. A channel
+// semaphore would add a second primitive to the lock this function already
+// takes to pop the queue.
+//
+// The pop and the start share one critical section. Two workers that finish at
+// the same instant dispatch on their own goroutines, and a start outside the
+// lock would let the later card start first.
+func (r *router) dispatch() {
+	for {
+		r.mu.Lock()
+		if r.shut() {
+			r.mu.Unlock()
+			r.dropQueued()
+
+			return
+		}
+		if r.active >= r.maxWorkers || len(r.queue) == 0 {
+			r.mu.Unlock()
+
+			return
+		}
+		next := r.queue[0]
+		r.queue = r.queue[1:]
+		r.active++
+		r.start(next)
+		r.mu.Unlock()
+	}
+}
+
+// start runs one worker. The caller holds mu, and start never takes it.
+//
+// wg counts the worker before the goroutine exists, and the finish call that
+// admits the next worker runs before wg.Done, so a waiter never sees the count
+// reach zero between two queued workers.
+func (r *router) start(p pending) {
+	e := p.event
+	r.log.Info("worker_started", "card", e.CardNumber, "project", e.ProjectID)
 
 	r.wg.Add(1)
 	go func() {
 		defer r.wg.Done()
-		defer r.release(key)
 
-		r.report(e.CardNumber, r.worker.run(r.workerContext(), r.dir, r.permissionMode, prompt))
+		began := time.Now()
+		res := r.worker.run(r.workerContext(), r.dir, r.permissionMode, directive.CardDirective(e))
+		r.report(e, res, time.Since(began))
+		r.finish(p.key)
 	}()
+}
+
+// finish frees the slot and the card, then admits whatever waits.
+func (r *router) finish(key string) {
+	r.mu.Lock()
+	r.release(key)
+	r.active--
+	r.mu.Unlock()
+
+	r.dispatch()
+}
+
+// release frees key, so the same card can start another worker later. The
+// caller holds mu.
+func (r *router) release(key string) {
+	delete(r.claimed, key)
+}
+
+// shut reports whether the queue accepts no more starts. The caller holds mu.
+//
+// A cancelled context counts. Ctrl-C kills the workers before Subscribe
+// unwinds, so a worker that finishes first would otherwise start a queued card
+// that cannot run.
+func (r *router) shut() bool {
+	return r.closed || r.workerContext().Err() != nil
+}
+
+// shutdown stops the queue for good and drops what is still in it.
+func (r *router) shutdown() {
+	r.mu.Lock()
+	r.closed = true
+	r.mu.Unlock()
+
+	r.dispatch()
+}
+
+// dropQueued empties the queue and names what it lost. These workers never
+// started, so a silent drop would hide a trigger the operator asked for.
+func (r *router) dropQueued() {
+	r.mu.Lock()
+	dropped := r.queue
+	r.queue = nil
+	for _, p := range dropped {
+		r.release(p.key)
+	}
+	r.mu.Unlock()
+
+	if len(dropped) == 0 {
+		return
+	}
+
+	cards := make([]int, len(dropped))
+	for i, p := range dropped {
+		cards[i] = p.event.CardNumber
+	}
+	r.log.Warn("queue_dropped", "count", len(cards), "cards", cards)
 }
 
 // report says how a worker ended, and carries the output it captured. The
 // bridge owns the worker's streams, so this report is the operator's only view
 // of what claude answered or why it failed.
-func (r *router) report(cardNumber int, res workerResult) {
-	switch {
-	case res.err != nil:
-		r.errf("worker for card %d failed: %v\n", cardNumber, res.err)
-	case res.exitCode != 0:
-		r.errf("worker for card %d exited %d\n%s", cardNumber, res.exitCode, withOutput(res.output))
-	default:
-		r.logf("worker for card %d exited 0\n%s", cardNumber, withOutput(res.output))
-	}
-}
+func (r *router) report(e event.Event, res workerResult, elapsed time.Duration) {
+	if res.err != nil {
+		r.log.Error("worker_failed", "card", e.CardNumber, "project", e.ProjectID, "error", res.err.Error())
 
-func withOutput(output string) string {
-	if output == "" {
-		return ""
+		return
 	}
 
-	return output + "\n"
+	args := []any{
+		"card", e.CardNumber,
+		"project", e.ProjectID,
+		"exit", res.exitCode,
+		"duration_ms", elapsed.Milliseconds(),
+		"output", res.output,
+	}
+	if res.exitCode != 0 {
+		r.log.Error("worker_finished", args...)
+
+		return
+	}
+
+	r.log.Info("worker_finished", args...)
 }
 
-// claim reserves key for one worker. It reports false when a worker holds it.
+// claim reserves key for one card. It reports false when that card is already
+// queued or already running.
 func (r *router) claim(key string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if r.running[key] {
+	if r.claimed[key] {
 		return false
 	}
-	if r.running == nil {
-		r.running = map[string]bool{}
+	if r.claimed == nil {
+		r.claimed = map[string]bool{}
 	}
-	r.running[key] = true
+	r.claimed[key] = true
 
 	return true
-}
-
-// release frees key, so the same card can start another worker later.
-func (r *router) release(key string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	delete(r.running, key)
 }
 
 func (r *router) workerContext() context.Context {
@@ -168,18 +291,4 @@ func (r *router) workerContext() context.Context {
 	}
 
 	return r.ctx
-}
-
-func (r *router) logf(format string, a ...any) {
-	r.logMu.Lock()
-	defer r.logMu.Unlock()
-
-	fmt.Fprintf(r.out, format, a...)
-}
-
-func (r *router) errf(format string, a ...any) {
-	r.logMu.Lock()
-	defer r.logMu.Unlock()
-
-	fmt.Fprintf(r.errOut, format, a...)
 }
