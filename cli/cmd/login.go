@@ -21,16 +21,18 @@ func newLoginCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Store a Loupe API token (site-review scope) for the bridge",
+		Short: "Store a Loupe API token (agent scope) for the bridge",
 		Long: "Stores a Loupe API token so the bridge can subscribe to your " +
-			"site-review stream. The token is validated against the API before it is saved.\n\n" +
+			"site's event stream. The token is validated against the API before it is saved.\n\n" +
+			"Mint one from your account settings page. A project's widget token carries a " +
+			"different scope and the bridge endpoints refuse it.\n\n" +
 			"Provide the token with --token, the LOUPE_TOKEN env var, or interactively.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if token == "" {
 				token = os.Getenv("LOUPE_TOKEN")
 			}
 			if token == "" {
-				fmt.Fprint(cmd.OutOrStdout(), "API token (site-review scope): ")
+				fmt.Fprint(cmd.OutOrStdout(), "API token (agent scope): ")
 				read, err := promptForToken(cmd)
 				if err != nil {
 					return err

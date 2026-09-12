@@ -11,13 +11,13 @@ import (
 	"strings"
 )
 
-// Site is one entry of GET /api/site-review/sites.
+// Site is one entry of GET /api/agent/sites.
 type Site struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 }
 
-// StreamCredentials is the response of GET /api/site-review/stream: everything
+// StreamCredentials is the response of GET /api/agent/stream: everything
 // needed to subscribe to one site's review event stream.
 type StreamCredentials struct {
 	HubURL string `json:"hubUrl"`
@@ -50,7 +50,7 @@ func New(baseURL, token string, hc *http.Client) *Client {
 func (c *Client) StreamCredentials(ctx context.Context, site string) (StreamCredentials, error) {
 	var creds StreamCredentials
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		c.baseURL+"/api/site-review/stream?site="+url.QueryEscape(site), nil)
+		c.baseURL+"/api/agent/stream?site="+url.QueryEscape(site), nil)
 	if err != nil {
 		return creds, err
 	}
@@ -66,7 +66,7 @@ func (c *Client) StreamCredentials(ctx context.Context, site string) (StreamCred
 	switch resp.StatusCode {
 	case http.StatusOK:
 	case http.StatusUnauthorized, http.StatusForbidden:
-		return creds, fmt.Errorf("credentials rejected (HTTP %d): the API token must have the site-review scope", resp.StatusCode)
+		return creds, fmt.Errorf("credentials rejected (HTTP %d): the API token must have the agent scope", resp.StatusCode)
 	default:
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return creds, fmt.Errorf("stream credentials request failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
@@ -81,7 +81,7 @@ func (c *Client) StreamCredentials(ctx context.Context, site string) (StreamCred
 
 // Sites lists the authenticated user's sites (for the bridge's --site picker).
 func (c *Client) Sites(ctx context.Context) ([]Site, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/site-review/sites", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/agent/sites", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (c *Client) Sites(ctx context.Context) ([]Site, error) {
 	switch resp.StatusCode {
 	case http.StatusOK:
 	case http.StatusUnauthorized, http.StatusForbidden:
-		return nil, fmt.Errorf("sites request rejected (HTTP %d): the API token must have the site-review scope", resp.StatusCode)
+		return nil, fmt.Errorf("sites request rejected (HTTP %d): the API token must have the agent scope", resp.StatusCode)
 	default:
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return nil, fmt.Errorf("sites request failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
