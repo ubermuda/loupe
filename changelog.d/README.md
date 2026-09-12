@@ -16,9 +16,10 @@ Put the finished changelog lines in it, anchor included:
 - (#429) — **Added:** what changed, from the reader's side.
 ```
 
-Tag each line `Added`, `Changed`, `Removed` or `Fixed`. Write one sentence per
-line, and leave the reasoning to the pull request body. One pull request that
-ships six features writes six lines in one fragment.
+Tag each line with one of the six tags Keep a Changelog defines: `Added`,
+`Changed`, `Deprecated`, `Removed`, `Fixed` or `Security`. Write one sentence
+per line, and leave the reasoning to the pull request body. One pull request
+that ships six features writes six lines in one fragment.
 
 A pull request whose whole diff is `docs/CHANGELOG.md` and this directory earns
 no fragment. Work that never surfaces in the product or the development

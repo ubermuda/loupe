@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 const UNRELEASED_HEADING = "## [Unreleased]\n";
 
+// The six types Keep a Changelog 1.1.0 defines, which this changelog follows.
+const TAGS = ['Added', 'Changed', 'Deprecated', 'Removed', 'Fixed', 'Security'];
+
 $check = false;
 $root = \dirname(__DIR__);
 
@@ -92,8 +95,8 @@ foreach ($names as $name) {
             continue;
         }
 
-        if (1 !== preg_match('/^- \(#(\d+)\) — \*\*[A-Za-z]+:\*\* \S/u', $line, $entry)) {
-            $errors[] = sprintf('%s: an entry reads "- (#%d) — **Tag:** text", not: %s', $name, $number, $line);
+        if (1 !== preg_match('/^- \(#(\d+)\) — \*\*(?:'.implode('|', TAGS).'):\*\* \S/u', $line, $entry)) {
+            $errors[] = sprintf('%s: an entry reads "- (#%d) — **%s:** text", not: %s', $name, $number, implode('|', TAGS), $line);
             continue;
         }
 

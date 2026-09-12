@@ -55,7 +55,8 @@ after your pull request number, such as `changelog.d/429.md`:
 - (#429) — **Added:** what changed, from the reader's side.
 ```
 
-Tag each line `Added`, `Changed`, `Removed` or `Fixed`, and write one sentence
+Tag each line with one of the six tags Keep a Changelog defines: `Added`,
+`Changed`, `Deprecated`, `Removed`, `Fixed` or `Security`. Write one sentence
 per line. Two branches never write one fragment file, so two entries never
 conflict. `changelog.d/README.md` carries the rest of the format.
 

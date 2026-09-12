@@ -464,9 +464,10 @@ request on https://github.com/ubermuda/gamache.
 
 An older entry keeps the position its SHA gives it in `git log --first-parent`.
 
-Tag it `Added`, `Changed`, `Removed` or `Fixed`. Write one sentence saying what
-changed from the reader's side, and leave the reasoning to the pull request
-body.
+Tag it with one of the six tags Keep a Changelog defines: `Added`, `Changed`,
+`Deprecated`, `Removed`, `Fixed` or `Security`. `bin/changelog.php` rejects any
+other word. Write one sentence saying what changed from the reader's side, and
+leave the reasoning to the pull request body.
 
 One entry per pull request, not one per branch. A branch that shipped six
 features earns six lines, because a reader looking for when tags arrived should

@@ -107,8 +107,29 @@ final class ChangelogScriptTest extends TestCase
         $result = $this->runScript();
 
         self::assertSame(1, $result['status']);
-        self::assertStringContainsString('an entry reads "- (#429) — **Tag:** text"', $result['output']);
+        self::assertStringContainsString('an entry reads "- (#429) — **Added|Changed', $result['output']);
         self::assertSame(self::BASELINE, $this->changelog());
+    }
+
+    public function test_it_refuses_a_tag_that_keep_a_changelog_does_not_define(): void
+    {
+        $this->writeFragment(429, '- (#429) — **Typo:** a tag nobody defined.');
+
+        self::assertSame(1, $this->runScript('--check')['status']);
+    }
+
+    public function test_it_accepts_every_tag_keep_a_changelog_defines(): void
+    {
+        $tags = ['Added', 'Changed', 'Deprecated', 'Removed', 'Fixed', 'Security'];
+
+        foreach ($tags as $index => $tag) {
+            $this->writeFragment(500 + $index, sprintf('- (#%d) — **%s:** an entry.', 500 + $index, $tag));
+        }
+
+        $result = $this->runScript('--check');
+
+        self::assertSame(0, $result['status'], $result['output']);
+        self::assertStringContainsString('6 changelog fragment(s) read', $result['output']);
     }
 
     public function test_it_refuses_a_second_bullet_that_carries_no_anchor(): void

@@ -15,8 +15,9 @@ SHA. To recover the commit from a number, run
 Keep the `$`: `--grep` reads the whole message, and commit bodies cite other
 pull requests in the same form.
 For an exhaustive diff between two points, run `git log --oneline <older>..<newer>`
-and cross-check, rather than trusting this file alone. Each entry is tagged
-`Added` / `Changed` / `Removed` / `Fixed`.
+and cross-check, rather than trusting this file alone. Each entry carries one of
+the six tags Keep a Changelog defines: `Added`, `Changed`, `Deprecated`,
+`Removed`, `Fixed` or `Security`.
 
 **Granularity: one entry per merged pull request, one line each.** A branch that
 shipped six features gets six entries, not one entry covering the branch — a
