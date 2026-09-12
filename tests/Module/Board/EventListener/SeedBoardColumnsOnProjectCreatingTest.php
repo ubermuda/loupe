@@ -13,7 +13,9 @@ use App\Module\Project\Command\CreateProjectHandler;
 use App\Module\Project\Command\EnsureHarnessProjectCommand;
 use App\Module\Project\Command\EnsureHarnessProjectHandler;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\Event\ProjectCreating;
 use App\Module\Project\Repository\ProjectRepository;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -55,22 +57,48 @@ final class SeedBoardColumnsOnProjectCreatingTest extends KernelTestCase
         );
     }
 
-    public function test_ensuring_a_harness_project_twice_seeds_its_columns_once(): void
+    public function test_a_harness_project_gets_its_columns(): void
     {
         // Built by hand: only dev-only controllers inject it, so the test
         // container inlines it away.
         $projects = self::getContainer()->get(ProjectRepository::class);
         self::assertInstanceOf(ProjectRepository::class, $projects);
+        $handler = new EnsureHarnessProjectHandler($projects, $this->em, $this->events());
+
+        $project = $handler(new EnsureHarnessProjectCommand($this->owner(), 'harness'));
+        $this->em->clear();
+
+        self::assertCount(4, $this->describe($project));
+    }
+
+    /** The listener persists and never flushes, so a project flush that fails takes the columns with it. */
+    public function test_the_columns_roll_back_with_a_project_flush_that_fails(): void
+    {
+        $owner = $this->owner();
+        $project = new Project($owner, 'rollback-'.uniqid());
+        $this->em->persist($project);
+        $this->events()->dispatch(new ProjectCreating($project));
+        // Same owner and name, so uniq_project_owner_name refuses the flush.
+        $this->em->persist(new Project($owner, $project->name));
+
+        try {
+            $this->em->flush();
+            self::fail('Expected the duplicate project to be refused.');
+        } catch (UniqueConstraintViolationException) {
+        }
+
+        self::assertSame(0, (int) $this->em->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM board_columns WHERE project_id = :id',
+            ['id' => (string) $project->id],
+        ));
+    }
+
+    private function events(): EventDispatcherInterface
+    {
         $events = self::getContainer()->get(EventDispatcherInterface::class);
         self::assertInstanceOf(EventDispatcherInterface::class, $events);
-        $handler = new EnsureHarnessProjectHandler($projects, $this->em, $events);
-        $owner = $this->owner();
 
-        $project = $handler(new EnsureHarnessProjectCommand($owner, 'harness'));
-        $again = $handler(new EnsureHarnessProjectCommand($owner, 'harness'));
-
-        self::assertSame($project, $again);
-        self::assertCount(4, $this->describe($project));
+        return $events;
     }
 
     /** @return list<array{string, string, int, bool, bool}> */
