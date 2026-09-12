@@ -7,7 +7,6 @@ namespace App\Module\Board\Command;
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardSearchIndexer;
@@ -59,29 +58,35 @@ final readonly class CreateCardHandler
         $card = $this->em->wrapInTransaction(function () use ($command, $title, $documents): Card {
             $this->em->lock($command->project, LockMode::PESSIMISTIC_WRITE);
 
+            $column = $command->column
+                ?? $this->boardColumns->findDefaultFor($command->project)
+                ?? throw new \LogicException('Every board has a default column.');
+            if ($column->project !== $command->project) {
+                throw new \LogicException('A card is created only in a column of its own board.');
+            }
+
             $card = new Card(
                 project: $command->project,
+                column: $column,
                 title: $title,
                 body: $command->body,
                 number: $this->cards->nextNumber($command->project),
                 type: $command->type,
                 priority: $command->priority,
-                status: $command->status,
                 origin: $command->reporter,
-                position: CardStatus::Done === $command->status
+                position: $column->terminal
                     ? 0
-                    : $this->cards->nextPosition($command->project, $command->status, $command->priority),
+                    : $this->cards->nextPosition($column, $command->priority),
                 // Read once, here: the card then carries its own language, so
                 // changing the project's leaves the cards already written alone.
                 searchLanguage: $command->project->searchLanguage,
             );
 
-            // Done is entered here as much as by a move, so a card created
-            // straight into Done still carries the completion the column sorts on.
-            if (CardStatus::Done === $command->status) {
+            // A terminal column is entered here as much as by a move, so a card
+            // created straight into one still carries the completion it sorts on.
+            if ($column->terminal) {
                 $card->completedAt = new \DateTimeImmutable();
             }
-            $card->column = $this->boardColumns->findOneByProjectAndSlug($command->project, $command->status->value);
 
             $card->replacePullRequests(...$this->pullRequests->linksFor($card, array_values($command->pullRequestUrls)));
             $card->syncDocuments(...$documents);
@@ -109,7 +114,8 @@ final readonly class CreateCardHandler
                 'projectId' => (string) $command->project->id,
                 'type' => $card->type->value,
                 'priority' => $card->priority->value,
-                'status' => $card->status->value,
+                'status' => $card->column->slug,
+                'columnId' => (string) $card->column->id,
                 'reporter' => $card->reporter->value,
                 'pullRequestCount' => \count($card->pullRequests),
                 'documentCount' => \count($card->documents),

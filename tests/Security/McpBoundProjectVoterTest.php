@@ -15,6 +15,7 @@ use App\Module\Review\ValueObject\Anchor;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Security\McpBoundProjectVoter;
 use App\Security\ProjectScopedSubject;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\McpTokenScenario;
 use App\Tests\Support\RecordingAuditor;
@@ -34,6 +35,7 @@ use Ubermuda\AuditBundle\AuditOutcome;
  */
 final class McpBoundProjectVoterTest extends KernelTestCase
 {
+    use BoardColumnFixtures;
     use McpTokenScenario;
 
     private EntityManagerInterface $em;
@@ -72,7 +74,8 @@ final class McpBoundProjectVoterTest extends KernelTestCase
 
     private function cardIn(Project $project): Card
     {
-        $card = new Card(project: $project, title: 'Ship it', body: 'Body', number: 1);
+        $this->seedColumns($project);
+        $card = new Card(project: $project, column: $this->column($project, 'backlog'), title: 'Ship it', body: 'Body', number: 1);
         $this->em->persist($card);
         $this->em->flush();
 

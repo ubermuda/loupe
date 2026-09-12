@@ -6,8 +6,8 @@ namespace App\Tests\Migrations;
 
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Project\Entity\Project;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\Migrations\AbstractMigration;
@@ -27,6 +27,8 @@ require_once __DIR__.'/../../migrations/Version20260912201847.php';
  */
 final class BoardColumnsSeedMigrationTest extends KernelTestCase
 {
+    use BoardColumnFixtures;
+
     private const array SEEDED = [
         ['slug' => 'backlog', 'label' => 'board.card.status.backlog', 'position' => 0, 'terminal' => false, 'is_default' => true],
         ['slug' => 'next', 'label' => 'board.card.status.next', 'position' => 1, 'terminal' => false, 'is_default' => false],
@@ -55,8 +57,9 @@ final class BoardColumnsSeedMigrationTest extends KernelTestCase
         foreach (['first', 'second'] as $name) {
             $project = new Project($owner, $name.'-'.uniqid());
             $this->em->persist($project);
-            foreach (CardStatus::cases() as $number => $status) {
-                $this->em->persist(new Card(project: $project, title: $status->value, body: 'Body', number: $number + 1, status: $status));
+            $this->seedColumns($project);
+            foreach (['backlog', 'next', 'in-progress', 'done'] as $number => $slug) {
+                $this->em->persist(new Card(project: $project, column: $this->column($project, $slug), title: $slug, body: 'Body', number: $number + 1));
             }
             $this->em->flush();
             $projectIds[] = (string) $project->id;
@@ -99,7 +102,8 @@ final class BoardColumnsSeedMigrationTest extends KernelTestCase
     {
         $project = new Project($this->owner('board-columns-rerun'), 'rerun-'.uniqid());
         $this->em->persist($project);
-        $this->em->persist(new Card(project: $project, title: 'Ship it', body: 'Body', number: 1));
+        $this->seedColumns($project);
+        $this->em->persist(new Card(project: $project, column: $this->column($project, 'backlog'), title: 'Ship it', body: 'Body', number: 1));
         $this->em->flush();
         $projectId = (string) $project->id;
         $this->em->clear();
@@ -115,7 +119,8 @@ final class BoardColumnsSeedMigrationTest extends KernelTestCase
     {
         $project = new Project($this->owner('board-columns-cascade'), 'cascade-'.uniqid());
         $this->em->persist($project);
-        $this->em->persist(new Card(project: $project, title: 'Ship it', body: 'Body', number: 1));
+        $this->seedColumns($project);
+        $this->em->persist(new Card(project: $project, column: $this->column($project, 'backlog'), title: 'Ship it', body: 'Body', number: 1));
         $this->em->flush();
         $projectId = (string) $project->id;
         $this->em->clear();

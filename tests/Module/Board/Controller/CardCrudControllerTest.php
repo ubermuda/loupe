@@ -8,7 +8,6 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Tests\Module\Board\CardMovedOutbox;
@@ -32,15 +31,17 @@ final class CardCrudControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/new');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/new');
         self::assertResponseIsSuccessful();
+        // The default column is chosen, and the labels are translated.
+        self::assertSame('Backlog', trim($crawler->filter('select[name="create_card_form[column]"] option[selected]')->text()));
 
         $client->submitForm('Create card', [
             'create_card_form[title]' => 'Ship the board',
             'create_card_form[body]' => "It needs **columns**.\n",
             'create_card_form[type]' => CardType::Tooling->value,
             'create_card_form[priority]' => (string) CardPriority::High->value,
-            'create_card_form[status]' => CardStatus::Next->value,
+            'create_card_form[column]' => (string) $this->column($project, 'next')->id,
             'create_card_form[pullRequestUrls]' => "https://github.com/loupe/loupe/pull/12\n\nnot-a-known-forge\n",
         ]);
 
@@ -49,7 +50,7 @@ final class CardCrudControllerTest extends WebTestCase
         $cards = static::getContainer()->get(CardRepository::class);
         $created = $cards->findOneBy(['title' => 'Ship the board']);
         self::assertInstanceOf(Card::class, $created);
-        self::assertSame(CardStatus::Next, $created->status);
+        self::assertSame('next', $created->column->slug);
         self::assertSame(CardPriority::High, $created->priority);
         self::assertSame(CardType::Tooling, $created->type);
         // A form is a person writing the card down, whatever an agent does later.
@@ -82,7 +83,7 @@ final class CardCrudControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'card-edit@example.com');
         $project = $this->project($em, $owner);
-        $card = $this->card($em, $project, 'Before', CardStatus::Backlog, CardPriority::Low);
+        $card = $this->card($em, $project, 'Before', 'backlog', CardPriority::Low);
         $cardId = $card->id;
         $em->clear();
 
@@ -99,7 +100,7 @@ final class CardCrudControllerTest extends WebTestCase
             'create_card_form[body]' => 'Rewritten.',
             'create_card_form[type]' => CardType::Bug->value,
             'create_card_form[priority]' => (string) CardPriority::High->value,
-            'create_card_form[status]' => CardStatus::InProgress->value,
+            'create_card_form[column]' => (string) $this->column($project, 'in-progress')->id,
             'create_card_form[pullRequestUrls]' => 'https://github.com/loupe/loupe/pull/99',
         ]);
 
@@ -108,7 +109,7 @@ final class CardCrudControllerTest extends WebTestCase
         $fresh = $em->find(Card::class, $cardId);
         self::assertInstanceOf(Card::class, $fresh);
         self::assertSame('After', $fresh->title);
-        self::assertSame(CardStatus::InProgress, $fresh->status);
+        self::assertSame('in-progress', $fresh->column->slug);
         self::assertSame(CardPriority::High, $fresh->priority);
         self::assertCount(1, $fresh->pullRequests);
         $link = $fresh->pullRequests->first();
@@ -209,7 +210,7 @@ final class CardCrudControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'card-move-page@example.com');
         $project = $this->project($em, $owner);
-        $card = $this->card($em, $project, 'Reachable by keyboard', CardStatus::Backlog, CardPriority::Low);
+        $card = $this->card($em, $project, 'Reachable by keyboard', 'backlog', CardPriority::Low);
         $cardId = $card->id;
         $em->clear();
 
@@ -220,10 +221,10 @@ final class CardCrudControllerTest extends WebTestCase
         $name = 'move_card_'.$cardId;
         // Turbo is off on this form. Its answer is a redirect to the board
         // rather than a stream, because this page holds no board to replace.
-        self::assertCount(1, $crawler->filter('form[data-turbo="false"] select[name="'.$name.'[status]"]'));
+        self::assertCount(1, $crawler->filter('form[data-turbo="false"] select[name="'.$name.'[column]"]'));
 
         $client->submitForm('Move card', [
-            $name.'[status]' => CardStatus::InProgress->value,
+            $name.'[column]' => (string) $this->column($project, 'in-progress')->id,
             $name.'[priority]' => (string) CardPriority::High->value,
         ]);
 
@@ -231,7 +232,7 @@ final class CardCrudControllerTest extends WebTestCase
         $em->clear();
         $moved = static::getContainer()->get(CardRepository::class)->find($cardId);
         self::assertInstanceOf(Card::class, $moved);
-        self::assertSame(CardStatus::InProgress, $moved->status);
+        self::assertSame('in-progress', $moved->column->slug);
         self::assertSame(CardPriority::High, $moved->priority);
     }
 

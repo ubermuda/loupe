@@ -1,11 +1,11 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}{{ 'board.done.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+{% block title %}{{ column.label|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block topbar_crumbs %}
     <a class="lp-topbar__crumb" href="{{ path('app_project_board', {id: project.id}) }}">{{ 'nav.link.board'|trans }}</a>
     <span class="lp-topbar__sep">/</span>
-    <span class="lp-topbar__here">{{ 'board.done.page.title'|trans }}</span>
+    <span class="lp-topbar__here">{{ column.label|trans }}</span>
 {% endblock %}
 
 {% block topbar_meta %}
@@ -14,7 +14,7 @@
 
 {% block body %}
 <div class="lp-workspace">
-    <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'board.done.page.title'|trans }}</h1>
+    <h1 class="lp-workspace-title lp-workspace-title--doc">{{ column.label|trans }}</h1>
     <p class="lp-workspace-desc">{{ 'board.done.page.description'|trans }}</p>
 
     {% if items|length > 0 %}
@@ -36,7 +36,7 @@
         {% endfor %}
     </div>
 
-    <twig:Pagination route="app_project_board_done" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}" />
+    <twig:Pagination route="app_project_board_done" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="routeParams" />
     {% else %}
     <div class="lp-empty-state">
         <twig:ux:icon name="lucide:square-check-big" class="lp-empty-state__icon w-12 h-12" />

@@ -11,8 +11,8 @@ use Doctrine\ORM\EntityManagerInterface;
 /**
  * Gives a new project the four columns every board starts with.
  *
- * It persists and never flushes, so the columns commit with the project. The
- * migration that created the table seeds the same four rows for older projects.
+ * It persists and never flushes, so the columns commit with the project. Two
+ * migrations seed the same four rows for projects created before this existed.
  */
 final readonly class BoardColumnSeeder
 {

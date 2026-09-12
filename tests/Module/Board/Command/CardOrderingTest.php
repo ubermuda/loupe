@@ -16,11 +16,11 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardGroupOrder;
 use App\Module\Project\Entity\Project;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\SilentAuditor;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -28,6 +28,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class CardOrderingTest extends KernelTestCase
 {
+    use BoardColumnFixtures;
+
     private EntityManagerInterface $em;
     private CreateCardHandler $createCard;
     private MoveCardHandler $moveCard;
@@ -68,6 +70,7 @@ final class CardOrderingTest extends KernelTestCase
         $this->em->persist($owner);
         $this->project = new Project($owner, 'board-'.uniqid());
         $this->em->persist($this->project);
+        $this->seedColumns($this->project);
         $this->em->flush();
     }
 
@@ -94,6 +97,7 @@ final class CardOrderingTest extends KernelTestCase
 
         $other = new Project($this->project->owner, 'board-'.uniqid());
         $this->em->persist($other);
+        $this->seedColumns($other);
         $this->em->flush();
         $there = ($this->createCard)(new CreateCardCommand(
             project: $other,
@@ -101,7 +105,6 @@ final class CardOrderingTest extends KernelTestCase
             body: 'Body',
             type: CardType::Feature,
             priority: CardPriority::Medium,
-            status: CardStatus::Backlog,
         ));
 
         self::assertSame([1, 1], [$here->number, $there->number]);
@@ -109,8 +112,9 @@ final class CardOrderingTest extends KernelTestCase
 
     public function test_the_same_number_cannot_be_used_twice_in_one_project(): void
     {
-        $this->em->persist(new Card(project: $this->project, title: 'First', body: 'Body', number: 1));
-        $this->em->persist(new Card(project: $this->project, title: 'Second', body: 'Body', number: 1));
+        $backlog = $this->column($this->project, 'backlog');
+        $this->em->persist(new Card(project: $this->project, column: $backlog, title: 'First', body: 'Body', number: 1));
+        $this->em->persist(new Card(project: $this->project, column: $backlog, title: 'Second', body: 'Body', number: 1));
 
         $this->expectException(UniqueConstraintViolationException::class);
         $this->em->flush();
@@ -122,7 +126,7 @@ final class CardOrderingTest extends KernelTestCase
         $second = $this->card('Second');
         $third = $this->card('Third');
 
-        ($this->moveCard)(new MoveCardCommand($third, CardReporter::Human, CardStatus::Backlog, CardPriority::Medium, 0));
+        ($this->moveCard)(new MoveCardCommand($third, CardReporter::Human, $this->column($this->project, 'backlog'), CardPriority::Medium, 0));
 
         self::assertSame(0, $third->position);
         self::assertSame(1, $first->position);
@@ -134,7 +138,7 @@ final class CardOrderingTest extends KernelTestCase
         $first = $this->card('First');
         $second = $this->card('Second');
 
-        ($this->moveCard)(new MoveCardCommand($first, CardReporter::Human, CardStatus::Backlog, CardPriority::Medium, 99));
+        ($this->moveCard)(new MoveCardCommand($first, CardReporter::Human, $this->column($this->project, 'backlog'), CardPriority::Medium, 99));
 
         self::assertSame(0, $second->position);
         self::assertSame(1, $first->position);
@@ -146,7 +150,7 @@ final class CardOrderingTest extends KernelTestCase
         $mover = $this->card('Moving up');
         self::assertSame(0, $mover->position);
 
-        ($this->moveCard)(new MoveCardCommand($mover, CardReporter::Human, CardStatus::Backlog, CardPriority::High));
+        ($this->moveCard)(new MoveCardCommand($mover, CardReporter::Human, $this->column($this->project, 'backlog'), CardPriority::High));
 
         self::assertSame(CardPriority::High, $mover->priority);
         self::assertSame(0, $incumbent->position);
@@ -155,12 +159,12 @@ final class CardOrderingTest extends KernelTestCase
 
     public function test_a_change_of_status_appends_the_card_to_the_end_of_the_target_group(): void
     {
-        $incumbent = $this->card('Already next', CardPriority::Medium, CardStatus::Next);
+        $incumbent = $this->card('Already next', CardPriority::Medium, 'next');
         $mover = $this->card('Moving on');
 
-        ($this->moveCard)(new MoveCardCommand($mover, CardReporter::Human, CardStatus::Next, CardPriority::Medium));
+        ($this->moveCard)(new MoveCardCommand($mover, CardReporter::Human, $this->column($this->project, 'next'), CardPriority::Medium));
 
-        self::assertSame(CardStatus::Next, $mover->status);
+        self::assertSame('next', $mover->column->slug);
         self::assertSame(0, $incumbent->position);
         self::assertSame(1, $mover->position);
     }
@@ -172,7 +176,7 @@ final class CardOrderingTest extends KernelTestCase
         $last = $this->card('Last');
         self::assertSame([0, 1, 2], [$first->position, $mover->position, $last->position]);
 
-        ($this->moveCard)(new MoveCardCommand($mover, CardReporter::Human, CardStatus::Next, CardPriority::Medium));
+        ($this->moveCard)(new MoveCardCommand($mover, CardReporter::Human, $this->column($this->project, 'next'), CardPriority::Medium));
 
         self::assertSame(0, $first->position);
         self::assertSame(1, $last->position);
@@ -185,7 +189,7 @@ final class CardOrderingTest extends KernelTestCase
         $second = $this->card('Second');
         $third = $this->card('Third');
 
-        ($this->moveCard)(new MoveCardCommand($first, CardReporter::Human, CardStatus::Backlog, CardPriority::Medium));
+        ($this->moveCard)(new MoveCardCommand($first, CardReporter::Human, $this->column($this->project, 'backlog'), CardPriority::Medium));
 
         self::assertSame(0, $second->position);
         self::assertSame(1, $third->position);
@@ -203,7 +207,7 @@ final class CardOrderingTest extends KernelTestCase
 
         self::assertSame(0, $first->position);
         self::assertSame(1, $last->position);
-        self::assertSame(2, $this->cards->nextPosition($this->project, CardStatus::Backlog, CardPriority::Medium));
+        self::assertSame(2, $this->cards->nextPosition($this->column($this->project, 'backlog'), CardPriority::Medium));
     }
 
     public function test_two_cards_finished_in_the_same_second_read_newest_first(): void
@@ -213,8 +217,8 @@ final class CardOrderingTest extends KernelTestCase
         // agree with it.
         $sameSecond = new \DateTimeImmutable('2026-09-07 12:00:00');
 
-        $earlier = new Card(project: $this->project, title: 'Started earlier', body: '', number: 901, status: CardStatus::Done, createdAt: new \DateTimeImmutable('2026-09-01 09:00:00'));
-        $later = new Card(project: $this->project, title: 'Started later', body: '', number: 902, status: CardStatus::Done, createdAt: new \DateTimeImmutable('2026-09-02 09:00:00'));
+        $earlier = new Card(project: $this->project, column: $this->column($this->project, 'done'), title: 'Started earlier', body: '', number: 901, createdAt: new \DateTimeImmutable('2026-09-01 09:00:00'));
+        $later = new Card(project: $this->project, column: $this->column($this->project, 'done'), title: 'Started later', body: '', number: 902, createdAt: new \DateTimeImmutable('2026-09-02 09:00:00'));
         $earlier->completedAt = $sameSecond;
         $later->completedAt = $sameSecond;
         $this->em->persist($earlier);
@@ -223,7 +227,7 @@ final class CardOrderingTest extends KernelTestCase
 
         $titles = array_map(
             static fn (Card $card): string => $card->title,
-            $this->cards->findForBoard($this->project, CardStatus::Done),
+            $this->cards->findForBoard([$this->column($this->project, 'done')]),
         );
 
         self::assertSame(['Started later', 'Started earlier'], $titles);
@@ -238,7 +242,7 @@ final class CardOrderingTest extends KernelTestCase
         $created = new \DateTimeImmutable('2026-09-01 09:00:00');
 
         foreach ([911, 912] as $number) {
-            $card = new Card(project: $this->project, title: 'Tied '.$number, body: '', number: $number, status: CardStatus::Done, createdAt: $created);
+            $card = new Card(project: $this->project, column: $this->column($this->project, 'done'), title: 'Tied '.$number, body: '', number: $number, createdAt: $created);
             $card->completedAt = $completed;
             $this->em->persist($card);
         }
@@ -247,8 +251,8 @@ final class CardOrderingTest extends KernelTestCase
         $titles = static fn (array $cards): array => array_map(static fn (Card $card): string => $card->title, $cards);
 
         self::assertSame(
-            $titles($this->cards->findForBoard($this->project, CardStatus::Done)),
-            $titles($this->cards->findDonePage($this->project, 0, 10)),
+            $titles($this->cards->findForBoard([$this->column($this->project, 'done')])),
+            $titles($this->cards->findCompletedPage($this->column($this->project, 'done'), 0, 10)),
         );
     }
 
@@ -257,20 +261,20 @@ final class CardOrderingTest extends KernelTestCase
         $card = $this->card('Finish me');
         self::assertNull($card->completedAt);
 
-        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, CardStatus::Done, CardPriority::Medium));
+        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'done'), CardPriority::Medium));
 
-        self::assertSame(CardStatus::Done, $card->status);
+        self::assertSame('done', $card->column->slug);
         self::assertNotNull($this->storedCompletion($card));
     }
 
     public function test_a_move_inside_done_keeps_the_first_completion(): void
     {
         $card = $this->card('Finish me');
-        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, CardStatus::Done, CardPriority::Medium));
+        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'done'), CardPriority::Medium));
         $completedAt = $this->storedCompletion($card);
         self::assertNotNull($completedAt);
 
-        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, CardStatus::Done, CardPriority::High));
+        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'done'), CardPriority::High));
 
         self::assertSame($completedAt, $this->storedCompletion($card));
     }
@@ -278,12 +282,12 @@ final class CardOrderingTest extends KernelTestCase
     public function test_leaving_done_clears_the_completion(): void
     {
         $card = $this->card('Finish me');
-        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, CardStatus::Done, CardPriority::Medium));
+        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'done'), CardPriority::Medium));
         // Guard: without it the assertion below also passes on a card that was
         // never stamped in the first place.
         self::assertNotNull($card->completedAt);
 
-        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, CardStatus::InProgress, CardPriority::High));
+        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'in-progress'), CardPriority::High));
 
         self::assertNull($this->storedCompletion($card));
     }
@@ -296,7 +300,7 @@ final class CardOrderingTest extends KernelTestCase
             body: 'Body',
             type: CardType::Docs,
             priority: CardPriority::Low,
-            status: CardStatus::Done,
+            column: $this->column($this->project, 'done'),
         ));
 
         self::assertNotNull($card->completedAt);
@@ -305,20 +309,20 @@ final class CardOrderingTest extends KernelTestCase
 
     public function test_an_update_that_changes_status_moves_the_card(): void
     {
-        $incumbent = $this->card('Already done', CardPriority::Medium, CardStatus::Next);
+        $incumbent = $this->card('Already done', CardPriority::Medium, 'next');
         $card = $this->card('Change me');
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Agent, title: 'Changed', status: CardStatus::Next));
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Agent, title: 'Changed', column: $this->column($this->project, 'next')));
 
         self::assertSame('Changed', $card->title);
-        self::assertSame(CardStatus::Next, $card->status);
+        self::assertSame('next', $card->column->slug);
         self::assertSame(0, $incumbent->position);
         self::assertSame(1, $card->position);
     }
 
     public function test_an_update_that_changes_the_fields_and_the_column_applies_both(): void
     {
-        $incumbent = $this->card('Already high', CardPriority::High, CardStatus::Next);
+        $incumbent = $this->card('Already high', CardPriority::High, 'next');
         $card = $this->card('Change me');
 
         ($this->updateCard)(new UpdateCardCommand(
@@ -328,7 +332,7 @@ final class CardOrderingTest extends KernelTestCase
             body: 'Rewritten',
             type: CardType::Bug,
             priority: CardPriority::High,
-            status: CardStatus::Next,
+            column: $this->column($this->project, 'next'),
         ));
 
         $this->em->clear();
@@ -338,7 +342,7 @@ final class CardOrderingTest extends KernelTestCase
         self::assertInstanceOf(Card::class, $storedIncumbent);
         self::assertSame(['Changed', 'Rewritten'], [$stored->title, $stored->body]);
         self::assertSame(CardType::Bug, $stored->type);
-        self::assertSame(CardStatus::Next, $stored->status);
+        self::assertSame('next', $stored->column->slug);
         self::assertSame(CardPriority::High, $stored->priority);
         self::assertSame([0, 1], [$storedIncumbent->position, $stored->position]);
     }
@@ -354,7 +358,7 @@ final class CardOrderingTest extends KernelTestCase
         return \is_string($stored) ? $stored : null;
     }
 
-    private function card(string $title, CardPriority $priority = CardPriority::Medium, CardStatus $status = CardStatus::Backlog): Card
+    private function card(string $title, CardPriority $priority = CardPriority::Medium, string $column = 'backlog'): Card
     {
         return ($this->createCard)(new CreateCardCommand(
             project: $this->project,
@@ -362,7 +366,7 @@ final class CardOrderingTest extends KernelTestCase
             body: 'Body of '.$title,
             type: CardType::Feature,
             priority: $priority,
-            status: $status,
+            column: $this->column($this->project, $column),
         ));
     }
 }

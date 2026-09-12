@@ -9,19 +9,21 @@ use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\MoveCardCommand;
 use App\Module\Board\Command\MoveCardHandler;
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
-use App\Module\Board\Service\BoardColumnSeeder;
 use App\Module\Project\Entity\Project;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
-/** Every card write sets the column row beside the status. */
+/** A card's place is a column row of its own board. */
 final class CardColumnWriteTest extends KernelTestCase
 {
+    use BoardColumnFixtures;
+
     private EntityManagerInterface $em;
     private Project $project;
 
@@ -35,78 +37,102 @@ final class CardColumnWriteTest extends KernelTestCase
 
         $owner = new User(fullName: 'Riley', email: 'board-column-write-'.uniqid().'@example.com', password: 'hashed');
         $this->em->persist($owner);
-        $this->project = new Project($owner, 'board-'.uniqid());
-        $this->em->persist($this->project);
-        $seeder = self::getContainer()->get(BoardColumnSeeder::class);
-        self::assertInstanceOf(BoardColumnSeeder::class, $seeder);
-        $seeder->seed($this->project);
-        $this->em->flush();
+        $this->project = $this->board($owner);
     }
 
-    public function test_a_created_card_points_at_the_column_its_status_names(): void
+    public function test_a_card_created_with_no_column_lands_in_the_default_column(): void
     {
-        $card = $this->create(CardStatus::Next);
-
-        self::assertSame('next', $this->storedColumnSlug($card));
-    }
-
-    public function test_a_moved_card_points_at_its_new_column(): void
-    {
-        $card = $this->create(CardStatus::Backlog);
-        self::assertSame('backlog', $this->storedColumnSlug($card));
-        $move = self::getContainer()->get(MoveCardHandler::class);
-        self::assertInstanceOf(MoveCardHandler::class, $move);
-
-        $move(new MoveCardCommand($card, CardReporter::Human, CardStatus::Done, CardPriority::Medium));
-
-        self::assertSame('done', $this->storedColumnSlug($card));
-    }
-
-    /** Only an image older than the table creates such a project. */
-    public function test_a_card_written_to_a_project_without_columns_seeds_nothing(): void
-    {
-        $bare = new Project($this->project->owner, 'bare-'.uniqid());
-        $this->em->persist($bare);
+        // The default is moved off the first column, so the test cannot pass on "first by position".
+        $this->column($this->project, 'backlog')->isDefault = false;
+        $this->column($this->project, 'next')->isDefault = true;
         $this->em->flush();
 
-        $card = $this->create(CardStatus::InProgress, $bare);
+        $card = $this->create(null);
 
-        self::assertNull($this->storedColumnSlug($card));
-        self::assertSame(0, $this->columnCount($bare));
+        self::assertSame('next', $this->stored($card)['slug']);
     }
 
-    private function columnCount(Project $project): int
+    public function test_the_status_column_mirrors_the_slug_for_the_previous_image(): void
     {
-        return (int) $this->em->getConnection()->fetchOne(
-            'SELECT COUNT(*) FROM board_columns WHERE project_id = :id',
-            ['id' => (string) $project->id],
-        );
+        $card = $this->create($this->column($this->project, 'in-progress'));
+        self::assertSame('in-progress', $this->stored($card)['status']);
+
+        $this->move($card, 'done');
+
+        self::assertSame(['slug' => 'done', 'status' => 'done'], $this->stored($card));
     }
 
-    private function create(CardStatus $status, ?Project $project = null): Card
+    public function test_a_move_between_two_terminal_columns_keeps_the_first_completion(): void
+    {
+        $this->em->persist(new BoardColumn(project: $this->project, label: 'Won’t do', slug: 'wont-do', position: 4, terminal: true));
+        $this->em->flush();
+        $card = $this->create(null);
+
+        $this->move($card, 'done');
+        $completedAt = $card->completedAt;
+        self::assertNotNull($completedAt);
+        $this->move($card, 'wont-do');
+        self::assertSame($completedAt, $card->completedAt);
+
+        $this->move($card, 'next');
+        self::assertNull($card->completedAt);
+    }
+
+    public function test_a_column_of_another_board_is_refused(): void
+    {
+        $other = $this->board($this->project->owner);
+        $card = $this->create(null);
+
+        $this->expectException(\LogicException::class);
+        $this->move($card, 'next', $other);
+    }
+
+    private function board(User $owner): Project
+    {
+        $project = new Project($owner, 'board-'.uniqid());
+        $this->em->persist($project);
+        $this->seedColumns($project);
+        $this->em->flush();
+
+        return $project;
+    }
+
+    private function create(?BoardColumn $column): Card
     {
         $handler = self::getContainer()->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $handler);
 
         return $handler(new CreateCardCommand(
-            project: $project ?? $this->project,
+            project: $this->project,
             title: 'Ship the columns',
             body: 'Body',
             type: CardType::Feature,
             priority: CardPriority::Medium,
-            status: $status,
+            column: $column,
         ));
     }
 
-    /** Reads the raw row, so the identity map cannot answer with what the handler assigned. */
-    private function storedColumnSlug(Card $card): ?string
+    private function move(Card $card, string $slug, ?Project $board = null): void
     {
-        $slug = $this->em->getConnection()->fetchOne(
-            'SELECT k.slug FROM board_cards c LEFT JOIN board_columns k ON k.id = c.column_id WHERE c.id = :id',
+        $handler = self::getContainer()->get(MoveCardHandler::class);
+        self::assertInstanceOf(MoveCardHandler::class, $handler);
+
+        $handler(new MoveCardCommand($card, CardReporter::Human, $this->column($board ?? $this->project, $slug), CardPriority::Medium));
+    }
+
+    /**
+     * Reads the raw row, so the identity map cannot answer with what the handler assigned.
+     *
+     * @return array{slug: string, status: string}
+     */
+    private function stored(Card $card): array
+    {
+        $row = $this->em->getConnection()->fetchAssociative(
+            'SELECT k.slug, c.status FROM board_cards c JOIN board_columns k ON k.id = c.column_id WHERE c.id = :id',
             ['id' => (string) $card->id],
         );
-        self::assertNotFalse($slug);
+        self::assertIsArray($row);
 
-        return null === $slug ? null : (string) $slug;
+        return ['slug' => (string) $row['slug'], 'status' => (string) $row['status']];
     }
 }

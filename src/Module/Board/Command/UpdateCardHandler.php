@@ -61,7 +61,7 @@ final readonly class UpdateCardHandler
             ? null
             : $this->documentLinks->resolve($card->project, array_values($command->documentIds));
 
-        // One write for the whole update, and one lock. A status or priority
+        // One write for the whole update, and one lock. A column or priority
         // change is a move, which renumbers a group and decides the completion
         // timestamp, so this handler owns the transaction the move runs in.
         // Flushing the fields first would commit half an update whose move
@@ -74,12 +74,12 @@ final readonly class UpdateCardHandler
             // makes read the group, so both need the group as it is now.
             $this->cards->refreshGroup($card);
 
-            $status = $command->status ?? $card->status;
+            $column = $command->column ?? $card->column;
             $priority = $command->priority ?? $card->priority;
             // A rank is a move of its own: a card dropped elsewhere in the
-            // column it already sits in changes neither status nor priority.
-            $move = $status !== $card->status || $priority !== $card->priority || null !== $command->position
-                ? $this->mover->move($card, $status, $priority, $command->position)
+            // column it already sits in changes neither column nor priority.
+            $move = $column !== $card->column || $priority !== $card->priority || null !== $command->position
+                ? $this->mover->move($card, $column, $priority, $command->position)
                 : null;
 
             // After the move, which must read the card as the database holds
@@ -152,7 +152,7 @@ final readonly class UpdateCardHandler
         }
 
         // `moved` names the paired board.card_moved record, which holds the
-        // status and priority this one does not.
+        // column and priority this one does not.
         $this->auditor->record(
             'board.card_updated',
             AuditOutcome::Success,

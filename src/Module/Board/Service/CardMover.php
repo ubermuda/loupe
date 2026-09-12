@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Service;
 
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
-use App\Module\Board\Entity\CardStatus;
-use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 
 /**
@@ -15,7 +14,7 @@ use App\Module\Board\Repository\CardRepository;
  *
  * Ranks are plain integers renumbered per group rather than fractional, so a
  * group's order is readable in the table and an ORDER BY needs no tie-break.
- * A group holds the cards of one (project, status, priority) triple, and every
+ * A group holds the cards of one (column, priority) pair, and every
  * group a move touches comes out numbered from 0 with no gaps.
  *
  * The caller owns the transaction, the project lock and the flush. A move reads
@@ -31,24 +30,26 @@ final readonly class CardMover
 
     public function __construct(
         private CardRepository $cards,
-        private BoardColumnRepository $boardColumns,
         private CardGroupOrder $groupOrder,
     ) {
     }
 
-    public function move(Card $card, CardStatus $status, CardPriority $priority, ?int $position = null): CardMove
+    public function move(Card $card, BoardColumn $column, CardPriority $priority, ?int $position = null): CardMove
     {
-        $move = new CardMove($card->status, $card->priority);
-        $staysInGroup = $move->fromStatus === $status && $move->fromPriority === $priority;
+        if ($column->project !== $card->project) {
+            throw new \LogicException('A card moves only to a column of its own board.');
+        }
 
-        $card->status = $status;
-        $card->column = $this->boardColumns->findOneByProjectAndSlug($card->project, $status->value);
+        $move = new CardMove($card->column, $card->priority);
+        $staysInGroup = $move->fromColumn === $column && $move->fromPriority === $priority;
+
+        $card->column = $column;
         $card->priority = $priority;
 
-        if (CardStatus::Done === $status) {
-            // Done sorts by completion and maintains no position, so the rank
-            // is parked at 0 and the card keeps the moment it was first
-            // finished.
+        if ($column->terminal) {
+            // A terminal column sorts by completion and maintains no position,
+            // so the rank is parked at 0. A move between two terminal columns
+            // keeps the moment the card was first finished.
             $card->completedAt ??= new \DateTimeImmutable();
             $card->position = 0;
         } else {
@@ -60,12 +61,12 @@ final readonly class CardMover
                 // nextPosition() is what stops the old rank becoming a gap.
                 $this->groupOrder->place($card, $position ?? self::END_OF_GROUP);
             } else {
-                $card->position = $this->cards->nextPosition($card->project, $status, $priority);
+                $card->position = $this->cards->nextPosition($column, $priority);
             }
         }
 
         if (!$staysInGroup) {
-            $this->groupOrder->compact($card->project, $move->fromStatus, $move->fromPriority, $card);
+            $this->groupOrder->compact($move->fromColumn, $move->fromPriority, $card);
         }
 
         $card->updatedAt = new \DateTimeImmutable();

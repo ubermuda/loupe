@@ -10,7 +10,6 @@ use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Form\CreateCardFormType;
 use App\Module\Board\Form\CreateCardRequest;
@@ -41,7 +40,7 @@ final class CreateCardController extends AppController
         $this->board->requireEnabled();
 
         $data = new CreateCardRequest();
-        $form = $this->createForm(CreateCardFormType::class, $data);
+        $form = $this->createForm(CreateCardFormType::class, $data, ['project' => $project]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -59,7 +58,7 @@ final class CreateCardController extends AppController
                     body: $data->body ?? '',
                     type: $data->type ?? CardType::Feature,
                     priority: $data->priority ?? CardPriority::Medium,
-                    status: $data->status ?? CardStatus::Backlog,
+                    column: $data->column,
                     // A person filled this form in, whatever an agent may later do to the card.
                     reporter: CardReporter::Human,
                     pullRequestUrls: CreateCardRequest::toUrlList($data->pullRequestUrls),

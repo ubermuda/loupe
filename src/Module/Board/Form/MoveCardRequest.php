@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Form;
 
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\CardPriority;
-use App\Module\Board\Entity\CardStatus;
 use Symfony\Component\Validator\Constraints as Assert;
 
 class MoveCardRequest
 {
     public function __construct(
         #[Assert\NotNull]
-        public ?CardStatus $status = null,
+        public ?BoardColumn $column = null,
 
         #[Assert\NotNull]
         public ?CardPriority $priority = null,

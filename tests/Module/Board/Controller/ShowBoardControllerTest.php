@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Controller;
 
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\Forge;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
@@ -29,8 +29,8 @@ final class ShowBoardControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'board-columns@example.com');
         $project = $this->project($em, $owner);
-        $this->card($em, $project, 'Backlog high', CardStatus::Backlog, CardPriority::High);
-        $this->card($em, $project, 'Next low', CardStatus::Next, CardPriority::Low);
+        $this->card($em, $project, 'Backlog high', 'backlog', CardPriority::High);
+        $this->card($em, $project, 'Next low', 'next', CardPriority::Low);
         $em->clear();
 
         $client->loginUser($owner);
@@ -46,6 +46,34 @@ final class ShowBoardControllerTest extends WebTestCase
             static fn (Crawler $node): string => trim($node->text()),
         );
         self::assertSame(['1', '1', '0', '0'], $counts);
+    }
+
+    public function test_the_board_renders_the_columns_its_project_holds(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-own-columns@example.com');
+        $project = $this->project($em, $owner);
+        $this->column($project, 'backlog')->label = 'Ideas';
+        $em->persist(new BoardColumn(project: $project, label: 'Won’t do', slug: 'wont-do', position: 4, terminal: true));
+        $em->flush();
+        $this->card($em, $project, 'Dropped', 'wont-do');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+
+        self::assertResponseIsSuccessful();
+        $titles = $crawler->filter('.lp-board__column-title')->each(
+            static fn (Crawler $node): string => trim($node->text()),
+        );
+        // A literal label passes through the translator unchanged.
+        self::assertSame(['Ideas', 'Next', 'In progress', 'Done', 'Won’t do'], $titles);
+        $wontDo = $crawler->filter('.lp-board__column')->last();
+        self::assertStringContainsString('Dropped', $wontDo->text());
+        self::assertCount(1, $wontDo->filter('.lp-board__column-link'));
     }
 
     public function test_a_card_face_carries_the_move_fields_and_no_move_control(): void
@@ -70,7 +98,7 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertSame('pointerdown->board-drag#press', $face->attr('data-action'));
         self::assertCount(1, $crawler->filter('#board [data-board-drag-target="message"]'));
         self::assertCount(1, $face->filter('form[hidden][data-board-drag-target="moveForm"]'));
-        self::assertCount(1, $face->filter('select[name$="[status]"]'));
+        self::assertCount(1, $face->filter('select[name$="[column]"]'));
         self::assertCount(0, $face->filter('details'));
         self::assertCount(0, $face->filter('button'));
     }
@@ -84,7 +112,7 @@ final class ShowBoardControllerTest extends WebTestCase
         $owner = $this->user($em, 'board-indicator@example.com');
         $project = $this->project($em, $owner);
         $plain = $this->card($em, $project, 'No links');
-        $linked = $this->card($em, $project, 'Has links', CardStatus::Backlog, CardPriority::High);
+        $linked = $this->card($em, $project, 'Has links', 'backlog', CardPriority::High);
         $linked->replacePullRequests(new CardPullRequest(
             card: $linked,
             url: 'https://github.com/loupe/loupe/pull/7',
@@ -112,8 +140,8 @@ final class ShowBoardControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'board-done@example.com');
         $project = $this->project($em, $owner);
-        $this->card($em, $project, 'Finished today', CardStatus::Done);
-        $old = $this->card($em, $project, 'Finished long ago', CardStatus::Done);
+        $this->card($em, $project, 'Finished today', 'done');
+        $old = $this->card($em, $project, 'Finished long ago', 'done');
         $old->completedAt = new \DateTimeImmutable('-30 days');
         $em->flush();
         $em->clear();

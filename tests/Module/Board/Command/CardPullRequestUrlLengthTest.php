@@ -14,10 +14,10 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Mcp\BoardToolErrorMessages;
 use App\Module\Project\Entity\Project;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -29,6 +29,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
  */
 final class CardPullRequestUrlLengthTest extends KernelTestCase
 {
+    use BoardColumnFixtures;
+
     private EntityManagerInterface $em;
     private CreateCardHandler $createCard;
     private UpdateCardHandler $updateCard;
@@ -54,6 +56,7 @@ final class CardPullRequestUrlLengthTest extends KernelTestCase
         $this->em->persist($owner);
         $this->project = new Project($owner, 'board-'.uniqid());
         $this->em->persist($this->project);
+        $this->seedColumns($this->project);
         $this->em->flush();
     }
 
@@ -144,7 +147,6 @@ final class CardPullRequestUrlLengthTest extends KernelTestCase
             body: 'Body',
             type: CardType::Feature,
             priority: CardPriority::Medium,
-            status: CardStatus::Backlog,
             pullRequestUrls: $pullRequestUrls,
         ));
     }

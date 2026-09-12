@@ -4572,13 +4572,9 @@
                 <source>board.done.history_link</source>
                 <target>{0}No card is finished yet|{1}See the one finished card|]1,Inf[ See all %count% finished cards</target>
             </trans-unit>
-            <trans-unit id="board.done.page.title">
-                <source>board.done.page.title</source>
-                <target>Finished work</target>
-            </trans-unit>
             <trans-unit id="board.done.page.description">
                 <source>board.done.page.description</source>
-                <target>Every card the project has finished, newest first.</target>
+                <target>Every card this column holds, newest finished first.</target>
             </trans-unit>
             <trans-unit id="board.done.meta.total">
                 <source>board.done.meta.total</source>
@@ -4594,7 +4590,7 @@
             </trans-unit>
             <trans-unit id="board.done.empty.body">
                 <source>board.done.empty.body</source>
-                <target>A card lands here when it reaches the Done column.</target>
+                <target>A card lands here when it reaches this column.</target>
             </trans-unit>
             <trans-unit id="board.done.empty.action">
                 <source>board.done.empty.action</source>
@@ -4662,25 +4658,9 @@
                 <source>board.form.create_card_form.priority.choice.low</source>
                 <target>Low</target>
             </trans-unit>
-            <trans-unit id="board.form.create_card_form.status.label">
-                <source>board.form.create_card_form.status.label</source>
+            <trans-unit id="board.form.create_card_form.column.label">
+                <source>board.form.create_card_form.column.label</source>
                 <target>Column</target>
-            </trans-unit>
-            <trans-unit id="board.form.create_card_form.status.choice.backlog">
-                <source>board.form.create_card_form.status.choice.backlog</source>
-                <target>Backlog</target>
-            </trans-unit>
-            <trans-unit id="board.form.create_card_form.status.choice.next">
-                <source>board.form.create_card_form.status.choice.next</source>
-                <target>Next</target>
-            </trans-unit>
-            <trans-unit id="board.form.create_card_form.status.choice.in-progress">
-                <source>board.form.create_card_form.status.choice.in-progress</source>
-                <target>In progress</target>
-            </trans-unit>
-            <trans-unit id="board.form.create_card_form.status.choice.done">
-                <source>board.form.create_card_form.status.choice.done</source>
-                <target>Done</target>
             </trans-unit>
             <trans-unit id="board.form.create_card_form.pull_request_urls.label">
                 <source>board.form.create_card_form.pull_request_urls.label</source>
@@ -4696,25 +4676,9 @@
             </trans-unit>
 
             <!-- Move form -->
-            <trans-unit id="board.form.move_card_form.status.label">
-                <source>board.form.move_card_form.status.label</source>
+            <trans-unit id="board.form.move_card_form.column.label">
+                <source>board.form.move_card_form.column.label</source>
                 <target>Column</target>
-            </trans-unit>
-            <trans-unit id="board.form.move_card_form.status.choice.backlog">
-                <source>board.form.move_card_form.status.choice.backlog</source>
-                <target>Backlog</target>
-            </trans-unit>
-            <trans-unit id="board.form.move_card_form.status.choice.next">
-                <source>board.form.move_card_form.status.choice.next</source>
-                <target>Next</target>
-            </trans-unit>
-            <trans-unit id="board.form.move_card_form.status.choice.in-progress">
-                <source>board.form.move_card_form.status.choice.in-progress</source>
-                <target>In progress</target>
-            </trans-unit>
-            <trans-unit id="board.form.move_card_form.status.choice.done">
-                <source>board.form.move_card_form.status.choice.done</source>
-                <target>Done</target>
             </trans-unit>
             <trans-unit id="board.form.move_card_form.priority.label">
                 <source>board.form.move_card_form.priority.label</source>

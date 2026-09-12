@@ -18,13 +18,13 @@ final readonly class ListDoneCardsHandler
 
     public function __invoke(ListDoneCardsCommand $command): ListDoneCardsView
     {
-        $total = $this->cards->countDone($command->project);
+        $total = $this->cards->countInColumn($command->column);
         $totalPages = max(1, (int) ceil($total / self::PER_PAGE));
         $clampedPage = PageList::clampedPage($command->page, $total, self::PER_PAGE);
         $page = $clampedPage ?? $command->page;
 
         return new ListDoneCardsView(
-            items: $this->cards->findDonePage($command->project, ($page - 1) * self::PER_PAGE, self::PER_PAGE),
+            items: $this->cards->findCompletedPage($command->column, ($page - 1) * self::PER_PAGE, self::PER_PAGE),
             total: $total,
             totalPages: $totalPages,
             pageList: PageList::build($page, $totalPages),

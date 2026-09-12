@@ -60,8 +60,7 @@ final class DeleteBoardDataOnProjectDeletingTest extends KernelTestCase
         self::assertInstanceOf(BoardColumnSeeder::class, $seeder);
         [$backlog] = $seeder->seed($project);
 
-        $card = new Card(project: $project, title: 'Ship it', body: 'Body', number: 1);
-        $card->column = $backlog;
+        $card = new Card(project: $project, column: $backlog, title: 'Ship it', body: 'Body', number: 1);
         if ('doomed' === $name) {
             $card->pullRequests->add(new CardPullRequest($card, 'https://github.com/ubermuda/loupe/pull/1', Forge::GitHub, 'ubermuda/loupe', 1));
         }

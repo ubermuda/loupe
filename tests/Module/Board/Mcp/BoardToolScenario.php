@@ -7,6 +7,7 @@ namespace App\Tests\Module\Board\Mcp;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 /**
@@ -17,6 +18,8 @@ use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
  */
 trait BoardToolScenario
 {
+    use BoardColumnFixtures;
+
     /** The board ships off, so every test that calls a tool has to switch it on. */
     private function enableBoard(): void
     {
@@ -33,6 +36,7 @@ trait BoardToolScenario
 
         $project = new Project($owner, 'board-'.uniqid());
         $this->em->persist($project);
+        $this->seedColumns($project);
         $this->em->flush();
 
         return $project;

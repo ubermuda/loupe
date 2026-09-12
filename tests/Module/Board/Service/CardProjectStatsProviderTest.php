@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Service;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Service\CardProjectStatsProvider;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\Mcp\BoardToolScenario;
@@ -47,11 +46,11 @@ final class CardProjectStatsProviderTest extends KernelTestCase
     {
         $this->enableBoard();
         $finished = $this->makeProject('stats-done');
-        $this->em->persist(new Card(project: $finished, title: 'Shipped', body: '', number: 1, status: CardStatus::Done));
+        $this->em->persist(new Card(project: $finished, column: $this->column($finished, 'done'), title: 'Shipped', body: '', number: 1));
         // A sibling with one open card, so the absence below cannot pass on a
         // provider that reported nothing at all.
         $busy = $this->makeProject('stats-still-going');
-        $this->em->persist(new Card(project: $busy, title: 'Underway', body: '', number: 1));
+        $this->em->persist(new Card(project: $busy, column: $this->column($busy, 'backlog'), title: 'Underway', body: '', number: 1));
         $this->em->flush();
 
         $stats = $this->provider->statsFor([$finished, $busy]);
@@ -65,8 +64,8 @@ final class CardProjectStatsProviderTest extends KernelTestCase
         $this->enableBoard();
         $busy = $this->makeProject('stats-busy');
         $quiet = $this->makeProject('stats-quiet');
-        $this->em->persist(new Card(project: $busy, title: 'One', body: '', number: 1));
-        $this->em->persist(new Card(project: $busy, title: 'Two', body: '', number: 2));
+        $this->em->persist(new Card(project: $busy, column: $this->column($busy, 'backlog'), title: 'One', body: '', number: 1));
+        $this->em->persist(new Card(project: $busy, column: $this->column($busy, 'backlog'), title: 'Two', body: '', number: 2));
         $this->em->flush();
 
         $stats = $this->provider->statsFor([$busy, $quiet]);
@@ -88,8 +87,8 @@ final class CardProjectStatsProviderTest extends KernelTestCase
 
     private function seedOnePerStatus(Project $project): void
     {
-        foreach (CardStatus::cases() as $index => $status) {
-            $this->em->persist(new Card(project: $project, title: $status->value, body: '', number: $index + 1, status: $status));
+        foreach (['backlog', 'next', 'in-progress', 'done'] as $index => $slug) {
+            $this->em->persist(new Card(project: $project, column: $this->column($project, $slug), title: $slug, body: '', number: $index + 1));
         }
         $this->em->flush();
     }
