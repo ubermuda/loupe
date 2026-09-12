@@ -10,7 +10,7 @@ use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\ShowCardCommand;
 use App\Module\Board\Command\ShowCardHandler;
-use App\Module\Board\Entity\CardOrigin;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Install\BoardInstallFlags;
 use Mcp\Capability\Attribute\McpTool;
@@ -83,7 +83,7 @@ final readonly class CardCreateTool implements FlagGatedToolInterface
                 status: $this->subjects->optionalStatus($status) ?? CardStatus::Backlog,
                 // The MCP request authenticates as the project owner, so the
                 // tool cannot tell an agent's card from one a person dictated.
-                reporter: $this->subjects->optionalClaimedReporter($reporter) ?? CardOrigin::Agent,
+                reporter: $this->subjects->optionalClaimedReporter($reporter) ?? CardReporter::Agent,
                 pullRequestUrls: array_values($pullRequestUrls),
                 documentIds: array_values($documentIds),
             ));

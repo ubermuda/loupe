@@ -15,6 +15,7 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
@@ -95,7 +96,7 @@ final class CardPostLockStateTest extends KernelTestCase
         $behind = $this->card('Behind the mover', CardStatus::Next);
         $this->putInTheMiddleOfNext($mover, $behind);
 
-        ($this->moveCard)(new MoveCardCommand($mover, CardStatus::InProgress, CardPriority::Medium));
+        ($this->moveCard)(new MoveCardCommand($mover, CardReporter::Human, CardStatus::InProgress, CardPriority::Medium));
 
         self::assertSame('next', $this->audit->record('board.card_moved')->context['fromStatus']);
         self::assertSame([0, 1], [$this->storedPosition($next), $this->storedPosition($behind)]);
@@ -127,6 +128,7 @@ final class CardPostLockStateTest extends KernelTestCase
 
         ($this->updateCard)(new UpdateCardCommand(
             card: $mover,
+            actor: CardReporter::Agent,
             title: 'Renamed',
             body: 'Rewritten',
             status: CardStatus::InProgress,
@@ -148,7 +150,7 @@ final class CardPostLockStateTest extends KernelTestCase
         $behind = $this->card('Behind the mover', CardStatus::Next);
         $this->putInTheMiddleOfNext($mover, $behind);
 
-        ($this->updateCard)(new UpdateCardCommand(card: $mover, status: CardStatus::Next));
+        ($this->updateCard)(new UpdateCardCommand(card: $mover, actor: CardReporter::Agent, status: CardStatus::Next));
 
         // Nothing changed, so nothing is recorded: not the move the re-read
         // ruled out, and not an update whose every flag is false.

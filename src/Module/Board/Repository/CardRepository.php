@@ -7,8 +7,8 @@ namespace App\Module\Board\Repository;
 use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
@@ -295,7 +295,7 @@ class CardRepository extends ServiceEntityRepository
      *
      * @return list<Card>
      */
-    public function findForBoard(Project $project, ?CardStatus $status = null, ?CardType $type = null, ?CardPriority $priority = null, ?CardOrigin $reporter = null): array
+    public function findForBoard(Project $project, ?CardStatus $status = null, ?CardType $type = null, ?CardPriority $priority = null, ?CardReporter $reporter = null): array
     {
         $cards = [];
         foreach (null === $status ? CardStatus::cases() : [$status] as $column) {
@@ -364,7 +364,7 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /** @return list<Card> */
-    private function findColumn(Project $project, CardStatus $status, ?CardType $type, ?CardPriority $priority, ?CardOrigin $reporter): array
+    private function findColumn(Project $project, CardStatus $status, ?CardType $type, ?CardPriority $priority, ?CardReporter $reporter): array
     {
         $qb = $this->createQueryBuilder('c')
             ->andWhere('c.project = :project')
