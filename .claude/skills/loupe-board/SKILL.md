@@ -184,6 +184,17 @@ whole set. Read the card with `card_get` first. Add your lines to the Markdown
 it returns. Send the whole result. A two-line handover note sent on its own
 erases the card.
 
+### A move to `next` can start a worker
+
+Every card move writes an outbox event. A `loupe bridge` running against the
+project reads it, and acts on a move to `next` alone. The bridge starts a Claude
+Code session that reads the card, moves it to `in-progress`, writes an
+implementation plan into the body, and stops. No bridge running means no session
+starts.
+
+Move a card to `next` when you want that to happen. Leave work that waits in
+`backlog`.
+
 ## Link a pull request to a card
 
 Three steps carry the link, and you do all three by hand. Nothing automates any
@@ -236,6 +247,7 @@ An agent or a person moves the card to `done`.
 | Passing `reporter: reviewer` to `card_create` | Only the site-review widget writes that value. Filtering on it is fine. |
 | Expecting a merged pull request to move its card | The app never contacts the forge. Move the card yourself. |
 | Linking a pull request only when it is ready for review | A draft has a URL. Link it when you open it. |
+| Using `next` as a holding column | A running `loupe bridge` starts a worker for a card moved to `next`. |
 | Leaving the card in `backlog` while you work on it | The board then shows no work in progress. Move it when you start. |
 | Sending a short `body` to add a handover note | `body` replaces the whole body. Read the card with `card_get` first. |
 | Writing "Task 3" or "phase 2" in a body | Those names die with the session. Name the class, the route or the file. |
