@@ -34,14 +34,24 @@ final class BoardColumnChoiceType extends AbstractType
         $resolver->setAllowedTypes('project', Project::class);
         $resolver->setDefaults([
             'class' => BoardColumn::class,
-            'query_builder' => static fn (Options $options): \Closure => static fn (BoardColumnRepository $columns): QueryBuilder => $columns->createQueryBuilder('k')
-                ->andWhere('k.project = :project')
-                ->setParameter('project', $options['project'])
-                ->orderBy('k.position', 'ASC'),
+            // A column that is not a choice, such as the one being deleted.
+            'exclude' => null,
+            'query_builder' => static fn (Options $options): \Closure => static function (BoardColumnRepository $columns) use ($options): QueryBuilder {
+                $query = $columns->createQueryBuilder('k')
+                    ->andWhere('k.project = :project')
+                    ->setParameter('project', $options['project'])
+                    ->orderBy('k.position', 'ASC');
+                if (null !== $options['exclude']) {
+                    $query->andWhere('k != :exclude')->setParameter('exclude', $options['exclude']);
+                }
+
+                return $query;
+            },
             'choice_label' => static fn (BoardColumn $column): string => $column->label,
             // A seeded label is a translation key, and EntityType translates no
             // choice unless a domain is named.
             'choice_translation_domain' => 'messages',
         ]);
+        $resolver->setAllowedTypes('exclude', ['null', BoardColumn::class]);
     }
 }

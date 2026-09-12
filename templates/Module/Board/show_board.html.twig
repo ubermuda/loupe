@@ -21,6 +21,6 @@
         </a>
     </div>
 
-    {% include '@Board/_board_columns.html.twig' with {board: board} only %}
+    {% include '@Board/_board_columns.html.twig' with {board: board, addColumnForm: addColumnForm, renameColumnForm: renameColumnForm} only %}
 </div>
 {% endblock %}

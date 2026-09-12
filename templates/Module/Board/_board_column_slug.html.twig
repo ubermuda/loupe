@@ -1,0 +1,10 @@
+{# The slug a rename writes. The rename dialog renders it with the column's
+   current slug, and reloads the frame from the preview endpoint as the label
+   changes. Props: column (BoardColumn), slug (string), refusal (?string). #}
+<turbo-frame id="board-column-slug-{{ column.id }}" class="lp-board__slug" data-board-column-slug-target="frame">
+    {% if refusal %}
+    <p class="lp-board__slug-refusal">{{ refusal|trans }}</p>
+    {% else %}
+    <p class="lp-form-hint">{{ 'board.column.rename.slug'|trans }} <code class="lp-board__slug-value">{{ slug }}</code></p>
+    {% endif %}
+</turbo-frame>

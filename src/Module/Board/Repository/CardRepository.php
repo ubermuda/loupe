@@ -271,6 +271,40 @@ class CardRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
     }
 
+    /**
+     * Every card of one column, in the order the board shows them: by priority
+     * and rank, and by completion where the column keeps no rank.
+     *
+     * @return list<Card>
+     */
+    public function findInColumn(BoardColumn $column): array
+    {
+        return array_values($this->createQueryBuilder('c')
+            ->andWhere('c.column = :column')
+            ->setParameter('column', $column)
+            ->orderBy('c.priority', 'ASC')
+            ->addOrderBy('c.position', 'ASC')
+            ->addOrderBy('c.completedAt', 'ASC')
+            ->addOrderBy('c.createdAt', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
+
+    /** Stamps every card of a column that turned terminal and was not finished yet. */
+    public function stampCompletion(BoardColumn $column, \DateTimeImmutable $now): void
+    {
+        $this->createQueryBuilder('c')
+            ->update()
+            ->set('c.completedAt', ':now')
+            ->set('c.position', 0)
+            ->andWhere('c.column = :column')
+            ->andWhere('c.completedAt IS NULL')
+            ->setParameter('now', $now)
+            ->setParameter('column', $column)
+            ->getQuery()
+            ->execute();
+    }
+
     /** The rank a card appended to the end of that group takes. */
     public function nextPosition(BoardColumn $column, CardPriority $priority): int
     {
