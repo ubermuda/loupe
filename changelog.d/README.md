@@ -21,6 +21,9 @@ Tag each line with one of the six tags Keep a Changelog defines: `Added`,
 per line, and leave the reasoning to the pull request body. One pull request
 that ships six features writes six lines in one fragment.
 
+A fragment holds entries and nothing else. Every line either opens an entry, or
+is indented and continues the entry above it.
+
 A pull request whose whole diff is `docs/CHANGELOG.md` and this directory earns
 no fragment. Work that never surfaces in the product or the development
 workflow earns none either.

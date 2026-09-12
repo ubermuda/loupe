@@ -88,10 +88,10 @@ foreach ($names as $name) {
         continue;
     }
 
-    // An indented line continues the entry above it, so only a line that opens
-    // a bullet has to read as a whole entry.
+    // An indented line continues the entry above it. Every other line has to
+    // read as a whole entry, or the fold writes stray prose into the changelog.
     foreach (explode("\n", $text) as $line) {
-        if (!str_starts_with($line, '- ')) {
+        if ('' === trim($line) || str_starts_with($line, ' ') || str_starts_with($line, "\t")) {
             continue;
         }
 
@@ -151,8 +151,22 @@ if (false === file_put_contents($changelogPath, $prefix.implode("\n\n", $fragmen
     exit(1);
 }
 
+$undeleted = [];
+
 foreach (array_keys($fragments) as $number) {
-    unlink(sprintf('%s/%d.md', $fragmentDir, $number));
+    $path = sprintf('%s/%d.md', $fragmentDir, $number);
+
+    if (!unlink($path)) {
+        $undeleted[] = $path;
+    }
+}
+
+if ([] !== $undeleted) {
+    fwrite(\STDERR, sprintf(
+        "docs/CHANGELOG.md is written. These fragments are still on disk, and a later run reads them as duplicates. Delete them:\n%s\n",
+        implode("\n", $undeleted),
+    ));
+    exit(1);
 }
 
 printf(

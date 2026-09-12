@@ -139,6 +139,16 @@ final class ChangelogScriptTest extends TestCase
         self::assertSame(1, $this->runScript('--check')['status']);
     }
 
+    public function test_it_refuses_prose_that_is_not_an_indented_continuation(): void
+    {
+        $this->writeFragment(429, "- (#429) — **Added:** a first entry.\n\nA paragraph at the left margin.");
+
+        $result = $this->runScript('--check');
+
+        self::assertSame(1, $result['status']);
+        self::assertStringContainsString('A paragraph at the left margin.', $result['output']);
+    }
+
     public function test_it_refuses_a_fragment_that_does_not_start_with_an_entry(): void
     {
         $this->writeFragment(429, 'Added a thing.');
