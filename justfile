@@ -118,6 +118,7 @@ worktree-tailwind:
 
 lint:
     vendor/bin/parallel-lint --exclude vendor --exclude var --exclude node_modules --exclude .claude .
+    php bin/changelog.php --check
     npx prettier --check --log-level warn assets/ e2e/ public/site-review/ tests/js/
     npx eslint public/site-review/widget.js assets/controllers/
     cd e2e && npx eslint .
@@ -234,6 +235,11 @@ secrets-scan:
 # Check-only gate: lint, style dry-run, phpstan, arkitect, gamache, advisories,
 # PHPUnit, Vitest, Go CLI.
 ci: lint cs-check phpstan arkitect gamache audit phpunit js-test cli-test
+
+# Fold changelog.d/<pr>.md into docs/CHANGELOG.md and delete the fragments.
+# Run it on main after a merge, beside `just cs`. See changelog.d/README.md.
+changelog:
+    php bin/changelog.php
 
 # One argument per word: `set positional-arguments` forwards a quoted string to
 # compose-exec.sh whole, so Docker looks for a binary with a space in its name.
