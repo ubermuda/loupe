@@ -96,7 +96,7 @@ final class CardPostLockStateTest extends KernelTestCase
         $behind = $this->card('Behind the mover', CardStatus::Next);
         $this->putInTheMiddleOfNext($mover, $behind);
 
-        ($this->moveCard)(new MoveCardCommand($mover, CardStatus::InProgress, CardPriority::Medium));
+        ($this->moveCard)(new MoveCardCommand($mover, CardOrigin::Human, CardStatus::InProgress, CardPriority::Medium));
 
         self::assertSame('next', $this->audit->record('board.card_moved')->context['fromStatus']);
         self::assertSame([0, 1], [$this->storedPosition($next), $this->storedPosition($behind)]);

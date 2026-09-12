@@ -11,14 +11,15 @@ use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 
 /**
- * Every field is optional and null means "leave it alone".
+ * $card and $actor are required. $actor is who makes this change, and a move
+ * publishes it to the outbox. Every other field is optional, and null means
+ * "leave it alone".
  *
  * $pullRequestUrls and $documentIds are the places where null and an empty
  * array differ: null keeps the links the card has, and an empty array removes
  * them all.
  *
  * $reporter is absent on purpose. It records who first raised the card.
- * $actor is who makes this change, and a move publishes it to the outbox.
  */
 final readonly class UpdateCardCommand
 {

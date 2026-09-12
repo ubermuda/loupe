@@ -9,7 +9,7 @@ use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Form\MoveCardFormType;
-use App\Outbox\Repository\OutboxEventRepository;
+use App\Tests\Module\Board\CardMovedOutbox;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -118,12 +118,7 @@ final class MoveCardControllerTest extends WebTestCase
         $this->move($client, $card, CardStatus::Next, CardPriority::Medium, null);
 
         self::assertResponseRedirects();
-        $outbox = static::getContainer()->get(OutboxEventRepository::class);
-        self::assertInstanceOf(OutboxEventRepository::class, $outbox);
-        $rows = $outbox->findBy(['project' => $project->id, 'type' => 'board.card_moved']);
-        self::assertCount(1, $rows);
-        $payload = json_decode($rows[0]->payload, true, 512, \JSON_THROW_ON_ERROR);
-        self::assertIsArray($payload);
+        $payload = CardMovedOutbox::onlyPayload(static::getContainer(), $project);
         self::assertSame(CardOrigin::Human->value, $payload['actor'] ?? null);
     }
 

@@ -8,7 +8,7 @@ use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardPayload;
 use App\Module\Board\Mcp\CardUpdateTool;
-use App\Outbox\Repository\OutboxEventRepository;
+use App\Tests\Module\Board\CardMovedOutbox;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
@@ -127,16 +127,14 @@ final class CardUpdateToolTest extends KernelTestCase
 
     public function test_a_move_through_the_tool_is_published_as_an_agent_action(): void
     {
-        $created = $this->card('card-update-actor');
+        $this->enableBoard();
+        $project = $this->makeProject('card-update-actor');
+        $this->actAsMcpTokenBoundTo($project);
+        $created = ($this->createTool)('Ship it', 'Body', 'feature', 'high');
 
         ($this->tool)($created['cardId'], status: 'next');
 
-        $outbox = self::getContainer()->get(OutboxEventRepository::class);
-        self::assertInstanceOf(OutboxEventRepository::class, $outbox);
-        $rows = $outbox->findBy(['type' => 'board.card_moved']);
-        self::assertCount(1, $rows);
-        $payload = json_decode($rows[0]->payload, true, 512, \JSON_THROW_ON_ERROR);
-        self::assertIsArray($payload);
+        $payload = CardMovedOutbox::onlyPayload(self::getContainer(), $project);
         self::assertSame($created['cardId'], $payload['subject']['id'] ?? null);
         self::assertSame(CardOrigin::Agent->value, $payload['actor'] ?? null);
     }

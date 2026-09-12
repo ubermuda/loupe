@@ -122,7 +122,7 @@ final class CardOrderingTest extends KernelTestCase
         $second = $this->card('Second');
         $third = $this->card('Third');
 
-        ($this->moveCard)(new MoveCardCommand($third, CardStatus::Backlog, CardPriority::Medium, 0));
+        ($this->moveCard)(new MoveCardCommand($third, CardOrigin::Human, CardStatus::Backlog, CardPriority::Medium, 0));
 
         self::assertSame(0, $third->position);
         self::assertSame(1, $first->position);
@@ -134,7 +134,7 @@ final class CardOrderingTest extends KernelTestCase
         $first = $this->card('First');
         $second = $this->card('Second');
 
-        ($this->moveCard)(new MoveCardCommand($first, CardStatus::Backlog, CardPriority::Medium, 99));
+        ($this->moveCard)(new MoveCardCommand($first, CardOrigin::Human, CardStatus::Backlog, CardPriority::Medium, 99));
 
         self::assertSame(0, $second->position);
         self::assertSame(1, $first->position);
@@ -146,7 +146,7 @@ final class CardOrderingTest extends KernelTestCase
         $mover = $this->card('Moving up');
         self::assertSame(0, $mover->position);
 
-        ($this->moveCard)(new MoveCardCommand($mover, CardStatus::Backlog, CardPriority::High));
+        ($this->moveCard)(new MoveCardCommand($mover, CardOrigin::Human, CardStatus::Backlog, CardPriority::High));
 
         self::assertSame(CardPriority::High, $mover->priority);
         self::assertSame(0, $incumbent->position);
@@ -158,7 +158,7 @@ final class CardOrderingTest extends KernelTestCase
         $incumbent = $this->card('Already next', CardPriority::Medium, CardStatus::Next);
         $mover = $this->card('Moving on');
 
-        ($this->moveCard)(new MoveCardCommand($mover, CardStatus::Next, CardPriority::Medium));
+        ($this->moveCard)(new MoveCardCommand($mover, CardOrigin::Human, CardStatus::Next, CardPriority::Medium));
 
         self::assertSame(CardStatus::Next, $mover->status);
         self::assertSame(0, $incumbent->position);
@@ -172,7 +172,7 @@ final class CardOrderingTest extends KernelTestCase
         $last = $this->card('Last');
         self::assertSame([0, 1, 2], [$first->position, $mover->position, $last->position]);
 
-        ($this->moveCard)(new MoveCardCommand($mover, CardStatus::Next, CardPriority::Medium));
+        ($this->moveCard)(new MoveCardCommand($mover, CardOrigin::Human, CardStatus::Next, CardPriority::Medium));
 
         self::assertSame(0, $first->position);
         self::assertSame(1, $last->position);
@@ -185,7 +185,7 @@ final class CardOrderingTest extends KernelTestCase
         $second = $this->card('Second');
         $third = $this->card('Third');
 
-        ($this->moveCard)(new MoveCardCommand($first, CardStatus::Backlog, CardPriority::Medium));
+        ($this->moveCard)(new MoveCardCommand($first, CardOrigin::Human, CardStatus::Backlog, CardPriority::Medium));
 
         self::assertSame(0, $second->position);
         self::assertSame(1, $third->position);
@@ -257,7 +257,7 @@ final class CardOrderingTest extends KernelTestCase
         $card = $this->card('Finish me');
         self::assertNull($card->completedAt);
 
-        ($this->moveCard)(new MoveCardCommand($card, CardStatus::Done, CardPriority::Medium));
+        ($this->moveCard)(new MoveCardCommand($card, CardOrigin::Human, CardStatus::Done, CardPriority::Medium));
 
         self::assertSame(CardStatus::Done, $card->status);
         self::assertNotNull($this->storedCompletion($card));
@@ -266,11 +266,11 @@ final class CardOrderingTest extends KernelTestCase
     public function test_a_move_inside_done_keeps_the_first_completion(): void
     {
         $card = $this->card('Finish me');
-        ($this->moveCard)(new MoveCardCommand($card, CardStatus::Done, CardPriority::Medium));
+        ($this->moveCard)(new MoveCardCommand($card, CardOrigin::Human, CardStatus::Done, CardPriority::Medium));
         $completedAt = $this->storedCompletion($card);
         self::assertNotNull($completedAt);
 
-        ($this->moveCard)(new MoveCardCommand($card, CardStatus::Done, CardPriority::High));
+        ($this->moveCard)(new MoveCardCommand($card, CardOrigin::Human, CardStatus::Done, CardPriority::High));
 
         self::assertSame($completedAt, $this->storedCompletion($card));
     }
@@ -278,12 +278,12 @@ final class CardOrderingTest extends KernelTestCase
     public function test_leaving_done_clears_the_completion(): void
     {
         $card = $this->card('Finish me');
-        ($this->moveCard)(new MoveCardCommand($card, CardStatus::Done, CardPriority::Medium));
+        ($this->moveCard)(new MoveCardCommand($card, CardOrigin::Human, CardStatus::Done, CardPriority::Medium));
         // Guard: without it the assertion below also passes on a card that was
         // never stamped in the first place.
         self::assertNotNull($card->completedAt);
 
-        ($this->moveCard)(new MoveCardCommand($card, CardStatus::InProgress, CardPriority::High));
+        ($this->moveCard)(new MoveCardCommand($card, CardOrigin::Human, CardStatus::InProgress, CardPriority::High));
 
         self::assertNull($this->storedCompletion($card));
     }

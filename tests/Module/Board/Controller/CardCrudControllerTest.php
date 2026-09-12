@@ -11,7 +11,7 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
-use App\Outbox\Repository\OutboxEventRepository;
+use App\Tests\Module\Board\CardMovedOutbox;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
@@ -116,12 +116,7 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertSame('https://github.com/loupe/loupe/pull/99', $link->url);
 
         // The status changed, so the edit is also a move with an outbox row.
-        $outbox = static::getContainer()->get(OutboxEventRepository::class);
-        self::assertInstanceOf(OutboxEventRepository::class, $outbox);
-        $rows = $outbox->findBy(['project' => $project->id, 'type' => 'board.card_moved']);
-        self::assertCount(1, $rows);
-        $payload = json_decode($rows[0]->payload, true, 512, \JSON_THROW_ON_ERROR);
-        self::assertIsArray($payload);
+        $payload = CardMovedOutbox::onlyPayload(static::getContainer(), $project);
         self::assertSame(CardOrigin::Human->value, $payload['actor'] ?? null);
     }
 

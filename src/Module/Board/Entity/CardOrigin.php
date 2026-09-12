@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Entity;
 
-/** The kind of party that first raised a card, or that caused an outbox event as its `actor`. */
+/**
+ * Who first raised the card. It records the reporter and never changes after that.
+ * The same values name the `actor` that caused an outbox event.
+ */
 enum CardOrigin: string
 {
     case Human = 'human';

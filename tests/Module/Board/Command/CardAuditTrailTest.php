@@ -108,7 +108,7 @@ final class CardAuditTrailTest extends KernelTestCase
         $card = $this->card('Movable', CardStatus::Backlog, CardPriority::Low);
         $this->audit->forget();
 
-        ($this->moveCard)(new MoveCardCommand($card, CardStatus::InProgress, CardPriority::High));
+        ($this->moveCard)(new MoveCardCommand($card, CardOrigin::Human, CardStatus::InProgress, CardPriority::High));
 
         $record = $this->audit->record('board.card_moved');
         self::assertNotNull($record->subject);
@@ -231,7 +231,7 @@ final class CardAuditTrailTest extends KernelTestCase
         $card = $this->card('Draggable', CardStatus::Backlog, CardPriority::Low);
         $this->audit->forget();
 
-        ($this->moveCard)(new MoveCardCommand($card, CardStatus::Next, CardPriority::Low, 0));
+        ($this->moveCard)(new MoveCardCommand($card, CardOrigin::Human, CardStatus::Next, CardPriority::Low, 0));
 
         self::assertSame(['board.card_moved'], $this->audit->operations());
         self::assertSame('next', $this->audit->record('board.card_moved')->context['toStatus']);
