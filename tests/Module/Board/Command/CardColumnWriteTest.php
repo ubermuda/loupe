@@ -18,7 +18,7 @@ use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
-/** Every card write sets the column row beside the status, so no new card needs a backfill. */
+/** Every card write sets the column row beside the status. */
 final class CardColumnWriteTest extends KernelTestCase
 {
     private EntityManagerInterface $em;
@@ -61,13 +61,35 @@ final class CardColumnWriteTest extends KernelTestCase
         self::assertSame('done', $this->storedColumnSlug($card));
     }
 
-    private function create(CardStatus $status): Card
+    public function test_a_card_written_to_a_project_without_columns_seeds_them_first(): void
+    {
+        $bare = new Project($this->project->owner, 'bare-'.uniqid());
+        $this->em->persist($bare);
+        $this->em->flush();
+        // Guard: a project persisted by hand dispatches no event, so it starts with none.
+        self::assertSame(0, $this->columnCount($bare));
+
+        $card = $this->create(CardStatus::InProgress, $bare);
+
+        self::assertSame('in-progress', $this->storedColumnSlug($card));
+        self::assertSame(4, $this->columnCount($bare));
+    }
+
+    private function columnCount(Project $project): int
+    {
+        return (int) $this->em->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM board_columns WHERE project_id = :id',
+            ['id' => (string) $project->id],
+        );
+    }
+
+    private function create(CardStatus $status, ?Project $project = null): Card
     {
         $handler = self::getContainer()->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $handler);
 
         return $handler(new CreateCardCommand(
-            project: $this->project,
+            project: $project ?? $this->project,
             title: 'Ship the columns',
             body: 'Body',
             type: CardType::Feature,

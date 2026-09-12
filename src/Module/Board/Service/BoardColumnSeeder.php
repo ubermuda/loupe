@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Service;
 
 use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -25,8 +26,28 @@ final readonly class BoardColumnSeeder
     ];
 
     public function __construct(
+        private BoardColumnRepository $boardColumns,
         private EntityManagerInterface $em,
     ) {
+    }
+
+    /**
+     * The project's column with that slug, seeding the four columns first when
+     * the project has none. An image that predates the table creates a project
+     * without them, and a card written there must still get its column.
+     *
+     * The caller holds the project lock, so two writes cannot both seed.
+     */
+    public function columnFor(Project $project, string $slug): ?BoardColumn
+    {
+        $existing = $this->boardColumns->findForProject($project);
+        foreach ([] === $existing ? $this->seed($project) : $existing as $column) {
+            if ($column->slug === $slug) {
+                return $column;
+            }
+        }
+
+        return null;
     }
 
     /** @return list<BoardColumn> */

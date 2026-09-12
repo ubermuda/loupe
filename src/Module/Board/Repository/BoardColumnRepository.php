@@ -19,11 +19,6 @@ class BoardColumnRepository extends ServiceEntityRepository
         parent::__construct($registry, BoardColumn::class);
     }
 
-    public function findOneByProjectAndSlug(Project $project, string $slug): ?BoardColumn
-    {
-        return $this->findOneBy(['project' => $project, 'slug' => $slug]);
-    }
-
     /** @return list<BoardColumn> */
     public function findForProject(Project $project): array
     {

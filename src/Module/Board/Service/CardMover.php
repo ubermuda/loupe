@@ -7,7 +7,6 @@ namespace App\Module\Board\Service;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardStatus;
-use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 
 /**
@@ -31,7 +30,7 @@ final readonly class CardMover
 
     public function __construct(
         private CardRepository $cards,
-        private BoardColumnRepository $boardColumns,
+        private BoardColumnSeeder $columnSeeder,
         private CardGroupOrder $groupOrder,
     ) {
     }
@@ -42,7 +41,7 @@ final readonly class CardMover
         $staysInGroup = $move->fromStatus === $status && $move->fromPriority === $priority;
 
         $card->status = $status;
-        $card->column = $this->boardColumns->findOneByProjectAndSlug($card->project, $status->value);
+        $card->column = $this->columnSeeder->columnFor($card->project, $status->value);
         $card->priority = $priority;
 
         if (CardStatus::Done === $status) {
