@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace App\Module\Project\Controller;
 
 use App\Controller\AppController;
+use App\Module\Project\Command\ListAdvertisedToolsCommand;
+use App\Module\Project\Command\ListAdvertisedToolsHandler;
 use App\Module\Project\Entity\Project;
-use App\Module\Project\Mcp\AdvertisedTools;
 use App\Module\Project\Security\ProjectVoter;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
@@ -22,7 +23,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class ConnectAgentController extends AppController
 {
     public function __construct(
-        private readonly AdvertisedTools $advertisedTools,
+        private readonly ListAdvertisedToolsHandler $listAdvertisedTools,
 
         #[Autowire(param: 'app.mcp.server_name')]
         private readonly string $mcpServerName,
@@ -31,11 +32,9 @@ class ConnectAgentController extends AppController
 
     public function __invoke(Project $project): Response
     {
-        $tools = $this->advertisedTools->enabled();
-
         return $this->render('@Project/connect_agent.html.twig', [
             'project' => $project,
-            'tools' => $tools,
+            'tools' => ($this->listAdvertisedTools)(new ListAdvertisedToolsCommand())->tools,
             'mcpServerName' => $this->mcpServerName,
         ]);
     }
