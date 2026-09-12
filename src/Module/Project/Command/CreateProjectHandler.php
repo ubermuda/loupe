@@ -43,10 +43,9 @@ final readonly class CreateProjectHandler
         try {
             $this->em->persist($project);
             $this->em->flush();
-        } catch (UniqueConstraintViolationException) {
-            // A concurrent create won the race with the checks above, and a unique
-            // index caught it. A taken name implies a taken slug, so one message covers both.
-            throw new DomainErrors(['name' => 'project.error.name_taken']);
+        } catch (UniqueConstraintViolationException $e) {
+            // A concurrent create won the race with the checks above, and a unique index caught it.
+            throw new DomainErrors(['name' => str_contains($e->getMessage(), Project::SLUG_CONSTRAINT) ? 'project.error.slug_taken' : 'project.error.name_taken']);
         }
 
         $this->auditor->record(

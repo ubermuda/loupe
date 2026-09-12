@@ -15,6 +15,7 @@ use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\AuditActorProviderInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -144,6 +145,27 @@ final class CreateProjectHandlerTest extends KernelTestCase
         try {
             ($this->handler)(new CreateProjectCommand($owner, 'my-app', null, SearchLanguage::English));
             self::fail('Expected DomainErrors for a name whose slug is taken.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['name' => 'project.error.slug_taken'], $e->errors);
+        }
+    }
+
+    public function test_a_slug_taken_by_a_concurrent_create_is_a_slug_error(): void
+    {
+        $owner = $this->user('create-project-slug-race@example.com');
+        $projects = self::getContainer()->get(ProjectRepository::class);
+        self::assertInstanceOf(ProjectRepository::class, $projects);
+        $racing = new CreateProjectHandler($projects, new RivalBeforeFlush($this->em, [
+            'id' => (string) Uuid::v7(),
+            'owner_id' => (string) $owner->id,
+            'name' => 'My App',
+            'slug' => 'my-app',
+            'created_at' => '2026-09-12 00:00:00',
+        ]), $this->audit->auditor);
+
+        try {
+            $racing(new CreateProjectCommand($owner, 'my-app', null, SearchLanguage::English));
+            self::fail('Expected DomainErrors for a slug a concurrent create took.');
         } catch (DomainErrors $e) {
             self::assertSame(['name' => 'project.error.slug_taken'], $e->errors);
         }

@@ -15,6 +15,7 @@ use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\AuditActorProviderInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -171,6 +172,47 @@ final class UpdateProjectHandlerTest extends KernelTestCase
         ($this->handler)(new UpdateProjectCommand($loaded, 'Left Empty', null, SearchLanguage::English));
 
         self::assertSame('left-empty', $connection->fetchOne('SELECT slug FROM projects WHERE id = :id', ['id' => (string) $id]));
+    }
+
+    public function test_a_slug_taken_by_a_concurrent_rename_is_a_slug_error(): void
+    {
+        $project = $this->project('update-project-slug-race@example.com', 'Before');
+        $projects = self::getContainer()->get(ProjectRepository::class);
+        self::assertInstanceOf(ProjectRepository::class, $projects);
+        $racing = new UpdateProjectHandler($projects, new RivalBeforeFlush($this->em, [
+            'id' => (string) Uuid::v7(),
+            'owner_id' => (string) $project->owner->id,
+            'name' => 'My App',
+            'slug' => 'my-app',
+            'created_at' => '2026-09-12 00:00:00',
+        ]), $this->audit->auditor);
+
+        try {
+            $racing(new UpdateProjectCommand($project, 'my-app', null, SearchLanguage::English));
+            self::fail('Expected DomainErrors for a slug a concurrent rename took.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['name' => 'project.error.slug_taken'], $e->errors);
+        }
+    }
+
+    public function test_a_name_taken_by_a_concurrent_rename_is_a_name_error(): void
+    {
+        $project = $this->project('update-project-name-race@example.com', 'Before');
+        $projects = self::getContainer()->get(ProjectRepository::class);
+        self::assertInstanceOf(ProjectRepository::class, $projects);
+        $racing = new UpdateProjectHandler($projects, new RivalBeforeFlush($this->em, [
+            'id' => (string) Uuid::v7(),
+            'owner_id' => (string) $project->owner->id,
+            'name' => 'After',
+            'created_at' => '2026-09-12 00:00:00',
+        ]), $this->audit->auditor);
+
+        try {
+            $racing(new UpdateProjectCommand($project, 'After', null, SearchLanguage::English));
+            self::fail('Expected DomainErrors for a name a concurrent rename took.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['name' => 'project.error.name_taken'], $e->errors);
+        }
     }
 
     public function test_a_rename_that_keeps_the_slug_is_allowed(): void

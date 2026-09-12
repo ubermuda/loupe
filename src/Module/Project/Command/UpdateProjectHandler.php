@@ -52,9 +52,9 @@ final readonly class UpdateProjectHandler
         $project->searchLanguage = $command->searchLanguage;
         try {
             $this->em->flush();
-        } catch (UniqueConstraintViolationException) {
+        } catch (UniqueConstraintViolationException $e) {
             // A concurrent rename won the race with the checks above, and a unique index caught it.
-            throw new DomainErrors(['name' => 'project.error.name_taken']);
+            throw new DomainErrors(['name' => str_contains($e->getMessage(), Project::SLUG_CONSTRAINT) ? 'project.error.slug_taken' : 'project.error.name_taken']);
         }
 
         $this->auditor->record(

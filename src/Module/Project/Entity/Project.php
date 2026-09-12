@@ -18,9 +18,11 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Entity(repositoryClass: ProjectRepository::class)]
 #[ORM\Table(name: 'projects')]
 #[ORM\UniqueConstraint(name: 'uniq_project_owner_name', columns: ['owner_id', 'name'])]
-#[ORM\UniqueConstraint(name: 'uniq_project_owner_slug', columns: ['owner_id', 'slug'])]
+#[ORM\UniqueConstraint(name: self::SLUG_CONSTRAINT, columns: ['owner_id', 'slug'])]
 class Project implements ProjectScopedSubject
 {
+    public const string SLUG_CONSTRAINT = 'uniq_project_owner_slug';
+
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
