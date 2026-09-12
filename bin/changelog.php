@@ -63,6 +63,14 @@ foreach ($names as $name) {
     }
 
     $number = (int) $matches[1];
+
+    // The fold deletes <number>.md, so a name that does not survive the round
+    // trip through an integer would outlive its own entry.
+    if ($number.'.md' !== $name) {
+        $errors[] = sprintf('%s: name the fragment %d.md, with no leading zero.', $name, $number);
+        continue;
+    }
+
     $text = file_get_contents($fragmentDir.'/'.$name);
 
     if (false === $text) {

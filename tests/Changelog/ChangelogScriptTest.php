@@ -123,6 +123,18 @@ final class ChangelogScriptTest extends TestCase
         self::assertFileExists($this->root.'/changelog.d/418.md');
     }
 
+    public function test_it_refuses_a_file_name_that_carries_a_leading_zero(): void
+    {
+        file_put_contents($this->root.'/changelog.d/0429.md', "- (#429) — **Added:** something.\n");
+
+        $result = $this->runScript();
+
+        self::assertSame(1, $result['status']);
+        self::assertStringContainsString('name the fragment 429.md', $result['output']);
+        self::assertSame(self::BASELINE, $this->changelog());
+        self::assertFileExists($this->root.'/changelog.d/0429.md');
+    }
+
     public function test_it_changes_nothing_when_there_is_no_fragment(): void
     {
         $result = $this->runScript();
