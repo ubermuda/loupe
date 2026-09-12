@@ -6,6 +6,7 @@ namespace App\Module\Board\Entity;
 
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Project\Entity\Project;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -36,7 +37,8 @@ class BoardColumn
         #[ORM\Column(length: 100)]
         public string $label,
 
-        #[ORM\Column(length: 255)]
+        /** Text, because a slug derived from a 100-character label can reach 1,700 characters. */
+        #[ORM\Column(type: Types::TEXT)]
         public string $slug,
 
         #[ORM\Column]

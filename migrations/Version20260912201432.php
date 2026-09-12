@@ -32,7 +32,7 @@ final class Version20260912201432 extends AbstractMigration
     #[\Override]
     public function up(Schema $schema): void
     {
-        $this->addSql('CREATE TABLE board_columns (id UUID NOT NULL, label VARCHAR(100) NOT NULL, slug VARCHAR(255) NOT NULL, position INT NOT NULL, terminal BOOLEAN NOT NULL, is_default BOOLEAN NOT NULL, project_id UUID NOT NULL, PRIMARY KEY (id))');
+        $this->addSql('CREATE TABLE board_columns (id UUID NOT NULL, label VARCHAR(100) NOT NULL, slug TEXT NOT NULL, position INT NOT NULL, terminal BOOLEAN NOT NULL, is_default BOOLEAN NOT NULL, project_id UUID NOT NULL, PRIMARY KEY (id))');
         $this->addSql('CREATE INDEX IDX_E4D0E8B8166D1F9C ON board_columns (project_id)');
         $this->addSql('CREATE UNIQUE INDEX uniq_board_columns_project_slug ON board_columns (project_id, slug)');
         $this->addSql('ALTER TABLE board_columns ADD CONSTRAINT FK_E4D0E8B8166D1F9C FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE NOT DEFERRABLE');
