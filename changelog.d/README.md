@@ -38,6 +38,11 @@ The command reads every `<number>.md` file, puts the lines at the top of
 `[Unreleased]` with the highest pull request number first, and deletes the
 fragments it consumed. Run it on `main` after a merge, beside `just cs`.
 
+Number order is merge order, except when two pull requests merge out of number
+order. A fold that runs after every merge reads one fragment and cannot get the
+order wrong. A fold that waits for several can place a pair the wrong way round,
+which costs a few lines of position and loses no entry.
+
 `php bin/changelog.php --check` reads the fragments and reports a malformed
 one. `just lint` runs it, so the gate catches a broken fragment on the branch
 that wrote it.
