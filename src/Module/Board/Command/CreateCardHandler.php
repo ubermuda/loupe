@@ -8,6 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardStatus;
+use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardSearchIndexer;
 use App\Module\Board\Service\DocumentLinkResolver;
@@ -22,6 +23,7 @@ final readonly class CreateCardHandler
 {
     public function __construct(
         private CardRepository $cards,
+        private BoardColumnRepository $boardColumns,
         private PullRequestUrlResolver $pullRequests,
         private DocumentLinkResolver $documentLinks,
         private CardSearchIndexer $searchIndexer,
@@ -79,6 +81,7 @@ final readonly class CreateCardHandler
             if (CardStatus::Done === $command->status) {
                 $card->completedAt = new \DateTimeImmutable();
             }
+            $card->column = $this->boardColumns->findOneByProjectAndSlug($command->project, $command->status->value);
 
             $card->replacePullRequests(...$this->pullRequests->linksFor($card, array_values($command->pullRequestUrls)));
             $card->syncDocuments(...$documents);

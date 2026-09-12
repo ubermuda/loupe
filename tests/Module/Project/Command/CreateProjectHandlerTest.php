@@ -14,6 +14,7 @@ use App\Module\Project\Repository\ProjectRepository;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\AuditActorProviderInterface;
@@ -37,7 +38,9 @@ final class CreateProjectHandlerTest extends KernelTestCase
         $actors = self::getContainer()->get(AuditActorProviderInterface::class);
         self::assertInstanceOf(AuditActorProviderInterface::class, $actors);
         $this->audit = new RecordingAuditor($actors);
-        $this->handler = new CreateProjectHandler($projects, $this->em, $this->audit->auditor);
+        $events = self::getContainer()->get(EventDispatcherInterface::class);
+        self::assertInstanceOf(EventDispatcherInterface::class, $events);
+        $this->handler = new CreateProjectHandler($projects, $this->em, $this->audit->auditor, $events);
     }
 
     public function test_creates_project_with_domain(): void
