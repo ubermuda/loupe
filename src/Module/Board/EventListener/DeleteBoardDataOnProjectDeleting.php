@@ -10,8 +10,8 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
  * Bulk-deletes the Board-module subtree of a project in FK order: site-review
- * comment links, then pull request links, then cards, then columns. No entity hydration; runs
- * inside ProjectDeleter's transaction.
+ * comment links, then pull request links, then cards, then columns. No entity
+ * hydration; runs inside ProjectDeleter's transaction.
  *
  * The comment links are also cascaded from the comment side, so whichever of
  * this listener and SiteReview's runs first, no row outlives its parents. The

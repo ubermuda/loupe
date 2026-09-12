@@ -12,10 +12,8 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * One column of a project's board.
- *
- * A seeded column stores a translation key as its label, and every place that
- * shows a label passes it through `trans`, which returns a literal unchanged.
+ * One column of a project's board. A seeded column stores a translation key as
+ * its label.
  */
 #[ORM\Entity(repositoryClass: BoardColumnRepository::class)]
 #[ORM\Table(name: 'board_columns')]
