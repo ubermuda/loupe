@@ -50,6 +50,9 @@ entry.
 - (#422) — **Changed:** the `card_list` MCP tool answers one page of summary
   rows, with `page`, `perPage` and `full` to steer it, rather than the whole
   board with every card's full body.
+- (#421) — **Added:** the `document_list` MCP tool takes `search`, `status`,
+  `tag` and `series`, and each row now carries the description of the
+  document's current version.
 - (#420) — **Changed:** the development php-fpm now caches every checkout's
   code rather than the first ~32,000 files it happened to see, so worktrees no
   longer recompile on every request, and `/fpm-status` reports the shared pool.
