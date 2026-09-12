@@ -3,30 +3,26 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/config"
-	"github.com/ubermuda/loupe/cli/internal/tmux"
 	"github.com/ubermuda/loupe/cli/internal/transport"
 )
-
-// defaultSession is the tmux session name site-review events are injected into
-// in spawn mode. A card gets its own session instead, named by workerSession.
-const defaultSession = "loupe"
 
 // refreshTimeout bounds a credentials fetch. http.DefaultClient has none at
 // all, so a single unanswered request would stall reconnection for good — the
 // bridge would sit there looking healthy and never receive anything again.
 const refreshTimeout = 15 * time.Second
+
+// lookPath resolves the worker binary. Tests replace it.
+var lookPath = exec.LookPath
 
 // apiClient is for short request/response calls only. The SSE subscription must
 // keep its own timeout-free client: a stream is meant to stay open.
@@ -37,7 +33,7 @@ func apiClient(cfg config.Config) *api.Client {
 func newBridgeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "bridge",
-		Short: "Bridge Loupe events into local tools",
+		Short: "Bridge Loupe events into local workers",
 	}
 	cmd.AddCommand(newBridgeRunCmd())
 
@@ -45,33 +41,25 @@ func newBridgeCmd() *cobra.Command {
 }
 
 func newBridgeRunCmd() *cobra.Command {
-	var dir, session, site, permissionMode string
-	var attach bool
+	var dir, site, permissionMode string
 
 	cmd := &cobra.Command{
 		Use:   "run",
-		Short: "Pipe Loupe events into local Claude Code tmux sessions",
-		Long: "Subscribes to your Loupe event stream and hands each event to a Claude " +
-			"Code session running in tmux. A submitted site review goes to the bridge " +
-			"session. A board card moved to next starts its own worker session named " +
-			"card-<number>.\n\n" +
-			"Use --site to specify which site to bridge (by name or id); omit it to pick " +
-			"interactively from your list of sites. Use --dir to spawn `claude` in a new " +
-			"tmux session in that directory, or --session to attach to a tmux session you " +
-			"already have running. Use --permission-mode to pass that flag to every `claude` " +
-			"the bridge spawns, which is what an unattended worker needs; omitted, claude " +
-			"prompts for each tool as usual. By default the command attaches you to the " +
-			"session; pass --attach=false to run the bridge in the foreground instead " +
-			"(e.g. headless).",
+		Short: "Watch a Loupe board and run a Claude Code worker per card",
+		Long: "Subscribes to your Loupe event stream and runs one worker for every board " +
+			"card that moves to next. A worker is `claude -p <directive>` started in the " +
+			"--dir directory. It prints its answer and exits, and the bridge reports the " +
+			"exit code.\n\n" +
+			"Use --site to name the site to bridge, by name or id; omit it to pick " +
+			"interactively from your list of sites. Use --permission-mode to pass that " +
+			"flag to every `claude` the bridge starts, which is what an unattended worker " +
+			"needs; omitted, claude prompts for each tool as usual.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if (dir == "") == (session == "") {
-				return fmt.Errorf("provide exactly one of --dir (spawn) or --session (attach)")
+			if dir == "" {
+				return fmt.Errorf("--dir is required: it names the directory every worker runs in")
 			}
-			if session != "" && permissionMode != "" {
-				return fmt.Errorf("--permission-mode only applies to sessions the bridge spawns; use it with --dir")
-			}
-			if !tmux.Available() {
-				return fmt.Errorf("tmux is not installed or not on PATH")
+			if _, err := lookPath("claude"); err != nil {
+				return fmt.Errorf("claude is not installed or not on PATH")
 			}
 
 			cfg, err := config.Load()
@@ -91,110 +79,45 @@ func newBridgeRunCmd() *cobra.Command {
 				site = picked
 			}
 
-			r := &router{dir: dir, permissionMode: permissionMode, tmux: defaultTmuxOps()}
-			target, err := r.ensureSession(cmd.OutOrStdout(), dir, session)
-			if err != nil {
-				return err
-			}
-			r.target = target
-
-			if attach && !isTerminal(os.Stdin) {
-				fmt.Fprintln(cmd.ErrOrStderr(), "stdin is not a terminal; running in the foreground (pass --attach=false to silence this)")
-				attach = false
+			r := &router{
+				out:            cmd.OutOrStdout(),
+				errOut:         cmd.ErrOrStderr(),
+				dir:            dir,
+				permissionMode: permissionMode,
+				worker:         defaultWorkerOps(),
 			}
 
-			// When attached, the terminal is owned by the tmux client, so the
-			// bridge's own output must go to a file — printing to stdout would
-			// corrupt the tmux display.
-			r.out, r.errOut = cmd.OutOrStdout(), cmd.ErrOrStderr()
-			if attach {
-				logFile, logPath, err := openBridgeLog()
-				if err != nil {
-					return err
-				}
-				defer logFile.Close()
-				r.out, r.errOut = logFile, logFile
-
-				return runAttached(cmd, cfg, site, target, buildHandler(r), logPath)
-			}
-
-			return runForeground(cmd, cfg, site, target, buildHandler(r), r.out)
+			return subscribe(cmd, cfg, site, r)
 		},
 	}
-	cmd.Flags().StringVar(&dir, "dir", "", "spawn `claude` in a new tmux session in this directory")
-	cmd.Flags().StringVar(&session, "session", "", "attach to an existing tmux session or target")
+	cmd.Flags().StringVar(&dir, "dir", "", "run every worker in this `directory`")
 	cmd.Flags().StringVar(&site, "site", "", "the Loupe site to bridge (name or id); omitted: pick interactively")
-	cmd.Flags().StringVar(&permissionMode, "permission-mode", "", "pass this `mode` to every `claude` the bridge spawns; empty means claude prompts as usual")
-	cmd.Flags().BoolVar(&attach, "attach", true, "attach to the tmux session and watch Claude; use --attach=false to run headless")
+	cmd.Flags().StringVar(&permissionMode, "permission-mode", "", "pass this `mode` to every `claude` the bridge starts; empty means claude prompts as usual")
 
 	return cmd
 }
 
-// runForeground subscribes and blocks in the foreground, logging to out. Ctrl-C
-// or SIGTERM stops it.
-func runForeground(cmd *cobra.Command, cfg config.Config, site, target string, h transport.Handler, out io.Writer) error {
+// subscribe blocks in the foreground until Ctrl-C or SIGTERM. Cancelling also
+// kills every worker in flight, so the bridge leaves no unattended claude
+// behind. It then waits for their reports before it returns.
+func subscribe(cmd *cobra.Command, cfg config.Config, site string, r *router) error {
 	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	r.ctx = ctx
 
 	creds, err := fetchCreds(ctx, cfg, site)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "Bridging Loupe events for site %q into tmux session %q (topic %s)\n", creds.Site.Name, tmux.SessionName(target), creds.Topic)
+	r.logf("Bridging Loupe events for site %q into workers in %s (topic %s)\n", creds.Site.Name, r.dir, creds.Topic)
 
-	if err := transport.Subscribe(ctx, &http.Client{}, creds.HubURL, creds.Topic, jwtRefresher(cfg, creds.Site.ID), h); err != nil && ctx.Err() == nil {
-		return err
-	}
-
-	return nil
-}
-
-// runAttached starts the subscribe loop in the background and hands the terminal
-// to `tmux attach`. When the user detaches (or the session ends), the loop stops.
-func runAttached(cmd *cobra.Command, cfg config.Config, site, target string, h transport.Handler, logPath string) error {
-	ctx, cancel := context.WithCancel(cmd.Context())
-	defer cancel()
-
-	creds, err := fetchCreds(ctx, cfg, site)
-	if err != nil {
-		return err
-	}
-
-	// The handler writes to the bridge log, which the caller closes as soon as
-	// this returns — so detaching while a write is in flight would close the
-	// file underneath it. Wait for the loop to actually stop.
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		_ = transport.Subscribe(ctx, &http.Client{}, creds.HubURL, creds.Topic, jwtRefresher(cfg, creds.Site.ID), h)
-	}()
-
-	// While attached, Ctrl-C belongs to the program inside tmux (Claude), not
-	// to the bridge. The bridge stops when the user detaches with Ctrl-b d.
-	signal.Ignore(syscall.SIGINT)
-
-	fmt.Fprintf(cmd.OutOrStdout(),
-		"Bridging Loupe events for site %q into %q — attaching now (detach with Ctrl-b d). Bridge log: %s\n",
-		creds.Site.Name, tmux.SessionName(target), logPath)
-
-	attachCmd := exec.CommandContext(ctx, "tmux", "attach", "-t", tmux.SessionName(target))
-	attachCmd.Stdin, attachCmd.Stdout, attachCmd.Stderr = os.Stdin, os.Stdout, os.Stderr
-	err = attachCmd.Run()
-	cancel() // detached — stop the subscribe loop
-	<-done
+	err = transport.Subscribe(ctx, &http.Client{}, creds.HubURL, creds.Topic, jwtRefresher(cfg, creds.Site.ID), r.handler())
+	r.wg.Wait()
 	if err != nil && ctx.Err() == nil {
-		return fmt.Errorf("tmux attach: %w", err)
+		return err
 	}
 
 	return nil
-}
-
-func buildHandler(r *router) transport.Handler {
-	return transport.Handler{
-		OnConnect: func() { fmt.Fprintln(r.out, "Connected to hub; waiting for events…") },
-		OnError:   func(err error) { fmt.Fprintf(r.errOut, "stream error (will retry): %v\n", err) },
-		OnData:    r.onData,
-	}
 }
 
 func fetchCreds(ctx context.Context, cfg config.Config, site string) (api.StreamCredentials, error) {
@@ -224,24 +147,6 @@ func isTerminal(f *os.File) bool {
 	return err == nil && fi.Mode()&os.ModeCharDevice != 0
 }
 
-func openBridgeLog() (*os.File, string, error) {
-	base, err := os.UserConfigDir()
-	if err != nil {
-		base = os.TempDir()
-	} else {
-		base = filepath.Join(base, "loupe")
-		_ = os.MkdirAll(base, 0o700)
-	}
-	path := filepath.Join(base, "bridge.log")
-
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-	if err != nil {
-		return nil, "", fmt.Errorf("open bridge log: %w", err)
-	}
-
-	return f, path, nil
-}
-
 // pickSite lists the user's sites and prompts for a numbered choice.
 func pickSite(cmd *cobra.Command, client *api.Client) (string, error) {
 	sites, err := client.Sites(cmd.Context())
@@ -253,6 +158,7 @@ func pickSite(cmd *cobra.Command, client *api.Client) (string, error) {
 	}
 	if len(sites) == 1 {
 		fmt.Fprintf(cmd.OutOrStdout(), "Using your only site %q\n", sites[0].Name)
+
 		return sites[0].ID, nil
 	}
 

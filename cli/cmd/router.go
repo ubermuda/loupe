@@ -1,52 +1,49 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 
-	"github.com/ubermuda/loupe/cli/internal/inject"
-	"github.com/ubermuda/loupe/cli/internal/tmux"
+	"github.com/ubermuda/loupe/cli/internal/directive"
+	"github.com/ubermuda/loupe/cli/internal/event"
+	"github.com/ubermuda/loupe/cli/internal/transport"
 )
 
-// tmuxOps is the tmux surface the router drives. Tests replace the fields to
-// run the routing rules without a tmux server.
-type tmuxOps struct {
-	hasSession func(target string) bool
-	spawn      func(session, dir string, opts tmux.SpawnOptions) error
-	send       func(target, text string) error
-}
-
-func defaultTmuxOps() tmuxOps {
-	return tmuxOps{hasSession: tmux.HasSession, spawn: tmux.Spawn, send: tmux.Send}
-}
-
-// router decides which tmux session each event reaches.
+// router turns each event into a worker process and reports what it did.
 //
-// dir is empty in --session mode, where the bridge owns no session and must
-// never spawn one.
+// Workers run in their own goroutines, so every field a goroutine touches is
+// guarded: logMu serialises the two writers against each other, and mu guards
+// the in-flight set.
 type router struct {
+	ctx            context.Context
 	out, errOut    io.Writer
-	target         string
 	dir            string
 	permissionMode string
-	tmux           tmuxOps
+	worker         workerOps
+
+	logMu   sync.Mutex
+	mu      sync.Mutex
+	running map[string]bool
+
+	// wg counts the workers in flight. Tests wait on it instead of sleeping.
+	wg sync.WaitGroup
 }
 
-// workerSession names the session that works one card. One card gets one
-// session: a repeated name resolves latest-wins in the agent addressing layer
-// and misroutes messages with no error.
+// workerKey identifies the worker for one card. One card gets one worker at a
+// time, and the key is what the bridge compares to refuse a second.
 //
 // The card number alone is not enough. It counts from 1 inside a project and
-// repeats across them, so two bridges on one tmux server would each see the
-// other's card-87 and drop their own event as already running.
+// repeats across them, so two projects would share a key for their card 87.
 //
 // The project is identified by the last 12 hex digits of its id rather than the
 // first. These ids are uuidv7, whose leading bits are a millisecond timestamp,
 // so two projects created in the same minute share a leading prefix. The
 // trailing digits come from the random block.
-func workerSession(cardNumber int, projectID string) string {
+func workerKey(cardNumber int, projectID string) string {
 	digits := strings.ReplaceAll(projectID, "-", "")
 	if len(digits) > 12 {
 		digits = digits[len(digits)-12:]
@@ -55,28 +52,12 @@ func workerSession(cardNumber int, projectID string) string {
 	return fmt.Sprintf("card-%d-%s", cardNumber, digits)
 }
 
-// ensureSession spawns or validates the tmux session for site-review events.
-func (r *router) ensureSession(out io.Writer, dir, session string) (string, error) {
-	if session != "" {
-		if !r.tmux.hasSession(session) {
-			return "", fmt.Errorf("tmux session %q not found", session)
-		}
-
-		return session, nil
+func (r *router) handler() transport.Handler {
+	return transport.Handler{
+		OnConnect: func() { r.logf("Connected to hub; waiting for events…\n") },
+		OnError:   func(err error) { r.errf("stream error (will retry): %v\n", err) },
+		OnData:    r.onData,
 	}
-
-	target := defaultSession
-	if r.tmux.hasSession(target) {
-		fmt.Fprintf(out, "Reusing the existing tmux session %q, so --dir %s is ignored\n", target, dir)
-
-		return target, nil
-	}
-	if err := r.tmux.spawn(target, dir, tmux.SpawnOptions{PermissionMode: r.permissionMode}); err != nil {
-		return "", err
-	}
-	fmt.Fprintf(out, "Started claude in tmux session %q\n", target)
-
-	return target, nil
 }
 
 // onData routes one Mercure payload.
@@ -84,21 +65,18 @@ func (r *router) ensureSession(out io.Writer, dir, session string) (string, erro
 // A type this build does not handle is dropped in silence: a newer server
 // publishes types an older binary never heard of, which is normal.
 func (r *router) onData(data []byte) {
-	event, err := inject.Parse(data)
+	e, err := event.Parse(data)
 	if err != nil {
-		if errors.Is(err, inject.ErrUnknownType) {
+		if errors.Is(err, event.ErrUnknownType) {
 			return
 		}
-		fmt.Fprintf(r.errOut, "skipping malformed event: %v\n", err)
+		r.errf("skipping malformed event: %v\n", err)
 
 		return
 	}
 
-	switch event.Type {
-	case inject.SubmittedType:
-		r.deliver(r.target, inject.SiteReviewDirective(), "site-review notification")
-	case inject.CardMovedType:
-		r.onCardMoved(event)
+	if e.Type == event.CardMovedType {
+		r.onCardMoved(e)
 	}
 }
 
@@ -112,45 +90,87 @@ func (r *router) onData(data []byte) {
 // Every other move is dropped, which also closes the feedback loop: the
 // worker's own first act moves the card to in-progress and publishes a second
 // event that this filter rejects.
-func (r *router) onCardMoved(event inject.Event) {
-	if event.ToStatus != inject.StatusNext || event.FromStatus == inject.StatusNext {
+func (r *router) onCardMoved(e event.Event) {
+	if e.ToStatus != event.StatusNext || e.FromStatus == event.StatusNext {
 		return
 	}
 
-	directive := inject.CardDirective(event)
-	if r.dir == "" {
-		r.deliver(r.target, directive, fmt.Sprintf("directive for card %d", event.CardNumber))
+	// The key is claimed here rather than in the goroutine, so a second event
+	// for one card is refused however the two goroutines interleave.
+	key := workerKey(e.CardNumber, e.ProjectID)
+	if !r.claim(key) {
+		r.errf("a worker for card %d is already running; dropping event\n", e.CardNumber)
 
 		return
 	}
 
-	session := workerSession(event.CardNumber, event.ProjectID)
-	if r.tmux.hasSession(session) {
-		fmt.Fprintf(r.errOut, "tmux session %q already exists, so a worker for card %d is already running; dropping event\n", session, event.CardNumber)
+	prompt := directive.CardDirective(e)
+	r.logf("Starting a worker for card %d in %s\n", e.CardNumber, r.dir)
 
-		return
-	}
-	// The directive is claude's own first prompt rather than typed keys: a
-	// session that has just started is not yet reading input.
-	opts := tmux.SpawnOptions{PermissionMode: r.permissionMode, Prompt: directive}
-	if err := r.tmux.spawn(session, r.dir, opts); err != nil {
-		fmt.Fprintf(r.errOut, "failed to start a worker for card %d: %v\n", event.CardNumber, err)
+	r.wg.Add(1)
+	go func() {
+		defer r.wg.Done()
+		defer r.release(key)
 
-		return
-	}
-	fmt.Fprintf(r.out, "Started claude in tmux session %q for card %d\n", session, event.CardNumber)
+		r.report(e.CardNumber, r.worker.run(r.workerContext(), r.dir, r.permissionMode, prompt))
+	}()
 }
 
-func (r *router) deliver(target, text, what string) {
-	if !r.tmux.hasSession(target) {
-		fmt.Fprintf(r.errOut, "tmux session %q is gone; dropping %s\n", tmux.SessionName(target), what)
-
-		return
+// report says how a worker ended. A non-zero exit carries the output, because
+// nothing else tells the operator why the worker failed.
+func (r *router) report(cardNumber int, res workerResult) {
+	switch {
+	case res.err != nil:
+		r.errf("worker for card %d did not start: %v\n", cardNumber, res.err)
+	case res.exitCode != 0:
+		r.errf("worker for card %d exited %d\n%s\n", cardNumber, res.exitCode, res.output)
+	default:
+		r.logf("worker for card %d exited 0\n", cardNumber)
 	}
-	if err := r.tmux.send(target, text); err != nil {
-		fmt.Fprintf(r.errOut, "failed to inject %s: %v\n", what, err)
+}
 
-		return
+// claim reserves key for one worker. It reports false when a worker holds it.
+func (r *router) claim(key string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.running[key] {
+		return false
 	}
-	fmt.Fprintf(r.out, "Injected %s\n", what)
+	if r.running == nil {
+		r.running = map[string]bool{}
+	}
+	r.running[key] = true
+
+	return true
+}
+
+// release frees key, so the same card can start another worker later.
+func (r *router) release(key string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	delete(r.running, key)
+}
+
+func (r *router) workerContext() context.Context {
+	if r.ctx == nil {
+		return context.Background()
+	}
+
+	return r.ctx
+}
+
+func (r *router) logf(format string, a ...any) {
+	r.logMu.Lock()
+	defer r.logMu.Unlock()
+
+	fmt.Fprintf(r.out, format, a...)
+}
+
+func (r *router) errf(format string, a ...any) {
+	r.logMu.Lock()
+	defer r.logMu.Unlock()
+
+	fmt.Fprintf(r.errOut, format, a...)
 }
