@@ -2,150 +2,214 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 
-	"github.com/ubermuda/loupe/cli/internal/inject"
-	"github.com/ubermuda/loupe/cli/internal/tmux"
+	"github.com/ubermuda/loupe/cli/internal/directive"
+	"github.com/ubermuda/loupe/cli/internal/event"
 )
 
-type spawnCall struct {
-	session string
-	dir     string
-	opts    tmux.SpawnOptions
+type workerCall struct {
+	dir            string
+	permissionMode string
+	prompt         string
 }
 
-type sendCall struct {
-	target string
-	text   string
+// fakeWorker stands in for a claude process: it records what the router asked
+// for and answers with a fixed result. started and block make a test observe
+// and hold a running worker with no sleeping.
+type fakeWorker struct {
+	mu      sync.Mutex
+	calls   []workerCall
+	started chan workerCall
+	block   chan struct{}
+	result  workerResult
 }
 
-// fakeTmux stands in for a tmux server: it records what the router asked for
-// and answers HasSession from a fixed set.
-type fakeTmux struct {
-	existing map[string]bool
-	spawns   []spawnCall
-	sends    []sendCall
-	spawnErr error
-	sendErr  error
+func (f *fakeWorker) ops() workerOps {
+	return workerOps{run: func(_ context.Context, dir, permissionMode, prompt string) workerResult {
+		call := workerCall{dir, permissionMode, prompt}
+		f.mu.Lock()
+		f.calls = append(f.calls, call)
+		f.mu.Unlock()
+
+		if f.started != nil {
+			f.started <- call
+		}
+		if f.block != nil {
+			<-f.block
+		}
+
+		return f.result
+	}}
 }
 
-func (f *fakeTmux) ops() tmuxOps {
-	return tmuxOps{
-		hasSession: func(target string) bool { return f.existing[tmux.SessionName(target)] },
-		spawn: func(session, dir string, opts tmux.SpawnOptions) error {
-			f.spawns = append(f.spawns, spawnCall{session, dir, opts})
+func (f *fakeWorker) recorded() []workerCall {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 
-			return f.spawnErr
-		},
-		send: func(target, text string) error {
-			f.sends = append(f.sends, sendCall{target, text})
-
-			return f.sendErr
-		},
-	}
+	return append([]workerCall(nil), f.calls...)
 }
 
 type harness struct {
 	router *router
-	tmux   *fakeTmux
+	worker *fakeWorker
 	out    *bytes.Buffer
 	errOut *bytes.Buffer
 }
 
-// spawnHarness builds a router in --dir mode, where card events get their own
-// session.
-func spawnHarness(existing ...string) *harness {
-	f := &fakeTmux{existing: map[string]bool{}}
-	for _, s := range existing {
-		f.existing[s] = true
-	}
-	h := &harness{tmux: f, out: &bytes.Buffer{}, errOut: &bytes.Buffer{}}
-	h.router = &router{out: h.out, errOut: h.errOut, target: defaultSession, dir: "/src/app", tmux: f.ops()}
-
-	return h
-}
-
-// attachHarness builds a router in --session mode, where the bridge owns no
-// session and must never spawn one.
-func attachHarness() *harness {
-	f := &fakeTmux{existing: map[string]bool{"mine": true}}
-	h := &harness{tmux: f, out: &bytes.Buffer{}, errOut: &bytes.Buffer{}}
-	h.router = &router{out: h.out, errOut: h.errOut, target: "mine", tmux: f.ops()}
+func newHarness() *harness {
+	w := &fakeWorker{}
+	h := &harness{worker: w, out: &bytes.Buffer{}, errOut: &bytes.Buffer{}}
+	h.router = &router{out: h.out, errOut: h.errOut, dir: "/src/app", worker: w.ops()}
 
 	return h
 }
 
 const cardMovedToNext = `{"type":"board.card_moved","subject":{"type":"card","id":"0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7"},"projectId":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7","cardNumber":87,"fromStatus":"backlog","toStatus":"next"}`
 
-func TestSiteReviewEventIsSentToTheBridgeSession(t *testing.T) {
-	h := spawnHarness(defaultSession)
+const otherCardMovedToNext = `{"type":"board.card_moved","subject":{"type":"card","id":"0192f3a1-8888-7d3e-8f10-a2b3c4d5e6f7"},"projectId":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7","cardNumber":88,"fromStatus":"backlog","toStatus":"next"}`
 
-	h.router.onData([]byte(`{"type":"site_review.submitted"}`))
-
-	if len(h.tmux.spawns) != 0 {
-		t.Fatalf("a site review must not spawn a session: %+v", h.tmux.spawns)
-	}
-	if len(h.tmux.sends) != 1 || h.tmux.sends[0].target != defaultSession {
-		t.Fatalf("unexpected sends: %+v", h.tmux.sends)
-	}
-	if h.tmux.sends[0].text != inject.SiteReviewDirective() {
-		t.Fatalf("unexpected text: %q", h.tmux.sends[0].text)
-	}
-}
-
-func TestSiteReviewEventDroppedWhenSessionIsGone(t *testing.T) {
-	h := spawnHarness()
-
-	h.router.onData([]byte(`{"type":"site_review.submitted"}`))
-
-	if len(h.tmux.sends) != 0 {
-		t.Fatalf("unexpected sends: %+v", h.tmux.sends)
-	}
-	if !strings.Contains(h.errOut.String(), "is gone") {
-		t.Fatalf("errOut = %q", h.errOut.String())
-	}
-}
-
-func TestCardMovedToNextSpawnsItsOwnSession(t *testing.T) {
-	h := spawnHarness(defaultSession)
+func TestCardMovedToNextRunsAWorker(t *testing.T) {
+	h := newHarness()
 	h.router.permissionMode = "acceptEdits"
 
 	h.router.onData([]byte(cardMovedToNext))
+	h.router.wg.Wait()
 
-	if len(h.tmux.spawns) != 1 {
-		t.Fatalf("expected one spawn, got %+v", h.tmux.spawns)
+	calls := h.worker.recorded()
+	if len(calls) != 1 {
+		t.Fatalf("expected one worker, got %+v", calls)
 	}
-	got := h.tmux.spawns[0]
-	if got.session != "card-87-a2b3c4d5e6f7" || got.dir != "/src/app" {
-		t.Fatalf("unexpected spawn: %+v", got)
+	if calls[0].dir != "/src/app" || calls[0].permissionMode != "acceptEdits" {
+		t.Fatalf("unexpected worker: %+v", calls[0])
 	}
-	if got.opts.PermissionMode != "acceptEdits" {
-		t.Fatalf("permission mode not passed through: %+v", got.opts)
+	want := directive.CardDirective(event.Event{Subject: event.Subject{Type: "card", ID: "0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7"}, ProjectID: "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7", CardNumber: 87})
+	if calls[0].prompt != want {
+		t.Fatalf("prompt = %q, want %q", calls[0].prompt, want)
 	}
-	want := inject.CardDirective(inject.Event{Subject: inject.Subject{Type: "card", ID: "0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7"}, ProjectID: "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7", CardNumber: 87})
-	if got.opts.Prompt != want {
-		t.Fatalf("prompt = %q, want %q", got.opts.Prompt, want)
+	if !strings.Contains(h.out.String(), "Starting a worker for card 87") {
+		t.Fatalf("no start line: out = %q", h.out.String())
 	}
-	// A session that has just started is not yet reading keys, so the
-	// directive must travel as claude's own prompt.
-	if len(h.tmux.sends) != 0 {
-		t.Fatalf("a fresh worker must not be sent keys: %+v", h.tmux.sends)
+	if !strings.Contains(h.out.String(), "worker for card 87 exited 0") {
+		t.Fatalf("no end line: out = %q", h.out.String())
 	}
 }
 
-// TestCardMovedToNextDropsWhenWorkerExists prevents a second worker on one
-// card, which would also give two sessions the same name.
-func TestCardMovedToNextDropsWhenWorkerExists(t *testing.T) {
-	h := spawnHarness(defaultSession, "card-87-a2b3c4d5e6f7")
+// The bridge owns the worker's streams, so a report that drops the output on
+// success leaves the operator no view of what claude answered.
+func TestASuccessfulWorkerReportsWhatItSaid(t *testing.T) {
+	h := newHarness()
+	h.worker.result = workerResult{output: "moved card 87 to in-progress"}
 
 	h.router.onData([]byte(cardMovedToNext))
+	h.router.wg.Wait()
 
-	if len(h.tmux.spawns) != 0 || len(h.tmux.sends) != 0 {
-		t.Fatalf("expected nothing to happen: spawns=%+v sends=%+v", h.tmux.spawns, h.tmux.sends)
+	if !strings.Contains(h.out.String(), "moved card 87 to in-progress") {
+		t.Fatalf("the success report dropped the output: %q", h.out.String())
 	}
-	if !strings.Contains(h.errOut.String(), "already running") {
+}
+
+// A worker that printed nothing must not add a blank line to the log.
+func TestASilentWorkerAddsNoBlankLine(t *testing.T) {
+	h := newHarness()
+
+	h.router.onData([]byte(cardMovedToNext))
+	h.router.wg.Wait()
+
+	if !strings.HasSuffix(h.out.String(), "worker for card 87 exited 0\n") {
+		t.Fatalf("out = %q", h.out.String())
+	}
+}
+
+// TestAFinishedWorkerNoLongerBlocksItsCard is the bug this design fixes: the
+// old check asked whether a session existed, so a card that had been worked
+// once never started a worker again.
+func TestAFinishedWorkerNoLongerBlocksItsCard(t *testing.T) {
+	h := newHarness()
+
+	h.router.onData([]byte(cardMovedToNext))
+	h.router.wg.Wait()
+	h.router.onData([]byte(cardMovedToNext))
+	h.router.wg.Wait()
+
+	if calls := h.worker.recorded(); len(calls) != 2 {
+		t.Fatalf("expected two workers, got %+v", calls)
+	}
+	if strings.Contains(h.errOut.String(), "already running") {
+		t.Fatalf("a finished worker still blocked its card: %q", h.errOut.String())
+	}
+}
+
+// TestARunningWorkerBlocksASecondForTheSameCard keeps two workers off one card.
+func TestARunningWorkerBlocksASecondForTheSameCard(t *testing.T) {
+	h := newHarness()
+	h.worker.started = make(chan workerCall, 2)
+	h.worker.block = make(chan struct{})
+
+	h.router.onData([]byte(cardMovedToNext))
+	<-h.worker.started
+	h.router.onData([]byte(cardMovedToNext))
+
+	if !strings.Contains(h.errOut.String(), "a worker for card 87 is already running") {
+		t.Fatalf("errOut = %q", h.errOut.String())
+	}
+
+	close(h.worker.block)
+	h.router.wg.Wait()
+	if calls := h.worker.recorded(); len(calls) != 1 {
+		t.Fatalf("expected one worker, got %+v", calls)
+	}
+}
+
+// TestTwoCardsRunConcurrently pins that a running worker never blocks the read
+// loop or another card. Neither worker returns until both have started.
+func TestTwoCardsRunConcurrently(t *testing.T) {
+	h := newHarness()
+	h.worker.started = make(chan workerCall, 2)
+	h.worker.block = make(chan struct{})
+
+	h.router.onData([]byte(cardMovedToNext))
+	h.router.onData([]byte(otherCardMovedToNext))
+
+	<-h.worker.started
+	<-h.worker.started
+
+	close(h.worker.block)
+	h.router.wg.Wait()
+	if calls := h.worker.recorded(); len(calls) != 2 {
+		t.Fatalf("expected two workers, got %+v", calls)
+	}
+}
+
+func TestANonZeroExitIsReported(t *testing.T) {
+	h := newHarness()
+	h.worker.result = workerResult{exitCode: 2, output: "claude: permission denied"}
+
+	h.router.onData([]byte(cardMovedToNext))
+	h.router.wg.Wait()
+
+	if !strings.Contains(h.errOut.String(), "worker for card 87 exited 2") {
+		t.Fatalf("errOut = %q", h.errOut.String())
+	}
+	if !strings.Contains(h.errOut.String(), "claude: permission denied") {
+		t.Fatalf("the failure report dropped the output: %q", h.errOut.String())
+	}
+}
+
+// A worker that never ran reports no exit code, so the fault itself is all the
+// operator gets. It must still reach them.
+func TestAWorkerThatNeverRanIsReported(t *testing.T) {
+	h := newHarness()
+	h.worker.result = workerResult{err: errors.New("boom")}
+
+	h.router.onData([]byte(cardMovedToNext))
+	h.router.wg.Wait()
+
+	if !strings.Contains(h.errOut.String(), "worker for card 87 failed: boom") {
 		t.Fatalf("errOut = %q", h.errOut.String())
 	}
 }
@@ -154,62 +218,54 @@ func TestCardMovedToNextDropsWhenWorkerExists(t *testing.T) {
 // own move to in-progress publishes an event this filter rejects.
 func TestCardMovedElsewhereIsIgnored(t *testing.T) {
 	for _, to := range []string{"backlog", "in-progress", "done", ""} {
-		h := spawnHarness(defaultSession)
+		h := newHarness()
 
 		h.router.onData([]byte(`{"type":"board.card_moved","subject":{"type":"card","id":"0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7"},"projectId":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7","cardNumber":87,"fromStatus":"next","toStatus":"` + to + `"}`))
+		h.router.wg.Wait()
 
-		if len(h.tmux.spawns) != 0 || len(h.tmux.sends) != 0 {
-			t.Fatalf("to=%q acted on: spawns=%+v sends=%+v", to, h.tmux.spawns, h.tmux.sends)
+		if calls := h.worker.recorded(); len(calls) != 0 {
+			t.Fatalf("to=%q acted on: %+v", to, calls)
 		}
 	}
 }
 
-func TestCardSpawnFailureIsReported(t *testing.T) {
-	h := spawnHarness(defaultSession)
-	h.tmux.spawnErr = errors.New("boom")
+// Dragging a card to a new rank inside the next column submits a move with next
+// on both sides. This is the real payload the producer writes for that drag.
+func TestAReorderInsideNextStartsNoWorker(t *testing.T) {
+	h := newHarness()
 
-	h.router.onData([]byte(cardMovedToNext))
+	h.router.onData([]byte(`{"type":"board.card_moved","subject":{"type":"card","id":"01a0928e-9ea9-7358-aef5-4e1a629da79a"},"projectId":"01a0926f-fa42-7f8c-bfc4-18d17dd8cffb","cardNumber":1,"fromStatus":"next","toStatus":"next"}`))
+	h.router.wg.Wait()
 
-	if !strings.Contains(h.errOut.String(), "failed to start a worker for card 87") {
-		t.Fatalf("errOut = %q", h.errOut.String())
-	}
-}
-
-// TestCardEventInAttachModeSendsToTheOneSession keeps --session behaving as it
-// always has: it targets one session and spawns nothing.
-func TestCardEventInAttachModeSendsToTheOneSession(t *testing.T) {
-	h := attachHarness()
-
-	h.router.onData([]byte(cardMovedToNext))
-
-	if len(h.tmux.spawns) != 0 {
-		t.Fatalf("--session mode must not spawn: %+v", h.tmux.spawns)
-	}
-	if len(h.tmux.sends) != 1 || h.tmux.sends[0].target != "mine" {
-		t.Fatalf("unexpected sends: %+v", h.tmux.sends)
-	}
-	if !strings.Contains(h.tmux.sends[0].text, "Card 87") {
-		t.Fatalf("unexpected text: %q", h.tmux.sends[0].text)
+	if calls := h.worker.recorded(); len(calls) != 0 {
+		t.Fatalf("a reorder inside next started a worker: %+v", calls)
 	}
 }
 
 // TestUnknownTypeIsDroppedQuietly keeps an older binary usable against a newer
-// server, which publishes types this build has never heard of.
+// server, which publishes types this build has never heard of. A submitted site
+// review is one of them now.
 func TestUnknownTypeIsDroppedQuietly(t *testing.T) {
-	h := spawnHarness(defaultSession)
+	for _, payload := range []string{
+		`{"type":"board.card_created","projectId":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7","cardNumber":87}`,
+		`{"type":"site_review.submitted"}`,
+	} {
+		h := newHarness()
 
-	h.router.onData([]byte(`{"type":"board.card_created","projectId":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7","cardNumber":87}`))
+		h.router.onData([]byte(payload))
+		h.router.wg.Wait()
 
-	if h.errOut.Len() != 0 || h.out.Len() != 0 {
-		t.Fatalf("unknown type was reported: out=%q errOut=%q", h.out.String(), h.errOut.String())
-	}
-	if len(h.tmux.spawns) != 0 || len(h.tmux.sends) != 0 {
-		t.Fatalf("unknown type acted on: spawns=%+v sends=%+v", h.tmux.spawns, h.tmux.sends)
+		if h.errOut.Len() != 0 || h.out.Len() != 0 {
+			t.Fatalf("%s was reported: out=%q errOut=%q", payload, h.out.String(), h.errOut.String())
+		}
+		if calls := h.worker.recorded(); len(calls) != 0 {
+			t.Fatalf("%s acted on: %+v", payload, calls)
+		}
 	}
 }
 
 func TestMalformedEventIsReported(t *testing.T) {
-	h := spawnHarness(defaultSession)
+	h := newHarness()
 
 	h.router.onData([]byte(`not json`))
 
@@ -219,111 +275,41 @@ func TestMalformedEventIsReported(t *testing.T) {
 }
 
 func TestIncompleteCardEventIsReportedAndDropped(t *testing.T) {
-	h := spawnHarness(defaultSession)
+	h := newHarness()
 
 	h.router.onData([]byte(`{"type":"board.card_moved","subject":{"type":"card","id":"0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7"},"cardNumber":87,"toStatus":"next"}`))
+	h.router.wg.Wait()
 
 	if !strings.Contains(h.errOut.String(), "skipping malformed event") {
 		t.Fatalf("errOut = %q", h.errOut.String())
 	}
-	if len(h.tmux.spawns) != 0 || len(h.tmux.sends) != 0 {
-		t.Fatalf("acted on an incomplete card event: spawns=%+v sends=%+v", h.tmux.spawns, h.tmux.sends)
+	if calls := h.worker.recorded(); len(calls) != 0 {
+		t.Fatalf("acted on an incomplete card event: %+v", calls)
 	}
 }
 
-func TestEnsureSessionSpawnsTheBridgeSession(t *testing.T) {
-	h := spawnHarness()
-	h.router.permissionMode = "acceptEdits"
-	out := &bytes.Buffer{}
-
-	target, err := h.router.ensureSession(out, "/src/app", "")
-	if err != nil {
-		t.Fatalf("ensureSession: %v", err)
-	}
-	if target != defaultSession {
-		t.Fatalf("target = %q", target)
-	}
-	if len(h.tmux.spawns) != 1 || h.tmux.spawns[0].session != defaultSession || h.tmux.spawns[0].dir != "/src/app" {
-		t.Fatalf("unexpected spawns: %+v", h.tmux.spawns)
-	}
-	if h.tmux.spawns[0].opts.Prompt != "" {
-		t.Fatalf("the bridge session takes no prompt: %+v", h.tmux.spawns[0].opts)
-	}
-	if h.tmux.spawns[0].opts.PermissionMode != "acceptEdits" {
-		t.Fatalf("permission mode not passed through: %+v", h.tmux.spawns[0].opts)
-	}
-}
-
-// TestEnsureSessionSaysItIgnoresDir covers the reuse path, which used to drop
-// --dir with no word to the operator.
-func TestEnsureSessionSaysItIgnoresDir(t *testing.T) {
-	h := spawnHarness(defaultSession)
-	out := &bytes.Buffer{}
-
-	if _, err := h.router.ensureSession(out, "/src/app", ""); err != nil {
-		t.Fatalf("ensureSession: %v", err)
-	}
-	if len(h.tmux.spawns) != 0 {
-		t.Fatalf("an existing session must not be spawned again: %+v", h.tmux.spawns)
-	}
-	if !strings.Contains(out.String(), "--dir /src/app is ignored") {
-		t.Fatalf("out = %q", out.String())
-	}
-}
-
-func TestEnsureSessionRequiresAnExistingAttachTarget(t *testing.T) {
-	h := spawnHarness()
-
-	if _, err := h.router.ensureSession(&bytes.Buffer{}, "", "mine"); err == nil {
-		t.Fatal("expected an error for a missing session")
-	}
-
-	h = spawnHarness("mine")
-	target, err := h.router.ensureSession(&bytes.Buffer{}, "", "mine:0.1")
-	if err != nil {
-		t.Fatalf("ensureSession: %v", err)
-	}
-	if target != "mine:0.1" {
-		t.Fatalf("target = %q", target)
-	}
-	if len(h.tmux.spawns) != 0 {
-		t.Fatalf("--session mode must not spawn: %+v", h.tmux.spawns)
-	}
-}
-
-// Two projects number their cards from 1 independently, so the name must
-// separate them or one bridge drops the other's event as already running.
-// Dragging a card to a new rank inside the next column submits a move with next
-// on both sides. This is the real payload the producer writes for that drag.
-func TestAReorderInsideNextStartsNoWorker(t *testing.T) {
-	h := spawnHarness(defaultSession)
-	h.router.onData([]byte(`{"type":"board.card_moved","subject":{"type":"card","id":"01a0928e-9ea9-7358-aef5-4e1a629da79a"},"projectId":"01a0926f-fa42-7f8c-bfc4-18d17dd8cffb","cardNumber":1,"fromStatus":"next","toStatus":"next"}`))
-
-	if len(h.tmux.spawns) != 0 {
-		t.Fatalf("a reorder inside next spawned a worker: %+v", h.tmux.spawns)
-	}
-}
-
-func TestWorkerSessionNameSeparatesProjects(t *testing.T) {
+// Two projects number their cards from 1 independently, so the key must
+// separate them or one project's card 87 blocks the other's.
+func TestWorkerKeySeparatesProjects(t *testing.T) {
 	const a = "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7"
 	const b = "0192f3a1-4b2c-7d3e-8f10-ffffffffffff"
 
-	if got := workerSession(87, a); got != "card-87-a2b3c4d5e6f7" {
-		t.Fatalf("workerSession(87, a) = %q", got)
+	if got := workerKey(87, a); got != "card-87-a2b3c4d5e6f7" {
+		t.Fatalf("workerKey(87, a) = %q", got)
 	}
-	if workerSession(87, a) == workerSession(87, b) {
-		t.Fatalf("card 87 in two projects collided on %q", workerSession(87, a))
+	if workerKey(87, a) == workerKey(87, b) {
+		t.Fatalf("card 87 in two projects collided on %q", workerKey(87, a))
 	}
 }
 
 // These ids are uuidv7, so the leading digits are a millisecond timestamp and
-// two projects created close together share them. Naming a session from a
-// leading prefix would reintroduce the collision.
-func TestWorkerSessionNameIgnoresTheTimestampPrefix(t *testing.T) {
+// two projects created close together share them. Keying on a leading prefix
+// would reintroduce the collision.
+func TestWorkerKeyIgnoresTheTimestampPrefix(t *testing.T) {
 	const sameMillisecond = "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7"
 	const alsoSameMillisecond = "0192f3a1-4b2c-7d3e-8f10-0000000000ff"
 
-	if workerSession(87, sameMillisecond) == workerSession(87, alsoSameMillisecond) {
+	if workerKey(87, sameMillisecond) == workerKey(87, alsoSameMillisecond) {
 		t.Fatalf("two projects sharing a timestamp prefix collided")
 	}
 }

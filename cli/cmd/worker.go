@@ -1,0 +1,103 @@
+package cmd
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"os/exec"
+	"strings"
+	"time"
+)
+
+// waitDelay bounds the wait after the context kills claude. A grandchild that
+// still holds the output pipe would otherwise block Wait for good.
+const waitDelay = 5 * time.Second
+
+// maxOutput caps the worker output a failure report carries.
+const maxOutput = 4000
+
+// workerResult is one finished worker. err is set when the process never ran,
+// which is a different fault from a process that ran and failed.
+type workerResult struct {
+	exitCode int
+	output   string
+	err      error
+}
+
+// workerOps is the process surface the router drives. Tests replace run so the
+// routing and the in-flight bookkeeping need no claude binary.
+type workerOps struct {
+	run func(ctx context.Context, dir, permissionMode, prompt string) workerResult
+}
+
+func defaultWorkerOps() workerOps {
+	return workerOps{run: runWorker}
+}
+
+// runWorker runs `claude -p <prompt>` in dir and waits for it.
+//
+// The prompt is an argv element, so no shell reads it and no quoting applies.
+func runWorker(ctx context.Context, dir, permissionMode, prompt string) workerResult {
+	args := make([]string, 0, 4)
+	if permissionMode != "" {
+		args = append(args, "--permission-mode", permissionMode)
+	}
+	args = append(args, "-p", prompt)
+
+	// One writer for both streams, so os/exec drains them through one pipe and
+	// nothing races. The cap bounds the memory a chatty worker holds.
+	captured := &capWriter{limit: maxOutput}
+
+	cmd := exec.CommandContext(ctx, "claude", args...)
+	cmd.Dir = dir
+	cmd.Stdout, cmd.Stderr = captured, captured
+	cmd.WaitDelay = waitDelay
+	setProcessGroup(cmd)
+
+	err := cmd.Run()
+	res := workerResult{output: captured.text()}
+
+	var exitErr *exec.ExitError
+	switch {
+	case err == nil:
+	case errors.As(err, &exitErr):
+		res.exitCode = exitErr.ExitCode()
+	default:
+		res.err = err
+	}
+
+	return res
+}
+
+// capWriter keeps the first limit bytes written to it and counts the rest as
+// dropped. It never reports a short write, so the process keeps running after
+// the cap is reached.
+type capWriter struct {
+	limit   int
+	buf     bytes.Buffer
+	dropped bool
+}
+
+func (w *capWriter) Write(p []byte) (int, error) {
+	room := w.limit - w.buf.Len()
+	switch {
+	case room <= 0:
+		w.dropped = w.dropped || len(p) > 0
+	case len(p) > room:
+		w.buf.Write(p[:room])
+		w.dropped = true
+	default:
+		w.buf.Write(p)
+	}
+
+	return len(p), nil
+}
+
+func (w *capWriter) text() string {
+	s := strings.TrimRight(w.buf.String(), "\n")
+	if w.dropped {
+		s += "… (truncated)"
+	}
+
+	return s
+}
