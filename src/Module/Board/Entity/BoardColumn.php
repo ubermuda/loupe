@@ -28,7 +28,8 @@ class BoardColumn
     public private(set) ?Uuid $id = null;
 
     public function __construct(
-        #[ORM\JoinColumn(nullable: false)]
+        /** Cascades, so an image that predates this table can still delete a project. */
+        #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
         #[ORM\ManyToOne(targetEntity: Project::class)]
         public readonly Project $project,
 

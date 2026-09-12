@@ -85,6 +85,30 @@ final class BoardColumnsSeedMigrationTest extends KernelTestCase
         }
     }
 
+    /** The image that predates the table deletes a project's cards and then the project, and never its columns. */
+    public function test_a_project_whose_columns_nobody_deletes_can_still_be_deleted(): void
+    {
+        $owner = new User(fullName: 'Riley', email: 'board-columns-cascade-'.uniqid().'@example.com', password: 'hashed');
+        $this->em->persist($owner);
+        $project = new Project($owner, 'cascade-'.uniqid());
+        $this->em->persist($project);
+        $this->em->persist(new Card(project: $project, title: 'Ship it', body: 'Body', number: 1));
+        $this->em->flush();
+        $projectId = (string) $project->id;
+        $this->em->clear();
+
+        $this->connection->executeStatement('ALTER TABLE board_cards DROP column_id');
+        $this->connection->executeStatement('DROP TABLE board_columns');
+        $this->runMigration();
+        // Guard: the delete below proves nothing about columns that were never there.
+        self::assertSame(4, (int) $this->connection->fetchOne('SELECT COUNT(*) FROM board_columns WHERE project_id = :id', ['id' => $projectId]));
+
+        $this->connection->executeStatement('DELETE FROM board_cards WHERE project_id = :id', ['id' => $projectId]);
+        $this->connection->executeStatement('DELETE FROM projects WHERE id = :id', ['id' => $projectId]);
+
+        self::assertSame(0, (int) $this->connection->fetchOne('SELECT COUNT(*) FROM board_columns WHERE project_id = :id', ['id' => $projectId]));
+    }
+
     private function runMigration(): void
     {
         $migration = new Version20260912201432($this->connection, new NullLogger());
