@@ -237,7 +237,8 @@ secrets-scan:
 ci: lint cs-check phpstan arkitect gamache audit phpunit js-test cli-test
 
 # Fold changelog.d/<pr>.md into docs/CHANGELOG.md and delete the fragments.
-# Run it on main after a merge, beside `just cs`. See changelog.d/README.md.
+# This is the release step; the docs deploy already folds with --keep, so an
+# entry is published without it. See changelog.d/README.md.
 changelog:
     php bin/changelog.php
 

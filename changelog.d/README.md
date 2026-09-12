@@ -28,21 +28,38 @@ A pull request whose whole diff is `docs/CHANGELOG.md` and this directory earns
 no fragment. Work that never surfaces in the product or the development
 workflow earns none either.
 
-## Fold the fragments in
+## The fragments reach a reader twice
+
+The documentation site folds them on every deploy. `.github/workflows/docs.yml`
+runs `php bin/changelog.php --keep` before Astro reads `docs/`, so the published
+changelog carries every fragment that has merged. `--keep` leaves the files
+alone, because that checkout is thrown away and nothing commits the result. Your
+entry is published as soon as the branch lands. Nobody has to do anything.
+
+A release folds them for good:
 
 ```sh
 just changelog
 ```
 
 The command reads every `<number>.md` file, puts the lines at the top of
-`[Unreleased]` with the highest pull request number first, and deletes the
-fragments it consumed. Run it on `main` after a merge, beside `just cs`.
+`[Unreleased]`, and deletes the fragments it consumed. That result is committed,
+and it is where a version heading replaces `[Unreleased]`.
 
-Number order is merge order, except when two pull requests merge out of number
-order. A fold that runs after every merge reads one fragment and cannot get the
-order wrong. A fold that waits for several can place a pair the wrong way round,
-which costs a few lines of position and loses no entry.
+A local `npm run build` in `website/` shows the committed file alone, because
+the fold lives in the workflow rather than in `package.json`. Run
+`php bin/changelog.php --keep` first to preview the real thing, then
+`git checkout docs/CHANGELOG.md`.
+
+## Order, and what it costs
+
+The fold puts the highest pull request number first. That is merge order,
+except when two pull requests merge out of number order, which places a pair
+the wrong way round by a few lines. No entry is lost.
+
+## The gate
 
 `php bin/changelog.php --check` reads the fragments and reports a malformed
-one. `just lint` runs it, so the gate catches a broken fragment on the branch
-that wrote it.
+one. `just lint` runs it, so the gate catches a bad fragment on the branch that
+wrote it. The check reads format only. Nothing checks that a branch carries a
+fragment at all.

@@ -203,6 +203,20 @@ final class ChangelogScriptTest extends TestCase
         self::assertSame(self::BASELINE, $this->changelog());
     }
 
+    public function test_keep_writes_the_changelog_and_leaves_the_fragments(): void
+    {
+        $this->writeFragment(429, '- (#429) — **Added:** something.');
+        file_put_contents($this->root.'/changelog.d/README.md', '# Changelog fragments');
+
+        $result = $this->runScript('--keep');
+
+        self::assertSame(0, $result['status'], $result['output']);
+        self::assertStringContainsString('and kept them: #429', $result['output']);
+        self::assertStringContainsString('- (#429) — **Added:** something.', $this->changelog());
+        self::assertFileExists($this->root.'/changelog.d/429.md');
+        self::assertFileExists($this->root.'/changelog.d/README.md');
+    }
+
     public function test_check_reads_the_fragments_and_writes_nothing(): void
     {
         $this->writeFragment(429, '- (#429) — **Added:** something.');

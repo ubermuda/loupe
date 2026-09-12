@@ -28,8 +28,9 @@ belongs in the PR body and the commit message, which the PR number points at.
 The entry rides the pull request it describes. Write it in the same branch, in
 `changelog.d/<pull request number>.md`, and anchor it to that number. Two
 branches never write one fragment file, so two entries never conflict.
-`just changelog` folds the fragments into `[Unreleased]`, newest pull request
-first, and `changelog.d/README.md` carries the format. A pull request whose
+This site folds every merged fragment into `[Unreleased]` on each deploy, newest
+pull request first, and `just changelog` folds them into the committed file at a
+release. `changelog.d/README.md` carries the format. A pull request whose
 whole content is this file and that directory earns no entry: recording that
 the changelog was written tells a reader nothing they cannot see by reading it.
 

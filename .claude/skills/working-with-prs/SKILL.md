@@ -309,10 +309,8 @@ other's mail. Serialise those, or give each its own `MAILPIT_URL`.
    conflicts, or invalidates its gate.
 3. After **every** merge, run `just cs` on main and commit the drift. Merge
    unions of two individually-clean branches produce fixer drift that otherwise
-   lands on whichever branch syncs next. Run `just changelog` in the same step,
-   which folds the merged branches' fragments into `docs/CHANGELOG.md`. Nothing
-   is lost when you skip it, because a fragment waits in `changelog.d/` until a
-   fold consumes it.
+   lands on whichever branch syncs next. The changelog needs nothing from you:
+   the documentation deploy folds the fragments itself on every push to `main`.
 4. Tear down a merged branch's worktree only **after** `gh pr merge` is
    confirmed, never in the same command chain. Confirm it by reading the result,
    not by having issued the command. A merge can fail for a reason that is not a
@@ -454,13 +452,18 @@ top of `[Unreleased]` and made the conflict certain. On 2026-09-11 three merges
 each turned every remaining branch CONFLICTING, and `docs/CHANGELOG.md` was
 almost always the only conflicted file.
 
-`just changelog` folds the fragments into `[Unreleased]`, highest pull request
-number first, and deletes the files it consumed. The merge-queue holder runs it
-on `main` beside `just cs`. `php bin/changelog.php --check` reads the fragments
-and reports a malformed one, and `just lint` runs it, so the gate catches a bad
-anchor on the branch that wrote it. The check reads format only. Nothing asks
-whether a branch carries a fragment at all, and that rule belongs in a pull
-request on https://github.com/ubermuda/gamache.
+The fragments reach a reader twice, and neither step is yours. The
+documentation deploy folds them on every push to `main`:
+`.github/workflows/docs.yml` runs `php bin/changelog.php --keep` before Astro
+reads `docs/`, so the published changelog carries every merged fragment and the
+files stay where they are. `just changelog` folds them into the committed file
+and deletes them, which is the release step.
+
+`php bin/changelog.php --check` reads the fragments and reports a malformed
+one, and `just lint` runs it, so the gate catches a bad anchor on the branch
+that wrote it. The check reads format only. Nothing asks whether a branch
+carries a fragment at all, and that rule belongs in a pull request on
+https://github.com/ubermuda/gamache.
 
 An older entry keeps the position its SHA gives it in `git log --first-parent`.
 

@@ -156,17 +156,15 @@ Tell a session, unprompted:
 - What you are not doing. "I have not touched your branch and will not" is worth
   saying, because the alternative is a session wondering.
 
-## Fold the changelog fragments in
+## The changelog needs nothing from you
 
 A branch carries its changelog entry as `changelog.d/<pull request number>.md`,
-so no branch writes `docs/CHANGELOG.md` and no two branches conflict on it. The
-fold is yours. Run `just changelog` on `main` beside `just cs`, and commit what
-it produces.
+so no branch writes `docs/CHANGELOG.md` and no two branches conflict on it.
 
-A skipped fold loses nothing. A fragment waits in `changelog.d/` until a later
-run consumes it, and `just lint` already rejected a malformed one on the branch
-that wrote it. The published changelog goes stale meanwhile, which is the one
-cost.
+The documentation deploy folds the fragments on every push to `main`, so a
+merged entry is published with nobody doing anything. `just changelog` folds
+them into the committed file and deletes them, and that is the release step
+rather than a merge step. Do not run it after a merge.
 
 ## Do not edit a branch you do not own
 

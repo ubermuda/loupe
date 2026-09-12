@@ -5,7 +5,9 @@ declare(strict_types=1);
 
 // Folds changelog.d/<pull-request>.md fragments into the [Unreleased] section
 // of docs/CHANGELOG.md, newest pull request first, then deletes the fragments
-// it consumed. Usage: php bin/changelog.php [--check] [--root=PATH]
+// it consumed. --keep leaves them, for a build that publishes the result and
+// throws the checkout away.
+// Usage: php bin/changelog.php [--check] [--keep] [--root=PATH]
 
 const UNRELEASED_HEADING = "## [Unreleased]\n";
 
@@ -13,11 +15,17 @@ const UNRELEASED_HEADING = "## [Unreleased]\n";
 const TAGS = ['Added', 'Changed', 'Deprecated', 'Removed', 'Fixed', 'Security'];
 
 $check = false;
+$keep = false;
 $root = \dirname(__DIR__);
 
 foreach (\array_slice($argv ?? [], 1) as $argument) {
     if ('--check' === $argument) {
         $check = true;
+        continue;
+    }
+
+    if ('--keep' === $argument) {
+        $keep = true;
         continue;
     }
 
@@ -159,6 +167,13 @@ if (false === file_put_contents($changelogPath, $prefix.implode("\n\n", $fragmen
     exit(1);
 }
 
+$folded = implode(', ', array_map(static fn (int $number): string => '#'.$number, array_keys($fragments)));
+
+if ($keep) {
+    printf("Folded %d changelog fragment(s) into docs/CHANGELOG.md and kept them: %s\n", \count($fragments), $folded);
+    exit(0);
+}
+
 $undeleted = [];
 
 foreach (array_keys($fragments) as $number) {
@@ -177,8 +192,4 @@ if ([] !== $undeleted) {
     exit(1);
 }
 
-printf(
-    "Folded %d changelog fragment(s) into docs/CHANGELOG.md: %s\n",
-    \count($fragments),
-    implode(', ', array_map(static fn (int $number): string => '#'.$number, array_keys($fragments))),
-);
+printf("Folded %d changelog fragment(s) into docs/CHANGELOG.md: %s\n", \count($fragments), $folded);
