@@ -14,13 +14,21 @@ use Ubermuda\AuditBundle\AuditSubject;
 final readonly class MintApiTokenHandler
 {
     /**
-     * The only scope an account-level token can usefully carry. An MCP token
-     * authenticates but resolves its project through `projects.mcp_token_id`,
-     * which only the project mint route writes, so every MCP tool call from an
-     * unbound token is refused. Minting one here would hand the owner a
-     * credential that fails on first use.
+     * The only scope an account-level token can usefully carry. It reaches
+     * `^/api/agent`, which is the surface the loupe CLI calls.
+     *
+     * An MCP token authenticates but resolves its project through
+     * `projects.mcp_token_id`, which only the project mint route writes, so
+     * every MCP tool call from an unbound token is refused. Minting one here
+     * would hand the owner a credential that fails on first use.
+     *
+     * A site-review token fails the same way. Every endpoint under
+     * `^/api/site-review` and `^/api/board/cards` resolves its project through
+     * `projects.widget_token_id`, and only a project's own mint route writes
+     * that binding. An account-level token binds to no project, so each of
+     * those endpoints answers `token_not_bound_to_site`.
      */
-    private const ApiTokenScope SCOPE = ApiTokenScope::SiteReview;
+    private const ApiTokenScope SCOPE = ApiTokenScope::Agent;
 
     public function __construct(
         private EntityManagerInterface $em,

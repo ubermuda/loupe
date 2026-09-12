@@ -19,6 +19,7 @@ final class ApiTokenScopeEnforcementTest extends WebTestCase
     {
         self::assertSame('ROLE_API_MCP', ApiTokenScope::Mcp->role());
         self::assertSame('ROLE_API_SITE_REVIEW', ApiTokenScope::SiteReview->role());
+        self::assertSame('ROLE_API_AGENT', ApiTokenScope::Agent->role());
     }
 
     public function test_site_review_token_is_forbidden_on_mcp(): void
