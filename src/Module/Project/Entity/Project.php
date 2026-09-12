@@ -58,12 +58,11 @@ class Project implements ProjectScopedSubject
     public SearchLanguage $searchLanguage = SearchLanguage::DEFAULT;
 
     /**
-     * The handle a rule file names the project by, rewritten from the name on every
-     * write to it (see Slug::forName()). Null only on a row an image older than the
-     * column wrote.
+     * The handle a rule file names the project by. Every write to the name derives
+     * it (see Slug::forName()). Null only on a row an image older than the column wrote.
      */
     #[ORM\Column(type: Types::TEXT, nullable: true)]
-    public private(set) ?string $slug = null;
+    public ?string $slug = null;
 
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]

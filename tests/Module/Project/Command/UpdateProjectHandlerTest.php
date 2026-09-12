@@ -142,13 +142,15 @@ final class UpdateProjectHandlerTest extends KernelTestCase
         self::assertSame([], $this->audit->operations());
     }
 
-    public function test_an_update_that_keeps_the_name_keeps_a_suffixed_slug(): void
+    public function test_an_update_keeps_a_suffixed_slug_while_another_project_holds_the_plain_one(): void
     {
         $project = $this->project('update-project-suffixed@example.com', 'Suffixed');
         $id = $project->id;
         self::assertNotNull($id);
         $connection = $this->em->getConnection();
         $connection->executeStatement("UPDATE projects SET slug = 'suffixed-2' WHERE id = :id", ['id' => (string) $id]);
+        $this->em->persist(new Project($project->owner, 'SUFFIXED'));
+        $this->em->flush();
         $this->em->clear();
         $loaded = $this->em->find(Project::class, $id);
         self::assertInstanceOf(Project::class, $loaded);
@@ -189,6 +191,23 @@ final class UpdateProjectHandlerTest extends KernelTestCase
         ($this->handler)(new UpdateProjectCommand($loaded, 'Current Name', null, SearchLanguage::English));
 
         self::assertSame('current-name', $connection->fetchOne('SELECT slug FROM projects WHERE id = :id', ['id' => (string) $id]));
+    }
+
+    public function test_a_stale_slug_that_looks_suffixed_is_repaired_when_the_plain_slug_is_free(): void
+    {
+        $project = $this->project('update-project-stale-suffix@example.com', 'My App');
+        $id = $project->id;
+        self::assertNotNull($id);
+        $connection = $this->em->getConnection();
+        // An older image renamed "My App 2" to "My App" and left the slug behind.
+        $connection->executeStatement("UPDATE projects SET slug = 'my-app-2' WHERE id = :id", ['id' => (string) $id]);
+        $this->em->clear();
+        $loaded = $this->em->find(Project::class, $id);
+        self::assertInstanceOf(Project::class, $loaded);
+
+        ($this->handler)(new UpdateProjectCommand($loaded, 'My App', null, SearchLanguage::English));
+
+        self::assertSame('my-app', $connection->fetchOne('SELECT slug FROM projects WHERE id = :id', ['id' => (string) $id]));
     }
 
     public function test_repairing_a_stale_slug_to_a_taken_one_records_nothing(): void

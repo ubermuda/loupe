@@ -34,11 +34,16 @@ final readonly class UpdateProjectHandler
             throw new DomainErrors(['name' => 'project.error.name_taken']);
         }
 
-        // Checked on every save, not only on a rename: an image older than the slug
-        // column can leave a slug empty, or stale after its own rename.
+        // Derived on every save, not only on a rename: an image older than the slug
+        // column can leave a slug empty, or stale after its own rename. A suffixed
+        // slug stays only while another project holds the plain one.
         $slug = Slug::forName($command->name, $project->slug);
         if ('' === $slug) {
             throw new DomainErrors(['name' => 'project.error.slug_empty']);
+        }
+        $plain = Slug::fromName($command->name);
+        if ($slug !== $plain && \in_array($this->projects->findOneByOwnerAndSlug($project->owner, $plain), [null, $project], true)) {
+            $slug = $plain;
         }
         $holder = $this->projects->findOneByOwnerAndSlug($project->owner, $slug);
         if (null !== $holder && $holder !== $project) {
@@ -46,6 +51,7 @@ final readonly class UpdateProjectHandler
         }
 
         $project->name = $command->name;
+        $project->slug = $slug;
         $project->domain = $command->domain;
         // Documents keep the language they were written with, so this only
         // changes what a document created after it inherits.
