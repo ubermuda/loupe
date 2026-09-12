@@ -6,7 +6,6 @@ namespace App\Tests\Outbox\Entity;
 
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
-use App\Module\SiteReview\SiteReviewEventType;
 use App\Outbox\Entity\OutboxEvent;
 use PHPUnit\Framework\TestCase;
 
@@ -42,6 +41,6 @@ final class OutboxEventTest extends TestCase
     {
         $owner = new User(fullName: 'U', email: 'u@example.com', password: 'x');
 
-        return new OutboxEvent(new Project($owner, 'site'), SiteReviewEventType::SUBMITTED, 'https://app/topic', '{}');
+        return new OutboxEvent(new Project($owner, 'site'), 'test.event', 'https://app/topic', '{}');
     }
 }

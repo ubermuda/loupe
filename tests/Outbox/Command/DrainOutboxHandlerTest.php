@@ -6,7 +6,6 @@ namespace App\Tests\Outbox\Command;
 
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
-use App\Module\SiteReview\SiteReviewEventType;
 use App\Outbox\AgentPush;
 use App\Outbox\Command\DrainOutboxCommand;
 use App\Outbox\Command\DrainOutboxHandler;
@@ -44,8 +43,7 @@ final class DrainOutboxHandlerTest extends KernelTestCase
     public function test_push_disabled_claims_nothing_at_all(): void
     {
         $project = $this->project('drain-push-off@example.com');
-        $event = new OutboxEvent($project, SiteReviewEventType::SUBMITTED, 'https://app/topic', '{}', true);
-        $this->em->persist($event);
+        $event = $this->event($project);
         $this->em->flush();
 
         $this->hub->expects($this->never())->method('publish');
@@ -100,28 +98,6 @@ final class DrainOutboxHandlerTest extends KernelTestCase
         self::assertSame(0, $this->outboxEvents->countUnsent($project));
     }
 
-    public function test_a_collect_only_event_is_never_drained(): void
-    {
-        $project = $this->project('drain-b@example.com');
-        $event = $this->event($project, forwardable: false);
-        $this->em->flush();
-
-        // The opt-in would be worthless if the drain delivered after the fact
-        // what the submit deliberately withheld.
-        $this->hub->expects($this->never())->method('publish');
-
-        $result = ($this->handler)(new DrainOutboxCommand());
-
-        self::assertSame(0, $result->published);
-        self::assertSame(0, $result->failed);
-
-        $this->em->clear();
-        $untouched = $this->em->find(OutboxEvent::class, $event->id);
-        self::assertNotNull($untouched);
-        self::assertNull($untouched->publishedAt);
-        self::assertNull($untouched->nextAttemptAt);
-    }
-
     public function test_an_already_published_event_is_not_published_twice(): void
     {
         $project = $this->project('drain-c@example.com');
@@ -174,9 +150,9 @@ final class DrainOutboxHandlerTest extends KernelTestCase
         self::assertSame(0, ($this->handler)(new DrainOutboxCommand())->failed);
     }
 
-    private function event(Project $project, bool $forwardable = true): OutboxEvent
+    private function event(Project $project): OutboxEvent
     {
-        $event = new OutboxEvent($project, SiteReviewEventType::SUBMITTED, 'https://app/topic', '{}', $forwardable);
+        $event = new OutboxEvent($project, 'test.event', 'https://app/topic', '{}');
         $this->em->persist($event);
 
         return $event;

@@ -19,7 +19,7 @@ use Symfony\Component\Uid\Uuid;
  * subscribers a monotonic `Last-Event-ID` to resume from.
  */
 #[ORM\Entity(repositoryClass: OutboxEventRepository::class)]
-#[ORM\Index(name: 'idx_outbox_events_drain', columns: ['published_at', 'forwardable', 'next_attempt_at'])]
+#[ORM\Index(name: 'idx_outbox_events_drain', columns: ['published_at', 'next_attempt_at'])]
 #[ORM\Index(name: 'idx_outbox_events_type', columns: ['type'])]
 #[ORM\Table(name: 'outbox_events')]
 class OutboxEvent
@@ -54,12 +54,19 @@ class OutboxEvent
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     public ?string $lastPublishError = null;
 
+    /**
+     * The deployed image still filters its drain SQL on this column, so a
+     * rollback has to find it present. Nothing in this image reads it.
+     */
+    #[ORM\Column(options: ['default' => true])]
+    public bool $forwardable = true;
+
     public function __construct(
         #[ORM\JoinColumn(nullable: false)]
         #[ORM\ManyToOne(targetEntity: Project::class)]
         public readonly Project $project,
 
-        /** Which producer wrote the row, such as `site_review.submitted`. */
+        /** Which producer wrote the row, such as `board.card_moved`. */
         #[ORM\Column]
         public readonly string $type,
 
@@ -68,16 +75,6 @@ class OutboxEvent
 
         #[ORM\Column(type: Types::TEXT)]
         public readonly string $payload,
-
-        /**
-         * Whether this event may reach the agent at all. False when the widget
-         * token that submitted the review is collect-only. The row is still
-         * written, because it is also the ledger the counts are drawn from, so
-         * anything that drains has to filter on this as well as on
-         * `publishedAt`: a null `publishedAt` alone does not mean still owed.
-         */
-        #[ORM\Column(options: ['default' => true])]
-        public readonly bool $forwardable = true,
 
         #[ORM\Column]
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
