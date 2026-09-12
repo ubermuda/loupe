@@ -167,6 +167,40 @@ final class MintApiTokenControllerTest extends WebTestCase
         self::assertSame([], $repo->findActiveByOwner($user), 'a submit with no _token must mint nothing');
     }
 
+    /**
+     * An API token carries ROLE_USER, so what keeps it out of account
+     * credential management is that ApiTokenAuthenticator is registered on the
+     * ^/mcp and ^/api firewalls and not on main. Its supports() accepts any
+     * Bearer request, so the separation lives in security.yaml rather than in
+     * the authenticator.
+     *
+     * This pins the observable behaviour: a Bearer credential reaches the login
+     * redirect and mints nothing. It is not a guard against that firewall
+     * changing, because adding the authenticator to main does not compile: the
+     * configuration is refused with an InvalidConfigurationException before any
+     * test runs.
+     */
+    public function test_an_api_token_cannot_reach_account_management(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $user = $this->createVerifiedUser($em, 'Bearer', 'bearer@example.com');
+
+        [$token, $raw] = ApiToken::issue($user, 'Publicly embedded widget token', ApiTokenScope::SiteReview);
+        $em->persist($token);
+        $em->flush();
+
+        $client->request(Request::METHOD_GET, '/account', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+        self::assertResponseRedirects('http://localhost/login');
+
+        $client->request(Request::METHOD_POST, '/account/api-tokens', [
+            'mint_api_token_form' => ['label' => 'Escalated'],
+        ], server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+
+        $repo = static::getContainer()->get(ApiTokenRepository::class);
+        self::assertCount(1, $repo->findActiveByOwner($user), 'only the seeded token may exist');
+    }
+
     public function test_a_blank_label_is_refused_and_mints_nothing(): void
     {
         $client = static::createClient();
