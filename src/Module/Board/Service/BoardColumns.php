@@ -6,6 +6,7 @@ namespace App\Module\Board\Service;
 
 use App\Module\Board\Entity\BoardColumn;
 use App\Utils\Slug;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * The rules every board keeps: at least one terminal column, exactly one
@@ -23,10 +24,28 @@ final readonly class BoardColumns
     public const string NO_TERMINAL = 'board.column.error.no_terminal';
     public const string NO_SINGLE_DEFAULT = 'board.column.error.no_single_default';
     public const string DEFAULT_TERMINAL = 'board.column.error.default_terminal';
+    public const string LABEL_RESERVED = 'board.column.error.label_reserved';
+
+    public function __construct(
+        private TranslatorInterface $translator,
+    ) {
+    }
 
     public function slugFor(string $label): string
     {
         return Slug::fromName(trim($label));
+    }
+
+    /**
+     * Every place that shows a label translates it, because a seeded label is a
+     * translation key. A typed label that is itself a key would show that key's
+     * message instead, so it is refused.
+     */
+    public function refuseLabel(string $label): ?string
+    {
+        $label = trim($label);
+
+        return $this->translator->trans($label) === $label ? null : self::LABEL_RESERVED;
     }
 
     /** @param list<BoardColumn> $columns */

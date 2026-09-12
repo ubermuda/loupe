@@ -9,6 +9,7 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Service\BoardColumns;
 use App\Module\Project\Entity\Project;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Translation\IdentityTranslator;
 
 final class BoardColumnsTest extends TestCase
 {
@@ -20,7 +21,7 @@ final class BoardColumnsTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->rules = new BoardColumns();
+        $this->rules = new BoardColumns(new IdentityTranslator());
         $this->project = new Project(new User(fullName: 'Riley', email: 'riley@example.com', password: 'hashed'), 'p');
         $this->board = [
             'backlog' => $this->column('backlog', 0, isDefault: true),

@@ -35,6 +35,10 @@ final readonly class RenameBoardColumnHandler
         if (mb_strlen($label) > BoardColumn::MAX_LABEL_LENGTH) {
             throw new DomainErrors(['label' => 'board.column.error.label_too_long']);
         }
+        $reserved = $this->rules->refuseLabel($label);
+        if (null !== $reserved) {
+            throw new DomainErrors(['label' => $reserved]);
+        }
         $slug = $this->rules->slugFor($label);
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.

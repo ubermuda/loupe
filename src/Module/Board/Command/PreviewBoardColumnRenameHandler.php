@@ -27,7 +27,8 @@ final readonly class PreviewBoardColumnRenameHandler
         return new PreviewBoardColumnRenameView(
             $column,
             $slug,
-            $this->rules->refuseRename($this->boardColumns->findForProject($column->project), $column, $slug),
+            $this->rules->refuseLabel($command->label)
+                ?? $this->rules->refuseRename($this->boardColumns->findForProject($column->project), $column, $slug),
         );
     }
 }

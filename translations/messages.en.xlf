@@ -4838,6 +4838,10 @@
                 <source>board.column.error.default_terminal</source>
                 <target>The default column cannot be terminal.</target>
             </trans-unit>
+            <trans-unit id="board.column.error.label_reserved">
+                <source>board.column.error.label_reserved</source>
+                <target>The app uses this text internally. Choose another name.</target>
+            </trans-unit>
             <trans-unit id="board.column.error.label_too_long">
                 <source>board.column.error.label_too_long</source>
                 <target>A column name has at most 100 characters.</target>

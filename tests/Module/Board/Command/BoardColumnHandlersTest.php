@@ -92,6 +92,13 @@ final class BoardColumnHandlersTest extends KernelTestCase
         self::assertSame(['backlog', 'next', 'in-progress', 'done'], $this->slugs());
     }
 
+    public function test_a_label_that_is_a_translation_key_is_refused(): void
+    {
+        $this->assertRefused(['label' => BoardColumns::LABEL_RESERVED], fn () => $this->handler(AddBoardColumnHandler::class)(new AddBoardColumnCommand($this->project, 'board.page.description')));
+        $this->assertRefused(['label' => BoardColumns::LABEL_RESERVED], fn () => $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($this->column($this->project, 'next'), 'board.card.status.done')));
+        self::assertSame(BoardColumns::LABEL_RESERVED, $this->handler(PreviewBoardColumnRenameHandler::class)(new PreviewBoardColumnRenameCommand($this->column($this->project, 'next'), 'board.page.description'))->refusal);
+    }
+
     public function test_an_added_column_with_an_over_long_label_is_refused(): void
     {
         $this->assertRefused(['label' => 'board.column.error.label_too_long'], fn () => $this->handler(AddBoardColumnHandler::class)(new AddBoardColumnCommand($this->project, str_repeat('a', 101))));
