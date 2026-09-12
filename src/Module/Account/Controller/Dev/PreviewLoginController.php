@@ -5,16 +5,14 @@ declare(strict_types=1);
 namespace App\Module\Account\Controller\Dev;
 
 use App\Controller\AppController;
-use App\Module\Account\Entity\User;
-use Symfony\Bundle\SecurityBundle\Security;
+use App\Module\Account\Command\PreviewLoginCommand;
+use App\Module\Account\Command\PreviewLoginHandler;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\UriSigner;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Security\Core\Exception\UserNotFoundException;
-use Symfony\Component\Security\Core\User\UserProviderInterface;
 
 /**
  * SECURITY: this grants a session from a URL. #[When('dev')] is what keeps it
@@ -29,11 +27,9 @@ use Symfony\Component\Security\Core\User\UserProviderInterface;
 #[When('dev')]
 final class PreviewLoginController extends AppController
 {
-    /** @param UserProviderInterface<User> $userProvider */
     public function __construct(
         private readonly UriSigner $uriSigner,
-        private readonly UserProviderInterface $userProvider,
-        private readonly Security $security,
+        private readonly PreviewLoginHandler $previewLogin,
 
         #[Autowire('%kernel.environment%')]
         private readonly string $environment,
@@ -52,13 +48,9 @@ final class PreviewLoginController extends AppController
 
         $email = $request->query->getString('email');
 
-        try {
-            $user = $this->userProvider->loadUserByIdentifier($email);
-        } catch (UserNotFoundException) {
+        if (null === ($this->previewLogin)(new PreviewLoginCommand($email))) {
             throw $this->createNotFoundException(sprintf('No account exists for %s. Seed it with app:dev:seed.', $email));
         }
-
-        $this->security->login($user, 'form_login');
 
         return $this->redirect($request->query->getString('to', '/'));
     }
