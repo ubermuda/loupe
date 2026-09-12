@@ -26,8 +26,8 @@ Built with Symfony, Tailwind CSS and Symfony UX (Stimulus + Turbo).
   leaving review comments on any web page, streamed back to the reviewer over
   Mercure.
 - **Command-line bridge** *(preview, unreleased)* — a Go binary
-  ([`cli/`](cli/README.md)) that streams each submitted site review straight
-  into a Claude Code session running in tmux.
+  ([`cli/`](cli/README.md)) that watches your board and runs a non-interactive
+  Claude Code worker for every card moved to `next`.
 - **Scoped API tokens** — separate MCP and site-review scopes, stored hashed.
 
 ## Try it
