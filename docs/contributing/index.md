@@ -45,6 +45,24 @@ one yields when two of them collide. In short:
 - Keep the PR focused; describe what changed and why.
 - Add or update tests for behavior changes.
 
+## Changelog entries
+
+A pull request that changes something a reader can act on carries its own
+changelog entry, in its own branch. Write the entry in a fragment file named
+after your pull request number, such as `changelog.d/429.md`:
+
+```markdown
+- (#429) — **Added:** what changed, from the reader's side.
+```
+
+Tag each line `Added`, `Changed`, `Removed` or `Fixed`, and write one sentence
+per line. Two branches never write one fragment file, so two entries never
+conflict. `changelog.d/README.md` carries the rest of the format.
+
+A maintainer runs `just changelog` on `main` to fold the fragments into
+`docs/CHANGELOG.md`. `just lint` reports a malformed fragment, so the gate
+catches one on the branch that wrote it.
+
 ## Reporting bugs and security issues
 
 - Regular bugs: open an issue using the templates.
