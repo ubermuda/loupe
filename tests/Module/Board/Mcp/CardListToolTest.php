@@ -140,6 +140,38 @@ final class CardListToolTest extends KernelTestCase
         ($this->tool)(reporter: 'robot');
     }
 
+    public function test_an_unknown_status_names_the_columns_of_the_board(): void
+    {
+        $this->boardWith('card-list-bad-status');
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('Unknown status "shipped". Use one of: backlog, next, in-progress, done.');
+        ($this->tool)('shipped');
+    }
+
+    public function test_the_columns_of_the_board_come_back_beside_the_cards_in_both_shapes(): void
+    {
+        $this->boardWith('card-list-column-list');
+        $expected = [
+            ['slug' => 'backlog', 'label' => 'Backlog', 'terminal' => false, 'default' => true],
+            ['slug' => 'next', 'label' => 'Next', 'terminal' => false, 'default' => false],
+            ['slug' => 'in-progress', 'label' => 'In progress', 'terminal' => false, 'default' => false],
+            ['slug' => 'done', 'label' => 'Done', 'terminal' => true, 'default' => false],
+        ];
+
+        $summary = ($this->tool)();
+        $full = ($this->tool)(full: true);
+        $filtered = ($this->tool)('done');
+
+        self::assertSame(['cards', 'columns', 'page', 'perPage', 'total', 'hasMore'], array_keys($summary));
+        self::assertSame($expected, $summary['columns']);
+        self::assertSame('Body', $full['cards'][0]['body']);
+        self::assertSame($expected, $full['columns']);
+        // The filter narrows the cards, and the column list still names every column.
+        self::assertSame(0, $filtered['total']);
+        self::assertSame($expected, $filtered['columns']);
+    }
+
     public function test_done_cards_are_returned_with_no_time_window(): void
     {
         $this->boardWith('card-list-done');
