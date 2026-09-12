@@ -243,6 +243,22 @@ final class ProjectsPageTest extends WebTestCase
         self::assertCount(1, static::getContainer()->get(ProjectRepository::class)->findBy(['name' => 'dup']));
     }
 
+    public function test_a_name_whose_slug_is_taken_shows_a_field_error(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'projects-slug-taken@example.com');
+        $em->persist(new Project($owner, 'My App'));
+        $em->flush();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects');
+        $client->submitForm('Add project', ['create_project_form[name]' => 'my-app']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('.lp-field-errors', 'gives the same slug');
+    }
+
     public function test_create_form_reopens_on_validation_error(): void
     {
         $client = static::createClient();

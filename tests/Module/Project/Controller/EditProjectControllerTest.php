@@ -145,7 +145,27 @@ final class EditProjectControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame('shown-slug', trim($crawler->filter('[data-project-slug]')->text()));
-        self::assertCount(0, $crawler->filter('[name="create_project_form[slug]"]'));
+    }
+
+    public function test_the_edit_screen_shows_no_slug_field_for_a_row_without_one(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'edit-slug-null@example.com');
+        $project = new Project($owner, 'No Slug Yet');
+        $em->persist($project);
+        $em->flush();
+        $projectId = $project->id;
+        $em->getConnection()->executeStatement('UPDATE projects SET slug = NULL WHERE id = :id', ['id' => (string) $projectId]);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/edit');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('#create_project_form_name'));
+        self::assertCount(0, $crawler->filter('[data-project-slug]'));
+        self::assertCount(0, $crawler->filter('[data-clipboard-text-value=""]'));
     }
 
     public function test_renaming_to_another_projects_slug_is_rejected(): void

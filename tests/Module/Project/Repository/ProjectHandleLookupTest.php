@@ -6,6 +6,7 @@ namespace App\Tests\Module\Project\Repository;
 
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\Repository\AmbiguousProjectHandleException;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -37,7 +38,7 @@ final class ProjectHandleLookupTest extends KernelTestCase
         self::assertSame($project, $this->projects->findOneByHandleForOwner('Handle Site', $owner));
     }
 
-    public function test_a_slug_wins_over_a_name_the_backfill_suffixed(): void
+    public function test_a_handle_that_is_one_slug_and_another_name_is_refused(): void
     {
         $owner = $this->owner('handle-backfill@example.com');
         $older = new Project($owner, 'My App');
@@ -48,8 +49,28 @@ final class ProjectHandleLookupTest extends KernelTestCase
         $this->em->persist($newer);
         $this->em->flush();
 
-        self::assertSame($older, $this->projects->findOneByHandleForOwner('my-app', $owner));
+        try {
+            $this->projects->findOneByHandleForOwner('my-app', $owner);
+            self::fail('Expected an ambiguous handle to be refused.');
+        } catch (AmbiguousProjectHandleException $e) {
+            self::assertSame($older, $e->bySlug);
+            self::assertSame($newer, $e->byName);
+            self::assertStringContainsString((string) $older->id, $e->getMessage());
+            self::assertStringContainsString((string) $newer->id, $e->getMessage());
+        }
+
         self::assertSame($newer, $this->projects->findOneByHandleForOwner('my-app-2', $owner));
+        self::assertSame($older, $this->projects->findOneByHandleForOwner('My App', $owner));
+    }
+
+    public function test_a_slug_that_is_also_its_own_projects_name_resolves(): void
+    {
+        $owner = $this->owner('handle-same@example.com');
+        $project = new Project($owner, 'plain-name');
+        $this->em->persist($project);
+        $this->em->flush();
+
+        self::assertSame($project, $this->projects->findOneByHandleForOwner('plain-name', $owner));
     }
 
     public function test_another_owners_slug_resolves_nothing(): void

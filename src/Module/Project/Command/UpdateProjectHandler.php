@@ -34,15 +34,15 @@ final readonly class UpdateProjectHandler
             throw new DomainErrors(['name' => 'project.error.name_taken']);
         }
 
-        if ($command->name !== $project->name || null === $project->slug) {
-            $slug = Slug::fromName($command->name);
-            if ('' === $slug) {
-                throw new DomainErrors(['name' => 'project.error.slug_empty']);
-            }
-            $holder = $this->projects->findOneByOwnerAndSlug($project->owner, $slug);
-            if (null !== $holder && $holder !== $project) {
-                throw new DomainErrors(['name' => 'project.error.slug_taken']);
-            }
+        // Checked on every save, not only on a rename: an image older than the slug
+        // column can leave a slug empty, or stale after its own rename.
+        $slug = Slug::forName($command->name, $project->slug);
+        if ('' === $slug) {
+            throw new DomainErrors(['name' => 'project.error.slug_empty']);
+        }
+        $holder = $this->projects->findOneByOwnerAndSlug($project->owner, $slug);
+        if (null !== $holder && $holder !== $project) {
+            throw new DomainErrors(['name' => 'project.error.slug_taken']);
         }
 
         $project->name = $command->name;

@@ -34,7 +34,9 @@ final class Version20260912202421 extends AbstractMigration
         foreach (self::assignSlugs($rows) as $id => $slug) {
             $this->addSql('UPDATE projects SET slug = :slug WHERE id = :id', ['slug' => $slug, 'id' => $id]);
         }
-        // The previous image writes no slug, and Postgres treats NULLs as distinct.
+        // docs/operating/migrations.md lists a new UNIQUE index as a contraction. This one
+        // is safe to roll back across: the previous image writes only NULL slugs, and
+        // Postgres treats NULLs as distinct, so none of its inserts can violate it.
         $this->addSql('CREATE UNIQUE INDEX uniq_project_owner_slug ON projects (owner_id, slug)');
     }
 

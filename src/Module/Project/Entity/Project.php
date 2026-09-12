@@ -58,9 +58,9 @@ class Project implements ProjectScopedSubject
     public SearchLanguage $searchLanguage = SearchLanguage::DEFAULT;
 
     /**
-     * The handle a rule file names the project by. Only a changed name moves it,
-     * so a suffixed slug the backfill gave a colliding project survives a save.
-     * Null only on a row an image older than the column wrote.
+     * The handle a rule file names the project by, rewritten from the name on every
+     * write to it (see Slug::forName()). Null only on a row an image older than the
+     * column wrote.
      */
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     public private(set) ?string $slug = null;
@@ -73,9 +73,7 @@ class Project implements ProjectScopedSubject
         #[ORM\Column(length: 100)]
         public string $name {
             set(string $name) {
-                if (null === $this->slug || $name !== $this->name) {
-                    $this->slug = Slug::fromName($name);
-                }
+                $this->slug = Slug::forName($name, $this->slug);
                 $this->name = $name;
             }
         },

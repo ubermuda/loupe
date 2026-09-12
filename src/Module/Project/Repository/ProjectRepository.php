@@ -148,9 +148,9 @@ class ProjectRepository extends ServiceEntityRepository
     }
 
     /**
-     * Resolves an owner's project from a uuid, a slug or a name, in that order. The slug
-     * wins over the name: the backfill gave `my-app` to an older "My App" and
-     * `my-app-2` to a newer project named exactly "my-app".
+     * Resolves an owner's project from a uuid, a slug or a name.
+     *
+     * @throws AmbiguousProjectHandleException when the handle is one project's slug and another's name
      */
     public function findOneByHandleForOwner(string $handle, User $owner): ?Project
     {
@@ -170,7 +170,12 @@ class ProjectRepository extends ServiceEntityRepository
             }
         }
 
-        return $this->findOneByOwnerAndSlug($owner, $handle)
-            ?? $this->findOneByOwnerAndName($owner, $handle);
+        $bySlug = $this->findOneByOwnerAndSlug($owner, $handle);
+        $byName = $this->findOneByOwnerAndName($owner, $handle);
+        if (null !== $bySlug && null !== $byName && $bySlug !== $byName) {
+            throw new AmbiguousProjectHandleException($handle, $bySlug, $byName);
+        }
+
+        return $bySlug ?? $byName;
     }
 }

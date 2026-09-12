@@ -19,4 +19,18 @@ final class Slug
     {
         return new AsciiSlugger()->slug($name)->lower()->toString();
     }
+
+    /**
+     * The slug a record named $name should hold. A current slug stays when it is the
+     * name's slug or that slug with a numeric suffix, which a collision backfill gives.
+     */
+    public static function forName(string $name, ?string $current): string
+    {
+        $slug = self::fromName($name);
+        if (null !== $current && '' !== $slug && 1 === preg_match('/^'.preg_quote($slug, '/').'(-\d+)?$/', $current)) {
+            return $current;
+        }
+
+        return $slug;
+    }
 }

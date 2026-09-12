@@ -174,6 +174,48 @@ final class UpdateProjectHandlerTest extends KernelTestCase
         self::assertSame('left-empty', $connection->fetchOne('SELECT slug FROM projects WHERE id = :id', ['id' => (string) $id]));
     }
 
+    public function test_an_update_that_keeps_the_name_repairs_a_stale_slug(): void
+    {
+        $project = $this->project('update-project-stale@example.com', 'Current Name');
+        $id = $project->id;
+        self::assertNotNull($id);
+        $connection = $this->em->getConnection();
+        // An image older than the slug column renamed the project and left the slug behind.
+        $connection->executeStatement("UPDATE projects SET slug = 'old-name' WHERE id = :id", ['id' => (string) $id]);
+        $this->em->clear();
+        $loaded = $this->em->find(Project::class, $id);
+        self::assertInstanceOf(Project::class, $loaded);
+
+        ($this->handler)(new UpdateProjectCommand($loaded, 'Current Name', null, SearchLanguage::English));
+
+        self::assertSame('current-name', $connection->fetchOne('SELECT slug FROM projects WHERE id = :id', ['id' => (string) $id]));
+    }
+
+    public function test_repairing_a_stale_slug_to_a_taken_one_records_nothing(): void
+    {
+        $taken = $this->project('update-project-stale-taken@example.com', 'My App');
+        $project = new Project($taken->owner, 'my-app-stale');
+        $this->em->persist($project);
+        $this->em->flush();
+        $id = $project->id;
+        self::assertNotNull($id);
+        $connection = $this->em->getConnection();
+        // An older image renamed "my-app-stale" to "my app" and left the slug behind.
+        $connection->executeStatement("UPDATE projects SET name = 'my app' WHERE id = :id", ['id' => (string) $id]);
+        $this->em->clear();
+        $loaded = $this->em->find(Project::class, $id);
+        self::assertInstanceOf(Project::class, $loaded);
+
+        try {
+            ($this->handler)(new UpdateProjectCommand($loaded, 'my app', 'new.example', SearchLanguage::English));
+            self::fail('Expected DomainErrors for a stale slug whose repair is taken.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['name' => 'project.error.slug_taken'], $e->errors);
+        }
+
+        self::assertSame([], $this->audit->operations());
+    }
+
     public function test_a_slug_taken_by_a_concurrent_rename_is_a_slug_error(): void
     {
         $project = $this->project('update-project-slug-race@example.com', 'Before');
