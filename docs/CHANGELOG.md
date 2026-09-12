@@ -35,6 +35,9 @@ entry.
 
 ## [Unreleased]
 
+- (#427) — **Fixed:** a fresh clone now boots before Tailwind has ever been
+  built, because `var/tailwind/` ships in the repository as an empty directory.
+
 - (#424) — **Added:** `loupe bridge run` starts a Claude Code worker session
   for a board card moved to `next`, one session per card, and `--permission-mode`
   passes that flag through to each worker it spawns.
