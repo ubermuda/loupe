@@ -165,6 +165,7 @@ final class CardListToolTest extends KernelTestCase
 
         self::assertSame(['cards', 'columns', 'page', 'perPage', 'total', 'hasMore'], array_keys($summary));
         self::assertSame($expected, $summary['columns']);
+        self::assertSame(['cards', 'columns', 'page', 'perPage', 'total', 'hasMore'], array_keys($full));
         self::assertSame('Body', $full['cards'][0]['body']);
         self::assertSame($expected, $full['columns']);
         // The filter narrows the cards, and the column list still names every column.

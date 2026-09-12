@@ -67,9 +67,10 @@ final readonly class CardListTool implements FlagGatedToolInterface
 
         try {
             $project = $this->subjects->requireProject();
+            $columns = ($this->listColumns)(new ListBoardColumnsCommand($project))->columns;
             $view = ($this->listCards)(new ListCardsCommand(
                 project: $project,
-                column: $this->subjects->optionalColumn($project, $status),
+                column: $this->subjects->optionalColumnAmong($columns, $status),
                 type: $this->subjects->optionalType($type),
                 priority: $this->subjects->optionalPriority($priority),
                 reporter: $this->subjects->optionalReporter($reporter),
@@ -77,7 +78,6 @@ final readonly class CardListTool implements FlagGatedToolInterface
                 perPage: $perPage,
             ));
 
-            $columns = ($this->listColumns)(new ListBoardColumnsCommand($project))->columns;
             $meta = ['columns' => $this->columns->forColumns($columns), 'page' => $view->page, 'perPage' => $view->perPage, 'total' => $view->total, 'hasMore' => $view->hasMore];
 
             if ($full) {

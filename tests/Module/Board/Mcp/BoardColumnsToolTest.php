@@ -68,6 +68,21 @@ final class BoardColumnsToolTest extends KernelTestCase
         self::assertSame(['won-t-do', 'backlog', 'next', 'in-progress', 'done'], array_column($columns, 'slug'));
     }
 
+    public function test_default_marks_the_default_column_wherever_it_sits(): void
+    {
+        $this->enableBoard();
+        $project = $this->makeProject('board-columns-default');
+        $this->column($project, 'backlog')->isDefault = false;
+        $this->em->persist(new BoardColumn(project: $project, label: 'Inbox', slug: 'inbox', position: 4, isDefault: true));
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+
+        $columns = ($this->tool)()['columns'];
+
+        self::assertSame(['backlog', 'next', 'in-progress', 'done', 'inbox'], array_column($columns, 'slug'));
+        self::assertSame([false, false, false, false, true], array_column($columns, 'default'));
+    }
+
     public function test_another_projects_columns_are_not_listed(): void
     {
         $this->enableBoard();
