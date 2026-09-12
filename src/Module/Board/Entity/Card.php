@@ -152,6 +152,7 @@ class Card implements ProjectScopedSubject
         $this->updatedAt = $this->createdAt;
     }
 
+    /** Holds for the four seeded slugs only: the previous image maps status as an enum of them, in 20 characters. */
     #[ORM\PreFlush]
     public function mirrorColumnSlug(): void
     {
