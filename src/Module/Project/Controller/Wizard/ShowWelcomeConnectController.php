@@ -6,7 +6,8 @@ namespace App\Module\Project\Controller\Wizard;
 
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
-use App\Module\Project\Service\WizardState;
+use App\Module\Project\Command\ShowWizardCommand;
+use App\Module\Project\Command\ShowWizardHandler;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -19,7 +20,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class ShowWelcomeConnectController extends AppController
 {
     public function __construct(
-        private readonly WizardState $wizardState,
+        private readonly ShowWizardHandler $showWizard,
 
         #[Autowire(param: 'app.mcp.server_name')]
         private readonly string $mcpServerName,
@@ -33,12 +34,13 @@ class ShowWelcomeConnectController extends AppController
             throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s); this route must stay behind the ROLE_USER catch-all.', self::class, get_debug_type($user)));
         }
 
-        if ($this->wizardState->isCompleted($user)) {
+        $wizard = ($this->showWizard)(new ShowWizardCommand($user));
+
+        if ($wizard->completed) {
             return $this->redirectToRoute('app_home');
         }
 
-        $project = $this->wizardState->firstProject($user);
-        if (null === $project) {
+        if (null === $wizard->project) {
             return $this->redirectToRoute('app_welcome');
         }
 
@@ -48,7 +50,7 @@ class ShowWelcomeConnectController extends AppController
         // would silently clobber a same-named variable, so this uses a
         // differently-named key instead.
         return $this->render('@Project/wizard/show_welcome_connect.html.twig', [
-            'wizardProject' => $project,
+            'wizardProject' => $wizard->project,
             'mcpServerName' => $this->mcpServerName,
         ]);
     }

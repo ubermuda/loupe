@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Account\Controller;
 
-use App\Module\Account\Controller\DownloadDataExportController;
+use App\Module\Account\Command\DownloadDataExportHandler;
 use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Export\DataExportArchiveBuilder;
@@ -256,9 +256,9 @@ final class DownloadDataExportControllerTest extends WebTestCase
         self::assertSame([], $audit->domainLogLines());
     }
 
-    public function test_the_controller_keeps_no_logger_beside_the_auditor(): void
+    public function test_the_handler_keeps_no_logger_beside_the_auditor(): void
     {
-        DirectLogging::assertRemovedFrom(DownloadDataExportController::class);
+        DirectLogging::assertRemovedFrom(DownloadDataExportHandler::class);
     }
 
     public function test_a_wrong_token_gets_404(): void
