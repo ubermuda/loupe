@@ -121,7 +121,7 @@ func (r *router) onCardMoved(e event.Event) {
 func (r *router) report(cardNumber int, res workerResult) {
 	switch {
 	case res.err != nil:
-		r.errf("worker for card %d did not start: %v\n", cardNumber, res.err)
+		r.errf("worker for card %d failed: %v\n", cardNumber, res.err)
 	case res.exitCode != 0:
 		r.errf("worker for card %d exited %d\n%s\n", cardNumber, res.exitCode, res.output)
 	default:

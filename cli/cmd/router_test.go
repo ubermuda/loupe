@@ -174,14 +174,16 @@ func TestANonZeroExitIsReported(t *testing.T) {
 	}
 }
 
-func TestAWorkerThatNeverStartsIsReported(t *testing.T) {
+// A worker that never ran reports no exit code, so the fault itself is all the
+// operator gets. It must still reach them.
+func TestAWorkerThatNeverRanIsReported(t *testing.T) {
 	h := newHarness()
 	h.worker.result = workerResult{err: errors.New("boom")}
 
 	h.router.onData([]byte(cardMovedToNext))
 	h.router.wg.Wait()
 
-	if !strings.Contains(h.errOut.String(), "worker for card 87 did not start: boom") {
+	if !strings.Contains(h.errOut.String(), "worker for card 87 failed: boom") {
 		t.Fatalf("errOut = %q", h.errOut.String())
 	}
 }
