@@ -8,6 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Utils\Slug;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -49,7 +50,12 @@ final readonly class UpdateProjectHandler
         // Documents keep the language they were written with, so this only
         // changes what a document created after it inherits.
         $project->searchLanguage = $command->searchLanguage;
-        $this->em->flush();
+        try {
+            $this->em->flush();
+        } catch (UniqueConstraintViolationException) {
+            // A concurrent rename won the race with the checks above, and a unique index caught it.
+            throw new DomainErrors(['name' => 'project.error.name_taken']);
+        }
 
         $this->auditor->record(
             'project.updated',

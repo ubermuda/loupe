@@ -148,8 +148,9 @@ class ProjectRepository extends ServiceEntityRepository
     }
 
     /**
-     * Resolves a project from a user-supplied handle: a uuid, the project name, or
-     * its slug, tried in that order. Owner-scoped: never returns another user's project.
+     * Resolves an owner's project from a uuid, a slug or a name, in that order. The slug
+     * wins over the name: the backfill gave `my-app` to an older "My App" and
+     * `my-app-2` to a newer project named exactly "my-app".
      */
     public function findOneByHandleForOwner(string $handle, User $owner): ?Project
     {
@@ -169,7 +170,7 @@ class ProjectRepository extends ServiceEntityRepository
             }
         }
 
-        return $this->findOneByOwnerAndName($owner, $handle)
-            ?? $this->findOneByOwnerAndSlug($owner, $handle);
+        return $this->findOneByOwnerAndSlug($owner, $handle)
+            ?? $this->findOneByOwnerAndName($owner, $handle);
     }
 }
