@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Mcp;
 
 use App\Mcp\FlagGatedToolInterface;
+use App\Module\Board\Command\ListCardsHandler;
 use App\Module\Board\Command\SearchBoardHandler;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Mcp\CardCreateTool;
@@ -128,7 +129,7 @@ final class BoardToolRegistrationTest extends KernelTestCase
 
         self::assertSame(['type' => 'integer', 'description' => 'the 1-based page to read', 'default' => 1], $properties['page']);
         self::assertSame('integer', $properties['perPage']['type']);
-        self::assertSame(CardListTool::DEFAULT_PER_PAGE, $properties['perPage']['default']);
+        self::assertSame(ListCardsHandler::DEFAULT_PER_PAGE, $properties['perPage']['default']);
         self::assertSame('boolean', $properties['full']['type']);
         self::assertFalse($properties['full']['default']);
     }

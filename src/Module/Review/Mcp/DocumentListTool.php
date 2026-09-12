@@ -6,12 +6,13 @@ namespace App\Module\Review\Mcp;
 
 use App\Mcp\ResolvesBoundProject;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
-use App\Module\Review\Entity\Document;
+use App\Module\Review\Command\ListDocumentsCommand;
+use App\Module\Review\Command\ListDocumentsHandler;
 use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Series;
 use App\Module\Review\Entity\Tag;
-use App\Module\Review\Repository\DocumentRepository;
-use App\Module\Review\Repository\DocumentVersionRepository;
+use App\Module\Review\View\DocumentListItem;
+use App\Module\Review\View\DocumentListQuery;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
@@ -25,11 +26,8 @@ final readonly class DocumentListTool
 
     public const int DEFAULT_PER_PAGE = 50;
 
-    public const int MAX_PER_PAGE = 100;
-
     public function __construct(
-        private DocumentRepository $documents,
-        private DocumentVersionRepository $documentVersions,
+        private ListDocumentsHandler $listDocuments,
         private AuthenticatedProjectResolver $projectResolver,
     ) {
     }
@@ -56,60 +54,52 @@ final readonly class DocumentListTool
         // Clamped rather than rejected: an out-of-range page from an agent
         // should return an empty page, not fail the tool call.
         $page = max(1, $page);
-        $perPage = min(self::MAX_PER_PAGE, max(1, $perPage));
+        $perPage = min(ListDocumentsHandler::MAX_PER_PAGE, max(1, $perPage));
 
         try {
-            $project = $this->requireBoundProject($this->projectResolver);
-
-            $paginator = $this->documents->findPaginatedByProject(
-                $project,
-                $page,
-                $perPage,
-                $includeArchived,
-                $this->blankToNull($search),
-                $this->optionalStatus($status),
-                // The repository matches the stored spelling of both, so a raw
-                // argument would filter to nothing rather than fail.
-                $this->blankToNull($tag, Tag::normalizeName(...)),
-                $this->blankToNull($series, Series::normalizeName(...)),
-            );
-            $total = \count($paginator);
-
-            /** @var list<Document> $documents */
-            $documents = array_values(iterator_to_array($paginator));
-            $latestVersions = $this->documentVersions->findLatestMetaByDocuments($documents);
-            // Tags are a lazy collection, so reading one per row would cost a
-            // query per row. Hydrates the whole page in one.
-            $this->documents->preloadTags($documents);
+            $view = ($this->listDocuments)(new ListDocumentsCommand(
+                project: $this->requireBoundProject($this->projectResolver),
+                listQuery: new DocumentListQuery(
+                    page: $page,
+                    includeArchived: $includeArchived,
+                    search: $this->blankToNull($search),
+                    status: $this->optionalStatus($status),
+                    // The repository matches the stored spelling of both, so a
+                    // raw argument would filter to nothing rather than fail.
+                    tagName: $this->blankToNull($tag, Tag::normalizeName(...)),
+                    seriesName: $this->blankToNull($series, Series::normalizeName(...)),
+                ),
+                perPage: $perPage,
+            ));
 
             return [
                 'documents' => array_map(
-                    static function (Document $doc) use ($latestVersions) {
-                        $meta = $latestVersions[(string) $doc->id] ?? throw new \LogicException('Document has no versions.');
+                    static function (DocumentListItem $item): array {
+                        $doc = $item->document;
 
                         $tags = [];
-                        foreach ($doc->tags as $tag) {
-                            $tags[] = $tag->name;
+                        foreach ($doc->tags as $one) {
+                            $tags[] = $one->name;
                         }
 
                         return [
                             'documentId' => (string) $doc->id,
                             'title' => $doc->title,
                             'status' => $doc->status->value,
-                            'currentVersion' => $meta['versionNumber'],
-                            'versionDescription' => $meta['description'],
+                            'currentVersion' => $item->versionNumber,
+                            'versionDescription' => $item->description,
                             'archived' => null !== $doc->archivedAt,
                             'tags' => $tags,
                             'series' => $doc->series?->name,
                             'seriesOrdinal' => $doc->seriesOrdinal,
                         ];
                     },
-                    $documents,
+                    $view->items,
                 ),
                 'page' => $page,
                 'perPage' => $perPage,
-                'total' => $total,
-                'hasMore' => $page * $perPage < $total,
+                'total' => $view->filteredTotal,
+                'hasMore' => $page * $perPage < $view->filteredTotal,
             ];
         } catch (ToolCallException $e) {
             throw $e;

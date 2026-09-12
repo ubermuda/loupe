@@ -7,7 +7,6 @@ namespace App\Module\Review\Mcp;
 use App\Exception\DomainErrors;
 use App\Module\Review\Command\RenameSeriesCommand;
 use App\Module\Review\Command\RenameSeriesHandler;
-use App\Module\Review\Repository\DocumentRepository;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
@@ -23,7 +22,6 @@ final readonly class SeriesRenameTool
     public function __construct(
         private RenameSeriesHandler $renameSeries,
         private ReviewSubjectResolver $subjects,
-        private DocumentRepository $documents,
         private ToolCallErrorMessages $errorMessages,
     ) {
     }
@@ -42,8 +40,8 @@ final readonly class SeriesRenameTool
             $renamed = ($this->renameSeries)(new RenameSeriesCommand($found, $newName));
 
             return [
-                'series' => $renamed->name,
-                'documentCount' => $this->documents->countBySeries($renamed),
+                'series' => $renamed->series->name,
+                'documentCount' => $renamed->documentCount,
             ];
         } catch (DomainErrors $e) {
             throw $this->errorMessages->forAgent($e);

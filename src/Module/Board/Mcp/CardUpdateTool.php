@@ -6,6 +6,8 @@ namespace App\Module\Board\Mcp;
 
 use App\Exception\DomainErrors;
 use App\Mcp\FlagGatedToolInterface;
+use App\Module\Board\Command\ShowCardCommand;
+use App\Module\Board\Command\ShowCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Install\BoardInstallFlags;
@@ -30,6 +32,7 @@ final readonly class CardUpdateTool implements FlagGatedToolInterface
         private BoardFlagGate $gate,
         private BoardSubjectResolver $subjects,
         private UpdateCardHandler $updateCard,
+        private ShowCardHandler $showCard,
         private CardPayload $payload,
         private BoardToolErrorMessages $errorMessages,
     ) {
@@ -83,7 +86,9 @@ final readonly class CardUpdateTool implements FlagGatedToolInterface
                 documentIds: null === $documentIds ? null : array_values($documentIds),
             ));
 
-            return $this->payload->forCard($card);
+            $view = ($this->showCard)(new ShowCardCommand($card));
+
+            return $this->payload->forCard($view->card, $view->siteReviewLinks);
         } catch (DomainErrors $e) {
             throw $this->errorMessages->forAgent($e);
         } catch (ToolCallException $e) {

@@ -6,6 +6,7 @@ namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Review\Entity\Series;
+use App\Module\Review\Repository\DocumentRepository;
 use App\Module\Review\Repository\SeriesRepository;
 use App\Module\Review\Service\SeriesConflictErrors;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
@@ -17,6 +18,9 @@ use Ubermuda\AuditBundle\AuditSubject;
 /**
  * Renames a series in place, so every document already in it keeps its place.
  *
+ * The outcome carries how many documents the series holds, because the answer
+ * a caller reports is "renamed, and it has this many in it".
+ *
  * A name the project already uses is refused rather than merged. Two series
  * hold two independent numberings, and merging them would put two documents on
  * the same ordinal with no way to say which one moves.
@@ -26,12 +30,13 @@ final readonly class RenameSeriesHandler
     public function __construct(
         private EntityManagerInterface $em,
         private SeriesRepository $series,
+        private DocumentRepository $documents,
         private SeriesConflictErrors $conflicts,
         private Auditor $auditor,
     ) {
     }
 
-    public function __invoke(RenameSeriesCommand $command): Series
+    public function __invoke(RenameSeriesCommand $command): RenameSeriesOutcome
     {
         $series = $command->series;
         $name = Series::normalizeDisplayName($command->newName);
@@ -71,6 +76,6 @@ final readonly class RenameSeriesHandler
             new AuditSubject('series', (string) $series->id),
         );
 
-        return $series;
+        return new RenameSeriesOutcome($series, $this->documents->countBySeries($series));
     }
 }
