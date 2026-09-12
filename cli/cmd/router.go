@@ -140,6 +140,10 @@ func (r *router) enqueue(e event.Event) {
 // A plain counter under the existing mutex bounds the workers. A channel
 // semaphore would add a second primitive to the lock this function already
 // takes to pop the queue.
+//
+// The pop and the start share one critical section. Two workers that finish at
+// the same instant dispatch on their own goroutines, and a start outside the
+// lock would let the later card start first.
 func (r *router) dispatch() {
 	for {
 		r.mu.Lock()
@@ -157,15 +161,16 @@ func (r *router) dispatch() {
 		next := r.queue[0]
 		r.queue = r.queue[1:]
 		r.active++
-		r.mu.Unlock()
-
 		r.start(next)
+		r.mu.Unlock()
 	}
 }
 
-// start runs one worker. wg counts it before the goroutine exists, and the
-// finish call that admits the next worker runs before wg.Done, so a waiter
-// never sees the count reach zero between two queued workers.
+// start runs one worker. The caller holds mu, and start never takes it.
+//
+// wg counts the worker before the goroutine exists, and the finish call that
+// admits the next worker runs before wg.Done, so a waiter never sees the count
+// reach zero between two queued workers.
 func (r *router) start(p pending) {
 	e := p.event
 	r.log.Info("worker_started", "card", e.CardNumber, "project", e.ProjectID)

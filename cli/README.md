@@ -135,7 +135,8 @@ per site.
 
 `--max-workers` bounds the processes, not the pending work. An event that
 arrives while every slot is busy waits in an in-memory queue, and the queue has
-no length limit. The bridge starts queued cards in arrival order as slots free.
+no length limit. The bridge takes queued cards in arrival order as slots free,
+and logs them in that order.
 
 One worker at a time is a surprise for a queue you fill by dragging several
 cards, and no bound at all is a way to start twenty agents by accident. Three is
@@ -154,6 +155,9 @@ bridge is a supervisor rather than a view, and a plain-text terminal mode is a
 separate piece of work.
 
 The log file is appended, never truncated, so it holds a history across runs.
+The log file is written first, so a reader that leaves mid-run costs the
+terminal view alone. The site picker prompts on stderr, which keeps stdout to
+JSON alone.
 
 ```json
 {"time":"2026-09-12T14:02:11.412Z","level":"INFO","event":"worker_finished","card":87,"project":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7","exit":0,"duration_ms":41207,"output":"moved card 87 to in-progress"}

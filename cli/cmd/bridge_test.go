@@ -2,12 +2,18 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/ubermuda/loupe/cli/internal/api"
 )
 
 // runBridge parses args and runs the command far enough to reach its flag
@@ -145,6 +151,36 @@ func TestOpenLogFileAppends(t *testing.T) {
 	}
 	if string(got) != "first\nsecond\n" {
 		t.Fatalf("log = %q, want both runs", got)
+	}
+}
+
+// stdout carries the JSON log and nothing else, so the site picker prompts on
+// stderr. A reader piped to jq would otherwise get prose first.
+func TestTheSitePickerPromptsOnStderr(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"sites":[{"id":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7","name":"Loupe"}]}`)
+	}))
+	t.Cleanup(server.Close)
+
+	cmd := newBridgeRunCmd()
+	cmd.SetContext(context.Background())
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+
+	id, err := pickSite(cmd, api.New(server.URL, "token", server.Client()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7" {
+		t.Fatalf("id = %q", id)
+	}
+	if stdout.Len() != 0 {
+		t.Fatalf("the picker wrote prose to stdout: %q", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "Using your only site") {
+		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
 

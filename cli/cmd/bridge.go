@@ -249,6 +249,9 @@ func isTerminal(f *os.File) bool {
 }
 
 // pickSite lists the user's sites and prompts for a numbered choice.
+//
+// The prompt goes to stderr. stdout carries the JSON log, so a reader piped to
+// jq would otherwise get this prose first.
 func pickSite(cmd *cobra.Command, client *api.Client) (string, error) {
 	sites, err := client.Sites(cmd.Context())
 	if err != nil {
@@ -257,17 +260,18 @@ func pickSite(cmd *cobra.Command, client *api.Client) (string, error) {
 	if len(sites) == 0 {
 		return "", fmt.Errorf("no sites found: create one in Loupe first (Site reviews → Add site)")
 	}
+	prompt := cmd.ErrOrStderr()
 	if len(sites) == 1 {
-		fmt.Fprintf(cmd.OutOrStdout(), "Using your only site %q\n", sites[0].Name)
+		fmt.Fprintf(prompt, "Using your only site %q\n", sites[0].Name)
 
 		return sites[0].ID, nil
 	}
 
-	fmt.Fprintln(cmd.OutOrStdout(), "Which site should this bridge follow?")
+	fmt.Fprintln(prompt, "Which site should this bridge follow?")
 	for i, s := range sites {
-		fmt.Fprintf(cmd.OutOrStdout(), "  %d) %s\n", i+1, s.Name)
+		fmt.Fprintf(prompt, "  %d) %s\n", i+1, s.Name)
 	}
-	fmt.Fprint(cmd.OutOrStdout(), "Site number: ")
+	fmt.Fprint(prompt, "Site number: ")
 	var choice int
 	if _, err := fmt.Fscanln(cmd.InOrStdin(), &choice); err != nil {
 		return "", fmt.Errorf("read choice: %w", err)
