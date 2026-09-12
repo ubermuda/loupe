@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os/exec"
@@ -12,7 +13,7 @@ import (
 // still holds the output pipe would otherwise block Wait for good.
 const waitDelay = 5 * time.Second
 
-// maxOutput caps the captured output a failure report carries.
+// maxOutput caps the worker output a failure report carries.
 const maxOutput = 4000
 
 // workerResult is one finished worker. err is set when the process never ran,
@@ -43,12 +44,18 @@ func runWorker(ctx context.Context, dir, permissionMode, prompt string) workerRe
 	}
 	args = append(args, "-p", prompt)
 
+	// One writer for both streams, so os/exec drains them through one pipe and
+	// nothing races. The cap bounds the memory a chatty worker holds.
+	captured := &capWriter{limit: maxOutput}
+
 	cmd := exec.CommandContext(ctx, "claude", args...)
 	cmd.Dir = dir
+	cmd.Stdout, cmd.Stderr = captured, captured
 	cmd.WaitDelay = waitDelay
+	setProcessGroup(cmd)
 
-	out, err := cmd.CombinedOutput()
-	res := workerResult{output: truncate(string(out))}
+	err := cmd.Run()
+	res := workerResult{output: captured.text()}
 
 	var exitErr *exec.ExitError
 	switch {
@@ -62,11 +69,35 @@ func runWorker(ctx context.Context, dir, permissionMode, prompt string) workerRe
 	return res
 }
 
-func truncate(s string) string {
-	s = strings.TrimRight(s, "\n")
-	if len(s) <= maxOutput {
-		return s
+// capWriter keeps the first limit bytes written to it and counts the rest as
+// dropped. It never reports a short write, so the process keeps running after
+// the cap is reached.
+type capWriter struct {
+	limit   int
+	buf     bytes.Buffer
+	dropped bool
+}
+
+func (w *capWriter) Write(p []byte) (int, error) {
+	room := w.limit - w.buf.Len()
+	switch {
+	case room <= 0:
+		w.dropped = w.dropped || len(p) > 0
+	case len(p) > room:
+		w.buf.Write(p[:room])
+		w.dropped = true
+	default:
+		w.buf.Write(p)
 	}
 
-	return s[:maxOutput] + "… (truncated)"
+	return len(p), nil
+}
+
+func (w *capWriter) text() string {
+	s := strings.TrimRight(w.buf.String(), "\n")
+	if w.dropped {
+		s += "… (truncated)"
+	}
+
+	return s
 }
