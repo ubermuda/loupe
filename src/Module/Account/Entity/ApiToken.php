@@ -14,6 +14,8 @@ use Ubermuda\AuditBundle\AuditCredentialInterface;
 #[ORM\Table(name: 'api_tokens')]
 class ApiToken implements AuditCredentialInterface
 {
+    public const int MAX_LABEL_LENGTH = 100;
+
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
@@ -25,7 +27,7 @@ class ApiToken implements AuditCredentialInterface
         #[ORM\ManyToOne(targetEntity: User::class)]
         public readonly User $owner,
 
-        #[ORM\Column(length: 100)]
+        #[ORM\Column(length: self::MAX_LABEL_LENGTH)]
         public string $label,
 
         #[ORM\Column(enumType: ApiTokenScope::class)]

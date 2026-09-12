@@ -17,6 +17,13 @@ token can be revoked from `/account/api-tokens/{tokenId}/revoke`.
 
 The first-run wizard mints one for you at `/welcome/connect`.
 
+You can also mint an account-level token from your account settings at
+`/account`. Give it a name, pick its access, and copy the value from the page:
+Loupe stores only a hash, so the page shows the raw token once and never again.
+The same page lists your tokens and revokes them. A tool that acts on your
+account rather than on one project needs a token of this kind. The Loupe CLI
+reads a review stream, so give its token Site review access.
+
 ## The Claude Code plugin
 
 **Use this for the skills, not for the endpoint.** A plugin holds one set of

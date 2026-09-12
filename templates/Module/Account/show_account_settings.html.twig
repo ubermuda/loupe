@@ -65,6 +65,68 @@
         </div>
     </section>
 
+    <section class="lp-connect-block" data-testid="api-tokens-section">
+        <p class="lp-eyebrow">{{ 'account.settings.api_tokens.heading'|trans }}</p>
+        <div class="lp-settings-panel">
+        <p class="lp-connect-hint">{{ 'account.settings.api_tokens.intro'|trans }}</p>
+
+        {# The raw value arrives through a dedicated flash key, which base.html.twig
+           excludes from the flash strip. It is never stored, so this is the only
+           render: a reload shows the masked tail below instead. #}
+        {%- set mintedApiToken = app.flashes('minted_api_token')|first -%}
+        {% if mintedApiToken %}
+        <div class="lp-connect-secret" data-testid="minted-api-token">
+            <div class="lp-connect-alert">
+                <twig:ux:icon name="lucide:triangle-alert" class="lp-connect-alert__icon w-4 h-4" />
+                <p class="lp-connect-alert__text">{{ 'account.api_token.one_time_warning'|trans }}</p>
+            </div>
+            <div class="lp-connect-field" data-controller="clipboard" data-clipboard-text-value="{{ mintedApiToken }}"
+                 data-clipboard-copied-label-value="{{ 'account.api_token.copied'|trans }}">
+                <twig:ux:icon name="lucide:key-round" class="lp-connect-field__glyph w-4 h-4" />
+                <code class="lp-connect-field__value">{{ mintedApiToken }}</code>
+                <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'account.api_token.copy'|trans }}</button>
+            </div>
+        </div>
+        {% endif %}
+
+        {% for token in view.apiTokens %}
+        <div class="lp-identity-row" data-token-id="{{ token.id }}">
+            <twig:ux:icon name="lucide:key-round" class="lp-identity-row__glyph w-4 h-4" />
+            <span class="lp-identity-row__text">
+                <span class="lp-identity-row__name lp-identity-row__name--mono">
+                    {%- if token.tokenTail -%}
+                        {{ 'account.api_token.mask'|trans({'%tail%': token.tokenTail}) }}
+                    {%- else -%}
+                        {{ token.label }}
+                    {%- endif -%}
+                </span>
+                <span class="lp-identity-row__meta lp-identity-row__meta--plain">
+                    {{ token.label }} ·
+                    {{ ('account.api_token.scope.choice.' ~ token.scope.value|replace({'-': '_'}))|trans }} ·
+                    {{ 'account.api_token.created'|trans({'%date%': token.createdAt|date('M j, Y')}) }}
+                </span>
+            </span>
+            <form method="post" action="{{ path('app_api_token_revoke', {tokenId: token.id}) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
+                <input type="hidden" name="returnTo" value="{{ path('app_account_settings') }}">
+                <button type="submit" class="lp-btn lp-btn--danger-ghost lp-btn--sm">{{ 'account.api_token.action.revoke'|trans }}</button>
+            </form>
+        </div>
+        {% else %}
+        <p class="lp-connect-hint" data-testid="api-tokens-empty">{{ 'account.settings.api_tokens.empty'|trans }}</p>
+        {% endfor %}
+
+        {# The action is set here rather than left to default: a FormView carries
+           no action, and the page it renders on is GET-only. #}
+        {{ form_start(mintForm, {action: path('app_api_token_mint'), method: 'post', attr: {'data-testid': 'mint-api-token-form'}}) }}
+        {{ form_errors(mintForm) }}
+        {{ form_row(mintForm.label) }}
+        {{ form_row(mintForm.scope) }}
+        <button type="submit" class="lp-btn lp-btn--primary">{{ 'account.settings.api_tokens.mint_button'|trans }}</button>
+        {{ form_end(mintForm) }}
+        </div>
+    </section>
+
     <section class="lp-danger-zone" data-testid="delete-account-section">
         <h2 class="lp-danger-zone-title">{{ 'account.delete.danger.heading'|trans }}</h2>
         <p class="lp-danger-zone-desc">{{ 'account.delete.danger.body'|trans }}</p>

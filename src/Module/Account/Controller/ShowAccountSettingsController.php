@@ -8,6 +8,9 @@ use App\Controller\AppController;
 use App\Module\Account\Command\ShowAccountSettingsCommand;
 use App\Module\Account\Command\ShowAccountSettingsHandler;
 use App\Module\Account\Entity\User;
+use App\Module\Account\Form\MintApiTokenFormType;
+use App\Module\Account\Form\MintApiTokenRequest;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -23,7 +26,7 @@ class ShowAccountSettingsController extends AppController
     ) {
     }
 
-    public function __invoke(): Response
+    public function __invoke(Request $request): Response
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
@@ -32,6 +35,10 @@ class ShowAccountSettingsController extends AppController
 
         $view = ($this->handler)(new ShowAccountSettingsCommand($user));
 
-        return $this->render('@Account/show_account_settings.html.twig', ['view' => $view]);
+        return $this->render('@Account/show_account_settings.html.twig', [
+            'view' => $view,
+            'mintForm' => $this->getInjectedFormView($request, 'mintForm')
+                ?? $this->createForm(MintApiTokenFormType::class, new MintApiTokenRequest())->createView(),
+        ]);
     }
 }
