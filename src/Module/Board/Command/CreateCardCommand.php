@@ -23,7 +23,7 @@ final readonly class CreateCardCommand
         public CardType $type,
         public CardPriority $priority,
         public CardStatus $status = CardStatus::Backlog,
-        public CardOrigin $origin = CardOrigin::Agent,
+        public CardOrigin $reporter = CardOrigin::Agent,
         public array $pullRequestUrls = [],
         /** @param list<string> $documentIds */
         public array $documentIds = [],

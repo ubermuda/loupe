@@ -11,8 +11,8 @@ use App\Module\Board\Entity\CardStatus;
 /**
  * Where a move started from. The card itself carries where it arrived.
  *
- * Both handlers that move a card write the same audit record, so the payload is
- * built here rather than in each of them.
+ * auditContext() shapes the transition for the trail, and the CardMoved event
+ * hands the same object to a listener that needs the other end of it.
  */
 final readonly class CardMove
 {

@@ -202,6 +202,6 @@ acted on. That is the same reason the widget belongs on staging only.
 Live push over a Mercure hub, an outbox for undelivered events, and the
 [command-line bridge](../extending/cli-bridge.md) are all still present but
 **currently inert**: nothing publishes an event, so the outbox stays empty and
-the per-project and `/admin/site-review-outbox` pages have nothing to show.
+the per-project and `/admin/outbox` pages have nothing to show.
 That part of the feature is unfinished. Pulling with `site_review_get` is the
 supported path today.

@@ -88,8 +88,8 @@ When a registration cap is closed, `/waitlist` collects addresses and
 `/admin/waitlist` works through them: invite a single entry, invite a selection,
 or invite the oldest. Redeeming an invite converts the entry into an account.
 
-## Site-review outbox
+## Agent outbox
 
-`/admin/site-review-outbox` lists every undelivered site-review event on the
-instance, with attempt counts and next-retry times. See
+`/admin/outbox` lists every undelivered agent event on the
+instance, with its type, attempt counts and next-retry times. See
 [Failed messages and the outbox](../operating/failed-messages.md).

@@ -44,7 +44,7 @@ final class BoardCardsApiTest extends WebTestCase
         $cards = static::getContainer()->get(CardRepository::class)->findBy(['project' => $project]);
         self::assertCount(1, $cards);
         // Not Human. Nobody authenticated the person who typed it.
-        self::assertSame(CardOrigin::Reviewer, $cards[0]->origin);
+        self::assertSame(CardOrigin::Reviewer, $cards[0]->reporter);
         // The endpoint accepts neither, so a reviewer cannot file into a column
         // or attach a URL of their choosing.
         self::assertSame(CardStatus::Backlog, $cards[0]->status);

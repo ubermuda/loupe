@@ -19,7 +19,7 @@
         </p>
         {% if unsentCount > 0 %}
         <p class="lp-site-review-meta-line">
-            <a href="{{ path('app_project_site_review_outbox', {id: project.id}) }}">
+            <a href="{{ path('app_project_outbox', {id: project.id}) }}">
                 <twig:ux:icon name="lucide:triangle-alert" class="w-3.5 h-3.5 shrink-0" />
                 {{ 'site_review.page.unsent_notice'|trans({'%count%': unsentCount}) }}
             </a>

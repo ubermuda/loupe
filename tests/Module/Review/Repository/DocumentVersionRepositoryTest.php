@@ -63,8 +63,8 @@ final class DocumentVersionRepositoryTest extends KernelTestCase
         $this->em->persist($project);
 
         $docA = new Document(owner: $owner, project: $project, title: 'Doc A');
-        $docA->addVersion('# a1', '<h1>a1</h1>');
-        $versionA2 = $docA->addVersion('# a2', '<h1>a2</h1>');
+        $docA->addVersion('# a1', '<h1>a1</h1>', 'The first cut');
+        $versionA2 = $docA->addVersion('# a2', '<h1>a2</h1>', 'Answered the storage question');
         $this->em->persist($docA);
 
         $docB = new Document(owner: $owner, project: $project, title: 'Doc B');
@@ -83,9 +83,12 @@ final class DocumentVersionRepositoryTest extends KernelTestCase
 
         self::assertSame(2, $meta[(string) $docA->id]['versionNumber']);
         self::assertSame($versionA2->id?->toRfc4122(), $meta[(string) $docA->id]['versionId']->toRfc4122());
+        self::assertSame('Answered the storage question', $meta[(string) $docA->id]['description']);
 
         self::assertSame(1, $meta[(string) $docB->id]['versionNumber']);
         self::assertSame($versionB1->id?->toRfc4122(), $meta[(string) $docB->id]['versionId']->toRfc4122());
+        // A version needs no description, and the field validation must accept it.
+        self::assertNull($meta[(string) $docB->id]['description']);
     }
 
     public function test_find_latest_meta_by_documents_returns_empty_array_for_empty_input(): void

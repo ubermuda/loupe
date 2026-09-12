@@ -8,7 +8,7 @@ use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
-use App\Module\SiteReview\SiteReviewPush;
+use App\Outbox\AgentPush;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -23,7 +23,7 @@ final class StreamCredentialsControllerTest extends WebTestCase
     {
         $em->getConnection()->executeStatement(
             "UPDATE feature_flag SET value = 'false' WHERE name = ?",
-            [SiteReviewPush::FLAG],
+            [AgentPush::FLAG],
         );
     }
 
@@ -46,7 +46,7 @@ final class StreamCredentialsControllerTest extends WebTestCase
         // is the same value the router pins its default context to.
         $defaultUri = static::getContainer()->getParameter('router.request_context.base_url');
         self::assertIsString($defaultUri);
-        $expectedTopic = rtrim($defaultUri, '/').'/projects/'.$project->id.'/site-reviews';
+        $expectedTopic = rtrim($defaultUri, '/').'/projects/'.$project->id.'/events';
         self::assertSame($expectedTopic, $data['topic']);
         self::assertSame((string) $project->id, $data['site']['id']);
         self::assertSame($project->name, $data['site']['name']);

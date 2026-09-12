@@ -43,7 +43,7 @@ This applies only to a document meant for considered review. Keep ordinary conve
 
 The project board in the Loupe app holds open work that has an addressee. Add a card when someone must do something later: a follow-up, a known issue, or a design decision to revisit. An observation asks nothing of anyone. Put an observation in the relevant skill or in `docs/` instead.
 
-Invoke the `loupe-board` skill before you write a card. It carries the four columns, the six types, the three priorities, and the rule that `origin` records who raised the card rather than who typed it. Never leave such a note in a code comment.
+Invoke the `loupe-board` skill before you write a card. It carries the four columns, the six types, the three priorities, and the rule that `reporter` records who raised the card rather than who typed it. Never leave such a note in a code comment.
 
 A card whose body opens with `**Parked.**` is paused. Do not start it, and do not put it in `next` or `in-progress`, until the owner unparks it. The board has no parked column, so that line is the whole signal. A real parked state is worth having, and the board card 'Give the board a parked state' asks for one.
 

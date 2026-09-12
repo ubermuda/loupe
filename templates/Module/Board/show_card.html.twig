@@ -19,7 +19,7 @@
         <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>
         <span class="lp-tag">{{ ('board.card.status.' ~ card.status.value)|trans }}</span>
         <span class="lp-tag">{{ ('board.card.priority.' ~ card.priority.label())|trans }}</span>
-        <span class="lp-tag">{{ ('board.card.origin.' ~ card.origin.value)|trans }}</span>
+        <span class="lp-tag">{{ ('board.card.reporter.' ~ card.reporter.value)|trans }}</span>
         {% if card.completedAt %}
         <span class="lp-tag">{{ 'board.card.completed_at'|trans({'%time%': card.completedAt|relative_time}) }}</span>
         {% endif %}

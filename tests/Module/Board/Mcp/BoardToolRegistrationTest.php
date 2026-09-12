@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Mcp;
 
 use App\Mcp\FlagGatedToolInterface;
+use App\Module\Board\Command\SearchBoardHandler;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardGetTool;
 use App\Module\Board\Mcp\CardListTool;
+use App\Module\Board\Mcp\CardSearchTool;
 use App\Module\Board\Mcp\CardUpdateTool;
 use App\Module\Project\Mcp\AdvertisedTools;
 use Doctrine\ORM\EntityManagerInterface;
@@ -50,6 +52,7 @@ final class BoardToolRegistrationTest extends KernelTestCase
     {
         yield 'card_create' => [CardCreateTool::NAME, CardCreateTool::class];
         yield 'card_list' => [CardListTool::NAME, CardListTool::class];
+        yield 'card_search' => [CardSearchTool::NAME, CardSearchTool::class];
         yield 'card_get' => [CardGetTool::NAME, CardGetTool::class];
         yield 'card_update' => [CardUpdateTool::NAME, CardUpdateTool::class];
     }
@@ -72,6 +75,7 @@ final class BoardToolRegistrationTest extends KernelTestCase
         // Guard: an empty roster would satisfy the absence assertions below.
         self::assertContains('document_create', $names);
         self::assertNotContains(CardCreateTool::NAME, $names);
+        self::assertNotContains(CardSearchTool::NAME, $names);
         self::assertNotContains(CardUpdateTool::NAME, $names);
     }
 
@@ -87,7 +91,8 @@ final class BoardToolRegistrationTest extends KernelTestCase
 
         self::assertArrayHasKey(CardCreateTool::NAME, $order);
         self::assertLessThan($order[CardListTool::NAME], $order[CardCreateTool::NAME]);
-        self::assertLessThan($order[CardGetTool::NAME], $order[CardListTool::NAME]);
+        self::assertLessThan($order[CardSearchTool::NAME], $order[CardListTool::NAME]);
+        self::assertLessThan($order[CardGetTool::NAME], $order[CardSearchTool::NAME]);
         self::assertLessThan($order[CardUpdateTool::NAME], $order[CardGetTool::NAME]);
     }
 
@@ -128,12 +133,48 @@ final class BoardToolRegistrationTest extends KernelTestCase
         self::assertFalse($properties['full']['default']);
     }
 
-    public function test_card_update_takes_no_origin(): void
+    public function test_card_search_requires_a_query_and_publishes_its_paging(): void
+    {
+        $schema = $this->registry->getTool(CardSearchTool::NAME)->tool->inputSchema;
+
+        self::assertSame(['query'], $schema['required']);
+        self::assertSame('string', $schema['properties']['query']['type']);
+        self::assertSame(['type' => 'integer', 'description' => 'the 1-based page to read', 'default' => 1], $schema['properties']['page']);
+        self::assertSame(SearchBoardHandler::DEFAULT_PER_PAGE, $schema['properties']['perPage']['default']);
+    }
+
+    public function test_the_board_tools_publish_reporter(): void
+    {
+        foreach ([CardCreateTool::NAME, CardListTool::NAME] as $toolName) {
+            $properties = $this->registry->getTool($toolName)->tool->inputSchema['properties'];
+
+            self::assertArrayHasKey('reporter', $properties, $toolName);
+            // Both tools take it as ?string, which publishes as a null/string union.
+            self::assertContains('string', (array) $properties['reporter']['type'], $toolName);
+            self::assertNotContains('reporter', $properties['required'] ?? [], $toolName);
+        }
+    }
+
+    /**
+     * Release 1 of the rename keeps the old name on the write tool alone, so an
+     * agent that still sends it is not broken by this release. The filter is new,
+     * so it never carried the old name.
+     */
+    public function test_only_card_create_still_publishes_the_deprecated_origin(): void
+    {
+        $create = $this->registry->getTool(CardCreateTool::NAME)->tool->inputSchema['properties'];
+        $list = $this->registry->getTool(CardListTool::NAME)->tool->inputSchema['properties'];
+
+        self::assertArrayHasKey('origin', $create);
+        self::assertArrayNotHasKey('origin', $list);
+    }
+
+    public function test_card_update_takes_no_reporter(): void
     {
         $schema = $this->registry->getTool(CardUpdateTool::NAME)->tool->inputSchema;
 
         self::assertArrayHasKey('status', $schema['properties']);
-        self::assertArrayNotHasKey('origin', $schema['properties']);
+        self::assertArrayNotHasKey('reporter', $schema['properties']);
         self::assertSame(['cardId'], $schema['required']);
     }
 }

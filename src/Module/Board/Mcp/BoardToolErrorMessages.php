@@ -36,6 +36,7 @@ final readonly class BoardToolErrorMessages
             'board.card.error.title_blank' => 'A card title must not be blank.',
             'board.card.error.title_too_long' => \sprintf('A card title must be at most %d characters.', Card::MAX_TITLE_LENGTH),
             'board.card.error.pull_request_url_too_long' => \sprintf('A pull request URL must be at most %d characters.', CardPullRequest::MAX_URL_LENGTH),
+            'board.card.error.search_query_blank' => 'Pass a query to search for. To read the whole board instead, call card_list.',
             default => self::UNMAPPED,
         };
     }

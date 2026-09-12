@@ -10,6 +10,12 @@ enum DocumentStatus: string
     case Approved = 'approved';
     case ChangesRequested = 'changes-requested';
 
+    /** @return list<string> */
+    public static function values(): array
+    {
+        return array_column(self::cases(), 'value');
+    }
+
     public function translationKey(): string
     {
         return match ($this) {

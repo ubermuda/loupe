@@ -10,7 +10,7 @@ running agent either, and the publish failure is only logged. It degrades
 silently rather than erroring.
 
 The hub is in-memory. A restart drops undelivered updates, which is exactly why
-submissions are recorded in the `site_review_events` outbox and the bridge
+submissions are recorded in the `outbox_events` outbox and the bridge
 resumes from `Last-Event-ID`: delivery is best effort, replay is not.
 
 ## Configuration
@@ -21,7 +21,7 @@ resumes from `Last-Event-ID`: delivery is best effort, replay is not.
 | `MERCURE_URL` | Where the app POSTs updates — the hub on the internal network. |
 | `MERCURE_PUBLIC_URL` | Where clients subscribe. A genuinely separate host, since the bridge CLI reaches it directly, so it cannot be derived from `DEFAULT_URI`. |
 
-The `site_review.push.enabled` flag requires all three: with any of them blank,
+The `agent.push.enabled` flag requires all three: with any of them blank,
 the endpoint returns an unusable hub URL.
 
 ## In development
