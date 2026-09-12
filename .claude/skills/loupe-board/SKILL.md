@@ -1,6 +1,6 @@
 ---
 name: loupe-board
-description: "Use when working a project board in the Loupe app through the loupe MCP, calling card_create, card_list, card_get or card_update, writing a card, or linking a pull request to a card."
+description: "Use when working a project board in the Loupe app through the loupe MCP, calling card_create, card_list, card_get or card_update, writing a card, moving a card between columns, linking a document to a card, or linking a pull request to a card."
 ---
 
 # Working a Loupe board
@@ -108,6 +108,34 @@ The number and the `cardId` are different things. `cardId` is a UUID, and it is
 what `card_get` and `card_update` take. No tool looks a card up by its number,
 so read the board with `card_list` when you hold a number and need the id.
 
+## Move the card as the work moves
+
+The card reports where the work stands. A session that reads the board mid-week
+sees the truth only when every step updates the card.
+
+| Moment | Do this |
+|---|---|
+| You start the work | `card_update` with `status` `in-progress`, before you write any code. |
+| A design document exists | Add its id to `documentIds`, before the code exists. |
+| You open the pull request | Add its URL to `pullRequestUrls`. A draft already has a URL. |
+| You hand the work over | Put the branch name and the remaining steps in the body. |
+| You stop and leave the work | Move the card back to `backlog`. Say why in the body. |
+| The pull request merges | Move the card to `done`. |
+
+`next` holds work that is chosen and not started. `card_create` takes `status`,
+so a card you raise for work you start now goes straight to `in-progress`.
+
+Attach a link as soon as it exists. A session that reads the card while the
+branch runs then finds the URL and the document.
+
+Only the owner parks a card. Read the `**Parked.**` section above before you move
+a card out of `backlog`.
+
+`body` replaces the whole body, in the same way `pullRequestUrls` replaces the
+whole set. Read the card with `card_get` first. Add your lines to the Markdown
+it returns. Send the whole result. A two-line handover note sent on its own
+erases the card.
+
 ## Link a pull request to a card
 
 Three steps carry the link, and you do all three by hand. Nothing automates any
@@ -117,16 +145,18 @@ of them.
 2. Put the card's URL in the pull request body. A card page is at
    `<instance>/projects/<projectId>/board/cards/<cardId>`. The last segment is
    the UUID, never the number.
-3. Call `card_update` after you open the pull request, with its URL in
-   `pullRequestUrls`.
+3. Call `card_update` as soon as you open the pull request, draft included,
+   with its URL in `pullRequestUrls`.
 
 No board tool reports the project id, so take it from a project URL you already
 hold. Every project URL carries it, including the Connect page at
 `/projects/<projectId>/connect`.
 
 `pullRequestUrls` replaces the whole set. Send every URL the card carries. A
-call that sends the new URL alone drops the links that were already there. Omit
-the field to keep the current links. Send an empty list to remove them all.
+call that sends the new URL alone drops the links that were already there. Read
+the card with `card_get` first, and send the URLs it already holds with the new
+one. Omit the field to keep the current links. Send an empty list to remove them
+all.
 
 Step 3 is a convention, and a convention is sometimes forgotten. Steps 1 and 2
 exist for that case. A branch named after the card, and a card URL in the pull
@@ -151,4 +181,7 @@ An agent or a person moves the card to `done`.
 | Passing a card number as `cardId` | `cardId` is a UUID. Find it with `card_list`. |
 | Fixing a wrong `origin` with `card_update` | `origin` is set once, when the card is created. |
 | Expecting a merged pull request to move its card | The app never contacts the forge. Move the card yourself. |
+| Linking a pull request only when it is ready for review | A draft has a URL. Link it when you open it. |
+| Leaving the card in `backlog` while you work on it | The board then shows no work in progress. Move it when you start. |
+| Sending a short `body` to add a handover note | `body` replaces the whole body. Read the card with `card_get` first. |
 | Writing "Task 3" or "phase 2" in a body | Those names die with the session. Name the class, the route or the file. |
