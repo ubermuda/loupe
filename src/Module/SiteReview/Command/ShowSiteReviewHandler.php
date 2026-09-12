@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace App\Module\SiteReview\Command;
 
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
-use App\Module\SiteReview\Repository\SiteReviewEventRepository;
+use App\Module\SiteReview\SiteReviewEventType;
+use App\Outbox\Repository\OutboxEventRepository;
 
 final readonly class ShowSiteReviewHandler
 {
     public function __construct(
         private SiteReviewCommentRepository $siteReviewComments,
-        private SiteReviewEventRepository $siteReviewEvents,
+        private OutboxEventRepository $outboxEvents,
     ) {
     }
 
@@ -20,7 +21,7 @@ final readonly class ShowSiteReviewHandler
         return new ShowSiteReviewView(
             project: $command->project,
             comments: $this->siteReviewComments->findForProject($command->project),
-            unsentCount: $this->siteReviewEvents->countUnsent($command->project),
+            unsentCount: $this->outboxEvents->countUnsent($command->project, SiteReviewEventType::SUBMITTED),
         );
     }
 }

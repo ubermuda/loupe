@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Command;
 
+use App\Mercure\ProjectTopicBuilder;
 use App\Module\Project\Repository\ProjectRepository;
-use App\Module\SiteReview\Service\SiteReviewTopicBuilder;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Mercure\Jwt\TokenFactoryInterface;
 
@@ -19,7 +19,7 @@ final readonly class ShowStreamCredentialsHandler
 
     public function __construct(
         private ProjectRepository $projects,
-        private SiteReviewTopicBuilder $topicBuilder,
+        private ProjectTopicBuilder $topicBuilder,
 
         #[Autowire(service: 'mercure.hub.default.jwt.factory')]
         private TokenFactoryInterface $tokenFactory,

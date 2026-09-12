@@ -61,7 +61,7 @@ works on every provider. See [Known gaps](known-gaps.md).
 
 Push needs a Mercure hub, and without one the publish failure is only logged.
 Submissions are not lost: they sit in the outbox, visible at
-`/admin/site-review-outbox`, and a scheduled drain replays them once a hub
+`/admin/outbox`, and a scheduled drain replays them once a hub
 exists. See [Mercure](extending/mercure.md).
 
 ## Generated links point at the wrong host

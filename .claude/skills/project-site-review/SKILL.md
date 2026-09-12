@@ -103,17 +103,21 @@ the comment save it was told about.
 
 ## The push subsystem has no producer
 
-`SiteReviewEvent`, the outbox, `DrainOutboxHandler`, the drain scheduler, both
-outbox pages, `StreamCredentialsController` and the `site_review.push.enabled`
-flag are all present and tested. Nothing writes an event any more: dropping the
-send step removed the only producer.
+`App\Outbox\Entity\OutboxEvent`, the outbox, `DrainOutboxHandler`, the drain
+scheduler, both outbox pages, `StreamCredentialsController` and the
+`agent.push.enabled` flag are all present and tested. Nothing writes an event
+any more: dropping the send step removed the only producer.
+
+The outbox now lives in the root namespace under `App\Outbox`, because it takes
+every producer's events rather than site review's alone. A row carries a `type`,
+and this module writes `SiteReviewEventType::SUBMITTED`.
 
 This is deliberate, not rot, because the push feature is unfinished. Do not wire
 a trigger without a decision; see the card on the project board. Expect a
 permanently empty outbox, a "not reached your agent yet" notice that never
 shows, and a connected bridge CLI that receives nothing.
 
-Counters reading `SiteReviewEvent` report zero forever. The projects list and
+Counters reading `OutboxEvent` report zero forever. The projects list and
 the site-review page now count comments instead. `unsentCount` and the outbox
 notice stay event-sourced on purpose, because zero is *correct* there.
 

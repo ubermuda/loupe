@@ -218,12 +218,12 @@ when@test:
             autoconfigure: true
             public: true
 
-        App\Module\SiteReview\Repository\SiteReviewEventRepository:
+        App\Outbox\Repository\OutboxEventRepository:
             autowire: true
             autoconfigure: true
             public: true
 
-        App\Module\SiteReview\Service\SiteReviewTopicBuilder:
+        App\Mercure\ProjectTopicBuilder:
             autowire: true
             public: true
 
