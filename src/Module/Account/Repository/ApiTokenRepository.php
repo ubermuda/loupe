@@ -33,6 +33,19 @@ class ApiTokenRepository extends ServiceEntityRepository
     }
 
     /**
+     * Tokens the owner can still use, newest first.
+     *
+     * @return list<ApiToken>
+     */
+    public function findActiveByOwner(User $owner): array
+    {
+        return array_values($this->findBy(
+            ['owner' => $owner, 'revokedAt' => null],
+            ['createdAt' => 'DESC'],
+        ));
+    }
+
+    /**
      * Records API token usage, but only if the last recorded use is missing or
      * older than $staleThreshold. Runs as a targeted DBAL UPDATE rather than an
      * entity flush() — this is called on every Bearer-authenticated request, so

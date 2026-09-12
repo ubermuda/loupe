@@ -831,6 +831,50 @@
                 <source>account.api_token.scope.site_review_warning</source>
                 <target>A site-review token is embedded in your app's page source and visible to anyone who can view-source. Use a dedicated dev token, never a production credential.</target>
             </trans-unit>
+            <trans-unit id="account.api_token.mask">
+                <source>account.api_token.mask</source>
+                <target>••••••••%tail%</target>
+            </trans-unit>
+            <trans-unit id="account.api_token.created">
+                <source>account.api_token.created</source>
+                <target>created %date%</target>
+            </trans-unit>
+            <trans-unit id="account.api_token.one_time_warning">
+                <source>account.api_token.one_time_warning</source>
+                <target>Copy this token now. We store only a hash of it, so this is the only time you can see it. If you lose it, mint a new one.</target>
+            </trans-unit>
+            <trans-unit id="account.api_token.cli.label">
+                <source>account.api_token.cli.label</source>
+                <target>Authenticate the loupe CLI</target>
+            </trans-unit>
+            <trans-unit id="account.api_token.cli.hint">
+                <source>account.api_token.cli.hint</source>
+                <target>Run this in your terminal. It validates the token before saving it to your OS keychain. The token is on the command line, so clear that entry from your shell history afterwards, or run loupe login on its own and paste the token at the hidden prompt.</target>
+            </trans-unit>
+            <trans-unit id="account.api_token.copy">
+                <source>account.api_token.copy</source>
+                <target>Copy</target>
+            </trans-unit>
+            <trans-unit id="account.api_token.copied">
+                <source>account.api_token.copied</source>
+                <target>Copied</target>
+            </trans-unit>
+            <trans-unit id="account.api_token.scope.choice.mcp">
+                <source>account.api_token.scope.choice.mcp</source>
+                <target>Agent (MCP)</target>
+            </trans-unit>
+            <trans-unit id="account.api_token.scope.choice.site_review">
+                <source>account.api_token.scope.choice.site_review</source>
+                <target>Site review</target>
+            </trans-unit>
+            <trans-unit id="account.form.mint_api_token_form.label.label">
+                <source>account.form.mint_api_token_form.label.label</source>
+                <target>Name</target>
+            </trans-unit>
+            <trans-unit id="account.form.mint_api_token_form.label.placeholder">
+                <source>account.form.mint_api_token_form.label.placeholder</source>
+                <target>What you use this token for, for example "Laptop CLI"</target>
+            </trans-unit>
 
             <!-- Account settings page -->
             <trans-unit id="account.settings.page.title">
@@ -916,6 +960,28 @@
             <trans-unit id="account.settings.export.error.already_pending">
                 <source>account.settings.export.error.already_pending</source>
                 <target>An export is already being prepared.</target>
+            </trans-unit>
+
+            <!-- Account settings page — API tokens -->
+            <trans-unit id="account.settings.api_tokens.heading">
+                <source>account.settings.api_tokens.heading</source>
+                <target>API tokens</target>
+            </trans-unit>
+            <trans-unit id="account.settings.api_tokens.intro">
+                <source>account.settings.api_tokens.intro</source>
+                <target>Create a token here to connect the loupe CLI, which reads your site-review stream. Keep it secret and revoke it as soon as you stop using it. This list also shows the tokens your projects use.</target>
+            </trans-unit>
+            <trans-unit id="account.settings.api_tokens.empty">
+                <source>account.settings.api_tokens.empty</source>
+                <target>You have no API tokens yet.</target>
+            </trans-unit>
+            <trans-unit id="account.settings.api_tokens.mint_button">
+                <source>account.settings.api_tokens.mint_button</source>
+                <target>Create token</target>
+            </trans-unit>
+            <trans-unit id="account.settings.api_tokens.mint_hint">
+                <source>account.settings.api_tokens.mint_hint</source>
+                <target>The new token gets Site review access. An agent needs a project token instead, which you mint from the project's Connect page.</target>
             </trans-unit>
 
             <!-- Account settings page — delete account danger zone -->

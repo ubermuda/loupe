@@ -42,6 +42,21 @@ final class ShowAccountSettingsControllerTest extends WebTestCase
         self::assertSelectorExists('[data-testid="export-section"]');
     }
 
+    public function test_a_user_with_no_tokens_sees_the_empty_state_and_the_mint_form(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $user = $this->createVerifiedUser($em, 'tokenless', 'tokenless@example.com');
+
+        $client->loginUser($user);
+        $crawler = $client->request(Request::METHOD_GET, '/account');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-testid="api-tokens-empty"]');
+        self::assertSelectorExists('[data-testid="mint-api-token-form"]');
+        self::assertCount(0, $crawler->filter('[data-token-id]'));
+    }
+
     public function test_a_ready_export_offers_a_download_link_and_a_pending_one_does_not(): void
     {
         $client = static::createClient();

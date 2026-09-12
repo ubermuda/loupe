@@ -89,6 +89,29 @@ final class RevokeApiTokenControllerTest extends WebTestCase
         self::assertResponseRedirects($returnTo);
     }
 
+    public function test_revoke_returns_to_the_account_settings_page(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createVerifiedUser($em, 'account-owner', 'account-returnto@example.com');
+        [$token] = ApiToken::issue($owner, 'cli token', ApiTokenScope::SiteReview);
+        $em->persist($token);
+        $em->flush();
+        $tokenId = $token->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/account');
+
+        $client->request(Request::METHOD_POST, '/account/api-tokens/'.(string) $tokenId.'/revoke', [
+            '_csrf_token' => 'csrf-token',
+            'returnTo' => '/account',
+        ]);
+
+        self::assertResponseRedirects('/account');
+    }
+
     public function test_revoke_rejects_off_site_return_to_and_falls_back(): void
     {
         $client = static::createClient();
@@ -104,8 +127,9 @@ final class RevokeApiTokenControllerTest extends WebTestCase
         $client->loginUser($owner);
         $client->request(Request::METHOD_GET, '/projects');
 
-        // A returnTo outside the /projects/ allow-list must be rejected (open-redirect
-        // guard) and fall back to the projects index rather than honoured.
+        // Outside the allow-list: the account entry is an exact '/account' match, so
+        // a deeper /account/… path is rejected (open-redirect guard) and falls back
+        // to the projects index rather than being honoured.
         $client->request(Request::METHOD_POST, '/account/api-tokens/'.(string) $tokenId.'/revoke', [
             '_csrf_token' => 'csrf-token',
             'returnTo' => '/account/settings',
