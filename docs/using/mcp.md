@@ -17,12 +17,16 @@ token can be revoked from `/account/api-tokens/{tokenId}/revoke`.
 
 The first-run wizard mints one for you at `/welcome/connect`.
 
-You can also mint an account-level token from your account settings at
-`/account`. Give it a name, pick its access, and copy the value from the page:
-Loupe stores only a hash, so the page shows the raw token once and never again.
-The same page lists your tokens and revokes them. A tool that acts on your
-account rather than on one project needs a token of this kind. The Loupe CLI
-reads a review stream, so give its token Site review access.
+Your account settings at `/account` mint an account-level token. Give it a name
+and copy the value from the page: Loupe stores only a hash, so the page shows
+the raw token once and never again. The same page lists every token you own and
+revokes any of them.
+
+An account-level token always gets site-review access, which is what the Loupe
+CLI needs. The page mints no MCP token, because an MCP tool reads its project
+from the token that is bound to it, and only the project's Connect page writes
+that binding. An account-level MCP token would authenticate and then fail on
+every tool call.
 
 ## The Claude Code plugin
 

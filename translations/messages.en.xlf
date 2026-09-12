@@ -867,22 +867,6 @@
                 <source>account.form.mint_api_token_form.label.placeholder</source>
                 <target>What you use this token for, for example "Laptop CLI"</target>
             </trans-unit>
-            <trans-unit id="account.form.mint_api_token_form.scope.label">
-                <source>account.form.mint_api_token_form.scope.label</source>
-                <target>Access</target>
-            </trans-unit>
-            <trans-unit id="account.form.mint_api_token_form.scope.help">
-                <source>account.form.mint_api_token_form.scope.help</source>
-                <target>Site review lets the token read a review stream and post comments. Agent lets it call the MCP tools.</target>
-            </trans-unit>
-            <trans-unit id="account.form.mint_api_token_form.scope.choice.mcp">
-                <source>account.form.mint_api_token_form.scope.choice.mcp</source>
-                <target>Agent (MCP)</target>
-            </trans-unit>
-            <trans-unit id="account.form.mint_api_token_form.scope.choice.site_review">
-                <source>account.form.mint_api_token_form.scope.choice.site_review</source>
-                <target>Site review</target>
-            </trans-unit>
 
             <!-- Account settings page -->
             <trans-unit id="account.settings.page.title">
@@ -977,7 +961,7 @@
             </trans-unit>
             <trans-unit id="account.settings.api_tokens.intro">
                 <source>account.settings.api_tokens.intro</source>
-                <target>An API token lets a tool act on your account, such as the Loupe CLI. Keep it secret and revoke it as soon as you stop using it.</target>
+                <target>Create a token here to connect the loupe CLI, which reads your site-review stream. Keep it secret and revoke it as soon as you stop using it. This list also shows the tokens your projects use.</target>
             </trans-unit>
             <trans-unit id="account.settings.api_tokens.empty">
                 <source>account.settings.api_tokens.empty</source>
@@ -986,6 +970,10 @@
             <trans-unit id="account.settings.api_tokens.mint_button">
                 <source>account.settings.api_tokens.mint_button</source>
                 <target>Create token</target>
+            </trans-unit>
+            <trans-unit id="account.settings.api_tokens.mint_hint">
+                <source>account.settings.api_tokens.mint_hint</source>
+                <target>The new token gets Site review access. An agent needs a project token instead, which you mint from the project's Connect page.</target>
             </trans-unit>
 
             <!-- Account settings page — delete account danger zone -->

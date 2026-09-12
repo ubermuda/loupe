@@ -48,7 +48,6 @@ class MintApiTokenController extends AppController
             $raw = ($this->mintApiToken)(new MintApiTokenCommand(
                 owner: $user,
                 label: $label,
-                scope: $data->scope ?? throw new \LogicException('scope required after validation'),
             ));
 
             // A dedicated flash key, whitelisted out of the layout's flash strip,

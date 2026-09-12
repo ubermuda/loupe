@@ -121,9 +121,9 @@
         {{ form_start(mintForm, {action: path('app_api_token_mint'), method: 'post', attr: {'data-testid': 'mint-api-token-form'}}) }}
         {{ form_errors(mintForm) }}
         {{ form_row(mintForm.label) }}
-        {{ form_row(mintForm.scope) }}
         <button type="submit" class="lp-btn lp-btn--primary">{{ 'account.settings.api_tokens.mint_button'|trans }}</button>
         {{ form_end(mintForm) }}
+        <p class="lp-connect-hint">{{ 'account.settings.api_tokens.mint_hint'|trans }}</p>
         </div>
     </section>
 
