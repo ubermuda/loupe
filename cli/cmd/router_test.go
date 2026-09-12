@@ -537,6 +537,37 @@ func TestAnEventAfterShutdownIsDropped(t *testing.T) {
 	}
 }
 
+// Ctrl-C cancels the context before the stream unwinds, so a worker can finish
+// before shutdown runs. The cancelled context has to stop the queue by itself,
+// or that worker admits a card no process can run.
+func TestACancelledContextStopsTheQueue(t *testing.T) {
+	h := newHarness()
+	h.router.maxWorkers = 1
+	ctx, cancel := context.WithCancel(context.Background())
+	h.router.ctx = ctx
+	h.worker.started = make(chan workerCall, 2)
+	h.worker.block = make(chan struct{})
+
+	h.router.onData([]byte(cardMoved(87)))
+	<-h.worker.started
+	h.router.onData([]byte(cardMoved(88)))
+
+	cancel()
+	close(h.worker.block)
+	h.router.wg.Wait()
+
+	if got := h.worker.recorded(); len(got) != 1 {
+		t.Fatalf("a cancelled bridge still ran %d workers", len(got))
+	}
+	dropped := h.only(t, "queue_dropped")
+	if num(t, dropped, "count") != 1 {
+		t.Fatalf("queue_dropped = %v", dropped)
+	}
+	if got := cards(t, dropped); len(got) != 1 || got[0] != 88 {
+		t.Fatalf("dropped cards = %v, want [88]", got)
+	}
+}
+
 // A shutdown with nothing waiting says nothing.
 func TestShutdownWithAnEmptyQueueLogsNothing(t *testing.T) {
 	h := newHarness()

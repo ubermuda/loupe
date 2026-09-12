@@ -147,7 +147,7 @@ func (r *router) enqueue(e event.Event) {
 func (r *router) dispatch() {
 	for {
 		r.mu.Lock()
-		if r.closed {
+		if r.shut() {
 			r.mu.Unlock()
 			r.dropQueued()
 
@@ -200,6 +200,15 @@ func (r *router) finish(key string) {
 // caller holds mu.
 func (r *router) release(key string) {
 	delete(r.claimed, key)
+}
+
+// shut reports whether the queue accepts no more starts. The caller holds mu.
+//
+// A cancelled context counts. Ctrl-C kills the workers before Subscribe
+// unwinds, so a worker that finishes first would otherwise start a queued card
+// that cannot run.
+func (r *router) shut() bool {
+	return r.closed || r.workerContext().Err() != nil
 }
 
 // shutdown stops the queue for good and drops what is still in it.
