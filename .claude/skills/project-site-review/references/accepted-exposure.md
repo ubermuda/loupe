@@ -16,7 +16,7 @@ each cost, including the observation that it reverses the reasoning behind
 What bounds it. `board.enabled` ships off, and both endpoints re-check it, so an
 instance that never switched the board on exposes nothing. Creation takes no
 `status` and no `pullRequestUrls`, so a caller cannot file into a column or
-attach a URL of their choosing. A card records `CardOrigin::Reviewer`, which
+attach a URL of their choosing. A card records `CardReporter::Reviewer`, which
 says the app could not name who raised it. The write joins the
 `site_review_write` limiter through `WidgetApiPaths`, so the board is not an
 unbounded spam target. Nothing bounds the read beyond the twenty-card page.
@@ -52,8 +52,9 @@ What bounds it. Policy first: `docs/using/site-review.md`, the Connect page and
 everyone who can see the token is already entitled to those comments. Then code:
 
 - `Addressed` and `Resolved` comments are immune.
-- `/api/site-review/sites` and `/api/site-review/stream` reject widget tokens,
-  so there is no project enumeration and no Mercure JWT.
+- `/api/agent/sites` and `/api/agent/stream` need `ROLE_API_AGENT`, which a
+  widget token does not carry, so there is no project enumeration and no
+  Mercure JWT.
 - `RateLimitSiteReviewWrites` slows churn, though not a targeted delete.
 - The app's own instance ships `SITE_REVIEW_WIDGET_TOKEN` empty in `.env`, and
   `templates/layout_base.html.twig` gates the widget behind

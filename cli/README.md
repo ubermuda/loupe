@@ -43,9 +43,10 @@ repository, so a human confirms the CLI is what changed before it ships.
 ## Requirements
 
 - **`claude`** on your `PATH`. The bridge refuses to start without it.
-- A Loupe API token with the **site-review** scope. Use an account-level token,
-  not the project-bound widget token that gets embedded in page HTML: the widget
-  token is public by design and is rejected by the endpoints the bridge needs.
+- A Loupe API token with the **agent** scope. Mint it from your account settings
+  page at `/account`. A project's widget token carries the site-review scope
+  instead. That token is embedded in page HTML and public by design, so the
+  firewall refuses it on every endpoint the bridge needs.
 - The Loupe MCP server configured for `claude` in the `--dir` directory. A
   directive only names an MCP tool, `card_get`. It does not carry a
   self-contained prompt, so the agent cannot act on it without the MCP
@@ -222,8 +223,8 @@ build time, so the binary matches no commit.
 
 ## How it works
 
-1. `GET /api/site-review/sites` lists your sites (the picker).
-2. `GET /api/site-review/stream?site=…` returns the Mercure hub URL, the
+1. `GET /api/agent/sites` lists your sites (the picker).
+2. `GET /api/agent/stream?site=…` returns the Mercure hub URL, the
    per-site topic, and a short-lived subscriber JWT.
 3. The CLI opens a Server-Sent Events connection to the hub. The connection is
    **outbound**, so it works from behind NAT with no inbound port.

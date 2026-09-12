@@ -26,7 +26,7 @@ final class ApiAccessControlTest extends KernelTestCase
      * A token carrying every role the app issues — the strongest caller that
      * could reach an unguarded endpoint.
      */
-    private const array ALL_ROLES = ['ROLE_USER', 'ROLE_API_SITE_REVIEW', 'ROLE_API_MCP', 'ROLE_ADMIN'];
+    private const array ALL_ROLES = ['ROLE_USER', 'ROLE_API_SITE_REVIEW', 'ROLE_API_AGENT', 'ROLE_API_MCP', 'ROLE_ADMIN'];
 
     public function test_an_api_path_with_no_scope_rule_is_denied_to_every_role(): void
     {
@@ -41,6 +41,25 @@ final class ApiAccessControlTest extends KernelTestCase
     public function test_a_site_review_token_stays_denied_outside_its_own_prefix(): void
     {
         self::assertFalse($this->decide('/api/other', ['ROLE_USER', 'ROLE_API_SITE_REVIEW']));
+    }
+
+    public function test_the_deny_rule_does_not_shadow_the_agent_scope(): void
+    {
+        self::assertTrue($this->decide('/api/agent/sites', ['ROLE_USER', 'ROLE_API_AGENT']));
+        self::assertTrue($this->decide('/api/agent/stream', ['ROLE_USER', 'ROLE_API_AGENT']));
+    }
+
+    /**
+     * The two scopes are disjoint in both directions. This is the whole point of
+     * splitting them: a widget token is embedded in public page HTML, and an
+     * agent token enumerates every project the owner has.
+     */
+    public function test_the_agent_scope_and_the_site_review_scope_do_not_reach_each_other(): void
+    {
+        self::assertFalse($this->decide('/api/site-review/review/submit', ['ROLE_USER', 'ROLE_API_AGENT']));
+        self::assertFalse($this->decide('/api/board/cards', ['ROLE_USER', 'ROLE_API_AGENT']));
+        self::assertFalse($this->decide('/api/agent/sites', ['ROLE_USER', 'ROLE_API_SITE_REVIEW']));
+        self::assertFalse($this->decide('/api/agent/stream', ['ROLE_USER', 'ROLE_API_SITE_REVIEW']));
     }
 
     /**

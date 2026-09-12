@@ -45,6 +45,7 @@ final readonly class WriteOutboxEventOnCardMoved
             'cardNumber' => $card->number,
             'fromStatus' => $event->move->fromStatus->value,
             'toStatus' => $card->status->value,
+            'actor' => $event->actor->value,
         ];
 
         $this->em->persist(new OutboxEvent(

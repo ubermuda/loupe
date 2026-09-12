@@ -29,6 +29,7 @@ final readonly class MoveCardHandler
         // rank alone" in an update, so it becomes an explicit rank.
         return ($this->updateCard)(new UpdateCardCommand(
             card: $command->card,
+            actor: $command->actor,
             priority: $command->priority,
             status: $command->status,
             position: $command->position ?? CardMover::END_OF_GROUP,

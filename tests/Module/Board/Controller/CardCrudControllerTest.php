@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
+use App\Tests\Module\Board\CardMovedOutbox;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
@@ -52,7 +53,7 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertSame(CardPriority::High, $created->priority);
         self::assertSame(CardType::Tooling, $created->type);
         // A form is a person writing the card down, whatever an agent does later.
-        self::assertSame(CardOrigin::Human, $created->reporter);
+        self::assertSame(CardReporter::Human, $created->reporter);
         self::assertCount(2, $created->pullRequests);
     }
 
@@ -113,6 +114,10 @@ final class CardCrudControllerTest extends WebTestCase
         $link = $fresh->pullRequests->first();
         self::assertInstanceOf(CardPullRequest::class, $link);
         self::assertSame('https://github.com/loupe/loupe/pull/99', $link->url);
+
+        // The status changed, so the edit is also a move with an outbox row.
+        $payload = CardMovedOutbox::onlyPayload(static::getContainer(), $project);
+        self::assertSame(CardReporter::Human->value, $payload['actor'] ?? null);
     }
 
     public function test_an_emptied_url_box_clears_every_link(): void

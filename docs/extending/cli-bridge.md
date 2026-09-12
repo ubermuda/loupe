@@ -10,6 +10,11 @@ MCP, prints its answer and exits. The bridge reports the exit code. Build it
 with `just cli-build`. See [`cli/README.md`](../../cli/README.md) for the
 commands and flags.
 
+The bridge authenticates with an account-level API token that carries the agent
+scope. Mint one at `/account`. It reaches `GET /api/agent/sites` and
+`GET /api/agent/stream`, and no other endpoint. A project's widget token carries
+a different scope and the firewall refuses it here.
+
 The bridge is a supervisor. `--max-workers` bounds the workers that run at once,
 three by default, and events past the bound wait in a first-in first-out queue.
 A card is held from the moment its event is accepted until its worker exits, so

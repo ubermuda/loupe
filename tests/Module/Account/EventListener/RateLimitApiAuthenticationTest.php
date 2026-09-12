@@ -119,13 +119,13 @@ final class RateLimitApiAuthenticationTest extends TestCase
         $listener = $this->listener('sliding_window');
 
         for ($i = 0; $i < 10; ++$i) {
-            $listener($this->arriving('/api/site-review/sites', '203.0.113.7', method: Request::METHOD_GET));
+            $listener($this->arriving('/api/agent/sites', '203.0.113.7', method: Request::METHOD_GET));
         }
 
-        $listener->chargeFailure($this->failure('/api/site-review/sites', '203.0.113.7', method: Request::METHOD_GET));
+        $listener->chargeFailure($this->failure('/api/agent/sites', '203.0.113.7', method: Request::METHOD_GET));
 
         $this->expectException(TooManyRequestsHttpException::class);
-        $listener($this->arriving('/api/site-review/sites', '203.0.113.7', method: Request::METHOD_GET));
+        $listener($this->arriving('/api/agent/sites', '203.0.113.7', method: Request::METHOD_GET));
     }
 
     private function listener(string $policy = 'fixed_window'): RateLimitApiAuthentication

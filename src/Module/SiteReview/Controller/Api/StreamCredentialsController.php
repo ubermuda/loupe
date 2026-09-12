@@ -7,7 +7,6 @@ namespace App\Module\SiteReview\Controller\Api;
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Repository\AmbiguousProjectHandleException;
-use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Command\ShowStreamCredentialsCommand;
 use App\Module\SiteReview\Command\ShowStreamCredentialsHandler;
 use App\Outbox\AgentPush;
@@ -23,38 +22,30 @@ use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
  * its API token and a ?site= handle (project id, name or slug), then opens an SSE
  * connection to {hubUrl}?topic={topic} with the returned JWT.
  *
- * Account-level tokens only. Project-bound widget tokens (embedded in page
- * HTML, public by design) are rejected with 403 — their contract is "one
- * project's comments, nothing else"; letting one mint subscriber JWTs
- * would let any page visitor spy on the owner's review streams.
- *
- * Role gating (ROLE_API_SITE_REVIEW) comes from the firewall access_control on
- * ^/api/site-review; project ownership is enforced by the handler's
- * owner-scoped lookup.
+ * Agent-scoped tokens only. The firewall grants `^/api/agent` to ROLE_API_AGENT
+ * alone, so a project-bound widget token gets 403 `insufficient_scope` before
+ * this class runs. A widget token is embedded in public page HTML, and letting
+ * one mint subscriber JWTs would let any page visitor watch the owner's review
+ * streams. Project ownership is enforced by the handler's owner-scoped lookup.
  */
 // 404 rather than a disabled-looking 403: with push off there is no hub to
 // subscribe to, so there is nothing here to be authorized for. The bridge CLI
 // treats it as "this instance does not do push".
 #[RequireFeatureFlag(AgentPush::FLAG)]
 #[Route(
-    '/api/site-review/stream',
-    name: 'api_site_review_stream',
+    '/api/agent/stream',
+    name: 'api_agent_stream',
     methods: ['GET'],
 )]
 final class StreamCredentialsController extends AppController
 {
     public function __construct(
-        private readonly AuthenticatedProjectResolver $projectResolver,
         private readonly ShowStreamCredentialsHandler $showStreamCredentials,
     ) {
     }
 
     public function __invoke(Request $request): JsonResponse
     {
-        if (null !== $this->projectResolver->resolveWidgetProject()) {
-            return $this->json(['error' => 'site_bound_token_not_allowed'], JsonResponse::HTTP_FORBIDDEN);
-        }
-
         $user = $this->getUser();
         if (!$user instanceof User) {
             throw new \LogicException('Stream endpoint reached without an authenticated User.');

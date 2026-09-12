@@ -130,12 +130,16 @@ notice stay event-sourced on purpose, because zero is *correct* there.
 | `/api/site-review/comments/{id}` | PATCH | Edit (Pending only) |
 | `/api/site-review/comments/{id}` | DELETE | Delete (Pending only) |
 | `/api/site-review/comments/{id}/resolve` | POST | Resolve (Pending only) |
-| `/api/site-review/sites` | GET | List sites for a token |
-| `/api/site-review/stream` | GET | Subscriber credentials, behind the push flag |
 | `/api/board/cards` | GET | Open cards, for the widget's picker |
 | `/api/board/cards` | POST | Create a card from the widget |
 
-The last two are Board paths on a widget token, and `config/packages/security.yaml`
+Two more routes live in this module and are not widget paths. `/api/agent/sites`
+and `/api/agent/stream` serve the loupe CLI. The firewall grants `^/api/agent` to
+`ROLE_API_AGENT`, which a widget token does not carry, so a widget token gets
+`insufficient_scope`. They keep their `StreamCredentialsController` and
+`ListSitesController` classes here because their command handlers do.
+
+The last two widget routes are Board paths on a widget token, and `config/packages/security.yaml`
 grants them in their own `access_control` line rather than under the
 `^/api/site-review` prefix, so the grant is visible to anyone reading that file.
 `WidgetApiPaths` is what keeps CORS and the write rate limit covering them: both

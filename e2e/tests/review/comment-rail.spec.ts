@@ -296,10 +296,19 @@ test('hiding resolved threads closes the gap the markers left', async ({
     await toggle.click();
 
     await expect(page.locator('.lp-comment-thread--resolved')).toBeHidden();
-    const after = await markerTops(page);
-    expect(after).toHaveLength(2);
+
+    // The hidden class lands at once and the rail repositions on the next
+    // animation frame, so a single read can still catch the old rows. Poll
+    // both reads, the way the orphan-group test below does.
+    await expect
+        .poll(() => markerTops(page), { timeout: coverageScaled(5000) })
+        .toHaveLength(2);
     // The two survivors move up into the row the resolved marker held.
-    expect(after[0]).toBeLessThan(before[1]);
+    await expect
+        .poll(async () => (await markerTops(page))[0], {
+            timeout: coverageScaled(5000),
+        })
+        .toBeLessThan(before[1]);
 });
 
 /** The orphan group's rendered height, which its disclosure animates. */

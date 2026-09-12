@@ -28,7 +28,7 @@ Built with Symfony, Tailwind CSS and Symfony UX (Stimulus + Turbo).
 - **Command-line bridge** *(preview, unreleased)* — a Go binary
   ([`cli/`](cli/README.md)) that watches your board and runs a non-interactive
   Claude Code worker for every card moved to `next`.
-- **Scoped API tokens** — separate MCP and site-review scopes, stored hashed.
+- **Scoped API tokens** — separate MCP, agent and site-review scopes, stored hashed.
 
 ## Try it
 
