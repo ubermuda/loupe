@@ -6,8 +6,10 @@ namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Form\MoveCardFormType;
+use App\Tests\Module\Board\CardMovedOutbox;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -99,6 +101,25 @@ final class MoveCardControllerTest extends WebTestCase
         self::assertInstanceOf(Card::class, $moved);
         self::assertSame(CardStatus::Done, $moved->status);
         self::assertNotNull($moved->completedAt);
+    }
+
+    public function test_a_drag_is_published_as_a_human_action(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'move-actor@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Dragged', CardStatus::Backlog, CardPriority::Medium, 0);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $this->move($client, $card, CardStatus::Next, CardPriority::Medium, null);
+
+        self::assertResponseRedirects();
+        $payload = CardMovedOutbox::onlyPayload(static::getContainer(), $project);
+        self::assertSame(CardReporter::Human->value, $payload['actor'] ?? null);
     }
 
     public function test_a_stranger_cannot_move_a_card(): void

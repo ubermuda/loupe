@@ -6,11 +6,14 @@ namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 
 /**
- * Every field is optional and null means "leave it alone".
+ * $card and $actor are required. $actor is who makes this change, and a move
+ * publishes it to the outbox. Every other field is optional, and null means
+ * "leave it alone".
  *
  * $pullRequestUrls and $documentIds are the places where null and an empty
  * array differ: null keeps the links the card has, and an empty array removes
@@ -29,6 +32,7 @@ final readonly class UpdateCardCommand
      */
     public function __construct(
         public Card $card,
+        public CardReporter $actor,
         public ?string $title = null,
         public ?string $body = null,
         public ?CardType $type = null,

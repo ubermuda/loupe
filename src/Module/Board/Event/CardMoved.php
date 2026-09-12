@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Event;
 
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Service\CardMove;
 
 /**
@@ -23,6 +24,7 @@ final readonly class CardMoved
     public function __construct(
         public Card $card,
         public CardMove $move,
+        public CardReporter $actor,
     ) {
     }
 }

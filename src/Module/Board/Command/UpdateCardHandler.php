@@ -119,7 +119,7 @@ final readonly class UpdateCardHandler
             // commit: nothing survives a rollback, and nothing is lost when the
             // process dies after it.
             if (null !== $move) {
-                $this->events->dispatch(new CardMoved($card, $move));
+                $this->events->dispatch(new CardMoved($card, $move, $command->actor));
             }
 
             return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged);

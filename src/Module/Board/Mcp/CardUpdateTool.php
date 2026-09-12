@@ -10,6 +10,7 @@ use App\Module\Board\Command\ShowCardCommand;
 use App\Module\Board\Command\ShowCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
@@ -77,6 +78,7 @@ final readonly class CardUpdateTool implements FlagGatedToolInterface
 
             $card = ($this->updateCard)(new UpdateCardCommand(
                 card: $card,
+                actor: CardReporter::Agent,
                 title: $title,
                 body: $body,
                 type: $this->subjects->optionalType($type),

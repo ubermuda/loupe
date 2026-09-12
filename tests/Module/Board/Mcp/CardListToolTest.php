@@ -7,8 +7,8 @@ namespace App\Tests\Module\Board\Mcp;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\ListCardsHandler;
-use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardListTool;
@@ -309,7 +309,7 @@ final class CardListToolTest extends KernelTestCase
             body: 'Body',
             type: CardType::Idea,
             priority: CardPriority::Low,
-            reporter: CardOrigin::Reviewer,
+            reporter: CardReporter::Reviewer,
         ));
     }
 }
