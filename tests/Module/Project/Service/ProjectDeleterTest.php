@@ -21,7 +21,6 @@ use App\Module\Review\Entity\Tag;
 use App\Module\Review\Entity\Verdict;
 use App\Module\Review\ValueObject\Anchor;
 use App\Module\SiteReview\Entity\SiteReviewComment;
-use App\Module\SiteReview\SiteReviewEventType;
 use App\Outbox\Entity\OutboxEvent;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
@@ -285,7 +284,7 @@ final class ProjectDeleterTest extends KernelTestCase
         $em->persist(new SectionApproval($document, 'heading-hi', str_repeat('a', 64), $owner, 1));
 
         $em->persist(new SiteReviewComment(project: $project, position: 0, body: 'widget comment', url: 'https://example.test/')->addAnchor('body', 'x'));
-        $em->persist(new OutboxEvent($project, SiteReviewEventType::SUBMITTED, 'topic', '{}'));
+        $em->persist(new OutboxEvent($project, 'test.event', 'topic', '{}'));
 
         [$widgetToken] = ApiToken::issue($owner, $slug.'-widget', ApiTokenScope::SiteReview);
         [$mcpToken] = ApiToken::issue($owner, $slug.'-mcp', ApiTokenScope::Mcp);

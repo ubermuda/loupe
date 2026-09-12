@@ -87,7 +87,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
         ], $this->decode($row));
     }
 
-    public function test_the_row_carries_the_type_the_topic_and_a_forwardable_default(): void
+    public function test_the_row_carries_the_type_and_the_topic(): void
     {
         $card = $this->card('Routable', CardStatus::Backlog, CardPriority::Low);
 
@@ -100,7 +100,6 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
         self::assertSame('board.card_moved', $row->type);
         self::assertNotNull($this->project->id);
         self::assertSame($topics->forProject($this->project->id), $row->topic);
-        self::assertTrue($row->forwardable);
         self::assertNull($row->publishedAt);
     }
 
