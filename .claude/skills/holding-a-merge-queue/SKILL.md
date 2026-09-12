@@ -142,8 +142,7 @@ arrive from you, and a branch nobody reports on looks abandoned.
 Tell a session, unprompted:
 
 - That its pull request merged, with the squash SHA. That releases work it is
-  holding: tearing a worktree down, writing the changelog line that anchors to
-  a commit which did not exist until now, moving a board card to done.
+  holding: tearing a worktree down, moving a board card to done.
 - That its pull request is held, and why. Held and forgotten look identical
   from inside that session.
 - That the owner requested changes, quoting the comment verbatim and naming the
@@ -156,6 +155,16 @@ Tell a session, unprompted:
   wasting its time.
 - What you are not doing. "I have not touched your branch and will not" is worth
   saying, because the alternative is a session wondering.
+
+## The changelog needs nothing from you
+
+A branch carries its changelog entry as `changelog.d/<pull request number>.md`,
+so no branch writes `docs/CHANGELOG.md` and no two branches conflict on it.
+
+The documentation deploy folds the fragments on every push to `main`, so a
+merged entry is published with nobody doing anything. `just changelog` folds
+them into the committed file and deletes them, and that is the release step
+rather than a merge step. Do not run it after a merge.
 
 ## Do not edit a branch you do not own
 

@@ -309,7 +309,8 @@ other's mail. Serialise those, or give each its own `MAILPIT_URL`.
    conflicts, or invalidates its gate.
 3. After **every** merge, run `just cs` on main and commit the drift. Merge
    unions of two individually-clean branches produce fixer drift that otherwise
-   lands on whichever branch syncs next.
+   lands on whichever branch syncs next. The changelog needs nothing from you:
+   the documentation deploy folds the fragments itself on every push to `main`.
 4. Tear down a merged branch's worktree only **after** `gh pr merge` is
    confirmed, never in the same command chain. Confirm it by reading the result,
    not by having issued the command. A merge can fail for a reason that is not a
@@ -417,10 +418,12 @@ other's mail. Serialise those, or give each its own `MAILPIT_URL`.
 ## The changelog entry rides the pull request it describes
 
 Every pull request that changes something a reader can act on carries its own
-changelog line, in its own branch, under `[Unreleased]` in `docs/CHANGELOG.md`.
-Write it as you write the change. Do not open a second pull request for it.
+changelog fragment, in its own branch, at `changelog.d/<number>.md`. Write it as
+you write the change. Do not open a second pull request for it. Never edit
+`docs/CHANGELOG.md` itself.
 
-Anchor the entry to the pull request number:
+Name the file after the pull request number, and anchor the entry to the same
+number. `changelog.d/209.md` reads:
 
 ```
 - (#209) — **Fixed:** what changed, from the reader's side.
@@ -443,23 +446,41 @@ Re-read your own entry when review changes what the branch does. The entry now
 rides the branch, so a feature cut in review leaves a line describing work that
 never shipped. It is your own diff, which is the one you stop reading.
 
-Put a new entry at the top of `[Unreleased]`. Two branches that both add a top
-line will conflict. That is the correct outcome, and the resolution is to keep
-both in merge order, newest first. An older entry keeps the position its SHA
-gives it in `git log --first-parent`.
+One fragment per pull request means two branches never write one file, so two
+entries never conflict. That replaces the old rule, which put every entry at the
+top of `[Unreleased]` and made the conflict certain. On 2026-09-11 three merges
+each turned every remaining branch CONFLICTING, and `docs/CHANGELOG.md` was
+almost always the only conflicted file.
 
-Tag it `Added`, `Changed`, `Removed` or `Fixed`. Write one sentence saying what
-changed from the reader's side, and leave the reasoning to the pull request
-body.
+The fragments reach a reader twice, and neither step is yours. The
+documentation deploy folds them on every push to `main`:
+`.github/workflows/docs.yml` runs `php bin/changelog.php --keep` before Astro
+reads `docs/`, so the published changelog carries every merged fragment and the
+files stay where they are. `just changelog` folds them into the committed file
+and deletes them, which is the release step.
+
+`php bin/changelog.php --check` reads the fragments and reports a malformed
+one, and `just lint` runs it, so the gate catches a bad anchor on the branch
+that wrote it. The check reads format only. Nothing asks whether a branch
+carries a fragment at all, and that rule belongs in a pull request on
+https://github.com/ubermuda/gamache.
+
+An older entry keeps the position its SHA gives it in `git log --first-parent`.
+
+Tag it with one of the six tags Keep a Changelog defines: `Added`, `Changed`,
+`Deprecated`, `Removed`, `Fixed` or `Security`. `bin/changelog.php` rejects any
+other word. Write one sentence saying what changed from the reader's side, and
+leave the reasoning to the pull request body.
 
 One entry per pull request, not one per branch. A branch that shipped six
 features earns six lines, because a reader looking for when tags arrived should
 find a line about tags rather than a paragraph about the wave that contained
 them.
 
-A pull request whose whole diff is `docs/CHANGELOG.md` earns no entry. The exemption keys on content, not on subject: a pull request
-about changelog discipline that changes a skill file does earn one, and it
-carries that line itself.
+A pull request whose whole diff is `docs/CHANGELOG.md` and `changelog.d/` earns
+no fragment. A fold is the usual case. The exemption keys on content, not on
+subject: a pull request about changelog discipline that changes a skill file
+does earn one, and it carries that fragment itself.
 
 Reading an older entry means matching a 7-character SHA. Derive it with
 `git rev-parse --short=7`, never with `git log --format=%h`. `%h` honours
@@ -552,11 +573,11 @@ approvals arriving out of sequence will not respect.
 
 ## Running several branches at once
 
-Give each branch its own worktree and keep them off each other's files. The
-sharpest case is `docs/CHANGELOG.md`: every branch adds its own line at the top
-of `[Unreleased]`, so they all collide in the same region. Resolve the conflict
-by keeping both lines in merge order, newest first. Open work no longer has this
-problem, because a card lives on the board rather than in the branch.
+Give each branch its own worktree and keep them off each other's files. Two
+shared files used to collide on every branch, and neither does now. Open work
+lives on the board rather than in the branch, and a changelog entry lives in
+`changelog.d/<number>.md` rather than at one append point in
+`docs/CHANGELOG.md`.
 
 Sequence by blast radius. A branch that changes shared infrastructure, such as
 compose files, environment resolution or CI wiring, should merge last, because

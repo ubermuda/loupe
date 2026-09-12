@@ -6,6 +6,8 @@ on:
     paths:
       - 'docs/**'
       - 'website/**'
+      - 'changelog.d/**'
+      - 'bin/changelog.php'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -25,6 +27,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+
+      # Not ./.github/actions/setup, which installs the composer dependencies.
+      # The fold reads and writes text and loads nothing.
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+
+      # The published changelog carries the entries that have merged but are not
+      # folded in yet. --keep leaves the fragments alone, because this checkout
+      # is thrown away and nothing commits the result.
+      - run: php bin/changelog.php --keep
+
       # The site content is ../docs, so the whole repository has to be present
       # even though the Astro project root is website/.
       - uses: withastro/action@v6

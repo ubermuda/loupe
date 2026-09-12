@@ -88,7 +88,7 @@ Decide two things at planning time, and say in the plan which of them the change
 
 **Landing page.** Ask whether the change adds, removes or alters a capability the landing page claims, or should now claim. The page is `templates/Module/Landing/landing.html.twig` with its partials in `templates/Module/Landing/landing/`, and the marketing footer is `templates/_marketing_footer.html.twig`. A landing page that describes a product one release behind is worse than one that says less.
 
-The third check is the changelog entry, and it rides the branch that makes the change. `working-with-prs` carries the format. The entry anchors to the pull request number, so it does not need a commit that exists only after the merge.
+The third check is the changelog entry, and it rides the branch that makes the change. It goes in its own fragment file, `changelog.d/<pull request number>.md`, never in `docs/CHANGELOG.md`. Two branches never write one fragment, so two entries never conflict. The documentation deploy folds the fragments on every push to `main`, so an entry reaches a reader with nobody doing anything. `just changelog` folds them into the committed file and deletes them, which is the release step. `working-with-prs` and `changelog.d/README.md` carry the format.
 
 ### What a new entity or feature must also register
 

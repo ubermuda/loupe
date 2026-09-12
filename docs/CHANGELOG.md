@@ -15,8 +15,9 @@ SHA. To recover the commit from a number, run
 Keep the `$`: `--grep` reads the whole message, and commit bodies cite other
 pull requests in the same form.
 For an exhaustive diff between two points, run `git log --oneline <older>..<newer>`
-and cross-check, rather than trusting this file alone. Each entry is tagged
-`Added` / `Changed` / `Removed` / `Fixed`.
+and cross-check, rather than trusting this file alone. Each entry carries one of
+the six tags Keep a Changelog defines: `Added`, `Changed`, `Deprecated`,
+`Removed`, `Fixed` or `Security`.
 
 **Granularity: one entry per merged pull request, one line each.** A branch that
 shipped six features gets six entries, not one entry covering the branch — a
@@ -24,10 +25,13 @@ reader looking for when tags arrived should find a line about tags, not a
 paragraph about the wave that contained them. Each entry is a single sentence
 stating what changed from the reader's side; the reasoning behind a change
 belongs in the PR body and the commit message, which the PR number points at.
-The entry rides the pull request it describes: write it in the same branch, at
-the top of `[Unreleased]`, and anchor it to the pull request number. Two
-branches that both add a top line will conflict, and the resolution is to keep
-both in merge order. A pull request whose whole content is this file earns no entry: recording that
+The entry rides the pull request it describes. Write it in the same branch, in
+`changelog.d/<pull request number>.md`, and anchor it to that number. Two
+branches never write one fragment file, so two entries never conflict.
+This site folds every merged fragment into `[Unreleased]` on each deploy, newest
+pull request first, and `just changelog` folds them into the committed file at a
+release. `changelog.d/README.md` carries the format. A pull request whose
+whole content is this file and that directory earns no entry: recording that
 the changelog was written tells a reader nothing they cannot see by reading it.
 
 Work that never surfaces in the product or the development workflow gets no
