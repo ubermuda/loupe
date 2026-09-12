@@ -112,13 +112,17 @@ rank inside `next` submits a move with `next` on both sides, and prioritising
 that column is an ordinary thing to do, so reacting to the target alone would
 start a worker for every card reordered.
 
-One card gets one worker at a time. The bridge holds a key per running worker,
-`card-<number>-<project>`, where the project part is the last 12 hex digits of
-its id. Card numbers count from 1 inside a project and repeat across them, so
-the number alone would let one project's card 87 block another's. A second event
-for a card whose worker still runs is logged and dropped. The key is released
-when the process exits, so the same card starts a new worker the next time
-somebody moves it into `next`.
+One bridge gives a card one worker at a time. It holds a key per running
+worker, `card-<number>-<project>`, where the project part is the last 12 hex
+digits of its id. Card numbers count from 1 inside a project and repeat across
+them, so the number alone would let one project's card 87 block another's. A
+second event for a card whose worker still runs is logged and dropped. The key
+is released when the process exits, so the same card starts a new worker the
+next time somebody moves it into `next`.
+
+The key lives in the bridge process. Two bridges following one site each keep
+their own, so they can both start a worker for the same card. Run one bridge
+per site.
 
 ### `--permission-mode`
 
