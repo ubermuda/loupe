@@ -6,7 +6,8 @@ namespace App\Module\Project\Controller\Wizard;
 
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
-use App\Module\Project\Service\WizardState;
+use App\Module\Project\Command\ShowWizardCommand;
+use App\Module\Project\Command\ShowWizardHandler;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
@@ -18,7 +19,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class ShowWelcomeDoneController extends AppController
 {
     public function __construct(
-        private readonly WizardState $wizardState,
+        private readonly ShowWizardHandler $showWizard,
     ) {
     }
 
@@ -29,12 +30,13 @@ class ShowWelcomeDoneController extends AppController
             throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s); this route must stay behind the ROLE_USER catch-all.', self::class, get_debug_type($user)));
         }
 
-        if ($this->wizardState->isCompleted($user)) {
+        $wizard = ($this->showWizard)(new ShowWizardCommand($user));
+
+        if ($wizard->completed) {
             return $this->redirectToRoute('app_home');
         }
 
-        $project = $this->wizardState->firstProject($user);
-        if (null === $project) {
+        if (null === $wizard->project) {
             return $this->redirectToRoute('app_welcome');
         }
 
@@ -42,7 +44,7 @@ class ShowWelcomeDoneController extends AppController
         // base.html.twig's own top-level `project` (from current_project(),
         // route-param resolved) would clobber it on the param-less /welcome/* routes.
         return $this->render('@Project/wizard/show_welcome_done.html.twig', [
-            'wizardProject' => $project,
+            'wizardProject' => $wizard->project,
         ]);
     }
 }
