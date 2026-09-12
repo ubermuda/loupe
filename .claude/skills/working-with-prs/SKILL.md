@@ -75,6 +75,70 @@ typically at MCP startup. Kill it and fall back to:
 codex exec -c model="gpt-5.6-sol" "Review the diff of this branch against origin/main (git diff origin/main...HEAD) for correctness bugs and convention violations. Actionable findings only."
 ```
 
+## A check is a fault until you have seen it fail
+
+A check that comes back clean is a fault in the check, until it has failed on a
+known-bad input.
+
+A check that comes back one short is a fault in the check, until you prove
+otherwise.
+
+Nobody tests the second one, because a check that reports a problem looks
+self-justifying.
+
+A tool reports what it did rather than what it found. Doing nothing successfully
+and finding nothing wrong produce the same output. So break the check on
+purpose, watch it go red, then restore it and trust the green.
+
+| Signal | What it cannot distinguish |
+|---|---|
+| `phpstan` exit 0 | a clean tree from a rule that never loaded |
+| a test that pins behaviour | the behaviour existing from the test not asserting it |
+| `just cs` reporting success | a fixer that ran from a rule that silently no-opped |
+| a conflict report naming one file | the other files being unchanged from being reverted |
+| `pass=10` on a pull request | a current head from a head that has since moved |
+
+Four sessions hit this about fifteen times in one evening on 2026-09-11. The
+falsifier is what broke it each time: a file calling a constructor with no
+arguments, so the arity error proves the rule runs; the forbidden filter added
+to the listener, so the test that forbids it goes red.
+
+Grep is where the second direction bites. A grep for the five `var/tailwind`
+negation rules in `.gitignore` matched four, because the pattern could not match
+a bare `!/var/`. All five were present. Two sessions made that mistake on the
+same five lines, with different patterns, forty minutes apart. Read the region
+rather than grepping for what you expect to find.
+
+### Prove a resolution lost nothing
+
+A union resolve on a shared prose file can keep your line and drop someone
+else's. Nothing in this repository reports that. To answer it for any file where
+branches append at a shared anchor:
+
+```bash
+git show origin/main:<file> | grep "^<entry prefix>" | sort > a
+grep "^<entry prefix>" <resolved>                    | sort > b
+comm -23 a b   # on main, missing from the resolution: must be empty
+comm -13 a b   # invented by the resolution: this branch's own lines alone
+```
+
+Counting occurrences per entry is weaker. It needs a hypothesis about what to
+expect, so it catches only a loss somebody thought to look for. `comm` needs no
+hypothesis and answers both directions at once.
+
+### Ask what reads what you write
+
+Inert code looks wired up when its input is present. A changelog fold proposed
+for `docker/prod/release.sh` reads as plausible, because `COPY . .` genuinely
+puts `docs/CHANGELOG.md` into the production image. Nothing reads it there:
+`grep -rn CHANGELOG src/ templates/ config/ public/` returns nothing, and the
+container filesystem is discarded on each deploy. The fold would have run,
+reported success and changed nothing.
+
+For any step that writes something, name what reads it, and require a grep that
+finds the reader. An input that exists is not evidence that anything consumes
+the output.
+
 ## Documentation-only branches run steps 1 and 2 only
 
 Skip the Codex review. Say so in the PR body, so the record shows the gate was

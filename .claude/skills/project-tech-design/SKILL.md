@@ -21,6 +21,17 @@ Run the search. Count the result. Put the number in the document.
 
 Say what you could not verify. Silence reads as confidence.
 
+## Mark which entries are checked and which are estimates
+
+Proximity to evidence reads as evidence. A design document carried a section
+headed "What I verified in the code", holding real greps, and a list of costs
+beside it. Two of those costs were wrong, because the author wrote them before
+reading `.github/actions/setup`. They were estimates, and the verified section
+next to them made them look checked. The owner then ruled on that fence.
+
+A cost written at design time earns the same verification as a claim about the
+code. Where a document holds both, label each entry as checked or estimated.
+
 ## Separate the trigger from the problem
 
 The trigger is the event that made you look. The problem is what the code gets wrong.
