@@ -843,6 +843,14 @@
                 <source>account.api_token.one_time_warning</source>
                 <target>Copy this token now. We store only a hash of it, so this is the only time you can see it. If you lose it, mint a new one.</target>
             </trans-unit>
+            <trans-unit id="account.api_token.cli.label">
+                <source>account.api_token.cli.label</source>
+                <target>Authenticate the loupe CLI</target>
+            </trans-unit>
+            <trans-unit id="account.api_token.cli.hint">
+                <source>account.api_token.cli.hint</source>
+                <target>Run this in your terminal. It validates the token before saving it to your OS keychain. The token is on the command line, so clear that entry from your shell history afterwards, or run loupe login on its own and paste the token at the hidden prompt.</target>
+            </trans-unit>
             <trans-unit id="account.api_token.copy">
                 <source>account.api_token.copy</source>
                 <target>Copy</target>

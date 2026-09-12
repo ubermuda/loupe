@@ -231,11 +231,18 @@ final class MintApiTokenControllerTest extends WebTestCase
         self::assertResponseRedirects('/account');
 
         $crawler = $client->followRedirect();
-        $secret = $crawler->filter('[data-testid="minted-api-token"] code');
+        $secret = $crawler->filter('[data-testid="minted-api-token-value"]');
         self::assertCount(1, $secret);
 
         $raw = trim($secret->text());
         self::assertNotSame('', $raw);
+
+        // The command is the whole point of showing the token here, so it is
+        // asserted beside it rather than in a test of its own.
+        $command = $crawler->filter('[data-testid="minted-api-token-command"]');
+        self::assertCount(1, $command);
+        self::assertStringContainsString('loupe login --url ', trim($command->text()));
+        self::assertStringEndsWith(' --token '.$raw, trim($command->text()));
 
         return $raw;
     }

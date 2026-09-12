@@ -83,9 +83,19 @@
             <div class="lp-connect-field" data-controller="clipboard" data-clipboard-text-value="{{ mintedApiToken }}"
                  data-clipboard-copied-label-value="{{ 'account.api_token.copied'|trans }}">
                 <twig:ux:icon name="lucide:key-round" class="lp-connect-field__glyph w-4 h-4" />
-                <code class="lp-connect-field__value">{{ mintedApiToken }}</code>
+                <code class="lp-connect-field__value" data-testid="minted-api-token-value">{{ mintedApiToken }}</code>
                 <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'account.api_token.copy'|trans }}</button>
             </div>
+
+            {%- set loginCommand = 'loupe login --url ' ~ app.request.schemeAndHttpHost ~ ' --token ' ~ mintedApiToken -%}
+            <p class="lp-eyebrow">{{ 'account.api_token.cli.label'|trans }}</p>
+            <div class="lp-connect-field" data-controller="clipboard" data-clipboard-text-value="{{ loginCommand }}"
+                 data-clipboard-copied-label-value="{{ 'account.api_token.copied'|trans }}">
+                <twig:ux:icon name="lucide:code" class="lp-connect-field__glyph w-4 h-4" />
+                <code class="lp-connect-field__value" data-testid="minted-api-token-command">{{ loginCommand }}</code>
+                <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'account.api_token.copy'|trans }}</button>
+            </div>
+            <p class="lp-connect-hint">{{ 'account.api_token.cli.hint'|trans }}</p>
         </div>
         {% endif %}
 
