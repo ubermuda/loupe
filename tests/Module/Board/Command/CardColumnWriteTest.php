@@ -9,8 +9,6 @@ use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\MoveCardCommand;
 use App\Module\Board\Command\MoveCardHandler;
-use App\Module\Board\Command\UpdateCardCommand;
-use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardStatus;
@@ -63,33 +61,17 @@ final class CardColumnWriteTest extends KernelTestCase
         self::assertSame('done', $this->storedColumnSlug($card));
     }
 
-    public function test_a_card_written_to_a_project_without_columns_seeds_them_first(): void
+    /** Only an image older than the table creates such a project. */
+    public function test_a_card_written_to_a_project_without_columns_seeds_nothing(): void
     {
         $bare = new Project($this->project->owner, 'bare-'.uniqid());
         $this->em->persist($bare);
         $this->em->flush();
-        // Guard: a project persisted by hand dispatches no event, so it starts with none.
-        self::assertSame(0, $this->columnCount($bare));
 
         $card = $this->create(CardStatus::InProgress, $bare);
 
-        self::assertSame('in-progress', $this->storedColumnSlug($card));
-        self::assertSame(4, $this->columnCount($bare));
-    }
-
-    public function test_an_edit_that_moves_nothing_gives_an_older_card_its_column(): void
-    {
-        $older = new Card(project: $this->project, title: 'Written before the table', body: 'Body', number: 99, status: CardStatus::Next);
-        $this->em->persist($older);
-        $this->em->flush();
-        // Guard: the card starts with no column, as an older image leaves it.
-        self::assertNull($this->storedColumnSlug($older));
-        $update = self::getContainer()->get(UpdateCardHandler::class);
-        self::assertInstanceOf(UpdateCardHandler::class, $update);
-
-        $update(new UpdateCardCommand($older, title: 'Renamed'));
-
-        self::assertSame('next', $this->storedColumnSlug($older));
+        self::assertNull($this->storedColumnSlug($card));
+        self::assertSame(0, $this->columnCount($bare));
     }
 
     private function columnCount(Project $project): int

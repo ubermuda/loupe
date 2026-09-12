@@ -24,4 +24,9 @@ class BoardColumnRepository extends ServiceEntityRepository
     {
         return $this->findBy(['project' => $project], ['position' => 'ASC']);
     }
+
+    public function findOneByProjectAndSlug(Project $project, string $slug): ?BoardColumn
+    {
+        return $this->findOneBy(['project' => $project, 'slug' => $slug]);
+    }
 }

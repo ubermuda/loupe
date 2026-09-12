@@ -9,7 +9,6 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Event\CardMoved;
 use App\Module\Board\Repository\CardRepository;
-use App\Module\Board\Service\BoardColumnSeeder;
 use App\Module\Board\Service\CardMover;
 use App\Module\Board\Service\CardSearchIndexer;
 use App\Module\Board\Service\DocumentLinkResolver;
@@ -27,7 +26,6 @@ final readonly class UpdateCardHandler
     public function __construct(
         private CardRepository $cards,
         private CardMover $mover,
-        private BoardColumnSeeder $columnSeeder,
         private PullRequestUrlResolver $pullRequests,
         private DocumentLinkResolver $documentLinks,
         private CardSearchIndexer $searchIndexer,
@@ -83,9 +81,6 @@ final readonly class UpdateCardHandler
             $move = $status !== $card->status || $priority !== $card->priority || null !== $command->position
                 ? $this->mover->move($card, $status, $priority, $command->position)
                 : null;
-            // A card an older image wrote has no column, and a plain edit is
-            // the only write it may ever get before the column becomes required.
-            $card->column ??= $this->columnSeeder->columnFor($card->project, $card->status->value);
 
             // After the move, which must read the card as the database holds
             // it. A field the command carries may hold what the card already
