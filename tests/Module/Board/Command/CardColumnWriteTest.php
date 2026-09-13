@@ -11,6 +11,7 @@ use App\Module\Board\Command\MoveCardCommand;
 use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Service\BoardColumnSeeder;
@@ -56,7 +57,7 @@ final class CardColumnWriteTest extends KernelTestCase
         $move = self::getContainer()->get(MoveCardHandler::class);
         self::assertInstanceOf(MoveCardHandler::class, $move);
 
-        $move(new MoveCardCommand($card, CardStatus::Done, CardPriority::Medium));
+        $move(new MoveCardCommand($card, CardReporter::Human, CardStatus::Done, CardPriority::Medium));
 
         self::assertSame('done', $this->storedColumnSlug($card));
     }
