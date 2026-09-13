@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Controller;
 
 use App\Controller\AppController;
-use App\Module\Board\Command\AuthorizeBoardRefreshCommand;
-use App\Module\Board\Command\AuthorizeBoardRefreshHandler;
+use App\Mercure\ProjectTopicBuilder;
 use App\Module\Board\Command\ShowBoardCommand;
 use App\Module\Board\Command\ShowBoardHandler;
 use App\Module\Board\Service\BoardAvailability;
@@ -28,7 +27,7 @@ final class ShowBoardController extends AppController
     public function __construct(
         private readonly ShowBoardHandler $showBoard,
         private readonly BoardAvailability $board,
-        private readonly AuthorizeBoardRefreshHandler $authorizeRefresh,
+        private readonly ProjectTopicBuilder $topics,
     ) {
     }
 
@@ -40,7 +39,7 @@ final class ShowBoardController extends AppController
             'board' => ($this->showBoard)(new ShowBoardCommand($project)),
             'addColumnForm' => $this->getInjectedFormView($request, 'addColumnForm'),
             'renameColumnForm' => $this->getInjectedFormView($request, 'renameColumnForm'),
-            'refreshUrl' => ($this->authorizeRefresh)(new AuthorizeBoardRefreshCommand($project)),
+            'boardTopic' => $this->topics->forBoard($project->id ?? throw new \LogicException('Project has no id.')),
         ]);
     }
 }

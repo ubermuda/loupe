@@ -1,8 +1,12 @@
+/** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { reset, subscribe } from '../../assets/lib/mercure.js';
 
 const HUB = 'https://hub.test/.well-known/mercure';
-const TYPE = 'board.columns_changed';
+const BOARD_TOPIC = 'https://app.test/projects/1/board';
+const REVIEW_TOPIC = 'https://app.test/documents/2/review';
+const BOARD = 'board.columns_changed';
+const REVIEW = 'review.comment_added';
 
 class FakeEventSource {
     static instances = [];
@@ -32,53 +36,88 @@ class FakeEventSource {
     }
 }
 
-function message(type, lastEventId = '') {
-    return { data: JSON.stringify({ type }), lastEventId };
+/** Renders the element the layout renders, as a Turbo visit would swap it in. */
+function renderPage(topics, hub = HUB) {
+    document.getElementById('mercure-subscriptions')?.remove();
+    const form = document.createElement('form');
+    form.id = 'mercure-subscriptions';
+    form.method = 'post';
+    form.action = '/mercure/authorize';
+    form.dataset.hub = hub;
+    form.hidden = true;
+    topics.forEach((topic) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'authorize_mercure_topics_form[topics][]';
+        input.value = topic;
+        input.setAttribute('data-mercure-topic', '');
+        form.append(input);
+    });
+    const token = document.createElement('input');
+    token.type = 'hidden';
+    token.name = 'authorize_mercure_topics_form[_token]';
+    token.value = 'csrf-token';
+    token.setAttribute('data-controller', 'csrf-protection');
+    form.append(token);
+    document.body.append(form);
 }
 
-function open(topic, options = {}) {
-    return subscribe(topic, { hub: HUB, types: [TYPE], ...options });
+function message(type, lastEventId = '') {
+    return { data: JSON.stringify({ type }), lastEventId };
 }
 
 function latest() {
     return FakeEventSource.instances.at(-1);
 }
 
-describe('subscribe', () => {
-    let fetch;
+function allowing(topics) {
+    return vi.fn(() =>
+        Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ topics }),
+        }),
+    );
+}
 
+describe('subscribe', () => {
     beforeEach(() => {
         vi.useFakeTimers();
         FakeEventSource.instances = [];
-        fetch = vi.fn(() => Promise.resolve());
         vi.stubGlobal('EventSource', FakeEventSource);
-        vi.stubGlobal('fetch', fetch);
-        vi.stubGlobal('window', { location: { href: 'https://app.test/' } });
+        vi.stubGlobal('fetch', allowing([BOARD_TOPIC, REVIEW_TOPIC]));
+        renderPage([REVIEW_TOPIC, BOARD_TOPIC]);
     });
 
     afterEach(() => {
         reset();
+        document.body.innerHTML = '';
         vi.unstubAllGlobals();
         vi.useRealTimers();
     });
 
-    it('opens one connection for two subscriptions', () => {
-        open('https://app.test/a');
-        open('https://app.test/b');
+    it('opens one connection for handlers from two domains', () => {
+        const board = vi.fn();
+        const review = vi.fn();
+        subscribe(BOARD, board);
+        subscribe(REVIEW_TOPIC, [REVIEW], review);
         vi.runOnlyPendingTimers();
 
         expect(FakeEventSource.instances).toHaveLength(1);
-        expect(latest().topics()).toEqual([
-            'https://app.test/a',
-            'https://app.test/b',
-        ]);
+        expect(latest().topics()).toEqual([REVIEW_TOPIC, BOARD_TOPIC].sort());
         expect(latest().options).toEqual({ withCredentials: true });
+
+        latest().emit('message', message(BOARD));
+        expect(board).toHaveBeenCalledWith({ type: BOARD });
+        expect(review).not.toHaveBeenCalled();
+
+        latest().emit('message', message(REVIEW));
+        expect(board).toHaveBeenCalledOnce();
+        expect(review).toHaveBeenCalledWith({ type: REVIEW });
     });
 
     it('opens once for several subscriptions in one tick', () => {
-        open('https://app.test/a');
-        open('https://app.test/b');
-        open('https://app.test/c');
+        subscribe(BOARD, vi.fn());
+        subscribe(REVIEW, vi.fn());
         expect(FakeEventSource.instances).toHaveLength(0);
 
         vi.runOnlyPendingTimers();
@@ -86,36 +125,50 @@ describe('subscribe', () => {
         expect(FakeEventSource.instances).toHaveLength(1);
     });
 
-    it('reopens when the set of topics changes', () => {
-        open('https://app.test/a');
+    it('does nothing on a page with no subscriptions element', () => {
+        document.body.innerHTML = '';
+        const unsubscribe = subscribe(BOARD, vi.fn());
+        vi.runOnlyPendingTimers();
+
+        expect(FakeEventSource.instances).toHaveLength(0);
+        unsubscribe();
+    });
+
+    it('silences a topic-scoped handler whose topic the page lacks', () => {
+        renderPage([BOARD_TOPIC]);
+        const review = vi.fn();
+        const onOpen = vi.fn();
+        subscribe(REVIEW_TOPIC, [REVIEW], review, { onOpen });
+        subscribe(BOARD, vi.fn());
+        vi.runOnlyPendingTimers();
+        latest().emit('open');
+        latest().emit('message', message(REVIEW));
+
+        expect(review).not.toHaveBeenCalled();
+        expect(onOpen).not.toHaveBeenCalled();
+    });
+
+    it('reopens when a Turbo visit changes the topics', () => {
+        subscribe(BOARD, vi.fn());
         vi.runOnlyPendingTimers();
         const first = latest();
 
-        const unsubscribeB = open('https://app.test/b');
+        renderPage([BOARD_TOPIC]);
+        document.dispatchEvent(new Event('turbo:load'));
         vi.runOnlyPendingTimers();
 
         expect(first.closed).toBe(true);
-        expect(FakeEventSource.instances).toHaveLength(2);
-        expect(latest().topics()).toEqual([
-            'https://app.test/a',
-            'https://app.test/b',
-        ]);
-
-        unsubscribeB();
-        vi.runOnlyPendingTimers();
-
-        expect(FakeEventSource.instances).toHaveLength(3);
-        expect(latest().topics()).toEqual(['https://app.test/a']);
+        expect(latest().topics()).toEqual([BOARD_TOPIC]);
     });
 
     it('keeps the connection when a subscription leaves and returns in one tick', () => {
-        const unsubscribe = open('https://app.test/a');
+        const unsubscribe = subscribe(BOARD, vi.fn());
         vi.runOnlyPendingTimers();
         latest().emit('open');
 
         unsubscribe();
         const onOpen = vi.fn();
-        open('https://app.test/a', { onOpen });
+        subscribe(BOARD, vi.fn(), { onOpen });
         vi.runOnlyPendingTimers();
 
         expect(FakeEventSource.instances).toHaveLength(1);
@@ -123,51 +176,29 @@ describe('subscribe', () => {
         expect(onOpen).toHaveBeenCalledOnce();
     });
 
-    it('dispatches a message to the subscriptions for its type only', () => {
-        const board = vi.fn();
-        const other = vi.fn();
-        open('https://app.test/a', { onMessage: board });
-        open('https://app.test/b', { types: ['other'], onMessage: other });
-        vi.runOnlyPendingTimers();
-
-        latest().emit('message', message(TYPE));
-
-        expect(board).toHaveBeenCalledWith({ type: TYPE });
-        expect(other).not.toHaveBeenCalled();
-
-        latest().emit('message', message('other'));
-
-        expect(board).toHaveBeenCalledOnce();
-        expect(other).toHaveBeenCalledOnce();
-    });
-
-    it('closes the connection on the last unsubscribe', () => {
-        const unsubscribeA = open('https://app.test/a');
-        const unsubscribeB = open('https://app.test/b');
+    it('closes the connection when nothing is subscribed', () => {
+        const unsubscribeBoard = subscribe(BOARD, vi.fn());
+        const unsubscribeReview = subscribe(REVIEW_TOPIC, [REVIEW], vi.fn());
         vi.runOnlyPendingTimers();
         const source = latest();
 
-        unsubscribeA();
-        unsubscribeB();
+        unsubscribeBoard();
+        unsubscribeReview();
         vi.runOnlyPendingTimers();
 
         expect(source.closed).toBe(true);
         expect(FakeEventSource.instances).toHaveLength(1);
     });
 
-    it('renews every authorization, then reconnects with the last event id', async () => {
+    it('renews the full topic set with a CSRF token, then reconnects with the last event id', async () => {
         const onError = vi.fn();
         const onOpen = vi.fn();
-        open('https://app.test/a', {
-            authorize: '/a/authorize',
-            onError,
-            onOpen,
-        });
-        open('https://app.test/b', { authorize: '/b/authorize' });
+        subscribe(BOARD, vi.fn(), { onError, onOpen });
+        subscribe(REVIEW_TOPIC, [REVIEW], vi.fn());
         vi.runOnlyPendingTimers();
         const first = latest();
         first.emit('open');
-        first.emit('message', message(TYPE, 'urn:uuid:42'));
+        first.emit('message', message(BOARD, 'urn:uuid:42'));
 
         first.emit('error');
 
@@ -177,10 +208,17 @@ describe('subscribe', () => {
 
         await vi.advanceTimersByTimeAsync(1000);
 
-        expect(fetch.mock.calls.map(([url]) => url)).toEqual([
-            '/a/authorize',
-            '/b/authorize',
-        ]);
+        expect(fetch).toHaveBeenCalledOnce();
+        const [url, init] = fetch.mock.calls[0];
+        expect(url).toBe('http://localhost:3000/mercure/authorize');
+        expect(init.method).toBe('POST');
+        expect(
+            init.body.getAll('authorize_mercure_topics_form[topics][]').sort(),
+        ).toEqual([BOARD_TOPIC, REVIEW_TOPIC].sort());
+        // The double-submit value replaces the same-origin sentinel.
+        expect(init.body.get('authorize_mercure_topics_form[_token]')).toMatch(
+            /^[-_/+a-zA-Z0-9]{24,}$/,
+        );
         expect(FakeEventSource.instances).toHaveLength(2);
         expect(latest().url.searchParams.get('lastEventID')).toBe(
             'urn:uuid:42',
@@ -191,8 +229,30 @@ describe('subscribe', () => {
         expect(onOpen).toHaveBeenCalledTimes(2);
     });
 
+    it('drops the topics a renewal refuses before it reconnects', async () => {
+        vi.stubGlobal('fetch', allowing([BOARD_TOPIC]));
+        subscribe(BOARD, vi.fn());
+        vi.runOnlyPendingTimers();
+
+        latest().emit('error');
+        await vi.advanceTimersByTimeAsync(1000);
+
+        expect(latest().topics()).toEqual([BOARD_TOPIC]);
+    });
+
+    it('closes when a renewal refuses every topic', async () => {
+        vi.stubGlobal('fetch', allowing([]));
+        subscribe(BOARD, vi.fn());
+        vi.runOnlyPendingTimers();
+
+        latest().emit('error');
+        await vi.advanceTimersByTimeAsync(60000);
+
+        expect(FakeEventSource.instances).toHaveLength(1);
+    });
+
     it('doubles the retry delay up to sixty seconds', async () => {
-        open('https://app.test/a');
+        subscribe(BOARD, vi.fn());
         vi.runOnlyPendingTimers();
 
         const delays = [];
@@ -213,9 +273,7 @@ describe('subscribe', () => {
     });
 
     it('does not reconnect after the last unsubscribe during a retry', async () => {
-        const unsubscribe = open('https://app.test/a', {
-            authorize: '/a/authorize',
-        });
+        const unsubscribe = subscribe(BOARD, vi.fn());
         vi.runOnlyPendingTimers();
         latest().emit('error');
 

@@ -191,4 +191,14 @@
            without one here an unauthenticated page offers no main landmark. #}
         <main>{% block body_unauthenticated %}{{ block('body') }}{% endblock %}</main>
         {% endif %}
+        {# After the body, so every mercure_subscribe() call has run. assets/lib/mercure.js reads it. #}
+        {% set mercureTopics = mercure_allowed_topics() %}
+        {% if mercureTopics is not empty %}
+        <form id="mercure-subscriptions" method="post" action="{{ path('app_mercure_authorize') }}" data-hub="{{ mercure_hub_url() }}" hidden>
+            {% for topic in mercureTopics %}
+            <input type="hidden" name="authorize_mercure_topics_form[topics][]" value="{{ topic }}" data-mercure-topic>
+            {% endfor %}
+            <input type="hidden" name="authorize_mercure_topics_form[_token]" value="{{ csrf_token('submit') }}" data-controller="csrf-protection">
+        </form>
+        {% endif %}
 {% endblock %}

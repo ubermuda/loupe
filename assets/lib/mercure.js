@@ -1,17 +1,29 @@
+import {
+    generateCsrfHeaders,
+    generateCsrfToken,
+    removeCsrfToken,
+} from '../controllers/csrf_protection_controller.js';
+
 /**
- * One Mercure connection per page, shared by every controller that listens.
+ * One Mercure connection per page, shared by every feature that listens.
+ *
+ * The server decides the topics: a template calls mercure_subscribe(), and the
+ * layout renders the allowed ones into #mercure-subscriptions with the hub URL
+ * and the renewal form. A feature only names the message types it handles.
  *
  * An SSE frame from the hub names no topic, so a message goes to each
- * subscription whose `types` lists the JSON `type` of its data. A publisher
- * keeps that `type` in the JSON: `Update::$type` renames the SSE event, and a
- * renamed event never reaches the `message` listener.
+ * subscription whose types list the JSON `type` of its data. A publisher keeps
+ * that `type` in the JSON: `Update::$type` renames the SSE event, and a renamed
+ * event never reaches the `message` listener.
  */
 
+const PAGE_ELEMENT_ID = 'mercure-subscriptions';
 const FIRST_RETRY_MILLISECONDS = 1000;
 const LAST_RETRY_MILLISECONDS = 60000;
 
 const subscriptions = new Set();
 let source;
+let openHub;
 let openTopics = [];
 let isOpen = false;
 let lastEventId;
@@ -21,19 +33,25 @@ let retryDelay = FIRST_RETRY_MILLISECONDS;
 let generation = 0;
 
 /**
- * @param {string} topic
- * @param {{
- *     hub: string,
- *     authorize?: string,
- *     types: string[],
- *     onMessage?: (data: object) => void,
- *     onOpen?: () => void,
- *     onError?: () => void,
- * }} options
+ * subscribe(types, handler, options) listens on every topic of the page.
+ * subscribe(topic, types, handler, options) listens only while that topic is.
+ *
+ * @param {...*} args
  * @returns {() => void} removes the subscription
  */
-export function subscribe(topic, options) {
-    const subscription = { topic, opened: false, ...options };
+export function subscribe(...args) {
+    const scoped = typeof args[1] !== 'function';
+    const [topic, types, handler, options] = scoped
+        ? args
+        : [undefined, ...args];
+    const subscription = {
+        topic,
+        types: [types].flat(),
+        handler,
+        onOpen: options?.onOpen,
+        onError: options?.onError,
+        opened: false,
+    };
     subscriptions.add(subscription);
     scheduleFlush();
 
@@ -50,9 +68,21 @@ function scheduleFlush() {
     flushTimeout = setTimeout(flush, 0);
 }
 
+function readPage() {
+    const form = document.getElementById(PAGE_ELEMENT_ID);
+    if (!form || !form.dataset.hub) {
+        return null;
+    }
+    const topics = [...form.querySelectorAll('input[data-mercure-topic]')]
+        .map((input) => input.value)
+        .sort();
+
+    return { form, hub: form.dataset.hub, topics };
+}
+
 function flush() {
-    const topics = currentTopics();
-    if (topics.length === 0) {
+    const page = subscriptions.size > 0 ? readPage() : null;
+    if (page === null || page.topics.length === 0) {
         close();
         lastEventId = undefined;
         retryDelay = FIRST_RETRY_MILLISECONDS;
@@ -60,7 +90,11 @@ function flush() {
     }
 
     const connecting = source !== undefined || retryTimeout !== undefined;
-    if (connecting && sameTopics(topics, openTopics)) {
+    if (
+        connecting &&
+        page.hub === openHub &&
+        sameTopics(page.topics, openTopics)
+    ) {
         // A late subscriber on an open connection still needs its open.
         if (isOpen) {
             notifyOpen((s) => !s.opened);
@@ -69,7 +103,7 @@ function flush() {
     }
 
     close();
-    open(topics);
+    open(page);
 }
 
 function sameTopics(left, right) {
@@ -79,16 +113,17 @@ function sameTopics(left, right) {
     );
 }
 
-function open(topics) {
-    const url = new URL(hubOf(), window.location.href);
-    topics.forEach((topic) => url.searchParams.append('topic', topic));
+function open(page) {
+    const url = new URL(page.hub, window.location.href);
+    page.topics.forEach((topic) => url.searchParams.append('topic', topic));
     // A fresh EventSource sends no Last-Event-ID header, so the hub reads it here.
     if (lastEventId !== undefined && lastEventId !== '') {
         url.searchParams.set('lastEventID', lastEventId);
     }
 
     const current = ++generation;
-    openTopics = topics;
+    openHub = page.hub;
+    openTopics = page.topics;
     source = new EventSource(url.toString(), { withCredentials: true });
     source.addEventListener('open', () => {
         if (current !== generation) {
@@ -116,15 +151,21 @@ function open(topics) {
     });
 }
 
-function hubOf() {
-    return [...subscriptions][0].hub;
+function listening(subscription) {
+    return (
+        subscription.topic === undefined ||
+        openTopics.includes(subscription.topic)
+    );
 }
 
 function notifyOpen(filter) {
-    [...subscriptions].filter(filter).forEach((subscription) => {
-        subscription.opened = true;
-        subscription.onOpen?.();
-    });
+    [...subscriptions]
+        .filter(listening)
+        .filter(filter)
+        .forEach((subscription) => {
+            subscription.opened = true;
+            subscription.onOpen?.();
+        });
 }
 
 function dispatch(raw) {
@@ -135,9 +176,9 @@ function dispatch(raw) {
         return;
     }
     [...subscriptions]
-        .filter((s) => openTopics.includes(s.topic))
-        .filter((s) => (s.types ?? []).includes(data?.type))
-        .forEach((s) => s.onMessage?.(data));
+        .filter(listening)
+        .filter((s) => s.types.includes(data?.type))
+        .forEach((s) => s.handler?.(data));
 }
 
 function close() {
@@ -146,13 +187,16 @@ function close() {
     retryTimeout = undefined;
     source?.close();
     source = undefined;
+    openHub = undefined;
     openTopics = [];
     isOpen = false;
 }
 
 function retry() {
+    const hub = openHub;
     const topics = openTopics;
     close();
+    openHub = hub;
     openTopics = topics;
     subscriptions.forEach((s) => {
         s.opened = false;
@@ -162,37 +206,61 @@ function retry() {
     const current = generation;
     retryTimeout = setTimeout(async () => {
         // The cookie is shared and its token expires, so each reconnect renews it.
-        for (const authorize of authorizeUrls()) {
-            try {
-                await fetch(authorize, { credentials: 'same-origin' });
-            } catch {
-                // The next attempt tries again.
-            }
-        }
+        await renew();
         if (current !== generation) {
             return;
         }
         retryTimeout = undefined;
-        const latest = currentTopics();
-        if (latest.length > 0) {
-            open(latest);
-        }
+        openHub = undefined;
+        openTopics = [];
+        flush();
     }, retryDelay);
     retryDelay = Math.min(retryDelay * 2, LAST_RETRY_MILLISECONDS);
 }
 
-function currentTopics() {
-    return [...new Set([...subscriptions].map((s) => s.topic))].sort();
+async function renew() {
+    const page = readPage();
+    if (page === null) {
+        return;
+    }
+
+    const { form } = page;
+    generateCsrfToken(form);
+    const body = new URLSearchParams();
+    form.querySelectorAll('input[name]').forEach((input) =>
+        body.append(input.name, input.value),
+    );
+    try {
+        const response = await fetch(form.action, {
+            method: 'POST',
+            body,
+            credentials: 'same-origin',
+            headers: {
+                Accept: 'application/json',
+                ...generateCsrfHeaders(form),
+            },
+        });
+        if (response.ok) {
+            // A topic the server refuses now would only fail again at the hub.
+            const { topics } = await response.json();
+            form.querySelectorAll('input[data-mercure-topic]').forEach(
+                (input) => topics.includes(input.value) || input.remove(),
+            );
+        }
+    } catch {
+        // The next attempt tries again.
+    } finally {
+        removeCsrfToken(form);
+    }
 }
 
-function authorizeUrls() {
-    return [
-        ...new Set(
-            [...subscriptions]
-                .map((s) => s.authorize)
-                .filter((authorize) => authorize !== undefined),
-        ),
-    ];
+if (typeof document !== 'undefined') {
+    // A Turbo visit swaps the page element, and with it the topics.
+    document.addEventListener('turbo:load', () => {
+        if (subscriptions.size > 0) {
+            scheduleFlush();
+        }
+    });
 }
 
 /** Forgets every subscription and the connection, for tests. */

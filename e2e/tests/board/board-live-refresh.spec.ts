@@ -94,7 +94,27 @@ test('a column renamed in one browser shows in another without a reload', async 
 
     const watcher = await signedInPage(browser, email);
     await openBoard(editor, boardUrl);
+
+    // The watcher's first hub request fails, so it renews its cookie through
+    // the shared endpoint, CSRF included, before it connects.
+    let hubRefused = false;
+    await watcher.context().route(
+        (url) => url.pathname === '/.well-known/mercure',
+        (route) => {
+            if (hubRefused) {
+                return route.fallback();
+            }
+            hubRefused = true;
+            return route.abort();
+        },
+    );
+    const renewal = watcher.waitForResponse((response) =>
+        response.url().endsWith('/mercure/authorize'),
+    );
     await openBoard(watcher, boardUrl);
+    const renewed = await renewal;
+    expect(renewed.status()).toBe(200);
+    expect((await renewed.json()).topics).toHaveLength(1);
 
     // A full navigation would drop this marker, and a frame reload keeps it.
     await watcher.evaluate(() => {

@@ -7,29 +7,30 @@ import { subscribe } from '../lib/mercure.js';
  */
 export default class extends Controller {
     static targets = ['frame'];
-    static values = { hub: String, board: String, authorize: String };
+    static values = { board: String };
 
     connect() {
-        const hub = new URL(this.hubValue, window.location.href);
-        const topic = hub.searchParams.get('topic');
-        hub.searchParams.delete('topic');
-
         this.hasOpened = false;
-        this.unsubscribe = subscribe(topic, {
-            hub: hub.toString(),
-            authorize: this.authorizeValue,
-            types: ['board.columns_changed'],
-            onMessage: () => this.reload(),
-            onOpen: () => {
-                if (this.hasOpened) {
-                    this.reload();
-                }
-                this.hasOpened = true;
-                this.element.setAttribute('data-board-refresh-connected', '');
+        this.unsubscribe = subscribe(
+            'board.columns_changed',
+            () => this.reload(),
+            {
+                onOpen: () => {
+                    if (this.hasOpened) {
+                        this.reload();
+                    }
+                    this.hasOpened = true;
+                    this.element.setAttribute(
+                        'data-board-refresh-connected',
+                        '',
+                    );
+                },
+                onError: () =>
+                    this.element.removeAttribute(
+                        'data-board-refresh-connected',
+                    ),
             },
-            onError: () =>
-                this.element.removeAttribute('data-board-refresh-connected'),
-        });
+        );
     }
 
     disconnect() {
