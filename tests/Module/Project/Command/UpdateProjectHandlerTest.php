@@ -10,10 +10,12 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Command\UpdateProjectCommand;
 use App\Module\Project\Command\UpdateProjectHandler;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\ProjectEventType;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\AuditActorProviderInterface;
@@ -37,14 +39,14 @@ final class UpdateProjectHandlerTest extends KernelTestCase
         $actors = self::getContainer()->get(AuditActorProviderInterface::class);
         self::assertInstanceOf(AuditActorProviderInterface::class, $actors);
         $this->audit = new RecordingAuditor($actors);
-        $this->handler = new UpdateProjectHandler($projects, $this->em, $this->audit->auditor);
+        $this->handler = new UpdateProjectHandler($projects, $this->em, $this->audit->auditor, $this->events());
     }
 
     public function test_an_updated_project_is_recorded_on_the_domain_channel(): void
     {
         $project = $this->project('update-project-audit@example.com', 'before');
 
-        ($this->handler)(new UpdateProjectCommand($project, 'after', 'after.example.com', SearchLanguage::English));
+        ($this->handler)(new UpdateProjectCommand($project, 'after', 'after.example.com', SearchLanguage::English, ProjectEventType::ACTOR_HUMAN));
 
         self::assertSame('after', $project->name);
         self::assertSame('after.example.com', $project->domain);
@@ -69,7 +71,7 @@ final class UpdateProjectHandlerTest extends KernelTestCase
         $project = $this->project('update-project-language@example.com', 'lang');
         self::assertSame(SearchLanguage::English, $project->searchLanguage);
 
-        ($this->handler)(new UpdateProjectCommand($project, 'lang', null, SearchLanguage::Italian));
+        ($this->handler)(new UpdateProjectCommand($project, 'lang', null, SearchLanguage::Italian, ProjectEventType::ACTOR_HUMAN));
 
         $id = $project->id;
         self::assertNotNull($id);
@@ -87,7 +89,7 @@ final class UpdateProjectHandlerTest extends KernelTestCase
         $this->em->flush();
 
         try {
-            ($this->handler)(new UpdateProjectCommand($project, 'taken', null, SearchLanguage::English));
+            ($this->handler)(new UpdateProjectCommand($project, 'taken', null, SearchLanguage::English, ProjectEventType::ACTOR_HUMAN));
             self::fail('Expected DomainErrors for a colliding project name.');
         } catch (DomainErrors $e) {
             self::assertSame(['name' => 'project.error.name_taken'], $e->errors);
@@ -100,7 +102,7 @@ final class UpdateProjectHandlerTest extends KernelTestCase
     {
         $project = $this->project('update-project-slug@example.com', 'Before Name');
 
-        ($this->handler)(new UpdateProjectCommand($project, 'After Name', null, SearchLanguage::English));
+        ($this->handler)(new UpdateProjectCommand($project, 'After Name', null, SearchLanguage::English, ProjectEventType::ACTOR_HUMAN));
 
         $stored = $this->em->getConnection()->fetchOne(
             'SELECT slug FROM projects WHERE id = :id',
@@ -114,7 +116,7 @@ final class UpdateProjectHandlerTest extends KernelTestCase
         $project = $this->project('update-project-empty-slug@example.com', 'Rocket');
 
         try {
-            ($this->handler)(new UpdateProjectCommand($project, '🚀', null, SearchLanguage::English));
+            ($this->handler)(new UpdateProjectCommand($project, '🚀', null, SearchLanguage::English, ProjectEventType::ACTOR_HUMAN));
             self::fail('Expected DomainErrors for a name that gives an empty slug.');
         } catch (DomainErrors $e) {
             self::assertSame(['name' => 'project.error.slug_empty'], $e->errors);
@@ -132,7 +134,7 @@ final class UpdateProjectHandlerTest extends KernelTestCase
         $this->em->flush();
 
         try {
-            ($this->handler)(new UpdateProjectCommand($project, 'my-app', null, SearchLanguage::English));
+            ($this->handler)(new UpdateProjectCommand($project, 'my-app', null, SearchLanguage::English, ProjectEventType::ACTOR_HUMAN));
             self::fail('Expected DomainErrors for a name whose slug is taken.');
         } catch (DomainErrors $e) {
             self::assertSame(['name' => 'project.error.slug_taken'], $e->errors);
@@ -155,7 +157,7 @@ final class UpdateProjectHandlerTest extends KernelTestCase
         $loaded = $this->em->find(Project::class, $id);
         self::assertInstanceOf(Project::class, $loaded);
 
-        ($this->handler)(new UpdateProjectCommand($loaded, 'Suffixed', 'new.example', SearchLanguage::English));
+        ($this->handler)(new UpdateProjectCommand($loaded, 'Suffixed', 'new.example', SearchLanguage::English, ProjectEventType::ACTOR_HUMAN));
 
         self::assertSame('suffixed-2', $connection->fetchOne('SELECT slug FROM projects WHERE id = :id', ['id' => (string) $id]));
     }
@@ -171,7 +173,7 @@ final class UpdateProjectHandlerTest extends KernelTestCase
         $loaded = $this->em->find(Project::class, $id);
         self::assertInstanceOf(Project::class, $loaded);
 
-        ($this->handler)(new UpdateProjectCommand($loaded, 'Left Empty', null, SearchLanguage::English));
+        ($this->handler)(new UpdateProjectCommand($loaded, 'Left Empty', null, SearchLanguage::English, ProjectEventType::ACTOR_HUMAN));
 
         self::assertSame('left-empty', $connection->fetchOne('SELECT slug FROM projects WHERE id = :id', ['id' => (string) $id]));
     }
@@ -188,7 +190,7 @@ final class UpdateProjectHandlerTest extends KernelTestCase
         $loaded = $this->em->find(Project::class, $id);
         self::assertInstanceOf(Project::class, $loaded);
 
-        ($this->handler)(new UpdateProjectCommand($loaded, 'Current Name', null, SearchLanguage::English));
+        ($this->handler)(new UpdateProjectCommand($loaded, 'Current Name', null, SearchLanguage::English, ProjectEventType::ACTOR_HUMAN));
 
         self::assertSame('current-name', $connection->fetchOne('SELECT slug FROM projects WHERE id = :id', ['id' => (string) $id]));
     }
@@ -205,7 +207,7 @@ final class UpdateProjectHandlerTest extends KernelTestCase
         $loaded = $this->em->find(Project::class, $id);
         self::assertInstanceOf(Project::class, $loaded);
 
-        ($this->handler)(new UpdateProjectCommand($loaded, 'My App', null, SearchLanguage::English));
+        ($this->handler)(new UpdateProjectCommand($loaded, 'My App', null, SearchLanguage::English, ProjectEventType::ACTOR_HUMAN));
 
         self::assertSame('my-app', $connection->fetchOne('SELECT slug FROM projects WHERE id = :id', ['id' => (string) $id]));
     }
@@ -226,7 +228,7 @@ final class UpdateProjectHandlerTest extends KernelTestCase
         self::assertInstanceOf(Project::class, $loaded);
 
         try {
-            ($this->handler)(new UpdateProjectCommand($loaded, 'my app', 'new.example', SearchLanguage::English));
+            ($this->handler)(new UpdateProjectCommand($loaded, 'my app', 'new.example', SearchLanguage::English, ProjectEventType::ACTOR_HUMAN));
             self::fail('Expected DomainErrors for a stale slug whose repair is taken.');
         } catch (DomainErrors $e) {
             self::assertSame(['name' => 'project.error.slug_taken'], $e->errors);
@@ -246,10 +248,10 @@ final class UpdateProjectHandlerTest extends KernelTestCase
             'name' => 'My App',
             'slug' => 'my-app',
             'created_at' => '2026-09-12 00:00:00',
-        ]), $this->audit->auditor);
+        ]), $this->audit->auditor, $this->events());
 
         try {
-            $racing(new UpdateProjectCommand($project, 'my-app', null, SearchLanguage::English));
+            $racing(new UpdateProjectCommand($project, 'my-app', null, SearchLanguage::English, ProjectEventType::ACTOR_HUMAN));
             self::fail('Expected DomainErrors for a slug a concurrent rename took.');
         } catch (DomainErrors $e) {
             self::assertSame(['name' => 'project.error.slug_taken'], $e->errors);
@@ -266,10 +268,10 @@ final class UpdateProjectHandlerTest extends KernelTestCase
             'owner_id' => (string) $project->owner->id,
             'name' => 'After',
             'created_at' => '2026-09-12 00:00:00',
-        ]), $this->audit->auditor);
+        ]), $this->audit->auditor, $this->events());
 
         try {
-            $racing(new UpdateProjectCommand($project, 'After', null, SearchLanguage::English));
+            $racing(new UpdateProjectCommand($project, 'After', null, SearchLanguage::English, ProjectEventType::ACTOR_HUMAN));
             self::fail('Expected DomainErrors for a name a concurrent rename took.');
         } catch (DomainErrors $e) {
             self::assertSame(['name' => 'project.error.name_taken'], $e->errors);
@@ -280,7 +282,7 @@ final class UpdateProjectHandlerTest extends KernelTestCase
     {
         $project = $this->project('update-project-same-slug@example.com', 'My App');
 
-        ($this->handler)(new UpdateProjectCommand($project, 'my app', null, SearchLanguage::English));
+        ($this->handler)(new UpdateProjectCommand($project, 'my app', null, SearchLanguage::English, ProjectEventType::ACTOR_HUMAN));
 
         self::assertSame('my app', $project->name);
         self::assertSame('my-app', $project->slug);
@@ -289,6 +291,14 @@ final class UpdateProjectHandlerTest extends KernelTestCase
     public function test_the_handler_keeps_no_logger_beside_the_auditor(): void
     {
         DirectLogging::assertRemovedFrom(UpdateProjectHandler::class);
+    }
+
+    private function events(): EventDispatcherInterface
+    {
+        $events = self::getContainer()->get(EventDispatcherInterface::class);
+        self::assertInstanceOf(EventDispatcherInterface::class, $events);
+
+        return $events;
     }
 
     /** @param non-empty-string $email */
