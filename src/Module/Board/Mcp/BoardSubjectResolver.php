@@ -68,7 +68,27 @@ final readonly class BoardSubjectResolver
     /** The column of the project's board with that slug. The refusal lists the slugs the board has. */
     public function requireColumn(Project $project, string $slug): BoardColumn
     {
-        $columns = $this->boardColumns->findForProject($project);
+        return $this->columnAmong($this->boardColumns->findForProject($project), $slug);
+    }
+
+    public function optionalColumn(Project $project, ?string $slug): ?BoardColumn
+    {
+        return null === $slug ? null : $this->requireColumn($project, $slug);
+    }
+
+    /**
+     * The same lookup over columns the caller already read, so it costs no query.
+     *
+     * @param list<BoardColumn> $columns every column of one board
+     */
+    public function optionalColumnAmong(array $columns, ?string $slug): ?BoardColumn
+    {
+        return null === $slug ? null : $this->columnAmong($columns, $slug);
+    }
+
+    /** @param list<BoardColumn> $columns */
+    private function columnAmong(array $columns, string $slug): BoardColumn
+    {
         foreach ($columns as $column) {
             if ($column->slug === $slug) {
                 return $column;
@@ -76,11 +96,6 @@ final readonly class BoardSubjectResolver
         }
 
         throw new ToolCallException(\sprintf('Unknown status "%s". Use one of: %s.', $slug, implode(', ', array_map(static fn (BoardColumn $column): string => $column->slug, $columns))));
-    }
-
-    public function optionalColumn(Project $project, ?string $slug): ?BoardColumn
-    {
-        return null === $slug ? null : $this->requireColumn($project, $slug);
     }
 
     public function requireType(string $type): CardType
