@@ -347,7 +347,13 @@ func (s *Set) Check(ctx context.Context, src ColumnSource) error {
 
 			continue
 		}
-		slugs[strings.ToLower(pc.Project.ID)] = slug
+		id := strings.ToLower(pc.Project.ID)
+		if other, ok := slugs[id]; ok {
+			errs = append(errs, fmt.Errorf("project %q: the server resolves it to the same project as %q; map each project once", slug, other))
+
+			continue
+		}
+		slugs[id] = slug
 
 		valid := make([]string, len(pc.Columns))
 		for i, c := range pc.Columns {

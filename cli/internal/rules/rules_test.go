@@ -330,6 +330,33 @@ func TestCheckNamesEachRefusal(t *testing.T) {
 	}
 }
 
+// Without slugs, two keys can resolve to one project, such as its name and its
+// id. Only one key would then ever match, so the check refuses the pair.
+func TestCheckRefusesTwoKeysForOneProject(t *testing.T) {
+	text, _ := file(t, `
+projects:
+  loupe:
+    dir: {dir}
+  `+projectID+`:
+    dir: {dir}
+rules:
+  - on: board.card_moved
+    project: loupe
+    to: ready
+    prompt: go
+`)
+	s, err := Parse([]byte(text), Defaults{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := `{"project":{"id":"` + projectID + `","slug":null},"columns":[{"slug":"ready"}]}`
+
+	err = s.Check(context.Background(), columnsServer(t, map[string]string{"loupe": body, projectID: body}))
+	if err == nil || !strings.Contains(err.Error(), "the same project as") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
 // Until projects have slugs, the server resolves the handle by name and sends
 // a null slug. The check accepts that and still reads the id and the columns.
 func TestCheckAcceptsANullSlug(t *testing.T) {
