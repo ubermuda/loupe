@@ -1,6 +1,6 @@
 ---
 title: "The project board"
-description: "The columns each board has and how an owner changes them, how cards are ordered, the board screen a person drags cards on, and the six MCP tools an agent drives them with."
+description: "The columns each board has and how an owner changes them, how cards are ordered, the board screen a person drags cards on, and the MCP tools an agent drives them with."
 ---
 
 Every project has one board, and the board holds cards. A card describes one
@@ -307,10 +307,11 @@ carries `slug`, `label`, `terminal` and `default`. `card_list` returns the same
 list in `columns`, beside its cards. The tools read columns and never write one.
 
 `status` takes a column slug on `card_create`, `card_update` and `card_list`. An
-unknown slug is refused, and the error lists the slugs the board has:
-`Unknown status "doing". Use one of: backlog, next, in-progress, done.` A column
-deleted between a read and a write is refused with "That column no longer exists
-on this board. Name another column."
+unknown slug is refused. The error lists the slugs the board has, such as
+`Unknown status "doing". Use one of: backlog, next, in-progress, done.`
+
+A write to a column that was deleted after your read is also refused. That error
+says "That column no longer exists on this board. Name another column."
 
 `card_create` with no `status` puts the card in the default column. An agent
 finishes a card by moving it to a terminal column.
