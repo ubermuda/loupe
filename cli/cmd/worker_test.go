@@ -37,6 +37,24 @@ func TestCapWriterAcceptsWritesPastTheCap(t *testing.T) {
 	}
 }
 
+// A rule's permission mode and model reach claude as flags, and an empty value
+// passes none. The prompt is always the last argument.
+func TestWorkerArgsCarryTheRulesSettings(t *testing.T) {
+	for _, tc := range []struct {
+		spec workerSpec
+		want string
+	}{
+		{workerSpec{prompt: "go"}, "-p go"},
+		{workerSpec{permissionMode: "plan", prompt: "go"}, "--permission-mode plan -p go"},
+		{workerSpec{model: "opus", prompt: "go"}, "--model opus -p go"},
+		{workerSpec{permissionMode: "plan", model: "opus", prompt: "go"}, "--permission-mode plan --model opus -p go"},
+	} {
+		if got := strings.Join(workerArgs(tc.spec), " "); got != tc.want {
+			t.Fatalf("workerArgs(%+v) = %q, want %q", tc.spec, got, tc.want)
+		}
+	}
+}
+
 func TestCapWriterKeepsShortOutputWhole(t *testing.T) {
 	w := &capWriter{limit: maxOutput}
 	_, _ = w.Write([]byte("all done\n"))

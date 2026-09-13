@@ -4,6 +4,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -46,7 +47,7 @@ func New(baseURL, token string, hc *http.Client) *Client {
 }
 
 // StreamCredentials fetches subscribe credentials for one of the caller's sites,
-// by id or name.
+// by id or slug.
 func (c *Client) StreamCredentials(ctx context.Context, site string) (StreamCredentials, error) {
 	var creds StreamCredentials
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
@@ -79,7 +80,95 @@ func (c *Client) StreamCredentials(ctx context.Context, site string) (StreamCred
 	return creds, nil
 }
 
-// Sites lists the authenticated user's sites (for the bridge's --site picker).
+// Column is one column of a project's board.
+type Column struct {
+	Slug     string `json:"slug"`
+	Label    string `json:"label"`
+	Terminal bool   `json:"terminal"`
+	Default  bool   `json:"default"`
+}
+
+// ProjectColumns is the response of GET /api/projects/{handle}/board/columns.
+// A server that predates project slugs sends a null slug, which decodes as "".
+type ProjectColumns struct {
+	Project struct {
+		ID   string `json:"id"`
+		Slug string `json:"slug"`
+	} `json:"project"`
+	Columns []Column `json:"columns"`
+}
+
+// ErrProjectNotFound is returned when the server knows no project of the
+// caller by that handle.
+var ErrProjectNotFound = errors.New("project not found")
+
+// ErrProjectAmbiguous is returned when the handle names more than one of the
+// caller's projects.
+var ErrProjectAmbiguous = errors.New("project handle is ambiguous")
+
+// ErrBoardDisabled is returned when the instance has the board switched off.
+var ErrBoardDisabled = errors.New("the board is disabled on this instance")
+
+// ErrEndpointMissing is returned for a 404 that carries no error code, which
+// is the answer of a server that predates the endpoint.
+var ErrEndpointMissing = errors.New("the server has no columns endpoint")
+
+// notFound reads which 404 the server meant from its JSON error code.
+func notFound(body io.Reader) error {
+	var payload struct {
+		Error string `json:"error"`
+	}
+	_ = json.NewDecoder(io.LimitReader(body, 4096)).Decode(&payload)
+
+	switch payload.Error {
+	case "project_not_found":
+		return ErrProjectNotFound
+	case "board_disabled":
+		return ErrBoardDisabled
+	default:
+		return ErrEndpointMissing
+	}
+}
+
+// Columns fetches the board columns of one of the caller's projects, by id or
+// slug.
+func (c *Client) Columns(ctx context.Context, handle string) (ProjectColumns, error) {
+	var out ProjectColumns
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		c.baseURL+"/api/projects/"+url.PathEscape(handle)+"/board/columns", nil)
+	if err != nil {
+		return out, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return out, fmt.Errorf("request columns of %s: %w", handle, err)
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusNotFound:
+		return out, fmt.Errorf("%w: %s", notFound(resp.Body), handle)
+	case http.StatusConflict:
+		return out, fmt.Errorf("%w: %s", ErrProjectAmbiguous, handle)
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return out, fmt.Errorf("columns request rejected (HTTP %d): the API token must have the agent scope", resp.StatusCode)
+	default:
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return out, fmt.Errorf("columns request for %s failed (HTTP %d): %s", handle, resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return out, fmt.Errorf("decode columns of %s: %w", handle, err)
+	}
+
+	return out, nil
+}
+
+// Sites lists the authenticated user's sites. Login calls it to check a token.
 func (c *Client) Sites(ctx context.Context) ([]Site, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/projects", nil)
 	if err != nil {
