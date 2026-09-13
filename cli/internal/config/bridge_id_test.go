@@ -82,6 +82,7 @@ func TestEnsureBridgeIDHealsWhatItReads(t *testing.T) {
 		{name: "id of the wrong length", file: `{"bridgeId":"0123456789abcdef"}`},
 		{name: "id with a bad separator", file: `{"bridgeId":"3f2504e04f89-41d3-9a0c-0305e82c3301"}`},
 		{name: "id with a non-hex digit", file: `{"bridgeId":"3f2504e0-4f89-41d3-9a0c-0305e82c330z"}`},
+		{name: "nil uuid", file: `{"bridgeId":"00000000-0000-0000-0000-000000000000"}`},
 		{name: "blank file", file: "  \n"},
 		{name: "valid id", file: `{"bridgeId":"` + seededID + `"}`, keepsID: true},
 		{name: "valid id in upper case", file: `{"bridgeId":"` + strings.ToUpper(seededID) + `"}`, keepsID: true},

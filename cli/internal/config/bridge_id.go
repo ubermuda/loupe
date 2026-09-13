@@ -79,13 +79,16 @@ func newUUID() (string, error) {
 	return string(out[:]), nil
 }
 
-// isUUID reports whether s has the canonical UUID form. It accepts any version
-// and either letter case, so it heals a malformed id without discarding a valid
-// one an operator wrote by hand.
+// isUUID reports whether s is a usable UUID. It accepts any version and either
+// letter case, so it heals a malformed id without discarding a valid one an
+// operator wrote by hand. It rejects the nil UUID, which a disk image or a
+// hand-edited file can carry onto every machine that copies it.
 func isUUID(s string) bool {
 	if len(s) != 36 {
 		return false
 	}
+
+	allZero := true
 	for i := range len(s) {
 		c := s[i]
 		if i == 8 || i == 13 || i == 18 || i == 23 {
@@ -98,9 +101,12 @@ func isUUID(s string) bool {
 		if !isHexDigit(c) {
 			return false
 		}
+		if c != '0' {
+			allZero = false
+		}
 	}
 
-	return true
+	return !allZero
 }
 
 func isHexDigit(c byte) bool {
