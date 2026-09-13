@@ -10,6 +10,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Account\Service\RegistrationGate;
 use App\Module\Analytics\Twig\AnalyticsScript;
 use App\Module\Board\Install\BoardInstallFlags;
+use App\Module\Bridge\Service\WorkerRunRetentionPolicy;
 use App\Module\Review\Mcp\DocumentHighlightTool;
 use App\Module\SiteReview\SiteReviewDrawing;
 use App\Service\UpdateCheck;
@@ -60,11 +61,12 @@ final class SeedFlagsControllerTest extends WebTestCase
         // prefilled default, and that default has to be "on" or a freshly
         // installed instance cannot register anybody.
         self::assertTrue($flags[RegistrationGate::ENABLED_FLAG]->value);
-        self::assertCount(15, $flags);
+        self::assertCount(16, $flags);
         // Seeded on: drawing is additive, and a flag that installs off would
         // ship the widget's Draw control invisible on every fresh instance.
         self::assertTrue($flags[SiteReviewDrawing::FLAG]->value);
         self::assertSame(180, $flags[FeatureFlagAuditRetentionPolicy::FLAG]->value);
+        self::assertSame(180, $flags[WorkerRunRetentionPolicy::FLAG]->value);
         // Seeded off: the update check is the app's only self-initiated
         // outbound request, so an install must not start making it unasked.
         self::assertFalse($flags[UpdateCheck::FLAG]->value);
