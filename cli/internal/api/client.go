@@ -257,9 +257,10 @@ func (c *Client) ReportWorkerRun(ctx context.Context, handle string, run WorkerR
 	switch {
 	case resp.StatusCode == http.StatusOK, resp.StatusCode == http.StatusCreated:
 		return nil
-	// A rate limit clears on its own, so it is the one 4xx worth another try.
-	case resp.StatusCode == http.StatusTooManyRequests:
-		return fmt.Errorf("worker run report rate limited (HTTP %d)", resp.StatusCode)
+	// A rate limit and a request timeout clear on their own, so they are the two
+	// 4xx answers worth another try. Every other 4xx reads the same body again.
+	case resp.StatusCode == http.StatusTooManyRequests, resp.StatusCode == http.StatusRequestTimeout:
+		return fmt.Errorf("worker run report not taken yet (HTTP %d)", resp.StatusCode)
 	case resp.StatusCode >= 400 && resp.StatusCode < 500:
 		return fmt.Errorf("%w (HTTP %d): %s", ErrReportRefused, resp.StatusCode, strings.TrimSpace(string(detail)))
 	default:

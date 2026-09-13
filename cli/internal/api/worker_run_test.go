@@ -182,6 +182,7 @@ func TestReportWorkerRunSaysWhichFailuresARetryCannotFix(t *testing.T) {
 		{http.StatusBadRequest, true},
 		{http.StatusUnprocessableEntity, true},
 		{http.StatusTooManyRequests, false},
+		{http.StatusRequestTimeout, false},
 		{http.StatusInternalServerError, false},
 		{http.StatusBadGateway, false},
 	} {
