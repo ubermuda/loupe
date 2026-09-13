@@ -14,7 +14,7 @@ Open the page from the project sidebar, or go to
 
 | Column | Meaning |
 |---|---|
-| Card number | the card the worker was started for. It links to the card |
+| Card number | the card the worker was started for. It links to the card while the board feature is on |
 | Rule name | the bridge rule that matched the event |
 | Started | when the worker started, on the bridge clock |
 | Took | how long the worker ran |
@@ -64,8 +64,11 @@ Select **Clear** to go back to the whole list.
 
 A run record holds the card identifier as a plain value rather than as a
 reference, so deleting a card leaves its run history intact. The card number
-still links to the card, and that link answers 404 once the card is gone. The
-run row itself keeps reading correctly.
+still carries the link, and that link answers 404 once the card is gone. The run
+row itself keeps reading correctly.
+
+An instance with the board feature off shows the card number as plain text,
+because it has no card page to link to.
 
 ## How long a run is kept
 
