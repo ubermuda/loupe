@@ -25,6 +25,10 @@ use Symfony\Component\Uid\Uuid;
 // a DROP plus a plain CREATE INDEX, downgrading it to a B-tree that @@ never uses.
 #[ORM\Index(name: 'idx_bridge_worker_runs_search_vector', columns: ['search_vector'])]
 #[ORM\Table(name: 'bridge_worker_runs')]
+// The bridge retries a report whose response it never saw, so the natural key
+// of a run is what stops the retry writing a second row. One bridge cannot
+// start two workers for one card in the same second.
+#[ORM\UniqueConstraint(name: 'uniq_bridge_worker_run_report', columns: ['project_id', 'bridge_id', 'card_id', 'started_at'])]
 class WorkerRun
 {
     /** Mirrors the cap the bridge applies to a worker's output before it reports. */

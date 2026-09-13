@@ -43,7 +43,7 @@ final class ReportWorkerRunController extends AppController
             throw new \LogicException('Worker run endpoint reached without an authenticated User.');
         }
 
-        $run = ($this->reportWorkerRun)(new ReportWorkerRunCommand(
+        $result = ($this->reportWorkerRun)(new ReportWorkerRunCommand(
             owner: $user,
             handle: $handle,
             bridgeId: $payload->bridgeId(),
@@ -57,10 +57,15 @@ final class ReportWorkerRunController extends AppController
             output: $payload->output ?? '',
         ));
 
-        if (null === $run) {
+        if (null === $result->run) {
             return $this->json(['error' => 'project_not_found'], JsonResponse::HTTP_NOT_FOUND);
         }
 
-        return $this->json(['id' => (string) $run->id], JsonResponse::HTTP_CREATED);
+        // 200 on a repeat, so a bridge retrying a report whose response it never
+        // saw can tell that the row was already there.
+        return $this->json(
+            ['id' => (string) $result->run->id],
+            $result->created ? JsonResponse::HTTP_CREATED : JsonResponse::HTTP_OK,
+        );
     }
 }

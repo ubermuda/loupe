@@ -62,6 +62,55 @@ final class WorkerRunsApiTest extends WebTestCase
         self::assertSame('2026-09-13T10:00:21+00:00', $run->endedAt->format(\DateTimeInterface::ATOM));
     }
 
+    /**
+     * The bridge retries a report whose response it never saw, so the same run
+     * arrives twice and must not become two rows.
+     */
+    public function test_a_repeated_report_answers_with_the_row_it_already_wrote(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'runs-api-retry@example.com');
+        $project = $this->project($em, $owner, 'Retry Runs');
+        $raw = $this->agentToken($em, $owner);
+        $payload = $this->payload();
+        $path = '/api/projects/'.$project->id.'/worker-runs';
+
+        $this->post($client, $path, $raw, $payload);
+        self::assertResponseStatusCodeSame(201);
+        $first = $this->idOf($client);
+
+        $this->post($client, $path, $raw, array_merge($payload, ['output' => 'a later retry says something else']));
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame($first, $this->idOf($client));
+        self::assertSame(1, $this->countRuns());
+        self::assertSame('ok', $this->onlyRun()->output);
+    }
+
+    /** A second run of the same card is a new run, and the start time is what tells them apart. */
+    public function test_a_later_run_of_the_same_card_is_a_second_row(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'runs-api-second@example.com');
+        $project = $this->project($em, $owner, 'Second Runs');
+        $raw = $this->agentToken($em, $owner);
+        $payload = $this->payload();
+        $path = '/api/projects/'.$project->id.'/worker-runs';
+
+        $this->post($client, $path, $raw, $payload);
+        self::assertResponseStatusCodeSame(201);
+
+        $this->post($client, $path, $raw, array_merge($payload, [
+            'startedAt' => '2026-09-13T11:00:00+00:00',
+            'endedAt' => '2026-09-13T11:00:21+00:00',
+        ]));
+
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame(2, $this->countRuns());
+    }
+
     /** The server stamps arrival, so a bridge with a wrong clock cannot backdate a row out of the retention window. */
     public function test_the_server_stamps_the_arrival_and_the_bridge_clock_stays_as_reported(): void
     {
@@ -185,6 +234,7 @@ final class WorkerRunsApiTest extends WebTestCase
         yield 'a rule name past the column' => [['ruleName' => str_repeat('r', 101)]];
         yield 'a malformed start date' => [['startedAt' => 'yesterday afternoon']];
         yield 'a missing end date' => [['endedAt' => null]];
+        yield 'an end before the start' => [['endedAt' => '2026-09-13T09:59:59+00:00']];
         yield 'an exit code out of range' => [['exitCode' => 100000]];
         yield 'output past the cap' => [['output' => str_repeat('x', WorkerRun::MAX_OUTPUT_LENGTH + 1)]];
         yield 'a missing output' => [['output' => null]];
@@ -399,6 +449,14 @@ final class WorkerRunsApiTest extends WebTestCase
             ],
             content: json_encode($payload, \JSON_THROW_ON_ERROR),
         );
+    }
+
+    private function idOf(KernelBrowser $client): string
+    {
+        $body = json_decode((string) $client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+
+        return (string) $body['id'];
     }
 
     /** @return list<WorkerRun> */

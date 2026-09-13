@@ -77,6 +77,17 @@ final class ReportWorkerRunRequest
         }
     }
 
+    /** Both stamps come from one bridge clock, so a run cannot end before it starts. */
+    #[Assert\Callback]
+    public function validateDuration(ExecutionContextInterface $context): void
+    {
+        if (null !== $this->startedAt && null !== $this->endedAt && $this->endedAt < $this->startedAt) {
+            $context->buildViolation('A run cannot end before it starts.')
+                ->atPath('endedAt')
+                ->addViolation();
+        }
+    }
+
     public function bridgeId(): Uuid
     {
         return Uuid::fromString($this->bridgeId ?? throw new \LogicException('bridgeId is required after validation.'));

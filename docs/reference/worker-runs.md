@@ -44,7 +44,7 @@ slug. A project name does not resolve.
 | `cardNumber` | the short number the card shows, counting from 1 inside the project |
 | `ruleName` | the rule that matched, 1 to 100 characters |
 | `startedAt` | when the worker started, on the bridge clock, as an ISO 8601 timestamp |
-| `endedAt` | when the worker finished, on the bridge clock |
+| `endedAt` | when the worker finished, on the bridge clock. It cannot be before `startedAt`, because both come from the same clock |
 | `exitCode` | the process exit code, between -255 and 255. Send `null` when the process never started |
 | `failureReason` | why the process never started, at most 1000 characters. Required when `exitCode` is `null`, and refused when it is not |
 | `output` | what the worker printed, at most 4000 characters. It may be empty |
@@ -58,9 +58,16 @@ bridge clock says when the work happened, and the server clock says when the
 report landed. The gap between them is how long the report waited in the
 bridge's retry queue.
 
+A report is safe to retry. The server identifies a run by its project, its
+`bridgeId`, its `cardId` and its `startedAt`, so a report it already holds
+answers with the row it already wrote and changes nothing. Send the same body
+again after a timeout or a lost response. A second run of the same card carries
+a later `startedAt`, so it is a new row.
+
 | Status | Body | When |
 |---|---|---|
 | 201 | `{"id":"<uuid>"}` | the run is stored |
+| 200 | `{"id":"<uuid>"}` | the server already held this report, and the body changed nothing |
 | 401 | | the request carries no token |
 | 403 | `{"error":"insufficient_scope"}` | the token has no agent scope, such as a widget token |
 | 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |

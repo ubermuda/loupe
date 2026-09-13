@@ -6,9 +6,12 @@ namespace App\Module\Bridge\Repository;
 
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Bridge\Doctrine\Types\UuidType;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * @extends ServiceEntityRepository<WorkerRun>
@@ -18,6 +21,25 @@ class WorkerRunRepository extends ServiceEntityRepository
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, WorkerRun::class);
+    }
+
+    /**
+     * The run a report names, by the natural key a retry repeats. Null when the
+     * server has not seen this report before.
+     */
+    public function findOneByReportKey(Project $project, Uuid $bridgeId, Uuid $cardId, \DateTimeImmutable $startedAt): ?WorkerRun
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.bridgeId = :bridgeId')
+            ->andWhere('r.cardId = :cardId')
+            ->andWhere('r.startedAt = :startedAt')
+            ->setParameter('project', $project)
+            ->setParameter('bridgeId', $bridgeId, UuidType::NAME)
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->setParameter('startedAt', $startedAt, Types::DATETIME_IMMUTABLE)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     /**
