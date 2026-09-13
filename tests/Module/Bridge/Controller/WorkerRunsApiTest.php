@@ -88,6 +88,35 @@ final class WorkerRunsApiTest extends WebTestCase
         self::assertSame('ok', $this->onlyRun()->output);
     }
 
+    /**
+     * The column holds whole seconds, so the stored value and the value a retry
+     * sends must floor the same way. Otherwise a retry misses the read and the
+     * insert trips the unique index.
+     */
+    public function test_a_retry_carrying_a_fraction_of_a_second_still_finds_its_row(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'runs-api-fraction@example.com');
+        $project = $this->project($em, $owner, 'Fraction Runs');
+        $raw = $this->agentToken($em, $owner);
+        $payload = $this->payload([
+            'startedAt' => '2026-09-13T10:00:00.750+00:00',
+            'endedAt' => '2026-09-13T10:00:21.250+00:00',
+        ]);
+        $path = '/api/projects/'.$project->id.'/worker-runs';
+
+        $this->post($client, $path, $raw, $payload);
+        self::assertResponseStatusCodeSame(201);
+        $first = $this->idOf($client);
+
+        $this->post($client, $path, $raw, $payload);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame($first, $this->idOf($client));
+        self::assertSame(1, $this->countRuns());
+    }
+
     /** A second run of the same card is a new run, and the start time is what tells them apart. */
     public function test_a_later_run_of_the_same_card_is_a_second_row(): void
     {

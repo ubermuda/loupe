@@ -64,6 +64,11 @@ answers with the row it already wrote and changes nothing. Send the same body
 again after a timeout or a lost response. A second run of the same card carries
 a later `startedAt`, so it is a new row.
 
+`startedAt` is stored to the second, and a fraction of a second in the value you
+send is dropped. Two runs of one card by one bridge that start inside the same
+second therefore count as one report. A worker runs for minutes, so this needs
+no attention from a bridge.
+
 | Status | Body | When |
 |---|---|---|
 | 201 | `{"id":"<uuid>"}` | the run is stored |
