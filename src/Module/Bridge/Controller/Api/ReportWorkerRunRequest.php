@@ -20,6 +20,9 @@ final class ReportWorkerRunRequest
 
     public const int MAX_EXIT_CODE = 255;
 
+    /** The card number column is a 32-bit integer, and Postgres refuses more at the flush. */
+    public const int MAX_CARD_NUMBER = 2147483647;
+
     public function __construct(
         #[Assert\NotBlank]
         #[Assert\Uuid]
@@ -30,7 +33,7 @@ final class ReportWorkerRunRequest
         public ?string $cardId = null,
 
         #[Assert\NotNull]
-        #[Assert\Positive]
+        #[Assert\Range(min: 1, max: self::MAX_CARD_NUMBER)]
         public ?int $cardNumber = null,
 
         #[Assert\Length(max: WorkerRun::MAX_RULE_NAME_LENGTH, normalizer: 'trim')]

@@ -41,7 +41,7 @@ slug. A project name does not resolve.
 |---|---|
 | `bridgeId` | a uuid the bridge generates once and keeps. It points at no table, so any uuid is accepted |
 | `cardId` | the uuid of the card the worker was started for. It is a plain value, so a deleted card leaves its run history intact |
-| `cardNumber` | the short number the card shows, counting from 1 inside the project |
+| `cardNumber` | the short number the card shows, counting from 1 inside the project, at most 2147483647 |
 | `ruleName` | the rule that matched, 1 to 100 characters |
 | `startedAt` | when the worker started, on the bridge clock, as an ISO 8601 timestamp |
 | `endedAt` | when the worker finished, on the bridge clock. It cannot be before `startedAt`, because both come from the same clock |

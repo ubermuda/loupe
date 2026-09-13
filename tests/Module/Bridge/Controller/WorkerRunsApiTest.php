@@ -6,6 +6,7 @@ namespace App\Tests\Module\Bridge\Controller;
 
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
+use App\Module\Bridge\Controller\Api\ReportWorkerRunRequest;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Outbox\AgentPush;
@@ -259,6 +260,7 @@ final class WorkerRunsApiTest extends WebTestCase
         yield 'a bridge id that is not a uuid' => [['bridgeId' => 'not-a-uuid']];
         yield 'a card id that is not a uuid' => [['cardId' => 'not-a-uuid']];
         yield 'a card number of zero' => [['cardNumber' => 0]];
+        yield 'a card number past a 32-bit integer' => [['cardNumber' => ReportWorkerRunRequest::MAX_CARD_NUMBER + 1]];
         yield 'a blank rule name' => [['ruleName' => '   ']];
         yield 'a rule name past the column' => [['ruleName' => str_repeat('r', 101)]];
         yield 'a malformed start date' => [['startedAt' => 'yesterday afternoon']];
