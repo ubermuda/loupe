@@ -4940,7 +4940,7 @@
             </trans-unit>
             <trans-unit id="bridge.worker_runs.filter.count">
                 <source>bridge.worker_runs.filter.count</source>
-                <target>{0} no runs match|{1} 1 run matches|]1,Inf[ %count% runs match</target>
+                <target>{0} no runs|{1} 1 run|]1,Inf[ %count% runs</target>
             </trans-unit>
             <trans-unit id="bridge.worker_runs.outcome.succeeded">
                 <source>bridge.worker_runs.outcome.succeeded</source>
