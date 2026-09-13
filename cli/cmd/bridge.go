@@ -10,12 +10,14 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/config"
+	"github.com/ubermuda/loupe/cli/internal/rules"
 	"github.com/ubermuda/loupe/cli/internal/transport"
 )
 
@@ -49,34 +51,45 @@ func newBridgeCmd() *cobra.Command {
 }
 
 func newBridgeRunCmd() *cobra.Command {
-	var dir, site, permissionMode, logFile string
+	var rulesPath, permissionMode, model, logFile string
 	var maxWorkers int
 
 	cmd := &cobra.Command{
 		Use:   "run",
-		Short: "Watch a Loupe board and run a Claude Code worker per card",
-		Long: "Subscribes to your Loupe event stream and runs one worker for every board " +
-			"card that moves to next. A worker is `claude -p <directive>` started in the " +
-			"--dir directory. It prints its answer and exits, and the bridge reports the " +
-			"exit code.\n\n" +
-			"Use --site to name the site to bridge, by slug or id; omit it to pick " +
-			"interactively from your list of sites. Use --permission-mode to pass that " +
-			"flag to every `claude` the bridge starts. A worker has no terminal, so it " +
-			"cannot answer a permission prompt: omit the flag and claude denies every " +
-			"tool call that needs approval.\n\n" +
+		Short: "Watch a Loupe board and run a Claude Code worker for each rule an event matches",
+		Long: "Reads the rule file, rules.yaml in your config directory, and runs " +
+			"`claude -p <prompt>` for every event a rule matches. Each rule names an event, " +
+			"a project and a column, and the prompt its worker runs. The projects map in " +
+			"the file gives each project the directory its workers run in.\n\n" +
+			"The bridge refuses to start without the file, and checks every project and " +
+			"column slug against the server first. It follows one project for now.\n\n" +
+			"Use --permission-mode and --model to set the value of every rule that sets " +
+			"none. A worker has no terminal, so it cannot answer a permission prompt: " +
+			"with no mode, claude denies every tool call that needs approval.\n\n" +
 			"Use --max-workers to bound the workers that run at once. Events past the " +
 			"bound wait in a queue and start in arrival order. The bridge writes one JSON " +
 			"object per line to stdout and to --log-file.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if dir == "" {
-				return fmt.Errorf("--dir is required: it names the directory every worker runs in")
-			}
-			if err := requireDir(dir); err != nil {
-				return err
-			}
 			if maxWorkers < 1 {
 				return fmt.Errorf("--max-workers must be at least 1, got %d", maxWorkers)
 			}
+
+			path := rulesPath
+			if path == "" {
+				var err error
+				if path, err = defaultRulesPath(); err != nil {
+					return err
+				}
+			}
+			set, err := rules.Load(path, rules.Defaults{PermissionMode: permissionMode, Model: model})
+			if err != nil {
+				return fmt.Errorf("rule file %s: %w", path, err)
+			}
+			projects := set.Projects()
+			if len(projects) > 1 {
+				return fmt.Errorf("rule file %s maps %d projects (%s), and a bridge follows one project for now: run one bridge per project, each with its own --rules file", path, len(projects), strings.Join(projects, ", "))
+			}
+
 			if _, err := lookPath("claude"); err != nil {
 				return fmt.Errorf("claude is not installed or not on PATH")
 			}
@@ -85,17 +98,8 @@ func newBridgeRunCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-
-			client := apiClient(cfg)
-			if site == "" {
-				if !isTerminal(os.Stdin) {
-					return fmt.Errorf("--site is required when not running interactively")
-				}
-				picked, err := pickSite(cmd, client)
-				if err != nil {
-					return err
-				}
-				site = picked
+			if err := set.Check(cmd.Context(), apiClient(cfg)); err != nil {
+				return fmt.Errorf("rule file %s: %w", path, err)
 			}
 
 			logPath := logFile
@@ -109,24 +113,34 @@ func newBridgeRunCmd() *cobra.Command {
 			defer f.Close()
 
 			r := &router{
-				log:            newBridgeLogger(bridgeLogWriter(f, cmd.OutOrStdout())),
-				dir:            dir,
-				permissionMode: permissionMode,
-				maxWorkers:     maxWorkers,
-				worker:         defaultWorkerOps(),
+				log:        newBridgeLogger(bridgeLogWriter(f, cmd.OutOrStdout())),
+				rules:      set,
+				project:    projects[0],
+				maxWorkers: maxWorkers,
+				worker:     defaultWorkerOps(),
 			}
-			r.log.Info("bridge_started", "dir", dir, "max_workers", maxWorkers, "log_file", logPath)
+			r.log.Info("bridge_started", "rules", path, "projects", projects, "rule_count", len(set.Rules()), "max_workers", maxWorkers, "log_file", logPath)
 
-			return subscribe(cmd, cfg, site, r)
+			return subscribe(cmd, cfg, set.ProjectID(projects[0]), r)
 		},
 	}
-	cmd.Flags().StringVar(&dir, "dir", "", "run every worker in this `directory`")
-	cmd.Flags().StringVar(&site, "site", "", "the Loupe site to bridge (slug or id); omitted: pick interactively")
-	cmd.Flags().StringVar(&permissionMode, "permission-mode", "", "pass this `mode` to every `claude` the bridge starts; empty passes no flag, and a worker cannot answer a prompt")
+	cmd.Flags().StringVar(&rulesPath, "rules", "", "read rules from this `path`; empty uses rules.yaml in your config directory")
+	cmd.Flags().StringVar(&permissionMode, "permission-mode", "", "pass this `mode` to every `claude` whose rule sets none; empty passes no flag, and a worker cannot answer a prompt")
+	cmd.Flags().StringVar(&model, "model", "", "pass this `model` to every `claude` whose rule sets none; empty passes no flag")
 	cmd.Flags().IntVar(&maxWorkers, "max-workers", defaultMaxWorkers, "run at most this `number` of workers at once; later events queue")
 	cmd.Flags().StringVar(&logFile, "log-file", "", "append the JSON log to this `path`; empty uses bridge.log in your config directory")
 
 	return cmd
+}
+
+// defaultRulesPath puts the rule file beside config.json.
+func defaultRulesPath() (string, error) {
+	dir, err := config.Dir()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(dir, rules.FileName), nil
 }
 
 // bridgeLogWriter fans one line out to the log file and to out.
@@ -186,18 +200,18 @@ func openLogFile(path string) (*os.File, error) {
 //
 // The shutdown drops the queue before it waits. Subscribe calls the handler on
 // this goroutine, so no event can arrive after it returns.
-func subscribe(cmd *cobra.Command, cfg config.Config, site string, r *router) error {
+func subscribe(cmd *cobra.Command, cfg config.Config, projectID string, r *router) error {
 	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	r.ctx = ctx
 
-	creds, err := fetchCreds(ctx, cfg, site)
+	creds, err := fetchCreds(ctx, cfg, projectID)
 	if err != nil {
 		return err
 	}
-	r.site, r.topic = creds.Site.Name, creds.Topic
+	r.topic = creds.Topic
 
-	err = transport.Subscribe(ctx, &http.Client{}, creds.HubURL, creds.Topic, jwtRefresher(cfg, creds.Site.ID), r.handler())
+	err = transport.Subscribe(ctx, &http.Client{}, creds.HubURL, creds.Topic, jwtRefresher(cfg, projectID), r.handler())
 	r.shutdown()
 	r.wg.Wait()
 	if err != nil && ctx.Err() == nil {
@@ -207,78 +221,23 @@ func subscribe(cmd *cobra.Command, cfg config.Config, site string, r *router) er
 	return nil
 }
 
-func fetchCreds(ctx context.Context, cfg config.Config, site string) (api.StreamCredentials, error) {
-	return apiClient(cfg).StreamCredentials(ctx, site)
+func fetchCreds(ctx context.Context, cfg config.Config, projectID string) (api.StreamCredentials, error) {
+	return apiClient(cfg).StreamCredentials(ctx, projectID)
 }
 
 // jwtRefresher mints a fresh subscriber JWT per connection attempt. Subscriber
 // JWTs are short-lived, so a bridge left running would otherwise reconnect with
 // an expired token forever once the first one lapsed.
 //
-// siteID must be the resolved id, never the handle the user passed: --site also
-// accepts a slug, and renaming the project would then break every reconnect.
-func jwtRefresher(cfg config.Config, siteID string) transport.TokenFunc {
+// projectID is the id the start check resolved, never the slug: a rename
+// changes the slug, and every reconnect would then fail.
+func jwtRefresher(cfg config.Config, projectID string) transport.TokenFunc {
 	return func(ctx context.Context) (string, error) {
-		creds, err := fetchCreds(ctx, cfg, siteID)
+		creds, err := fetchCreds(ctx, cfg, projectID)
 		if err != nil {
 			return "", err
 		}
 
 		return creds.JWT, nil
 	}
-}
-
-// requireDir refuses a --dir no worker could run in. The bridge otherwise
-// subscribes, looks healthy, and fails only when the first card arrives.
-func requireDir(dir string) error {
-	info, err := os.Stat(dir)
-	if err != nil {
-		return fmt.Errorf("--dir %s: %w", dir, err)
-	}
-	if !info.IsDir() {
-		return fmt.Errorf("--dir %s is not a directory", dir)
-	}
-
-	return nil
-}
-
-func isTerminal(f *os.File) bool {
-	fi, err := f.Stat()
-
-	return err == nil && fi.Mode()&os.ModeCharDevice != 0
-}
-
-// pickSite lists the user's sites and prompts for a numbered choice.
-//
-// The prompt goes to stderr. stdout carries the JSON log, so a reader piped to
-// jq would otherwise get this prose first.
-func pickSite(cmd *cobra.Command, client *api.Client) (string, error) {
-	sites, err := client.Sites(cmd.Context())
-	if err != nil {
-		return "", err
-	}
-	if len(sites) == 0 {
-		return "", fmt.Errorf("no sites found: create one in Loupe first (Site reviews → Add site)")
-	}
-	prompt := cmd.ErrOrStderr()
-	if len(sites) == 1 {
-		fmt.Fprintf(prompt, "Using your only site %q\n", sites[0].Name)
-
-		return sites[0].ID, nil
-	}
-
-	fmt.Fprintln(prompt, "Which site should this bridge follow?")
-	for i, s := range sites {
-		fmt.Fprintf(prompt, "  %d) %s\n", i+1, s.Name)
-	}
-	fmt.Fprint(prompt, "Site number: ")
-	var choice int
-	if _, err := fmt.Fscanln(cmd.InOrStdin(), &choice); err != nil {
-		return "", fmt.Errorf("read choice: %w", err)
-	}
-	if choice < 1 || choice > len(sites) {
-		return "", fmt.Errorf("invalid choice")
-	}
-
-	return sites[choice-1].ID, nil
 }

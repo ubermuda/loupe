@@ -24,32 +24,49 @@ type workerResult struct {
 	err      error
 }
 
+// workerSpec is one claude process to run. An empty permissionMode or model
+// passes no flag.
+type workerSpec struct {
+	dir            string
+	permissionMode string
+	model          string
+	prompt         string
+}
+
 // workerOps is the process surface the router drives. Tests replace run so the
 // routing and the in-flight bookkeeping need no claude binary.
 type workerOps struct {
-	run func(ctx context.Context, dir, permissionMode, prompt string) workerResult
+	run func(ctx context.Context, spec workerSpec) workerResult
 }
 
 func defaultWorkerOps() workerOps {
 	return workerOps{run: runWorker}
 }
 
-// runWorker runs `claude -p <prompt>` in dir and waits for it.
-//
-// The prompt is an argv element, so no shell reads it and no quoting applies.
-func runWorker(ctx context.Context, dir, permissionMode, prompt string) workerResult {
-	args := make([]string, 0, 4)
-	if permissionMode != "" {
-		args = append(args, "--permission-mode", permissionMode)
+// workerArgs builds claude's argv. The prompt is an argv element, so no shell
+// reads it and no quoting applies.
+func workerArgs(spec workerSpec) []string {
+	args := make([]string, 0, 6)
+	if spec.permissionMode != "" {
+		args = append(args, "--permission-mode", spec.permissionMode)
 	}
-	args = append(args, "-p", prompt)
+	if spec.model != "" {
+		args = append(args, "--model", spec.model)
+	}
+
+	return append(args, "-p", spec.prompt)
+}
+
+// runWorker runs `claude -p <prompt>` in the spec's dir and waits for it.
+func runWorker(ctx context.Context, spec workerSpec) workerResult {
+	args := workerArgs(spec)
 
 	// One writer for both streams, so os/exec drains them through one pipe and
 	// nothing races. The cap bounds the memory a chatty worker holds.
 	captured := &capWriter{limit: maxOutput}
 
 	cmd := exec.CommandContext(ctx, "claude", args...)
-	cmd.Dir = dir
+	cmd.Dir = spec.dir
 	cmd.Stdout, cmd.Stderr = captured, captured
 	cmd.WaitDelay = waitDelay
 	setProcessGroup(cmd)
