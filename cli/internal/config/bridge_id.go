@@ -3,8 +3,10 @@ package config
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 )
 
@@ -20,6 +22,10 @@ var configMu sync.Mutex
 // absent, empty or malformed is replaced rather than reported, so a hand-edited
 // file cannot stop the bridge from starting.
 //
+// A config.json that does not exist returns ErrNotLoggedIn by design: a bridge
+// with no credentials reports nothing, so an unauthenticated command must not
+// create a config directory as a side effect.
+//
 // The id identifies a bridge and grants nothing, so it is not a secret and the
 // keychain does not hold it.
 func EnsureBridgeID() (string, error) {
@@ -29,6 +35,13 @@ func EnsureBridgeID() (string, error) {
 	d, err := Dir()
 	if err != nil {
 		return "", err
+	}
+	if _, err := os.Stat(filepath.Join(d, configFileName)); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", ErrNotLoggedIn
+		}
+
+		return "", fmt.Errorf("read config: %w", err)
 	}
 
 	c, err := readStoredConfig(d)
@@ -45,9 +58,6 @@ func EnsureBridgeID() (string, error) {
 	}
 
 	c.BridgeID = id
-	if err := os.MkdirAll(d, 0o700); err != nil {
-		return "", fmt.Errorf("create config dir: %w", err)
-	}
 	if err := writeConfig(d, c); err != nil {
 		return "", err
 	}

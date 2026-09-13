@@ -72,11 +72,9 @@ func TestEnsureBridgeIDHealsWhatItReads(t *testing.T) {
 	cases := []struct {
 		name        string
 		file        string
-		absent      bool
 		keepsID     bool
 		wantBaseURL string
 	}{
-		{name: "no config file", absent: true},
 		{name: "logged in with no id", file: `{"baseUrl":"https://example.test"}`},
 		{name: "empty id", file: `{"baseUrl":"https://example.test","bridgeId":""}`},
 		{name: "id that is not a uuid", file: `{"baseUrl":"https://example.test","bridgeId":"not-a-uuid"}`},
@@ -96,9 +94,7 @@ func TestEnsureBridgeIDHealsWhatItReads(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			keyring.MockInit()
 			useTempConfigHome(t)
-			if !tc.absent {
-				seedConfigFile(t, tc.file)
-			}
+			seedConfigFile(t, tc.file)
 
 			got, err := EnsureBridgeID()
 			if err != nil {
@@ -128,6 +124,26 @@ func TestEnsureBridgeIDHealsWhatItReads(t *testing.T) {
 				t.Fatalf("config file holds base URL %q, want %q", onDisk.BaseURL, tc.wantBaseURL)
 			}
 		})
+	}
+}
+
+// TestEnsureBridgeIDRefusesWithoutAConfigFile pins the contract. A bridge with
+// no credentials reports nothing, so an id is of no use to it, and an
+// unauthenticated command must leave the file system as it found it.
+func TestEnsureBridgeIDRefusesWithoutAConfigFile(t *testing.T) {
+	keyring.MockInit()
+	useTempConfigHome(t)
+
+	if _, err := EnsureBridgeID(); !errors.Is(err, ErrNotLoggedIn) {
+		t.Fatalf("want ErrNotLoggedIn, got %v", err)
+	}
+
+	d, err := Dir()
+	if err != nil {
+		t.Fatalf("Dir: %v", err)
+	}
+	if _, err := os.Stat(d); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("config dir stat gives %v, want it still absent", err)
 	}
 }
 
@@ -169,6 +185,7 @@ func TestEnsureBridgeIDKeepsAFileToken(t *testing.T) {
 func TestEnsureBridgeIDSurvivesAReload(t *testing.T) {
 	keyring.MockInit()
 	useTempConfigHome(t)
+	seedConfigFile(t, `{}`)
 
 	first, err := EnsureBridgeID()
 	if err != nil {
@@ -202,6 +219,7 @@ func TestEnsureBridgeIDSurvivesAReload(t *testing.T) {
 func TestEnsureBridgeIDGeneratesAVersion4UUID(t *testing.T) {
 	keyring.MockInit()
 	useTempConfigHome(t)
+	seedConfigFile(t, `{}`)
 
 	got, err := EnsureBridgeID()
 	if err != nil {
@@ -239,6 +257,7 @@ func TestNewUUIDReturnsADifferentValueEachTime(t *testing.T) {
 func TestEnsureBridgeIDIsSafeForConcurrentCallers(t *testing.T) {
 	keyring.MockInit()
 	useTempConfigHome(t)
+	seedConfigFile(t, `{}`)
 
 	const callers = 16
 	ids := make([]string, callers)
@@ -278,9 +297,8 @@ func TestSaveAndEnsureBridgeIDDoNotOverwriteEachOther(t *testing.T) {
 	useTempConfigHome(t)
 
 	for attempt := range 25 {
-		if err := os.Remove(storedConfigPath(t)); err != nil && !os.IsNotExist(err) {
-			t.Fatalf("clear config: %v", err)
-		}
+		// A config with no id, because EnsureBridgeID needs a file to heal.
+		seedConfigFile(t, `{}`)
 
 		var wg sync.WaitGroup
 		wg.Add(2)
@@ -340,6 +358,7 @@ func TestMigrateLeavesANewerTokenAlone(t *testing.T) {
 func TestWriteConfigLeavesNoTemporaryFile(t *testing.T) {
 	keyring.MockInit()
 	useTempConfigHome(t)
+	seedConfigFile(t, `{}`)
 
 	if _, err := EnsureBridgeID(); err != nil {
 		t.Fatalf("EnsureBridgeID: %v", err)
@@ -414,6 +433,7 @@ func TestEnsureBridgeIDReportsASecondBadField(t *testing.T) {
 func TestSaveKeepsAnExistingBridgeID(t *testing.T) {
 	keyring.MockInit()
 	useTempConfigHome(t)
+	seedConfigFile(t, `{}`)
 
 	want, err := EnsureBridgeID()
 	if err != nil {
