@@ -11,7 +11,7 @@ final readonly class ListProjectColumnsHandler
 {
     public function __construct(
         private ProjectRepository $projects,
-        private BoardColumnRepository $columns,
+        private BoardColumnRepository $boardColumns,
     ) {
     }
 
@@ -23,6 +23,6 @@ final readonly class ListProjectColumnsHandler
             return new ListProjectColumnsView(null, []);
         }
 
-        return new ListProjectColumnsView($project, $this->columns->findForProject($project));
+        return new ListProjectColumnsView($project, $this->boardColumns->findForProject($project));
     }
 }
