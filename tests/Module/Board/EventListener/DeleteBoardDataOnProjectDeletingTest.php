@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
+use App\Module\Board\Service\BoardColumnSeeder;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Service\ProjectDeleter;
 use Doctrine\ORM\EntityManagerInterface;
@@ -39,21 +40,28 @@ final class DeleteBoardDataOnProjectDeletingTest extends KernelTestCase
         // that never wrote a card.
         self::assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_cards WHERE project_id = :id', ['id' => $doomedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_card_pull_requests', []));
+        self::assertSame(4, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_columns WHERE project_id = :id', ['id' => $doomedId]));
 
         $deleter->delete($doomed);
         $em->clear();
 
         self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_cards WHERE project_id = :id', ['id' => $doomedId]));
         self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_card_pull_requests', []));
+        self::assertSame(0, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_columns WHERE project_id = :id', ['id' => $doomedId]));
         self::assertSame(1, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_cards WHERE project_id = :id', ['id' => $sparedId]));
+        self::assertSame(4, (int) $conn->fetchOne('SELECT COUNT(*) FROM board_columns WHERE project_id = :id', ['id' => $sparedId]));
     }
 
     private function seedBoard(EntityManagerInterface $em, User $owner, string $name): Project
     {
         $project = new Project($owner, $name.'-'.uniqid());
         $em->persist($project);
+        $seeder = self::getContainer()->get(BoardColumnSeeder::class);
+        self::assertInstanceOf(BoardColumnSeeder::class, $seeder);
+        [$backlog] = $seeder->seed($project);
 
         $card = new Card(project: $project, title: 'Ship it', body: 'Body', number: 1);
+        $card->column = $backlog;
         if ('doomed' === $name) {
             $card->pullRequests->add(new CardPullRequest($card, 'https://github.com/ubermuda/loupe/pull/1', Forge::GitHub, 'ubermuda/loupe', 1));
         }

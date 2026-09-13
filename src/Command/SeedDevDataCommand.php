@@ -6,12 +6,12 @@ namespace App\Command;
 
 use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\UserRepository;
+use App\Module\Project\Command\EnsureHarnessProjectCommand;
+use App\Module\Project\Command\EnsureHarnessProjectHandler;
 use App\Module\Project\Command\MintProjectWidgetTokenCommand;
 use App\Module\Project\Command\MintProjectWidgetTokenHandler;
 use App\Module\Project\Command\RegenerateProjectWidgetTokenCommand;
 use App\Module\Project\Command\RegenerateProjectWidgetTokenHandler;
-use App\Module\Project\Entity\Project;
-use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -56,7 +56,7 @@ final class SeedDevDataCommand extends Command
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly UserRepository $users,
-        private readonly ProjectRepository $projects,
+        private readonly EnsureHarnessProjectHandler $ensureProject,
         private readonly UserPasswordHasherInterface $passwordHasher,
         private readonly MintProjectWidgetTokenHandler $mintWidgetToken,
         private readonly RegenerateProjectWidgetTokenHandler $regenerateWidgetToken,
@@ -93,12 +93,7 @@ final class SeedDevDataCommand extends Command
         // database drift, and it costs nothing to keep both logged in at once.
         $this->seedUser(self::ADMIN_EMAIL, 'Admin User', ['ROLE_ADMIN']);
 
-        $project = $this->projects->findOneBy(['owner' => $user, 'name' => self::PROJECT_NAME]);
-        if (!$project instanceof Project) {
-            $project = new Project($user, self::PROJECT_NAME);
-            $this->em->persist($project);
-            $this->em->flush();
-        }
+        $project = ($this->ensureProject)(new EnsureHarnessProjectCommand($user, self::PROJECT_NAME));
 
         // Only the raw value is usable by an embedder, and only the hash is
         // stored — so once minted it cannot be recovered. When the caller has

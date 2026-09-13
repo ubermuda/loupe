@@ -84,6 +84,15 @@ class Card implements ProjectScopedSubject
     #[ORM\Column(name: 'reporter', length: 20, nullable: true, enumType: CardReporter::class)]
     private ?CardReporter $storedReporter = null;
 
+    /**
+     * The column row that matches $status. Create and move set it, and it stays
+     * null where the project has no columns or an older image wrote the card.
+     * Nothing reads it yet: the board reads $status.
+     */
+    #[ORM\JoinColumn(name: 'column_id', nullable: true)]
+    #[ORM\ManyToOne(targetEntity: BoardColumn::class)]
+    public ?BoardColumn $column = null;
+
     /** Who raised the card, falling back to the column release 2 drops. */
     public CardReporter $reporter {
         get => $this->storedReporter ?? $this->origin;

@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Module\Project\Command;
 
 use App\Module\Project\Entity\Project;
+use App\Module\Project\Event\ProjectCreating;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Returns the named project for an owner, creating it if this is the first
@@ -18,6 +20,7 @@ final readonly class EnsureHarnessProjectHandler
     public function __construct(
         private ProjectRepository $projects,
         private EntityManagerInterface $em,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -30,6 +33,7 @@ final readonly class EnsureHarnessProjectHandler
 
         $project = new Project($command->owner, $command->name);
         $this->em->persist($project);
+        $this->events->dispatch(new ProjectCreating($project));
         $this->em->flush();
 
         return $project;
