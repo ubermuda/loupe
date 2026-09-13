@@ -4334,7 +4334,7 @@
             </trans-unit>
             <trans-unit id="board.page.description">
                 <source>board.page.description</source>
-                <target>Four columns of work, ranked by hand inside each priority group.</target>
+                <target>Columns of work, ranked by hand inside each priority group.</target>
             </trans-unit>
             <trans-unit id="board.card.create.action">
                 <source>board.card.create.action</source>
@@ -4520,6 +4520,10 @@
                 <source>board.card.flash.move_rejected</source>
                 <target>That move was not accepted. Reload the board and try again.</target>
             </trans-unit>
+            <trans-unit id="board.card.error.column_gone">
+                <source>board.card.error.column_gone</source>
+                <target>That column no longer exists. Choose another column.</target>
+            </trans-unit>
             <trans-unit id="board.card.error.title_blank">
                 <source>board.card.error.title_blank</source>
                 <target>Give the card a title.</target>
@@ -4695,6 +4699,184 @@
             <trans-unit id="board.form.move_card_form.priority.choice.low">
                 <source>board.form.move_card_form.priority.choice.low</source>
                 <target>Low</target>
+            </trans-unit>
+
+            <!-- Board columns -->
+            <trans-unit id="board.form.add_board_column_form.label.label">
+                <source>board.form.add_board_column_form.label.label</source>
+                <target>New column</target>
+            </trans-unit>
+            <trans-unit id="board.form.add_board_column_form.label.placeholder">
+                <source>board.form.add_board_column_form.label.placeholder</source>
+                <target>Column name</target>
+            </trans-unit>
+            <trans-unit id="board.form.rename_board_column_form.label.label">
+                <source>board.form.rename_board_column_form.label.label</source>
+                <target>Name</target>
+            </trans-unit>
+            <trans-unit id="board.form.delete_board_column_form.target.label">
+                <source>board.form.delete_board_column_form.target.label</source>
+                <target>Move the cards to</target>
+            </trans-unit>
+            <trans-unit id="board.column.add.title">
+                <source>board.column.add.title</source>
+                <target>Add a column</target>
+            </trans-unit>
+            <trans-unit id="board.column.add.submit">
+                <source>board.column.add.submit</source>
+                <target>Add column</target>
+            </trans-unit>
+            <trans-unit id="board.column.drag">
+                <source>board.column.drag</source>
+                <target>Drag to reorder the columns</target>
+            </trans-unit>
+            <trans-unit id="board.column.flag.default">
+                <source>board.column.flag.default</source>
+                <target>Default</target>
+            </trans-unit>
+            <trans-unit id="board.column.flag.terminal">
+                <source>board.column.flag.terminal</source>
+                <target>Terminal</target>
+            </trans-unit>
+            <trans-unit id="board.column.menu.label">
+                <source>board.column.menu.label</source>
+                <target>Actions for the column %label%</target>
+            </trans-unit>
+            <trans-unit id="board.column.rename.action">
+                <source>board.column.rename.action</source>
+                <target>Rename</target>
+            </trans-unit>
+            <trans-unit id="board.column.rename.title">
+                <source>board.column.rename.title</source>
+                <target>Rename %label%</target>
+            </trans-unit>
+            <trans-unit id="board.column.rename.description">
+                <source>board.column.rename.description</source>
+                <target>The slug follows the name. Agents and tools read the slug.</target>
+            </trans-unit>
+            <trans-unit id="board.column.rename.slug">
+                <source>board.column.rename.slug</source>
+                <target>New slug:</target>
+            </trans-unit>
+            <trans-unit id="board.column.rename.cancel">
+                <source>board.column.rename.cancel</source>
+                <target>Cancel</target>
+            </trans-unit>
+            <trans-unit id="board.column.rename.submit">
+                <source>board.column.rename.submit</source>
+                <target>Save name</target>
+            </trans-unit>
+            <trans-unit id="board.column.move.left">
+                <source>board.column.move.left</source>
+                <target>Move left</target>
+            </trans-unit>
+            <trans-unit id="board.column.move.right">
+                <source>board.column.move.right</source>
+                <target>Move right</target>
+            </trans-unit>
+            <trans-unit id="board.column.terminal.set">
+                <source>board.column.terminal.set</source>
+                <target>Mark as terminal</target>
+            </trans-unit>
+            <trans-unit id="board.column.terminal.clear">
+                <source>board.column.terminal.clear</source>
+                <target>Unmark as terminal</target>
+            </trans-unit>
+            <trans-unit id="board.column.default.set">
+                <source>board.column.default.set</source>
+                <target>Make the default for new cards</target>
+            </trans-unit>
+            <trans-unit id="board.column.delete.action">
+                <source>board.column.delete.action</source>
+                <target>Delete column</target>
+            </trans-unit>
+            <trans-unit id="board.column.delete.blocked_default">
+                <source>board.column.delete.blocked_default</source>
+                <target>You cannot delete the default column. Make another column the default first.</target>
+            </trans-unit>
+            <trans-unit id="board.column.delete.blocked_terminal">
+                <source>board.column.delete.blocked_terminal</source>
+                <target>You cannot delete the last terminal column. Mark another column as terminal first.</target>
+            </trans-unit>
+            <trans-unit id="board.column.delete.title">
+                <source>board.column.delete.title</source>
+                <target>Delete %label%</target>
+            </trans-unit>
+            <trans-unit id="board.column.delete.cards">
+                <source>board.column.delete.cards</source>
+                <target>{0}This column holds no cards.|{1}This column holds 1 card. Choose the column it moves to.|]1,Inf]This column holds %count% cards. Choose the column they move to.</target>
+            </trans-unit>
+            <trans-unit id="board.column.delete.cancel">
+                <source>board.column.delete.cancel</source>
+                <target>Cancel</target>
+            </trans-unit>
+            <trans-unit id="board.column.delete.submit">
+                <source>board.column.delete.submit</source>
+                <target>Move the cards and delete</target>
+            </trans-unit>
+            <trans-unit id="board.column.delete.submit_empty">
+                <source>board.column.delete.submit_empty</source>
+                <target>Delete the column</target>
+            </trans-unit>
+            <trans-unit id="board.column.flash.deleted">
+                <source>board.column.flash.deleted</source>
+                <target>{0}Deleted the column “%label%”.|{1}Deleted the column “%label%” and moved its card.|]1,Inf]Deleted the column “%label%” and moved its %count% cards.</target>
+            </trans-unit>
+            <trans-unit id="board.column.flash.csrf_invalid">
+                <source>board.column.flash.csrf_invalid</source>
+                <target>The page expired, so the column was not deleted. Try again.</target>
+            </trans-unit>
+            <trans-unit id="board.column.flash.delete_rejected">
+                <source>board.column.flash.delete_rejected</source>
+                <target>The column was not deleted. Reload the board and try again.</target>
+            </trans-unit>
+            <trans-unit id="board.column.error.slug_empty">
+                <source>board.column.error.slug_empty</source>
+                <target>The name needs at least one letter or digit.</target>
+            </trans-unit>
+            <trans-unit id="board.column.error.slug_invalid">
+                <source>board.column.error.slug_invalid</source>
+                <target>A slug holds lowercase letters, digits and single hyphens only.</target>
+            </trans-unit>
+            <trans-unit id="board.column.error.slug_taken">
+                <source>board.column.error.slug_taken</source>
+                <target>Another column on this board already has this slug.</target>
+            </trans-unit>
+            <trans-unit id="board.column.error.no_terminal">
+                <source>board.column.error.no_terminal</source>
+                <target>A board needs at least one terminal column. Mark another column as terminal first.</target>
+            </trans-unit>
+            <trans-unit id="board.column.error.no_single_default">
+                <source>board.column.error.no_single_default</source>
+                <target>A board needs exactly one default column. Make another column the default first.</target>
+            </trans-unit>
+            <trans-unit id="board.column.error.default_terminal">
+                <source>board.column.error.default_terminal</source>
+                <target>The default column cannot be terminal.</target>
+            </trans-unit>
+            <trans-unit id="board.column.error.label_reserved">
+                <source>board.column.error.label_reserved</source>
+                <target>The app uses this text internally. Choose another name.</target>
+            </trans-unit>
+            <trans-unit id="board.column.error.label_too_long">
+                <source>board.column.error.label_too_long</source>
+                <target>A column name has at most 100 characters.</target>
+            </trans-unit>
+            <trans-unit id="board.column.error.gone">
+                <source>board.column.error.gone</source>
+                <target>That column no longer exists. The board shows the columns it has now.</target>
+            </trans-unit>
+            <trans-unit id="board.column.error.order_stale">
+                <source>board.column.error.order_stale</source>
+                <target>The columns changed after the page loaded. The board shows them as they are now.</target>
+            </trans-unit>
+            <trans-unit id="board.column.error.target_required">
+                <source>board.column.error.target_required</source>
+                <target>Choose the column the cards move to.</target>
+            </trans-unit>
+            <trans-unit id="board.column.error.target_invalid">
+                <source>board.column.error.target_invalid</source>
+                <target>The columns changed after the page loaded. The board shows them as they are now.</target>
             </trans-unit>
 
             <!-- Audit log (admin) -->

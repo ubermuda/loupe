@@ -4244,7 +4244,7 @@
         @apply flex items-center justify-between gap-2;
     }
     .lp-board__column-title {
-        @apply font-display font-extrabold text-base tracking-tight text-ink m-0;
+        @apply font-display font-extrabold text-base tracking-tight text-ink m-0 mr-auto;
     }
     .lp-board__column-count {
         @apply inline-flex items-center justify-center min-w-6 rounded-full bg-surface-3 px-2 py-0.5 text-xs font-bold text-fg-mute;
@@ -4254,6 +4254,60 @@
     }
     .lp-board__column-link {
         @apply text-xs font-semibold text-accent-ink underline underline-offset-2 hover:text-ink;
+    }
+    /* The column controls, shown to a reader who may change the columns. */
+    .lp-board__column-grip {
+        @apply inline-flex shrink-0 text-fg-faint cursor-grab;
+    }
+    .lp-board__column--dragging {
+        @apply opacity-50;
+    }
+    .lp-board__column-flag {
+        @apply rounded-full bg-surface-3 px-2 py-0.5 text-xs font-semibold text-fg-mute;
+    }
+    .lp-board__column-menu {
+        @apply relative;
+    }
+    .lp-board__column-menu-trigger {
+        @apply inline-flex items-center justify-center w-7 h-7 rounded-lg text-fg-mute transition-colors hover:bg-surface-3 hover:text-ink;
+    }
+    .lp-board__column-menu-panel {
+        @apply absolute right-0 z-30 flex flex-col w-56 p-1.5 rounded-xl bg-surface-1 shadow-lg;
+        animation: lp-appear 120ms ease-out both;
+    }
+    .lp-board__column-menu-panel[hidden] {
+        @apply hidden;
+    }
+    /* The row scrolls sideways, which clips anything below it too, so an open
+       menu gets room below the columns rather than a scrollbar. */
+    .lp-board__columns:has(.lp-board__column-menu-panel:not([hidden])) {
+        @apply pb-80;
+    }
+    .lp-board__column-menu-item {
+        @apply w-full px-2 py-1.5 rounded-lg text-left text-sm font-semibold text-ink transition-colors hover:bg-surface-2;
+    }
+    .lp-board__column-menu-item--danger {
+        @apply text-danger;
+    }
+    .lp-board__column-menu-note {
+        @apply px-2 py-1.5 m-0 text-xs text-fg-dim;
+    }
+    /* The add control after the last column. It keeps a column's minimum width,
+       so the new column appears where the control stood. */
+    .lp-board__add-column {
+        @apply flex flex-col shrink-0 min-w-64 rounded-xl border-2 border-dashed border-surface-3 p-3.5;
+    }
+    .lp-board__add-form {
+        @apply flex flex-col gap-2;
+    }
+    .lp-board__slug {
+        @apply block;
+    }
+    .lp-board__slug-value {
+        @apply font-mono text-xs font-semibold text-ink;
+    }
+    .lp-board__slug-refusal {
+        @apply text-sm font-semibold text-danger m-0;
     }
     /* A group is a drop target, so it keeps a minimum height even when empty:
        an empty grade with no area under it cannot be dropped into. */

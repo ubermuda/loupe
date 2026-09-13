@@ -27,10 +27,36 @@ class BoardColumnRepository extends ServiceEntityRepository
         return $this->findBy(['project' => $project], ['position' => 'ASC']);
     }
 
-    /** The column a card created with no column lands in. */
-    public function findDefaultFor(Project $project): ?BoardColumn
+    /**
+     * The board as the database holds it now, for a writer that holds the
+     * project lock. lock() leaves an already loaded column as the request read
+     * it, and refresh() refuses to rewrite the readonly project, so the mutable
+     * fields are read back by hand.
+     *
+     * @return list<BoardColumn>
+     */
+    public function findForProjectFresh(Project $project): array
     {
-        return $this->findOneBy(['project' => $project, 'isDefault' => true]);
+        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociativeIndexed(
+            'SELECT id, label, slug, position, terminal, is_default FROM board_columns WHERE project_id = :projectId',
+            ['projectId' => (string) $project->id],
+        );
+
+        $columns = [];
+        foreach ($this->findForProject($project) as $column) {
+            $row = $rows[(string) $column->id] ?? null;
+            if (null === $row) {
+                continue;
+            }
+            $column->label = (string) $row['label'];
+            $column->slug = (string) $row['slug'];
+            $column->position = (int) $row['position'];
+            $column->terminal = (bool) $row['terminal'];
+            $column->isDefault = (bool) $row['is_default'];
+            $columns[] = $column;
+        }
+
+        return $columns;
     }
 
     /** The same lookup from a raw route parameter, for a MapEntity expression. */

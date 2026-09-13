@@ -20,6 +20,8 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\UniqueConstraint(name: 'uniq_board_columns_project_slug', columns: ['project_id', 'slug'])]
 class BoardColumn
 {
+    public const int MAX_LABEL_LENGTH = 100;
+
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
@@ -32,7 +34,7 @@ class BoardColumn
         #[ORM\ManyToOne(targetEntity: Project::class)]
         public readonly Project $project,
 
-        #[ORM\Column(length: 100)]
+        #[ORM\Column(length: self::MAX_LABEL_LENGTH)]
         public string $label,
 
         /** Text, because a slug derived from a 100-character label can reach 1,700 characters. */

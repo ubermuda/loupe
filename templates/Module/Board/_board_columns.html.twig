@@ -1,18 +1,53 @@
 {# The board itself. Rendered by the page and again by the move endpoint's
-   stream, so the two can never drift apart. Props: board (BoardView). #}
-<div id="board" class="lp-board" data-controller="board-drag">
+   stream, so the two can never drift apart. Props: board (BoardView),
+   addColumnForm and renameColumnForm (a refused FormView, or null). #}
+{% set canManage = is_granted(constant('App\\Module\\Board\\Security\\BoardColumnVoter::MANAGE'), board.project) %}
+<div id="board" class="lp-board" data-controller="board-drag{{ canManage ? ' board-columns' }}">
     {# A drop moves the card at once. This says so when the server refuses. #}
     <p class="lp-board__message"
        data-board-drag-target="message"
        data-message="{{ 'board.drag.failed'|trans }}"
        role="status"
        aria-live="polite"></p>
-    <div class="lp-board__columns">
+    {% if canManage %}
+    {# A header drop fills this form with the new order and submits it. #}
+    {% set reorderForm = board_columns_reorder_form() %}
+    <form hidden
+          method="post"
+          action="{{ path('app_board_columns_reorder', {id: board.project.id}) }}"
+          data-board-columns-target="form">
+        {{ form_widget(reorderForm._token) }}
+        {{ form_widget(reorderForm.order, {attr: {'data-board-columns-target': 'order'}}) }}
+    </form>
+    {% endif %}
+    <div class="lp-board__columns"{% if canManage %} data-action="dragover->board-columns#over drop->board-columns#drop"{% endif %}>
     {% for view in board.columns %}
-    <section class="lp-board__column" aria-label="{{ view.column.label|trans }}" data-column-slug="{{ view.column.slug }}">
+    {% set label = view.column.label|trans %}
+    <section class="lp-board__column"
+             aria-label="{{ label }}"
+             data-column-slug="{{ view.column.slug }}"
+             data-column-id="{{ view.column.id }}"
+             data-board-columns-target="column">
         <header class="lp-board__column-head">
-            <h2 class="lp-board__column-title">{{ view.column.label|trans }}</h2>
+            {% if canManage %}
+            <span class="lp-board__column-grip"
+                  draggable="true"
+                  title="{{ 'board.column.drag'|trans }}"
+                  data-action="dragstart->board-columns#start dragend->board-columns#end">
+                <twig:ux:icon name="lucide:grip-vertical" class="w-4 h-4" />
+            </span>
+            {% endif %}
+            <h2 class="lp-board__column-title">{{ label }}</h2>
+            {% if canManage and view.column.isDefault %}
+            <span class="lp-board__column-flag">{{ 'board.column.flag.default'|trans }}</span>
+            {% endif %}
+            {% if canManage and view.column.terminal %}
+            <span class="lp-board__column-flag">{{ 'board.column.flag.terminal'|trans }}</span>
+            {% endif %}
             <span class="lp-board__column-count">{{ view.count }}</span>
+            {% if canManage %}
+                {% include '@Board/_board_column_menu.html.twig' with {board: board, view: view, index: loop.index0, renameColumnForm: renameColumnForm} only %}
+            {% endif %}
         </header>
 
         {% for group in view.groups %}
@@ -39,5 +74,21 @@
         {% endif %}
     </section>
     {% endfor %}
+    {% if canManage %}
+        {% set addForm = board_column_add_form(addColumnForm) %}
+        <section class="lp-board__add-column" aria-label="{{ 'board.column.add.title'|trans }}">
+            {{ form_start(addForm, {action: path('app_board_column_add', {id: board.project.id}), attr: {class: 'lp-board__add-form'}}) }}
+                <div class="lp-form-field">
+                    {{ form_label(addForm.label, null, {label_attr: {class: 'lp-label'}}) }}
+                    {{ form_widget(addForm.label, {attr: {class: 'lp-input', maxlength: constant('App\\Module\\Board\\Entity\\BoardColumn::MAX_LABEL_LENGTH'), placeholder: 'board.form.add_board_column_form.label.placeholder'}}) }}
+                    <div class="lp-field-errors">{{ form_errors(addForm.label) }}</div>
+                </div>
+                <button type="submit" class="lp-btn">
+                    <twig:ux:icon name="lucide:plus" class="w-4 h-4 shrink-0" />
+                    {{ 'board.column.add.submit'|trans }}
+                </button>
+            {{ form_end(addForm) }}
+        </section>
+    {% endif %}
     </div>
 </div>

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Controller;
 
 use App\Controller\AppController;
+use App\Exception\DomainErrors;
 use App\Module\Board\Command\MoveCardCommand;
 use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Command\ShowBoardCommand;
@@ -73,13 +74,20 @@ final class MoveCardController extends AppController
             return $this->redirectToRoute('app_project_board', ['id' => (string) $project->id]);
         }
 
-        ($this->moveCard)(new MoveCardCommand(
-            card: $card,
-            actor: CardReporter::Human,
-            column: $data->column ?? throw new \LogicException('column required after validation'),
-            priority: $data->priority ?? throw new \LogicException('priority required after validation'),
-            position: $data->position,
-        ));
+        try {
+            ($this->moveCard)(new MoveCardCommand(
+                card: $card,
+                actor: CardReporter::Human,
+                column: $data->column ?? throw new \LogicException('column required after validation'),
+                priority: $data->priority ?? throw new \LogicException('priority required after validation'),
+                position: $data->position,
+            ));
+        } catch (DomainErrors $e) {
+            // The column went away between the form check and the lock.
+            $this->addFlash('error', $this->translator->trans(array_first($e->errors)));
+
+            return $this->redirectToRoute('app_project_board', ['id' => (string) $project->id]);
+        }
 
         if (TurboBundle::STREAM_FORMAT !== $request->getPreferredFormat()) {
             return $this->redirectToRoute('app_project_board', ['id' => (string) $project->id]);

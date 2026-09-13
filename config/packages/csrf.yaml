@@ -22,6 +22,8 @@ framework:
             - toggle-project-widget-forwarding
             - site-review-comment-action
             - board-card-delete
+            - board-column-terminal
+            - board-column-default
             - billing-checkout
             - billing-portal
             - wizard-skip

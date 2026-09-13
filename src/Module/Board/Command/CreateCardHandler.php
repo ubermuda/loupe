@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Repository\BoardColumnRepository;
@@ -55,14 +56,21 @@ final readonly class CreateCardHandler
         // calls into the same project would otherwise allocate the same rank,
         // and the same card number. Same PESSIMISTIC_WRITE-on-the-project idiom
         // App\Module\SiteReview\Command\AddCommentHandler uses.
-        $card = $this->em->wrapInTransaction(function () use ($command, $title, $documents): Card {
+        $card = $this->em->wrapInTransaction(function () use ($command, $title, $documents): Card|string {
             $this->em->lock($command->project, LockMode::PESSIMISTIC_WRITE);
 
-            $column = $command->column
-                ?? $this->boardColumns->findDefaultFor($command->project)
-                ?? throw new \LogicException('Every board has a default column.');
-            if ($column->project !== $command->project) {
+            // Read under the lock: a column deleted or given another terminal
+            // flag since the request loaded it decides whether the card may go
+            // there and whether it starts finished.
+            $columns = $this->boardColumns->findForProjectFresh($command->project);
+            if (null !== $command->column && $command->column->project !== $command->project) {
                 throw new \LogicException('A card is created only in a column of its own board.');
+            }
+            $column = $command->column
+                ?? array_find($columns, static fn (BoardColumn $candidate): bool => $candidate->isDefault)
+                ?? throw new \LogicException('Every board has a default column.');
+            if (!\in_array($column, $columns, true)) {
+                return UpdateCardHandler::COLUMN_GONE;
             }
 
             $card = new Card(
@@ -101,6 +109,11 @@ final readonly class CreateCardHandler
 
             return $card;
         });
+
+        // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
+        if (\is_string($card)) {
+            throw new DomainErrors(['column' => $card]);
+        }
 
         // After the commit, never inside it: the sink drains at kernel.terminate,
         // so a record written in the closure outlives a rollback. The title stays
