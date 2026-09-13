@@ -48,7 +48,8 @@ func TestStreamCredentialsPutsTheHandleInThePath(t *testing.T) {
 	}
 }
 
-// The handle is one path segment, so a slash in it must not reach another route.
+// A slash or a dot segment in the handle stays escaped, so no client or proxy
+// resolves it into another path.
 func TestStreamCredentialsEscapesTheHandle(t *testing.T) {
 	var gotPath string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

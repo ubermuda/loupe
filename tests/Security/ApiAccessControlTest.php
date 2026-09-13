@@ -47,10 +47,11 @@ final class ApiAccessControlTest extends KernelTestCase
     {
         self::assertTrue($this->decide('/api/projects', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertTrue($this->decide('/api/projects/my-app/stream', ['ROLE_USER', 'ROLE_API_AGENT']));
+        self::assertTrue($this->decide('/api/projects/client/site/stream', ['ROLE_USER', 'ROLE_API_AGENT']));
     }
 
     /**
-     * The agent grant names each route exactly, so a new route under
+     * The agent grant names each route, so a new route under
      * /api/projects starts denied rather than inheriting the agent scope.
      */
     public function test_the_agent_grant_covers_its_two_routes_and_nothing_near_them(): void
@@ -59,7 +60,7 @@ final class ApiAccessControlTest extends KernelTestCase
         self::assertFalse($this->decide('/api/projects/', $agent));
         self::assertFalse($this->decide('/api/projects/my-app', $agent));
         self::assertFalse($this->decide('/api/projects/my-app/stream/more', $agent));
-        self::assertFalse($this->decide('/api/projects/a/b/stream', $agent));
+        self::assertFalse($this->decide('/api/projects//stream', $agent));
         self::assertFalse($this->decide('/api/projects/my-app/comments', $agent));
         self::assertFalse($this->decide('/api/agent/sites', $agent));
         self::assertFalse($this->decide('/api/agent/stream', $agent));

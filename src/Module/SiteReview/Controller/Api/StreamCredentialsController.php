@@ -19,8 +19,7 @@ use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
  * project's site-review event stream: the public hub URL, the per-project
  * topic, and a subscriber-scoped Mercure JWT. The bridge CLI calls this with
  * its API token and a handle in the path (project id, name or slug), then opens
- * an SSE connection to {hubUrl}?topic={topic} with the returned JWT. A name
- * that holds a slash fits no path segment, so it is reachable by id or slug.
+ * an SSE connection to {hubUrl}?topic={topic} with the returned JWT.
  *
  * Agent-scoped tokens only. The firewall grants this path to ROLE_API_AGENT
  * alone, so a project-bound widget token gets 403 `insufficient_scope` before
@@ -35,6 +34,8 @@ use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
 #[Route(
     '/api/projects/{handle}/stream',
     name: 'api_project_stream',
+    // A project name may hold a slash, which the default requirement refuses.
+    requirements: ['handle' => '.+'],
     methods: ['GET'],
 )]
 final class StreamCredentialsController extends AppController

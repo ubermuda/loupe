@@ -112,7 +112,11 @@ final class StreamCredentialsControllerTest extends WebTestCase
         }
     }
 
-    public function test_a_name_holding_a_slash_is_reachable_by_id_alone(): void
+    /**
+     * The CLI escapes the slash as %2F, and both the router and the firewall
+     * match the decoded path, so the name reaches them with a real slash.
+     */
+    public function test_a_name_holding_a_slash_resolves(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -122,13 +126,15 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $em->persist($project);
         $em->flush();
 
-        $client->request(Request::METHOD_GET, $this->streamPath('client/site'),
-            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
-        self::assertResponseStatusCodeSame(404);
+        foreach ([$this->streamPath('client/site'), '/api/projects/client/site/stream'] as $path) {
+            $client->request(Request::METHOD_GET, $path,
+                server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
-        $client->request(Request::METHOD_GET, $this->streamPath((string) $project->id),
-            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
-        self::assertResponseIsSuccessful();
+            self::assertResponseIsSuccessful();
+            $data = json_decode((string) $client->getResponse()->getContent(), true);
+            self::assertIsArray($data);
+            self::assertSame((string) $project->id, $data['site']['id']);
+        }
     }
 
     public function test_a_site_that_is_one_slug_and_another_name_is_409(): void
