@@ -23,8 +23,8 @@ the raw token once and never again. The same page lists every token you own and
 revokes any of them.
 
 An account-level token always gets the agent scope, which is what the Loupe CLI
-needs. That scope reaches `/api/projects` and `/api/projects/{handle}/stream` and nothing
-else. It does not reach the site-review or board endpoints the widget calls:
+needs. That scope reaches `/api/projects`, `/api/projects/{handle}/stream` and
+`/api/agent/projects/{handle}/columns`, and nothing else. It does not reach the site-review or board endpoints the widget calls:
 those take a project-bound widget token, which a project mints on its own
 Connect page.
 

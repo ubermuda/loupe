@@ -48,6 +48,7 @@ final class ApiAccessControlTest extends KernelTestCase
         self::assertTrue($this->decide('/api/projects', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertTrue($this->decide('/api/projects/my-app/stream', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertTrue($this->decide('/api/projects/client/site/stream', ['ROLE_USER', 'ROLE_API_AGENT']));
+        self::assertTrue($this->decide('/api/agent/projects/loupe/columns', ['ROLE_USER', 'ROLE_API_AGENT']));
     }
 
     /**
@@ -77,6 +78,7 @@ final class ApiAccessControlTest extends KernelTestCase
         self::assertFalse($this->decide('/api/board/cards', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertFalse($this->decide('/api/projects', ['ROLE_USER', 'ROLE_API_SITE_REVIEW']));
         self::assertFalse($this->decide('/api/projects/my-app/stream', ['ROLE_USER', 'ROLE_API_SITE_REVIEW']));
+        self::assertFalse($this->decide('/api/agent/projects/loupe/columns', ['ROLE_USER', 'ROLE_API_SITE_REVIEW']));
     }
 
     /**

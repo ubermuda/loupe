@@ -17,10 +17,17 @@ framework:
             limit: 120
             interval: '1 minute'
 
+        # Bounds the bridge's column reads, a GET, keyed per token alone. A
+        # bridge reads each mapped project once at start.
+        agent_board_columns:
+            policy: 'sliding_window'
+            limit: 60
+            interval: '1 minute'
+
         # Bounds failed authentications on the token firewalls, ^/api and ^/mcp,
         # because each one writes a durable audit record. A successful bearer
-        # request spends nothing. Keyed per client address alone, unlike the two
-        # above: the check runs before any token is resolved, and a rejected
+        # request spends nothing. Keyed per client address alone, unlike the
+        # others above: the check runs before any token is resolved, and a rejected
         # token is attacker-chosen.
         api_authentication:
             policy: 'sliding_window'
@@ -29,8 +36,8 @@ framework:
 
 # The e2e suite drives one dev instance, and PHPUnit drives one kernel, both
 # from a single client address. A per-address limit therefore accumulates across
-# unrelated specs. Relax it there, never in prod. The two limiters above key per
-# token, so they need no such override.
+# unrelated specs. Relax it there, never in prod. The other limiters above key
+# per token, so they need no such override.
 when@dev:
     framework:
         rate_limiter:
