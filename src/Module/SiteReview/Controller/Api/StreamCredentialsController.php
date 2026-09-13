@@ -8,34 +8,26 @@ use App\Controller\AppController;
 use App\Module\Account\Entity\User;
 use App\Module\SiteReview\Command\ShowStreamCredentialsCommand;
 use App\Module\SiteReview\Command\ShowStreamCredentialsHandler;
+use App\Module\SiteReview\Command\StreamProjectView;
 use App\Outbox\AgentPush;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
 
 /**
- * Hands an authenticated API client everything it needs to subscribe to ONE
- * project's site-review event stream: the public hub URL, the per-project
- * topic, and a subscriber-scoped Mercure JWT. The bridge CLI calls this with
- * its API token and a handle in the path (project id or slug), then opens
- * an SSE connection to {hubUrl}?topic={topic} with the returned JWT.
+ * Hands the bridge CLI what it needs to follow the event stream of every
+ * project its user owns: the public hub URL, each project's topic, and one
+ * subscriber JWT that covers all of those topics.
  *
  * Agent-scoped tokens only. The firewall grants this path to ROLE_API_AGENT
  * alone, so a project-bound widget token gets 403 `insufficient_scope` before
  * this class runs. A widget token is embedded in public page HTML, and letting
- * one mint subscriber JWTs would let any page visitor watch the owner's review
- * streams. Project ownership is enforced by the handler's owner-scoped lookup.
+ * one mint subscriber JWTs would let any page visitor watch the owner's streams.
  */
 // 404 rather than a disabled-looking 403: with push off there is no hub to
-// subscribe to, so there is nothing here to be authorized for. The bridge CLI
-// treats it as "this instance does not do push".
+// subscribe to, so there is nothing here to be authorized for.
 #[RequireFeatureFlag(AgentPush::FLAG)]
-#[Route(
-    '/api/projects/{handle}/stream',
-    name: 'api_project_stream',
-    requirements: ['handle' => '[^/]+'],
-    methods: ['GET'],
-)]
+#[Route('/api/events', name: 'api_events', methods: ['GET'])]
 final class StreamCredentialsController extends AppController
 {
     public function __construct(
@@ -43,23 +35,27 @@ final class StreamCredentialsController extends AppController
     ) {
     }
 
-    public function __invoke(string $handle): JsonResponse
+    public function __invoke(): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
-            throw new \LogicException('Stream endpoint reached without an authenticated User.');
+            throw new \LogicException('Events endpoint reached without an authenticated User.');
         }
 
-        $view = ($this->showStreamCredentials)(new ShowStreamCredentialsCommand($user, trim($handle)));
-        if (null === $view->site) {
-            return $this->json(['error' => 'site_not_found'], JsonResponse::HTTP_NOT_FOUND);
-        }
+        $view = ($this->showStreamCredentials)(new ShowStreamCredentialsCommand($user));
 
         return $this->json([
             'hubUrl' => $view->hubUrl,
-            'topic' => $view->topic,
             'jwt' => $view->jwt,
-            'site' => ['id' => (string) $view->site->id, 'name' => $view->site->name],
+            'projects' => array_map(
+                static fn (StreamProjectView $project): array => [
+                    'id' => (string) $project->project->id,
+                    'slug' => $project->project->slug,
+                    'name' => $project->project->name,
+                    'topic' => $project->topic,
+                ],
+                $view->projects,
+            ),
         ]);
     }
 }

@@ -10,190 +10,96 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Outbox\AgentPush;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 final class StreamCredentialsControllerTest extends WebTestCase
 {
-    /**
-     * Written through the connection rather than the entity: the flag row comes
-     * from a migration, so it already exists and this only has to flip it.
-     */
-    private function disablePush(EntityManagerInterface $em): void
-    {
-        $em->getConnection()->executeStatement(
-            "UPDATE feature_flag SET value = 'false' WHERE name = ?",
-            [AgentPush::FLAG],
-        );
-    }
-
-    public function test_returns_per_site_topic_and_scoped_jwt(): void
+    public function test_returns_a_topic_for_every_project_of_the_caller_and_one_jwt_for_them(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, , $project] = $this->issue($em, ApiTokenScope::Agent, 'stream@example.com');
+        $em = $this->em();
+        [$raw, $user, $first] = $this->issue($em, ApiTokenScope::Agent, 'events@example.com');
+        $second = new Project($user, 'Second Events Site');
+        $em->persist($second);
+        [, , $foreign] = $this->issue($em, ApiTokenScope::Agent, 'events-other@example.com');
+        $em->flush();
 
-        $client->request(Request::METHOD_GET, $this->streamPath($project->name),
-            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+        $data = $this->events($client, $raw);
 
-        self::assertResponseIsSuccessful();
-        $data = json_decode((string) $client->getResponse()->getContent(), true);
-        self::assertIsArray($data);
         self::assertSame('https://mercure.loupe.dev.localhost/.well-known/mercure', $data['hubUrl']);
-
-        // The topic namespace is the app's own public URL (DEFAULT_URI), which
-        // is the same value the router pins its default context to.
         $defaultUri = static::getContainer()->getParameter('router.request_context.base_url');
         self::assertIsString($defaultUri);
-        $expectedTopic = rtrim($defaultUri, '/').'/projects/'.$project->id.'/events';
-        self::assertSame($expectedTopic, $data['topic']);
-        self::assertSame((string) $project->id, $data['site']['id']);
-        self::assertSame($project->name, $data['site']['name']);
+        $topicOf = static fn (Project $project): string => rtrim($defaultUri, '/').'/projects/'.$project->id.'/events';
 
-        // The JWT must be a subscriber token scoped to exactly this site's topic.
+        $expected = [
+            (string) $first->id => ['id' => (string) $first->id, 'slug' => $first->slug, 'name' => $first->name, 'topic' => $topicOf($first)],
+            (string) $second->id => ['id' => (string) $second->id, 'slug' => 'second-events-site', 'name' => 'Second Events Site', 'topic' => $topicOf($second)],
+        ];
+        self::assertIsArray($data['projects']);
+        self::assertEqualsCanonicalizing($expected, array_column($data['projects'], null, 'id'));
+        self::assertNotContains((string) $foreign->id, array_column($data['projects'], 'id'));
+
         $claims = $this->decodeJwtClaims((string) $data['jwt']);
-        self::assertSame([$expectedTopic], $claims['mercure']['subscribe'] ?? null);
+        $subscribe = $claims['mercure']['subscribe'] ?? null;
+        self::assertIsArray($subscribe);
+        self::assertEqualsCanonicalizing([$topicOf($first), $topicOf($second)], $subscribe);
+        self::assertNotContains($topicOf($foreign), $subscribe);
+    }
+
+    public function test_a_caller_with_no_project_gets_an_empty_list(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $user = new User(fullName: 'U', email: 'events-empty@example.com', password: 'x');
+        $user->emailVerifiedAt = new \DateTimeImmutable();
+        $em->persist($user);
+        [$token, $raw] = ApiToken::issue($user, 'tok', ApiTokenScope::Agent);
+        $em->persist($token);
+        $em->flush();
+
+        $data = $this->events($client, $raw);
+
+        self::assertSame([], $data['projects']);
+        self::assertSame([], $this->decodeJwtClaims((string) $data['jwt'])['mercure']['subscribe'] ?? null);
     }
 
     public function test_push_disabled_hides_the_endpoint(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        self::assertInstanceOf(EntityManagerInterface::class, $em);
-        // The flag ships on (a migration seeds it), so this case has to turn it
-        // off: a valid credential for a real project, refused only because the
-        // instance does not do push.
-        $this->disablePush($em);
-        [$raw, , $project] = $this->issue($em, ApiTokenScope::Agent, 'stream-off@example.com');
+        $em = $this->em();
+        // The flag ships on through a migration, so this case turns it off.
+        $em->getConnection()->executeStatement(
+            "UPDATE feature_flag SET value = 'false' WHERE name = ?",
+            [AgentPush::FLAG],
+        );
+        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-off@example.com');
 
-        $client->request(Request::METHOD_GET, $this->streamPath($project->name),
-            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+        $client->request(Request::METHOD_GET, '/api/events', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
-        // 404 rather than 403: with push off there is no hub to subscribe to, so
-        // there is nothing here to be authorized for. A 403 would tell a caller
-        // the endpoint exists and its credential was rejected, which is a
-        // different and wrong story.
+        // 404 rather than 403: with push off there is no hub to subscribe to.
         self::assertResponseStatusCodeSame(404);
     }
 
-    public function test_site_resolves_by_id_too(): void
+    public function test_the_per_project_stream_route_is_gone(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, , $project] = $this->issue($em, ApiTokenScope::Agent, 'stream-by-id@example.com');
+        [$raw, , $project] = $this->issue($this->em(), ApiTokenScope::Agent, 'events-old-path@example.com');
 
-        $client->request(Request::METHOD_GET, $this->streamPath((string) $project->id),
-            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+        foreach (['/api/projects/'.$project->id.'/stream', '/api/projects/'.$project->slug.'/stream', '/api/agent/stream'] as $path) {
+            $client->request(Request::METHOD_GET, $path, server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
-        self::assertResponseIsSuccessful();
-        $data = json_decode((string) $client->getResponse()->getContent(), true);
-        self::assertIsArray($data);
-        self::assertSame((string) $project->id, $data['site']['id']);
-    }
-
-    public function test_site_resolves_by_slug_too(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        self::assertInstanceOf(EntityManagerInterface::class, $em);
-        [$raw, $user] = $this->issue($em, ApiTokenScope::Agent, 'stream-by-slug@example.com');
-        $project = new Project($user, 'Stream Site');
-        $em->persist($project);
-        $em->flush();
-
-        $client->request(Request::METHOD_GET, $this->streamPath('stream-site'),
-            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
-
-        self::assertResponseIsSuccessful();
-        $data = json_decode((string) $client->getResponse()->getContent(), true);
-        self::assertIsArray($data);
-        self::assertSame((string) $project->id, $data['site']['id']);
-    }
-
-    public function test_a_project_name_is_not_a_handle(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        self::assertInstanceOf(EntityManagerInterface::class, $em);
-        [$raw, $user] = $this->issue($em, ApiTokenScope::Agent, 'stream-by-name@example.com');
-        $em->persist(new Project($user, 'Named Stream Site'));
-        $em->flush();
-
-        $client->request(Request::METHOD_GET, $this->streamPath('Named Stream Site'),
-            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
-
-        self::assertResponseStatusCodeSame(404);
-        $data = json_decode((string) $client->getResponse()->getContent(), true);
-        self::assertIsArray($data);
-        self::assertSame('site_not_found', $data['error']);
-    }
-
-    public function test_blank_handle_is_404(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'stream-no-site@example.com');
-
-        $client->request(Request::METHOD_GET, $this->streamPath(' '),
-            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
-
-        self::assertResponseStatusCodeSame(404);
-        $data = json_decode((string) $client->getResponse()->getContent(), true);
-        self::assertIsArray($data);
-        self::assertSame('site_not_found', $data['error']);
-    }
-
-    public function test_the_old_agent_path_is_gone(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, , $project] = $this->issue($em, ApiTokenScope::Agent, 'stream-old-path@example.com');
-
-        $client->request(Request::METHOD_GET, '/api/agent/stream',
-            ['site' => $project->name],
-            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
-
-        self::assertResponseStatusCodeSame(404);
-    }
-
-    public function test_unknown_site_is_404(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'stream-unknown@example.com');
-
-        $client->request(Request::METHOD_GET, $this->streamPath('no-such-site'),
-            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
-
-        self::assertResponseStatusCodeSame(404);
-        $data = json_decode((string) $client->getResponse()->getContent(), true);
-        self::assertIsArray($data);
-        self::assertSame('site_not_found', $data['error']);
-    }
-
-    public function test_other_owners_site_is_404(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-
-        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'stream-owner1@example.com');
-        [, , $otherSite] = $this->issue($em, ApiTokenScope::Agent, 'stream-owner2@example.com');
-
-        // Request the other owner's site by ID — robust against name overlap.
-        $client->request(Request::METHOD_GET, $this->streamPath((string) $otherSite->id),
-            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
-
-        self::assertResponseStatusCodeSame(404);
+            self::assertResponseStatusCodeSame(404, $path);
+        }
     }
 
     public function test_mcp_token_is_forbidden(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw] = $this->issue($em, ApiTokenScope::Mcp, 'mcp-stream@example.com');
+        [$raw] = $this->issue($this->em(), ApiTokenScope::Mcp, 'mcp-events@example.com');
 
-        $client->request(Request::METHOD_GET, $this->streamPath('x'),
-            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+        $client->request(Request::METHOD_GET, '/api/events', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseStatusCodeSame(403);
     }
@@ -201,62 +107,63 @@ final class StreamCredentialsControllerTest extends WebTestCase
     public function test_no_token_is_unauthorized(): void
     {
         $client = static::createClient();
-        $client->request(Request::METHOD_GET, $this->streamPath('x'));
+        $client->request(Request::METHOD_GET, '/api/events');
         self::assertResponseStatusCodeSame(401);
     }
 
     public function test_site_bound_widget_token_is_forbidden(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em = $this->em();
 
-        // A widget token: SiteReview-scoped and BOUND to a site. It is embedded
-        // in public page HTML, so it must never mint subscriber JWTs, not even
-        // for its own site.
-        $email = 'stream-widget@example.com';
-        $user = new User(fullName: 'U', email: $email, password: 'x');
+        // A widget token is embedded in public page HTML, so it must never mint
+        // subscriber JWTs, not even for its own project.
+        $user = new User(fullName: 'U', email: 'events-widget@example.com', password: 'x');
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         [$token, $raw] = ApiToken::issue($user, 'widget-tok', ApiTokenScope::SiteReview);
         $em->persist($token);
-        $project = new Project($user, 'stream-widget-site');
+        $project = new Project($user, 'events-widget-site');
         $project->widgetToken = $token;
         $em->persist($project);
         $em->flush();
 
-        $client->request(Request::METHOD_GET, $this->streamPath($project->name),
-            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+        $client->request(Request::METHOD_GET, '/api/events', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
-        // The firewall refuses it on scope, so the answer comes from
-        // ApiAccessDeniedHandler rather than from the controller.
         self::assertResponseStatusCodeSame(403);
-        $data = json_decode((string) $client->getResponse()->getContent(), true);
-        self::assertIsArray($data);
-        self::assertSame('insufficient_scope', $data['error'] ?? null);
+        self::assertJsonStringEqualsJsonString('{"error":"insufficient_scope"}', (string) $client->getResponse()->getContent());
     }
 
-    /**
-     * An unbound site-review token is refused too. Scope alone decides here, so
-     * the binding is not what keeps a widget token out.
-     */
+    /** Scope alone decides, so the project binding is not what keeps a widget token out. */
     public function test_unbound_site_review_token_is_forbidden(): void
     {
         $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$raw, , $project] = $this->issue($em, ApiTokenScope::SiteReview, 'stream-unbound@example.com');
+        [$raw] = $this->issue($this->em(), ApiTokenScope::SiteReview, 'events-unbound@example.com');
 
-        $client->request(Request::METHOD_GET, $this->streamPath($project->name),
-            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+        $client->request(Request::METHOD_GET, '/api/events', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseStatusCodeSame(403);
-        $data = json_decode((string) $client->getResponse()->getContent(), true);
-        self::assertIsArray($data);
-        self::assertSame('insufficient_scope', $data['error'] ?? null);
+        self::assertJsonStringEqualsJsonString('{"error":"insufficient_scope"}', (string) $client->getResponse()->getContent());
     }
 
-    private function streamPath(string $handle): string
+    private function em(): EntityManagerInterface
     {
-        return '/api/projects/'.rawurlencode($handle).'/stream';
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+
+        return $em;
+    }
+
+    /** @return array<string, mixed> */
+    private function events(KernelBrowser $client, string $raw): array
+    {
+        $client->request(Request::METHOD_GET, '/api/events', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+
+        return $data;
     }
 
     /**
@@ -278,9 +185,7 @@ final class StreamCredentialsControllerTest extends WebTestCase
         return [$raw, $user, $project];
     }
 
-    /**
-     * @return array<string, mixed>
-     */
+    /** @return array<string, mixed> */
     private function decodeJwtClaims(string $jwt): array
     {
         $parts = explode('.', $jwt);

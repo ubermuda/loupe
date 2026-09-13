@@ -44,7 +44,7 @@ final class ListSitesController extends AppController
         $view = ($this->listSites)(new ListSitesCommand($user));
 
         return $this->json(['sites' => array_values(array_map(
-            static fn (Project $project): array => ['id' => (string) $project->id, 'name' => $project->name],
+            static fn (Project $project): array => ['id' => (string) $project->id, 'slug' => $project->slug, 'name' => $project->name],
             $view->sites,
         ))]);
     }

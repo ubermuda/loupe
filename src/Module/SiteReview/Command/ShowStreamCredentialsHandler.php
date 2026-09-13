@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\SiteReview\Command;
 
 use App\Mercure\ProjectTopicBuilder;
+use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Mercure\Jwt\TokenFactoryInterface;
@@ -31,26 +32,23 @@ final readonly class ShowStreamCredentialsHandler
 
     public function __invoke(ShowStreamCredentialsCommand $command): ShowStreamCredentialsView
     {
-        // Owner-scoped lookup is what enforces project ownership: the caller can
-        // only ever obtain credentials for its own projects.
-        $project = $this->projects->findOneByIdOrSlugForOwner($command->handle, $command->owner);
-        if (null === $project) {
-            return new ShowStreamCredentialsView(null, $this->hubUrl, '', '');
-        }
-
-        $topic = $this->topicBuilder->forProject(
-            $project->id ?? throw new \LogicException('Project has no id.'),
+        // The owner-scoped query is what keeps another user's topics out of the JWT.
+        $projects = array_map(
+            fn (Project $project): StreamProjectView => new StreamProjectView(
+                $project,
+                $this->topicBuilder->forProject($project->id ?? throw new \LogicException('Project has no id.')),
+            ),
+            $this->projects->findByOwner($command->owner),
         );
 
         return new ShowStreamCredentialsView(
-            site: $project,
             hubUrl: $this->hubUrl,
-            topic: $topic,
             jwt: $this->tokenFactory->create(
-                [$topic],
+                array_map(static fn (StreamProjectView $project): string => $project->topic, $projects),
                 [],
                 ['exp' => new \DateTimeImmutable('+'.self::JWT_TTL_SECONDS.' seconds')],
             ),
+            projects: $projects,
         );
     }
 }

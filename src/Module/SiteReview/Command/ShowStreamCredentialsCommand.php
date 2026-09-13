@@ -10,7 +10,6 @@ final readonly class ShowStreamCredentialsCommand
 {
     public function __construct(
         public User $owner,
-        public string $handle,
     ) {
     }
 }
