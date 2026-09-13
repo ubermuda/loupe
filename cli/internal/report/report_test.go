@@ -77,6 +77,21 @@ func newHarness(t *testing.T, retries int, answers ...error) *harness {
 	return h
 }
 
+// next waits for the next send. The guard turns a queue that stops trying into
+// a named failure rather than a test that hangs until the suite times out.
+func (h *harness) next(t *testing.T, attempt int) api.WorkerRun {
+	t.Helper()
+
+	select {
+	case run := <-h.sent:
+		return run
+	case <-time.After(5 * time.Second):
+		t.Fatalf("attempt %d never reached the server", attempt)
+
+		return api.WorkerRun{}
+	}
+}
+
 // lines parses the log. Every line is one JSON object, so a test never matches
 // a substring of a formatted line.
 func (h *harness) lines(t *testing.T, event string) []map[string]any {
@@ -108,7 +123,7 @@ func TestQueueSendsEachReportOnce(t *testing.T) {
 
 	h.queue.Enqueue(run(42))
 
-	if got := <-h.sent; got.CardNumber != 42 {
+	if got := h.next(t, 1); got.CardNumber != 42 {
 		t.Fatalf("sent card %d", got.CardNumber)
 	}
 	h.queue.Close()
@@ -128,7 +143,7 @@ func TestQueueRetriesAFailedSend(t *testing.T) {
 	h.queue.Enqueue(run(42))
 
 	for attempt := 1; attempt <= 2; attempt++ {
-		if got := <-h.sent; got.CardNumber != 42 {
+		if got := h.next(t, attempt); got.CardNumber != 42 {
 			t.Fatalf("attempt %d sent card %d", attempt, got.CardNumber)
 		}
 	}
@@ -145,7 +160,7 @@ func TestQueueLogsAGiveUp(t *testing.T) {
 	h.queue.Enqueue(run(42))
 
 	for attempt := 1; attempt <= 3; attempt++ {
-		<-h.sent
+		h.next(t, attempt)
 	}
 	h.queue.Close()
 
@@ -163,7 +178,7 @@ func TestQueueStopsAtARefusedReport(t *testing.T) {
 	h := newHarness(t, 5, fmt.Errorf("%w (HTTP 422)", api.ErrReportRefused))
 
 	h.queue.Enqueue(run(42))
-	<-h.sent
+	h.next(t, 1)
 	h.queue.Close()
 
 	lines := h.lines(t, "report_failed")
@@ -193,7 +208,7 @@ func TestQueueCountsWhatAShutdownDrops(t *testing.T) {
 		})
 
 	h.queue.Enqueue(run(1))
-	<-h.sent
+	h.next(t, 1)
 	h.queue.Enqueue(run(2))
 	h.queue.Enqueue(run(3))
 
