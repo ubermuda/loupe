@@ -506,6 +506,11 @@ phpunit-coverage *args:
 open-phpunit-coverage:
     open var/phpunit-coverage/html/index.html
 
+# Fetches a report from GitHub Actions and prints its summary. The newest run on
+# main by default. Usage: just ci-report mutation|phpunit-coverage|e2e-coverage|e2e-timing [RUN_ID]
+ci-report report run="":
+    bin/ci-report.sh "{{report}}" "{{run}}"
+
 browser-sync:
     npx browser-sync start --proxy localhost --files "templates/**/*.html.twig, assets/**/*.css, assets/**/*.js"
 

@@ -145,6 +145,20 @@ jobs:
         env:
           E2E_BASE_URL: http://localhost
           MAILPIT_URL: http://localhost:8025
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ github.workspace }}/var/e2e-timing/results.json
+
+      - name: e2e timing
+        if: always() && hashFiles('var/e2e-timing/results.json') != ''
+        run: node bin/e2e-timing.mjs var/e2e-timing/results.json
+
+      # Every run, green or red. Read it with `just ci-report e2e-timing`.
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: e2e-timing
+          path: var/e2e-timing/results.json
+          retention-days: 30
+          if-no-files-found: warn
 
       - name: Application errors
         if: failure()
