@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
@@ -61,30 +60,13 @@ type pending struct {
 	event    event.Event
 }
 
-// workerKey identifies the worker for one card.
+// keyFor identifies the card, or other aggregate, an event is about. It keys
+// both the running worker and the chain counters.
 //
-// The card number alone is not enough. It counts from 1 inside a project and
-// repeats across them, so two projects would share a key for their card 87.
-//
-// The project is identified by the last 12 hex digits of its id rather than the
-// first. These ids are uuidv7, whose leading bits are a millisecond timestamp,
-// so two projects created in the same minute share a leading prefix.
-func workerKey(cardNumber int, projectID string) string {
-	digits := strings.ReplaceAll(projectID, "-", "")
-	if len(digits) > 12 {
-		digits = digits[len(digits)-12:]
-	}
-
-	return fmt.Sprintf("card-%d-%s", cardNumber, digits)
-}
-
-// keyFor is the worker key of the aggregate an event is about. A type this
-// build knows no fields of has no card number, so its subject id keys it.
+// The subject id is the one identity every event type carries. A card number
+// repeats across projects, and an event of a type this build knows no fields of
+// may carry none, so a key built from it would give one card two keys.
 func keyFor(e event.Event) string {
-	if e.Type == event.CardMovedType {
-		return workerKey(e.CardNumber, e.ProjectID)
-	}
-
 	return "subject-" + e.Subject.ID
 }
 

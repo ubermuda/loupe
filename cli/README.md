@@ -213,12 +213,11 @@ on a clean exit and on a failure alike. Output past 4 KB is dropped and the
 report says so.
 
 One bridge gives a card one worker at a time, on purpose: two agents working one
-card in one checkout undo each other's work. It holds a key per accepted card,
-`card-<number>-<project>`, where the project part is the last 12 hex digits of
-its id. Card numbers count from 1 inside a project and repeat across them, so
-the number alone would let one project's card 87 block another's. An event of a
-type the bridge knows no fields of carries no card number, so its subject id
-keys it instead.
+card in one checkout undo each other's work. The bridge keys a card by its id,
+the event's `subject.id`, which every event type carries. Card numbers repeat
+across projects, and an event of a type the bridge knows no fields of may carry
+none, so the id is the one key that names a card the same way in every event.
+The chain counts below use the same key.
 
 An event for a card that already has a worker waits in the queue and runs after
 that worker exits. A card waits at most once for each rule. A newer event for

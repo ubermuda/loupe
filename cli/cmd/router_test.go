@@ -12,6 +12,7 @@ import (
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/directive"
+	"github.com/ubermuda/loupe/cli/internal/event"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 )
 
@@ -100,7 +101,7 @@ func (b *syncBuffer) String() string {
 
 const (
 	testProject = "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7"
-	testCard    = "0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7"
+	testCard    = "0192f3a1-9999-7d3e-8f10-000000000087"
 )
 
 // boardColumns answers the start check for the loupe project.
@@ -275,8 +276,13 @@ func startedCards(t *testing.T, h *harness) []int {
 	return out
 }
 
+// cardUUID gives each card number its own card id, as the server does.
+func cardUUID(number int) string {
+	return fmt.Sprintf("0192f3a1-9999-7d3e-8f10-%012d", number)
+}
+
 func movedPayload(number int, from, to, actor string) string {
-	return fmt.Sprintf(`{"type":"board.card_moved","subject":{"type":"card","id":%q},"projectId":%q,"cardNumber":%d,"fromStatus":%q,"toStatus":%q,"actor":%q}`, testCard, testProject, number, from, to, actor)
+	return fmt.Sprintf(`{"type":"board.card_moved","subject":{"type":"card","id":%q},"projectId":%q,"cardNumber":%d,"fromStatus":%q,"toStatus":%q,"actor":%q}`, cardUUID(number), testProject, number, from, to, actor)
 }
 
 func cardMoved(number int) string {
@@ -1095,28 +1101,48 @@ func TestAStreamErrorIsReported(t *testing.T) {
 	}
 }
 
-// Two projects number their cards from 1 independently, so the key must
-// separate them or one project's card 87 blocks the other's.
-func TestWorkerKeySeparatesProjects(t *testing.T) {
-	const a = "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7"
-	const b = "0192f3a1-4b2c-7d3e-8f10-ffffffffffff"
+// Two projects number their cards from 1 independently, so card 87 of one
+// project must not share a key with card 87 of another.
+func TestTheKeySeparatesCardsWithOneNumber(t *testing.T) {
+	a := event.Event{Type: event.CardMovedType, Subject: event.Subject{ID: cardUUID(1)}, ProjectID: testProject, CardNumber: 87}
+	b := event.Event{Type: event.CardMovedType, Subject: event.Subject{ID: cardUUID(2)}, ProjectID: "0192f3a1-4b2c-7d3e-8f10-ffffffffffff", CardNumber: 87}
 
-	if got := workerKey(87, a); got != "card-87-a2b3c4d5e6f7" {
-		t.Fatalf("workerKey(87, a) = %q", got)
-	}
-	if workerKey(87, a) == workerKey(87, b) {
-		t.Fatalf("card 87 in two projects collided on %q", workerKey(87, a))
+	if keyFor(a) == keyFor(b) {
+		t.Fatalf("card 87 in two projects collided on %q", keyFor(a))
 	}
 }
 
-// These ids are uuidv7, so the leading digits are a millisecond timestamp and
-// two projects created close together share them. Keying on a leading prefix
-// would reintroduce the collision.
-func TestWorkerKeyIgnoresTheTimestampPrefix(t *testing.T) {
-	const sameMillisecond = "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7"
-	const alsoSameMillisecond = "0192f3a1-4b2c-7d3e-8f10-0000000000ff"
+// Every event type keys one card the same way, so a person's event of any type
+// resets the chain a card move built, and one card never runs two workers.
+func TestTheKeyIsTheSameForEveryEventType(t *testing.T) {
+	moved := event.Event{Type: event.CardMovedType, Subject: event.Subject{ID: testCard}, ProjectID: testProject, CardNumber: 87}
+	created := event.Event{Type: "board.card_created", Subject: event.Subject{ID: testCard}, ProjectID: testProject}
 
-	if workerKey(87, sameMillisecond) == workerKey(87, alsoSameMillisecond) {
-		t.Fatalf("two projects sharing a timestamp prefix collided")
+	if keyFor(moved) != keyFor(created) {
+		t.Fatalf("one card has two keys: %q and %q", keyFor(moved), keyFor(created))
+	}
+}
+
+// A person's event of a type the parser knows no fields of still resets a
+// capped chain on its card.
+func TestAPersonsGenericEventResetsTheChain(t *testing.T) {
+	h := newHarnessWith(t, chainRules+`
+  - name: created
+    on: board.card_created
+    project: loupe
+    prompt: Created in {project}.
+`, rules.Defaults{})
+
+	for range 3 {
+		h.send(movedPayload(87, "backlog", "next", "agent"))
+	}
+	if h.runs() != 2 || len(h.events(t, "chain_capped")) != 1 {
+		t.Fatalf("runs = %d, want the cap to hold after two", h.runs())
+	}
+
+	h.send(`{"type":"board.card_created","subject":{"type":"card","id":"` + testCard + `"},"projectId":"` + testProject + `","actor":"human"}`)
+	h.send(movedPayload(87, "backlog", "next", "agent"))
+	if h.runs() != 4 {
+		t.Fatalf("a person's generic event did not reset the chain: %d runs", h.runs())
 	}
 }
