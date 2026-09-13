@@ -21,6 +21,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 #[Route(
     '/api/agent/projects/{handle}/columns',
     name: 'api_agent_project_columns',
+    // A project name may hold a slash, which the default requirement refuses.
+    requirements: ['handle' => '.+'],
     methods: ['GET'],
 )]
 final class ListProjectColumnsController extends AppController

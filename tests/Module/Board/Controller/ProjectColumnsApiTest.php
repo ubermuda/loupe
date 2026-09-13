@@ -67,16 +67,16 @@ final class ProjectColumnsApiTest extends WebTestCase
         self::assertSame(['Done', 'In progress', 'Ready for review', 'Backlog'], array_column($data['columns'], 'label'));
     }
 
-    public function test_the_handle_can_be_the_project_name(): void
+    public function test_the_handle_can_be_a_project_name_that_holds_a_slash(): void
     {
         $client = static::createClient();
         $em = $this->em();
         $owner = $this->user($em, 'columns-api-name@example.com');
-        $project = $this->project($em, $owner, 'Named App');
+        $project = $this->project($em, $owner, 'Client/Named App');
         $raw = $this->agentToken($em, $owner);
         $this->enableBoard();
 
-        $this->get($client, '/api/agent/projects/'.rawurlencode('Named App').'/columns', $raw);
+        $this->get($client, '/api/agent/projects/'.rawurlencode('Client/Named App').'/columns', $raw);
 
         self::assertResponseIsSuccessful();
         $data = json_decode((string) $client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
