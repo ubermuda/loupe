@@ -26,19 +26,32 @@ final class DeleteBoardColumnFormType extends AbstractType
     #[\Override]
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
-        $builder->add('target', BoardColumnChoiceType::class, [
+        $column = $options['column'];
+        $target = [
             'label' => 'board.form.delete_board_column_form.target.label',
-            'project' => $options['column']->project,
-            'exclude' => $options['column'],
+            'project' => $column->project,
+            'exclude' => $column,
             'required' => false,
-        ]);
+        ];
+        // The board passes the columns it already holds, so rendering a form per
+        // column costs no query. The receiving controller passes none, and the
+        // choices come from the database.
+        if (null !== $options['columns']) {
+            $target['choices'] = array_values(array_filter(
+                $options['columns'],
+                static fn (BoardColumn $other): bool => $other !== $column,
+            ));
+        }
+
+        $builder->add('target', BoardColumnChoiceType::class, $target);
     }
 
     #[\Override]
     public function configureOptions(OptionsResolver $resolver): void
     {
-        $resolver->setDefaults(['data_class' => DeleteBoardColumnRequest::class]);
+        $resolver->setDefaults(['data_class' => DeleteBoardColumnRequest::class, 'columns' => null]);
         $resolver->setRequired('column');
         $resolver->setAllowedTypes('column', BoardColumn::class);
+        $resolver->setAllowedTypes('columns', ['null', BoardColumn::class.'[]']);
     }
 }

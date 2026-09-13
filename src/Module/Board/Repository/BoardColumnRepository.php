@@ -59,12 +59,6 @@ class BoardColumnRepository extends ServiceEntityRepository
         return $columns;
     }
 
-    /** The column a card created with no column lands in. */
-    public function findDefaultFor(Project $project): ?BoardColumn
-    {
-        return $this->findOneBy(['project' => $project, 'isDefault' => true]);
-    }
-
     /** The same lookup from a raw route parameter, for a MapEntity expression. */
     public function findDefaultForProjectId(string $projectId): ?BoardColumn
     {

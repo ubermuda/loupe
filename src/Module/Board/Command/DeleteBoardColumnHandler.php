@@ -8,7 +8,6 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardColumns;
-use App\Module\Board\Service\CardMover;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
@@ -17,10 +16,13 @@ use Ubermuda\AuditBundle\AuditSubject;
 
 /**
  * Deletes a column. A column that holds cards moves them to the target first,
- * each through CardMover, so a bulk move follows the same completion rules as
- * a drag.
+ * in bulk, with the completion rules a drag follows.
  *
- * The moves dispatch no CardMoved: the outbox must not see one event per card
+ * The bulk move reads and writes database rows under the project lock, and
+ * never the cards loaded in memory, so it needs no CardRepository::refreshGroup().
+ * A card loaded before the call keeps its old column in memory.
+ *
+ * The move dispatches no CardMoved: the outbox must not see one event per card
  * for a single delete, so only the audit trail records each move.
  */
 final readonly class DeleteBoardColumnHandler
@@ -31,7 +33,6 @@ final readonly class DeleteBoardColumnHandler
     public function __construct(
         private BoardColumnRepository $boardColumns,
         private CardRepository $cards,
-        private CardMover $mover,
         private BoardColumns $rules,
         private EntityManagerInterface $em,
         private Auditor $auditor,
@@ -56,23 +57,13 @@ final readonly class DeleteBoardColumnHandler
                 return ['column' => $refusal];
             }
 
-            $cards = $this->cards->findInColumn($column);
+            $rows = $this->cards->findRowsInColumn($column);
             $target = $command->target;
-            if ([] !== $cards && null === $target) {
+            if ([] !== $rows && null === $target) {
                 return ['target' => self::TARGET_REQUIRED];
             }
             if (null !== $target && ($target === $column || !\in_array($target, $columns, true))) {
                 return ['target' => self::TARGET_INVALID];
-            }
-
-            $movedCardIds = [];
-            foreach ($cards as $card) {
-                $move = $this->mover->move($card, $target ?? throw new \LogicException('A column with cards has a target.'), $card->priority);
-                // Each append reads the end of the target group from the
-                // database, so the card before it must already be there.
-                $this->em->flush();
-                $moves[] = $move->auditContext($card);
-                $movedCardIds[] = (string) $card->id;
             }
 
             // Read before the remove, which clears the id.
@@ -80,9 +71,34 @@ final readonly class DeleteBoardColumnHandler
                 columnId: (string) $column->id,
                 projectId: (string) $column->project->id,
                 slug: $column->slug,
-                targetSlug: [] === $cards ? null : $target?->slug,
-                movedCardIds: $movedCardIds,
+                targetSlug: [] === $rows ? null : $target?->slug,
+                movedCardIds: array_column($rows, 'id'),
             );
+
+            if (null !== $target && [] !== $rows) {
+                $now = new \DateTimeImmutable();
+                $this->cards->moveAll($column, $target, $now);
+                if (!$target->terminal) {
+                    $this->cards->renumberColumn($target, $now);
+                }
+
+                $positions = $this->cards->positionsInColumn($target);
+                foreach ($rows as $row) {
+                    // The shape CardMove::auditContext() gives a single move.
+                    $moves[] = [
+                        'cardId' => $row['id'],
+                        'cardNumber' => $row['number'],
+                        'projectId' => $deleted->projectId,
+                        'fromStatus' => $deleted->slug,
+                        'fromColumnId' => $deleted->columnId,
+                        'fromPriority' => $row['priority'],
+                        'toStatus' => $target->slug,
+                        'toColumnId' => (string) $target->id,
+                        'toPriority' => $row['priority'],
+                        'position' => $positions[$row['id']] ?? 0,
+                    ];
+                }
+            }
 
             $this->em->remove($column);
             $position = 0;
@@ -107,7 +123,7 @@ final readonly class DeleteBoardColumnHandler
                 'board.card_moved',
                 AuditOutcome::Success,
                 $context,
-                new AuditSubject('card', (string) $context['cardId']),
+                new AuditSubject('card', $context['cardId']),
             );
         }
 

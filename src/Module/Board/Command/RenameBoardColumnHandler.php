@@ -20,6 +20,8 @@ use Ubermuda\AuditBundle\AuditSubject;
  */
 final readonly class RenameBoardColumnHandler
 {
+    public const string GONE = 'board.column.error.gone';
+
     public function __construct(
         private BoardColumnRepository $boardColumns,
         private BoardColumns $rules,
@@ -46,7 +48,7 @@ final readonly class RenameBoardColumnHandler
             $this->em->lock($column->project, LockMode::PESSIMISTIC_WRITE);
             $columns = $this->boardColumns->findForProjectFresh($column->project);
             if (!\in_array($column, $columns, true)) {
-                return 'board.column.error.gone';
+                return self::GONE;
             }
 
             $refusal = $this->rules->refuseRename($columns, $column, $slug);
@@ -63,7 +65,8 @@ final readonly class RenameBoardColumnHandler
         });
 
         if (\is_string($result)) {
-            throw new DomainErrors(['label' => $result]);
+            // A column that went away has no label left to correct.
+            throw new DomainErrors([self::GONE === $result ? 'column' : 'label' => $result]);
         }
 
         $this->auditor->record(

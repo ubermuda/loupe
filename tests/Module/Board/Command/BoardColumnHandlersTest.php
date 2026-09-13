@@ -22,6 +22,8 @@ use App\Module\Board\Command\SetBoardColumnTerminalCommand;
 use App\Module\Board\Command\SetBoardColumnTerminalHandler;
 use App\Module\Board\Command\SetDefaultBoardColumnCommand;
 use App\Module\Board\Command\SetDefaultBoardColumnHandler;
+use App\Module\Board\Command\UpdateCardCommand;
+use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardOrigin;
@@ -181,6 +183,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
     {
         $card = $this->card('Waiting', 'next');
         $cardId = $card->id;
+        $this->em->getConnection()->executeStatement("UPDATE board_cards SET updated_at = '2020-01-01 00:00:00' WHERE id = :id", ['id' => (string) $cardId]);
 
         $this->handler(SetBoardColumnTerminalHandler::class)(new SetBoardColumnTerminalCommand($this->column($this->project, 'next'), true));
 
@@ -189,6 +192,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
         self::assertInstanceOf(Card::class, $stamped);
         self::assertTrue($stamped->column->terminal);
         self::assertNotNull($stamped->completedAt);
+        self::assertGreaterThan(new \DateTimeImmutable('2021-01-01'), $stamped->updatedAt);
         self::assertTrue($this->audit->record('board.column_terminal_set')->context['terminal']);
     }
 
@@ -338,6 +342,39 @@ final class BoardColumnHandlersTest extends KernelTestCase
         $moved = $this->em->find(Card::class, $cardId);
         self::assertInstanceOf(Card::class, $moved);
         self::assertSame('done', $moved->column->slug);
+        self::assertNotNull($moved->completedAt);
+    }
+
+    public function test_a_card_moved_into_a_column_deleted_since_it_was_loaded_is_refused(): void
+    {
+        $card = $this->card('Waiting', 'backlog');
+        $next = $this->column($this->project, 'next');
+        $this->em->getConnection()->executeStatement('DELETE FROM board_columns WHERE id = :id', ['id' => (string) $next->id]);
+
+        $this->assertRefused(['column' => UpdateCardHandler::COLUMN_GONE], fn () => $this->handler(UpdateCardHandler::class)(new UpdateCardCommand(card: $card, column: $next)));
+    }
+
+    public function test_a_card_created_in_a_column_deleted_since_it_was_loaded_is_refused(): void
+    {
+        $next = $this->column($this->project, 'next');
+        $this->em->getConnection()->executeStatement('DELETE FROM board_columns WHERE id = :id', ['id' => (string) $next->id]);
+
+        $this->assertRefused(['column' => UpdateCardHandler::COLUMN_GONE], fn () => $this->card('Lost', 'next'));
+    }
+
+    public function test_a_card_moved_into_a_column_made_terminal_since_it_was_loaded_is_stamped(): void
+    {
+        $card = $this->card('Nearly', 'backlog');
+        $cardId = $card->id;
+        $next = $this->column($this->project, 'next');
+        $this->em->getConnection()->executeStatement('UPDATE board_columns SET terminal = true WHERE id = :id', ['id' => (string) $next->id]);
+
+        $this->handler(UpdateCardHandler::class)(new UpdateCardCommand(card: $card, column: $next));
+
+        $this->em->clear();
+        $moved = $this->em->find(Card::class, $cardId);
+        self::assertInstanceOf(Card::class, $moved);
+        self::assertSame('next', $moved->column->slug);
         self::assertNotNull($moved->completedAt);
     }
 

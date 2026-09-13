@@ -20,6 +20,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[IsGranted(BoardColumnVoter::MANAGE, subject: 'column')]
 #[Route(
@@ -34,6 +35,7 @@ final class RenameBoardColumnController extends AppController
         private readonly RenameBoardColumnHandler $renameColumn,
         private readonly FormFactoryInterface $formFactory,
         private readonly BoardAvailability $board,
+        private readonly TranslatorInterface $translator,
     ) {
     }
 
@@ -54,6 +56,12 @@ final class RenameBoardColumnController extends AppController
 
                 return $this->redirectToRoute('app_project_board', ['id' => (string) $project->id]);
             } catch (DomainErrors $e) {
+                // The forwarded board has no dialog for a column that went away.
+                if (isset($e->errors['column'])) {
+                    $this->addFlash('error', $this->translator->trans($e->errors['column']));
+
+                    return $this->redirectToRoute('app_project_board', ['id' => (string) $project->id]);
+                }
                 $this->applyDomainErrors($form, $e);
             }
         }

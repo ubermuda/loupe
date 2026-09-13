@@ -96,10 +96,19 @@ final class BoardExtension extends AbstractExtension
             ->createView();
     }
 
-    public function boardColumnDeleteForm(BoardColumn $column): FormView
+    /**
+     * The target choices come from the board already rendered, so a board of
+     * many columns runs no choice query per column.
+     *
+     * @param list<BoardColumnView> $columns
+     */
+    public function boardColumnDeleteForm(BoardColumn $column, array $columns): FormView
     {
         return $this->formFactory
-            ->createNamed(DeleteBoardColumnFormType::nameFor($column), DeleteBoardColumnFormType::class, new DeleteBoardColumnRequest(), ['column' => $column])
+            ->createNamed(DeleteBoardColumnFormType::nameFor($column), DeleteBoardColumnFormType::class, new DeleteBoardColumnRequest(), [
+                'column' => $column,
+                'columns' => array_map(static fn (BoardColumnView $view): BoardColumn => $view->column, $columns),
+            ])
             ->createView();
     }
 

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
-use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardColumns;
@@ -53,12 +52,17 @@ final readonly class SetBoardColumnTerminalHandler
             }
 
             $column->terminal = $command->terminal;
+            $this->em->flush();
+
+            $now = new \DateTimeImmutable();
             if ($command->terminal) {
-                $this->em->flush();
-                $this->cards->stampCompletion($column, new \DateTimeImmutable());
+                $this->cards->stampCompletion($column, $now);
             } else {
-                $this->rankFinishedCards($column);
-                $this->em->flush();
+                // Every card of a terminal column sits at rank 0, so the
+                // renumber ranks each group by completion, and it must run
+                // before the completion is cleared.
+                $this->cards->renumberColumn($column, $now);
+                $this->cards->clearCompletion($column, $now);
             }
 
             return true;
@@ -77,17 +81,5 @@ final readonly class SetBoardColumnTerminalHandler
             ['columnId' => (string) $column->id, 'projectId' => (string) $column->project->id, 'terminal' => $command->terminal],
             new AuditSubject('board_column', (string) $column->id),
         );
-    }
-
-    /** Clears each card's completion and numbers every priority group from 0, oldest finished first. */
-    private function rankFinishedCards(BoardColumn $column): void
-    {
-        $next = [];
-        foreach ($this->cards->findInColumn($column) as $card) {
-            $group = $card->priority->value;
-            $card->position = $next[$group] ?? 0;
-            $next[$group] = $card->position + 1;
-            $card->completedAt = null;
-        }
     }
 }

@@ -200,27 +200,76 @@ final class BoardColumnControllersTest extends WebTestCase
         self::assertSelectorTextContains('body', 'moved its card');
     }
 
-    public function test_a_stranger_cannot_add_a_column(): void
+    public function test_a_column_deleted_from_a_terminal_into_an_open_target_clears_the_completion_of_its_cards(): void
     {
-        [, $project] = $this->ownedBoard('columns-owner@example.com');
-        $stranger = $this->user($this->em, 'columns-stranger@example.com');
-        $this->client->loginUser($stranger);
+        [, $project] = $this->ownedBoard('columns-delete-terminal@example.com');
+        // A second terminal column, so done is not the last one and may go.
+        $this->column($project, 'in-progress')->terminal = true;
+        $card = $this->card($this->em, $project, 'Finished', 'done');
+        $card->completedAt = new \DateTimeImmutable();
+        $this->em->flush();
+        $cardId = $card->id;
+        $done = $this->column($project, 'done');
+        $target = (string) $this->column($project, 'next')->id;
+        $crawler = $this->board($project);
 
-        $this->client->request(Request::METHOD_POST, '/projects/'.$project->id.'/board/columns', ['add_board_column_form' => ['label' => 'Mine']]);
+        $name = DeleteBoardColumnFormType::nameFor($done);
+        $this->client->submit($crawler->filter('form[name="'.$name.'"]')->form([$name.'[target]' => $target]));
 
-        self::assertResponseStatusCodeSame(403);
-        self::assertSame(['backlog', 'next', 'in-progress', 'done'], $this->slugs($project));
+        self::assertResponseRedirects('/projects/'.$project->id.'/board');
+        self::assertSame(['backlog', 'next', 'in-progress'], $this->slugs($project));
+        $moved = $this->em->find(Card::class, $cardId);
+        self::assertInstanceOf(Card::class, $moved);
+        self::assertSame('next', $moved->column->slug);
+        self::assertNull($moved->completedAt);
     }
 
-    public function test_a_stranger_cannot_rename_a_column(): void
+    public function test_a_delete_with_a_bad_csrf_token_says_so(): void
     {
-        [, $project] = $this->ownedBoard('columns-rename-owner@example.com');
+        [, $project] = $this->ownedBoard('columns-delete-csrf@example.com');
         $next = $this->column($project, 'next');
-        $this->client->loginUser($this->user($this->em, 'columns-rename-stranger@example.com'));
+        $crawler = $this->board($project);
 
-        $this->client->request(Request::METHOD_POST, $this->columnUrl($project, $next, 'rename'), [RenameBoardColumnFormType::nameFor($next) => ['label' => 'Mine']]);
+        $name = DeleteBoardColumnFormType::nameFor($next);
+        $this->client->submit($crawler->filter('form[name="'.$name.'"]')->form([$name.'[_token]' => 'forged']));
+
+        self::assertResponseRedirects('/projects/'.$project->id.'/board');
+        self::assertSame(['backlog', 'next', 'in-progress', 'done'], $this->slugs($project));
+        $this->client->followRedirect();
+        self::assertSelectorTextContains('body', 'The page expired');
+    }
+
+    /** @return iterable<string, array{string, string}> */
+    public static function managedRoutes(): iterable
+    {
+        yield 'add' => [Request::METHOD_POST, '/columns'];
+        yield 'reorder' => [Request::METHOD_POST, '/columns/reorder'];
+        yield 'rename' => [Request::METHOD_POST, 'rename'];
+        yield 'rename preview' => [Request::METHOD_GET, 'rename-preview'];
+        yield 'terminal' => [Request::METHOD_POST, 'terminal'];
+        yield 'not terminal' => [Request::METHOD_POST, 'not-terminal'];
+        yield 'default' => [Request::METHOD_POST, 'default'];
+        yield 'delete' => [Request::METHOD_POST, 'delete'];
+    }
+
+    #[DataProvider('managedRoutes')]
+    public function test_a_stranger_cannot_change_the_columns(string $method, string $action): void
+    {
+        [, $project] = $this->ownedBoard('columns-owner-'.ltrim(str_replace('/', '-', $action), '-').'@example.com');
+        $next = $this->column($project, 'next');
+        $url = str_starts_with($action, '/')
+            ? '/projects/'.$project->id.'/board'.$action
+            : $this->columnUrl($project, $next, $action);
+        $this->client->loginUser($this->user($this->em, 'columns-stranger-'.ltrim(str_replace('/', '-', $action), '-').'@example.com'));
+
+        // The same-origin sentinel passes the CSRF check, so the 403 is the voter's.
+        $this->client->request($method, $url, ['_csrf_token' => 'csrf-token'], [], ['HTTP_REFERER' => 'http://localhost'.$url]);
 
         self::assertResponseStatusCodeSame(403);
+        $this->em->clear();
+        self::assertSame(['backlog', 'next', 'in-progress', 'done'], $this->slugs($project));
+        self::assertFalse($this->column($project, 'next')->terminal);
+        self::assertTrue($this->column($project, 'backlog')->isDefault);
     }
 
     /** @return iterable<string, array{string, string}> */

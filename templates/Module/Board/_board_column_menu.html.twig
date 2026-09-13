@@ -86,7 +86,7 @@
             {{ (column.isDefault ? 'board.column.delete.blocked_default' : 'board.column.delete.blocked_terminal')|trans }}
         </p>
         {% else %}
-        {% set deleteForm = board_column_delete_form(column) %}
+        {% set deleteForm = board_column_delete_form(column, board.columns) %}
         {% set deleteAction = path('app_board_column_delete', {projectId: board.project.id, columnId: column.id}) %}
             {% if cardCount == 0 %}
             {{ form_start(deleteForm, {action: deleteAction}) }}

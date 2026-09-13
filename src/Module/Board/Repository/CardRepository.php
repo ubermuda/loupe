@@ -13,6 +13,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
@@ -272,22 +273,91 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /**
-     * Every card of one column, in the order the board shows them: by priority
-     * and rank, and by completion where the column keeps no rank.
+     * The id, number and priority of every card in one column, in the order
+     * the board shows them, without loading the cards.
      *
-     * @return list<Card>
+     * @return list<array{id: string, number: int, priority: int}>
      */
-    public function findInColumn(BoardColumn $column): array
+    public function findRowsInColumn(BoardColumn $column): array
     {
-        return array_values($this->createQueryBuilder('c')
-            ->andWhere('c.column = :column')
-            ->setParameter('column', $column)
-            ->orderBy('c.priority', 'ASC')
-            ->addOrderBy('c.position', 'ASC')
-            ->addOrderBy('c.completedAt', 'ASC')
-            ->addOrderBy('c.createdAt', 'ASC')
-            ->getQuery()
-            ->getResult());
+        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT id, number, priority FROM board_cards WHERE column_id = :column
+             ORDER BY priority, position, completed_at, created_at, number',
+            ['column' => (string) $column->id],
+        );
+
+        return array_map(
+            static fn (array $row): array => ['id' => (string) $row['id'], 'number' => (int) $row['number'], 'priority' => (int) $row['priority']],
+            $rows,
+        );
+    }
+
+    /**
+     * The rank of every card in one column.
+     *
+     * @return array<string, int> card id => position
+     */
+    public function positionsInColumn(BoardColumn $column): array
+    {
+        return array_map(
+            intval(...),
+            $this->getEntityManager()->getConnection()->fetchAllKeyValue(
+                'SELECT id, position FROM board_cards WHERE column_id = :column',
+                ['column' => (string) $column->id],
+            ),
+        );
+    }
+
+    /**
+     * Moves every card of one column to another in one statement. Each card
+     * joins the end of its priority group in the target, in the order the
+     * source showed them. A terminal target keeps no rank and stamps a card
+     * that was not finished, and any other target clears the completion.
+     *
+     * The statement reads the target groups from the database, so a card loaded
+     * before the call keeps its old column in memory.
+     */
+    public function moveAll(BoardColumn $from, BoardColumn $to, \DateTimeImmutable $now): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            \sprintf(
+                'UPDATE board_cards c
+                 SET column_id = :to, updated_at = :now, completed_at = %s, position = %s
+                 FROM (
+                     SELECT s.id,
+                            row_number() OVER (PARTITION BY s.priority ORDER BY s.position, s.completed_at, s.created_at, s.number) - 1 AS rank,
+                            (SELECT COALESCE(MAX(t.position) + 1, 0) FROM board_cards t WHERE t.column_id = :to AND t.priority = s.priority) AS tail
+                     FROM board_cards s
+                     WHERE s.column_id = :from
+                 ) ranked
+                 WHERE c.id = ranked.id',
+                $to->terminal ? 'COALESCE(c.completed_at, :now)' : 'NULL',
+                $to->terminal ? '0' : 'ranked.tail + ranked.rank',
+            ),
+            ['from' => (string) $from->id, 'to' => (string) $to->id, 'now' => $now],
+            ['now' => Types::DATETIME_IMMUTABLE],
+        );
+    }
+
+    /**
+     * Numbers every priority group of a column from 0 with no gaps, in the
+     * order each group already has. Only a card whose rank changes is written.
+     */
+    public function renumberColumn(BoardColumn $column, \DateTimeImmutable $now): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE board_cards c
+             SET position = ranked.rank, updated_at = :now
+             FROM (
+                 SELECT id,
+                        row_number() OVER (PARTITION BY priority ORDER BY position, completed_at, created_at, number) - 1 AS rank
+                 FROM board_cards
+                 WHERE column_id = :column
+             ) ranked
+             WHERE c.id = ranked.id AND c.position <> ranked.rank',
+            ['column' => (string) $column->id, 'now' => $now],
+            ['now' => Types::DATETIME_IMMUTABLE],
+        );
     }
 
     /** Stamps every card of a column that turned terminal and was not finished yet. */
@@ -296,10 +366,26 @@ class CardRepository extends ServiceEntityRepository
         $this->createQueryBuilder('c')
             ->update()
             ->set('c.completedAt', ':now')
+            ->set('c.updatedAt', ':now')
             ->set('c.position', 0)
             ->andWhere('c.column = :column')
             ->andWhere('c.completedAt IS NULL')
-            ->setParameter('now', $now)
+            ->setParameter('now', $now, Types::DATETIME_IMMUTABLE)
+            ->setParameter('column', $column)
+            ->getQuery()
+            ->execute();
+    }
+
+    /** Clears the completion of every card in a column that stopped being terminal. */
+    public function clearCompletion(BoardColumn $column, \DateTimeImmutable $now): void
+    {
+        $this->createQueryBuilder('c')
+            ->update()
+            ->set('c.completedAt', 'NULL')
+            ->set('c.updatedAt', ':now')
+            ->andWhere('c.column = :column')
+            ->andWhere('c.completedAt IS NOT NULL')
+            ->setParameter('now', $now, Types::DATETIME_IMMUTABLE)
             ->setParameter('column', $column)
             ->getQuery()
             ->execute();

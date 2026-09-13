@@ -14,11 +14,14 @@ use App\Module\Board\Form\DeleteBoardColumnRequest;
 use App\Module\Board\Security\BoardColumnVoter;
 use App\Module\Board\Service\BoardAvailability;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormFactoryInterface;
+use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
+use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
@@ -36,6 +39,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 )]
 final class DeleteBoardColumnController extends AppController
 {
+    public const string CSRF_INVALID = 'board.column.flash.csrf_invalid';
+    public const string REJECTED = 'board.column.flash.delete_rejected';
+
     public function __construct(
         private readonly DeleteBoardColumnHandler $deleteColumn,
         private readonly FormFactoryInterface $formFactory,
@@ -56,11 +62,10 @@ final class DeleteBoardColumnController extends AppController
         $form = $this->formFactory->createNamed(DeleteBoardColumnFormType::nameFor($column), DeleteBoardColumnFormType::class, $data, ['column' => $column]);
         $form->handleRequest($request);
 
-        // Every refusal here is a page that went stale, because the page offers
-        // only the valid choices. So it redirects with a flash rather than
-        // re-rendering a dialog the reader has nothing to correct in.
+        // The page offers only valid choices, so a refusal here has nothing for
+        // the reader to correct. It redirects with a flash that names the cause.
         if (!$form->isSubmitted() || !$form->isValid()) {
-            $this->addFlash('error', $this->translator->trans(DeleteBoardColumnHandler::TARGET_INVALID));
+            $this->addFlash('error', $this->translator->trans(self::rejection($form)));
 
             return $this->redirectToRoute('app_project_board', ['id' => $projectId]);
         }
@@ -76,5 +81,23 @@ final class DeleteBoardColumnController extends AppController
         }
 
         return $this->redirectToRoute('app_project_board', ['id' => $projectId]);
+    }
+
+    /**
+     * The translation key for a submission the form refused.
+     *
+     * @param FormInterface<DeleteBoardColumnRequest> $form
+     */
+    private static function rejection(FormInterface $form): string
+    {
+        foreach ($form->getErrors() as $error) {
+            if ($error instanceof FormError && $error->getCause() instanceof CsrfToken) {
+                return self::CSRF_INVALID;
+            }
+        }
+
+        return $form->isSubmitted() && !$form->get('target')->isValid()
+            ? DeleteBoardColumnHandler::TARGET_INVALID
+            : self::REJECTED;
     }
 }

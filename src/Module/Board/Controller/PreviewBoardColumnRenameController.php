@@ -39,7 +39,10 @@ final class PreviewBoardColumnRenameController extends AppController
     ): Response {
         $this->board->requireEnabled();
 
-        $preview = ($this->preview)(new PreviewBoardColumnRenameCommand($column, $request->query->getString('label')));
+        // One character past the limit is enough for the preview to refuse the
+        // length, and the slugger never sees an unbounded string.
+        $label = mb_substr($request->query->getString('label'), 0, BoardColumn::MAX_LABEL_LENGTH + 1);
+        $preview = ($this->preview)(new PreviewBoardColumnRenameCommand($column, $label));
 
         return $this->render('@Board/_board_column_slug.html.twig', [
             'column' => $preview->column,

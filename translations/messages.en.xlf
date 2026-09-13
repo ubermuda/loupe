@@ -4520,6 +4520,10 @@
                 <source>board.card.flash.move_rejected</source>
                 <target>That move was not accepted. Reload the board and try again.</target>
             </trans-unit>
+            <trans-unit id="board.card.error.column_gone">
+                <source>board.card.error.column_gone</source>
+                <target>That column no longer exists. Choose another column.</target>
+            </trans-unit>
             <trans-unit id="board.card.error.title_blank">
                 <source>board.card.error.title_blank</source>
                 <target>Give the card a title.</target>
@@ -4813,6 +4817,14 @@
             <trans-unit id="board.column.flash.deleted">
                 <source>board.column.flash.deleted</source>
                 <target>{0}Deleted the column “%label%”.|{1}Deleted the column “%label%” and moved its card.|]1,Inf]Deleted the column “%label%” and moved its %count% cards.</target>
+            </trans-unit>
+            <trans-unit id="board.column.flash.csrf_invalid">
+                <source>board.column.flash.csrf_invalid</source>
+                <target>The page expired, so the column was not deleted. Try again.</target>
+            </trans-unit>
+            <trans-unit id="board.column.flash.delete_rejected">
+                <source>board.column.flash.delete_rejected</source>
+                <target>The column was not deleted. Reload the board and try again.</target>
             </trans-unit>
             <trans-unit id="board.column.error.slug_empty">
                 <source>board.column.error.slug_empty</source>
