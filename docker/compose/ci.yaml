@@ -16,8 +16,16 @@ services:
     ports:
       - '8025:8025'
 
+  # Open boards subscribe from the browser on the runner, at http://localhost.
+  mercure:
+    ports:
+      - '8081:80'
+    environment:
+      MERCURE_EXTRA_DIRECTIVES: 'cors_origins http://localhost'
+
   php-fpm:
     environment:
+      MERCURE_PUBLIC_URL: 'http://localhost:8081/.well-known/mercure'
       # The dev stack collects coverage on every request. Nothing reads it in a
       # normal CI run, and it roughly doubles the PHPUnit leg on a small runner.
       # The weekly coverage workflow sets XDEBUG_MODE=coverage to turn it back on.
