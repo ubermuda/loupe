@@ -49,7 +49,6 @@ final class ApiAccessControlTest extends KernelTestCase
         self::assertTrue($this->decide('/api/projects/my-app/stream', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertTrue($this->decide('/api/projects/client/site/stream', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertTrue($this->decide('/api/projects/loupe/board/columns', ['ROLE_USER', 'ROLE_API_AGENT']));
-        self::assertTrue($this->decide('/api/projects/Client%2FNamed%20App/board/columns', ['ROLE_USER', 'ROLE_API_AGENT']));
     }
 
     /**
@@ -80,7 +79,6 @@ final class ApiAccessControlTest extends KernelTestCase
         self::assertFalse($this->decide('/api/projects', ['ROLE_USER', 'ROLE_API_SITE_REVIEW']));
         self::assertFalse($this->decide('/api/projects/my-app/stream', ['ROLE_USER', 'ROLE_API_SITE_REVIEW']));
         self::assertFalse($this->decide('/api/projects/loupe/board/columns', ['ROLE_USER', 'ROLE_API_SITE_REVIEW']));
-        self::assertFalse($this->decide('/api/projects/Client%2FNamed%20App/board/columns', ['ROLE_USER', 'ROLE_API_SITE_REVIEW']));
     }
 
     /** The column rule grants one route, so another path under a project stays denied by default. */
@@ -88,6 +86,8 @@ final class ApiAccessControlTest extends KernelTestCase
     {
         self::assertFalse($this->decide('/api/projects/loupe/board/cards', self::ALL_ROLES));
         self::assertFalse($this->decide('/api/projects/loupe/board/columns/extra', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/client/app/board/columns', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/client%2Fapp/board/columns', self::ALL_ROLES));
     }
 
     /**

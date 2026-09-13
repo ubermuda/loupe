@@ -34,7 +34,8 @@ published binary, and it needs a Mercure hub to have anything to subscribe to.
 
 `GET /api/projects/{handle}/board/columns` returns the columns of one board, so
 the bridge can check its rule file against the board at start. The handle is a
-project id, a project slug or a project name. The token's user must own the project.
+project id or a project slug. A project name does not resolve, and a handle
+cannot hold a slash. The token's user must own the project.
 
 ```json
 {
@@ -55,6 +56,5 @@ person typed comes back as typed. `project.slug` is the project's slug.
 | 401 | | the request carries no token |
 | 403 | `{"error":"insufficient_scope"}` | the token has no agent scope, such as a widget token |
 | 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
-| 409 | `{"error":"ambiguous_project","message":"…"}` | the handle is the slug of one of the user's projects and the name of another; the message names both ids |
 | 404 | `{"error":"board_disabled"}` | the board is switched off on the instance |
 | 429 | | more than 60 reads in one minute from one token |

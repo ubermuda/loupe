@@ -10,7 +10,6 @@ use App\Module\Board\Command\ListProjectColumnsCommand;
 use App\Module\Board\Command\ListProjectColumnsHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Service\BoardAvailability;
-use App\Module\Project\Repository\AmbiguousProjectHandleException;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -22,8 +21,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 #[Route(
     '/api/projects/{handle}/board/columns',
     name: 'api_project_board_column_list',
-    // A project name may hold a slash, which the default requirement refuses.
-    requirements: ['handle' => '.+'],
+    requirements: ['handle' => '[^/]+'],
     methods: ['GET'],
 )]
 final class ListProjectColumnsController extends AppController
@@ -47,11 +45,7 @@ final class ListProjectColumnsController extends AppController
             return $this->json(['error' => 'board_disabled'], JsonResponse::HTTP_NOT_FOUND);
         }
 
-        try {
-            $view = ($this->listColumns)(new ListProjectColumnsCommand($user, $handle));
-        } catch (AmbiguousProjectHandleException $e) {
-            return $this->json(['error' => 'ambiguous_project', 'message' => $e->getMessage()], JsonResponse::HTTP_CONFLICT);
-        }
+        $view = ($this->listColumns)(new ListProjectColumnsCommand($user, $handle));
         if (null === $view->project) {
             return $this->json(['error' => 'project_not_found'], JsonResponse::HTTP_NOT_FOUND);
         }

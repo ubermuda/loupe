@@ -10,7 +10,7 @@ final readonly class ListProjectColumnsCommand
 {
     public function __construct(
         public User $owner,
-        /** A project id or name, as the bridge's rule file names the project. */
+        /** A project id or slug. A project name does not resolve. */
         public string $handle,
     ) {
     }
