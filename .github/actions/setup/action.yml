@@ -52,6 +52,29 @@ runs:
         npm ci
         npm ci --prefix e2e
 
+    - if: inputs.docker == 'true'
+      uses: docker/setup-buildx-action@v4
+
+    # Compose builds a service's image only when it is absent, so a build tagged
+    # with the name compose expects is the image `up` then finds, and the layer
+    # cache turns a two minute compile into a restore. A cache miss falls back to
+    # the same build compose would have run. Ask compose for the name rather than
+    # spelling it out, because it derives from COMPOSE_PROJECT_NAME.
+    - if: inputs.docker == 'true'
+      id: php-fpm-image
+      shell: bash
+      run: echo "tag=$(docker compose config --images php-fpm)" >> "$GITHUB_OUTPUT"
+
+    - if: inputs.docker == 'true'
+      uses: docker/build-push-action@v7
+      with:
+        context: .
+        file: docker/dev/php-fpm/Dockerfile
+        tags: ${{ steps.php-fpm-image.outputs.tag }}
+        load: true
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
     # compose.yaml attaches to a traefik network that a workstation shares with a
     # long-running proxy. Nothing routes through it here; it only has to exist, or
     # every service referencing it fails to start.

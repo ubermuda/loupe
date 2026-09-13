@@ -135,6 +135,13 @@ jobs:
           mkdir -p var/log
           sudo chmod -R a+rwX var
 
+      # The browser download is the cacheable half; --with-deps still installs
+      # the system libraries, which apt keeps outside this path.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
+
       - run: npx playwright install --with-deps chromium
         working-directory: e2e
 
