@@ -40,7 +40,9 @@ trait MercureCookies
         Assert::assertSame([], $claims['mercure']['publish'] ?? []);
         Assert::assertIsArray($claims['mercure']['subscribe'] ?? null);
 
-        /* @var list<string> */
-        return $claims['mercure']['subscribe'];
+        return array_values(array_map(
+            static fn (mixed $topic): string => \is_string($topic) ? $topic : throw new \UnexpectedValueException('A subscribe claim holds a non-string.'),
+            $claims['mercure']['subscribe'],
+        ));
     }
 }
