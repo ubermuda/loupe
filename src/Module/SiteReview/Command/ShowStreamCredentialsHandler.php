@@ -33,7 +33,7 @@ final readonly class ShowStreamCredentialsHandler
     {
         // Owner-scoped lookup is what enforces project ownership: the caller can
         // only ever obtain credentials for its own projects.
-        $project = $this->projects->findOneByIdOrNameForOwner($command->handle, $command->owner);
+        $project = $this->projects->findOneByHandleForOwner($command->handle, $command->owner);
         if (null === $project) {
             return new ShowStreamCredentialsView(null, $this->hubUrl, '', '');
         }

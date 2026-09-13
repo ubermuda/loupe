@@ -6,6 +6,7 @@ namespace App\Module\SiteReview\Mcp;
 
 use App\Mcp\ResolvesBoundProject;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\Repository\AmbiguousProjectHandleException;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Entity\SiteReviewComment;
@@ -48,7 +49,12 @@ final readonly class SiteReviewSubjectResolver
             return $bound;
         }
 
-        $named = $this->projects->findOneByIdOrNameForOwner($site, $bound->owner);
+        try {
+            $named = $this->projects->findOneByHandleForOwner($site, $bound->owner);
+        } catch (AmbiguousProjectHandleException) {
+            // Naming both projects would disclose one outside the token's project.
+            $named = null;
+        }
 
         if (null === $named || !$this->authorization->isGranted(McpBoundProjectVoter::SITE_REVIEW_READ, $named)) {
             // Deliberately identical for "does not exist" and "belongs to

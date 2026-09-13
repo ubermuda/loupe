@@ -19,6 +19,17 @@
                 {{ form_widget(form.name, {'attr': {'class': 'lp-input'}}) }}
                 <div class="lp-field-errors">{{ form_errors(form.name) }}</div>
             </div>
+            {% if project.slug is not null %}
+            <div class="lp-form-field">
+                <span class="lp-label">{{ 'project.edit.slug.label'|trans }}</span>
+                <div class="lp-connect-field" data-controller="clipboard" data-clipboard-text-value="{{ project.slug }}"
+                     data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
+                    <code class="lp-connect-field__value" data-project-slug>{{ project.slug }}</code>
+                    <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+                </div>
+                <p class="lp-form-hint">{{ 'project.edit.slug.hint'|trans }}</p>
+            </div>
+            {% endif %}
             <div class="lp-form-field">
                 {{ form_label(form.domain, null, {'label_attr': {'class': 'lp-label'}}) }}
                 {{ form_widget(form.domain, {'attr': {'class': 'lp-input'}}) }}

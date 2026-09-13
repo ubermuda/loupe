@@ -1995,6 +1995,22 @@
                 <source>project.error.name_taken</source>
                 <target>You already have a project with this name.</target>
             </trans-unit>
+            <trans-unit id="project.error.slug_empty">
+                <source>project.error.slug_empty</source>
+                <target>The name needs at least one letter or digit, so that the project gets a slug.</target>
+            </trans-unit>
+            <trans-unit id="project.error.slug_taken">
+                <source>project.error.slug_taken</source>
+                <target>Another of your projects has a name that gives the same slug.</target>
+            </trans-unit>
+            <trans-unit id="project.edit.slug.label">
+                <source>project.edit.slug.label</source>
+                <target>Slug</target>
+            </trans-unit>
+            <trans-unit id="project.edit.slug.hint">
+                <source>project.edit.slug.hint</source>
+                <target>The slug follows the name. Use it to name this project in a bridge rule file. A rename changes it.</target>
+            </trans-unit>
             <trans-unit id="project.list.edit">
                 <source>project.list.edit</source>
                 <target>Edit %name%</target>

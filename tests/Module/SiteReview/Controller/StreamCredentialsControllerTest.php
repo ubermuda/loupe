@@ -94,6 +94,64 @@ final class StreamCredentialsControllerTest extends WebTestCase
         self::assertSame((string) $project->id, $data['site']['id']);
     }
 
+    public function test_site_resolves_by_slug_too(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        [$raw, $user] = $this->issue($em, ApiTokenScope::Agent, 'stream-by-slug@example.com');
+        $project = new Project($user, 'Stream Site');
+        $em->persist($project);
+        $em->flush();
+
+        $client->request(Request::METHOD_GET, '/api/agent/stream',
+            ['site' => 'stream-site'],
+            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame((string) $project->id, $data['site']['id']);
+    }
+
+    public function test_a_site_that_is_one_slug_and_another_name_is_409(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        [$raw, $user] = $this->issue($em, ApiTokenScope::Agent, 'stream-ambiguous@example.com');
+        $older = new Project($user, 'My App');
+        $newer = new Project($user, 'my-app');
+        new \ReflectionProperty(Project::class, 'slug')->setRawValue($newer, 'my-app-2');
+        $em->persist($older);
+        $em->persist($newer);
+        $em->flush();
+
+        $client->request(Request::METHOD_GET, '/api/agent/stream',
+            ['site' => 'my-app'],
+            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+
+        self::assertResponseStatusCodeSame(409);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('ambiguous_site', $data['error']);
+        self::assertIsString($data['message']);
+        self::assertStringContainsString((string) $older->id, $data['message']);
+        self::assertStringContainsString((string) $newer->id, $data['message']);
+
+        // The bridge reconnects with the resolved id, which an ambiguous pair never affects.
+        foreach ([$older, $newer] as $project) {
+            $client->request(Request::METHOD_GET, '/api/agent/stream',
+                ['site' => (string) $project->id],
+                server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+
+            self::assertResponseIsSuccessful();
+            $data = json_decode((string) $client->getResponse()->getContent(), true);
+            self::assertIsArray($data);
+            self::assertSame((string) $project->id, $data['site']['id']);
+        }
+    }
+
     public function test_missing_site_is_400(): void
     {
         $client = static::createClient();

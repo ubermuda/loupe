@@ -6,6 +6,7 @@ namespace App\Module\SiteReview\Controller\Api;
 
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
+use App\Module\Project\Repository\AmbiguousProjectHandleException;
 use App\Module\SiteReview\Command\ShowStreamCredentialsCommand;
 use App\Module\SiteReview\Command\ShowStreamCredentialsHandler;
 use App\Outbox\AgentPush;
@@ -18,7 +19,7 @@ use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
  * Hands an authenticated API client everything it needs to subscribe to ONE
  * project's site-review event stream: the public hub URL, the per-project
  * topic, and a subscriber-scoped Mercure JWT. The bridge CLI calls this with
- * its API token and a ?site= handle (project id or name), then opens an SSE
+ * its API token and a ?site= handle (project id, name or slug), then opens an SSE
  * connection to {hubUrl}?topic={topic} with the returned JWT.
  *
  * Agent-scoped tokens only. The firewall grants `^/api/agent` to ROLE_API_AGENT
@@ -55,7 +56,11 @@ final class StreamCredentialsController extends AppController
             return $this->json(['error' => 'missing_site_parameter'], JsonResponse::HTTP_BAD_REQUEST);
         }
 
-        $view = ($this->showStreamCredentials)(new ShowStreamCredentialsCommand($user, $handle));
+        try {
+            $view = ($this->showStreamCredentials)(new ShowStreamCredentialsCommand($user, $handle));
+        } catch (AmbiguousProjectHandleException $e) {
+            return $this->json(['error' => 'ambiguous_site', 'message' => $e->getMessage()], JsonResponse::HTTP_CONFLICT);
+        }
         if (null === $view->site) {
             return $this->json(['error' => 'site_not_found'], JsonResponse::HTTP_NOT_FOUND);
         }
