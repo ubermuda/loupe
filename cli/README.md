@@ -294,7 +294,8 @@ bridge runs. The bridge then marks the affected rules dead:
 
 A dead rule matches nothing until the bridge restarts, and a later rule in the
 file can then catch the event. The bridge logs one `rule_dead` error line for
-each rule. At the restart, the start checks refuse the old slug, so fix the rule
+each rule. An event that waits in the queue for a rule that dies never starts,
+and the bridge names it in a `queue_dropped` line. At the restart, the start checks refuse the old slug, so fix the rule
 file first. These events kill rules whatever their actor, so `allowUntrusted`
 does not apply to them. The bridge reads them even when no rule names their
 type.

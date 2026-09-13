@@ -234,6 +234,31 @@ func TestARenamedColumnKillsItsRulesAndReportsThem(t *testing.T) {
 	}
 }
 
+// An event that waits for a slot when its rule dies must not start later.
+func TestARuleThatDiesDropsItsQueuedEvents(t *testing.T) {
+	h, _ := deadHarness(t)
+	h.router.maxWorkers = 1
+	h.worker.started = make(chan workerSpec, 3)
+	h.worker.block = make(chan struct{})
+
+	h.router.onData([]byte(cardMoved(87)))
+	<-h.worker.started
+	h.router.onData([]byte(cardMoved(88)))
+	h.router.onData([]byte(movedPayload(89, "backlog", "review", "human")))
+	h.router.onData([]byte(slugPayload(event.ColumnRenamedType, `"fromSlug":"next","toSlug":"ready"`)))
+
+	line := h.only(t, "queue_dropped")
+	if got := strings.Join(dropped(t, line), " "); got != "88/plan" {
+		t.Fatalf("dropped = %s, want 88/plan", got)
+	}
+
+	close(h.worker.block)
+	h.router.wg.Wait()
+	if got := startedCards(t, h); len(got) != 2 || got[0] != 87 || got[1] != 89 {
+		t.Fatalf("started %v, want 87 and 89", got)
+	}
+}
+
 func TestADeletedColumnKillsItsRules(t *testing.T) {
 	h, _ := deadHarness(t)
 

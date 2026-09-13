@@ -122,11 +122,12 @@ func (r *router) onData(data []byte) {
 
 	// A slug change is a person's action, not a directive to an agent, so it
 	// kills rules whatever its actor. Matching then goes on as for any event.
-	if dead := r.rules.Kill(e); len(dead) > 0 {
+	if dead, dropped := r.kill(func() []rules.Dead { return r.rules.Kill(e) }); len(dead) > 0 {
 		for _, d := range dead {
 			r.log.Error("rule_dead", "rule", d.Rule, "project", e.ProjectID, "project_slug", d.Project, "reason", d.Reason,
 				"message", fmt.Sprintf("rule %s matches nothing until the bridge restarts, because %s", d.Rule, slugChange(e, d.Project)))
 		}
+		r.logDropped(dropped)
 		r.reportHealth(dead[0].Project)
 	}
 
@@ -159,6 +160,35 @@ func (r *router) onData(data []byte) {
 			r.log.Warn("project_unmapped", "project", e.ProjectID)
 		}
 	}
+}
+
+// kill runs a rule kill and removes the queued events of the rules it killed,
+// in one critical section, so a worker that finishes cannot start one of them
+// in between. The caller logs what it returns.
+func (r *router) kill(do func() []rules.Dead) ([]rules.Dead, []pending) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	dead := do()
+	if len(dead) == 0 {
+		return nil, nil
+	}
+	names := map[string]bool{}
+	for _, d := range dead {
+		names[d.Rule] = true
+	}
+	var dropped []pending
+	r.queue = slices.DeleteFunc(r.queue, func(p pending) bool {
+		if names[p.rule] {
+			dropped = append(dropped, p)
+
+			return true
+		}
+
+		return false
+	})
+
+	return dead, dropped
 }
 
 // slugChange says in words what a slug-changing event did.
@@ -206,11 +236,12 @@ func (r *router) onRefresh(events api.Events) {
 			"message", fmt.Sprintf("project %s is deleted or no longer yours, so rules %s stop working", slug, strings.Join(names, ", ")),
 		)
 
-		dead := r.rules.KillProject(slug, api.ReasonProjectGone)
+		dead, dropped := r.kill(func() []rules.Dead { return r.rules.KillProject(slug, api.ReasonProjectGone) })
 		for _, d := range dead {
 			r.log.Error("rule_dead", "rule", d.Rule, "project", r.rules.ProjectID(slug), "project_slug", slug, "reason", d.Reason,
 				"message", fmt.Sprintf("rule %s matches nothing until the bridge restarts, because project %s is gone", d.Rule, slug))
 		}
+		r.logDropped(dropped)
 		// The server most likely answers project_not_found, which the reporter
 		// logs once and does not retry.
 		if len(dead) > 0 {
