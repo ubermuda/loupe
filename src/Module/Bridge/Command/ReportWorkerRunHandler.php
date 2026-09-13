@@ -7,6 +7,7 @@ namespace App\Module\Bridge\Command;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Repository\WorkerRunRepository;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
+use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -33,17 +34,17 @@ final readonly class ReportWorkerRunHandler
 
     public function __invoke(ReportWorkerRunCommand $command): ReportWorkerRunResult
     {
-        // The lookup is owner-scoped, so another user's project reads as absent.
-        $project = $this->projects->findOneByIdOrSlugForOwner($command->handle, $command->owner);
-        if (null === $project) {
-            return new ReportWorkerRunResult(null, created: false);
-        }
-
         // One transaction, so a failed index update never leaves a run that no
         // search can reach. The project lock serialises two reports of one run,
         // which would otherwise both miss the read and trip the unique index.
-        $result = $this->em->wrapInTransaction(function () use ($command, $project): ReportWorkerRunResult {
-            $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
+        $result = $this->em->wrapInTransaction(function () use ($command): ReportWorkerRunResult {
+            // Owner-scoped, so another user's project reads as absent. Read
+            // again under the lock: a delete in flight holds the row, so the
+            // lock waits for it and the second read then finds nothing.
+            $project = $this->lockedProject($command);
+            if (null === $project) {
+                return new ReportWorkerRunResult(null, created: false);
+            }
 
             $existing = $this->workerRuns->findOneByReportKey(
                 $project,
@@ -80,7 +81,7 @@ final readonly class ReportWorkerRunHandler
                 'bridge.worker_run_recorded',
                 AuditOutcome::Success,
                 [
-                    'projectId' => (string) $project->id,
+                    'projectId' => (string) $result->run->project->id,
                     'bridgeId' => (string) $command->bridgeId,
                     'cardNumber' => $command->cardNumber,
                     'ruleName' => $command->ruleName,
@@ -92,5 +93,17 @@ final readonly class ReportWorkerRunHandler
         }
 
         return $result;
+    }
+
+    private function lockedProject(ReportWorkerRunCommand $command): ?Project
+    {
+        $project = $this->projects->findOneByIdOrSlugForOwner($command->handle, $command->owner);
+        if (null === $project) {
+            return null;
+        }
+
+        $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
+
+        return $this->projects->findOneByIdOrSlugForOwner($command->handle, $command->owner);
     }
 }
