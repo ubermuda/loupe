@@ -47,6 +47,22 @@ agent, and the publish failure is only logged — it degrades silently.
 | `MERCURE_URL` | Where the app POSTs updates — the hub on the internal network. | No |
 | `MERCURE_PUBLIC_URL` | Where clients subscribe. A genuinely separate host (the bridge CLI reaches it directly), so it cannot be derived from `DEFAULT_URI`. | No |
 
+An open board also subscribes to the hub, so it reloads when someone changes a
+column. The `agent.push.enabled` flag controls this too, so a switched-off flag
+stops the live refresh. The board response sets a cookie that authorizes the
+browser for that one board. Two rules follow for a hub on its own host:
+
+- Put the hub under the parent domain of `DEFAULT_URI`, such as
+  `hub.example.com` beside `loupe.example.com`. A hub on another domain cannot
+  read the cookie, so boards work but do not refresh live.
+- Name the app's origin in the hub's `cors_origins` directive.
+  `docker/compose/prod.yaml` sets it from `DEFAULT_URI`. Give `DEFAULT_URI`
+  no trailing slash, because the hub compares the origin exactly.
+
+The App Platform module serves the hub under the app's own host, so neither
+rule applies there. The Content-Security-Policy allows `MERCURE_PUBLIC_URL` in
+`connect-src`.
+
 ## Install and first administrator
 
 | Variable | Purpose | Add by hand? |

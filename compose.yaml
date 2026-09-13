@@ -147,6 +147,9 @@ services:
       SERVER_NAME: ':80'
       MERCURE_PUBLISHER_JWT_KEY: '${MERCURE_JWT_SECRET:-ChangeThisMercureDevSecretChangeThisMercureDev}'
       MERCURE_SUBSCRIBER_JWT_KEY: '${MERCURE_JWT_SECRET:-ChangeThisMercureDevSecretChangeThisMercureDev}'
+      # Open boards subscribe from the main host and every worktree host. A
+      # cookie-carrying EventSource needs a named origin, and `*` is refused.
+      MERCURE_EXTRA_DIRECTIVES: 'cors_origins https://${COMPOSE_PROJECT_NAME}.dev.localhost https://*.${COMPOSE_PROJECT_NAME}.dev.localhost'
     networks:
       - traefik
       - default

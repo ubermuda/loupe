@@ -23,10 +23,10 @@ the raw token once and never again. The same page lists every token you own and
 revokes any of them.
 
 An account-level token always gets the agent scope, which is what the Loupe CLI
-needs. That scope reaches `/api/projects` and `/api/projects/{handle}/stream` and nothing
-else. It does not reach the site-review or board endpoints the widget calls:
-those take a project-bound widget token, which a project mints on its own
-Connect page.
+needs. That scope reaches `/api/projects`, `/api/projects/{handle}/stream` and
+`/api/projects/{handle}/board/columns`, and nothing else. It does not reach the
+site-review or board card endpoints the widget calls: those take a
+project-bound widget token, which a project mints on its own Connect page.
 
 The page mints no MCP token, because an MCP tool reads its project from the
 token that is bound to it, and only the project's Connect page writes that
@@ -152,8 +152,9 @@ Roughly in the order an agent uses them:
 | `site_review_get` | Comments submitted through the widget, each with the `context` its page carried |
 | `site_review_mark_comment_addressed` | Mark a widget comment acted on, so the next `site_review_get` skips it |
 | `card_create` | Put a card on the project board (off by default — see below) |
-| `card_list` | Read a page of the board, filtered by status, type or priority |
-| `card_search` | Search every card's title and body by words, done ones included |
+| `card_list` | Read a page of the board, filtered by status, type or priority, with the board's columns |
+| `board_columns` | List the board's columns, each with its slug, label, terminal flag and default flag |
+| `card_search` | Search every card's title and body by words, finished ones included |
 | `card_get` | Read one card, with the pull requests linked to it |
 | `card_update` | Change a card, or move it to another column |
 
@@ -304,15 +305,25 @@ agent never learns of a tool this instance would refuse — switch it on in
 **Admin → Feature flags**. A client holding a tool list from before the flag
 changed and calling it anyway gets a plain refusal, not a broken call.
 
-The four `card_*` tools are behind the `board.enabled` feature flag, seeded
-**off**. A board an agent writes to is a second place work is tracked, so the
-operator opts in. The gate behaves the same way as the one above: while the flag
+The `card_*` tools and `board_columns` are behind the `board.enabled` feature
+flag, seeded **off**. A board an agent writes to is a second place work is
+tracked, so the operator opts in. The gate behaves the same way as the one above: while the flag
 is off the tools are absent from `tools/list` and from the Connect page, and a
 client that calls one anyway gets a plain refusal.
 
-The board has no delete tool. An agent moves a card to `done`; only a person
-removes one. `card_update` also refuses to change `reporter`, because that field
-records who first raised the card.
+Each board has its own columns. `board_columns` lists them in board order, and
+`card_list` returns the same list in `columns` beside its cards. The `status`
+argument of `card_create`, `card_update` and `card_list` takes a column slug. An
+unknown slug is refused, and the error lists the slugs the board has. A terminal
+column is where finished work goes, and a card that enters one gets a
+`completedAt`.
+
+A card created with no `status` lands in the default column. Renaming a column
+changes its slug. No tool writes a column.
+
+The board has no delete tool. An agent moves a card to a terminal column; only a
+person removes one. `card_update` also refuses to change `reporter`, because
+that field records who first raised the card.
 
 `card_update` reads an omitted field as "leave it alone". `pullRequestUrls` is
 the one field where an omitted list and an empty list differ: omit it and the

@@ -16,7 +16,6 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
-use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
@@ -52,17 +51,20 @@ final class CardColumnWriteTest extends KernelTestCase
 
         $card = $this->create(null);
 
-        self::assertSame('next', $this->stored($card)['slug']);
+        self::assertSame('next', $this->stored($card));
     }
 
-    public function test_the_status_column_mirrors_the_slug_for_the_previous_image(): void
+    public function test_a_card_moves_into_a_column_whose_slug_is_longer_than_twenty_characters(): void
     {
+        $slug = 'waiting-for-the-customer-to-answer';
+        self::assertGreaterThan(20, \strlen($slug));
+        $this->em->persist(new BoardColumn(project: $this->project, label: 'Waiting for the customer to answer', slug: $slug, position: 4, terminal: false));
+        $this->em->flush();
         $card = $this->create($this->column($this->project, 'in-progress'));
-        self::assertSame('in-progress', $this->stored($card)['status']);
 
-        $this->move($card, 'done');
+        $this->move($card, $slug);
 
-        self::assertSame(['slug' => 'done', 'status' => 'done'], $this->stored($card));
+        self::assertSame($slug, $this->stored($card));
     }
 
     public function test_a_move_between_two_terminal_columns_keeps_the_first_completion(): void
@@ -111,19 +113,6 @@ final class CardColumnWriteTest extends KernelTestCase
         $list(new ListCardsCommand($this->project, $this->column($other, 'next')));
     }
 
-    /** The image before board columns can still write a card with no column. */
-    public function test_refreshing_a_card_whose_row_has_no_column_keeps_the_loaded_one(): void
-    {
-        $card = $this->create(null);
-        $this->em->getConnection()->executeStatement('UPDATE board_cards SET column_id = NULL WHERE id = :id', ['id' => (string) $card->id]);
-        $cards = self::getContainer()->get(CardRepository::class);
-        self::assertInstanceOf(CardRepository::class, $cards);
-
-        $cards->refreshGroup($card);
-
-        self::assertSame('backlog', $card->column->slug);
-    }
-
     private function board(User $owner): Project
     {
         $project = new Project($owner, 'board-'.uniqid());
@@ -157,19 +146,15 @@ final class CardColumnWriteTest extends KernelTestCase
         $handler(new MoveCardCommand($card, CardReporter::Human, $this->column($board ?? $this->project, $slug), CardPriority::Medium));
     }
 
-    /**
-     * Reads the raw row, so the identity map cannot answer with what the handler assigned.
-     *
-     * @return array{slug: string, status: string}
-     */
-    private function stored(Card $card): array
+    /** The slug of the column on the raw row, so the identity map cannot answer with what the handler assigned. */
+    private function stored(Card $card): string
     {
-        $row = $this->em->getConnection()->fetchAssociative(
-            'SELECT k.slug, c.status FROM board_cards c JOIN board_columns k ON k.id = c.column_id WHERE c.id = :id',
+        $slug = $this->em->getConnection()->fetchOne(
+            'SELECT k.slug FROM board_cards c JOIN board_columns k ON k.id = c.column_id WHERE c.id = :id',
             ['id' => (string) $card->id],
         );
-        self::assertIsArray($row);
+        self::assertIsString($slug);
 
-        return ['slug' => (string) $row['slug'], 'status' => (string) $row['status']];
+        return $slug;
     }
 }

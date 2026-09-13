@@ -6,6 +6,7 @@ namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Event\BoardColumnDeleted;
+use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardColumns;
@@ -154,6 +155,7 @@ final readonly class DeleteBoardColumnHandler
             ],
             new AuditSubject('board_column', $result->columnId),
         );
+        $this->events->dispatch(new BoardColumnsChanged($column->project));
 
         return $result;
     }
