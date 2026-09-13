@@ -9,6 +9,7 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Command\RenameBoardColumnCommand;
 use App\Module\Board\Command\RenameBoardColumnHandler;
 use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Form\RenameBoardColumnFormType;
 use App\Module\Board\Form\RenameBoardColumnRequest;
 use App\Module\Board\Security\BoardColumnVoter;
@@ -52,7 +53,7 @@ final class RenameBoardColumnController extends AppController
 
         if ($form->isSubmitted() && $form->isValid()) {
             try {
-                ($this->renameColumn)(new RenameBoardColumnCommand($column, $data->label ?? ''));
+                ($this->renameColumn)(new RenameBoardColumnCommand($column, CardReporter::Human, $data->label ?? ''));
 
                 return $this->redirectToRoute('app_project_board', ['id' => (string) $project->id]);
             } catch (DomainErrors $e) {

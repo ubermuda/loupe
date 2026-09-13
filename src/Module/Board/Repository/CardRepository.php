@@ -314,11 +314,20 @@ class CardRepository extends ServiceEntityRepository
      * source showed them. A terminal target keeps no rank and stamps a card
      * that was not finished, and any other target clears the completion.
      *
-     * The statement reads the target groups from the database, so a card loaded
-     * before the call keeps its old column in memory.
+     * A card loaded before the call takes the new column in memory and in its
+     * snapshot, so a later flush does not meet a deleted source column. Its rank
+     * and completion stay as loaded.
      */
     public function moveAll(BoardColumn $from, BoardColumn $to, \DateTimeImmutable $now): void
     {
+        $unitOfWork = $this->getEntityManager()->getUnitOfWork();
+        foreach ($unitOfWork->getIdentityMap()[Card::class] ?? [] as $card) {
+            if ($card instanceof Card && $card->column === $from) {
+                $card->column = $to;
+                $unitOfWork->setOriginalEntityProperty(spl_object_id($card), 'column', $to);
+            }
+        }
+
         $this->getEntityManager()->getConnection()->executeStatement(
             \sprintf(
                 'UPDATE board_cards c

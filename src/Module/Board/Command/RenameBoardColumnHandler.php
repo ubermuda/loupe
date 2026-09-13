@@ -6,10 +6,12 @@ namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Event\BoardColumnRenamed;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Service\BoardColumns;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -27,6 +29,7 @@ final readonly class RenameBoardColumnHandler
         private BoardColumns $rules,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -44,7 +47,7 @@ final readonly class RenameBoardColumnHandler
         $slug = $this->rules->slugFor($label);
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
-        $result = $this->em->wrapInTransaction(function () use ($column, $label, $slug): string|RenamedBoardColumn {
+        $result = $this->em->wrapInTransaction(function () use ($command, $column, $label, $slug): string|RenamedBoardColumn {
             $this->em->lock($column->project, LockMode::PESSIMISTIC_WRITE);
             $columns = $this->boardColumns->findForProjectFresh($column->project);
             if (!\in_array($column, $columns, true)) {
@@ -60,6 +63,9 @@ final readonly class RenameBoardColumnHandler
             $column->label = $label;
             $column->slug = $slug;
             $this->em->flush();
+
+            // Inside the transaction, so a listener's rows commit or roll back with the rename.
+            $this->events->dispatch(new BoardColumnRenamed($column, $renamed->fromSlug, $renamed->toSlug, $command->actor));
 
             return $renamed;
         });
