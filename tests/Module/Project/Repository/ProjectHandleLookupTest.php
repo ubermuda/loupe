@@ -82,6 +82,37 @@ final class ProjectHandleLookupTest extends KernelTestCase
         self::assertNull($this->projects->findOneByHandleForOwner('their-site', $mine));
     }
 
+    public function test_the_id_or_slug_lookup_ignores_a_name(): void
+    {
+        $owner = $this->owner('id-or-slug-name@example.com');
+        $project = new Project($owner, 'Named Site');
+        $this->em->persist($project);
+        $this->em->flush();
+
+        self::assertSame($project, $this->projects->findOneByIdOrSlugForOwner((string) $project->id, $owner));
+        self::assertSame($project, $this->projects->findOneByIdOrSlugForOwner('named-site', $owner));
+        self::assertNull($this->projects->findOneByIdOrSlugForOwner('Named Site', $owner));
+        self::assertNull($this->projects->findOneByIdOrSlugForOwner('named-site', $this->owner('id-or-slug-other@example.com')));
+    }
+
+    /** A slug that parses as a uuid still resolves, and an id that is also another project's slug picks the id. */
+    public function test_the_id_or_slug_lookup_prefers_the_id(): void
+    {
+        $owner = $this->owner('id-or-slug-uuid@example.com');
+        $target = new Project($owner, 'Target');
+        $this->em->persist($target);
+        $this->em->flush();
+        $shadow = new Project($owner, (string) $target->id);
+        $unclaimed = new Project($owner, '01965f2e-0000-7000-8000-000000000000');
+        $this->em->persist($shadow);
+        $this->em->persist($unclaimed);
+        $this->em->flush();
+
+        self::assertSame((string) $target->id, $shadow->slug);
+        self::assertSame($target, $this->projects->findOneByIdOrSlugForOwner((string) $target->id, $owner));
+        self::assertSame($unclaimed, $this->projects->findOneByIdOrSlugForOwner('01965f2e-0000-7000-8000-000000000000', $owner));
+    }
+
     /** @param non-empty-string $email */
     private function owner(string $email): User
     {

@@ -59,7 +59,7 @@ func newBridgeRunCmd() *cobra.Command {
 			"card that moves to next. A worker is `claude -p <directive>` started in the " +
 			"--dir directory. It prints its answer and exits, and the bridge reports the " +
 			"exit code.\n\n" +
-			"Use --site to name the site to bridge, by name or id; omit it to pick " +
+			"Use --site to name the site to bridge, by slug or id; omit it to pick " +
 			"interactively from your list of sites. Use --permission-mode to pass that " +
 			"flag to every `claude` the bridge starts. A worker has no terminal, so it " +
 			"cannot answer a permission prompt: omit the flag and claude denies every " +
@@ -121,7 +121,7 @@ func newBridgeRunCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&dir, "dir", "", "run every worker in this `directory`")
-	cmd.Flags().StringVar(&site, "site", "", "the Loupe site to bridge (name or id); omitted: pick interactively")
+	cmd.Flags().StringVar(&site, "site", "", "the Loupe site to bridge (slug or id); omitted: pick interactively")
 	cmd.Flags().StringVar(&permissionMode, "permission-mode", "", "pass this `mode` to every `claude` the bridge starts; empty passes no flag, and a worker cannot answer a prompt")
 	cmd.Flags().IntVar(&maxWorkers, "max-workers", defaultMaxWorkers, "run at most this `number` of workers at once; later events queue")
 	cmd.Flags().StringVar(&logFile, "log-file", "", "append the JSON log to this `path`; empty uses bridge.log in your config directory")
@@ -216,7 +216,7 @@ func fetchCreds(ctx context.Context, cfg config.Config, site string) (api.Stream
 // an expired token forever once the first one lapsed.
 //
 // siteID must be the resolved id, never the handle the user passed: --site also
-// accepts a name, and renaming the project would then break every reconnect.
+// accepts a slug, and renaming the project would then break every reconnect.
 func jwtRefresher(cfg config.Config, siteID string) transport.TokenFunc {
 	return func(ctx context.Context) (string, error) {
 		creds, err := fetchCreds(ctx, cfg, siteID)

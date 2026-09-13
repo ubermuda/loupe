@@ -13,7 +13,9 @@ commands and flags.
 The bridge authenticates with an account-level API token that carries the agent
 scope. Mint one at `/account`. It reaches `GET /api/projects` and
 `GET /api/projects/{handle}/stream`, and no other endpoint. A project's widget token carries
-a different scope and the firewall refuses it here.
+a different scope and the firewall refuses it here. The handle is a project id
+or a project slug. A project name does not resolve, so pass `--site` a slug or
+an id.
 
 The bridge is a supervisor. `--max-workers` bounds the workers that run at once,
 three by default, and events past the bound wait in a first-in first-out queue.

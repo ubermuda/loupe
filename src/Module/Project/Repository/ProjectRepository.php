@@ -178,4 +178,27 @@ class ProjectRepository extends ServiceEntityRepository
 
         return $bySlug ?? $byName;
     }
+
+    /**
+     * Resolves an owner's project from a uuid or a slug, never from a name.
+     * The id wins when a handle is one project's id and another's slug.
+     */
+    public function findOneByIdOrSlugForOwner(string $handle, User $owner): ?Project
+    {
+        // A slug can be UUID-shaped, so an id miss must still fall through to the slug.
+        try {
+            $id = Uuid::fromString($handle);
+        } catch (\InvalidArgumentException) {
+            $id = null;
+        }
+
+        if (null !== $id) {
+            $project = $this->findOneBy(['id' => $id, 'owner' => $owner]);
+            if (null !== $project) {
+                return $project;
+            }
+        }
+
+        return $this->findOneByOwnerAndSlug($owner, $handle);
+    }
 }
