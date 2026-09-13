@@ -10,12 +10,15 @@ use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Schema\Schema;
+use Doctrine\Migrations\AbstractMigration;
 use Doctrine\ORM\EntityManagerInterface;
 use DoctrineMigrations\Version20260912210932;
+use DoctrineMigrations\Version20260912235455;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 require_once __DIR__.'/../../migrations/Version20260912210932.php';
+require_once __DIR__.'/../../migrations/Version20260912235455.php';
 
 /**
  * The image before columns keeps writing while the first migration runs. It
@@ -49,6 +52,8 @@ final class BoardColumnsReseedMigrationTest extends KernelTestCase
         $seededId = (string) $seeded->id;
         $bareId = (string) $bare->id;
         $this->em->clear();
+        // A later migration's down() puts back the status column this one reads.
+        $this->apply(new Version20260912235455($this->connection, new NullLogger()), down: true);
 
         // A move the old image made: status changed, column_id did not.
         $this->connection->executeStatement("UPDATE board_cards SET status = 'done' WHERE project_id = :id", ['id' => $seededId]);
@@ -57,7 +62,7 @@ final class BoardColumnsReseedMigrationTest extends KernelTestCase
         $this->connection->executeStatement('DELETE FROM board_columns WHERE project_id = :id', ['id' => $bareId]);
         $this->connection->executeStatement('DROP INDEX idx_board_cards_column_order');
 
-        $this->runMigration();
+        $this->apply(new Version20260912210932($this->connection, new NullLogger()));
 
         self::assertSame(4, (int) $this->connection->fetchOne('SELECT COUNT(*) FROM board_columns WHERE project_id = :id', ['id' => $bareId]));
         self::assertSame(4, (int) $this->connection->fetchOne('SELECT COUNT(*) FROM board_columns WHERE project_id = :id', ['id' => $seededId]));
@@ -86,10 +91,13 @@ final class BoardColumnsReseedMigrationTest extends KernelTestCase
         return null === $slug ? null : (string) $slug;
     }
 
-    private function runMigration(): void
+    private function apply(AbstractMigration $migration, bool $down = false): void
     {
-        $migration = new Version20260912210932($this->connection, new NullLogger());
-        $migration->up(new Schema());
+        if ($down) {
+            $migration->down(new Schema());
+        } else {
+            $migration->up(new Schema());
+        }
         foreach ($migration->getSql() as $query) {
             $this->connection->executeStatement($query->getStatement(), $query->getParameters(), $query->getTypes());
         }

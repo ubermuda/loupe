@@ -94,8 +94,7 @@ class Card implements ProjectScopedSubject
         #[ORM\ManyToOne(targetEntity: Project::class)]
         public readonly Project $project,
 
-        /** Nullable in the schema until the next release, and never null in a row this image writes. */
-        #[ORM\JoinColumn(name: 'column_id', nullable: true)]
+        #[ORM\JoinColumn(name: 'column_id', nullable: false)]
         #[ORM\ManyToOne(targetEntity: BoardColumn::class)]
         public BoardColumn $column,
 
