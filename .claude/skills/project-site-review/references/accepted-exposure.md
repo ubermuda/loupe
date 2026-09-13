@@ -52,7 +52,7 @@ What bounds it. Policy first: `docs/using/site-review.md`, the Connect page and
 everyone who can see the token is already entitled to those comments. Then code:
 
 - `Addressed` and `Resolved` comments are immune.
-- `/api/agent/sites` and `/api/agent/stream` need `ROLE_API_AGENT`, which a
+- `/api/projects` and `/api/projects/{handle}/stream` need `ROLE_API_AGENT`, which a
   widget token does not carry, so there is no project enumeration and no
   Mercure JWT.
 - `RateLimitSiteReviewWrites` slows churn, though not a targeted delete.

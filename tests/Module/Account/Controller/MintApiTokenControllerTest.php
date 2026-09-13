@@ -70,19 +70,19 @@ final class MintApiTokenControllerTest extends WebTestCase
         $raw = $this->mint($client, 'Stream token');
 
         // Drop the session so the Bearer token is the only credential in play.
-        // ^/api/agent needs ROLE_API_AGENT, which this scope carries.
+        // The stream route needs ROLE_API_AGENT, which this scope carries.
         $client->getCookieJar()->clear();
-        $client->request(Request::METHOD_GET, '/api/agent/stream', server: [
+        $client->request(Request::METHOD_GET, '/api/projects/no-such-site/stream', server: [
             'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
         ]);
 
-        // 400 from the controller itself, not 401 or 403 from the firewall: the
+        // 404 from the controller itself, not 401 or 403 from the firewall: the
         // token authenticated and carried the role, and the request then failed
-        // on the missing ?site= handle. Asserting the body rather than "not 401"
-        // keeps the test from passing on an unrelated rejection.
-        self::assertResponseStatusCodeSame(400);
+        // on the unknown handle. Asserting the body rather than "not 401" keeps
+        // the test from passing on an unrelated rejection or a router 404.
+        self::assertResponseStatusCodeSame(404);
         self::assertJsonStringEqualsJsonString(
-            '{"error":"missing_site_parameter"}',
+            '{"error":"site_not_found"}',
             (string) $client->getResponse()->getContent(),
         );
     }

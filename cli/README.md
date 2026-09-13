@@ -223,8 +223,8 @@ build time, so the binary matches no commit.
 
 ## How it works
 
-1. `GET /api/agent/sites` lists your sites (the picker).
-2. `GET /api/agent/stream?site=…` returns the Mercure hub URL, the
+1. `GET /api/projects` lists your sites (the picker).
+2. `GET /api/projects/{handle}/stream` returns the Mercure hub URL, the
    per-site topic, and a short-lived subscriber JWT.
 3. The CLI opens a Server-Sent Events connection to the hub. The connection is
    **outbound**, so it works from behind NAT with no inbound port.
