@@ -25,8 +25,9 @@ project for each process for now.
 
 The bridge authenticates with an account-level API token that carries the agent
 scope. Mint one at `/account`. It reaches `GET /api/projects`,
-`GET /api/projects/{handle}/stream` and `GET /api/projects/{handle}/board/columns`,
-and no other endpoint. A project's widget token carries a different scope and
+`GET /api/projects/{handle}/stream`, `GET /api/projects/{handle}/board/columns`
+and `PUT /api/projects/{handle}/bridges/{bridgeId}/rules`, and no other
+endpoint. A project's widget token carries a different scope and
 the firewall refuses it here. The handle is a project id or a project slug. A
 project name does not resolve. The bridge reads the columns by the slug in
 `rules.yaml`, and it reads the stream by the project id that answer returns.
@@ -82,3 +83,50 @@ person typed comes back as typed. `project.slug` is the project's slug.
 | 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
 | 404 | `{"error":"board_disabled"}` | the board is switched off on the instance |
 | 429 | | more than 60 reads in one minute from one token |
+
+## Rule health endpoint
+
+`PUT /api/projects/{handle}/bridges/{bridgeId}/rules` stores the health of one
+bridge's rules for one project. The board shows a banner to the owner when a
+rule is dead, and the column dialogs warn before a rename or a delete breaks a
+live rule. The handle follows the same rules as the columns endpoint.
+`bridgeId` is a uuid that the bridge generates once and keeps.
+
+The body replaces the whole report of that bridge for that project. A report
+with an empty `rules` list clears it. Another bridge's report stays as it is.
+
+```json
+{
+  "rules": [
+    { "name": "plan", "on": "board.card_moved", "columns": ["ready"], "state": "dead", "reason": "column_renamed" },
+    { "name": "review", "on": "board.card_moved", "columns": ["review"], "state": "live", "reason": null }
+  ]
+}
+```
+
+| Field | Rule |
+|---|---|
+| `name` | the rule's name, 1 to 100 characters |
+| `on` | an event type such as `board.card_moved`, lower case and dot-separated |
+| `columns` | the column slugs the rule watches, at most 50, and it can be empty |
+| `state` | `live` or `dead` |
+| `reason` | a short machine string such as `column_renamed`, `column_deleted`, `project_renamed` or `unknown_column` when `state` is `dead`, and `null` when it is `live` |
+
+A report holds at most 200 rules. The endpoint stores no prompt text. The
+payload has no field for one, and the server drops any key it does not list
+above. Nothing removes a report except a newer one from the same bridge, or the
+deletion of the project. A bridge that stops for good leaves its last report in
+place.
+
+| Status | Body | When |
+|---|---|---|
+| 204 | | the report is stored |
+| 401 | | the request carries no token |
+| 403 | `{"error":"insufficient_scope"}` | the token has no agent scope, such as a widget token |
+| 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
+| 404 | `{"error":"board_disabled"}` | the board is switched off on the instance |
+| 404 | | `bridgeId` is not a uuid |
+| 422 | a problem object with a `violations` list | the body is invalid, and each violation names its field in `propertyPath`, such as `rules[0].reason` |
+| 429 | | more than 60 reports in one minute from one token |
+
+Send `Accept: application/json` to get the 422 body as JSON.

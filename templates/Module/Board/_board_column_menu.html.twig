@@ -7,6 +7,7 @@
 {# A terminal column shows a recent slice, so its count on the page is not every card it holds. #}
 {% set cardCount = view.terminalTotal ?? view.count %}
 {% set renameForm = board_column_rename_form(column, renameColumnForm) %}
+{% set watched = column.slug in board.watchedColumnSlugs %}
 {# A refused rename reopens its dialog, and a dialog inside a hidden panel does not show. #}
 {% set renameRefused = renameForm.vars.submitted %}
 <div class="lp-board__column-menu" data-controller="popover">
@@ -26,6 +27,9 @@
             <dialog data-modal-target="dialog" class="lp-dialog">
                 <h3 class="lp-dialog-title">{{ 'board.column.rename.title'|trans({'%label%': label}) }}</h3>
                 <p class="lp-dialog-desc">{{ 'board.column.rename.description'|trans }}</p>
+                {% if watched %}
+                <p class="lp-board__rule-warning">{{ 'board.column.rename.bridge_rule_warning'|trans }}</p>
+                {% endif %}
                 {{ form_start(renameForm, {action: path('app_board_column_rename', {projectId: board.project.id, columnId: column.id}), attr: {
                     class: 'lp-form',
                     'data-controller': 'board-column-slug',
@@ -95,6 +99,9 @@
                 <dialog data-modal-target="dialog" class="lp-dialog">
                     <h3 class="lp-dialog-title">{{ 'board.column.delete.title'|trans({'%label%': label}) }}</h3>
                     <p class="lp-dialog-desc">{{ 'board.column.delete.cards'|trans({'%count%': cardCount}) }}</p>
+                    {% if watched %}
+                    <p class="lp-board__rule-warning">{{ 'board.column.delete.bridge_rule_warning'|trans }}</p>
+                    {% endif %}
                     {{ form_start(deleteForm, {action: deleteAction, attr: {class: 'lp-form'}}) }}
                         {% if cardCount > 0 %}
                         <div class="lp-form-field">

@@ -48,6 +48,19 @@ final class ApiAccessControlTest extends KernelTestCase
         self::assertTrue($this->decide('/api/projects', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertTrue($this->decide('/api/projects/my-app/stream', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertTrue($this->decide('/api/projects/loupe/board/columns', ['ROLE_USER', 'ROLE_API_AGENT']));
+        self::assertTrue($this->decide('/api/projects/loupe/bridges/0f6e6b9e-8f1c-4c4e-9a3a-1d2b3c4d5e6f/rules', ['ROLE_USER', 'ROLE_API_AGENT']));
+    }
+
+    /** The rules rule grants one route, so nothing beside it under a bridge opens. */
+    public function test_the_bridge_rules_rule_does_not_open_the_rest_of_a_project(): void
+    {
+        $bridge = '0f6e6b9e-8f1c-4c4e-9a3a-1d2b3c4d5e6f';
+        self::assertFalse($this->decide('/api/projects/loupe/bridges/'.$bridge, self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/loupe/bridges/rules', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/loupe/bridges/'.$bridge.'/rules/extra', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/client/app/bridges/'.$bridge.'/rules', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/client%2Fapp/bridges/'.$bridge.'/rules', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/loupe/bridges/'.$bridge.'/rules', ['ROLE_USER', 'ROLE_API_SITE_REVIEW', 'ROLE_API_MCP']));
     }
 
     /**

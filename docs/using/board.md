@@ -96,6 +96,23 @@ lists every card in that column, newest completion first, 25 to a page. The
 older address **`/projects/<project>/board/done`** still works and opens the
 same page.
 
+### Bridge rule health
+
+A [command-line bridge](../extending/cli-bridge.md) reports the health of its
+rules for each project it follows. A rule is dead when it can no longer match,
+for example after its column was renamed or deleted. A dead rule starts no
+agent.
+
+When any bridge reports a dead rule, the board shows a banner above the columns.
+The banner names each dead rule, the column slugs it watches, the reason the
+bridge gave, and when the report arrived. Only the owner of the project sees it.
+The banner goes away when every bridge sends a report with no dead rule. A
+bridge that stops for good leaves its last report, and so its banner, in place.
+
+The rename and delete dialogs of a column warn before they save when a live rule
+watches that column's slug. A rename changes the slug, and a delete removes it,
+so the rule stops matching in both cases.
+
 ### The card page
 
 A card has its own page at **`/projects/<project>/board/cards/<card id>`**. The
@@ -320,5 +337,5 @@ request.
 
 ## Deleting a project
 
-Deleting a project deletes its board with it, cards and pull request links
-included.
+Deleting a project deletes its board with it, cards, pull request links and
+bridge rule reports included.
