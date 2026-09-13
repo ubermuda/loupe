@@ -67,6 +67,25 @@ final class BoardCardsStatusDropMigrationTest extends KernelTestCase
         self::assertSame(['column_id' => 'NO'], $this->nullability());
     }
 
+    public function test_up_puts_a_card_whose_status_names_a_renamed_slug_in_the_default_column(): void
+    {
+        $project = $this->project();
+        $cardId = $this->card($project, $this->column($project, 'backlog'));
+        $projectId = (string) $project->id;
+        $this->migrate(down: true);
+        $this->connection->executeStatement("UPDATE board_cards SET column_id = NULL, status = 'in-progress' WHERE id = :id", ['id' => $cardId]);
+        $this->connection->executeStatement("UPDATE board_columns SET slug = 'doing' WHERE project_id = :id AND slug = 'in-progress'", ['id' => $projectId]);
+        // The default moves off the first column, so the test cannot pass on "first by position".
+        $this->connection->executeStatement("UPDATE board_columns SET is_default = (slug = 'next') WHERE project_id = :id", ['id' => $projectId]);
+
+        $this->migrate();
+
+        self::assertSame('next', $this->connection->fetchOne(
+            'SELECT k.slug FROM board_cards c JOIN board_columns k ON k.id = c.column_id WHERE c.id = :id',
+            ['id' => $cardId],
+        ));
+    }
+
     private function project(): Project
     {
         $owner = new User(fullName: 'Riley', email: 'board-status-drop-'.uniqid().'@example.com', password: 'hashed');

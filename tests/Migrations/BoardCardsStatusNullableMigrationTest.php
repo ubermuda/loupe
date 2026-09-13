@@ -67,13 +67,12 @@ final class BoardCardsStatusNullableMigrationTest extends KernelTestCase
         $this->em->clear();
         $cardId = (string) $card->id;
 
-        // The later migration dropped status. Its down() restores the column as this one left it, and the image between them wrote null.
+        // The later migration dropped status, and its down() restores the column as this one left it.
         $later = new Version20260912235455($this->connection, new NullLogger());
         $later->down(new Schema());
         foreach ($later->getSql() as $query) {
             $this->connection->executeStatement($query->getStatement(), $query->getParameters(), $query->getTypes());
         }
-        $this->connection->executeStatement('UPDATE board_cards SET status = NULL WHERE id = :id', ['id' => $cardId]);
 
         return $cardId;
     }
