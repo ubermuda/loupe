@@ -35,9 +35,14 @@ site-review widget starts no worker unless its rule sets `allowUntrusted: true`.
 
 The bridge is a supervisor. `--max-workers` bounds the workers that run at once,
 three by default, and events past the bound wait in a first-in first-out queue.
-A card is held from the moment its event is accepted until its worker exits, so
-the same card never runs twice at once. Stopping the bridge drops whatever is
-still queued and logs the count, and each card with its rule.
+A card runs one worker at a time. An event for a busy card waits and runs after
+that worker exits, and the card waits at most once for each rule, so a burst of
+moves becomes one follow-up run. Stopping the bridge drops whatever is still
+queued and logs the count, and each card with its rule.
+
+Each rule's `maxChain`, three by default, caps the runs in a row that agents'
+events start for one card. That stops two rules from moving a card back and
+forth for ever. A move by a person resets the count.
 
 There is no terminal UI. The bridge writes one JSON object per line to stdout
 and to its log file, named by `--log-file`. Each line carries a stable `event`

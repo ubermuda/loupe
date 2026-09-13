@@ -152,7 +152,7 @@ Each entry in `rules` takes these fields:
 | `prompt` | yes | The prompt the worker runs, with placeholders |
 | `permissionMode` | no | Defaults to `--permission-mode` |
 | `model` | no | Defaults to `--model` |
-| `maxChain` | no | Defaults to `3`. At least 1 |
+| `maxChain` | no | The agent-triggered runs in a row this rule starts for one card. Defaults to `3`. At least 1. See [The chain cap](#the-chain-cap) |
 | `allowUntrusted` | no | Defaults to `false`. See below |
 
 A field the format does not define stops the bridge at start, so a misspelt key
@@ -220,20 +220,40 @@ the number alone would let one project's card 87 block another's. An event of a
 type the bridge knows no fields of carries no card number, so its subject id
 keys it instead.
 
-The key is claimed when the event is accepted and released when that card's
-worker exits, so a card that waits in the queue is as firmly held as one that
-runs. A second event for a held card is logged and dropped.
+An event for a card that already has a worker waits in the queue and runs after
+that worker exits. A card waits at most once for each rule. A newer event for
+the same card and rule replaces the waiting one, and the newest payload wins. A
+card dragged back and forth while its worker runs therefore gets one follow-up
+run for each rule, however many events it sent. Each replaced event logs a
+`worker_coalesced` line. Waiting events for different rules on one card run one
+after another, in arrival order.
 
 The key lives in the bridge process. Two bridges following one project each keep
 their own, so they can both start a worker for the same card. Run one bridge
 per project.
 
+### The chain cap
+
+Rules can feed each other: a planner moves a card to `review`, a reviewer moves
+it back to `ready`, and the two repeat. `maxChain` stops that. The bridge counts,
+for each card and each rule, the runs in a row that an agent's event started.
+When a rule reaches its `maxChain` on a card, it starts no more runs for that
+card, and the bridge logs a `chain_capped` line with the message
+`card 87 hit the chain cap of rule review, waiting for a person`.
+
+Any event from a person (`actor: human`) for that card resets every rule's count
+on the card, whether a rule matches the event or not. A reviewer's event resets
+nothing. A run that a person's event started does not count. An event that
+replaces a waiting one adds nothing, because the count follows runs. The counts
+live in the bridge process, so a restart resets them.
+
 ### The queue
 
 `--max-workers` bounds the processes, not the pending work. An event that
-arrives while every slot is busy waits in an in-memory queue, and the queue has
-no length limit. The bridge takes queued events in arrival order as slots free,
-and logs them in that order.
+arrives while every slot is busy waits in an in-memory queue. The queue holds at
+most one event for each card and rule, and no other limit applies. The bridge
+takes queued events in arrival order as slots free, and skips an event whose
+card still has a worker running.
 
 Stopping the bridge drops whatever is still queued, because those workers never
 started. The bridge logs one `queue_dropped` line naming the count and each card
@@ -267,7 +287,8 @@ names `card`, or `subject` for an event with no card number.
 | `event_untrusted` | `card`, `project`, `rule`: a reviewer's event that the rule does not allow |
 | `project_unmapped` | `project`: logged once per project the file does not map |
 | `worker_queued` | `card`, `project`, `rule`, `queue_depth` |
-| `worker_refused` | `card`, `project`, `rule`: that card is already queued or running |
+| `worker_coalesced` | `card`, `project`, `rule`: the event replaced one that waits for the same card and rule |
+| `chain_capped` | `card`, `project`, `rule`, `max_chain`, `message`: the rule reached its cap on that card |
 | `worker_started` | `card`, `project`, `rule` |
 | `worker_finished` | `card`, `project`, `rule`, `exit`, `duration_ms`, `output` |
 | `worker_failed` | `card`, `project`, `rule`, `error`: the process never ran |
