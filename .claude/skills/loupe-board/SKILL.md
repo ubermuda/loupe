@@ -30,8 +30,8 @@ Each column carries these fields:
 
 A new board starts with `backlog` (default), `next`, `in-progress` and `done`
 (terminal). The project owner can add, rename, reorder, flag and delete columns,
-so never assume those four. A rename changes the slug, so a slug you read in an
-earlier session can be gone.
+so never assume those four. A rename that changes the slug breaks every outside
+reference to the old slug. A slug you read in an earlier session can be gone.
 
 An unknown slug is refused, and the error lists the slugs the board has. No tool
 writes a column. Ask the owner when the board needs a column it does not have.
@@ -48,7 +48,7 @@ by its flags and its label:
 
 When no column fits a role, leave the card where it is and tell the owner.
 
-## The six tools
+## The tools
 
 | Tool | Use it to |
 |---|---|
@@ -133,8 +133,8 @@ deletes a card, from the card page.
 
 `card_list` applies no time window to a terminal column, so every finished card
 is on the board it pages through, however old it is. The board screen shows the
-last 7 days of each terminal column and puts the rest on a history page, so a
-person sees fewer finished cards than you do.
+last 7 days of each terminal column and puts the rest on a history page. A
+person therefore sees fewer finished cards than you do.
 
 ## A card that opens with `**Parked.**` is paused
 
@@ -250,10 +250,8 @@ erases the card.
 ### A move can start a worker
 
 Every card move writes a `board.card_moved` event. A `loupe bridge` running
-against the project matches each event against the rules in its `rules.yaml`.
-A rule names the event type, the project, the column slug the card enters
-(`to`), and optionally the column slug it leaves (`from`). The first rule that
-matches starts a `claude -p` worker with that rule's prompt.
+against the project starts a worker when a rule in its `rules.yaml` watches the
+column the card enters.
 
 - An event that no rule matches starts nothing. No bridge running means no
   worker starts.
@@ -261,12 +259,11 @@ matches starts a `claude -p` worker with that rule's prompt.
   priority, starts nothing.
 - A card that `card_create` puts in a column writes no move event, so it starts
   nothing.
-- Your own move starts a worker when a rule names the column you move the card
-  to. A rule's `maxChain`, 3 by default, caps the runs in a row that agents'
-  moves start for one card with that rule. A move by a person resets the count.
-- The bridge reads its rules and checks their slugs at start only. After a
-  rename, a rule on the old slug matches nothing, and a restarted bridge refuses
-  to start. The owner fixes the slug in `rules.yaml`, then restarts the bridge.
+- Your own move starts a worker when a rule watches the column you move the
+  card to.
+
+`references/bridge-rules.md` says how a rule matches, caps agent chains and
+breaks on a rename.
 
 You cannot read the rule file through the MCP. Ask the owner which columns a
 bridge watches before you move a card into a column only to hold it. The example
@@ -313,7 +310,7 @@ An agent or a person moves the card to a terminal column.
 | Mistake | Reality |
 |---|---|
 | Assuming the board has `backlog`, `next`, `in-progress` and `done` | Each board has its own columns. Call `board_columns` and use its slugs. |
-| Reusing a slug from an earlier session | A rename changes the slug. Read the columns again. |
+| Reusing a slug from an earlier session | A rename can change the slug. Read the columns again. |
 | Looking for a tool that adds or renames a column | No tool writes a column. Ask the project owner. |
 | Looking for a `card_delete` tool | There is none. Move the card to a terminal column. |
 | Carding a lesson so it is not lost | Nobody can finish it. Write it into the skill. |

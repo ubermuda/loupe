@@ -116,8 +116,8 @@ enters another column loses its completion time, and joins the end of its
 priority group.
 
 Each moved card gets its own `board.card_moved` audit record. The outbox gets
-one `board.column_deleted` event, which names the moved cards, and no event for
-each card. A bulk move therefore starts no bridge worker.
+one `board.column_deleted` event, which names the moved cards. A bulk move
+writes no `board.card_moved` event, so no bridge rule on card moves fires.
 
 ## How cards are ordered
 
@@ -158,10 +158,10 @@ is on the board it pages through, however old it is.
 ## The board screen
 
 The board is at **`/projects/<project>/board`**, and the project sidebar links
-to it. The columns read side by side, in board order. Each card shows its number, its
-title, its type, how many pull requests it links to, and how many review
-comments still wait on it. The priority is the group the card sits in, so the
-card face does not repeat it.
+to it. The columns read side by side, in board order. Each card shows its
+number, its title, its type, how many pull requests it links to, and how many
+review comments still wait on it. The priority is the group the card sits in,
+so the card face does not repeat it.
 
 Drag a card to move it. The whole card is the handle, and the grip on its left
 says so. Where you drop the card decides what the move does.
@@ -188,8 +188,8 @@ hub and the `agent.push.enabled` flag, see
 shows the change on its next load.
 
 **New card** opens the create form. Under each terminal column, a link opens the
-history page at **`/projects/<project>/board/terminal/<column id>`**, which
-lists every card in that column, newest completion first, 25 to a page. The
+history page at **`/projects/<project>/board/terminal/<column id>`**. That page
+lists every card in the column, newest completion first, 25 to a page. The
 older address **`/projects/<project>/board/done`** still works. It opens the
 history page of the board's first terminal column.
 
@@ -288,7 +288,7 @@ A merged pull request therefore does not move its card. Nothing watches the
 forge, and there is no webhook to point at Loupe. Move the card to a terminal
 column yourself, or have your agent move it with `card_update`.
 
-## The six MCP tools
+## The MCP tools
 
 An agent drives the board through the MCP endpoint. See
 [The MCP endpoint](mcp.md) for the token and the client setup.
@@ -355,8 +355,9 @@ attaches to, and can create a card without leaving the page. A card raised that
 way records its reporter as **reviewer**, which says the app could not name who
 raised it: the widget authenticates a project, never a person.
 
-Such a card always lands in the default column, and carries no pull request link. The
-widget offers neither, so a page visitor cannot file work straight into a column.
+Such a card always lands in the default column, and carries no pull request
+link. The widget offers neither, so a page visitor cannot file work straight
+into a column.
 
 This is off unless the board is. Both the picker and the create control need
 `board.enabled`, and the endpoints behind them answer 404 while it is off.
@@ -400,8 +401,8 @@ links stay. Send `[]` and every link is removed.
 ### A person deletes a card, an agent does not
 
 The board offers no `card_delete`, and nothing on the MCP surface deletes a
-card. An agent finishes a card by moving it to a terminal column, which keeps the record of
-the work.
+card. An agent finishes a card by moving it to a terminal column, which keeps
+the record of the work.
 
 A person deletes a card from the card page. See
 [The card page](#the-card-page).
@@ -411,10 +412,10 @@ A person deletes a card from the card page. See
 `board.enabled` is seeded off, because a board an agent writes to is a second
 place work is tracked. The operator opts in.
 
-While the flag is off, the `card_*` tools and `board_columns` are absent from `tools/list` and
-from the project's Connect page. An agent never learns of a tool this instance
-would refuse. A client that holds an older tool list and calls one anyway gets a
-plain refusal rather than a broken call.
+While the flag is off, the `card_*` tools and `board_columns` are absent from
+`tools/list` and from the project's Connect page. An agent never learns of a
+tool this instance would refuse. A client that holds an older tool list and
+calls one anyway gets a plain refusal rather than a broken call.
 
 Open the flags page at **`/admin/feature-flags`** and switch `board.enabled`
 on. The change needs no restart. See [The admin area](admin.md).
