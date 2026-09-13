@@ -20,31 +20,21 @@ type Site struct {
 	Name string `json:"name"`
 }
 
-// StreamProject is one project of GET /api/events, with the topic its events
-// are published on.
-type StreamProject struct {
-	ID    string `json:"id"`
-	Slug  string `json:"slug"`
-	Name  string `json:"name"`
-	Topic string `json:"topic"`
+// EventsProject is one project of GET /api/events. Its events arrive on the
+// caller's topic. A project with no slug yet sends a null slug.
+type EventsProject struct {
+	ID   string `json:"id"`
+	Slug string `json:"slug"`
+	Name string `json:"name"`
 }
 
-// Events is the response of GET /api/events: the hub, one subscriber JWT, and
-// the topic of every project the caller owns.
+// Events is the response of GET /api/events: the hub, the caller's own topic,
+// a subscriber JWT for that topic, and the projects whose events arrive on it.
 type Events struct {
 	HubURL   string          `json:"hubUrl"`
 	JWT      string          `json:"jwt"`
-	Projects []StreamProject `json:"projects"`
-}
-
-// Topics lists the topic of every project.
-func (e Events) Topics() []string {
-	topics := make([]string, len(e.Projects))
-	for i, p := range e.Projects {
-		topics[i] = p.Topic
-	}
-
-	return topics
+	Topic    string          `json:"topic"`
+	Projects []EventsProject `json:"projects"`
 }
 
 // maxBody caps a success body the client decodes. A columns or sites list is
@@ -80,8 +70,8 @@ func New(baseURL, token string, hc *http.Client) *Client {
 	return &Client{baseURL: strings.TrimRight(baseURL, "/"), token: token, http: hc}
 }
 
-// Events fetches the hub, a subscriber JWT and the topic of every project the
-// caller owns.
+// Events fetches the hub, the caller's topic, a subscriber JWT for it, and the
+// projects the caller owns.
 func (c *Client) Events(ctx context.Context) (Events, error) {
 	var out Events
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/events", nil)
@@ -93,7 +83,7 @@ func (c *Client) Events(ctx context.Context) (Events, error) {
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return out, fmt.Errorf("request stream credentials: %w", err)
+		return out, fmt.Errorf("request events: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -105,11 +95,14 @@ func (c *Client) Events(ctx context.Context) (Events, error) {
 		return out, errors.New("the server has no GET /api/events endpoint: push is switched off on this Loupe instance, or the server is older than this bridge")
 	default:
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return out, fmt.Errorf("stream credentials request failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return out, fmt.Errorf("events request failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
 	if err := decodeBody(resp.Body, &out); err != nil {
-		return out, fmt.Errorf("decode stream credentials: %w", err)
+		return out, fmt.Errorf("decode events: %w", err)
+	}
+	if out.Topic == "" {
+		return out, errors.New("GET /api/events returned no topic: the server is older than this bridge")
 	}
 
 	return out, nil

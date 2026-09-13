@@ -74,7 +74,7 @@ func Subscribe(ctx context.Context, hc *http.Client, hubURL string, topics []str
 				return ctx.Err()
 			}
 			if h.OnError != nil {
-				h.OnError(fmt.Errorf("refresh stream credentials: %w", err))
+				h.OnError(fmt.Errorf("refresh the subscriber JWT: %w", err))
 			}
 			select {
 			case <-ctx.Done():
