@@ -135,7 +135,7 @@ notice stay event-sourced on purpose, because zero is *correct* there.
 
 Two more routes live in this module and are not widget paths. `/api/projects`
 and `/api/projects/{handle}/stream` serve the loupe CLI. The firewall grants each
-route by exact path to `ROLE_API_AGENT`, which a widget token does not carry, so a widget token gets
+route by its own rule to `ROLE_API_AGENT`, which a widget token does not carry, so a widget token gets
 `insufficient_scope`. They keep their `StreamCredentialsController` and
 `ListSitesController` classes here because their command handlers do.
 
