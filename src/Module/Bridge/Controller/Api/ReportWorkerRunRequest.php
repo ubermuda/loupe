@@ -91,6 +91,21 @@ final class ReportWorkerRunRequest
         }
     }
 
+    /**
+     * The columns carry no time zone, and Doctrine writes whatever wall clock
+     * the value holds. A bridge in any other offset would store an instant five
+     * or nine hours from the one it meant, so both stamps convert to UTC here.
+     */
+    public function startedAt(): \DateTimeImmutable
+    {
+        return self::utc($this->startedAt ?? throw new \LogicException('startedAt is required after validation.'));
+    }
+
+    public function endedAt(): \DateTimeImmutable
+    {
+        return self::utc($this->endedAt ?? throw new \LogicException('endedAt is required after validation.'));
+    }
+
     public function bridgeId(): Uuid
     {
         return Uuid::fromString($this->bridgeId ?? throw new \LogicException('bridgeId is required after validation.'));
@@ -112,5 +127,10 @@ final class ReportWorkerRunRequest
         $reason = trim($this->failureReason ?? '');
 
         return '' === $reason ? null : $reason;
+    }
+
+    private static function utc(\DateTimeImmutable $moment): \DateTimeImmutable
+    {
+        return $moment->setTimezone(new \DateTimeZone('UTC'));
     }
 }

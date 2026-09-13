@@ -90,6 +90,40 @@ final class WorkerRunsApiTest extends WebTestCase
     }
 
     /**
+     * The columns carry no time zone, so a bridge reporting from another offset
+     * would otherwise store its wall clock and shift the instant.
+     */
+    public function test_a_timestamp_in_another_offset_is_stored_as_the_same_instant(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'runs-api-offset@example.com');
+        $project = $this->project($em, $owner, 'Offset Runs');
+        $raw = $this->agentToken($em, $owner);
+        $path = '/api/projects/'.$project->id.'/worker-runs';
+        $payload = $this->payload();
+
+        $this->post($client, $path, $raw, array_merge($payload, [
+            'startedAt' => '2026-09-13T10:00:00-05:00',
+            'endedAt' => '2026-09-13T10:00:21-05:00',
+        ]));
+
+        self::assertResponseStatusCodeSame(201);
+        $run = $this->onlyRun();
+        self::assertSame('2026-09-13T15:00:00+00:00', $run->startedAt->format(\DateTimeInterface::ATOM));
+        self::assertSame('2026-09-13T15:00:21+00:00', $run->endedAt->format(\DateTimeInterface::ATOM));
+
+        // The same instant written the other way is the same report.
+        $this->post($client, $path, $raw, array_merge($payload, [
+            'startedAt' => '2026-09-13T15:00:00+00:00',
+            'endedAt' => '2026-09-13T15:00:21+00:00',
+        ]));
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(1, $this->countRuns());
+    }
+
+    /**
      * The column holds whole seconds, so the stored value and the value a retry
      * sends must floor the same way. Otherwise a retry misses the read and the
      * insert trips the unique index.

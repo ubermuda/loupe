@@ -64,6 +64,10 @@ answers with the row it already wrote and changes nothing. Send the same body
 again after a timeout or a lost response. A second run of the same card carries
 a later `startedAt`, so it is a new row.
 
+Send either timestamp in any offset. The server converts both to UTC before it
+stores them, so the same instant written two ways is the same report, and the
+list reads the same whichever offset a bridge runs in.
+
 `startedAt` is stored to the second, and a fraction of a second in the value you
 send is dropped. Two runs of one card by one bridge that start inside the same
 second therefore count as one report. A worker runs for minutes, so this needs
