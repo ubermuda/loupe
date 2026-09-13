@@ -38,7 +38,7 @@ project id, a project slug or a project name. The token's user must own the proj
 
 ```json
 {
-  "project": { "id": "01a0…", "slug": null },
+  "project": { "id": "01a0…", "slug": "my-app" },
   "columns": [
     { "slug": "backlog", "label": "Backlog", "terminal": false, "default": true },
     { "slug": "done", "label": "Done", "terminal": true, "default": false }
@@ -47,8 +47,7 @@ project id, a project slug or a project name. The token's user must own the proj
 ```
 
 The columns come in board order. A seeded label is translated, and a label a
-person typed comes back as typed. `project.slug` is `null` until projects get a
-slug.
+person typed comes back as typed. `project.slug` is the project's slug.
 
 | Status | Body | When |
 |---|---|---|

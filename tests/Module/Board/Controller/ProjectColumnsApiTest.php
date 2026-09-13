@@ -34,7 +34,7 @@ final class ProjectColumnsApiTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertJsonStringEqualsJsonString(
             json_encode([
-                'project' => ['id' => (string) $project->id, 'slug' => null],
+                'project' => ['id' => (string) $project->id, 'slug' => 'columns-app'],
                 'columns' => [
                     ['slug' => 'backlog', 'label' => 'Backlog', 'terminal' => false, 'default' => true],
                     ['slug' => 'next', 'label' => 'Next', 'terminal' => false, 'default' => false],

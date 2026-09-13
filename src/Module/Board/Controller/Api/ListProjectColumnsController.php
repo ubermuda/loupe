@@ -57,7 +57,7 @@ final class ListProjectColumnsController extends AppController
         }
 
         return $this->json([
-            'project' => ['id' => (string) $view->project->id, 'slug' => null],
+            'project' => ['id' => (string) $view->project->id, 'slug' => $view->project->slug],
             'columns' => array_map(
                 fn (BoardColumn $column): array => [
                     'slug' => $column->slug,
