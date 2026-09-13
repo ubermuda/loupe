@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Module\Board\Controller;
 
 use App\Controller\AppController;
+use App\Module\Board\Command\AuthorizeBoardRefreshCommand;
+use App\Module\Board\Command\AuthorizeBoardRefreshHandler;
 use App\Module\Board\Command\ShowBoardCommand;
 use App\Module\Board\Command\ShowBoardHandler;
 use App\Module\Board\Service\BoardAvailability;
-use App\Module\Board\Service\BoardRefreshAuthorization;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use Symfony\Component\HttpFoundation\Request;
@@ -27,7 +28,7 @@ final class ShowBoardController extends AppController
     public function __construct(
         private readonly ShowBoardHandler $showBoard,
         private readonly BoardAvailability $board,
-        private readonly BoardRefreshAuthorization $refresh,
+        private readonly AuthorizeBoardRefreshHandler $authorizeRefresh,
     ) {
     }
 
@@ -39,7 +40,7 @@ final class ShowBoardController extends AppController
             'board' => ($this->showBoard)(new ShowBoardCommand($project)),
             'addColumnForm' => $this->getInjectedFormView($request, 'addColumnForm'),
             'renameColumnForm' => $this->getInjectedFormView($request, 'renameColumnForm'),
-            'refreshUrl' => $this->refresh->authorize($project),
+            'refreshUrl' => ($this->authorizeRefresh)(new AuthorizeBoardRefreshCommand($project)),
         ]);
     }
 }

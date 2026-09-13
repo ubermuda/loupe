@@ -29,9 +29,8 @@ async function setFlag(
 }
 
 async function signedInPage(browser: Browser, email: string): Promise<Page> {
-    const { baseURL, ignoreHTTPSErrors } = test.info().project.use;
-    // No X-Playwright header: the browser would send it to the hub too, and a
-    // custom header makes the EventSource preflight, which the hub refuses.
+    const { baseURL, extraHTTPHeaders, ignoreHTTPSErrors } =
+        test.info().project.use;
     const context = await browser.newContext({
         baseURL,
         extraHTTPHeaders: {},
@@ -39,6 +38,16 @@ async function signedInPage(browser: Browser, email: string): Promise<Page> {
         storageState: { cookies: [], origins: [] },
         viewport: { width: 1600, height: 900 },
     });
+    // The project headers go to the app only. On the hub request a custom
+    // header makes the EventSource preflight, which the hub refuses.
+    const appOrigin = new URL(baseURL ?? '').origin;
+    await context.route(
+        (url) => url.origin === appOrigin,
+        (route) =>
+            route.continue({
+                headers: { ...route.request().headers(), ...extraHTTPHeaders },
+            }),
+    );
     const page = await context.newPage();
     await suppressToolbar(page);
     await suppressWidget(page);

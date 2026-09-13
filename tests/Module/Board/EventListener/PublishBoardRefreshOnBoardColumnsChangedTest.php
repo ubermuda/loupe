@@ -36,6 +36,10 @@ use Monolog\Logger;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Event\TerminateEvent;
+use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Jwt\StaticTokenProvider;
 use Symfony\Component\Mercure\MockHub;
@@ -74,23 +78,23 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
     public function test_each_column_change_publishes_one_refresh_to_the_board_topic(): void
     {
         $added = $this->handler(AddBoardColumnHandler::class)(new AddBoardColumnCommand($this->project, 'Parked'));
-        $this->assertPublishedCount(1);
+        $this->assertPublishedAtTerminate(1);
 
         $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($added, CardReporter::Human, 'On hold'));
-        $this->assertPublishedCount(2);
+        $this->assertPublishedAtTerminate(2);
 
         $order = array_map(static fn (BoardColumn $column): string => (string) $column->id, array_reverse($this->columns()));
         $this->handler(ReorderBoardColumnsHandler::class)(new ReorderBoardColumnsCommand($this->project, implode(',', $order)));
-        $this->assertPublishedCount(3);
+        $this->assertPublishedAtTerminate(3);
 
         $this->handler(SetBoardColumnTerminalHandler::class)(new SetBoardColumnTerminalCommand($added, true));
-        $this->assertPublishedCount(4);
+        $this->assertPublishedAtTerminate(4);
 
         $this->handler(SetDefaultBoardColumnHandler::class)(new SetDefaultBoardColumnCommand($this->column($this->project, 'next')));
-        $this->assertPublishedCount(5);
+        $this->assertPublishedAtTerminate(5);
 
         $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($added, CardReporter::Human));
-        $this->assertPublishedCount(6);
+        $this->assertPublishedAtTerminate(6);
 
         $projectId = $this->project->id;
         self::assertNotNull($projectId);
@@ -101,6 +105,19 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
             // No label: what a board shows depends on who looks at it.
             self::assertSame('{"type":"board.columns_changed"}', $update->getData());
         }
+    }
+
+    public function test_the_publish_waits_for_terminate_and_sends_one_refresh_per_project(): void
+    {
+        $this->handler(AddBoardColumnHandler::class)(new AddBoardColumnCommand($this->project, 'Parked'));
+        $this->handler(AddBoardColumnHandler::class)(new AddBoardColumnCommand($this->project, 'On hold'));
+
+        // Guard: both changes are in the database, so only the publish waits.
+        self::assertCount(6, $this->columns());
+        $this->assertPublishedCount(0);
+
+        $this->assertPublishedAtTerminate(1);
+        $this->assertPublishedAtTerminate(1);
     }
 
     public function test_a_change_that_changes_nothing_or_is_refused_publishes_nothing(): void
@@ -116,7 +133,7 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
 
         // Guard: the default is where the no-op left it, so nothing moved.
         self::assertTrue($backlog->isDefault);
-        $this->assertPublishedCount(0);
+        $this->assertPublishedAtTerminate(0);
     }
 
     public function test_a_rolled_back_add_publishes_nothing(): void
@@ -174,6 +191,7 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
         );
 
         $listener(new BoardColumnsChanged($this->project));
+        $listener->publish();
 
         $this->assertPublishedCount(0);
     }
@@ -193,6 +211,7 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
         );
 
         $listener(new BoardColumnsChanged($this->project));
+        $listener->publish();
 
         self::assertTrue($log->hasWarning([
             'message' => 'board.refresh_publish_failed',
@@ -202,7 +221,7 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
 
     private function assertBoardUnchangedAndNothingPublished(): void
     {
-        $this->assertPublishedCount(0);
+        $this->assertPublishedAtTerminate(0);
         $connection = $this->em->getConnection();
         self::assertSame(4, (int) $connection->fetchOne('SELECT count(*) FROM board_columns WHERE project_id = :id', [
             'id' => (string) $this->project->id,
@@ -215,6 +234,17 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
     private function assertPublishedCount(int $expected): void
     {
         self::assertCount($expected, $this->published);
+    }
+
+    /** Ends the request the way the kernel does, then counts every publish so far. */
+    private function assertPublishedAtTerminate(int $expected): void
+    {
+        $dispatcher = self::getContainer()->get('event_dispatcher');
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+        self::assertNotNull(self::$kernel);
+        $dispatcher->dispatch(new TerminateEvent(self::$kernel, Request::create('/'), new Response()), KernelEvents::TERMINATE);
+
+        $this->assertPublishedCount($expected);
     }
 
     private function recordingHub(): HubInterface

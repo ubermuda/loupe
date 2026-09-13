@@ -2,10 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Module\Board\Service;
+namespace App\Module\Board\Command;
 
 use App\Mercure\ProjectTopicBuilder;
-use App\Module\Project\Entity\Project;
 use App\Outbox\AgentPush;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -15,11 +14,12 @@ use Symfony\Component\Mercure\Authorization;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 /**
- * Lets the browser that renders a board listen for its column changes. The
- * caller must already have checked that the user may view the project: this
- * grants a subscriber token for that project's board topic, and no other.
+ * Lets the browser that shows a board listen for its column changes. It sets a
+ * cookie holding a subscriber token for that project's board topic, and no
+ * other, and returns the URL to subscribe to. It returns null when this
+ * instance has no hub to listen to.
  */
-final readonly class BoardRefreshAuthorization
+final readonly class AuthorizeBoardRefreshHandler
 {
     /**
      * @param \Closure(): Authorization $authorization a closure, because
@@ -40,11 +40,7 @@ final readonly class BoardRefreshAuthorization
     ) {
     }
 
-    /**
-     * Sets the token cookie on the response and returns the URL to subscribe
-     * to, or null when this instance has no hub to listen to.
-     */
-    public function authorize(Project $project): ?string
+    public function __invoke(AuthorizeBoardRefreshCommand $command): ?string
     {
         // A refused column form forwards to the board, and the bundle only
         // writes a cookie that sits on the main request.
@@ -53,6 +49,7 @@ final readonly class BoardRefreshAuthorization
             return null;
         }
 
+        $project = $command->project;
         $topic = $this->topics->forBoard($project->id ?? throw new \LogicException('Project has no id.'));
 
         try {

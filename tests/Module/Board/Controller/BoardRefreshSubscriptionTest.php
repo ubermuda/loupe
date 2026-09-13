@@ -7,6 +7,7 @@ namespace App\Tests\Module\Board\Controller;
 use App\Mercure\ProjectTopicBuilder;
 use App\Outbox\AgentPush;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Cookie;
@@ -73,7 +74,35 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         self::assertCount(1, $crawler->filter('[data-controller="board-refresh"]'));
     }
 
-    public function test_a_stranger_gets_no_token(): void
+    public function test_a_viewer_renews_the_token_before_a_reconnect(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'board-refresh-renew@example.com');
+        $project = $this->project($em, $owner);
+        self::assertNotNull($project->id);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/refresh-authorization');
+
+        self::assertResponseStatusCodeSame(204);
+        $topics = static::getContainer()->get(ProjectTopicBuilder::class);
+        self::assertInstanceOf(ProjectTopicBuilder::class, $topics);
+        self::assertSame([$topics->forBoard($project->id)], $this->claims($this->cookie($client))['mercure']['subscribe'] ?? null);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function boardUrls(): iterable
+    {
+        yield 'the board' => [''];
+        yield 'the renewal' => ['/refresh-authorization'];
+    }
+
+    #[DataProvider('boardUrls')]
+    public function test_a_stranger_gets_no_token(string $suffix): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -85,7 +114,7 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($stranger);
-        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board'.$suffix);
 
         self::assertResponseStatusCodeSame(403);
         self::assertNull($this->findCookie($client));
@@ -110,6 +139,10 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         self::assertNull($this->findCookie($client));
         self::assertCount(0, $crawler->filter('[data-controller="board-refresh"]'));
         self::assertCount(1, $crawler->filter('turbo-frame#board-frame #board'));
+
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/refresh-authorization');
+        self::assertResponseStatusCodeSame(404);
+        self::assertNull($this->findCookie($client));
     }
 
     private function findCookie(KernelBrowser $client): ?Cookie

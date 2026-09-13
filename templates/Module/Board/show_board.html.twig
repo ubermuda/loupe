@@ -22,7 +22,7 @@
     </div>
 
     {# A column change elsewhere reloads this frame, so every open board shows it. #}
-    <div{% if refreshUrl %} data-controller="board-refresh" data-board-refresh-hub-value="{{ refreshUrl }}" data-board-refresh-board-value="{{ path('app_project_board', {id: board.project.id}) }}"{% endif %}>
+    <div{% if refreshUrl %} data-controller="board-refresh" data-board-refresh-hub-value="{{ refreshUrl }}" data-board-refresh-board-value="{{ path('app_project_board', {id: board.project.id}) }}" data-board-refresh-authorize-value="{{ path('app_board_refresh_authorize', {id: board.project.id}) }}"{% endif %}>
         <turbo-frame id="board-frame" target="_top" data-board-refresh-target="frame">
             {% include '@Board/_board_columns.html.twig' with {board: board, addColumnForm: addColumnForm, renameColumnForm: renameColumnForm} only %}
         </turbo-frame>
