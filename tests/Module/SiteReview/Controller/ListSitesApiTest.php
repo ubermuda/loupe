@@ -37,7 +37,7 @@ final class ListSitesApiTest extends WebTestCase
 
         $em->flush();
 
-        $client->request(Request::METHOD_GET, '/api/agent/sites',
+        $client->request(Request::METHOD_GET, '/api/projects',
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseIsSuccessful();
@@ -52,10 +52,28 @@ final class ListSitesApiTest extends WebTestCase
         self::assertCount(2, $data['sites']);
     }
 
+    public function test_the_old_agent_path_is_gone(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = new User(fullName: 'Owner', email: 'list-sites-old-path@example.com', password: 'x');
+        $owner->emailVerifiedAt = new \DateTimeImmutable();
+        $em->persist($owner);
+        [$token, $raw] = ApiToken::issue($owner, 'tok', ApiTokenScope::Agent);
+        $em->persist($token);
+        $em->flush();
+
+        $client->request(Request::METHOD_GET, '/api/agent/sites',
+            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
     public function test_no_token_is_unauthorized(): void
     {
         $client = static::createClient();
-        $client->request(Request::METHOD_GET, '/api/agent/sites');
+        $client->request(Request::METHOD_GET, '/api/projects');
         self::assertResponseStatusCodeSame(401);
     }
 
@@ -71,7 +89,7 @@ final class ListSitesApiTest extends WebTestCase
         $em->persist($token);
         $em->flush();
 
-        $client->request(Request::METHOD_GET, '/api/agent/sites',
+        $client->request(Request::METHOD_GET, '/api/projects',
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseStatusCodeSame(403);
@@ -95,7 +113,7 @@ final class ListSitesApiTest extends WebTestCase
         $em->persist($project);
         $em->flush();
 
-        $client->request(Request::METHOD_GET, '/api/agent/sites',
+        $client->request(Request::METHOD_GET, '/api/projects',
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         // The firewall refuses it on scope, so the answer comes from
@@ -122,7 +140,7 @@ final class ListSitesApiTest extends WebTestCase
         $em->persist($token);
         $em->flush();
 
-        $client->request(Request::METHOD_GET, '/api/agent/sites',
+        $client->request(Request::METHOD_GET, '/api/projects',
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseStatusCodeSame(403);

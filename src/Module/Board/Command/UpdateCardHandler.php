@@ -8,6 +8,7 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Event\CardMoved;
+use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardMover;
 use App\Module\Board\Service\CardSearchIndexer;
@@ -23,8 +24,11 @@ use Ubermuda\AuditBundle\AuditSubject;
 /** The only handler that moves a card; MoveCardHandler is a shell over it. */
 final readonly class UpdateCardHandler
 {
+    public const string COLUMN_GONE = 'board.card.error.column_gone';
+
     public function __construct(
         private CardRepository $cards,
+        private BoardColumnRepository $boardColumns,
         private CardMover $mover,
         private PullRequestUrlResolver $pullRequests,
         private DocumentLinkResolver $documentLinks,
@@ -61,25 +65,35 @@ final readonly class UpdateCardHandler
             ? null
             : $this->documentLinks->resolve($card->project, array_values($command->documentIds));
 
-        // One write for the whole update, and one lock. A status or priority
+        // One write for the whole update, and one lock. A column or priority
         // change is a move, which renumbers a group and decides the completion
         // timestamp, so this handler owns the transaction the move runs in.
         // Flushing the fields first would commit half an update whose move
         // then failed.
-        $outcome = $this->em->wrapInTransaction(function () use ($command, $card, $title, $documents): UpdateCardOutcome {
+        $outcome = $this->em->wrapInTransaction(function () use ($command, $card, $title, $documents): UpdateCardOutcome|string {
             $this->em->lock($card->project, LockMode::PESSIMISTIC_WRITE);
             // lock() takes the project row and leaves the loaded card as the
             // request read it, which may be before the caller ahead of us in
             // the queue committed. Both the decision below and the move it
             // makes read the group, so both need the group as it is now.
             $this->cards->refreshGroup($card);
+            // The columns too: one deleted or given another terminal flag since
+            // the request loaded it decides where the card may go and whether
+            // the move stamps it.
+            $columns = $this->boardColumns->findForProjectFresh($card->project);
 
-            $status = $command->status ?? $card->status;
+            $column = $command->column ?? $card->column;
+            if ($column->project !== $card->project) {
+                throw new \LogicException('A card moves only to a column of its own board.');
+            }
+            if (!\in_array($column, $columns, true)) {
+                return self::COLUMN_GONE;
+            }
             $priority = $command->priority ?? $card->priority;
             // A rank is a move of its own: a card dropped elsewhere in the
-            // column it already sits in changes neither status nor priority.
-            $move = $status !== $card->status || $priority !== $card->priority || null !== $command->position
-                ? $this->mover->move($card, $status, $priority, $command->position)
+            // column it already sits in changes neither column nor priority.
+            $move = $column !== $card->column || $priority !== $card->priority || null !== $command->position
+                ? $this->mover->move($card, $column, $priority, $command->position)
                 : null;
 
             // After the move, which must read the card as the database holds
@@ -125,6 +139,11 @@ final readonly class UpdateCardHandler
             return new UpdateCardOutcome($move, $titleChanged, $bodyChanged, $typeChanged);
         });
 
+        // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
+        if (\is_string($outcome)) {
+            throw new DomainErrors(['column' => $outcome]);
+        }
+
         // After the commit, never inside it: the sink drains at kernel.terminate,
         // so a record written in the closure outlives a rollback. The move comes
         // first, so the pair reads in the order the board applied it.
@@ -152,7 +171,7 @@ final readonly class UpdateCardHandler
         }
 
         // `moved` names the paired board.card_moved record, which holds the
-        // status and priority this one does not.
+        // column and priority this one does not.
         $this->auditor->record(
             'board.card_updated',
             AuditOutcome::Success,

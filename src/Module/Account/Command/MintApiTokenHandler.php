@@ -15,7 +15,7 @@ final readonly class MintApiTokenHandler
 {
     /**
      * The only scope an account-level token can usefully carry. It reaches
-     * `^/api/agent`, which is the surface the loupe CLI calls.
+     * the `/api/projects` routes, which are the surface the loupe CLI calls.
      *
      * An MCP token authenticates but resolves its project through
      * `projects.mcp_token_id`, which only the project mint route writes, so

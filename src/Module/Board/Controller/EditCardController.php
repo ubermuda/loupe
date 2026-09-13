@@ -45,7 +45,7 @@ final class EditCardController extends AppController
         // The edit form reuses the create form; UpdateCardRequest only adds the
         // factory that pre-fills it from the card.
         $data = UpdateCardRequest::fromCard($card);
-        $form = $this->createForm(CreateCardFormType::class, $data);
+        $form = $this->createForm(CreateCardFormType::class, $data, ['project' => $card->project]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -62,7 +62,7 @@ final class EditCardController extends AppController
                     body: $data->body ?? '',
                     type: $data->type,
                     priority: $data->priority,
-                    status: $data->status,
+                    column: $data->column,
                     // Replace semantics: an emptied textarea clears every link.
                     pullRequestUrls: UpdateCardRequest::toUrlList($data->pullRequestUrls),
                 ));

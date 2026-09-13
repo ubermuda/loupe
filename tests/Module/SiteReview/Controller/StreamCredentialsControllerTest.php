@@ -33,8 +33,7 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         [$raw, , $project] = $this->issue($em, ApiTokenScope::Agent, 'stream@example.com');
 
-        $client->request(Request::METHOD_GET, '/api/agent/stream',
-            ['site' => $project->name],
+        $client->request(Request::METHOD_GET, $this->streamPath($project->name),
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseIsSuccessful();
@@ -67,8 +66,7 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $this->disablePush($em);
         [$raw, , $project] = $this->issue($em, ApiTokenScope::Agent, 'stream-off@example.com');
 
-        $client->request(Request::METHOD_GET, '/api/agent/stream',
-            ['site' => $project->name],
+        $client->request(Request::METHOD_GET, $this->streamPath($project->name),
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         // 404 rather than 403: with push off there is no hub to subscribe to, so
@@ -84,8 +82,7 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         [$raw, , $project] = $this->issue($em, ApiTokenScope::Agent, 'stream-by-id@example.com');
 
-        $client->request(Request::METHOD_GET, '/api/agent/stream',
-            ['site' => (string) $project->id],
+        $client->request(Request::METHOD_GET, $this->streamPath((string) $project->id),
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseIsSuccessful();
@@ -94,30 +91,69 @@ final class StreamCredentialsControllerTest extends WebTestCase
         self::assertSame((string) $project->id, $data['site']['id']);
     }
 
-    public function test_missing_site_is_400(): void
+    public function test_site_resolves_by_slug_too(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        [$raw, $user] = $this->issue($em, ApiTokenScope::Agent, 'stream-by-slug@example.com');
+        $project = new Project($user, 'Stream Site');
+        $em->persist($project);
+        $em->flush();
+
+        $client->request(Request::METHOD_GET, $this->streamPath('stream-site'),
+            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame((string) $project->id, $data['site']['id']);
+    }
+
+    public function test_a_project_name_is_not_a_handle(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        [$raw, $user] = $this->issue($em, ApiTokenScope::Agent, 'stream-by-name@example.com');
+        $em->persist(new Project($user, 'Named Stream Site'));
+        $em->flush();
+
+        $client->request(Request::METHOD_GET, $this->streamPath('Named Stream Site'),
+            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+
+        self::assertResponseStatusCodeSame(404);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('site_not_found', $data['error']);
+    }
+
+    public function test_blank_handle_is_404(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
         [$raw] = $this->issue($em, ApiTokenScope::Agent, 'stream-no-site@example.com');
 
-        // Missing site parameter is a 400.
-        $client->request(Request::METHOD_GET, '/api/agent/stream',
+        $client->request(Request::METHOD_GET, $this->streamPath(' '),
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
-        self::assertResponseStatusCodeSame(400);
+        self::assertResponseStatusCodeSame(404);
         $data = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertIsArray($data);
-        self::assertSame('missing_site_parameter', $data['error']);
+        self::assertSame('site_not_found', $data['error']);
+    }
 
-        // Blank-after-trim site parameter (a space) is also a 400.
+    public function test_the_old_agent_path_is_gone(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw, , $project] = $this->issue($em, ApiTokenScope::Agent, 'stream-old-path@example.com');
+
         $client->request(Request::METHOD_GET, '/api/agent/stream',
-            ['site' => ' '],
+            ['site' => $project->name],
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
-        self::assertResponseStatusCodeSame(400);
-        $data = json_decode((string) $client->getResponse()->getContent(), true);
-        self::assertIsArray($data);
-        self::assertSame('missing_site_parameter', $data['error']);
+        self::assertResponseStatusCodeSame(404);
     }
 
     public function test_unknown_site_is_404(): void
@@ -126,8 +162,7 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         [$raw] = $this->issue($em, ApiTokenScope::Agent, 'stream-unknown@example.com');
 
-        $client->request(Request::METHOD_GET, '/api/agent/stream',
-            ['site' => 'no-such-site'],
+        $client->request(Request::METHOD_GET, $this->streamPath('no-such-site'),
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseStatusCodeSame(404);
@@ -145,8 +180,7 @@ final class StreamCredentialsControllerTest extends WebTestCase
         [, , $otherSite] = $this->issue($em, ApiTokenScope::Agent, 'stream-owner2@example.com');
 
         // Request the other owner's site by ID — robust against name overlap.
-        $client->request(Request::METHOD_GET, '/api/agent/stream',
-            ['site' => (string) $otherSite->id],
+        $client->request(Request::METHOD_GET, $this->streamPath((string) $otherSite->id),
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseStatusCodeSame(404);
@@ -158,8 +192,7 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         [$raw] = $this->issue($em, ApiTokenScope::Mcp, 'mcp-stream@example.com');
 
-        $client->request(Request::METHOD_GET, '/api/agent/stream',
-            ['site' => 'x'],
+        $client->request(Request::METHOD_GET, $this->streamPath('x'),
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseStatusCodeSame(403);
@@ -168,7 +201,7 @@ final class StreamCredentialsControllerTest extends WebTestCase
     public function test_no_token_is_unauthorized(): void
     {
         $client = static::createClient();
-        $client->request(Request::METHOD_GET, '/api/agent/stream', ['site' => 'x']);
+        $client->request(Request::METHOD_GET, $this->streamPath('x'));
         self::assertResponseStatusCodeSame(401);
     }
 
@@ -191,8 +224,7 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $em->persist($project);
         $em->flush();
 
-        $client->request(Request::METHOD_GET, '/api/agent/stream',
-            ['site' => $project->name],
+        $client->request(Request::METHOD_GET, $this->streamPath($project->name),
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         // The firewall refuses it on scope, so the answer comes from
@@ -213,14 +245,18 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         [$raw, , $project] = $this->issue($em, ApiTokenScope::SiteReview, 'stream-unbound@example.com');
 
-        $client->request(Request::METHOD_GET, '/api/agent/stream',
-            ['site' => $project->name],
+        $client->request(Request::METHOD_GET, $this->streamPath($project->name),
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseStatusCodeSame(403);
         $data = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertIsArray($data);
         self::assertSame('insufficient_scope', $data['error'] ?? null);
+    }
+
+    private function streamPath(string $handle): string
+    {
+        return '/api/projects/'.rawurlencode($handle).'/stream';
     }
 
     /**

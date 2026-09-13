@@ -51,15 +51,13 @@ There is no docblock bypass and no sanctioned suppression. A prose phrase in the
 
 ## Mercure SSE Authorization
 
-> Downstream-only pattern. The skeleton ships no Mercure integration, so `MercureAuthorizationController`, `IssueListController` and `IssueBrainstormController` do not exist here. This section applies once Mercure is added.
+A browser holds one `mercureAuthorization` cookie per hub, and `Authorization::setCookie()` throws when a request sets it twice. So no feature sets the cookie itself. The shared layer in `src/Mercure/` writes it once, for every topic on the page.
 
-`MercureAuthorizationController` at `/mercure/authorize` is the primary path. It handles browser-initiated JWT cookie requests, and accepts either `?conversation=UUID` or `?workspace=UUID`.
+- A module authorizes its own topics with a `MercureTopicAuthorizerInterface` implementation. It returns `null` for a topic it does not own, and otherwise delegates to a Voter. `BoardTopicAuthorizer` checks `ProjectVoter::VIEW`.
+- A template requests a topic with `mercure_subscribe()`. `SetMercureCookieOnResponse` writes the allowed topics into the single cookie.
+- `AuthorizeMercureTopicsController` at `POST /mercure/authorize` renews the cookie before a reconnect. It has no `#[IsGranted]`, because each topic is its own subject and passes through its authorizer. `access_control` requires a signed-in user.
 
-Some page controllers pre-authorize topics with `$this->authorization->setCookie()` on the initial page response, so the browser needs no separate trip to `/mercure/authorize`. `IssueListController` (clone-status topic) and `IssueBrainstormController` (conversation and workspace topics) use this pattern.
-
-Write all related topics into the cookie, not only the requested one. The conversation stream and the workspace stream share one Mercure JWT cookie. If each authorize request writes only its own topic, the second request clobbers the first stream's subscription, and that stream goes silent on the next reconnect. Look up the related entity, workspace for a conversation and conversation for a workspace, and include both topic strings unconditionally.
-
-`MercureAuthorizationController` has no class-level `#[IsGranted]`, because it resolves the subject from a query parameter, not a route parameter. `controller.denyAccessUnlessGranted` therefore does not fire. Resolve the subject and call `denyAccessUnlessGranted()` per branch inside the action.
+A topic no authorizer claims is refused. `docs/extending/mercure.md` shows how a feature plugs in.
 
 ## Account enumeration policy
 

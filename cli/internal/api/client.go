@@ -47,7 +47,7 @@ func New(baseURL, token string, hc *http.Client) *Client {
 }
 
 // StreamCredentials fetches subscribe credentials for one of the caller's sites,
-// by id or name.
+// by id or slug.
 func (c *Client) StreamCredentials(ctx context.Context, site string) (StreamCredentials, error) {
 	var creds StreamCredentials
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,

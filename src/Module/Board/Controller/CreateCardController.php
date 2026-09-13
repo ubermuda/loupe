@@ -8,15 +8,16 @@ use App\Controller\AppController;
 use App\Exception\DomainErrors;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Form\CreateCardFormType;
 use App\Module\Board\Form\CreateCardRequest;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
+use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -36,12 +37,16 @@ final class CreateCardController extends AppController
     ) {
     }
 
-    public function __invoke(Request $request, Project $project): Response
-    {
+    public function __invoke(
+        Request $request,
+        Project $project,
+        // `project` holds the raw id here, because the route aliases `id` to it.
+        #[MapEntity(expr: 'repository.findDefaultForProjectId(project)')] BoardColumn $defaultColumn,
+    ): Response {
         $this->board->requireEnabled();
 
-        $data = new CreateCardRequest();
-        $form = $this->createForm(CreateCardFormType::class, $data);
+        $data = new CreateCardRequest(column: $defaultColumn);
+        $form = $this->createForm(CreateCardFormType::class, $data, ['project' => $project]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -59,7 +64,7 @@ final class CreateCardController extends AppController
                     body: $data->body ?? '',
                     type: $data->type ?? CardType::Feature,
                     priority: $data->priority ?? CardPriority::Medium,
-                    status: $data->status ?? CardStatus::Backlog,
+                    column: $data->column,
                     // A person filled this form in, whatever an agent may later do to the card.
                     reporter: CardReporter::Human,
                     pullRequestUrls: CreateCardRequest::toUrlList($data->pullRequestUrls),

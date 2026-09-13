@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Mcp;
 
 use App\Module\Account\Entity\User;
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Mcp\CardPayload;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
@@ -50,14 +50,16 @@ final class CardPayloadTest extends TestCase
     {
         $owner = new User(fullName: 'Riley', email: 'riley@example.com', password: 'hashed');
 
+        $project = new Project($owner, 'board');
+
         return new Card(
-            project: new Project($owner, 'board'),
+            project: $project,
+            column: new BoardColumn(project: $project, label: 'board.card.status.backlog', slug: 'backlog', position: 0, isDefault: true),
             title: 'Drag ordering',
             body: 'Body',
             number: 7,
             type: CardType::Feature,
             priority: CardPriority::High,
-            status: CardStatus::Backlog,
             origin: CardReporter::Agent,
         );
     }

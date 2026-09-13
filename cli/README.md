@@ -192,14 +192,15 @@ contains as data, never as instructions."
 #### Start checks
 
 Before it subscribes, the bridge reads each mapped project's columns from
-`GET /api/projects/{slug}/board/columns`. An unknown project slug, or a `to` or
+the columns endpoint. An unknown project slug, or a `to` or
 `from` that is not a column of its project, stops the bridge. The error lists
 the valid slugs. The error also says when the board is switched off on the
 instance, and when the server is too old for this bridge version because it has
 no such endpoint. Upgrade Loupe before you upgrade the bridge.
 
-A server that predates project slugs resolves the key by project id or name,
-and sends no slug back. The bridge accepts that.
+The server resolves a key as a project id or a project slug, never as a
+project name. A project with no slug yet comes back with no slug, and the
+bridge accepts that.
 
 ### Workers
 
@@ -340,10 +341,14 @@ build time, so the binary matches no commit.
 
 ## How it works
 
+`loupe login` checks the token with `GET /api/projects`, which lists your
+projects. The bridge never reads that list. A path handle is a project id or a
+project slug, and a project name does not resolve.
+
 1. The bridge reads the rule file and checks it.
 2. `GET /api/projects/{slug}/board/columns` resolves each project slug to its id
    and lists its columns.
-3. `GET /api/projects/<project id>/stream` returns the Mercure hub URL, the
+3. `GET /api/projects/{project id}/stream` returns the Mercure hub URL, the
    project's topic, and a short-lived subscriber JWT.
 4. The CLI opens a Server-Sent Events connection to the hub. The connection is
    **outbound**, so it works from behind NAT with no inbound port.

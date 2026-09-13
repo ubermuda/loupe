@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Security;
 
 use App\Module\Account\Entity\User;
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Security\CardVoter;
 use App\Module\Project\Entity\Project;
@@ -63,7 +64,9 @@ final class CardVoterTest extends TestCase
 
     private function makeCard(User $owner): Card
     {
-        return new Card(project: new Project($owner, 'p'), title: 'Ship the board', body: 'Body', number: 1);
+        $project = new Project($owner, 'p');
+
+        return new Card(project: $project, column: new BoardColumn(project: $project, label: 'Backlog', slug: 'backlog', position: 0), title: 'Ship the board', body: 'Body', number: 1);
     }
 
     private function makeUser(string $username): User

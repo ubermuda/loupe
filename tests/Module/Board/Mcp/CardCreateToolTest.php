@@ -141,6 +141,16 @@ final class CardCreateToolTest extends KernelTestCase
         ($this->tool)('Ship it', 'Body', 'feature', 'urgent');
     }
 
+    public function test_an_unknown_status_names_the_columns_of_the_board(): void
+    {
+        $this->enableBoard();
+        $this->actAsMcpTokenBoundTo($this->makeProject('card-create-status'));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('Unknown status "shipped". Use one of: backlog, next, in-progress, done.');
+        ($this->tool)('Ship it', 'Body', 'feature', 'high', status: 'shipped');
+    }
+
     public function test_an_unbound_mcp_token_is_rejected(): void
     {
         $this->enableBoard();

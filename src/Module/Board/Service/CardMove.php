@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Service;
 
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
-use App\Module\Board\Entity\CardStatus;
 
 /**
  * Where a move started from. The card itself carries where it arrived.
@@ -17,21 +17,28 @@ use App\Module\Board\Entity\CardStatus;
 final readonly class CardMove
 {
     public function __construct(
-        public CardStatus $fromStatus,
+        public BoardColumn $fromColumn,
         public CardPriority $fromPriority,
     ) {
     }
 
-    /** @return array<string, scalar|null> */
+    /**
+     * The status keys hold slugs, which is what a record written before
+     * columns were rows holds too, so old and new records share one shape.
+     *
+     * @return array<string, scalar|null>
+     */
     public function auditContext(Card $card): array
     {
         return [
             'cardId' => (string) $card->id,
             'cardNumber' => $card->number,
             'projectId' => (string) $card->project->id,
-            'fromStatus' => $this->fromStatus->value,
+            'fromStatus' => $this->fromColumn->slug,
+            'fromColumnId' => (string) $this->fromColumn->id,
             'fromPriority' => $this->fromPriority->value,
-            'toStatus' => $card->status->value,
+            'toStatus' => $card->column->slug,
+            'toColumnId' => (string) $card->column->id,
             'toPriority' => $card->priority->value,
             'position' => $card->position,
         ];

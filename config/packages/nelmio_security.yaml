@@ -55,5 +55,7 @@ when@prod:
                 # would otherwise turn the reviewer's browser into an egress channel.
                 img-src: ["'self'", 'data:']
                 # Umami Cloud loads its script from one origin and posts events to
-                # another, so the collect origin is listed separately.
-                connect-src: ["'self'", "%env(default:app.csp_origin_fallback:ANALYTICS_ORIGIN)%", "%env(default:app.csp_origin_fallback:ANALYTICS_COLLECT_ORIGIN)%", "%env(default:app.csp_origin_fallback:SITE_REVIEW_WIDGET_BACKEND)%"]
+                # another, so the collect origin is listed separately. An open
+                # board subscribes to the hub, and a source with a path matches
+                # that path, so the full hub URL fits here as it is.
+                connect-src: ["'self'", "%env(default:app.csp_origin_fallback:ANALYTICS_ORIGIN)%", "%env(default:app.csp_origin_fallback:ANALYTICS_COLLECT_ORIGIN)%", "%env(default:app.csp_origin_fallback:SITE_REVIEW_WIDGET_BACKEND)%", "%env(default:app.csp_origin_fallback:MERCURE_PUBLIC_URL)%"]
