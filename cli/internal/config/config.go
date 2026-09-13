@@ -93,7 +93,15 @@ func migrateTokenToKeyring(d string, c Config) {
 		return
 	}
 
-	cleared := c
+	configMu.Lock()
+	defer configMu.Unlock()
+
+	// Re-read under the lock, so a bridge id another goroutine stored in the
+	// meantime survives.
+	cleared, err := readStoredConfig(d)
+	if err != nil {
+		return
+	}
 	cleared.Token = ""
 	// A failed rewrite leaves the token in both places, and the next command
 	// tries again.
@@ -115,6 +123,9 @@ func Save(c Config) error {
 	if err := keyring.Set(keyringService, c.BaseURL, c.Token); err == nil {
 		stored.Token = ""
 	}
+	configMu.Lock()
+	defer configMu.Unlock()
+
 	if stored.BridgeID == "" {
 		// A caller that knows nothing about the bridge id, such as `loupe
 		// login`, must not change which bridge this machine is. A file this

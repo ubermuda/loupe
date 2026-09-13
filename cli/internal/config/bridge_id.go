@@ -8,11 +8,12 @@ import (
 	"sync"
 )
 
-// bridgeIDMu serialises the read, the check and the write below, so two
-// goroutines in one process cannot store two different ids. Two first runs in
-// two processes still race, and the last write wins. Every call after that
-// reads the winner, so the machine settles on one id.
-var bridgeIDMu sync.Mutex
+// configMu serialises every read-modify-write of config.json, so two goroutines
+// in one process cannot write two different ids, and a login cannot land
+// between another goroutine's read and its write. Two first runs in two
+// processes still race, and the last write wins. Every call after that reads
+// the winner, so the machine settles on one id.
+var configMu sync.Mutex
 
 // EnsureBridgeID returns the id that names this machine's bridge to the server.
 // The first call generates one and stores it in config.json. An id that is
@@ -22,8 +23,8 @@ var bridgeIDMu sync.Mutex
 // The id identifies a bridge and grants nothing, so it is not a secret and the
 // keychain does not hold it.
 func EnsureBridgeID() (string, error) {
-	bridgeIDMu.Lock()
-	defer bridgeIDMu.Unlock()
+	configMu.Lock()
+	defer configMu.Unlock()
 
 	d, err := Dir()
 	if err != nil {

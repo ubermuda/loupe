@@ -260,6 +260,53 @@ func TestEnsureBridgeIDIsSafeForConcurrentCallers(t *testing.T) {
 	}
 }
 
+// TestSaveAndEnsureBridgeIDDoNotOverwriteEachOther runs the two writers at
+// once. Either order must leave both the credentials and the id, because Save
+// carries an id forward and EnsureBridgeID keeps the fields it reads.
+func TestSaveAndEnsureBridgeIDDoNotOverwriteEachOther(t *testing.T) {
+	keyring.MockInitWithError(errors.New("no keychain here"))
+	t.Cleanup(keyring.MockInit)
+	useTempConfigHome(t)
+
+	for attempt := range 25 {
+		if err := os.Remove(storedConfigPath(t)); err != nil && !os.IsNotExist(err) {
+			t.Fatalf("clear config: %v", err)
+		}
+
+		var wg sync.WaitGroup
+		wg.Add(2)
+
+		var saveErr, ensureErr error
+		go func() {
+			defer wg.Done()
+			saveErr = Save(Config{BaseURL: "https://example.test", Token: "sk-tok"})
+		}()
+		go func() {
+			defer wg.Done()
+			_, ensureErr = EnsureBridgeID()
+		}()
+		wg.Wait()
+
+		if saveErr != nil {
+			t.Fatalf("attempt %d, Save: %v", attempt, saveErr)
+		}
+		if ensureErr != nil {
+			t.Fatalf("attempt %d, EnsureBridgeID: %v", attempt, ensureErr)
+		}
+
+		onDisk := readStoredForTest(t)
+		if !isUUID(onDisk.BridgeID) {
+			t.Fatalf("attempt %d: config file holds id %q, want a uuid", attempt, onDisk.BridgeID)
+		}
+		if onDisk.BaseURL != "https://example.test" {
+			t.Fatalf("attempt %d: config file holds base URL %q, want the saved one", attempt, onDisk.BaseURL)
+		}
+		if onDisk.Token != "sk-tok" {
+			t.Fatalf("attempt %d: config file holds token %q, want the saved one", attempt, onDisk.Token)
+		}
+	}
+}
+
 // TestWriteConfigLeavesNoTemporaryFile covers the rename: the config dir holds
 // the config and nothing else after a write.
 func TestWriteConfigLeavesNoTemporaryFile(t *testing.T) {
