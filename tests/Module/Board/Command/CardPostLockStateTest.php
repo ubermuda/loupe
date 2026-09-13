@@ -178,7 +178,7 @@ final class CardPostLockStateTest extends KernelTestCase
     private function putInTheMiddleOfNext(Card $card, Card $behind): void
     {
         $this->em->getConnection()->executeStatement(
-            "UPDATE board_cards SET column_id = :column, status = 'next', position = 1 WHERE id = :id",
+            'UPDATE board_cards SET column_id = :column, position = 1 WHERE id = :id',
             ['column' => (string) $this->column($this->project, 'next')->id, 'id' => (string) $card->id],
         );
         $this->em->getConnection()->executeStatement(
