@@ -91,7 +91,7 @@ func keyFor(e event.Event) string {
 // about names the event's aggregate in a log line.
 func about(e event.Event, rule string) []any {
 	attrs := []any{"project", e.ProjectID, "rule", rule}
-	if e.CardNumber > 0 {
+	if e.Type == event.CardMovedType {
 		return append([]any{"card", e.CardNumber}, attrs...)
 	}
 
@@ -100,7 +100,7 @@ func about(e event.Event, rule string) []any {
 
 // aggregate names the event's card, or its subject, in a sentence.
 func aggregate(e event.Event) string {
-	if e.CardNumber > 0 {
+	if e.Type == event.CardMovedType {
 		return fmt.Sprintf("card %d", e.CardNumber)
 	}
 
@@ -322,7 +322,7 @@ func (r *router) logDropped(dropped []pending) {
 	lost := make([]map[string]any, len(dropped))
 	for i, p := range dropped {
 		lost[i] = map[string]any{"rule": p.rule}
-		if p.event.CardNumber > 0 {
+		if p.event.Type == event.CardMovedType {
 			lost[i]["card"] = p.event.CardNumber
 		} else {
 			lost[i]["subject"] = p.event.Subject.ID
