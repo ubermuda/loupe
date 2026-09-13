@@ -16,9 +16,10 @@ final class Version20260912234634 extends AbstractMigration
     }
 
     /**
-     * Release 3 of the move from the status enum to column rows, and it only
-     * expands. This image no longer maps status, so its inserts leave it null.
-     * The previous image still maps it, and hydrates a null without error.
+     * Release 3a of the move from the status enum to column rows. This image no
+     * longer maps status, so its inserts leave it null, and the previous image
+     * hydrates a null without error. No query of the previous image filters on
+     * status, and a separate index covers project_id.
      */
     #[\Override]
     public function up(Schema $schema): void
