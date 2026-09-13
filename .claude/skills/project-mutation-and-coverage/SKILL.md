@@ -39,44 +39,35 @@ To stop a run, read `docker exec loupe-php-fpm-1 ps aux | grep -E 'infection|php
 first, then match your own worktree path. A bare `pkill -f phpunit` kills every
 worktree's tests on the machine.
 
-## Fetching a weekly report
+## Fetching a report from CI
 
-The reports exist only as artifacts. Retention is 90 days.
-
-Take `<workflow>` and `<artifact>` from the table below. Both are parameters, and
-two workflows produce three artifacts.
+The reports exist only as artifacts. Fetch one with `just ci-report`:
 
 ```
-gh run list --workflow <workflow> --limit 5 --json databaseId,conclusion,createdAt
-gh run download <run-id> --name <artifact> --dir /tmp/report
+just ci-report mutation            # summary.log
+just ci-report phpunit-coverage    # head of summary.txt
+just ci-report e2e-coverage        # head of summary.txt
+just ci-report e2e-timing          # per-project time and busy workers
+just ci-report e2e-timing <run-id> # any run, a pull request's included
 ```
 
-| Report | `<workflow>` | Job | `<artifact>` | Holds |
-|---|---|---|---|---|
-| mutation | `Mutation testing` | `infection` | `infection-report` | `summary.log`, `infection.log` |
-| PHPUnit coverage | `Coverage report` | `phpunit-coverage` | `phpunit-coverage` | `summary.txt`, `clover.xml`, `html/` |
-| e2e coverage | `Coverage report` | `e2e-coverage` | `e2e-coverage` | `summary.txt`, `clover.xml`, `html/` |
+With no run id, the recipe takes the newest completed run on `main` that still
+holds the artifact. It downloads into `var/ci-reports/<artifact>/<run-id>/`,
+which git ignores, and it does not download a run twice.
 
-The first two rows were checked by downloading the artifact. The third names what
-`just e2e-coverage` writes locally and what the workflow uploads. No hosted e2e
-coverage artifact has been fetched, because no such run has gone green yet.
+| Report | Workflow | Job | Artifact | Holds | Retention |
+|---|---|---|---|---|---|
+| mutation | `Mutation testing` | `infection` | `infection-report` | `summary.log`, `infection.log` | 90 days |
+| PHPUnit coverage | `Coverage report` | `phpunit-coverage` | `phpunit-coverage` | `summary.txt`, `clover.xml`, `html/` | 90 days |
+| e2e coverage | `Coverage report` | `e2e-coverage` | `e2e-coverage` | `summary.txt`, `clover.xml`, `html/` | 90 days |
+| e2e timing | `CI` | `e2e` | `e2e-timing` | `results.json` | 30 days |
 
-Download outside the repository, so nothing commits a report. `--name` is
-required, because one run holds more than one artifact. A `--name` from the wrong
-workflow fails with an error that does not say the name was the problem.
+The e2e timing artifact comes from every CI run, green or red. `bin/e2e-timing.mjs`
+reads its Playwright JSON report. Time between two tests on one worker counts as
+idle, so worker start-up shows as idle time.
 
-Worked example, for the PHPUnit coverage number:
-
-```
-gh run list --workflow "Coverage report" --limit 5 --json databaseId,conclusion,createdAt
-gh run download 34000093901 --name phpunit-coverage --dir /tmp/report
-head -12 /tmp/report/summary.txt
-```
-
-That prints `Classes: 71.64%`, `Methods: 83.40%` and `Lines: 90.89% (8585/9446)`.
-The Summary block is at the top of the file, so read the head of it. The file
-carries terminal colour codes, which is why a plain `grep` shows escape
-characters around the numbers.
+A coverage `summary.txt` carries terminal colour codes, so a plain `grep` shows
+escape characters around the numbers.
 
 Read `summary.log` or `summary.txt` first. A mutation `summary.log` is a few
 hundred bytes. A coverage `summary.txt` is about 80 KB, because every class

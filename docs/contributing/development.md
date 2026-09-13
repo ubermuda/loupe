@@ -115,6 +115,18 @@ reports keep separate trees for that reason.
 Both recipes take PHPUnit arguments, so `just phpunit-coverage tests/Module/Review`
 reports on one directory.
 
+## Reports from CI
+
+```sh
+just ci-report mutation           # the weekly mutation run
+just ci-report phpunit-coverage   # the weekly PHPUnit coverage run
+just ci-report e2e-coverage       # the weekly e2e coverage run
+just ci-report e2e-timing [RUN]   # time per e2e project, from any CI run
+```
+
+The recipe downloads the artifact into `var/ci-reports/` and prints its summary.
+With no run id, it takes the newest run on `main` that holds the artifact.
+
 ## Secrets
 
 ```sh

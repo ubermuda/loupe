@@ -44,7 +44,11 @@ export default defineConfig({
     // reports "N did not run" beside the failure, which reads as a deliberate
     // skip: one red test withheld all three suites for hours and nobody noticed.
     maxFailures: 1,
-    reporter: [['html', { open: 'never' }]],
+    reporter: [
+        ['html', { open: 'never' }],
+        // `just ci-report e2e-timing` reads this file from CI.
+        ...(process.env.PLAYWRIGHT_JSON_OUTPUT_FILE ? [['json'] as const] : []),
+    ],
     use: {
         baseURL,
         ignoreHTTPSErrors: true,
