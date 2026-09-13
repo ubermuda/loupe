@@ -18,9 +18,6 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: CardRepository::class)]
-#[ORM\HasLifecycleCallbacks]
-// The index the image before board columns reads. The next release drops it.
-#[ORM\Index(name: 'idx_board_cards_board_order', columns: ['project_id', 'status', 'priority', 'position'])]
 // The board reads one column at a time, then sorts by priority and position.
 #[ORM\Index(name: 'idx_board_cards_column_order', columns: ['column_id', 'priority', 'position'])]
 // No access method: DBAL's Postgres platform ignores index flags, and the
@@ -87,13 +84,6 @@ class Card implements ProjectScopedSubject
     #[ORM\Column(name: 'reporter', length: 20, nullable: true, enumType: CardReporter::class)]
     private ?CardReporter $storedReporter = null;
 
-    /**
-     * The column's slug, for the image before board columns, which reads the
-     * card's place from here. The next release drops it.
-     */
-    #[ORM\Column(name: 'status', length: 20)]
-    private string $storedStatus; // @phpstan-ignore property.onlyWritten (only that older image reads it, through the database)
-
     /** Who raised the card, falling back to the column release 2 drops. */
     public CardReporter $reporter {
         get => $this->storedReporter ?? $this->origin;
@@ -146,17 +136,9 @@ class Card implements ProjectScopedSubject
         public readonly SearchLanguage $searchLanguage = SearchLanguage::DEFAULT,
     ) {
         $this->storedReporter = $this->origin;
-        $this->storedStatus = $column->slug;
         $this->pullRequests = new ArrayCollection();
         $this->documents = new ArrayCollection();
         $this->updatedAt = $this->createdAt;
-    }
-
-    /** Holds for the four seeded slugs only: the previous image maps status as an enum of them, in 20 characters. */
-    #[ORM\PreFlush]
-    public function mirrorColumnSlug(): void
-    {
-        $this->storedStatus = $this->column->slug;
     }
 
     /** Replaces every pull request link with the given set. An empty list clears them. */

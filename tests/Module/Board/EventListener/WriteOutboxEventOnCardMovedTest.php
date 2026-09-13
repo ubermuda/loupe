@@ -233,7 +233,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
         self::assertSame(0, (int) $connection->fetchOne('SELECT count(*) FROM outbox_events WHERE project_id = :id', [
             'id' => (string) $this->project->id,
         ]));
-        self::assertSame('backlog', $connection->fetchOne('SELECT status FROM board_cards WHERE id = :id', ['id' => $cardId]));
+        self::assertSame('backlog', $connection->fetchOne('SELECT k.slug FROM board_cards c JOIN board_columns k ON k.id = c.column_id WHERE c.id = :id', ['id' => $cardId]));
     }
 
     private function card(string $title, string $column, CardPriority $priority): Card
