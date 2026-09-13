@@ -63,7 +63,7 @@ final class SuspendedAccountTokenAccessTest extends WebTestCase
 
     private function callAgentApi(KernelBrowser $client, string $raw): void
     {
-        $client->request(Request::METHOD_GET, '/api/agent/sites', server: [
+        $client->request(Request::METHOD_GET, '/api/projects', server: [
             'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
         ]);
     }
