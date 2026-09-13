@@ -14,13 +14,13 @@ use Doctrine\Migrations\AbstractMigration;
 use Doctrine\ORM\EntityManagerInterface;
 use DoctrineMigrations\Version20260912201432;
 use DoctrineMigrations\Version20260912201847;
-use DoctrineMigrations\Version20260912234634;
+use DoctrineMigrations\Version20260912235455;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 require_once __DIR__.'/../../migrations/Version20260912201432.php';
 require_once __DIR__.'/../../migrations/Version20260912201847.php';
-require_once __DIR__.'/../../migrations/Version20260912234634.php';
+require_once __DIR__.'/../../migrations/Version20260912235455.php';
 
 /**
  * Runs the schema and data migrations against rows written before them, inside
@@ -157,7 +157,7 @@ final class BoardColumnsSeedMigrationTest extends KernelTestCase
     /** A later migration's down() fills status from the column, and these two migrations read it. */
     private function migrateAgain(): void
     {
-        $this->apply(new Version20260912234634($this->connection, new NullLogger()), down: true);
+        $this->apply(new Version20260912235455($this->connection, new NullLogger()), down: true);
         $this->connection->executeStatement('ALTER TABLE board_cards DROP column_id');
         $this->connection->executeStatement('DROP TABLE board_columns');
         $this->apply(new Version20260912201432($this->connection, new NullLogger()));

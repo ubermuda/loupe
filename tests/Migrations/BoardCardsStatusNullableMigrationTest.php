@@ -12,10 +12,12 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\ORM\EntityManagerInterface;
 use DoctrineMigrations\Version20260912234634;
+use DoctrineMigrations\Version20260912235455;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 require_once __DIR__.'/../../migrations/Version20260912234634.php';
+require_once __DIR__.'/../../migrations/Version20260912235455.php';
 
 /** Runs down() and up() inside the test's own transaction, which Postgres rolls back with the DDL. */
 final class BoardCardsStatusNullableMigrationTest extends KernelTestCase
@@ -31,15 +33,6 @@ final class BoardCardsStatusNullableMigrationTest extends KernelTestCase
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
         $this->connection = $em->getConnection();
-    }
-
-    public function test_a_card_this_image_writes_leaves_status_null(): void
-    {
-        $cardId = $this->cardInColumn('backlog');
-
-        self::assertNull($this->storedStatus($cardId));
-        self::assertSame('YES', $this->statusNullable());
-        self::assertFalse($this->oldIndexExists());
     }
 
     public function test_down_fills_status_from_the_column_and_restores_the_index(): void
@@ -72,8 +65,17 @@ final class BoardCardsStatusNullableMigrationTest extends KernelTestCase
         $this->em->persist($card);
         $this->em->flush();
         $this->em->clear();
+        $cardId = (string) $card->id;
 
-        return (string) $card->id;
+        // The later migration dropped status. Its down() restores the column as this one left it, and the image between them wrote null.
+        $later = new Version20260912235455($this->connection, new NullLogger());
+        $later->down(new Schema());
+        foreach ($later->getSql() as $query) {
+            $this->connection->executeStatement($query->getStatement(), $query->getParameters(), $query->getTypes());
+        }
+        $this->connection->executeStatement('UPDATE board_cards SET status = NULL WHERE id = :id', ['id' => $cardId]);
+
+        return $cardId;
     }
 
     private function storedStatus(string $cardId): mixed

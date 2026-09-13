@@ -180,13 +180,8 @@ class CardRepository extends ServiceEntityRepository
             return;
         }
 
-        // Null only on a row the image before board columns wrote after the migration.
-        $column = null === $row['column_id']
-            ? null
-            : $this->getEntityManager()->find(BoardColumn::class, Uuid::fromString((string) $row['column_id']));
-        if (null !== $column) {
-            $card->column = $column;
-        }
+        $card->column = $this->getEntityManager()->find(BoardColumn::class, Uuid::fromString((string) $row['column_id']))
+            ?? throw new \LogicException('Card row points at a missing column.');
         $card->priority = CardPriority::from((int) $row['priority']);
     }
 
