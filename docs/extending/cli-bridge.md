@@ -90,7 +90,9 @@ person typed comes back as typed. `project.slug` is the project's slug.
 bridge's rules for one project. The board shows a banner to the owner when a
 rule is dead, and the column dialogs warn before a rename or a delete breaks a
 live rule. The handle follows the same rules as the columns endpoint.
-`bridgeId` is a uuid that the bridge generates once and keeps.
+`bridgeId` is a uuid that the bridge generates once and keeps. The bridge in
+`cli/` does not call this endpoint yet, so for now a report arrives only from a
+client that sends one.
 
 The body replaces the whole report of that bridge for that project. A report
 with an empty `rules` list clears it. Another bridge's report stays as it is.
