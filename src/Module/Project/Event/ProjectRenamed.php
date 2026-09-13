@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Project\Event;
 
 use App\Module\Project\Entity\Project;
+use App\Module\Project\ProjectEventType;
 
 /**
  * Dispatched by UpdateProjectHandler when a save changes the slug, before the
@@ -17,6 +18,7 @@ final readonly class ProjectRenamed
         public Project $project,
         public string $fromSlug,
         public string $toSlug,
+        /** @phpstan-var ProjectEventType::ACTOR_* */
         public string $actor,
     ) {
     }

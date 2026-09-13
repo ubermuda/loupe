@@ -172,7 +172,7 @@ final class WriteOutboxEventOnProjectRenamedTest extends KernelTestCase
         self::assertInstanceOf(ProjectRepository::class, $projects);
         $auditor = self::getContainer()->get(Auditor::class);
         self::assertInstanceOf(Auditor::class, $auditor);
-        $dispatcher = self::getContainer()->get('event_dispatcher');
+        $dispatcher = self::getContainer()->get(EventDispatcherInterface::class);
         self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
         $racing = new UpdateProjectHandler($projects, new RivalBeforeFlush($this->em, [
             'id' => (string) Uuid::v7(),
