@@ -176,6 +176,21 @@ final class BoardColumnControllersTest extends WebTestCase
         self::assertSame($expected, array_values(array_filter($choices, static fn (string $value): bool => '' !== $value)));
     }
 
+    public function test_an_empty_column_is_deleted_from_a_confirmation_dialog_with_no_target_picker(): void
+    {
+        [, $project] = $this->ownedBoard('columns-delete-empty-dialog@example.com');
+        $name = DeleteBoardColumnFormType::nameFor($this->column($project, 'next'));
+        $this->em->clear();
+
+        $crawler = $this->board($project);
+
+        $form = $crawler->filter('form[name="'.$name.'"]');
+        self::assertCount(1, $form);
+        self::assertStringContainsString('holds no cards', $form->ancestors()->filter('dialog')->text());
+        self::assertCount(0, $form->filter('select'));
+        self::assertCount(1, $form->filter('input[name="'.$name.'[_token]"]'));
+    }
+
     public function test_the_owner_deletes_a_column_and_its_cards_move_to_the_target(): void
     {
         [, $project] = $this->ownedBoard('columns-delete@example.com');

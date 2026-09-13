@@ -88,12 +88,6 @@
         {% else %}
         {% set deleteForm = board_column_delete_form(column, board.columns) %}
         {% set deleteAction = path('app_board_column_delete', {projectId: board.project.id, columnId: column.id}) %}
-            {% if cardCount == 0 %}
-            {{ form_start(deleteForm, {action: deleteAction}) }}
-                {{ form_widget(deleteForm._token) }}
-                <button type="submit" class="lp-board__column-menu-item lp-board__column-menu-item--danger">{{ 'board.column.delete.action'|trans }}</button>
-            {{ form_end(deleteForm, {render_rest: false}) }}
-            {% else %}
             <div data-controller="modal">
                 <button type="button" class="lp-board__column-menu-item lp-board__column-menu-item--danger" data-action="click->modal#open">
                     {{ 'board.column.delete.action'|trans }}
@@ -102,18 +96,20 @@
                     <h3 class="lp-dialog-title">{{ 'board.column.delete.title'|trans({'%label%': label}) }}</h3>
                     <p class="lp-dialog-desc">{{ 'board.column.delete.cards'|trans({'%count%': cardCount}) }}</p>
                     {{ form_start(deleteForm, {action: deleteAction, attr: {class: 'lp-form'}}) }}
+                        {% if cardCount > 0 %}
                         <div class="lp-form-field">
                             {{ form_label(deleteForm.target, null, {label_attr: {class: 'lp-label'}}) }}
                             {{ form_widget(deleteForm.target, {attr: {class: 'lp-input lp-select', required: 'required'}}) }}
                         </div>
+                        {% endif %}
+                        {{ form_widget(deleteForm._token) }}
                         <div class="flex items-center justify-end gap-3 pt-2">
                             <button type="button" class="lp-btn" data-action="click->modal#close">{{ 'board.column.delete.cancel'|trans }}</button>
-                            <button type="submit" class="lp-btn lp-btn--danger">{{ 'board.column.delete.submit'|trans }}</button>
+                            <button type="submit" class="lp-btn lp-btn--danger">{{ (cardCount > 0 ? 'board.column.delete.submit' : 'board.column.delete.submit_empty')|trans }}</button>
                         </div>
-                    {{ form_end(deleteForm) }}
+                    {{ form_end(deleteForm, {render_rest: false}) }}
                 </dialog>
             </div>
-            {% endif %}
         {% endif %}
     </div>
 </div>

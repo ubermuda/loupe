@@ -26,9 +26,9 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
- * An empty column posts this form straight from its menu. A column with cards
- * posts it from a dialog that picks the target, and the handler decides which
- * case applies from the count it reads under the project lock.
+ * Every column posts this form from a confirmation dialog. Only a column with
+ * cards shows the target picker, and the handler decides which case applies
+ * from the count it reads under the project lock.
  */
 #[IsGranted(BoardColumnVoter::MANAGE, subject: 'column')]
 #[Route(

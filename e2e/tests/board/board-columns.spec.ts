@@ -192,6 +192,46 @@ test('a header dragged past its neighbour reorders the columns', async ({
     ]);
 });
 
+test('an empty column asks for confirmation before it is deleted', async ({
+    page,
+    board,
+}) => {
+    await openMenu(page, 'in-progress');
+    await page
+        .locator(`${COLUMN}[data-column-slug="in-progress"]`)
+        .getByRole('button', { name: 'Delete column' })
+        .click();
+
+    const dialog = page.locator('dialog[open]');
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('holds no cards');
+    await expect(dialog.getByLabel('Move the cards to')).toHaveCount(0);
+
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog).toHaveCount(0);
+    await page.goto(board.boardUrl);
+    expect(await slugs(page)).toEqual([
+        'backlog',
+        'next',
+        'in-progress',
+        'done',
+    ]);
+
+    await openMenu(page, 'in-progress');
+    await page
+        .locator(`${COLUMN}[data-column-slug="in-progress"]`)
+        .getByRole('button', { name: 'Delete column' })
+        .click();
+    await page
+        .locator('dialog[open]')
+        .getByRole('button', { name: 'Delete the column' })
+        .click();
+
+    await expect(page.getByText('Deleted the column')).toBeVisible();
+    await page.goto(board.boardUrl);
+    expect(await slugs(page)).toEqual(['backlog', 'next', 'done']);
+});
+
 test('a column with cards is deleted into the target the dialog picks', async ({
     page,
     board,
@@ -204,6 +244,13 @@ test('a column with cards is deleted into the target the dialog picks', async ({
 
     const dialog = page.locator('dialog[open]');
     await expect(dialog).toContainText('holds 1 card');
+    await expect(dialog.getByLabel('Move the cards to')).toBeVisible();
+    expect(await slugs(page)).toEqual([
+        'backlog',
+        'next',
+        'in-progress',
+        'done',
+    ]);
     await dialog
         .getByLabel('Move the cards to')
         .selectOption({ label: 'In progress' });

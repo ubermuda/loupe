@@ -4814,6 +4814,10 @@
                 <source>board.column.delete.submit</source>
                 <target>Move the cards and delete</target>
             </trans-unit>
+            <trans-unit id="board.column.delete.submit_empty">
+                <source>board.column.delete.submit_empty</source>
+                <target>Delete the column</target>
+            </trans-unit>
             <trans-unit id="board.column.flash.deleted">
                 <source>board.column.flash.deleted</source>
                 <target>{0}Deleted the column “%label%”.|{1}Deleted the column “%label%” and moved its card.|]1,Inf]Deleted the column “%label%” and moved its %count% cards.</target>
