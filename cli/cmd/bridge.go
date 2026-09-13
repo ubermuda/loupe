@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -119,7 +120,13 @@ func newBridgeRunCmd() *cobra.Command {
 			}
 			defer f.Close()
 
+			// A bridge with no stored credentials reaches neither the stream nor
+			// the run endpoint, so it stops here rather than starting a worker it
+			// can report nothing about.
 			bridgeID, err := config.EnsureBridgeID()
+			if errors.Is(err, config.ErrNotLoggedIn) {
+				return err
+			}
 			if err != nil {
 				return fmt.Errorf("the bridge needs an id to report its runs: %w", err)
 			}
