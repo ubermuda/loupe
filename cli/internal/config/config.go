@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/zalando/go-keyring"
 )
@@ -171,7 +172,13 @@ func readStoredConfig(d string) (Config, error) {
 		if err := json.Unmarshal(b, &fields); err != nil {
 			return Config{}, fmt.Errorf("parse config: %w", err)
 		}
-		delete(fields, "bridgeId")
+		// json matches a field name without regard to case, so the key in the
+		// file can read bridgeID.
+		for k := range fields {
+			if strings.EqualFold(k, "bridgeId") {
+				delete(fields, k)
+			}
+		}
 		rest, err := json.Marshal(fields)
 		if err != nil {
 			return Config{}, fmt.Errorf("parse config: %w", err)

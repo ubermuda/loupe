@@ -86,6 +86,7 @@ func TestEnsureBridgeIDHealsWhatItReads(t *testing.T) {
 		{name: "nil uuid", file: `{"bridgeId":"00000000-0000-0000-0000-000000000000"}`},
 		{name: "id that is a number", file: `{"baseUrl":"https://example.test","bridgeId":123}`, wantBaseURL: "https://example.test"},
 		{name: "id that is an object", file: `{"baseUrl":"https://example.test","bridgeId":{"a":1}}`, wantBaseURL: "https://example.test"},
+		{name: "id of the wrong type under a key of another case", file: `{"baseUrl":"https://example.test","bridgeID":123}`, wantBaseURL: "https://example.test"},
 		{name: "blank file", file: "  \n"},
 		{name: "valid id", file: `{"bridgeId":"` + seededID + `"}`, keepsID: true},
 		{name: "valid id in upper case", file: `{"bridgeId":"` + strings.ToUpper(seededID) + `"}`, keepsID: true},
