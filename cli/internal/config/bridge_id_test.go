@@ -387,6 +387,27 @@ func TestEnsureBridgeIDReportsAnUnparseableConfig(t *testing.T) {
 	}
 }
 
+// TestEnsureBridgeIDReportsASecondBadField pins the second decode. json reports
+// the id error alone, so a credential of the wrong type after it would
+// otherwise read as empty and be written away.
+func TestEnsureBridgeIDReportsASecondBadField(t *testing.T) {
+	keyring.MockInit()
+	useTempConfigHome(t)
+	seedConfigFile(t, `{"bridgeId":123,"token":456}`)
+
+	if _, err := EnsureBridgeID(); err == nil {
+		t.Fatal("EnsureBridgeID accepted a token of the wrong type")
+	}
+
+	b, err := os.ReadFile(storedConfigPath(t))
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	if string(b) != `{"bridgeId":123,"token":456}` {
+		t.Fatalf("config file now reads %s, want it left alone", b)
+	}
+}
+
 // TestSaveKeepsAnExistingBridgeID covers a second `loupe login`, which writes a
 // Config that carries no id. The machine must keep the bridge it already is.
 func TestSaveKeepsAnExistingBridgeID(t *testing.T) {
