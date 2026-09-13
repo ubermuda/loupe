@@ -26,8 +26,8 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardOrigin;
 use App\Module\Board\Entity\CardPriority;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Service\BoardColumns;
@@ -351,7 +351,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
         $next = $this->column($this->project, 'next');
         $this->em->getConnection()->executeStatement('DELETE FROM board_columns WHERE id = :id', ['id' => (string) $next->id]);
 
-        $this->assertRefused(['column' => UpdateCardHandler::COLUMN_GONE], fn () => $this->handler(UpdateCardHandler::class)(new UpdateCardCommand(card: $card, column: $next)));
+        $this->assertRefused(['column' => UpdateCardHandler::COLUMN_GONE], fn () => $this->handler(UpdateCardHandler::class)(new UpdateCardCommand(card: $card, actor: CardReporter::Human, column: $next)));
     }
 
     public function test_a_card_created_in_a_column_deleted_since_it_was_loaded_is_refused(): void
@@ -369,7 +369,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
         $next = $this->column($this->project, 'next');
         $this->em->getConnection()->executeStatement('UPDATE board_columns SET terminal = true WHERE id = :id', ['id' => (string) $next->id]);
 
-        $this->handler(UpdateCardHandler::class)(new UpdateCardCommand(card: $card, column: $next));
+        $this->handler(UpdateCardHandler::class)(new UpdateCardCommand(card: $card, actor: CardReporter::Human, column: $next));
 
         $this->em->clear();
         $moved = $this->em->find(Card::class, $cardId);
@@ -413,7 +413,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
             type: CardType::Feature,
             priority: $priority,
             column: $this->column($this->project, $column),
-            reporter: CardOrigin::Human,
+            reporter: CardReporter::Human,
         ));
     }
 
