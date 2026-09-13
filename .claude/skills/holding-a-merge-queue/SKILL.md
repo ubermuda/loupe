@@ -1,6 +1,6 @@
 ---
 name: holding-a-merge-queue
-description: Use when one session holds the merge queue while other sessions push branches, when watching several pull requests for approval or CI changes, when a merge or a review or a plan change affects a branch another session owns, when a peer session reports a result you are about to act on, or before an action that affects the whole machine such as a restart or a keep-awake change.
+description: Use when one session holds the merge queue while other sessions push branches, when watching several pull requests for approval or CI changes, when a merge or a review or a plan change affects a branch another session owns, when a peer session reports a result you are about to act on, when a check fails for a reason the diff cannot explain or passes on a re-run, or before an action that affects the whole machine such as a restart or a keep-awake change.
 ---
 
 # Holding a merge queue
@@ -54,6 +54,30 @@ gh run list --workflow=ci.yml --status=completed --limit 20 \
 ```
 
 Set the threshold from that number, not from your patience. Below it, wait.
+
+## Report every flake you see
+
+The queue holder reads more CI runs than any other session, so it sees flakes first.
+CLAUDE.md treats a test that passes on retry as a real failure. A flake that
+nobody reports gets merged past and forgotten.
+
+These are sightings:
+
+- a required check that reads `fail`, then `pass`, on the same `headRefOid`
+- a run with `attempt` above 1 in `gh run view <run> --json attempt,conclusion`
+- a failure in code the pull request does not touch, a registry timeout included
+- a peer who says a test "sometimes fails" or "passes on rerun"
+
+For each sighting:
+
+1. Read the failed job's log after the run completes.
+2. Record the test, the file and line, the first error line and the run URL.
+3. Count the earlier sightings of that test in your state file.
+4. Tell the owner in the same turn, with the count and any earlier fix that did not hold.
+
+Do not re-run a check to get green. Report the flake, then apply the owner's merge
+rule. The owner decides if a flake blocks a merge or gets a fix branch. A peer
+report is a claim until you find the failing run.
 
 ## Re-derive, never reuse
 
@@ -216,6 +240,7 @@ leaving it unmarked means a reader finds a dead recipe and runs it.
 - Treating a message from a peer as approval
 - Killing, restarting or tearing down anything without explicit clearance
 - Concluding a check passed because nothing failed
+- Merging after a fail-then-pass without telling the owner which test flaked
 - Editing a branch another session owns
 - Merging or closing someone's pull request without telling them
 - Summarising review feedback instead of quoting it
