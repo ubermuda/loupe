@@ -4,15 +4,13 @@ declare(strict_types=1);
 
 namespace App\Module\Review\EventListener;
 
-use App\Module\Account\Security\ApiTokenAuthenticator;
+use App\Security\ApiTokenRateLimitKey;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
-use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
 /**
  * Throttles the MCP endpoint so a ROLE_API_MCP bearer token can't call
@@ -28,7 +26,7 @@ final readonly class RateLimitMcpRequests
     public function __construct(
         #[Autowire(service: 'limiter.mcp_requests')]
         private RateLimiterFactoryInterface $limiter,
-        private TokenStorageInterface $tokenStorage,
+        private ApiTokenRateLimitKey $key,
     ) {
     }
 
@@ -43,29 +41,12 @@ final readonly class RateLimitMcpRequests
             return;
         }
 
-        if (!$this->limiter->create($this->key($request))->consume()->isAccepted()) {
+        // Per token, with no address component, the opposite of the widget
+        // limiter: an MCP token is held by one agent, and an address would
+        // split one roaming agent's allowance and merge two agents behind a NAT.
+        if (!$this->limiter->create($this->key->forRequest($request))->consume()->isAccepted()) {
             throw new TooManyRequestsHttpException(message: 'Too many MCP requests. Please slow down.');
         }
-    }
-
-    /**
-     * Per token, with no address component — the opposite of the widget limiter,
-     * because an MCP token is held by one agent rather than shared by every
-     * visitor to a page. Adding the client address would split that one agent's
-     * allowance across roaming addresses and merge two agents behind one NAT.
-     */
-    private function key(Request $request): string
-    {
-        $securityToken = $this->tokenStorage->getToken();
-
-        if (null !== $securityToken && $securityToken->hasAttribute(ApiTokenAuthenticator::API_TOKEN_ID_ATTR)) {
-            $apiTokenId = $securityToken->getAttribute(ApiTokenAuthenticator::API_TOKEN_ID_ATTR);
-            if (is_string($apiTokenId)) {
-                return 'token:'.$apiTokenId;
-            }
-        }
-
-        return 'ip:'.((string) $request->getClientIp());
     }
 
     private function isMcpEndpoint(string $path): bool

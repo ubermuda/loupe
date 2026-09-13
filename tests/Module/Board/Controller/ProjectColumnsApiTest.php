@@ -11,6 +11,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
+use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 use Symfony\Component\Uid\Uuid;
 
 final class ProjectColumnsApiTest extends WebTestCase
@@ -144,6 +146,36 @@ final class ProjectColumnsApiTest extends WebTestCase
         );
     }
 
+    /**
+     * With the token unresolved, the listener would key on the address, and the
+     * second read below would pass. A 429 proves the firewall ran first.
+     */
+    public function test_the_limit_counts_per_token_because_the_firewall_runs_first(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        static::getContainer()->set('limiter.agent_board_columns', new RateLimiterFactory(
+            ['id' => 'agent_board_columns', 'policy' => 'fixed_window', 'limit' => 1, 'interval' => '1 minute'],
+            new InMemoryStorage(),
+        ));
+        $em = $this->em();
+        $owner = $this->user($em, 'columns-api-limit@example.com');
+        $project = $this->project($em, $owner, 'Limited App');
+        $first = $this->agentToken($em, $owner);
+        $second = $this->agentToken($em, $owner);
+        $this->enableBoard();
+        $path = '/api/agent/projects/'.$project->id.'/columns';
+
+        $this->get($client, $path, $first, '203.0.113.7');
+        self::assertResponseIsSuccessful();
+
+        $this->get($client, $path, $first, '198.51.100.4');
+        self::assertResponseStatusCodeSame(429);
+
+        $this->get($client, $path, $second, '203.0.113.7');
+        self::assertResponseIsSuccessful();
+    }
+
     private function em(): EntityManagerInterface
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -161,8 +193,8 @@ final class ProjectColumnsApiTest extends WebTestCase
         return $raw;
     }
 
-    private function get(KernelBrowser $client, string $path, string $raw): void
+    private function get(KernelBrowser $client, string $path, string $raw, string $clientIp = '127.0.0.1'): void
     {
-        $client->request(Request::METHOD_GET, $path, server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+        $client->request(Request::METHOD_GET, $path, server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw, 'REMOTE_ADDR' => $clientIp]);
     }
 }

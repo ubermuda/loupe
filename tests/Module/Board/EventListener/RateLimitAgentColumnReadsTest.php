@@ -6,6 +6,7 @@ namespace App\Tests\Module\Board\EventListener;
 
 use App\Module\Account\Security\ApiTokenAuthenticator;
 use App\Module\Board\EventListener\RateLimitAgentColumnReads;
+use App\Security\ApiTokenRateLimitKey;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
@@ -22,7 +23,7 @@ final class RateLimitAgentColumnReadsTest extends TestCase
 {
     public function test_a_token_cannot_read_columns_without_bound(): void
     {
-        $listener = $this->listenerAuthenticatedAs('agent-token-1');
+        $listener = $this->listener('agent-token-1');
 
         $listener($this->read('203.0.113.7'));
 
@@ -34,36 +35,49 @@ final class RateLimitAgentColumnReadsTest extends TestCase
     {
         $storage = new InMemoryStorage();
 
-        $this->listenerAuthenticatedAs('agent-token-1', $storage)($this->read('203.0.113.7'));
-        $this->listenerAuthenticatedAs('agent-token-2', $storage)($this->read('203.0.113.7'));
+        $this->listener('agent-token-1', $storage)($this->read('203.0.113.7'));
+        $this->listener('agent-token-2', $storage)($this->read('203.0.113.7'));
         $this->addToAssertionCount(1);
+    }
+
+    public function test_with_no_token_the_client_address_is_the_bucket(): void
+    {
+        $listener = $this->listener(null);
+
+        $listener($this->read('203.0.113.7'));
+        $listener($this->read('198.51.100.4'));
+
+        $this->expectException(TooManyRequestsHttpException::class);
+        $listener($this->read('203.0.113.7'));
     }
 
     public function test_another_route_is_not_limited(): void
     {
-        $listener = $this->listenerAuthenticatedAs('agent-token-1');
+        $listener = $this->listener('agent-token-1');
 
         $listener($this->read('203.0.113.7'));
         $listener($this->event('api_agent_sites', '203.0.113.7'));
         $this->addToAssertionCount(1);
     }
 
-    private function listenerAuthenticatedAs(string $apiTokenId, ?StorageInterface $storage = null): RateLimitAgentColumnReads
+    private function listener(?string $apiTokenId, ?StorageInterface $storage = null): RateLimitAgentColumnReads
     {
-        $securityToken = $this->createStub(TokenInterface::class);
-        $securityToken->method('hasAttribute')->willReturn(true);
-        $securityToken->method('getAttribute')->willReturnCallback(
-            static fn (string $name): ?string => ApiTokenAuthenticator::API_TOKEN_ID_ATTR === $name ? $apiTokenId : null,
-        );
         $tokenStorage = new TokenStorage();
-        $tokenStorage->setToken($securityToken);
+        if (null !== $apiTokenId) {
+            $securityToken = $this->createStub(TokenInterface::class);
+            $securityToken->method('hasAttribute')->willReturn(true);
+            $securityToken->method('getAttribute')->willReturnCallback(
+                static fn (string $name): ?string => ApiTokenAuthenticator::API_TOKEN_ID_ATTR === $name ? $apiTokenId : null,
+            );
+            $tokenStorage->setToken($securityToken);
+        }
 
         return new RateLimitAgentColumnReads(
             new RateLimiterFactory(
                 ['id' => 'agent_board_columns', 'policy' => 'fixed_window', 'limit' => 1, 'interval' => '1 minute'],
                 $storage ?? new InMemoryStorage(),
             ),
-            $tokenStorage,
+            new ApiTokenRateLimitKey($tokenStorage),
         );
     }
 
