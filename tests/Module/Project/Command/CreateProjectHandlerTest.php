@@ -158,13 +158,15 @@ final class CreateProjectHandlerTest extends KernelTestCase
         $owner = $this->user('create-project-slug-race@example.com');
         $projects = self::getContainer()->get(ProjectRepository::class);
         self::assertInstanceOf(ProjectRepository::class, $projects);
+        $events = self::getContainer()->get(EventDispatcherInterface::class);
+        self::assertInstanceOf(EventDispatcherInterface::class, $events);
         $racing = new CreateProjectHandler($projects, new RivalBeforeFlush($this->em, [
             'id' => (string) Uuid::v7(),
             'owner_id' => (string) $owner->id,
             'name' => 'My App',
             'slug' => 'my-app',
             'created_at' => '2026-09-12 00:00:00',
-        ]), $this->audit->auditor);
+        ]), $this->audit->auditor, $events);
 
         try {
             $racing(new CreateProjectCommand($owner, 'my-app', null, SearchLanguage::English));
