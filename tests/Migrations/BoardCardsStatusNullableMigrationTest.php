@@ -45,6 +45,8 @@ final class BoardCardsStatusNullableMigrationTest extends KernelTestCase
     public function test_down_fills_status_from_the_column_and_restores_the_index(): void
     {
         $cardId = $this->cardInColumn('waiting-for-the-customer-to-answer');
+        // A card this image moved keeps the slug an older image wrote.
+        $this->connection->executeStatement("UPDATE board_cards SET status = 'backlog' WHERE id = :id", ['id' => $cardId]);
 
         $this->migrate(down: true);
 
