@@ -117,7 +117,9 @@ func Save(c Config) error {
 	}
 	if stored.BridgeID == "" {
 		// A caller that knows nothing about the bridge id, such as `loupe
-		// login`, must not change which bridge this machine is.
+		// login`, must not change which bridge this machine is. A file this
+		// cannot read holds no id to keep, and `login` is how an operator
+		// repairs such a file, so the read error stops nothing.
 		if previous, err := readStoredConfig(d); err == nil && isUUID(previous.BridgeID) {
 			stored.BridgeID = previous.BridgeID
 		}
@@ -155,15 +157,27 @@ func writeConfig(d string, c Config) error {
 		return err
 	}
 
-	path := filepath.Join(d, configFileName)
-	if err := os.WriteFile(path, b, 0o600); err != nil {
+	// A write in place truncates first, so a full disk leaves the credentials
+	// half written. os.CreateTemp opens at 0600, and the rename replaces the
+	// file in one step, which also sets the mode of an existing config that
+	// held world-readable permissions and an API token.
+	f, err := os.CreateTemp(d, configFileName+".*")
+	if err != nil {
 		return fmt.Errorf("write config: %w", err)
 	}
-	// WriteFile's mode applies only when it creates the file, so a config that
-	// already existed keeps whatever permissions it had — including
-	// world-readable ones holding an API token.
-	if err := os.Chmod(path, 0o600); err != nil {
-		return fmt.Errorf("secure config: %w", err)
+	tmp := f.Name()
+	defer os.Remove(tmp)
+
+	if _, err := f.Write(b); err != nil {
+		f.Close()
+
+		return fmt.Errorf("write config: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("write config: %w", err)
+	}
+	if err := os.Rename(tmp, filepath.Join(d, configFileName)); err != nil {
+		return fmt.Errorf("write config: %w", err)
 	}
 
 	return nil

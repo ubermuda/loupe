@@ -260,6 +260,34 @@ func TestEnsureBridgeIDIsSafeForConcurrentCallers(t *testing.T) {
 	}
 }
 
+// TestWriteConfigLeavesNoTemporaryFile covers the rename: the config dir holds
+// the config and nothing else after a write.
+func TestWriteConfigLeavesNoTemporaryFile(t *testing.T) {
+	keyring.MockInit()
+	useTempConfigHome(t)
+
+	if _, err := EnsureBridgeID(); err != nil {
+		t.Fatalf("EnsureBridgeID: %v", err)
+	}
+	if err := Save(Config{BaseURL: "https://example.test", Token: "sk-tok"}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	d, err := Dir()
+	if err != nil {
+		t.Fatalf("Dir: %v", err)
+	}
+	entries, err := os.ReadDir(d)
+	if err != nil {
+		t.Fatalf("read config dir: %v", err)
+	}
+	for _, e := range entries {
+		if e.Name() != "config.json" {
+			t.Fatalf("config dir holds %q, want config.json alone", e.Name())
+		}
+	}
+}
+
 // TestLoadTreatsABlankFileAsNoCredentials pins the reader the bridge id shares
 // with Load. A blank file used to give a JSON parse error.
 func TestLoadTreatsABlankFileAsNoCredentials(t *testing.T) {
