@@ -20,16 +20,46 @@ run in. The bridge refuses to start without the file.
 that file, and the bridge prints it when it finds none.
 
 The bridge checks every project and column slug against the server before it
-subscribes, and it stops on a slug the board does not have. It follows one
-project for each process for now.
+subscribes, and it stops on a slug the board does not have. Its error then lists
+the slugs you own. One bridge follows every project you own on one connection.
+It ignores the events of a project `rules.yaml` does not map, and logs that
+project once.
 
 The bridge authenticates with an account-level API token that carries the agent
-scope. Mint one at `/account`. It reaches `GET /api/projects`,
-`GET /api/projects/{handle}/stream` and `GET /api/projects/{handle}/board/columns`,
-and no other endpoint. A project's widget token carries a different scope and
-the firewall refuses it here. The handle is a project id or a project slug. A
-project name does not resolve. The bridge reads the columns by the slug in
-`rules.yaml`, and it reads the stream by the project id that answer returns.
+scope. Mint one at `/account`. It reaches `GET /api/projects`, `GET /api/events`
+and `GET /api/projects/{handle}/board/columns`, and no other endpoint. A
+project's widget token carries a different scope and the firewall refuses it
+here. The handle is a project id or a project slug. A project name does not
+resolve. The bridge reads the columns by the slug in `rules.yaml`.
+
+## Events endpoint
+
+`GET /api/events` returns what a client needs to follow the events of every
+project the token's user owns:
+
+```json
+{
+  "hubUrl": "https://mercure.example.com/.well-known/mercure",
+  "jwt": "<subscriber JWT>",
+  "projects": [
+    {"id": "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7", "slug": "my-app", "name": "My App", "topic": "https://loupe.example.com/projects/0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7/events"}
+  ]
+}
+```
+
+The JWT expires after an hour, and its `subscribe` claim lists exactly the
+topics in `projects`. A client asks the hub for each topic with its own `topic`
+query parameter on one connection. A user with no project gets an empty list.
+The endpoint answers `404` when push is switched off on the instance.
+
+The list grows with the number of projects. For 100 projects, the hub URL with
+every topic is about 8.9 KB, and the JWT is about 9.7 KB. A local
+`dunglas/mercure:v0.24` hub behind Traefik accepted 100 and 1,000 topics. A
+reverse proxy in front of the hub can have a smaller limit on the request line
+or on one header, so check yours if you own many projects.
+
+This endpoint replaced `GET /api/projects/{handle}/stream`. A CLI binary built
+before the change calls the old route, gets `404`, and must be rebuilt.
 
 A prompt holds validated identifiers and slugs only, and the bridge adds a fixed
 line that tells the agent to treat the card as data. An event caused by the

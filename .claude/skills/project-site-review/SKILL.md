@@ -134,7 +134,8 @@ notice stay event-sourced on purpose, because zero is *correct* there.
 | `/api/board/cards` | POST | Create a card from the widget |
 
 Two more routes live in this module and are not widget paths. `/api/projects`
-and `/api/projects/{handle}/stream` serve the loupe CLI. The firewall grants each
+and `/api/events` serve the loupe CLI. `/api/events` returns one subscriber JWT
+for the topics of every project the caller owns. The firewall grants each
 route by its own rule to `ROLE_API_AGENT`, which a widget token does not carry, so a widget token gets
 `insufficient_scope`. They keep their `StreamCredentialsController` and
 `ListSitesController` classes here because their command handlers do.
@@ -148,7 +149,7 @@ silently exempts every other endpoint the widget reaches.
 
 Widget tokens are project-bound and public, because they ship in page source.
 Widget-scoped endpoints reject account-level tokens, and account-scoped
-endpoints reject widget tokens. `/stream` refuses widget tokens outright.
+endpoints reject widget tokens. `/api/events` refuses widget tokens outright.
 
 ## Accepted: a widget token reads, edits and deletes every pending comment
 
