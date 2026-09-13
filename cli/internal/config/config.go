@@ -6,9 +6,13 @@
 // A token an older version left in the file migrates to the keychain on the
 // next read, so an installation that never logs in again still stops keeping
 // the secret on disk.
+//
+// The bridge id sits in that same file. It names a bridge and grants nothing,
+// so it is not a secret and the keychain does not hold it.
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,14 +26,19 @@ import (
 // so credentials for two instances do not overwrite each other.
 const keyringService = "loupe-cli"
 
+// configFileName is the JSON file inside Dir().
+const configFileName = "config.json"
+
 // ErrNotLoggedIn is returned by Load when no usable credentials are stored.
 var ErrNotLoggedIn = errors.New("not logged in: run `loupe login` first")
 
 // Config is the persisted credential set. Token is empty on disk whenever the
-// keychain accepted it.
+// keychain accepted it. BridgeID names this machine's bridge to the server, and
+// EnsureBridgeID rather than Load is what guarantees a value.
 type Config struct {
-	BaseURL string `json:"baseUrl"`
-	Token   string `json:"token,omitempty"`
+	BaseURL  string `json:"baseUrl"`
+	Token    string `json:"token,omitempty"`
+	BridgeID string `json:"bridgeId,omitempty"`
 }
 
 // Dir is the directory that holds config.json, and rules.yaml beside it.
@@ -49,16 +58,9 @@ func Load() (Config, error) {
 	if err != nil {
 		return c, err
 	}
-	b, err := os.ReadFile(filepath.Join(d, "config.json"))
+	c, err = readStoredConfig(d)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return c, ErrNotLoggedIn
-		}
-
-		return c, fmt.Errorf("read config: %w", err)
-	}
-	if err := json.Unmarshal(b, &c); err != nil {
-		return c, fmt.Errorf("parse config: %w", err)
+		return c, err
 	}
 	if c.BaseURL == "" {
 		return c, ErrNotLoggedIn
@@ -113,8 +115,38 @@ func Save(c Config) error {
 	if err := keyring.Set(keyringService, c.BaseURL, c.Token); err == nil {
 		stored.Token = ""
 	}
+	if stored.BridgeID == "" {
+		// A caller that knows nothing about the bridge id, such as `loupe
+		// login`, must not change which bridge this machine is.
+		if previous, err := readStoredConfig(d); err == nil && isUUID(previous.BridgeID) {
+			stored.BridgeID = previous.BridgeID
+		}
+	}
 
 	return writeConfig(d, stored)
+}
+
+// readStoredConfig reads config.json. A file that is missing or blank reads as
+// an empty Config, so a first run and a hand-emptied file both continue.
+func readStoredConfig(d string) (Config, error) {
+	var c Config
+
+	b, err := os.ReadFile(filepath.Join(d, configFileName))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return c, nil
+		}
+
+		return c, fmt.Errorf("read config: %w", err)
+	}
+	if len(bytes.TrimSpace(b)) == 0 {
+		return c, nil
+	}
+	if err := json.Unmarshal(b, &c); err != nil {
+		return c, fmt.Errorf("parse config: %w", err)
+	}
+
+	return c, nil
 }
 
 func writeConfig(d string, c Config) error {
@@ -123,7 +155,7 @@ func writeConfig(d string, c Config) error {
 		return err
 	}
 
-	path := filepath.Join(d, "config.json")
+	path := filepath.Join(d, configFileName)
 	if err := os.WriteFile(path, b, 0o600); err != nil {
 		return fmt.Errorf("write config: %w", err)
 	}
