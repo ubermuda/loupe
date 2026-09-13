@@ -30,7 +30,7 @@ final class Version20260912234634 extends AbstractMigration
     #[\Override]
     public function down(Schema $schema): void
     {
-        // Cut to the old width. The image before board columns reads it as one of four short slugs, and the next image never reads its value.
+        // Cut to the old width. The image that mirrors the slug here never reads the value, and the image before it knows four short slugs.
         $this->addSql('UPDATE board_cards SET status = LEFT(k.slug, 20) FROM board_columns k WHERE k.id = board_cards.column_id AND board_cards.status IS NULL');
         $this->addSql('ALTER TABLE board_cards ALTER status SET NOT NULL');
         $this->addSql('CREATE INDEX idx_board_cards_board_order ON board_cards (project_id, status, priority, "position")');
