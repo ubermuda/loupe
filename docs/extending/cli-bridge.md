@@ -116,9 +116,14 @@ with an empty `rules` list clears it. Another bridge's report stays as it is.
 
 A report holds at most 200 rules. The endpoint stores no prompt text. The
 payload has no field for one, and the server drops any key it does not list
-above. Nothing removes a report except a newer one from the same bridge, or the
-deletion of the project. A bridge that stops for good leaves its last report in
-place.
+above.
+
+A project keeps the 20 newest reports by the time they arrived, and each new
+report drops the older ones. Otherwise only a newer report from the same bridge,
+or the deletion of the project, removes a report. A bridge that stops for good
+leaves its last report in place. To clear it, send an empty report for that
+bridge id, `{"rules": []}`. The board banner shows the first eight characters
+of the bridge id, and the full id is in the tooltip on those characters.
 
 | Status | Body | When |
 |---|---|---|

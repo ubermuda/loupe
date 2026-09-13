@@ -8,7 +8,6 @@ use App\Controller\AppController;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Command\ReportBridgeRulesCommand;
 use App\Module\Board\Command\ReportBridgeRulesHandler;
-use App\Module\Board\Service\BoardAvailability;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
@@ -18,7 +17,9 @@ use Symfony\Component\Uid\Uuid;
 
 /**
  * Replaces the rule health one bridge reports for one of the caller's
- * projects. The firewall admits agent-scoped tokens alone.
+ * projects. The firewall admits agent-scoped tokens alone, and
+ * RefuseBridgeRuleReportsWhileBoardDisabled answers before this runs while
+ * the board is off.
  */
 #[Route(
     '/api/projects/{handle}/bridges/{bridgeId}/rules',
@@ -30,7 +31,6 @@ final class ReportBridgeRulesController extends AppController
 {
     public function __construct(
         private readonly ReportBridgeRulesHandler $reportBridgeRules,
-        private readonly BoardAvailability $board,
     ) {
     }
 
@@ -42,10 +42,6 @@ final class ReportBridgeRulesController extends AppController
         $user = $this->getUser();
         if (!$user instanceof User) {
             throw new \LogicException('Bridge rules endpoint reached without an authenticated User.');
-        }
-
-        if (!$this->board->isEnabled()) {
-            return $this->json(['error' => 'board_disabled'], JsonResponse::HTTP_NOT_FOUND);
         }
 
         $report = ($this->reportBridgeRules)(new ReportBridgeRulesCommand(

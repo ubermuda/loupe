@@ -27,7 +27,7 @@ final class BridgeRuleHealthBoardTest extends WebTestCase
         $this->enableBoard();
         $owner = $this->user($em, 'rules-banner@example.com');
         $project = $this->project($em, $owner);
-        $this->report($em, $project, [
+        $planBridge = $this->report($em, $project, [
             $this->rule('plan', ['ready'], 'dead', 'column_renamed'),
             $this->rule('review', ['next'], 'live'),
         ], new \DateTimeImmutable('2026-09-13 08:15:00'));
@@ -48,6 +48,8 @@ final class BridgeRuleHealthBoardTest extends WebTestCase
         self::assertStringContainsString('ready', $plan);
         self::assertStringContainsString('column_renamed', $plan);
         self::assertStringContainsString('Reported Sep 13, 2026 08:15', $plan);
+        self::assertStringContainsString('Bridge: '.substr((string) $planBridge, 0, 8), $plan);
+        self::assertSame((string) $planBridge, $banner->filter('[data-bridge-rule="plan"] code[title]')->attr('title'));
         $triage = $banner->filter('[data-bridge-rule="triage"]')->text();
         self::assertStringContainsString('backlog, next', $triage);
         self::assertStringContainsString('unknown_column', $triage);
@@ -178,10 +180,13 @@ final class BridgeRuleHealthBoardTest extends WebTestCase
     }
 
     /** @param list<array{name: string, on: string, columns: list<string>, state: string, reason: ?string}> $rules */
-    private function report(EntityManagerInterface $em, Project $project, array $rules, ?\DateTimeImmutable $receivedAt = null): void
+    private function report(EntityManagerInterface $em, Project $project, array $rules, ?\DateTimeImmutable $receivedAt = null): Uuid
     {
-        $em->persist(new BridgeRuleReport($project, Uuid::v4(), $rules, $receivedAt ?? new \DateTimeImmutable()));
+        $bridgeId = Uuid::v4();
+        $em->persist(new BridgeRuleReport($project, $bridgeId, $rules, $receivedAt ?? new \DateTimeImmutable()));
         $em->flush();
+
+        return $bridgeId;
     }
 
     private function em(): EntityManagerInterface

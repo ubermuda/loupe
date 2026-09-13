@@ -9,11 +9,16 @@ use App\Module\Board\Repository\BridgeRuleReportRepository;
 use App\Module\Project\Repository\ProjectRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Clock\ClockInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
-/** Replaces one bridge's report for one project. Null when the owner has no project by that handle. */
+/**
+ * Replaces one bridge's report for one project, and drops the project's
+ * oldest reports past the number it keeps. Null when the owner has no project
+ * by that handle.
+ */
 final readonly class ReportBridgeRulesHandler
 {
     public function __construct(
@@ -21,6 +26,7 @@ final readonly class ReportBridgeRulesHandler
         private BridgeRuleReportRepository $bridgeRuleReports,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private ClockInterface $clock,
     ) {
     }
 
@@ -36,15 +42,17 @@ final readonly class ReportBridgeRulesHandler
         $report = $this->em->wrapInTransaction(function () use ($command, $project): BridgeRuleReport {
             $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
 
+            $now = $this->clock->now();
             $report = $this->bridgeRuleReports->findOneByProjectAndBridge($project, $command->bridgeId);
             if (null === $report) {
-                $report = new BridgeRuleReport($project, $command->bridgeId, $command->rules);
+                $report = new BridgeRuleReport($project, $command->bridgeId, $command->rules, $now);
                 $this->em->persist($report);
             } else {
                 $report->rules = $command->rules;
-                $report->receivedAt = new \DateTimeImmutable();
+                $report->receivedAt = $now;
             }
             $this->em->flush();
+            $this->bridgeRuleReports->pruneForProject($project);
 
             return $report;
         });

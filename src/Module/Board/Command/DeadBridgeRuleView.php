@@ -13,6 +13,8 @@ final readonly class DeadBridgeRuleView
         public array $columns,
         public string $reason,
         public \DateTimeImmutable $reportedAt,
+        /** The whole bridge id, which an operator needs to clear the report. */
+        public string $bridgeId,
     ) {
     }
 }

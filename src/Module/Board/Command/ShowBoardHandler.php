@@ -68,7 +68,7 @@ final readonly class ShowBoardHandler
         foreach ($this->bridgeRuleReports->findForProject($project) as $report) {
             foreach ($report->rules as $rule) {
                 if (BridgeRuleReport::STATE_DEAD === $rule['state']) {
-                    $deadRules[] = new DeadBridgeRuleView($rule['name'], $rule['columns'], $rule['reason'] ?? '', $report->receivedAt);
+                    $deadRules[] = new DeadBridgeRuleView($rule['name'], $rule['columns'], $rule['reason'] ?? '', $report->receivedAt, (string) $report->bridgeId);
 
                     continue;
                 }

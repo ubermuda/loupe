@@ -22,7 +22,7 @@
     </div>
 
     {% if board.deadBridgeRules is not empty and is_granted(constant('App\\Module\\Project\\Security\\ProjectVoter::MANAGE'), board.project) %}
-    <section class="lp-board-rules" role="alert" data-testid="bridge-rules-banner">
+    <section class="lp-board-rules" role="status" data-testid="bridge-rules-banner">
         <twig:ux:icon name="lucide:triangle-alert" class="lp-board-rules__icon w-4 h-4" />
         <div class="lp-board-rules__body">
             <p class="lp-board-rules__title">{{ 'board.bridge_rules.title'|trans({'%count%': board.deadBridgeRules|length}) }}</p>
@@ -32,6 +32,7 @@
                     <code class="lp-board-rules__code">{{ rule.name }}</code>
                     <span>{{ 'board.bridge_rules.columns'|trans }} {% for slug in rule.columns %}<code class="lp-board-rules__code">{{ slug }}</code>{% if not loop.last %}, {% endif %}{% endfor %}</span>
                     <span>{{ 'board.bridge_rules.reason'|trans }} <code class="lp-board-rules__code">{{ rule.reason }}</code></span>
+                    <span>{{ 'board.bridge_rules.bridge'|trans }} <code class="lp-board-rules__code" title="{{ rule.bridgeId }}">{{ rule.bridgeId|slice(0, 8) }}</code></span>
                     <time datetime="{{ rule.reportedAt|date('c') }}">{{ 'board.bridge_rules.reported'|trans({'%date%': rule.reportedAt|date('M j, Y H:i')}) }}</time>
                 </li>
                 {% endfor %}

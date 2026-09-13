@@ -4846,6 +4846,10 @@
                 <source>board.bridge_rules.reason</source>
                 <target>Reason:</target>
             </trans-unit>
+            <trans-unit id="board.bridge_rules.bridge">
+                <source>board.bridge_rules.bridge</source>
+                <target>Bridge:</target>
+            </trans-unit>
             <trans-unit id="board.bridge_rules.reported">
                 <source>board.bridge_rules.reported</source>
                 <target>Reported %date%</target>

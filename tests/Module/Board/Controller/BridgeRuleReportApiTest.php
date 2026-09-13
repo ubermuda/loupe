@@ -7,11 +7,13 @@ namespace App\Tests\Module\Board\Controller;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
+use App\Module\Board\Repository\BridgeRuleReportRepository;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
@@ -60,6 +62,9 @@ final class BridgeRuleReportApiTest extends WebTestCase
     public function test_a_second_report_from_the_same_bridge_replaces_the_first(): void
     {
         $client = static::createClient();
+        $client->disableReboot();
+        $clock = new MockClock('2026-09-13 10:00:00');
+        static::getContainer()->set('clock', $clock);
         $em = $this->em();
         $owner = $this->user($em, 'rules-api-replace@example.com');
         $project = $this->project($em, $owner, 'Replace App');
@@ -70,13 +75,14 @@ final class BridgeRuleReportApiTest extends WebTestCase
 
         $this->put($client, $path, $raw, ['rules' => [self::DEAD_RULE, self::LIVE_RULE]]);
         self::assertResponseStatusCodeSame(204);
-        $first = $this->receivedAt($em, $project, $bridge);
+        self::assertSame('2026-09-13 10:00:00', $this->receivedAt($em, $project, $bridge));
 
+        $clock->sleep(90);
         $this->put($client, $path, $raw, ['rules' => [self::LIVE_RULE]]);
         self::assertResponseStatusCodeSame(204);
 
         self::assertSame([[self::LIVE_RULE]], $this->storedRules($em, $project, $bridge));
-        self::assertGreaterThanOrEqual($first, $this->receivedAt($em, $project, $bridge));
+        self::assertSame('2026-09-13 10:01:30', $this->receivedAt($em, $project, $bridge));
 
         $this->put($client, $path, $raw, ['rules' => []]);
         self::assertResponseStatusCodeSame(204);
@@ -99,6 +105,77 @@ final class BridgeRuleReportApiTest extends WebTestCase
 
         self::assertSame([[self::DEAD_RULE]], $this->storedRules($em, $project, $first));
         self::assertSame([[self::LIVE_RULE]], $this->storedRules($em, $project, $second));
+    }
+
+    /** A bridge that loses its id reports under a new one at each start, so a project keeps only its newest reports. */
+    public function test_a_project_keeps_only_its_newest_reports(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $clock = new MockClock('2026-09-13 10:00:00');
+        static::getContainer()->set('clock', $clock);
+        $em = $this->em();
+        $owner = $this->user($em, 'rules-api-cap@example.com');
+        $project = $this->project($em, $owner, 'Capped App');
+        $other = $this->project($em, $owner, 'Uncapped App');
+        $raw = $this->agentToken($em, $owner);
+        $this->enableBoard();
+
+        $this->put($client, $this->path((string) $other->id, (string) Uuid::v4()), $raw, ['rules' => [self::LIVE_RULE]]);
+        $bridges = [];
+        for ($i = 0; $i < BridgeRuleReportRepository::KEPT_PER_PROJECT + 2; ++$i) {
+            $clock->sleep(60);
+            $bridges[] = $bridge = (string) Uuid::v4();
+            $this->put($client, $this->path((string) $project->id, $bridge), $raw, ['rules' => [self::LIVE_RULE]]);
+            self::assertResponseStatusCodeSame(204);
+        }
+
+        $count = static fn (Project $p): int => (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM board_bridge_rule_reports WHERE project_id = :project', ['project' => (string) $p->id]);
+        self::assertSame(BridgeRuleReportRepository::KEPT_PER_PROJECT, $count($project));
+        self::assertSame([], $this->storedRules($em, $project, $bridges[0]));
+        self::assertSame([], $this->storedRules($em, $project, $bridges[1]));
+        self::assertSame([[self::LIVE_RULE]], $this->storedRules($em, $project, $bridges[2]));
+        self::assertSame(1, $count($other));
+
+        // A replace makes the oldest report the newest, so it survives the next prune.
+        $clock->sleep(60);
+        $this->put($client, $this->path((string) $project->id, $bridges[2]), $raw, ['rules' => [self::DEAD_RULE]]);
+        $clock->sleep(60);
+        $this->put($client, $this->path((string) $project->id, (string) Uuid::v4()), $raw, ['rules' => []]);
+        self::assertSame([[self::DEAD_RULE]], $this->storedRules($em, $project, $bridges[2]));
+        self::assertSame([], $this->storedRules($em, $project, $bridges[3]));
+    }
+
+    public function test_a_column_slug_as_long_as_a_column_can_derive_is_accepted(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'rules-api-long-slug@example.com');
+        $project = $this->project($em, $owner, 'Long Slug App');
+        $raw = $this->agentToken($em, $owner);
+        $this->enableBoard();
+        $bridge = (string) Uuid::v4();
+        $slug = rtrim(str_repeat('ab-', 600), '-');
+        self::assertGreaterThan(1700, \strlen($slug));
+
+        $this->put($client, $this->path((string) $project->id, $bridge), $raw, ['rules' => [['columns' => [$slug]] + self::LIVE_RULE]]);
+
+        self::assertResponseStatusCodeSame(204);
+        self::assertSame([[array_replace(self::LIVE_RULE, ['columns' => [$slug]])]], $this->storedRules($em, $project, $bridge));
+    }
+
+    public function test_the_board_switched_off_answers_before_the_body_is_validated(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'rules-api-flag-invalid@example.com');
+        $project = $this->project($em, $owner, 'Flag Invalid App');
+        $raw = $this->agentToken($em, $owner);
+
+        $this->put($client, $this->path((string) $project->id, (string) Uuid::v4()), $raw, ['rules' => 'not a list']);
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertJsonStringEqualsJsonString('{"error":"board_disabled"}', (string) $client->getResponse()->getContent());
     }
 
     /** The payload has no prompt field, so a prompt the bridge sends never reaches the database. */
@@ -166,6 +243,8 @@ final class BridgeRuleReportApiTest extends WebTestCase
         yield 'no rules key' => [[], 'rules'];
         yield 'rules not a list' => [['rules' => 'plan'], 'rules'];
         yield 'blank name' => [['rules' => [['name' => ''] + self::LIVE_RULE]], 'rules[0].name'];
+        yield 'name of spaces' => [['rules' => [['name' => '   '] + self::LIVE_RULE]], 'rules[0].name'];
+        yield 'column slug past the cap' => [['rules' => [['columns' => [str_repeat('a', 2001)]] + self::LIVE_RULE]], 'rules[0].columns[0]'];
         yield 'unknown state' => [['rules' => [['state' => 'sleeping'] + self::LIVE_RULE]], 'rules[0].state'];
         yield 'event type with spaces' => [['rules' => [['on' => 'card moved'] + self::LIVE_RULE]], 'rules[0].on'];
         yield 'column that is not a slug' => [['rules' => [['columns' => ['In Progress']] + self::LIVE_RULE]], 'rules[0].columns[0]'];

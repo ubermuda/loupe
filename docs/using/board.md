@@ -105,9 +105,13 @@ agent. The bridge in `cli/` does not send these reports yet.
 
 When any bridge reports a dead rule, the board shows a banner above the columns.
 The banner names each dead rule, the column slugs it watches, the reason the
-bridge gave, and when the report arrived. Only the owner of the project sees it.
-The banner goes away when every bridge sends a report with no dead rule. A
-bridge that stops for good leaves its last report, and so its banner, in place.
+bridge gave, the bridge that sent it, and when the report arrived. Only the
+owner of the project sees it. The banner goes away when every bridge sends a
+report with no dead rule. A bridge that stops for good leaves its last report,
+and so its banner, in place. To clear such a report, send an empty report for
+that bridge id, as the [bridge page](../extending/cli-bridge.md) describes. The
+banner shows the first eight characters of the bridge id, and the full id is in
+their tooltip.
 
 The rename and delete dialogs of a column warn before they save when a live rule
 watches that column's slug. A rename changes the slug, and a delete removes it,

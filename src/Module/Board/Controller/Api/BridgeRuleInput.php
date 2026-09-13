@@ -16,10 +16,13 @@ final class BridgeRuleInput
 {
     public const string SLUG_PATTERN = '/^[a-z0-9]+(-[a-z0-9]+)*$/';
 
+    /** Above the longest slug a 100-character column label can derive, about 1,700 characters. */
+    public const int MAX_SLUG_LENGTH = 2000;
+
     /** @param list<mixed>|null $columns */
     public function __construct(
-        #[Assert\Length(max: 100)]
-        #[Assert\NotBlank]
+        #[Assert\Length(max: 100, normalizer: 'trim')]
+        #[Assert\NotBlank(normalizer: 'trim')]
         public ?string $name = null,
 
         #[Assert\Length(max: 100)]
@@ -27,7 +30,7 @@ final class BridgeRuleInput
         #[Assert\Regex('/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/')]
         public ?string $on = null,
 
-        #[Assert\All([new Assert\Type('string'), new Assert\Length(max: 200), new Assert\Regex(self::SLUG_PATTERN)])]
+        #[Assert\All([new Assert\Type('string'), new Assert\Length(max: self::MAX_SLUG_LENGTH), new Assert\Regex(self::SLUG_PATTERN)])]
         #[Assert\Count(max: 50)]
         #[Assert\NotNull]
         public ?array $columns = null,
@@ -59,7 +62,7 @@ final class BridgeRuleInput
     public function toArray(): array
     {
         return [
-            'name' => $this->name ?? '',
+            'name' => trim($this->name ?? ''),
             'on' => $this->on ?? '',
             'columns' => array_values(array_filter($this->columns ?? [], \is_string(...))),
             'state' => $this->state ?? '',
