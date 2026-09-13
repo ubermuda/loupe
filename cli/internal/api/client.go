@@ -2,6 +2,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -201,6 +202,75 @@ func (c *Client) Columns(ctx context.Context, handle string) (ProjectColumns, er
 	}
 
 	return out, nil
+}
+
+// The states and reasons of a rule health report.
+const (
+	RuleLive = "live"
+	RuleDead = "dead"
+
+	ReasonColumnRenamed  = "column_renamed"
+	ReasonColumnDeleted  = "column_deleted"
+	ReasonProjectRenamed = "project_renamed"
+)
+
+// RuleHealth is one rule of a health report. It has no prompt field, so no
+// prompt text can reach the server.
+type RuleHealth struct {
+	Name    string   `json:"name"`
+	On      string   `json:"on"`
+	Columns []string `json:"columns"`
+	State   string   `json:"state"`
+	Reason  *string  `json:"reason"`
+}
+
+// ErrReportRejected marks a report the server refused for a reason a retry of
+// the same body cannot fix, such as a 422 or an unknown project.
+var ErrReportRejected = errors.New("the server rejected the rule report")
+
+// ReportRules replaces this bridge's rule health report for one project.
+func (c *Client) ReportRules(ctx context.Context, handle, bridgeID string, rules []RuleHealth) error {
+	if rules == nil {
+		rules = []RuleHealth{}
+	}
+	body, err := json.Marshal(struct {
+		Rules []RuleHealth `json:"rules"`
+	}{rules})
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut,
+		c.baseURL+"/api/projects/"+url.PathEscape(handle)+"/bridges/"+url.PathEscape(bridgeID)+"/rules", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("report rules of %s: %w", handle, err)
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusNoContent, http.StatusOK:
+		return nil
+	case http.StatusNotFound:
+		err := notFound(resp.Body)
+		if errors.Is(err, ErrBoardDisabled) {
+			return err
+		}
+
+		return fmt.Errorf("%w: %w", ErrReportRejected, err)
+	case http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity:
+		detail, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return fmt.Errorf("%w (HTTP %d): %s", ErrReportRejected, resp.StatusCode, strings.TrimSpace(string(detail)))
+	default:
+		detail, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return fmt.Errorf("rule report for %s failed (HTTP %d): %s", handle, resp.StatusCode, strings.TrimSpace(string(detail)))
+	}
 }
 
 // Sites lists the authenticated user's sites. Login calls it to check a token.

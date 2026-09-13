@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -138,6 +139,7 @@ type fakeLoupe struct {
 	hubAuth     []string
 	hubTopics   [][]string
 	sse         string
+	reports     []string
 }
 
 const unmappedProject = "0192f3a1-4b2c-7d3e-8f10-000000000003"
@@ -174,8 +176,24 @@ func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
 		}
 		fmt.Fprint(w, f.sse)
 	default:
+		if r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/bridges/"+testBridgeID+"/rules") {
+			raw, _ := io.ReadAll(r.Body)
+			f.mu.Lock()
+			f.reports = append(f.reports, r.URL.Path+" "+string(raw))
+			f.mu.Unlock()
+			w.WriteHeader(http.StatusNoContent)
+
+			return
+		}
 		w.WriteHeader(http.StatusNotFound)
 	}
+}
+
+func (f *fakeLoupe) sentReports() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return append([]string(nil), f.reports...)
 }
 
 func (f *fakeLoupe) connections() int {
@@ -261,6 +279,73 @@ func TestOneConnectionServesEveryProject(t *testing.T) {
 	}
 	if fake.eventsCalls != 2 || fake.hubAuth[0] != "Bearer jwt-1" || fake.hubAuth[1] != "Bearer jwt-2" {
 		t.Fatalf("GET /api/events ran %d times, hub auth = %q", fake.eventsCalls, fake.hubAuth)
+	}
+}
+
+// The bridge reports every mapped project once at start, by project id, and
+// again for the project whose column a live rename takes away.
+func TestTheBridgeReportsRuleHealthAtStartAndOnAChange(t *testing.T) {
+	rename := fmt.Sprintf(`{"type":"board.column_renamed","projectId":%q,"subject":{"type":"board_column","id":"0192f3a1-5555-7d3e-8f10-a2b3c4d5e6f7"},"actor":"human","fromSlug":"next","toSlug":"ready"}`, testProject)
+	fake := &fakeLoupe{sse: "data: " + rename + "\n\n"}
+	server := httptest.NewServer(http.HandlerFunc(fake.serve))
+	t.Cleanup(server.Close)
+	cfg := config.Config{BaseURL: server.URL, Token: "t"}
+
+	body := "projects:\n  loupe:\n    dir: " + t.TempDir() + "\n  other:\n    dir: " + t.TempDir() + "\nrules:\n" +
+		"  - name: plan\n    on: board.card_moved\n    project: loupe\n    to: next\n    prompt: SECRET go\n" +
+		"  - name: other-plan\n    on: board.card_moved\n    project: other\n    to: next\n    prompt: go\n"
+	set, err := rules.Parse([]byte(body), rules.Defaults{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := set.Check(context.Background(), apiClient(cfg)); err != nil {
+		t.Fatal(err)
+	}
+	log := &syncBuffer{}
+	worker := &fakeWorker{}
+	r := &router{log: newBridgeLogger(log), rules: set, maxWorkers: defaultMaxWorkers, worker: worker.ops(), bridgeID: testBridgeID}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd := &cobra.Command{}
+	cmd.SetContext(ctx)
+	done := make(chan error, 1)
+	go func() { done <- subscribe(cmd, cfg, r) }()
+
+	loupePath := "/api/projects/" + testProject + "/bridges/" + testBridgeID + "/rules "
+	otherPath := "/api/projects/" + otherProject + "/bridges/" + testBridgeID + "/rules "
+	live := `{"rules":[{"name":"plan","on":"board.card_moved","columns":["next"],"state":"live","reason":null}]}`
+	dead := `{"rules":[{"name":"plan","on":"board.card_moved","columns":["next"],"state":"dead","reason":"column_renamed"}]}`
+	otherLive := `{"rules":[{"name":"other-plan","on":"board.card_moved","columns":["next"],"state":"live","reason":null}]}`
+
+	eventually(t, "the dead report and the other project's report", func() bool {
+		sent := fake.sentReports()
+		return slices.Contains(sent, loupePath+dead) && slices.Contains(sent, otherPath+otherLive)
+	})
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+
+	var loupeReports []string
+	sawOther := false
+	for _, report := range fake.sentReports() {
+		switch {
+		case strings.HasPrefix(report, loupePath):
+			loupeReports = append(loupeReports, strings.TrimPrefix(report, loupePath))
+		case report == otherPath+otherLive:
+			sawOther = true
+		default:
+			t.Fatalf("unexpected report %s", report)
+		}
+	}
+	// The start report can still wait when the rename arrives, and then the
+	// dead report replaces it. The last report must be the dead one.
+	if !sawOther || len(loupeReports) == 0 || loupeReports[len(loupeReports)-1] != dead || (len(loupeReports) == 2 && loupeReports[0] != live) {
+		t.Fatalf("reports = %v", fake.sentReports())
+	}
+	if strings.Contains(strings.Join(fake.sentReports(), ""), "SECRET") {
+		t.Fatal("a report carries prompt text")
 	}
 }
 

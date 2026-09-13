@@ -78,6 +78,16 @@ events start for one card. That stops two rules from moving a card back and
 forth for ever. A move by a person resets the count. An event of a type no rule
 names resets nothing, because the bridge drops it unread.
 
+A column rename, a column delete or a project rename can take away a slug a rule
+names. The bridge reads `board.column_renamed`, `board.column_deleted` and
+`project.renamed` for that reason, and marks each rule on the old slug dead. A
+dead rule matches nothing until the bridge restarts, and the bridge logs a
+`rule_dead` error for each one. The bridge reports the state of every rule to
+the rule health endpoint, once for each mapped project at start and again when a
+rule dies. The report never carries a prompt. A failed report is retried with
+backoff in the background, and a newer report replaces it. The bridge names
+itself by a uuid it generates on its first start and keeps in `config.json`.
+
 There is no terminal UI. The bridge writes one JSON object per line to stdout
 and to its log file, named by `--log-file`. Each line carries a stable `event`
 key, so `jq` selects what you want. The log file is appended, so it is a history

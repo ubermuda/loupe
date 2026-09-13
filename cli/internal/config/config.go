@@ -9,11 +9,14 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/zalando/go-keyring"
 )
@@ -30,7 +33,14 @@ var ErrNotLoggedIn = errors.New("not logged in: run `loupe login` first")
 type Config struct {
 	BaseURL string `json:"baseUrl"`
 	Token   string `json:"token,omitempty"`
+	// BridgeID names this bridge in its rule health reports. The server keeps
+	// a report until the same id replaces it, so the id must survive a restart
+	// and a new login.
+	BridgeID string `json:"bridgeId,omitempty"`
 }
+
+// uuidPattern is the uuid shape the server's route accepts for a bridge id.
+var uuidPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[13-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 
 // Dir is the directory that holds config.json, and rules.yaml beside it.
 func Dir() (string, error) {
@@ -113,8 +123,70 @@ func Save(c Config) error {
 	if err := keyring.Set(keyringService, c.BaseURL, c.Token); err == nil {
 		stored.Token = ""
 	}
+	if stored.BridgeID == "" {
+		if onDisk, err := readFile(d); err == nil {
+			stored.BridgeID = onDisk.BridgeID
+		}
+	}
 
 	return writeConfig(d, stored)
+}
+
+// BridgeID returns the bridge id stored in config.json. It generates one and
+// writes it on the first call, or when the stored value is not a uuid. It
+// rewrites the file as it is on disk, so a token the keychain holds stays out.
+func BridgeID() (string, error) {
+	d, err := Dir()
+	if err != nil {
+		return "", err
+	}
+	c, err := readFile(d)
+	if errors.Is(err, os.ErrNotExist) {
+		return "", ErrNotLoggedIn
+	}
+	if err != nil {
+		return "", err
+	}
+	if uuidPattern.MatchString(c.BridgeID) {
+		return c.BridgeID, nil
+	}
+
+	id, err := newUUID()
+	if err != nil {
+		return "", err
+	}
+	c.BridgeID = id
+	if err := writeConfig(d, c); err != nil {
+		return "", err
+	}
+
+	return id, nil
+}
+
+// newUUID returns a random version 4 uuid.
+func newUUID() (string, error) {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", fmt.Errorf("generate bridge id: %w", err)
+	}
+	b[6] = b[6]&0x0f | 0x40
+	b[8] = b[8]&0x3f | 0x80
+	h := hex.EncodeToString(b[:])
+
+	return h[0:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:], nil
+}
+
+func readFile(d string) (Config, error) {
+	var c Config
+	b, err := os.ReadFile(filepath.Join(d, "config.json"))
+	if err != nil {
+		return c, err
+	}
+	if err := json.Unmarshal(b, &c); err != nil {
+		return c, fmt.Errorf("parse config: %w", err)
+	}
+
+	return c, nil
 }
 
 func writeConfig(d string, c Config) error {

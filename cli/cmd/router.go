@@ -25,6 +25,10 @@ type router struct {
 	topics     int
 	maxWorkers int
 	worker     workerOps
+	// bridgeID names the bridge in its rule health reports. With none, as in
+	// most tests, the bridge sends no report.
+	bridgeID string
+	health   *healthReporter
 
 	mu sync.Mutex
 	// queue holds the accepted events in arrival order, at most one for each
@@ -112,6 +116,16 @@ func (r *router) onData(data []byte) {
 		return
 	}
 
+	// A slug change is a person's action, not a directive to an agent, so it
+	// kills rules whatever its actor. Matching then goes on as for any event.
+	if dead := r.rules.Kill(e); len(dead) > 0 {
+		for _, d := range dead {
+			r.log.Error("rule_dead", "rule", d.Rule, "project", e.ProjectID, "project_slug", d.Project, "reason", d.Reason,
+				"message", fmt.Sprintf("rule %s matches nothing until the bridge restarts, because %s", d.Rule, slugChange(e, d.Project)))
+		}
+		r.reportHealth(dead[0].Project)
+	}
+
 	// A person who touches the card has seen it, which is what a capped chain
 	// waits for. Any event of theirs that parsed counts, matched or not.
 	if e.Actor == event.ActorHuman {
@@ -141,6 +155,27 @@ func (r *router) onData(data []byte) {
 			r.log.Warn("project_unmapped", "project", e.ProjectID)
 		}
 	}
+}
+
+// slugChange says in words what a slug-changing event did.
+func slugChange(e event.Event, project string) string {
+	switch e.Type {
+	case event.ColumnRenamedType:
+		return fmt.Sprintf("column %s of project %s is now %s", e.FromSlug, project, e.ToSlug)
+	case event.ColumnDeletedType:
+		return fmt.Sprintf("column %s of project %s was deleted", e.Slug, project)
+	default:
+		return fmt.Sprintf("project %s is now %s", e.FromSlug, e.ToSlug)
+	}
+}
+
+// reportHealth hands the current health of one project's rules to the
+// reporter. The slice is built here, so the reporter never reads the set.
+func (r *router) reportHealth(project string) {
+	if r.health == nil {
+		return
+	}
+	r.health.submit(project, r.rules.ProjectID(project), r.rules.Health(project))
 }
 
 // enqueue puts the event at the back of the queue, or in place of a waiting

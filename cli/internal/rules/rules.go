@@ -120,6 +120,11 @@ type Set struct {
 	// slugs maps a project id to its slug. Check fills it, so an unchecked
 	// set matches nothing.
 	slugs map[string]string
+
+	// dead maps a rule name to the reason it died. The stream goroutine writes
+	// it, and a report can be built elsewhere, so mu guards it.
+	mu   sync.RWMutex
+	dead map[string]string
 }
 
 // ErrMissing marks a rule file that does not exist.
@@ -529,8 +534,10 @@ func (s *Set) Match(e event.Event) Match {
 		return Match{Skip: Unmapped}
 	}
 
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	for _, r := range s.rules {
-		if r.On != e.Type || r.Project != slug {
+		if r.On != e.Type || r.Project != slug || s.dead[r.Name] != "" {
 			continue
 		}
 		// Entered, not sits in: a card dragged to a new rank inside one column
@@ -555,6 +562,77 @@ func (s *Set) Match(e event.Event) Match {
 	}
 
 	return Match{Skip: NoRule, Project: slug}
+}
+
+// Dead names a rule that an event killed.
+type Dead struct {
+	Rule    string
+	Project string
+	Reason  string
+}
+
+// Kill marks dead every live rule that names the slug the event takes away,
+// and returns them in file order. A dead rule matches nothing until the bridge
+// restarts, when the start check refuses the stale slug.
+func (s *Set) Kill(e event.Event) []Dead {
+	slug, ok := s.slugs[e.ProjectID]
+	if !ok {
+		return nil
+	}
+	var reason, column string
+	switch e.Type {
+	case event.ColumnRenamedType:
+		reason, column = api.ReasonColumnRenamed, e.FromSlug
+	case event.ColumnDeletedType:
+		reason, column = api.ReasonColumnDeleted, e.Slug
+	case event.ProjectRenamedType:
+		reason = api.ReasonProjectRenamed
+	default:
+		return nil
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []Dead
+	for _, r := range s.rules {
+		if r.Project != slug || s.dead[r.Name] != "" {
+			continue
+		}
+		if column != "" && r.To != column && r.From != column {
+			continue
+		}
+		if s.dead == nil {
+			s.dead = map[string]string{}
+		}
+		s.dead[r.Name] = reason
+		out = append(out, Dead{Rule: r.Name, Project: slug, Reason: reason})
+	}
+
+	return out
+}
+
+// Health lists every rule of a mapped project with its state, in file order.
+func (s *Set) Health(slug string) []api.RuleHealth {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := []api.RuleHealth{}
+	for _, r := range s.rules {
+		if r.Project != slug {
+			continue
+		}
+		h := api.RuleHealth{Name: r.Name, On: r.On, Columns: []string{}, State: api.RuleLive}
+		for _, col := range []string{r.To, r.From} {
+			if col != "" {
+				h.Columns = append(h.Columns, col)
+			}
+		}
+		if reason := s.dead[r.Name]; reason != "" {
+			h.State, h.Reason = api.RuleDead, &reason
+		}
+		out = append(out, h)
+	}
+
+	return out
 }
 
 // values fills placeholders from fields Parse validated and from the slug the
