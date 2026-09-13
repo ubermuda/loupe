@@ -152,7 +152,7 @@ Each entry in `rules` takes these fields:
 | `prompt` | yes | The prompt the worker runs, with placeholders |
 | `permissionMode` | no | Defaults to `--permission-mode` |
 | `model` | no | Defaults to `--model` |
-| `maxChain` | no | Defaults to `3`. At least 1 |
+| `maxChain` | no | Defaults to `3`. At least 1. The bridge checks the value and does not enforce it yet |
 | `allowUntrusted` | no | Defaults to `false`. See below |
 
 A field the format does not define stops the bridge at start, so a misspelt key
