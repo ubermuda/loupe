@@ -15,3 +15,4 @@ ubermuda_feature_flags:
         # instance has push off rather than failing when someone submits.
         # MERCURE_PUBLIC_URL too: blank, the endpoint returns an unusable hubUrl.
         agent.push.enabled: ['MERCURE_URL', 'MERCURE_PUBLIC_URL', 'MERCURE_JWT_SECRET']
+        live_updates.enabled: ['MERCURE_URL', 'MERCURE_PUBLIC_URL', 'MERCURE_JWT_SECRET']

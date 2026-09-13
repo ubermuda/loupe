@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Account\Controller\Install;
 
 use App\Audit\FeatureFlagAuditRetentionPolicy;
+use App\Mercure\LiveUpdates;
 use App\Module\Account\Controller\Install\SeedFlagsController;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Service\RegistrationGate;
@@ -60,7 +61,9 @@ final class SeedFlagsControllerTest extends WebTestCase
         // prefilled default, and that default has to be "on" or a freshly
         // installed instance cannot register anybody.
         self::assertTrue($flags[RegistrationGate::ENABLED_FLAG]->value);
-        self::assertCount(15, $flags);
+        self::assertCount(16, $flags);
+        // Seeded on: the environment prerequisite holds it off until a hub is configured.
+        self::assertTrue($flags[LiveUpdates::FLAG]->value);
         // Seeded on: drawing is additive, and a flag that installs off would
         // ship the widget's Draw control invisible on every fresh instance.
         self::assertTrue($flags[SiteReviewDrawing::FLAG]->value);

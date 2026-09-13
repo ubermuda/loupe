@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Mercure;
 
-use App\Outbox\AgentPush;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
@@ -68,7 +67,7 @@ final class MercureSubscriptions implements ResetInterface
         // A refused form forwards to its page, and the bundle only writes a
         // cookie that sits on the main request.
         $request = $this->requests->getMainRequest();
-        if ([] === $this->requested || null === $request || '' === $this->hubUrl || !$this->featureFlags->isEnabled(AgentPush::FLAG)) {
+        if ([] === $this->requested || null === $request || '' === $this->hubUrl || !$this->featureFlags->isEnabled(LiveUpdates::FLAG)) {
             return [];
         }
 

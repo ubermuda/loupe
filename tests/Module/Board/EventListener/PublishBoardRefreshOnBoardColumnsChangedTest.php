@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\EventListener;
 
 use App\Exception\DomainErrors;
+use App\Mercure\LiveUpdates;
 use App\Mercure\ProjectTopicBuilder;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Command\AddBoardColumnCommand;
@@ -44,6 +45,7 @@ use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Jwt\StaticTokenProvider;
 use Symfony\Component\Mercure\MockHub;
 use Symfony\Component\Mercure\Update;
+use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
 {
@@ -181,13 +183,13 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
         $this->assertBoardUnchangedAndNothingPublished();
     }
 
-    public function test_with_push_off_it_neither_builds_the_hub_nor_publishes(): void
+    public function test_with_live_updates_off_it_neither_builds_the_hub_nor_publishes_even_with_agent_push_on(): void
     {
         $listener = new PublishBoardRefreshOnBoardColumnsChanged(
             $this->topics(),
-            FeatureFlags::service([AgentPush::FLAG => false]),
+            FeatureFlags::service([LiveUpdates::FLAG => false, AgentPush::FLAG => true]),
             new NullLogger(),
-            static fn (): HubInterface => throw new \LogicException('the hub must not be built with push off'),
+            static fn (): HubInterface => throw new \LogicException('the hub must not be built with live updates off'),
         );
 
         $listener(new BoardColumnsChanged($this->project));
@@ -196,12 +198,29 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
         $this->assertPublishedCount(0);
     }
 
+    public function test_with_agent_push_off_a_column_change_still_refreshes_the_board_and_writes_no_outbox_row(): void
+    {
+        $connection = $this->em->getConnection();
+        $connection->executeStatement("UPDATE feature_flag SET value = 'false' WHERE name = ?", [AgentPush::FLAG]);
+        $connection->executeStatement("UPDATE feature_flag SET value = 'true' WHERE name = ?", [LiveUpdates::FLAG]);
+        $flags = $this->handler(FeatureFlagService::class);
+        self::assertFalse($flags->isEnabled(AgentPush::FLAG));
+        self::assertTrue($flags->isEnabled(LiveUpdates::FLAG));
+
+        $this->handler(AddBoardColumnHandler::class)(new AddBoardColumnCommand($this->project, 'Parked'));
+
+        $this->assertPublishedAtTerminate(1);
+        self::assertSame(0, (int) $connection->fetchOne('SELECT count(*) FROM outbox_events WHERE project_id = :id', [
+            'id' => (string) $this->project->id,
+        ]));
+    }
+
     public function test_a_hub_that_fails_is_logged_and_the_change_stands(): void
     {
         $log = new TestHandler();
         $listener = new PublishBoardRefreshOnBoardColumnsChanged(
             $this->topics(),
-            FeatureFlags::service([AgentPush::FLAG => true]),
+            FeatureFlags::service([LiveUpdates::FLAG => true]),
             new Logger('test', [$log]),
             static fn (): HubInterface => new MockHub(
                 'http://mercure/.well-known/mercure',

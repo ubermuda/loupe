@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Mercure\ProjectTopicBuilder;
-use App\Outbox\AgentPush;
 use App\Tests\Support\MercureCookies;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -103,13 +102,34 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         self::assertNull(self::findMercureCookie($client->getResponse()));
     }
 
-    public function test_with_push_off_the_board_renders_without_a_subscription(): void
+    public function test_with_agent_push_off_the_board_still_subscribes(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $this->enableBoard();
-        // The flag ships on through a migration, so the row exists to flip.
-        $em->getConnection()->executeStatement("UPDATE feature_flag SET value = 'false' WHERE name = ?", [AgentPush::FLAG]);
+        $this->setHubFlags($em, liveUpdates: true, agentPush: false);
+
+        $owner = $this->user($em, 'board-refresh-push-off@example.com');
+        $project = $this->project($em, $owner);
+        self::assertNotNull($project->id);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+
+        self::assertResponseIsSuccessful();
+        $topics = static::getContainer()->get(ProjectTopicBuilder::class);
+        self::assertInstanceOf(ProjectTopicBuilder::class, $topics);
+        self::assertSame([$topics->forBoard($project->id)], self::subscribedTopics($client->getResponse()));
+        self::assertCount(1, $crawler->filter('form#mercure-subscriptions'));
+    }
+
+    public function test_with_live_updates_off_the_board_renders_without_a_subscription_even_with_agent_push_on(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $this->setHubFlags($em, liveUpdates: false, agentPush: true);
 
         $owner = $this->user($em, 'board-refresh-off@example.com');
         $project = $this->project($em, $owner);
