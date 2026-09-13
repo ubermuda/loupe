@@ -62,7 +62,8 @@ func newBridgeRunCmd() *cobra.Command {
 			"a project and a column, and the prompt its worker runs. The projects map in " +
 			"the file gives each project the directory its workers run in.\n\n" +
 			"The bridge refuses to start without the file, and checks every project and " +
-			"column slug against the server first. It follows one project for now.\n\n" +
+			"column slug against the server first. It follows every project you own on " +
+			"one connection, and ignores the events of a project the file does not map.\n\n" +
 			"Use --permission-mode and --model to set the value of every rule that sets " +
 			"none. A worker has no terminal, so it cannot answer a permission prompt: " +
 			"with no mode, claude denies every tool call that needs approval.\n\n" +
@@ -91,11 +92,6 @@ func newBridgeRunCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("rule file %s: %w", path, err)
 			}
-			projects := set.Projects()
-			if len(projects) > 1 {
-				return fmt.Errorf("rule file %s maps %d projects (%s), and a bridge follows one project for now: run one bridge per project, each with its own --rules file", path, len(projects), strings.Join(projects, ", "))
-			}
-
 			if _, err := lookPath("claude"); err != nil {
 				return fmt.Errorf("claude is not installed or not on PATH")
 			}
@@ -121,14 +117,13 @@ func newBridgeRunCmd() *cobra.Command {
 			r := &router{
 				log:        newBridgeLogger(bridgeLogWriter(f, cmd.OutOrStdout())),
 				rules:      set,
-				project:    projects[0],
 				maxWorkers: maxWorkers,
 				worker:     defaultWorkerOps(),
 			}
-			r.log.Info("bridge_started", "rules", path, "projects", projects, "rule_count", len(set.Rules()), "max_workers", maxWorkers, "log_file", logPath)
+			r.log.Info("bridge_started", "rules", path, "projects", set.Projects(), "rule_count", len(set.Rules()), "max_workers", maxWorkers, "log_file", logPath)
 			warnUnknownModes(r.log, set)
 
-			return subscribe(cmd, cfg, set.ProjectID(projects[0]), r)
+			return subscribe(cmd, cfg, r)
 		},
 	}
 	cmd.Flags().StringVar(&rulesPath, "rules", "", "read rules from this `path`; empty uses rules.yaml in your config directory")
@@ -215,18 +210,25 @@ func openLogFile(path string) (*os.File, error) {
 //
 // The shutdown drops the queue before it waits. Subscribe calls the handler on
 // this goroutine, so no event can arrive after it returns.
-func subscribe(cmd *cobra.Command, cfg config.Config, projectID string, r *router) error {
+//
+// One GET /api/events names every project the user owns, and one connection
+// follows all of their topics. The router ignores a project the file does not
+// map.
+func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	r.ctx = ctx
 
-	creds, err := fetchCreds(ctx, cfg, projectID)
+	events, err := apiClient(cfg).Events(ctx)
 	if err != nil {
 		return err
 	}
-	r.topic = creds.Topic
+	if err := checkMapped(r.rules, events); err != nil {
+		return err
+	}
+	r.projects, r.topics = r.rules.Projects(), len(events.Projects)
 
-	err = transport.Subscribe(ctx, &http.Client{}, creds.HubURL, creds.Topic, jwtRefresher(cfg, projectID), r.handler())
+	err = transport.Subscribe(ctx, &http.Client{}, events.HubURL, events.Topics(), jwtRefresher(cfg, events.JWT), r.handler())
 	r.shutdown()
 	r.wg.Wait()
 	if err != nil && ctx.Err() == nil {
@@ -236,23 +238,43 @@ func subscribe(cmd *cobra.Command, cfg config.Config, projectID string, r *route
 	return nil
 }
 
-func fetchCreds(ctx context.Context, cfg config.Config, projectID string) (api.StreamCredentials, error) {
-	return apiClient(cfg).StreamCredentials(ctx, projectID)
+// checkMapped refuses a mapped project that GET /api/events does not list. Its
+// rules could never fire, and the bridge would look healthy.
+func checkMapped(set *rules.Set, events api.Events) error {
+	listed := map[string]bool{}
+	for _, p := range events.Projects {
+		listed[strings.ToLower(p.ID)] = true
+	}
+	var missing []string
+	for _, slug := range set.Projects() {
+		if !listed[set.ProjectID(slug)] {
+			missing = append(missing, slug)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("GET /api/events lists no stream for %s, so no event of theirs can reach the bridge", strings.Join(missing, ", "))
+	}
+
+	return nil
 }
 
-// jwtRefresher mints a fresh subscriber JWT per connection attempt. Subscriber
-// JWTs are short-lived, so a bridge left running would otherwise reconnect with
-// an expired token forever once the first one lapsed.
-//
-// projectID is the id the start check resolved, never the slug: a rename
-// changes the slug, and every reconnect would then fail.
-func jwtRefresher(cfg config.Config, projectID string) transport.TokenFunc {
+// jwtRefresher hands out first for the first connection, then mints a fresh
+// subscriber JWT per attempt. Subscriber JWTs are short-lived, so a bridge left
+// running would otherwise reconnect with an expired token forever once the
+// first one lapsed. Subscribe calls it from one goroutine.
+func jwtRefresher(cfg config.Config, first string) transport.TokenFunc {
 	return func(ctx context.Context) (string, error) {
-		creds, err := fetchCreds(ctx, cfg, projectID)
+		if first != "" {
+			jwt := first
+			first = ""
+
+			return jwt, nil
+		}
+		events, err := apiClient(cfg).Events(ctx)
 		if err != nil {
 			return "", err
 		}
 
-		return creds.JWT, nil
+		return events.JWT, nil
 	}
 }

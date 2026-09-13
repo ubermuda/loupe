@@ -21,8 +21,8 @@ type router struct {
 	ctx        context.Context
 	log        *slog.Logger
 	rules      *rules.Set
-	project    string
-	topic      string
+	projects   []string
+	topics     int
 	maxWorkers int
 	worker     workerOps
 
@@ -91,7 +91,7 @@ func aggregate(e event.Event) string {
 
 func (r *router) handler() transport.Handler {
 	return transport.Handler{
-		OnConnect: func() { r.log.Info("connected", "topic", r.topic, "project", r.project) },
+		OnConnect: func() { r.log.Info("connected", "topics", r.topics, "projects", r.projects) },
 		OnError:   func(err error) { r.log.Error("stream_error", "error", err.Error()) },
 		OnData:    r.onData,
 	}

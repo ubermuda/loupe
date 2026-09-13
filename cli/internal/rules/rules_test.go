@@ -462,6 +462,35 @@ func TestCheckNamesEachRefusal(t *testing.T) {
 	}
 }
 
+// An unknown project names the slugs the caller does own, read once from
+// GET /api/projects, so the fix is a copy. A project with no slug is left out.
+func TestCheckListsTheValidSlugsForAnUnknownProject(t *testing.T) {
+	sitesCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/projects" {
+			sitesCalls++
+			fmt.Fprint(w, `{"sites":[{"id":"a","slug":"zeta","name":"Zeta"},{"id":"b","slug":null,"name":"Old"},{"id":"c","slug":"alpha","name":"Alpha"}]}`)
+
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, `{"error":"project_not_found"}`)
+	}))
+	t.Cleanup(server.Close)
+	s := parse(t, strings.ReplaceAll(oneRule, "projects:\n", "projects:\n  other:\n    dir: "+t.TempDir()+"\n"))
+
+	err := s.Check(context.Background(), api.New(server.URL, "t", server.Client()))
+	for _, slug := range []string{"loupe", "other"} {
+		want := `project "` + slug + `": no project of yours has this slug; your projects are alpha, zeta`
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Fatalf("err = %v, want %q", err, want)
+		}
+	}
+	if sitesCalls != 1 {
+		t.Fatalf("GET /api/projects ran %d times, want once", sitesCalls)
+	}
+}
+
 // Without slugs, two keys can resolve to one project, such as its name and its
 // id. Only one key would then ever match, so the check refuses the pair.
 func TestCheckRefusesTwoKeysForOneProject(t *testing.T) {

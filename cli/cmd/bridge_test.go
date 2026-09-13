@@ -12,8 +12,12 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
+	"github.com/spf13/cobra"
+	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/config"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 )
@@ -126,48 +130,151 @@ func TestBridgeRunRefusesAnInvalidRuleFile(t *testing.T) {
 	}
 }
 
-// One connection per bridge serves one project until the stream endpoint takes
-// several, so a second project is refused rather than ignored.
-func TestBridgeRunRefusesSeveralProjects(t *testing.T) {
-	err := runBridge(t, "--rules", writeRules(t, "loupe", "other"))
-	if err == nil || !strings.Contains(err.Error(), "maps 2 projects (loupe, other)") {
-		t.Fatalf("err = %v", err)
+// fakeLoupe serves the columns check, GET /api/events and a Mercure hub. The
+// first hub connection sends its events and closes, so the bridge reconnects.
+type fakeLoupe struct {
+	mu          sync.Mutex
+	eventsCalls int
+	hubAuth     []string
+	hubTopics   [][]string
+	sse         string
+}
+
+const unmappedProject = "0192f3a1-4b2c-7d3e-8f10-000000000003"
+
+func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
+	topic := func(id string) string { return "https://loupe.test/projects/" + id + "/events" }
+	switch r.URL.Path {
+	case "/api/projects/loupe/board/columns":
+		fmt.Fprint(w, `{"project":{"id":"`+testProject+`","slug":"loupe"},"columns":[{"slug":"next"}]}`)
+	case "/api/projects/other/board/columns":
+		fmt.Fprint(w, `{"project":{"id":"`+otherProject+`","slug":"other"},"columns":[{"slug":"next"}]}`)
+	case "/api/events":
+		f.mu.Lock()
+		f.eventsCalls++
+		n := f.eventsCalls
+		f.mu.Unlock()
+		fmt.Fprintf(w, `{"hubUrl":"http://%s/hub","jwt":"jwt-%d","projects":[`+
+			`{"id":%q,"slug":"loupe","name":"Loupe","topic":%q},`+
+			`{"id":%q,"slug":"other","name":"Other","topic":%q},`+
+			`{"id":%q,"slug":"elsewhere","name":"Elsewhere","topic":%q}]}`,
+			r.Host, n, testProject, topic(testProject), otherProject, topic(otherProject), unmappedProject, topic(unmappedProject))
+	case "/hub":
+		f.mu.Lock()
+		f.hubAuth = append(f.hubAuth, r.Header.Get("Authorization"))
+		f.hubTopics = append(f.hubTopics, r.URL.Query()["topic"])
+		attempt := len(f.hubAuth)
+		f.mu.Unlock()
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		if attempt > 1 {
+			<-r.Context().Done()
+
+			return
+		}
+		fmt.Fprint(w, f.sse)
+	default:
+		w.WriteHeader(http.StatusNotFound)
 	}
 }
 
-// The rule file key is a slug, and the stream is read by the id the columns
-// answer returns, so a later slug change cannot break a reconnect.
-func TestTheStreamIsReadByTheIDTheColumnsCheckResolved(t *testing.T) {
-	const id = "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7"
-	var paths []string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		paths = append(paths, r.URL.EscapedPath())
-		switch r.URL.EscapedPath() {
-		case "/api/projects/loupe/board/columns":
-			fmt.Fprint(w, `{"project":{"id":"`+id+`","slug":"loupe"},"columns":[{"slug":"next"}]}`)
-		case "/api/projects/" + id + "/stream":
-			fmt.Fprint(w, `{"hubUrl":"https://hub.example/.well-known/mercure","topic":"t","jwt":"j"}`)
-		default:
-			w.WriteHeader(http.StatusNotFound)
-		}
-	}))
+func (f *fakeLoupe) connections() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return len(f.hubAuth)
+}
+
+// Two mapped projects share one connection, and each starts workers in its own
+// directory. A project the file does not map is ignored and logged once. The
+// bridge reads GET /api/events once to start, and again for the JWT of each
+// reconnect.
+func TestOneConnectionServesEveryProject(t *testing.T) {
+	sse := ""
+	for _, payload := range []string{
+		movedPayload(87, "backlog", "next", "human"),
+		strings.Replace(movedPayload(88, "backlog", "next", "human"), testProject, otherProject, 1),
+		strings.Replace(movedPayload(89, "backlog", "next", "human"), testProject, unmappedProject, 1),
+		strings.Replace(movedPayload(90, "backlog", "next", "human"), testProject, unmappedProject, 1),
+	} {
+		sse += "data: " + payload + "\n\n"
+	}
+	fake := &fakeLoupe{sse: sse}
+	server := httptest.NewServer(http.HandlerFunc(fake.serve))
 	t.Cleanup(server.Close)
 	cfg := config.Config{BaseURL: server.URL, Token: "t"}
 
-	set, err := rules.Load(writeRules(t, "loupe"), rules.Defaults{})
+	loupeDir, otherDir := t.TempDir(), t.TempDir()
+	body := "projects:\n  loupe:\n    dir: " + loupeDir + "\n  other:\n    dir: " + otherDir + "\nrules:\n" +
+		"  - on: board.card_moved\n    project: loupe\n    to: next\n    prompt: go\n" +
+		"  - on: board.card_moved\n    project: other\n    to: next\n    prompt: go\n"
+	set, err := rules.Parse([]byte(body), rules.Defaults{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := set.Check(context.Background(), apiClient(cfg)); err != nil {
 		t.Fatal(err)
 	}
-	jwt, err := jwtRefresher(cfg, set.ProjectID("loupe"))(context.Background())
-	if err != nil || jwt != "j" {
-		t.Fatalf("jwt = %q, err = %v, paths = %v", jwt, err, paths)
+
+	worker := &fakeWorker{}
+	h := &harness{worker: worker, log: &syncBuffer{}}
+	h.router = &router{log: newBridgeLogger(h.log), rules: set, maxWorkers: defaultMaxWorkers, worker: worker.ops()}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd := &cobra.Command{}
+	cmd.SetContext(ctx)
+	done := make(chan error, 1)
+	go func() { done <- subscribe(cmd, cfg, h.router) }()
+
+	deadline := time.After(8 * time.Second)
+	for fake.connections() < 2 || len(worker.recorded()) < 2 {
+		select {
+		case <-deadline:
+			t.Fatalf("connections = %d, workers = %+v, log = %s", fake.connections(), worker.recorded(), h.log.String())
+		case <-time.After(20 * time.Millisecond):
+		}
 	}
-	want := []string{"/api/projects/loupe/board/columns", "/api/projects/" + id + "/stream"}
-	if !slices.Equal(paths, want) {
-		t.Fatalf("paths = %v, want %v", paths, want)
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+
+	var dirs []string
+	for _, call := range worker.recorded() {
+		dirs = append(dirs, call.dir)
+	}
+	slices.Sort(dirs)
+	want := []string{loupeDir, otherDir}
+	slices.Sort(want)
+	if !slices.Equal(dirs, want) {
+		t.Fatalf("worker dirs = %v, want %v", dirs, want)
+	}
+	if got := str(t, h.only(t, "project_unmapped"), "project"); got != unmappedProject {
+		t.Fatalf("project_unmapped = %q", got)
+	}
+
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	if len(fake.hubTopics[0]) != 3 || fake.hubTopics[0][2] != "https://loupe.test/projects/"+unmappedProject+"/events" {
+		t.Fatalf("hub topics = %q, want all three on one connection", fake.hubTopics[0])
+	}
+	if fake.eventsCalls != 2 || fake.hubAuth[0] != "Bearer jwt-1" || fake.hubAuth[1] != "Bearer jwt-2" {
+		t.Fatalf("GET /api/events ran %d times, hub auth = %q", fake.eventsCalls, fake.hubAuth)
+	}
+}
+
+// A mapped project that GET /api/events does not list could never fire, so the
+// bridge refuses to start rather than look healthy.
+func TestCheckMappedRefusesAProjectWithNoStream(t *testing.T) {
+	set, _ := loadRules(t, defaultRules, rules.Defaults{})
+
+	err := checkMapped(set, api.Events{Projects: []api.StreamProject{{ID: otherProject}}})
+	if err == nil || !strings.Contains(err.Error(), "no stream for loupe") {
+		t.Fatalf("err = %v", err)
+	}
+	if err := checkMapped(set, api.Events{Projects: []api.StreamProject{{ID: strings.ToUpper(testProject)}}}); err != nil {
+		t.Fatalf("an upper-case id must still match: %v", err)
 	}
 }
 
