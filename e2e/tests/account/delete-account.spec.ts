@@ -68,8 +68,8 @@ test('a user can delete their account end to end via the emailed confirmation li
         .click();
     await expect(page.getByText('Your account has been deleted')).toBeVisible();
 
-    // The old session is dead: the home page bounces to login.
-    await page.goto('/');
+    // `/` would render the landing page while try-it-demo has it enabled.
+    await page.goto('/projects');
     await expect(page).toHaveURL(/\/login/);
 
     // The credentials no longer resolve to anything.

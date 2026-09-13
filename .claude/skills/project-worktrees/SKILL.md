@@ -265,10 +265,9 @@ on disk survives a stopped agent, so resume it with a message rather than a
 restart.
 
 Parallel writes do not yet parallelise the gate. Each worktree has its own
-Mailpit sidecar and `just e2e` points the suite at it, but
-`playwright.config.ts` still sets `workers: 1`, and no branch has been gated
-concurrently to prove the rest of the suite is parallel-safe. Until someone does
-that, treat roughly three minutes per branch as the ceiling.
+Mailpit sidecar, and one suite runs on 4 workers, but every worktree shares the
+one `php-fpm` container. Nobody has gated two branches at the same time, so do
+not assume it works.
 
 ## Reusing one worktree for several branches
 
@@ -417,8 +416,7 @@ or a seeded database. Pointing e2e at a **worktree** is still supported and is
 the right tool when you need to gate a branch without checking it out, but it is
 the more expensive one.
 
-`just e2e` still runs one worker (`playwright.config.ts`), though Mailpit is now
-per-worktree. Run it **from** a worktree and it resolves that worktree as its
+Run `just e2e` **from** a worktree and it resolves that worktree as its
 target and its Mailpit, prints both, rebuilds the worktree's stylesheet, and
 repairs the dev data the suite destroys. Every instruction that says "from the
 worktree" needs the worktree as its **cwd for that call only**, so wrap the `cd`

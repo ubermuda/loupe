@@ -231,7 +231,7 @@ CI's `e2e` check is the gate. Push, read the check, and fix every failure it rep
 
 `just e2e-up` creates the disposable target the suite runs against: an `app_e2e` database and an nginx sidecar at `e2e.<project>.dev.localhost` serving this checkout. `just e2e` defaults there and refuses to start when it is not up. Tear it down with `just e2e-down`. Never point the suite at the dev host. The suite is destructive by design: the `install-reset` project truncates every table, and `trial-end-lifecycle` flips global feature flags and disables every expired-trial account. One run against `loupe.dev.localhost` wipes your development database.
 
-`playwright.config.ts` keeps `workers: 1`. Each worktree now has its own Mailpit sidecar, so the mail coupling that blocked parallelism is gone, but nothing has yet gated two branches concurrently to prove the rest of the suite is parallel-safe.
+`playwright.config.ts` runs spec files on 4 workers. A spec that changes a global flag or shares a fixed account runs in a `workers: 1` project, and the config comments say which. Put a new spec of that kind in one of those projects, not in `chromium`. Two branches gated at the same time against one machine are still unproven, because every worktree shares the one `php-fpm` container.
 
 The `project-e2e` skill carries the rest, including its `references/parallelism-and-sessions.md` for fixtures, Mailpit and session invalidation. `working-with-prs` carries how to aim a local run at a sibling worktree, which needs both `E2E_BASE_URL` and `MAILPIT_URL`, and the cache warm-up that a worktree run needs first.
 
