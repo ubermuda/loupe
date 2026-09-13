@@ -51,6 +51,7 @@ final class WidgetTokenSurfaceTest extends WebTestCase
     {
         yield 'projects' => [Request::METHOD_GET, '/api/projects'];
         yield 'stream' => [Request::METHOD_GET, '/api/projects/anything/stream'];
+        yield 'columns' => [Request::METHOD_GET, '/api/projects/anything/board/columns'];
     }
 
     #[DataProvider('widgetPaths')]
