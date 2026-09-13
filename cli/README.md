@@ -5,7 +5,7 @@ A small Go binary that closes the loop between Loupe and a local coding agent.
 The CLI watches your Loupe board and runs a **non-interactive Claude Code
 worker** for each event that a rule in your rule file matches. A card you move
 in the browser becomes an agent run with no copy-pasting. A worker is
-`claude -p <prompt>`. It prints its answer and exits, and the bridge reports the
+`claude -p -- <prompt>`. It prints its answer and exits, and the bridge reports the
 exit code.
 
 The bridge runs three workers at once by default and queues the rest. It writes
@@ -122,11 +122,11 @@ rules:
       Card {cardNumber} in Loupe project {projectId} moved to {to}.
       Read it with the card_get MCP tool, passing cardId {cardId}.
       If its column is no longer {to}, stop and do nothing.
-      Otherwise move it to in-progress with card_update,
-      write an implementation plan into the card body, and stop.
+      Otherwise write an implementation plan into the card body
+      with card_update, and stop.
 ```
 
-The bridge prints this example when it finds no file.
+The bridge prints this example when it finds no file, or an empty one.
 
 ### The rule file
 
@@ -150,13 +150,17 @@ Each entry in `rules` takes these fields:
 | `to` | for `board.card_moved` | The column slug the card enters |
 | `from` | no | The column slug the card leaves. Omitted, any column matches |
 | `prompt` | yes | The prompt the worker runs, with placeholders |
-| `permissionMode` | no | Defaults to `--permission-mode` |
-| `model` | no | Defaults to `--model` |
+| `permissionMode` | no | Defaults to `--permission-mode`. One of `acceptEdits`, `auto`, `bypassPermissions`, `default`, `dontAsk`, `manual` or `plan` |
+| `model` | no | Defaults to `--model`. An alias such as `opus` or a full model name, with no whitespace |
 | `maxChain` | no | The agent-triggered runs in a row this rule starts for one card. Defaults to `3`. At least 1. See [The chain cap](#the-chain-cap) |
 | `allowUntrusted` | no | Defaults to `false`. See below |
 
 A field the format does not define stops the bridge at start, so a misspelt key
-never passes in silence.
+never passes in silence. So does a `permissionMode` that `claude` does not
+accept, and a `model` with whitespace, from the file or from a flag. The bridge
+checks only that shape for a model, because `claude` takes a growing list of
+names. The file holds one YAML document, and a second one after `---` stops the
+bridge.
 
 The first rule in file order that matches an event wins. A `board.card_moved`
 rule fires when the card enters `to` from another column. A move to a new rank
@@ -204,10 +208,11 @@ bridge accepts that.
 
 ### Workers
 
-A matching event starts one worker. The bridge runs `claude -p <prompt>` in the
-project's `dir`, with `--permission-mode` and `--model` in front when the rule
-has them. The prompt is rendered when the event arrives, and it is an argv
-element, so no shell reads it.
+A matching event starts one worker. The bridge runs `claude -p -- <prompt>` in
+the project's `dir`, with `--permission-mode` and `--model` in front when the
+rule has them. The prompt is rendered when the event arrives, and it is an argv
+element, so no shell reads it. It follows `--`, so a prompt that starts with `-`
+is still a prompt.
 
 Each worker runs in its own goroutine, so a long run never blocks the event
 stream and several cards run at the same time. The bridge logs a line when a
@@ -244,9 +249,11 @@ When a rule reaches its `maxChain` on a card, it starts no more runs for that
 card, and the bridge logs a `chain_capped` line with the message
 `card 87 hit the chain cap of rule review, waiting for a person`.
 
-Any event from a person (`actor: human`) for that card resets every rule's count
-on the card, whether a rule matches the event or not. A reviewer's event resets
-nothing. A run that a person's event started does not count. An event that
+An event from a person (`actor: human`) for that card resets every rule's count
+on the card. That covers every `board.card_moved` event, and an event of another
+type that some rule names, whether its rule matches or not. The bridge drops an
+event of a type no rule names before it reads the actor, so that event resets
+nothing. A reviewer's event resets nothing. A run that a person's event started does not count. An event that
 replaces a waiting one adds nothing, because the count follows runs. The counts
 live in the bridge process, so a restart resets them.
 

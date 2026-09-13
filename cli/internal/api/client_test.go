@@ -66,6 +66,28 @@ func TestColumnsAcceptsANullSlug(t *testing.T) {
 	}
 }
 
+// A success body is read to a cap, as an error body is. The padding is valid
+// JSON, so only the cap can refuse it.
+func TestASuccessBodyPastTheCapIsRefused(t *testing.T) {
+	pad := strings.Repeat("x", 2<<20)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{"pad":"`+pad+`","project":{"id":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7"},"sites":[],"jwt":"j"}`)
+	}))
+	t.Cleanup(server.Close)
+	client := New(server.URL, "t", server.Client())
+	ctx := context.Background()
+
+	for name, call := range map[string]func() error{
+		"columns":            func() error { _, err := client.Columns(ctx, "loupe"); return err },
+		"sites":              func() error { _, err := client.Sites(ctx); return err },
+		"stream credentials": func() error { _, err := client.StreamCredentials(ctx, "loupe"); return err },
+	} {
+		if err := call(); err == nil || !strings.Contains(err.Error(), "larger than") {
+			t.Fatalf("%s: err = %v, want the cap to refuse the body", name, err)
+		}
+	}
+}
+
 func TestColumnsNamesEachFailure(t *testing.T) {
 	for _, tc := range []struct {
 		status int

@@ -58,8 +58,22 @@ func TestBridgeRunRefusesToStartWithoutARuleFile(t *testing.T) {
 	if !errors.Is(err, rules.ErrMissing) {
 		t.Fatalf("err = %v", err)
 	}
-	if !strings.Contains(err.Error(), missing) || !strings.Contains(err.Error(), rules.Example) {
-		t.Fatalf("the error names no path or example: %v", err)
+	if strings.Count(err.Error(), missing) != 1 || !strings.Contains(err.Error(), rules.Example) {
+		t.Fatalf("the error must name the path once and show the example: %v", err)
+	}
+}
+
+// A misspelt flag fails at start, before the rule file is read, and the error
+// names the flag.
+func TestBridgeRunRefusesAnInvalidDefault(t *testing.T) {
+	for flag, want := range map[string]string{
+		"--permission-mode=acceptedits": `--permission-mode "acceptedits" is not a permission mode claude accepts`,
+		"--model=claude opus":           `--model "claude opus" holds whitespace`,
+	} {
+		err := runBridge(t, "--rules", writeRules(t, "loupe"), flag)
+		if err == nil || !strings.Contains(err.Error(), want) || strings.Contains(err.Error(), "rule file") {
+			t.Fatalf("%s: err = %v", flag, err)
+		}
 	}
 }
 
