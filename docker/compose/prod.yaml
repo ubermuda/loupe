@@ -233,9 +233,9 @@ services:
       database:
         condition: service_healthy
 
-  # Site-review push. The only subscriber is the Go bridge CLI, not a browser, so
-  # no CORS config is needed. The hub keeps updates in memory, so a restart drops
-  # undelivered ones — the outbox plus Last-Event-ID make replay authoritative.
+  # Site-review push, and live refresh of open boards. The hub keeps updates in
+  # memory, so a restart drops undelivered ones: the outbox plus Last-Event-ID
+  # make replay authoritative for the bridge CLI.
   mercure:
     image: dunglas/mercure:v0.24
     restart: unless-stopped
@@ -255,6 +255,9 @@ services:
       # it sends and the subscriber tokens it mints for the bridge.
       MERCURE_PUBLISHER_JWT_KEY: "${MERCURE_JWT_SECRET:-}"
       MERCURE_SUBSCRIBER_JWT_KEY: "${MERCURE_JWT_SECRET:-}"
+      # A browser on the app's host subscribes with a cookie, which needs its
+      # origin named. The hub host must share a parent domain with the app.
+      MERCURE_EXTRA_DIRECTIVES: "cors_origins ${DEFAULT_URI:-}"
 
 volumes:
   database_data:
