@@ -49,6 +49,7 @@ just ci-report phpunit-coverage    # head of summary.txt
 just ci-report e2e-coverage        # head of summary.txt
 just ci-report e2e-timing          # per-project time and busy workers
 just ci-report e2e-timing <run-id> # any run, a pull request's included
+just ci-report phpunit-timing      # slowest PHPUnit classes and tests
 ```
 
 With no run id, the recipe takes the newest completed run on `main` that still
@@ -61,10 +62,17 @@ which git ignores, and it does not download a run twice.
 | PHPUnit coverage | `Coverage report` | `phpunit-coverage` | `phpunit-coverage` | `summary.txt`, `clover.xml`, `html/` | 90 days |
 | e2e coverage | `Coverage report` | `e2e-coverage` | `e2e-coverage` | `summary.txt`, `clover.xml`, `html/` | 90 days |
 | e2e timing | `CI` | `e2e` | `e2e-timing` | `results.json` | 30 days |
+| PHPUnit timing | `CI` | `phpunit` | `phpunit-timing` | `junit.xml` | 30 days |
 
 The e2e timing artifact comes from every CI run, green or red. `bin/e2e-timing.mjs`
 reads its Playwright JSON report. Time between two tests on one worker counts as
 idle, so worker start-up shows as idle time.
+
+The PHPUnit timing artifact comes from every CI run as well. `bin/phpunit-timing.php`
+reads the JUnit XML and prints the mean seconds per test, the slowest classes and
+the slowest tests. Its total sums the test times alone, so it is always shorter
+than the job's wall clock. A fatal error kills PHPUnit before it writes the log,
+so that one run yields no artifact.
 
 A coverage `summary.txt` carries terminal colour codes, so a plain `grep` shows
 escape characters around the numbers.

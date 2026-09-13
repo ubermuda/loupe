@@ -3,7 +3,7 @@
 # prints its summary. With no run id it takes the newest run on main that still
 # holds the artifact, because a red run can hold one and a green run can lack it.
 #
-# Usage: bin/ci-report.sh <mutation|phpunit-coverage|e2e-coverage|e2e-timing> [run-id]
+# Usage: bin/ci-report.sh <mutation|phpunit-coverage|e2e-coverage|e2e-timing|phpunit-timing> [run-id]
 set -euo pipefail
 
 report=${1:-}
@@ -14,8 +14,9 @@ case "$report" in
     phpunit-coverage) workflow='Coverage report' artifact=phpunit-coverage ;;
     e2e-coverage) workflow='Coverage report' artifact=e2e-coverage ;;
     e2e-timing) workflow='CI' artifact=e2e-timing ;;
+    phpunit-timing) workflow='CI' artifact=phpunit-timing ;;
     *)
-        echo "usage: $0 <mutation|phpunit-coverage|e2e-coverage|e2e-timing> [run-id]" >&2
+        echo "usage: $0 <mutation|phpunit-coverage|e2e-coverage|e2e-timing|phpunit-timing> [run-id]" >&2
         exit 2
         ;;
 esac
@@ -53,4 +54,5 @@ case "$report" in
     mutation) cat "$dir/summary.log" ;;
     phpunit-coverage | e2e-coverage) head -12 "$dir/summary.txt" ;;
     e2e-timing) node bin/e2e-timing.mjs "$dir/results.json" ;;
+    phpunit-timing) php bin/phpunit-timing.php "$dir/junit.xml" ;;
 esac

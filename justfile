@@ -507,7 +507,7 @@ open-phpunit-coverage:
     open var/phpunit-coverage/html/index.html
 
 # Fetches a report from GitHub Actions and prints its summary. The newest run on
-# main by default. Usage: just ci-report mutation|phpunit-coverage|e2e-coverage|e2e-timing [RUN_ID]
+# main by default. Usage: just ci-report mutation|phpunit-coverage|e2e-coverage|e2e-timing|phpunit-timing [RUN_ID]
 ci-report report run="":
     bin/ci-report.sh "{{report}}" "{{run}}"
 

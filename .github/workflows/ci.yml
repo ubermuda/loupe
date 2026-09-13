@@ -81,7 +81,23 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           docker: 'true'
-      - run: just phpunit
+
+      # The flag rides the invocation, not the `phpunit` recipe, so a
+      # workstation run still writes nothing. PHPUnit creates the directory.
+      - run: just phpunit --log-junit var/phpunit-timing/junit.xml
+
+      - name: phpunit timing
+        if: always() && hashFiles('var/phpunit-timing/junit.xml') != ''
+        run: php bin/phpunit-timing.php var/phpunit-timing/junit.xml
+
+      # Every run, green or red. Read it with `just ci-report phpunit-timing`.
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: phpunit-timing
+          path: var/phpunit-timing/junit.xml
+          retention-days: 30
+          if-no-files-found: warn
 
   # Node alone: vitest runs the browser code as source, with no container and
   # no database behind it.

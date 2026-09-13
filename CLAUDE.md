@@ -257,7 +257,7 @@ just js-test                  # Run Vitest over tests/js (needs Node alone)
 just e2e                      # Run Playwright e2e tests
 just e2e-coverage             # Run e2e with per-request PHP coverage, merged to var/coverage/html
 just open-coverage            # Open the merged HTML coverage report
-just ci-report <report> [RUN] # Fetch a CI report: mutation, phpunit-coverage, e2e-coverage, e2e-timing
+just ci-report <report> [RUN] # Fetch a CI report: mutation, phpunit-coverage, e2e-coverage, e2e-timing, phpunit-timing
 just browser-sync             # Live-reload proxy for template changes
 
 php vendor/bin/phpunit        # Run tests
