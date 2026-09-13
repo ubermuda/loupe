@@ -20,6 +20,7 @@ final class Version20260913215923 extends AbstractMigration
         $this->addSql('CREATE TABLE bridge_worker_runs (id UUID NOT NULL, search_vector TSVECTOR DEFAULT NULL, bridge_id UUID NOT NULL, card_id UUID NOT NULL, card_number INT NOT NULL, rule_name VARCHAR(100) NOT NULL, started_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, ended_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, exit_code INT DEFAULT NULL, failure_reason TEXT DEFAULT NULL, output TEXT NOT NULL, received_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, project_id UUID NOT NULL, PRIMARY KEY (id))');
         $this->addSql('CREATE INDEX IDX_8DAF6488166D1F9C ON bridge_worker_runs (project_id)');
         $this->addSql('CREATE INDEX idx_bridge_worker_runs_project_received ON bridge_worker_runs (project_id, received_at)');
+        $this->addSql('CREATE INDEX idx_bridge_worker_runs_received ON bridge_worker_runs (received_at)');
         $this->addSql('CREATE UNIQUE INDEX uniq_bridge_worker_run_report ON bridge_worker_runs (project_id, bridge_id, card_id, started_at)');
 
         // Written by hand because DBAL's Postgres platform emits no USING clause:

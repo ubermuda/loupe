@@ -17,9 +17,11 @@ use Symfony\Component\Uid\Uuid;
  * once and never updated.
  */
 #[ORM\Entity(repositoryClass: WorkerRunRepository::class)]
-// The page reads one project newest first, and the retention sweep deletes one
-// project-independent range of the same column.
+// The page reads one project newest first.
 #[ORM\Index(name: 'idx_bridge_worker_runs_project_received', columns: ['project_id', 'received_at'])]
+// The retention sweep names no project, so it cannot use the composite index
+// above and needs received_at as a leading column of its own.
+#[ORM\Index(name: 'idx_bridge_worker_runs_received', columns: ['received_at'])]
 // No access method: DBAL's Postgres platform ignores index flags, and the
 // migration creates it USING gin. flags: ['gin'] would make the comparator emit
 // a DROP plus a plain CREATE INDEX, downgrading it to a B-tree that @@ never uses.
