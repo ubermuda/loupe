@@ -43,8 +43,8 @@ final readonly class WriteOutboxEventOnCardMoved
             'subject' => ['type' => 'card', 'id' => (string) $card->id],
             'projectId' => (string) $project->id,
             'cardNumber' => $card->number,
-            'fromStatus' => $event->move->fromStatus->value,
-            'toStatus' => $card->status->value,
+            'fromStatus' => $event->move->fromColumn->slug,
+            'toStatus' => $card->column->slug,
             'actor' => $event->actor->value,
         ];
 

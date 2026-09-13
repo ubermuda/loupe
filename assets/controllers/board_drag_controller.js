@@ -243,10 +243,10 @@ export default class extends Controller {
             return;
         }
 
-        const status = form.querySelector('select[name$="[status]"]');
+        const column = form.querySelector('select[name$="[column]"]');
         const priority = form.querySelector('select[name$="[priority]"]');
         const rank = form.querySelector('input[name$="[position]"]');
-        if (status === null || priority === null || rank === null) {
+        if (column === null || priority === null || rank === null) {
             return;
         }
 
@@ -254,7 +254,7 @@ export default class extends Controller {
         const rankable = '1' === group.dataset.rankable;
         const staysInGroup = group === origin.group;
 
-        status.value = group.dataset.status;
+        column.value = group.dataset.column;
         // A column that keeps no rank grades nothing either, so the card holds
         // the grade it already had rather than taking an empty one.
         if ('' !== wantedPriority) {

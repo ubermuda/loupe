@@ -61,7 +61,7 @@ final class MoveCardController extends AppController
 
         // Rebuilt under the name the board rendered it with, so handleRequest()
         // finds the submission and the form component checks its own CSRF token.
-        $form = $this->formFactory->createNamed(MoveCardFormType::nameFor($card), MoveCardFormType::class, $data);
+        $form = $this->formFactory->createNamed(MoveCardFormType::nameFor($card), MoveCardFormType::class, $data, ['project' => $project]);
         $form->handleRequest($request);
 
         if (!$form->isSubmitted() || !$form->isValid()) {
@@ -76,7 +76,7 @@ final class MoveCardController extends AppController
         ($this->moveCard)(new MoveCardCommand(
             card: $card,
             actor: CardReporter::Human,
-            status: $data->status ?? throw new \LogicException('status required after validation'),
+            column: $data->column ?? throw new \LogicException('column required after validation'),
             priority: $data->priority ?? throw new \LogicException('priority required after validation'),
             position: $data->position,
         ));

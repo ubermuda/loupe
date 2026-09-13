@@ -9,6 +9,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Service\CardContextLabelResolver;
 use App\Module\Project\Entity\Project;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Contracts\Service\ResetInterface;
@@ -17,6 +18,8 @@ use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class CardContextLabelResolverTest extends KernelTestCase
 {
+    use BoardColumnFixtures;
+
     private EntityManagerInterface $em;
     private CardContextLabelResolver $resolver;
 
@@ -103,7 +106,8 @@ final class CardContextLabelResolverTest extends KernelTestCase
         $this->em->persist($owner);
         $project = new Project($owner, $slug);
         $this->em->persist($project);
-        $card = new Card($project, 'Footer overlaps the launcher', 'body', 1);
+        $this->seedColumns($project);
+        $card = new Card($project, $this->column($project, 'backlog'), 'Footer overlaps the launcher', 'body', 1);
         $this->em->persist($card);
         $this->em->flush();
 

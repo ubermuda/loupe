@@ -2,7 +2,7 @@
  * Browser coverage for dragging a card on the board.
  *
  * A drag inside one priority group reorders it, and a drag into another column
- * changes the card's status. Both assert the order again after a reload,
+ * changes the card's column. Both assert the order again after a reload,
  * because a drop moves the card in the page before the server has answered, and
  * a reload is what shows whether the server agreed.
  *
@@ -87,7 +87,7 @@ async function createCard(
     await page.goto(`/projects/${projectId}/board/cards/new`);
     await page.getByLabel('Title').fill(title);
     await page.getByLabel('Priority').selectOption('10');
-    await page.getByLabel('Column').selectOption('backlog');
+    await page.getByLabel('Column').selectOption({ label: 'Backlog' });
     await page.getByRole('button', { name: 'Create card' }).click();
     await expect(page.getByRole('heading', { name: title })).toBeVisible();
 }
@@ -242,7 +242,7 @@ test('a drag inside a priority group reorders it, and the order survives a reloa
     expect(await titlesIn(page, BACKLOG, HIGH)).toEqual(['Bravo', 'Alpha']);
 });
 
-test('a drag into another column changes the status, and it survives a reload', async ({
+test('a drag into another column moves the card there, and it survives a reload', async ({
     page,
     board,
 }) => {
@@ -287,7 +287,7 @@ test("the card's own page moves it without a pointer", async ({
     await page.locator('[data-card-title="Bravo"] a').click();
     await expect(page.getByRole('button', { name: 'Move card' })).toBeVisible();
 
-    await page.getByLabel('Column').selectOption('next');
+    await page.getByLabel('Column').selectOption({ label: 'Next' });
     await page.getByRole('button', { name: 'Move card' }).click();
 
     await expect(page).toHaveURL(board.boardUrl);

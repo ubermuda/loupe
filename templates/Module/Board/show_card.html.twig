@@ -17,7 +17,7 @@
 
     <div class="lp-card-facts">
         <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>
-        <span class="lp-tag">{{ ('board.card.status.' ~ card.status.value)|trans }}</span>
+        <span class="lp-tag">{{ card.column.label|trans }}</span>
         <span class="lp-tag">{{ ('board.card.priority.' ~ card.priority.label())|trans }}</span>
         <span class="lp-tag">{{ ('board.card.reporter.' ~ card.reporter.value)|trans }}</span>
         {% if card.completedAt %}
@@ -130,8 +130,8 @@
               class="lp-card-move__form">
             {{ form_widget(moveForm._token) }}
             <div class="lp-card-move__field">
-                {{ form_label(moveForm.status, null, {label_attr: {class: 'lp-label'}}) }}
-                {{ form_widget(moveForm.status, {attr: {class: 'lp-input lp-select'}}) }}
+                {{ form_label(moveForm.column, null, {label_attr: {class: 'lp-label'}}) }}
+                {{ form_widget(moveForm.column, {attr: {class: 'lp-input lp-select'}}) }}
             </div>
             <div class="lp-card-move__field">
                 {{ form_label(moveForm.priority, null, {label_attr: {class: 'lp-label'}}) }}

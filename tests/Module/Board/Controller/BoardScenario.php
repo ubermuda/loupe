@@ -7,10 +7,10 @@ namespace App\Tests\Module\Board\Controller;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
@@ -18,6 +18,8 @@ use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 /** Fixtures the board's WebTestCase classes share. */
 trait BoardScenario
 {
+    use BoardColumnFixtures;
+
     /**
      * The next card number to hand out, per project.
      *
@@ -60,16 +62,18 @@ trait BoardScenario
     {
         $project = new Project($owner, $name);
         $em->persist($project);
+        $this->seedColumns($project);
         $em->flush();
 
         return $project;
     }
 
+    /** @param string $column the slug of one of the four seeded columns */
     private function card(
         EntityManagerInterface $em,
         Project $project,
         string $title,
-        CardStatus $status = CardStatus::Backlog,
+        string $column = 'backlog',
         CardPriority $priority = CardPriority::Medium,
         int $position = 0,
         string $body = '',
@@ -78,18 +82,19 @@ trait BoardScenario
         $number = $this->nextCardNumber[$projectKey] ?? 1;
         $this->nextCardNumber[$projectKey] = $number + 1;
 
+        $boardColumn = $this->column($project, $column);
         $card = new Card(
             project: $project,
+            column: $boardColumn,
             title: $title,
             body: $body,
             number: $number,
             type: CardType::Feature,
             priority: $priority,
-            status: $status,
             position: $position,
         );
 
-        if (CardStatus::Done === $status) {
+        if ($boardColumn->terminal) {
             $card->completedAt = new \DateTimeImmutable();
         }
 

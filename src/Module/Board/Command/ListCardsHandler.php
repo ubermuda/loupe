@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
+use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 
 /**
@@ -21,26 +22,30 @@ final readonly class ListCardsHandler
 
     public function __construct(
         private CardRepository $cards,
+        private BoardColumnRepository $boardColumns,
     ) {
     }
 
     public function __invoke(ListCardsCommand $command): ListCardsView
     {
+        if (null !== $command->column && $command->column->project !== $command->project) {
+            throw new \LogicException('A board lists its own columns only.');
+        }
+
         // Clamped rather than refused: an out-of-range page should read empty,
         // not fail the call.
         $page = max(1, $command->page);
         $perPage = min(self::MAX_PER_PAGE, max(1, $command->perPage));
 
         $cards = $this->cards->findForBoard(
-            $command->project,
-            $command->status,
+            null === $command->column ? $this->boardColumns->findForProject($command->project) : [$command->column],
             $command->type,
             $command->priority,
             $command->reporter,
         );
 
         $total = \count($cards);
-        // Board order is up to four differently-ordered queries concatenated in
+        // Board order is one differently-ordered query per column concatenated in
         // PHP, so one LIMIT cannot express it and the page is cut here instead.
         // The offset is capped before the multiplication, because a page near
         // PHP_INT_MAX would overflow to a float and array_slice() refuses it.

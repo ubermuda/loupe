@@ -21,6 +21,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class CardDocumentLinkTest extends KernelTestCase
 {
+    use \App\Tests\Module\Board\BoardColumnFixtures;
+
     private EntityManagerInterface $em;
     private CreateCardHandler $createCard;
     private UpdateCardHandler $updateCard;
@@ -189,6 +191,7 @@ final class CardDocumentLinkTest extends KernelTestCase
         $this->em->persist($owner);
         $project = new Project($owner, $slug.'-'.uniqid());
         $this->em->persist($project);
+        $this->seedColumns($project);
         $document = new Document($owner, $project, 'The design');
         $this->em->persist($document);
         $this->em->flush();

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Form;
 
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -25,8 +25,9 @@ class CreateCardRequest
         #[Assert\NotNull]
         public ?CardPriority $priority = CardPriority::Medium,
 
+        /** The controller passes the board's default column. */
         #[Assert\NotNull]
-        public ?CardStatus $status = CardStatus::Backlog,
+        public ?BoardColumn $column = null,
         /** One URL per line, as typed. The list is replaced whole on every save. */
         public ?string $pullRequestUrls = null,
     ) {

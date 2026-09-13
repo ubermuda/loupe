@@ -60,7 +60,7 @@ final class ListCardsController extends AppController
                 'cardId' => (string) $card->id,
                 'number' => $card->number,
                 'title' => $card->title,
-                'status' => $card->status->value,
+                'status' => $card->column->slug,
             ],
             $view->cards,
         )]);

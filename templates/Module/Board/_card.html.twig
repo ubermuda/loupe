@@ -42,7 +42,7 @@
           action="{{ path('app_board_card_move', {projectId: card.project.id, cardId: card.id}) }}"
           data-board-drag-target="moveForm">
         {{ form_widget(moveForm._token) }}
-        {{ form_widget(moveForm.status) }}
+        {{ form_widget(moveForm.column) }}
         {{ form_widget(moveForm.priority) }}
         {{ form_widget(moveForm.position) }}
     </form>

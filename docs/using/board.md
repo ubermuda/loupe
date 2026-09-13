@@ -85,8 +85,10 @@ put it. The server answers a drop with the whole board. A move the server
 refuses puts the card back where it started.
 
 **New card** opens the create form. Under the Done column, a link opens the
-history page at **`/projects/<project>/board/done`**, which lists every done
-card, newest completion first, 25 to a page.
+history page at **`/projects/<project>/board/terminal/<column id>`**, which
+lists every card in that column, newest completion first, 25 to a page. The
+older address **`/projects/<project>/board/done`** still works and opens the
+same page.
 
 ### The card page
 

@@ -16,11 +16,11 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardGroupOrder;
 use App\Module\Project\Entity\Project;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
@@ -31,6 +31,8 @@ use Ubermuda\AuditBundle\AuditOutcome;
 
 final class CardAuditTrailTest extends KernelTestCase
 {
+    use BoardColumnFixtures;
+
     private EntityManagerInterface $em;
     private RecordingAuditor $audit;
     private CreateCardHandler $createCard;
@@ -74,12 +76,13 @@ final class CardAuditTrailTest extends KernelTestCase
         $this->em->persist($owner);
         $this->project = new Project($owner, 'board-'.uniqid());
         $this->em->persist($this->project);
+        $this->seedColumns($this->project);
         $this->em->flush();
     }
 
     public function test_a_created_card_is_recorded_with_where_it_landed(): void
     {
-        $card = $this->card('First', CardStatus::Next, CardPriority::High);
+        $card = $this->card('First', 'next', CardPriority::High);
 
         $record = $this->audit->record('board.card_created');
         self::assertSame(AuditOutcome::Success, $record->outcome);
@@ -94,6 +97,7 @@ final class CardAuditTrailTest extends KernelTestCase
             'type' => 'bug',
             'priority' => CardPriority::High->value,
             'status' => 'next',
+            'columnId' => (string) $this->column($this->project, 'next')->id,
             'reporter' => 'agent',
             'pullRequestCount' => 0,
             'documentCount' => 0,
@@ -103,12 +107,12 @@ final class CardAuditTrailTest extends KernelTestCase
         self::assertSame([], $this->audit->securityLogLines());
     }
 
-    public function test_a_move_records_both_ends_of_the_transition(): void
+    public function test_a_move_records_both_ends_of_the_transition_by_slug_and_by_column_id(): void
     {
-        $card = $this->card('Movable', CardStatus::Backlog, CardPriority::Low);
+        $card = $this->card('Movable', 'backlog', CardPriority::Low);
         $this->audit->forget();
 
-        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, CardStatus::InProgress, CardPriority::High));
+        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'in-progress'), CardPriority::High));
 
         $record = $this->audit->record('board.card_moved');
         self::assertNotNull($record->subject);
@@ -118,8 +122,10 @@ final class CardAuditTrailTest extends KernelTestCase
             'cardNumber' => $card->number,
             'projectId' => (string) $this->project->id,
             'fromStatus' => 'backlog',
+            'fromColumnId' => (string) $this->column($this->project, 'backlog')->id,
             'fromPriority' => CardPriority::Low->value,
             'toStatus' => 'in-progress',
+            'toColumnId' => (string) $this->column($this->project, 'in-progress')->id,
             'toPriority' => CardPriority::High->value,
             'position' => 0,
         ], $record->context);
@@ -127,7 +133,7 @@ final class CardAuditTrailTest extends KernelTestCase
 
     public function test_a_deleted_card_is_named_by_the_record_that_survives_it(): void
     {
-        $card = $this->card('Doomed', CardStatus::Next, CardPriority::High);
+        $card = $this->card('Doomed', 'next', CardPriority::High);
         $cardId = (string) $card->id;
         $cardNumber = $card->number;
         $this->audit->forget();
@@ -143,6 +149,7 @@ final class CardAuditTrailTest extends KernelTestCase
             'cardNumber' => $cardNumber,
             'projectId' => (string) $this->project->id,
             'status' => 'next',
+            'columnId' => (string) $this->column($this->project, 'next')->id,
             'priority' => CardPriority::High->value,
         ], $record->context);
 
@@ -152,7 +159,7 @@ final class CardAuditTrailTest extends KernelTestCase
 
     public function test_an_update_records_the_fields_it_changed_and_not_the_ones_resubmitted(): void
     {
-        $card = $this->card('Before', CardStatus::Next, CardPriority::High);
+        $card = $this->card('Before', 'next', CardPriority::High);
         $this->audit->forget();
 
         ($this->updateCard)(new UpdateCardCommand(
@@ -181,10 +188,10 @@ final class CardAuditTrailTest extends KernelTestCase
 
     public function test_an_update_that_only_moves_the_card_records_the_move_alone(): void
     {
-        $card = $this->card('Promotable', CardStatus::Backlog, CardPriority::Low);
+        $card = $this->card('Promotable', 'backlog', CardPriority::Low);
         $this->audit->forget();
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Agent, status: CardStatus::Done));
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Agent, column: $this->column($this->project, 'done')));
 
         $move = $this->audit->record('board.card_moved');
         self::assertSame('backlog', $move->context['fromStatus']);
@@ -195,10 +202,10 @@ final class CardAuditTrailTest extends KernelTestCase
 
     public function test_an_update_that_changes_a_field_and_the_group_pairs_both_records(): void
     {
-        $card = $this->card('Promotable', CardStatus::Backlog, CardPriority::Low);
+        $card = $this->card('Promotable', 'backlog', CardPriority::Low);
         $this->audit->forget();
 
-        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Agent, title: 'Promoted', status: CardStatus::Done));
+        ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Agent, title: 'Promoted', column: $this->column($this->project, 'done')));
 
         $update = $this->audit->record('board.card_updated');
         self::assertTrue($update->context['titleChanged']);
@@ -210,7 +217,7 @@ final class CardAuditTrailTest extends KernelTestCase
 
     public function test_a_resubmission_that_changes_nothing_records_nothing(): void
     {
-        $card = $this->card('Unchanged', CardStatus::Next, CardPriority::High);
+        $card = $this->card('Unchanged', 'next', CardPriority::High);
         $this->audit->forget();
 
         ($this->updateCard)(new UpdateCardCommand(
@@ -220,7 +227,7 @@ final class CardAuditTrailTest extends KernelTestCase
             body: 'Body',
             type: CardType::Bug,
             priority: CardPriority::High,
-            status: CardStatus::Next,
+            column: $this->column($this->project, 'next'),
         ));
 
         self::assertSame([], $this->audit->operations());
@@ -228,10 +235,10 @@ final class CardAuditTrailTest extends KernelTestCase
 
     public function test_a_drag_and_drop_move_records_one_transition_and_no_update(): void
     {
-        $card = $this->card('Draggable', CardStatus::Backlog, CardPriority::Low);
+        $card = $this->card('Draggable', 'backlog', CardPriority::Low);
         $this->audit->forget();
 
-        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, CardStatus::Next, CardPriority::Low, 0));
+        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'next'), CardPriority::Low, 0));
 
         self::assertSame(['board.card_moved'], $this->audit->operations());
         self::assertSame('next', $this->audit->record('board.card_moved')->context['toStatus']);
@@ -257,7 +264,7 @@ final class CardAuditTrailTest extends KernelTestCase
         DirectLogging::assertRemovedFrom($handler);
     }
 
-    private function card(string $title, CardStatus $status, CardPriority $priority): Card
+    private function card(string $title, string $column, CardPriority $priority): Card
     {
         return ($this->createCard)(new CreateCardCommand(
             project: $this->project,
@@ -265,7 +272,7 @@ final class CardAuditTrailTest extends KernelTestCase
             body: 'Body',
             type: CardType::Bug,
             priority: $priority,
-            status: $status,
+            column: $this->column($this->project, $column),
             reporter: CardReporter::Agent,
         ));
     }
