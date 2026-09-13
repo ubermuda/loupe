@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -25,6 +27,7 @@ final readonly class ReorderBoardColumnsHandler
         private BoardColumnRepository $boardColumns,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -66,5 +69,6 @@ final readonly class ReorderBoardColumnsHandler
             ['projectId' => (string) $command->project->id, 'order' => implode(',', $order)],
             new AuditSubject('project', (string) $command->project->id),
         );
+        $this->events->dispatch(new BoardColumnsChanged($command->project));
     }
 }

@@ -84,6 +84,12 @@ The card follows the pointer as you drag, and a gap opens where a release would
 put it. The server answers a drop with the whole board. A move the server
 refuses puts the card back where it started.
 
+When someone adds, renames, reorders, flags or deletes a column, every open
+board of the project reloads and shows the change. A drag in progress on another
+screen can then fail, and the card goes back. This needs a Mercure hub, see
+[Environment variables](../reference/environment.md). Without one, a board shows
+the change on its next load.
+
 **New card** opens the create form. Under the Done column, a link opens the
 history page at **`/projects/<project>/board/terminal/<column id>`**, which
 lists every card in that column, newest completion first, 25 to a page. The
