@@ -321,7 +321,9 @@ func (s *Set) Check(ctx context.Context, src ColumnSource) error {
 	for _, slug := range s.Projects() {
 		pc, err := src.Columns(ctx, slug)
 		if errors.Is(err, api.ErrProjectNotFound) {
-			errs = append(errs, fmt.Errorf("project %q: no project of yours has this slug", slug))
+			// A server older than the columns endpoint also answers 404, and
+			// the two are indistinguishable from here.
+			errs = append(errs, fmt.Errorf("project %q: the server answered 404. Either no project of yours has this slug, or the server is too old for this bridge version: it has no GET /api/agent/projects/{handle}/columns endpoint, so upgrade Loupe first", slug))
 
 			continue
 		}

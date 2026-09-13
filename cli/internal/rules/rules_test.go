@@ -259,7 +259,12 @@ func TestCheckRefusesWhatTheBoardDoesNotHave(t *testing.T) {
 		"unknown project": {
 			body:     oneRule,
 			projects: map[string]string{},
-			want:     []string{`project "loupe": no project of yours has this slug`},
+			want: []string{
+				`project "loupe": the server answered 404`,
+				"no project of yours has this slug",
+				"the server is too old for this bridge version",
+				"GET /api/agent/projects/{handle}/columns",
+			},
 		},
 		"unknown to column": {
 			body:     strings.ReplaceAll(oneRule, "to: ready", "to: next"),
