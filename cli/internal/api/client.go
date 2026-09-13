@@ -12,13 +12,13 @@ import (
 	"strings"
 )
 
-// Site is one entry of GET /api/agent/sites.
+// Site is one entry of GET /api/projects.
 type Site struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 }
 
-// StreamCredentials is the response of GET /api/agent/stream: everything
+// StreamCredentials is the response of GET /api/projects/{handle}/stream: everything
 // needed to subscribe to one site's review event stream.
 type StreamCredentials struct {
 	HubURL string `json:"hubUrl"`
@@ -51,7 +51,7 @@ func New(baseURL, token string, hc *http.Client) *Client {
 func (c *Client) StreamCredentials(ctx context.Context, site string) (StreamCredentials, error) {
 	var creds StreamCredentials
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		c.baseURL+"/api/agent/stream?site="+url.QueryEscape(site), nil)
+		c.baseURL+"/api/projects/"+url.PathEscape(site)+"/stream", nil)
 	if err != nil {
 		return creds, err
 	}
@@ -88,7 +88,7 @@ type Column struct {
 	Default  bool   `json:"default"`
 }
 
-// ProjectColumns is the response of GET /api/agent/projects/{handle}/columns.
+// ProjectColumns is the response of GET /api/projects/{handle}/board/columns.
 // A server that predates project slugs sends a null slug, which decodes as "".
 type ProjectColumns struct {
 	Project struct {
@@ -135,7 +135,7 @@ func notFound(body io.Reader) error {
 func (c *Client) Columns(ctx context.Context, handle string) (ProjectColumns, error) {
 	var out ProjectColumns
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		c.baseURL+"/api/agent/projects/"+url.PathEscape(handle)+"/columns", nil)
+		c.baseURL+"/api/projects/"+url.PathEscape(handle)+"/board/columns", nil)
 	if err != nil {
 		return out, err
 	}
@@ -170,7 +170,7 @@ func (c *Client) Columns(ctx context.Context, handle string) (ProjectColumns, er
 
 // Sites lists the authenticated user's sites. Login calls it to check a token.
 func (c *Client) Sites(ctx context.Context) ([]Site, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/agent/sites", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/projects", nil)
 	if err != nil {
 		return nil, err
 	}

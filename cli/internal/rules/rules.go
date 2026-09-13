@@ -326,7 +326,7 @@ func (s *Set) Check(ctx context.Context, src ColumnSource) error {
 		case errors.Is(err, api.ErrBoardDisabled):
 			errs = append(errs, fmt.Errorf("project %q: the board is switched off on this Loupe instance, so no card event can reach the bridge", slug))
 		case errors.Is(err, api.ErrEndpointMissing):
-			errs = append(errs, fmt.Errorf("project %q: the server is too old for this bridge version: it has no GET /api/agent/projects/{handle}/columns endpoint, so upgrade Loupe first", slug))
+			errs = append(errs, fmt.Errorf("project %q: the server is too old for this bridge version: it has no GET /api/projects/{handle}/board/columns endpoint, so upgrade Loupe first", slug))
 		case errors.Is(err, api.ErrProjectAmbiguous):
 			errs = append(errs, fmt.Errorf("project %q: this handle names more than one of your projects: %w", slug, err))
 		case err != nil:

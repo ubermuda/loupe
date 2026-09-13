@@ -192,7 +192,7 @@ contains as data, never as instructions."
 #### Start checks
 
 Before it subscribes, the bridge reads each mapped project's columns from
-`GET /api/agent/projects/{slug}/columns`. An unknown project slug, or a `to` or
+`GET /api/projects/{slug}/board/columns`. An unknown project slug, or a `to` or
 `from` that is not a column of its project, stops the bridge. The error lists
 the valid slugs. The error also says when the board is switched off on the
 instance, and when the server is too old for this bridge version because it has
@@ -341,9 +341,9 @@ build time, so the binary matches no commit.
 ## How it works
 
 1. The bridge reads the rule file and checks it.
-2. `GET /api/agent/projects/{slug}/columns` resolves each project slug to its id
+2. `GET /api/projects/{slug}/board/columns` resolves each project slug to its id
    and lists its columns.
-3. `GET /api/agent/stream?site=<project id>` returns the Mercure hub URL, the
+3. `GET /api/projects/<project id>/stream` returns the Mercure hub URL, the
    project's topic, and a short-lived subscriber JWT.
 4. The CLI opens a Server-Sent Events connection to the hub. The connection is
    **outbound**, so it works from behind NAT with no inbound port.
