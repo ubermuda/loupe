@@ -26,7 +26,8 @@ whose publish never landed are visible in two places:
 - **`/admin/outbox`** — every undelivered event on the instance,
   with its type, attempt counts and next-retry times. `ROLE_ADMIN`.
 - **`/projects/<id>/outbox`** — the same, scoped to one project, for
-  whoever can view that project.
+  whoever can view that project. The project sidebar links to it as
+  **Outbox**.
 
 The worker retries them every five minutes on the scheduler. To force a pass —
 typically after an instance whose worker was down — run:
