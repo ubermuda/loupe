@@ -23,7 +23,7 @@ func TestColumnsDecodesTheProjectAndItsColumns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if gotPath != "/api/agent/projects/loupe/columns" || gotAuth != "Bearer secret" {
+	if gotPath != "/api/projects/loupe/board/columns" || gotAuth != "Bearer secret" {
 		t.Fatalf("path = %q, auth = %q", gotPath, gotAuth)
 	}
 	if got.Project.ID != "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7" || got.Project.Slug != "loupe" {
@@ -44,7 +44,7 @@ func TestColumnsEscapesTheHandle(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	_, _ = New(server.URL, "t", server.Client()).Columns(context.Background(), "a/../b")
-	if gotPath != "/api/agent/projects/a%2F..%2Fb/columns" {
+	if gotPath != "/api/projects/a%2F..%2Fb/board/columns" {
 		t.Fatalf("path = %q", gotPath)
 	}
 }

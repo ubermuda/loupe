@@ -25,7 +25,7 @@ project for each process for now.
 
 The bridge authenticates with an account-level API token that carries the agent
 scope. Mint one at `/account`. It reaches `GET /api/agent/sites`,
-`GET /api/agent/stream` and `GET /api/agent/projects/{handle}/columns`, and no
+`GET /api/agent/stream` and `GET /api/projects/{handle}/board/columns`, and no
 other endpoint. A project's widget token carries a different scope and the
 firewall refuses it here.
 

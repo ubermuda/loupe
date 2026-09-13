@@ -223,7 +223,7 @@ func TestTheExampleParses(t *testing.T) {
 func columnsServer(t *testing.T, projects map[string]string) *api.Client {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		handle := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/agent/projects/"), "/columns")
+		handle := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/projects/"), "/board/columns")
 		body, ok := projects[handle]
 		if !ok {
 			w.WriteHeader(http.StatusNotFound)

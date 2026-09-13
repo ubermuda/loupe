@@ -88,7 +88,7 @@ type Column struct {
 	Default  bool   `json:"default"`
 }
 
-// ProjectColumns is the response of GET /api/agent/projects/{handle}/columns.
+// ProjectColumns is the response of GET /api/projects/{handle}/board/columns.
 // A server that predates project slugs sends a null slug, which decodes as "".
 type ProjectColumns struct {
 	Project struct {
@@ -135,7 +135,7 @@ func notFound(body io.Reader) error {
 func (c *Client) Columns(ctx context.Context, handle string) (ProjectColumns, error) {
 	var out ProjectColumns
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		c.baseURL+"/api/agent/projects/"+url.PathEscape(handle)+"/columns", nil)
+		c.baseURL+"/api/projects/"+url.PathEscape(handle)+"/board/columns", nil)
 	if err != nil {
 		return out, err
 	}
