@@ -30,6 +30,23 @@ type StreamCredentials struct {
 	} `json:"site"`
 }
 
+// maxBody caps a success body the client decodes. A columns or sites list is
+// far smaller, and a misrouted proxy must not make the bridge read without end.
+const maxBody = 1 << 20
+
+// decodeBody decodes a success body of at most maxBody bytes into v.
+func decodeBody(body io.Reader, v any) error {
+	data, err := io.ReadAll(io.LimitReader(body, maxBody+1))
+	if err != nil {
+		return err
+	}
+	if len(data) > maxBody {
+		return fmt.Errorf("the response body is larger than %d bytes", maxBody)
+	}
+
+	return json.Unmarshal(data, v)
+}
+
 // Client is a Loupe API client bound to one base URL and token.
 type Client struct {
 	baseURL string
@@ -73,7 +90,7 @@ func (c *Client) StreamCredentials(ctx context.Context, site string) (StreamCred
 		return creds, fmt.Errorf("stream credentials request failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&creds); err != nil {
+	if err := decodeBody(resp.Body, &creds); err != nil {
 		return creds, fmt.Errorf("decode stream credentials: %w", err)
 	}
 
@@ -161,7 +178,7 @@ func (c *Client) Columns(ctx context.Context, handle string) (ProjectColumns, er
 		return out, fmt.Errorf("columns request for %s failed (HTTP %d): %s", handle, resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+	if err := decodeBody(resp.Body, &out); err != nil {
 		return out, fmt.Errorf("decode columns of %s: %w", handle, err)
 	}
 
@@ -195,7 +212,7 @@ func (c *Client) Sites(ctx context.Context) ([]Site, error) {
 	var payload struct {
 		Sites []Site `json:"sites"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+	if err := decodeBody(resp.Body, &payload); err != nil {
 		return nil, fmt.Errorf("decode sites: %w", err)
 	}
 
