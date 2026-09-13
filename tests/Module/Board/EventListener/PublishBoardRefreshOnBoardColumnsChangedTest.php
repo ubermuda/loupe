@@ -198,7 +198,7 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
         $this->assertPublishedCount(0);
     }
 
-    public function test_with_agent_push_off_a_column_change_still_refreshes_the_board_and_writes_no_outbox_row(): void
+    public function test_with_agent_push_off_a_column_change_still_refreshes_the_board_topic(): void
     {
         $connection = $this->em->getConnection();
         $connection->executeStatement("UPDATE feature_flag SET value = 'false' WHERE name = ?", [AgentPush::FLAG]);
@@ -210,9 +210,9 @@ final class PublishBoardRefreshOnBoardColumnsChangedTest extends KernelTestCase
         $this->handler(AddBoardColumnHandler::class)(new AddBoardColumnCommand($this->project, 'Parked'));
 
         $this->assertPublishedAtTerminate(1);
-        self::assertSame(0, (int) $connection->fetchOne('SELECT count(*) FROM outbox_events WHERE project_id = :id', [
-            'id' => (string) $this->project->id,
-        ]));
+        $projectId = $this->project->id;
+        self::assertNotNull($projectId);
+        self::assertSame([$this->topics()->forBoard($projectId)], $this->published[0]->getTopics());
     }
 
     public function test_a_hub_that_fails_is_logged_and_the_change_stands(): void

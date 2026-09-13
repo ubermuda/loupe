@@ -49,8 +49,9 @@ agent, and the publish failure is only logged — it degrades silently.
 
 An open board also subscribes to the hub, so it reloads when someone changes a
 column. The `live_updates.enabled` flag controls this, so a switched-off flag
-stops the live refresh. Agent push has its own flag, `agent.push.enabled`. The
-board response sets a cookie that authorizes the browser for that one board. Two rules follow for a hub on its own host:
+stops the live refresh. Agent push has its own flag, `agent.push.enabled`.
+The board response sets a cookie that authorizes the browser for that one
+board. Two rules follow for a hub on its own host:
 
 - Put the hub under the parent domain of `DEFAULT_URI`, such as
   `hub.example.com` beside `loupe.example.com`. A hub on another domain cannot

@@ -88,8 +88,8 @@ When someone adds, renames, reorders, flags or deletes a column, every open
 board of the project reloads and shows the change. A drag in progress on another
 screen can then fail, and the card goes back. This needs a Mercure hub, see
 [Environment variables](../reference/environment.md), and the
-`live_updates.enabled` feature flag, which ships on. Without either, a board
-shows the change on its next load.
+`live_updates.enabled` feature flag, which ships on. If either is missing, a
+board shows the change on its next load.
 
 **New card** opens the create form. Under the Done column, a link opens the
 history page at **`/projects/<project>/board/terminal/<column id>`**, which

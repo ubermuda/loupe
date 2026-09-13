@@ -38,6 +38,16 @@ final class LiveUpdatesFlagSeedMigrationTest extends KernelTestCase
         self::assertSame([['type' => 'bool', 'value' => 'false']], $this->liveUpdatesRows());
     }
 
+    public function test_an_agent_push_row_with_a_null_value_copies_off(): void
+    {
+        $this->connection->executeStatement('DELETE FROM feature_flag WHERE name = ?', [LiveUpdates::FLAG]);
+        self::assertSame(1, $this->connection->executeStatement('UPDATE feature_flag SET value = NULL WHERE name = ?', [AgentPush::FLAG]));
+
+        $this->migrate();
+
+        self::assertSame([['type' => 'bool', 'value' => 'false']], $this->liveUpdatesRows());
+    }
+
     public function test_an_instance_without_either_flag_gets_it_on(): void
     {
         $this->connection->executeStatement('DELETE FROM feature_flag WHERE name IN (?, ?)', [LiveUpdates::FLAG, AgentPush::FLAG]);
