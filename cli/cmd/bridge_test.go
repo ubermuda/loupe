@@ -244,7 +244,7 @@ func TestOneTopicServesEveryProject(t *testing.T) {
 
 	worker := &fakeWorker{}
 	h := &harness{worker: worker, log: &syncBuffer{}}
-	h.router = &router{log: newBridgeLogger(h.log), rules: set, maxWorkers: defaultMaxWorkers, worker: worker.ops()}
+	h.router = &router{log: newBridgeLogger(h.log), rules: set, maxWorkers: defaultMaxWorkers, worker: worker.ops(), bridgeID: testBridgeID}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -253,8 +253,10 @@ func TestOneTopicServesEveryProject(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- subscribe(cmd, cfg, h.router) }()
 
+	gonePath := "/api/projects/" + otherProject + "/bridges/" + testBridgeID + "/rules "
+	goneReport := gonePath + `{"rules":[{"name":"other-plan","on":"board.card_moved","columns":["next"],"state":"dead","reason":"project_gone"}]}`
 	deadline := time.After(8 * time.Second)
-	for fake.connections() < 3 || len(worker.recorded()) < 2 {
+	for fake.connections() < 3 || len(worker.recorded()) < 2 || !slices.Contains(fake.sentReports(), goneReport) {
 		select {
 		case <-deadline:
 			t.Fatalf("connections = %d, workers = %+v, log = %s", fake.connections(), worker.recorded(), h.log.String())

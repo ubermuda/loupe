@@ -24,7 +24,10 @@ const testBridgeID = "0192f3a1-7777-4d3e-8f10-a2b3c4d5e6f7"
 type reportServer struct {
 	mu       sync.Mutex
 	statuses map[string][]int
-	bodies   map[string][]string
+	// replies holds the body of each status, and a 404 says board_disabled
+	// when it holds none.
+	replies map[int]string
+	bodies  map[string][]string
 }
 
 func (s *reportServer) serve(w http.ResponseWriter, r *http.Request) {
@@ -40,12 +43,14 @@ func (s *reportServer) serve(w http.ResponseWriter, r *http.Request) {
 	if next := s.statuses[handle]; len(next) > 0 {
 		status, s.statuses[handle] = next[0], next[1:]
 	}
+	reply, ok := s.replies[status]
 	s.mu.Unlock()
 
-	w.WriteHeader(status)
-	if status == http.StatusNotFound {
-		fmt.Fprint(w, `{"error":"board_disabled"}`)
+	if !ok && status == http.StatusNotFound {
+		reply = `{"error":"board_disabled"}`
 	}
+	w.WriteHeader(status)
+	fmt.Fprint(w, reply)
 }
 
 func (s *reportServer) sent(handle string) []string {
@@ -131,22 +136,65 @@ func TestANewerReportReplacesAPendingRetry(t *testing.T) {
 }
 
 // board_disabled stops the reports of that project for good, with one log
-// line, and leaves every other project reporting.
+// line, and leaves every other project reporting. The project's goroutine has
+// returned before the second submit, so nothing can send it.
 func TestBoardDisabledStopsReportingForTheProject(t *testing.T) {
 	s := &reportServer{statuses: map[string][]int{testProject: {http.StatusNotFound}}}
 	h, log := newReporter(t, s, time.Millisecond)
 
 	h.submit("loupe", testProject, health("plan", api.RuleLive))
-	eventually(t, "board_disabled", func() bool { return strings.Contains(log.String(), `"report_failed"`) })
+	p := h.project(testProject)
+	select {
+	case <-p.done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the project's report goroutine did not stop")
+	}
 	h.submit("loupe", testProject, health("plan", api.RuleDead))
-	h.submit("other", otherProject, health("plan", api.RuleLive))
-	eventually(t, "the other project's report", func() bool { return len(s.sent(otherProject)) == 1 })
-
+	h.mu.Lock()
+	pending := p.has
+	h.mu.Unlock()
+	if pending {
+		t.Fatal("a stopped project accepted a report")
+	}
 	if n := len(s.sent(testProject)); n != 1 {
 		t.Fatalf("the disabled project sent %d reports", n)
 	}
 	if n := strings.Count(log.String(), `"report_failed"`); n != 1 {
 		t.Fatalf("report_failed lines = %d, log = %s", n, log.String())
+	}
+
+	h.submit("other", otherProject, health("plan", api.RuleLive))
+	eventually(t, "the other project's report", func() bool { return len(s.sent(otherProject)) == 1 })
+}
+
+// A report the server refuses for good names what the operator must fix.
+func TestARejectedReportSaysWhatToFix(t *testing.T) {
+	for name, tc := range map[string]struct {
+		status int
+		reply  string
+		want   string
+	}{
+		"unknown project": {http.StatusNotFound, `{"error":"project_not_found"}`, "the server knows no project loupe of yours: fix the projects map in rules.yaml and restart the bridge"},
+		"old server":      {http.StatusNotFound, ``, "upgrade Loupe"},
+		"invalid field":   {http.StatusUnprocessableEntity, `{"violations":[{"propertyPath":"rules[0].name","title":"This value is too long."}]}`, "the server refused field name of rule plan of project loupe: fix rules.yaml and restart the bridge"},
+		"no violations":   {http.StatusUnprocessableEntity, `{}`, "the server refused the report of project loupe: fix rules.yaml"},
+		"wrong scope":     {http.StatusForbidden, `{"error":"insufficient_scope"}`, "agent scope"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			s := &reportServer{statuses: map[string][]int{testProject: {tc.status}}, replies: map[int]string{tc.status: tc.reply}}
+			h, log := newReporter(t, s, time.Hour)
+
+			h.submit("loupe", testProject, health("plan", api.RuleLive))
+			eventually(t, "report_failed", func() bool { return strings.Contains(log.String(), `"report_failed"`) })
+
+			var line map[string]any
+			if err := json.Unmarshal([]byte(strings.TrimSpace(log.String())), &line); err != nil {
+				t.Fatal(err)
+			}
+			if msg, _ := line["message"].(string); !strings.Contains(msg, tc.want) || line["retry"] != false {
+				t.Fatalf("report_failed = %v, want a message with %q", line, tc.want)
+			}
+		})
 	}
 }
 

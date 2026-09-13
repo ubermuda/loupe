@@ -171,6 +171,16 @@ list above, and logs a `permission_mode_unknown` line for it. The file holds
 one YAML document with content. An empty document before or after it is
 ignored, and a second one with content stops the bridge.
 
+The server stores a report of each rule, so the bridge also refuses at start
+what the server would refuse:
+
+- a `name` that is blank, or longer than 100 characters after the bridge trims
+  its spaces
+- an `on` longer than 100 characters, or one that does not match
+  `^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$`
+- a `to` or `from` longer than 2,000 characters
+- more than 200 rules for one project
+
 The first rule in file order that matches an event wins. A `board.card_moved`
 rule fires when the card enters `to` from another column. A move to a new rank
 inside one column fires nothing, because it carries that column on both sides.
@@ -262,10 +272,12 @@ An event from a person (`actor: human`) for that card resets every rule's count
 on the card. That covers every `board.card_moved` event, and an event of another
 type that some rule names, whether its rule matches or not. The bridge drops an
 event of a type no rule names before it reads the actor, so that event resets
-nothing. A column or project event has no card, so it resets nothing either. A reviewer's event resets nothing. A run that a person's event started
-does not count. An event that replaces a waiting one adds nothing, because the
-count follows runs. The counts live in the bridge process, so a restart resets
-them.
+nothing. A column or project event has no card, so it resets nothing either. A
+reviewer's event resets nothing.
+
+A run that a person's event started does not count. An event that replaces a
+waiting one adds nothing, because the count follows runs. The counts live in the
+bridge process, so a restart resets them.
 
 ### The queue
 
@@ -295,10 +307,11 @@ bridge runs. The bridge then marks the affected rules dead:
 A dead rule matches nothing until the bridge restarts, and a later rule in the
 file can then catch the event. The bridge logs one `rule_dead` error line for
 each rule. An event that waits in the queue for a rule that dies never starts,
-and the bridge names it in a `queue_dropped` line. At the restart, the start checks refuse the old slug, so fix the rule
-file first. These events kill rules whatever their actor, so `allowUntrusted`
-does not apply to them. The bridge reads them even when no rule names their
-type.
+and the bridge names it in a `queue_dropped` line. At the restart, the start
+checks refuse the old slug, so fix the rule file first.
+
+These events kill rules whatever their actor, so `allowUntrusted` does not apply
+to them. The bridge reads them even when no rule names their type.
 
 ### Rule health reports
 
@@ -316,9 +329,14 @@ change.
 A report goes out in the background, so a slow server never delays an event. A
 report that fails on the network, with a 5xx or with a 429 is retried after 1
 second, then 2, 4 and so on, up to 1 minute. A newer report for the same project
-replaces the one that waits, and goes out at once. The bridge does not retry a
-report the server refuses with a 401, 403, 404 or 422, because the same body
-fails again. It sends the next report of that project when a rule changes state.
+replaces the one that waits, and goes out at once.
+
+The bridge does not retry a report the server refuses with a 401, 403, 404 or
+422, because the same body fails again. Its `report_failed` line then carries a
+`message` that says what to fix. For a 422 it names each field and rule the
+server refused. For an unknown project it points at the `projects` map. Fix
+`rules.yaml` and restart the bridge.
+
 When the board is switched off, the bridge logs one `report_failed` line and
 stops reporting for that project until it restarts.
 
@@ -367,7 +385,7 @@ names `card`, or `subject` for an event with no card number.
 | `queue_dropped` | `count`, `dropped`: a list of `{card, rule}` |
 | `rule_dead` | `rule`, `project`, `project_slug`, `reason`, `message`: a column or project change killed the rule. Level `ERROR` |
 | `report_sent` | `project`, `project_slug`, `rules`, `dead`: the server stored the rule health report of that project |
-| `report_failed` | `project`, `project_slug`, `error`, `retry`, and `retry_in_ms` when `retry` is true |
+| `report_failed` | `project`, `project_slug`, `error`, `retry`, `retry_in_ms` when `retry` is true, and `message` when the fix is yours |
 
 `queue_depth` counts the accepted events waiting at that moment, the new one
 included. `worker_failed` and `worker_finished` name two different faults: a

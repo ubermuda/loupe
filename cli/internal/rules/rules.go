@@ -17,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/directive"
@@ -51,7 +52,16 @@ rules:
 
 // eventTypePattern is the shape of an event type, such as board.card_moved. It
 // cannot catch a misspelt type, but it catches a value that is not a type.
-var eventTypePattern = regexp.MustCompile(`^[a-z0-9_]+(\.[a-z0-9_]+)+$`)
+var eventTypePattern = regexp.MustCompile(`^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$`)
+
+// The limits the rule health endpoint puts on a report. The bridge refuses a
+// rule file past them at start, or every report of that project gets a 422.
+const (
+	MaxNameLength      = 100
+	MaxOnLength        = 100
+	MaxSlugLength      = 2000
+	MaxRulesPerProject = 200
+)
 
 // PermissionModes are the values claude 2.1.270 takes for --permission-mode.
 // Its help omits default, and it still accepts it. A later claude can add a
@@ -121,8 +131,8 @@ type Set struct {
 	// set matches nothing.
 	slugs map[string]string
 
-	// dead maps a rule name to the reason it died. The stream goroutine writes
-	// it, and a report can be built elsewhere, so mu guards it.
+	// dead maps a rule name to the reason it died. The bridge reads and writes
+	// it on the stream goroutine alone. mu guards it for any other caller.
 	mu   sync.RWMutex
 	dead map[string]string
 }
@@ -179,10 +189,21 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 	}
 
 	names := map[string]bool{}
+	perProject := map[string]int{}
 	for i, r := range f.Rules {
 		if r.Name == "" {
 			r.Name = strconv.Itoa(i + 1)
 		}
+		// The server trims a name, so two names that differ in spaces alone
+		// would share one row in its report.
+		if trimmed := strings.TrimSpace(r.Name); trimmed == "" {
+			errs = append(errs, fmt.Errorf("rule %d: name %q is blank", i+1, r.Name))
+		} else if n := utf8.RuneCountInString(trimmed); n > MaxNameLength {
+			errs = append(errs, fmt.Errorf("rule %d: name is %d characters, and the server takes at most %d", i+1, n, MaxNameLength))
+		} else {
+			r.Name = trimmed
+		}
+		perProject[r.Project]++
 		if names[r.Name] {
 			errs = append(errs, fmt.Errorf("rule %q: another rule has the same name", r.Name))
 		}
@@ -202,6 +223,11 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 			r.Model = defaults.Model
 		}
 		s.rules = append(s.rules, r)
+	}
+	for _, slug := range slices.Sorted(maps.Keys(perProject)) {
+		if perProject[slug] > MaxRulesPerProject {
+			errs = append(errs, fmt.Errorf("project %q has %d rules, and the server takes at most %d in one report", slug, perProject[slug], MaxRulesPerProject))
+		}
 	}
 
 	if len(errs) > 0 {
@@ -290,6 +316,8 @@ func checkRule(r Rule, projects map[string]Project) error {
 	switch {
 	case r.On == "":
 		errs = append(errs, errors.New("on is required"))
+	case len(r.On) > MaxOnLength:
+		errs = append(errs, fmt.Errorf("on is %d characters, and the server takes at most %d", len(r.On), MaxOnLength))
 	case !eventTypePattern.MatchString(r.On):
 		errs = append(errs, fmt.Errorf("on %q is not an event type, such as board.card_moved", r.On))
 	}
@@ -318,6 +346,11 @@ func checkRule(r Rule, projects map[string]Project) error {
 		}
 		if r.From != "" && !event.SlugPattern.MatchString(r.From) {
 			errs = append(errs, fmt.Errorf("from %q is not a column slug", r.From))
+		}
+		for _, col := range [][2]string{{"to", r.To}, {"from", r.From}} {
+			if len(col[1]) > MaxSlugLength {
+				errs = append(errs, fmt.Errorf("%s is %d characters, and the server takes a column slug of at most %d", col[0], len(col[1]), MaxSlugLength))
+			}
 		}
 		if r.From != "" && r.From == r.To {
 			errs = append(errs, errors.New("from and to name one column, and a move inside one column never fires"))

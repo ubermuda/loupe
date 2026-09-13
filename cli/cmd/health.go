@@ -3,7 +3,12 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -47,6 +52,8 @@ type projectReport struct {
 	has     bool
 	stopped bool
 	wake    chan struct{}
+	// done closes when the project's goroutine returns.
+	done chan struct{}
 }
 
 func newHealthReporter(ctx context.Context, client ruleReporter, bridgeID string, log *slog.Logger) *healthReporter {
@@ -63,7 +70,7 @@ func (h *healthReporter) submit(slug, handle string, rules []api.RuleHealth) {
 		if h.projects == nil {
 			h.projects = map[string]*projectReport{}
 		}
-		p = &projectReport{slug: slug, handle: handle, wake: make(chan struct{}, 1)}
+		p = &projectReport{slug: slug, handle: handle, wake: make(chan struct{}, 1), done: make(chan struct{})}
 		h.projects[handle] = p
 		h.wg.Add(1)
 		go h.loop(p)
@@ -86,6 +93,15 @@ func (h *healthReporter) submit(slug, handle string, rules []api.RuleHealth) {
 // context is cancelled.
 func (h *healthReporter) wait() {
 	h.wg.Wait()
+}
+
+// project returns the report state of one project, or nil before its first
+// submit.
+func (h *healthReporter) project(handle string) *projectReport {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	return h.projects[handle]
 }
 
 func (h *healthReporter) take(p *projectReport) ([]api.RuleHealth, bool) {
@@ -117,6 +133,7 @@ func (h *healthReporter) stop(p *projectReport) {
 
 func (h *healthReporter) loop(p *projectReport) {
 	defer h.wg.Done()
+	defer close(p.done)
 
 	attempt := 0
 	for {
@@ -148,7 +165,8 @@ func (h *healthReporter) loop(p *projectReport) {
 				return
 			case errors.Is(err, api.ErrReportRejected):
 				attempt = 0
-				h.log.Error("report_failed", "project", p.handle, "project_slug", p.slug, "error", err.Error(), "retry", false)
+				h.log.Error("report_failed", "project", p.handle, "project_slug", p.slug, "error", err.Error(), "retry", false,
+					"message", rejectedAdvice(err, p.slug, rules))
 
 				continue
 			}
@@ -170,6 +188,44 @@ func (h *healthReporter) loop(p *projectReport) {
 			}
 			timer.Stop()
 		}
+	}
+}
+
+// violationPath reads the rule index and field of a 422 property path.
+var violationPath = regexp.MustCompile(`^rules\[(\d+)\]\.(\w+)`)
+
+// rejectedAdvice tells the operator what to do about a report the server
+// refused for good. A retry of the same body fails again.
+func rejectedAdvice(err error, slug string, rules []api.RuleHealth) string {
+	var rejected *api.RejectedReport
+	errors.As(err, &rejected)
+	switch {
+	case errors.Is(err, api.ErrProjectNotFound):
+		return fmt.Sprintf("the server knows no project %s of yours: fix the projects map in rules.yaml and restart the bridge", slug)
+	case errors.Is(err, api.ErrEndpointMissing):
+		return "the server has no rule health endpoint: upgrade Loupe, then restart the bridge"
+	case rejected != nil && rejected.Status == http.StatusUnprocessableEntity:
+		fields := []string{"the report"}
+		if len(rejected.Violations) > 0 {
+			fields = nil
+		}
+		for _, v := range rejected.Violations {
+			m := violationPath.FindStringSubmatch(v.PropertyPath)
+			if m == nil {
+				fields = append(fields, v.PropertyPath)
+
+				continue
+			}
+			if i, _ := strconv.Atoi(m[1]); i < len(rules) {
+				fields = append(fields, fmt.Sprintf("field %s of rule %s", m[2], rules[i].Name))
+			} else {
+				fields = append(fields, v.PropertyPath)
+			}
+		}
+
+		return fmt.Sprintf("the server refused %s of project %s: fix rules.yaml and restart the bridge", strings.Join(fields, ", "), slug)
+	default:
+		return "the server refused the token: run loupe login with a token that has the agent scope, then restart the bridge"
 	}
 }
 

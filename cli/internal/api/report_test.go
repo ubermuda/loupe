@@ -94,8 +94,11 @@ func TestReportRulesNamesEachFailure(t *testing.T) {
 		if errors.Is(err, ErrReportRejected) != tc.rejected {
 			t.Fatalf("HTTP %d: err = %v, rejected should be %v", tc.status, err, tc.rejected)
 		}
-		if tc.status == http.StatusUnprocessableEntity && !strings.Contains(err.Error(), "rules[0].reason") {
-			t.Fatalf("HTTP 422: err = %v, want the violation in it", err)
+		if tc.status == http.StatusUnprocessableEntity {
+			var rejected *RejectedReport
+			if !errors.As(err, &rejected) || len(rejected.Violations) != 1 || rejected.Violations[0].PropertyPath != "rules[0].reason" || !strings.Contains(err.Error(), "rules[0].reason") {
+				t.Fatalf("HTTP 422: err = %v, want the violation in it", err)
+			}
 		}
 	}
 }

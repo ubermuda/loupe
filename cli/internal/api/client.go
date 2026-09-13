@@ -222,6 +222,40 @@ type RuleHealth struct {
 // the same body cannot fix, such as a 422 or an unknown project.
 var ErrReportRejected = errors.New("the server rejected the rule report")
 
+// Violation is one field a 422 names, such as rules[0].name.
+type Violation struct {
+	PropertyPath string `json:"propertyPath"`
+	Title        string `json:"title"`
+}
+
+// RejectedReport is a report the server refused for good. It matches
+// ErrReportRejected, and the 404 cause, such as ErrProjectNotFound.
+type RejectedReport struct {
+	Status     int
+	Violations []Violation
+	cause      error
+}
+
+func (e *RejectedReport) Error() string {
+	msg := fmt.Sprintf("the server rejected the rule report (HTTP %d)", e.Status)
+	if e.cause != nil {
+		msg += ": " + e.cause.Error()
+	}
+	for _, v := range e.Violations {
+		msg += fmt.Sprintf("; %s: %s", v.PropertyPath, v.Title)
+	}
+
+	return msg
+}
+
+func (e *RejectedReport) Unwrap() []error {
+	if e.cause == nil {
+		return []error{ErrReportRejected}
+	}
+
+	return []error{ErrReportRejected, e.cause}
+}
+
 // ReportRules replaces this bridge's rule health report for one project.
 func (c *Client) ReportRules(ctx context.Context, handle, bridgeID string, rules []RuleHealth) error {
 	if rules == nil {
@@ -257,10 +291,16 @@ func (c *Client) ReportRules(ctx context.Context, handle, bridgeID string, rules
 			return err
 		}
 
-		return fmt.Errorf("%w: %w", ErrReportRejected, err)
-	case http.StatusUnauthorized, http.StatusForbidden, http.StatusUnprocessableEntity:
-		detail, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return fmt.Errorf("%w (HTTP %d): %s", ErrReportRejected, resp.StatusCode, strings.TrimSpace(string(detail)))
+		return &RejectedReport{Status: resp.StatusCode, cause: err}
+	case http.StatusUnprocessableEntity:
+		var problem struct {
+			Violations []Violation `json:"violations"`
+		}
+		_ = json.NewDecoder(io.LimitReader(resp.Body, maxBody)).Decode(&problem)
+
+		return &RejectedReport{Status: resp.StatusCode, Violations: problem.Violations}
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return &RejectedReport{Status: resp.StatusCode}
 	default:
 		detail, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return fmt.Errorf("rule report for %s failed (HTTP %d): %s", handle, resp.StatusCode, strings.TrimSpace(string(detail)))
