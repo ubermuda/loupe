@@ -7,6 +7,7 @@ namespace App\Module\Board\Command;
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Event\BoardColumnRenamed;
+use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Service\BoardColumns;
 use Doctrine\DBAL\LockMode;
@@ -86,6 +87,8 @@ final readonly class RenameBoardColumnHandler
             ],
             new AuditSubject('board_column', (string) $column->id),
         );
+        // Also when the slug stays: the label an open board shows has changed.
+        $this->events->dispatch(new BoardColumnsChanged($column->project));
 
         return $column;
     }
