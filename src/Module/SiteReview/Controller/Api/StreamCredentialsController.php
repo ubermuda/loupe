@@ -27,7 +27,11 @@ use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
 // 404 rather than a disabled-looking 403: with push off there is no hub to
 // subscribe to, so there is nothing here to be authorized for.
 #[RequireFeatureFlag(AgentPush::FLAG)]
-#[Route('/api/events', name: 'api_events', methods: ['GET'])]
+#[Route(
+    '/api/events',
+    name: 'api_events',
+    methods: ['GET'],
+)]
 final class StreamCredentialsController extends AppController
 {
     public function __construct(
