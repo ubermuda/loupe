@@ -21,8 +21,8 @@ use Ubermuda\AuditBundle\AuditSubject;
  * in bulk, with the completion rules a drag follows.
  *
  * The bulk move reads and writes database rows under the project lock, so it
- * needs no CardRepository::refreshGroup(). A card loaded before the call keeps
- * its old rank in memory, and only its column follows the move.
+ * needs no CardRepository::refreshGroup(). A moved card loaded before the call
+ * is re-read afterwards.
  *
  * The move dispatches no CardMoved: the outbox must not see one event per card
  * for a single delete, so only the audit trail records each move. The delete
@@ -85,6 +85,7 @@ final readonly class DeleteBoardColumnHandler
                 if (!$target->terminal) {
                     $this->cards->renumberColumn($target, $now);
                 }
+                $this->cards->refreshLoadedFrom($column);
 
                 $positions = $this->cards->positionsInColumn($target);
                 foreach ($rows as $row) {

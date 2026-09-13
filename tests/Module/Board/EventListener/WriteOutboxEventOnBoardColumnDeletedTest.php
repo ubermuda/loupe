@@ -82,6 +82,17 @@ final class WriteOutboxEventOnBoardColumnDeletedTest extends KernelTestCase
         self::assertSame($topics->forProject($this->project->id), $row->topic);
     }
 
+    public function test_an_empty_column_sends_no_target_even_when_one_is_given(): void
+    {
+        ($this->delete)(new DeleteBoardColumnCommand($this->column($this->project, 'next'), CardReporter::Human, $this->column($this->project, 'in-progress')));
+
+        $payload = $this->decode($this->onlyRow());
+        self::assertSame('next', $payload['slug']);
+        self::assertArrayHasKey('targetSlug', $payload);
+        self::assertNull($payload['targetSlug']);
+        self::assertSame([], $payload['movedCardIds']);
+    }
+
     public function test_a_column_with_cards_writes_one_row_that_names_the_target_and_every_moved_card(): void
     {
         $first = (string) $this->card('First', CardPriority::High)->id;

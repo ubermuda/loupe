@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Board\EventListener;
 
-use App\Mercure\ProjectTopicBuilder;
 use App\Module\Board\BoardEventType;
 use App\Module\Board\Event\BoardColumnDeleted;
-use App\Outbox\Entity\OutboxEvent;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Outbox\OutboxWriter;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
@@ -23,8 +21,7 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 final readonly class WriteOutboxEventOnBoardColumnDeleted
 {
     public function __construct(
-        private ProjectTopicBuilder $topics,
-        private EntityManagerInterface $em,
+        private OutboxWriter $outbox,
     ) {
     }
 
@@ -34,7 +31,7 @@ final readonly class WriteOutboxEventOnBoardColumnDeleted
 
         // A contract with the reader of the outbox, like the card move payload.
         // No label: text a person wrote must never reach an agent.
-        $payload = [
+        $this->outbox->write($project, BoardEventType::COLUMN_DELETED, [
             'type' => BoardEventType::COLUMN_DELETED,
             'projectId' => (string) $project->id,
             'subject' => ['type' => 'board_column', 'id' => $event->columnId],
@@ -42,13 +39,6 @@ final readonly class WriteOutboxEventOnBoardColumnDeleted
             'slug' => $event->slug,
             'targetSlug' => $event->targetSlug,
             'movedCardIds' => $event->movedCardIds,
-        ];
-
-        $this->em->persist(new OutboxEvent(
-            project: $project,
-            type: BoardEventType::COLUMN_DELETED,
-            topic: $this->topics->forProject($project->id ?? throw new \LogicException('Project has no id.')),
-            payload: json_encode($payload, \JSON_THROW_ON_ERROR),
-        ));
+        ]);
     }
 }

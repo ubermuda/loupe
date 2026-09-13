@@ -346,6 +346,20 @@ final class BoardColumnHandlersTest extends KernelTestCase
         self::assertNotNull($moved->completedAt);
     }
 
+    public function test_a_loaded_card_reads_its_new_column_rank_and_completion_after_the_bulk_move(): void
+    {
+        $this->card('First', 'next');
+        $second = $this->card('Second', 'next');
+        self::assertSame(1, $second->position);
+        self::assertNull($second->completedAt);
+
+        $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($this->column($this->project, 'next'), CardReporter::Human, $this->column($this->project, 'done')));
+
+        self::assertSame('done', $second->column->slug);
+        self::assertSame(0, $second->position);
+        self::assertNotNull($second->completedAt);
+    }
+
     public function test_a_card_moved_into_a_column_deleted_since_it_was_loaded_is_refused(): void
     {
         $card = $this->card('Waiting', 'backlog');

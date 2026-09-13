@@ -13,6 +13,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Types\Type;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Tools\Pagination\Paginator;
@@ -314,20 +315,11 @@ class CardRepository extends ServiceEntityRepository
      * source showed them. A terminal target keeps no rank and stamps a card
      * that was not finished, and any other target clears the completion.
      *
-     * A card loaded before the call takes the new column in memory and in its
-     * snapshot, so a later flush does not meet a deleted source column. Its rank
-     * and completion stay as loaded.
+     * A card loaded before the call keeps its old column in memory. Call
+     * refreshLoadedFrom() once the rows are final.
      */
     public function moveAll(BoardColumn $from, BoardColumn $to, \DateTimeImmutable $now): void
     {
-        $unitOfWork = $this->getEntityManager()->getUnitOfWork();
-        foreach ($unitOfWork->getIdentityMap()[Card::class] ?? [] as $card) {
-            if ($card instanceof Card && $card->column === $from) {
-                $card->column = $to;
-                $unitOfWork->setOriginalEntityProperty(spl_object_id($card), 'column', $to);
-            }
-        }
-
         $this->getEntityManager()->getConnection()->executeStatement(
             \sprintf(
                 'UPDATE board_cards c
@@ -346,6 +338,40 @@ class CardRepository extends ServiceEntityRepository
             ['from' => (string) $from->id, 'to' => (string) $to->id, 'now' => $now],
             ['now' => Types::DATETIME_IMMUTABLE],
         );
+    }
+
+    /**
+     * Reads the moved fields back onto every loaded card that still sits in
+     * $from in memory, after a bulk statement moved its row. A later flush then
+     * neither meets a deleted column nor writes a stale rank back. A proxy
+     * nobody loaded costs no query.
+     *
+     * EntityManager::refresh() cannot do this, for the reason in refreshGroup().
+     */
+    public function refreshLoadedFrom(BoardColumn $from): void
+    {
+        $em = $this->getEntityManager();
+        $connection = $em->getConnection();
+        $dateTime = Type::getType(Types::DATETIME_IMMUTABLE);
+        foreach ($em->getUnitOfWork()->getIdentityMap()[Card::class] ?? [] as $card) {
+            if (!$card instanceof Card || $em->isUninitializedObject($card) || $card->column !== $from) {
+                continue;
+            }
+
+            $row = $connection->fetchAssociative(
+                'SELECT column_id, position, completed_at, updated_at FROM board_cards WHERE id = :id',
+                ['id' => (string) $card->id],
+            );
+            $column = false === $row ? null : $em->find(BoardColumn::class, Uuid::fromString((string) $row['column_id']));
+            if (false === $row || null === $column) {
+                continue;
+            }
+
+            $card->column = $column;
+            $card->position = (int) $row['position'];
+            $card->completedAt = $dateTime->convertToPHPValue($row['completed_at'], $connection->getDatabasePlatform());
+            $card->updatedAt = $dateTime->convertToPHPValue($row['updated_at'], $connection->getDatabasePlatform());
+        }
     }
 
     /**
