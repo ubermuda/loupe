@@ -12,7 +12,7 @@ commands and flags.
 
 The bridge authenticates with an account-level API token that carries the agent
 scope. Mint one at `/account`. It reaches `GET /api/projects`,
-`GET /api/projects/{handle}/stream` and `GET /api/agent/projects/{handle}/columns`,
+`GET /api/projects/{handle}/stream` and `GET /api/projects/{handle}/board/columns`,
 and no other endpoint. A project's widget token carries a different scope and
 the firewall refuses it here.
 
@@ -32,7 +32,7 @@ published binary, and it needs a Mercure hub to have anything to subscribe to.
 
 ## Columns endpoint
 
-`GET /api/agent/projects/{handle}/columns` returns the columns of one board, so
+`GET /api/projects/{handle}/board/columns` returns the columns of one board, so
 the bridge can check its rule file against the board at start. The handle is a
 project id or a project name. The token's user must own the project.
 
@@ -53,6 +53,7 @@ slug.
 | Status | Body | When |
 |---|---|---|
 | 200 | the object above | the user owns the project |
+| 401 | | the request carries no token |
 | 403 | `{"error":"insufficient_scope"}` | the token has no agent scope, such as a widget token |
 | 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
 | 404 | `{"error":"board_disabled"}` | the board is switched off on the instance |

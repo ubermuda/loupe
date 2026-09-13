@@ -20,7 +20,7 @@ use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 #[AsEventListener(event: KernelEvents::REQUEST, priority: 4)]
 final readonly class RateLimitAgentColumnReads
 {
-    public const string ROUTE = 'api_agent_project_columns';
+    public const string ROUTE = 'api_project_board_column_list';
 
     public function __construct(
         #[Autowire(service: 'limiter.agent_board_columns')]

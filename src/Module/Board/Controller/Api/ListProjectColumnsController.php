@@ -19,8 +19,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  * rule file against at start. The firewall admits agent-scoped tokens alone.
  */
 #[Route(
-    '/api/agent/projects/{handle}/columns',
-    name: 'api_agent_project_columns',
+    '/api/projects/{handle}/board/columns',
+    name: 'api_project_board_column_list',
     // A project name may hold a slash, which the default requirement refuses.
     requirements: ['handle' => '.+'],
     methods: ['GET'],

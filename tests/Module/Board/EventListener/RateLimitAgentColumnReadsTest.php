@@ -88,7 +88,7 @@ final class RateLimitAgentColumnReadsTest extends TestCase
 
     private function event(string $route, string $ip): RequestEvent
     {
-        $request = Request::create('/api/agent/anything', Request::METHOD_GET, server: ['REMOTE_ADDR' => $ip]);
+        $request = Request::create('/api/projects/anything/board/columns', Request::METHOD_GET, server: ['REMOTE_ADDR' => $ip]);
         $request->attributes->set('_route', $route);
 
         return new RequestEvent(

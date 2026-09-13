@@ -28,7 +28,7 @@ final class ProjectColumnsApiTest extends WebTestCase
         $raw = $this->agentToken($em, $owner);
         $this->enableBoard();
 
-        $this->get($client, '/api/agent/projects/'.$project->id.'/columns', $raw);
+        $this->get($client, '/api/projects/'.$project->id.'/board/columns', $raw);
 
         self::assertResponseIsSuccessful();
         self::assertJsonStringEqualsJsonString(
@@ -60,7 +60,7 @@ final class ProjectColumnsApiTest extends WebTestCase
         $this->column($project, 'next')->label = 'Ready for review';
         $em->flush();
 
-        $this->get($client, '/api/agent/projects/'.$project->id.'/columns', $raw);
+        $this->get($client, '/api/projects/'.$project->id.'/board/columns', $raw);
 
         self::assertResponseIsSuccessful();
         $data = json_decode((string) $client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
@@ -78,7 +78,7 @@ final class ProjectColumnsApiTest extends WebTestCase
         $raw = $this->agentToken($em, $owner);
         $this->enableBoard();
 
-        $this->get($client, '/api/agent/projects/'.rawurlencode('Client/Named App').'/columns', $raw);
+        $this->get($client, '/api/projects/'.rawurlencode('Client/Named App').'/board/columns', $raw);
 
         self::assertResponseIsSuccessful();
         $data = json_decode((string) $client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
@@ -97,7 +97,7 @@ final class ProjectColumnsApiTest extends WebTestCase
         $this->enableBoard();
 
         foreach ([(string) $other->id, 'Private App', (string) Uuid::v7()] as $handle) {
-            $this->get($client, '/api/agent/projects/'.rawurlencode($handle).'/columns', $raw);
+            $this->get($client, '/api/projects/'.rawurlencode($handle).'/board/columns', $raw);
 
             self::assertResponseStatusCodeSame(404);
             self::assertJsonStringEqualsJsonString(
@@ -116,7 +116,7 @@ final class ProjectColumnsApiTest extends WebTestCase
         $project = $this->project($em, $owner, 'Flagged App');
         $raw = $this->agentToken($em, $owner);
 
-        $this->get($client, '/api/agent/projects/'.$project->id.'/columns', $raw);
+        $this->get($client, '/api/projects/'.$project->id.'/board/columns', $raw);
 
         self::assertResponseStatusCodeSame(404);
         self::assertJsonStringEqualsJsonString(
@@ -137,13 +137,25 @@ final class ProjectColumnsApiTest extends WebTestCase
         $em->flush();
         $this->enableBoard();
 
-        $this->get($client, '/api/agent/projects/'.$project->id.'/columns', $raw);
+        $this->get($client, '/api/projects/'.$project->id.'/board/columns', $raw);
 
         self::assertResponseStatusCodeSame(403);
         self::assertJsonStringEqualsJsonString(
             '{"error":"insufficient_scope"}',
             (string) $client->getResponse()->getContent(),
         );
+    }
+
+    public function test_a_request_without_a_token_is_refused(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $project = $this->project($em, $this->user($em, 'columns-api-anonymous@example.com'), 'Anonymous App');
+        $this->enableBoard();
+
+        $client->request(Request::METHOD_GET, '/api/projects/'.$project->id.'/board/columns');
+
+        self::assertResponseStatusCodeSame(401);
     }
 
     /**
@@ -164,7 +176,7 @@ final class ProjectColumnsApiTest extends WebTestCase
         $first = $this->agentToken($em, $owner);
         $second = $this->agentToken($em, $owner);
         $this->enableBoard();
-        $path = '/api/agent/projects/'.$project->id.'/columns';
+        $path = '/api/projects/'.$project->id.'/board/columns';
 
         $this->get($client, $path, $first, '203.0.113.7');
         self::assertResponseIsSuccessful();

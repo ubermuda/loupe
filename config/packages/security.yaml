@@ -70,6 +70,7 @@ security:
         # URL-decoded and a project name may hold a slash, hence `.+`.
         - { path: '^/api/projects$', roles: ROLE_API_AGENT }
         - { path: '^/api/projects/.+/stream$', roles: ROLE_API_AGENT }
+        - { path: '^/api/projects/.+/board/columns$', roles: ROLE_API_AGENT }
         # Deny-by-default for the rest of /api: every API-token user also carries
         # ROLE_USER, so without this a new /api/<endpoint> falls through to the ^/
         # catch-all and authorizes ANY scoped token. Add new scope rules ABOVE this

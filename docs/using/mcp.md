@@ -24,9 +24,9 @@ revokes any of them.
 
 An account-level token always gets the agent scope, which is what the Loupe CLI
 needs. That scope reaches `/api/projects`, `/api/projects/{handle}/stream` and
-`/api/agent/projects/{handle}/columns`, and nothing else. It does not reach the
-site-review or board endpoints the widget calls: those take a project-bound
-widget token, which a project mints on its own Connect page.
+`/api/projects/{handle}/board/columns`, and nothing else. It does not reach the
+site-review or board card endpoints the widget calls: those take a
+project-bound widget token, which a project mints on its own Connect page.
 
 The page mints no MCP token, because an MCP tool reads its project from the
 token that is bound to it, and only the project's Connect page writes that
