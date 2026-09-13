@@ -47,6 +47,14 @@ final class AuthorizeBoardRefreshHandlerTest extends TestCase
         self::assertTrue($log->hasWarningThatContains('board.refresh_authorization_failed'));
     }
 
+    public function test_a_blank_public_hub_url_leaves_the_board_without_live_refresh(): void
+    {
+        [$authorize, $request] = $this->handler('', new TestHandler());
+
+        self::assertNull($authorize(new AuthorizeBoardRefreshCommand($this->project())));
+        self::assertSame([], $request->attributes->all('_mercure_authorization_cookies'));
+    }
+
     /** @return array{AuthorizeBoardRefreshHandler, Request} */
     private function handler(string $hubUrl, TestHandler $log): array
     {

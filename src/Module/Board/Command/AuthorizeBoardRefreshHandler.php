@@ -45,7 +45,7 @@ final readonly class AuthorizeBoardRefreshHandler
         // A refused column form forwards to the board, and the bundle only
         // writes a cookie that sits on the main request.
         $request = $this->requests->getMainRequest();
-        if (null === $request || !$this->featureFlags->isEnabled(AgentPush::FLAG)) {
+        if (null === $request || '' === $this->hubUrl || !$this->featureFlags->isEnabled(AgentPush::FLAG)) {
             return null;
         }
 
