@@ -10,6 +10,7 @@ use App\Module\Board\Command\ListProjectColumnsCommand;
 use App\Module\Board\Command\ListProjectColumnsHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Service\BoardAvailability;
+use App\Module\Project\Repository\AmbiguousProjectHandleException;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -46,7 +47,11 @@ final class ListProjectColumnsController extends AppController
             return $this->json(['error' => 'board_disabled'], JsonResponse::HTTP_NOT_FOUND);
         }
 
-        $view = ($this->listColumns)(new ListProjectColumnsCommand($user, $handle));
+        try {
+            $view = ($this->listColumns)(new ListProjectColumnsCommand($user, $handle));
+        } catch (AmbiguousProjectHandleException $e) {
+            return $this->json(['error' => 'ambiguous_project', 'message' => $e->getMessage()], JsonResponse::HTTP_CONFLICT);
+        }
         if (null === $view->project) {
             return $this->json(['error' => 'project_not_found'], JsonResponse::HTTP_NOT_FOUND);
         }

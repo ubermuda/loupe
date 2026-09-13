@@ -7,6 +7,7 @@ namespace App\Tests\Module\Board\Controller;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
+use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -84,6 +85,34 @@ final class ProjectColumnsApiTest extends WebTestCase
         $data = json_decode((string) $client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
         self::assertIsArray($data);
         self::assertSame((string) $project->id, $data['project']['id']);
+    }
+
+    public function test_a_handle_that_is_one_slug_and_another_name_is_409(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'columns-api-ambiguous@example.com');
+        $older = $this->project($em, $owner, 'My App');
+        $newer = new Project($owner, 'my-app');
+        new \ReflectionProperty(Project::class, 'slug')->setRawValue($newer, 'my-app-2');
+        $em->persist($newer);
+        $em->flush();
+        $raw = $this->agentToken($em, $owner);
+        $this->enableBoard();
+
+        $this->get($client, '/api/projects/my-app/board/columns', $raw);
+
+        self::assertResponseStatusCodeSame(409);
+        $data = json_decode((string) $client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
+        self::assertIsArray($data);
+        self::assertSame('ambiguous_project', $data['error']);
+        self::assertIsString($data['message']);
+        self::assertStringContainsString((string) $older->id, $data['message']);
+        self::assertStringContainsString((string) $newer->id, $data['message']);
+
+        // The project id resolves either one, so the bridge has a way out.
+        $this->get($client, '/api/projects/'.$older->id.'/board/columns', $raw);
+        self::assertResponseIsSuccessful();
     }
 
     /** Another owner's project answers exactly as a project that does not exist. */
