@@ -2291,6 +2291,62 @@ const waitForInk = async (page: Page): Promise<Ink> => {
 };
 
 /**
+ * The draw toast slides down into place when draw mode opens, and it crosses the
+ * middle of the viewport on the way. It is visible from the first frame of that
+ * slide, so a press that lands while it is still travelling hits the toast
+ * rather than the canvas: the canvas then takes no pointerdown, `beginStroke`
+ * never runs, and every later move is dropped.
+ *
+ * The toast lives at the top and dodges to the bottom while the pointer is in
+ * the top band, on a 220ms transform transition. Moving the pointer to the
+ * stroke's start point sends it back up, straight through the middle of the
+ * screen, so the press must wait for the pointer to be where it will press
+ * before this can mean anything.
+ *
+ * So assert the precondition the press needs: nothing is animating, and the
+ * canvas is the topmost node at the point about to be pressed.
+ * `document.elementFromPoint` stops at the shadow host, so ask the widget's own
+ * root, which retargets inside itself.
+ */
+const canvasReadyAt = async (
+    page: Page,
+    x: number,
+    y: number,
+): Promise<void> => {
+    await expect
+        .poll(() =>
+            page.evaluate(
+                (at) => {
+                    const root = [...document.documentElement.children]
+                        .map((node) => node.shadowRoot)
+                        .find((candidate) =>
+                            candidate?.getElementById('lp-canvas'),
+                        );
+                    if (!root) return 'no-overlay';
+                    const moving = [...root.querySelectorAll('.lp-toast')].some(
+                        (toast) =>
+                            toast
+                                .getAnimations()
+                                .some(
+                                    (animation) =>
+                                        'running' === animation.playState,
+                                ),
+                    );
+                    if (moving) return 'toast-moving';
+                    const hit = root.elementFromPoint(at.x, at.y);
+                    if (!hit) return 'nothing';
+
+                    return hit.closest('#lp-canvas')
+                        ? 'canvas'
+                        : (hit.closest('[id]')?.id ?? hit.tagName);
+                },
+                { x, y },
+            ),
+        )
+        .toBe('canvas');
+};
+
+/**
  * Drag a stroke across the page. Draw mode has to be on already, because the
  * canvas is the node that takes these events.
  */
@@ -2301,6 +2357,9 @@ const drawStroke = async (
 ): Promise<void> => {
     const steps = 8;
     await page.mouse.move(from.x, from.y);
+    // After the move, never before it: the move is itself what sends the toast
+    // back across the screen.
+    await canvasReadyAt(page, from.x, from.y);
     await page.mouse.down();
     for (let step = 1; step <= steps; step++) {
         await page.mouse.move(
