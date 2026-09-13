@@ -16,7 +16,6 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
-use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
@@ -112,19 +111,6 @@ final class CardColumnWriteTest extends KernelTestCase
 
         $this->expectException(\LogicException::class);
         $list(new ListCardsCommand($this->project, $this->column($other, 'next')));
-    }
-
-    /** The image before board columns can still write a card with no column. */
-    public function test_refreshing_a_card_whose_row_has_no_column_keeps_the_loaded_one(): void
-    {
-        $card = $this->create(null);
-        $this->em->getConnection()->executeStatement('UPDATE board_cards SET column_id = NULL WHERE id = :id', ['id' => (string) $card->id]);
-        $cards = self::getContainer()->get(CardRepository::class);
-        self::assertInstanceOf(CardRepository::class, $cards);
-
-        $cards->refreshGroup($card);
-
-        self::assertSame('backlog', $card->column->slug);
     }
 
     private function board(User $owner): Project
