@@ -70,10 +70,11 @@ func readStoredForTest(t *testing.T) Config {
 // them may stop the bridge.
 func TestEnsureBridgeIDHealsWhatItReads(t *testing.T) {
 	cases := []struct {
-		name    string
-		file    string
-		absent  bool
-		keepsID bool
+		name        string
+		file        string
+		absent      bool
+		keepsID     bool
+		wantBaseURL string
 	}{
 		{name: "no config file", absent: true},
 		{name: "logged in with no id", file: `{"baseUrl":"https://example.test"}`},
@@ -83,6 +84,8 @@ func TestEnsureBridgeIDHealsWhatItReads(t *testing.T) {
 		{name: "id with a bad separator", file: `{"bridgeId":"3f2504e04f89-41d3-9a0c-0305e82c3301"}`},
 		{name: "id with a non-hex digit", file: `{"bridgeId":"3f2504e0-4f89-41d3-9a0c-0305e82c330z"}`},
 		{name: "nil uuid", file: `{"bridgeId":"00000000-0000-0000-0000-000000000000"}`},
+		{name: "id that is a number", file: `{"baseUrl":"https://example.test","bridgeId":123}`, wantBaseURL: "https://example.test"},
+		{name: "id that is an object", file: `{"baseUrl":"https://example.test","bridgeId":{"a":1}}`, wantBaseURL: "https://example.test"},
 		{name: "blank file", file: "  \n"},
 		{name: "valid id", file: `{"bridgeId":"` + seededID + `"}`, keepsID: true},
 		{name: "valid id in upper case", file: `{"bridgeId":"` + strings.ToUpper(seededID) + `"}`, keepsID: true},
@@ -116,8 +119,12 @@ func TestEnsureBridgeIDHealsWhatItReads(t *testing.T) {
 				t.Fatalf("EnsureBridgeID returned the seeded id %q for a case that must generate one", got)
 			}
 
-			if onDisk := readStoredForTest(t).BridgeID; onDisk != got {
-				t.Fatalf("config file holds %q, want the returned id %q", onDisk, got)
+			onDisk := readStoredForTest(t)
+			if onDisk.BridgeID != got {
+				t.Fatalf("config file holds %q, want the returned id %q", onDisk.BridgeID, got)
+			}
+			if tc.wantBaseURL != "" && onDisk.BaseURL != tc.wantBaseURL {
+				t.Fatalf("config file holds base URL %q, want %q", onDisk.BaseURL, tc.wantBaseURL)
 			}
 		})
 	}

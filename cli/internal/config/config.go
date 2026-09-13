@@ -158,7 +158,14 @@ func readStoredConfig(d string) (Config, error) {
 		return c, nil
 	}
 	if err := json.Unmarshal(b, &c); err != nil {
-		return c, fmt.Errorf("parse config: %w", err)
+		// json fills the fields it can and reports the first type error, so an
+		// id that is a number or an object reads as absent and the heal
+		// replaces it. A wrong type on a credential field still fails.
+		var typeErr *json.UnmarshalTypeError
+		if !errors.As(err, &typeErr) || typeErr.Field != "bridgeId" {
+			return c, fmt.Errorf("parse config: %w", err)
+		}
+		c.BridgeID = ""
 	}
 
 	return c, nil
