@@ -30,12 +30,9 @@ export default defineConfig({
     fullyParallel: false,
     timeout: collectingCoverage ? 120_000 : 30_000,
     expect: { timeout: collectingCoverage ? 20_000 : 5_000 },
-    // Mailpit is shared by every spec and is never cleared, so concurrent
-    // mail-asserting specs read each other's messages. The suite is serial by
-    // nature; saying so here means the plain `just e2e` is correct rather than
-    // correct-only-if-you-remember-the-flag. Override on the command line when
-    // running a subset that touches no mail.
-    workers: 1,
+    // Files run in parallel. A spec that flips a global flag or shares a fixed
+    // account goes in a `workers: 1` project below, never in `chromium`.
+    workers: 4,
     forbidOnly: !!process.env.CI,
     retries: 0,
     // Stop at the first failure. `waitlist`, `trial-end-lifecycle` and
@@ -63,19 +60,54 @@ export default defineConfig({
     projects: [
         {
             name: 'chromium',
-            // The waitlist and trial-end-lifecycle specs mutate global feature
-            // flags (registration.cap, billing.enabled) that every other spec
-            // depends on, and the install spec wipes the database outright —
-            // all three run in their own projects below, serialized after
-            // this one finishes.
+            // Specs that mutate state other files read run in the projects
+            // below. Adding a spec here asserts that it is safe beside all of them.
             testIgnore: [
                 /account\/waitlist\.spec\.ts/,
                 /billing\/trial-end-lifecycle\.spec\.ts/,
                 /install\/.*\.spec\.ts/,
+                /board\/.*\.spec\.ts/,
+                /admin\/.*\.spec\.ts/,
+                /billing\/paywall\.spec\.ts/,
+                /account\/social-login\.spec\.ts/,
             ],
             use: {
                 ...devices['Desktop Chrome'],
             },
+        },
+        {
+            name: 'board',
+            // Each board spec turns board.enabled off in its afterAll, which
+            // 404s the board under any other board spec still running.
+            testMatch: /board\/.*\.spec\.ts/,
+            workers: 1,
+            use: {
+                ...devices['Desktop Chrome'],
+            },
+        },
+        {
+            name: 'admin',
+            // Both specs register the one ADMIN_EMAIL account on first use.
+            testMatch: /admin\/.*\.spec\.ts/,
+            workers: 1,
+            use: {
+                ...devices['Desktop Chrome'],
+            },
+        },
+        {
+            name: 'global-flags',
+            // billing.enabled and the OAuth provider flags change what every
+            // signed-in page and the login form render, so nothing else runs
+            // beside these.
+            testMatch: [
+                /billing\/paywall\.spec\.ts/,
+                /account\/social-login\.spec\.ts/,
+            ],
+            workers: 1,
+            use: {
+                ...devices['Desktop Chrome'],
+            },
+            dependencies: ['chromium', 'board', 'admin'],
         },
         {
             name: 'waitlist',
@@ -83,7 +115,7 @@ export default defineConfig({
             use: {
                 ...devices['Desktop Chrome'],
             },
-            dependencies: ['chromium'],
+            dependencies: ['global-flags'],
         },
         {
             name: 'trial-end-lifecycle',
@@ -106,7 +138,14 @@ export default defineConfig({
             // so it must run after every other project — including
             // trial-end-lifecycle, whose fixture users and flag rows it would
             // otherwise destroy mid-run.
-            dependencies: ['chromium', 'waitlist', 'trial-end-lifecycle'],
+            dependencies: [
+                'chromium',
+                'board',
+                'admin',
+                'global-flags',
+                'waitlist',
+                'trial-end-lifecycle',
+            ],
             use: {
                 ...devices['Desktop Chrome'],
             },

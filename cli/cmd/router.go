@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
+	"slices"
 	"sync"
 	"time"
 
@@ -17,9 +17,9 @@ import (
 // router turns each event a rule matches into a worker process and reports
 // what it did.
 //
-// Workers run in their own goroutines. mu guards the queue, the claimed keys,
-// the running count and the closed flag. The logger needs no lock, because slog
-// serialises its own writes.
+// Workers run in their own goroutines. mu guards the queue, the running cards,
+// the chain counters, the running count and the closed flag. The logger needs
+// no lock, because slog serialises its own writes.
 type router struct {
 	ctx        context.Context
 	log        *slog.Logger
@@ -29,11 +29,17 @@ type router struct {
 	maxWorkers int
 	worker     workerOps
 
-	mu      sync.Mutex
-	claimed map[string]bool
+	mu sync.Mutex
+	// queue holds the accepted events in arrival order, at most one for each
+	// card and rule. running holds the key of each card with a worker. The two
+	// are separate key spaces: a card runs once, and waits once per rule.
 	queue   []pending
-	active  int
-	closed  bool
+	running map[string]bool
+	// chains counts, per card key and rule name, the runs in a row that an
+	// agent's event started.
+	chains map[string]map[string]int
+	active int
+	closed bool
 
 	// unmapped remembers the projects already logged as unmapped. Only the
 	// stream goroutine reads events, so it needs no lock.
@@ -43,39 +49,24 @@ type router struct {
 	wg sync.WaitGroup
 }
 
-// pending is an accepted event that waits for a free worker slot. The prompt
-// is rendered when the event is accepted, from the rule that matched it.
+// pending is an accepted event that waits for a free worker slot, and for its
+// card's running worker to exit. The prompt is rendered when the event is
+// accepted, from the rule that matched it.
 type pending struct {
-	key   string
-	rule  string
-	spec  workerSpec
-	event event.Event
+	key      string
+	rule     string
+	maxChain int
+	spec     workerSpec
+	event    event.Event
 }
 
-// workerKey identifies the worker for one card.
+// keyFor identifies the card, or other aggregate, an event is about. It keys
+// both the running worker and the chain counters.
 //
-// The card number alone is not enough. It counts from 1 inside a project and
-// repeats across them, so two projects would share a key for their card 87.
-//
-// The project is identified by the last 12 hex digits of its id rather than the
-// first. These ids are uuidv7, whose leading bits are a millisecond timestamp,
-// so two projects created in the same minute share a leading prefix.
-func workerKey(cardNumber int, projectID string) string {
-	digits := strings.ReplaceAll(projectID, "-", "")
-	if len(digits) > 12 {
-		digits = digits[len(digits)-12:]
-	}
-
-	return fmt.Sprintf("card-%d-%s", cardNumber, digits)
-}
-
-// keyFor is the worker key of the aggregate an event is about. A type this
-// build knows no fields of has no card number, so its subject id keys it.
+// The subject id is the one identity every event type carries. A card number
+// repeats across projects, and an event of a type this build knows no fields of
+// may carry none, so a key built from it would give one card two keys.
 func keyFor(e event.Event) string {
-	if e.Type == event.CardMovedType {
-		return workerKey(e.CardNumber, e.ProjectID)
-	}
-
 	return "subject-" + e.Subject.ID
 }
 
@@ -87,6 +78,15 @@ func about(e event.Event, rule string) []any {
 	}
 
 	return append([]any{"subject", e.Subject.ID}, attrs...)
+}
+
+// aggregate names the event's card, or its subject, in a sentence.
+func aggregate(e event.Event) string {
+	if e.Type == event.CardMovedType {
+		return fmt.Sprintf("card %d", e.CardNumber)
+	}
+
+	return "subject " + e.Subject.ID
 }
 
 func (r *router) handler() transport.Handler {
@@ -112,14 +112,23 @@ func (r *router) onData(data []byte) {
 		return
 	}
 
+	// A person who touches the card has seen it, which is what a capped chain
+	// waits for. Any event of theirs counts, whether a rule matches it or not.
+	if e.Actor == event.ActorHuman {
+		r.mu.Lock()
+		delete(r.chains, keyFor(e))
+		r.mu.Unlock()
+	}
+
 	m := r.rules.Match(e)
 	switch m.Skip {
 	case rules.Run:
 		r.enqueue(pending{
-			key:   keyFor(e),
-			rule:  m.Rule,
-			spec:  workerSpec{dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, prompt: m.Prompt},
-			event: e,
+			key:      keyFor(e),
+			rule:     m.Rule,
+			maxChain: m.MaxChain,
+			spec:     workerSpec{dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, prompt: m.Prompt},
+			event:    e,
 		})
 	case rules.Untrusted:
 		r.log.Warn("event_untrusted", about(e, m.Rule)...)
@@ -134,23 +143,35 @@ func (r *router) onData(data []byte) {
 	}
 }
 
-// enqueue claims the card's key and puts the event at the back of the queue.
+// enqueue puts the event at the back of the queue, unless its card already has
+// an event waiting for the same rule. The newer event then replaces that one
+// in place, so a card dragged back and forth runs once per rule however many
+// times it was asked.
 //
-// One card gets one worker at a time, on purpose: two agents working one card
-// in one checkout undo each other's work. The claim covers queued work as well
-// as running work, so a card moved twice while every slot is busy does not run
-// twice.
+// An agent's event is refused once its rule has started maxChain runs in a row
+// for this card from agents' events. That stops two rules from moving one card
+// back and forth for ever.
 //
 // queue_depth counts the accepted events that wait at this moment, this one
 // included.
 func (r *router) enqueue(p pending) {
-	if !r.claim(p.key) {
-		r.log.Warn("worker_refused", about(p.event, p.rule)...)
+	r.mu.Lock()
+	if p.event.Actor == event.ActorAgent && r.chains[p.key][p.rule] >= p.maxChain {
+		r.mu.Unlock()
+		r.log.Warn("chain_capped", append(about(p.event, p.rule),
+			"max_chain", p.maxChain,
+			"message", fmt.Sprintf("%s hit the chain cap of rule %s, waiting for a person", aggregate(p.event), p.rule),
+		)...)
 
 		return
 	}
+	if i := slices.IndexFunc(r.queue, func(q pending) bool { return q.key == p.key && q.rule == p.rule }); i >= 0 {
+		r.queue[i] = p
+		r.mu.Unlock()
+		r.log.Info("worker_coalesced", about(p.event, p.rule)...)
 
-	r.mu.Lock()
+		return
+	}
 	r.queue = append(r.queue, p)
 	depth := len(r.queue)
 	r.mu.Unlock()
@@ -160,31 +181,66 @@ func (r *router) enqueue(p pending) {
 }
 
 // dispatch starts queued workers while a slot is free. It runs on the goroutine
-// that accepted an event, and again on the one that finished a worker.
+// that accepted an event.
+func (r *router) dispatch() {
+	r.mu.Lock()
+	dropped := r.dispatchLocked()
+	r.mu.Unlock()
+
+	r.logDropped(dropped)
+}
+
+// dispatchLocked starts the oldest queued events whose card has no running
+// worker, while a slot is free. The caller holds mu. It returns the queue it
+// emptied when the router is shut, for the caller to log outside the lock.
+//
+// One card gets one worker at a time, on purpose: two agents working one card
+// in one checkout undo each other's work. A card's next event therefore waits
+// in the queue, behind later events for other cards if a slot frees first.
 //
 // The pop and the start share one critical section. Two workers that finish at
 // the same instant dispatch on their own goroutines, and a start outside the
-// lock would let the later card start first.
-func (r *router) dispatch() {
-	for {
-		r.mu.Lock()
-		if r.shut() {
-			r.mu.Unlock()
-			r.dropQueued()
+// lock would let the later event start first.
+func (r *router) dispatchLocked() []pending {
+	if r.shut() {
+		dropped := r.queue
+		r.queue = nil
 
-			return
-		}
-		if r.active >= r.maxWorkers || len(r.queue) == 0 {
-			r.mu.Unlock()
-
-			return
-		}
-		next := r.queue[0]
-		r.queue = r.queue[1:]
-		r.active++
-		r.start(next)
-		r.mu.Unlock()
+		return dropped
 	}
+
+	for r.active < r.maxWorkers {
+		i := slices.IndexFunc(r.queue, func(q pending) bool { return !r.running[q.key] })
+		if i < 0 {
+			return nil
+		}
+		next := r.queue[i]
+		r.queue = slices.Delete(r.queue, i, i+1)
+		r.active++
+		if r.running == nil {
+			r.running = map[string]bool{}
+		}
+		r.running[next.key] = true
+		if next.event.Actor == event.ActorAgent {
+			r.countChain(next.key, next.rule)
+		}
+		r.start(next)
+	}
+
+	return nil
+}
+
+// countChain records one more run in a row from an agent's event. The caller
+// holds mu. It counts at start rather than on acceptance, so an event that
+// replaces a waiting one counts once.
+func (r *router) countChain(key, rule string) {
+	if r.chains == nil {
+		r.chains = map[string]map[string]int{}
+	}
+	if r.chains[key] == nil {
+		r.chains[key] = map[string]int{}
+	}
+	r.chains[key][rule]++
 }
 
 // start runs one worker. The caller holds mu, and start never takes it.
@@ -206,20 +262,17 @@ func (r *router) start(p pending) {
 	}()
 }
 
-// finish frees the slot and the card, then admits whatever waits.
+// finish frees the slot and the card, and starts what waits, in one critical
+// section. A new event for the card cannot slip between the release and the
+// start of the card's waiting event.
 func (r *router) finish(key string) {
 	r.mu.Lock()
-	r.release(key)
+	delete(r.running, key)
 	r.active--
+	dropped := r.dispatchLocked()
 	r.mu.Unlock()
 
-	r.dispatch()
-}
-
-// release frees key, so the same card can start another worker later. The
-// caller holds mu.
-func (r *router) release(key string) {
-	delete(r.claimed, key)
+	r.logDropped(dropped)
 }
 
 // shut reports whether the queue accepts no more starts. The caller holds mu.
@@ -240,17 +293,10 @@ func (r *router) shutdown() {
 	r.dispatch()
 }
 
-// dropQueued empties the queue and names what it lost. These workers never
-// started, so a silent drop would hide a trigger the operator asked for.
-func (r *router) dropQueued() {
-	r.mu.Lock()
-	dropped := r.queue
-	r.queue = nil
-	for _, p := range dropped {
-		r.release(p.key)
-	}
-	r.mu.Unlock()
-
+// logDropped names what a shut queue lost. These workers never started, so a
+// silent drop would hide a trigger the operator asked for. One card can wait
+// once per rule, so each entry names the card and the rule.
+func (r *router) logDropped(dropped []pending) {
 	if len(dropped) == 0 {
 		return
 	}
@@ -289,23 +335,6 @@ func (r *router) report(p pending, res workerResult, elapsed time.Duration) {
 	}
 
 	r.log.Info("worker_finished", args...)
-}
-
-// claim reserves key for one card. It reports false when that card is already
-// queued or already running.
-func (r *router) claim(key string) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.claimed[key] {
-		return false
-	}
-	if r.claimed == nil {
-		r.claimed = map[string]bool{}
-	}
-	r.claimed[key] = true
-
-	return true
 }
 
 func (r *router) workerContext() context.Context {
