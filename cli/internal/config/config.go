@@ -32,7 +32,8 @@ type Config struct {
 	Token   string `json:"token,omitempty"`
 }
 
-func dir() (string, error) {
+// Dir is the directory that holds config.json, and rules.yaml beside it.
+func Dir() (string, error) {
 	d, err := os.UserConfigDir()
 	if err != nil {
 		return "", fmt.Errorf("locate config dir: %w", err)
@@ -44,7 +45,7 @@ func dir() (string, error) {
 // Load reads stored credentials, returning ErrNotLoggedIn if none are present.
 func Load() (Config, error) {
 	var c Config
-	d, err := dir()
+	d, err := Dir()
 	if err != nil {
 		return c, err
 	}
@@ -100,7 +101,7 @@ func migrateTokenToKeyring(d string, c Config) {
 // Save writes credentials, creating the config dir if needed. The token goes to
 // the OS keychain when one is reachable, and into the config file otherwise.
 func Save(c Config) error {
-	d, err := dir()
+	d, err := Dir()
 	if err != nil {
 		return err
 	}

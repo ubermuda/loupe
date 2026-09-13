@@ -21,6 +21,7 @@ type Event struct {
 	CardNumber int     `json:"cardNumber"`
 	FromStatus string  `json:"fromStatus"`
 	ToStatus   string  `json:"toStatus"`
+	Actor      string  `json:"actor"`
 }
 
 // Subject names the aggregate an event is about. The id is what an MCP tool
@@ -30,11 +31,16 @@ type Subject struct {
 	ID   string `json:"id"`
 }
 
+// CardMovedType is published when a board card changes column. It is the one
+// type whose fields this build knows.
+const CardMovedType = "board.card_moved"
+
+// The actors the server names. Reviewer is someone using the site-review
+// widget, whom the app cannot authenticate.
 const (
-	// CardMovedType is published when a board card changes column.
-	CardMovedType = "board.card_moved"
-	// StatusNext is the card status the bridge starts a worker for.
-	StatusNext = "next"
+	ActorHuman    = "human"
+	ActorAgent    = "agent"
+	ActorReviewer = "reviewer"
 )
 
 // ErrUnknownType marks an event this build does not handle. A newer server
@@ -47,39 +53,83 @@ var ErrUnknownType = errors.New("unknown event type")
 // checked here rather than left to the hub's publisher rules.
 var uuidPattern = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
+// IsID reports whether s has the shape of a Loupe identifier.
+func IsID(s string) bool {
+	return uuidPattern.MatchString(s)
+}
+
+// SlugPattern is the shape of a project or column slug. A column slug reaches a
+// prompt through {from} and {to}.
+var SlugPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+
 // Parse decodes a Mercure data payload into an Event.
 //
-// The type is checked rather than assumed: without it any well-formed JSON —
-// `{}` included — would reach a worker as a directive.
-func Parse(data []byte) (Event, error) {
+// board.card_moved is always parsed. Any other type is parsed only when
+// extraTypes names it, and then only the fields every event carries are
+// checked. The type is checked rather than assumed: without it any well-formed
+// JSON, `{}` included, would reach a worker.
+func Parse(data []byte, extraTypes map[string]bool) (Event, error) {
 	var e Event
 	if err := json.Unmarshal(data, &e); err != nil {
 		return e, fmt.Errorf("parse event: %w", err)
 	}
 
-	if e.Type != CardMovedType {
+	switch {
+	case e.Type == CardMovedType:
+		if err := checkCardMoved(e); err != nil {
+			return e, err
+		}
+	case e.Type != "" && extraTypes[e.Type]:
+		if err := checkCommon(e); err != nil {
+			return e, err
+		}
+	default:
 		return e, fmt.Errorf("%w %q", ErrUnknownType, e.Type)
 	}
-	if e.ProjectID == "" {
-		return e, fmt.Errorf("card event has no projectId")
-	}
-	if !uuidPattern.MatchString(e.ProjectID) {
-		return e, fmt.Errorf("card event has a projectId that is not a uuid")
-	}
-	if e.CardNumber <= 0 {
-		return e, fmt.Errorf("card event has an invalid cardNumber %d", e.CardNumber)
-	}
-	// card_get takes this id and rejects the project-scoped number, so a
-	// directive without it instructs the worker to do something it cannot.
-	if !uuidPattern.MatchString(e.Subject.ID) {
-		return e, fmt.Errorf("card event has a subject id that is not a uuid")
-	}
+
 	// The pattern above is case-insensitive, so fold the ids here rather than
-	// leaving every later comparison to remember that. The guard against a
-	// second worker for one card compares keys built from the project id, and
-	// two casings would build two keys.
+	// leaving every later comparison to remember that. Worker keys and the
+	// project map compare these ids, and two casings would not match.
 	e.ProjectID = strings.ToLower(e.ProjectID)
 	e.Subject.ID = strings.ToLower(e.Subject.ID)
 
 	return e, nil
+}
+
+func checkCommon(e Event) error {
+	if e.ProjectID == "" {
+		return fmt.Errorf("%s event has no projectId", e.Type)
+	}
+	if !uuidPattern.MatchString(e.ProjectID) {
+		return fmt.Errorf("%s event has a projectId that is not a uuid", e.Type)
+	}
+	// card_get takes this id and rejects the project-scoped number, so a
+	// prompt without it instructs the worker to do something it cannot.
+	if !uuidPattern.MatchString(e.Subject.ID) {
+		return fmt.Errorf("%s event has a subject id that is not a uuid", e.Type)
+	}
+	switch e.Actor {
+	case ActorHuman, ActorAgent, ActorReviewer:
+	default:
+		return fmt.Errorf("%s event has an unknown actor %q", e.Type, e.Actor)
+	}
+
+	return nil
+}
+
+func checkCardMoved(e Event) error {
+	if err := checkCommon(e); err != nil {
+		return err
+	}
+	if e.CardNumber <= 0 {
+		return fmt.Errorf("card event has an invalid cardNumber %d", e.CardNumber)
+	}
+	if !SlugPattern.MatchString(e.FromStatus) {
+		return fmt.Errorf("card event has a fromStatus that is not a slug")
+	}
+	if !SlugPattern.MatchString(e.ToStatus) {
+		return fmt.Errorf("card event has a toStatus that is not a slug")
+	}
+
+	return nil
 }

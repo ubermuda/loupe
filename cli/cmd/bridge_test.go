@@ -2,21 +2,17 @@ package cmd
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/ubermuda/loupe/cli/internal/api"
+	"github.com/ubermuda/loupe/cli/internal/rules"
 )
 
-// runBridge parses args and runs the command far enough to reach its flag
+// runBridge parses args and runs the command far enough to reach its start
 // checks, which come before anything that starts a process or opens a socket.
 func runBridge(t *testing.T, args ...string) error {
 	t.Helper()
@@ -29,62 +25,113 @@ func runBridge(t *testing.T, args ...string) error {
 	return cmd.Execute()
 }
 
-func TestBridgeRunRequiresDir(t *testing.T) {
-	err := runBridge(t)
-	if err == nil || !strings.Contains(err.Error(), "--dir is required") {
+// writeRules writes a rule file mapping each slug to a real directory.
+func writeRules(t *testing.T, slugs ...string) string {
+	t.Helper()
+	var b strings.Builder
+	b.WriteString("projects:\n")
+	for _, slug := range slugs {
+		b.WriteString("  " + slug + ":\n    dir: " + t.TempDir() + "\n")
+	}
+	b.WriteString("rules:\n  - on: board.card_moved\n    project: " + slugs[0] + "\n    to: next\n    prompt: go\n")
+
+	path := filepath.Join(t.TempDir(), "rules.yaml")
+	if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	return path
+}
+
+// The rule file is mandatory. The error shows an example, so the operator can
+// start from it.
+func TestBridgeRunRefusesToStartWithoutARuleFile(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "rules.yaml")
+
+	err := runBridge(t, "--rules", missing)
+	if !errors.Is(err, rules.ErrMissing) {
+		t.Fatalf("err = %v", err)
+	}
+	if !strings.Contains(err.Error(), missing) || !strings.Contains(err.Error(), rules.Example) {
+		t.Fatalf("the error names no path or example: %v", err)
+	}
+}
+
+// With no --rules, the file sits beside config.json.
+func TestBridgeRunReadsRulesFromTheConfigDir(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("HOME", t.TempDir())
+
+	path, err := defaultRulesPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Base(path) != "rules.yaml" || filepath.Base(filepath.Dir(path)) != "loupe" {
+		t.Fatalf("defaultRulesPath() = %q", path)
+	}
+
+	if err := runBridge(t); err == nil || !strings.Contains(err.Error(), path) {
+		t.Fatalf("err = %v, want it to name %s", err, path)
+	}
+}
+
+func TestBridgeRunRefusesAnInvalidRuleFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "rules.yaml")
+	if err := os.WriteFile(path, []byte("projects: {}\nrules: []\nsite: loupe\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := runBridge(t, "--rules", path); err == nil || !strings.Contains(err.Error(), "field site not found") {
 		t.Fatalf("err = %v", err)
 	}
 }
 
-// TestBridgeRunRejectsAnUnusableDir keeps the fault at the start of the run.
-// The bridge otherwise subscribes, looks healthy, and fails on the first card.
-func TestBridgeRunRejectsAnUnusableDir(t *testing.T) {
-	file := filepath.Join(t.TempDir(), "notadir")
-	if err := os.WriteFile(file, []byte("x"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	for _, dir := range []string{filepath.Join(t.TempDir(), "missing"), file} {
-		err := runBridge(t, "--dir", dir)
-		if err == nil || !strings.Contains(err.Error(), "--dir "+dir) {
-			t.Fatalf("dir %q: err = %v", dir, err)
-		}
+// One connection per bridge serves one project until the stream endpoint takes
+// several, so a second project is refused rather than ignored.
+func TestBridgeRunRefusesSeveralProjects(t *testing.T) {
+	err := runBridge(t, "--rules", writeRules(t, "loupe", "other"))
+	if err == nil || !strings.Contains(err.Error(), "maps 2 projects (loupe, other)") {
+		t.Fatalf("err = %v", err)
 	}
 }
 
 // TestBridgeRunFailsFastWithoutClaude keeps the missing-binary error at the
-// start of the run too. Reaching it also proves a real --dir passes its check.
+// start of the run. Reaching it also proves a valid rule file passes its check.
 func TestBridgeRunFailsFastWithoutClaude(t *testing.T) {
 	original := lookPath
 	lookPath = func(string) (string, error) { return "", errors.New("not found") }
 	t.Cleanup(func() { lookPath = original })
 
-	err := runBridge(t, "--dir", t.TempDir())
+	err := runBridge(t, "--rules", writeRules(t, "loupe"))
 	if err == nil || !strings.Contains(err.Error(), "claude is not installed") {
 		t.Fatalf("err = %v", err)
 	}
 }
 
-// TestBridgeRunPermissionModeDefaultsToEmpty keeps the operator opting in: with
-// no flag, claude prompts for permissions as it normally does.
-func TestBridgeRunPermissionModeDefaultsToEmpty(t *testing.T) {
-	flag := newBridgeRunCmd().Flags().Lookup("permission-mode")
-	if flag == nil {
-		t.Fatal("--permission-mode is not registered")
+// The projects map replaces --site and --dir, so a stale invocation fails
+// instead of running with flags the binary ignores.
+func TestBridgeRunHasNoSiteOrDirFlags(t *testing.T) {
+	flags := newBridgeRunCmd().Flags()
+	for _, name := range []string{"site", "dir", "session", "attach"} {
+		if flags.Lookup(name) != nil {
+			t.Fatalf("--%s is still registered", name)
+		}
 	}
-	if flag.DefValue != "" {
-		t.Fatalf("--permission-mode defaults to %q, want empty", flag.DefValue)
+	if err := runBridge(t, "--dir", t.TempDir()); err == nil || !strings.Contains(err.Error(), "unknown flag: --dir") {
+		t.Fatalf("err = %v", err)
 	}
 }
 
-// TestBridgeRunHasNoTmuxFlags pins the removal: --session and --attach are gone
-// with the tmux path, so a stale invocation fails instead of running unattended
-// in a shape the binary no longer has.
-func TestBridgeRunHasNoTmuxFlags(t *testing.T) {
-	flags := newBridgeRunCmd().Flags()
-	for _, name := range []string{"session", "attach"} {
-		if flags.Lookup(name) != nil {
-			t.Fatalf("--%s is still registered", name)
+// --permission-mode and --model are defaults for rules. Empty passes no flag,
+// which keeps the operator opting in.
+func TestBridgeRunDefaultFlagsAreEmpty(t *testing.T) {
+	for _, name := range []string{"permission-mode", "model", "rules", "log-file"} {
+		flag := newBridgeRunCmd().Flags().Lookup(name)
+		if flag == nil {
+			t.Fatalf("--%s is not registered", name)
+		}
+		if flag.DefValue != "" {
+			t.Fatalf("--%s defaults to %q, want empty", name, flag.DefValue)
 		}
 	}
 }
@@ -101,24 +148,13 @@ func TestBridgeRunBoundsWorkersByDefault(t *testing.T) {
 	}
 }
 
-// A bound below 1 runs nothing and looks healthy, so it fails at startup beside
-// the --dir check rather than on the first card.
+// A bound below 1 runs nothing and looks healthy, so it fails at startup.
 func TestBridgeRunRejectsABoundBelowOne(t *testing.T) {
 	for _, bound := range []string{"0", "-1"} {
-		err := runBridge(t, "--dir", t.TempDir(), "--max-workers", bound)
+		err := runBridge(t, "--rules", writeRules(t, "loupe"), "--max-workers", bound)
 		if err == nil || !strings.Contains(err.Error(), "--max-workers must be at least 1") {
 			t.Fatalf("--max-workers %s: err = %v", bound, err)
 		}
-	}
-}
-
-func TestBridgeRunTakesALogFilePath(t *testing.T) {
-	flag := newBridgeRunCmd().Flags().Lookup("log-file")
-	if flag == nil {
-		t.Fatal("--log-file is not registered")
-	}
-	if flag.DefValue != "" {
-		t.Fatalf("--log-file defaults to %q, want empty", flag.DefValue)
 	}
 }
 
@@ -151,36 +187,6 @@ func TestOpenLogFileAppends(t *testing.T) {
 	}
 	if string(got) != "first\nsecond\n" {
 		t.Fatalf("log = %q, want both runs", got)
-	}
-}
-
-// stdout carries the JSON log and nothing else, so the site picker prompts on
-// stderr. A reader piped to jq would otherwise get prose first.
-func TestTheSitePickerPromptsOnStderr(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"sites":[{"id":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7","name":"Loupe"}]}`)
-	}))
-	t.Cleanup(server.Close)
-
-	cmd := newBridgeRunCmd()
-	cmd.SetContext(context.Background())
-	var stdout, stderr bytes.Buffer
-	cmd.SetOut(&stdout)
-	cmd.SetErr(&stderr)
-
-	id, err := pickSite(cmd, api.New(server.URL, "token", server.Client()))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if id != "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7" {
-		t.Fatalf("id = %q", id)
-	}
-	if stdout.Len() != 0 {
-		t.Fatalf("the picker wrote prose to stdout: %q", stdout.String())
-	}
-	if !strings.Contains(stderr.String(), "Using your only site") {
-		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
 
