@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/config"
+	"github.com/ubermuda/loupe/cli/internal/report"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 	"github.com/ubermuda/loupe/cli/internal/transport"
 )
@@ -118,14 +119,20 @@ func newBridgeRunCmd() *cobra.Command {
 			}
 			defer f.Close()
 
+			bridgeID, err := config.EnsureBridgeID()
+			if err != nil {
+				return fmt.Errorf("the bridge needs an id to report its runs: %w", err)
+			}
+
 			r := &router{
 				log:        newBridgeLogger(bridgeLogWriter(f, cmd.OutOrStdout())),
 				rules:      set,
 				project:    projects[0],
 				maxWorkers: maxWorkers,
 				worker:     defaultWorkerOps(),
+				bridgeID:   bridgeID,
 			}
-			r.log.Info("bridge_started", "rules", path, "projects", projects, "rule_count", len(set.Rules()), "max_workers", maxWorkers, "log_file", logPath)
+			r.log.Info("bridge_started", "rules", path, "projects", projects, "rule_count", len(set.Rules()), "max_workers", maxWorkers, "log_file", logPath, "bridge_id", bridgeID)
 			warnUnknownModes(r.log, set)
 
 			return subscribe(cmd, cfg, set.ProjectID(projects[0]), r)
@@ -220,6 +227,11 @@ func subscribe(cmd *cobra.Command, cfg config.Config, projectID string, r *route
 	defer stop()
 	r.ctx = ctx
 
+	// The queue closes before stop, and after the workers, so it sees every
+	// report a dying worker still makes.
+	r.reports = newReportQueue(ctx, r.log, cfg, projectID)
+	defer r.reports.Close()
+
 	creds, err := fetchCreds(ctx, cfg, projectID)
 	if err != nil {
 		return err
@@ -234,6 +246,17 @@ func subscribe(cmd *cobra.Command, cfg config.Config, projectID string, r *route
 	}
 
 	return nil
+}
+
+// newReportQueue builds the queue that sends each finished run to Loupe. It
+// posts to the project id the start check resolved, never to the slug, because
+// a rename changes the slug and every later report would fail.
+func newReportQueue(ctx context.Context, log *slog.Logger, cfg config.Config, projectID string) report.Queue {
+	client := apiClient(cfg)
+
+	return report.New(ctx, log, func(ctx context.Context, run api.WorkerRun) error {
+		return client.ReportWorkerRun(ctx, projectID, run)
+	})
 }
 
 func fetchCreds(ctx context.Context, cfg config.Config, projectID string) (api.StreamCredentials, error) {

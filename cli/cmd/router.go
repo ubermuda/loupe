@@ -9,7 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/event"
+	"github.com/ubermuda/loupe/cli/internal/report"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 	"github.com/ubermuda/loupe/cli/internal/transport"
 )
@@ -25,6 +27,9 @@ type router struct {
 	topic      string
 	maxWorkers int
 	worker     workerOps
+	bridgeID   string
+	// reports carries each finished run to Loupe. A nil queue reports nothing.
+	reports report.Queue
 
 	mu sync.Mutex
 	// queue holds the accepted events in arrival order, at most one for each
@@ -242,7 +247,7 @@ func (r *router) start(p pending) {
 
 		began := time.Now()
 		res := r.worker.run(r.workerContext(), p.spec)
-		r.report(p, res, time.Since(began))
+		r.report(p, res, began, time.Since(began))
 		r.finish(p.key)
 	}()
 }
@@ -294,10 +299,54 @@ func (r *router) logDropped(dropped []pending) {
 	r.log.Warn("queue_dropped", "count", len(lost), "dropped", lost)
 }
 
-// report says how a worker ended, and carries the output it captured. The
-// bridge owns the worker's streams, so this report is the operator's only view
-// of what claude answered or why it failed.
-func (r *router) report(p pending, res workerResult, elapsed time.Duration) {
+// report says how a worker ended. The log is the operator's view, and the queue
+// carries the same run to Loupe.
+func (r *router) report(p pending, res workerResult, began time.Time, elapsed time.Duration) {
+	r.logResult(p, res, elapsed)
+	r.enqueueReport(p, res, began, elapsed)
+}
+
+// enqueueReport hands one finished run to Loupe. A worker that never ran sends
+// no exit code and says why instead, because the server keeps the two faults
+// apart.
+//
+// endedAt is derived from the start, so the value the server reads can never
+// precede startedAt, whatever the wall clock does between the two calls.
+func (r *router) enqueueReport(p pending, res workerResult, began time.Time, elapsed time.Duration) {
+	if r.reports == nil {
+		return
+	}
+	if p.event.CardNumber < 1 {
+		r.log.Warn("report_skipped", append(about(p.event, p.rule),
+			"message", "Loupe records a run against a card, and this event names none",
+		)...)
+
+		return
+	}
+
+	run := api.WorkerRun{
+		BridgeID:   r.bridgeID,
+		CardID:     p.event.Subject.ID,
+		CardNumber: p.event.CardNumber,
+		RuleName:   p.rule,
+		StartedAt:  began,
+		EndedAt:    began.Add(elapsed),
+		Output:     res.output,
+	}
+	if res.err == nil {
+		run.ExitCode = &res.exitCode
+	} else {
+		reason := res.err.Error()
+		run.FailureReason = &reason
+	}
+
+	r.reports.Enqueue(run)
+}
+
+// logResult writes what a worker ended as. The bridge owns the worker's
+// streams, so this line is the operator's only view of what claude answered or
+// why it failed.
+func (r *router) logResult(p pending, res workerResult, elapsed time.Duration) {
 	if res.err != nil {
 		r.log.Error("worker_failed", append(about(p.event, p.rule), "error", res.err.Error())...)
 

@@ -48,6 +48,19 @@ events start for one card. That stops two rules from moving a card back and
 forth for ever. A move by a person resets the count. An event of a type no rule
 names resets nothing, because the bridge drops it unread.
 
+The bridge reports every run it starts to Loupe. A worker that finishes says so
+itself, by writing to the card through an MCP tool. A worker that crashes, that
+a signal kills, or that never starts writes nothing at all. The bridge is the
+only witness of those, so it posts a record of each run to
+`/api/projects/{handle}/worker-runs`. The record names the rule, the card, the
+start and end times, the exit code and the output.
+
+The queue that carries those reports is held in memory. A failed send waits one
+second, then twice as long before each later attempt, up to sixty seconds. The
+bridge gives up after ten attempts and logs `report_failed`. Stopping the bridge
+drops the reports still in the queue and logs `report_dropped` with the count. A
+missing record therefore means "unknown", and never "the worker did not run".
+
 There is no terminal UI. The bridge writes one JSON object per line to stdout
 and to its log file, named by `--log-file`. Each line carries a stable `event`
 key, so `jq` selects what you want. The log file is appended, so it is a history
