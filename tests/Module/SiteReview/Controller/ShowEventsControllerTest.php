@@ -4,26 +4,36 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\SiteReview\Controller;
 
+use App\Mercure\UserTopicBuilder;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Outbox\AgentPush;
+use App\Outbox\Command\DrainOutboxCommand;
+use App\Outbox\Command\DrainOutboxHandler;
+use App\Outbox\OutboxWriter;
+use App\Outbox\Repository\OutboxEventRepository;
+use App\Tests\Support\FeatureFlags;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Mercure\HubInterface;
+use Symfony\Component\Mercure\Jwt\TokenFactoryInterface;
+use Symfony\Component\Mercure\Update;
 
-final class StreamCredentialsControllerTest extends WebTestCase
+final class ShowEventsControllerTest extends WebTestCase
 {
-    public function test_returns_a_topic_for_every_project_of_the_caller_and_one_jwt_for_them(): void
+    public function test_returns_the_callers_own_topic_its_projects_and_a_jwt_for_that_topic_alone(): void
     {
         $client = static::createClient();
         $em = $this->em();
         [$raw, $user, $first] = $this->issue($em, ApiTokenScope::Agent, 'events@example.com');
         $second = new Project($user, 'Second Events Site');
         $em->persist($second);
-        [, , $foreign] = $this->issue($em, ApiTokenScope::Agent, 'events-other@example.com');
+        [$foreignRaw, $foreignUser, $foreign] = $this->issue($em, ApiTokenScope::Agent, 'events-other@example.com');
         $em->flush();
 
         $data = $this->events($client, $raw);
@@ -31,24 +41,83 @@ final class StreamCredentialsControllerTest extends WebTestCase
         self::assertSame('https://mercure.loupe.dev.localhost/.well-known/mercure', $data['hubUrl']);
         $defaultUri = static::getContainer()->getParameter('router.request_context.base_url');
         self::assertIsString($defaultUri);
-        $topicOf = static fn (Project $project): string => rtrim($defaultUri, '/').'/projects/'.$project->id.'/events';
+        $topicOf = static fn (User $owner): string => rtrim($defaultUri, '/').'/users/'.$owner->id.'/events';
+        self::assertSame($topicOf($user), $data['topic']);
 
         $expected = [
-            (string) $first->id => ['id' => (string) $first->id, 'slug' => $first->slug, 'name' => $first->name, 'topic' => $topicOf($first)],
-            (string) $second->id => ['id' => (string) $second->id, 'slug' => 'second-events-site', 'name' => 'Second Events Site', 'topic' => $topicOf($second)],
+            (string) $first->id => ['id' => (string) $first->id, 'slug' => $first->slug, 'name' => $first->name],
+            (string) $second->id => ['id' => (string) $second->id, 'slug' => 'second-events-site', 'name' => 'Second Events Site'],
         ];
         self::assertIsArray($data['projects']);
         self::assertEqualsCanonicalizing($expected, array_column($data['projects'], null, 'id'));
         self::assertNotContains((string) $foreign->id, array_column($data['projects'], 'id'));
 
-        $claims = $this->decodeJwtClaims((string) $data['jwt']);
-        $subscribe = $claims['mercure']['subscribe'] ?? null;
-        self::assertIsArray($subscribe);
-        self::assertEqualsCanonicalizing([$topicOf($first), $topicOf($second)], $subscribe);
-        self::assertNotContains($topicOf($foreign), $subscribe);
+        self::assertSame([$topicOf($user)], $this->decodeJwtClaims((string) $data['jwt'])['mercure']['subscribe'] ?? null);
+
+        // The other user's own call names their topic only, never the first user's.
+        $foreignData = $this->events($client, $foreignRaw);
+        self::assertSame([$topicOf($foreignUser)], $this->decodeJwtClaims((string) $foreignData['jwt'])['mercure']['subscribe'] ?? null);
     }
 
-    public function test_a_caller_with_no_project_gets_an_empty_list(): void
+    /**
+     * The drain publishes on the owner's topic, and /api/events hands out that
+     * same topic, so every owned project reaches one subscriber.
+     */
+    public function test_an_event_of_any_owned_project_is_published_on_the_topic_the_endpoint_returns(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        [$raw, $user, $first] = $this->issue($em, ApiTokenScope::Agent, 'events-drain@example.com');
+        $second = new Project($user, 'Second Drained Site');
+        $em->persist($second);
+        [, , $foreign] = $this->issue($em, ApiTokenScope::Agent, 'events-drain-other@example.com');
+        $topic = $this->events($client, $raw)['topic'];
+
+        $writer = static::getContainer()->get(OutboxWriter::class);
+        self::assertInstanceOf(OutboxWriter::class, $writer);
+        foreach ([$first, $second, $foreign] as $project) {
+            $writer->write($project, 'test.event', ['projectId' => (string) $project->id]);
+        }
+        $em->flush();
+
+        $hub = new class implements HubInterface {
+            /** @var list<Update> */
+            public array $updates = [];
+
+            public function getPublicUrl(): string
+            {
+                return 'https://hub.test';
+            }
+
+            public function getFactory(): ?TokenFactoryInterface
+            {
+                return null;
+            }
+
+            public function publish(Update $update): string
+            {
+                $this->updates[] = $update;
+
+                return 'id';
+            }
+        };
+        $userTopics = static::getContainer()->get(UserTopicBuilder::class);
+        self::assertInstanceOf(UserTopicBuilder::class, $userTopics);
+        $outboxEvents = static::getContainer()->get(OutboxEventRepository::class);
+        self::assertInstanceOf(OutboxEventRepository::class, $outboxEvents);
+        (new DrainOutboxHandler($outboxEvents, $em, $hub, new NullLogger(), FeatureFlags::service([AgentPush::FLAG => true]), $userTopics))(new DrainOutboxCommand());
+
+        $reached = [];
+        foreach ($hub->updates as $update) {
+            if (\in_array($topic, $update->getTopics(), true)) {
+                $reached[] = json_decode($update->getData(), true)['projectId'] ?? null;
+            }
+        }
+        self::assertCount(3, $hub->updates);
+        self::assertEqualsCanonicalizing([(string) $first->id, (string) $second->id], $reached);
+    }
+
+    public function test_a_caller_with_no_project_gets_an_empty_list_and_still_its_own_topic(): void
     {
         $client = static::createClient();
         $em = $this->em();
@@ -62,7 +131,7 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $data = $this->events($client, $raw);
 
         self::assertSame([], $data['projects']);
-        self::assertSame([], $this->decodeJwtClaims((string) $data['jwt'])['mercure']['subscribe'] ?? null);
+        self::assertSame([$data['topic']], $this->decodeJwtClaims((string) $data['jwt'])['mercure']['subscribe'] ?? null);
     }
 
     public function test_push_disabled_hides_the_endpoint(): void
@@ -102,6 +171,8 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/api/events', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
         self::assertResponseStatusCodeSame(403);
+        self::assertStringNotContainsString('/users/', (string) $client->getResponse()->getContent());
+        self::assertStringNotContainsString('jwt', (string) $client->getResponse()->getContent());
     }
 
     public function test_no_token_is_unauthorized(): void

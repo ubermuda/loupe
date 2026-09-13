@@ -132,7 +132,9 @@ func TestBridgeRunRefusesAnInvalidRuleFile(t *testing.T) {
 }
 
 // fakeLoupe serves the columns check, GET /api/events and a Mercure hub. The
-// first hub connection sends its events and closes, so the bridge reconnects.
+// first hub connection sends its events, and the first two close, so the
+// bridge refreshes its JWT twice. From the second call on, GET /api/events no
+// longer lists the other project, as if it had been deleted.
 type fakeLoupe struct {
 	mu          sync.Mutex
 	eventsCalls int
@@ -142,10 +144,14 @@ type fakeLoupe struct {
 	reports     []string
 }
 
-const unmappedProject = "0192f3a1-4b2c-7d3e-8f10-000000000003"
+const (
+	userTopic = "https://loupe.test/users/0192f3a1-4b2c-7d3e-8f10-0000000000aa/events"
+	// newProject is created after the bridge starts, so GET /api/events never
+	// lists it, and the file does not map it.
+	newProject = "0192f3a1-4b2c-7d3e-8f10-000000000003"
+)
 
 func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
-	topic := func(id string) string { return "https://loupe.test/projects/" + id + "/events" }
 	switch r.URL.Path {
 	case "/api/projects/loupe/board/columns":
 		fmt.Fprint(w, `{"project":{"id":"`+testProject+`","slug":"loupe"},"columns":[{"slug":"next"}]}`)
@@ -156,11 +162,11 @@ func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
 		f.eventsCalls++
 		n := f.eventsCalls
 		f.mu.Unlock()
-		fmt.Fprintf(w, `{"hubUrl":"http://%s/hub","jwt":"jwt-%d","projects":[`+
-			`{"id":%q,"slug":"loupe","name":"Loupe","topic":%q},`+
-			`{"id":%q,"slug":"other","name":"Other","topic":%q},`+
-			`{"id":%q,"slug":"elsewhere","name":"Elsewhere","topic":%q}]}`,
-			r.Host, n, testProject, topic(testProject), otherProject, topic(otherProject), unmappedProject, topic(unmappedProject))
+		projects := fmt.Sprintf(`{"id":%q,"slug":"loupe","name":"Loupe"}`, testProject)
+		if n == 1 {
+			projects += fmt.Sprintf(`,{"id":%q,"slug":"other","name":"Other"}`, otherProject)
+		}
+		fmt.Fprintf(w, `{"hubUrl":"http://%s/hub","jwt":"jwt-%d","topic":%q,"projects":[%s]}`, r.Host, n, userTopic, projects)
 	case "/hub":
 		f.mu.Lock()
 		f.hubAuth = append(f.hubAuth, r.Header.Get("Authorization"))
@@ -169,12 +175,13 @@ func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
 		f.mu.Unlock()
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
-		if attempt > 1 {
+		switch attempt {
+		case 1:
+			fmt.Fprint(w, f.sse)
+		case 2:
+		default:
 			<-r.Context().Done()
-
-			return
 		}
-		fmt.Fprint(w, f.sse)
 	default:
 		if r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/bridges/"+testBridgeID+"/rules") {
 			raw, _ := io.ReadAll(r.Body)
@@ -203,17 +210,18 @@ func (f *fakeLoupe) connections() int {
 	return len(f.hubAuth)
 }
 
-// Two mapped projects share one connection, and each starts workers in its own
-// directory. A project the file does not map is ignored and logged once. The
-// bridge reads GET /api/events once to start, and again for the JWT of each
-// reconnect.
-func TestOneConnectionServesEveryProject(t *testing.T) {
+// Two mapped projects share the one user topic, and each starts workers in its
+// own directory. A project created after the start reaches the bridge, and the
+// file does not map it, so it is ignored and logged once. The bridge reads
+// GET /api/events once to start, and again for the JWT of each reconnect. A
+// mapped project that a refresh no longer lists is logged once, with its rules.
+func TestOneTopicServesEveryProject(t *testing.T) {
 	sse := ""
 	for _, payload := range []string{
 		movedPayload(87, "backlog", "next", "human"),
 		strings.Replace(movedPayload(88, "backlog", "next", "human"), testProject, otherProject, 1),
-		strings.Replace(movedPayload(89, "backlog", "next", "human"), testProject, unmappedProject, 1),
-		strings.Replace(movedPayload(90, "backlog", "next", "human"), testProject, unmappedProject, 1),
+		strings.Replace(movedPayload(89, "backlog", "next", "human"), testProject, newProject, 1),
+		strings.Replace(movedPayload(90, "backlog", "next", "human"), testProject, newProject, 1),
 	} {
 		sse += "data: " + payload + "\n\n"
 	}
@@ -225,7 +233,7 @@ func TestOneConnectionServesEveryProject(t *testing.T) {
 	loupeDir, otherDir := t.TempDir(), t.TempDir()
 	body := "projects:\n  loupe:\n    dir: " + loupeDir + "\n  other:\n    dir: " + otherDir + "\nrules:\n" +
 		"  - on: board.card_moved\n    project: loupe\n    to: next\n    prompt: go\n" +
-		"  - on: board.card_moved\n    project: other\n    to: next\n    prompt: go\n"
+		"  - name: other-plan\n    on: board.card_moved\n    project: other\n    to: next\n    prompt: go\n"
 	set, err := rules.Parse([]byte(body), rules.Defaults{})
 	if err != nil {
 		t.Fatal(err)
@@ -246,7 +254,7 @@ func TestOneConnectionServesEveryProject(t *testing.T) {
 	go func() { done <- subscribe(cmd, cfg, h.router) }()
 
 	deadline := time.After(8 * time.Second)
-	for fake.connections() < 2 || len(worker.recorded()) < 2 {
+	for fake.connections() < 3 || len(worker.recorded()) < 2 {
 		select {
 		case <-deadline:
 			t.Fatalf("connections = %d, workers = %+v, log = %s", fake.connections(), worker.recorded(), h.log.String())
@@ -268,16 +276,25 @@ func TestOneConnectionServesEveryProject(t *testing.T) {
 	if !slices.Equal(dirs, want) {
 		t.Fatalf("worker dirs = %v, want %v", dirs, want)
 	}
-	if got := str(t, h.only(t, "project_unmapped"), "project"); got != unmappedProject {
+	if got := str(t, h.only(t, "project_unmapped"), "project"); got != newProject {
 		t.Fatalf("project_unmapped = %q", got)
+	}
+	gone := h.only(t, "project_gone")
+	if str(t, gone, "project") != "other" || fmt.Sprint(gone["rules"]) != "[other-plan]" || !strings.Contains(str(t, gone, "message"), "rules other-plan stop working") {
+		t.Fatalf("project_gone = %v", gone)
+	}
+	if dead := h.only(t, "rule_dead"); str(t, dead, "rule") != "other-plan" || str(t, dead, "project_slug") != "other" || str(t, dead, "reason") != "project_gone" {
+		t.Fatalf("rule_dead = %v", dead)
 	}
 
 	fake.mu.Lock()
 	defer fake.mu.Unlock()
-	if len(fake.hubTopics[0]) != 3 || fake.hubTopics[0][2] != "https://loupe.test/projects/"+unmappedProject+"/events" {
-		t.Fatalf("hub topics = %q, want all three on one connection", fake.hubTopics[0])
+	for i, topics := range fake.hubTopics {
+		if !slices.Equal(topics, []string{userTopic}) {
+			t.Fatalf("connection %d asked for topics %q, want the user topic alone", i+1, topics)
+		}
 	}
-	if fake.eventsCalls != 2 || fake.hubAuth[0] != "Bearer jwt-1" || fake.hubAuth[1] != "Bearer jwt-2" {
+	if fake.eventsCalls < 3 || fake.hubAuth[0] != "Bearer jwt-1" || fake.hubAuth[1] != "Bearer jwt-2" || fake.hubAuth[2] != "Bearer jwt-3" {
 		t.Fatalf("GET /api/events ran %d times, hub auth = %q", fake.eventsCalls, fake.hubAuth)
 	}
 }
@@ -351,15 +368,14 @@ func TestTheBridgeReportsRuleHealthAtStartAndOnAChange(t *testing.T) {
 
 // A mapped project that GET /api/events does not list could never fire, so the
 // bridge refuses to start rather than look healthy.
-func TestCheckMappedRefusesAProjectWithNoStream(t *testing.T) {
+func TestMissingProjectsNamesAMappedProjectTheServerDoesNotList(t *testing.T) {
 	set, _ := loadRules(t, defaultRules, rules.Defaults{})
 
-	err := checkMapped(set, api.Events{Projects: []api.StreamProject{{ID: otherProject}}})
-	if err == nil || !strings.Contains(err.Error(), "no stream for loupe") {
-		t.Fatalf("err = %v", err)
+	if got := missingProjects(set, api.Events{Projects: []api.EventsProject{{ID: otherProject}}}); !slices.Equal(got, []string{"loupe"}) {
+		t.Fatalf("missing = %v", got)
 	}
-	if err := checkMapped(set, api.Events{Projects: []api.StreamProject{{ID: strings.ToUpper(testProject)}}}); err != nil {
-		t.Fatalf("an upper-case id must still match: %v", err)
+	if got := missingProjects(set, api.Events{Projects: []api.EventsProject{{ID: strings.ToUpper(testProject)}}}); len(got) != 0 {
+		t.Fatalf("an upper-case id must still match: %v", got)
 	}
 }
 

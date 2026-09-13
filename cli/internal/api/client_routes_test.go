@@ -50,9 +50,8 @@ func TestEventsCallsTheEventsRoute(t *testing.T) {
 	var gotPath, gotQuery, gotAuth string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath, gotQuery, gotAuth = r.URL.EscapedPath(), r.URL.RawQuery, r.Header.Get("Authorization")
-		fmt.Fprint(w, `{"hubUrl":"https://hub.example/.well-known/mercure","jwt":"j","projects":[`+
-			`{"id":"a","slug":"loupe","name":"Loupe","topic":"https://loupe.test/projects/a/events"},`+
-			`{"id":"b","slug":"other","name":"Other","topic":"https://loupe.test/projects/b/events"}]}`)
+		fmt.Fprint(w, `{"hubUrl":"https://hub.example/.well-known/mercure","jwt":"j","topic":"https://loupe.test/users/u/events","projects":[`+
+			`{"id":"a","slug":"loupe","name":"Loupe"},{"id":"b","slug":"other","name":"Other"}]}`)
 	}))
 	t.Cleanup(server.Close)
 
@@ -63,9 +62,23 @@ func TestEventsCallsTheEventsRoute(t *testing.T) {
 	if gotPath != "/api/events" || gotQuery != "" || gotAuth != "Bearer secret" {
 		t.Fatalf("path = %q, query = %q, auth = %q", gotPath, gotQuery, gotAuth)
 	}
-	want := []string{"https://loupe.test/projects/a/events", "https://loupe.test/projects/b/events"}
-	if got.JWT != "j" || got.HubURL != "https://hub.example/.well-known/mercure" || !slices.Equal(got.Topics(), want) || got.Projects[1].Slug != "other" {
+	ids := []string{got.Projects[0].ID, got.Projects[1].ID}
+	if got.JWT != "j" || got.HubURL != "https://hub.example/.well-known/mercure" || got.Topic != "https://loupe.test/users/u/events" || !slices.Equal(ids, []string{"a", "b"}) || got.Projects[1].Slug != "other" {
 		t.Fatalf("events = %+v", got)
+	}
+}
+
+// A server that predates the per-user topic sends none, and the bridge would
+// otherwise subscribe to nothing.
+func TestEventsRefusesAnAnswerWithNoTopic(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{"hubUrl":"https://hub.example/.well-known/mercure","jwt":"j","projects":[]}`)
+	}))
+	t.Cleanup(server.Close)
+
+	_, err := New(server.URL, "t", server.Client()).Events(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "returned no topic") {
+		t.Fatalf("err = %v", err)
 	}
 }
 

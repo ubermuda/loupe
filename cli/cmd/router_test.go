@@ -1099,13 +1099,13 @@ func TestIncompleteCardEventIsReportedAndDropped(t *testing.T) {
 // The stream reports its own faults through the handler, so a retry is visible.
 func TestAStreamErrorIsReported(t *testing.T) {
 	h := newHarness(t)
-	h.router.projects, h.router.topics = []string{"loupe", "other"}, 3
+	h.router.projects, h.router.topic = []string{"loupe", "other"}, "https://loupe.test/users/u/events"
 
 	h.router.handler().OnConnect()
 	h.router.handler().OnError(errors.New("hub returned HTTP 401"))
 
 	connected := h.only(t, "connected")
-	if num(t, connected, "topics") != 3 || fmt.Sprint(connected["projects"]) != "[loupe other]" {
+	if str(t, connected, "topic") != "https://loupe.test/users/u/events" || fmt.Sprint(connected["projects"]) != "[loupe other]" {
 		t.Fatalf("connected = %v", connected)
 	}
 	if got := str(t, h.only(t, "stream_error"), "error"); got != "hub returned HTTP 401" {

@@ -216,9 +216,9 @@ func openLogFile(path string) (*os.File, error) {
 // The shutdown drops the queue before it waits. Subscribe calls the handler on
 // this goroutine, so no event can arrive after it returns.
 //
-// One GET /api/events names every project the user owns, and one connection
-// follows all of their topics. The router ignores a project the file does not
-// map.
+// The server publishes every event of a project on its owner's topic too, so
+// one topic follows every project, including one created after the start. The
+// router ignores a project the file does not map.
 func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -228,10 +228,10 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	if err != nil {
 		return err
 	}
-	if err := checkMapped(r.rules, events); err != nil {
-		return err
+	if missing := missingProjects(r.rules, events); len(missing) > 0 {
+		return fmt.Errorf("GET /api/events does not list %s, so no event of theirs can reach the bridge", strings.Join(missing, ", "))
 	}
-	r.projects, r.topics = r.rules.Projects(), len(events.Projects)
+	r.projects, r.topic = r.rules.Projects(), events.Topic
 	if r.bridgeID != "" {
 		r.health = newHealthReporter(ctx, apiClient(cfg), r.bridgeID, r.log)
 		for _, slug := range r.projects {
@@ -239,7 +239,7 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		}
 	}
 
-	err = transport.Subscribe(ctx, &http.Client{}, events.HubURL, events.Topics(), jwtRefresher(cfg, events.JWT), r.handler())
+	err = transport.Subscribe(ctx, &http.Client{}, events.HubURL, []string{events.Topic}, jwtRefresher(cfg, events.JWT, r.onRefresh), r.handler())
 	failed := err != nil && ctx.Err() == nil
 	r.shutdown()
 	r.wg.Wait()
@@ -256,9 +256,9 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	return nil
 }
 
-// checkMapped refuses a mapped project that GET /api/events does not list. Its
-// rules could never fire, and the bridge would look healthy.
-func checkMapped(set *rules.Set, events api.Events) error {
+// missingProjects names the mapped projects that GET /api/events does not list:
+// deleted, or no longer the user's. Their rules can never fire.
+func missingProjects(set *rules.Set, events api.Events) []string {
 	listed := map[string]bool{}
 	for _, p := range events.Projects {
 		listed[strings.ToLower(p.ID)] = true
@@ -269,18 +269,16 @@ func checkMapped(set *rules.Set, events api.Events) error {
 			missing = append(missing, slug)
 		}
 	}
-	if len(missing) > 0 {
-		return fmt.Errorf("GET /api/events lists no stream for %s, so no event of theirs can reach the bridge", strings.Join(missing, ", "))
-	}
 
-	return nil
+	return missing
 }
 
 // jwtRefresher hands out first for the first connection, then mints a fresh
-// subscriber JWT per attempt. Subscriber JWTs are short-lived, so a bridge left
-// running would otherwise reconnect with an expired token forever once the
-// first one lapsed. Subscribe calls it from one goroutine.
-func jwtRefresher(cfg config.Config, first string) transport.TokenFunc {
+// subscriber JWT per attempt and gives each fresh answer to onRefresh.
+// Subscriber JWTs are short-lived, so a bridge left running would otherwise
+// reconnect with an expired token forever once the first one lapsed. Subscribe
+// calls it from one goroutine.
+func jwtRefresher(cfg config.Config, first string, onRefresh func(api.Events)) transport.TokenFunc {
 	return func(ctx context.Context) (string, error) {
 		if first != "" {
 			jwt := first
@@ -292,6 +290,7 @@ func jwtRefresher(cfg config.Config, first string) transport.TokenFunc {
 		if err != nil {
 			return "", err
 		}
+		onRefresh(events)
 
 		return events.JWT, nil
 	}

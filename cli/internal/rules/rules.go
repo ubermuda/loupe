@@ -591,6 +591,18 @@ func (s *Set) Kill(e event.Event) []Dead {
 		return nil
 	}
 
+	return s.kill(slug, column, reason)
+}
+
+// KillProject marks dead every live rule of a mapped project, and returns them
+// in file order.
+func (s *Set) KillProject(slug, reason string) []Dead {
+	return s.kill(slug, "", reason)
+}
+
+// kill marks dead the live rules of a project, or with a column only the rules
+// whose to or from names it.
+func (s *Set) kill(slug, column, reason string) []Dead {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var out []Dead

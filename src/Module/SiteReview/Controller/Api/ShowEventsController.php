@@ -6,18 +6,18 @@ namespace App\Module\SiteReview\Controller\Api;
 
 use App\Controller\AppController;
 use App\Module\Account\Entity\User;
-use App\Module\SiteReview\Command\ShowStreamCredentialsCommand;
-use App\Module\SiteReview\Command\ShowStreamCredentialsHandler;
-use App\Module\SiteReview\Command\StreamProjectView;
+use App\Module\Project\Entity\Project;
+use App\Module\SiteReview\Command\ShowEventsCommand;
+use App\Module\SiteReview\Command\ShowEventsHandler;
 use App\Outbox\AgentPush;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
 
 /**
- * Hands the bridge CLI what it needs to follow the event stream of every
- * project its user owns: the public hub URL, each project's topic, and one
- * subscriber JWT that covers all of those topics.
+ * Hands the bridge CLI what it needs to follow the events of every project its
+ * user owns: the public hub URL, the user's own topic, a subscriber JWT for that
+ * one topic, and the projects whose events arrive on it.
  *
  * Agent-scoped tokens only. The firewall grants this path to ROLE_API_AGENT
  * alone, so a project-bound widget token gets 403 `insufficient_scope` before
@@ -32,10 +32,10 @@ use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
     name: 'api_events',
     methods: ['GET'],
 )]
-final class StreamCredentialsController extends AppController
+final class ShowEventsController extends AppController
 {
     public function __construct(
-        private readonly ShowStreamCredentialsHandler $showStreamCredentials,
+        private readonly ShowEventsHandler $showEvents,
     ) {
     }
 
@@ -46,17 +46,17 @@ final class StreamCredentialsController extends AppController
             throw new \LogicException('Events endpoint reached without an authenticated User.');
         }
 
-        $view = ($this->showStreamCredentials)(new ShowStreamCredentialsCommand($user));
+        $view = ($this->showEvents)(new ShowEventsCommand($user));
 
         return $this->json([
             'hubUrl' => $view->hubUrl,
             'jwt' => $view->jwt,
+            'topic' => $view->topic,
             'projects' => array_map(
-                static fn (StreamProjectView $project): array => [
-                    'id' => (string) $project->project->id,
-                    'slug' => $project->project->slug,
-                    'name' => $project->project->name,
-                    'topic' => $project->topic,
+                static fn (Project $project): array => [
+                    'id' => (string) $project->id,
+                    'slug' => $project->slug,
+                    'name' => $project->name,
                 ],
                 $view->projects,
             ),

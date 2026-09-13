@@ -140,6 +140,23 @@ func TestAProjectRenameKillsEveryRuleOfTheProject(t *testing.T) {
 	}
 }
 
+func TestAGoneProjectKillsEveryRuleOfTheProject(t *testing.T) {
+	s := checkedDead(t)
+
+	got := names(s.KillProject("other", api.ReasonProjectGone))
+	if want := []string{"other-plan/other/project_gone"}; !slices.Equal(got, want) {
+		t.Fatalf("KillProject = %v, want %v", got, want)
+	}
+	other := moved("backlog", "ready", event.ActorHuman)
+	other.ProjectID = otherID
+	if m := s.Match(other); m.Skip != NoRule {
+		t.Fatalf("a dead rule matched: %+v", m)
+	}
+	if m := s.Match(moved("backlog", "ready", event.ActorHuman)); m.Rule != "plan" {
+		t.Fatalf("the rule of another project stopped matching: %+v", m)
+	}
+}
+
 func TestKillIgnoresOtherEventsAndUnmappedProjects(t *testing.T) {
 	s := checkedDead(t)
 	unmapped := slugEvent(event.ProjectRenamedType, "0192f3a1-4b2c-7d3e-8f10-ffffffffffff")

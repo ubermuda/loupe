@@ -104,7 +104,7 @@ the comment save it was told about.
 ## The push subsystem has no producer
 
 `App\Outbox\Entity\OutboxEvent`, the outbox, `DrainOutboxHandler`, the drain
-scheduler, both outbox pages, `StreamCredentialsController` and the
+scheduler, both outbox pages, `ShowEventsController` and the
 `agent.push.enabled` flag are all present and tested. Nothing writes an event
 any more: dropping the send step removed the only producer.
 
@@ -134,10 +134,13 @@ notice stay event-sourced on purpose, because zero is *correct* there.
 | `/api/board/cards` | POST | Create a card from the widget |
 
 Two more routes live in this module and are not widget paths. `/api/projects`
-and `/api/events` serve the loupe CLI. `/api/events` returns one subscriber JWT
-for the topics of every project the caller owns. The firewall grants each
-route by its own rule to `ROLE_API_AGENT`, which a widget token does not carry, so a widget token gets
-`insufficient_scope`. They keep their `StreamCredentialsController` and
+and `/api/events` serve the loupe CLI. `/api/events` returns the caller's own
+user topic and a subscriber JWT for that one topic. `DrainOutboxHandler`
+publishes each event on its project topic and on the project owner's user
+topic, so the URL and the JWT keep one size however many projects a user owns.
+The firewall grants each route by its own rule to `ROLE_API_AGENT`, which a
+widget token does not carry, so a widget token gets `insufficient_scope`. They
+keep their `ShowEventsController` and
 `ListSitesController` classes here because their command handlers do.
 
 The last two widget routes are Board paths on a widget token, and `config/packages/security.yaml`
