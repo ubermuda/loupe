@@ -218,8 +218,8 @@ func TestTheExampleParses(t *testing.T) {
 	}
 }
 
-// columnsServer answers the column endpoint for the projects it knows, and 404
-// for any other handle.
+// columnsServer answers the column endpoint for the projects it knows, and a
+// project_not_found 404 for any other handle.
 func columnsServer(t *testing.T, projects map[string]string) *api.Client {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -227,6 +227,7 @@ func columnsServer(t *testing.T, projects map[string]string) *api.Client {
 		body, ok := projects[handle]
 		if !ok {
 			w.WriteHeader(http.StatusNotFound)
+			fmt.Fprint(w, `{"error":"project_not_found"}`)
 
 			return
 		}
@@ -259,12 +260,7 @@ func TestCheckRefusesWhatTheBoardDoesNotHave(t *testing.T) {
 		"unknown project": {
 			body:     oneRule,
 			projects: map[string]string{},
-			want: []string{
-				`project "loupe": the server answered 404`,
-				"no project of yours has this slug",
-				"the server is too old for this bridge version",
-				"GET /api/agent/projects/{handle}/columns",
-			},
+			want:     []string{`project "loupe": no project of yours has this slug`},
 		},
 		"unknown to column": {
 			body:     strings.ReplaceAll(oneRule, "to: ready", "to: next"),
@@ -305,15 +301,73 @@ func TestCheckRefusesWhatTheBoardDoesNotHave(t *testing.T) {
 	}
 }
 
-func TestCheckReportsAnAmbiguousHandle(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusConflict)
-	}))
-	t.Cleanup(server.Close)
+// Each refusal the server can give at start gets its own message, so the
+// operator knows whether to fix the file, the instance, or the server version.
+func TestCheckNamesEachRefusal(t *testing.T) {
+	for name, tc := range map[string]struct {
+		status int
+		body   string
+		want   string
+		not    string
+	}{
+		"unknown project": {http.StatusNotFound, `{"error":"project_not_found"}`, "no project of yours has this slug", "too old"},
+		"board disabled":  {http.StatusNotFound, `{"error":"board_disabled"}`, "the board is switched off on this Loupe instance", "no project"},
+		"server too old":  {http.StatusNotFound, `<!DOCTYPE html><title>Not Found</title>`, "the server is too old for this bridge version", "no project"},
+		"ambiguous":       {http.StatusConflict, `{"error":"ambiguous_project"}`, "names more than one of your projects", "too old"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(tc.status)
+				fmt.Fprint(w, tc.body)
+			}))
+			t.Cleanup(server.Close)
 
-	err := parse(t, oneRule).Check(context.Background(), api.New(server.URL, "t", server.Client()))
-	if !errors.Is(err, api.ErrProjectAmbiguous) {
+			err := parse(t, oneRule).Check(context.Background(), api.New(server.URL, "t", server.Client()))
+			if err == nil || !strings.Contains(err.Error(), tc.want) || strings.Contains(err.Error(), tc.not) {
+				t.Fatalf("err = %v, want %q and not %q", err, tc.want, tc.not)
+			}
+		})
+	}
+}
+
+// Without slugs, two keys can resolve to one project, such as its name and its
+// id. Only one key would then ever match, so the check refuses the pair.
+func TestCheckRefusesTwoKeysForOneProject(t *testing.T) {
+	text, _ := file(t, `
+projects:
+  loupe:
+    dir: {dir}
+  `+projectID+`:
+    dir: {dir}
+rules:
+  - on: board.card_moved
+    project: loupe
+    to: ready
+    prompt: go
+`)
+	s, err := Parse([]byte(text), Defaults{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := `{"project":{"id":"` + projectID + `","slug":null},"columns":[{"slug":"ready"}]}`
+
+	err = s.Check(context.Background(), columnsServer(t, map[string]string{"loupe": body, projectID: body}))
+	if err == nil || !strings.Contains(err.Error(), "the same project as") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// Until projects have slugs, the server resolves the handle by name and sends
+// a null slug. The check accepts that and still reads the id and the columns.
+func TestCheckAcceptsANullSlug(t *testing.T) {
+	s := parse(t, oneRule)
+	body := `{"project":{"id":"` + projectID + `","slug":null},"columns":[{"slug":"ready"}]}`
+
+	if err := s.Check(context.Background(), columnsServer(t, map[string]string{"loupe": body})); err != nil {
+		t.Fatal(err)
+	}
+	if s.ProjectID("loupe") != projectID {
+		t.Fatalf("ProjectID = %q", s.ProjectID("loupe"))
 	}
 }
 

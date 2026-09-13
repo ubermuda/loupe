@@ -49,19 +49,42 @@ func TestColumnsEscapesTheHandle(t *testing.T) {
 	}
 }
 
+// A server with no project slugs yet sends a null slug. That must decode, not
+// fail.
+func TestColumnsAcceptsANullSlug(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{"project":{"id":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7","slug":null},"columns":[{"slug":"next","label":"Next","terminal":false,"default":false}]}`)
+	}))
+	t.Cleanup(server.Close)
+
+	got, err := New(server.URL, "t", server.Client()).Columns(context.Background(), "loupe")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Project.Slug != "" || got.Project.ID == "" || len(got.Columns) != 1 {
+		t.Fatalf("got = %+v", got)
+	}
+}
+
 func TestColumnsNamesEachFailure(t *testing.T) {
 	for _, tc := range []struct {
 		status int
+		body   string
 		is     error
 		text   string
 	}{
-		{http.StatusNotFound, ErrProjectNotFound, "loupe"},
-		{http.StatusConflict, ErrProjectAmbiguous, "loupe"},
-		{http.StatusForbidden, nil, "agent scope"},
-		{http.StatusInternalServerError, nil, "HTTP 500"},
+		{http.StatusNotFound, `{"error":"project_not_found"}`, ErrProjectNotFound, "loupe"},
+		{http.StatusNotFound, `{"error":"board_disabled"}`, ErrBoardDisabled, "loupe"},
+		{http.StatusNotFound, `<html>Not Found</html>`, ErrEndpointMissing, "loupe"},
+		{http.StatusNotFound, `{"message":"No route found"}`, ErrEndpointMissing, "loupe"},
+		{http.StatusNotFound, ``, ErrEndpointMissing, "loupe"},
+		{http.StatusConflict, `{"error":"ambiguous_project"}`, ErrProjectAmbiguous, "loupe"},
+		{http.StatusForbidden, ``, nil, "agent scope"},
+		{http.StatusInternalServerError, ``, nil, "HTTP 500"},
 	} {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(tc.status)
+			fmt.Fprint(w, tc.body)
 		}))
 
 		_, err := New(server.URL, "t", server.Client()).Columns(context.Background(), "loupe")

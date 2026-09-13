@@ -89,6 +89,7 @@ type Column struct {
 }
 
 // ProjectColumns is the response of GET /api/agent/projects/{handle}/columns.
+// A server that predates project slugs sends a null slug, which decodes as "".
 type ProjectColumns struct {
 	Project struct {
 		ID   string `json:"id"`
@@ -104,6 +105,30 @@ var ErrProjectNotFound = errors.New("project not found")
 // ErrProjectAmbiguous is returned when the handle names more than one of the
 // caller's projects.
 var ErrProjectAmbiguous = errors.New("project handle is ambiguous")
+
+// ErrBoardDisabled is returned when the instance has the board switched off.
+var ErrBoardDisabled = errors.New("the board is disabled on this instance")
+
+// ErrEndpointMissing is returned for a 404 that carries no error code, which
+// is the answer of a server that predates the endpoint.
+var ErrEndpointMissing = errors.New("the server has no columns endpoint")
+
+// notFound reads which 404 the server meant from its JSON error code.
+func notFound(body io.Reader) error {
+	var payload struct {
+		Error string `json:"error"`
+	}
+	_ = json.NewDecoder(io.LimitReader(body, 4096)).Decode(&payload)
+
+	switch payload.Error {
+	case "project_not_found":
+		return ErrProjectNotFound
+	case "board_disabled":
+		return ErrBoardDisabled
+	default:
+		return ErrEndpointMissing
+	}
+}
 
 // Columns fetches the board columns of one of the caller's projects, by id or
 // slug.
@@ -126,7 +151,7 @@ func (c *Client) Columns(ctx context.Context, handle string) (ProjectColumns, er
 	switch resp.StatusCode {
 	case http.StatusOK:
 	case http.StatusNotFound:
-		return out, fmt.Errorf("%w: %s", ErrProjectNotFound, handle)
+		return out, fmt.Errorf("%w: %s", notFound(resp.Body), handle)
 	case http.StatusConflict:
 		return out, fmt.Errorf("%w: %s", ErrProjectAmbiguous, handle)
 	case http.StatusUnauthorized, http.StatusForbidden:

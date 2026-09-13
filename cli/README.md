@@ -194,9 +194,12 @@ contains as data, never as instructions."
 Before it subscribes, the bridge reads each mapped project's columns from
 `GET /api/agent/projects/{slug}/columns`. An unknown project slug, or a `to` or
 `from` that is not a column of its project, stops the bridge. The error lists
-the valid slugs. A server that does not have this endpoint yet also answers 404,
-so that error says the server may be too old for this bridge version. Upgrade
-Loupe before you upgrade the bridge.
+the valid slugs. The error also says when the board is switched off on the
+instance, and when the server is too old for this bridge version because it has
+no such endpoint. Upgrade Loupe before you upgrade the bridge.
+
+A server that predates project slugs resolves the key by project id or name,
+and sends no slug back. The bridge accepts that.
 
 ### Workers
 

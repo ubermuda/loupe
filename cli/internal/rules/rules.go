@@ -320,19 +320,24 @@ func (s *Set) Check(ctx context.Context, src ColumnSource) error {
 	var errs []error
 	for _, slug := range s.Projects() {
 		pc, err := src.Columns(ctx, slug)
-		if errors.Is(err, api.ErrProjectNotFound) {
-			// A server older than the columns endpoint also answers 404, and
-			// the two are indistinguishable from here.
-			errs = append(errs, fmt.Errorf("project %q: the server answered 404. Either no project of yours has this slug, or the server is too old for this bridge version: it has no GET /api/agent/projects/{handle}/columns endpoint, so upgrade Loupe first", slug))
-
-			continue
+		switch {
+		case errors.Is(err, api.ErrProjectNotFound):
+			errs = append(errs, fmt.Errorf("project %q: no project of yours has this slug", slug))
+		case errors.Is(err, api.ErrBoardDisabled):
+			errs = append(errs, fmt.Errorf("project %q: the board is switched off on this Loupe instance, so no card event can reach the bridge", slug))
+		case errors.Is(err, api.ErrEndpointMissing):
+			errs = append(errs, fmt.Errorf("project %q: the server is too old for this bridge version: it has no GET /api/agent/projects/{handle}/columns endpoint, so upgrade Loupe first", slug))
+		case errors.Is(err, api.ErrProjectAmbiguous):
+			errs = append(errs, fmt.Errorf("project %q: this handle names more than one of your projects: %w", slug, err))
+		case err != nil:
+			errs = append(errs, fmt.Errorf("project %q: %w", slug, err))
 		}
 		if err != nil {
-			errs = append(errs, fmt.Errorf("project %q: %w", slug, err))
-
 			continue
 		}
-		if pc.Project.Slug != slug {
+		// A server that predates project slugs sends none, and resolved the
+		// handle by name instead.
+		if pc.Project.Slug != "" && pc.Project.Slug != slug {
 			errs = append(errs, fmt.Errorf("project %q: the server resolves it to the project with slug %q; use that slug", slug, pc.Project.Slug))
 
 			continue
@@ -342,7 +347,13 @@ func (s *Set) Check(ctx context.Context, src ColumnSource) error {
 
 			continue
 		}
-		slugs[strings.ToLower(pc.Project.ID)] = slug
+		id := strings.ToLower(pc.Project.ID)
+		if other, ok := slugs[id]; ok {
+			errs = append(errs, fmt.Errorf("project %q: the server resolves it to the same project as %q; map each project once", slug, other))
+
+			continue
+		}
+		slugs[id] = slug
 
 		valid := make([]string, len(pc.Columns))
 		for i, c := range pc.Columns {
