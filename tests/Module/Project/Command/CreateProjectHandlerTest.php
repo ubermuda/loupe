@@ -14,6 +14,7 @@ use App\Module\Project\Repository\ProjectRepository;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\AuditActorProviderInterface;
@@ -37,7 +38,9 @@ final class CreateProjectHandlerTest extends KernelTestCase
         $actors = self::getContainer()->get(AuditActorProviderInterface::class);
         self::assertInstanceOf(AuditActorProviderInterface::class, $actors);
         $this->audit = new RecordingAuditor($actors);
-        $this->handler = new CreateProjectHandler($projects, $this->em, $this->audit->auditor);
+        $events = self::getContainer()->get(EventDispatcherInterface::class);
+        self::assertInstanceOf(EventDispatcherInterface::class, $events);
+        $this->handler = new CreateProjectHandler($projects, $this->em, $this->audit->auditor, $events);
     }
 
     public function test_creates_project_with_domain(): void
@@ -155,13 +158,15 @@ final class CreateProjectHandlerTest extends KernelTestCase
         $owner = $this->user('create-project-slug-race@example.com');
         $projects = self::getContainer()->get(ProjectRepository::class);
         self::assertInstanceOf(ProjectRepository::class, $projects);
+        $events = self::getContainer()->get(EventDispatcherInterface::class);
+        self::assertInstanceOf(EventDispatcherInterface::class, $events);
         $racing = new CreateProjectHandler($projects, new RivalBeforeFlush($this->em, [
             'id' => (string) Uuid::v7(),
             'owner_id' => (string) $owner->id,
             'name' => 'My App',
             'slug' => 'my-app',
             'created_at' => '2026-09-12 00:00:00',
-        ]), $this->audit->auditor);
+        ]), $this->audit->auditor, $events);
 
         try {
             $racing(new CreateProjectCommand($owner, 'my-app', null, SearchLanguage::English));

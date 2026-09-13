@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Board\Form;
 
 use App\Module\Board\Entity\CardPriority;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
+use App\Module\Project\Entity\Project;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
@@ -42,10 +42,9 @@ class CreateCardFormType extends AbstractType
                 'label' => 'board.form.create_card_form.priority.label',
                 'choice_label' => static fn (CardPriority $priority): string => 'board.form.create_card_form.priority.choice.'.$priority->label(),
             ])
-            ->add('status', EnumType::class, [
-                'class' => CardStatus::class,
-                'label' => 'board.form.create_card_form.status.label',
-                'choice_label' => static fn (CardStatus $status): string => 'board.form.create_card_form.status.choice.'.$status->value,
+            ->add('column', BoardColumnChoiceType::class, [
+                'label' => 'board.form.create_card_form.column.label',
+                'project' => $options['project'],
             ])
             ->add('pullRequestUrls', TextareaType::class, [
                 'required' => false,
@@ -60,5 +59,7 @@ class CreateCardFormType extends AbstractType
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefaults(['data_class' => CreateCardRequest::class]);
+        $resolver->setRequired('project');
+        $resolver->setAllowedTypes('project', Project::class);
     }
 }

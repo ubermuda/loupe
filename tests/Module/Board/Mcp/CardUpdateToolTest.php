@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Mcp;
 
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardPayload;
@@ -146,6 +147,26 @@ final class CardUpdateToolTest extends KernelTestCase
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('Unknown status "shipped". Use one of: backlog, next, in-progress, done.');
         ($this->tool)($created['cardId'], status: 'shipped');
+    }
+
+    public function test_status_takes_the_slugs_of_this_board_and_no_other(): void
+    {
+        $this->enableBoard();
+        $project = $this->makeProject('card-update-own-columns');
+        $this->em->persist(new BoardColumn(project: $project, label: 'Won’t do', slug: 'wont-do', position: 4, terminal: true));
+        $elsewhere = $this->makeProject('card-update-other-columns');
+        $this->em->persist(new BoardColumn(project: $elsewhere, label: 'Parked', slug: 'parked', position: 4));
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+        $created = ($this->createTool)('Ship it', 'Body', 'feature', 'high');
+
+        $dropped = ($this->tool)($created['cardId'], status: 'wont-do');
+        self::assertSame('wont-do', $dropped['status']);
+        self::assertNotNull($dropped['completedAt']);
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('Unknown status "parked". Use one of: backlog, next, in-progress, done, wont-do.');
+        ($this->tool)($created['cardId'], status: 'parked');
     }
 
     /** @return array<string, true> */

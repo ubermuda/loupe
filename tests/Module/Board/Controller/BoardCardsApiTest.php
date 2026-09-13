@@ -9,10 +9,10 @@ use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -21,6 +21,8 @@ use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class BoardCardsApiTest extends WebTestCase
 {
+    use BoardColumnFixtures;
+
     public function test_a_reviewer_creates_a_card_and_it_records_who_raised_it(): void
     {
         $client = static::createClient();
@@ -47,7 +49,7 @@ final class BoardCardsApiTest extends WebTestCase
         self::assertSame(CardReporter::Reviewer, $cards[0]->reporter);
         // The endpoint accepts neither, so a reviewer cannot file into a column
         // or attach a URL of their choosing.
-        self::assertSame(CardStatus::Backlog, $cards[0]->status);
+        self::assertSame('backlog', $cards[0]->column->slug);
         self::assertCount(0, $cards[0]->pullRequests);
     }
 
@@ -58,9 +60,9 @@ final class BoardCardsApiTest extends WebTestCase
         [$raw, $project] = $this->projectWithToken($em, 'cards-api-list@example.com');
         $this->enableBoard($em);
 
-        $em->persist(new Card($project, 'Footer overlaps the launcher', '', 1));
-        $em->persist(new Card($project, 'Rotate the signing key', '', 2));
-        $done = new Card($project, 'Footer was fixed once already', '', 3, status: CardStatus::Done);
+        $em->persist(new Card($project, $this->column($project, 'backlog'), 'Footer overlaps the launcher', '', 1));
+        $em->persist(new Card($project, $this->column($project, 'backlog'), 'Rotate the signing key', '', 2));
+        $done = new Card($project, $this->column($project, 'done'), 'Footer was fixed once already', '', 3);
         $em->persist($done);
         $em->flush();
 
@@ -93,9 +95,10 @@ final class BoardCardsApiTest extends WebTestCase
         [$raw, $project] = $this->projectWithToken($em, 'cards-api-wildcard@example.com');
         $this->enableBoard($em);
 
-        $em->persist(new Card($project, 'Rotate the signing key', '', 1));
-        $em->persist(new Card($project, 'Progress bar sticks at 50% forever', '', 2));
-        $em->persist(new Card($project, 'Rename user_id across the export', '', 3));
+        $backlog = $this->column($project, 'backlog');
+        $em->persist(new Card($project, $backlog, 'Rotate the signing key', '', 1));
+        $em->persist(new Card($project, $backlog, 'Progress bar sticks at 50% forever', '', 2));
+        $em->persist(new Card($project, $backlog, 'Rename user_id across the export', '', 3));
         $em->flush();
 
         $this->api($client, Request::METHOD_GET, '/api/board/cards?q='.urlencode('%'), $raw);
@@ -175,6 +178,7 @@ final class BoardCardsApiTest extends WebTestCase
         $project = new Project($user, $name);
         $project->widgetToken = $token;
         $em->persist($project);
+        $this->seedColumns($project);
         $em->flush();
 
         return [$raw, $project];

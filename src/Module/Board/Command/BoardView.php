@@ -13,9 +13,7 @@ final readonly class BoardView
     public function __construct(
         public Project $project,
         public array $columns,
-        /** Every Done card the project has, which is more than the column shows. */
-        public int $doneTotal,
-        public int $doneWindowDays,
+        public int $terminalWindowDays,
         /**
          * Unaddressed site-review comments per card id. A card with none is
          * absent rather than zero, so the template asks with a default. The

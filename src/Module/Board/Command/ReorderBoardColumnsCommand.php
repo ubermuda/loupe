@@ -6,11 +6,14 @@ namespace App\Module\Board\Command;
 
 use App\Module\Project\Entity\Project;
 
-final readonly class ListDoneCardsCommand
+final readonly class ReorderBoardColumnsCommand
 {
+    /**
+     * @param string $order every column id of the board, comma-separated, in the new order
+     */
     public function __construct(
         public Project $project,
-        public int $page = 1,
+        public string $order,
     ) {
     }
 }

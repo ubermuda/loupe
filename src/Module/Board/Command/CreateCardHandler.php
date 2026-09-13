@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
-use App\Module\Board\Entity\CardStatus;
+use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardSearchIndexer;
 use App\Module\Board\Service\DocumentLinkResolver;
@@ -22,6 +23,7 @@ final readonly class CreateCardHandler
 {
     public function __construct(
         private CardRepository $cards,
+        private BoardColumnRepository $boardColumns,
         private PullRequestUrlResolver $pullRequests,
         private DocumentLinkResolver $documentLinks,
         private CardSearchIndexer $searchIndexer,
@@ -54,29 +56,43 @@ final readonly class CreateCardHandler
         // calls into the same project would otherwise allocate the same rank,
         // and the same card number. Same PESSIMISTIC_WRITE-on-the-project idiom
         // App\Module\SiteReview\Command\AddCommentHandler uses.
-        $card = $this->em->wrapInTransaction(function () use ($command, $title, $documents): Card {
+        $card = $this->em->wrapInTransaction(function () use ($command, $title, $documents): Card|string {
             $this->em->lock($command->project, LockMode::PESSIMISTIC_WRITE);
+
+            // Read under the lock: a column deleted or given another terminal
+            // flag since the request loaded it decides whether the card may go
+            // there and whether it starts finished.
+            $columns = $this->boardColumns->findForProjectFresh($command->project);
+            if (null !== $command->column && $command->column->project !== $command->project) {
+                throw new \LogicException('A card is created only in a column of its own board.');
+            }
+            $column = $command->column
+                ?? array_find($columns, static fn (BoardColumn $candidate): bool => $candidate->isDefault)
+                ?? throw new \LogicException('Every board has a default column.');
+            if (!\in_array($column, $columns, true)) {
+                return UpdateCardHandler::COLUMN_GONE;
+            }
 
             $card = new Card(
                 project: $command->project,
+                column: $column,
                 title: $title,
                 body: $command->body,
                 number: $this->cards->nextNumber($command->project),
                 type: $command->type,
                 priority: $command->priority,
-                status: $command->status,
                 origin: $command->reporter,
-                position: CardStatus::Done === $command->status
+                position: $column->terminal
                     ? 0
-                    : $this->cards->nextPosition($command->project, $command->status, $command->priority),
+                    : $this->cards->nextPosition($column, $command->priority),
                 // Read once, here: the card then carries its own language, so
                 // changing the project's leaves the cards already written alone.
                 searchLanguage: $command->project->searchLanguage,
             );
 
-            // Done is entered here as much as by a move, so a card created
-            // straight into Done still carries the completion the column sorts on.
-            if (CardStatus::Done === $command->status) {
+            // A terminal column is entered here as much as by a move, so a card
+            // created straight into one still carries the completion it sorts on.
+            if ($column->terminal) {
                 $card->completedAt = new \DateTimeImmutable();
             }
 
@@ -94,6 +110,11 @@ final readonly class CreateCardHandler
             return $card;
         });
 
+        // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
+        if (\is_string($card)) {
+            throw new DomainErrors(['column' => $card]);
+        }
+
         // After the commit, never inside it: the sink drains at kernel.terminate,
         // so a record written in the closure outlives a rollback. The title stays
         // out, because it is a sentence a person wrote.
@@ -106,7 +127,8 @@ final readonly class CreateCardHandler
                 'projectId' => (string) $command->project->id,
                 'type' => $card->type->value,
                 'priority' => $card->priority->value,
-                'status' => $card->status->value,
+                'status' => $card->column->slug,
+                'columnId' => (string) $card->column->id,
                 'reporter' => $card->reporter->value,
                 'pullRequestCount' => \count($card->pullRequests),
                 'documentCount' => \count($card->documents),

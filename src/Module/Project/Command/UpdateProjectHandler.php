@@ -6,10 +6,12 @@ namespace App\Module\Project\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\Event\ProjectRenamed;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Utils\Slug;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -20,6 +22,7 @@ final readonly class UpdateProjectHandler
         private ProjectRepository $projects,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -50,12 +53,19 @@ final readonly class UpdateProjectHandler
             throw new DomainErrors(['name' => 'project.error.slug_taken']);
         }
 
+        // Read before the name is assigned, because the name's set hook rewrites the slug.
+        $fromSlug = $project->slug;
         $project->name = $command->name;
         $project->slug = $slug;
         $project->domain = $command->domain;
         // Documents keep the language they were written with, so this only
         // changes what a document created after it inherits.
         $project->searchLanguage = $command->searchLanguage;
+        // Before the flush, so a listener's rows commit or roll back with the save.
+        // A null slug is no rename: no rule file can name a project that had none.
+        if (null !== $fromSlug && $fromSlug !== $slug) {
+            $this->events->dispatch(new ProjectRenamed($project, $fromSlug, $slug, $command->actor));
+        }
         try {
             $this->em->flush();
         } catch (UniqueConstraintViolationException $e) {

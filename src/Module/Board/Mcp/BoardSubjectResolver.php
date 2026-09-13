@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace App\Module\Board\Mcp;
 
 use App\Mcp\ResolvesBoundProject;
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
@@ -35,6 +36,7 @@ final readonly class BoardSubjectResolver
     public function __construct(
         private AuthenticatedProjectResolver $projectResolver,
         private CardRepository $cards,
+        private BoardColumnRepository $boardColumns,
         private AuthorizationCheckerInterface $authorization,
     ) {
     }
@@ -63,15 +65,22 @@ final readonly class BoardSubjectResolver
         return $card;
     }
 
-    public function requireStatus(string $status): CardStatus
+    /** The column of the project's board with that slug. The refusal lists the slugs the board has. */
+    public function requireColumn(Project $project, string $slug): BoardColumn
     {
-        return CardStatus::tryFrom($status)
-            ?? throw new ToolCallException(\sprintf('Unknown status "%s". Use one of: %s.', $status, implode(', ', CardStatus::values())));
+        $columns = $this->boardColumns->findForProject($project);
+        foreach ($columns as $column) {
+            if ($column->slug === $slug) {
+                return $column;
+            }
+        }
+
+        throw new ToolCallException(\sprintf('Unknown status "%s". Use one of: %s.', $slug, implode(', ', array_map(static fn (BoardColumn $column): string => $column->slug, $columns))));
     }
 
-    public function optionalStatus(?string $status): ?CardStatus
+    public function optionalColumn(Project $project, ?string $slug): ?BoardColumn
     {
-        return null === $status ? null : $this->requireStatus($status);
+        return null === $slug ? null : $this->requireColumn($project, $slug);
     }
 
     public function requireType(string $type): CardType

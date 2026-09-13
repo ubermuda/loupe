@@ -9,16 +9,18 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Entity\Forge;
 use App\Module\Board\Service\CardExporter;
 use App\Module\Project\Entity\Project;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
 final class CardExporterTest extends KernelTestCase
 {
+    use BoardColumnFixtures;
+
     private EntityManagerInterface $em;
     private CardExporter $exporter;
 
@@ -45,6 +47,7 @@ final class CardExporterTest extends KernelTestCase
         $owner = $this->user('card-export');
         $project = new Project($owner, 'export-'.uniqid());
         $this->em->persist($project);
+        $this->seedColumns($project);
 
         $completedAt = new \DateTimeImmutable('2026-03-04 10:11:12');
         $createdAt = new \DateTimeImmutable('2026-03-01 09:00:00');
@@ -56,12 +59,12 @@ final class CardExporterTest extends KernelTestCase
 
         $card = new Card(
             project: $project,
+            column: $this->column($project, 'done'),
             title: 'Rotate the signing key',
             body: 'The key is a year old.',
             number: 1,
             type: CardType::Bug,
             priority: CardPriority::High,
-            status: CardStatus::Done,
             origin: CardReporter::Human,
             position: 7,
             createdAt: $createdAt,
@@ -83,6 +86,8 @@ final class CardExporterTest extends KernelTestCase
             'title' => 'Rotate the signing key',
             'body' => 'The key is a year old.',
             'status' => 'done',
+            // The label a reader sees on the board, translated.
+            'column' => 'Done',
             'priority' => 'high',
             'type' => 'bug',
             'reporter' => 'human',
@@ -122,8 +127,10 @@ final class CardExporterTest extends KernelTestCase
         $theirs = new Project($stranger, 'theirs-'.uniqid());
         $this->em->persist($mine);
         $this->em->persist($theirs);
-        $this->em->persist(new Card(project: $mine, title: 'Mine', body: '', number: 1));
-        $this->em->persist(new Card(project: $theirs, title: 'Theirs', body: '', number: 1));
+        $this->seedColumns($mine);
+        $this->seedColumns($theirs);
+        $this->em->persist(new Card(project: $mine, column: $this->column($mine, 'backlog'), title: 'Mine', body: '', number: 1));
+        $this->em->persist(new Card(project: $theirs, column: $this->column($theirs, 'backlog'), title: 'Theirs', body: '', number: 1));
         $this->em->flush();
         $this->em->clear();
 

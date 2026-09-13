@@ -31,7 +31,7 @@ final readonly class MoveCardHandler
             card: $command->card,
             actor: $command->actor,
             priority: $command->priority,
-            status: $command->status,
+            column: $command->column,
             position: $command->position ?? CardMover::END_OF_GROUP,
         ));
     }

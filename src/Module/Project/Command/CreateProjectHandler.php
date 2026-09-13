@@ -6,10 +6,12 @@ namespace App\Module\Project\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\Event\ProjectCreating;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Utils\Slug;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -20,6 +22,7 @@ final readonly class CreateProjectHandler
         private ProjectRepository $projects,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -42,6 +45,7 @@ final readonly class CreateProjectHandler
 
         try {
             $this->em->persist($project);
+            $this->events->dispatch(new ProjectCreating($project));
             $this->em->flush();
         } catch (UniqueConstraintViolationException $e) {
             // A concurrent create won the race with the checks above, and a unique index caught it.

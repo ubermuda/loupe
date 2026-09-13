@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 
 /**
@@ -37,7 +37,7 @@ final readonly class UpdateCardCommand
         public ?string $body = null,
         public ?CardType $type = null,
         public ?CardPriority $priority = null,
-        public ?CardStatus $status = null,
+        public ?BoardColumn $column = null,
         public ?array $pullRequestUrls = null,
         public ?array $documentIds = null,
         public ?int $position = null,

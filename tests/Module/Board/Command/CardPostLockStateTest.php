@@ -16,11 +16,11 @@ use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\CardGroupOrder;
 use App\Module\Project\Entity\Project;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -41,6 +41,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
  */
 final class CardPostLockStateTest extends KernelTestCase
 {
+    use BoardColumnFixtures;
+
     private EntityManagerInterface $em;
     private RecordingAuditor $audit;
     private CreateCardHandler $createCard;
@@ -85,6 +87,7 @@ final class CardPostLockStateTest extends KernelTestCase
         $this->em->persist($owner);
         $this->project = new Project($owner, 'board-'.uniqid());
         $this->em->persist($this->project);
+        $this->seedColumns($this->project);
         $this->em->flush();
     }
 
@@ -92,11 +95,11 @@ final class CardPostLockStateTest extends KernelTestCase
     {
         $backlogFirst = $this->card('Backlog first');
         $mover = $this->card('Mover');
-        $next = $this->card('Next only', CardStatus::Next);
-        $behind = $this->card('Behind the mover', CardStatus::Next);
+        $next = $this->card('Next only', 'next');
+        $behind = $this->card('Behind the mover', 'next');
         $this->putInTheMiddleOfNext($mover, $behind);
 
-        ($this->moveCard)(new MoveCardCommand($mover, CardReporter::Human, CardStatus::InProgress, CardPriority::Medium));
+        ($this->moveCard)(new MoveCardCommand($mover, CardReporter::Human, $this->column($this->project, 'in-progress'), CardPriority::Medium));
 
         self::assertSame('next', $this->audit->record('board.card_moved')->context['fromStatus']);
         self::assertSame([0, 1], [$this->storedPosition($next), $this->storedPosition($behind)]);
@@ -107,8 +110,8 @@ final class CardPostLockStateTest extends KernelTestCase
     {
         $backlogFirst = $this->card('Backlog first');
         $doomed = $this->card('Doomed');
-        $next = $this->card('Next only', CardStatus::Next);
-        $behind = $this->card('Behind the doomed card', CardStatus::Next);
+        $next = $this->card('Next only', 'next');
+        $behind = $this->card('Behind the doomed card', 'next');
         $this->putInTheMiddleOfNext($doomed, $behind);
 
         ($this->deleteCard)(new DeleteCardCommand($doomed));
@@ -122,8 +125,8 @@ final class CardPostLockStateTest extends KernelTestCase
     {
         $this->card('Backlog first');
         $mover = $this->card('Mover');
-        $next = $this->card('Next only', CardStatus::Next);
-        $behind = $this->card('Behind the mover', CardStatus::Next);
+        $next = $this->card('Next only', 'next');
+        $behind = $this->card('Behind the mover', 'next');
         $this->putInTheMiddleOfNext($mover, $behind);
 
         ($this->updateCard)(new UpdateCardCommand(
@@ -131,7 +134,7 @@ final class CardPostLockStateTest extends KernelTestCase
             actor: CardReporter::Agent,
             title: 'Renamed',
             body: 'Rewritten',
-            status: CardStatus::InProgress,
+            column: $this->column($this->project, 'in-progress'),
         ));
 
         self::assertSame('next', $this->audit->record('board.card_moved')->context['fromStatus']);
@@ -146,11 +149,11 @@ final class CardPostLockStateTest extends KernelTestCase
     {
         $backlogFirst = $this->card('Backlog first');
         $mover = $this->card('Mover');
-        $next = $this->card('Next only', CardStatus::Next);
-        $behind = $this->card('Behind the mover', CardStatus::Next);
+        $next = $this->card('Next only', 'next');
+        $behind = $this->card('Behind the mover', 'next');
         $this->putInTheMiddleOfNext($mover, $behind);
 
-        ($this->updateCard)(new UpdateCardCommand(card: $mover, actor: CardReporter::Agent, status: CardStatus::Next));
+        ($this->updateCard)(new UpdateCardCommand(card: $mover, actor: CardReporter::Agent, column: $this->column($this->project, 'next')));
 
         // Nothing changed, so nothing is recorded: not the move the re-read
         // ruled out, and not an update whose every flag is false.
@@ -175,8 +178,8 @@ final class CardPostLockStateTest extends KernelTestCase
     private function putInTheMiddleOfNext(Card $card, Card $behind): void
     {
         $this->em->getConnection()->executeStatement(
-            "UPDATE board_cards SET status = 'next', position = 1 WHERE id = :id",
-            ['id' => (string) $card->id],
+            "UPDATE board_cards SET column_id = :column, status = 'next', position = 1 WHERE id = :id",
+            ['column' => (string) $this->column($this->project, 'next')->id, 'id' => (string) $card->id],
         );
         $this->em->getConnection()->executeStatement(
             'UPDATE board_cards SET position = 2 WHERE id = :id',
@@ -200,19 +203,19 @@ final class CardPostLockStateTest extends KernelTestCase
         );
     }
 
-    /** @return list<string> the title, body and status the database holds */
+    /** @return list<string> the title, body and column slug the database holds */
     private function storedCard(Card $card): array
     {
         $row = $this->em->getConnection()->fetchAssociative(
-            'SELECT title, body, status FROM board_cards WHERE id = :id',
+            'SELECT c.title, c.body, k.slug FROM board_cards c JOIN board_columns k ON k.id = c.column_id WHERE c.id = :id',
             ['id' => (string) $card->id],
         );
         self::assertIsArray($row);
 
-        return [(string) $row['title'], (string) $row['body'], (string) $row['status']];
+        return [(string) $row['title'], (string) $row['body'], (string) $row['slug']];
     }
 
-    private function card(string $title, CardStatus $status = CardStatus::Backlog): Card
+    private function card(string $title, string $column = 'backlog'): Card
     {
         $card = ($this->createCard)(new CreateCardCommand(
             project: $this->project,
@@ -220,7 +223,7 @@ final class CardPostLockStateTest extends KernelTestCase
             body: 'Body of '.$title,
             type: CardType::Feature,
             priority: CardPriority::Medium,
-            status: $status,
+            column: $this->column($this->project, $column),
         ));
 
         $this->created[] = $card;
