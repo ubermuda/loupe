@@ -265,7 +265,8 @@ matches starts a `claude -p` worker with that rule's prompt.
   to. A rule's `maxChain`, 3 by default, caps the runs in a row that agents'
   moves start for one card with that rule. A move by a person resets the count.
 - The bridge reads its rules and checks their slugs at start only. After a
-  rename, a rule on the old slug matches nothing until the bridge restarts.
+  rename, a rule on the old slug matches nothing, and a restarted bridge refuses
+  to start. The owner fixes the slug in `rules.yaml`, then restarts the bridge.
 
 You cannot read the rule file through the MCP. Ask the owner which columns a
 bridge watches before you move a card into a column only to hold it. The example

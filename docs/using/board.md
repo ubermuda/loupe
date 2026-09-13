@@ -94,8 +94,9 @@ A rename that changes the slug breaks every outside reference to the old slug.
 Loupe cannot see these references, so it cannot warn you about them:
 
 - A bridge rule whose `to` or `from` names the old slug. The bridge reads its
-  rules and checks slugs at start only. The rule matches nothing until the
-  bridge restarts, and the restarted bridge refuses the unknown slug. See
+  rules and checks slugs at start only. The running bridge stops matching the
+  rule, and a restarted bridge refuses to start on the unknown slug. Put the
+  new slug in `rules.yaml`, then restart the bridge. See
   [Command-line bridge](../extending/cli-bridge.md).
 - An agent prompt, a skill or a saved instruction that names the old slug.
 - A `status` argument that a script passes to an MCP tool.
