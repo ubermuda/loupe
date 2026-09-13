@@ -6,6 +6,7 @@ namespace App\Tests\Module\Review\EventListener;
 
 use App\Module\Account\Security\ApiTokenAuthenticator;
 use App\Module\Review\EventListener\RateLimitMcpRequests;
+use App\Security\ApiTokenRateLimitKey;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
@@ -87,7 +88,7 @@ final class RateLimitMcpRequestsTest extends TestCase
                 ['id' => 'mcp_requests', 'policy' => 'fixed_window', 'limit' => 1, 'interval' => '1 minute'],
                 $storage ?? new InMemoryStorage(),
             ),
-            $tokenStorage,
+            new ApiTokenRateLimitKey($tokenStorage),
         );
     }
 

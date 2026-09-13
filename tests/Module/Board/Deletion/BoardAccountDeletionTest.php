@@ -10,6 +10,7 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Project\Entity\Project;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -22,6 +23,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
  */
 final class BoardAccountDeletionTest extends KernelTestCase
 {
+    use BoardColumnFixtures;
+
     public function test_deleting_an_account_removes_its_cards_and_spares_another_owner(): void
     {
         self::bootKernel();
@@ -73,8 +76,9 @@ final class BoardAccountDeletionTest extends KernelTestCase
     {
         $project = new Project($owner, 'board-purge-'.uniqid());
         $em->persist($project);
+        $this->seedColumns($project);
 
-        $card = new Card(project: $project, title: 'Ship it', body: 'Body', number: 1);
+        $card = new Card(project: $project, column: $this->column($project, 'backlog'), title: 'Ship it', body: 'Body', number: 1);
         $card->pullRequests->add(new CardPullRequest($card, 'https://github.com/ubermuda/loupe/pull/1', Forge::GitHub, 'ubermuda/loupe', 1));
         $em->persist($card);
 

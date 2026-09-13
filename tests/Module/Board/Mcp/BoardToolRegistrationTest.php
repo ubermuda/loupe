@@ -8,6 +8,7 @@ use App\Mcp\FlagGatedToolInterface;
 use App\Module\Board\Command\ListCardsHandler;
 use App\Module\Board\Command\SearchBoardHandler;
 use App\Module\Board\Install\BoardInstallFlags;
+use App\Module\Board\Mcp\BoardColumnsTool;
 use App\Module\Board\Mcp\CardCreateTool;
 use App\Module\Board\Mcp\CardGetTool;
 use App\Module\Board\Mcp\CardListTool;
@@ -53,6 +54,7 @@ final class BoardToolRegistrationTest extends KernelTestCase
     {
         yield 'card_create' => [CardCreateTool::NAME, CardCreateTool::class];
         yield 'card_list' => [CardListTool::NAME, CardListTool::class];
+        yield 'board_columns' => [BoardColumnsTool::NAME, BoardColumnsTool::class];
         yield 'card_search' => [CardSearchTool::NAME, CardSearchTool::class];
         yield 'card_get' => [CardGetTool::NAME, CardGetTool::class];
         yield 'card_update' => [CardUpdateTool::NAME, CardUpdateTool::class];
@@ -76,6 +78,7 @@ final class BoardToolRegistrationTest extends KernelTestCase
         // Guard: an empty roster would satisfy the absence assertions below.
         self::assertContains('document_create', $names);
         self::assertNotContains(CardCreateTool::NAME, $names);
+        self::assertNotContains(BoardColumnsTool::NAME, $names);
         self::assertNotContains(CardSearchTool::NAME, $names);
         self::assertNotContains(CardUpdateTool::NAME, $names);
     }
@@ -92,7 +95,8 @@ final class BoardToolRegistrationTest extends KernelTestCase
 
         self::assertArrayHasKey(CardCreateTool::NAME, $order);
         self::assertLessThan($order[CardListTool::NAME], $order[CardCreateTool::NAME]);
-        self::assertLessThan($order[CardSearchTool::NAME], $order[CardListTool::NAME]);
+        self::assertSame($order[CardListTool::NAME] + 1, $order[BoardColumnsTool::NAME]);
+        self::assertLessThan($order[CardSearchTool::NAME], $order[BoardColumnsTool::NAME]);
         self::assertLessThan($order[CardGetTool::NAME], $order[CardSearchTool::NAME]);
         self::assertLessThan($order[CardUpdateTool::NAME], $order[CardGetTool::NAME]);
     }

@@ -11,6 +11,7 @@ use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Command\AddCommentCommand;
 use App\Module\SiteReview\Command\AddCommentHandler;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Contracts\Service\ResetInterface;
@@ -23,6 +24,8 @@ use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
  */
 final class LinkCardOnSiteReviewCommentCreatedTest extends KernelTestCase
 {
+    use BoardColumnFixtures;
+
     private EntityManagerInterface $em;
     private AddCommentHandler $addComment;
     private CardSiteReviewCommentRepository $links;
@@ -167,7 +170,8 @@ final class LinkCardOnSiteReviewCommentCreatedTest extends KernelTestCase
         $this->em->persist($owner);
         $project = new Project($owner, $slug);
         $this->em->persist($project);
-        $card = new Card($project, 'Make the footer behave', 'body', 1);
+        $this->seedColumns($project);
+        $card = new Card($project, $this->column($project, 'backlog'), 'Make the footer behave', 'body', 1);
         $this->em->persist($card);
         $this->em->flush();
 

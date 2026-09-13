@@ -127,6 +127,22 @@ final class ShowWelcomeControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(422);
     }
 
+    public function test_a_name_with_no_slug_shows_a_field_error(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $user = $this->createUser($em, 'wizslug', 'wiz-slug@example.com');
+        $em->flush();
+
+        $client->loginUser($user);
+        $client->request(Request::METHOD_GET, '/welcome');
+        $client->submitForm('Create project', ['create_project_form[name]' => '🚀']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('.lp-field-errors', 'needs at least one letter or digit');
+        self::assertCount(0, static::getContainer()->get(ProjectRepository::class)->findByOwner($user));
+    }
+
     public function test_post_is_guarded_for_completed_users(): void
     {
         $client = static::createClient();

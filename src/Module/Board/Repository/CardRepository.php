@@ -6,13 +6,15 @@ namespace App\Module\Board\Repository;
 
 use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Types\Type;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
@@ -33,18 +35,19 @@ class CardRepository extends ServiceEntityRepository
      * Open cards of a project for the widget's picker, newest first, optionally
      * narrowed by a substring of the title.
      *
-     * Done is excluded: the picker exists to attach feedback to work in flight,
-     * and a finished card is the one answer a reviewer almost never wants.
+     * Terminal columns are excluded: the picker exists to attach feedback to
+     * work in flight, and a finished card is the one answer a reviewer almost
+     * never wants.
      *
      * @return list<Card>
      */
     public function searchOpenForProject(Project $project, string $query, int $limit): array
     {
         $qb = $this->createQueryBuilder('c')
+            ->join('c.column', 'k')
             ->where('c.project = :project')
-            ->andWhere('c.status != :done')
+            ->andWhere('k.terminal = false')
             ->setParameter('project', $project)
-            ->setParameter('done', CardStatus::Done)
             ->orderBy('c.number', 'DESC')
             ->setMaxResults($limit);
 
@@ -144,14 +147,14 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /**
-     * The cards of one (project, status, priority) group, in board order.
+     * The cards of one (column, priority) group, in board order.
      *
      * @return list<Card>
      */
-    public function findGroup(Project $project, CardStatus $status, CardPriority $priority): array
+    public function findGroup(BoardColumn $column, CardPriority $priority): array
     {
         return $this->findBy(
-            ['project' => $project, 'status' => $status, 'priority' => $priority],
+            ['column' => $column, 'priority' => $priority],
             ['position' => 'ASC', 'createdAt' => 'ASC'],
         );
     }
@@ -169,7 +172,7 @@ class CardRepository extends ServiceEntityRepository
     public function refreshGroup(Card $card): void
     {
         $row = $this->getEntityManager()->getConnection()->fetchAssociative(
-            'SELECT status, priority FROM board_cards WHERE id = :id',
+            'SELECT column_id, priority FROM board_cards WHERE id = :id',
             ['id' => (string) $card->id],
         );
 
@@ -177,7 +180,8 @@ class CardRepository extends ServiceEntityRepository
             return;
         }
 
-        $card->status = CardStatus::from((string) $row['status']);
+        $card->column = $this->getEntityManager()->find(BoardColumn::class, Uuid::fromString((string) $row['column_id']))
+            ?? throw new \LogicException('Card row points at a missing column.');
         $card->priority = CardPriority::from((int) $row['priority']);
     }
 
@@ -216,17 +220,19 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /**
-     * The Done cards finished on or after the given moment, newest first.
+     * The cards of a terminal column finished on or after the given moment,
+     * newest first.
      *
-     * The board shows a recent slice of Done rather than all of it, so a column
-     * that only ever grows does not become the page's whole height.
+     * The board shows a recent slice of a terminal column rather than all of
+     * it, so a column that only ever grows does not become the page's whole
+     * height.
      *
      * @return list<Card>
      */
-    public function findDoneSince(Project $project, \DateTimeImmutable $since): array
+    public function findCompletedSince(BoardColumn $column, \DateTimeImmutable $since): array
     {
         return array_values(
-            $this->withPullRequests($this->doneQuery($project))
+            $this->withPullRequests($this->completedQuery($column))
                 ->andWhere('c.completedAt >= :since')
                 ->setParameter('since', $since)
                 ->getQuery()
@@ -235,16 +241,16 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /**
-     * One page of the whole Done history, newest first.
+     * One page of a terminal column's whole history, newest first.
      *
      * Through a Paginator, because the fetch-join multiplies the rows a LIMIT
      * counts: without it a page of 25 cards is cut short by their links.
      *
      * @return list<Card>
      */
-    public function findDonePage(Project $project, int $offset, int $limit): array
+    public function findCompletedPage(BoardColumn $column, int $offset, int $limit): array
     {
-        $query = $this->withPullRequests($this->doneQuery($project))
+        $query = $this->withPullRequests($this->completedQuery($column))
             ->setFirstResult($offset)
             ->setMaxResults($limit)
             ->getQuery();
@@ -252,28 +258,177 @@ class CardRepository extends ServiceEntityRepository
         return array_values(iterator_to_array(new Paginator($query, fetchJoinCollection: true), false));
     }
 
-    public function countDone(Project $project): int
+    public function countInColumn(BoardColumn $column): int
     {
         return (int) $this->createQueryBuilder('c')
             ->select('COUNT(c.id)')
-            ->andWhere('c.project = :project')
-            ->andWhere('c.status = :status')
-            ->setParameter('project', $project)
-            ->setParameter('status', CardStatus::Done)
+            ->andWhere('c.column = :column')
+            ->setParameter('column', $column)
             ->getQuery()
             ->getSingleScalarResult();
     }
 
+    /**
+     * The id, number and priority of every card in one column, in the order
+     * the board shows them, without loading the cards.
+     *
+     * @return list<array{id: string, number: int, priority: int}>
+     */
+    public function findRowsInColumn(BoardColumn $column): array
+    {
+        $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
+            'SELECT id, number, priority FROM board_cards WHERE column_id = :column
+             ORDER BY priority, position, completed_at, created_at, number',
+            ['column' => (string) $column->id],
+        );
+
+        return array_map(
+            static fn (array $row): array => ['id' => (string) $row['id'], 'number' => (int) $row['number'], 'priority' => (int) $row['priority']],
+            $rows,
+        );
+    }
+
+    /**
+     * The rank of every card in one column.
+     *
+     * @return array<string, int> card id => position
+     */
+    public function positionsInColumn(BoardColumn $column): array
+    {
+        return array_map(
+            intval(...),
+            $this->getEntityManager()->getConnection()->fetchAllKeyValue(
+                'SELECT id, position FROM board_cards WHERE column_id = :column',
+                ['column' => (string) $column->id],
+            ),
+        );
+    }
+
+    /**
+     * Moves every card of one column to another in one statement. Each card
+     * joins the end of its priority group in the target, in the order the
+     * source showed them. A terminal target keeps no rank and stamps a card
+     * that was not finished, and any other target clears the completion.
+     *
+     * A card loaded before the call keeps its old column in memory. Call
+     * refreshLoadedFrom() once the rows are final.
+     */
+    public function moveAll(BoardColumn $from, BoardColumn $to, \DateTimeImmutable $now): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            \sprintf(
+                'UPDATE board_cards c
+                 SET column_id = :to, updated_at = :now, completed_at = %s, position = %s
+                 FROM (
+                     SELECT s.id,
+                            row_number() OVER (PARTITION BY s.priority ORDER BY s.position, s.completed_at, s.created_at, s.number) - 1 AS rank,
+                            (SELECT COALESCE(MAX(t.position) + 1, 0) FROM board_cards t WHERE t.column_id = :to AND t.priority = s.priority) AS tail
+                     FROM board_cards s
+                     WHERE s.column_id = :from
+                 ) ranked
+                 WHERE c.id = ranked.id',
+                $to->terminal ? 'COALESCE(c.completed_at, :now)' : 'NULL',
+                $to->terminal ? '0' : 'ranked.tail + ranked.rank',
+            ),
+            ['from' => (string) $from->id, 'to' => (string) $to->id, 'now' => $now],
+            ['now' => Types::DATETIME_IMMUTABLE],
+        );
+    }
+
+    /**
+     * Reads the moved fields back onto every loaded card that still sits in
+     * $from in memory, after a bulk statement moved its row. A later flush then
+     * neither meets a deleted column nor writes a stale rank back. A proxy
+     * nobody loaded costs no query.
+     *
+     * EntityManager::refresh() cannot do this, for the reason in refreshGroup().
+     */
+    public function refreshLoadedFrom(BoardColumn $from): void
+    {
+        $em = $this->getEntityManager();
+        $connection = $em->getConnection();
+        $dateTime = Type::getType(Types::DATETIME_IMMUTABLE);
+        foreach ($em->getUnitOfWork()->getIdentityMap()[Card::class] ?? [] as $card) {
+            if (!$card instanceof Card || $em->isUninitializedObject($card) || $card->column !== $from) {
+                continue;
+            }
+
+            $row = $connection->fetchAssociative(
+                'SELECT column_id, position, completed_at, updated_at FROM board_cards WHERE id = :id',
+                ['id' => (string) $card->id],
+            );
+            $column = false === $row ? null : $em->find(BoardColumn::class, Uuid::fromString((string) $row['column_id']));
+            if (false === $row || null === $column) {
+                continue;
+            }
+
+            $card->column = $column;
+            $card->position = (int) $row['position'];
+            $card->completedAt = $dateTime->convertToPHPValue($row['completed_at'], $connection->getDatabasePlatform());
+            $card->updatedAt = $dateTime->convertToPHPValue($row['updated_at'], $connection->getDatabasePlatform());
+        }
+    }
+
+    /**
+     * Numbers every priority group of a column from 0 with no gaps, in the
+     * order each group already has. Only a card whose rank changes is written.
+     */
+    public function renumberColumn(BoardColumn $column, \DateTimeImmutable $now): void
+    {
+        $this->getEntityManager()->getConnection()->executeStatement(
+            'UPDATE board_cards c
+             SET position = ranked.rank, updated_at = :now
+             FROM (
+                 SELECT id,
+                        row_number() OVER (PARTITION BY priority ORDER BY position, completed_at, created_at, number) - 1 AS rank
+                 FROM board_cards
+                 WHERE column_id = :column
+             ) ranked
+             WHERE c.id = ranked.id AND c.position <> ranked.rank',
+            ['column' => (string) $column->id, 'now' => $now],
+            ['now' => Types::DATETIME_IMMUTABLE],
+        );
+    }
+
+    /** Stamps every card of a column that turned terminal and was not finished yet. */
+    public function stampCompletion(BoardColumn $column, \DateTimeImmutable $now): void
+    {
+        $this->createQueryBuilder('c')
+            ->update()
+            ->set('c.completedAt', ':now')
+            ->set('c.updatedAt', ':now')
+            ->set('c.position', 0)
+            ->andWhere('c.column = :column')
+            ->andWhere('c.completedAt IS NULL')
+            ->setParameter('now', $now, Types::DATETIME_IMMUTABLE)
+            ->setParameter('column', $column)
+            ->getQuery()
+            ->execute();
+    }
+
+    /** Clears the completion of every card in a column that stopped being terminal. */
+    public function clearCompletion(BoardColumn $column, \DateTimeImmutable $now): void
+    {
+        $this->createQueryBuilder('c')
+            ->update()
+            ->set('c.completedAt', 'NULL')
+            ->set('c.updatedAt', ':now')
+            ->andWhere('c.column = :column')
+            ->andWhere('c.completedAt IS NOT NULL')
+            ->setParameter('now', $now, Types::DATETIME_IMMUTABLE)
+            ->setParameter('column', $column)
+            ->getQuery()
+            ->execute();
+    }
+
     /** The rank a card appended to the end of that group takes. */
-    public function nextPosition(Project $project, CardStatus $status, CardPriority $priority): int
+    public function nextPosition(BoardColumn $column, CardPriority $priority): int
     {
         $highest = $this->createQueryBuilder('c')
             ->select('MAX(c.position)')
-            ->andWhere('c.project = :project')
-            ->andWhere('c.status = :status')
+            ->andWhere('c.column = :column')
             ->andWhere('c.priority = :priority')
-            ->setParameter('project', $project)
-            ->setParameter('status', $status)
+            ->setParameter('column', $column)
             ->setParameter('priority', $priority)
             ->getQuery()
             ->getSingleScalarResult();
@@ -285,21 +440,21 @@ class CardRepository extends ServiceEntityRepository
      * The board's read query, one column at a time.
      *
      * A column is read on its own even when the caller asks for the whole
-     * board, because Done sorts by completion while every other column sorts by
-     * priority then position. One query with both orderings in it would have to
-     * rank Done rows by a priority they no longer use. The cost is up to four
-     * queries for an unfiltered read, each on the composite index.
+     * board, because a terminal column sorts by completion while every other
+     * column sorts by priority then position. One query with both orderings in
+     * it would have to rank finished rows by a priority they no longer use. The
+     * cost is one query per column for an unfiltered read, each on the
+     * composite index.
      *
-     * `CardStatus::cases()` is the column order, so the enum's declaration
-     * order is what a whole-board read comes back in.
+     * @param list<BoardColumn> $columns in board order, which is the order the cards come back in
      *
      * @return list<Card>
      */
-    public function findForBoard(Project $project, ?CardStatus $status = null, ?CardType $type = null, ?CardPriority $priority = null, ?CardReporter $reporter = null): array
+    public function findForBoard(array $columns, ?CardType $type = null, ?CardPriority $priority = null, ?CardReporter $reporter = null): array
     {
         $cards = [];
-        foreach (null === $status ? CardStatus::cases() : [$status] as $column) {
-            $cards = [...$cards, ...$this->findColumn($project, $column, $type, $priority, $reporter)];
+        foreach ($columns as $column) {
+            $cards = [...$cards, ...$this->findColumn($column, $type, $priority, $reporter)];
         }
 
         return $cards;
@@ -308,8 +463,8 @@ class CardRepository extends ServiceEntityRepository
     /**
      * How many cards each project still has open, for the projects list.
      *
-     * Open is every column except Done, so a board whose work is finished
-     * counts zero rather than counting its history.
+     * Open is every column that is not terminal, so a board whose work is
+     * finished counts zero rather than counting its history.
      *
      * @param list<Project> $projects
      *
@@ -324,10 +479,10 @@ class CardRepository extends ServiceEntityRepository
         /** @var list<array{id: mixed, total: mixed}> $rows */
         $rows = $this->createQueryBuilder('c')
             ->select('IDENTITY(c.project) AS id, COUNT(c.id) AS total')
+            ->join('c.column', 'k')
             ->andWhere('c.project IN (:projects)')
-            ->andWhere('c.status != :done')
+            ->andWhere('k.terminal = false')
             ->setParameter('projects', $projects)
-            ->setParameter('done', CardStatus::Done)
             ->groupBy('c.project')
             ->getQuery()
             ->getArrayResult();
@@ -343,8 +498,8 @@ class CardRepository extends ServiceEntityRepository
     /**
      * Every card on every project the user owns, for the account data export.
      *
-     * The pull request links are fetch-joined, because the export reads them on
-     * every row and they are lazy otherwise.
+     * The pull request links and the column are fetch-joined, because the
+     * export reads them on every row and they are lazy otherwise.
      *
      * @return list<Card>
      */
@@ -352,6 +507,8 @@ class CardRepository extends ServiceEntityRepository
     {
         return array_values($this->createQueryBuilder('c')
             ->join('c.project', 'p')
+            ->join('c.column', 'k')
+            ->addSelect('k')
             ->leftJoin('c.pullRequests', 'l')
             ->addSelect('l')
             ->andWhere('p.owner = :user')
@@ -364,13 +521,11 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /** @return list<Card> */
-    private function findColumn(Project $project, CardStatus $status, ?CardType $type, ?CardPriority $priority, ?CardReporter $reporter): array
+    private function findColumn(BoardColumn $column, ?CardType $type, ?CardPriority $priority, ?CardReporter $reporter): array
     {
         $qb = $this->createQueryBuilder('c')
-            ->andWhere('c.project = :project')
-            ->andWhere('c.status = :status')
-            ->setParameter('project', $project)
-            ->setParameter('status', $status);
+            ->andWhere('c.column = :column')
+            ->setParameter('column', $column);
 
         if (null !== $type) {
             $qb->andWhere('c.type = :type')->setParameter('type', $type);
@@ -385,11 +540,11 @@ class CardRepository extends ServiceEntityRepository
                 ->setParameter('reporter', $reporter->value);
         }
 
-        // The tie-break runs with its column, not after both branches. Done sorts
-        // newest first and completed_at holds whole seconds, so two cards finished
-        // in the same second need a tie-break that also runs newest first. A shared
-        // ascending one resolved them against the rule the column states.
-        if (CardStatus::Done === $status) {
+        // The tie-break runs with its column, not after both branches. A
+        // terminal column sorts newest first and completed_at holds whole
+        // seconds, so two cards finished in the same second need a tie-break
+        // that also runs newest first.
+        if ($column->terminal) {
             $qb->orderBy('c.completedAt', 'DESC')
                 ->addOrderBy('c.createdAt', 'DESC')
                 ->addOrderBy('c.id', 'DESC');
@@ -421,14 +576,12 @@ class CardRepository extends ServiceEntityRepository
             ->addOrderBy('pullRequest.addedAt', 'ASC');
     }
 
-    /** Done in the order the column reads it: by completion, newest first. */
-    private function doneQuery(Project $project): QueryBuilder
+    /** A terminal column in the order it reads: by completion, newest first. */
+    private function completedQuery(BoardColumn $column): QueryBuilder
     {
         return $this->createQueryBuilder('c')
-            ->andWhere('c.project = :project')
-            ->andWhere('c.status = :status')
-            ->setParameter('project', $project)
-            ->setParameter('status', CardStatus::Done)
+            ->andWhere('c.column = :column')
+            ->setParameter('column', $column)
             ->orderBy('c.completedAt', 'DESC')
             ->addOrderBy('c.createdAt', 'DESC')
             ->addOrderBy('c.id', 'DESC');

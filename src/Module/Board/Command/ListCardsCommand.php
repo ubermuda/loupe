@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 
@@ -20,7 +20,8 @@ final readonly class ListCardsCommand
 {
     public function __construct(
         public Project $project,
-        public ?CardStatus $status = null,
+        /** A column of this project's board. Null reads every column. */
+        public ?BoardColumn $column = null,
         public ?CardType $type = null,
         public ?CardPriority $priority = null,
         public ?CardReporter $reporter = null,

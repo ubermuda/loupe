@@ -45,7 +45,7 @@ final readonly class DeleteCardHandler
 
             // Before the remove, so the delete and the renumbering it causes
             // reach the database in one flush.
-            $this->groupOrder->compact($card->project, $card->status, $card->priority, $card);
+            $this->groupOrder->compact($card->column, $card->priority, $card);
 
             $this->em->remove($card);
             $this->em->flush();
@@ -61,7 +61,8 @@ final readonly class DeleteCardHandler
                 'cardId' => $cardId,
                 'cardNumber' => $cardNumber,
                 'projectId' => $projectId,
-                'status' => $card->status->value,
+                'status' => $card->column->slug,
+                'columnId' => (string) $card->column->id,
                 'priority' => $card->priority->value,
             ],
             new AuditSubject('card', $cardId),

@@ -13,6 +13,7 @@ use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use App\Module\SiteReview\SiteReviewDrawing;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -22,6 +23,8 @@ use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class SiteReviewApiTest extends WebTestCase
 {
+    use BoardColumnFixtures;
+
     /**
      * @param non-empty-string $email
      *
@@ -112,7 +115,8 @@ final class SiteReviewApiTest extends WebTestCase
         $flags = static::getContainer()->get(FeatureFlagRepository::class);
         self::assertInstanceOf(FeatureFlagRepository::class, $flags);
         $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
-        $card = new Card($project, 'Footer overlaps the launcher', 'body', 1);
+        $this->seedColumns($project);
+        $card = new Card($project, $this->column($project, 'backlog'), 'Footer overlaps the launcher', 'body', 1);
         $em->persist($card);
         $em->flush();
 

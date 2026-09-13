@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 
@@ -22,7 +22,8 @@ final readonly class CreateCardCommand
         public string $body,
         public CardType $type,
         public CardPriority $priority,
-        public CardStatus $status = CardStatus::Backlog,
+        /** Null lands the card in the board's default column. */
+        public ?BoardColumn $column = null,
         public CardReporter $reporter = CardReporter::Agent,
         public array $pullRequestUrls = [],
         /** @param list<string> $documentIds */

@@ -7,13 +7,13 @@ namespace App\Tests\Module\Project\Controller;
 use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Review\Entity\Document;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -22,6 +22,8 @@ use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class ProjectsPageTest extends WebTestCase
 {
+    use BoardColumnFixtures;
+
     public function test_lists_only_own_projects(): void
     {
         $client = static::createClient();
@@ -156,9 +158,10 @@ final class ProjectsPageTest extends WebTestCase
         $owner = $this->user($em, 'projects-cards@example.com');
         $project = new Project($owner, 'cards');
         $em->persist($project);
-        $em->persist(new Card(project: $project, title: 'Open one', body: '', number: 1));
-        $em->persist(new Card(project: $project, title: 'Open two', body: '', number: 2));
-        $em->persist(new Card(project: $project, title: 'Finished', body: '', number: 3, status: CardStatus::Done));
+        $this->seedColumns($project);
+        $em->persist(new Card(project: $project, column: $this->column($project, 'backlog'), title: 'Open one', body: '', number: 1));
+        $em->persist(new Card(project: $project, column: $this->column($project, 'next'), title: 'Open two', body: '', number: 2));
+        $em->persist(new Card(project: $project, column: $this->column($project, 'done'), title: 'Finished', body: '', number: 3));
 
         $flags = static::getContainer()->get(FeatureFlagRepository::class);
         self::assertInstanceOf(FeatureFlagRepository::class, $flags);
@@ -241,6 +244,22 @@ final class ProjectsPageTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(422);
         self::assertCount(1, static::getContainer()->get(ProjectRepository::class)->findBy(['name' => 'dup']));
+    }
+
+    public function test_a_name_whose_slug_is_taken_shows_a_field_error(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'projects-slug-taken@example.com');
+        $em->persist(new Project($owner, 'My App'));
+        $em->flush();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects');
+        $client->submitForm('Add project', ['create_project_form[name]' => 'my-app']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('.lp-field-errors', 'gives the same slug');
     }
 
     public function test_create_form_reopens_on_validation_error(): void

@@ -2,13 +2,19 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/ubermuda/loupe/cli/internal/config"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 )
 
@@ -92,6 +98,42 @@ func TestBridgeRunRefusesSeveralProjects(t *testing.T) {
 	err := runBridge(t, "--rules", writeRules(t, "loupe", "other"))
 	if err == nil || !strings.Contains(err.Error(), "maps 2 projects (loupe, other)") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// The rule file key is a slug, and the stream is read by the id the columns
+// answer returns, so a later slug change cannot break a reconnect.
+func TestTheStreamIsReadByTheIDTheColumnsCheckResolved(t *testing.T) {
+	const id = "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7"
+	var paths []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.EscapedPath())
+		switch r.URL.EscapedPath() {
+		case "/api/projects/loupe/board/columns":
+			fmt.Fprint(w, `{"project":{"id":"`+id+`","slug":"loupe"},"columns":[{"slug":"next"}]}`)
+		case "/api/projects/" + id + "/stream":
+			fmt.Fprint(w, `{"hubUrl":"https://hub.example/.well-known/mercure","topic":"t","jwt":"j"}`)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(server.Close)
+	cfg := config.Config{BaseURL: server.URL, Token: "t"}
+
+	set, err := rules.Load(writeRules(t, "loupe"), rules.Defaults{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := set.Check(context.Background(), apiClient(cfg)); err != nil {
+		t.Fatal(err)
+	}
+	jwt, err := jwtRefresher(cfg, set.ProjectID("loupe"))(context.Background())
+	if err != nil || jwt != "j" {
+		t.Fatalf("jwt = %q, err = %v, paths = %v", jwt, err, paths)
+	}
+	want := []string{"/api/projects/loupe/board/columns", "/api/projects/" + id + "/stream"}
+	if !slices.Equal(paths, want) {
+		t.Fatalf("paths = %v, want %v", paths, want)
 	}
 }
 

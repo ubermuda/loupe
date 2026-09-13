@@ -11,6 +11,7 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * The board cards in the account data export.
@@ -23,6 +24,7 @@ final readonly class CardExporter implements UserDataExporterInterface
     public function __construct(
         private CardRepository $cards,
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
+        private TranslatorInterface $translator,
     ) {
     }
 
@@ -41,7 +43,8 @@ final readonly class CardExporter implements UserDataExporterInterface
                 'project' => $card->project->name,
                 'title' => $card->title,
                 'body' => $card->body,
-                'status' => $card->status->value,
+                'status' => $card->column->slug,
+                'column' => $this->translator->trans($card->column->label),
                 // The name, matching the board tools: the backing integer only
                 // orders the board and means nothing to a reader.
                 'priority' => $card->priority->label(),

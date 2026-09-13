@@ -18,9 +18,8 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: CardRepository::class)]
-// Doctrine indexes the project join column and nothing else. The board's only
-// read query filters on project and status, then sorts by priority and position.
-#[ORM\Index(name: 'idx_board_cards_board_order', columns: ['project_id', 'status', 'priority', 'position'])]
+// The board reads one column at a time, then sorts by priority and position.
+#[ORM\Index(name: 'idx_board_cards_column_order', columns: ['column_id', 'priority', 'position'])]
 // No access method: DBAL's Postgres platform ignores index flags, and the
 // migration creates it USING gin. flags: ['gin'] would make the comparator emit
 // a DROP plus a plain CREATE INDEX, downgrading it to a B-tree that @@ never uses.
@@ -42,8 +41,9 @@ class Card implements ProjectScopedSubject
     public private(set) ?Uuid $id = null;
 
     /**
-     * Set when the card enters Done and cleared when it leaves. The Done column
-     * sorts on this rather than on $position, which it does not maintain.
+     * Set when the card enters a terminal column and cleared when it leaves for
+     * a column that is not terminal. A terminal column sorts on this rather
+     * than on $position, which it does not maintain.
      */
     #[ORM\Column(nullable: true)]
     public ?\DateTimeImmutable $completedAt = null;
@@ -94,6 +94,10 @@ class Card implements ProjectScopedSubject
         #[ORM\ManyToOne(targetEntity: Project::class)]
         public readonly Project $project,
 
+        #[ORM\JoinColumn(name: 'column_id', nullable: false)]
+        #[ORM\ManyToOne(targetEntity: BoardColumn::class)]
+        public BoardColumn $column,
+
         #[ORM\Column(length: self::MAX_TITLE_LENGTH)]
         public string $title,
 
@@ -110,14 +114,11 @@ class Card implements ProjectScopedSubject
         #[ORM\Column(type: Types::INTEGER, enumType: CardPriority::class)]
         public CardPriority $priority = CardPriority::Medium,
 
-        #[ORM\Column(length: 20, enumType: CardStatus::class)]
-        public CardStatus $status = CardStatus::Backlog,
-
         /** The column release 2 drops. Every write sets it, so an older image still reads the row. */
         #[ORM\Column(length: 20, enumType: CardReporter::class)]
         public readonly CardReporter $origin = CardReporter::Agent,
 
-        /** Rank inside the card's (project, status, priority) group, counting from 0. Done ignores it. */
+        /** Rank inside the card's (column, priority) group, counting from 0. A terminal column ignores it. */
         #[ORM\Column]
         public int $position = 0,
 

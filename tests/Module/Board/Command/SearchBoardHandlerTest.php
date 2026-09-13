@@ -11,9 +11,9 @@ use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\SearchBoardCommand;
 use App\Module\Board\Command\SearchBoardHandler;
 use App\Module\Board\Entity\CardPriority;
-use App\Module\Board\Entity\CardStatus;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
@@ -23,6 +23,8 @@ use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
  */
 final class SearchBoardHandlerTest extends KernelTestCase
 {
+    use BoardColumnFixtures;
+
     private EntityManagerInterface $em;
     private SearchBoardHandler $searchBoard;
     private CreateCardHandler $createCard;
@@ -48,6 +50,7 @@ final class SearchBoardHandlerTest extends KernelTestCase
         $this->em->persist($owner);
         $this->project = new Project($owner, 'board-'.uniqid());
         $this->em->persist($this->project);
+        $this->seedColumns($this->project);
         $this->em->flush();
     }
 
@@ -107,7 +110,6 @@ final class SearchBoardHandlerTest extends KernelTestCase
             body: $body,
             type: CardType::Feature,
             priority: CardPriority::Medium,
-            status: CardStatus::Backlog,
         ));
     }
 }

@@ -335,8 +335,8 @@ func (s *Set) Check(ctx context.Context, src ColumnSource) error {
 		if err != nil {
 			continue
 		}
-		// A server that predates project slugs sends none, and resolved the
-		// handle by name instead.
+		// A project with no slug yet sends none, and the server resolved the
+		// key as its id.
 		if pc.Project.Slug != "" && pc.Project.Slug != slug {
 			errs = append(errs, fmt.Errorf("project %q: the server resolves it to the project with slug %q; use that slug", slug, pc.Project.Slug))
 

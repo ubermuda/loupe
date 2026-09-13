@@ -6,12 +6,12 @@ RUN apk add --no-cache $PHPIZE_DEPS postgresql-dev libzip-dev libxslt-dev bash i
 
 RUN docker-php-ext-install bcmath pdo pdo_pgsql zip intl xsl
 
-# Installed from the xdebug.org tarball, so the build never contacts pecl.php.net.
-# A package name makes pecl query that REST index, which fails intermittently: on
-# one commit three image builds succeeded and a fourth got "No releases available"
-# minutes apart. A URL skips the lookup rather than improving the odds, pins the
-# version, and makes xdebug.org the host that must be reachable instead.
-RUN pecl install https://xdebug.org/files/xdebug-3.5.3.tgz && docker-php-ext-enable xdebug
+# Built from the xdebug.org tarball without pecl, so the build never contacts
+# pecl.php.net. `pecl install <url>` still fetches that host's channel.xml, and a
+# 504 there failed a CI image build on 2026-09-12.
+RUN mkdir -p /usr/src/xdebug \
+    && curl -fsSL https://xdebug.org/files/xdebug-3.5.3.tgz | tar -xz -C /usr/src/xdebug --strip-components=1 \
+    && docker-php-ext-install /usr/src/xdebug
 
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 

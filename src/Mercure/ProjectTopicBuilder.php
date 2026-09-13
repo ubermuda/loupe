@@ -27,4 +27,26 @@ final readonly class ProjectTopicBuilder
     {
         return rtrim($this->appUrl, '/').'/projects/'.$projectId.'/events';
     }
+
+    /**
+     * The topic open boards listen on. A browser gets a token for this topic
+     * only, so it never receives the agent payloads published on forProject().
+     */
+    public function forBoard(Uuid $projectId): string
+    {
+        return rtrim($this->appUrl, '/').'/projects/'.$projectId.'/board';
+    }
+
+    /** The project a forBoard() topic names, or null for any other string. */
+    public function projectIdFromBoardTopic(string $topic): ?Uuid
+    {
+        $prefix = rtrim($this->appUrl, '/').'/projects/';
+        if (!str_starts_with($topic, $prefix) || !str_ends_with($topic, '/board')) {
+            return null;
+        }
+
+        $projectId = substr($topic, \strlen($prefix), -\strlen('/board'));
+
+        return Uuid::isValid($projectId) ? Uuid::fromString($projectId) : null;
+    }
 }

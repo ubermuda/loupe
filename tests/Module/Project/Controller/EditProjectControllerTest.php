@@ -129,6 +129,84 @@ final class EditProjectControllerTest extends WebTestCase
         self::assertSame('beta', $fresh->name, 'the name must be unchanged after a rejected rename');
     }
 
+    public function test_the_edit_screen_shows_the_slug_read_only(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'edit-slug-shown@example.com');
+        $project = new Project($owner, 'Shown Slug');
+        $em->persist($project);
+        $em->flush();
+        $projectId = $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/edit');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('shown-slug', trim($crawler->filter('[data-project-slug]')->text()));
+    }
+
+    public function test_the_edit_screen_shows_no_slug_field_for_a_row_without_one(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'edit-slug-null@example.com');
+        $project = new Project($owner, 'No Slug Yet');
+        $em->persist($project);
+        $em->flush();
+        $projectId = $project->id;
+        $em->getConnection()->executeStatement('UPDATE projects SET slug = NULL WHERE id = :id', ['id' => (string) $projectId]);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/edit');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('#create_project_form_name'));
+        self::assertCount(0, $crawler->filter('[data-project-slug]'));
+        self::assertCount(0, $crawler->filter('[data-clipboard-text-value=""]'));
+    }
+
+    public function test_renaming_to_another_projects_slug_is_rejected(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'edit-slug-taken@example.com');
+        $em->persist(new Project($owner, 'My App'));
+        $other = new Project($owner, 'other');
+        $em->persist($other);
+        $em->flush();
+        $otherId = $other->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$otherId.'/edit');
+        $client->submitForm('Save changes', ['create_project_form[name]' => 'my-app']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('.lp-field-errors', 'gives the same slug');
+    }
+
+    public function test_renaming_to_a_name_with_no_slug_is_rejected(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'edit-slug-empty@example.com');
+        $project = new Project($owner, 'rocket');
+        $em->persist($project);
+        $em->flush();
+        $projectId = $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/edit');
+        $client->submitForm('Save changes', ['create_project_form[name]' => '🚀']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('.lp-field-errors', 'needs at least one letter or digit');
+    }
+
     public function test_keeping_the_same_name_is_allowed(): void
     {
         $client = static::createClient();

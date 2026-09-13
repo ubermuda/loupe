@@ -6,7 +6,7 @@ namespace App\Module\Board\Form;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
-use App\Module\Board\Entity\CardStatus;
+use App\Module\Project\Entity\Project;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
@@ -34,10 +34,9 @@ final class MoveCardFormType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
-            ->add('status', EnumType::class, [
-                'class' => CardStatus::class,
-                'label' => 'board.form.move_card_form.status.label',
-                'choice_label' => static fn (CardStatus $status): string => 'board.form.move_card_form.status.choice.'.$status->value,
+            ->add('column', BoardColumnChoiceType::class, [
+                'label' => 'board.form.move_card_form.column.label',
+                'project' => $options['project'],
             ])
             ->add('priority', EnumType::class, [
                 'class' => CardPriority::class,
@@ -53,5 +52,7 @@ final class MoveCardFormType extends AbstractType
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefaults(['data_class' => MoveCardRequest::class]);
+        $resolver->setRequired('project');
+        $resolver->setAllowedTypes('project', Project::class);
     }
 }

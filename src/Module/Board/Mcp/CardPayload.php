@@ -78,7 +78,7 @@ final readonly class CardPayload
                 'title' => $card->title,
                 'type' => $card->type->value,
                 'priority' => $card->priority->label(),
-                'status' => $card->status->value,
+                'status' => $card->column->slug,
                 'reporter' => $card->reporter->value,
                 'updatedAt' => $card->updatedAt->format(\DATE_ATOM),
             ],
@@ -103,7 +103,7 @@ final readonly class CardPayload
             // The name, not the backing integer: the number orders the board and
             // is not the vocabulary a caller writes with.
             'priority' => $card->priority->label(),
-            'status' => $card->status->value,
+            'status' => $card->column->slug,
             'reporter' => $card->reporter->value,
             'position' => $card->position,
             'completedAt' => $card->completedAt?->format(\DATE_ATOM),

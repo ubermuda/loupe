@@ -6,6 +6,7 @@ namespace App\Module\Project\Service;
 
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
+use App\Module\Project\Repository\AmbiguousProjectHandleException;
 use App\Module\Project\Repository\ProjectRepository;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -62,7 +63,11 @@ final readonly class CurrentProjectProvider
         foreach (['id', 'project', 'projectId'] as $key) {
             $raw = $request->attributes->get($key);
             if (is_string($raw) && '' !== $raw) {
-                return $this->projects->findOneByIdOrNameForOwner($raw, $user);
+                try {
+                    return $this->projects->findOneByHandleForOwner($raw, $user);
+                } catch (AmbiguousProjectHandleException) {
+                    return null;
+                }
             }
         }
 
