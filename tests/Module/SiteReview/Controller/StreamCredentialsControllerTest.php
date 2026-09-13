@@ -101,76 +101,31 @@ final class StreamCredentialsControllerTest extends WebTestCase
         $em->persist($project);
         $em->flush();
 
-        foreach (['stream-site', 'Stream Site'] as $handle) {
-            $client->request(Request::METHOD_GET, $this->streamPath($handle),
-                server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
-
-            self::assertResponseIsSuccessful();
-            $data = json_decode((string) $client->getResponse()->getContent(), true);
-            self::assertIsArray($data);
-            self::assertSame((string) $project->id, $data['site']['id']);
-        }
-    }
-
-    /**
-     * The CLI escapes the slash as %2F, and both the router and the firewall
-     * match the decoded path, so the name reaches them with a real slash.
-     */
-    public function test_a_name_holding_a_slash_resolves(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        self::assertInstanceOf(EntityManagerInterface::class, $em);
-        [$raw, $user] = $this->issue($em, ApiTokenScope::Agent, 'stream-slash@example.com');
-        $project = new Project($user, 'client/site');
-        $em->persist($project);
-        $em->flush();
-
-        foreach ([$this->streamPath('client/site'), '/api/projects/client/site/stream'] as $path) {
-            $client->request(Request::METHOD_GET, $path,
-                server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
-
-            self::assertResponseIsSuccessful();
-            $data = json_decode((string) $client->getResponse()->getContent(), true);
-            self::assertIsArray($data);
-            self::assertSame((string) $project->id, $data['site']['id']);
-        }
-    }
-
-    public function test_a_site_that_is_one_slug_and_another_name_is_409(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        self::assertInstanceOf(EntityManagerInterface::class, $em);
-        [$raw, $user] = $this->issue($em, ApiTokenScope::Agent, 'stream-ambiguous@example.com');
-        $older = new Project($user, 'My App');
-        $newer = new Project($user, 'my-app');
-        new \ReflectionProperty(Project::class, 'slug')->setRawValue($newer, 'my-app-2');
-        $em->persist($older);
-        $em->persist($newer);
-        $em->flush();
-
-        $client->request(Request::METHOD_GET, $this->streamPath('my-app'),
+        $client->request(Request::METHOD_GET, $this->streamPath('stream-site'),
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
-        self::assertResponseStatusCodeSame(409);
+        self::assertResponseIsSuccessful();
         $data = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertIsArray($data);
-        self::assertSame('ambiguous_site', $data['error']);
-        self::assertIsString($data['message']);
-        self::assertStringContainsString((string) $older->id, $data['message']);
-        self::assertStringContainsString((string) $newer->id, $data['message']);
+        self::assertSame((string) $project->id, $data['site']['id']);
+    }
 
-        // The bridge reconnects with the resolved id, which an ambiguous pair never affects.
-        foreach ([$older, $newer] as $project) {
-            $client->request(Request::METHOD_GET, $this->streamPath((string) $project->id),
-                server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+    public function test_a_project_name_is_not_a_handle(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        [$raw, $user] = $this->issue($em, ApiTokenScope::Agent, 'stream-by-name@example.com');
+        $em->persist(new Project($user, 'Named Stream Site'));
+        $em->flush();
 
-            self::assertResponseIsSuccessful();
-            $data = json_decode((string) $client->getResponse()->getContent(), true);
-            self::assertIsArray($data);
-            self::assertSame((string) $project->id, $data['site']['id']);
-        }
+        $client->request(Request::METHOD_GET, $this->streamPath('Named Stream Site'),
+            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+
+        self::assertResponseStatusCodeSame(404);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame('site_not_found', $data['error']);
     }
 
     public function test_blank_handle_is_404(): void

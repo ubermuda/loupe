@@ -92,7 +92,7 @@ loupe bridge run --dir ~/Code/my-app
 | Flag | Default | Purpose |
 |---|---|---|
 | `--dir` | — | **Required.** Every worker runs in this directory |
-| `--site` | interactive | Which site to bridge, by name or id. Omitted, you get a numbered picker (requires a TTY) |
+| `--site` | interactive | Which site to bridge, by slug or id. Omitted, you get a numbered picker (requires a TTY) |
 | `--permission-mode` | — | Pass `--permission-mode` to every `claude` the bridge starts. Omitted, no flag is passed and a worker can approve nothing |
 | `--max-workers` | `3` | Run at most this many workers at once. Later events wait in a queue. Below 1 is a startup error |
 | `--log-file` | `bridge.log` in your config dir | Append the JSON log to this path |
