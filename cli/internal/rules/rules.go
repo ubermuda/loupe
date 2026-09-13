@@ -53,7 +53,8 @@ rules:
 var eventTypePattern = regexp.MustCompile(`^[a-z0-9_]+(\.[a-z0-9_]+)+$`)
 
 // PermissionModes are the values claude 2.1.270 takes for --permission-mode.
-// Its help omits default, and it still accepts it.
+// Its help omits default, and it still accepts it. A later claude can add a
+// mode, so a value outside the list is logged at start rather than refused.
 var PermissionModes = []string{"acceptEdits", "auto", "bypassPermissions", "default", "dontAsk", "manual", "plan"}
 
 // Placeholder names, and the ones each kind of event can fill.
@@ -93,28 +94,19 @@ type Defaults struct {
 	Model          string
 }
 
-// Check refuses a default claude would reject, before any rule is read.
+// Check refuses a malformed default, before any rule is read.
 func (d Defaults) Check() error {
 	return errors.Join(
-		checkPermissionMode("--permission-mode", d.PermissionMode),
-		checkModel("--model", d.Model),
+		checkWord("--permission-mode", d.PermissionMode),
+		checkWord("--model", d.Model),
 	)
 }
 
-// checkPermissionMode refuses a mode claude rejects. Empty passes no flag.
-func checkPermissionMode(field, mode string) error {
-	if mode == "" || slices.Contains(PermissionModes, mode) {
-		return nil
-	}
-
-	return fmt.Errorf("%s %q is not a permission mode claude accepts; use one of %s", field, mode, strings.Join(PermissionModes, ", "))
-}
-
-// checkModel refuses a model with whitespace. claude takes aliases and full
-// model names, a list that grows, so the value is otherwise left to claude.
-func checkModel(field, model string) error {
-	if strings.ContainsFunc(model, unicode.IsSpace) {
-		return fmt.Errorf("%s %q holds whitespace, and no model name does", field, model)
+// checkWord refuses a permission mode or model that holds whitespace. Empty
+// passes no flag. claude owns both lists, and either can grow.
+func checkWord(field, value string) error {
+	if strings.ContainsFunc(value, unicode.IsSpace) {
+		return fmt.Errorf("%s %q holds whitespace, and claude takes a single word", field, value)
 	}
 
 	return nil
@@ -157,25 +149,9 @@ func withExample(err error) error {
 // an error, so a misspelt key fails at start instead of being ignored. The
 // caller checks defaults with Defaults.Check.
 func Parse(data []byte, defaults Defaults) (*Set, error) {
-	var f File
-	dec := yaml.NewDecoder(bytes.NewReader(data))
-	dec.KnownFields(true)
-	if err := dec.Decode(&f); errors.Is(err, io.EOF) {
-		return nil, withExample(ErrEmpty)
-	} else if err != nil {
-		return nil, fmt.Errorf("parse rule file: %w", err)
-	}
-	for {
-		// An empty document, such as a trailing ---, holds nothing to lose.
-		var extra any
-		if err := dec.Decode(&extra); errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return nil, fmt.Errorf("parse rule file: %w", err)
-		}
-		if extra != nil {
-			return nil, errors.New("parse rule file: it holds a second YAML document after ---, and the bridge reads one")
-		}
+	f, err := decodeFile(data)
+	if err != nil {
+		return nil, err
 	}
 
 	s := &Set{dirs: map[string]string{}}
@@ -227,6 +203,43 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 	}
 
 	return s, nil
+}
+
+// decodeFile decodes the one document that holds content. An empty document,
+// such as a bare --- before or after it, holds nothing and is skipped.
+func decodeFile(data []byte) (File, error) {
+	var f File
+	docs := yaml.NewDecoder(bytes.NewReader(data))
+	content := -1
+	for i := 0; ; i++ {
+		var doc any
+		if err := docs.Decode(&doc); errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return f, fmt.Errorf("parse rule file: %w", err)
+		}
+		if doc == nil {
+			continue
+		}
+		if content >= 0 {
+			return f, errors.New("parse rule file: it holds a second YAML document after ---, and the bridge reads one")
+		}
+		content = i
+	}
+	if content < 0 {
+		return f, withExample(ErrEmpty)
+	}
+
+	// A second pass, because KnownFields applies to a decoder and not to a node.
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true)
+	for range content + 1 {
+		if err := dec.Decode(&f); err != nil {
+			return f, fmt.Errorf("parse rule file: %w", err)
+		}
+	}
+
+	return f, nil
 }
 
 func checkProject(slug string, p Project) (string, error) {
@@ -281,10 +294,10 @@ func checkRule(r Rule, projects map[string]Project) error {
 	} else if !ok {
 		errs = append(errs, fmt.Errorf("project %q is not in projects", r.Project))
 	}
-	if err := checkPermissionMode("permissionMode", r.PermissionMode); err != nil {
+	if err := checkWord("permissionMode", r.PermissionMode); err != nil {
 		errs = append(errs, err)
 	}
-	if err := checkModel("model", r.Model); err != nil {
+	if err := checkWord("model", r.Model); err != nil {
 		errs = append(errs, err)
 	}
 
@@ -356,6 +369,19 @@ func (s *Set) ProjectID(slug string) string {
 	}
 
 	return ""
+}
+
+// UnknownPermissionModes lists, in order, the modes the rules pass that are not
+// in PermissionModes. The bridge warns about them, and claude has the last word.
+func (s *Set) UnknownPermissionModes() []string {
+	var out []string
+	for _, r := range s.rules {
+		if r.PermissionMode != "" && !slices.Contains(PermissionModes, r.PermissionMode) && !slices.Contains(out, r.PermissionMode) {
+			out = append(out, r.PermissionMode)
+		}
+	}
+
+	return out
 }
 
 // ExtraTypes names the event types the rules use that the event parser does

@@ -1101,12 +1101,13 @@ func TestAStreamErrorIsReported(t *testing.T) {
 	}
 }
 
-// lockProbe records, for each line whose event it names, whether router mu was
-// free as the line was written.
+// lockProbe records, for each line whose event it names, that it saw the line
+// and whether router mu was free as the line was written.
 type lockProbe struct {
 	router *router
 	events []string
 	mu     sync.Mutex
+	seen   map[string]int
 	free   []string
 }
 
@@ -1115,35 +1116,47 @@ func (p *lockProbe) Write(b []byte) (int, error) {
 		if !bytes.Contains(b, []byte(`"event":"`+name+`"`)) {
 			continue
 		}
-		if p.router.mu.TryLock() {
+		free := p.router.mu.TryLock()
+		if free {
 			p.router.mu.Unlock()
-			p.mu.Lock()
-			p.free = append(p.free, name)
-			p.mu.Unlock()
 		}
+		p.mu.Lock()
+		p.seen[name]++
+		if free {
+			p.free = append(p.free, name)
+		}
+		p.mu.Unlock()
 	}
 
 	return len(b), nil
 }
 
-// A queue line written after mu is released can follow the worker_started line
+// A line enqueue writes after mu is released can follow the worker_started line
 // that a finishing worker writes for the same event. Holding mu rules that out.
-func TestQueueLinesAreWrittenUnderTheLock(t *testing.T) {
-	h := newHarness(t)
-	probe := &lockProbe{router: h.router, events: []string{"worker_queued", "worker_coalesced"}}
+func TestEnqueueLinesAreWrittenUnderTheLock(t *testing.T) {
+	h := newHarnessWith(t, chainRules, rules.Defaults{})
+	events := []string{"worker_queued", "worker_coalesced", "chain_capped"}
+	probe := &lockProbe{router: h.router, events: events, seen: map[string]int{}}
 	h.router.log = newBridgeLogger(probe)
 	h.worker.started = make(chan workerSpec, 2)
 	h.worker.block = make(chan struct{})
 
-	h.router.onData([]byte(cardMoved(87)))
+	h.router.onData([]byte(movedPayload(87, "backlog", "next", "agent")))
 	<-h.worker.started
-	h.router.onData([]byte(cardMoved(87)))
-	h.router.onData([]byte(cardMoved(87)))
+	h.router.onData([]byte(movedPayload(87, "backlog", "next", "agent")))
+	h.router.onData([]byte(movedPayload(87, "backlog", "next", "agent")))
 	close(h.worker.block)
 	h.router.wg.Wait()
+	h.worker.started, h.worker.block = nil, nil
+	h.send(movedPayload(87, "backlog", "next", "agent"))
 
 	probe.mu.Lock()
 	defer probe.mu.Unlock()
+	for _, name := range events {
+		if probe.seen[name] == 0 {
+			t.Fatalf("the probe saw no %s line: %v", name, probe.seen)
+		}
+	}
 	if len(probe.free) != 0 {
 		t.Fatalf("written with mu free: %v", probe.free)
 	}

@@ -150,11 +150,11 @@ func (r *router) onData(data []byte) {
 func (r *router) enqueue(p pending) {
 	r.mu.Lock()
 	if p.event.Actor == event.ActorAgent && r.chains[p.key][p.rule] >= p.maxChain {
-		r.mu.Unlock()
 		r.log.Warn("chain_capped", append(about(p.event, p.rule),
 			"max_chain", p.maxChain,
 			"message", fmt.Sprintf("%s hit the chain cap of rule %s, waiting for a person", aggregate(p.event), p.rule),
 		)...)
+		r.mu.Unlock()
 
 		return
 	}

@@ -39,8 +39,9 @@ The bridge is a supervisor. `--max-workers` bounds the workers that run at once,
 three by default, and events past the bound wait in a queue. A card runs one
 worker at a time. An event for a busy card waits and runs after that worker
 exits, so a later event for another card can start first. The card waits at
-most once for each rule, so a burst of moves becomes one follow-up run. Stopping the bridge drops whatever is still
-queued and logs the count, and each card with its rule.
+most once for each rule, so a burst of moves becomes one follow-up run. Stopping
+the bridge drops whatever is still queued and logs the count, and each card with
+its rule.
 
 Each rule's `maxChain`, three by default, caps the runs in a row that agents'
 events start for one card. That stops two rules from moving a card back and

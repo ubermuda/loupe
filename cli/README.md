@@ -150,17 +150,18 @@ Each entry in `rules` takes these fields:
 | `to` | for `board.card_moved` | The column slug the card enters |
 | `from` | no | The column slug the card leaves. Omitted, any column matches |
 | `prompt` | yes | The prompt the worker runs, with placeholders |
-| `permissionMode` | no | Defaults to `--permission-mode`. One of `acceptEdits`, `auto`, `bypassPermissions`, `default`, `dontAsk`, `manual` or `plan` |
+| `permissionMode` | no | Defaults to `--permission-mode`. A mode `claude` takes, such as `acceptEdits`, `auto`, `bypassPermissions`, `default`, `dontAsk`, `manual` or `plan` |
 | `model` | no | Defaults to `--model`. An alias such as `opus` or a full model name, with no whitespace |
 | `maxChain` | no | The agent-triggered runs in a row this rule starts for one card. Defaults to `3`. At least 1. See [The chain cap](#the-chain-cap) |
 | `allowUntrusted` | no | Defaults to `false`. See below |
 
 A field the format does not define stops the bridge at start, so a misspelt key
-never passes in silence. So does a `permissionMode` that `claude` does not
-accept, and a `model` with whitespace, from the file or from a flag. The bridge
-checks only that shape for a model, because `claude` takes a growing list of
-names. The file holds one YAML document, and a second one after `---` stops the
-bridge.
+never passes in silence. So does a `permissionMode` or a `model` that holds
+whitespace, from the file or from a flag. `claude` owns both lists, and a later
+version can add to them. The bridge therefore starts with a mode outside the
+list above, and logs a `permission_mode_unknown` line for it. The file holds
+one YAML document with content. An empty document before or after it is
+ignored, and a second one with content stops the bridge.
 
 The first rule in file order that matches an event wins. A `board.card_moved`
 rule fires when the card enters `to` from another column. A move to a new rank
@@ -253,9 +254,10 @@ An event from a person (`actor: human`) for that card resets every rule's count
 on the card. That covers every `board.card_moved` event, and an event of another
 type that some rule names, whether its rule matches or not. The bridge drops an
 event of a type no rule names before it reads the actor, so that event resets
-nothing. A reviewer's event resets nothing. A run that a person's event started does not count. An event that
-replaces a waiting one adds nothing, because the count follows runs. The counts
-live in the bridge process, so a restart resets them.
+nothing. A reviewer's event resets nothing. A run that a person's event started
+does not count. An event that replaces a waiting one adds nothing, because the
+count follows runs. The counts live in the bridge process, so a restart resets
+them.
 
 ### The queue
 
@@ -282,7 +284,7 @@ The log file is written first, so a reader that leaves mid-run costs the
 terminal view alone.
 
 ```json
-{"time":"2026-09-12T14:02:11.412Z","level":"INFO","event":"worker_finished","card":87,"project":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7","rule":"plan","exit":0,"duration_ms":41207,"output":"moved card 87 to in-progress"}
+{"time":"2026-09-12T14:02:11.412Z","level":"INFO","event":"worker_finished","card":87,"project":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7","rule":"plan","exit":0,"duration_ms":41207,"output":"wrote an implementation plan into card 87"}
 ```
 
 Every line carries `time`, `level` and `event`. Select on `event`. A worker line
@@ -295,6 +297,7 @@ names `card`, or `subject` for an event with no card number.
 | `stream_error` | `error` |
 | `event_malformed` | `error` |
 | `event_untrusted` | `card`, `project`, `rule`: a reviewer's event that the rule does not allow |
+| `permission_mode_unknown` | `mode`, `known`: logged at start for a mode outside the list this build knows |
 | `project_unmapped` | `project`: logged once per project the file does not map |
 | `worker_queued` | `card`, `project`, `rule`, `queue_depth` |
 | `worker_coalesced` | `card`, `project`, `rule`: the event replaced one that waits for the same card and rule |

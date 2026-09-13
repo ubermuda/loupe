@@ -63,17 +63,37 @@ func TestBridgeRunRefusesToStartWithoutARuleFile(t *testing.T) {
 	}
 }
 
-// A misspelt flag fails at start, before the rule file is read, and the error
+// A malformed flag fails at start, before the rule file is read, and the error
 // names the flag.
 func TestBridgeRunRefusesAnInvalidDefault(t *testing.T) {
 	for flag, want := range map[string]string{
-		"--permission-mode=acceptedits": `--permission-mode "acceptedits" is not a permission mode claude accepts`,
-		"--model=claude opus":           `--model "claude opus" holds whitespace`,
+		"--permission-mode=accept edits": `--permission-mode "accept edits" holds whitespace`,
+		"--model=claude opus":            `--model "claude opus" holds whitespace`,
 	} {
 		err := runBridge(t, "--rules", writeRules(t, "loupe"), flag)
 		if err == nil || !strings.Contains(err.Error(), want) || strings.Contains(err.Error(), "rule file") {
 			t.Fatalf("%s: err = %v", flag, err)
 		}
+	}
+}
+
+// A mode this build does not know starts the bridge with a warning, so a newer
+// claude keeps working and a typo still shows.
+func TestAnUnknownPermissionModeIsLoggedAtStart(t *testing.T) {
+	set, err := rules.Parse([]byte("projects:\n  loupe:\n    dir: "+t.TempDir()+"\nrules:\n  - {on: board.card_moved, project: loupe, to: next, prompt: go}\n"), rules.Defaults{PermissionMode: "acceptedits"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+
+	warnUnknownModes(newBridgeLogger(&out), set)
+
+	var line map[string]any
+	if err := json.Unmarshal(out.Bytes(), &line); err != nil {
+		t.Fatalf("log = %q: %v", out.String(), err)
+	}
+	if line["event"] != "permission_mode_unknown" || line["mode"] != "acceptedits" || line["level"] != "WARN" {
+		t.Fatalf("line = %v", line)
 	}
 }
 

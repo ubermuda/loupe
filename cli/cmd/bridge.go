@@ -126,6 +126,7 @@ func newBridgeRunCmd() *cobra.Command {
 				worker:     defaultWorkerOps(),
 			}
 			r.log.Info("bridge_started", "rules", path, "projects", projects, "rule_count", len(set.Rules()), "max_workers", maxWorkers, "log_file", logPath)
+			warnUnknownModes(r.log, set)
 
 			return subscribe(cmd, cfg, set.ProjectID(projects[0]), r)
 		},
@@ -137,6 +138,14 @@ func newBridgeRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&logFile, "log-file", "", "append the JSON log to this `path`; empty uses bridge.log in your config directory")
 
 	return cmd
+}
+
+// warnUnknownModes names each permission mode this build does not know. A newer
+// claude may accept it, so the bridge starts, and a typo shows in the log.
+func warnUnknownModes(log *slog.Logger, set *rules.Set) {
+	for _, mode := range set.UnknownPermissionModes() {
+		log.Warn("permission_mode_unknown", "mode", mode, "known", rules.PermissionModes)
+	}
 }
 
 // defaultRulesPath puts the rule file beside config.json.

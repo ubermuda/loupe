@@ -153,7 +153,7 @@ func TestParseRefusesAnInvalidFile(t *testing.T) {
 		"no project":              {rule("on: board.card_moved\nto: ready\nprompt: x"), "project is required"},
 		"unmapped project":        {rule("on: board.card_moved\nproject: other\nto: ready\nprompt: x"), `project "other" is not in projects, which maps loupe`},
 		"second document":         {oneRule + "---\n" + oneRule, "second YAML document"},
-		"unknown permissionMode":  {rule("on: board.card_moved\nproject: loupe\nto: ready\npermissionMode: acceptedits\nprompt: x"), `permissionMode "acceptedits" is not a permission mode claude accepts; use one of acceptEdits, auto,`},
+		"permissionMode spaced":   {rule("on: board.card_moved\nproject: loupe\nto: ready\npermissionMode: accept edits\nprompt: x"), `permissionMode "accept edits" holds whitespace`},
 		"model with a space":      {rule("on: board.card_moved\nproject: loupe\nto: ready\nmodel: 'claude opus'\nprompt: x"), `model "claude opus" holds whitespace`},
 		"card_moved without to":   {rule("on: board.card_moved\nproject: loupe\nprompt: x"), "to is required"},
 		"to not a slug":           {rule("on: board.card_moved\nproject: loupe\nto: Ready\nprompt: x"), "is not a column slug"},
@@ -215,7 +215,14 @@ func TestLoadPrintsAnExampleWhenTheFileIsMissing(t *testing.T) {
 // An empty file is as far from a working bridge as a missing one, so it shows
 // the example too.
 func TestLoadPrintsAnExampleWhenTheFileIsEmpty(t *testing.T) {
-	for name, body := range map[string]string{"empty": "", "blank": "\n  \n", "comments only": "# rules go here\n"} {
+	for name, body := range map[string]string{
+		"empty":                  "",
+		"blank":                  "\n  \n",
+		"comments only":          "# rules go here\n",
+		"a separator only":       "---\n",
+		"two empty documents":    "---\n# rules go here\n---\n",
+		"an explicit end marker": "---\n...\n",
+	} {
 		path := filepath.Join(t.TempDir(), FileName)
 		if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 			t.Fatal(err)
@@ -227,38 +234,58 @@ func TestLoadPrintsAnExampleWhenTheFileIsEmpty(t *testing.T) {
 	}
 }
 
-// A second document would be dropped in silence, and its rules with it. A
-// trailing separator holds nothing, so it passes.
+// A second document would be dropped in silence, and its rules with it. An
+// empty document holds nothing, so one before or after the rules passes.
 func TestParseRefusesASecondDocument(t *testing.T) {
 	for name, body := range map[string]string{
 		"a full second document": oneRule + "---\n" + oneRule,
 		"an empty mapping":       oneRule + "---\n{}\n",
+		"after an empty one":     "---\n---\n" + oneRule + "---\n" + oneRule,
 	} {
 		text, _ := file(t, body)
 		if _, err := Parse([]byte(text), Defaults{}); err == nil || !strings.Contains(err.Error(), "second YAML document") {
 			t.Fatalf("%s: err = %v", name, err)
 		}
 	}
-	for _, suffix := range []string{"---\n", "---\n# nothing yet\n"} {
-		text, _ := file(t, oneRule+suffix)
-		if _, err := Parse([]byte(text), Defaults{}); err != nil {
-			t.Fatalf("%q: %v", suffix, err)
+	for name, body := range map[string]string{
+		"a trailing separator":        oneRule + "---\n",
+		"a trailing comment document": oneRule + "---\n# nothing yet\n",
+		"an empty first document":     "---\n---\n" + oneRule,
+		"a comment first document":    "---\n# header\n---\n" + oneRule,
+	} {
+		text, _ := file(t, body)
+		s, err := Parse([]byte(text), Defaults{})
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if got := s.Rules(); len(got) != 1 || got[0].To != "ready" {
+			t.Fatalf("%s: rules = %+v", name, got)
 		}
 	}
 }
 
-// A misspelt default fails once at start, not in every worker.
-func TestDefaultsCheckRefusesWhatClaudeRejects(t *testing.T) {
-	for _, d := range []Defaults{{}, {PermissionMode: "acceptEdits", Model: "sonnet"}, {PermissionMode: "default", Model: "claude-opus-4-1"}} {
+// A field the format does not define still fails when an empty document comes
+// first, so the second decoding pass keeps KnownFields.
+func TestParseKeepsKnownFieldsAfterAnEmptyDocument(t *testing.T) {
+	text, _ := file(t, "---\n---\n"+oneRule+"extra: 1\n")
+	if _, err := Parse([]byte(text), Defaults{}); err == nil || !strings.Contains(err.Error(), "field extra not found") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+// A malformed default fails once at start, not in every worker. A mode this
+// build does not know passes, because a later claude may add it.
+func TestDefaultsCheckRefusesAMalformedValue(t *testing.T) {
+	for _, d := range []Defaults{{}, {PermissionMode: "acceptEdits", Model: "sonnet"}, {PermissionMode: "someFutureMode", Model: "claude-opus-4-1"}} {
 		if err := d.Check(); err != nil {
 			t.Fatalf("Check(%+v) = %v", d, err)
 		}
 	}
 	for d, want := range map[Defaults]string{
-		{PermissionMode: "yolo"}:  `--permission-mode "yolo" is not a permission mode claude accepts`,
-		{Model: "sonnet 4"}:       `--model "sonnet 4" holds whitespace`,
-		{Model: "sonnet\t"}:       "holds whitespace",
-		{PermissionMode: "Plan "}: "is not a permission mode",
+		{PermissionMode: "accept edits"}: `--permission-mode "accept edits" holds whitespace`,
+		{PermissionMode: " "}:            `--permission-mode " " holds whitespace`,
+		{Model: "sonnet 4"}:              `--model "sonnet 4" holds whitespace`,
+		{Model: "sonnet\t"}:              "holds whitespace",
 	} {
 		if err := d.Check(); err == nil || !strings.Contains(err.Error(), want) {
 			t.Fatalf("Check(%+v) = %v, want %q", d, err, want)
@@ -266,12 +293,31 @@ func TestDefaultsCheckRefusesWhatClaudeRejects(t *testing.T) {
 	}
 }
 
-// Every value in the list reaches claude, so the list cannot hold a typo.
-func TestEveryPermissionModeParses(t *testing.T) {
+// A mode outside the known list loads, and the set names it once for the
+// bridge to warn about. A default fills a rule, so it counts too.
+func TestUnknownPermissionModesAreListedNotRefused(t *testing.T) {
+	text, _ := file(t, `
+projects:
+  loupe:
+    dir: {dir}
+rules:
+  - {name: a, on: board.card_moved, project: loupe, to: ready, permissionMode: acceptedits, prompt: x}
+  - {name: b, on: board.card_moved, project: loupe, to: review, permissionMode: acceptedits, prompt: x}
+  - {name: c, on: board.card_moved, project: loupe, to: done, permissionMode: plan, prompt: x}
+  - {name: d, on: board.card_moved, project: loupe, to: backlog, prompt: x}
+`)
+	s, err := Parse([]byte(text), Defaults{PermissionMode: "newMode"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(s.UnknownPermissionModes(), " "); got != "acceptedits newMode" {
+		t.Fatalf("UnknownPermissionModes = %q", got)
+	}
+
 	for _, mode := range PermissionModes {
 		text, _ := file(t, strings.Replace(oneRule, "    to: ready\n", "    to: ready\n    permissionMode: "+mode+"\n", 1))
-		if _, err := Parse([]byte(text), Defaults{}); err != nil {
-			t.Fatalf("%s: %v", mode, err)
+		if s, err := Parse([]byte(text), Defaults{}); err != nil || len(s.UnknownPermissionModes()) != 0 {
+			t.Fatalf("%s: err = %v", mode, err)
 		}
 	}
 }
