@@ -308,6 +308,25 @@ func TestSaveAndEnsureBridgeIDDoNotOverwriteEachOther(t *testing.T) {
 	}
 }
 
+// TestMigrateLeavesANewerTokenAlone pins the check the re-read needs. The
+// migration secures the token it was given, so a file that has moved on since
+// holds a token the keychain does not have.
+func TestMigrateLeavesANewerTokenAlone(t *testing.T) {
+	keyring.MockInit()
+	useTempConfigHome(t)
+	seedConfigFile(t, `{"baseUrl":"https://example.test","token":"sk-newer"}`)
+
+	d, err := Dir()
+	if err != nil {
+		t.Fatalf("Dir: %v", err)
+	}
+	migrateTokenToKeyring(d, Config{BaseURL: "https://example.test", Token: "sk-older"})
+
+	if got := readStoredForTest(t).Token; got != "sk-newer" {
+		t.Fatalf("config file holds token %q, want the newer one", got)
+	}
+}
+
 // TestWriteConfigLeavesNoTemporaryFile covers the rename: the config dir holds
 // the config and nothing else after a write.
 func TestWriteConfigLeavesNoTemporaryFile(t *testing.T) {

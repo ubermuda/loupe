@@ -97,9 +97,11 @@ func migrateTokenToKeyring(d string, c Config) {
 	defer configMu.Unlock()
 
 	// Re-read under the lock, so a bridge id another goroutine stored in the
-	// meantime survives.
+	// meantime survives. A file that now holds other credentials belongs to a
+	// later write, and the keychain holds the older token alone, so clearing
+	// it here would throw the newer one away.
 	cleared, err := readStoredConfig(d)
-	if err != nil {
+	if err != nil || cleared.BaseURL != c.BaseURL || cleared.Token != c.Token {
 		return
 	}
 	cleared.Token = ""
