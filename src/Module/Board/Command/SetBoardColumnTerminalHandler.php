@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardColumns;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -28,6 +30,7 @@ final readonly class SetBoardColumnTerminalHandler
         private BoardColumns $rules,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -81,5 +84,6 @@ final readonly class SetBoardColumnTerminalHandler
             ['columnId' => (string) $column->id, 'projectId' => (string) $column->project->id, 'terminal' => $command->terminal],
             new AuditSubject('board_column', (string) $column->id),
         );
+        $this->events->dispatch(new BoardColumnsChanged($column->project));
     }
 }

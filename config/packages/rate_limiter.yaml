@@ -34,14 +34,25 @@ framework:
             limit: 300
             interval: '1 minute'
 
+        # Bounds subscriber-cookie renewals from open pages. A page renews once
+        # before each reconnect, with backoff, so a real page stays far below
+        # this. Keyed per signed-in user, because the route requires one.
+        mercure_authorize:
+            policy: 'sliding_window'
+            limit: 30
+            interval: '1 minute'
+
 # The e2e suite drives one dev instance, and PHPUnit drives one kernel, both
 # from a single client address. A per-address limit therefore accumulates across
-# unrelated specs. Relax it there, never in prod. The other limiters above key
-# per token, so they need no such override.
+# unrelated specs. Relax it there, never in prod.
 when@dev:
     framework:
         rate_limiter:
             api_authentication:
+                policy: 'sliding_window'
+                limit: 100000
+                interval: '1 minute'
+            mercure_authorize:
                 policy: 'sliding_window'
                 limit: 100000
                 interval: '1 minute'
@@ -50,6 +61,10 @@ when@test:
     framework:
         rate_limiter:
             api_authentication:
+                policy: 'sliding_window'
+                limit: 100000
+                interval: '1 minute'
+            mercure_authorize:
                 policy: 'sliding_window'
                 limit: 100000
                 interval: '1 minute'

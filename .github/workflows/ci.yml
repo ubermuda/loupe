@@ -119,7 +119,7 @@ jobs:
       # is handled inline.
       - run: >
           docker compose -f compose.yaml -f docker/compose/ci.yaml
-          up -d --wait nginx mailer
+          up -d --wait nginx mailer mercure
 
       - name: Prepare the application
         run: |
