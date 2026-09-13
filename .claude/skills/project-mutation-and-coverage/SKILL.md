@@ -71,8 +71,9 @@ idle, so worker start-up shows as idle time.
 The PHPUnit timing artifact comes from every CI run as well. `bin/phpunit-timing.php`
 reads the JUnit XML and prints the mean seconds per test, the slowest classes and
 the slowest tests. Its total sums the test times alone, so it is always shorter
-than the job's wall clock. A fatal error kills PHPUnit before it writes the log,
-so that one run yields no artifact.
+than the job's wall clock. PHPUnit opens the log when the run starts and writes
+it when the run ends, so a process that dies in between uploads an empty file.
+The script names that case rather than reporting zero tests.
 
 A coverage `summary.txt` carries terminal colour codes, so a plain `grep` shows
 escape characters around the numbers.

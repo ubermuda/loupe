@@ -105,6 +105,14 @@ final class PhpunitTimingScriptTest extends TestCase
         self::assertStringContainsString('1m30.50s', $this->runScript($this->write($xml))['output']);
     }
 
+    public function test_it_names_the_empty_file_a_killed_run_leaves(): void
+    {
+        $result = $this->runScript($this->write(''));
+
+        self::assertSame(1, $result['status']);
+        self::assertStringContainsString('PHPUnit died before it wrote the log', $result['output']);
+    }
+
     public function test_it_refuses_a_file_that_is_not_well_formed(): void
     {
         $result = $this->runScript($this->write('<testsuites><testcase'));

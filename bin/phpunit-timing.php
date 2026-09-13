@@ -46,6 +46,13 @@ if (false === $xml) {
     exit(1);
 }
 
+// PHPUnit opens the log file when the run starts and writes it when the run
+// ends, so a process killed in between leaves an empty file behind.
+if ('' === trim($xml)) {
+    fwrite(\STDERR, sprintf("%s is empty. PHPUnit died before it wrote the log.\n", $path));
+    exit(1);
+}
+
 $document = new DOMDocument();
 
 // A run killed mid-write leaves truncated XML, and libxml would otherwise print
