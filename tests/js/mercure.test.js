@@ -138,14 +138,17 @@ describe('subscribe', () => {
         renderPage([BOARD_TOPIC]);
         const review = vi.fn();
         const onOpen = vi.fn();
-        subscribe(REVIEW_TOPIC, [REVIEW], review, { onOpen });
+        const onError = vi.fn();
+        subscribe(REVIEW_TOPIC, [REVIEW], review, { onOpen, onError });
         subscribe(BOARD, vi.fn());
         vi.runOnlyPendingTimers();
         latest().emit('open');
         latest().emit('message', message(REVIEW));
+        latest().emit('error');
 
         expect(review).not.toHaveBeenCalled();
         expect(onOpen).not.toHaveBeenCalled();
+        expect(onError).not.toHaveBeenCalled();
     });
 
     it('reopens when a Turbo visit changes the topics', () => {

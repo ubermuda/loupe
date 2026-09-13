@@ -198,10 +198,8 @@ function retry() {
     close();
     openHub = hub;
     openTopics = topics;
-    subscriptions.forEach((s) => {
-        s.opened = false;
-        s.onError?.();
-    });
+    subscriptions.forEach((s) => (s.opened = false));
+    [...subscriptions].filter(listening).forEach((s) => s.onError?.());
 
     const current = generation;
     retryTimeout = setTimeout(async () => {
