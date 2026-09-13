@@ -30,6 +30,11 @@ type SendFunc func(ctx context.Context, run api.WorkerRun) error
 // so a queue this deep means the server has been unreachable for hours.
 const capacity = 64
 
+// grace bounds the last delivery a shutdown allows. Ctrl-C kills the workers,
+// and a killed worker writes nothing to its card, so the bridge is the only
+// witness of those runs. Each one gets one more attempt inside this window.
+const grace = 5 * time.Second
+
 // defaultBackoff waits between attempts. The common failure is a Loupe restart,
 // a laptop that wakes, or a dropped connection, so the first retries come fast
 // and the ten attempts cover about four minutes in all.
@@ -66,9 +71,10 @@ type Retrying struct {
 	in     chan api.WorkerRun
 	done   chan struct{}
 
-	// backoff and after are fields, so a test waits for no real second.
+	// backoff, after and grace are fields, so a test waits for no real second.
 	backoff []time.Duration
 	after   func(d time.Duration) <-chan time.Time
+	grace   time.Duration
 
 	mu     sync.Mutex
 	closed bool
@@ -86,6 +92,7 @@ func New(ctx context.Context, log *slog.Logger, send SendFunc) *Retrying {
 		done:    make(chan struct{}),
 		backoff: defaultBackoff,
 		after:   time.After,
+		grace:   grace,
 	}
 
 	go q.run()
@@ -112,8 +119,8 @@ func (q *Retrying) Enqueue(run api.WorkerRun) {
 	}
 }
 
-// Close stops the sender and names what it drops. Everything still in the queue
-// dies with the bridge, so a missing record means "unknown".
+// Close stops the sender, gives what it still holds one last attempt, and names
+// what it drops after that. A dropped record means "unknown".
 func (q *Retrying) Close() {
 	q.mu.Lock()
 	if q.closed {
@@ -129,8 +136,8 @@ func (q *Retrying) Close() {
 	<-q.done
 }
 
-// run sends each queued report in turn, and counts the ones a stopping bridge
-// takes with it.
+// run sends each queued report in turn, and collects the ones a stopping bridge
+// leaves behind for one last attempt.
 func (q *Retrying) run() {
 	defer close(q.done)
 
@@ -141,7 +148,31 @@ func (q *Retrying) run() {
 		}
 	}
 
-	q.logLost(lost)
+	q.logLost(q.flush(lost))
+}
+
+// flush gives each report a stopping bridge still holds one attempt, inside the
+// grace window, and returns the ones that do not land. It sends on a context of
+// its own, because the bridge's is cancelled by the time it runs.
+//
+// A report the shutdown interrupted is sent again here. The server identifies a
+// run by its own key, so a second copy of a report that landed changes nothing.
+func (q *Retrying) flush(lost []api.WorkerRun) []api.WorkerRun {
+	if len(lost) == 0 {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), q.grace)
+	defer cancel()
+
+	var dropped []api.WorkerRun
+	for _, run := range lost {
+		if ctx.Err() != nil || q.send(ctx, run) != nil {
+			dropped = append(dropped, run)
+		}
+	}
+
+	return dropped
 }
 
 // deliver sends one report until the server takes it, until the server refuses

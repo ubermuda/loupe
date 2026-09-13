@@ -37,9 +37,10 @@ func (b *syncBuffer) String() string {
 // harness is a queue whose every wait returns at once, so a test waits for no
 // real second.
 type harness struct {
-	queue *Retrying
-	log   *syncBuffer
-	sent  chan api.WorkerRun
+	queue  *Retrying
+	log    *syncBuffer
+	sent   chan api.WorkerRun
+	cancel context.CancelFunc
 }
 
 // newHarness builds a queue of at most attempts attempts, and answers each send
@@ -47,11 +48,12 @@ type harness struct {
 func newHarness(t *testing.T, retries int, answers ...error) *harness {
 	t.Helper()
 
-	h := &harness{log: &syncBuffer{}, sent: make(chan api.WorkerRun, 32)}
+	ctx, cancel := context.WithCancel(context.Background())
+	h := &harness{log: &syncBuffer{}, sent: make(chan api.WorkerRun, 32), cancel: cancel}
 	var calls int
 	var mu sync.Mutex
 
-	h.queue = New(context.Background(), slog.New(slog.NewJSONHandler(h.log, nil)),
+	h.queue = New(ctx, slog.New(slog.NewJSONHandler(h.log, nil)),
 		func(_ context.Context, run api.WorkerRun) error {
 			mu.Lock()
 			answer := error(nil)
@@ -192,8 +194,28 @@ func TestQueueStopsAtARefusedReport(t *testing.T) {
 	}
 }
 
-// Everything in flight dies with the bridge. The count is what tells an
-// operator that a missing record means "unknown".
+// Ctrl-C kills the workers, and a killed worker writes nothing to its card. The
+// bridge is the only witness of those runs, so the shutdown still sends them.
+func TestQueueDeliversWhatAShutdownFinds(t *testing.T) {
+	h := newHarness(t, 3)
+
+	// A cancelled bridge stops every normal attempt, so the grace window is the
+	// one path left that can deliver these two.
+	h.cancel()
+	h.queue.Enqueue(run(1))
+	h.queue.Enqueue(run(2))
+	h.queue.Close()
+
+	for attempt := 1; attempt <= 2; attempt++ {
+		h.next(t, attempt)
+	}
+	if lines := h.lines(t, "report_dropped"); len(lines) != 0 {
+		t.Fatalf("report_dropped = %v, want the shutdown to have delivered both", lines)
+	}
+}
+
+// A shutdown that cannot reach the server drops what it holds. The count is
+// what tells an operator that a missing record means "unknown".
 func TestQueueCountsWhatAShutdownDrops(t *testing.T) {
 	held := make(chan struct{})
 	log := &syncBuffer{}
@@ -206,6 +228,8 @@ func TestQueueCountsWhatAShutdownDrops(t *testing.T) {
 
 			return ctx.Err()
 		})
+	// No grace window, which is the bridge that cannot reach Loupe at all.
+	h.queue.grace = 0
 
 	h.queue.Enqueue(run(1))
 	h.next(t, 1)

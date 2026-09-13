@@ -57,9 +57,13 @@ start and end times, the exit code and the output.
 
 The queue that carries those reports is held in memory. A failed send waits one
 second, then twice as long before each later attempt, up to sixty seconds. The
-bridge gives up after ten attempts and logs `report_failed`. Stopping the bridge
-drops the reports still in the queue and logs `report_dropped` with the count. A
-missing record therefore means "unknown", and never "the worker did not run".
+bridge gives up after ten attempts and logs `report_failed`.
+
+Stopping the bridge kills its workers, and those runs are the ones only the
+bridge can report. So it gives each report one last attempt, in a window of five
+seconds. It logs `report_dropped` with the count of the reports that miss the
+window. A missing record therefore means "unknown", and never "the worker did
+not run".
 
 There is no terminal UI. The bridge writes one JSON object per line to stdout
 and to its log file, named by `--log-file`. Each line carries a stable `event`

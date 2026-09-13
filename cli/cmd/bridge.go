@@ -227,8 +227,8 @@ func subscribe(cmd *cobra.Command, cfg config.Config, projectID string, r *route
 	defer stop()
 	r.ctx = ctx
 
-	// The queue closes before stop, and after the workers, so it sees every
-	// report a dying worker still makes.
+	// The queue closes after the workers, so it sees every report a dying worker
+	// still makes, and its grace window can send them.
 	r.reports = newReportQueue(ctx, r.log, cfg, projectID)
 	defer r.reports.Close()
 
