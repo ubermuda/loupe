@@ -83,6 +83,7 @@ final class BoardColumnControllersTest extends WebTestCase
 
         self::assertResponseRedirects('/projects/'.$project->id.'/board');
         self::assertSame(['backlog', 'up-next', 'in-progress', 'done'], $this->slugs($project));
+        self::assertSame('human', $this->outboxPayload($project, 'board.column_renamed')['actor'] ?? null);
     }
 
     public function test_a_refused_rename_reopens_its_dialog_with_the_error(): void
@@ -210,6 +211,7 @@ final class BoardColumnControllersTest extends WebTestCase
         $moved = $this->em->find(Card::class, $cardId);
         self::assertInstanceOf(Card::class, $moved);
         self::assertSame('backlog', $moved->column->slug);
+        self::assertSame('human', $this->outboxPayload($project, 'board.column_deleted')['actor'] ?? null);
 
         $this->client->followRedirect();
         self::assertSelectorTextContains('body', 'moved its card');
@@ -344,6 +346,21 @@ final class BoardColumnControllersTest extends WebTestCase
     private function columnUrl(Project $project, BoardColumn $column, string $action): string
     {
         return '/projects/'.$project->id.'/board/columns/'.$column->id.'/'.$action;
+    }
+
+    /** @return array<mixed> the decoded payload of the project's one outbox row of this type */
+    private function outboxPayload(Project $project, string $type): array
+    {
+        $payloads = $this->em->getConnection()->fetchFirstColumn(
+            'SELECT payload FROM outbox_events WHERE project_id = :project AND type = :type',
+            ['project' => (string) $project->id, 'type' => $type],
+        );
+        self::assertCount(1, $payloads);
+        self::assertIsString($payloads[0]);
+        $payload = json_decode($payloads[0], true, 512, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+
+        return $payload;
     }
 
     /** @return list<string> */

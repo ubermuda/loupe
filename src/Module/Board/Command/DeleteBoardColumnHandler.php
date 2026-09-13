@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Board\Event\BoardColumnDeleted;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardColumns;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
@@ -18,12 +20,13 @@ use Ubermuda\AuditBundle\AuditSubject;
  * Deletes a column. A column that holds cards moves them to the target first,
  * in bulk, with the completion rules a drag follows.
  *
- * The bulk move reads and writes database rows under the project lock, and
- * never the cards loaded in memory, so it needs no CardRepository::refreshGroup().
- * A card loaded before the call keeps its old column in memory.
+ * The bulk move reads and writes database rows under the project lock, so it
+ * needs no CardRepository::refreshGroup(). A moved card loaded before the call
+ * is re-read afterwards.
  *
  * The move dispatches no CardMoved: the outbox must not see one event per card
- * for a single delete, so only the audit trail records each move.
+ * for a single delete, so only the audit trail records each move. The delete
+ * dispatches one BoardColumnDeleted, which names every moved card.
  */
 final readonly class DeleteBoardColumnHandler
 {
@@ -36,6 +39,7 @@ final readonly class DeleteBoardColumnHandler
         private BoardColumns $rules,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -81,6 +85,7 @@ final readonly class DeleteBoardColumnHandler
                 if (!$target->terminal) {
                     $this->cards->renumberColumn($target, $now);
                 }
+                $this->cards->refreshLoadedFrom($column);
 
                 $positions = $this->cards->positionsInColumn($target);
                 foreach ($rows as $row) {
@@ -108,6 +113,16 @@ final readonly class DeleteBoardColumnHandler
                 }
             }
             $this->em->flush();
+
+            // Inside the transaction, so a listener's rows commit or roll back with the delete.
+            $this->events->dispatch(new BoardColumnDeleted(
+                project: $column->project,
+                columnId: $deleted->columnId,
+                slug: $deleted->slug,
+                targetSlug: $deleted->targetSlug,
+                movedCardIds: $deleted->movedCardIds,
+                actor: $command->actor,
+            ));
 
             return $deleted;
         });

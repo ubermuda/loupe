@@ -9,6 +9,7 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Command\DeleteBoardColumnCommand;
 use App\Module\Board\Command\DeleteBoardColumnHandler;
 use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Form\DeleteBoardColumnFormType;
 use App\Module\Board\Form\DeleteBoardColumnRequest;
 use App\Module\Board\Security\BoardColumnVoter;
@@ -71,7 +72,7 @@ final class DeleteBoardColumnController extends AppController
         }
 
         try {
-            $deleted = ($this->deleteColumn)(new DeleteBoardColumnCommand($column, $data->target));
+            $deleted = ($this->deleteColumn)(new DeleteBoardColumnCommand($column, CardReporter::Human, $data->target));
             $this->addFlash('success', $this->translator->trans('board.column.flash.deleted', [
                 '%label%' => $label,
                 '%count%' => \count($deleted->movedCardIds),

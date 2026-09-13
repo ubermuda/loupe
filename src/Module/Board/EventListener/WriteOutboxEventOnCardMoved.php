@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Board\EventListener;
 
-use App\Mercure\ProjectTopicBuilder;
 use App\Module\Board\BoardEventType;
 use App\Module\Board\Event\CardMoved;
-use App\Outbox\Entity\OutboxEvent;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Outbox\OutboxWriter;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 
 /**
@@ -24,8 +22,7 @@ use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 final readonly class WriteOutboxEventOnCardMoved
 {
     public function __construct(
-        private ProjectTopicBuilder $topics,
-        private EntityManagerInterface $em,
+        private OutboxWriter $outbox,
     ) {
     }
 
@@ -38,7 +35,7 @@ final readonly class WriteOutboxEventOnCardMoved
         // outbox, so a rename here is a breaking change there. Identifiers the
         // server generated, and no title and no body: text a person wrote must
         // never reach an agent through a directive.
-        $payload = [
+        $this->outbox->write($project, BoardEventType::CARD_MOVED, [
             'type' => BoardEventType::CARD_MOVED,
             'subject' => ['type' => 'card', 'id' => (string) $card->id],
             'projectId' => (string) $project->id,
@@ -46,13 +43,6 @@ final readonly class WriteOutboxEventOnCardMoved
             'fromStatus' => $event->move->fromColumn->slug,
             'toStatus' => $card->column->slug,
             'actor' => $event->actor->value,
-        ];
-
-        $this->em->persist(new OutboxEvent(
-            project: $project,
-            type: BoardEventType::CARD_MOVED,
-            topic: $this->topics->forProject($project->id ?? throw new \LogicException('Project has no id.')),
-            payload: json_encode($payload, \JSON_THROW_ON_ERROR),
-        ));
+        ]);
     }
 }

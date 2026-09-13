@@ -97,7 +97,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
     public function test_a_label_that_is_a_translation_key_is_refused(): void
     {
         $this->assertRefused(['label' => BoardColumns::LABEL_RESERVED], fn () => $this->handler(AddBoardColumnHandler::class)(new AddBoardColumnCommand($this->project, 'board.page.description')));
-        $this->assertRefused(['label' => BoardColumns::LABEL_RESERVED], fn () => $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($this->column($this->project, 'next'), 'board.card.status.done')));
+        $this->assertRefused(['label' => BoardColumns::LABEL_RESERVED], fn () => $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($this->column($this->project, 'next'), CardReporter::Human, 'board.card.status.done')));
         self::assertSame(BoardColumns::LABEL_RESERVED, $this->handler(PreviewBoardColumnRenameHandler::class)(new PreviewBoardColumnRenameCommand($this->column($this->project, 'next'), 'board.page.description'))->refusal);
     }
 
@@ -110,7 +110,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
     {
         $next = $this->column($this->project, 'next');
 
-        $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($next, 'Up next'));
+        $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($next, CardReporter::Human, 'Up next'));
 
         $this->em->clear();
         $renamed = $this->em->find(BoardColumn::class, $next->id);
@@ -127,7 +127,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
     {
         $next = $this->column($this->project, 'next');
 
-        $this->assertRefused(['label' => BoardColumns::SLUG_TAKEN], fn () => $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($next, 'In progress')));
+        $this->assertRefused(['label' => BoardColumns::SLUG_TAKEN], fn () => $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($next, CardReporter::Human, 'In progress')));
 
         $this->em->clear();
         self::assertSame(['backlog', 'next', 'in-progress', 'done'], $this->slugs());
@@ -136,7 +136,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
 
     public function test_a_rename_to_a_label_with_no_slug_is_refused(): void
     {
-        $this->assertRefused(['label' => BoardColumns::SLUG_EMPTY], fn () => $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($this->column($this->project, 'next'), '!!!')));
+        $this->assertRefused(['label' => BoardColumns::SLUG_EMPTY], fn () => $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($this->column($this->project, 'next'), CardReporter::Human, '!!!')));
     }
 
     public function test_the_preview_shows_the_slug_a_rename_would_write_and_the_rule_it_would_break(): void
@@ -248,7 +248,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
 
     public function test_an_empty_column_deletes_at_once_and_the_rest_close_up(): void
     {
-        $deleted = $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($this->column($this->project, 'next')));
+        $deleted = $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($this->column($this->project, 'next'), CardReporter::Human));
 
         self::assertSame('next', $deleted->slug);
         self::assertNull($deleted->targetSlug);
@@ -262,20 +262,20 @@ final class BoardColumnHandlersTest extends KernelTestCase
 
     public function test_the_default_column_cannot_be_deleted(): void
     {
-        $this->assertRefused(['column' => BoardColumns::NO_SINGLE_DEFAULT], fn () => $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($this->column($this->project, 'backlog'))));
+        $this->assertRefused(['column' => BoardColumns::NO_SINGLE_DEFAULT], fn () => $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($this->column($this->project, 'backlog'), CardReporter::Human)));
         self::assertSame(['backlog', 'next', 'in-progress', 'done'], $this->slugs());
     }
 
     public function test_the_last_terminal_column_cannot_be_deleted(): void
     {
-        $this->assertRefused(['column' => BoardColumns::NO_TERMINAL], fn () => $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($this->column($this->project, 'done'), $this->column($this->project, 'next'))));
+        $this->assertRefused(['column' => BoardColumns::NO_TERMINAL], fn () => $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($this->column($this->project, 'done'), CardReporter::Human, $this->column($this->project, 'next'))));
     }
 
     public function test_a_column_with_cards_needs_a_target(): void
     {
         $this->card('Stuck', 'next');
 
-        $this->assertRefused(['target' => DeleteBoardColumnHandler::TARGET_REQUIRED], fn () => $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($this->column($this->project, 'next'))));
+        $this->assertRefused(['target' => DeleteBoardColumnHandler::TARGET_REQUIRED], fn () => $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($this->column($this->project, 'next'), CardReporter::Human)));
         self::assertSame(['backlog', 'next', 'in-progress', 'done'], $this->slugs());
     }
 
@@ -284,10 +284,10 @@ final class BoardColumnHandlersTest extends KernelTestCase
         $this->card('Stuck', 'next');
         $next = $this->column($this->project, 'next');
 
-        $this->assertRefused(['target' => DeleteBoardColumnHandler::TARGET_INVALID], fn () => $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($next, $next)));
+        $this->assertRefused(['target' => DeleteBoardColumnHandler::TARGET_INVALID], fn () => $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($next, CardReporter::Human, $next)));
     }
 
-    public function test_a_delete_moves_every_card_to_the_target_with_one_audit_record_each_and_no_outbox_row(): void
+    public function test_a_delete_moves_every_card_to_the_target_with_one_audit_record_each_and_one_outbox_row(): void
     {
         $this->card('Already there', 'in-progress', CardPriority::High);
         $first = $this->card('First', 'next', CardPriority::High);
@@ -299,7 +299,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
         $target = $this->column($this->project, 'in-progress');
         $this->audit->forget();
 
-        $deleted = $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($next, $target));
+        $deleted = $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($next, CardReporter::Human, $target));
 
         self::assertSame($ids, $deleted->movedCardIds);
         self::assertSame('in-progress', $deleted->targetSlug);
@@ -325,8 +325,9 @@ final class BoardColumnHandlersTest extends KernelTestCase
         }
         self::assertSame(3, $this->audit->record('board.column_deleted')->context['movedCards']);
 
-        self::assertSame(0, (int) $this->em->getConnection()->fetchOne(
-            'SELECT count(*) FROM outbox_events WHERE project_id = :id',
+        // One row for the delete and none per card, so the bulk move starts no agents.
+        self::assertSame(['board.column_deleted'], $this->em->getConnection()->fetchFirstColumn(
+            'SELECT type FROM outbox_events WHERE project_id = :id',
             ['id' => (string) $this->project->id],
         ));
     }
@@ -336,13 +337,27 @@ final class BoardColumnHandlersTest extends KernelTestCase
         $card = $this->card('Wrapping up', 'next');
         $cardId = $card->id;
 
-        $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($this->column($this->project, 'next'), $this->column($this->project, 'done')));
+        $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($this->column($this->project, 'next'), CardReporter::Human, $this->column($this->project, 'done')));
 
         $this->em->clear();
         $moved = $this->em->find(Card::class, $cardId);
         self::assertInstanceOf(Card::class, $moved);
         self::assertSame('done', $moved->column->slug);
         self::assertNotNull($moved->completedAt);
+    }
+
+    public function test_a_loaded_card_reads_its_new_column_rank_and_completion_after_the_bulk_move(): void
+    {
+        $this->card('First', 'next');
+        $second = $this->card('Second', 'next');
+        self::assertSame(1, $second->position);
+        self::assertNull($second->completedAt);
+
+        $this->handler(DeleteBoardColumnHandler::class)(new DeleteBoardColumnCommand($this->column($this->project, 'next'), CardReporter::Human, $this->column($this->project, 'done')));
+
+        self::assertSame('done', $second->column->slug);
+        self::assertSame(0, $second->position);
+        self::assertNotNull($second->completedAt);
     }
 
     public function test_a_card_moved_into_a_column_deleted_since_it_was_loaded_is_refused(): void
