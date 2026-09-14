@@ -56,11 +56,29 @@ final class InboxReadRecordingTest extends KernelTestCase
 
         // The stamp says the session saw the answer, so the row it stamps must carry it.
         self::assertSame([(string) $item->id], array_column($result['items'], 'itemId'));
-        self::assertSame(['JSON', 'CSV'], $result['items'][0]['options']);
-        self::assertSame([0], $result['items'][0]['selectedOptions']);
-        self::assertNull($result['items'][0]['answerText']);
-        self::assertNull($result['items'][0]['closeNote']);
+        $row = $result['items'][0];
+        self::assertArrayHasKey('answerText', $row);
+        self::assertArrayHasKey('closeNote', $row);
+        self::assertSame(['JSON', 'CSV'], $row['options'] ?? null);
+        self::assertSame([0], $row['selectedOptions'] ?? null);
+        self::assertNull($row['answerText']);
+        self::assertNull($row['closeNote']);
         self::assertNotNull($this->readAt($ask, $item));
+    }
+
+    public function test_a_list_without_a_reader_session_keeps_the_short_row(): void
+    {
+        [$project, $item, $ask] = $this->closedAsk('inbox-read-short-row');
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = ($this->list)(askId: (string) $ask->id);
+
+        self::assertSame([(string) $item->id], array_column($result['items'], 'itemId'));
+        self::assertSame(
+            ['itemId', 'number', 'kind', 'title', 'state', 'blocking', 'createdAt', 'updatedAt', 'closedAt'],
+            array_keys($result['items'][0]),
+        );
+        self::assertNull($this->readAt($ask, $item));
     }
 
     public function test_a_get_by_the_reader_session_records_the_read_on_its_closed_ask(): void
@@ -188,7 +206,7 @@ final class InboxReadRecordingTest extends KernelTestCase
 
         $result = ($this->list)(readerSessionId: (string) $ask->sessionId);
 
-        self::assertSame('Use CSV', $result['items'][0]['answerText']);
+        self::assertSame('Use CSV', $result['items'][0]['answerText'] ?? null);
         self::assertNotNull($this->readAt($ask, $item));
     }
 

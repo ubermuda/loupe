@@ -50,8 +50,8 @@ final readonly class InboxItemPayload
     }
 
     /**
-     * A row of inbox_list carries the response, because a reader session's list
-     * call records that the session read it.
+     * The rows of an inbox_list call that names a reader session. They carry the
+     * response, because the call records that the session read it.
      *
      * @param list<InboxItem> $items
      *
