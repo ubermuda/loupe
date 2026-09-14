@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Outbox\Command;
 
+use App\Mercure\UserTopicBuilder;
 use App\Outbox\AgentPush;
 use App\Outbox\Repository\OutboxEventRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -31,6 +32,7 @@ final readonly class DrainOutboxHandler
         private HubInterface $hub,
         private LoggerInterface $logger,
         private FeatureFlagService $featureFlags,
+        private UserTopicBuilder $userTopics,
     ) {
     }
 
@@ -57,7 +59,13 @@ final readonly class DrainOutboxHandler
 
         foreach ($events as $event) {
             try {
-                $this->hub->publish(new Update($event->topic, $event->payload, true, id: $event->sequence));
+                $ownerId = $event->project->owner->id ?? throw new \LogicException('Project owner has no id.');
+                $this->hub->publish(new Update(
+                    [$event->topic, $this->userTopics->forUser($ownerId)],
+                    $event->payload,
+                    true,
+                    id: $event->sequence,
+                ));
             } catch (\Throwable $e) {
                 ++$failed;
                 $event->recordPublishFailure($e->getMessage(), $now);

@@ -104,20 +104,32 @@ const (
 	testCard    = "0192f3a1-9999-7d3e-8f10-000000000087"
 )
 
-// boardColumns answers the start check for the loupe project.
+// otherProject is the id of the second mapped project, other.
+const otherProject = "0192f3a1-4b2c-7d3e-8f10-000000000002"
+
+// boardColumns answers the start check for the loupe and other projects.
 type boardColumns struct{}
 
 func (boardColumns) Columns(_ context.Context, handle string) (api.ProjectColumns, error) {
 	var pc api.ProjectColumns
-	if handle != "loupe" {
+	switch handle {
+	case "loupe":
+		pc.Project.ID = testProject
+	case "other":
+		pc.Project.ID = otherProject
+	default:
 		return pc, api.ErrProjectNotFound
 	}
-	pc.Project.ID, pc.Project.Slug = testProject, "loupe"
+	pc.Project.Slug = handle
 	for _, slug := range []string{"backlog", "next", "in-progress", "review", "done"} {
 		pc.Columns = append(pc.Columns, api.Column{Slug: slug})
 	}
 
 	return pc, nil
+}
+
+func (boardColumns) Sites(context.Context) ([]api.Site, error) {
+	return []api.Site{{ID: testProject, Slug: "loupe"}, {ID: otherProject, Slug: "other"}}, nil
 }
 
 // defaultRules starts a worker for a card that enters next, as the bridge did
@@ -172,6 +184,7 @@ func newHarnessWith(t *testing.T, body string, defaults rules.Defaults) *harness
 		rules:      set,
 		maxWorkers: defaultMaxWorkers,
 		worker:     w.ops(),
+		bridgeID:   testBridgeID,
 	}
 
 	return h
@@ -1087,13 +1100,13 @@ func TestIncompleteCardEventIsReportedAndDropped(t *testing.T) {
 // The stream reports its own faults through the handler, so a retry is visible.
 func TestAStreamErrorIsReported(t *testing.T) {
 	h := newHarness(t)
-	h.router.project, h.router.topic = "loupe", "https://loupe.test/board"
+	h.router.projects, h.router.topic = []string{"loupe", "other"}, "https://loupe.test/users/u/events"
 
 	h.router.handler().OnConnect()
 	h.router.handler().OnError(errors.New("hub returned HTTP 401"))
 
 	connected := h.only(t, "connected")
-	if str(t, connected, "project") != "loupe" || str(t, connected, "topic") != "https://loupe.test/board" {
+	if str(t, connected, "topic") != "https://loupe.test/users/u/events" || fmt.Sprint(connected["projects"]) != "[loupe other]" {
 		t.Fatalf("connected = %v", connected)
 	}
 	if got := str(t, h.only(t, "stream_error"), "error"); got != "hub returned HTTP 401" {

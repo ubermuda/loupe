@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/event"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 	"github.com/ubermuda/loupe/cli/internal/transport"
@@ -21,10 +23,14 @@ type router struct {
 	ctx        context.Context
 	log        *slog.Logger
 	rules      *rules.Set
-	project    string
+	projects   []string
 	topic      string
 	maxWorkers int
 	worker     workerOps
+	// bridgeID names the bridge in its rule health reports. With none, as in
+	// most tests, the bridge sends no report.
+	bridgeID string
+	health   *healthReporter
 
 	mu sync.Mutex
 	// queue holds the accepted events in arrival order, at most one for each
@@ -39,9 +45,11 @@ type router struct {
 	active int
 	closed bool
 
-	// unmapped remembers the projects already logged as unmapped. Only the
-	// stream goroutine reads events, so it needs no lock.
+	// unmapped remembers the projects already logged as unmapped, and gone the
+	// mapped projects already logged as gone. Only the stream goroutine reads
+	// events and refreshes the JWT, so neither needs a lock.
 	unmapped map[string]bool
+	gone     map[string]bool
 
 	// wg counts the workers in flight. Tests wait on it instead of sleeping.
 	wg sync.WaitGroup
@@ -91,7 +99,7 @@ func aggregate(e event.Event) string {
 
 func (r *router) handler() transport.Handler {
 	return transport.Handler{
-		OnConnect: func() { r.log.Info("connected", "topic", r.topic, "project", r.project) },
+		OnConnect: func() { r.log.Info("connected", "topic", r.topic, "projects", r.projects) },
 		OnError:   func(err error) { r.log.Error("stream_error", "error", err.Error()) },
 		OnData:    r.onData,
 	}
@@ -110,6 +118,17 @@ func (r *router) onData(data []byte) {
 		r.log.Error("event_malformed", "error", err.Error())
 
 		return
+	}
+
+	// A slug change is a person's action, not a directive to an agent, so it
+	// kills rules whatever its actor. Matching then goes on as for any event.
+	if dead, dropped := r.kill(func() []rules.Dead { return r.rules.Kill(e) }); len(dead) > 0 {
+		for _, d := range dead {
+			r.log.Error("rule_dead", "rule", d.Rule, "project", e.ProjectID, "project_slug", d.Project, "reason", d.Reason,
+				"message", fmt.Sprintf("rule %s matches nothing until the bridge restarts, because %s", d.Rule, slugChange(e, d.Project)))
+		}
+		r.logDropped(dropped)
+		r.reportHealth(dead[0].Project)
 	}
 
 	// A person who touches the card has seen it, which is what a capped chain
@@ -139,6 +158,94 @@ func (r *router) onData(data []byte) {
 			}
 			r.unmapped[e.ProjectID] = true
 			r.log.Warn("project_unmapped", "project", e.ProjectID)
+		}
+	}
+}
+
+// kill runs a rule kill and removes the queued events of the rules it killed,
+// in one critical section, so a worker that finishes cannot start one of them
+// in between. The caller logs what it returns.
+func (r *router) kill(do func() []rules.Dead) ([]rules.Dead, []pending) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	dead := do()
+	if len(dead) == 0 {
+		return nil, nil
+	}
+	names := map[string]bool{}
+	for _, d := range dead {
+		names[d.Rule] = true
+	}
+	var dropped []pending
+	r.queue = slices.DeleteFunc(r.queue, func(p pending) bool {
+		if names[p.rule] {
+			dropped = append(dropped, p)
+
+			return true
+		}
+
+		return false
+	})
+
+	return dead, dropped
+}
+
+// slugChange says in words what a slug-changing event did.
+func slugChange(e event.Event, project string) string {
+	switch e.Type {
+	case event.ColumnRenamedType:
+		return fmt.Sprintf("column %s of project %s is now %s", e.FromSlug, project, e.ToSlug)
+	case event.ColumnDeletedType:
+		return fmt.Sprintf("column %s of project %s was deleted", e.Slug, project)
+	default:
+		return fmt.Sprintf("project %s is now %s", e.FromSlug, e.ToSlug)
+	}
+}
+
+// reportHealth hands the current health of one project's rules to the
+// reporter. The slice is built here, so the reporter never reads the set.
+func (r *router) reportHealth(project string) {
+	if r.health == nil {
+		return
+	}
+	r.health.submit(project, r.rules.ProjectID(project), r.rules.Health(project))
+}
+
+// onRefresh logs, once for each, a mapped project that a fresh GET /api/events
+// no longer lists, with the rules that stop working.
+func (r *router) onRefresh(events api.Events) {
+	for _, slug := range missingProjects(r.rules, events) {
+		if r.gone[slug] {
+			continue
+		}
+		if r.gone == nil {
+			r.gone = map[string]bool{}
+		}
+		r.gone[slug] = true
+
+		var names []string
+		for _, rule := range r.rules.Rules() {
+			if rule.Project == slug {
+				names = append(names, rule.Name)
+			}
+		}
+		r.log.Error("project_gone",
+			"project", slug,
+			"rules", names,
+			"message", fmt.Sprintf("project %s is deleted or no longer yours, so rules %s stop working", slug, strings.Join(names, ", ")),
+		)
+
+		dead, dropped := r.kill(func() []rules.Dead { return r.rules.KillProject(slug, api.ReasonProjectGone) })
+		for _, d := range dead {
+			r.log.Error("rule_dead", "rule", d.Rule, "project", r.rules.ProjectID(slug), "project_slug", slug, "reason", d.Reason,
+				"message", fmt.Sprintf("rule %s matches nothing until the bridge restarts, because project %s is gone", d.Rule, slug))
+		}
+		r.logDropped(dropped)
+		// The server most likely answers project_not_found, which the reporter
+		// logs once and does not retry.
+		if len(dead) > 0 {
+			r.reportHealth(slug)
 		}
 	}
 }

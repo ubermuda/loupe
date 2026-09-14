@@ -150,8 +150,11 @@ phpstan:
 arkitect:
     vendor/bin/phparkitect check
 
+# XDEBUG_MODE lives here rather than in a compose overlay, so CI and a
+# workstation run the one command. The php-fpm container carries
+# develop,coverage, which instruments every line the suite executes.
 phpunit *args:
-    bin/worktrees/compose-exec.sh vendor/bin/phpunit "$@"
+    bin/worktrees/compose-exec.sh env XDEBUG_MODE=off vendor/bin/phpunit "$@"
 
 # Vitest over tests/js. Runs on the host, not in the container: it needs Node
 # alone, and the app it tests is a browser script.

@@ -8,12 +8,18 @@ set -euo pipefail
 
 report=${1:-}
 run=${2:-}
+# A glob rather than a name, for a report the e2e shards upload one of each.
+# `gh run download --pattern` puts every match in its own subdirectory, so a
+# pattern also changes the layout under $dir.
+pattern=''
 
 case "$report" in
     mutation) workflow='Mutation testing' artifact=infection-report ;;
     phpunit-coverage) workflow='Coverage report' artifact=phpunit-coverage ;;
     e2e-coverage) workflow='Coverage report' artifact=e2e-coverage ;;
-    e2e-timing) workflow='CI' artifact=e2e-timing ;;
+    # The trailing `*` also matches `e2e-timing`, the single artifact a run
+    # from before the e2e job was sharded holds.
+    e2e-timing) workflow='CI' artifact=e2e-timing pattern='e2e-timing*' ;;
     phpunit-timing) workflow='CI' artifact=phpunit-timing ;;
     *)
         echo "usage: $0 <mutation|phpunit-coverage|e2e-coverage|e2e-timing|phpunit-timing> [run-id]" >&2
@@ -23,17 +29,27 @@ esac
 
 repo=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 
+holds_artifact() {
+    local name
+    for name in $(gh api "repos/$repo/actions/runs/$1/artifacts" \
+        -q '.artifacts[] | select(.expired | not) | .name'); do
+        # shellcheck disable=SC2053
+        [[ $name == ${pattern:-$artifact} ]] && return 0
+    done
+
+    return 1
+}
+
 if [ -z "$run" ]; then
     for id in $(gh run list --repo "$repo" --workflow "$workflow" --branch main \
         --status completed --limit 20 --json databaseId -q '.[].databaseId'); do
-        if gh api "repos/$repo/actions/runs/$id/artifacts" \
-            -q ".artifacts[] | select(.name == \"$artifact\" and (.expired | not)) | .id" | grep -q .; then
+        if holds_artifact "$id"; then
             run=$id
             break
         fi
     done
     if [ -z "$run" ]; then
-        echo "No completed '$workflow' run in the last 20 on main holds '$artifact'." >&2
+        echo "No completed '$workflow' run in the last 20 on main holds '${pattern:-$artifact}'." >&2
         exit 1
     fi
 fi
@@ -42,7 +58,11 @@ dir="var/ci-reports/$artifact/$run"
 if [ ! -d "$dir" ]; then
     rm -rf "$dir.part"
     mkdir -p "$(dirname "$dir")"
-    gh run download "$run" --repo "$repo" --name "$artifact" --dir "$dir.part"
+    if [ -n "$pattern" ]; then
+        gh run download "$run" --repo "$repo" --pattern "$pattern" --dir "$dir.part"
+    else
+        gh run download "$run" --repo "$repo" --name "$artifact" --dir "$dir.part"
+    fi
     mv "$dir.part" "$dir"
 fi
 
@@ -53,6 +73,9 @@ echo
 case "$report" in
     mutation) cat "$dir/summary.log" ;;
     phpunit-coverage | e2e-coverage) head -12 "$dir/summary.txt" ;;
-    e2e-timing) node bin/e2e-timing.mjs "$dir/results.json" ;;
+    # A sharded run holds one report per shard, each in its own directory. A
+    # run downloaded before the split kept its one report at the top of $dir,
+    # and that cache is not re-downloaded, so both layouts have to read.
+    e2e-timing) find "$dir" -name results.json | sort | xargs node bin/e2e-timing.mjs ;;
     phpunit-timing) php bin/phpunit-timing.php "$dir/junit.xml" ;;
 esac

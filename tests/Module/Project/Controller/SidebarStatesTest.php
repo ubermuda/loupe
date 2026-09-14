@@ -58,6 +58,25 @@ final class SidebarStatesTest extends WebTestCase
         // Scoped nav links present, Documents marked active.
         self::assertSelectorExists('a.lp-sidebar__link--active[href="/projects/'.$id.'/documents"]');
         self::assertSelectorExists('a.lp-sidebar__link[href="/projects/'.$id.'/site-review"]');
+        self::assertSelectorExists('a.lp-sidebar__link[href="/projects/'.$id.'/outbox"]');
+    }
+
+    public function test_the_outbox_page_marks_its_own_sidebar_link_active(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'sidebar-outbox@example.com');
+        $project = new Project($owner, 'outbox-project');
+        $em->persist($project);
+        $em->flush();
+        $id = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$id.'/outbox');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('a.lp-sidebar__link--active[href="/projects/'.$id.'/outbox"]');
     }
 
     public function test_site_review_pill_counts_comments_and_tints_only_while_pending(): void

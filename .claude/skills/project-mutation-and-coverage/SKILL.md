@@ -61,12 +61,17 @@ which git ignores, and it does not download a run twice.
 | mutation | `Mutation testing` | `infection` | `infection-report` | `summary.log`, `infection.log` | 90 days |
 | PHPUnit coverage | `Coverage report` | `phpunit-coverage` | `phpunit-coverage` | `summary.txt`, `clover.xml`, `html/` | 90 days |
 | e2e coverage | `Coverage report` | `e2e-coverage` | `e2e-coverage` | `summary.txt`, `clover.xml`, `html/` | 90 days |
-| e2e timing | `CI` | `e2e` | `e2e-timing` | `results.json` | 30 days |
+| e2e timing | `CI` | `e2e-chromium`, `e2e-rest` | `e2e-timing-chromium`, `e2e-timing-rest` | `results.json` | 30 days |
 | PHPUnit timing | `CI` | `phpunit` | `phpunit-timing` | `junit.xml` | 30 days |
 
 The e2e timing artifact comes from every CI run, green or red. `bin/e2e-timing.mjs`
 reads its Playwright JSON report. Time between two tests on one worker counts as
 idle, so worker start-up shows as idle time.
+
+The e2e job runs as two shards on two runners, so a run holds one timing
+artifact per shard and `just ci-report e2e-timing` prints one summary for each.
+The two ran against separate clocks, so read the wall times side by side and
+never add them.
 
 The PHPUnit timing artifact comes from every CI run as well. `bin/phpunit-timing.php`
 reads the JUnit XML and prints the mean seconds per test, the slowest classes and
@@ -110,15 +115,17 @@ than as one unrelated test. It breaks a coverage run the same way.
 Assert a ratio instead. Run the work at two input sizes and compare the times:
 
 ```php
-[$halfElapsed] = self::timeRender($renderer, 10_000);
+[$quarterElapsed] = self::timeRender($renderer, 5_000);
 [$fullElapsed, $html] = self::timeRender($renderer, 20_000);
 
-// Linear doubles the time, quadratic quadruples it.
-self::assertLessThan(3.0, $fullElapsed / $halfElapsed);
+// Four times the headings: linear takes 4x, quadratic 16x.
+self::assertLessThan(8.0, $fullElapsed / $quarterElapsed);
 ```
 
-Coverage slows both halves by the same factor, so the ratio survives it, and so
-does a loaded machine.
+Coverage slows both renders by the same factor, so the ratio survives it. A
+loaded machine can slow one render and not the other, so keep the bound far from
+both growth rates. With sizes of 10,000 and 20,000 and a bound of 3.0, one
+`just ci` on a loaded machine measured 3.16 and failed.
 
 Playwright carries the same kind of bound in its own config. Its `expect`
 timeout is an absolute 5 seconds. Per-request collection takes one page render

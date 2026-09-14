@@ -128,6 +128,8 @@ just ci-report phpunit-timing [RUN] # slowest PHPUnit classes and tests, from an
 The recipe downloads the artifact into `var/ci-reports/` and prints its summary.
 With no run id, it takes the newest run on `main` that holds the artifact.
 
+The e2e job runs on two runners, so `e2e-timing` prints one summary per shard.
+
 ## Secrets
 
 ```sh

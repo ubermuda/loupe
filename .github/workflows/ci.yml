@@ -120,8 +120,20 @@ jobs:
       - uses: extractions/setup-just@v4
       - run: just cli-test
 
-  e2e:
+  # Two runners, each with its own stack, database and seed. `chromium` holds
+  # 191 of the 226 tests and sets the wall time; `rest` holds the one-worker
+  # projects and the destructive chain that has to stay in one runner's order.
+  # Neither job may be called `e2e`, because the required check of that name is
+  # the fan-in job below.
+  e2e-shard:
+    name: e2e-${{ matrix.shard }}
     runs-on: ubuntu-latest
+    strategy:
+      # Both halves report, so one red shard still leaves the other's timing
+      # and Playwright report to read.
+      fail-fast: false
+      matrix:
+        shard: [chromium, rest]
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -151,6 +163,13 @@ jobs:
           mkdir -p var/log
           sudo chmod -R a+rwX var
 
+      # The browser download is the cacheable half; --with-deps still installs
+      # the system libraries, which apt keeps outside this path.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('e2e/package-lock.json') }}
+
       - run: npx playwright install --with-deps chromium
         working-directory: e2e
 
@@ -161,17 +180,19 @@ jobs:
         env:
           E2E_BASE_URL: http://localhost
           MAILPIT_URL: http://localhost:8025
+          E2E_SHARD: ${{ matrix.shard }}
           PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ github.workspace }}/var/e2e-timing/results.json
 
       - name: e2e timing
         if: always() && hashFiles('var/e2e-timing/results.json') != ''
         run: node bin/e2e-timing.mjs var/e2e-timing/results.json
 
-      # Every run, green or red. Read it with `just ci-report e2e-timing`.
+      # Every run, green or red, one artifact per shard. Read them together
+      # with `just ci-report e2e-timing`.
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: e2e-timing
+          name: e2e-timing-${{ matrix.shard }}
           path: var/e2e-timing/results.json
           retention-days: 30
           if-no-files-found: warn
@@ -183,6 +204,20 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: e2e/playwright-report
           retention-days: 7
+
+  # The required check. It must always report, so a shard that fails, is
+  # cancelled or is skipped has to reach GitHub as a red `e2e`. Without
+  # `if: always()` this job is skipped when a shard fails, and a skipped
+  # required check counts as satisfied, so the branch stays mergeable.
+  e2e:
+    runs-on: ubuntu-latest
+    needs: e2e-shard
+    if: always()
+    steps:
+      - name: Report the shard results
+        run: |
+          echo "e2e-shard: ${{ needs.e2e-shard.result }}"
+          test "${{ needs.e2e-shard.result }}" = success
