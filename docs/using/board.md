@@ -183,15 +183,36 @@ column that no longer exists.
 When the owner adds, renames, reorders, flags or deletes a column, every open
 board of the project reloads and shows the change. A drag in progress on another
 screen can then fail, and the card goes back. The live reload needs a Mercure
-hub and the `agent.push.enabled` flag, see
-[Environment variables](../reference/environment.md). Without them, a board
-shows the change on its next load.
+hub and the `live_updates.enabled` flag, see
+[Environment variables](../reference/environment.md). If either is missing, a
+board shows the change on its next load.
 
 **New card** opens the create form. Under each terminal column, a link opens the
 history page at **`/projects/<project>/board/terminal/<column id>`**. That page
 lists every card in the column, newest completion first, 25 to a page. The
 older address **`/projects/<project>/board/done`** still works. It opens the
 history page of the board's first terminal column.
+
+### Bridge rule health
+
+A [command-line bridge](../extending/cli-bridge.md) can report the health of its
+rules for each project it follows. A rule is dead when it can no longer match,
+for example after its column was renamed or deleted. A dead rule starts no
+agent. The bridge in `cli/` does not send these reports yet.
+
+When any bridge reports a dead rule, the board shows a banner above the columns.
+The banner names each dead rule, the column slugs it watches, the reason the
+bridge gave, the bridge that sent it, and when the report arrived. Only the
+owner of the project sees it. The banner goes away when every bridge sends a
+report with no dead rule. A bridge that stops for good leaves its last report,
+and so its banner, in place. To clear such a report, send an empty report for
+that bridge id, as the [bridge page](../extending/cli-bridge.md) describes. The
+banner shows the first eight characters of the bridge id, and the full id is in
+their tooltip.
+
+The rename and delete dialogs of a column warn before they save when a live rule
+watches that column's slug. A rename changes the slug, and a delete removes it,
+so the rule stops matching in both cases.
 
 ### The card page
 
@@ -432,5 +453,5 @@ request.
 
 ## Deleting a project
 
-Deleting a project deletes its board with it, cards and pull request links
-included.
+Deleting a project deletes its board with it, cards, pull request links and
+bridge rule reports included.

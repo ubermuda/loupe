@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -103,6 +104,13 @@ func newBridgeRunCmd() *cobra.Command {
 			if err := set.Check(cmd.Context(), apiClient(cfg)); err != nil {
 				return fmt.Errorf("rule file %s: %w", path, err)
 			}
+			bridgeID, err := config.EnsureBridgeID()
+			if errors.Is(err, config.ErrNotLoggedIn) {
+				return config.ErrNotLoggedIn
+			}
+			if err != nil {
+				return fmt.Errorf("bridge id: %w", err)
+			}
 
 			logPath := logFile
 			if logPath == "" {
@@ -119,8 +127,9 @@ func newBridgeRunCmd() *cobra.Command {
 				rules:      set,
 				maxWorkers: maxWorkers,
 				worker:     defaultWorkerOps(),
+				bridgeID:   bridgeID,
 			}
-			r.log.Info("bridge_started", "rules", path, "projects", set.Projects(), "rule_count", len(set.Rules()), "max_workers", maxWorkers, "log_file", logPath)
+			r.log.Info("bridge_started", "rules", path, "projects", set.Projects(), "rule_count", len(set.Rules()), "max_workers", maxWorkers, "log_file", logPath, "bridge_id", bridgeID)
 			warnUnknownModes(r.log, set)
 
 			return subscribe(cmd, cfg, r)
@@ -227,11 +236,24 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		return fmt.Errorf("GET /api/events does not list %s, so no event of theirs can reach the bridge", strings.Join(missing, ", "))
 	}
 	r.projects, r.topic = r.rules.Projects(), events.Topic
+	if r.bridgeID != "" {
+		r.health = newHealthReporter(ctx, apiClient(cfg), r.bridgeID, r.log)
+		for _, slug := range r.projects {
+			r.reportHealth(slug)
+		}
+	}
 
 	err = transport.Subscribe(ctx, &http.Client{}, events.HubURL, []string{events.Topic}, jwtRefresher(cfg, events.JWT, r.onRefresh), r.handler())
+	failed := err != nil && ctx.Err() == nil
 	r.shutdown()
 	r.wg.Wait()
-	if err != nil && ctx.Err() == nil {
+	// The reports stay on the server, so a pending one is dropped rather than
+	// sent. Its goroutines return once the context ends.
+	stop()
+	if r.health != nil {
+		r.health.wait()
+	}
+	if failed {
 		return err
 	}
 
