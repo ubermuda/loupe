@@ -4380,6 +4380,26 @@
                 <source>inbox.page.empty</source>
                 <target>No agent has asked you anything yet.</target>
             </trans-unit>
+            <trans-unit id="inbox.search.label">
+                <source>inbox.search.label</source>
+                <target>Search the inbox</target>
+            </trans-unit>
+            <trans-unit id="inbox.search.placeholder">
+                <source>inbox.search.placeholder</source>
+                <target>Search titles and bodies</target>
+            </trans-unit>
+            <trans-unit id="inbox.search.clear">
+                <source>inbox.search.clear</source>
+                <target>Clear</target>
+            </trans-unit>
+            <trans-unit id="inbox.search.count">
+                <source>inbox.search.count</source>
+                <target>{0}No item matches|{1}1 item matches|]1,Inf[%count% items match</target>
+            </trans-unit>
+            <trans-unit id="inbox.search.empty">
+                <source>inbox.search.empty</source>
+                <target>No item matches this search.</target>
+            </trans-unit>
             <trans-unit id="inbox.section.open_asks">
                 <source>inbox.section.open_asks</source>
                 <target>Open asks (%count%)</target>

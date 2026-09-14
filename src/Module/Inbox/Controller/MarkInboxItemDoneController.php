@@ -44,8 +44,12 @@ final class MarkInboxItemDoneController extends AppController
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(itemId, projectId)')] InboxItem $item,
     ): Response {
         $this->inbox->requireEnabled();
-        // The closed asks page the owner was on, kept on the way back.
-        $pageQuery = $request->query->getInt('page', 1) > 1 ? ['page' => $request->query->getInt('page')] : [];
+        // The page and the search the owner was on, kept on the way back.
+        $search = trim($request->query->getString('q'));
+        $pageQuery = [
+            ...($request->query->getInt('page', 1) > 1 ? ['page' => $request->query->getInt('page')] : []),
+            ...('' === $search ? [] : ['q' => $search]),
+        ];
 
         $form = $this->formFactory->createNamed(MarkInboxItemDoneFormType::nameFor($item), MarkInboxItemDoneFormType::class);
         $form->handleRequest($request);

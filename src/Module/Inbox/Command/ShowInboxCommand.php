@@ -10,8 +10,10 @@ final readonly class ShowInboxCommand
 {
     public function __construct(
         public Project $project,
-        /** The page of closed asks, counting from 1. */
+        /** The page of closed asks, or of search results, counting from 1. */
         public int $page = 1,
+        /** The search as typed. A blank one shows the asks. */
+        public string $query = '',
     ) {
     }
 }
