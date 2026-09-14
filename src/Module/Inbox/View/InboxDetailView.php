@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Inbox\View;
 
+use App\Module\Bridge\View\BridgeStatus;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemState;
@@ -19,11 +20,12 @@ final readonly class InboxDetailView
     private array $homes;
 
     /**
-     * @param list<InboxAsk>      $openAsks     oldest first
-     * @param list<InboxItem>     $looseItems   open items that no open ask holds
-     * @param list<InboxAsk>      $closedAsks   newest close first
-     * @param list<int|null>      $pageList     page numbers of the closed asks, null for a gap
-     * @param array<string, true> $finalItemIds items a closed ask holds
+     * @param list<InboxAsk>              $openAsks       oldest first
+     * @param list<InboxItem>             $looseItems     open items that no open ask holds
+     * @param list<InboxAsk>              $closedAsks     newest close first
+     * @param list<int|null>              $pageList       page numbers of the closed asks, null for a gap
+     * @param array<string, true>         $finalItemIds   items a closed ask holds
+     * @param array<string, BridgeStatus> $bridgeStatuses the bridges of the open asks, by bridge id
      */
     public function __construct(
         public Project $project,
@@ -35,6 +37,7 @@ final readonly class InboxDetailView
         public int $totalPages,
         public array $pageList,
         public array $finalItemIds,
+        public array $bridgeStatuses,
     ) {
         // An item can sit in several asks, and a to-do in a closed ask also shows
         // on its own. Its forms render once, at the first place the page shows it.
@@ -69,6 +72,16 @@ final readonly class InboxDetailView
             InboxItemState::Withdrawn, InboxItemState::Obsolete => false,
             InboxItemState::Answered, InboxItemState::Done, InboxItemState::Declined => !isset($this->finalItemIds[(string) $item->id]),
         };
+    }
+
+    /** Null for a closed ask, or for an interactive session that no bridge resumes. */
+    public function bridgeStatus(InboxAsk $ask): ?BridgeStatus
+    {
+        if (null !== $ask->closedAt || null === $ask->bridgeId) {
+            return null;
+        }
+
+        return $this->bridgeStatuses[$ask->bridgeId->toRfc4122()] ?? null;
     }
 
     public function isEmpty(): bool

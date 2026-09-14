@@ -82,6 +82,10 @@ reads the map at start and at each reconnect, so a change reaches a running
 bridge at its next reconnect. A lower interval makes the bridges of one token
 reach the limit sooner.
 
+The project inbox page reads the interval too. It warns on an open ask when its
+bridge sent no heartbeat in the last three intervals. See
+[When a bridge goes quiet](../using/inbox.md#when-a-bridge-goes-quiet).
+
 ## Deletion and export
 
 Deleting an account deletes the rows of its bridges. The data export holds them

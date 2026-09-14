@@ -4601,6 +4601,16 @@
     .lp-inbox-ask__head {
         @apply flex flex-wrap items-center gap-3 font-mono text-xs text-fg-dim;
     }
+    /* When an open ask's bridge last sent a heartbeat. The amber variant warns that no resume will come. */
+    .lp-inbox-ask__bridge {
+        @apply flex items-start gap-2 m-0 text-xs text-fg-dim leading-normal;
+    }
+    .lp-inbox-ask__bridge--quiet {
+        @apply rounded-lg bg-status-pending-bg px-3 py-2 text-sm font-semibold text-status-pending-deep;
+    }
+    .lp-inbox-ask__bridge-icon {
+        @apply shrink-0 text-status-pending mt-0.5;
+    }
     .lp-inbox-ask__context {
         @apply max-w-none text-sm;
     }
