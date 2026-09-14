@@ -1,14 +1,15 @@
 # Pull request feedback
 
-Run these from a checkout of the repository. `gh` fills `{owner}` and `{repo}` from it. `<n>` is the pull request number.
+Run these from a checkout of the repository. `<n>` is the pull request number. `<nameWithOwner>` is the checkout's repository, such as `ubermuda/loupe`, split into `<owner>` and `<repo>` where a command needs both.
 
 ## Find the open pull request
 
 ```bash
-gh pr view <url> --json state,number,headRefName,headRefOid,isCrossRepository,headRepositoryOwner
+gh repo view --json nameWithOwner
+gh api graphql -F url=<url> -f query='query($url:URI!){resource(url:$url){... on PullRequest{number state headRefName headRefOid isCrossRepository baseRepository{nameWithOwner}}}}'
 ```
 
-When `isCrossRepository` is `true`, the branch lives in a fork. Stop with `STAGE RESULT: blocked: fork pull request not supported`.
+Run this before any other query or reply. When `baseRepository.nameWithOwner` differs from the checkout's `nameWithOwner`, or `isCrossRepository` is `true`, stop with `STAGE RESULT: blocked: pull request outside this repository`.
 
 ## Read the checks before a worktree exists
 
@@ -24,9 +25,9 @@ A check's `link` holds `/actions/runs/<run id>/`. A failed `e2e` names no test, 
 ## Read the feedback items
 
 ```bash
-gh api graphql --paginate -F owner='{owner}' -F repo='{repo}' -F n=<n> -f query='query($owner:String!,$repo:String!,$n:Int!,$endCursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$n){reviewThreads(first:100,after:$endCursor){pageInfo{hasNextPage endCursor} nodes{id isResolved comments(first:100){pageInfo{hasNextPage} nodes{databaseId author{login} body}}}}}}}'
-gh api repos/{owner}/{repo}/pulls/<n>/reviews --paginate
-gh api repos/{owner}/{repo}/issues/<n>/comments --paginate
+gh api graphql --paginate -F owner='<owner>' -F repo='<repo>' -F n=<n> -f query='query($owner:String!,$repo:String!,$n:Int!,$endCursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$n){reviewThreads(first:100,after:$endCursor){pageInfo{hasNextPage endCursor} nodes{id isResolved comments(first:100){pageInfo{hasNextPage} nodes{databaseId author{login} body}}}}}}}'
+gh api repos/<nameWithOwner>/pulls/<n>/reviews --paginate
+gh api repos/<nameWithOwner>/issues/<n>/comments --paginate
 ```
 
 When a thread reports `comments.pageInfo.hasNextPage` as `true`, stop with `STAGE RESULT: blocked: review thread longer than 100 comments`.
@@ -69,16 +70,16 @@ Fix every open item and every failing check first. Then post one marker reply fo
 For a thread, reply inside the thread, with `Addressed thread <id>` or `No change for thread <id>`. Take the `databaseId` of its first comment:
 
 ```bash
-gh api repos/{owner}/{repo}/pulls/<n>/comments/<databaseId>/replies -f body='<!-- loupe-stage-worker -->
+gh api repos/<nameWithOwner>/pulls/<n>/comments/<databaseId>/replies -f body='<!-- loupe-stage-worker -->
 Addressed thread <id>: <what changed, commits>'
 ```
 
 For a review body or a top-level comment, post a top-level comment. Name the kind of the item, `review` or `comment`:
 
 ```bash
-gh api repos/{owner}/{repo}/issues/<n>/comments -f body='<!-- loupe-stage-worker -->
+gh api repos/<nameWithOwner>/issues/<n>/comments -f body='<!-- loupe-stage-worker -->
 Addressed review <id>: <what changed, commits>'
-gh api repos/{owner}/{repo}/issues/<n>/comments -f body='<!-- loupe-stage-worker -->
+gh api repos/<nameWithOwner>/issues/<n>/comments -f body='<!-- loupe-stage-worker -->
 No change for comment <id>: <reason>'
 ```
 
@@ -103,6 +104,8 @@ git worktree add .claude/worktrees/card-<number> <headRefName>
 ```
 
 When `git worktree add` finds no local branch, use `git worktree add --track -b <headRefName> .claude/worktrees/card-<number> origin/<headRefName>`.
+
+For an existing worktree, first run `git -C .claude/worktrees/card-<number> branch --show-current`. When it differs from `<headRefName>`, change nothing, and stop with `STAGE RESULT: blocked: worktree is not on the PR branch`.
 
 Sync the branch before you provision it, for a new or an existing worktree:
 
