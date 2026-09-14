@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/config"
+	"github.com/ubermuda/loupe/cli/internal/report"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 	"github.com/ubermuda/loupe/cli/internal/transport"
 )
@@ -104,6 +105,9 @@ func newBridgeRunCmd() *cobra.Command {
 			if err := set.Check(cmd.Context(), apiClient(cfg)); err != nil {
 				return fmt.Errorf("rule file %s: %w", path, err)
 			}
+			// A bridge with no stored credentials reaches neither the stream nor
+			// the reporting endpoints, so it stops here rather than starting a
+			// worker whose run it can report nothing about.
 			bridgeID, err := config.EnsureBridgeID()
 			if errors.Is(err, config.ErrNotLoggedIn) {
 				return config.ErrNotLoggedIn
@@ -228,6 +232,11 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	defer stop()
 	r.ctx = ctx
 
+	// The queue closes after the workers, so it sees every report a dying worker
+	// still makes, and its grace window can send them.
+	r.reports = newReportQueue(ctx, r.log, cfg)
+	defer r.reports.Close()
+
 	events, err := apiClient(cfg).Events(ctx)
 	if err != nil {
 		return err
@@ -258,6 +267,17 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	}
 
 	return nil
+}
+
+// newReportQueue builds the queue that sends each finished run to Loupe. One
+// bridge follows several projects, so the handle travels with each report, and
+// it is the project id the event carried rather than the slug a rename changes.
+func newReportQueue(ctx context.Context, log *slog.Logger, cfg config.Config) report.Queue {
+	client := apiClient(cfg)
+
+	return report.New(ctx, log, func(ctx context.Context, handle string, run api.WorkerRun) (bool, error) {
+		return client.ReportWorkerRun(ctx, handle, run)
+	})
 }
 
 // missingProjects names the mapped projects that GET /api/events does not list:

@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
+	"unicode/utf8"
 )
 
 // Site is one entry of GET /api/projects. A project with no slug yet sends a
@@ -339,4 +341,100 @@ func (c *Client) Sites(ctx context.Context) ([]Site, error) {
 	}
 
 	return payload.Sites, nil
+}
+
+// WorkerRun is one finished worker run, as POST
+// /api/projects/{handle}/worker-runs takes it.
+//
+// ExitCode is nil when the process never started, and FailureReason then says
+// why. The server keeps those two faults apart, and refuses a report that sends
+// both or neither.
+type WorkerRun struct {
+	BridgeID      string    `json:"bridgeId"`
+	CardID        string    `json:"cardId"`
+	CardNumber    int       `json:"cardNumber"`
+	RuleName      string    `json:"ruleName"`
+	StartedAt     time.Time `json:"startedAt"`
+	EndedAt       time.Time `json:"endedAt"`
+	ExitCode      *int      `json:"exitCode"`
+	FailureReason *string   `json:"failureReason"`
+	Output        string    `json:"output"`
+}
+
+// The server's own caps on a report. It refuses a longer value, and a refused
+// report is lost, so the client cuts each one to fit.
+const (
+	maxRunOutput     = 4000
+	maxFailureReason = 1000
+	maxRuleName      = 100
+)
+
+// ErrReportRefused marks a report the server refuses again for the same reason:
+// a token it will not take, a handle it does not know, or a body it reads as
+// invalid. A retry cannot turn any of those into a stored row.
+var ErrReportRefused = errors.New("the server refused the worker run report")
+
+// ReportWorkerRun records one finished worker run against one of the caller's
+// projects. It answers whether the server wrote a new row.
+//
+// The server answers 201 for a new report and 200 for one it already holds, so
+// a retry of a report that landed counts as a success. A caller that has sent
+// this report once reads a false as a row it did not write.
+func (c *Client) ReportWorkerRun(ctx context.Context, handle string, run WorkerRun) (bool, error) {
+	// Trimmed before the cut, because the server trims first and then measures.
+	// A name of 100 spaces and a word would otherwise cut to spaces alone, which
+	// the server reads as blank and refuses for good.
+	run.RuleName = clip(strings.TrimSpace(run.RuleName), maxRuleName)
+	run.Output = clip(run.Output, maxRunOutput)
+	if run.FailureReason != nil {
+		reason := clip(*run.FailureReason, maxFailureReason)
+		run.FailureReason = &reason
+	}
+
+	body, err := json.Marshal(run)
+	if err != nil {
+		return false, fmt.Errorf("%w: encode the worker run: %w", ErrReportRefused, err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		c.baseURL+"/api/projects/"+url.PathEscape(handle)+"/worker-runs", bytes.NewReader(body))
+	if err != nil {
+		return false, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("report the worker run: %w", err)
+	}
+	defer resp.Body.Close()
+
+	detail, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+
+	switch {
+	case resp.StatusCode == http.StatusCreated:
+		return true, nil
+	case resp.StatusCode == http.StatusOK:
+		return false, nil
+	// A rate limit and a request timeout clear on their own, so they are the two
+	// 4xx answers worth another try. Every other 4xx reads the same body again.
+	case resp.StatusCode == http.StatusTooManyRequests, resp.StatusCode == http.StatusRequestTimeout:
+		return false, fmt.Errorf("worker run report not taken yet (HTTP %d)", resp.StatusCode)
+	case resp.StatusCode >= 400 && resp.StatusCode < 500:
+		return false, fmt.Errorf("%w (HTTP %d): %s", ErrReportRefused, resp.StatusCode, strings.TrimSpace(string(detail)))
+	default:
+		return false, fmt.Errorf("worker run report failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(detail)))
+	}
+}
+
+// clip cuts s to at most limit characters. The server counts characters, so a
+// byte count would cut a value that holds a multi-byte character too short.
+func clip(s string, limit int) string {
+	if utf8.RuneCountInString(s) <= limit {
+		return s
+	}
+
+	return string([]rune(s)[:limit])
 }
