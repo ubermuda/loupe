@@ -52,9 +52,8 @@ up most of the change. Both were clean because neither looked. A second run
 does not help here, because that pass is stable and wrong the same way every
 time. Name the biggest thing you changed, then check the summary mentions it.
 
-Both rules cost time on a large diff. Say in the PR body how many passes ran
-and what the last one covered, so a reader can weigh the evidence rather than
-read "Codex: clean" and assume it means more than it does.
+Both rules cost time on a large diff. Put the pass count and what the last pass
+covered on the body's gate line, so "Codex: clean" never claims more than it did.
 
 e2e is not in the local gate. The `e2e` required check on the PR gates the
 suite, and it runs the same `just e2e` on a disposable runner. Push, then read
@@ -169,8 +168,7 @@ greps them.
 The reduced gate does not extend to Markdown that a script *executes*. A `.md`
 file a script parses for commands is code wearing a `.md` suffix, so gate it
 fully. A `SKILL.md` sits at the edge: an agent reads it rather than a script
-parsing it, so the reduced gate applies. Say in the body that you made that
-call.
+parsing it, so the reduced gate applies. Note that call on the gate line.
 
 The reason is proportion. Asking a reviewer model to read prose for correctness
 bugs is cost with no signal, and running a gate that can never fail teaches a
@@ -189,20 +187,37 @@ Open a draft only while the branch is unfinished, and say in the body what is
 still missing. Ready does not mean merged: `main` still needs one approving
 review, and you never approve your own work.
 
-## Write the body for two readers
+## Keep the body brief
 
-`main` allows squash merges only, so the PR body becomes the commit body. It is
-permanent history.
+The owner reads every body. Write it so he can read it in under a minute. Put
+the full reasoning in the commit messages, because the squash keeps them in
+`git log`.
 
-- Say what changed, and why you rejected the alternative.
-- Record what you verified and how. "Reverted the fix and watched the test
-  fail" is worth more than "added tests".
-- Name what you could not verify, in the body rather than buried in a comment.
-  "Terraform is validate-only, the cloud path is unverified" is trustworthy in a
-  way that silence is not.
-- Say which gate you reduced or skipped, and why.
-- Put any deploy-time need in the body: a rerender, a cache clear, a stack
-  recreation. The person merging is not necessarily you.
+Aim for about 100 words on a small change, and stay under 250 on a large one.
+Use short bullets, not paragraphs.
+
+Write only these, and leave out any line that has nothing to say:
+
+- Preview links, at the top, when there is something to click.
+- One or two sentences on what changed and why.
+- The rejected alternative, in one sentence, when there was a real one.
+- What you verified, one line per check.
+- What you could not verify.
+- A decision the owner must make.
+- A deploy need, a breaking change, or a merge order.
+- One gate line, such as "Gate: cs, ci, e2e green. Codex: 2 clean passes (base,
+  commit)." Name a reduced gate on that line.
+
+Leave these out:
+
+- A heading for every item. A body with no links needs no heading.
+- Any line that says something does not apply: "nothing to click", "no deploy
+  need", "no changelog fragment", "the gate was not reduced".
+- The diff restated in prose, a code block of the change, or a table per file.
+- A narrative of how you got there. That goes in the commit message.
+
+A reviewer asks for detail when he needs it. Answer in a comment, not by growing
+the body.
 
 ## Make the branch testable, not just reviewable
 
@@ -237,8 +252,8 @@ later. The signature covers the whole URL, host included, so a link works
 against that worktree only, and the host resolves on your own machine. The route
 is `#[When('dev')]`, so it does not exist in production.
 
-Open the link yourself before you write it down. Say plainly when a branch has
-no worktree or nothing to click, rather than pasting a link that goes nowhere.
+Open the link yourself before you write it down. When a branch has nothing to
+click, leave the Preview section out rather than paste a link that goes nowhere.
 
 **Every such URL must be clickable, and that means one whole absolute URL in
 plain text.** A bare host followed by paths in backticks — the shape a body
