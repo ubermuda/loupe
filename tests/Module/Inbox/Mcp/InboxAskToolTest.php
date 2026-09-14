@@ -344,14 +344,25 @@ final class InboxAskToolTest extends KernelTestCase
         yield 'an option too long in multibyte text' => [['options' => ['yes', str_repeat('é', 501)]], 'items[0].options: An option must be at most 500 characters.'];
     }
 
-    public function test_an_option_at_the_limit_is_accepted_after_trimming(): void
+    public function test_an_option_at_the_limit_is_accepted(): void
     {
         $this->enableInbox();
         $this->actAsMcpTokenBoundTo($this->makeProject('inbox-ask-option-limit'));
 
-        $result = $this->askQuestion('Which column?', ['options' => ['yes', ' '.str_repeat('é', 500).' ']]);
+        $result = $this->askQuestion('Which column?', ['options' => ['yes', str_repeat('é', 500)]]);
 
         self::assertSame(1, $result['items'][0]['number']);
+    }
+
+    /** The schema measures the option as sent, so the handler does too, spaces included. */
+    public function test_an_option_over_the_limit_only_with_its_spaces_is_refused(): void
+    {
+        $this->enableInbox();
+        $this->actAsMcpTokenBoundTo($this->makeProject('inbox-ask-option-spaces'));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('items[0].options: An option must be at most 500 characters.');
+        $this->askQuestion('Which column?', ['options' => ['yes', ' '.str_repeat('a', 500)]]);
     }
 
     /** @param array<string, mixed> $item */

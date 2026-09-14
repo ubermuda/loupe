@@ -11,7 +11,7 @@ final class InboxLimits
 
     public const int MAX_OPTIONS = 20;
 
-    /** Per option, measured after trimming. An inbox_list row carries every option. */
+    /** Per option, in characters as sent. An inbox_list row carries every option. */
     public const int MAX_OPTION_LENGTH = 500;
 
     /** Per item, and per kind of link: cards and documents each. */
