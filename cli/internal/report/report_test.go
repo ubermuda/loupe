@@ -54,7 +54,7 @@ func newHarness(t *testing.T, retries int, answers ...error) *harness {
 	var mu sync.Mutex
 
 	h.queue = New(ctx, slog.New(slog.NewJSONHandler(h.log, nil)),
-		func(_ context.Context, handle string, run api.WorkerRun) error {
+		func(_ context.Context, handle string, run api.WorkerRun) (bool, error) {
 			mu.Lock()
 			answer := error(nil)
 			if len(answers) > 0 {
@@ -65,18 +65,43 @@ func newHarness(t *testing.T, retries int, answers ...error) *harness {
 
 			h.sent <- queued{handle: handle, run: run}
 
-			return answer
+			return answer == nil, answer
 		})
 	h.queue.backoff = make([]time.Duration, retries)
-	h.queue.after = func(time.Duration) <-chan time.Time {
-		ready := make(chan time.Time, 1)
-		ready <- time.Time{}
-
-		return ready
-	}
+	h.queue.after = readyNow
 	t.Cleanup(h.queue.Close)
 
 	return h
+}
+
+// newHarnessWithSend builds a queue whose every wait returns at once, and whose
+// answers the caller decides. Each send still reaches h.sent, so a test waits
+// for an attempt rather than sleeping.
+func newHarnessWithSend(t *testing.T, send SendFunc) *harness {
+	t.Helper()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	h := &harness{log: &syncBuffer{}, sent: make(chan queued, 32), cancel: cancel}
+	h.queue = New(ctx, slog.New(slog.NewJSONHandler(h.log, nil)),
+		func(ctx context.Context, handle string, run api.WorkerRun) (bool, error) {
+			created, err := send(ctx, handle, run)
+			h.sent <- queued{handle: handle, run: run}
+
+			return created, err
+		})
+	h.queue.backoff = make([]time.Duration, 3)
+	h.queue.after = readyNow
+	t.Cleanup(h.queue.Close)
+
+	return h
+}
+
+// readyNow is a wait that is over before it starts.
+func readyNow(time.Duration) <-chan time.Time {
+	ready := make(chan time.Time, 1)
+	ready <- time.Time{}
+
+	return ready
 }
 
 // next waits for the next send. The guard turns a queue that stops trying into
@@ -196,6 +221,56 @@ func TestQueueStopsAtARefusedReport(t *testing.T) {
 	}
 }
 
+// The server keys a run by its card and its start second, so a second run of
+// one card inside one second reads as the first. That record is lost, and the
+// bridge says so rather than reading the 200 as a success.
+func TestQueueNamesAReportTheServerFolded(t *testing.T) {
+	h := newHarnessWithSend(t, func(context.Context, string, api.WorkerRun) (bool, error) {
+		return false, nil
+	})
+
+	h.queue.Enqueue(testHandle, run(42))
+	h.next(t, 1)
+	h.queue.Close()
+
+	lines := h.lines(t, "report_folded")
+	if len(lines) != 1 {
+		t.Fatalf("report_folded = %v, want one line", lines)
+	}
+	if lines[0]["card"] != float64(42) || lines[0]["rule"] != "plan" {
+		t.Fatalf("report_folded = %v", lines[0])
+	}
+}
+
+// A retry of a report that landed also reads 200, and that is the retry working
+// rather than a fold. Only the first attempt can tell the two apart.
+func TestQueueReadsARetrysSecondAnswerAsSuccess(t *testing.T) {
+	var calls int
+	var mu sync.Mutex
+	h := newHarnessWithSend(t, func(context.Context, string, api.WorkerRun) (bool, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		calls++
+		if calls == 1 {
+			return false, fmt.Errorf("connection reset")
+		}
+
+		return false, nil
+	})
+
+	h.queue.Enqueue(testHandle, run(42))
+	h.next(t, 1)
+	h.next(t, 2)
+	h.queue.Close()
+
+	if lines := h.lines(t, "report_folded"); len(lines) != 0 {
+		t.Fatalf("report_folded = %v, want none for a retry that landed", lines)
+	}
+	if lines := h.lines(t, "report_failed"); len(lines) != 0 {
+		t.Fatalf("report_failed = %v, want none", lines)
+	}
+}
+
 // Ctrl-C kills the workers, and a killed worker writes nothing to its card. The
 // bridge is the only witness of those runs, so the shutdown still sends them.
 func TestQueueDeliversWhatAShutdownFinds(t *testing.T) {
@@ -223,12 +298,12 @@ func TestQueueCountsWhatAShutdownDrops(t *testing.T) {
 	log := &syncBuffer{}
 	h := &harness{log: log, sent: make(chan queued, 32)}
 	h.queue = New(context.Background(), slog.New(slog.NewJSONHandler(log, nil)),
-		func(ctx context.Context, handle string, run api.WorkerRun) error {
+		func(ctx context.Context, handle string, run api.WorkerRun) (bool, error) {
 			h.sent <- queued{handle: handle, run: run}
 			<-held
 			<-ctx.Done()
 
-			return ctx.Err()
+			return false, ctx.Err()
 		})
 	// No grace window, which is the bridge that cannot reach Loupe at all.
 	h.queue.grace = 0

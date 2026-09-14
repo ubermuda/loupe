@@ -23,9 +23,9 @@ type Queue interface {
 	Close()
 }
 
-// SendFunc delivers one report. It returns api.ErrReportRefused for a report
-// that no retry can turn into a stored row.
-type SendFunc func(ctx context.Context, handle string, run api.WorkerRun) error
+// SendFunc delivers one report, and says whether the server wrote a new row. It
+// returns api.ErrReportRefused for a report that no retry can turn into one.
+type SendFunc func(ctx context.Context, handle string, run api.WorkerRun) (bool, error)
 
 // queued is one report waiting to be sent.
 type queued struct {
@@ -175,7 +175,12 @@ func (q *Retrying) flush(lost []queued) []queued {
 
 	var dropped []queued
 	for _, next := range lost {
-		if ctx.Err() != nil || q.send(ctx, next.handle, next.run) != nil {
+		if ctx.Err() != nil {
+			dropped = append(dropped, next)
+
+			continue
+		}
+		if _, err := q.send(ctx, next.handle, next.run); err != nil {
 			dropped = append(dropped, next)
 		}
 	}
@@ -188,8 +193,12 @@ func (q *Retrying) flush(lost []queued) []queued {
 // report is silent.
 func (q *Retrying) deliver(next queued) outcome {
 	for attempt := 0; ; attempt++ {
-		err := q.send(q.ctx, next.handle, next.run)
+		created, err := q.send(q.ctx, next.handle, next.run)
 		if err == nil {
+			if attempt == 0 && !created {
+				q.logFolded(next)
+			}
+
 			return delivered
 		}
 		if q.ctx.Err() != nil {
@@ -212,6 +221,19 @@ func (q *Retrying) deliver(next queued) outcome {
 		case <-q.after(q.backoff[attempt]):
 		}
 	}
+}
+
+// logFolded names a report the server already held when the bridge first sent
+// it. The server keys a run by its project, its bridge, its card and its start
+// second, so a second run of one card inside one second reads as the first, and
+// this record is lost. A later attempt that reads the same answer is the retry
+// working, so only the first one says anything.
+func (q *Retrying) logFolded(next queued) {
+	q.log.Warn("report_folded",
+		"card", next.run.CardNumber,
+		"rule", next.run.RuleName,
+		"message", "Loupe already held a run of this card at this second, so this one is not recorded",
+	)
 }
 
 // logLost names the reports the bridge loses, and counts them.

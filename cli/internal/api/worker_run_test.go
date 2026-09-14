@@ -49,10 +49,13 @@ func TestReportWorkerRunPostsTheRun(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	err := New(server.URL, "secret", server.Client()).
+	created, err := New(server.URL, "secret", server.Client()).
 		ReportWorkerRun(context.Background(), "loupe", finishedRun())
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !created {
+		t.Fatal("created = false, want the 201 to read as a new row")
 	}
 	if gotPath != "/api/projects/loupe/worker-runs" || gotAuth != "Bearer secret" || gotType != "application/json" {
 		t.Fatalf("path = %q, auth = %q, content type = %q", gotPath, gotAuth, gotType)
@@ -77,18 +80,21 @@ func TestReportWorkerRunPostsTheRun(t *testing.T) {
 // The server answers 200 for a report it already holds, so a retry of a report
 // that landed must read as a success and not as a fault.
 func TestReportWorkerRunTakesBothSuccessCodes(t *testing.T) {
-	for _, status := range []int{http.StatusOK, http.StatusCreated} {
+	for status, wantCreated := range map[int]bool{http.StatusOK: false, http.StatusCreated: true} {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(status)
 			fmt.Fprint(w, `{"id":"0199a0e2-c2d3-7e55-8a22-3f4051627384"}`)
 		}))
 
-		err := New(server.URL, "t", server.Client()).
+		created, err := New(server.URL, "t", server.Client()).
 			ReportWorkerRun(context.Background(), "loupe", finishedRun())
 		server.Close()
 
 		if err != nil {
 			t.Fatalf("HTTP %d: err = %v", status, err)
+		}
+		if created != wantCreated {
+			t.Fatalf("HTTP %d: created = %v, want %v", status, created, wantCreated)
 		}
 	}
 }
@@ -106,7 +112,7 @@ func TestReportWorkerRunSendsANullExitCode(t *testing.T) {
 	run.ExitCode = nil
 	run.FailureReason = reason("fork/exec claude: permission denied")
 
-	if err := New(server.URL, "t", server.Client()).ReportWorkerRun(context.Background(), "loupe", run); err != nil {
+	if _, err := New(server.URL, "t", server.Client()).ReportWorkerRun(context.Background(), "loupe", run); err != nil {
 		t.Fatal(err)
 	}
 
@@ -134,7 +140,7 @@ func TestReportWorkerRunCutsEachValueToTheServersCap(t *testing.T) {
 	run.ExitCode = nil
 	run.FailureReason = reason(strings.Repeat("f", maxFailureReason+50))
 
-	if err := New(server.URL, "t", server.Client()).ReportWorkerRun(context.Background(), "loupe", run); err != nil {
+	if _, err := New(server.URL, "t", server.Client()).ReportWorkerRun(context.Background(), "loupe", run); err != nil {
 		t.Fatal(err)
 	}
 
@@ -162,7 +168,7 @@ func TestReportWorkerRunEscapesTheHandle(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	_ = New(server.URL, "t", server.Client()).ReportWorkerRun(context.Background(), "a/../b", finishedRun())
+	_, _ = New(server.URL, "t", server.Client()).ReportWorkerRun(context.Background(), "a/../b", finishedRun())
 	if gotPath != "/api/projects/a%2F..%2Fb/worker-runs" {
 		t.Fatalf("path = %q", gotPath)
 	}
@@ -191,7 +197,7 @@ func TestReportWorkerRunSaysWhichFailuresARetryCannotFix(t *testing.T) {
 			fmt.Fprint(w, `{"error":"nope"}`)
 		}))
 
-		err := New(server.URL, "t", server.Client()).
+		_, err := New(server.URL, "t", server.Client()).
 			ReportWorkerRun(context.Background(), "loupe", finishedRun())
 		server.Close()
 

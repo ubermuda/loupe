@@ -231,11 +231,12 @@ const (
 var ErrReportRefused = errors.New("the server refused the worker run report")
 
 // ReportWorkerRun records one finished worker run against one of the caller's
-// projects.
+// projects. It answers whether the server wrote a new row.
 //
 // The server answers 201 for a new report and 200 for one it already holds, so
-// a retry of a report that landed counts as a success.
-func (c *Client) ReportWorkerRun(ctx context.Context, handle string, run WorkerRun) error {
+// a retry of a report that landed counts as a success. A caller that has sent
+// this report once reads a false as a row it did not write.
+func (c *Client) ReportWorkerRun(ctx context.Context, handle string, run WorkerRun) (bool, error) {
 	run.RuleName = clip(run.RuleName, maxRuleName)
 	run.Output = clip(run.Output, maxRunOutput)
 	if run.FailureReason != nil {
@@ -245,13 +246,13 @@ func (c *Client) ReportWorkerRun(ctx context.Context, handle string, run WorkerR
 
 	body, err := json.Marshal(run)
 	if err != nil {
-		return fmt.Errorf("%w: encode the worker run: %w", ErrReportRefused, err)
+		return false, fmt.Errorf("%w: encode the worker run: %w", ErrReportRefused, err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		c.baseURL+"/api/projects/"+url.PathEscape(handle)+"/worker-runs", bytes.NewReader(body))
 	if err != nil {
-		return err
+		return false, err
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("Accept", "application/json")
@@ -259,23 +260,25 @@ func (c *Client) ReportWorkerRun(ctx context.Context, handle string, run WorkerR
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return fmt.Errorf("report the worker run: %w", err)
+		return false, fmt.Errorf("report the worker run: %w", err)
 	}
 	defer resp.Body.Close()
 
 	detail, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 
 	switch {
-	case resp.StatusCode == http.StatusOK, resp.StatusCode == http.StatusCreated:
-		return nil
+	case resp.StatusCode == http.StatusCreated:
+		return true, nil
+	case resp.StatusCode == http.StatusOK:
+		return false, nil
 	// A rate limit and a request timeout clear on their own, so they are the two
 	// 4xx answers worth another try. Every other 4xx reads the same body again.
 	case resp.StatusCode == http.StatusTooManyRequests, resp.StatusCode == http.StatusRequestTimeout:
-		return fmt.Errorf("worker run report not taken yet (HTTP %d)", resp.StatusCode)
+		return false, fmt.Errorf("worker run report not taken yet (HTTP %d)", resp.StatusCode)
 	case resp.StatusCode >= 400 && resp.StatusCode < 500:
-		return fmt.Errorf("%w (HTTP %d): %s", ErrReportRefused, resp.StatusCode, strings.TrimSpace(string(detail)))
+		return false, fmt.Errorf("%w (HTTP %d): %s", ErrReportRefused, resp.StatusCode, strings.TrimSpace(string(detail)))
 	default:
-		return fmt.Errorf("worker run report failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(detail)))
+		return false, fmt.Errorf("worker run report failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(detail)))
 	}
 }
 

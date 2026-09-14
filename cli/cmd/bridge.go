@@ -263,7 +263,7 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 func newReportQueue(ctx context.Context, log *slog.Logger, cfg config.Config) report.Queue {
 	client := apiClient(cfg)
 
-	return report.New(ctx, log, func(ctx context.Context, handle string, run api.WorkerRun) error {
+	return report.New(ctx, log, func(ctx context.Context, handle string, run api.WorkerRun) (bool, error) {
 		return client.ReportWorkerRun(ctx, handle, run)
 	})
 }
