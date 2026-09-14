@@ -199,6 +199,150 @@ func (c *Client) Columns(ctx context.Context, handle string) (ProjectColumns, er
 	return out, nil
 }
 
+// The states and reasons of a rule health report.
+const (
+	RuleLive = "live"
+	RuleDead = "dead"
+
+	ReasonColumnRenamed  = "column_renamed"
+	ReasonColumnDeleted  = "column_deleted"
+	ReasonProjectRenamed = "project_renamed"
+	ReasonProjectGone    = "project_gone"
+)
+
+// RuleHealth is one rule of a health report. It has no prompt field, so no
+// prompt text can reach the server.
+type RuleHealth struct {
+	Name    string   `json:"name"`
+	On      string   `json:"on"`
+	Columns []string `json:"columns"`
+	State   string   `json:"state"`
+	Reason  *string  `json:"reason"`
+}
+
+// ErrReportRejected marks a report the server refused for a reason a retry of
+// the same body cannot fix, such as a 422 or an unknown project.
+var ErrReportRejected = errors.New("the server rejected the rule report")
+
+// Violation is one field a 422 names, such as rules[0].name.
+type Violation struct {
+	PropertyPath string `json:"propertyPath"`
+	Title        string `json:"title"`
+}
+
+// RejectedReport is a report the server refused for good. It matches
+// ErrReportRejected, and the 404 cause, such as ErrProjectNotFound.
+type RejectedReport struct {
+	Status     int
+	Violations []Violation
+	cause      error
+}
+
+func (e *RejectedReport) Error() string {
+	msg := fmt.Sprintf("the server rejected the rule report (HTTP %d)", e.Status)
+	if e.cause != nil {
+		msg += ": " + e.cause.Error()
+	}
+	for _, v := range e.Violations {
+		msg += fmt.Sprintf("; %s: %s", v.PropertyPath, v.Title)
+	}
+
+	return msg
+}
+
+func (e *RejectedReport) Unwrap() []error {
+	if e.cause == nil {
+		return []error{ErrReportRejected}
+	}
+
+	return []error{ErrReportRejected, e.cause}
+}
+
+// ReportRules replaces this bridge's rule health report for one project.
+func (c *Client) ReportRules(ctx context.Context, handle, bridgeID string, rules []RuleHealth) error {
+	if rules == nil {
+		rules = []RuleHealth{}
+	}
+	body, err := json.Marshal(struct {
+		Rules []RuleHealth `json:"rules"`
+	}{rules})
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut,
+		c.baseURL+"/api/projects/"+url.PathEscape(handle)+"/bridges/"+url.PathEscape(bridgeID)+"/rules", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("report rules of %s: %w", handle, err)
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusNoContent, http.StatusOK:
+		return nil
+	case http.StatusNotFound:
+		err := notFound(resp.Body)
+		if errors.Is(err, ErrBoardDisabled) {
+			return err
+		}
+
+		return &RejectedReport{Status: resp.StatusCode, cause: err}
+	case http.StatusUnprocessableEntity:
+		var problem struct {
+			Violations []Violation `json:"violations"`
+		}
+		_ = json.NewDecoder(io.LimitReader(resp.Body, maxBody)).Decode(&problem)
+
+		return &RejectedReport{Status: resp.StatusCode, Violations: problem.Violations}
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return &RejectedReport{Status: resp.StatusCode}
+	default:
+		detail, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return fmt.Errorf("rule report for %s failed (HTTP %d): %s", handle, resp.StatusCode, strings.TrimSpace(string(detail)))
+	}
+}
+
+// Sites lists the authenticated user's sites. Login calls it to check a token.
+func (c *Client) Sites(ctx context.Context) ([]Site, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/projects", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request sites: %w", err)
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return nil, fmt.Errorf("sites request rejected (HTTP %d): the API token must have the agent scope", resp.StatusCode)
+	default:
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return nil, fmt.Errorf("sites request failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var payload struct {
+		Sites []Site `json:"sites"`
+	}
+	if err := decodeBody(resp.Body, &payload); err != nil {
+		return nil, fmt.Errorf("decode sites: %w", err)
+	}
+
+	return payload.Sites, nil
+}
+
 // WorkerRun is one finished worker run, as POST
 // /api/projects/{handle}/worker-runs takes it.
 //
@@ -293,38 +437,4 @@ func clip(s string, limit int) string {
 	}
 
 	return string([]rune(s)[:limit])
-}
-
-// Sites lists the authenticated user's sites. Login calls it to check a token.
-func (c *Client) Sites(ctx context.Context) ([]Site, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/projects", nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("request sites: %w", err)
-	}
-	defer resp.Body.Close()
-
-	switch resp.StatusCode {
-	case http.StatusOK:
-	case http.StatusUnauthorized, http.StatusForbidden:
-		return nil, fmt.Errorf("sites request rejected (HTTP %d): the API token must have the agent scope", resp.StatusCode)
-	default:
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return nil, fmt.Errorf("sites request failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
-	}
-
-	var payload struct {
-		Sites []Site `json:"sites"`
-	}
-	if err := decodeBody(resp.Body, &payload); err != nil {
-		return nil, fmt.Errorf("decode sites: %w", err)
-	}
-
-	return payload.Sites, nil
 }

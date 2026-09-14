@@ -6,9 +6,12 @@ namespace App\Module\Bridge\Repository;
 
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Service\WorkerRunSearchIndexer;
+use App\Module\Bridge\ValueObject\WorkerRunOutcome;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -57,6 +60,82 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->addOrderBy('r.id', 'ASC')
             ->getQuery()
             ->getResult());
+    }
+
+    /**
+     * One page of a project's runs, newest report first.
+     *
+     * The order matches idx_bridge_worker_runs_project_received, and it stays the
+     * same under a search: a reader of a run list is debugging, so the newest
+     * report outranks the best match. The id breaks a tie on the second, without
+     * which an offset page can repeat or skip a run.
+     *
+     * @return Paginator<WorkerRun>
+     */
+    public function findPaginatedByProject(
+        Project $project,
+        int $page,
+        int $perPage,
+        ?string $search = null,
+        ?WorkerRunOutcome $outcome = null,
+        ?Uuid $bridgeId = null,
+    ): Paginator {
+        $qb = $this->createQueryBuilder('r')
+            ->andWhere('r.project = :project')
+            ->setParameter('project', $project)
+            ->orderBy('r.receivedAt', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->setFirstResult(($page - 1) * $perPage)
+            ->setMaxResults($perPage);
+
+        if (null !== $search) {
+            // The configuration is concatenated rather than bound, because
+            // Postgres overloads websearch_to_tsquery as (regconfig, text) and
+            // (text), so a bound parameter has no type to resolve against and
+            // picks the wrong arity. It comes from the enum, never from input.
+            $qb->andWhere(\sprintf(
+                "TSMATCH(r.searchVector, WEBSEARCH_TO_TSQUERY('%s', :search)) = true",
+                WorkerRunSearchIndexer::LANGUAGE->value,
+            ))->setParameter('search', $search);
+        }
+
+        if (null !== $outcome) {
+            match ($outcome) {
+                WorkerRunOutcome::Succeeded => $qb->andWhere('r.exitCode = 0'),
+                WorkerRunOutcome::Failed => $qb->andWhere('r.exitCode IS NOT NULL AND r.exitCode <> 0'),
+                WorkerRunOutcome::NotStarted => $qb->andWhere('r.exitCode IS NULL'),
+            };
+        }
+
+        if (null !== $bridgeId) {
+            $qb->andWhere('r.bridgeId = :bridgeId')
+                ->setParameter('bridgeId', $bridgeId, UuidType::NAME);
+        }
+
+        // Nothing is fetch-joined, so the page LIMIT already counts runs.
+        return new Paginator($qb->getQuery(), fetchJoinCollection: false);
+    }
+
+    /**
+     * The bridges that have reported a run for this project, for the page filter.
+     *
+     * @return list<Uuid>
+     */
+    public function bridgeIdsOf(Project $project): array
+    {
+        /** @var list<Uuid|string> $rows */
+        $rows = $this->createQueryBuilder('r')
+            ->select('DISTINCT r.bridgeId')
+            ->andWhere('r.project = :project')
+            ->setParameter('project', $project)
+            ->orderBy('r.bridgeId', 'ASC')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        return array_map(
+            static fn (Uuid|string $row): Uuid => $row instanceof Uuid ? $row : Uuid::fromString($row),
+            $rows,
+        );
     }
 
     /**
