@@ -128,6 +128,14 @@
                         <span class="lp-sidebar__link-label">{{ 'nav.link.billing'|trans }}</span>
                     </a>
                     {% endif %}
+                    {% if is_feature_enabled('inbox.enabled') %}
+                    <a href="{{ path('app_account_inbox') }}"
+                       class="lp-sidebar__link{% if route == 'app_account_inbox' %} lp-sidebar__link--active{% endif %}"
+                       {% if route == 'app_account_inbox' %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:inbox" />
+                        <span class="lp-sidebar__link-label">{{ 'inbox.account.nav'|trans }}</span>
+                    </a>
+                    {% endif %}
                     <a href="{{ path('app_account_settings') }}"
                        class="lp-sidebar__link{% if route == 'app_account_settings' %} lp-sidebar__link--active{% endif %}"
                        {% if route == 'app_account_settings' %}aria-current="page"{% endif %}>

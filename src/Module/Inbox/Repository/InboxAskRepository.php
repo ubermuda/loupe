@@ -60,6 +60,30 @@ class InboxAskRepository extends ServiceEntityRepository
             ->getResult());
     }
 
+    /**
+     * The open asks in every project the user owns, with their projects and items,
+     * ordered by project name and then oldest ask first.
+     *
+     * @return list<InboxAsk>
+     */
+    public function findOpenByOwner(User $user): array
+    {
+        return array_values($this->withItems()
+            ->join('a.project', 'p')
+            ->addSelect('p')
+            ->addSelect('LOWER(p.name) AS HIDDEN projectName')
+            ->andWhere('p.owner = :user')
+            ->andWhere('a.closedAt IS NULL')
+            ->setParameter('user', $user)
+            ->orderBy('projectName', 'ASC')
+            ->addOrderBy('p.id', 'ASC')
+            ->addOrderBy('a.createdAt', 'ASC')
+            ->addOrderBy('a.id', 'ASC')
+            ->addOrderBy('l.addedAt', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
+
     public function countClosedForProject(Project $project): int
     {
         return (int) $this->createQueryBuilder('a')

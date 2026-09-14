@@ -1,0 +1,61 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'inbox.account.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <span class="lp-topbar__here">{{ 'inbox.account.page.title'|trans }}</span>
+{% endblock %}
+
+{% block body %}
+<div class="lp-workspace">
+    <h1 class="lp-workspace-title">{{ 'inbox.account.page.title'|trans }}</h1>
+    <p class="lp-workspace-desc">{{ 'inbox.account.page.description'|trans }}</p>
+
+    {% if inbox.isEmpty %}
+    <div class="lp-empty-state">
+        <twig:ux:icon name="lucide:inbox" class="lp-empty-state__icon text-accent w-12 h-12" />
+        <h2 class="lp-empty-state__title">{{ 'inbox.account.page.empty'|trans }}</h2>
+    </div>
+    {% else %}
+        {% for group in inbox.groups %}
+        {% set projectInbox = path('app_project_inbox', {id: group.project.id}) %}
+        <section class="lp-inbox-section" data-account-inbox-project="{{ group.project.id }}">
+            <header class="lp-account-inbox-project__head">
+                <h2 class="lp-account-inbox-project__title"><a class="lp-account-inbox-project__link" href="{{ projectInbox }}">{{ group.project.name }}</a></h2>
+                <span class="lp-account-inbox-project__count" data-account-inbox-open-count>{{ 'inbox.account.project.open_items'|trans({'%count%': group.openItemCount}) }}</span>
+            </header>
+            {% for ask in group.openAsks %}
+            <section class="lp-inbox-ask" data-inbox-ask-id="{{ ask.id }}">
+                <header class="lp-inbox-ask__head">
+                    <span class="lp-inbox-ask__session" title="{{ ask.sessionId }}">{{ 'inbox.ask.session'|trans({'%session%': ask.sessionId}) }}</span>
+                    <span class="lp-inbox-ask__time">{{ 'inbox.ask.asked'|trans({'%time%': ask.createdAt|relative_time}) }}</span>
+                    <a class="lp-inbox-ask__link" href="{{ projectInbox }}#inbox-ask-{{ ask.id }}" data-account-inbox-ask-link>{{ 'inbox.account.ask.open'|trans }}</a>
+                </header>
+                {% if ask.context|trim is not empty %}
+                    {# Agent Markdown, rendered and sanitized the way a card body is. #}
+                    <div class="prose lp-prose lp-inbox-ask__context">{{ ask.context|inbox_markdown }}</div>
+                {% endif %}
+                <div class="lp-inbox-ask__items">
+                    {% for link in ask.items %}
+                    {% set item = link.item %}
+                    <article class="lp-inbox-item" data-inbox-item="{{ item.number }}">
+                        <div class="lp-inbox-item__head">
+                            <span class="lp-inbox-item__number">{{ 'inbox.item.number'|trans({'%number%': item.number}) }}</span>
+                            <span class="lp-inbox-item__kind">{{ ('inbox.item.kind.' ~ item.kind.value)|trans }}</span>
+                            {% if item.blocking %}<span class="lp-inbox-item__blocking">{{ 'inbox.item.blocking'|trans }}</span>{% endif %}
+                            <span class="lp-status-chip lp-status-chip--{{ {open: 'pending', answered: 'ok', done: 'ok', declined: 'resolved', withdrawn: 'resolved', obsolete: 'resolved'}[item.state.value] }}">
+                                <span class="lp-status-chip__dot"></span>
+                                {{ ('inbox.item.state.' ~ item.state.value)|trans }}
+                            </span>
+                        </div>
+                        <h3 class="lp-inbox-item__title">{{ item.title }}</h3>
+                    </article>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endfor %}
+        </section>
+        {% endfor %}
+    {% endif %}
+</div>
+{% endblock %}

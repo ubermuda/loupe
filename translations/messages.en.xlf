@@ -4540,6 +4540,30 @@
                 <source>inbox.project_list.open_items</source>
                 <target>{0}0 open inbox items|{1}1 open inbox item|]1,Inf[%count% open inbox items</target>
             </trans-unit>
+            <trans-unit id="inbox.account.nav">
+                <source>inbox.account.nav</source>
+                <target>All inboxes</target>
+            </trans-unit>
+            <trans-unit id="inbox.account.page.title">
+                <source>inbox.account.page.title</source>
+                <target>All inboxes</target>
+            </trans-unit>
+            <trans-unit id="inbox.account.page.description">
+                <source>inbox.account.page.description</source>
+                <target>The open asks in every project you own. Open an ask to answer it on its project inbox.</target>
+            </trans-unit>
+            <trans-unit id="inbox.account.page.empty">
+                <source>inbox.account.page.empty</source>
+                <target>No agent waits on you in any project.</target>
+            </trans-unit>
+            <trans-unit id="inbox.account.project.open_items">
+                <source>inbox.account.project.open_items</source>
+                <target>{0}0 open items|{1}1 open item|]1,Inf[%count% open items</target>
+            </trans-unit>
+            <trans-unit id="inbox.account.ask.open">
+                <source>inbox.account.ask.open</source>
+                <target>Answer in the project inbox</target>
+            </trans-unit>
 
 
             <!-- Board -->
