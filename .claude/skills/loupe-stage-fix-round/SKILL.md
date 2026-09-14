@@ -9,7 +9,7 @@ Answer one round of feedback on the current stage of one card, then stop.
 
 ## Procedure
 
-1. Read `../loupe-stage-product-design/references/stage-contract.md`. Follow its rules for the whole run, and take its first steps. In the Implementation column, the contract rules of `loupe-stage-implementation` replace rule 1.
+1. Read `../loupe-stage-product-design/references/stage-contract.md`. Follow its rules for the whole run, and take its first steps. Load `EnterWorktree` and `Monitor` in the same ToolSearch as the Loupe tools. In the Implementation column, the contract rules of `loupe-stage-implementation` replace rule 1.
 2. Read the card `status`, and take one branch:
    - `product-design`: the design round, for the product document.
    - `tech-design`: the design round, for the tech design.
@@ -28,11 +28,11 @@ Answer one round of feedback on the current stage of one card, then stop.
 ### Code round
 
 1. Read `references/pull-request-feedback.md`, then run `gh pr view` on each linked pull request. When none is `OPEN`, stop with `STAGE RESULT: no open pull request`.
-2. Read the inline comments, the unresolved review threads, the reviews and the checks. Wait for pending checks as the implementation skill says. Read the failed logs of each failing check.
+2. Read the inline comments, the unresolved review threads, the reviews and the checks. Wait for pending checks as "Wait for CI" in `../loupe-stage-implementation/references/commands.md` says. Read the failed logs of each failing check.
 3. When no thread is unresolved, no review requests changes, and no check fails, stop with `STAGE RESULT: nothing to fix`. Change nothing.
 4. Invoke `project-worktrees` and `working-with-prs`. Read `../loupe-stage-implementation/SKILL.md` and its `references/commands.md`.
 5. When `.claude/worktrees/card-<number>` exists, call `EnterWorktree` with its absolute path. Otherwise set it up from the pull request branch first. Keep every existing commit.
 6. When the binding fails, or the branch is not the pull request branch, stop with `STAGE RESULT: blocked: worktree binding failed`.
-7. Fix the feedback. Follow the implementation skill for worktree safety, subagents, `just cs` and `just ci`, the push, the CI wait and the Codex review.
+7. Fix the feedback with the Edit and Write tools. Follow the implementation skill for worktree safety, subagents, the borrowed skills, the gate, the push, the CI wait and the Codex review. Run the gate before every push.
 8. With green CI and a clean review, stop with `STAGE RESULT: fixed <pr url>`.
 9. On a block, record it and stop as implementation step 14 says.
