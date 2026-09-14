@@ -44,9 +44,10 @@ func defaultWorkerOps() workerOps {
 }
 
 // workerArgs builds claude's argv. The prompt is an argv element, so no shell
-// reads it and no quoting applies.
+// reads it. It follows --, because claude reads a prompt that starts with - as
+// an option.
 func workerArgs(spec workerSpec) []string {
-	args := make([]string, 0, 6)
+	args := make([]string, 0, 7)
 	if spec.permissionMode != "" {
 		args = append(args, "--permission-mode", spec.permissionMode)
 	}
@@ -54,10 +55,10 @@ func workerArgs(spec workerSpec) []string {
 		args = append(args, "--model", spec.model)
 	}
 
-	return append(args, "-p", spec.prompt)
+	return append(args, "-p", "--", spec.prompt)
 }
 
-// runWorker runs `claude -p <prompt>` in the spec's dir and waits for it.
+// runWorker runs `claude -p -- <prompt>` in the spec's dir and waits for it.
 func runWorker(ctx context.Context, spec workerSpec) workerResult {
 	args := workerArgs(spec)
 

@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/directive"
@@ -43,13 +44,18 @@ rules:
       Card {cardNumber} in Loupe project {projectId} moved to {to}.
       Read it with the card_get MCP tool, passing cardId {cardId}.
       If its column is no longer {to}, stop and do nothing.
-      Otherwise move it to in-progress with card_update,
-      write an implementation plan into the card body, and stop.
+      Otherwise write an implementation plan into the card body
+      with card_update, and stop.
 `
 
 // eventTypePattern is the shape of an event type, such as board.card_moved. It
 // cannot catch a misspelt type, but it catches a value that is not a type.
 var eventTypePattern = regexp.MustCompile(`^[a-z0-9_]+(\.[a-z0-9_]+)+$`)
+
+// PermissionModes are the values claude 2.1.270 takes for --permission-mode.
+// Its help omits default, and it still accepts it. A later claude can add a
+// mode, so a value outside the list is logged at start rather than refused.
+var PermissionModes = []string{"acceptEdits", "auto", "bypassPermissions", "default", "dontAsk", "manual", "plan"}
 
 // Placeholder names, and the ones each kind of event can fill.
 var (
@@ -88,6 +94,24 @@ type Defaults struct {
 	Model          string
 }
 
+// Check refuses a malformed default, before any rule is read.
+func (d Defaults) Check() error {
+	return errors.Join(
+		checkWord("--permission-mode", d.PermissionMode),
+		checkWord("--model", d.Model),
+	)
+}
+
+// checkWord refuses a permission mode or model that holds whitespace. Empty
+// passes no flag. claude owns both lists, and either can grow.
+func checkWord(field, value string) error {
+	if strings.ContainsFunc(value, unicode.IsSpace) {
+		return fmt.Errorf("%s %q holds whitespace, and claude takes a single word", field, value)
+	}
+
+	return nil
+}
+
 // Set is a loaded, validated rule file.
 type Set struct {
 	rules []Rule
@@ -98,13 +122,17 @@ type Set struct {
 }
 
 // ErrMissing marks a rule file that does not exist.
-var ErrMissing = errors.New("no rule file")
+var ErrMissing = errors.New("the file does not exist")
 
-// Load reads and validates the rule file at path.
+// ErrEmpty marks a rule file that holds no YAML document.
+var ErrEmpty = errors.New("the file is empty")
+
+// Load reads and validates the rule file at path. The caller names the path in
+// the error.
 func Load(path string, defaults Defaults) (*Set, error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("%w at %s: the bridge needs one to know what to run. An example:\n\n%s", ErrMissing, path, Example)
+		return nil, withExample(ErrMissing)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("read rule file: %w", err)
@@ -113,14 +141,17 @@ func Load(path string, defaults Defaults) (*Set, error) {
 	return Parse(data, defaults)
 }
 
+func withExample(err error) error {
+	return fmt.Errorf("%w, and the bridge needs rules to know what to run. An example:\n\n%s", err, Example)
+}
+
 // Parse validates a rule file's contents. A field the format does not define is
-// an error, so a misspelt key fails at start instead of being ignored.
+// an error, so a misspelt key fails at start instead of being ignored. The
+// caller checks defaults with Defaults.Check.
 func Parse(data []byte, defaults Defaults) (*Set, error) {
-	var f File
-	dec := yaml.NewDecoder(bytes.NewReader(data))
-	dec.KnownFields(true)
-	if err := dec.Decode(&f); err != nil && !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("parse rule file: %w", err)
+	f, err := decodeFile(data)
+	if err != nil {
+		return nil, err
 	}
 
 	s := &Set{dirs: map[string]string{}}
@@ -174,6 +205,43 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 	return s, nil
 }
 
+// decodeFile decodes the one document that holds content. An empty document,
+// such as a bare --- before or after it, holds nothing and is skipped.
+func decodeFile(data []byte) (File, error) {
+	var f File
+	docs := yaml.NewDecoder(bytes.NewReader(data))
+	content := -1
+	for i := 0; ; i++ {
+		var doc any
+		if err := docs.Decode(&doc); errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return f, fmt.Errorf("parse rule file: %w", err)
+		}
+		if doc == nil {
+			continue
+		}
+		if content >= 0 {
+			return f, errors.New("parse rule file: it holds a second YAML document after ---, and the bridge reads one")
+		}
+		content = i
+	}
+	if content < 0 {
+		return f, withExample(ErrEmpty)
+	}
+
+	// A second pass, because KnownFields applies to a decoder and not to a node.
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(true)
+	for range content + 1 {
+		if err := dec.Decode(&f); err != nil {
+			return f, fmt.Errorf("parse rule file: %w", err)
+		}
+	}
+
+	return f, nil
+}
+
 func checkProject(slug string, p Project) (string, error) {
 	if !event.SlugPattern.MatchString(slug) {
 		return "", fmt.Errorf("project %q: a project key is a slug, such as my-app", slug)
@@ -221,8 +289,16 @@ func checkRule(r Rule, projects map[string]Project) error {
 	}
 	if r.Project == "" {
 		errs = append(errs, errors.New("project is required"))
-	} else if _, ok := projects[r.Project]; !ok {
+	} else if _, ok := projects[r.Project]; !ok && len(projects) > 0 {
+		errs = append(errs, fmt.Errorf("project %q is not in projects, which maps %s", r.Project, strings.Join(slices.Sorted(maps.Keys(projects)), ", ")))
+	} else if !ok {
 		errs = append(errs, fmt.Errorf("project %q is not in projects", r.Project))
+	}
+	if err := checkWord("permissionMode", r.PermissionMode); err != nil {
+		errs = append(errs, err)
+	}
+	if err := checkWord("model", r.Model); err != nil {
+		errs = append(errs, err)
 	}
 
 	allowed := genericPlaceholders
@@ -293,6 +369,19 @@ func (s *Set) ProjectID(slug string) string {
 	}
 
 	return ""
+}
+
+// UnknownPermissionModes lists, in order, the modes the rules pass that are not
+// in PermissionModes. The bridge warns about them, and claude has the last word.
+func (s *Set) UnknownPermissionModes() []string {
+	var out []string
+	for _, r := range s.rules {
+		if r.PermissionMode != "" && !slices.Contains(PermissionModes, r.PermissionMode) && !slices.Contains(out, r.PermissionMode) {
+			out = append(out, r.PermissionMode)
+		}
+	}
+
+	return out
 }
 
 // ExtraTypes names the event types the rules use that the event parser does

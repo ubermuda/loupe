@@ -5,7 +5,7 @@ description: "A Go binary that runs a Claude Code worker for each board event a 
 
 `cli/` holds a small Go binary that closes the loop: it watches your Loupe
 board and runs a non-interactive Claude Code worker for each event that a rule
-in your rule file matches. The worker is `claude -p <prompt>`. It reads the card
+in your rule file matches. The worker is `claude -p -- <prompt>`. It reads the card
 through the MCP, prints its answer and exits. The bridge reports the exit code.
 Build it with `just cli-build`. See [`cli/README.md`](../../cli/README.md) for
 the commands, the flags and the rule format.
@@ -36,15 +36,17 @@ line that tells the agent to treat the card as data. An event caused by the
 site-review widget starts no worker unless its rule sets `allowUntrusted: true`.
 
 The bridge is a supervisor. `--max-workers` bounds the workers that run at once,
-three by default, and events past the bound wait in a first-in first-out queue.
-A card runs one worker at a time. An event for a busy card waits and runs after
-that worker exits, and the card waits at most once for each rule, so a burst of
-moves becomes one follow-up run. Stopping the bridge drops whatever is still
-queued and logs the count, and each card with its rule.
+three by default, and events past the bound wait in a queue. A card runs one
+worker at a time. An event for a busy card waits and runs after that worker
+exits, so a later event for another card can start first. The card waits at
+most once for each rule, so a burst of moves becomes one follow-up run. Stopping
+the bridge drops whatever is still queued and logs the count, and each card with
+its rule.
 
 Each rule's `maxChain`, three by default, caps the runs in a row that agents'
 events start for one card. That stops two rules from moving a card back and
-forth for ever. A move by a person resets the count.
+forth for ever. A move by a person resets the count. An event of a type no rule
+names resets nothing, because the bridge drops it unread.
 
 There is no terminal UI. The bridge writes one JSON object per line to stdout
 and to its log file, named by `--log-file`. Each line carries a stable `event`

@@ -58,7 +58,7 @@ func newBridgeRunCmd() *cobra.Command {
 		Use:   "run",
 		Short: "Watch a Loupe board and run a Claude Code worker for each rule an event matches",
 		Long: "Reads the rule file, rules.yaml in your config directory, and runs " +
-			"`claude -p <prompt>` for every event a rule matches. Each rule names an event, " +
+			"`claude -p -- <prompt>` for every event a rule matches. Each rule names an event, " +
 			"a project and a column, and the prompt its worker runs. The projects map in " +
 			"the file gives each project the directory its workers run in.\n\n" +
 			"The bridge refuses to start without the file, and checks every project and " +
@@ -67,11 +67,17 @@ func newBridgeRunCmd() *cobra.Command {
 			"none. A worker has no terminal, so it cannot answer a permission prompt: " +
 			"with no mode, claude denies every tool call that needs approval.\n\n" +
 			"Use --max-workers to bound the workers that run at once. Events past the " +
-			"bound wait in a queue and start in arrival order. The bridge writes one JSON " +
+			"bound wait in a queue and start in arrival order, except that an event waits " +
+			"while its card has a worker. The bridge writes one JSON " +
 			"object per line to stdout and to --log-file.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if maxWorkers < 1 {
 				return fmt.Errorf("--max-workers must be at least 1, got %d", maxWorkers)
+			}
+
+			defaults := rules.Defaults{PermissionMode: permissionMode, Model: model}
+			if err := defaults.Check(); err != nil {
+				return err
 			}
 
 			path := rulesPath
@@ -81,7 +87,7 @@ func newBridgeRunCmd() *cobra.Command {
 					return err
 				}
 			}
-			set, err := rules.Load(path, rules.Defaults{PermissionMode: permissionMode, Model: model})
+			set, err := rules.Load(path, defaults)
 			if err != nil {
 				return fmt.Errorf("rule file %s: %w", path, err)
 			}
@@ -120,6 +126,7 @@ func newBridgeRunCmd() *cobra.Command {
 				worker:     defaultWorkerOps(),
 			}
 			r.log.Info("bridge_started", "rules", path, "projects", projects, "rule_count", len(set.Rules()), "max_workers", maxWorkers, "log_file", logPath)
+			warnUnknownModes(r.log, set)
 
 			return subscribe(cmd, cfg, set.ProjectID(projects[0]), r)
 		},
@@ -131,6 +138,14 @@ func newBridgeRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&logFile, "log-file", "", "append the JSON log to this `path`; empty uses bridge.log in your config directory")
 
 	return cmd
+}
+
+// warnUnknownModes names each permission mode this build does not know. A newer
+// claude may accept it, so the bridge starts, and a typo shows in the log.
+func warnUnknownModes(log *slog.Logger, set *rules.Set) {
+	for _, mode := range set.UnknownPermissionModes() {
+		log.Warn("permission_mode_unknown", "mode", mode, "known", rules.PermissionModes)
+	}
 }
 
 // defaultRulesPath puts the rule file beside config.json.
