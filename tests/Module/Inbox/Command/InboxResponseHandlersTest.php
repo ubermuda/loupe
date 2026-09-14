@@ -143,6 +143,25 @@ final class InboxResponseHandlersTest extends KernelTestCase
         self::assertSame('Not sure what you mean.', $stored->closeNote);
     }
 
+    public function test_a_decline_from_a_stale_copy_clears_an_answer_another_request_stored(): void
+    {
+        $item = $this->question($this->em, $this->project, 1, freeText: true);
+        // Another request answers and commits after this one loaded the item.
+        $this->em->getConnection()->executeStatement(
+            "UPDATE inbox_items SET state = 'answered', selected_options = '[1]', answer_text = 'CSV', closed_at = NOW() WHERE id = ?",
+            [(string) $item->id],
+        );
+
+        $this->decline($item, 'Changed my mind.');
+
+        $this->em->clear();
+        $stored = $this->reload($item);
+        self::assertSame(InboxItemState::Declined, $stored->state);
+        self::assertSame([], $stored->selectedOptions);
+        self::assertNull($stored->answerText);
+        self::assertSame('Changed my mind.', $stored->closeNote);
+    }
+
     private function answer(InboxItem $item, string $selected, string $text): void
     {
         $handler = self::getContainer()->get(AnswerInboxItemHandler::class);

@@ -62,6 +62,7 @@ final readonly class InboxItemCloser
             }
             $item->state = $state;
             $item->updatedAt = $now;
+            $this->inboxItems->writeResponse($item);
             $this->em->flush();
 
             return null;

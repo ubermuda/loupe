@@ -10,6 +10,7 @@ use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -109,6 +110,34 @@ class InboxItemRepository extends ServiceEntityRepository
             ->getSingleResult();
 
         return [$row['state'], $row['closedAt']];
+    }
+
+    /**
+     * Writes every response column from the entity, changed or not.
+     *
+     * A flush writes only what differs from the copy Doctrine loaded, so a
+     * response cleared on a stale copy would leave another request's answer in place.
+     */
+    public function writeResponse(InboxItem $item): void
+    {
+        $this->createQueryBuilder('i')
+            ->update()
+            ->set('i.state', ':state')
+            ->set('i.selectedOptions', ':selectedOptions')
+            ->set('i.answerText', ':answerText')
+            ->set('i.closeNote', ':closeNote')
+            ->set('i.closedAt', ':closedAt')
+            ->set('i.updatedAt', ':updatedAt')
+            ->andWhere('i.id = :id')
+            ->setParameter('state', $item->state->value)
+            ->setParameter('selectedOptions', $item->selectedOptions, Types::JSON)
+            ->setParameter('answerText', $item->answerText)
+            ->setParameter('closeNote', $item->closeNote)
+            ->setParameter('closedAt', $item->closedAt, Types::DATETIME_IMMUTABLE)
+            ->setParameter('updatedAt', $item->updatedAt, Types::DATETIME_IMMUTABLE)
+            ->setParameter('id', $item->id, UuidType::NAME)
+            ->getQuery()
+            ->execute();
     }
 
     public function countOpenByProject(Project $project): int
