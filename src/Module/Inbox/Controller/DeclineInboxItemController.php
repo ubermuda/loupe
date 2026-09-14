@@ -44,6 +44,8 @@ final class DeclineInboxItemController extends AppController
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(itemId, projectId)')] InboxItem $item,
     ): Response {
         $this->inbox->requireEnabled();
+        // The closed asks page the owner was on, kept on the way back.
+        $pageQuery = $request->query->getInt('page', 1) > 1 ? ['page' => $request->query->getInt('page')] : [];
 
         $data = new DeclineInboxItemRequest();
         $form = $this->formFactory->createNamed(DeclineInboxItemFormType::nameFor($item), DeclineInboxItemFormType::class, $data);
@@ -54,7 +56,7 @@ final class DeclineInboxItemController extends AppController
                 ($this->declineItem)(new DeclineInboxItemCommand($item, $data->closeNote ?? ''));
                 $this->addFlash('success', $this->translator->trans('inbox.flash.declined', ['%number%' => $item->number]));
 
-                return $this->redirectToRoute('app_project_inbox', ['id' => (string) $item->project->id]);
+                return $this->redirectToRoute('app_project_inbox', ['id' => (string) $item->project->id, ...$pageQuery]);
             } catch (DomainErrors $e) {
                 $this->applyDomainErrors($form, $e);
             }
@@ -64,6 +66,6 @@ final class DeclineInboxItemController extends AppController
             'id' => (string) $item->project->id,
             'project' => $item->project,
             ShowInboxController::REFUSED_FORM => $form->createView(),
-        ])->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
+        ], $pageQuery)->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 }

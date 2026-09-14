@@ -4340,6 +4340,10 @@
                 <source>nav.link.inbox</source>
                 <target>Inbox</target>
             </trans-unit>
+            <trans-unit id="inbox.nav.open_items">
+                <source>inbox.nav.open_items</source>
+                <target>{0}No open items|{1}1 open item|]1,Inf[%count% open items</target>
+            </trans-unit>
             <trans-unit id="inbox.page.title">
                 <source>inbox.page.title</source>
                 <target>Inbox</target>

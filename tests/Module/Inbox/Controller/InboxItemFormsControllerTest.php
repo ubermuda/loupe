@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Inbox\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Module\Inbox\Command\ShowInboxHandler;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Form\AnswerInboxItemRequest;
@@ -14,6 +15,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 
 final class InboxItemFormsControllerTest extends WebTestCase
@@ -43,7 +45,7 @@ final class InboxItemFormsControllerTest extends WebTestCase
         $crawler = $this->client->request(Request::METHOD_GET, $this->pageUrl());
         $name = 'inbox_answer_'.$item->id;
 
-        // The option controls post nothing; a browser copies the pick into the hidden field.
+        // The form reads the pick from the hidden field, which the answer controller fills in a browser.
         $this->client->submit($crawler->filter('form[name="'.$name.'"]')->form([
             $name.'[selectedOptions]' => '1',
             $name.'[answerText]' => 'CSV, because the importer reads it.',
@@ -62,10 +64,12 @@ final class InboxItemFormsControllerTest extends WebTestCase
     {
         $item = $this->question($this->em, $this->project, 1);
 
-        $this->post($item, 'answer', ['selectedOptions' => '0,1']);
+        $crawler = $this->post($item, 'answer', ['selectedOptions' => '0,1']);
 
         self::assertResponseStatusCodeSame(422);
         self::assertSelectorTextContains('#inbox-item-1', 'This question takes one option only.');
+        $describedBy = (string) $crawler->filter('#inbox-item-1 fieldset')->attr('aria-describedby');
+        self::assertSelectorTextContains('#'.$describedBy, 'This question takes one option only.');
         self::assertSame(InboxItemState::Open, $this->reload($item)->state);
     }
 
@@ -87,8 +91,27 @@ final class InboxItemFormsControllerTest extends WebTestCase
         $this->post($item, 'answer', ['selectedOptions' => '1']);
 
         self::assertResponseStatusCodeSame(422);
-        self::assertSelectorTextContains('#inbox-item-1', 'This response is final');
+        // The page carries a static "final" line too, so the assertion targets the refusal itself.
+        self::assertSelectorTextContains('#inbox-item-1 [data-inbox-refusal]', 'This response is final');
         self::assertSame([0], $this->reload($item)->selectedOptions);
+    }
+
+    public function test_a_refused_form_and_a_saved_one_keep_the_closed_asks_page(): void
+    {
+        $question = $this->question($this->em, $this->project, 1);
+        for ($number = 2; $number <= ShowInboxHandler::CLOSED_ASKS_PER_PAGE + 2; ++$number) {
+            $this->askHolding($this->em, $this->project, [$this->answered($this->em, $this->question($this->em, $this->project, $number))], closedAt: new \DateTimeImmutable('-'.$number.' minutes'));
+        }
+
+        $crawler = $this->post($question, 'answer', ['selectedOptions' => '0,1'], page: 2);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextSame('.lp-pagination [aria-current="page"]', '2');
+        self::assertCount(1, $crawler->filter('[data-inbox-section="closed-asks"] [data-inbox-ask-id]'));
+
+        $this->post($question, 'answer', ['selectedOptions' => '0'], page: 2);
+
+        self::assertResponseRedirects($this->pageUrl().'?page=2');
     }
 
     public function test_marking_a_to_do_done(): void
@@ -129,10 +152,12 @@ final class InboxItemFormsControllerTest extends WebTestCase
     public function test_a_decline_of_an_item_the_agent_withdrew_is_refused(): void
     {
         $item = $this->answered($this->em, $this->todo($this->em, $this->project, 3), InboxItemState::Withdrawn);
+        $this->askHolding($this->em, $this->project, [$item]);
 
         $this->post($item, 'decline', ['closeNote' => '']);
 
         self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('#inbox-item-3 [data-inbox-refusal]', 'The agent closed this item');
         self::assertSame(InboxItemState::Withdrawn, $this->reload($item)->state);
     }
 
@@ -194,13 +219,13 @@ final class InboxItemFormsControllerTest extends WebTestCase
     }
 
     /** @param array<string, string> $fields */
-    private function post(InboxItem $item, string $action, array $fields): void
+    private function post(InboxItem $item, string $action, array $fields, ?int $page = null): Crawler
     {
         $prefix = ['answer' => 'inbox_answer_', 'done' => 'inbox_done_', 'decline' => 'inbox_decline_'][$action];
-        $url = $this->actionUrl($item, $action);
+        $url = $this->actionUrl($item, $action).(null === $page ? '' : '?page='.$page);
 
         // 'csrf-token' is the SameOriginCsrfTokenManager sentinel, which a same-origin Referer lets stand in for a signed token.
-        $this->client->request(Request::METHOD_POST, $url, [$prefix.$item->id => [...$fields, '_token' => 'csrf-token']], [], ['HTTP_REFERER' => 'http://localhost'.$url]);
+        return $this->client->request(Request::METHOD_POST, $url, [$prefix.$item->id => [...$fields, '_token' => 'csrf-token']], [], ['HTTP_REFERER' => 'http://localhost'.$url]);
     }
 
     private function actionUrl(InboxItem $item, string $action): string

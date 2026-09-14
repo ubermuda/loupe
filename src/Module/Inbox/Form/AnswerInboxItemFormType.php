@@ -12,9 +12,9 @@ use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
 /**
- * One answer to one question. The option controls post nothing themselves:
- * the inbox answer controller copies the ticked indexes into selectedOptions,
- * as the decision controller does for a document's decision block.
+ * One answer to one question. The option controls post under a name outside
+ * this form, so the form reads selectedOptions, which the inbox answer
+ * controller fills with the ticked indexes.
  *
  * @extends AbstractType<AnswerInboxItemRequest>
  */
@@ -30,6 +30,9 @@ class AnswerInboxItemFormType extends AbstractType
     {
         $builder->add('selectedOptions', HiddenType::class, [
             'required' => false,
+            // A hidden field hands its errors to the form by default. Kept here,
+            // they render beside the options the fieldset describes.
+            'error_bubbling' => false,
             'attr' => ['data-inbox-answer-target' => 'selectedOptions'],
         ]);
         $builder->add('answerText', TextareaType::class, [

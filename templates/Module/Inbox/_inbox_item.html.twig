@@ -1,6 +1,7 @@
 {% set home = inbox.isHome(item, ask) %}
 {% set open = item.state.value == 'open' %}
 {% set chip = {open: 'pending', answered: 'ok', done: 'ok', declined: 'resolved', withdrawn: 'resolved', obsolete: 'resolved'}[item.state.value] %}
+{% set actionParams = {projectId: item.project.id, itemId: item.id}|merge(inbox.page > 1 ? {page: inbox.page} : {}) %}
 <article class="lp-inbox-item"{% if home %} id="inbox-item-{{ item.number }}"{% endif %} data-inbox-item="{{ item.number }}">
     <div class="lp-inbox-item__head">
         <span class="lp-inbox-item__number">{{ 'inbox.item.number'|trans({'%number%': item.number}) }}</span>
@@ -39,6 +40,15 @@
     </div>
     {% endif %}
 
+    {% if home and not inbox.acceptsResponse(item) %}
+        {% set refusals = inbox_refusals(item, refusedForm) %}
+        {% if refusals|length > 0 %}
+        <div class="lp-inbox-item__refusal" role="alert" data-inbox-refusal>
+            {% for message in refusals %}<p>{{ message }}</p>{% endfor %}
+        </div>
+        {% endif %}
+    {% endif %}
+
     {% if inbox.acceptsResponse(item) %}
         {% if not home %}
             <a class="lp-inbox-item__jump" href="#inbox-item-{{ item.number }}">{{ 'inbox.item.respond_elsewhere'|trans({'%number%': item.number}) }}</a>
@@ -46,11 +56,12 @@
         <div class="lp-inbox-item__actions">
             {% if item.kind.value == 'question' %}
                 {% set answerForm = inbox_answer_form(item, refusedForm) %}
-                {{ form_start(answerForm, {action: path('app_inbox_item_answer', {projectId: item.project.id, itemId: item.id}), attr: {class: 'lp-form lp-inbox-answer', 'data-controller': 'inbox-answer'}}) }}
+                {% set selectedErrorsId = answerForm.selectedOptions.vars.id ~ '_errors' %}
+                {{ form_start(answerForm, {action: path('app_inbox_item_answer', actionParams), attr: {class: 'lp-form lp-inbox-answer', 'data-controller': 'inbox-answer'}}) }}
                     {% if item.options|length > 0 %}
                         {% set selected = (answerForm.selectedOptions.vars.value ?? '')|split(',') %}
-                        {# Grouping only: these controls post nothing, and the controller copies the ticked indexes into selectedOptions. #}
-                        <fieldset class="lp-decision lp-decision--inbox" data-decision-type="{{ item.multiple ? 'multiple' : 'single' }}" data-action="change->inbox-answer#select">
+                        {# The controls post under a name outside the form, so the form reads the ticked indexes from selectedOptions, which the controller fills. #}
+                        <fieldset class="lp-decision lp-decision--inbox" data-decision-type="{{ item.multiple ? 'multiple' : 'single' }}" data-action="change->inbox-answer#select"{% if answerForm.selectedOptions.vars.errors|length > 0 %} aria-describedby="{{ selectedErrorsId }}"{% endif %}>
                             <legend class="lp-decision__prompt">{{ (item.multiple ? 'inbox.answer.pick_any' : 'inbox.answer.pick_one')|trans }}</legend>
                             <div class="lp-decision__options">
                                 {% for option in item.options %}
@@ -67,7 +78,7 @@
                         </fieldset>
                     {% endif %}
                     {{ form_widget(answerForm.selectedOptions) }}
-                    <div class="lp-field-errors">{{ form_errors(answerForm.selectedOptions) }}</div>
+                    <div class="lp-field-errors" id="{{ selectedErrorsId }}">{{ form_errors(answerForm.selectedOptions) }}</div>
                     {% if item.freeText %}
                         <div class="lp-form-field">
                             {{ form_label(answerForm.answerText, null, {label_attr: {class: 'lp-label'}}) }}
@@ -83,7 +94,7 @@
                 {{ form_end(answerForm, {render_rest: false}) }}
             {% elseif open or item.state.value != 'done' %}
                 {% set doneForm = inbox_done_form(item, refusedForm) %}
-                {{ form_start(doneForm, {action: path('app_inbox_item_done', {projectId: item.project.id, itemId: item.id}), attr: {class: 'lp-inbox-done'}}) }}
+                {{ form_start(doneForm, {action: path('app_inbox_item_done', actionParams), attr: {class: 'lp-inbox-done'}}) }}
                     <div class="lp-field-errors">{{ form_errors(doneForm) }}</div>
                     <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">{{ 'inbox.done.submit'|trans }}</button>
                 {{ form_end(doneForm) }}
@@ -92,7 +103,7 @@
             {% set declineForm = inbox_decline_form(item, refusedForm) %}
                 <details class="lp-inbox-decline"{{ refusedForm and refusedForm.vars.name == declineForm.vars.name ? ' open' }}>
                     <summary class="lp-inbox-decline__summary">{{ (item.state.value == 'declined' ? 'inbox.decline.change' : 'inbox.decline.toggle')|trans }}</summary>
-                    {{ form_start(declineForm, {action: path('app_inbox_item_decline', {projectId: item.project.id, itemId: item.id}), attr: {class: 'lp-form lp-inbox-decline__form'}}) }}
+                    {{ form_start(declineForm, {action: path('app_inbox_item_decline', actionParams), attr: {class: 'lp-form lp-inbox-decline__form'}}) }}
                         <div class="lp-form-field">
                             {{ form_label(declineForm.closeNote, null, {label_attr: {class: 'lp-label'}}) }}
                             {{ form_widget(declineForm.closeNote, {attr: {class: 'lp-input', rows: 2}}) }}

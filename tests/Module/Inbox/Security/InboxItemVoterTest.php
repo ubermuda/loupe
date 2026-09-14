@@ -9,43 +9,32 @@ use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Security\InboxItemVoter;
 use App\Module\Project\Entity\Project;
-use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
 
 final class InboxItemVoterTest extends TestCase
 {
-    /** @return iterable<string, array{string}> */
-    public static function attributes(): iterable
-    {
-        yield 'view' => [InboxItemVoter::VIEW];
-        yield 'answer' => [InboxItemVoter::ANSWER];
-    }
-
-    #[DataProvider('attributes')]
-    public function test_the_project_owner_is_granted(string $attribute): void
+    public function test_the_project_owner_may_answer(): void
     {
         $owner = self::user('owner');
 
-        self::assertSame(VoterInterface::ACCESS_GRANTED, new InboxItemVoter()->vote(self::token($owner), self::item($owner), [$attribute]));
+        self::assertSame(VoterInterface::ACCESS_GRANTED, new InboxItemVoter()->vote(self::token($owner), self::item($owner), [InboxItemVoter::ANSWER]));
     }
 
-    #[DataProvider('attributes')]
-    public function test_a_stranger_is_denied(string $attribute): void
+    public function test_a_stranger_may_not_answer(): void
     {
         $item = self::item(self::user('owner'));
 
-        self::assertSame(VoterInterface::ACCESS_DENIED, new InboxItemVoter()->vote(self::token(self::user('stranger')), $item, [$attribute]));
+        self::assertSame(VoterInterface::ACCESS_DENIED, new InboxItemVoter()->vote(self::token(self::user('stranger')), $item, [InboxItemVoter::ANSWER]));
     }
 
-    #[DataProvider('attributes')]
-    public function test_another_subject_is_abstained_on(string $attribute): void
+    public function test_another_subject_or_attribute_is_abstained_on(): void
     {
         $owner = self::user('owner');
-        $project = new Project($owner, 'inbox');
 
-        self::assertSame(VoterInterface::ACCESS_ABSTAIN, new InboxItemVoter()->vote(self::token($owner), $project, [$attribute]));
+        self::assertSame(VoterInterface::ACCESS_ABSTAIN, new InboxItemVoter()->vote(self::token($owner), new Project($owner, 'inbox'), [InboxItemVoter::ANSWER]));
+        self::assertSame(VoterInterface::ACCESS_ABSTAIN, new InboxItemVoter()->vote(self::token($owner), self::item($owner), ['inbox_item.view']));
     }
 
     private static function user(string $name): User

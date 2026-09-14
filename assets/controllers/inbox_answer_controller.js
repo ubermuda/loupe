@@ -3,10 +3,10 @@ import { Controller } from '@hotwired/stimulus';
 /**
  * Copies the ticked options of an inbox question into the answer form.
  *
- * The option controls reuse the decision block markup and post nothing
- * themselves. Every change writes the ticked indexes into the hidden
- * selectedOptions field, and the owner submits with the button, because an
- * answer can close an ask and wake the agent that waits on it.
+ * The option controls reuse the decision block markup. They post under a name
+ * outside the form, so the form ignores them and reads the hidden
+ * selectedOptions field, which every change fills with the ticked indexes.
+ * The owner then submits with the button.
  */
 export default class extends Controller {
     static targets = ['option', 'selectedOptions'];

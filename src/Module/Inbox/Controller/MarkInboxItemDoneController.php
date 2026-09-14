@@ -44,6 +44,8 @@ final class MarkInboxItemDoneController extends AppController
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(itemId, projectId)')] InboxItem $item,
     ): Response {
         $this->inbox->requireEnabled();
+        // The closed asks page the owner was on, kept on the way back.
+        $pageQuery = $request->query->getInt('page', 1) > 1 ? ['page' => $request->query->getInt('page')] : [];
 
         $form = $this->formFactory->createNamed(MarkInboxItemDoneFormType::nameFor($item), MarkInboxItemDoneFormType::class);
         $form->handleRequest($request);
@@ -53,7 +55,7 @@ final class MarkInboxItemDoneController extends AppController
                 ($this->markDone)(new MarkInboxItemDoneCommand($item));
                 $this->addFlash('success', $this->translator->trans('inbox.flash.done', ['%number%' => $item->number]));
 
-                return $this->redirectToRoute('app_project_inbox', ['id' => (string) $item->project->id]);
+                return $this->redirectToRoute('app_project_inbox', ['id' => (string) $item->project->id, ...$pageQuery]);
             } catch (DomainErrors $e) {
                 // The form has no field, so every refusal belongs to the form itself.
                 foreach ($e->errors as $translationKey) {
@@ -66,6 +68,6 @@ final class MarkInboxItemDoneController extends AppController
             'id' => (string) $item->project->id,
             'project' => $item->project,
             ShowInboxController::REFUSED_FORM => $form->createView(),
-        ])->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
+        ], $pageQuery)->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 }

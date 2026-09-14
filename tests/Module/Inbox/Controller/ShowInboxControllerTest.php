@@ -101,6 +101,7 @@ final class ShowInboxControllerTest extends WebTestCase
         self::assertCount(1, $block->filter('#inbox-item-12 textarea[name="inbox_answer_'.$question->id.'[answerText]"]'));
         self::assertCount(1, $block->filter('#inbox-item-13 form[name="inbox_done_'.$todo->id.'"]'));
         self::assertSelectorTextSame('[data-inbox-open-count]', '2');
+        self::assertSelectorTextSame('a[href="/projects/'.$project->id.'/inbox"] .sr-only', '2 open items');
     }
 
     public function test_open_asks_come_oldest_first_then_loose_items_then_closed_asks(): void

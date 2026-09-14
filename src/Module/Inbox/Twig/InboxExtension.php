@@ -13,6 +13,7 @@ use App\Module\Inbox\Form\MarkInboxItemDoneFormType;
 use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Service\MarkdownRenderer;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\Form\FormView;
 use Twig\Extension\AbstractExtension;
@@ -40,6 +41,7 @@ final class InboxExtension extends AbstractExtension
             new TwigFunction('inbox_answer_form', $this->answerForm(...)),
             new TwigFunction('inbox_done_form', $this->doneForm(...)),
             new TwigFunction('inbox_decline_form', $this->declineForm(...)),
+            new TwigFunction('inbox_refusals', $this->refusals(...)),
             new TwigFunction('project_inbox_open_count', $this->openCount(...)),
         ];
     }
@@ -86,6 +88,33 @@ final class InboxExtension extends AbstractExtension
         return $this->formFactory
             ->createNamed($name, DeclineInboxItemFormType::class, new DeclineInboxItemRequest($item->closeNote))
             ->createView();
+    }
+
+    /**
+     * The messages of a refused form of this item, root and fields alike.
+     *
+     * A refusal that makes an item final leaves no form on the page to carry
+     * its errors, so the item shows them on its own.
+     *
+     * @return list<string>
+     */
+    public function refusals(InboxItem $item, ?FormView $refused = null): array
+    {
+        $names = [AnswerInboxItemFormType::nameFor($item), MarkInboxItemDoneFormType::nameFor($item), DeclineInboxItemFormType::nameFor($item)];
+        if (null === $refused || !\in_array($refused->vars['name'], $names, true)) {
+            return [];
+        }
+
+        $messages = [];
+        foreach ([$refused, ...$refused->children] as $view) {
+            foreach ($view->vars['errors'] ?? [] as $error) {
+                if ($error instanceof FormError) {
+                    $messages[] = $error->getMessage();
+                }
+            }
+        }
+
+        return array_values(array_unique($messages));
     }
 
     /** Feeds the sidebar pill, which shows only while the project has open items. */

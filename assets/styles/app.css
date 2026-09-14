@@ -4641,6 +4641,12 @@
     .lp-inbox-item__editable {
         @apply m-0 text-xs text-fg-mute;
     }
+    .lp-inbox-item__refusal {
+        @apply rounded-lg bg-status-danger-bg text-status-danger-deep py-2 px-3 text-sm;
+    }
+    .lp-inbox-item__refusal p {
+        @apply m-0;
+    }
     .lp-inbox-item__jump {
         @apply self-start text-sm font-semibold text-accent-ink no-underline hover:underline;
     }

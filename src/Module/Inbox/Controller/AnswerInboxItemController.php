@@ -44,6 +44,8 @@ final class AnswerInboxItemController extends AppController
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(itemId, projectId)')] InboxItem $item,
     ): Response {
         $this->inbox->requireEnabled();
+        // The closed asks page the owner was on, kept on the way back.
+        $pageQuery = $request->query->getInt('page', 1) > 1 ? ['page' => $request->query->getInt('page')] : [];
 
         $data = new AnswerInboxItemRequest();
         $form = $this->formFactory->createNamed(AnswerInboxItemFormType::nameFor($item), AnswerInboxItemFormType::class, $data);
@@ -54,7 +56,7 @@ final class AnswerInboxItemController extends AppController
                 ($this->answerItem)(new AnswerInboxItemCommand($item, $data->selectedOptions ?? '', $data->answerText ?? ''));
                 $this->addFlash('success', $this->translator->trans('inbox.flash.answered', ['%number%' => $item->number]));
 
-                return $this->redirectToRoute('app_project_inbox', ['id' => (string) $item->project->id]);
+                return $this->redirectToRoute('app_project_inbox', ['id' => (string) $item->project->id, ...$pageQuery]);
             } catch (DomainErrors $e) {
                 $this->applyDomainErrors($form, $e);
             }
@@ -64,6 +66,6 @@ final class AnswerInboxItemController extends AppController
             'id' => (string) $item->project->id,
             'project' => $item->project,
             ShowInboxController::REFUSED_FORM => $form->createView(),
-        ])->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
+        ], $pageQuery)->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 }

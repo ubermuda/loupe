@@ -127,16 +127,6 @@ export default defineConfig({
             },
         },
         {
-            name: 'inbox',
-            // Each inbox spec turns inbox.enabled off in its afterAll, which
-            // 404s the inbox under any other inbox spec still running.
-            testMatch: /inbox\/.*\.spec\.ts/,
-            workers: 1,
-            use: {
-                ...devices['Desktop Chrome'],
-            },
-        },
-        {
             name: 'admin',
             // Both specs register the one ADMIN_EMAIL account on first use.
             testMatch: /admin\/.*\.spec\.ts/,
@@ -147,18 +137,19 @@ export default defineConfig({
         },
         {
             name: 'global-flags',
-            // billing.enabled and the OAuth provider flags change what every
-            // signed-in page and the login form render, so nothing else runs
-            // beside these.
+            // billing.enabled, inbox.enabled and the OAuth provider flags change
+            // what every signed-in page and the login form render, so nothing
+            // else runs beside these.
             testMatch: [
                 /billing\/paywall\.spec\.ts/,
                 /account\/social-login\.spec\.ts/,
+                /inbox\/.*\.spec\.ts/,
             ],
             workers: 1,
             use: {
                 ...devices['Desktop Chrome'],
             },
-            dependencies: ['chromium', 'board', 'inbox', 'admin'],
+            dependencies: ['chromium', 'board', 'admin'],
         },
         {
             name: 'waitlist',
@@ -192,7 +183,6 @@ export default defineConfig({
             dependencies: [
                 'chromium',
                 'board',
-                'inbox',
                 'admin',
                 'global-flags',
                 'waitlist',

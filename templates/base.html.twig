@@ -74,7 +74,8 @@
                         {# Shown only while something waits on the owner, and amber then. #}
                         {% set inboxOpenCount = project_inbox_open_count(project) %}
                         {% if inboxOpenCount > 0 %}
-                        <span class="lp-sidebar__pill lp-sidebar__pill--amber" data-inbox-open-count>{{ inboxOpenCount }}</span>
+                        <span class="lp-sidebar__pill lp-sidebar__pill--amber" data-inbox-open-count aria-hidden="true">{{ inboxOpenCount }}</span>
+                        <span class="sr-only">{{ 'inbox.nav.open_items'|trans({'%count%': inboxOpenCount}) }}</span>
                         {% endif %}
                     </a>
                     {% endif %}
