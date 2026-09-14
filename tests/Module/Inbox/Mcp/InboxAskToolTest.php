@@ -145,6 +145,27 @@ final class InboxAskToolTest extends KernelTestCase
         self::assertSame([(string) $document->id], array_map(static fn ($link): string => (string) $link->document->id, $item->documents->toArray()));
     }
 
+    public function test_two_spellings_of_one_id_link_the_record_once(): void
+    {
+        $this->enableInbox();
+        $project = $this->makeProject('inbox-ask-link-case');
+        $card = $this->card($this->em, $project);
+        $document = $this->document($this->em, $project);
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = $this->askQuestion('Which column?', [
+            'cardIds' => [(string) $card->id, strtoupper((string) $card->id)],
+            'documentIds' => [(string) $document->id, strtoupper((string) $document->id)],
+        ]);
+
+        $this->em->clear();
+        $item = $this->em->find(InboxItem::class, Uuid::fromString($result['items'][0]['itemId']));
+        self::assertInstanceOf(InboxItem::class, $item);
+        self::assertCount(1, $item->cards);
+        self::assertCount(1, $item->documents);
+    }
+
     public function test_a_card_of_another_project_is_refused(): void
     {
         $this->enableInbox();

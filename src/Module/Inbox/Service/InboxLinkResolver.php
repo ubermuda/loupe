@@ -39,11 +39,13 @@ final readonly class InboxLinkResolver
     {
         $cards = [];
         foreach ($this->distinct($ids) as $id) {
-            $cards[] = $this->cards->findOneByIdAndProjectId($id, (string) $project->id)
+            $card = $this->cards->findOneByIdAndProjectId($id, (string) $project->id)
                 ?? throw new DomainErrors([$field => self::CARD_UNKNOWN]);
+            // Keyed by the resolved id: two spellings of one UUID name one card.
+            $cards[(string) $card->id] = $card;
         }
 
-        return $cards;
+        return array_values($cards);
     }
 
     /**
@@ -55,11 +57,12 @@ final readonly class InboxLinkResolver
     {
         $documents = [];
         foreach ($this->distinct($ids) as $id) {
-            $documents[] = $this->documents->findOneByIdAndProjectId($id, (string) $project->id)
+            $document = $this->documents->findOneByIdAndProjectId($id, (string) $project->id)
                 ?? throw new DomainErrors([$field => self::DOCUMENT_UNKNOWN]);
+            $documents[(string) $document->id] = $document;
         }
 
-        return $documents;
+        return array_values($documents);
     }
 
     /**
