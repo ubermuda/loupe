@@ -56,6 +56,24 @@ class InboxAskRepository extends ServiceEntityRepository
     }
 
     /**
+     * The asks that hold the item and are open as stored, oldest first.
+     *
+     * @return list<InboxAsk>
+     */
+    public function findOpenHolding(InboxItem $item): array
+    {
+        return array_values($this->createQueryBuilder('a')
+            ->join('a.items', 'l')
+            ->andWhere('l.item = :item')
+            ->andWhere('a.closedAt IS NULL')
+            ->setParameter('item', $item)
+            ->orderBy('a.createdAt', 'ASC')
+            ->addOrderBy('a.id', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
      * Every ask in the projects the user owns, with its item memberships.
      *
      * @return list<InboxAsk>

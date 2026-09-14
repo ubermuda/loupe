@@ -27,6 +27,24 @@ class WorkerRunRepository extends ServiceEntityRepository
     }
 
     /**
+     * The first run of a claude session in the project: the earliest start, and
+     * the lowest id on a tie. A resume of that session reports later runs.
+     */
+    public function findFirstOfSession(Project $project, Uuid $sessionId): ?WorkerRun
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.sessionId = :sessionId')
+            ->setParameter('project', $project)
+            ->setParameter('sessionId', $sessionId, UuidType::NAME)
+            ->orderBy('r.startedAt', 'ASC')
+            ->addOrderBy('r.id', 'ASC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
      * The run a report names, by the natural key a retry repeats. Null when the
      * server has not seen this report before.
      */

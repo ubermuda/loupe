@@ -7,6 +7,7 @@ namespace App\Module\Inbox\Service;
 use App\Exception\DomainErrors;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemState;
+use App\Module\Inbox\InboxEventType;
 use App\Module\Inbox\Repository\InboxAskRepository;
 use App\Module\Inbox\Repository\InboxItemRepository;
 use Doctrine\DBAL\LockMode;
@@ -30,6 +31,7 @@ final readonly class InboxItemCloser
         private EntityManagerInterface $em,
         private InboxAskRepository $inboxAsks,
         private InboxItemRepository $inboxItems,
+        private InboxAskCloser $askCloser,
     ) {
     }
 
@@ -39,7 +41,8 @@ final readonly class InboxItemCloser
      *
      * An open item always takes a response. A closed one takes a change only
      * while no closed ask holds it, because an agent may already act on the
-     * answer that closed that ask.
+     * answer that closed that ask. The close of an open item closes the asks
+     * it was the last open blocking item of, as the owner.
      *
      * @param \Closure(InboxItem): (array<string, string>|null) $respond validates against the item as
      *                                                                   stored, then writes the response
@@ -80,6 +83,9 @@ final readonly class InboxItemCloser
             // the copy Doctrine loaded, so it would miss a field cleared back to
             // the value that copy held.
             $this->inboxItems->writeResponse($item);
+            if ($wasOpen) {
+                $this->askCloser->closeAsksHolding($item, InboxEventType::ACTOR_HUMAN, $now);
+            }
 
             return null;
         });
@@ -93,7 +99,8 @@ final readonly class InboxItemCloser
      * Closes an open item on an agent's behalf. The caller holds the project
      * lock and the transaction, and flushes, so a listener inside a card move
      * can call it. It returns false and changes nothing when the item is
-     * already closed, so that write never aborts.
+     * already closed, so that write never aborts. The asks it closes close as
+     * the agent's.
      */
     public function close(InboxItem $item, InboxItemState $state, ?string $note, \DateTimeImmutable $now): bool
     {
@@ -106,6 +113,7 @@ final readonly class InboxItemCloser
         $item->closeNote = $note;
         $item->closedAt = $now;
         $item->updatedAt = $now;
+        $this->askCloser->closeAsksHolding($item, InboxEventType::ACTOR_AGENT, $now);
 
         return true;
     }
