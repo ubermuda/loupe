@@ -48,6 +48,18 @@ final class ApiAccessControlTest extends KernelTestCase
         self::assertTrue($this->decide('/api/projects', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertTrue($this->decide('/api/events', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertTrue($this->decide('/api/projects/loupe/board/columns', ['ROLE_USER', 'ROLE_API_AGENT']));
+        self::assertTrue($this->decide('/api/projects/loupe/worker-runs', ['ROLE_USER', 'ROLE_API_AGENT']));
+    }
+
+    /** The run rule grants one route, so a path near it stays denied by default. */
+    public function test_the_worker_run_rule_does_not_open_the_rest_of_a_project(): void
+    {
+        self::assertFalse($this->decide('/api/projects/loupe/worker-runs/1', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/loupe/worker-runs/', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/client/app/worker-runs', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/client%2Fapp/worker-runs', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/loupe/worker-runs', ['ROLE_USER', 'ROLE_API_SITE_REVIEW']));
+        self::assertFalse($this->decide('/api/projects/loupe/worker-runs', ['ROLE_USER', 'ROLE_API_MCP']));
     }
 
     /**
