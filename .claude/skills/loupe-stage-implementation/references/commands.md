@@ -7,6 +7,11 @@
 1. Use `superpowers-extended-cc:writing-plans` for the plan format only. Submit the plan to Loupe. Save no file under `docs/superpowers`, and skip its question about how to execute.
 2. Use `superpowers-extended-cc:subagent-driven-development` for the task loop only. Never invoke `superpowers-extended-cc:finishing-a-development-branch`. Never merge locally, and never remove the worktree.
 3. Never call `AskUserQuestion`. Nobody answers it.
+4. Nobody approves the plan. Start the work as soon as it is linked.
+
+## Column check
+
+Slug a column label from the prompt: lowercase, with hyphens for spaces. Compare the slug with the card `status`.
 
 ## Provision the card worktree
 
@@ -60,6 +65,8 @@ just cs
 just ci
 php bin/changelog.php --check
 ```
+
+When `git merge origin/main` conflicts, resolve it only when the conflict is mechanical and the gate then proves the result. Otherwise run `git merge --abort`, and stop with `STAGE RESULT: blocked: merge conflict with main in <files>`.
 
 Commit what `just cs` changes. Then run the Codex review with `mcp__codex-cli__review` and `model: "gpt-6-astra"`. Scope it to `origin/main` for a branch with one commit, and to the newest commit with `commit: "<sha>"` otherwise. Repeat until two passes in a row come back clean. Run `git status` after each pass. When the Codex MCP is missing, stop with `STAGE RESULT: blocked: codex MCP unavailable`.
 

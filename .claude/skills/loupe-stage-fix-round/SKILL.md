@@ -14,7 +14,7 @@ Answer one round of feedback on the current stage of one card, then stop.
    - `product-design`: the design round, for the product document.
    - `tech-design`: the design round, for the tech design.
    - `implementation`: the code round.
-   - Any other column, such as `backlog` or `done`: stop with `STAGE RESULT: no fix round in <status>`.
+   - Any other column: stop with `STAGE RESULT: no fix round for column <status>; expected product-design, tech-design or implementation`.
 
 ### Design round
 
