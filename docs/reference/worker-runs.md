@@ -12,9 +12,6 @@ This endpoint is where the bridge reports the run itself. The server keeps one
 row per run, and it never changes the row afterwards. The project's
 [Worker runs page](../using/worker-runs.md) shows what the server holds.
 
-The bridge in `cli/` does not call this endpoint yet, so for now a record
-arrives only from a client that sends one.
-
 ## Reporting a run
 
 `POST /api/projects/{handle}/worker-runs`
