@@ -61,6 +61,9 @@
                                     </div>
                                 {% endfor %}
                             </div>
+                            {% if not item.multiple and item.freeText %}
+                                <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm lp-inbox-answer__clear" data-action="inbox-answer#clear">{{ 'inbox.answer.clear'|trans }}</button>
+                            {% endif %}
                         </fieldset>
                     {% endif %}
                     {{ form_widget(answerForm.selectedOptions) }}

@@ -21,4 +21,12 @@ export default class extends Controller {
             .map((option) => option.value)
             .join(',');
     }
+
+    // A radio cannot be unticked by a click, so a text-only answer needs this.
+    clear() {
+        this.optionTargets.forEach((option) => {
+            option.checked = false;
+        });
+        this.select();
+    }
 }

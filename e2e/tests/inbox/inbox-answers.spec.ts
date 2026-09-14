@@ -107,6 +107,15 @@ test('the owner answers a question and declines a to-do', async ({
     await expect(question.locator('[data-inbox-editable="yes"]')).toBeVisible();
     await expect(sidebarPill).toHaveText('1');
 
+    // No ask has closed, so the answer can still change, here to text alone.
+    await question.getByRole('button', { name: 'Clear the option' }).click();
+    await question.getByLabel('Your answer').fill('Text alone this time.');
+    await question.getByRole('button', { name: 'Change the answer' }).click();
+    await expect(question.locator('[data-inbox-choices]')).toHaveCount(0);
+    await expect(question.locator('[data-inbox-response]')).toContainText(
+        'Text alone this time.',
+    );
+
     const todo = page.locator(`#inbox-item-${inbox.todoNumber}`);
     await todo.getByText('Decline', { exact: true }).click();
     await todo
@@ -125,6 +134,6 @@ test('the owner answers a question and declines a to-do', async ({
 
     await page.reload();
     await expect(question.locator('[data-inbox-response]')).toContainText(
-        'The importer reads CSV.',
+        'Text alone this time.',
     );
 });

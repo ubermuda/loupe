@@ -4661,6 +4661,9 @@
     .lp-decision--inbox .lp-decision__prompt::before {
         @apply hidden;
     }
+    .lp-inbox-answer__clear {
+        @apply mt-2;
+    }
     .lp-inbox-decline__summary {
         @apply cursor-pointer select-none text-sm font-semibold text-fg-dim hover:text-ink;
     }
