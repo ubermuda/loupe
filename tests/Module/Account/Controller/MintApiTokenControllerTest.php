@@ -70,21 +70,18 @@ final class MintApiTokenControllerTest extends WebTestCase
         $raw = $this->mint($client, 'Stream token');
 
         // Drop the session so the Bearer token is the only credential in play.
-        // The stream route needs ROLE_API_AGENT, which this scope carries.
+        // The events route needs ROLE_API_AGENT, which this scope carries.
         $client->getCookieJar()->clear();
-        $client->request(Request::METHOD_GET, '/api/projects/no-such-site/stream', server: [
+        $client->request(Request::METHOD_GET, '/api/events', server: [
             'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
         ]);
 
-        // 404 from the controller itself, not 401 or 403 from the firewall: the
-        // token authenticated and carried the role, and the request then failed
-        // on the unknown handle. Asserting the body rather than "not 401" keeps
-        // the test from passing on an unrelated rejection or a router 404.
-        self::assertResponseStatusCodeSame(404);
-        self::assertJsonStringEqualsJsonString(
-            '{"error":"site_not_found"}',
-            (string) $client->getResponse()->getContent(),
-        );
+        // The body proves the controller answered, so the token authenticated
+        // and carried the role.
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertArrayHasKey('jwt', $data);
     }
 
     public function test_a_minted_token_is_refused_on_the_mcp_endpoint(): void

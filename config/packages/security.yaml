@@ -66,12 +66,12 @@ security:
         - { path: ^/api/board/cards, roles: ROLE_API_SITE_REVIEW }
         # The loupe CLI's own surface, which must refuse the project-bound widget
         # token the two rules above accept. One rule per route, so a later widget
-        # route under /api/projects inherits no grant. The handle is one path
+        # route under /api/projects inherits no grant. A handle is one path
         # segment, a project id or slug.
         - { path: '^/api/projects$', roles: ROLE_API_AGENT }
-        - { path: '^/api/projects/[^/]+/stream$', roles: ROLE_API_AGENT }
         - { path: '^/api/projects/[^/]+/board/columns$', roles: ROLE_API_AGENT }
         - { path: '^/api/projects/[^/]+/bridges/[^/]+/rules$', roles: ROLE_API_AGENT }
+        - { path: '^/api/events$', roles: ROLE_API_AGENT }
         # Deny-by-default for the rest of /api: every API-token user also carries
         # ROLE_USER, so without this a new /api/<endpoint> falls through to the ^/
         # catch-all and authorizes ANY scoped token. Add new scope rules ABOVE this

@@ -46,7 +46,7 @@ final class ApiAccessControlTest extends KernelTestCase
     public function test_the_deny_rule_does_not_shadow_the_agent_scope(): void
     {
         self::assertTrue($this->decide('/api/projects', ['ROLE_USER', 'ROLE_API_AGENT']));
-        self::assertTrue($this->decide('/api/projects/my-app/stream', ['ROLE_USER', 'ROLE_API_AGENT']));
+        self::assertTrue($this->decide('/api/events', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertTrue($this->decide('/api/projects/loupe/board/columns', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertTrue($this->decide('/api/projects/loupe/bridges/0f6e6b9e-8f1c-4c4e-9a3a-1d2b3c4d5e6f/rules', ['ROLE_USER', 'ROLE_API_AGENT']));
     }
@@ -67,15 +67,15 @@ final class ApiAccessControlTest extends KernelTestCase
      * The agent grant names each route, so a new route under
      * /api/projects starts denied rather than inheriting the agent scope.
      */
-    public function test_the_agent_grant_covers_its_two_routes_and_nothing_near_them(): void
+    public function test_the_agent_grant_covers_its_routes_and_nothing_near_them(): void
     {
         $agent = ['ROLE_USER', 'ROLE_API_AGENT'];
         self::assertFalse($this->decide('/api/projects/', $agent));
         self::assertFalse($this->decide('/api/projects/my-app', $agent));
-        self::assertFalse($this->decide('/api/projects/my-app/stream/more', $agent));
-        self::assertFalse($this->decide('/api/projects//stream', $agent));
-        self::assertFalse($this->decide('/api/projects/client/site/stream', $agent));
-        self::assertFalse($this->decide('/api/projects/client%2Fsite/stream', $agent));
+        self::assertFalse($this->decide('/api/projects/my-app/stream', $agent));
+        self::assertFalse($this->decide('/api/events/', $agent));
+        self::assertFalse($this->decide('/api/events/more', $agent));
+        self::assertFalse($this->decide('/api/eventsx', $agent));
         self::assertFalse($this->decide('/api/projects/my-app/comments', $agent));
         self::assertFalse($this->decide('/api/agent/sites', $agent));
         self::assertFalse($this->decide('/api/agent/stream', $agent));
@@ -91,7 +91,7 @@ final class ApiAccessControlTest extends KernelTestCase
         self::assertFalse($this->decide('/api/site-review/review/submit', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertFalse($this->decide('/api/board/cards', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertFalse($this->decide('/api/projects', ['ROLE_USER', 'ROLE_API_SITE_REVIEW']));
-        self::assertFalse($this->decide('/api/projects/my-app/stream', ['ROLE_USER', 'ROLE_API_SITE_REVIEW']));
+        self::assertFalse($this->decide('/api/events', ['ROLE_USER', 'ROLE_API_SITE_REVIEW']));
         self::assertFalse($this->decide('/api/projects/loupe/board/columns', ['ROLE_USER', 'ROLE_API_SITE_REVIEW']));
     }
 
