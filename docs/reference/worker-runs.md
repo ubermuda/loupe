@@ -86,9 +86,9 @@ no attention from a bridge.
 
 Send `Accept: application/json` to get the 422 body as JSON.
 
-The endpoint needs the `agent.push.enabled` feature flag. A bridge reaches a
-worker only through the push stream, so an instance with push off can produce no
-run to report, and the endpoint answers 404 there.
+The endpoint needs the `agent.push.enabled` feature flag, as `GET /api/events`
+does. A bridge reaches a worker only through the event stream, so an instance
+with push off can produce no run to report, and the endpoint answers 404 there.
 
 ## What a missing record means
 

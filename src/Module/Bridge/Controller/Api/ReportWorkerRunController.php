@@ -19,8 +19,8 @@ use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
  * firewall admits agent-scoped tokens alone, and the row is never updated
  * afterwards.
  */
-// 404 rather than a disabled-looking 403, matching the stream endpoint. A
-// bridge reaches a worker only through the push stream, so an instance with
+// 404 rather than a disabled-looking 403, matching the events endpoint. A
+// bridge reaches a worker only through the event stream, so an instance with
 // push off can produce no run to report.
 #[RequireFeatureFlag(AgentPush::FLAG)]
 #[Route(

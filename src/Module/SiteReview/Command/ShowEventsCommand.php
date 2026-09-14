@@ -6,11 +6,10 @@ namespace App\Module\SiteReview\Command;
 
 use App\Module\Account\Entity\User;
 
-final readonly class ShowStreamCredentialsCommand
+final readonly class ShowEventsCommand
 {
     public function __construct(
-        public User $owner,
-        public string $handle,
+        public User $user,
     ) {
     }
 }
