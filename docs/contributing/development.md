@@ -20,7 +20,7 @@ just exec bin/console app:dev:seed   # dev@loupe.test or admin@loupe.test / pass
 ```sh
 just shell     # bash inside the php-fpm container
 just composer  # e.g. just composer require foo/bar
-just worker    # foreground messenger consumer
+just worker    # foreground messenger consumer, and the scheduler with it
 just tailwind  # CSS watch mode (already running in dev)
 ```
 
