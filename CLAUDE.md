@@ -43,13 +43,13 @@ This applies only to a document meant for considered review. Keep ordinary conve
 
 The project board in the Loupe app holds open work that has an addressee. Add a card when someone must do something later: a follow-up, a known issue, or a design decision to revisit. An observation asks nothing of anyone. Put an observation in the relevant skill or in `docs/` instead.
 
-Invoke the `loupe-board` skill before you write a card. It carries the four columns, the six types, the three priorities, and the rule that `reporter` records who raised the card rather than who typed it. Never leave such a note in a code comment.
+Invoke the `loupe-board` skill before you write a card. It says how to read a board's columns with `board_columns`. It also carries the card types, the priorities, and the rule that `reporter` records who raised the card rather than who typed it. Never leave such a note in a code comment.
 
-A card whose body opens with `**Parked.**` is paused. Do not start it, and do not put it in `next` or `in-progress`, until the owner unparks it. The board has no parked column, so that line is the whole signal. A real parked state is worth having, and the board card 'Give the board a parked state' asks for one.
+A card whose body opens with `**Parked.**` is paused. Do not start it, and do not move it out of its column, until the owner unparks it. The board has no parked state, so that line is the whole signal. A real parked state is worth having, and the board card 'Give the board a parked state' asks for one.
 
 The board is as public as the instance that holds it. Write every card as public text, with no secrets, no customer names, and no complaints about people.
 
-Finish a card by moving it to `done`. There is no delete tool, and only a person deletes a card from its own page.
+Finish a card by moving it to a terminal column, which is `done` on a board with the seeded columns. There is no delete tool, and only a person deletes a card from its own page.
 
 ## Git worktrees
 
@@ -257,7 +257,7 @@ just js-test                  # Run Vitest over tests/js (needs Node alone)
 just e2e                      # Run Playwright e2e tests
 just e2e-coverage             # Run e2e with per-request PHP coverage, merged to var/coverage/html
 just open-coverage            # Open the merged HTML coverage report
-just ci-report <report> [RUN] # Fetch a CI report: mutation, phpunit-coverage, e2e-coverage, e2e-timing
+just ci-report <report> [RUN] # Fetch a CI report: mutation, phpunit-coverage, e2e-coverage, e2e-timing, phpunit-timing
 just browser-sync             # Live-reload proxy for template changes
 
 php vendor/bin/phpunit        # Run tests

@@ -104,20 +104,32 @@ const (
 	testCard    = "0192f3a1-9999-7d3e-8f10-000000000087"
 )
 
-// boardColumns answers the start check for the loupe project.
+// otherProject is the id of the second mapped project, other.
+const otherProject = "0192f3a1-4b2c-7d3e-8f10-000000000002"
+
+// boardColumns answers the start check for the loupe and other projects.
 type boardColumns struct{}
 
 func (boardColumns) Columns(_ context.Context, handle string) (api.ProjectColumns, error) {
 	var pc api.ProjectColumns
-	if handle != "loupe" {
+	switch handle {
+	case "loupe":
+		pc.Project.ID = testProject
+	case "other":
+		pc.Project.ID = otherProject
+	default:
 		return pc, api.ErrProjectNotFound
 	}
-	pc.Project.ID, pc.Project.Slug = testProject, "loupe"
+	pc.Project.Slug = handle
 	for _, slug := range []string{"backlog", "next", "in-progress", "review", "done"} {
 		pc.Columns = append(pc.Columns, api.Column{Slug: slug})
 	}
 
 	return pc, nil
+}
+
+func (boardColumns) Sites(context.Context) ([]api.Site, error) {
+	return []api.Site{{ID: testProject, Slug: "loupe"}, {ID: otherProject, Slug: "other"}}, nil
 }
 
 // defaultRules starts a worker for a card that enters next, as the bridge did
@@ -172,6 +184,7 @@ func newHarnessWith(t *testing.T, body string, defaults rules.Defaults) *harness
 		rules:      set,
 		maxWorkers: defaultMaxWorkers,
 		worker:     w.ops(),
+		bridgeID:   testBridgeID,
 	}
 
 	return h
@@ -816,7 +829,7 @@ func TestAQueuedEventRunsWhenASlotFrees(t *testing.T) {
 	}
 }
 
-// The queue is FIFO, so a card that waited longest starts first.
+// With no busy card in the way, the card that waited longest starts first.
 func TestTheQueueIsFirstInFirstOut(t *testing.T) {
 	h := newHarness(t)
 	h.router.maxWorkers = 1
@@ -1087,17 +1100,107 @@ func TestIncompleteCardEventIsReportedAndDropped(t *testing.T) {
 // The stream reports its own faults through the handler, so a retry is visible.
 func TestAStreamErrorIsReported(t *testing.T) {
 	h := newHarness(t)
-	h.router.project, h.router.topic = "loupe", "https://loupe.test/board"
+	h.router.projects, h.router.topic = []string{"loupe", "other"}, "https://loupe.test/users/u/events"
 
 	h.router.handler().OnConnect()
 	h.router.handler().OnError(errors.New("hub returned HTTP 401"))
 
 	connected := h.only(t, "connected")
-	if str(t, connected, "project") != "loupe" || str(t, connected, "topic") != "https://loupe.test/board" {
+	if str(t, connected, "topic") != "https://loupe.test/users/u/events" || fmt.Sprint(connected["projects"]) != "[loupe other]" {
 		t.Fatalf("connected = %v", connected)
 	}
 	if got := str(t, h.only(t, "stream_error"), "error"); got != "hub returned HTTP 401" {
 		t.Fatalf("stream_error = %q", got)
+	}
+}
+
+// lockProbe records, for each line whose event it names, that it saw the line
+// and whether router mu was free as the line was written.
+type lockProbe struct {
+	router *router
+	events []string
+	mu     sync.Mutex
+	seen   map[string]int
+	free   []string
+}
+
+func (p *lockProbe) Write(b []byte) (int, error) {
+	for _, name := range p.events {
+		if !bytes.Contains(b, []byte(`"event":"`+name+`"`)) {
+			continue
+		}
+		free := p.router.mu.TryLock()
+		if free {
+			p.router.mu.Unlock()
+		}
+		p.mu.Lock()
+		p.seen[name]++
+		if free {
+			p.free = append(p.free, name)
+		}
+		p.mu.Unlock()
+	}
+
+	return len(b), nil
+}
+
+// A line enqueue writes after mu is released can follow the worker_started line
+// that a finishing worker writes for the same event. Holding mu rules that out.
+func TestEnqueueLinesAreWrittenUnderTheLock(t *testing.T) {
+	h := newHarnessWith(t, chainRules, rules.Defaults{})
+	events := []string{"worker_queued", "worker_coalesced", "chain_capped"}
+	probe := &lockProbe{router: h.router, events: events, seen: map[string]int{}}
+	h.router.log = newBridgeLogger(probe)
+	h.worker.started = make(chan workerSpec, 2)
+	h.worker.block = make(chan struct{})
+
+	h.router.onData([]byte(movedPayload(87, "backlog", "next", "agent")))
+	<-h.worker.started
+	h.router.onData([]byte(movedPayload(87, "backlog", "next", "agent")))
+	h.router.onData([]byte(movedPayload(87, "backlog", "next", "agent")))
+	close(h.worker.block)
+	h.router.wg.Wait()
+	h.worker.started, h.worker.block = nil, nil
+	h.send(movedPayload(87, "backlog", "next", "agent"))
+
+	probe.mu.Lock()
+	defer probe.mu.Unlock()
+	for _, name := range events {
+		if probe.seen[name] == 0 {
+			t.Fatalf("the probe saw no %s line: %v", name, probe.seen)
+		}
+	}
+	if len(probe.free) != 0 {
+		t.Fatalf("written with mu free: %v", probe.free)
+	}
+}
+
+// The key is the subject id itself, so one card has one key in every map.
+func TestTheKeyIsTheSubjectID(t *testing.T) {
+	if got := keyFor(event.Event{Subject: event.Subject{ID: testCard}}); got != testCard {
+		t.Fatalf("keyFor = %q, want %q", got, testCard)
+	}
+}
+
+// A dropped event with no card number names its subject.
+func TestShutdownNamesTheSubjectOfAGenericEvent(t *testing.T) {
+	h := newHarnessWith(t, defaultRules+`
+  - name: created
+    on: board.card_created
+    project: loupe
+    prompt: Created in {project}.
+`, rules.Defaults{})
+
+	h.router.shutdown()
+	h.router.onData([]byte(`{"type":"board.card_created","subject":{"type":"card","id":"` + testCard + `"},"projectId":"` + testProject + `","actor":"human"}`))
+
+	raw, _ := h.only(t, "queue_dropped")["dropped"].([]any)
+	if len(raw) != 1 {
+		t.Fatalf("dropped = %v", raw)
+	}
+	entry, _ := raw[0].(map[string]any)
+	if entry["subject"] != testCard || entry["rule"] != "created" || entry["card"] != nil {
+		t.Fatalf("dropped entry = %v", entry)
 	}
 }
 

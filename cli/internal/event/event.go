@@ -22,6 +22,11 @@ type Event struct {
 	FromStatus string  `json:"fromStatus"`
 	ToStatus   string  `json:"toStatus"`
 	Actor      string  `json:"actor"`
+	// FromSlug and ToSlug are the old and new slug of a renamed column or
+	// project. Slug is the slug of a deleted column.
+	FromSlug string `json:"fromSlug"`
+	ToSlug   string `json:"toSlug"`
+	Slug     string `json:"slug"`
 }
 
 // Subject names the aggregate an event is about. The id is what an MCP tool
@@ -34,6 +39,14 @@ type Subject struct {
 // CardMovedType is published when a board card changes column. It is the one
 // type whose fields this build knows.
 const CardMovedType = "board.card_moved"
+
+// The types that change a slug a rule can name. The bridge marks those rules
+// dead, so it parses these types whether or not a rule names them.
+const (
+	ColumnRenamedType  = "board.column_renamed"
+	ColumnDeletedType  = "board.column_deleted"
+	ProjectRenamedType = "project.renamed"
+)
 
 // The actors the server names. Reviewer is someone using the site-review
 // widget, whom the app cannot authenticate.
@@ -64,7 +77,8 @@ var SlugPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 // Parse decodes a Mercure data payload into an Event.
 //
-// board.card_moved is always parsed. Any other type is parsed only when
+// board.card_moved and the three slug-changing types are always parsed, with
+// their own fields checked. Any other type is parsed only when
 // extraTypes names it, and then only the fields every event carries are
 // checked. The type is checked rather than assumed: without it any well-formed
 // JSON, `{}` included, would reach a worker.
@@ -77,6 +91,14 @@ func Parse(data []byte, extraTypes map[string]bool) (Event, error) {
 	switch {
 	case e.Type == CardMovedType:
 		if err := checkCardMoved(e); err != nil {
+			return e, err
+		}
+	case e.Type == ColumnRenamedType, e.Type == ProjectRenamedType:
+		if err := checkSlugs(e, "fromSlug", e.FromSlug, "toSlug", e.ToSlug); err != nil {
+			return e, err
+		}
+	case e.Type == ColumnDeletedType:
+		if err := checkSlugs(e, "slug", e.Slug); err != nil {
 			return e, err
 		}
 	case e.Type != "" && extraTypes[e.Type]:
@@ -112,6 +134,21 @@ func checkCommon(e Event) error {
 	case ActorHuman, ActorAgent, ActorReviewer:
 	default:
 		return fmt.Errorf("%s event has an unknown actor %q", e.Type, e.Actor)
+	}
+
+	return nil
+}
+
+// checkSlugs checks the common fields, then each named slug, given as pairs of
+// a key and its value.
+func checkSlugs(e Event, pairs ...string) error {
+	if err := checkCommon(e); err != nil {
+		return err
+	}
+	for i := 0; i+1 < len(pairs); i += 2 {
+		if !SlugPattern.MatchString(pairs[i+1]) {
+			return fmt.Errorf("%s event has a %s that is not a slug", e.Type, pairs[i])
+		}
 	}
 
 	return nil

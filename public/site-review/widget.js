@@ -2859,7 +2859,10 @@
         if (!keepPicking) setTargeting(false);
         state.addAnchor = !!keepPicking;
         sync();
-        if (!keepPicking) focusTextarea();
+        if (!keepPicking) {
+            keepPickThroughFocus();
+            focusTextarea();
+        }
     };
     const openElementComposer = (el, keepPicking) =>
         addComposeAnchor(anchorFor(el), keepPicking);
@@ -2951,7 +2954,10 @@
         if (state.drawing) {
             setDrawing(false);
             sync();
-            if (state.composing) focusTextarea();
+            if (state.composing) {
+                keepPickThroughFocus();
+                focusTextarea();
+            }
             return;
         }
         if (state.editId != null) return;
@@ -3923,6 +3929,25 @@
 
     // A page that reviews text of its own opts out: its own selection UI owns
     // the selection there.
+    // A transient mode ends by focusing the composer, and that focus collapses
+    // the page selection. Ten call sites focus the textarea and only these two
+    // promise the offer back, so the mode arms this on its way out instead of
+    // `readSelection` trying to infer which one it was: at event time every
+    // call site looks the same.
+    let restoringPick = false;
+    const keepPickThroughFocus = () => {
+        if (!state.quotePick) return;
+        restoringPick = true;
+        // A focus move that collapses nothing raises no selectionchange, so the
+        // arm expires rather than wait for an event that never comes. Two
+        // frames, because the handler's own frame is queued before this one.
+        requestAnimationFrame(() =>
+            requestAnimationFrame(() => {
+                restoringPick = false;
+            }),
+        );
+    };
+
     const quotesOff = (node) => {
         const element = node.nodeType === 1 ? node : node.parentElement;
         return (
@@ -3936,6 +3961,17 @@
     // taking the selection would start a new comment and lose the draft.
     // selectionchange rather than mouseup, so a keyboard selection reaches it.
     const readSelection = () => {
+        const selection = document.getSelection();
+        // The mode we just left armed this, so keep the pick it promised to
+        // restore. Honoured once: a later collapse is the reviewer's own.
+        //
+        // A reviewer who clears their selection leaves no range at all, which
+        // is what tells that apart from our own focus move, which leaves one.
+        if (restoringPick) {
+            restoringPick = false;
+            if (selection && selection.isCollapsed && selection.rangeCount > 0)
+                return;
+        }
         if (
             state.fatal ||
             state.target ||
@@ -3945,7 +3981,6 @@
         ) {
             return clearQuotePick();
         }
-        const selection = document.getSelection();
         if (!selection || selection.isCollapsed || !selection.rangeCount)
             return clearQuotePick();
         const range = selection.getRangeAt(0);
