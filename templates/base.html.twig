@@ -66,17 +66,16 @@
                     </a>
                     {% endif %}
                     {% if is_feature_enabled('inbox.enabled') %}
+                    {% do mercure_subscribe(inbox_topic(app.user)) %}
                     <a href="{{ path('app_project_inbox', {id: project.id}) }}"
                        class="lp-sidebar__link{% if route == 'app_project_inbox' %} lp-sidebar__link--active{% endif %}"
-                       {% if route == 'app_project_inbox' %}aria-current="page"{% endif %}>
+                       {% if route == 'app_project_inbox' %}aria-current="page"{% endif %}
+                       data-controller="inbox-pill" data-inbox-pill-project-value="{{ project.id }}"
+                       data-inbox-pill-url-value="{{ path('app_project_inbox_open_count', {id: project.id}) }}">
                         <twig:ux:icon name="lucide:inbox" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.inbox'|trans }}</span>
                         {# Shown only while something waits on the owner, and amber then. #}
-                        {% set inboxOpenCount = project_inbox_open_count(project) %}
-                        {% if inboxOpenCount > 0 %}
-                        <span class="lp-sidebar__pill lp-sidebar__pill--amber" data-inbox-open-count aria-hidden="true">{{ inboxOpenCount }}</span>
-                        <span class="sr-only">{{ 'inbox.nav.open_items'|trans({'%count%': inboxOpenCount}) }}</span>
-                        {% endif %}
+                        {% include '@Inbox/_open_count.html.twig' with {project: project} only %}
                     </a>
                     {% endif %}
                     <a href="{{ path('app_project_site_review', {id: project.id}) }}"

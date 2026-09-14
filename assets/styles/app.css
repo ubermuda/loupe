@@ -2707,6 +2707,10 @@
     .lp-sidebar__pill--amber {
         @apply text-accent;
     }
+    /* A reloadable frame around a pill. It takes no box, so the pill still sits in the link's flex row. */
+    .lp-sidebar__pill-frame {
+        @apply contents;
+    }
     .lp-sidebar__link--active .lp-sidebar__pill {
         @apply text-ink;
     }
