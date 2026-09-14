@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
+	"regexp"
 	"sync"
 )
 
@@ -36,16 +36,12 @@ func EnsureBridgeID() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if _, err := os.Stat(filepath.Join(d, configFileName)); err != nil {
+	c, err := readStoredConfig(d)
+	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return "", ErrNotLoggedIn
 		}
 
-		return "", fmt.Errorf("read config: %w", err)
-	}
-
-	c, err := readStoredConfig(d)
-	if err != nil {
 		return "", err
 	}
 	if isUUID(c.BridgeID) {
@@ -89,36 +85,15 @@ func newUUID() (string, error) {
 	return string(out[:]), nil
 }
 
-// isUUID reports whether s is a usable UUID. It accepts any version and either
-// letter case, so it heals a malformed id without discarding a valid one an
-// operator wrote by hand. It rejects the nil UUID, which a disk image or a
-// hand-edited file can carry onto every machine that copies it.
+// bridgeIDPattern is what the server accepts on its bridge routes, which is
+// Symfony's Requirement::UUID. It is lower case only, its version nibble is 1 or
+// 3 to 8, and its variant nibble is 8, 9, a or b. An id outside it answers 404
+// with no error code, so the heal has to replace it here.
+var bridgeIDPattern = regexp.MustCompile(`\A[0-9a-f]{8}-[0-9a-f]{4}-[13-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z`)
+
+// isUUID reports whether the server takes s as a bridge id. An upper-case id is
+// replaced rather than lowered, because the heal replaces every other malformed
+// shape and rewriting what an operator typed would surprise them.
 func isUUID(s string) bool {
-	if len(s) != 36 {
-		return false
-	}
-
-	allZero := true
-	for i := range len(s) {
-		c := s[i]
-		if i == 8 || i == 13 || i == 18 || i == 23 {
-			if c != '-' {
-				return false
-			}
-
-			continue
-		}
-		if !isHexDigit(c) {
-			return false
-		}
-		if c != '0' {
-			allZero = false
-		}
-	}
-
-	return !allZero
-}
-
-func isHexDigit(c byte) bool {
-	return c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F'
+	return bridgeIDPattern.MatchString(s)
 }

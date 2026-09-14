@@ -61,6 +61,10 @@ func Load() (Config, error) {
 	}
 	c, err = readStoredConfig(d)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return c, ErrNotLoggedIn
+		}
+
 		return c, err
 	}
 	if c.BaseURL == "" {
@@ -142,17 +146,14 @@ func Save(c Config) error {
 	return writeConfig(d, stored)
 }
 
-// readStoredConfig reads config.json. A file that is missing or blank reads as
-// an empty Config, so a first run and a hand-emptied file both continue.
+// readStoredConfig reads config.json. A missing file gives an error that
+// matches os.ErrNotExist, so a caller can tell it apart from a blank file. A
+// blank file reads as an empty Config, so a hand-emptied file continues.
 func readStoredConfig(d string) (Config, error) {
 	var c Config
 
 	b, err := os.ReadFile(filepath.Join(d, configFileName))
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return c, nil
-		}
-
 		return c, fmt.Errorf("read config: %w", err)
 	}
 	if len(bytes.TrimSpace(b)) == 0 {
