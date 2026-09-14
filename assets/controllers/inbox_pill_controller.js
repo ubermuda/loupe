@@ -3,15 +3,15 @@ import { subscribe } from '../lib/mercure.js';
 
 /**
  * Reloads the sidebar pill when the hub reports a change to this project's open
- * count, and after each reconnect for any change it missed. One topic carries
- * every project of the user, so a change to another project is ignored.
+ * count, and on each open of the connection for any change made while it was
+ * not listening, the first open included. One topic carries every project of
+ * the user, so a change to another project is ignored.
  */
 export default class extends Controller {
     static targets = ['frame'];
     static values = { project: String, url: String };
 
     connect() {
-        this.hasOpened = false;
         this.unsubscribe = subscribe(
             'inbox.open_count_changed',
             (data) => {
@@ -21,10 +21,7 @@ export default class extends Controller {
             },
             {
                 onOpen: () => {
-                    if (this.hasOpened) {
-                        this.reload();
-                    }
-                    this.hasOpened = true;
+                    this.reload();
                     this.element.setAttribute('data-inbox-pill-connected', '');
                 },
                 onError: () =>
