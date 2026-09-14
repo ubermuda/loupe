@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\EventListener;
 
+use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Project\Service\ProjectDeleter;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -37,6 +38,32 @@ final class DeleteWorkerRunsOnProjectDeletingTest extends KernelTestCase
         $remaining = $this->allRuns();
         self::assertCount(1, $remaining);
         self::assertSame((string) $keptRunId, (string) $remaining[0]->id);
+    }
+
+    /**
+     * One bridge follows several projects, so deleting one of them leaves the
+     * bridge row and its list alone. The next heartbeat drops the id.
+     */
+    public function test_deleting_a_project_leaves_the_bridge_that_follows_it(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'bridge-survives-delete@example.com');
+        $doomed = $this->project($em, $owner, 'Doomed Bridge Project');
+        $kept = $this->project($em, $owner, 'Kept Bridge Project');
+        $projects = [(string) $doomed->id, (string) $kept->id];
+        $bridgeId = $this->seedBridge($em, $owner, projects: $projects)->id;
+        $this->seedRun($em, $doomed);
+
+        $deleter = self::getContainer()->get(ProjectDeleter::class);
+        self::assertInstanceOf(ProjectDeleter::class, $deleter);
+        $deleter->delete($doomed);
+
+        self::assertSame(0, $this->countRuns());
+        $em->clear();
+        $bridge = $em->find(Bridge::class, $bridgeId);
+        self::assertInstanceOf(Bridge::class, $bridge);
+        self::assertSame($projects, $bridge->projects);
     }
 
     /** @return list<WorkerRun> */

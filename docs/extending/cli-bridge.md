@@ -33,11 +33,14 @@ once, with the rules that stop working.
 The bridge authenticates with an account-level API token that carries the agent
 scope. Mint one at `/account`. It reaches `GET /api/projects`, `GET /api/events`,
 `GET /api/projects/{handle}/board/columns`,
-`POST /api/projects/{handle}/worker-runs` and
-`PUT /api/projects/{handle}/bridges/{bridgeId}/rules`, and no other endpoint.
+`POST /api/projects/{handle}/worker-runs`,
+`PUT /api/projects/{handle}/bridges/{bridgeId}/rules` and
+`PUT /api/bridges/{bridgeId}/heartbeat`, and no other endpoint.
 The worker runs endpoint records a finished worker run, and the
-[Worker run API](../reference/worker-runs.md) page covers it. The rule health
-endpoint is below. A project's widget token carries a different scope and the
+[Worker run API](../reference/worker-runs.md) page covers it. The heartbeat
+endpoint records that the bridge runs, and the
+[Bridge heartbeat API](../reference/bridge-heartbeat.md) page covers it. The
+rule health endpoint is below. A project's widget token carries a different scope and the
 firewall refuses it here.
 
 The handle is a project id or a project slug. A project name does not resolve.
@@ -123,16 +126,22 @@ project the token's user owns:
   "projects": [
     {"id": "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7", "slug": "my-app", "name": "My App"}
   ],
-  "flags": {"inbox.enabled": false}
+  "flags": {"inbox.enabled": false, "bridge.heartbeat_interval_seconds": 60}
 }
 ```
 
 `flags` holds the feature flags a bridge reads. The server lists a flag here
-only when its code names the flag, so no other flag reaches a token holder.
-Today the map holds `inbox.enabled`, which reads as `false` on an instance that
-holds no row for it. The bridge reads the map at start and again at each
-reconnect. A flag change therefore reaches a running bridge at its next
-reconnect.
+only when its code names the flag, so no other flag reaches a token holder. A
+value is a boolean or an integer, as the flag's type says. Today the map holds
+two flags:
+
+| Flag | Type | Value |
+|---|---|---|
+| `inbox.enabled` | boolean | `false` on an instance that holds no row for it |
+| `bridge.heartbeat_interval_seconds` | integer | the seconds between two heartbeats, 60 on an instance that holds no row for it. A stored value below 1 reads as 60 |
+
+The bridge reads the map at start and again at each reconnect. A flag change
+therefore reaches a running bridge at its next reconnect.
 
 `topic` is the user's own topic. The server publishes each event of a project on
 the project's topic and on its owner's topic. The JWT expires after an hour, and

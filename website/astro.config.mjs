@@ -117,6 +117,7 @@ export default defineConfig({
             { slug: 'reference/environment' },
             { slug: 'reference/commands' },
             { slug: 'reference/worker-runs' },
+            { slug: 'reference/bridge-heartbeat' },
           ],
         },
         {
