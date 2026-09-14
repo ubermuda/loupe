@@ -16,7 +16,7 @@ use Mcp\Exception\ToolCallException;
  *
  * @phpstan-import-type InboxItemListSummary from InboxItemPayload
  */
-#[McpTool(name: self::NAME, description: 'List the items in the project inbox, newest first. Filter by state (open, answered, done, declined, withdrawn, obsolete), by askId to read the items of one ask, by sessionId to read the items of every ask a session made, by cardId or by documentId. An id that names nothing in this project matches nothing. Pass your own session id as readerSessionId, never as sessionId, to record that you read the answers of your closed asks, so the bridge does not resume you for them. Each row is a summary: itemId, number, kind, title, state, blocking, createdAt, updatedAt and closedAt. Call inbox_get with an itemId to read the body, the answer and the links. Paginated: pass page to walk further, and keep going while hasMore is true.')]
+#[McpTool(name: self::NAME, description: 'List the items in the project inbox, newest first. Filter by state (open, answered, done, declined, withdrawn, obsolete), by askId to read the items of one ask, by sessionId to read the items of every ask a session made, by cardId or by documentId. An id that names nothing in this project matches nothing. Pass your own session id as readerSessionId, never as sessionId, to record that you read the answers of your closed asks, so a bridge can skip resuming you for answers you already read. Each row is a summary: itemId, number, kind, title, state, blocking, createdAt, updatedAt and closedAt. Call inbox_get with an itemId to read the body, the answer and the links. Paginated: pass page to walk further, and keep going while hasMore is true.')]
 final readonly class InboxListTool implements FlagGatedToolInterface
 {
     public const string NAME = 'inbox_list';
@@ -42,10 +42,10 @@ final readonly class InboxListTool implements FlagGatedToolInterface
     }
 
     /**
-     * @param string|null $state      only items in this state: open, answered, done, declined, withdrawn or obsolete
-     * @param string|null $askId      only the items of this ask
-     * @param string|null $sessionId  only the items of the asks this session made
-     * @param string|null $cardId     only the items linked to this card
+     * @param string|null $state           only items in this state: open, answered, done, declined, withdrawn or obsolete
+     * @param string|null $askId           only the items of this ask
+     * @param string|null $sessionId       only the items of the asks this session made
+     * @param string|null $cardId          only the items linked to this card
      * @param string|null $documentId      only the items linked to this document
      * @param int         $page            the 1-based page to read
      * @param int         $perPage         how many items to return per page

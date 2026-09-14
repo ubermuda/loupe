@@ -353,6 +353,16 @@ take a required `sessionId`, which a Claude Code session reads from
 by default and a to-do does not. An ask with no blocking item closes at once,
 and its items stay open in the inbox.
 
+`inbox_list` and `inbox_get` take an optional `readerSessionId`. Pass your own
+session id there to record that you read the answers of your closed asks. The
+[ask check endpoint](../extending/cli-bridge.md#ask-check-endpoint) reports
+these reads, so a bridge can skip a resume when the session already read every
+item of the ask. A read counts only
+for an item that the call returns and that a closed ask of that session holds.
+The first read is kept. The `sessionId` argument of `inbox_list` is a filter
+and records nothing. An agent that lists another session's items therefore
+never marks that session's answers as read.
+
 Every card id and document id an item links to must belong to the token's
 project, or the call is refused. An item closes as `obsolete` when every card it
 links to is moved into a terminal column, by a move or by a column delete. A

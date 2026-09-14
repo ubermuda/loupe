@@ -38,6 +38,21 @@ class InboxAskRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    /** The ask with its item memberships, or null when the project holds no such ask. */
+    public function findOneByIdAndProject(Uuid $id, Project $project): ?InboxAsk
+    {
+        /* @var ?InboxAsk */
+        return $this->createQueryBuilder('a')
+            ->leftJoin('a.items', 'l')
+            ->addSelect('l')
+            ->andWhere('a.id = :id')
+            ->andWhere('a.project = :project')
+            ->setParameter('id', $id, UuidType::NAME)
+            ->setParameter('project', $project)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /**
      * Every ask that holds the item, oldest first.
      *
