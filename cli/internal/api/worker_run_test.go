@@ -159,6 +159,28 @@ func TestReportWorkerRunCutsEachValueToTheServersCap(t *testing.T) {
 	}
 }
 
+// The server trims a rule name and then measures it. A cut that ran first would
+// turn a padded name into spaces alone, which the server refuses for good.
+func TestReportWorkerRunTrimsARuleNameBeforeItCutsIt(t *testing.T) {
+	var gotBody map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	t.Cleanup(server.Close)
+
+	run := finishedRun()
+	run.RuleName = strings.Repeat(" ", maxRuleName) + "plan" + strings.Repeat(" ", 10)
+
+	if _, err := New(server.URL, "t", server.Client()).ReportWorkerRun(context.Background(), "loupe", run); err != nil {
+		t.Fatal(err)
+	}
+
+	if gotBody["ruleName"] != "plan" {
+		t.Fatalf("ruleName = %#v, want the name the padding hid", gotBody["ruleName"])
+	}
+}
+
 // The handle is a path segment, so a slash in it must not reach another route.
 func TestReportWorkerRunEscapesTheHandle(t *testing.T) {
 	var gotPath string

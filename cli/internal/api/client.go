@@ -237,7 +237,10 @@ var ErrReportRefused = errors.New("the server refused the worker run report")
 // a retry of a report that landed counts as a success. A caller that has sent
 // this report once reads a false as a row it did not write.
 func (c *Client) ReportWorkerRun(ctx context.Context, handle string, run WorkerRun) (bool, error) {
-	run.RuleName = clip(run.RuleName, maxRuleName)
+	// Trimmed before the cut, because the server trims first and then measures.
+	// A name of 100 spaces and a word would otherwise cut to spaces alone, which
+	// the server reads as blank and refuses for good.
+	run.RuleName = clip(strings.TrimSpace(run.RuleName), maxRuleName)
 	run.Output = clip(run.Output, maxRunOutput)
 	if run.FailureReason != nil {
 		reason := clip(*run.FailureReason, maxFailureReason)
