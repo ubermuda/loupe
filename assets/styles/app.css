@@ -4316,6 +4316,35 @@
     .lp-board__slug-refusal {
         @apply text-sm font-semibold text-danger m-0;
     }
+    /* A column dialog's note that a live bridge rule watches the column's slug. */
+    .lp-board__rule-warning {
+        @apply rounded-lg bg-status-pending-bg px-3 py-2 m-0 text-sm font-semibold text-status-pending-deep leading-normal;
+    }
+    /* The owner's banner for bridge rules that a bridge reported dead. */
+    .lp-board-rules {
+        @apply flex items-start gap-3 rounded-xl bg-status-pending-bg py-3.5 px-4 mb-4;
+    }
+    .lp-board-rules__icon {
+        @apply shrink-0 text-status-pending mt-0.5;
+    }
+    .lp-board-rules__body {
+        @apply flex flex-col gap-2 min-w-0;
+    }
+    .lp-board-rules__title {
+        @apply text-sm font-bold text-status-pending-deep m-0;
+    }
+    .lp-board-rules__list {
+        @apply flex flex-col gap-1 m-0 p-0 list-none;
+    }
+    .lp-board-rules__rule {
+        @apply flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-status-pending-deep;
+    }
+    .lp-board-rules__code {
+        @apply font-mono text-xs font-semibold;
+    }
+    .lp-board-rules__hint {
+        @apply text-xs text-status-pending-deep m-0;
+    }
     /* A group is a drop target, so it keeps a minimum height even when empty:
        an empty grade with no area under it cannot be dropped into. */
     .lp-board__group {

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Command;
 
+use App\Module\Board\Entity\BridgeRuleReport;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Repository\BoardColumnRepository;
+use App\Module\Board\Repository\BridgeRuleReportRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 
@@ -24,6 +26,7 @@ final readonly class ShowBoardHandler
         private CardRepository $cards,
         private BoardColumnRepository $boardColumns,
         private CardSiteReviewCommentRepository $cardSiteReviewComments,
+        private BridgeRuleReportRepository $bridgeRuleReports,
     ) {
     }
 
@@ -60,6 +63,20 @@ final readonly class ShowBoardHandler
             $columns[] = new BoardColumnView($column, $groups, \count($cards));
         }
 
+        $deadRules = [];
+        $watchedSlugs = [];
+        foreach ($this->bridgeRuleReports->findForProject($project) as $report) {
+            foreach ($report->rules as $rule) {
+                if (BridgeRuleReport::STATE_DEAD === $rule['state']) {
+                    $deadRules[] = new DeadBridgeRuleView($rule['name'], $rule['columns'], $rule['reason'] ?? '', $report->receivedAt, (string) $report->bridgeId);
+
+                    continue;
+                }
+
+                array_push($watchedSlugs, ...$rule['columns']);
+            }
+        }
+
         return new BoardView(
             $project,
             $columns,
@@ -67,6 +84,8 @@ final readonly class ShowBoardHandler
             // One aggregate for the whole board. A count per card would be a
             // query per card, on the page that renders the most of them.
             $this->cardSiteReviewComments->pendingCountsForProject($project),
+            $deadRules,
+            array_values(array_unique($watchedSlugs)),
         );
     }
 }
