@@ -97,6 +97,30 @@ final class AuthorizeMercureTopicsControllerTest extends WebTestCase
         self::assertNull(self::findMercureCookie($client->getResponse()));
     }
 
+    public function test_with_live_updates_off_a_renewal_allows_no_topic_even_with_agent_push_on(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $this->setHubFlags($em, liveUpdates: false, agentPush: true);
+
+        $owner = $this->user($em, 'mercure-renew-off@example.com');
+        $project = $this->project($em, $owner);
+        self::assertNotNull($project->id);
+        $em->clear();
+
+        $topics = static::getContainer()->get(ProjectTopicBuilder::class);
+        self::assertInstanceOf(ProjectTopicBuilder::class, $topics);
+
+        $client->loginUser($owner);
+        $this->renew($client, [$topics->forBoard($project->id)]);
+
+        // An empty list, not an error: the page drops the topic and closes its connection.
+        self::assertResponseIsSuccessful();
+        self::assertSame(['topics' => []], json_decode((string) $client->getResponse()->getContent(), true));
+        self::assertNull(self::findMercureCookie($client->getResponse()));
+    }
+
     public function test_renewals_are_rate_limited_per_user(): void
     {
         $client = static::createClient();

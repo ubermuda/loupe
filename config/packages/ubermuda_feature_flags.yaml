@@ -10,8 +10,9 @@ ubermuda_feature_flags:
     # is unset or blank the flag reads as off whatever is stored, and the admin
     # shows it as unavailable instead of a switch that cannot work.
     prerequisites:
-        # No hub means nothing to publish to and no token to sign.
+        # Both flags need a hub: nothing to publish to and no token to sign without one.
         # MERCURE_JWT_SECRET ships with no default on purpose, so an unconfigured
-        # instance has push off rather than failing when someone submits.
-        # MERCURE_PUBLIC_URL too: blank, the endpoint returns an unusable hubUrl.
+        # instance has both off rather than failing on a submit or a page load.
+        # MERCURE_PUBLIC_URL too: blank, a browser or the bridge gets an unusable hub URL.
         agent.push.enabled: ['MERCURE_URL', 'MERCURE_PUBLIC_URL', 'MERCURE_JWT_SECRET']
+        live_updates.enabled: ['MERCURE_URL', 'MERCURE_PUBLIC_URL', 'MERCURE_JWT_SECRET']
