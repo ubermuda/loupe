@@ -131,10 +131,18 @@ final class InboxToolRegistrationTest extends KernelTestCase
     {
         $schema = $this->registry->getTool(InboxListTool::NAME)->tool->inputSchema;
 
-        foreach (['state', 'askId', 'sessionId', 'cardId', 'documentId', 'page', 'perPage'] as $argument) {
+        foreach (['state', 'askId', 'sessionId', 'cardId', 'documentId', 'page', 'perPage', 'readerSessionId'] as $argument) {
             self::assertArrayHasKey($argument, $schema['properties'], $argument);
         }
         self::assertSame([], $schema['required'] ?? []);
+    }
+
+    public function test_inbox_get_requires_the_item_and_takes_an_optional_reader_session(): void
+    {
+        $schema = $this->registry->getTool(InboxGetTool::NAME)->tool->inputSchema;
+
+        self::assertSame(['itemId'], $schema['required']);
+        self::assertArrayHasKey('readerSessionId', $schema['properties']);
     }
 
     public function test_inbox_withdraw_requires_a_reason(): void

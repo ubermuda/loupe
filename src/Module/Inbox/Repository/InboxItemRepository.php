@@ -263,6 +263,34 @@ class InboxItemRepository extends ServiceEntityRepository
     }
 
     /**
+     * Copies onto the entity every column an agent reads that can change, as
+     * stored now. refresh() would also reload the readonly columns, which Doctrine refuses.
+     */
+    public function reloadReadableColumns(InboxItem $item): void
+    {
+        /** @var array{title: string, body: ?string, blocking: bool, options: list<string>, multiple: bool, freeText: bool, state: InboxItemState, selectedOptions: list<int>, answerText: ?string, closeNote: ?string, updatedAt: \DateTimeImmutable, closedAt: ?\DateTimeImmutable} $row */
+        $row = $this->createQueryBuilder('i')
+            ->select('i.title, i.body, i.blocking, i.options, i.multiple, i.freeText, i.state, i.selectedOptions, i.answerText, i.closeNote, i.updatedAt, i.closedAt')
+            ->andWhere('i.id = :id')
+            ->setParameter('id', $item->id, UuidType::NAME)
+            ->getQuery()
+            ->getSingleResult();
+
+        $item->title = $row['title'];
+        $item->body = $row['body'];
+        $item->blocking = $row['blocking'];
+        $item->options = $row['options'];
+        $item->multiple = $row['multiple'];
+        $item->freeText = $row['freeText'];
+        $item->state = $row['state'];
+        $item->selectedOptions = $row['selectedOptions'];
+        $item->answerText = $row['answerText'];
+        $item->closeNote = $row['closeNote'];
+        $item->updatedAt = $row['updatedAt'];
+        $item->closedAt = $row['closedAt'];
+    }
+
+    /**
      * Copies onto the entity the columns that decide which response the item
      * takes, as stored now, whatever the loaded entity holds.
      */
