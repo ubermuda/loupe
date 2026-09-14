@@ -33,9 +33,10 @@ exec *args:
 
 shell: (exec "bash")
 
-# Foreground messenger worker for the current checkout (Ctrl-C to stop).
+# Foreground messenger worker and scheduler for the current checkout (Ctrl-C to
+# stop). scheduler_default comes first: a deep async backlog must not delay ticks.
 worker:
-    bin/worktrees/compose-exec.sh bin/console messenger:consume async -vv
+    bin/worktrees/compose-exec.sh bin/console messenger:consume scheduler_default async -vv
 
 # Never run composer on the host: the container's PHP version and extension set
 # are what the lockfile is resolved against, and vendor/ is bind-mounted
@@ -150,8 +151,11 @@ phpstan:
 arkitect:
     vendor/bin/phparkitect check
 
+# XDEBUG_MODE lives here rather than in a compose overlay, so CI and a
+# workstation run the one command. The php-fpm container carries
+# develop,coverage, which instruments every line the suite executes.
 phpunit *args:
-    bin/worktrees/compose-exec.sh vendor/bin/phpunit "$@"
+    bin/worktrees/compose-exec.sh env XDEBUG_MODE=off vendor/bin/phpunit "$@"
 
 # Vitest over tests/js. Runs on the host, not in the container: it needs Node
 # alone, and the app it tests is a browser script.
@@ -507,7 +511,7 @@ open-phpunit-coverage:
     open var/phpunit-coverage/html/index.html
 
 # Fetches a report from GitHub Actions and prints its summary. The newest run on
-# main by default. Usage: just ci-report mutation|phpunit-coverage|e2e-coverage|e2e-timing [RUN_ID]
+# main by default. Usage: just ci-report mutation|phpunit-coverage|e2e-coverage|e2e-timing|phpunit-timing [RUN_ID]
 ci-report report run="":
     bin/ci-report.sh "{{report}}" "{{run}}"
 

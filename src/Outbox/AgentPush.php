@@ -7,9 +7,10 @@ namespace App\Outbox;
 /**
  * Live push of outbox events to a waiting agent, over Mercure.
  *
- * Everything reachable only through the hub hangs off this one flag: publishing
- * an event, draining the outbox, and issuing the subscriber credentials the
- * bridge CLI uses. A producer's own features stay available with this off.
+ * Draining the outbox to the hub and issuing the subscriber credentials the
+ * bridge CLI uses hang off this flag. Live updates in the browser have their
+ * own, App\Mercure\LiveUpdates. A producer's own features stay available with
+ * this off.
  *
  * The flag also carries an environment prerequisite, so an instance with no
  * configured hub reads it as off whatever is stored.
