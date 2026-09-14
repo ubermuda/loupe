@@ -5,7 +5,7 @@
 ## Borrowed skills
 
 1. Use `superpowers-extended-cc:writing-plans` for the plan format only. Submit the plan to Loupe. Save no file under `docs/superpowers`, and skip its question about how to execute.
-2. Use `superpowers-extended-cc:subagent-driven-development` for the task loop only. Never invoke `superpowers-extended-cc:finishing-a-development-branch`. Never merge locally, and never remove the worktree.
+2. Use `superpowers-extended-cc:subagent-driven-development` for the task loop only. Never invoke `superpowers-extended-cc:finishing-a-development-branch`. Never merge the pull request, and never merge into `main`. Merging `origin/main` into the card branch is required by the gate. Never remove the worktree.
 3. Never call `AskUserQuestion`. Nobody answers it.
 4. Nobody approves the plan. Start the work as soon as it is linked.
 
@@ -45,8 +45,20 @@ The first must print the worktree path. The second must print the card branch. O
 ## Reruns
 
 1. A linked plan document whose `references` hold the tech design id is the plan. Reuse it, and create no second plan.
-2. An open pull request on a branch that starts `card-<number>-` belongs to this card. Never cut a new branch from `origin/main` for it. Restore its `headRefName` with "Set up or refresh the worktree" in `../../loupe-stage-fix-round/references/pull-request-feedback.md`: fetch, prune, add the worktree on that branch, `just worktree-up`, `EnterWorktree`, and the fast-forward sync. Then run `git branch --show-current`. When it differs from `headRefName`, stop with `STAGE RESULT: blocked: worktree is not on the PR branch`. Otherwise resume at the gate.
+2. An open pull request on a branch that starts `card-<number>-` belongs to this card. Never cut a new branch from `origin/main` for it. Restore its `headRefName` with "Set up or refresh the worktree" in `../../loupe-stage-fix-round/references/pull-request-feedback.md`: fetch, prune, add the worktree on that branch, the fast-forward sync, `just worktree-up`, and `EnterWorktree`. Then run `git branch --show-current`. When it differs from `headRefName`, stop with `STAGE RESULT: blocked: worktree is not on the PR branch`. Otherwise resume at the gate.
 3. Before `gh pr create`, run `gh pr list --head <branch> --state open`. Link a pull request it lists, and create none.
+
+## Refresh after a sync
+
+`just worktree-up NAME` runs `bin/worktrees/worktree-bootstrap.sh`. It copies the `vendor/` of the main checkout when `composer.json` and `composer.lock` match it, and runs `composer install` in the container when they differ. It also runs the migrations, `app:dev:seed`, `tailwind:build` and `cache:warmup`, and starts the sidecars. It clears no cache. The test database needs nothing, because `tests/bootstrap.php` rebuilds it on each run.
+
+After any sync that brings commits, run it again from the main checkout. The main checkout is the first `worktree` line of `git worktree list --porcelain`. Then clear both caches from the worktree:
+
+```bash
+( cd <main checkout> && just worktree-up card-<number> )
+bin/worktrees/compose-exec.sh bin/console cache:clear
+bin/worktrees/compose-exec.sh bin/console cache:clear --env=test
+```
 
 ## Long commands
 
@@ -80,7 +92,9 @@ php bin/changelog.php --check
 
 When `git merge origin/main` conflicts, resolve it only when the conflict is mechanical and the gate then proves the result. Otherwise run `git merge --abort`, and stop with `STAGE RESULT: blocked: merge conflict with main in <files>`.
 
-Commit what `just cs` changes. Then run the Codex review with `mcp__codex-cli__review` and `model: "gpt-6-astra"`. Scope it to `origin/main` for a branch with one commit. Otherwise review each commit that carries work, by its SHA, with `commit: "<sha>"`. Never scope it to the newest commit, because the gate adds merge and style commits after the work (`working-with-prs`, "Scope the review to the commit"). Repeat until two passes in a row come back clean. Run `git status` after each pass. When the Codex MCP is missing, stop with `STAGE RESULT: blocked: codex MCP unavailable`.
+When `git merge origin/main` brings commits, refresh the worktree as "Refresh after a sync" says, before `just cs`.
+
+Commit what `just cs` changes. Then run the Codex review with `mcp__codex-cli__review` and `model: "gpt-6-astra"`. `working-with-prs` asks for two clean passes in a row, and for a commit scope once the branch has more than one commit. Alternate the scope: one pass with `base: "origin/main"`, the next with `commit: "<sha>"` for the newest commit that carries work. Count a pass as clean only against the current tree. Read each summary, and check that it covers the largest change. Before you act on a finding, read the file at HEAD, and dismiss a finding that HEAD already fixes. Run `git status` after each pass. When the Codex MCP is missing, stop with `STAGE RESULT: blocked: codex MCP unavailable`.
 
 ## Open the pull request
 
@@ -89,7 +103,7 @@ git push -u origin HEAD
 gh pr create --base main --title "<type>(<area>): <summary>" --body-file <file>
 ```
 
-Keep the body to the shape `working-with-prs` gives. The card URL is `<instance>/projects/<projectId>/board/cards/<cardId>`, as `loupe-board` says. Take the instance and the project id from the prompt. When the prompt lacks them, write `Loupe card <number>` instead.
+Keep the body to the shape `working-with-prs` gives. The card page route is `/projects/{projectId}/board/cards/{cardId}`, in `src/Module/Board/Controller/ShowCardController.php`. The card URL is therefore `<instance>/projects/<projectId>/board/cards/<cardId>`. Take the instance from the prompt line `Loupe instance <url>.`, and the project id from the prompt. When the prompt lacks either, write `Loupe card <number>` instead.
 
 Then write `changelog.d/<pr number>.md` in the `working-with-prs` format. Run `php bin/changelog.php --check`, commit, and push.
 

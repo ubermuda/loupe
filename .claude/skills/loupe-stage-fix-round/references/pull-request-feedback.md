@@ -5,8 +5,10 @@ Run these from a checkout of the repository. `gh` fills `{owner}` and `{repo}` f
 ## Find the open pull request
 
 ```bash
-gh pr view <url> --json state,number,headRefName,headRefOid
+gh pr view <url> --json state,number,headRefName,headRefOid,isCrossRepository,headRepositoryOwner
 ```
+
+When `isCrossRepository` is `true`, the branch lives in a fork. Stop with `STAGE RESULT: blocked: fork pull request not supported`.
 
 ## Read the checks before a worktree exists
 
@@ -92,22 +94,23 @@ Run these from the main checkout. Find the worktree with the porcelain grep:
 git worktree list --porcelain | grep -x "worktree $PWD/.claude/worktrees/card-<number>"
 ```
 
-When the grep prints a line, run `just worktree-up card-<number>` before `EnterWorktree`. When it prints nothing, create the worktree:
+When the grep prints nothing, create the worktree:
 
 ```bash
 git worktree prune
 git fetch origin <headRefName>
 git worktree add .claude/worktrees/card-<number> <headRefName>
-just worktree-up card-<number>
 ```
 
 When `git worktree add` finds no local branch, use `git worktree add --track -b <headRefName> .claude/worktrees/card-<number> origin/<headRefName>`.
 
-Call `EnterWorktree`, and verify it as `../../loupe-stage-implementation/references/commands.md` says. The branch must be `<headRefName>`. Then bring it up to date:
+Sync the branch before you provision it, for a new or an existing worktree:
 
 ```bash
-git fetch origin <headRefName>
-git merge --ff-only origin/<headRefName>
+git -C .claude/worktrees/card-<number> fetch origin <headRefName>
+git -C .claude/worktrees/card-<number> merge --ff-only origin/<headRefName>
 ```
 
 When the merge fails, stop with `STAGE RESULT: blocked: local branch diverged from origin`. Never force-push.
+
+Then provision it with `just worktree-up card-<number>`. When the sync brought commits, also clear both caches, as "Refresh after a sync" in `../../loupe-stage-implementation/references/commands.md` says. Call `EnterWorktree`, and verify it as that file says. The branch must be `<headRefName>`.

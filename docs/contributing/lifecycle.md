@@ -46,6 +46,7 @@ rules:
     prompt: |
       Use the loupe-stage-product-design skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}) entered {to}.
+      Loupe instance https://loupe.ac.
       If the card is no longer in {to}, stop.
 
   - name: tech-design
@@ -56,6 +57,7 @@ rules:
     prompt: |
       Use the loupe-stage-tech-design skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}) entered {to}.
+      Loupe instance https://loupe.ac.
       If the card is no longer in {to}, stop.
 
   - name: implementation
@@ -66,11 +68,13 @@ rules:
     prompt: |
       Use the loupe-stage-implementation skill.
       Card {cardNumber} (cardId {cardId}) in project {project} (projectId {projectId}) entered {to}.
+      Loupe instance https://loupe.ac.
       If the card is no longer in {to}, stop.
 ```
 
-Each prompt carries `{projectId}`. The implementation skill uses it to build the
-card link in the pull request body. `cli/README.md` describes every field and
+Each prompt carries `{projectId}` and the Loupe instance. The implementation
+skill uses both to build the card link in the pull request body. Without the
+instance line, the body names `Loupe card <number>` instead. `cli/README.md` describes every field and
 placeholder.
 
 Every move in this lifecycle comes from a person, and a person's move resets
@@ -109,7 +113,7 @@ No rule starts a fix round yet. Run one by hand after review feedback arrives.
 2. Run this from the repository root:
 
 ```sh
-claude -p --permission-mode bypassPermissions -- "Use the loupe-stage-fix-round skill. Card <number> (cardId <id>) in project loupe (projectId <id>), column <slug>."
+claude -p --permission-mode bypassPermissions -- "Use the loupe-stage-fix-round skill. Card <number> (cardId <id>) in project loupe (projectId <id>), column <slug>. Loupe instance https://loupe.ac."
 ```
 
 The fix round reads the column of the card. In a design column it answers the

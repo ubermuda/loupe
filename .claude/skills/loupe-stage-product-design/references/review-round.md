@@ -8,7 +8,7 @@ When a review field is absent, such as `standing_approval_count`, `replacement`,
 
 Read `document_get_review`. Act when at least one of these holds:
 
-1. A root comment has `status` `pending`.
+1. A root comment is open. A root is open when its `status` is `pending`. A root that is not `resolved` is open too, when its thread holds a reply with `author` `human` after the latest reply with `author` `agent`. Marking a comment addressed does not reset that test.
 2. The `verdict` is `changes-requested`.
 3. An entry in `decisions` has an answer, and no `**Decided:**` line names that answer. A single-choice entry answers in `selected`. A multiple-choice entry answers in `selections`. A `**Decided:**` line that names an older answer does not count.
 4. The requirement source holds a requirement the document does not cover yet.
@@ -19,9 +19,9 @@ When none holds, change nothing. Stop with `STAGE RESULT: <document> unchanged`.
 
 A section whose `standing_approval_count` is above 0 is approved. Never change its text, because a rewrite drops the approval. This rule wins over every rule below.
 
-## Answer every pending comment
+## Answer every open comment
 
-Reply to every `pending` root comment, and mark it addressed. Do this for a comment you answer with no change too. Finish the replies before you call `document_revise`, because a revision invalidates every comment id (rule 7).
+Reply to every open root comment, and mark it addressed. Do this for a comment you answer with no change too. Finish the replies before you call `document_revise`, because a revision invalidates every comment id (rule 7).
 
 1. Apply a comment's `replacement` when it has one. Its `quote` is the exact span to substitute. An empty `replacement` deletes the span.
 2. When the `replacement` falls inside an approved section, do not apply it. Reply, and say that the section is approved.
