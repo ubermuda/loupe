@@ -234,6 +234,13 @@ and narrow to the states that deliberately break it. Four attempts at the quote
 guard failed because they keyed on the mode that wanted the pick kept, and that
 flag is already false when the event lands.
 
+Do not expire an arm by counting frames. Chromium dispatches `selectionchange` in
+its own task, and a frame often runs before it, even on an idle machine. The first
+quote fix expired its arm after two frames and lost the pick on every run. The arm
+now waits for the event, and is set only when the focus is seen to collapse the
+selection, so the event is certain to come. A test must wait for that event too:
+`afterSelectionRead` in `widget.spec.ts` does it.
+
 ## Common mistakes
 
 | Mistake | Reality |

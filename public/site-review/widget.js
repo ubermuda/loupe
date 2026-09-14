@@ -2859,10 +2859,7 @@
         if (!keepPicking) setTargeting(false);
         state.addAnchor = !!keepPicking;
         sync();
-        if (!keepPicking) {
-            keepPickThroughFocus();
-            focusTextarea();
-        }
+        if (!keepPicking) focusKeepingPick();
     };
     const openElementComposer = (el, keepPicking) =>
         addComposeAnchor(anchorFor(el), keepPicking);
@@ -2954,10 +2951,7 @@
         if (state.drawing) {
             setDrawing(false);
             sync();
-            if (state.composing) {
-                keepPickThroughFocus();
-                focusTextarea();
-            }
+            if (state.composing) focusKeepingPick();
             return;
         }
         if (state.editId != null) return;
@@ -3927,27 +3921,24 @@
         commentOnSelection();
     });
 
-    // A page that reviews text of its own opts out: its own selection UI owns
-    // the selection there.
     // A transient mode ends by focusing the composer, and that focus collapses
     // the page selection. Ten call sites focus the textarea and only these two
-    // promise the offer back, so the mode arms this on its way out instead of
-    // `readSelection` trying to infer which one it was: at event time every
+    // promise the offer back, so the mode marks the collapse as its own instead
+    // of `readSelection` trying to infer which one it was: at event time every
     // call site looks the same.
+    let collapseOwed = false;
     let restoringPick = false;
-    const keepPickThroughFocus = () => {
-        if (!state.quotePick) return;
-        restoringPick = true;
-        // A focus move that collapses nothing raises no selectionchange, so the
-        // arm expires rather than wait for an event that never comes. Two
-        // frames, because the handler's own frame is queued before this one.
-        requestAnimationFrame(() =>
-            requestAnimationFrame(() => {
-                restoringPick = false;
-            }),
-        );
+    const focusKeepingPick = () => {
+        const selection = document.getSelection();
+        const live = !!state.quotePick && !!selection && !selection.isCollapsed;
+        focusTextarea();
+        // Armed only on a collapse seen here, so its selectionchange is owed and
+        // the arm needs no expiry. The event can land after any number of frames.
+        collapseOwed = live && selection.isCollapsed;
     };
 
+    // A page that reviews text of its own opts out: its own selection UI owns
+    // the selection there.
     const quotesOff = (node) => {
         const element = node.nodeType === 1 ? node : node.parentElement;
         return (
@@ -3992,6 +3983,10 @@
     };
     let selectionFrame = 0;
     document.addEventListener('selectionchange', () => {
+        if (collapseOwed) {
+            collapseOwed = false;
+            restoringPick = true;
+        }
         if (selectionFrame) return;
         selectionFrame = requestAnimationFrame(() => {
             selectionFrame = 0;

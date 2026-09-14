@@ -1816,6 +1816,36 @@ const selectText = async (page: Page, span: Span): Promise<void> => {
     await spanIn(page, span, true);
 };
 
+/**
+ * Run an action that moves focus into the composer, then wait until the widget
+ * has read the selection that focus collapsed. The widget reads it a frame after
+ * the selectionchange, and the offer shows before then.
+ */
+const afterSelectionRead = async (
+    page: Page,
+    action: () => Promise<void>,
+): Promise<void> => {
+    await page.evaluate(() => {
+        (window as unknown as { selectionRead: Promise<void> }).selectionRead =
+            new Promise((resolve) => {
+                document.addEventListener(
+                    'selectionchange',
+                    () =>
+                        requestAnimationFrame(() =>
+                            requestAnimationFrame(() => resolve()),
+                        ),
+                    { once: true },
+                );
+            });
+    });
+    await action();
+    await page.evaluate(
+        () =>
+            (window as unknown as { selectionRead: Promise<void> })
+                .selectionRead,
+    );
+};
+
 /** Fill the composer and save, waiting for the API to accept the comment. */
 const saveComposed = async (page: Page, body: string): Promise<void> => {
     await page.getByPlaceholder(/Describe the issue/).fill(body);
@@ -2768,7 +2798,33 @@ test('the offer to quote a selection stands down while drawing', async ({
     await waitForInk(page);
 
     // Leaving draw mode gives the offer back, because the selection is intact.
-    await page.getByRole('button', { name: 'Done' }).click();
+    await afterSelectionRead(page, () =>
+        page.getByRole('button', { name: 'Done' }).click(),
+    );
+    await expect(offer).toBeVisible();
+});
+
+/**
+ * Picking an element ends pick mode by focusing the composer, the way leaving
+ * draw mode does, so a selection made before the pick is offered again.
+ */
+test('the offer to quote a selection comes back after an element pick', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.getByRole('button', { name: 'Review' }).click();
+
+    const offer = page.locator('#lp-quote-btn');
+    await selectText(page, PROSE_QUOTE);
+    await expect(offer).toBeVisible();
+
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await expect(offer).toBeHidden();
+
+    await afterSelectionRead(page, () => page.locator('#target-me').click());
     await expect(offer).toBeVisible();
 });
 
