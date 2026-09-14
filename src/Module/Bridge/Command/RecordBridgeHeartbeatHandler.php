@@ -9,7 +9,6 @@ use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
-use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Ubermuda\AuditBundle\Auditor;
@@ -36,10 +35,14 @@ final readonly class RecordBridgeHeartbeatHandler
         $ownerId = (string) ($command->owner->id ?? throw new \LogicException('An authenticated user always has an id.'));
         $projects = $this->ownedProjects($command->owner, $command->projects);
 
-        // The owner lock serialises two first heartbeats of one bridge, which
-        // would otherwise both miss the read and trip the primary key.
+        // Keyed on the bridge id, not the owner, so two first heartbeats of one
+        // id from two accounts also queue, rather than both missing the read and
+        // one tripping the primary key.
         [$bridge, $created] = $this->em->wrapInTransaction(function () use ($command, $ownerId, $projects): array {
-            $this->em->lock($command->owner, LockMode::PESSIMISTIC_WRITE);
+            $this->em->getConnection()->executeStatement(
+                'SELECT pg_advisory_xact_lock(hashtext(?))',
+                ['bridge:'.$command->bridgeId->toRfc4122()],
+            );
 
             $now = $this->clock->now();
             $bridge = $this->bridges->find($command->bridgeId);
