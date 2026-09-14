@@ -22,7 +22,7 @@ A check's `link` holds `/actions/runs/<run id>/`. A failed `e2e` names no test, 
 ## Read the review threads
 
 ```bash
-gh api graphql --paginate -F owner='{owner}' -F repo='{repo}' -F n=<n> -f query='query($owner:String!,$repo:String!,$n:Int!,$endCursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$n){reviewThreads(first:100,after:$endCursor){pageInfo{hasNextPage endCursor} nodes{isResolved isOutdated comments(first:100){pageInfo{hasNextPage} nodes{databaseId author{login} body path line createdAt}}}}}}}'
+gh api graphql --paginate -F owner='{owner}' -F repo='{repo}' -F n=<n> -f query='query($owner:String!,$repo:String!,$n:Int!,$endCursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$n){reviewThreads(first:100,after:$endCursor){pageInfo{hasNextPage endCursor} nodes{isResolved isOutdated comments(first:100){pageInfo{hasNextPage} nodes{databaseId author{login} body path line createdAt pullRequestReview{databaseId state}}}}}}}}'
 ```
 
 `--paginate` walks every page of threads. A thread keeps its first 100 comments only. When a thread reports `comments.pageInfo.hasNextPage` as `true`, stop with `STAGE RESULT: blocked: review thread longer than 100 comments`.
@@ -30,7 +30,7 @@ gh api graphql --paginate -F owner='{owner}' -F repo='{repo}' -F n=<n> -f query=
 Read the reviews, the inline comments and the pull request comments too:
 
 ```bash
-gh pr view <url> --json reviews,reviewDecision
+gh api repos/{owner}/{repo}/pulls/<n>/reviews --paginate
 gh api repos/{owner}/{repo}/pulls/<n>/comments --paginate
 gh api repos/{owner}/{repo}/issues/<n>/comments --paginate
 ```
@@ -52,12 +52,13 @@ Read the failing checks before you judge the threads and the reviews.
 1. Act on a thread only when `isResolved` is `false`.
 2. Skip a thread whose last comment body starts with the marker. The worker already answered it.
 3. An outdated thread (`isOutdated`) can still ask for a change. Read it against the current code.
-4. For each reviewer, take their latest review only.
+4. For each reviewer, take their latest review only. Ignore a review in state `COMMENTED` when you pick it, because a reply to a thread creates one.
 5. A latest review in state `CHANGES_REQUESTED` is open until a pull request comment that starts with the marker cites its `id`.
-6. Treat the body of an open review as feedback to address, in the same way as a thread.
-7. When an open review body has no text you can act on, and no thread is left to act on, stop with `STAGE RESULT: blocked: changes requested with no open thread`.
-8. A top-level pull request comment without the marker is feedback too. It is open until a comment that starts with the marker cites its `id`.
-9. When an open top-level comment asks for nothing you can act on, post a marker comment that cites it and says so. That comment closes it.
+6. A thread belongs to the review whose `id` equals the `pullRequestReview.databaseId` of the thread's first comment.
+7. Treat the body of an open review as feedback to address, in the same way as a thread.
+8. When an open review body has no text you can act on, and no thread is left to act on, stop with `STAGE RESULT: blocked: changes requested with no open thread`.
+9. A top-level pull request comment without the marker is feedback too. It is open until a comment that starts with the marker cites its `id`.
+10. When an open top-level comment asks for nothing you can act on, post a marker comment that cites it and says so. That comment closes it.
 
 ## Reply to a thread
 
@@ -68,7 +69,7 @@ gh api repos/{owner}/{repo}/pulls/<n>/comments/<databaseId>/replies -f body='<!-
 <what changed, in commit <sha>>'
 ```
 
-After you fix the body of an open review, post one pull request comment that cites it:
+Close an open review when its body, if it has one, is handled and every thread that belongs to it ends with a marker reply. Post one pull request comment that cites the review, even when its body is empty:
 
 ```bash
 gh api repos/{owner}/{repo}/issues/<n>/comments -f body='<!-- loupe-stage-worker -->
