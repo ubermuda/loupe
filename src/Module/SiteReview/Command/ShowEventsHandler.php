@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\Command;
 
-use App\Mercure\ProjectTopicBuilder;
+use App\Mercure\UserTopicBuilder;
 use App\Module\Project\Repository\ProjectRepository;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Mercure\Jwt\TokenFactoryInterface;
 
-final readonly class ShowStreamCredentialsHandler
+final readonly class ShowEventsHandler
 {
     /**
      * Subscriber JWTs are deliberately short-lived: a leaked credential stops
@@ -19,7 +19,7 @@ final readonly class ShowStreamCredentialsHandler
 
     public function __construct(
         private ProjectRepository $projects,
-        private ProjectTopicBuilder $topicBuilder,
+        private UserTopicBuilder $userTopics,
 
         #[Autowire(service: 'mercure.hub.default.jwt.factory')]
         private TokenFactoryInterface $tokenFactory,
@@ -29,28 +29,20 @@ final readonly class ShowStreamCredentialsHandler
     ) {
     }
 
-    public function __invoke(ShowStreamCredentialsCommand $command): ShowStreamCredentialsView
+    public function __invoke(ShowEventsCommand $command): ShowEventsView
     {
-        // Owner-scoped lookup is what enforces project ownership: the caller can
-        // only ever obtain credentials for its own projects.
-        $project = $this->projects->findOneByIdOrSlugForOwner($command->handle, $command->owner);
-        if (null === $project) {
-            return new ShowStreamCredentialsView(null, $this->hubUrl, '', '');
-        }
+        // The JWT names the caller's own topic only, so no other user's events reach it.
+        $topic = $this->userTopics->forUser($command->user->id ?? throw new \LogicException('User has no id.'));
 
-        $topic = $this->topicBuilder->forProject(
-            $project->id ?? throw new \LogicException('Project has no id.'),
-        );
-
-        return new ShowStreamCredentialsView(
-            site: $project,
+        return new ShowEventsView(
             hubUrl: $this->hubUrl,
-            topic: $topic,
             jwt: $this->tokenFactory->create(
                 [$topic],
                 [],
                 ['exp' => new \DateTimeImmutable('+'.self::JWT_TTL_SECONDS.' seconds')],
             ),
+            topic: $topic,
+            projects: $this->projects->findByOwner($command->user),
         );
     }
 }

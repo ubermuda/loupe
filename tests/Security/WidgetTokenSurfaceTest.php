@@ -50,8 +50,9 @@ final class WidgetTokenSurfaceTest extends WebTestCase
     public static function agentPaths(): iterable
     {
         yield 'projects' => [Request::METHOD_GET, '/api/projects'];
-        yield 'stream' => [Request::METHOD_GET, '/api/projects/anything/stream'];
+        yield 'events' => [Request::METHOD_GET, '/api/events'];
         yield 'columns' => [Request::METHOD_GET, '/api/projects/anything/board/columns'];
+        yield 'bridge rules' => [Request::METHOD_PUT, '/api/projects/anything/bridges/'.Uuid::v4().'/rules'];
     }
 
     #[DataProvider('widgetPaths')]

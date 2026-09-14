@@ -6,13 +6,14 @@ namespace App\Module\SiteReview\Command;
 
 use App\Module\Project\Entity\Project;
 
-final readonly class ShowStreamCredentialsView
+final readonly class ShowEventsView
 {
+    /** @param list<Project> $projects */
     public function __construct(
-        public ?Project $site,
         public string $hubUrl,
-        public string $topic,
         public string $jwt,
+        public string $topic,
+        public array $projects,
     ) {
     }
 }
