@@ -141,6 +141,22 @@ func (h *harness) lines(t *testing.T, event string) []map[string]any {
 	return out
 }
 
+// waitFor waits until the log holds event. A send reaches h.sent before the
+// sender reads its answer, so a Close right after h.next can cancel the queue
+// first and turn a give-up into a shutdown.
+func (h *harness) waitFor(t *testing.T, event string) {
+	t.Helper()
+
+	deadline := time.After(5 * time.Second)
+	for len(h.lines(t, event)) == 0 {
+		select {
+		case <-deadline:
+			t.Fatalf("the log never held %s: %s", event, h.log.String())
+		case <-time.After(time.Millisecond):
+		}
+	}
+}
+
 const testHandle = "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7"
 
 func run(card int) api.WorkerRun {
@@ -194,6 +210,7 @@ func TestQueueLogsAGiveUp(t *testing.T) {
 	for attempt := 1; attempt <= 3; attempt++ {
 		h.next(t, attempt)
 	}
+	h.waitFor(t, "report_failed")
 	h.queue.Close()
 
 	lines := h.lines(t, "report_failed")
@@ -211,6 +228,7 @@ func TestQueueStopsAtARefusedReport(t *testing.T) {
 
 	h.queue.Enqueue(testHandle, run(42))
 	h.next(t, 1)
+	h.waitFor(t, "report_failed")
 	h.queue.Close()
 
 	lines := h.lines(t, "report_failed")
@@ -456,7 +474,7 @@ func TestShutdownDrainsReportsWhileAHeartbeatHangs(t *testing.T) {
 	started := make(chan string, 4)
 	never := make(chan struct{})
 	h.queue.SendLatest("heartbeat", blockedHeartbeat(started, never, "a"), func(err error) {
-		t.Errorf("a heartbeat the shutdown cut short reported %v", err)
+		t.Errorf("a heartbeat still sending when Close began reported %v", err)
 	})
 	<-started
 
@@ -480,11 +498,31 @@ func TestShutdownDrainsReportsWhileAHeartbeatHangs(t *testing.T) {
 	if lines := h.lines(t, "report_dropped"); len(lines) != 0 {
 		t.Fatalf("report_dropped = %v, want the shutdown to have delivered both", lines)
 	}
+}
 
-	h.queue.SendLatest("heartbeat", blockedHeartbeat(started, never, "late"), nil)
+// A closed queue opens no lane, so an item of a new key never runs and no
+// goroutine outlives Close.
+func TestAClosedQueueOpensNoLane(t *testing.T) {
+	h := newHarness(t, 1)
+	h.queue.Close()
+	ran := make(chan struct{}, 1)
+
+	h.queue.SendLatest("after-close", func(context.Context) error {
+		ran <- struct{}{}
+
+		return nil
+	}, nil)
+
+	h.queue.mu.Lock()
+	_, opened := h.queue.lanes["after-close"]
+	h.queue.mu.Unlock()
+	if opened {
+		t.Fatal("a closed queue opened a lane")
+	}
+	h.queue.laneWG.Wait()
 	select {
-	case got := <-started:
-		t.Fatalf("a closed queue sent heartbeat %q", got)
-	case <-time.After(20 * time.Millisecond):
+	case <-ran:
+		t.Fatal("a closed queue ran the send")
+	default:
 	}
 }

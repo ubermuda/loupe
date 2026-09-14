@@ -19,14 +19,20 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/api"
 )
 
-// Queue takes a finished worker run and owns its delivery from there. handle
-// names the project the run belongs to, because one bridge follows several.
+// Queue takes what the bridge sends to Loupe and owns its delivery from there.
+// Each method names a kind of item, and each kind has its own delivery policy.
 //
-// Enqueue never blocks and never reports a failure, because the caller is a
-// worker goroutine with nothing to do about a failed send. A durable queue
-// replaces this one behind the same two methods.
+// Enqueue takes a finished worker run. handle names the project the run belongs
+// to, because one bridge follows several. It never blocks and never reports a
+// failure, because the caller is a worker goroutine with nothing to do about a
+// failed send.
+//
+// SendLatest takes a latest-wins item, such as a heartbeat. See Sender.SendLatest.
+//
+// A durable queue can replace the in-memory one behind the same methods.
 type Queue interface {
 	Enqueue(handle string, run api.WorkerRun)
+	SendLatest(key string, send func(context.Context) error, done func(error))
 	Close()
 }
 
@@ -151,8 +157,10 @@ func (q *Sender) Enqueue(handle string, run api.WorkerRun) {
 
 // SendLatest puts send in the lane of key, in place of an item of that key that
 // has not gone out yet. send runs once, and done then receives its error. done
-// is not called for an item a newer one replaced, nor for one the shutdown cut
-// short. After Close, the item is dropped.
+// is not called for an item a newer one replaced, nor for one whose send was
+// still running when Close began. After Close, the item is dropped. The lane
+// goroutine calls done, so done may call SendLatest, and a Close inside done
+// deadlocks.
 func (q *Sender) SendLatest(key string, send func(context.Context) error, done func(error)) {
 	q.mu.Lock()
 	if q.closed {
@@ -181,8 +189,8 @@ func (q *Sender) SendLatest(key string, send func(context.Context) error, done f
 
 // Close stops the sender, gives the reports it still holds one last attempt,
 // and names what it drops after that. A dropped record means "unknown". A
-// latest-wins item that has not gone out is dropped without a word, because a
-// newer one would have replaced it.
+// latest-wins item that has not gone out is dropped with no log line, because
+// it holds current state and the next start sends a fresh one.
 func (q *Sender) Close() {
 	q.mu.Lock()
 	if q.closed {
@@ -215,11 +223,13 @@ func (q *Sender) runLane(l *lane) {
 			next := l.pending
 			l.pending = nil
 			q.mu.Unlock()
-			if next == nil {
+			if next == nil || q.ctx.Err() != nil {
 				break
 			}
 
 			err := next.send(q.ctx)
+			// Close has begun, so the error may be the cancellation and not an
+			// answer from Loupe. done is not told.
 			if q.ctx.Err() != nil {
 				return
 			}

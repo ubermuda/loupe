@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
+	"github.com/ubermuda/loupe/cli/internal/outbound"
 )
 
 // defaultHeartbeatInterval applies when the server shares no usable interval,
@@ -27,19 +28,13 @@ type heartbeatSender interface {
 	Heartbeat(ctx context.Context, bridgeID string, hb api.Heartbeat) error
 }
 
-// latestQueue is the latest-wins side of the outbound queue.
-// *outbound.Sender is one.
-type latestQueue interface {
-	SendLatest(key string, send func(context.Context) error, done func(error))
-}
-
 // heartbeater tells Loupe that the bridge runs: once at start, then at each
 // interval. Each heartbeat goes through the latest-wins lane of the outbound
 // queue, so a newer one replaces one that has not gone out, a failed one waits
 // for the next interval, and none of them delays a run report.
 type heartbeater struct {
 	ctx      context.Context
-	queue    latestQueue
+	queue    outbound.Queue
 	client   heartbeatSender
 	bridgeID string
 	body     api.Heartbeat
@@ -60,7 +55,7 @@ type heartbeater struct {
 	unsupported bool
 }
 
-func newHeartbeater(ctx context.Context, queue latestQueue, client heartbeatSender, bridgeID string, body api.Heartbeat, interval time.Duration, log *slog.Logger) *heartbeater {
+func newHeartbeater(ctx context.Context, queue outbound.Queue, client heartbeatSender, bridgeID string, body api.Heartbeat, interval time.Duration, log *slog.Logger) *heartbeater {
 	return &heartbeater{
 		ctx:      ctx,
 		queue:    queue,

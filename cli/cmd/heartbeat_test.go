@@ -84,6 +84,14 @@ type countingQueue struct {
 	n  int
 }
 
+func (c *countingQueue) Enqueue(handle string, run api.WorkerRun) {
+	c.inner.Enqueue(handle, run)
+}
+
+func (c *countingQueue) Close() {
+	c.inner.Close()
+}
+
 func (c *countingQueue) SendLatest(key string, send func(context.Context) error, done func(error)) {
 	c.inner.SendLatest(key, send, func(err error) {
 		done(err)
