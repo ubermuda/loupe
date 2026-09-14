@@ -32,11 +32,13 @@ once, with the rules that stop working.
 
 The bridge authenticates with an account-level API token that carries the agent
 scope. Mint one at `/account`. It reaches `GET /api/projects`, `GET /api/events`,
-`GET /api/projects/{handle}/board/columns` and
-`POST /api/projects/{handle}/worker-runs`, and no other endpoint. The last of
-those records a finished worker run, and the
-[Worker run API](../reference/worker-runs.md) page covers it. A project's widget
-token carries a different scope and the firewall refuses it here.
+`GET /api/projects/{handle}/board/columns`,
+`POST /api/projects/{handle}/worker-runs` and
+`PUT /api/projects/{handle}/bridges/{bridgeId}/rules`, and no other endpoint.
+The worker runs endpoint records a finished worker run, and the
+[Worker run API](../reference/worker-runs.md) page covers it. The rule health
+endpoint is below. A project's widget token carries a different scope and the
+firewall refuses it here.
 
 The handle is a project id or a project slug. A project name does not resolve.
 The bridge reads the columns by the slug in `rules.yaml`.
@@ -141,3 +143,55 @@ person typed comes back as typed. `project.slug` is the project's slug.
 | 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
 | 404 | `{"error":"board_disabled"}` | the board is switched off on the instance |
 | 429 | | more than 60 reads in one minute from one token |
+
+## Rule health endpoint
+
+`PUT /api/projects/{handle}/bridges/{bridgeId}/rules` stores the health of one
+bridge's rules for one project. The board shows a banner to the owner when a
+rule is dead, and the column dialogs warn before a rename or a delete breaks a
+live rule. The handle follows the same rules as the columns endpoint.
+`bridgeId` is a uuid that the bridge generates once and keeps.
+
+The body replaces the whole report of that bridge for that project. A report
+with an empty `rules` list clears it. Another bridge's report stays as it is.
+
+```json
+{
+  "rules": [
+    { "name": "plan", "on": "board.card_moved", "columns": ["ready"], "state": "dead", "reason": "column_renamed" },
+    { "name": "review", "on": "board.card_moved", "columns": ["review"], "state": "live", "reason": null }
+  ]
+}
+```
+
+| Field | Rule |
+|---|---|
+| `name` | the rule's name, 1 to 100 characters |
+| `on` | an event type such as `board.card_moved`, lower case and dot-separated |
+| `columns` | the column slugs the rule watches, at most 50, and it can be empty |
+| `state` | `live` or `dead` |
+| `reason` | a short machine string such as `column_renamed`, `column_deleted`, `project_renamed` or `unknown_column` when `state` is `dead`, and `null` when it is `live` |
+
+A report holds at most 200 rules. The endpoint stores no prompt text. The
+payload has no field for one, and the server drops any key it does not list
+above.
+
+A project keeps the 20 newest reports by the time they arrived, and each new
+report drops the older ones. Otherwise only a newer report from the same bridge,
+or the deletion of the project, removes a report. A bridge that stops for good
+leaves its last report in place. To clear it, send an empty report for that
+bridge id, `{"rules": []}`. The board banner shows the first eight characters
+of the bridge id, and the full id is in the tooltip on those characters.
+
+| Status | Body | When |
+|---|---|---|
+| 204 | | the report is stored |
+| 401 | | the request carries no token |
+| 403 | `{"error":"insufficient_scope"}` | the token has no agent scope, such as a widget token |
+| 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
+| 404 | `{"error":"board_disabled"}` | the board is switched off on the instance |
+| 404 | | `bridgeId` is not a uuid |
+| 422 | a problem object with a `violations` list | the body is invalid, and each violation names its field in `propertyPath`, such as `rules[0].reason` |
+| 429 | | more than 60 reports in one minute from one token |
+
+Send `Accept: application/json` to get the 422 body as JSON.

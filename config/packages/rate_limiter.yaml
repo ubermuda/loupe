@@ -24,6 +24,13 @@ framework:
             limit: 60
             interval: '1 minute'
 
+        # Bounds the bridge's rule health reports, keyed per token alone. A
+        # bridge reports at start and whenever a rule changes state.
+        agent_bridge_rule_reports:
+            policy: 'sliding_window'
+            limit: 60
+            interval: '1 minute'
+
         # Bounds the bridge's run reports, a POST, keyed per token alone. A
         # bridge reports once per finished worker, and a worker runs for minutes.
         agent_worker_runs:
