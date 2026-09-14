@@ -44,6 +44,9 @@ branch's theme then covers none of them. Commit count is the trigger because
 it is mechanical, and the cost of scoping when you did not need to is one
 run. A single-commit branch is not exposed to this.
 
+A commit-scoped review has left a worktree on a detached HEAD with a conflicted
+file. Run `git status` after the review, before you commit anything.
+
 **Read the summary, not only the verdict. A clean result that never mentions
 the largest thing in the diff is a pass that missed the diff.** One branch took
 two clean passes whose summaries described the search plumbing and named
