@@ -75,7 +75,7 @@
                         <twig:ux:icon name="lucide:inbox" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.inbox'|trans }}</span>
                         {# Shown only while something waits on the owner, and amber then. #}
-                        {% include '@Inbox/_open_count.html.twig' with {project: project} only %}
+                        {% include '@Inbox/_open_count.html.twig' with {project: project, openCount: project_inbox_open_count(project)} only %}
                     </a>
                     {% endif %}
                     <a href="{{ path('app_project_site_review', {id: project.id}) }}"

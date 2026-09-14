@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Inbox\Controller;
 
 use App\Controller\AppController;
+use App\Module\Inbox\Command\ShowInboxOpenCountCommand;
+use App\Module\Inbox\Command\ShowInboxOpenCountHandler;
 use App\Module\Inbox\Service\InboxAvailability;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
@@ -22,6 +24,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 final class ShowInboxOpenCountController extends AppController
 {
     public function __construct(
+        private readonly ShowInboxOpenCountHandler $showOpenCount,
         private readonly InboxAvailability $inbox,
     ) {
     }
@@ -30,6 +33,9 @@ final class ShowInboxOpenCountController extends AppController
     {
         $this->inbox->requireEnabled();
 
-        return $this->render('@Inbox/_open_count.html.twig', ['project' => $project]);
+        return $this->render('@Inbox/_open_count.html.twig', [
+            'project' => $project,
+            'openCount' => ($this->showOpenCount)(new ShowInboxOpenCountCommand($project)),
+        ]);
     }
 }

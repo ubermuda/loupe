@@ -1,5 +1,4 @@
 {# The sidebar pill, in a frame the inbox-pill controller reloads when the count changes. #}
-{% set openCount = project_inbox_open_count(project) %}
 <turbo-frame id="inbox-open-count-{{ project.id }}" class="lp-sidebar__pill-frame" data-inbox-pill-target="frame">
     {% if openCount > 0 %}
     <span class="lp-sidebar__pill lp-sidebar__pill--amber" data-inbox-open-count aria-hidden="true">{{ openCount }}</span>
