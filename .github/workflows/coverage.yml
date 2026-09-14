@@ -40,6 +40,8 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           docker: 'true'
+          dockerhub-username: ${{ vars.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - run: date -u +'stack build ends %H:%M:%S UTC'
 
@@ -80,6 +82,8 @@ jobs:
         with:
           node: 'true'
           docker: 'true'
+          dockerhub-username: ${{ vars.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Runner conditions
         run: |

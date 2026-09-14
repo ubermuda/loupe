@@ -8,6 +8,15 @@ inputs:
   docker:
     description: Bring up the php-fpm and database containers and build the stylesheet.
     default: 'false'
+  # A composite action cannot read the `secrets` context, so the credentials
+  # arrive as inputs. Keeping them out of the workflow `env:` block keeps them
+  # out of the environment of composer, npm and every third-party action.
+  dockerhub-username:
+    description: The Docker Hub account name, from the DOCKERHUB_USERNAME repository variable.
+    default: ''
+  dockerhub-token:
+    description: A read-only Docker Hub token, from the DOCKERHUB_TOKEN repository secret.
+    default: ''
 
 runs:
   using: composite
@@ -51,6 +60,14 @@ runs:
       run: |
         npm ci
         npm ci --prefix e2e
+
+    # First, because the buildx driver pulls its own buildkit image from Docker
+    # Hub before anything else does.
+    - if: inputs.docker == 'true'
+      uses: ./.github/actions/dockerhub-login
+      with:
+        username: ${{ inputs.dockerhub-username }}
+        token: ${{ inputs.dockerhub-token }}
 
     - if: inputs.docker == 'true'
       uses: docker/setup-buildx-action@v4

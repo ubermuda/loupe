@@ -48,6 +48,8 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           docker: 'true'
+          dockerhub-username: ${{ vars.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
       - run: just phpstan
 
   arkitect:
@@ -72,6 +74,8 @@ jobs:
         with:
           node: 'true'
           docker: 'true'
+          dockerhub-username: ${{ vars.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
       - run: just audit
 
   phpunit:
@@ -81,6 +85,8 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           docker: 'true'
+          dockerhub-username: ${{ vars.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # The flag rides the invocation, not the `phpunit` recipe, so a
       # workstation run still writes nothing. PHPUnit creates the directory.
@@ -112,11 +118,16 @@ jobs:
 
   # The Go CLI needs neither PHP nor the project's dependencies, so this leg
   # skips the setup action and takes just alone; the recipe brings its own
-  # toolchain in a container.
+  # toolchain in a container. That container image comes from Docker Hub, so
+  # the login the setup action holds has to be repeated here.
   cli-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      - uses: ./.github/actions/dockerhub-login
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          token: ${{ secrets.DOCKERHUB_TOKEN }}
       - uses: extractions/setup-just@v4
       - run: just cli-test
 
@@ -140,6 +151,8 @@ jobs:
         with:
           node: 'true'
           docker: 'true'
+          dockerhub-username: ${{ vars.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # By name, not a bare `up`: the `tailwind` service is a watcher, and it
       # would race the stylesheet build in the setup action. The worker is not

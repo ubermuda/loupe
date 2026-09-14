@@ -38,6 +38,8 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           docker: 'true'
+          dockerhub-username: ${{ vars.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Coverage driver and build time
         run: |

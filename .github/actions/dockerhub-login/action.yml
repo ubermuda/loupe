@@ -1,0 +1,33 @@
+name: Log in to Docker Hub
+description: Authenticate the runner's Docker Hub pulls, when the repository carries credentials.
+
+inputs:
+  username:
+    description: The Docker Hub account name, from the DOCKERHUB_USERNAME repository variable.
+    default: ''
+  token:
+    description: A read-only Docker Hub access token, from the DOCKERHUB_TOKEN repository secret.
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    # The token decides. A run with no secrets can still receive the username,
+    # because a repository variable is not secret, so a condition on the
+    # username can try to log in with an empty password and fail the case the
+    # skip protects. A token with no username means one half of the pair is set.
+    - name: Log in to Docker Hub
+      shell: bash
+      env:
+        DOCKERHUB_USERNAME: ${{ inputs.username }}
+        DOCKERHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        if [ -z "${DOCKERHUB_TOKEN:-}" ]; then
+          echo "Docker Hub: no token set, pulling anonymously."
+          exit 0
+        fi
+        if [ -z "${DOCKERHUB_USERNAME:-}" ]; then
+          echo "Docker Hub: a token is set and DOCKERHUB_USERNAME is empty." >&2
+          exit 1
+        fi
+        printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
