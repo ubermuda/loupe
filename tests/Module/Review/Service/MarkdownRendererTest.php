@@ -218,12 +218,13 @@ final class MarkdownRendererTest extends TestCase
         // which xdebug coverage doubles and a loaded machine moves further.
         $renderer = new MarkdownRenderer(new NullLogger(), new IdentityTranslator());
 
-        [$halfElapsed] = self::timeRender($renderer, 10_000);
+        [$quarterElapsed] = self::timeRender($renderer, 5_000);
         [$fullElapsed, $html] = self::timeRender($renderer, 20_000);
 
         self::assertStringContainsString('id="heading-same-20000"', $html);
-        // Linear doubles the time, quadratic quadruples it.
-        self::assertLessThan(3.0, $fullElapsed / $halfElapsed);
+        // Four times the headings: linear takes 4x, quadratic 16x. The bound sits
+        // between them, so a load spike on one render cannot cross it.
+        self::assertLessThan(8.0, $fullElapsed / $quarterElapsed);
     }
 
     /** @return array{float, string} */

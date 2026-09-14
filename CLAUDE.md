@@ -205,7 +205,7 @@ bin/console tailwind:build    # One-shot Tailwind build (use this in CI scripts 
 
 The dev container rebuilds Tailwind CSS on its own, so never run `bin/console tailwind:build` by hand after you edit a template or `app.css`. The watcher picks a change up within a second or two. When a class does not appear in the compiled CSS, wait and re-check rather than reaching for a manual build. Run `bin/console tailwind:build` explicitly in CI scripts and plan verify steps only. The same applies to `cache:clear`, which dev does not need.
 
-The app runs at `https://loupe.dev.localhost`, and PHP-FPM is on port 9000. The `worker` compose service consumes the async transport. Use `docker compose logs worker` to observe it, or `just worker` for a foreground consumer. The `tailwind` compose service watches and rebuilds the stylesheet the same way, with `docker compose logs tailwind` and `just tailwind`. Never run both, because two watchers write the same file and race.
+The app runs at `https://loupe.dev.localhost`, and PHP-FPM is on port 9000. The `worker` compose service consumes the `scheduler_default` and `async` transports. Use `docker compose logs worker` to observe it, or `just worker` for a foreground consumer. The `tailwind` compose service watches and rebuilds the stylesheet the same way, with `docker compose logs tailwind` and `just tailwind`. Never run both, because two watchers write the same file and race.
 
 **A process started inside a container can only be observed and stopped from inside it.** The container has its own PID namespace, so a host-side `pkill -f <script>`, and the harness's own `TaskStop`, kill only the wrapper. They report success while the real process keeps running, invisible to the host process table. Stop it with `docker compose exec php-fpm pkill -f <script>`, and confirm with `docker exec <project>-php-fpm-1 ps aux`. A host-side check shows a quiet container that is in fact fully loaded.
 
@@ -257,7 +257,7 @@ just js-test                  # Run Vitest over tests/js (needs Node alone)
 just e2e                      # Run Playwright e2e tests
 just e2e-coverage             # Run e2e with per-request PHP coverage, merged to var/coverage/html
 just open-coverage            # Open the merged HTML coverage report
-just ci-report <report> [RUN] # Fetch a CI report: mutation, phpunit-coverage, e2e-coverage, e2e-timing
+just ci-report <report> [RUN] # Fetch a CI report: mutation, phpunit-coverage, e2e-coverage, e2e-timing, phpunit-timing
 just browser-sync             # Live-reload proxy for template changes
 
 php vendor/bin/phpunit        # Run tests

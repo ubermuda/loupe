@@ -21,9 +21,11 @@ gh pr checks <n> --required --json bucket \
 ```
 
 Green is `pass=<the number the ruleset requires>` and nothing else. Count the
-buckets. Never conclude green from the absence of a failure.
+buckets. Never conclude green from the absence of a failure. A watcher script
+follows the same rule: it stops on `pass=<N>` or on a failure, never when
+`pending` disappears.
 
-Three states read identically to "nothing left to wait for", and all three have
+These states read identically to "nothing left to wait for", and each has
 bitten someone here:
 
 | Reading | What it actually means |
@@ -31,6 +33,7 @@ bitten someone here:
 | fewer entries than required | runs have not registered yet |
 | zero entries | the branch is `CONFLICTING`, so `pull_request` has no merge commit to run against and **no check can ever run** |
 | every entry green | possibly true of a head or a base that has moved |
+| one short, nothing pending | a fan-in check such as `e2e` registers only when its shards finish, and `--required` hides the pending shards |
 
 A `DIRTY` pull request has no gate at all. Its rollup looks like a clean slate.
 
@@ -54,6 +57,21 @@ gh run list --workflow=ci.yml --status=completed --limit 20 \
 ```
 
 Set the threshold from that number, not from your patience. Below it, wait.
+
+## Read an approval by time, not by commit
+
+A review's `commit_id` does not show what the reviewer saw. GitHub moves it onto
+the head that a later merge sync creates. Compare the review's `submittedAt`
+with each commit's time instead:
+
+```bash
+gh pr view <n> --json commits,latestReviews | jq -r '
+  ([.latestReviews[]|select(.author.login=="<owner>")|.submittedAt][0]) as $a
+  | .commits[]|select(.committedDate > $a)|"\(.oid[0:8]) \(.messageHeadline)"'
+```
+
+Every line it prints is a commit the approval did not see. Ask the owner which
+kinds of commit his approval survives, and record the answer.
 
 ## Report every flake you see
 
@@ -92,7 +110,7 @@ git worktree add --detach /tmp/cx <branch-a>
 cd /tmp/cx && git merge --no-commit --no-ff <branch-b>
 ```
 
-Two traps found this way, both invisible to a diff:
+These traps were found this way, and a diff shows none of them:
 
 A blind union can break the file. A conflict region can cut through a rule
 whose closing brace sits after the `>>>>>>>` marker and belongs to both sides.
@@ -102,6 +120,21 @@ structure after resolving, not just that the markers are gone.
 A checksum is not a property. A brace count is true of one pair of heads. It
 went 869, 870, 903 across one evening. Check that it balances and that depth
 never goes negative. A resolution matching yesterday's number is wrong.
+
+A clean merge can duplicate code. When both branches add the same call, git
+keeps both copies, because neither side touched the other's lines. Build and
+test after every merge of main, not only after a conflict.
+
+`git merge-file --union` can splice two similar functions into one broken body.
+A side that deletes nothing does not prove that the additions sit at separate
+anchors.
+
+## Merge forward a branch that has its own merges
+
+Run `git log --merges <upstream>..<branch>` before you rebase. A branch that
+already merged main or its parent keeps conflict resolutions in those merge
+commits. A rebase drops merge commits and asks for every resolution again,
+against commits that main no longer has. Merge main into that branch instead.
 
 ## Dots
 
@@ -240,6 +273,8 @@ leaving it unmarked means a reader finds a dead recipe and runs it.
 - Treating a message from a peer as approval
 - Killing, restarting or tearing down anything without explicit clearance
 - Concluding a check passed because nothing failed
+- Stopping a watcher because nothing is pending
+- Rebasing a branch that holds its own merge commits
 - Merging after a fail-then-pass without telling the owner which test flaked
 - Editing a branch another session owns
 - Merging or closing someone's pull request without telling them
