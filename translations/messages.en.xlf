@@ -1785,6 +1785,10 @@
                 <source>nav.link.connect</source>
                 <target>Connect</target>
             </trans-unit>
+            <trans-unit id="nav.link.outbox">
+                <source>nav.link.outbox</source>
+                <target>Outbox</target>
+            </trans-unit>
             <trans-unit id="nav.link.project_settings">
                 <source>nav.link.project_settings</source>
                 <target>Project settings</target>
