@@ -259,6 +259,25 @@ final class InboxReadRecordingTest extends KernelTestCase
         self::assertSame([], array_values(array_filter($statements, static fn (string $sql): bool => str_starts_with($sql, 'UPDATE inbox_items'))));
     }
 
+    /**
+     * A read copies the stored answer onto the managed item and writes nothing.
+     * A later flush in the same process must not write that copy back over a newer answer.
+     */
+    public function test_a_later_flush_does_not_write_a_read_copy_over_a_newer_answer(): void
+    {
+        [$project, $item, $ask] = $this->closedAsk('inbox-read-later-flush');
+        $this->actAsMcpTokenBoundTo($project);
+        $connection = $this->em->getConnection();
+        $connection->executeStatement("UPDATE inbox_items SET answer_text = 'Use CSV' WHERE id = ?", [(string) $item->id]);
+
+        ($this->list)(readerSessionId: (string) $ask->sessionId);
+        ($this->get)((string) $item->id, readerSessionId: (string) $ask->sessionId);
+        $connection->executeStatement("UPDATE inbox_items SET answer_text = 'Use JSON' WHERE id = ?", [(string) $item->id]);
+        $this->em->flush();
+
+        self::assertSame('Use JSON', $connection->fetchOne('SELECT answer_text FROM inbox_items WHERE id = ?', [(string) $item->id]));
+    }
+
     /** @return array{Project, InboxItem, InboxAsk} */
     private function closedAsk(string $label): array
     {

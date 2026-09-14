@@ -265,8 +265,7 @@ class InboxItemRepository extends ServiceEntityRepository
     /**
      * Copies onto each entity every column that can change, as stored now. A
      * query hydrates no fresh copy of an entity already managed, and refresh()
-     * would also reload the readonly columns, which Doctrine refuses. A value
-     * that did not change keeps its object, so it leaves nothing for a flush.
+     * would also reload the readonly columns, which Doctrine refuses.
      *
      * @param list<InboxItem> $items
      */
@@ -289,6 +288,7 @@ class InboxItemRepository extends ServiceEntityRepository
             $byId[(string) $row['id']] = $row;
         }
 
+        $unitOfWork = $this->getEntityManager()->getUnitOfWork();
         foreach ($items as $item) {
             $row = $byId[(string) $item->id] ?? null;
             if (null === $row) {
@@ -304,12 +304,13 @@ class InboxItemRepository extends ServiceEntityRepository
             $item->selectedOptions = $row['selectedOptions'];
             $item->answerText = $row['answerText'];
             $item->closeNote = $row['closeNote'];
-            // Doctrine compares dates by identity, so an equal copy would still read as changed.
-            if ($item->updatedAt != $row['updatedAt']) {
-                $item->updatedAt = $row['updatedAt'];
-            }
-            if ($item->closedAt != $row['closedAt']) {
-                $item->closedAt = $row['closedAt'];
+            $item->updatedAt = $row['updatedAt'];
+            $item->closedAt = $row['closedAt'];
+
+            // The snapshot moves with the copy, so a later flush writes no stored value back.
+            unset($row['id']);
+            foreach ($row as $property => $value) {
+                $unitOfWork->setOriginalEntityProperty(spl_object_id($item), $property, $value);
             }
         }
     }
