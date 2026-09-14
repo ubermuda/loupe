@@ -60,7 +60,7 @@ final readonly class InboxItemCloser
             // Read under the lock, so a response or an agent's change that landed
             // since the item was loaded counts. refresh() would also reload
             // readonly columns, which Doctrine refuses to overwrite.
-            $this->inboxItems->reloadMutableColumns($item);
+            $this->inboxItems->reloadChangeableColumns([$item]);
 
             $refusal = $this->refusal($item);
             if (null !== $refusal) {

@@ -110,6 +110,7 @@ final class InboxToolRegistrationTest extends KernelTestCase
         self::assertSame(InboxItem::MAX_TITLE_LENGTH, $item['title']['maxLength']);
         self::assertSame(InboxLimits::MAX_BODY_LENGTH, $item['body']['maxLength']);
         self::assertSame(InboxLimits::MAX_OPTIONS, $item['options']['maxItems']);
+        self::assertSame(InboxLimits::MAX_OPTION_LENGTH, $item['options']['items']['maxLength']);
         self::assertSame(InboxLimits::MAX_LINKS, $item['cardIds']['maxItems']);
         self::assertSame(InboxLimits::MAX_LINKS, $item['documentIds']['maxItems']);
         self::assertSame(InboxLimits::MAX_CONTEXT_LENGTH, $ask['context']['maxLength']);

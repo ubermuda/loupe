@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Inbox\Mcp;
 
 use App\Module\Inbox\Entity\InboxAsk;
+use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Mcp\InboxGetTool;
 use App\Module\Inbox\Mcp\InboxListTool;
@@ -12,6 +13,7 @@ use App\Module\Project\Entity\Project;
 use App\Tests\Module\Inbox\InboxScenario;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bridge\Doctrine\Middleware\Debug\DebugDataHolder;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
 
@@ -54,11 +56,29 @@ final class InboxReadRecordingTest extends KernelTestCase
 
         // The stamp says the session saw the answer, so the row it stamps must carry it.
         self::assertSame([(string) $item->id], array_column($result['items'], 'itemId'));
-        self::assertSame(['JSON', 'CSV'], $result['items'][0]['options']);
-        self::assertSame([0], $result['items'][0]['selectedOptions']);
-        self::assertNull($result['items'][0]['answerText']);
-        self::assertNull($result['items'][0]['closeNote']);
+        $row = $result['items'][0];
+        self::assertArrayHasKey('answerText', $row);
+        self::assertArrayHasKey('closeNote', $row);
+        self::assertSame(['JSON', 'CSV'], $row['options'] ?? null);
+        self::assertSame([0], $row['selectedOptions'] ?? null);
+        self::assertNull($row['answerText']);
+        self::assertNull($row['closeNote']);
         self::assertNotNull($this->readAt($ask, $item));
+    }
+
+    public function test_a_list_without_a_reader_session_keeps_the_short_row(): void
+    {
+        [$project, $item, $ask] = $this->closedAsk('inbox-read-short-row');
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = ($this->list)(askId: (string) $ask->id);
+
+        self::assertSame([(string) $item->id], array_column($result['items'], 'itemId'));
+        self::assertSame(
+            ['itemId', 'number', 'kind', 'title', 'state', 'blocking', 'createdAt', 'updatedAt', 'closedAt'],
+            array_keys($result['items'][0]),
+        );
+        self::assertNull($this->readAt($ask, $item));
     }
 
     public function test_a_get_by_the_reader_session_records_the_read_on_its_closed_ask(): void
@@ -186,8 +206,76 @@ final class InboxReadRecordingTest extends KernelTestCase
 
         $result = ($this->list)(readerSessionId: (string) $ask->sessionId);
 
-        self::assertSame('Use CSV', $result['items'][0]['answerText']);
+        self::assertSame('Use CSV', $result['items'][0]['answerText'] ?? null);
         self::assertNotNull($this->readAt($ask, $item));
+    }
+
+    public function test_one_item_in_two_closed_asks_of_the_session_is_recorded_on_both(): void
+    {
+        $project = $this->makeProject('inbox-read-two-asks');
+        $item = $this->answered($this->em, $this->question($this->em, $project, 1));
+        $sessionId = Uuid::v4();
+        $asks = [];
+        foreach (['-2 hours', '-1 hour'] as $closedAt) {
+            $ask = new InboxAsk(project: $project, sessionId: $sessionId, bridgeId: Uuid::v4());
+            $ask->closedAt = new \DateTimeImmutable($closedAt);
+            $ask->items->add(new InboxAskItem($ask, $item));
+            $this->em->persist($ask);
+            $asks[] = $ask;
+        }
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+
+        ($this->list)(readerSessionId: (string) $sessionId);
+
+        self::assertNotNull($this->readAt($asks[0], $item));
+        self::assertNotNull($this->readAt($asks[1], $item));
+    }
+
+    /** A read stamps the ask item and writes nothing to the item itself, whatever the reload copies onto it. */
+    public function test_a_recorded_read_writes_only_the_stamp(): void
+    {
+        [$project, $item, $ask] = $this->closedAsk('inbox-read-no-write');
+        $this->actAsMcpTokenBoundTo($project);
+        $this->em->getConnection()->executeStatement(
+            "UPDATE inbox_items SET answer_text = 'Use CSV' WHERE id = ?",
+            [(string) $item->id],
+        );
+        $queries = self::getContainer()->get('doctrine.debug_data_holder');
+        self::assertInstanceOf(DebugDataHolder::class, $queries);
+        $queries->reset();
+
+        ($this->list)(readerSessionId: (string) $ask->sessionId);
+        ($this->get)((string) $item->id, readerSessionId: (string) $ask->sessionId);
+
+        $statements = [];
+        foreach ($queries->getData() as $connectionQueries) {
+            foreach ($connectionQueries as $query) {
+                $statements[] = (string) $query['sql'];
+            }
+        }
+        self::assertNotNull($this->readAt($ask, $item));
+        self::assertNotEmpty(array_filter($statements, static fn (string $sql): bool => str_starts_with($sql, 'UPDATE inbox_ask_items')));
+        self::assertSame([], array_values(array_filter($statements, static fn (string $sql): bool => str_starts_with($sql, 'UPDATE inbox_items'))));
+    }
+
+    /**
+     * A read copies the stored answer onto the managed item and writes nothing.
+     * A later flush in the same process must not write that copy back over a newer answer.
+     */
+    public function test_a_later_flush_does_not_write_a_read_copy_over_a_newer_answer(): void
+    {
+        [$project, $item, $ask] = $this->closedAsk('inbox-read-later-flush');
+        $this->actAsMcpTokenBoundTo($project);
+        $connection = $this->em->getConnection();
+        $connection->executeStatement("UPDATE inbox_items SET answer_text = 'Use CSV' WHERE id = ?", [(string) $item->id]);
+
+        ($this->list)(readerSessionId: (string) $ask->sessionId);
+        ($this->get)((string) $item->id, readerSessionId: (string) $ask->sessionId);
+        $connection->executeStatement("UPDATE inbox_items SET answer_text = 'Use JSON' WHERE id = ?", [(string) $item->id]);
+        $this->em->flush();
+
+        self::assertSame('Use JSON', $connection->fetchOne('SELECT answer_text FROM inbox_items WHERE id = ?', [(string) $item->id]));
     }
 
     /** @return array{Project, InboxItem, InboxAsk} */

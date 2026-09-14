@@ -33,7 +33,8 @@ final readonly class CheckInboxAskHandler
         return new CheckInboxAskView(
             $project,
             $ask,
-            allRead: array_all($ask->items->toArray(), static fn (InboxAskItem $link): bool => null !== $link->readAt),
+            // No read is recorded on an open ask, so an open ask is never read, even with no items.
+            allRead: null !== $ask->closedAt && array_all($ask->items->toArray(), static fn (InboxAskItem $link): bool => null !== $link->readAt),
         );
     }
 }

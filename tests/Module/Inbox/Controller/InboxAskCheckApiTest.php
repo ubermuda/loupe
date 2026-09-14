@@ -70,6 +70,18 @@ final class InboxAskCheckApiTest extends WebTestCase
         self::assertSame(['askId' => (string) $ask->id, 'closed' => false, 'allRead' => false], $this->body());
     }
 
+    public function test_an_open_ask_with_no_item_is_not_all_read(): void
+    {
+        [$owner, $project] = $this->ownerAndProject('ask-check-open-empty');
+        $ask = $this->askHolding($this->em, $project, []);
+        $this->setInboxFlag(true);
+
+        $this->check($this->agentToken($owner), (string) $project->id, (string) $ask->id);
+
+        self::assertResponseStatusCodeSame(200);
+        self::assertSame(['askId' => (string) $ask->id, 'closed' => false, 'allRead' => false], $this->body());
+    }
+
     public function test_an_ask_of_another_project_is_not_found(): void
     {
         [$owner, $project] = $this->ownerAndProject('ask-check-mine');

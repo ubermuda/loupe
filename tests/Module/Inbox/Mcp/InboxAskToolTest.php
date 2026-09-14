@@ -340,6 +340,29 @@ final class InboxAskToolTest extends KernelTestCase
         yield 'too many card ids' => [['cardIds' => array_fill(0, 21, (string) Uuid::v4())], 'items[0].cardIds: An item links at most 20 cards and 20 documents.'];
         yield 'too many document ids' => [['documentIds' => array_fill(0, 21, (string) Uuid::v4())], 'items[0].documentIds: An item links at most 20 cards and 20 documents.'];
         yield 'a body too long' => [['body' => str_repeat('a', 20001)], 'items[0].body: An item body must be at most 20000 characters.'];
+        yield 'an option too long' => [['options' => ['yes', str_repeat('a', 501)]], 'items[0].options: An option must be at most 500 characters.'];
+        yield 'an option too long in multibyte text' => [['options' => ['yes', str_repeat('é', 501)]], 'items[0].options: An option must be at most 500 characters.'];
+    }
+
+    public function test_an_option_at_the_limit_is_accepted(): void
+    {
+        $this->enableInbox();
+        $this->actAsMcpTokenBoundTo($this->makeProject('inbox-ask-option-limit'));
+
+        $result = $this->askQuestion('Which column?', ['options' => ['yes', str_repeat('é', 500)]]);
+
+        self::assertSame(1, $result['items'][0]['number']);
+    }
+
+    /** The schema measures the option as sent, so the handler does too, spaces included. */
+    public function test_an_option_over_the_limit_only_with_its_spaces_is_refused(): void
+    {
+        $this->enableInbox();
+        $this->actAsMcpTokenBoundTo($this->makeProject('inbox-ask-option-spaces'));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('items[0].options: An option must be at most 500 characters.');
+        $this->askQuestion('Which column?', ['options' => ['yes', ' '.str_repeat('a', 500)]]);
     }
 
     /** @param array<string, mixed> $item */

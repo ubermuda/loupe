@@ -36,6 +36,7 @@ final readonly class AskInboxHandler
     public const string BODY_TOO_LONG = 'inbox.item.error.body_too_long';
     public const string OPTION_BLANK = 'inbox.item.error.option_blank';
     public const string OPTION_DUPLICATE = 'inbox.item.error.option_duplicate';
+    public const string OPTION_TOO_LONG = 'inbox.item.error.option_too_long';
     public const string TOO_MANY_OPTIONS = 'inbox.item.error.too_many_options';
     public const string TOO_MANY_LINKS = 'inbox.item.error.too_many_links';
     public const string TO_DO_WITH_ANSWER = 'inbox.item.error.todo_with_answer';
@@ -176,6 +177,10 @@ final readonly class AskInboxHandler
 
         if (\count($input->options) > InboxLimits::MAX_OPTIONS) {
             throw new DomainErrors([$field('options') => self::TOO_MANY_OPTIONS]);
+        }
+        // Measured as sent, the way the published schema measures it.
+        if (array_any($input->options, static fn (string $option): bool => mb_strlen($option) > InboxLimits::MAX_OPTION_LENGTH)) {
+            throw new DomainErrors([$field('options') => self::OPTION_TOO_LONG]);
         }
         $options = array_map(trim(...), $input->options);
         if (\in_array('', $options, true)) {

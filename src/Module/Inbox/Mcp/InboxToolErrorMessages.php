@@ -44,6 +44,7 @@ final readonly class InboxToolErrorMessages
             AskInboxHandler::BODY_TOO_LONG => \sprintf('An item body must be at most %d characters.', InboxLimits::MAX_BODY_LENGTH),
             AskInboxHandler::OPTION_BLANK => 'An option must not be blank.',
             AskInboxHandler::OPTION_DUPLICATE => 'Each option must differ from the others.',
+            AskInboxHandler::OPTION_TOO_LONG => \sprintf('An option must be at most %d characters.', InboxLimits::MAX_OPTION_LENGTH),
             AskInboxHandler::TOO_MANY_OPTIONS => \sprintf('A question takes at most %d options.', InboxLimits::MAX_OPTIONS),
             AskInboxHandler::TOO_MANY_LINKS => \sprintf('An item links at most %d cards and %d documents.', InboxLimits::MAX_LINKS, InboxLimits::MAX_LINKS),
             AskInboxHandler::TO_DO_WITH_ANSWER => 'A todo is marked done or declined, so it takes no options, multiple or freeText.',
