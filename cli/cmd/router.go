@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
+	"github.com/ubermuda/loupe/cli/internal/directive"
 	"github.com/ubermuda/loupe/cli/internal/event"
 	"github.com/ubermuda/loupe/cli/internal/report"
 	"github.com/ubermuda/loupe/cli/internal/rules"
@@ -34,6 +35,8 @@ type router struct {
 	// reports carries each finished run to Loupe. A nil queue reports nothing.
 	reports report.Queue
 	health  *healthReporter
+	// heartbeat tells Loupe the bridge runs. A nil one sends nothing.
+	heartbeat *heartbeater
 
 	mu sync.Mutex
 	// queue holds the accepted events in arrival order, at most one for each
@@ -47,6 +50,9 @@ type router struct {
 	chains map[string]map[string]int
 	active int
 	closed bool
+	// inbox is the inbox flag of the last GET /api/events. A worker that starts
+	// while it is on reads both ids in its prompt.
+	inbox bool
 
 	// unmapped remembers the projects already logged as unmapped, and gone the
 	// mapped projects already logged as gone. Only the stream goroutine reads
@@ -215,9 +221,22 @@ func (r *router) reportHealth(project string) {
 	r.health.submit(project, r.rules.ProjectID(project), r.rules.Health(project))
 }
 
-// onRefresh logs, once for each, a mapped project that a fresh GET /api/events
-// no longer lists, with the rules that stop working.
+// applyFlags keeps the flags of one GET /api/events answer for the workers that
+// start after it, and gives its heartbeat interval to the heartbeat.
+func (r *router) applyFlags(events api.Events) {
+	r.mu.Lock()
+	r.inbox = events.Enabled(api.InboxFlag)
+	r.mu.Unlock()
+	if r.heartbeat != nil {
+		r.heartbeat.setInterval(heartbeatInterval(events))
+	}
+}
+
+// onRefresh applies the flags of a fresh GET /api/events. It logs, once for
+// each, a mapped project that the answer no longer lists, with the rules that
+// stop working.
 func (r *router) onRefresh(events api.Events) {
+	r.applyFlags(events)
 	for _, slug := range missingProjects(r.rules, events) {
 		if r.gone[slug] {
 			continue
@@ -338,13 +357,18 @@ func (r *router) countChain(key, rule string) {
 	r.chains[key][rule]++
 }
 
-// start runs one worker. The caller holds mu, and start never takes it.
+// start runs one worker as a new claude session. The caller holds mu, and start
+// never takes it.
 //
 // wg counts the worker before the goroutine exists, and the finish call that
 // admits the next worker runs before wg.Done, so a waiter never sees the count
 // reach zero between two queued workers.
 func (r *router) start(p pending) {
-	r.log.Info("worker_started", about(p.event, p.rule)...)
+	p.spec.sessionID = r.worker.sessionID()
+	if r.inbox {
+		p.spec.prompt += "\n" + directive.InboxLine(p.spec.sessionID, r.bridgeID)
+	}
+	r.log.Info("worker_started", append(about(p.event, p.rule), "session_id", p.spec.sessionID)...)
 
 	r.wg.Add(1)
 	go func() {
@@ -431,6 +455,7 @@ func (r *router) enqueueReport(p pending, res workerResult, began time.Time, ela
 
 	run := api.WorkerRun{
 		BridgeID:   r.bridgeID,
+		SessionID:  p.spec.sessionID,
 		CardID:     p.event.Subject.ID,
 		CardNumber: p.event.CardNumber,
 		RuleName:   p.rule,

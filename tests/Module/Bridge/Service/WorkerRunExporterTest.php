@@ -21,9 +21,11 @@ final class WorkerRunExporterTest extends TestCase
         $project = new Project($owner, 'My project');
         $bridgeId = Uuid::v7();
         $cardId = Uuid::v7();
+        $sessionId = Uuid::v4();
         $run = new WorkerRun(
             project: $project,
             bridgeId: $bridgeId,
+            sessionId: $sessionId,
             cardId: $cardId,
             cardNumber: 7,
             ruleName: 'plan',
@@ -41,6 +43,7 @@ final class WorkerRunExporterTest extends TestCase
         self::assertSame([
             'project' => 'My project',
             'bridgeId' => (string) $bridgeId,
+            'sessionId' => (string) $sessionId,
             'cardId' => (string) $cardId,
             'cardNumber' => 7,
             'ruleName' => 'plan',
@@ -60,6 +63,7 @@ final class WorkerRunExporterTest extends TestCase
         $run = new WorkerRun(
             project: new Project($owner, 'My project'),
             bridgeId: Uuid::v7(),
+            sessionId: Uuid::v4(),
             cardId: Uuid::v7(),
             cardNumber: 7,
             ruleName: 'plan',

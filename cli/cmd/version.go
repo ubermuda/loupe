@@ -19,12 +19,17 @@ var (
 // versionString is the one source both `loupe version` and `loupe --version`
 // read, so the two can never disagree.
 func versionString() string {
-	build := commit
+	return fmt.Sprintf("loupe %s\n%s %s/%s", buildID(), runtime.Version(), runtime.GOOS, runtime.GOARCH)
+}
+
+// buildID is the commit, marked when the tree was dirty. The heartbeat sends it
+// as the CLI version.
+func buildID() string {
 	if dirty == "true" {
-		build += " (dirty)"
+		return commit + " (dirty)"
 	}
 
-	return fmt.Sprintf("loupe %s\n%s %s/%s", build, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+	return commit
 }
 
 func newVersionCmd() *cobra.Command {

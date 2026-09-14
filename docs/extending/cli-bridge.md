@@ -5,7 +5,7 @@ description: "A Go binary that runs a Claude Code worker for each board event a 
 
 `cli/` holds a small Go binary that closes the loop: it watches your Loupe
 board and runs a non-interactive Claude Code worker for each event that a rule
-in your rule file matches. The worker is `claude -p -- <prompt>`. It reads the card
+in your rule file matches. The worker is `claude -p --session-id <uuid> -- <prompt>`, with a new session id for each worker. It reads the card
 through the MCP, prints its answer and exits. The bridge reports the exit code.
 Build it with `just cli-build`. See [`cli/README.md`](../../cli/README.md) for
 the commands, the flags and the rule format.
@@ -33,11 +33,14 @@ once, with the rules that stop working.
 The bridge authenticates with an account-level API token that carries the agent
 scope. Mint one at `/account`. It reaches `GET /api/projects`, `GET /api/events`,
 `GET /api/projects/{handle}/board/columns`,
-`POST /api/projects/{handle}/worker-runs` and
-`PUT /api/projects/{handle}/bridges/{bridgeId}/rules`, and no other endpoint.
+`POST /api/projects/{handle}/worker-runs`,
+`PUT /api/projects/{handle}/bridges/{bridgeId}/rules` and
+`PUT /api/bridges/{bridgeId}/heartbeat`, and no other endpoint.
 The worker runs endpoint records a finished worker run, and the
-[Worker run API](../reference/worker-runs.md) page covers it. The rule health
-endpoint is below. A project's widget token carries a different scope and the
+[Worker run API](../reference/worker-runs.md) page covers it. The heartbeat
+endpoint records that the bridge runs, and the
+[Bridge heartbeat API](../reference/bridge-heartbeat.md) page covers it. The
+rule health endpoint is below. A project's widget token carries a different scope and the
 firewall refuses it here.
 
 The handle is a project id or a project slug. A project name does not resolve.
@@ -102,6 +105,13 @@ seconds. It logs `report_dropped` with the count of the reports that miss the
 window. A missing record therefore means "unknown", and never "the worker did
 not run".
 
+The bridge sends a heartbeat to `/api/bridges/{bridgeId}/heartbeat` once at
+start and then at the interval that `bridge.heartbeat_interval_seconds` gives,
+60 seconds by default. The heartbeat names the projects the rule file maps and
+the build of the bridge. A failed heartbeat is not retried on its own, because
+the next interval sends a fresh one. A server with no heartbeat endpoint answers
+404, and the bridge logs `heartbeat_unsupported` once and keeps working.
+
 There is no terminal UI. The bridge writes one JSON object per line to stdout
 and to its log file, named by `--log-file`. Each line carries a stable `event`
 key, so `jq` selects what you want. The log file is appended, so it is a history
@@ -122,9 +132,23 @@ project the token's user owns:
   "topic": "https://loupe.example.com/users/0192f3a1-0000-7d3e-8f10-a2b3c4d5e6f7/events",
   "projects": [
     {"id": "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7", "slug": "my-app", "name": "My App"}
-  ]
+  ],
+  "flags": {"inbox.enabled": false, "bridge.heartbeat_interval_seconds": 60}
 }
 ```
+
+`flags` holds the feature flags a bridge reads. The server lists a flag here
+only when its code names the flag, so no other flag reaches a token holder. A
+value is a boolean or an integer, as the flag's type says. Today the map holds
+two flags:
+
+| Flag | Type | Value |
+|---|---|---|
+| `inbox.enabled` | boolean | `false` on an instance that holds no row for it |
+| `bridge.heartbeat_interval_seconds` | integer | the seconds between two heartbeats, 60 on an instance that holds no row for it. A stored value below 10 reads as 60 |
+
+The bridge reads the map at start and again at each reconnect. A flag change
+therefore reaches a running bridge at its next reconnect.
 
 `topic` is the user's own topic. The server publishes each event of a project on
 the project's topic and on its owner's topic. The JWT expires after an hour, and

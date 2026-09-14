@@ -60,7 +60,7 @@ func newBridgeRunCmd() *cobra.Command {
 		Use:   "run",
 		Short: "Watch a Loupe board and run a Claude Code worker for each rule an event matches",
 		Long: "Reads the rule file, rules.yaml in your config directory, and runs " +
-			"`claude -p -- <prompt>` for every event a rule matches. Each rule names an event, " +
+			"`claude -p --session-id <uuid> -- <prompt>` for every event a rule matches. Each rule names an event, " +
 			"a project and a column, and the prompt its worker runs. The projects map in " +
 			"the file gives each project the directory its workers run in.\n\n" +
 			"The bridge refuses to start without the file, and checks every project and " +
@@ -245,11 +245,14 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		return fmt.Errorf("GET /api/events does not list %s, so no event of theirs can reach the bridge", strings.Join(missing, ", "))
 	}
 	r.projects, r.topic = r.rules.Projects(), events.Topic
+	r.applyFlags(events)
 	if r.bridgeID != "" {
 		r.health = newHealthReporter(ctx, apiClient(cfg), r.bridgeID, r.log)
 		for _, slug := range r.projects {
 			r.reportHealth(slug)
 		}
+		r.heartbeat = newHeartbeater(ctx, apiClient(cfg), r.bridgeID, heartbeatBody(r.rules), heartbeatInterval(events), r.log)
+		r.heartbeat.start()
 	}
 
 	err = transport.Subscribe(ctx, &http.Client{}, events.HubURL, []string{events.Topic}, jwtRefresher(cfg, events.JWT, r.onRefresh), r.handler())
@@ -261,6 +264,9 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	stop()
 	if r.health != nil {
 		r.health.wait()
+	}
+	if r.heartbeat != nil {
+		r.heartbeat.wait()
 	}
 	if failed {
 		return err
@@ -278,6 +284,17 @@ func newReportQueue(ctx context.Context, log *slog.Logger, cfg config.Config) re
 	return report.New(ctx, log, func(ctx context.Context, handle string, run api.WorkerRun) (bool, error) {
 		return client.ReportWorkerRun(ctx, handle, run)
 	})
+}
+
+// heartbeatBody names the projects the rule file maps, by id, and the build
+// that `loupe version` reports.
+func heartbeatBody(set *rules.Set) api.Heartbeat {
+	ids := []string{}
+	for _, slug := range set.Projects() {
+		ids = append(ids, set.ProjectID(slug))
+	}
+
+	return api.Heartbeat{Projects: ids, CLIVersion: buildID()}
 }
 
 // missingProjects names the mapped projects that GET /api/events does not list:
