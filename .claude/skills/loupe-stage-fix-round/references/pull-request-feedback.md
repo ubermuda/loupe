@@ -10,7 +10,7 @@ gh pr view <url> --json state,number,headRefName,headRefOid
 
 ## Read the checks before a worktree exists
 
-Compare the checks against the `headRefOid` above, never against a local head. Wait until `gh pr view <url> --json headRefOid,statusCheckRollup` shows entries for that SHA. Then wait and count as "Wait for CI" in `../../loupe-stage-implementation/references/commands.md` says.
+Compare the checks against the `headRefOid` above only. Wait until `gh pr view <url> --json headRefOid,statusCheckRollup` shows entries for that SHA. Then wait and count as "Wait for CI" in `../../loupe-stage-implementation/references/commands.md` says, and skip its `git rev-parse HEAD` comparison.
 
 ```bash
 gh pr checks <url> --json name,bucket,link
@@ -34,14 +34,17 @@ gh pr view <url> --json reviews,reviewDecision
 gh api repos/{owner}/{repo}/pulls/<n>/comments --paginate
 ```
 
-## Decide which threads to act on
+## Decide what to act on
+
+Read the failing checks before you judge the threads and the reviews.
 
 1. Act on a thread only when `isResolved` is `false`.
 2. Read the worker login with `gh api user -q .login`.
-3. Read the date of the head commit with `gh api repos/{owner}/{repo}/commits/<headRefOid> -q .commit.committer.date`.
-4. Skip a thread whose last comment comes from the worker login and is newer than that date. The worker already answered it.
-5. An outdated thread (`isOutdated`) can still ask for a change. Read it against the current code.
-6. When a review still requests changes and no thread is left to act on, stop with `STAGE RESULT: blocked: changes requested with no open thread`.
+3. Skip a thread whose last comment comes from the worker login. The worker already answered it.
+4. An outdated thread (`isOutdated`) can still ask for a change. Read it against the current code.
+5. Read the date of the head commit with `gh api repos/{owner}/{repo}/commits/<headRefOid> -q .commit.committer.date`.
+6. A review is open when its `state` is `CHANGES_REQUESTED` and its `submittedAt` is newer than that date.
+7. When no check fails, a review is open, and no thread is left to act on, stop with `STAGE RESULT: blocked: changes requested with no open thread`.
 
 ## Reply to a thread
 
@@ -61,7 +64,7 @@ Run these from the main checkout. Find the worktree with the porcelain grep:
 git worktree list --porcelain | grep -x "worktree $PWD/.claude/worktrees/card-<number>"
 ```
 
-When the grep prints nothing, create it:
+When the grep prints a line, run `just worktree-up card-<number>` before `EnterWorktree`. When it prints nothing, create the worktree:
 
 ```bash
 git worktree prune

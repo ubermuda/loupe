@@ -11,12 +11,15 @@ Change nothing but Loupe documents, and never move the card. `references/stage-c
 
 ## Procedure
 
-1. Read `references/stage-contract.md`. Follow its rules for the whole run, and take its first steps.
-2. Invoke `loupe-documents`, then read `references/product-document.md`.
-3. Find the product document among the linked documents, as the contract says. It has the tag `product`, or a title that starts `Product design`.
-4. When step 3 finds none, search `document_list` for the title `Product design: <card title>`, as the contract says.
+1. Read `references/stage-contract.md`. Follow its rules for the whole run.
+2. Find the Loupe tools, as the contract's first steps say.
+3. Invoke `loupe-board`.
+4. Call `card_get`, and run the contract's column check.
+5. Invoke `loupe-documents`, then read `references/product-document.md`.
+6. Find the product document among the linked documents, as the contract says. It has the tag `product`, or a title that starts `Product design`.
+7. When step 6 finds none, search `document_list` for the title `Product design: <card title>`, as the contract says.
 
-### Revise, when step 3 or 4 finds the document
+### Revise, when step 6 or 7 finds the document
 
 1. When its `status` is `approved`, stop with `STAGE RESULT: product document already approved`.
 2. Read code and docs only to state current behaviour.

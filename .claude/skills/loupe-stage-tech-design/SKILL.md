@@ -11,15 +11,18 @@ Change nothing but Loupe documents, and never move the card. `../loupe-stage-pro
 
 ## Procedure
 
-1. Read `../loupe-stage-product-design/references/stage-contract.md`. Follow its rules for the whole run, and take its first steps.
-2. Read the tags of each linked document with `document_get`. The product document has the tag `product`, or a title that starts `Product design`. When no product document has `status` `approved`, stop with `STAGE RESULT: no approved product document`.
-3. Read the product document with `document_get`. Every decision cites the `R` IDs it serves.
-4. Invoke `loupe-documents`, then `project-tech-design`.
-5. The whole CLAUDE.md section "What a new entity or feature must also register" is a required input. It includes the table and the list "Four more that no registry covers".
-6. Find the tech design among the linked documents, as the contract says. It has the tags `design` and `decisions`, or a title that starts `Tech design`.
-7. When step 6 finds none, search `document_list` for the title `Tech design: <card title>`, as the contract says. The document to reference is the product document.
+1. Read `../loupe-stage-product-design/references/stage-contract.md`. Follow its rules for the whole run.
+2. Find the Loupe tools, as the contract's first steps say.
+3. Invoke `loupe-board`.
+4. Call `card_get`, and run the contract's column check.
+5. Read the tags of each linked document with `document_get`. The product document has the tag `product`, or a title that starts `Product design`. When no product document has `status` `approved`, stop with `STAGE RESULT: no approved product document`.
+6. Read the product document with `document_get`. Every decision cites the `R` IDs it serves.
+7. Invoke `loupe-documents`, then `project-tech-design`.
+8. The whole CLAUDE.md section "What a new entity or feature must also register" is a required input. It includes the table and the list "Four more that no registry covers".
+9. Find the tech design among the linked documents, as the contract says. It has the tags `design` and `decisions`, or a title that starts `Tech design`.
+10. When step 9 finds none, search `document_list` for the title `Tech design: <card title>`, as the contract says. The document to reference is the product document.
 
-### Revise, when step 6 or 7 finds the design
+### Revise, when step 9 or 10 finds the design
 
 1. When its `status` is `approved`, stop with `STAGE RESULT: tech design already approved`.
 2. Read the code and that CLAUDE.md section.

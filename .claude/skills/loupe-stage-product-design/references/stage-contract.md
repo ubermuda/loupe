@@ -16,8 +16,9 @@ The design stage skills send you here before their own steps. Follow every rule 
 ## First steps
 
 1. Find the Loupe tools with ToolSearch. Retry up to six times, because the server can still be connecting. When all fail, stop with `STAGE RESULT: loupe MCP unavailable`.
-2. Invoke `loupe-board`, then call `card_get`.
-3. When the prompt names a column, turn it into a slug: lowercase, with hyphens for spaces. When that slug differs from the card `status`, stop with `STAGE RESULT: card left <column>`.
+2. Invoke `loupe-board`.
+3. Call `card_get`.
+4. When the prompt names a column, turn it into a slug: lowercase, with hyphens for spaces. When that slug differs from the card `status`, stop with `STAGE RESULT: card left <column>`.
 
 ## Find a linked document
 
@@ -32,4 +33,4 @@ When no linked document matches, page `document_list` for the title the stage sk
 
 ## Final reply
 
-Write one line that starts `STAGE RESULT:`. Add at most three short sentences after it.
+The first characters of the reply are `STAGE RESULT:`, with no Markdown around them. Finish that line, then add at most three short sentences.

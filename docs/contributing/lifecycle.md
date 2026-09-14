@@ -83,8 +83,9 @@ mode reaches the Loupe write tools in `claude -p` with no allow rule. When a
 worker run reports a denied tool, add an `mcp__loupe__*` allow rule to
 `.claude/settings.local.json`.
 
-The implementation rule uses `bypassPermissions`, as card 87 settled, because
-the gate runs arbitrary commands. This choice has a cost. The worker can run any
+The implementation rule uses `bypassPermissions`. The gate runs arbitrary
+commands, and a worker in `acceptEdits` cannot approve them, because nobody
+answers a permission prompt. This choice has a cost. The worker can run any
 command as the owner from the moment it starts. The worktree binds file edits,
 and it does not bind commands.
 
@@ -103,7 +104,8 @@ at the same time interfere with each other.
 
 No rule starts a fix round yet. Run one by hand after review feedback arrives.
 
-1. Stop the bridge, or wait until no worker runs for that card.
+1. Stop the bridge, or wait until no worker runs. Every gate shares one
+   `php-fpm` container, so a worker on any card counts.
 2. Run this from the repository root:
 
 ```sh
@@ -125,9 +127,10 @@ it, and the worker runs page at `/projects/{id}/worker-runs` shows it.
    `board_columns`.
 2. Read the project slug on the project settings page. When it is not `loupe`,
    change the `projects` key and every `project` field in the rule file.
-3. Create the five columns with the slugs above.
+3. A new board already has `backlog` and `done`. Create the three stage
+   columns with the slugs above.
 4. Write `rules.yaml`.
-5. Start the bridge.
+5. Start the bridge with `loupe bridge run --max-workers 1`.
 6. Do one acceptance run with a small card. Move it through Product design,
    an approval, Tech design, an approval and Implementation. Run one document
    fix round and one pull request fix round. Move the card to Done by hand.
@@ -135,11 +138,10 @@ it, and the worker runs page at `/projects/{id}/worker-runs` shows it.
 
 ## What comes later
 
-The design "Development lifecycle on boards and the bridge" plans these later
-pieces.
+These pieces are planned after this one.
 
-1. P2 gives the bridge roles and bindings, with one worktree for each card.
-2. P3 starts automations when a person approves a document.
-3. P4 adds a GitHub webhook for reviews, checks and merges.
-4. P5 adds a workspace page.
-5. P6 packages the lifecycle for other projects.
+1. The bridge gets roles and bindings, with one worktree for each card.
+2. Automations run when a person approves a document.
+3. A GitHub webhook reports reviews, checks and merges to Loupe.
+4. A workspace page shows the work in progress.
+5. The lifecycle is packaged for use in other projects.
