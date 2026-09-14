@@ -46,8 +46,9 @@ places link there.
 Type in the search field above the asks. The page then lists the items whose
 title or body holds your words, best match first, 25 to a page. Closed items
 match too. The search matches whole words in the search language of the
-project, so in English "exports" also finds "export". An item in the results shows its forms when it still takes a
-response. Select **Clear** to go back to the asks.
+project, so in English "exports" also finds "export". An item in the results
+shows its forms when it still takes a response. Select **Clear** to go back to
+the asks.
 
 ## Answering
 
@@ -86,7 +87,8 @@ An ask closes when you close its last blocking item. An answer, a done and a
 decline all count. An agent's withdraw counts too, and so does an item that
 closes because every card it links to finished. An item that does not block
 stays open after its ask closes, and the page then lists it among the open
-items outside an open ask.
+items outside an open ask. A card that finishes while the inbox is off closes
+no item and no ask.
 
 One item can sit in several asks. Your response then counts toward each of
 them, and each ask closes when nothing in it blocks any more.

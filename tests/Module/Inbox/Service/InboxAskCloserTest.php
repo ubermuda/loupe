@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Inbox\Service;
 
+use App\Exception\DomainErrors;
 use App\Module\Board\Command\DeleteBoardColumnCommand;
 use App\Module\Board\Command\DeleteBoardColumnHandler;
 use App\Module\Board\Command\UpdateCardCommand;
@@ -29,14 +30,17 @@ use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\InboxEventType;
+use App\Module\Inbox\Install\InboxInstallFlags;
+use App\Module\Inbox\Service\InboxItemCloser;
 use App\Module\Project\Entity\Project;
 use App\Outbox\AgentPush;
+use App\Outbox\Command\DrainOutboxCommand;
+use App\Outbox\Command\DrainOutboxHandler;
 use App\Tests\Module\Inbox\InboxFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
-use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 /** Driven through the real handlers, so each closing path runs where production calls it. */
 final class InboxAskCloserTest extends KernelTestCase
@@ -54,6 +58,7 @@ final class InboxAskCloserTest extends KernelTestCase
         $this->em = $em;
         $this->project = $this->project($em, $this->owner($em, 'ask-closer'), 'ask-closer');
         $em->flush();
+        $this->switchFlag($em, InboxInstallFlags::FLAG_INBOX_ENABLED, true);
     }
 
     public function test_answering_the_last_blocking_item_closes_the_ask_and_writes_one_event(): void
@@ -200,16 +205,57 @@ final class InboxAskCloserTest extends KernelTestCase
         self::assertNull($this->askClosedEvents()[0]['cardId']);
     }
 
+    public function test_a_run_of_this_project_that_names_another_projects_card_gives_no_card(): void
+    {
+        $elsewhere = $this->project($this->em, $this->owner($this->em, 'ask-closer-foreign'), 'ask-closer-foreign');
+        $foreignCard = $this->card($this->em, $elsewhere, 4);
+        $this->em->flush();
+        $item = $this->question(1);
+        $ask = $this->askHolding([$item]);
+        $this->workerRun($ask->sessionId, $foreignCard, new \DateTimeImmutable('2026-09-01 10:00:00'));
+
+        $this->answer($item);
+
+        self::assertNull($this->reloadAsk($ask)->card);
+        self::assertCount(1, $this->askClosedEvents());
+        self::assertNull($this->askClosedEvents()[0]['cardId']);
+        self::assertNull($this->askClosedEvents()[0]['cardNumber']);
+    }
+
     public function test_the_event_is_written_while_agent_push_is_off_and_the_drain_holds_it(): void
     {
-        $flags = self::getContainer()->get(FeatureFlagRepository::class);
-        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
-        $flags->findAllIndexed()[AgentPush::FLAG]->value = false;
-        $this->em->flush();
+        $this->switchFlag($this->em, AgentPush::FLAG, false);
         $item = $this->question(1);
         $this->askHolding([$item]);
 
         $this->answer($item);
+        self::assertCount(1, $this->askClosedEvents());
+
+        $drain = self::getContainer()->get(DrainOutboxHandler::class);
+        self::assertInstanceOf(DrainOutboxHandler::class, $drain);
+        $drain(new DrainOutboxCommand());
+
+        self::assertSame(
+            [['published_at' => null, 'next_attempt_at' => null, 'publish_attempts' => 0]],
+            $this->em->getConnection()->fetchAllAssociative(
+                'SELECT published_at, next_attempt_at, publish_attempts FROM outbox_events WHERE project_id = ? AND type = ?',
+                [(string) $this->project->id, InboxEventType::ASK_CLOSED],
+            ),
+        );
+    }
+
+    public function test_the_same_final_answer_sent_twice_is_refused_and_writes_one_event(): void
+    {
+        $item = $this->question(1);
+        $this->askHolding([$item]);
+        $this->answer($item);
+
+        try {
+            $this->answer($this->reloadItem($item));
+            self::fail('A second answer to an item a closed ask holds must be refused.');
+        } catch (DomainErrors $e) {
+            self::assertSame(['selectedOptions' => InboxItemCloser::ERROR_FINAL], $e->errors);
+        }
 
         self::assertCount(1, $this->askClosedEvents());
     }
@@ -256,6 +302,7 @@ final class InboxAskCloserTest extends KernelTestCase
         $item = $this->linkedQuestion(1, $card);
         $this->em->flush();
         $ask = $this->askHolding([$item]);
+        $this->workerRun($ask->sessionId, $card, new \DateTimeImmutable('2026-09-01 10:00:00'));
 
         $handler = self::getContainer()->get(DeleteBoardColumnHandler::class);
         self::assertInstanceOf(DeleteBoardColumnHandler::class, $handler);
@@ -265,7 +312,77 @@ final class InboxAskCloserTest extends KernelTestCase
         self::assertSame(InboxItemState::Obsolete, $this->reloadItem($item)->state);
         self::assertNotNull($this->reloadAsk($ask)->closedAt);
         self::assertSame(1, $this->countEvents('board.column_deleted'));
-        self::assertSame(['agent'], array_column($this->askClosedEvents(), 'actor'));
+        $events = $this->askClosedEvents();
+        self::assertCount(1, $events);
+        self::assertSame('agent', $events[0]['actor']);
+        self::assertSame((string) $card->id, $events[0]['cardId']);
+        self::assertSame(6, $events[0]['cardNumber']);
+    }
+
+    public function test_a_card_move_or_a_column_delete_closes_nothing_while_the_inbox_is_off(): void
+    {
+        $moved = $this->card($this->em, $this->project, 7);
+        $bulk = new Card(project: $this->managedProject(), column: $this->column($this->managedProject(), 'in-progress'), title: 'Moves', body: 'Body', number: 8);
+        $this->em->persist($bulk);
+        $first = $this->linkedQuestion(1, $moved);
+        $second = $this->linkedQuestion(2, $bulk);
+        $this->em->flush();
+        $firstAsk = $this->askHolding([$first]);
+        $secondAsk = $this->askHolding([$second]);
+        $this->switchFlag($this->em, InboxInstallFlags::FLAG_INBOX_ENABLED, false);
+
+        $move = self::getContainer()->get(UpdateCardHandler::class);
+        self::assertInstanceOf(UpdateCardHandler::class, $move);
+        $managedCard = $this->em->find(Card::class, $moved->id);
+        self::assertInstanceOf(Card::class, $managedCard);
+        $move(new UpdateCardCommand($managedCard, CardReporter::Human, column: $this->column($managedCard->project, 'done')));
+        $delete = self::getContainer()->get(DeleteBoardColumnHandler::class);
+        self::assertInstanceOf(DeleteBoardColumnHandler::class, $delete);
+        $project = $this->managedProject();
+        $delete(new DeleteBoardColumnCommand($this->column($project, 'in-progress'), CardReporter::Human, $this->column($project, 'done')));
+
+        self::assertSame(1, $this->countEvents('board.card_moved'));
+        self::assertSame(1, $this->countEvents('board.column_deleted'));
+        self::assertSame(InboxItemState::Open, $this->reloadItem($first)->state);
+        self::assertSame(InboxItemState::Open, $this->reloadItem($second)->state);
+        self::assertNull($this->reloadAsk($firstAsk)->closedAt);
+        self::assertNull($this->reloadAsk($secondAsk)->closedAt);
+        self::assertSame([], $this->askClosedEvents());
+    }
+
+    public function test_a_to_do_closed_after_the_question_of_its_ask_writes_no_second_event(): void
+    {
+        $question = $this->question(1);
+        $todo = $this->todo(2);
+        $ask = $this->askHolding([$question, $todo]);
+        $this->answer($question);
+        $closedAt = $this->reloadAsk($ask)->closedAt;
+        self::assertNotNull($closedAt);
+        self::assertCount(1, $this->askClosedEvents());
+
+        $this->markDone($this->reloadItem($todo));
+
+        self::assertSame(InboxItemState::Done, $this->reloadItem($todo)->state);
+        self::assertEquals($closedAt, $this->reloadAsk($ask)->closedAt);
+        self::assertCount(1, $this->askClosedEvents());
+    }
+
+    public function test_closing_an_item_that_does_not_block_never_closes_an_ask(): void
+    {
+        // An open ask with no open blocking item: the close of its to-do must not
+        // be what closes it, because only a blocking item holds an ask back.
+        $question = $this->item($this->em, $this->managedProject(), 1, 'Question 1');
+        $question->state = InboxItemState::Answered;
+        $question->closedAt = new \DateTimeImmutable('-1 hour');
+        $this->em->flush();
+        $todo = $this->todo(2);
+        $ask = $this->askHolding([$question, $todo]);
+
+        $this->withdraw($todo);
+
+        self::assertSame(InboxItemState::Withdrawn, $this->reloadItem($todo)->state);
+        self::assertNull($this->reloadAsk($ask)->closedAt);
+        self::assertSame([], $this->askClosedEvents());
     }
 
     public function test_a_closed_ask_never_closes_again_or_writes_a_second_event(): void

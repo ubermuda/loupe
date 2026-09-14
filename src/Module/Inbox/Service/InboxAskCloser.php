@@ -20,8 +20,8 @@ use App\Outbox\OutboxWriter;
  * and writes one inbox.ask_closed row for an ask a bridge can resume.
  *
  * InboxItemCloser calls it, so the caller holds the project lock and the
- * transaction. It neither flushes nor throws, because it runs inside a card
- * move or a column delete.
+ * transaction. It does not flush and throws no domain error, because it runs
+ * inside a card move or a column delete.
  */
 final readonly class InboxAskCloser
 {
@@ -37,6 +37,11 @@ final readonly class InboxAskCloser
     /** @param InboxEventType::ACTOR_* $actor */
     public function closeAsksHolding(InboxItem $item, string $actor, \DateTimeImmutable $now): void
     {
+        // Only a blocking item holds an ask back, so no other close can end one.
+        if (!$item->blocking) {
+            return;
+        }
+
         foreach ($this->inboxAsks->findOpenHolding($item) as $ask) {
             // Closed earlier in this unit of work and not flushed yet.
             if (null !== $ask->closedAt || $this->holdsOpenBlockingItem($ask)) {

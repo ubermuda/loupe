@@ -252,6 +252,13 @@ final class ShowInboxControllerTest extends WebTestCase
         $second = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox?q=column&page=2');
         self::assertCount(1, $second->filter('[data-inbox-section="search-results"] [data-inbox-item]'));
         self::assertStringContainsString('q=column', (string) $second->filter('[data-inbox-item] form')->attr('action'));
+
+        // A page past the end shows the last page, not an empty list.
+        $pastTheEnd = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox?q=column&page=99');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $pastTheEnd->filter('[data-inbox-section="search-results"] [data-inbox-item]'));
+        self::assertSelectorTextSame('.lp-pagination [aria-current="page"]', '2');
+        self::assertSelectorNotExists('[data-inbox-search-empty]');
     }
 
     private function indexed(InboxItem $item): InboxItem
