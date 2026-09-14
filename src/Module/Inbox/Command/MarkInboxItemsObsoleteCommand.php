@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace App\Module\Inbox\Command;
 
-use App\Module\Board\Entity\Card;
-
-/** A card has moved. Its column says whether the card is now finished. */
+/** Cards have moved. The columns they now sit in say whether their items still wait on anything. */
 final readonly class MarkInboxItemsObsoleteCommand
 {
+    /** @param list<string> $cardIds */
     public function __construct(
-        public Card $card,
+        public array $cardIds,
     ) {
     }
 }

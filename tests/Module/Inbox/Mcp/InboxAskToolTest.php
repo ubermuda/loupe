@@ -10,6 +10,7 @@ use App\Module\Inbox\Mcp\InboxAskTool;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Uid\Uuid;
 
@@ -254,6 +255,135 @@ final class InboxAskToolTest extends KernelTestCase
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('"not-a-uuid" is not a valid session ID.');
         $this->askQuestion('Which column?', sessionId: 'not-a-uuid');
+    }
+
+    public function test_an_upper_case_session_id_extends_the_same_ask(): void
+    {
+        $this->enableInbox();
+        $this->actAsMcpTokenBoundTo($this->makeProject('inbox-ask-session-case'));
+        $sessionId = (string) Uuid::v4();
+
+        $first = $this->askQuestion('First', sessionId: $sessionId);
+        $second = $this->askQuestion('Second', sessionId: strtoupper($sessionId));
+
+        self::assertTrue($second['extended']);
+        self::assertSame($first['askId'], $second['askId']);
+    }
+
+    public function test_a_later_call_fills_in_the_bridge_an_ask_had_none_for(): void
+    {
+        $this->enableInbox();
+        $this->actAsMcpTokenBoundTo($this->makeProject('inbox-ask-bridge-fill'));
+        $sessionId = (string) Uuid::v4();
+        $bridgeId = (string) Uuid::v4();
+
+        $first = $this->askQuestion('First', sessionId: $sessionId);
+        ($this->tool)(sessionId: $sessionId, items: [['kind' => 'question', 'title' => 'Second', 'freeText' => true]], bridgeId: $bridgeId);
+
+        $this->em->clear();
+        $ask = $this->em->find(InboxAsk::class, Uuid::fromString($first['askId']));
+        self::assertInstanceOf(InboxAsk::class, $ask);
+        self::assertSame($bridgeId, (string) $ask->bridgeId);
+    }
+
+    public function test_a_different_bridge_for_an_open_ask_is_refused(): void
+    {
+        $this->enableInbox();
+        $this->actAsMcpTokenBoundTo($this->makeProject('inbox-ask-bridge-mismatch'));
+        $sessionId = (string) Uuid::v4();
+        ($this->tool)(sessionId: $sessionId, items: [['kind' => 'question', 'title' => 'First', 'freeText' => true]], bridgeId: (string) Uuid::v4());
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('bridgeId: This session\'s open ask already names another bridge.');
+        ($this->tool)(sessionId: $sessionId, items: [['kind' => 'question', 'title' => 'Second', 'freeText' => true]], bridgeId: (string) Uuid::v4());
+    }
+
+    public function test_the_same_bridge_or_none_extends_an_ask_that_names_one(): void
+    {
+        $this->enableInbox();
+        $this->actAsMcpTokenBoundTo($this->makeProject('inbox-ask-bridge-same'));
+        $sessionId = (string) Uuid::v4();
+        $bridgeId = (string) Uuid::v4();
+        $first = ($this->tool)(sessionId: $sessionId, items: [['kind' => 'question', 'title' => 'First', 'freeText' => true]], bridgeId: $bridgeId);
+
+        $same = ($this->tool)(sessionId: $sessionId, items: [['kind' => 'question', 'title' => 'Second', 'freeText' => true]], bridgeId: strtoupper($bridgeId));
+        $none = $this->askQuestion('Third', sessionId: $sessionId);
+
+        self::assertSame($first['askId'], $same['askId']);
+        self::assertSame($first['askId'], $none['askId']);
+    }
+
+    public function test_a_title_on_two_lines_is_refused(): void
+    {
+        $this->enableInbox();
+        $this->actAsMcpTokenBoundTo($this->makeProject('inbox-ask-title-lines'));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('items[0].title: An item title must be one line.');
+        $this->askQuestion("Which column?\nAnd why?");
+    }
+
+    public function test_duplicate_options_are_refused_after_trimming(): void
+    {
+        $this->enableInbox();
+        $this->actAsMcpTokenBoundTo($this->makeProject('inbox-ask-options-duplicate'));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('items[0].options: Each option must differ from the others.');
+        $this->askQuestion('Which column?', ['options' => ['next', ' next ']]);
+    }
+
+    /** @return iterable<string, array{array<string, mixed>, string}> */
+    public static function oversizedItems(): iterable
+    {
+        yield 'too many options' => [['options' => array_map(static fn (int $n): string => 'option '.$n, range(1, 21))], 'items[0].options: A question takes at most 20 options.'];
+        yield 'too many card ids' => [['cardIds' => array_fill(0, 21, (string) Uuid::v4())], 'items[0].cardIds: An item links at most 20 cards and 20 documents.'];
+        yield 'too many document ids' => [['documentIds' => array_fill(0, 21, (string) Uuid::v4())], 'items[0].documentIds: An item links at most 20 cards and 20 documents.'];
+        yield 'a body too long' => [['body' => str_repeat('a', 20001)], 'items[0].body: An item body must be at most 20000 characters.'];
+    }
+
+    /** @param array<string, mixed> $item */
+    #[DataProvider('oversizedItems')]
+    public function test_an_item_over_a_limit_is_refused(array $item, string $message): void
+    {
+        $this->enableInbox();
+        $this->actAsMcpTokenBoundTo($this->makeProject('inbox-ask-limits'));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage($message);
+        $this->askQuestion('Which column?', $item);
+    }
+
+    public function test_a_body_at_the_limit_is_accepted(): void
+    {
+        $this->enableInbox();
+        $this->actAsMcpTokenBoundTo($this->makeProject('inbox-ask-body-limit'));
+
+        $result = $this->askQuestion('Which column?', ['body' => str_repeat('a', 20000)]);
+
+        self::assertSame(1, $result['items'][0]['number']);
+    }
+
+    public function test_more_than_twenty_items_are_refused(): void
+    {
+        $this->enableInbox();
+        $this->actAsMcpTokenBoundTo($this->makeProject('inbox-ask-too-many'));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('items: Pass at most 20 items in one call.');
+        ($this->tool)(sessionId: (string) Uuid::v4(), items: array_fill(0, 21, ['kind' => 'todo', 'title' => 'Review']));
+    }
+
+    public function test_a_context_that_grows_past_the_limit_is_refused(): void
+    {
+        $this->enableInbox();
+        $this->actAsMcpTokenBoundTo($this->makeProject('inbox-ask-context-limit'));
+        $sessionId = (string) Uuid::v4();
+        ($this->tool)(sessionId: $sessionId, items: [['kind' => 'question', 'title' => 'First', 'freeText' => true]], context: str_repeat('a', 6000));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('context: The context of an ask must be at most 10000 characters');
+        ($this->tool)(sessionId: $sessionId, items: [['kind' => 'question', 'title' => 'Second', 'freeText' => true]], context: str_repeat('b', 4000));
     }
 
     public function test_an_empty_list_of_items_is_refused(): void

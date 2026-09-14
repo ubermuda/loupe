@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Inbox\Mcp;
 
+use App\Doctrine\SearchLanguage;
+use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Mcp\InboxSearchTool;
 use App\Module\Inbox\Mcp\InboxWithdrawTool;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Uid\Uuid;
 
 final class InboxSearchToolTest extends KernelTestCase
 {
@@ -95,6 +98,30 @@ final class InboxSearchToolTest extends KernelTestCase
 
         self::assertSame(0, $result['total']);
         self::assertSame([], $result['items']);
+    }
+
+    /**
+     * The French stemmer reads "tableaux" as "tableau", and the English one
+     * does not, so a match proves the vector and the query are both French.
+     */
+    public function test_an_item_takes_its_project_s_search_language(): void
+    {
+        $this->enableInbox();
+        $project = $this->makeProject('inbox-search-language');
+        $project->searchLanguage = SearchLanguage::French;
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+        $asked = $this->askQuestion('Quels tableaux garder ?');
+
+        $this->em->clear();
+        $item = $this->em->find(InboxItem::class, Uuid::fromString($asked['items'][0]['itemId']));
+        self::assertInstanceOf(InboxItem::class, $item);
+        self::assertSame(SearchLanguage::French, $item->searchLanguage);
+
+        $result = ($this->tool)('tableau');
+
+        self::assertSame(1, $result['total']);
+        self::assertSame('Quels tableaux garder ?', $result['items'][0]['title']);
     }
 
     public function test_a_blank_query_is_refused(): void

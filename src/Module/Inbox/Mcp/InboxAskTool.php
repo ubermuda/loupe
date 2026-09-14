@@ -8,6 +8,8 @@ use App\Exception\DomainErrors;
 use App\Mcp\FlagGatedToolInterface;
 use App\Module\Inbox\Command\AskInboxCommand;
 use App\Module\Inbox\Command\AskInboxHandler;
+use App\Module\Inbox\Entity\InboxItem;
+use App\Module\Inbox\InboxLimits;
 use App\Module\Inbox\Install\InboxInstallFlags;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Capability\Attribute\Schema;
@@ -58,19 +60,20 @@ final readonly class InboxAskTool implements FlagGatedToolInterface
             'type' => 'object',
             'properties' => [
                 'kind' => ['type' => 'string', 'enum' => ['question', 'todo']],
-                'title' => ['type' => 'string', 'description' => 'one line, at most 255 characters'],
-                'body' => ['type' => 'string', 'description' => 'the detail, in Markdown'],
-                'options' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'the answers the owner picks from; a question only'],
+                'title' => ['type' => 'string', 'maxLength' => InboxItem::MAX_TITLE_LENGTH, 'description' => 'one line'],
+                'body' => ['type' => 'string', 'maxLength' => InboxLimits::MAX_BODY_LENGTH, 'description' => 'the detail, in Markdown'],
+                'options' => ['type' => 'array', 'items' => ['type' => 'string'], 'maxItems' => InboxLimits::MAX_OPTIONS, 'description' => 'the answers the owner picks from, each different; a question only'],
                 'multiple' => ['type' => 'boolean', 'description' => 'the owner may pick several options'],
                 'freeText' => ['type' => 'boolean', 'description' => 'the owner may write an answer; a question only'],
                 'blocking' => ['type' => 'boolean', 'description' => 'you wait for this item; defaults to true for a question and false for a todo'],
-                'cardIds' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'ids of cards of this project'],
-                'documentIds' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'ids of documents of this project'],
+                'cardIds' => ['type' => 'array', 'items' => ['type' => 'string'], 'maxItems' => InboxLimits::MAX_LINKS, 'description' => 'ids of cards of this project'],
+                'documentIds' => ['type' => 'array', 'items' => ['type' => 'string'], 'maxItems' => InboxLimits::MAX_LINKS, 'description' => 'ids of documents of this project'],
             ],
             'required' => ['kind', 'title'],
-        ], minItems: 1)]
+        ], minItems: 1, maxItems: InboxLimits::MAX_ITEMS_PER_CALL)]
         array $items,
         ?string $bridgeId = null,
+        #[Schema(maxLength: InboxLimits::MAX_CONTEXT_LENGTH)]
         ?string $context = null,
     ): array {
         $this->gate->requireEnabled();

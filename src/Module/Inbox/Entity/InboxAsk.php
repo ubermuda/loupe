@@ -50,9 +50,9 @@ class InboxAsk
         #[ORM\Column(name: 'session_id', type: UuidType::NAME)]
         public readonly Uuid $sessionId,
 
-        /** Null when an interactive session asked, which no bridge can resume. */
+        /** Null when an interactive session asked, which no bridge can resume. A later call of the session may fill it in. */
         #[ORM\Column(name: 'bridge_id', type: UuidType::NAME, nullable: true)]
-        public readonly ?Uuid $bridgeId = null,
+        public ?Uuid $bridgeId = null,
 
         #[ORM\Column(type: Types::TEXT, nullable: true)]
         public ?string $context = null,

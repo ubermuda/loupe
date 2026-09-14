@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Module\Inbox\Mcp;
 
 use App\Module\Inbox\Mcp\InboxGetTool;
+use App\Security\McpBoundProjectVoter;
 use App\Tests\Support\McpTokenScenario;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -18,6 +20,7 @@ final class InboxGetToolTest extends KernelTestCase
 
     private EntityManagerInterface $em;
     private InboxGetTool $tool;
+    private RecordingAuditor $audit;
 
     protected function setUp(): void
     {
@@ -26,6 +29,8 @@ final class InboxGetToolTest extends KernelTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
+        // Installed before the tool is built, so the voter it reaches records here.
+        $this->audit = RecordingAuditor::installedIn(self::getContainer());
 
         $tool = self::getContainer()->get(InboxGetTool::class);
         self::assertInstanceOf(InboxGetTool::class, $tool);
@@ -76,7 +81,7 @@ final class InboxGetToolTest extends KernelTestCase
         self::assertSame([['askId' => $asked['askId'], 'sessionId' => $sessionId, 'closedAt' => null]], $item['asks']);
     }
 
-    public function test_an_item_in_another_project_is_not_reachable(): void
+    public function test_an_item_in_another_project_is_not_reachable_and_the_refusal_is_audited(): void
     {
         $this->enableInbox();
         $this->actAsMcpTokenBoundTo($this->makeProject('inbox-get-theirs'));
@@ -84,9 +89,16 @@ final class InboxGetToolTest extends KernelTestCase
 
         $this->actAsMcpTokenBoundTo($this->makeProject('inbox-get-mine'));
 
-        $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('not found or not accessible');
-        ($this->tool)($theirs['items'][0]['itemId']);
+        try {
+            ($this->tool)($theirs['items'][0]['itemId']);
+            self::fail('Expected a refusal for an item of another project.');
+        } catch (ToolCallException $e) {
+            self::assertStringContainsString('not found or not accessible', $e->getMessage());
+        }
+
+        $record = $this->audit->record('inbox.mcp_access_denied');
+        self::assertSame(McpBoundProjectVoter::INBOX_ITEM_READ, $record->context['attribute']);
+        self::assertSame($theirs['items'][0]['itemId'], $record->context['subjectId']);
     }
 
     public function test_a_malformed_id_is_reported_rather_than_fatal(): void

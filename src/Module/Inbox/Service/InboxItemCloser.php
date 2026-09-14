@@ -13,18 +13,27 @@ use App\Module\Inbox\Entity\InboxItemState;
  */
 final readonly class InboxItemCloser
 {
-    public function close(InboxItem $item, InboxItemState $state, ?string $note, \DateTimeImmutable $now): void
+    /** The refusal a caller gives when the item it acts on is already closed. */
+    public const string ITEM_NOT_OPEN = 'inbox.item.error.not_open';
+
+    /**
+     * Returns false and changes nothing when the item is already closed, so a
+     * listener inside another write never aborts it.
+     */
+    public function close(InboxItem $item, InboxItemState $state, ?string $note, \DateTimeImmutable $now): bool
     {
         if (InboxItemState::Open === $state) {
             throw new \LogicException('An item closes into a closed state.');
         }
         if (InboxItemState::Open !== $item->state) {
-            throw new \LogicException('Only an open item closes.');
+            return false;
         }
 
         $item->state = $state;
         $item->closeNote = $note;
         $item->closedAt = $now;
         $item->updatedAt = $now;
+
+        return true;
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Inbox\EventListener;
 
+use App\Module\Board\Command\DeleteBoardColumnCommand;
+use App\Module\Board\Command\DeleteBoardColumnHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
@@ -16,7 +18,7 @@ use App\Tests\Module\Inbox\InboxFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
-/** Driven through a real card move, so the listener runs where Board dispatches the event. */
+/** Driven through a real card move and a real column delete, so each listener runs where Board dispatches its event. */
 final class MarkInboxItemsObsoleteOnCardMovedTest extends KernelTestCase
 {
     use InboxFixtures;
@@ -84,6 +86,64 @@ final class MarkInboxItemsObsoleteOnCardMovedTest extends KernelTestCase
         self::assertSame(InboxItemState::Withdrawn, $fresh->state);
         self::assertSame('Settled', $fresh->closeNote);
         self::assertEquals($closedAt, $fresh->closedAt);
+    }
+
+    /**
+     * The row reads open while the loaded item reads closed, which is how an
+     * item closed earlier in the same unit of work looks to the query. The
+     * listener runs inside the move, so it must skip the item, not abort the move.
+     */
+    public function test_a_card_move_succeeds_when_a_linked_item_already_reads_closed(): void
+    {
+        $project = $this->persistedProject('obsolete-stale-closed');
+        $card = $this->card($this->em, $project);
+        $stale = $this->linkedItem($project, 1, $card);
+        $open = $this->linkedItem($project, 2, $card);
+        $this->em->flush();
+        $stale->state = InboxItemState::Withdrawn;
+        $this->em->getUnitOfWork()->setOriginalEntityProperty(spl_object_id($stale), 'state', InboxItemState::Withdrawn);
+
+        $this->move($card, $project, 'done');
+
+        $this->em->clear();
+        $movedCard = $this->em->find(Card::class, $card->id);
+        self::assertInstanceOf(Card::class, $movedCard);
+        self::assertTrue($movedCard->column->terminal);
+        self::assertSame(InboxItemState::Obsolete, $this->reload($open)->state);
+    }
+
+    public function test_a_column_delete_that_moves_the_last_unfinished_card_into_a_terminal_column_closes_the_item(): void
+    {
+        $project = $this->persistedProject('obsolete-column-delete');
+        $moving = new Card(project: $project, column: $this->column($project, 'in-progress'), title: 'Moves', body: 'Body', number: 1);
+        $this->em->persist($moving);
+        $finished = new Card(project: $project, column: $this->column($project, 'done'), title: 'Done', body: 'Body', number: 2);
+        $this->em->persist($finished);
+        $item = $this->linkedItem($project, 1, $moving, $finished);
+        $untouched = $this->linkedItem($project, 2, $this->card($this->em, $project, 3));
+        $this->em->flush();
+
+        $handler = self::getContainer()->get(DeleteBoardColumnHandler::class);
+        self::assertInstanceOf(DeleteBoardColumnHandler::class, $handler);
+        $handler(new DeleteBoardColumnCommand($this->column($project, 'in-progress'), CardReporter::Human, $this->column($project, 'done')));
+
+        self::assertSame(InboxItemState::Obsolete, $this->reload($item)->state);
+        self::assertSame(InboxItemState::Open, $this->reload($untouched)->state);
+    }
+
+    public function test_a_column_delete_into_an_open_column_leaves_the_item_open(): void
+    {
+        $project = $this->persistedProject('obsolete-column-delete-open');
+        $moving = new Card(project: $project, column: $this->column($project, 'in-progress'), title: 'Moves', body: 'Body', number: 1);
+        $this->em->persist($moving);
+        $item = $this->linkedItem($project, 1, $moving);
+        $this->em->flush();
+
+        $handler = self::getContainer()->get(DeleteBoardColumnHandler::class);
+        self::assertInstanceOf(DeleteBoardColumnHandler::class, $handler);
+        $handler(new DeleteBoardColumnCommand($this->column($project, 'in-progress'), CardReporter::Human, $this->column($project, 'next')));
+
+        self::assertSame(InboxItemState::Open, $this->reload($item)->state);
     }
 
     public function test_a_move_between_open_columns_leaves_the_item_open(): void

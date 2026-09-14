@@ -6,7 +6,6 @@ namespace App\Module\Inbox\Repository;
 
 use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
-use App\Module\Board\Entity\Card;
 use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemCard;
@@ -161,20 +160,21 @@ class InboxItemRepository extends ServiceEntityRepository
     }
 
     /**
-     * The open items linked to the card whose every linked card sits in a
-     * terminal column, locked for update. The caller holds a transaction.
+     * The open items linked to any of the cards whose every linked card sits in
+     * a terminal column, locked for update. The caller holds a transaction.
+     *
+     * @param list<string> $cardIds
      *
      * @return list<InboxItem>
      */
-    public function findOpenWithEveryCardFinished(Card $card): array
+    public function findOpenWithEveryCardFinished(array $cardIds): array
     {
         /* @var list<InboxItem> */
         return $this->createQueryBuilder('i')
-            ->join('i.cards', 'l')
-            ->andWhere('l.card = :card')
+            ->andWhere(\sprintf('EXISTS (SELECT m.id FROM %s m WHERE m.item = i AND m.card IN (:cards))', InboxItemCard::class))
             ->andWhere('i.state = :open')
             ->andWhere(\sprintf('NOT EXISTS (SELECT u.id FROM %s u JOIN u.card uc JOIN uc.column k WHERE u.item = i AND k.terminal = false)', InboxItemCard::class))
-            ->setParameter('card', $card)
+            ->setParameter('cards', array_map(static fn (string $id): string => Uuid::fromString($id)->toRfc4122(), $cardIds))
             ->setParameter('open', InboxItemState::Open)
             ->orderBy('i.number', 'ASC')
             ->getQuery()

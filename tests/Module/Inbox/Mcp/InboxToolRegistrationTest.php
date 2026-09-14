@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Module\Inbox\Mcp;
 
 use App\Mcp\FlagGatedToolInterface;
+use App\Module\Inbox\Entity\InboxItem;
+use App\Module\Inbox\InboxLimits;
 use App\Module\Inbox\Install\InboxInstallFlags;
 use App\Module\Inbox\Mcp\InboxAskTool;
 use App\Module\Inbox\Mcp\InboxGetTool;
@@ -97,6 +99,24 @@ final class InboxToolRegistrationTest extends KernelTestCase
         self::assertSame(['kind', 'title'], $schema['properties']['items']['items']['required']);
         self::assertSame(['question', 'todo'], $schema['properties']['items']['items']['properties']['kind']['enum']);
         self::assertSame(['type' => 'string'], $schema['properties']['items']['items']['properties']['cardIds']['items']);
+    }
+
+    public function test_inbox_ask_and_inbox_withdraw_publish_their_size_limits(): void
+    {
+        $ask = $this->registry->getTool(InboxAskTool::NAME)->tool->inputSchema['properties'];
+        $item = $ask['items']['items']['properties'];
+
+        self::assertSame(InboxLimits::MAX_ITEMS_PER_CALL, $ask['items']['maxItems']);
+        self::assertSame(InboxItem::MAX_TITLE_LENGTH, $item['title']['maxLength']);
+        self::assertSame(InboxLimits::MAX_BODY_LENGTH, $item['body']['maxLength']);
+        self::assertSame(InboxLimits::MAX_OPTIONS, $item['options']['maxItems']);
+        self::assertSame(InboxLimits::MAX_LINKS, $item['cardIds']['maxItems']);
+        self::assertSame(InboxLimits::MAX_LINKS, $item['documentIds']['maxItems']);
+        self::assertSame(InboxLimits::MAX_CONTEXT_LENGTH, $ask['context']['maxLength']);
+
+        $withdraw = $this->registry->getTool(InboxWithdrawTool::NAME)->tool->inputSchema;
+        self::assertSame(InboxLimits::MAX_WITHDRAW_REASON_LENGTH, $withdraw['properties']['reason']['maxLength']);
+        self::assertSame(['itemId', 'reason'], $withdraw['required']);
     }
 
     public function test_inbox_join_requires_the_item_and_the_session(): void

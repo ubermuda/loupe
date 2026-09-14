@@ -23,6 +23,10 @@ final readonly class MarkInboxItemsObsoleteOnCardMoved
 
     public function __invoke(CardMoved $event): void
     {
-        ($this->markObsolete)(new MarkInboxItemsObsoleteCommand($event->card));
+        if (!$event->card->column->terminal) {
+            return;
+        }
+
+        ($this->markObsolete)(new MarkInboxItemsObsoleteCommand([(string) $event->card->id]));
     }
 }

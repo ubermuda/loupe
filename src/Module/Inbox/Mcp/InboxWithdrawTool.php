@@ -8,9 +8,11 @@ use App\Exception\DomainErrors;
 use App\Mcp\FlagGatedToolInterface;
 use App\Module\Inbox\Command\WithdrawInboxItemCommand;
 use App\Module\Inbox\Command\WithdrawInboxItemHandler;
+use App\Module\Inbox\InboxLimits;
 use App\Module\Inbox\Install\InboxInstallFlags;
 use App\Security\McpBoundProjectVoter;
 use Mcp\Capability\Attribute\McpTool;
+use Mcp\Capability\Attribute\Schema;
 use Mcp\Exception\ToolCallException;
 
 /**
@@ -50,8 +52,11 @@ final readonly class InboxWithdrawTool implements FlagGatedToolInterface
      *
      * @return InboxItemListSummary
      */
-    public function __invoke(string $itemId, string $reason): array
-    {
+    public function __invoke(
+        string $itemId,
+        #[Schema(maxLength: InboxLimits::MAX_WITHDRAW_REASON_LENGTH)]
+        string $reason,
+    ): array {
         $this->gate->requireEnabled();
 
         try {

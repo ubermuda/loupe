@@ -355,7 +355,15 @@ and its items stay open in the inbox.
 
 Every card id and document id an item links to must belong to the token's
 project, or the call is refused. An item closes as `obsolete` when every card it
-links to is moved into a terminal column. Only an open item can be withdrawn.
+links to is moved into a terminal column, by a move or by a column delete. Only
+an open item can be withdrawn.
+
+`inbox_ask` takes at most 20 items in one call. An item takes at most 20
+options, 20 card ids, 20 document ids and a body of 20,000 characters. Its title
+is one line, and its options must differ from each other. The context of an ask
+is at most 10,000 characters, counting what earlier calls appended. A withdraw
+reason is at most 2,000 characters. A second call that names a different
+`bridgeId` from the one the open ask holds is refused.
 
 `MCP_ALLOWED_HOSTS` is a DNS-rebinding allowlist — hostnames only, no port. It
 must contain the hostname agents actually use, or every call is rejected with a

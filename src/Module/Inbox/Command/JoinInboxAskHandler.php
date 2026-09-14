@@ -7,6 +7,8 @@ namespace App\Module\Inbox\Command;
 use App\Exception\DomainErrors;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Repository\InboxItemRepository;
+use App\Module\Inbox\Service\InboxItemCloser;
+use App\Module\Inbox\Service\InboxRefusal;
 use App\Module\Inbox\Service\InboxSessionAsks;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\LockMode;
@@ -21,8 +23,6 @@ use Ubermuda\AuditBundle\AuditSubject;
  */
 final readonly class JoinInboxAskHandler
 {
-    public const string ITEM_NOT_OPEN = 'inbox.item.error.not_open';
-
     public function __construct(
         private InboxItemRepository $inboxItems,
         private InboxSessionAsks $sessionAsks,
@@ -37,17 +37,17 @@ final readonly class JoinInboxAskHandler
         $project = $item->project;
 
         try {
-            $view = $this->em->wrapInTransaction(function () use ($command, $item, $project): JoinInboxAskView|string {
+            $view = $this->em->wrapInTransaction(function () use ($command, $item, $project): JoinInboxAskView|InboxRefusal {
                 // The project first and the item second, the order a card move
                 // takes them in, so the two never wait on each other.
                 $this->em->lock($project, LockMode::PESSIMISTIC_WRITE);
                 if (InboxItemState::Open !== $this->inboxItems->lockedState($item)) {
-                    return self::ITEM_NOT_OPEN;
+                    return new InboxRefusal('itemId', InboxItemCloser::ITEM_NOT_OPEN);
                 }
 
                 $sessionAsk = $this->sessionAsks->openOrExtend($project, $command->sessionId, $command->bridgeId, null);
-                if (null === $sessionAsk) {
-                    return InboxSessionAsks::SESSION_ASK_ELSEWHERE;
+                if ($sessionAsk instanceof InboxRefusal) {
+                    return $sessionAsk;
                 }
 
                 $added = $this->sessionAsks->add($sessionAsk->ask, $item);
@@ -64,11 +64,8 @@ final readonly class JoinInboxAskHandler
             throw new DomainErrors(['sessionId' => InboxSessionAsks::SESSION_ASK_ELSEWHERE]);
         }
 
-        if (InboxSessionAsks::SESSION_ASK_ELSEWHERE === $view) {
-            throw new DomainErrors(['sessionId' => $view]);
-        }
-        if (\is_string($view)) {
-            throw new DomainErrors(['itemId' => $view]);
+        if ($view instanceof InboxRefusal) {
+            throw new DomainErrors([$view->field => $view->key]);
         }
 
         $this->auditor->record(
