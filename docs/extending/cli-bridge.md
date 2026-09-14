@@ -30,11 +30,15 @@ once, with the rules that stop working.
 
 The bridge authenticates with an account-level API token that carries the agent
 scope. Mint one at `/account`. It reaches `GET /api/projects`, `GET /api/events`,
-`GET /api/projects/{handle}/board/columns` and
-`PUT /api/projects/{handle}/bridges/{bridgeId}/rules`, and no other endpoint. A
-project's widget token carries a different scope and the firewall refuses it
-here. The handle is a project id or a project slug. A project name does not
-resolve. The bridge reads the columns by the slug in `rules.yaml`.
+`GET /api/projects/{handle}/board/columns`,
+`POST /api/projects/{handle}/worker-runs` and
+`PUT /api/projects/{handle}/bridges/{bridgeId}/rules`, and no other endpoint.
+The worker runs endpoint records a finished worker run, and the
+[Worker run API](../reference/worker-runs.md) page covers it. The rule health
+endpoint is below. A project's widget token carries a different scope and the
+firewall refuses it here. The handle is a project id or a project slug. A
+project name does not resolve. The bridge reads the columns by the slug in
+`rules.yaml`.
 
 A prompt holds validated identifiers and slugs only, and the bridge adds a fixed
 line that tells the agent to treat the card as data. An event caused by the

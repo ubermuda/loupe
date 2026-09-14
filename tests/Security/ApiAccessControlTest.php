@@ -49,6 +49,7 @@ final class ApiAccessControlTest extends KernelTestCase
         self::assertTrue($this->decide('/api/events', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertTrue($this->decide('/api/projects/loupe/board/columns', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertTrue($this->decide('/api/projects/loupe/bridges/0f6e6b9e-8f1c-4c4e-9a3a-1d2b3c4d5e6f/rules', ['ROLE_USER', 'ROLE_API_AGENT']));
+        self::assertTrue($this->decide('/api/projects/loupe/worker-runs', ['ROLE_USER', 'ROLE_API_AGENT']));
     }
 
     /** The rules rule grants one route, so nothing beside it under a bridge opens. */
@@ -61,6 +62,17 @@ final class ApiAccessControlTest extends KernelTestCase
         self::assertFalse($this->decide('/api/projects/client/app/bridges/'.$bridge.'/rules', self::ALL_ROLES));
         self::assertFalse($this->decide('/api/projects/client%2Fapp/bridges/'.$bridge.'/rules', self::ALL_ROLES));
         self::assertFalse($this->decide('/api/projects/loupe/bridges/'.$bridge.'/rules', ['ROLE_USER', 'ROLE_API_SITE_REVIEW', 'ROLE_API_MCP']));
+    }
+
+    /** The run rule grants one route, so a path near it stays denied by default. */
+    public function test_the_worker_run_rule_does_not_open_the_rest_of_a_project(): void
+    {
+        self::assertFalse($this->decide('/api/projects/loupe/worker-runs/1', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/loupe/worker-runs/', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/client/app/worker-runs', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/client%2Fapp/worker-runs', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/loupe/worker-runs', ['ROLE_USER', 'ROLE_API_SITE_REVIEW']));
+        self::assertFalse($this->decide('/api/projects/loupe/worker-runs', ['ROLE_USER', 'ROLE_API_MCP']));
     }
 
     /**
