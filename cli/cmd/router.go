@@ -37,6 +37,10 @@ type router struct {
 	health  *healthReporter
 	// heartbeat tells Loupe the bridge runs. A nil one sends nothing.
 	heartbeat *heartbeater
+	// checkAsk reads an ask before its session resumes, on the worker goroutine
+	// and never behind the report queue. A nil one resumes with no check.
+	checkAsk     func(ctx context.Context, handle, askID string) (api.AskState, error)
+	checkTimeout time.Duration
 
 	mu sync.Mutex
 	// queue holds the accepted events in arrival order, at most one for each
@@ -53,6 +57,9 @@ type router struct {
 	// inbox is the inbox flag of the last GET /api/events. A worker that starts
 	// while it is on reads both ids in its prompt.
 	inbox bool
+	// sessions maps each session the bridge ran to its key and card. An entry
+	// outlives its worker, because an ask can close before the run report lands.
+	sessions map[string]sessionCard
 
 	// unmapped remembers the projects already logged as unmapped, and gone the
 	// mapped projects already logged as gone. Only the stream goroutine reads
@@ -75,6 +82,17 @@ type pending struct {
 	event    event.Event
 }
 
+// sessionCard is the key a session's worker ran under, and its card when the
+// event named one.
+type sessionCard struct {
+	key    string
+	id     string
+	number int
+}
+
+// askCheckTimeout bounds the ask check. A check that runs out resumes anyway.
+const askCheckTimeout = 10 * time.Second
+
 // keyFor keys the running worker and the chain counters by the subject id,
 // the one identity every event type carries. A card number repeats across
 // projects, and a type this build knows no fields of may carry none.
@@ -82,21 +100,70 @@ func keyFor(e event.Event) string {
 	return e.Subject.ID
 }
 
+// resolve keys an ask on its card, so its resume waits behind any worker of
+// that card. The card comes from the event, else from the session the bridge
+// ran, and the key falls back to the session id. It fills the event's card
+// from the session, so the prompt and the report name it too.
+func (r *router) resolve(e event.Event) (event.Event, string) {
+	if e.Type != event.AskClosedType {
+		return e, keyFor(e)
+	}
+	if e.CardID != "" {
+		return e, e.CardID
+	}
+	r.mu.Lock()
+	s, ok := r.sessions[e.SessionID]
+	r.mu.Unlock()
+	if !ok {
+		return e, e.SessionID
+	}
+	if s.number > 0 {
+		e.CardID, e.CardNumber = s.id, s.number
+	}
+
+	return e, s.key
+}
+
+// cardOf is the card a run of the event reports against. A number below 1
+// means the event names no card.
+func cardOf(e event.Event) (string, int) {
+	if e.Type == event.AskClosedType {
+		return e.CardID, e.CardNumber
+	}
+
+	return e.Subject.ID, e.CardNumber
+}
+
+// askOf is the ask a resume continues, and "" for any other event. Each ask
+// closes once, so a resume never replaces another in the queue.
+func askOf(e event.Event) string {
+	if e.Type == event.AskClosedType {
+		return e.Subject.ID
+	}
+
+	return ""
+}
+
 // label names an event's aggregate to a reader: its card number when the event
 // carries one, and its subject id otherwise.
 func label(e event.Event) (string, any) {
-	if e.Type == event.CardMovedType {
+	if e.Type == event.CardMovedType || (e.Type == event.AskClosedType && e.CardNumber > 0) {
 		return "card", e.CardNumber
 	}
 
 	return "subject", e.Subject.ID
 }
 
-// about names the event's aggregate in a log line.
+// about names the event's aggregate in a log line, and a resume's ask and
+// session.
 func about(e event.Event, rule string) []any {
 	k, v := label(e)
+	out := []any{k, v, "project", e.ProjectID, "rule", rule}
+	if e.Type == event.AskClosedType {
+		out = append(out, "ask", e.Subject.ID, "session_id", e.SessionID)
+	}
 
-	return []any{k, v, "project", e.ProjectID, "rule", rule}
+	return out
 }
 
 // aggregate names the event's aggregate in a sentence.
@@ -128,6 +195,12 @@ func (r *router) onData(data []byte) {
 
 		return
 	}
+	// Only the bridge that started a session can resume it, and every bridge of
+	// the account receives the event.
+	if e.Type == event.AskClosedType && (e.BridgeID == "" || !strings.EqualFold(e.BridgeID, r.bridgeID)) {
+		return
+	}
+	e, key := r.resolve(e)
 
 	// A slug change is a person's action, not a directive to an agent, so it
 	// kills rules whatever its actor. Matching then goes on as for any event.
@@ -144,7 +217,7 @@ func (r *router) onData(data []byte) {
 	// waits for. Any event of theirs that parsed counts, matched or not.
 	if e.Actor == event.ActorHuman {
 		r.mu.Lock()
-		delete(r.chains, keyFor(e))
+		delete(r.chains, key)
 		r.mu.Unlock()
 	}
 
@@ -152,10 +225,10 @@ func (r *router) onData(data []byte) {
 	switch m.Skip {
 	case rules.Run:
 		r.enqueue(pending{
-			key:      keyFor(e),
+			key:      key,
 			rule:     m.Rule,
 			maxChain: m.MaxChain,
-			spec:     workerSpec{dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, prompt: m.Prompt},
+			spec:     workerSpec{dir: m.Dir, permissionMode: m.PermissionMode, model: m.Model, prompt: m.Prompt, resume: m.Resume},
 			event:    e,
 		})
 	case rules.Untrusted:
@@ -287,7 +360,9 @@ func (r *router) enqueue(p pending) {
 
 		return
 	}
-	if i := slices.IndexFunc(r.queue, func(q pending) bool { return q.key == p.key && q.rule == p.rule }); i >= 0 {
+	if i := slices.IndexFunc(r.queue, func(q pending) bool {
+		return q.key == p.key && q.rule == p.rule && askOf(q.event) == askOf(p.event)
+	}); i >= 0 {
 		r.queue[i] = p
 		r.log.Info("worker_coalesced", about(p.event, p.rule)...)
 		r.mu.Unlock()
@@ -335,7 +410,8 @@ func (r *router) dispatchLocked() []pending {
 			r.running = map[string]bool{}
 		}
 		r.running[next.key] = true
-		if next.event.Actor == event.ActorAgent {
+		// A resume counts once its check lets it run, because a skip is no run.
+		if next.event.Actor == event.ActorAgent && !next.spec.resume {
 			r.countChain(next.key, next.rule)
 		}
 		r.start(next)
@@ -364,21 +440,89 @@ func (r *router) countChain(key, rule string) {
 // admits the next worker runs before wg.Done, so a waiter never sees the count
 // reach zero between two queued workers.
 func (r *router) start(p pending) {
-	p.spec.sessionID = r.worker.sessionID()
+	if p.spec.resume {
+		p.spec.sessionID = p.event.SessionID
+	} else {
+		p.spec.sessionID = r.worker.sessionID()
+		r.log.Info("worker_started", append(about(p.event, p.rule), "session_id", p.spec.sessionID)...)
+	}
 	if r.inbox {
 		p.spec.prompt += "\n" + directive.InboxLine(p.spec.sessionID, r.bridgeID)
 	}
-	r.log.Info("worker_started", append(about(p.event, p.rule), "session_id", p.spec.sessionID)...)
+	id, number := cardOf(p.event)
+	if r.sessions == nil {
+		r.sessions = map[string]sessionCard{}
+	}
+	r.sessions[p.spec.sessionID] = sessionCard{key: p.key, id: id, number: number}
 
 	r.wg.Add(1)
 	go func() {
 		defer r.wg.Done()
+
+		if p.spec.resume && !r.admitResume(p) {
+			r.finish(p.key)
+
+			return
+		}
 
 		began := time.Now()
 		res := r.worker.run(r.workerContext(), p.spec)
 		r.report(p, res, began, time.Since(began))
 		r.finish(p.key)
 	}()
+}
+
+// admitResume checks the ask of a resume the queue released, on the worker
+// goroutine. It says no when the session read every item of its closed ask, or
+// when the bridge stops during the check. Any failed check resumes, so a fault
+// never loses a resume. It logs worker_started for a resume it admits.
+func (r *router) admitResume(p pending) bool {
+	if r.checkAsk != nil {
+		timeout := r.checkTimeout
+		if timeout <= 0 {
+			timeout = askCheckTimeout
+		}
+		ctx, cancel := context.WithTimeout(r.workerContext(), timeout)
+		state, err := r.checkAsk(ctx, p.event.ProjectID, p.event.Subject.ID)
+		cancel()
+
+		switch {
+		case r.workerContext().Err() != nil:
+			r.logDropped([]pending{p})
+
+			return false
+		case err != nil:
+			r.log.Warn("resume_check_failed", append(about(p.event, p.rule),
+				"error", err.Error(),
+				"message", "the bridge could not check the ask, so it resumes the session anyway",
+			)...)
+		case state.Closed && state.AllRead:
+			r.log.Info("resume_skipped", append(about(p.event, p.rule),
+				"message", "the session already read every item of its ask",
+			)...)
+
+			return false
+		}
+	}
+
+	// Asks never coalesce, so several agent closes can pass the cap at enqueue
+	// and wait together. The cap is read again here.
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if p.event.Actor == event.ActorAgent {
+		if r.chains[p.key][p.rule] >= p.maxChain {
+			r.log.Warn("chain_capped", append(about(p.event, p.rule),
+				"max_chain", p.maxChain,
+				"message", fmt.Sprintf("%s hit the chain cap of rule %s, waiting for a person", aggregate(p.event), p.rule),
+			)...)
+
+			return false
+		}
+		r.countChain(p.key, p.rule)
+	}
+	r.log.Info("worker_started", about(p.event, p.rule)...)
+
+	return true
 }
 
 // finish frees the slot and the card, and starts what waits, in one critical
@@ -445,7 +589,8 @@ func (r *router) enqueueReport(p pending, res workerResult, began time.Time, ela
 	if r.reports == nil {
 		return
 	}
-	if p.event.CardNumber < 1 {
+	cardID, cardNumber := cardOf(p.event)
+	if cardNumber < 1 {
 		r.log.Warn("report_skipped", append(about(p.event, p.rule),
 			"message", "Loupe records a run against a card, and this event names none",
 		)...)
@@ -456,8 +601,8 @@ func (r *router) enqueueReport(p pending, res workerResult, began time.Time, ela
 	run := api.WorkerRun{
 		BridgeID:   r.bridgeID,
 		SessionID:  p.spec.sessionID,
-		CardID:     p.event.Subject.ID,
-		CardNumber: p.event.CardNumber,
+		CardID:     cardID,
+		CardNumber: cardNumber,
 		RuleName:   p.rule,
 		StartedAt:  began,
 		EndedAt:    began.Add(elapsed),

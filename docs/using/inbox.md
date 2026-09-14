@@ -94,8 +94,10 @@ One item can sit in several asks. Your response then counts toward each of
 them, and each ask closes when nothing in it blocks any more.
 
 When the ask came from a session that the command-line bridge started, Loupe
-also tells that bridge. See
-[The inbox.ask_closed event](../extending/cli-bridge.md#the-inboxask_closed-event).
+also tells that bridge. A bridge rule with `resume: true` then continues that
+session, and the agent reads your answers. See
+[The inbox.ask_closed event](../extending/cli-bridge.md#the-inboxask_closed-event)
+and [Resume action](../extending/cli-bridge.md#resume-action).
 
 ## The projects list
 

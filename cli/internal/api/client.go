@@ -515,6 +515,72 @@ func (c *Client) Heartbeat(ctx context.Context, bridgeID string, hb Heartbeat) e
 	}
 }
 
+// AskState is the answer of GET /api/projects/{handle}/inbox/asks/{askId}.
+type AskState struct {
+	AskID   string `json:"askId"`
+	Closed  bool   `json:"closed"`
+	AllRead bool   `json:"allRead"`
+}
+
+// ErrAskNotFound marks a project that holds no ask with that id.
+var ErrAskNotFound = errors.New("ask not found")
+
+// CheckAsk reads whether an ask closed and whether its session read every item.
+// An answer that does not state both booleans for this ask is an error.
+func (c *Client) CheckAsk(ctx context.Context, handle, askID string) (AskState, error) {
+	var out AskState
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		c.baseURL+"/api/projects/"+url.PathEscape(handle)+"/inbox/asks/"+url.PathEscape(askID), nil)
+	if err != nil {
+		return out, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return out, fmt.Errorf("check ask %s: %w", askID, err)
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusNotFound:
+		var payload struct {
+			Error string `json:"error"`
+		}
+		_ = json.NewDecoder(io.LimitReader(resp.Body, 4096)).Decode(&payload)
+		switch payload.Error {
+		case "ask_not_found":
+			return out, fmt.Errorf("%w: %s", ErrAskNotFound, askID)
+		case "project_not_found":
+			return out, fmt.Errorf("%w: %s", ErrProjectNotFound, handle)
+		default:
+			return out, errors.New("the server has no ask check endpoint, or the inbox is switched off")
+		}
+	default:
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return out, fmt.Errorf("ask check failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var raw struct {
+		AskID   string `json:"askId"`
+		Closed  *bool  `json:"closed"`
+		AllRead *bool  `json:"allRead"`
+	}
+	if err := decodeBody(resp.Body, &raw); err != nil {
+		return out, fmt.Errorf("decode the check of ask %s: %w", askID, err)
+	}
+	if raw.Closed == nil || raw.AllRead == nil {
+		return out, fmt.Errorf("the check of ask %s does not state closed and allRead", askID)
+	}
+	if !strings.EqualFold(raw.AskID, askID) {
+		return out, fmt.Errorf("the check of ask %s answers for another ask, %q", askID, raw.AskID)
+	}
+
+	return AskState{AskID: raw.AskID, Closed: *raw.Closed, AllRead: *raw.AllRead}, nil
+}
+
 // clip cuts s to at most limit characters. The server counts characters, so a
 // byte count would cut a value that holds a multi-byte character too short.
 func clip(s string, limit int) string {
