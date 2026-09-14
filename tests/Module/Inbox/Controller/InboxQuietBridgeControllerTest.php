@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Inbox\Controller;
 
+use App\Module\Account\Entity\ApiToken;
+use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\Bridge;
+use App\Module\Bridge\Service\HeartbeatInterval;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Project\Entity\Project;
@@ -19,13 +22,15 @@ use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Profiler\Profile;
 use Symfony\Component\Uid\Uuid;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
-/** The heartbeat interval stays at its 60-second default, so a bridge goes quiet after 180 seconds. */
+/** Unless a test lowers it, the heartbeat interval stays at its 60-second default, so a bridge goes quiet after 180 seconds. */
 final class InboxQuietBridgeControllerTest extends WebTestCase
 {
     use InboxScenario;
 
-    private const string NOW = '2026-09-14 16:00:00';
+    /** Far from the real clock, so a page that reads the real time instead of the injected clock cannot pass. */
+    private const string NOW = '2031-03-02 09:00:00';
     private const int QUIET_AFTER_SECONDS = 180;
 
     private KernelBrowser $client;
@@ -80,6 +85,42 @@ final class InboxQuietBridgeControllerTest extends WebTestCase
         self::assertSame('quiet', $status->attr('data-inbox-bridge'));
         self::assertStringContainsString('3m ago', $status->text());
         self::assertStringContainsString('No resume will come while the bridge stays quiet.', $status->text());
+    }
+
+    /** A running bridge keeps the interval it read at its last reconnect, so a lowered flag must not make it look quiet. */
+    public function test_a_lowered_interval_does_not_shorten_the_warning_below_the_default(): void
+    {
+        $flags = static::getContainer()->get(FeatureFlagRepository::class);
+        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
+        $flags->findAllIndexed()[HeartbeatInterval::FLAG]->value = 20;
+        $this->em->flush();
+        $ask = $this->openAsk($bridgeId = Uuid::v4());
+        $this->bridgeSeenSecondsAgo($this->owner, $bridgeId, 100);
+
+        $status = $this->bridgeStatusOf($this->page(), $ask);
+
+        self::assertSame('heard', $status->attr('data-inbox-bridge'));
+    }
+
+    /** The heartbeat endpoint writes the row the page reads, keyed by the token's owner. */
+    public function test_a_heartbeat_sent_through_the_endpoint_marks_the_ask_heard(): void
+    {
+        $ask = $this->openAsk($bridgeId = Uuid::v4());
+        [$token, $raw] = ApiToken::issue($this->owner, 'bridge', ApiTokenScope::Agent);
+        $this->em->persist($token);
+        $this->em->flush();
+
+        $this->client->request(
+            Request::METHOD_PUT,
+            '/api/bridges/'.$bridgeId->toRfc4122().'/heartbeat',
+            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw, 'CONTENT_TYPE' => 'application/json', 'HTTP_ACCEPT' => 'application/json'],
+            content: json_encode(['projects' => [(string) $this->project->id], 'cliVersion' => 'b4e39aa7'], \JSON_THROW_ON_ERROR),
+        );
+        self::assertResponseStatusCodeSame(204);
+
+        $status = $this->bridgeStatusOf($this->page(), $ask);
+
+        self::assertSame('heard', $status->attr('data-inbox-bridge'));
     }
 
     public function test_a_bridge_with_no_row_warns(): void
@@ -143,19 +184,43 @@ final class InboxQuietBridgeControllerTest extends WebTestCase
         $page = $this->page();
 
         self::assertCount(3, $page->filter('[data-inbox-bridge]'));
+        self::assertSame(1, $this->bridgeReads());
+    }
+
+    public function test_no_bridge_query_runs_when_no_open_ask_names_a_bridge(): void
+    {
+        $bridgeId = Uuid::v4();
+        $this->bridgeSeenSecondsAgo($this->owner, $bridgeId, 30);
+        $interactive = $this->openAsk(null);
+        $this->ask($bridgeId, new \DateTimeImmutable(self::NOW.' -1 minute'));
+
+        $this->client->enableProfiler();
+        $page = $this->page();
+
+        self::assertCount(1, $this->block($page, $interactive));
+        self::assertSame(0, $this->bridgeReads());
+    }
+
+    /** Counts the page's reads of the bridges table, after checking the profiler saw queries at all. */
+    private function bridgeReads(): int
+    {
         $profile = $this->client->getProfile();
         self::assertInstanceOf(Profile::class, $profile);
         $collector = $profile->getCollector('db');
         self::assertInstanceOf(DoctrineDataCollector::class, $collector);
+        $all = 0;
         $bridgeReads = 0;
         foreach ($collector->getQueries() as $queries) {
             foreach ($queries as $query) {
+                ++$all;
                 if (str_contains((string) $query['sql'], 'FROM bridges')) {
                     ++$bridgeReads;
                 }
             }
         }
-        self::assertSame(1, $bridgeReads);
+        self::assertGreaterThan(0, $all);
+
+        return $bridgeReads;
     }
 
     private function openAsk(?Uuid $bridgeId): InboxAsk

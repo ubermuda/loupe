@@ -81,7 +81,8 @@ final readonly class InboxDetailView
             return null;
         }
 
-        return $this->bridgeStatuses[$ask->bridgeId->toRfc4122()] ?? null;
+        return $this->bridgeStatuses[$ask->bridgeId->toRfc4122()]
+            ?? throw new \LogicException('The inbox handler reads the bridge of every open ask on the page.');
     }
 
     public function isEmpty(): bool

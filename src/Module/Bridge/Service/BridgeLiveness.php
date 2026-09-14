@@ -8,6 +8,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Repository\BridgeRepository;
 use App\Module\Bridge\View\BridgeStatus;
 use Psr\Clock\ClockInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Uid\Uuid;
 
 /** Says whether an owner's bridges still send their heartbeat. */
@@ -20,6 +21,9 @@ final readonly class BridgeLiveness
         private BridgeRepository $bridges,
         private HeartbeatInterval $heartbeatInterval,
         private ClockInterface $clock,
+
+        #[Autowire(param: 'app.bridge.heartbeat_interval_seconds')]
+        private int $defaultInterval,
     ) {
     }
 
@@ -40,7 +44,8 @@ final readonly class BridgeLiveness
             $lastSeen[$bridge->id->toRfc4122()] = $bridge->lastSeenAt;
         }
 
-        $quietAfter = self::QUIET_AFTER_INTERVALS * $this->heartbeatInterval->seconds();
+        // A running bridge keeps the interval it read at its last reconnect, so a lowered flag cannot shorten the wait.
+        $quietAfter = self::QUIET_AFTER_INTERVALS * max($this->heartbeatInterval->seconds(), $this->defaultInterval);
         $statuses = [];
         foreach ($bridgeIds as $bridgeId) {
             $seenAt = $lastSeen[$bridgeId->toRfc4122()] ?? null;
