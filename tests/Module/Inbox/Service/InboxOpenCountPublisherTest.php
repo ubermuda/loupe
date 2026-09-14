@@ -12,7 +12,6 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
-use App\Module\Board\Event\CardMoved;
 use App\Module\Inbox\Command\AnswerInboxItemCommand;
 use App\Module\Inbox\Command\AnswerInboxItemHandler;
 use App\Module\Inbox\Command\AskInboxCommand;
@@ -31,7 +30,6 @@ use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Install\InboxInstallFlags;
-use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\Service\InboxOpenCountPublisher;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Inbox\InboxFixtures;
@@ -40,7 +38,6 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Events;
 use Monolog\Handler\TestHandler;
 use Monolog\Logger;
-use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -171,33 +168,6 @@ final class InboxOpenCountPublisherTest extends KernelTestCase
         $this->assertPublishedAtTerminate(1);
     }
 
-    public function test_a_card_move_that_rolls_back_publishes_nothing(): void
-    {
-        $card = $this->card($this->em, $this->project);
-        $item = $this->linkedItem(1, $card);
-        $this->em->flush();
-
-        $dispatcher = self::getContainer()->get('event_dispatcher');
-        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
-        $closedFirst = false;
-        // After the obsolete listener, so the item closes before the move fails.
-        $dispatcher->addListener(CardMoved::class, function () use ($item, &$closedFirst): never {
-            $closedFirst = InboxItemState::Obsolete === $item->state;
-
-            throw new \RuntimeException('the move failed after the item closed');
-        }, -100);
-
-        try {
-            $this->move($card, 'done');
-            self::fail('a failed move must propagate');
-        } catch (\RuntimeException $e) {
-            self::assertSame('the move failed after the item closed', $e->getMessage());
-        }
-
-        self::assertTrue($closedFirst);
-        $this->assertNothingPublishedAndStillOpen($item);
-    }
-
     public function test_an_answer_that_rolls_back_publishes_nothing(): void
     {
         $item = $this->item($this->em, $this->project, 1);
@@ -239,18 +209,25 @@ final class InboxOpenCountPublisherTest extends KernelTestCase
 
     public function test_with_live_updates_off_it_neither_builds_the_hub_nor_publishes(): void
     {
+        $log = new TestHandler();
+        $hubBuilt = false;
         $publisher = new InboxOpenCountPublisher(
             $this->topics(),
-            $this->service(InboxItemRepository::class),
             FeatureFlags::service([LiveUpdates::FLAG => false, InboxInstallFlags::FLAG_INBOX_ENABLED => true]),
-            new NullLogger(),
-            static fn (): HubInterface => throw new \LogicException('the hub must not be built with live updates off'),
+            new Logger('test', [$log]),
+            function () use (&$hubBuilt): HubInterface {
+                $hubBuilt = true;
+
+                return $this->recordingHub();
+            },
         );
 
         $publisher->countChanged($this->project);
         $publisher->publish();
 
+        self::assertFalse($hubBuilt);
         self::assertCount(0, $this->published);
+        self::assertSame([], $log->getRecords());
     }
 
     public function test_a_hub_that_fails_is_logged_and_the_change_stands(): void
@@ -258,7 +235,6 @@ final class InboxOpenCountPublisherTest extends KernelTestCase
         $log = new TestHandler();
         $publisher = new InboxOpenCountPublisher(
             $this->topics(),
-            $this->service(InboxItemRepository::class),
             FeatureFlags::service([LiveUpdates::FLAG => true]),
             new Logger('test', [$log]),
             static fn (): HubInterface => new MockHub(

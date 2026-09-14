@@ -18,8 +18,7 @@ use App\Module\Inbox\Service\InboxOpenCountPublisher;
  *
  * The caller holds the transaction of the move and flushes it, so this neither
  * opens a transaction nor flushes. It records no audit entry, because a record
- * written inside that transaction would outlive a rollback. The live count checks
- * at terminate that the close committed.
+ * written inside that transaction would outlive a rollback.
  */
 final readonly class MarkInboxItemsObsoleteHandler
 {
@@ -43,7 +42,11 @@ final readonly class MarkInboxItemsObsoleteHandler
             $this->inboxItems->findOpenWithEveryCardFinished($command->cardIds),
             fn (InboxItem $item): bool => $this->closer->close($item, InboxItemState::Obsolete, null, $now),
         ));
-        $this->openCount->closedBeforeCommit($closed);
+        foreach ($closed as $item) {
+            // Signalled before the move commits. The signal holds no count, so after a
+            // rollback the pill only reloads the count as it stands.
+            $this->openCount->countChanged($item->project);
+        }
 
         return $closed;
     }

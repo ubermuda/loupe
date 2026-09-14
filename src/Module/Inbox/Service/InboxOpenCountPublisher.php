@@ -6,8 +6,6 @@ namespace App\Module\Inbox\Service;
 
 use App\Mercure\LiveUpdates;
 use App\Mercure\UserTopicBuilder;
-use App\Module\Inbox\Entity\InboxItem;
-use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Project\Entity\Project;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\ConsoleEvents;
@@ -32,7 +30,7 @@ final class InboxOpenCountPublisher implements ResetInterface
 {
     public const string TYPE = 'inbox.open_count_changed';
 
-    /** @var array<string, array{projectId: Uuid, ownerId: Uuid, confirm: list<string>|null}> */
+    /** @var array<string, array{projectId: Uuid, ownerId: Uuid}> */
     private array $pending = [];
 
     /**
@@ -42,7 +40,6 @@ final class InboxOpenCountPublisher implements ResetInterface
      */
     public function __construct(
         private readonly UserTopicBuilder $topics,
-        private readonly InboxItemRepository $inboxItems,
         private readonly FeatureFlagService $featureFlags,
         private readonly LoggerInterface $logger,
 
@@ -51,24 +48,17 @@ final class InboxOpenCountPublisher implements ResetInterface
     ) {
     }
 
-    /** An item of the project opened or closed in a transaction that has committed. */
+    /**
+     * An item of the project opened or closed. Ids only are kept: after a
+     * rollback the EntityManager is closed and cannot load the owner.
+     */
     public function countChanged(Project $project): void
     {
-        $this->record($project, null);
-    }
-
-    /**
-     * The items closed inside a transaction the caller does not own. The count
-     * publishes only when one of them reads closed at terminate, so a rollback
-     * publishes nothing.
-     *
-     * @param list<InboxItem> $items
-     */
-    public function closedBeforeCommit(array $items): void
-    {
-        foreach ($items as $item) {
-            $this->record($item->project, (string) $item->id);
-        }
+        $projectId = $project->id ?? throw new \LogicException('Project has no id.');
+        $this->pending[(string) $projectId] ??= [
+            'projectId' => $projectId,
+            'ownerId' => $project->owner->id ?? throw new \LogicException('Project owner has no id.'),
+        ];
     }
 
     #[AsEventListener(KernelEvents::TERMINATE)]
@@ -83,10 +73,6 @@ final class InboxOpenCountPublisher implements ResetInterface
 
         foreach ($pending as $entry) {
             try {
-                if (null !== $entry['confirm'] && [] !== $entry['confirm'] && !$this->inboxItems->anyStoredClosed($entry['confirm'])) {
-                    continue;
-                }
-
                 ($this->hub)()->publish(new Update(
                     $this->topics->forInbox($entry['ownerId']),
                     json_encode(['type' => self::TYPE, 'projectId' => (string) $entry['projectId']], \JSON_THROW_ON_ERROR),
@@ -105,26 +91,5 @@ final class InboxOpenCountPublisher implements ResetInterface
     public function reset(): void
     {
         $this->pending = [];
-    }
-
-    /** Scalars only: after a rollback the EntityManager is closed and cannot load the owner. */
-    private function record(Project $project, ?string $closedItemId): void
-    {
-        $projectId = $project->id ?? throw new \LogicException('Project has no id.');
-        $key = (string) $projectId;
-        $entry = $this->pending[$key] ?? [
-            'projectId' => $projectId,
-            'ownerId' => $project->owner->id ?? throw new \LogicException('Project owner has no id.'),
-            'confirm' => [],
-        ];
-
-        // A committed change needs no confirmation, whatever else the request closed.
-        if (null === $closedItemId || null === $entry['confirm']) {
-            $entry['confirm'] = null;
-        } else {
-            $entry['confirm'][] = $closedItemId;
-        }
-
-        $this->pending[$key] = $entry;
     }
 }
