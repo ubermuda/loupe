@@ -365,7 +365,7 @@ itself.
 
 The interval comes from `bridge.heartbeat_interval_seconds` in the `flags` map,
 60 seconds by default. The bridge falls back to 60 seconds when the map has no
-such key, or when its value is not a whole number above zero. It reads the map
+such key, or when its value is not a whole number of at least 10. It reads the map
 again at each reconnect. A new interval takes effect at once, and the bridge
 logs `heartbeat_interval_changed`.
 
@@ -376,12 +376,13 @@ therefore writes no line a minute.
 
 A server that answers 404 has no heartbeat endpoint, or has agent push switched
 off. The bridge logs `heartbeat_unsupported` once and keeps working. It keeps
-sending, so an upgraded server hears from it with no restart.
+sending, so an upgraded server hears from it with no restart. The first
+heartbeat that lands after that logs `heartbeat_sent` once. A later 404 logs
+`heartbeat_unsupported` again.
 
 The heartbeat names the bridge by the same `bridgeId` as the rule health report.
-A server that already holds that id for another account answers as if it took
-the heartbeat, and writes nothing. That happens when two accounts share one
-config directory. Stopping the bridge stops the heartbeat.
+The server keys the row by the account and that id, so two accounts that share
+one config directory each keep a row. Stopping the bridge stops the heartbeat.
 
 ### Output
 
@@ -421,7 +422,7 @@ names `card`, or `subject` for an event with no card number.
 | `rule_dead` | `rule`, `project`, `project_slug`, `reason`, `message`: a column or project change killed the rule. Level `ERROR` |
 | `report_sent` | `project`, `project_slug`, `rules`, `dead`: the server stored the rule health report of that project |
 | `report_failed` | `project`, `project_slug`, `error`, `retry`, `retry_in_ms` when `retry` is true, and `message` when the fix is yours |
-| `heartbeat_sent` | `bridge_id`, `interval_seconds`, `failed_before`: the first heartbeat that lands, and the one that ends a run of failures |
+| `heartbeat_sent` | `bridge_id`, `interval_seconds`, `failed_before`: the first heartbeat that lands, and the one that ends a run of failures or of 404 answers |
 | `heartbeat_failed` | `error`, `retry_in_seconds`: the first failure of a run. Level `WARN` |
 | `heartbeat_unsupported` | `error`, `message`: the server answered 404, logged once. Level `WARN` |
 | `heartbeat_interval_changed` | `interval_seconds`: a reconnect brought a new interval |

@@ -473,10 +473,6 @@ type Heartbeat struct {
 // maxCLIVersion is the server's cap on the version, which it measures trimmed.
 const maxCLIVersion = 100
 
-// ErrHeartbeatRefused marks a heartbeat the server refuses again for the same
-// reason: a token it will not take, or a body it reads as invalid.
-var ErrHeartbeatRefused = errors.New("the server refused the heartbeat")
-
 // ErrHeartbeatMissing marks a 404, which is the answer of a server that
 // predates the heartbeat or has agent push switched off. The route sends no
 // error code, so the two read the same.
@@ -514,10 +510,6 @@ func (c *Client) Heartbeat(ctx context.Context, bridgeID string, hb Heartbeat) e
 		return nil
 	case resp.StatusCode == http.StatusNotFound:
 		return ErrHeartbeatMissing
-	case resp.StatusCode == http.StatusTooManyRequests, resp.StatusCode == http.StatusRequestTimeout:
-		return fmt.Errorf("heartbeat not taken yet (HTTP %d)", resp.StatusCode)
-	case resp.StatusCode >= 400 && resp.StatusCode < 500:
-		return fmt.Errorf("%w (HTTP %d): %s", ErrHeartbeatRefused, resp.StatusCode, strings.TrimSpace(string(detail)))
 	default:
 		return fmt.Errorf("heartbeat failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(detail)))
 	}

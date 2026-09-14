@@ -14,6 +14,10 @@ import (
 // which is what a server older than the flag does.
 const defaultHeartbeatInterval = time.Minute
 
+// minHeartbeatSeconds is the server's own floor. A shorter interval lets one
+// bridge spend most of its token's rate limit.
+const minHeartbeatSeconds = 10
+
 // heartbeatSender sends one heartbeat. *api.Client is one.
 type heartbeatSender interface {
 	Heartbeat(ctx context.Context, bridgeID string, hb api.Heartbeat) error
@@ -59,9 +63,9 @@ func newHeartbeater(ctx context.Context, client heartbeatSender, bridgeID string
 }
 
 // heartbeatInterval reads the interval from a GET /api/events answer, and falls
-// back when the flag is missing or holds no positive whole number.
+// back when the flag is missing or holds no whole number of at least ten.
 func heartbeatInterval(events api.Events) time.Duration {
-	if seconds, ok := events.Seconds(api.HeartbeatIntervalFlag); ok {
+	if seconds, ok := events.Seconds(api.HeartbeatIntervalFlag); ok && seconds >= minHeartbeatSeconds {
 		return time.Duration(seconds) * time.Second
 	}
 
@@ -121,16 +125,16 @@ func (h *heartbeater) loop() {
 }
 
 // send posts one heartbeat and logs only what an operator acts on: the first
-// one that lands, a server with no endpoint once, and each failure streak at
-// its start and at its end.
+// one that lands, each run of 404 answers once, and each failure streak at its
+// start and at its end.
 func (h *heartbeater) send() {
 	err := h.client.Heartbeat(h.ctx, h.bridgeID, h.body)
 	switch {
 	case err == nil:
-		if !h.sent || h.failed > 0 {
+		if !h.sent || h.failed > 0 || h.unsupported {
 			h.log.Info("heartbeat_sent", "bridge_id", h.bridgeID, "interval_seconds", int(h.currentInterval()/time.Second), "failed_before", h.failed)
 		}
-		h.sent, h.failed = true, 0
+		h.sent, h.failed, h.unsupported = true, 0, false
 	case h.ctx.Err() != nil:
 	case errors.Is(err, api.ErrHeartbeatMissing):
 		if !h.unsupported {

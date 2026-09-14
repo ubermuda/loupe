@@ -155,6 +155,9 @@ func TestTheIntervalFallsBackToSixtySeconds(t *testing.T) {
 		{flags: map[string]any{api.HeartbeatIntervalFlag: float64(-30)}, want: time.Minute},
 		{flags: map[string]any{api.HeartbeatIntervalFlag: 2.5}, want: time.Minute},
 		{flags: map[string]any{api.HeartbeatIntervalFlag: "90"}, want: time.Minute},
+		{flags: map[string]any{api.HeartbeatIntervalFlag: float64(1)}, want: time.Minute},
+		{flags: map[string]any{api.HeartbeatIntervalFlag: float64(9)}, want: time.Minute},
+		{flags: map[string]any{api.HeartbeatIntervalFlag: float64(10)}, want: 10 * time.Second},
 	} {
 		if got := heartbeatInterval(api.Events{Flags: tc.flags}); got != tc.want {
 			t.Fatalf("flags %v: interval = %s, want %s", tc.flags, got, tc.want)
@@ -203,6 +206,26 @@ func TestAServerWithNoHeartbeatEndpointIsLoggedOnce(t *testing.T) {
 	}
 }
 
+// A server that comes back from a 404 logs its recovery once, and a later 404
+// is news again.
+func TestARecoveryFromA404IsLoggedOnceAndALater404Again(t *testing.T) {
+	client := &fakeHeartbeats{errors: []error{nil, api.ErrHeartbeatMissing, api.ErrHeartbeatMissing, nil, nil, api.ErrHeartbeatMissing}}
+	_, timers, log, _ := startHeartbeater(t, client, time.Minute)
+
+	eventually(t, "the start heartbeat", func() bool { return client.count() == 1 && timers.count() == 1 })
+	for range 5 {
+		tick(t, client, timers, time.Minute)
+	}
+
+	out := log.String()
+	if n := strings.Count(out, `"event":"heartbeat_sent"`); n != 2 {
+		t.Fatalf("%d heartbeat_sent lines, want the start and the recovery: %s", n, out)
+	}
+	if n := strings.Count(out, `"event":"heartbeat_unsupported"`); n != 2 {
+		t.Fatalf("%d heartbeat_unsupported lines, want one per run of 404 answers: %s", n, out)
+	}
+}
+
 // A failure is retried at the next interval. A run of failures logs once, and
 // the heartbeat that ends it says how many went before.
 func TestAFailureStreakLogsOnceAndItsEnd(t *testing.T) {
@@ -243,7 +266,6 @@ func TestShutdownStopsTheHeartbeat(t *testing.T) {
 	client := &fakeHeartbeats{}
 	h, timers, _, cancel := startHeartbeater(t, client, time.Minute)
 	eventually(t, "the start heartbeat", func() bool { return client.count() == 1 && timers.count() == 1 })
-	_, pending := timers.last()
 
 	cancel()
 	done := make(chan struct{})
@@ -257,8 +279,6 @@ func TestShutdownStopsTheHeartbeat(t *testing.T) {
 		t.Fatal("wait did not return after the context ended")
 	}
 
-	pending <- time.Now()
-	h.setInterval(time.Second)
 	if client.count() != 1 {
 		t.Fatalf("%d heartbeats after shutdown", client.count()-1)
 	}

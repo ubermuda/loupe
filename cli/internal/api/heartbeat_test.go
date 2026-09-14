@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -59,15 +61,14 @@ func TestHeartbeatSortsEachAnswer(t *testing.T) {
 		status  int
 		body    string
 		missing bool
-		refused bool
 		ok      bool
 	}{
 		{status: http.StatusNoContent, ok: true},
 		{status: http.StatusNotFound, missing: true},
 		{status: http.StatusNotFound, body: `{"error":"something_else"}`, missing: true},
-		{status: http.StatusUnauthorized, refused: true},
-		{status: http.StatusForbidden, body: `{"error":"insufficient_scope"}`, refused: true},
-		{status: http.StatusUnprocessableEntity, refused: true},
+		{status: http.StatusUnauthorized},
+		{status: http.StatusForbidden, body: `{"error":"insufficient_scope"}`},
+		{status: http.StatusUnprocessableEntity},
 		{status: http.StatusTooManyRequests},
 		{status: http.StatusInternalServerError},
 	} {
@@ -79,8 +80,11 @@ func TestHeartbeatSortsEachAnswer(t *testing.T) {
 		err := New(server.URL, "t", server.Client()).Heartbeat(context.Background(), heartbeatBridgeID, Heartbeat{CLIVersion: "v"})
 		server.Close()
 
-		if tc.ok != (err == nil) || tc.missing != errors.Is(err, ErrHeartbeatMissing) || tc.refused != errors.Is(err, ErrHeartbeatRefused) {
+		if tc.ok != (err == nil) || tc.missing != errors.Is(err, ErrHeartbeatMissing) {
 			t.Fatalf("HTTP %d %s: err = %v", tc.status, tc.body, err)
+		}
+		if !tc.ok && !strings.Contains(err.Error(), strconv.Itoa(tc.status)) && !tc.missing {
+			t.Fatalf("HTTP %d: the error does not name the status: %v", tc.status, err)
 		}
 	}
 }
