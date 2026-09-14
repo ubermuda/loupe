@@ -25,8 +25,8 @@
                 {% endfor %}
             </ul>
         {% endif %}
-        {% if item.answerText %}<p class="lp-inbox-item__answer-text">{{ item.answerText }}</p>{% endif %}
-        {% if item.closeNote %}<p class="lp-inbox-item__note">{{ item.closeNote }}</p>{% endif %}
+        {% if item.answerText is not null %}<p class="lp-inbox-item__answer-text">{{ item.answerText }}</p>{% endif %}
+        {% if item.closeNote is not null %}<p class="lp-inbox-item__note">{{ item.closeNote }}</p>{% endif %}
         <p class="lp-inbox-item__editable" data-inbox-editable="{{ inbox.acceptsResponse(item) ? 'yes' : 'no' }}">
             {%- if item.state.value in ['withdrawn', 'obsolete'] -%}
                 {{ 'inbox.item.closed_by_agent'|trans }}

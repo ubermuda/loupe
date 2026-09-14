@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Inbox\Controller;
 
 use App\Module\Inbox\Command\ShowInboxHandler;
+use App\Module\Inbox\Entity\InboxItemState;
 use App\Tests\Module\Inbox\InboxScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -148,6 +149,23 @@ final class ShowInboxControllerTest extends WebTestCase
         self::assertSame('no', $crawler->filter('#inbox-item-2 [data-inbox-editable]')->attr('data-inbox-editable'));
         self::assertStringContainsString('This response is final', $crawler->filter('#inbox-item-2')->text());
         self::assertCount(0, $crawler->filter('#inbox-item-2 form'));
+    }
+
+    public function test_an_answer_of_zero_still_shows(): void
+    {
+        $owner = $this->signedUpUser($this->em, 'inbox-zero');
+        $project = $this->inboxProject($this->em, $owner);
+        $item = $this->question($this->em, $project, 1, [], freeText: true);
+        $item->state = InboxItemState::Answered;
+        $item->answerText = '0';
+        $this->em->flush();
+        $this->askHolding($this->em, $project, [$item]);
+        $this->setInboxFlag(true);
+
+        $this->client->loginUser($owner);
+        $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox');
+
+        self::assertSame('0', $crawler->filter('#inbox-item-1 .lp-inbox-item__answer-text')->text());
     }
 
     public function test_closed_asks_page(): void
