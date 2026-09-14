@@ -33,7 +33,7 @@ The first must print the worktree path. The second must print the card branch. O
 
 ## Long commands
 
-A Bash call ends after 600000 ms. Pass that timeout to `just ci` and to each CI wait. When a call hits the limit, run it again, and keep count of the total time.
+A Bash call ends after 600000 ms. Run `just ci` and the CI wait with the Bash tool's `run_in_background`. Poll their output until they finish.
 
 ## Open the pull request
 
@@ -50,7 +50,7 @@ Put the card URL in the body: `<instance>/projects/<projectId>/board/cards/<card
 gh pr checks <url> --required --watch --fail-fast --interval 60
 ```
 
-Repeat the call after each timeout, up to 60 minutes in total. Then confirm the result against the pushed head, as `working-with-prs` "Merging" item 8 says:
+Run it in the background, and stop waiting after 60 minutes. Then confirm the result against the pushed head, as `working-with-prs` "Merging" item 8 says:
 
 ```bash
 git rev-parse HEAD

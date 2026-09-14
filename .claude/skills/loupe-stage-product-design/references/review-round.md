@@ -30,7 +30,7 @@ Reply to every `pending` root comment, and mark it addressed. Do this for a comm
 ## Revise only when the Markdown changes
 
 1. Add a `**Decided:**` line for each answered decision that has none (rule 6). Keep every fence id, because a changed id discards the answer.
-2. When the fence sits inside an approved section, put its `**Decided:**` line under a `## Decisions` heading at the end of the document.
+2. When the fence sits inside an approved section, put its `**Decided:**` line in the document's `Decided` section. When the document has none, add a `## Decisions` heading at the end.
 3. Cover each new requirement from the requirement source.
 4. When the Markdown is different, call `document_revise` with a `description` that names what changed (rule 9). Stop with `STAGE RESULT: <document> revised <id>`.
 5. When the Markdown is the same and you replied to at least one comment, send no version. Stop with `STAGE RESULT: comments answered`.
