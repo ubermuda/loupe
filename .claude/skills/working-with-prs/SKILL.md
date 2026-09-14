@@ -300,8 +300,14 @@ test discriminates rather than passing vacuously.
 ## Running the suite locally is debugging, not gating
 
 CI's `e2e` check is the gate. It runs the same `just e2e` against a disposable
-stack on an isolated runner, with both `E2E_BASE_URL` and `MAILPIT_URL` set
-correctly. See `.github/workflows/ci.yml`.
+stack, with both `E2E_BASE_URL` and `MAILPIT_URL` set correctly. See
+`.github/workflows/ci.yml`.
+
+The work happens in two jobs, `e2e-chromium` and `e2e-rest`, each on its own
+runner with its own stack. `e2e` itself is a fan-in job that reports red when
+either shard fails. Read the shard job for a failure, because `e2e` names no
+test. `maxFailures: 1` is per process, so a red run can report one failure in
+each shard.
 
 Locally the same suite is slower, destructive, and measurably less truthful.
 Across one wave of five branches, every local e2e problem was environmental and

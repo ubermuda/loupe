@@ -1,4 +1,8 @@
-import { defineConfig, devices } from '@playwright/test';
+import {
+    defineConfig,
+    devices,
+    type PlaywrightTestConfig,
+} from '@playwright/test';
 
 // No default, deliberately. The `install-reset` project truncates every table,
 // so the target is a destructive choice and guessing it wrongly costs a
@@ -24,6 +28,42 @@ if (!baseURL) {
 // four times the measured cost. The per-pull-request gate keeps 5s.
 const collectingCoverage = !!process.env.COVERAGE;
 
+// CI runs the suite as two jobs on two runners, each with its own stack, and
+// E2E_SHARD names the half this process runs. Unset runs every project, which
+// is what `just e2e` does on a workstation.
+//
+// Playwright's own `--shard` cannot do this. It filters top-level projects
+// only, and it re-adds the dependency projects afterwards. Every project here
+// except `install-reset` is a dependency, so its one test is all there is to
+// split: `--shard=1/2 --list` reports all 226 tests and `--shard=2/2` none.
+const shard = process.env.E2E_SHARD;
+
+if (shard !== undefined && shard !== 'chromium' && shard !== 'rest') {
+    throw new Error(`E2E_SHARD must be 'chromium' or 'rest', not '${shard}'.`);
+}
+
+type Projects = NonNullable<PlaywrightTestConfig['projects']>;
+
+// The `rest` shard also drops chromium from the dependency chain. The chain
+// orders the destructive projects within one run, and it never reads anything
+// chromium leaves behind, so each shard's own order is what has to hold.
+function forShard(projects: Projects): Projects {
+    if (shard === 'chromium') {
+        return projects.filter((p) => p.name === 'chromium');
+    }
+
+    if (shard !== 'rest') {
+        return projects;
+    }
+
+    return projects
+        .filter((p) => p.name !== 'chromium')
+        .map((p) => ({
+            ...p,
+            dependencies: p.dependencies?.filter((d) => d !== 'chromium'),
+        }));
+}
+
 export default defineConfig({
     globalSetup: './global-setup.ts',
     testDir: './tests',
@@ -35,11 +75,11 @@ export default defineConfig({
     workers: 4,
     forbidOnly: !!process.env.CI,
     retries: 0,
-    // Stop at the first failure. `waitlist`, `trial-end-lifecycle` and
-    // `install-reset` depend on `chromium`, and Playwright skips a dependent
-    // project when its dependency fails. Without this the run continues and
-    // reports "N did not run" beside the failure, which reads as a deliberate
-    // skip: one red test withheld all three suites for hours and nobody noticed.
+    // Stop at the first failure. Playwright skips a dependent project when its
+    // dependency fails, so without this the run continues and reports "N did
+    // not run" beside the failure, which reads as a deliberate skip: one red
+    // test withheld three suites for hours and nobody noticed. The bound is per
+    // process, so a sharded CI run reports at most one failure per shard.
     maxFailures: 1,
     reporter: [
         ['html', { open: 'never' }],
@@ -57,7 +97,7 @@ export default defineConfig({
             ...(process.env.COVERAGE ? { 'X-Coverage': '1' } : {}),
         },
     },
-    projects: [
+    projects: forShard([
         {
             name: 'chromium',
             // Specs that mutate state other files read run in the projects
@@ -150,5 +190,5 @@ export default defineConfig({
                 ...devices['Desktop Chrome'],
             },
         },
-    ],
+    ]),
 });
