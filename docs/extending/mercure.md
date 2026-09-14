@@ -21,8 +21,17 @@ resumes from `Last-Event-ID`: delivery is best effort, replay is not.
 | `MERCURE_URL` | Where the app POSTs updates — the hub on the internal network. |
 | `MERCURE_PUBLIC_URL` | Where clients subscribe. A genuinely separate host, since the bridge CLI reaches it directly, so it cannot be derived from `DEFAULT_URI`. |
 
-The `agent.push.enabled` flag requires all three: with any of them blank,
-the endpoint returns an unusable hub URL.
+Two feature flags use the hub, and each switches on its own:
+
+| Flag | Switches |
+|---|---|
+| `agent.push.enabled` | The outbox drain, the bridge CLI's subscriber credentials at `GET /api/events`, and its worker-run reports at `POST /api/projects/{handle}/worker-runs`. |
+| `live_updates.enabled` | Live updates in the browser: the subscriber cookie, the page element, `POST /mercure/authorize`, and the board refresh. |
+
+Both flags require all three variables. With any of them blank, the flag reads
+as off whatever the admin page stores. Both ship on. An instance that upgrades
+gets `live_updates.enabled` with the value its `agent.push.enabled` had, because
+that flag switched live updates before.
 
 ## In development
 
@@ -63,8 +72,9 @@ cookie again. It takes a CSRF token and allows 30 renewals a minute per user.
 Keep the message `type` in the JSON body of an update. `Update::$type` renames
 the SSE event, and the page listens for `message` events only.
 
-With the hub unconfigured or `agent.push.enabled` off, the layout renders no
-element, and a page opens no connection.
+With the hub unconfigured or `live_updates.enabled` off, the layout renders no
+element, and a page opens no connection. A renewal then answers an empty topic
+list and sets no cookie. `agent.push.enabled` has no effect on a page.
 
 ## In production
 

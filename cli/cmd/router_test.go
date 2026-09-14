@@ -184,6 +184,7 @@ func newHarnessWith(t *testing.T, body string, defaults rules.Defaults) *harness
 		rules:      set,
 		maxWorkers: defaultMaxWorkers,
 		worker:     w.ops(),
+		bridgeID:   testBridgeID,
 	}
 
 	return h

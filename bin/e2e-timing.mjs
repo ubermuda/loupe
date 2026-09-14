@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Summarises a Playwright JSON report: wall time per project, and how many
-// workers were busy over the run. Usage: node bin/e2e-timing.mjs results.json
+// workers were busy over the run. One report per e2e shard, so it takes
+// several. Usage: node bin/e2e-timing.mjs results.json [results.json ...]
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
@@ -131,10 +132,17 @@ export function format(summary) {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-    const path = process.argv[2];
-    if (!path) {
-        console.error('Usage: node bin/e2e-timing.mjs <playwright-results.json>');
+    const paths = process.argv.slice(2);
+    if (paths.length === 0) {
+        console.error('Usage: node bin/e2e-timing.mjs <playwright-results.json> [...]');
         process.exit(2);
     }
-    console.log(format(summarise(JSON.parse(readFileSync(path, 'utf8')))));
+    // Each shard ran on its own runner against its own clock, so the reports
+    // are summarised side by side rather than merged into one timeline.
+    for (const [i, path] of paths.entries()) {
+        if (paths.length > 1) {
+            console.log(`${i > 0 ? '\n' : ''}=== ${path}\n`);
+        }
+        console.log(format(summarise(JSON.parse(readFileSync(path, 'utf8')))));
+    }
 }
