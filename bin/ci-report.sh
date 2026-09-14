@@ -72,5 +72,8 @@ echo
 case "$report" in
     mutation) cat "$dir/summary.log" ;;
     phpunit-coverage | e2e-coverage) head -12 "$dir/summary.txt" ;;
-    e2e-timing) node bin/e2e-timing.mjs "$dir"/*/results.json ;;
+    # A sharded run holds one report per shard, each in its own directory. A
+    # run downloaded before the split kept its one report at the top of $dir,
+    # and that cache is not re-downloaded, so both layouts have to read.
+    e2e-timing) find "$dir" -name results.json | sort | xargs node bin/e2e-timing.mjs ;;
 esac
