@@ -4191,7 +4191,7 @@
             </trans-unit>
             <trans-unit id="landing.faq.board.answer">
                 <source>landing.faq.board.answer</source>
-                <target>Yes, once you turn the project board on. Your agent then files cards in four columns over MCP, and links the pull requests that carry each one. Loupe stores those links and never calls out to check them.</target>
+                <target>Yes, once you turn the project board on. Your agent then files cards over MCP, in the columns you set for each board, and links the pull requests that carry each one. Loupe stores those links and never calls out to check them.</target>
             </trans-unit>
             <trans-unit id="landing.faq.technical.question">
                 <source>landing.faq.technical.question</source>
