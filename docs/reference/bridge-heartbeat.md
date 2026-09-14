@@ -57,10 +57,12 @@ The server stamps `lastSeenAt` from its own clock. The bridge sends no time.
 | 422 | a problem object with a `violations` list | the body is invalid, and each violation names its field in `propertyPath` |
 | 429 | | more than 60 heartbeats in one minute from one token |
 
-A bridge id that another account already holds also answers 204, and the server
-writes nothing. The answer is the same as for an accepted heartbeat, so the
-endpoint cannot tell a caller which bridge ids exist. The server records the
-refusal in the audit log as `bridge.heartbeat_refused`.
+The server keys a row by the account and the bridge id together. Two accounts
+that share one config directory send the same bridge id, and each account keeps
+a row of its own. A heartbeat never changes another account's row.
+
+The first heartbeat of a bridge writes a `bridge.bridge_registered` record to
+the audit log. A heartbeat that replaces the row writes none.
 
 The limit counts per token. Several bridges can share one token, and at the
 default interval each one posts once a minute.
@@ -71,7 +73,9 @@ The `bridge.heartbeat_interval_seconds` feature flag sets how often a bridge
 posts, and you change it at **`/admin/feature-flags`**. The default is 60
 seconds. An instance installed before the flag existed takes the value from
 `app.bridge.heartbeat_interval_seconds` in `config/services.yaml`, which is 60.
-A value below 1 reads as the default.
+A value below 10 reads as the default, because a shorter interval lets one
+bridge spend most of its token's limit. The bridge applies the same floor to the
+value it receives.
 
 `GET /api/events` shares the value with each bridge in its `flags` map. A bridge
 reads the map at start and at each reconnect, so a change reaches a running

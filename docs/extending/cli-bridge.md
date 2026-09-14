@@ -145,7 +145,7 @@ two flags:
 | Flag | Type | Value |
 |---|---|---|
 | `inbox.enabled` | boolean | `false` on an instance that holds no row for it |
-| `bridge.heartbeat_interval_seconds` | integer | the seconds between two heartbeats, 60 on an instance that holds no row for it. A stored value below 1 reads as 60 |
+| `bridge.heartbeat_interval_seconds` | integer | the seconds between two heartbeats, 60 on an instance that holds no row for it. A stored value below 10 reads as 60 |
 
 The bridge reads the map at start and again at each reconnect. A flag change
 therefore reaches a running bridge at its next reconnect.

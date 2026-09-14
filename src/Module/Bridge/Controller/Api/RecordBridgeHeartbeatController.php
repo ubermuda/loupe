@@ -36,7 +36,7 @@ final class RecordBridgeHeartbeatController extends AppController
     ) {
     }
 
-    public function __invoke(string $bridgeId, #[MapRequestPayload] BridgeHeartbeatRequest $payload): Response
+    public function __invoke(string $bridgeId, #[MapRequestPayload] RecordBridgeHeartbeatRequest $payload): Response
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
@@ -50,8 +50,6 @@ final class RecordBridgeHeartbeatController extends AppController
             cliVersion: $payload->cliVersion(),
         ));
 
-        // The same answer whether the row was written or another account holds
-        // the id, so the endpoint cannot tell a caller which bridge ids exist.
         return new Response(status: Response::HTTP_NO_CONTENT);
     }
 }

@@ -6,13 +6,16 @@ namespace App\Tests\Module\Bridge\Controller;
 
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
-use App\Module\Bridge\Controller\Api\BridgeHeartbeatRequest;
+use App\Module\Account\Entity\User;
+use App\Module\Bridge\Controller\Api\RecordBridgeHeartbeatRequest;
 use App\Module\Bridge\Entity\Bridge;
+use App\Module\Bridge\Repository\BridgeRepository;
 use App\Outbox\AgentPush;
 use App\Tests\Module\Bridge\BridgeScenario;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
@@ -26,12 +29,13 @@ final class BridgeHeartbeatApiTest extends WebTestCase
     public function test_the_first_heartbeat_records_the_bridge_for_the_token_owner(): void
     {
         $client = static::createClient();
+        $client->disableReboot();
+        static::getContainer()->set('clock', new MockClock('2026-09-14 16:00:00'));
         $em = $this->em();
         $owner = $this->user($em, 'heartbeat-create@example.com');
         $project = $this->project($em, $owner, 'Heartbeat App');
         $raw = $this->agentToken($em, $owner);
         $bridgeId = (string) Uuid::v4();
-        $before = new \DateTimeImmutable('-1 minute');
 
         $this->put($client, $bridgeId, $raw, [
             'projects' => [(string) $project->id],
@@ -40,24 +44,25 @@ final class BridgeHeartbeatApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(204);
         self::assertSame('', (string) $client->getResponse()->getContent());
-        $bridge = $this->bridge($bridgeId);
-        self::assertSame((string) $owner->id, (string) $bridge->owner->id);
+        $bridge = $this->bridge($owner, $bridgeId);
         self::assertSame([(string) $project->id], $bridge->projects);
         self::assertSame('b4e39aa7', $bridge->cliVersion);
-        self::assertGreaterThan($before, $bridge->lastSeenAt);
+        self::assertSame('2026-09-14 16:00:00', $bridge->lastSeenAt->format('Y-m-d H:i:s'));
     }
 
     /** The row holds current state, so a later heartbeat replaces every field and writes no second row. */
     public function test_a_later_heartbeat_replaces_the_row(): void
     {
         $client = static::createClient();
+        $client->disableReboot();
+        static::getContainer()->set('clock', new MockClock('2026-09-14 16:01:30'));
         $em = $this->em();
         $owner = $this->user($em, 'heartbeat-replace@example.com');
         $first = $this->project($em, $owner, 'First Heartbeat');
         $second = $this->project($em, $owner, 'Second Heartbeat');
         $raw = $this->agentToken($em, $owner);
         $bridgeId = (string) Uuid::v4();
-        $this->seedBridge($em, $owner, Uuid::fromString($bridgeId), [(string) $first->id], 'old', new \DateTimeImmutable('2026-01-01 10:00:00'));
+        $this->seedBridge($em, $owner, Uuid::fromString($bridgeId), [(string) $first->id], 'old', new \DateTimeImmutable('2026-09-14 16:00:30'));
 
         $this->put($client, $bridgeId, $raw, [
             'projects' => [(string) $second->id],
@@ -66,40 +71,42 @@ final class BridgeHeartbeatApiTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(204);
         self::assertSame(1, $this->countBridges());
-        $bridge = $this->bridge($bridgeId);
+        $bridge = $this->bridge($owner, $bridgeId);
         self::assertSame([(string) $second->id], $bridge->projects);
         self::assertSame('new (dirty)', $bridge->cliVersion);
-        self::assertGreaterThan(new \DateTimeImmutable('2026-01-02'), $bridge->lastSeenAt);
+        self::assertSame('2026-09-14 16:01:30', $bridge->lastSeenAt->format('Y-m-d H:i:s'));
     }
 
     /**
-     * A heartbeat answers with a bare acknowledgement, so a bridge id another
-     * account holds must read exactly like one the server accepted.
+     * Two accounts that share one config directory send one bridge id, and
+     * each keeps a row of its own. Neither heartbeat touches the other's row.
      */
-    public function test_a_bridge_id_another_account_holds_is_refused_in_silence(): void
+    public function test_a_second_account_with_the_same_bridge_id_keeps_its_own_row(): void
     {
         $client = static::createClient();
         $em = $this->em();
-        $holder = $this->user($em, 'heartbeat-holder@example.com');
-        $caller = $this->user($em, 'heartbeat-caller@example.com');
-        $callerProject = $this->project($em, $caller, 'Caller Heartbeat');
-        $raw = $this->agentToken($em, $caller);
+        $first = $this->user($em, 'heartbeat-first-account@example.com');
+        $second = $this->user($em, 'heartbeat-second-account@example.com');
+        $secondProject = $this->project($em, $second, 'Second Account Heartbeat');
+        $raw = $this->agentToken($em, $second);
         $bridgeId = Uuid::v4();
         $seenAt = new \DateTimeImmutable('2026-01-01 10:00:00');
-        $this->seedBridge($em, $holder, $bridgeId, [], 'holder', $seenAt);
+        $this->seedBridge($em, $first, $bridgeId, [], 'first', $seenAt);
 
         $this->put($client, (string) $bridgeId, $raw, [
-            'projects' => [(string) $callerProject->id],
-            'cliVersion' => 'caller',
+            'projects' => [(string) $secondProject->id],
+            'cliVersion' => 'second',
         ]);
 
         self::assertResponseStatusCodeSame(204);
-        self::assertSame('', (string) $client->getResponse()->getContent());
-        $bridge = $this->bridge((string) $bridgeId);
-        self::assertSame((string) $holder->id, (string) $bridge->owner->id);
-        self::assertSame([], $bridge->projects);
-        self::assertSame('holder', $bridge->cliVersion);
-        self::assertEquals($seenAt, $bridge->lastSeenAt);
+        self::assertSame(2, $this->countBridges());
+        $secondRow = $this->bridge($second, (string) $bridgeId);
+        self::assertSame([(string) $secondProject->id], $secondRow->projects);
+        self::assertSame('second', $secondRow->cliVersion);
+        $firstRow = $this->bridge($first, (string) $bridgeId);
+        self::assertSame([], $firstRow->projects);
+        self::assertSame('first', $firstRow->cliVersion);
+        self::assertEquals($seenAt, $firstRow->lastSeenAt);
     }
 
     /**
@@ -123,7 +130,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(204);
-        self::assertSame([(string) $own->id], $this->bridge($bridgeId)->projects);
+        self::assertSame([(string) $own->id], $this->bridge($owner, $bridgeId)->projects);
     }
 
     public function test_a_bridge_that_follows_no_project_is_recorded_with_an_empty_list(): void
@@ -137,7 +144,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7']);
 
         self::assertResponseStatusCodeSame(204);
-        self::assertSame([], $this->bridge($bridgeId)->projects);
+        self::assertSame([], $this->bridge($owner, $bridgeId)->projects);
     }
 
     /** @return iterable<string, array{array<string, mixed>}> */
@@ -149,7 +156,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         yield 'a blank project' => [['projects' => ['']]];
         yield 'too many projects' => [['projects' => array_map(
             static fn (): string => (string) Uuid::v7(),
-            range(0, BridgeHeartbeatRequest::MAX_PROJECTS),
+            range(0, RecordBridgeHeartbeatRequest::MAX_PROJECTS),
         )]];
         yield 'no cli version' => [['cliVersion' => null]];
         yield 'a blank cli version' => [['cliVersion' => '   ']];
@@ -183,7 +190,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         $this->put($client, $bridgeId, $raw, ['projects' => [], 'cliVersion' => '  b4e39aa7  ']);
 
         self::assertResponseStatusCodeSame(204);
-        self::assertSame('b4e39aa7', $this->bridge($bridgeId)->cliVersion);
+        self::assertSame('b4e39aa7', $this->bridge($owner, $bridgeId)->cliVersion);
     }
 
     public function test_a_bridge_id_that_is_not_a_uuid_is_not_found(): void
@@ -289,10 +296,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(204);
     }
 
-    /**
-     * Ten bridges on one token, each posting once a minute at the default
-     * interval, stay far inside the shipped limit, and a runaway loop does not.
-     */
+    /** The shipped limiter takes 60 heartbeats from one token in a minute and refuses the 61st. */
     public function test_the_shipped_limit_allows_sixty_heartbeats_a_minute_per_token(): void
     {
         static::createClient();
@@ -320,11 +324,13 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         );
     }
 
-    private function bridge(string $id): Bridge
+    private function bridge(User $owner, string $id): Bridge
     {
         $em = $this->em();
         $em->clear();
-        $bridge = $em->find(Bridge::class, Uuid::fromString($id));
+        $bridges = static::getContainer()->get(BridgeRepository::class);
+        self::assertInstanceOf(BridgeRepository::class, $bridges);
+        $bridge = $bridges->findOneByOwnerAndId($owner, Uuid::fromString($id));
         self::assertInstanceOf(Bridge::class, $bridge);
 
         return $bridge;

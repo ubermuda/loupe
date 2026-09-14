@@ -11,6 +11,7 @@ use App\Module\Bridge\Service\BridgeAccountPurger;
 use App\Module\Project\Service\ProjectAccountPurger;
 use App\Tests\Module\Bridge\BridgeScenario;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Uid\Uuid;
 
 final class BridgeAccountPurgerTest extends KernelTestCase
 {
@@ -22,15 +23,17 @@ final class BridgeAccountPurgerTest extends KernelTestCase
         $em = $this->em();
         $leaving = $this->user($em, 'bridges-purge-leaving@example.com');
         $staying = $this->user($em, 'bridges-purge-staying@example.com');
+        // The staying account holds a row under the same bridge id, which must survive.
+        $shared = Uuid::v4();
+        $this->seedBridge($em, $leaving, $shared);
         $this->seedBridge($em, $leaving);
-        $this->seedBridge($em, $leaving);
-        $kept = $this->seedBridge($em, $staying);
+        $this->seedBridge($em, $staying, $shared);
 
         $this->purge($leaving);
 
         self::assertSame(
-            [(string) $kept->id],
-            $em->getConnection()->fetchFirstColumn('SELECT id FROM bridges'),
+            [[(string) $staying->id, (string) $shared]],
+            $em->getConnection()->fetchAllNumeric('SELECT owner_id, id FROM bridges'),
         );
     }
 

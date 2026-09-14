@@ -19,7 +19,7 @@ final class BridgeExporterTest extends TestCase
         $owner = new User('Alice A', 'alice@example.com', 'x');
         $id = Uuid::v4();
         $projectId = (string) Uuid::v7();
-        $bridge = new Bridge($id, $owner, [$projectId], 'b4e39aa7 (dirty)', new \DateTimeImmutable('2026-09-14T16:00:00+00:00'));
+        $bridge = new Bridge($owner, $id, [$projectId], 'b4e39aa7 (dirty)', new \DateTimeImmutable('2026-09-14T16:00:00+00:00'));
 
         $rows = iterator_to_array(new BridgeExporter($this->repositoryReturning($bridge))->export($owner));
 

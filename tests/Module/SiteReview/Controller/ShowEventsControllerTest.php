@@ -16,6 +16,7 @@ use App\Outbox\OutboxWriter;
 use App\Outbox\Repository\OutboxEventRepository;
 use App\Tests\Support\FeatureFlags;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -194,15 +195,24 @@ final class ShowEventsControllerTest extends WebTestCase
         self::assertSame(90, $this->flags($client, $raw)[self::HEARTBEAT_FLAG]);
     }
 
-    /** The flag is operator-typed, and a bridge given zero would post without pause. */
-    public function test_a_heartbeat_interval_below_one_second_reads_as_the_default(): void
+    /** @return iterable<string, array{string, int}> */
+    public static function heartbeatFloor(): iterable
+    {
+        yield 'zero' => ['0', 60];
+        yield 'one below the floor' => ['9', 60];
+        yield 'the floor' => ['10', 10];
+    }
+
+    /** The flag is operator-typed, and a few seconds would let one bridge spend its token's rate limit. */
+    #[DataProvider('heartbeatFloor')]
+    public function test_a_heartbeat_interval_below_ten_seconds_reads_as_the_default(string $stored, int $shared): void
     {
         $client = static::createClient();
         $em = $this->em();
-        $this->storeHeartbeatFlag($em, '0');
-        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-heartbeat-zero@example.com');
+        $this->storeHeartbeatFlag($em, $stored);
+        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-heartbeat-floor-'.$stored.'@example.com');
 
-        self::assertSame(60, $this->flags($client, $raw)[self::HEARTBEAT_FLAG]);
+        self::assertSame($shared, $this->flags($client, $raw)[self::HEARTBEAT_FLAG]);
     }
 
     public function test_push_disabled_hides_the_endpoint(): void

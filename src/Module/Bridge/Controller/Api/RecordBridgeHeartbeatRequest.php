@@ -9,7 +9,7 @@ use Symfony\Component\Uid\Uuid;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /** One heartbeat, as the bridge sends it. */
-final class BridgeHeartbeatRequest
+final class RecordBridgeHeartbeatRequest
 {
     /** Far above the projects one account runs, and small enough to bound the JSON column. */
     public const int MAX_PROJECTS = 500;

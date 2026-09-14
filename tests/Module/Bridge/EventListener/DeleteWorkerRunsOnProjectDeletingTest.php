@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Bridge\EventListener;
 
-use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Project\Service\ProjectDeleter;
 use App\Tests\Module\Bridge\BridgeScenario;
@@ -53,6 +52,7 @@ final class DeleteWorkerRunsOnProjectDeletingTest extends KernelTestCase
         $kept = $this->project($em, $owner, 'Kept Bridge Project');
         $projects = [(string) $doomed->id, (string) $kept->id];
         $bridgeId = $this->seedBridge($em, $owner, projects: $projects)->id;
+        $ownerId = $owner->id;
         $this->seedRun($em, $doomed);
 
         $deleter = self::getContainer()->get(ProjectDeleter::class);
@@ -61,9 +61,10 @@ final class DeleteWorkerRunsOnProjectDeletingTest extends KernelTestCase
 
         self::assertSame(0, $this->countRuns());
         $em->clear();
-        $bridge = $em->find(Bridge::class, $bridgeId);
-        self::assertInstanceOf(Bridge::class, $bridge);
-        self::assertSame($projects, $bridge->projects);
+        self::assertSame(
+            json_encode($projects),
+            $em->getConnection()->fetchOne('SELECT projects FROM bridges WHERE owner_id = ? AND id = ?', [(string) $ownerId, (string) $bridgeId]),
+        );
     }
 
     /** @return list<WorkerRun> */

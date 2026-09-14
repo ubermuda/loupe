@@ -15,6 +15,9 @@ final readonly class HeartbeatInterval
 {
     public const string FLAG = 'bridge.heartbeat_interval_seconds';
 
+    /** The CLI applies the same floor, so an older server cannot push a bridge below it. */
+    public const int MIN_SECONDS = 10;
+
     public function __construct(
         private FeatureFlagService $featureFlags,
 
@@ -27,7 +30,7 @@ final readonly class HeartbeatInterval
     {
         $seconds = $this->featureFlags->getIntValue(self::FLAG, $this->default);
 
-        // The flag is operator-typed, and a bridge given zero would post without pause.
-        return $seconds >= 1 ? $seconds : $this->default;
+        // The flag is operator-typed. A few seconds would let one bridge spend its token's whole rate limit.
+        return $seconds >= self::MIN_SECONDS ? $seconds : $this->default;
     }
 }

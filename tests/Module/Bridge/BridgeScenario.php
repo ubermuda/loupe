@@ -100,7 +100,7 @@ trait BridgeScenario
         string $cliVersion = 'b4e39aa7',
         \DateTimeImmutable $lastSeenAt = new \DateTimeImmutable(),
     ): Bridge {
-        $bridge = new Bridge($id ?? Uuid::v4(), $owner, $projects, $cliVersion, $lastSeenAt);
+        $bridge = new Bridge($owner, $id ?? Uuid::v4(), $projects, $cliVersion, $lastSeenAt);
         $em->persist($bridge);
         $em->flush();
 
