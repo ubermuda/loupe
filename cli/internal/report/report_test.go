@@ -39,7 +39,7 @@ func (b *syncBuffer) String() string {
 type harness struct {
 	queue  *Retrying
 	log    *syncBuffer
-	sent   chan api.WorkerRun
+	sent   chan queued
 	cancel context.CancelFunc
 }
 
@@ -49,12 +49,12 @@ func newHarness(t *testing.T, retries int, answers ...error) *harness {
 	t.Helper()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	h := &harness{log: &syncBuffer{}, sent: make(chan api.WorkerRun, 32), cancel: cancel}
+	h := &harness{log: &syncBuffer{}, sent: make(chan queued, 32), cancel: cancel}
 	var calls int
 	var mu sync.Mutex
 
 	h.queue = New(ctx, slog.New(slog.NewJSONHandler(h.log, nil)),
-		func(_ context.Context, run api.WorkerRun) error {
+		func(_ context.Context, handle string, run api.WorkerRun) error {
 			mu.Lock()
 			answer := error(nil)
 			if len(answers) > 0 {
@@ -63,7 +63,7 @@ func newHarness(t *testing.T, retries int, answers ...error) *harness {
 			calls++
 			mu.Unlock()
 
-			h.sent <- run
+			h.sent <- queued{handle: handle, run: run}
 
 			return answer
 		})
@@ -81,16 +81,16 @@ func newHarness(t *testing.T, retries int, answers ...error) *harness {
 
 // next waits for the next send. The guard turns a queue that stops trying into
 // a named failure rather than a test that hangs until the suite times out.
-func (h *harness) next(t *testing.T, attempt int) api.WorkerRun {
+func (h *harness) next(t *testing.T, attempt int) queued {
 	t.Helper()
 
 	select {
-	case run := <-h.sent:
-		return run
+	case next := <-h.sent:
+		return next
 	case <-time.After(5 * time.Second):
 		t.Fatalf("attempt %d never reached the server", attempt)
 
-		return api.WorkerRun{}
+		return queued{}
 	}
 }
 
@@ -116,6 +116,8 @@ func (h *harness) lines(t *testing.T, event string) []map[string]any {
 	return out
 }
 
+const testHandle = "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7"
+
 func run(card int) api.WorkerRun {
 	return api.WorkerRun{CardNumber: card, RuleName: "plan"}
 }
@@ -123,10 +125,10 @@ func run(card int) api.WorkerRun {
 func TestQueueSendsEachReportOnce(t *testing.T) {
 	h := newHarness(t, 3)
 
-	h.queue.Enqueue(run(42))
+	h.queue.Enqueue(testHandle, run(42))
 
-	if got := h.next(t, 1); got.CardNumber != 42 {
-		t.Fatalf("sent card %d", got.CardNumber)
+	if got := h.next(t, 1); got.run.CardNumber != 42 || got.handle != testHandle {
+		t.Fatalf("sent card %d for handle %q", got.run.CardNumber, got.handle)
 	}
 	h.queue.Close()
 	if lines := h.lines(t, "report_failed"); len(lines) != 0 {
@@ -142,11 +144,11 @@ func TestQueueSendsEachReportOnce(t *testing.T) {
 func TestQueueRetriesAFailedSend(t *testing.T) {
 	h := newHarness(t, 3, fmt.Errorf("connection refused"), nil)
 
-	h.queue.Enqueue(run(42))
+	h.queue.Enqueue(testHandle, run(42))
 
 	for attempt := 1; attempt <= 2; attempt++ {
-		if got := h.next(t, attempt); got.CardNumber != 42 {
-			t.Fatalf("attempt %d sent card %d", attempt, got.CardNumber)
+		if got := h.next(t, attempt); got.run.CardNumber != 42 {
+			t.Fatalf("attempt %d sent card %d", attempt, got.run.CardNumber)
 		}
 	}
 	h.queue.Close()
@@ -159,7 +161,7 @@ func TestQueueRetriesAFailedSend(t *testing.T) {
 func TestQueueLogsAGiveUp(t *testing.T) {
 	h := newHarness(t, 2, fmt.Errorf("connection refused"))
 
-	h.queue.Enqueue(run(42))
+	h.queue.Enqueue(testHandle, run(42))
 
 	for attempt := 1; attempt <= 3; attempt++ {
 		h.next(t, attempt)
@@ -179,7 +181,7 @@ func TestQueueLogsAGiveUp(t *testing.T) {
 func TestQueueStopsAtARefusedReport(t *testing.T) {
 	h := newHarness(t, 5, fmt.Errorf("%w (HTTP 422)", api.ErrReportRefused))
 
-	h.queue.Enqueue(run(42))
+	h.queue.Enqueue(testHandle, run(42))
 	h.next(t, 1)
 	h.queue.Close()
 
@@ -202,8 +204,8 @@ func TestQueueDeliversWhatAShutdownFinds(t *testing.T) {
 	// A cancelled bridge stops every normal attempt, so the grace window is the
 	// one path left that can deliver these two.
 	h.cancel()
-	h.queue.Enqueue(run(1))
-	h.queue.Enqueue(run(2))
+	h.queue.Enqueue(testHandle, run(1))
+	h.queue.Enqueue(testHandle, run(2))
 	h.queue.Close()
 
 	for attempt := 1; attempt <= 2; attempt++ {
@@ -219,10 +221,10 @@ func TestQueueDeliversWhatAShutdownFinds(t *testing.T) {
 func TestQueueCountsWhatAShutdownDrops(t *testing.T) {
 	held := make(chan struct{})
 	log := &syncBuffer{}
-	h := &harness{log: log, sent: make(chan api.WorkerRun, 32)}
+	h := &harness{log: log, sent: make(chan queued, 32)}
 	h.queue = New(context.Background(), slog.New(slog.NewJSONHandler(log, nil)),
-		func(ctx context.Context, run api.WorkerRun) error {
-			h.sent <- run
+		func(ctx context.Context, handle string, run api.WorkerRun) error {
+			h.sent <- queued{handle: handle, run: run}
 			<-held
 			<-ctx.Done()
 
@@ -231,10 +233,10 @@ func TestQueueCountsWhatAShutdownDrops(t *testing.T) {
 	// No grace window, which is the bridge that cannot reach Loupe at all.
 	h.queue.grace = 0
 
-	h.queue.Enqueue(run(1))
+	h.queue.Enqueue(testHandle, run(1))
 	h.next(t, 1)
-	h.queue.Enqueue(run(2))
-	h.queue.Enqueue(run(3))
+	h.queue.Enqueue(testHandle, run(2))
+	h.queue.Enqueue(testHandle, run(3))
 
 	close(held)
 	h.queue.Close()
@@ -253,7 +255,7 @@ func TestQueueCountsAReportThatArrivesAfterTheClose(t *testing.T) {
 	h := newHarness(t, 1)
 	h.queue.Close()
 
-	h.queue.Enqueue(run(42))
+	h.queue.Enqueue(testHandle, run(42))
 
 	lines := h.lines(t, "report_dropped")
 	if len(lines) != 1 || lines[0]["count"] != float64(1) {

@@ -82,8 +82,8 @@ stays authoritative.
 
 ## `loupe bridge run`
 
-Reads the rule file, subscribes to the event stream of the project it maps, and
-runs a worker for each event a rule matches.
+Reads the rule file, subscribes to the event stream of every project you own on
+one connection, and runs a worker for each event a rule matches.
 
 ```bash
 loupe bridge run
@@ -137,8 +137,13 @@ reads it at start only, so a change needs a restart.
 `projects` maps a project slug to the `dir` its workers run in. A `dir` must be
 an absolute path or start with `~/`, and it must exist.
 
-A bridge follows one project for now. A file that maps two projects is refused,
-so run one bridge per project, each with its own `--rules` file.
+One bridge follows every project you own. Map as many projects as you like. The
+bridge ignores the events of a project the file does not map, and logs one
+`project_unmapped` line for each such project. A project you create while the
+bridge runs reaches it with no restart, and is ignored until you map it. When a
+rule names a slug you do not own, the start check lists the slugs you do own.
+When a mapped project is deleted or stops being yours, the bridge logs one
+`project_gone` line that names the rules that stop working.
 
 Each entry in `rules` takes these fields:
 
@@ -237,9 +242,9 @@ run for each rule, however many events it sent. Each replaced event logs a
 `worker_coalesced` line. Waiting events for different rules on one card run one
 after another, in arrival order.
 
-The key lives in the bridge process. Two bridges following one project each keep
-their own, so they can both start a worker for the same card. Run one bridge
-per project.
+The key lives in the bridge process. Two bridges that map one project each keep
+their own, so they can both start a worker for the same card. Map each project
+in one bridge only.
 
 ### The chain cap
 
@@ -293,12 +298,13 @@ names `card`, or `subject` for an event with no card number.
 | `event` | Fields |
 |---|---|
 | `bridge_started` | `rules`, `projects`, `rule_count`, `max_workers`, `log_file` |
-| `connected` | `topic`, `project` |
+| `connected` | `topic`: your user topic, `projects`: the mapped slugs |
 | `stream_error` | `error` |
 | `event_malformed` | `error` |
 | `event_untrusted` | `card`, `project`, `rule`: a reviewer's event that the rule does not allow |
 | `permission_mode_unknown` | `mode`, `known`: logged at start for a mode outside the list this build knows |
 | `project_unmapped` | `project`: logged once per project the file does not map |
+| `project_gone` | `project`, `rules`, `message`: a refresh no longer lists a mapped project, logged once per project |
 | `worker_queued` | `card`, `project`, `rule`, `queue_depth` |
 | `worker_coalesced` | `card`, `project`, `rule`: the event replaced one that waits for the same card and rule |
 | `chain_capped` | `card`, `project`, `rule`, `max_chain`, `message`: the rule reached its cap on that card |
@@ -352,17 +358,21 @@ build time, so the binary matches no commit.
 ## How it works
 
 `loupe login` checks the token with `GET /api/projects`, which lists your
-projects. The bridge never reads that list. A path handle is a project id or a
-project slug, and a project name does not resolve.
+projects with their id, slug and name. The bridge reads that list only to name
+your slugs when a rule file names one you do not own. A path handle is a project
+id or a project slug, and a project name does not resolve.
 
 1. The bridge reads the rule file and checks it.
 2. `GET /api/projects/{slug}/board/columns` resolves each project slug to its id
    and lists its columns.
-3. `GET /api/projects/{project id}/stream` returns the Mercure hub URL, the
-   project's topic, and a short-lived subscriber JWT.
-4. The CLI opens a Server-Sent Events connection to the hub. The connection is
-   **outbound**, so it works from behind NAT with no inbound port.
-5. Each event is read from its JSON `type` field. The bridge checks the event's
+3. `GET /api/events` returns the Mercure hub URL, your user topic, a short-lived
+   subscriber JWT for that topic, and the id, slug and name of every project you
+   own. The server publishes each event of your projects on your user topic.
+4. The CLI opens one Server-Sent Events connection to the hub for your topic.
+   The connection is **outbound**, so it works from behind NAT with no inbound
+   port.
+5. Each event is routed to its project by its `projectId`, and read from its
+   JSON `type` field. The bridge checks the event's
    identifiers and actor, and gives it to the first rule that matches.
 6. An event no rule matches is dropped. A worker's own move goes nowhere unless
    a rule names the column it moves the card to.
@@ -377,9 +387,15 @@ board controls that text, so it never reaches an auto-submitted prompt. The
 agent fetches the content itself through `card_get`, and the footer tells it to
 treat what it reads as data.
 
-Dropped connections are retried with capped backoff, and a **fresh subscriber
-JWT is fetched for every attempt** — they are deliberately short-lived, so
-reusing one would make the hub reject each retry once it lapsed.
+Dropped connections are retried with capped backoff. Every retry calls
+`GET /api/events` for a **fresh subscriber JWT**. The JWT is short-lived, so a
+reused one would make the hub reject each retry once it lapsed. The bridge also
+compares each fresh project list with the rule file, and logs `project_gone` for
+a mapped project that is no longer listed.
+
+A binary built before `GET /api/events` existed calls
+`GET /api/projects/{id}/stream`, which the server no longer has. Rebuild the CLI
+when you upgrade the server.
 
 Delivery is best-effort: events published while the bridge is disconnected are
 not replayed.

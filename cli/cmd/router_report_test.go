@@ -12,13 +12,19 @@ import (
 
 const testBridge = "0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90"
 
+// reported is one run the router handed to the queue, with the project it named.
+type reported struct {
+	handle string
+	run    api.WorkerRun
+}
+
 // reports wires the real queue to the router, and collects what it sends.
-func (h *harness) reports(t *testing.T) chan api.WorkerRun {
+func (h *harness) reports(t *testing.T) chan reported {
 	t.Helper()
 
-	sent := make(chan api.WorkerRun, 16)
-	q := report.New(context.Background(), h.router.log, func(_ context.Context, run api.WorkerRun) error {
-		sent <- run
+	sent := make(chan reported, 16)
+	q := report.New(context.Background(), h.router.log, func(_ context.Context, handle string, run api.WorkerRun) error {
+		sent <- reported{handle: handle, run: run}
 
 		return nil
 	})
@@ -39,17 +45,20 @@ func TestEachFinishedRunReachesLoupe(t *testing.T) {
 	h.send(movedPayload(87, "backlog", "next", "human"))
 
 	got := <-sent
-	if got.BridgeID != testBridge || got.CardID != cardUUID(87) || got.CardNumber != 87 {
-		t.Fatalf("run = %+v", got)
+	if got.handle != testProject {
+		t.Fatalf("handle = %q, want the project the event named", got.handle)
 	}
-	if got.RuleName != "plan" || got.Output != "wrote a plan" {
-		t.Fatalf("run = %+v", got)
+	if got.run.BridgeID != testBridge || got.run.CardID != cardUUID(87) || got.run.CardNumber != 87 {
+		t.Fatalf("run = %+v", got.run)
 	}
-	if got.ExitCode == nil || *got.ExitCode != 0 || got.FailureReason != nil {
-		t.Fatalf("exit code = %v, failure reason = %v", got.ExitCode, got.FailureReason)
+	if got.run.RuleName != "plan" || got.run.Output != "wrote a plan" {
+		t.Fatalf("run = %+v", got.run)
 	}
-	if got.EndedAt.Before(got.StartedAt) {
-		t.Fatalf("ended %v before it started %v, and the server refuses that", got.EndedAt, got.StartedAt)
+	if got.run.ExitCode == nil || *got.run.ExitCode != 0 || got.run.FailureReason != nil {
+		t.Fatalf("exit code = %v, failure reason = %v", got.run.ExitCode, got.run.FailureReason)
+	}
+	if got.run.EndedAt.Before(got.run.StartedAt) {
+		t.Fatalf("ended %v before it started %v, and the server refuses that", got.run.EndedAt, got.run.StartedAt)
 	}
 }
 
@@ -63,11 +72,11 @@ func TestAWorkerThatNeverRanIsStillReported(t *testing.T) {
 	h.send(movedPayload(87, "backlog", "next", "human"))
 
 	got := <-sent
-	if got.ExitCode != nil {
-		t.Fatalf("exit code = %v, want none for a process that never ran", *got.ExitCode)
+	if got.run.ExitCode != nil {
+		t.Fatalf("exit code = %v, want none for a process that never ran", *got.run.ExitCode)
 	}
-	if got.FailureReason == nil || *got.FailureReason != "fork/exec claude: permission denied" {
-		t.Fatalf("failure reason = %v", got.FailureReason)
+	if got.run.FailureReason == nil || *got.run.FailureReason != "fork/exec claude: permission denied" {
+		t.Fatalf("failure reason = %v", got.run.FailureReason)
 	}
 }
 
@@ -80,8 +89,8 @@ func TestAFailedRunCarriesItsExitCode(t *testing.T) {
 	h.send(movedPayload(87, "backlog", "next", "human"))
 
 	got := <-sent
-	if got.ExitCode == nil || *got.ExitCode != 2 {
-		t.Fatalf("exit code = %v, want 2", got.ExitCode)
+	if got.run.ExitCode == nil || *got.run.ExitCode != 2 {
+		t.Fatalf("exit code = %v, want 2", got.run.ExitCode)
 	}
 }
 

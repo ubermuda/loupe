@@ -12,19 +12,26 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/api"
 )
 
-// Queue takes a finished worker run and owns its delivery from there.
+// Queue takes a finished worker run and owns its delivery from there. handle
+// names the project the run belongs to, because one bridge follows several.
 //
 // Enqueue never blocks and never reports a failure, because the caller is a
 // worker goroutine with nothing to do about a failed send. A durable queue
 // replaces this one behind the same two methods.
 type Queue interface {
-	Enqueue(run api.WorkerRun)
+	Enqueue(handle string, run api.WorkerRun)
 	Close()
 }
 
 // SendFunc delivers one report. It returns api.ErrReportRefused for a report
 // that no retry can turn into a stored row.
-type SendFunc func(ctx context.Context, run api.WorkerRun) error
+type SendFunc func(ctx context.Context, handle string, run api.WorkerRun) error
+
+// queued is one report waiting to be sent.
+type queued struct {
+	handle string
+	run    api.WorkerRun
+}
 
 // capacity bounds the reports that wait in memory. A worker runs for minutes,
 // so a queue this deep means the server has been unreachable for hours.
@@ -68,7 +75,7 @@ type Retrying struct {
 	send   SendFunc
 	ctx    context.Context
 	cancel context.CancelFunc
-	in     chan api.WorkerRun
+	in     chan queued
 	done   chan struct{}
 
 	// backoff, after and grace are fields, so a test waits for no real second.
@@ -88,7 +95,7 @@ func New(ctx context.Context, log *slog.Logger, send SendFunc) *Retrying {
 		send:    send,
 		ctx:     ctx,
 		cancel:  cancel,
-		in:      make(chan api.WorkerRun, capacity),
+		in:      make(chan queued, capacity),
 		done:    make(chan struct{}),
 		backoff: defaultBackoff,
 		after:   time.After,
@@ -102,20 +109,21 @@ func New(ctx context.Context, log *slog.Logger, send SendFunc) *Retrying {
 
 // Enqueue hands one report to the sender. A full queue, or a queue that is
 // already closed, loses the report and says so.
-func (q *Retrying) Enqueue(run api.WorkerRun) {
+func (q *Retrying) Enqueue(handle string, run api.WorkerRun) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
+	next := queued{handle: handle, run: run}
 	if q.closed {
-		q.logLost([]api.WorkerRun{run})
+		q.logLost([]queued{next})
 
 		return
 	}
 
 	select {
-	case q.in <- run:
+	case q.in <- next:
 	default:
-		q.logLost([]api.WorkerRun{run})
+		q.logLost([]queued{next})
 	}
 }
 
@@ -141,10 +149,10 @@ func (q *Retrying) Close() {
 func (q *Retrying) run() {
 	defer close(q.done)
 
-	var lost []api.WorkerRun
-	for run := range q.in {
-		if q.ctx.Err() != nil || q.deliver(run) == aborted {
-			lost = append(lost, run)
+	var lost []queued
+	for next := range q.in {
+		if q.ctx.Err() != nil || q.deliver(next) == aborted {
+			lost = append(lost, next)
 		}
 	}
 
@@ -157,7 +165,7 @@ func (q *Retrying) run() {
 //
 // A report the shutdown interrupted is sent again here. The server identifies a
 // run by its own key, so a second copy of a report that landed changes nothing.
-func (q *Retrying) flush(lost []api.WorkerRun) []api.WorkerRun {
+func (q *Retrying) flush(lost []queued) []queued {
 	if len(lost) == 0 {
 		return nil
 	}
@@ -165,10 +173,10 @@ func (q *Retrying) flush(lost []api.WorkerRun) []api.WorkerRun {
 	ctx, cancel := context.WithTimeout(context.Background(), q.grace)
 	defer cancel()
 
-	var dropped []api.WorkerRun
-	for _, run := range lost {
-		if ctx.Err() != nil || q.send(ctx, run) != nil {
-			dropped = append(dropped, run)
+	var dropped []queued
+	for _, next := range lost {
+		if ctx.Err() != nil || q.send(ctx, next.handle, next.run) != nil {
+			dropped = append(dropped, next)
 		}
 	}
 
@@ -178,9 +186,9 @@ func (q *Retrying) flush(lost []api.WorkerRun) []api.WorkerRun {
 // deliver sends one report until the server takes it, until the server refuses
 // it, or until the attempts run out. It logs its own give-up, so no dropped
 // report is silent.
-func (q *Retrying) deliver(run api.WorkerRun) outcome {
+func (q *Retrying) deliver(next queued) outcome {
 	for attempt := 0; ; attempt++ {
-		err := q.send(q.ctx, run)
+		err := q.send(q.ctx, next.handle, next.run)
 		if err == nil {
 			return delivered
 		}
@@ -189,8 +197,8 @@ func (q *Retrying) deliver(run api.WorkerRun) outcome {
 		}
 		if errors.Is(err, api.ErrReportRefused) || attempt >= len(q.backoff) {
 			q.log.Warn("report_failed",
-				"card", run.CardNumber,
-				"rule", run.RuleName,
+				"card", next.run.CardNumber,
+				"rule", next.run.RuleName,
 				"attempts", attempt+1,
 				"error", err.Error(),
 			)
@@ -207,14 +215,14 @@ func (q *Retrying) deliver(run api.WorkerRun) outcome {
 }
 
 // logLost names the reports the bridge loses, and counts them.
-func (q *Retrying) logLost(lost []api.WorkerRun) {
+func (q *Retrying) logLost(lost []queued) {
 	if len(lost) == 0 {
 		return
 	}
 
 	dropped := make([]map[string]any, len(lost))
-	for i, run := range lost {
-		dropped[i] = map[string]any{"card": run.CardNumber, "rule": run.RuleName}
+	for i, next := range lost {
+		dropped[i] = map[string]any{"card": next.run.CardNumber, "rule": next.run.RuleName}
 	}
 	q.log.Warn("report_dropped", "count", len(dropped), "dropped", dropped)
 }

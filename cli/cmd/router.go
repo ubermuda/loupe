@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,7 +24,7 @@ type router struct {
 	ctx        context.Context
 	log        *slog.Logger
 	rules      *rules.Set
-	project    string
+	projects   []string
 	topic      string
 	maxWorkers int
 	worker     workerOps
@@ -44,9 +45,11 @@ type router struct {
 	active int
 	closed bool
 
-	// unmapped remembers the projects already logged as unmapped. Only the
-	// stream goroutine reads events, so it needs no lock.
+	// unmapped remembers the projects already logged as unmapped, and gone the
+	// mapped projects already logged as gone. Only the stream goroutine reads
+	// events and refreshes the JWT, so neither needs a lock.
 	unmapped map[string]bool
+	gone     map[string]bool
 
 	// wg counts the workers in flight. Tests wait on it instead of sleeping.
 	wg sync.WaitGroup
@@ -96,7 +99,7 @@ func aggregate(e event.Event) string {
 
 func (r *router) handler() transport.Handler {
 	return transport.Handler{
-		OnConnect: func() { r.log.Info("connected", "topic", r.topic, "project", r.project) },
+		OnConnect: func() { r.log.Info("connected", "topic", r.topic, "projects", r.projects) },
 		OnError:   func(err error) { r.log.Error("stream_error", "error", err.Error()) },
 		OnData:    r.onData,
 	}
@@ -145,6 +148,32 @@ func (r *router) onData(data []byte) {
 			r.unmapped[e.ProjectID] = true
 			r.log.Warn("project_unmapped", "project", e.ProjectID)
 		}
+	}
+}
+
+// onRefresh logs, once for each, a mapped project that a fresh GET /api/events
+// no longer lists, with the rules that stop working.
+func (r *router) onRefresh(events api.Events) {
+	for _, slug := range missingProjects(r.rules, events) {
+		if r.gone[slug] {
+			continue
+		}
+		if r.gone == nil {
+			r.gone = map[string]bool{}
+		}
+		r.gone[slug] = true
+
+		var names []string
+		for _, rule := range r.rules.Rules() {
+			if rule.Project == slug {
+				names = append(names, rule.Name)
+			}
+		}
+		r.log.Error("project_gone",
+			"project", slug,
+			"rules", names,
+			"message", fmt.Sprintf("project %s is deleted or no longer yours, so rules %s stop working", slug, strings.Join(names, ", ")),
+		)
 	}
 }
 
@@ -340,7 +369,7 @@ func (r *router) enqueueReport(p pending, res workerResult, began time.Time, ela
 		run.FailureReason = &reason
 	}
 
-	r.reports.Enqueue(run)
+	r.reports.Enqueue(p.event.ProjectID, run)
 }
 
 // logResult writes what a worker ended as. The bridge owns the worker's

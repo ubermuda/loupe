@@ -15,22 +15,29 @@ import (
 	"unicode/utf8"
 )
 
-// Site is one entry of GET /api/projects.
+// Site is one entry of GET /api/projects. A project with no slug yet sends a
+// null slug, which decodes as "".
 type Site struct {
 	ID   string `json:"id"`
+	Slug string `json:"slug"`
 	Name string `json:"name"`
 }
 
-// StreamCredentials is the response of GET /api/projects/{handle}/stream: everything
-// needed to subscribe to one site's review event stream.
-type StreamCredentials struct {
-	HubURL string `json:"hubUrl"`
-	Topic  string `json:"topic"`
-	JWT    string `json:"jwt"`
-	Site   struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-	} `json:"site"`
+// EventsProject is one project of GET /api/events. Its events arrive on the
+// caller's topic. A project with no slug yet sends a null slug.
+type EventsProject struct {
+	ID   string `json:"id"`
+	Slug string `json:"slug"`
+	Name string `json:"name"`
+}
+
+// Events is the response of GET /api/events: the hub, the caller's own topic,
+// a subscriber JWT for that topic, and the projects whose events arrive on it.
+type Events struct {
+	HubURL   string          `json:"hubUrl"`
+	JWT      string          `json:"jwt"`
+	Topic    string          `json:"topic"`
+	Projects []EventsProject `json:"projects"`
 }
 
 // maxBody caps a success body the client decodes. A columns or sites list is
@@ -66,38 +73,42 @@ func New(baseURL, token string, hc *http.Client) *Client {
 	return &Client{baseURL: strings.TrimRight(baseURL, "/"), token: token, http: hc}
 }
 
-// StreamCredentials fetches subscribe credentials for one of the caller's sites,
-// by id or slug.
-func (c *Client) StreamCredentials(ctx context.Context, site string) (StreamCredentials, error) {
-	var creds StreamCredentials
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		c.baseURL+"/api/projects/"+url.PathEscape(site)+"/stream", nil)
+// Events fetches the hub, the caller's topic, a subscriber JWT for it, and the
+// projects the caller owns.
+func (c *Client) Events(ctx context.Context) (Events, error) {
+	var out Events
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/events", nil)
 	if err != nil {
-		return creds, err
+		return out, err
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return creds, fmt.Errorf("request stream credentials: %w", err)
+		return out, fmt.Errorf("request events: %w", err)
 	}
 	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
 	case http.StatusUnauthorized, http.StatusForbidden:
-		return creds, fmt.Errorf("credentials rejected (HTTP %d): the API token must have the agent scope", resp.StatusCode)
+		return out, fmt.Errorf("credentials rejected (HTTP %d): the API token must have the agent scope", resp.StatusCode)
+	case http.StatusNotFound:
+		return out, errors.New("the server has no GET /api/events endpoint: push is switched off on this Loupe instance, or the server is older than this bridge")
 	default:
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return creds, fmt.Errorf("stream credentials request failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return out, fmt.Errorf("events request failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
-	if err := decodeBody(resp.Body, &creds); err != nil {
-		return creds, fmt.Errorf("decode stream credentials: %w", err)
+	if err := decodeBody(resp.Body, &out); err != nil {
+		return out, fmt.Errorf("decode events: %w", err)
+	}
+	if out.Topic == "" {
+		return out, errors.New("GET /api/events returned no topic: the server is older than this bridge")
 	}
 
-	return creds, nil
+	return out, nil
 }
 
 // Column is one column of a project's board.
