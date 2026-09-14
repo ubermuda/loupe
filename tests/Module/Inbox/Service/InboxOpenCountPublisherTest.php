@@ -110,7 +110,9 @@ final class InboxOpenCountPublisherTest extends KernelTestCase
         $this->service(DeclineInboxItemHandler::class)(new DeclineInboxItemCommand($declined, ''));
         $this->assertPublishedAtTerminate(3);
 
-        array_map($this->assertSignalsTheProject(...), $this->published);
+        foreach ($this->published as $update) {
+            $this->assertSignalsTheProject($update);
+        }
     }
 
     public function test_a_withdraw_publishes(): void
