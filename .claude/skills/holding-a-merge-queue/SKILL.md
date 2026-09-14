@@ -213,6 +213,23 @@ Tell a session, unprompted:
 - What you are not doing. "I have not touched your branch and will not" is worth
   saying, because the alternative is a session wondering.
 
+## Keep to the queue, not to other sessions' work
+
+The queue holder merges. It does not carry other sessions' questions to the
+owner, and it does not steer their work.
+
+- A peer that needs a decision asks the owner itself. Do not relay the question,
+  restate its options or add a recommendation.
+- A peer's finding reaches the owner from that peer. Do not narrate another
+  session's investigation to him.
+- Do not advise a peer on its design, even when it asks. Point it to the owner.
+- Tell the owner only what the queue needs from him: an approval, a held merge
+  and why, a flake on a merge, or an action that affects the whole machine.
+
+On 2026-09-14 the queue holder relayed a peer's CI design question to the owner
+with its own recommendation. The owner answered: "you're only the merge master,
+you don't need to relay other sessions questions."
+
 ## The changelog needs nothing from you
 
 A branch carries its changelog entry as `changelog.d/<pull request number>.md`,
@@ -279,3 +296,5 @@ leaving it unmarked means a reader finds a dead recipe and runs it.
 - Editing a branch another session owns
 - Merging or closing someone's pull request without telling them
 - Summarising review feedback instead of quoting it
+- Relaying a peer's question or finding to the owner
+- Advising a peer on work that is not a merge
