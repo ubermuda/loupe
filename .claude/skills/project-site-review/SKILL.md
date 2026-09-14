@@ -236,10 +236,17 @@ flag is already false when the event lands.
 
 Do not expire an arm by counting frames. Chromium dispatches `selectionchange` in
 its own task, and a frame often runs before it, even on an idle machine. The first
-quote fix expired its arm after two frames and lost the pick on every run. The arm
-now waits for the event, and is set only when the focus is seen to collapse the
-selection, so the event is certain to come. A test must wait for that event too:
-`afterSelectionRead` in `widget.spec.ts` does it.
+quote fix expired its arm after two frames and lost the pick on every run.
+`focusKeepingPick()` now arms only when it sees the focus collapse a live
+selection, and the arm waits for that event. Its arrival is proven in Chromium
+only. A press on the page drops the arm, so a browser that sends no event cannot
+leave it up for the reviewer's own collapse.
+
+Every mode exit that focuses the composer goes through `focusKeepingPick()`: Done
+and Escape out of draw mode, a first pick, a pick into an open comment, and the
+end of the add-another hold. `widget.spec.ts` tests each one, plus the dropped
+arm. A test must wait for the widget to read the collapse, and
+`afterSelectionRead` does that.
 
 ## Common mistakes
 

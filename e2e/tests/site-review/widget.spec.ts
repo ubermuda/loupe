@@ -2828,6 +2828,139 @@ test('the offer to quote a selection comes back after an element pick', async ({
     await expect(offer).toBeVisible();
 });
 
+/** Escape leaves draw mode the way Done does, so it gives the offer back too. */
+test('the offer to quote a selection comes back when Escape leaves drawing', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.getByRole('button', { name: 'Review' }).click();
+
+    const offer = page.locator('#lp-quote-btn');
+    await selectText(page, PROSE_QUOTE);
+    await expect(offer).toBeVisible();
+
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Draw', exact: true })
+        .click();
+    await expect(offer).toBeHidden();
+
+    await afterSelectionRead(page, () => page.keyboard.press('Escape'));
+    await expect(page.locator('#lp-draw-toast')).toBeHidden();
+    await expect(offer).toBeVisible();
+});
+
+/**
+ * A pick into a comment that is already open ends pick mode by focusing the
+ * composer, so the selection made before it is offered again.
+ */
+test('the offer to quote a selection comes back after a pick into an open comment', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.getByRole('button', { name: 'Review' }).click();
+    const pickElement = page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' });
+    await pickElement.click();
+    await page.locator('#target-me').click();
+
+    const offer = page.locator('#lp-quote-btn');
+    await selectText(page, PROSE_QUOTE);
+    await expect(offer).toBeVisible();
+
+    await pickElement.click();
+    await expect(offer).toBeHidden();
+
+    await afterSelectionRead(page, () => page.locator('#target-two').click());
+    await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
+        2,
+    );
+    await expect(offer).toBeVisible();
+});
+
+/**
+ * Letting go of the add-another modifier ends pick mode by focusing the
+ * composer, so the selection made before the hold is offered again.
+ */
+test('the offer to quote a selection comes back when the add-another hold ends', async ({
+    page,
+}) => {
+    await openHarness(page);
+    const modifier = await addAnchorKey(page);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await page.locator('#target-me').click();
+
+    // A drag takes focus off the composer, the way a reviewer's selection does.
+    const offer = page.locator('#lp-quote-btn');
+    const prose = (await page.locator('#prose').boundingBox())!;
+    const y = prose.y + prose.height / 2;
+    await page.mouse.move(prose.x + 40, y);
+    await page.mouse.down();
+    await page.mouse.move(prose.x + 200, y, { steps: 5 });
+    await page.mouse.up();
+    await expect(offer).toBeVisible();
+
+    await page.keyboard.down(modifier);
+    await page.mouse.move(2, 2);
+    await expect(page.locator('#lp-toast')).toContainText(
+        'Click to add another element',
+    );
+    await expect(offer).toBeHidden();
+
+    await afterSelectionRead(page, () => page.keyboard.up(modifier));
+    await expect(page.locator('#lp-toast')).toBeHidden();
+    await expect(offer).toBeVisible();
+});
+
+/**
+ * The arm that keeps the pick waits for the selectionchange its focus owes. A
+ * browser that never sends one must not leave the arm up to swallow the
+ * reviewer's own collapse, so a press on the page drops it.
+ */
+test('a click on the page withdraws the offer when the collapse raised no event', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.getByRole('button', { name: 'Review' }).click();
+
+    const offer = page.locator('#lp-quote-btn');
+    await selectText(page, PROSE_QUOTE);
+    await expect(offer).toBeVisible();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Draw', exact: true })
+        .click();
+
+    // Swallow the one selectionchange that leaving draw mode raises, before it
+    // reaches the document.
+    await page.evaluate(() => {
+        (window as unknown as { swallowed: Promise<void> }).swallowed =
+            new Promise((resolve) => {
+                window.addEventListener(
+                    'selectionchange',
+                    (event) => {
+                        event.stopImmediatePropagation();
+                        resolve();
+                    },
+                    { capture: true, once: true },
+                );
+            });
+    });
+    await page.getByRole('button', { name: 'Done' }).click();
+    await page.evaluate(
+        () => (window as unknown as { swallowed: Promise<void> }).swallowed,
+    );
+    await expect(offer).toBeVisible();
+
+    await afterSelectionRead(page, () => page.locator('#title').click());
+    await expect(offer).toBeHidden();
+});
+
 /**
  * The collapsed launcher offers the capture modes without opening the panel
  * first, and drawing is one of them. The launcher is also draggable, so a press
