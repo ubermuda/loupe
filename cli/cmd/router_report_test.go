@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
-	"github.com/ubermuda/loupe/cli/internal/report"
+	"github.com/ubermuda/loupe/cli/internal/outbound"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 )
 
@@ -23,7 +23,7 @@ func (h *harness) reports(t *testing.T) chan reported {
 	t.Helper()
 
 	sent := make(chan reported, 16)
-	q := report.New(context.Background(), h.router.log, func(_ context.Context, handle string, run api.WorkerRun) (bool, error) {
+	q := outbound.New(context.Background(), h.router.log, func(_ context.Context, handle string, run api.WorkerRun) (bool, error) {
 		sent <- reported{handle: handle, run: run}
 
 		return true, nil
