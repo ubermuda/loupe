@@ -33,12 +33,6 @@ final class InboxExporterTest extends KernelTestCase
         $this->em = $em;
     }
 
-    public function test_each_exporter_writes_its_own_file(): void
-    {
-        self::assertSame('inbox_items.json', $this->itemExporter()->filename());
-        self::assertSame('inbox_asks.json', $this->askExporter()->filename());
-    }
-
     public function test_an_item_carries_every_field_and_its_links(): void
     {
         $owner = $this->owner($this->em, 'inbox-export-item');

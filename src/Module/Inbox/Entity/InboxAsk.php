@@ -18,6 +18,9 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Entity(repositoryClass: InboxAskRepository::class)]
 #[ORM\Index(name: 'idx_inbox_asks_session', columns: ['session_id'])]
 #[ORM\Table(name: 'inbox_asks')]
+// One open ask per session. The predicate is written the way Postgres stores it,
+// or the schema comparator reads it as changed on every migrate-diff.
+#[ORM\UniqueConstraint(name: 'uniq_inbox_asks_open_session', columns: ['session_id'], options: ['where' => '(closed_at IS NULL)'])]
 class InboxAsk
 {
     #[ORM\Column(type: UuidType::NAME, unique: true)]

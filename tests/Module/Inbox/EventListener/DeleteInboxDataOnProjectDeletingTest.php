@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Inbox\EventListener;
 
+use App\Module\Account\Entity\User;
 use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemDocument;
@@ -36,78 +37,111 @@ final class DeleteInboxDataOnProjectDeletingTest extends KernelTestCase
     }
 
     /**
-     * The listener runs alone here, so no cascade from a card or a document
-     * delete can hide a listener that forgot a table.
+     * The listener runs alone here, so no cascade from a card, a document or
+     * the project row can hide a listener that forgot a table.
      */
     public function test_the_listener_deletes_the_inbox_rows_of_its_project_only(): void
     {
         $owner = $this->owner($this->em, 'inbox-listener');
-        $doomed = $this->seedInbox($owner, 'doomed');
-        $spared = $this->seedInbox($owner, 'spared');
+        [$doomed, $doomedRows] = $this->seedInbox($owner, 'doomed');
+        [$spared, $sparedRows] = $this->seedInbox($owner, 'spared');
         $this->em->flush();
+        $doomedIds = $this->ids($doomedRows);
+        $sparedIds = $this->ids($sparedRows);
 
-        self::assertSame(array_fill_keys(self::TABLES, 1), $this->counts($doomed));
+        self::assertSame(array_fill_keys(self::TABLES, 1), $this->counts($doomedIds));
 
         $listener = self::getContainer()->get(DeleteInboxDataOnProjectDeleting::class);
         self::assertInstanceOf(DeleteInboxDataOnProjectDeleting::class, $listener);
         $listener(new ProjectDeleting($doomed));
 
-        self::assertSame(array_fill_keys(self::TABLES, 0), $this->counts($doomed));
-        self::assertSame(array_fill_keys(self::TABLES, 1), $this->counts($spared));
+        self::assertSame(array_fill_keys(self::TABLES, 0), $this->counts($doomedIds));
+        self::assertSame(array_fill_keys(self::TABLES, 1), $this->counts($sparedIds));
         self::assertSame(1, (int) $this->connection->fetchOne('SELECT COUNT(*) FROM projects WHERE id = :id', ['id' => (string) $doomed->id]));
         self::assertSame(1, (int) $this->connection->fetchOne('SELECT COUNT(*) FROM board_cards WHERE project_id = :id', ['id' => (string) $doomed->id]));
     }
 
     /**
-     * The listeners of Board, Review and Inbox run in no fixed order. This
-     * proves that no order leaves a foreign key that refuses the project delete.
+     * Covers the listener order the container uses: Board, Review and Inbox
+     * all delete rows the inbox links point at, and the project delete succeeds.
      */
     public function test_deleting_a_project_with_linked_inbox_rows_succeeds(): void
     {
         $owner = $this->owner($this->em, 'inbox-project-delete');
-        $doomed = $this->seedInbox($owner, 'doomed');
-        $spared = $this->seedInbox($owner, 'spared');
+        [$doomed, $doomedRows] = $this->seedInbox($owner, 'doomed');
+        [, $sparedRows] = $this->seedInbox($owner, 'spared');
         $this->em->flush();
         $doomedId = (string) $doomed->id;
+        $doomedIds = $this->ids($doomedRows);
+        $sparedIds = $this->ids($sparedRows);
 
-        self::assertSame(array_fill_keys(self::TABLES, 1), $this->counts($doomed));
+        self::assertSame(array_fill_keys(self::TABLES, 1), $this->counts($doomedIds));
 
         $deleter = self::getContainer()->get(ProjectDeleter::class);
         self::assertInstanceOf(ProjectDeleter::class, $deleter);
         $deleter->delete($doomed);
 
         self::assertSame(0, (int) $this->connection->fetchOne('SELECT COUNT(*) FROM projects WHERE id = :id', ['id' => $doomedId]));
-        self::assertSame(0, (int) $this->connection->fetchOne('SELECT COUNT(*) FROM inbox_items WHERE project_id = :id', ['id' => $doomedId]));
-        self::assertSame(0, (int) $this->connection->fetchOne('SELECT COUNT(*) FROM inbox_asks WHERE project_id = :id', ['id' => $doomedId]));
-        self::assertSame(array_fill_keys(self::TABLES, 1), $this->counts($spared));
+        self::assertSame(array_fill_keys(self::TABLES, 0), $this->counts($doomedIds));
+        self::assertSame(array_fill_keys(self::TABLES, 1), $this->counts($sparedIds));
     }
 
-    private function seedInbox(\App\Module\Account\Entity\User $owner, string $name): Project
+    /**
+     * @return array{Project, array<string, object>}
+     */
+    private function seedInbox(User $owner, string $name): array
     {
         $project = $this->project($this->em, $owner, $name);
         $card = $this->card($this->em, $project);
         $document = $this->document($this->em, $project);
         $item = $this->item($this->em, $project);
-        $item->cards->add(new InboxItemCard($item, $card));
-        $item->documents->add(new InboxItemDocument($item, $document));
+        $itemCard = new InboxItemCard($item, $card);
+        $item->cards->add($itemCard);
+        $itemDocument = new InboxItemDocument($item, $document);
+        $item->documents->add($itemDocument);
         $ask = $this->ask($this->em, $project);
         $ask->card = $card;
-        $ask->items->add(new InboxAskItem($ask, $item));
+        $askItem = new InboxAskItem($ask, $item);
+        $ask->items->add($askItem);
 
-        return $project;
+        return [$project, [
+            'inbox_items' => $item,
+            'inbox_asks' => $ask,
+            'inbox_ask_items' => $askItem,
+            'inbox_item_cards' => $itemCard,
+            'inbox_item_documents' => $itemDocument,
+        ]];
     }
 
-    /** @return array<string, int> */
-    private function counts(Project $project): array
+    /**
+     * Read after the flush, so a count never joins through a parent row the
+     * delete already removed.
+     *
+     * @param array<string, object> $rows
+     *
+     * @return array<string, string>
+     */
+    private function ids(array $rows): array
     {
-        $id = ['id' => (string) $project->id];
+        return array_map(static function (object $row): string {
+            self::assertTrue(property_exists($row, 'id'));
 
-        return [
-            'inbox_items' => (int) $this->connection->fetchOne('SELECT COUNT(*) FROM inbox_items WHERE project_id = :id', $id),
-            'inbox_asks' => (int) $this->connection->fetchOne('SELECT COUNT(*) FROM inbox_asks WHERE project_id = :id', $id),
-            'inbox_ask_items' => (int) $this->connection->fetchOne('SELECT COUNT(*) FROM inbox_ask_items l JOIN inbox_asks a ON a.id = l.ask_id WHERE a.project_id = :id', $id),
-            'inbox_item_cards' => (int) $this->connection->fetchOne('SELECT COUNT(*) FROM inbox_item_cards l JOIN inbox_items i ON i.id = l.item_id WHERE i.project_id = :id', $id),
-            'inbox_item_documents' => (int) $this->connection->fetchOne('SELECT COUNT(*) FROM inbox_item_documents l JOIN inbox_items i ON i.id = l.item_id WHERE i.project_id = :id', $id),
-        ];
+            return (string) $row->id;
+        }, $rows);
+    }
+
+    /**
+     * @param array<string, string> $ids table name to row id
+     *
+     * @return array<string, int>
+     */
+    private function counts(array $ids): array
+    {
+        $counts = [];
+        foreach (self::TABLES as $table) {
+            $counts[$table] = (int) $this->connection->fetchOne(\sprintf('SELECT COUNT(*) FROM %s WHERE id = :id', $table), ['id' => $ids[$table]]);
+        }
+
+        return $counts;
     }
 }

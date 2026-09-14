@@ -25,6 +25,7 @@ final class Version20260914151446 extends AbstractMigration
         $this->addSql('CREATE INDEX IDX_72F385034ACC9A20 ON inbox_asks (card_id)');
         $this->addSql('CREATE INDEX IDX_72F38503166D1F9C ON inbox_asks (project_id)');
         $this->addSql('CREATE INDEX idx_inbox_asks_session ON inbox_asks (session_id)');
+        $this->addSql('CREATE UNIQUE INDEX uniq_inbox_asks_open_session ON inbox_asks (session_id) WHERE (closed_at IS NULL)');
         $this->addSql('CREATE TABLE inbox_item_cards (id UUID NOT NULL, linked_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL, item_id UUID NOT NULL, card_id UUID NOT NULL, PRIMARY KEY (id))');
         $this->addSql('CREATE INDEX IDX_E71324C6126F525E ON inbox_item_cards (item_id)');
         $this->addSql('CREATE INDEX IDX_E71324C64ACC9A20 ON inbox_item_cards (card_id)');

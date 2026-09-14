@@ -26,7 +26,6 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\UniqueConstraint(name: 'uniq_inbox_item_project_number', columns: ['project_id', 'number'])]
 class InboxItem
 {
-    /** Mirrors the title column's length so callers can reject an over-long title before Postgres does. */
     public const int MAX_TITLE_LENGTH = 255;
 
     #[ORM\Column(type: UuidType::NAME, unique: true)]

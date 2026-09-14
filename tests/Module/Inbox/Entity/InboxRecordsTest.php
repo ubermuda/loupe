@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Inbox\Entity;
 
+use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemDocument;
@@ -13,6 +14,7 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * The deletes run as plain SQL, so the foreign keys do the work. Board and
@@ -102,6 +104,30 @@ final class InboxRecordsTest extends KernelTestCase
 
         $this->expectException(UniqueConstraintViolationException::class);
         $this->em->flush();
+    }
+
+    public function test_one_session_holds_one_open_ask(): void
+    {
+        $project = $this->project($this->em, $this->owner($this->em, 'inbox-open-ask-twice'), 'inbox');
+        $sessionId = Uuid::v4();
+        $this->em->persist(new InboxAsk(project: $project, sessionId: $sessionId));
+        $this->em->persist(new InboxAsk(project: $project, sessionId: $sessionId));
+
+        $this->expectException(UniqueConstraintViolationException::class);
+        $this->em->flush();
+    }
+
+    public function test_a_session_opens_a_new_ask_once_its_ask_is_closed(): void
+    {
+        $project = $this->project($this->em, $this->owner($this->em, 'inbox-reopen-ask'), 'inbox');
+        $sessionId = Uuid::v4();
+        $closed = new InboxAsk(project: $project, sessionId: $sessionId);
+        $closed->closedAt = new \DateTimeImmutable();
+        $this->em->persist($closed);
+        $this->em->persist(new InboxAsk(project: $project, sessionId: $sessionId));
+        $this->em->flush();
+
+        self::assertSame(2, $this->rowCount('SELECT COUNT(*) FROM inbox_asks WHERE session_id = :id', (string) $sessionId));
     }
 
     public function test_an_item_links_a_card_once(): void
