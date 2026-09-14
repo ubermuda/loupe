@@ -263,31 +263,49 @@ class InboxItemRepository extends ServiceEntityRepository
     }
 
     /**
-     * Copies onto the entity every column an agent reads that can change, as
-     * stored now. refresh() would also reload the readonly columns, which Doctrine refuses.
+     * Copies onto each entity every column an agent reads that can change, as
+     * stored now. A query hydrates no fresh copy of an entity already managed,
+     * and refresh() would also reload the readonly columns, which Doctrine refuses.
+     *
+     * @param list<InboxItem> $items
      */
-    public function reloadReadableColumns(InboxItem $item): void
+    public function reloadReadableColumns(array $items): void
     {
-        /** @var array{title: string, body: ?string, blocking: bool, options: list<string>, multiple: bool, freeText: bool, state: InboxItemState, selectedOptions: list<int>, answerText: ?string, closeNote: ?string, updatedAt: \DateTimeImmutable, closedAt: ?\DateTimeImmutable} $row */
-        $row = $this->createQueryBuilder('i')
-            ->select('i.title, i.body, i.blocking, i.options, i.multiple, i.freeText, i.state, i.selectedOptions, i.answerText, i.closeNote, i.updatedAt, i.closedAt')
-            ->andWhere('i.id = :id')
-            ->setParameter('id', $item->id, UuidType::NAME)
-            ->getQuery()
-            ->getSingleResult();
+        if ([] === $items) {
+            return;
+        }
 
-        $item->title = $row['title'];
-        $item->body = $row['body'];
-        $item->blocking = $row['blocking'];
-        $item->options = $row['options'];
-        $item->multiple = $row['multiple'];
-        $item->freeText = $row['freeText'];
-        $item->state = $row['state'];
-        $item->selectedOptions = $row['selectedOptions'];
-        $item->answerText = $row['answerText'];
-        $item->closeNote = $row['closeNote'];
-        $item->updatedAt = $row['updatedAt'];
-        $item->closedAt = $row['closedAt'];
+        /** @var list<array{id: Uuid, title: string, body: ?string, blocking: bool, options: list<string>, multiple: bool, freeText: bool, state: InboxItemState, selectedOptions: list<int>, answerText: ?string, closeNote: ?string, updatedAt: \DateTimeImmutable, closedAt: ?\DateTimeImmutable}> $rows */
+        $rows = $this->createQueryBuilder('i')
+            ->select('i.id, i.title, i.body, i.blocking, i.options, i.multiple, i.freeText, i.state, i.selectedOptions, i.answerText, i.closeNote, i.updatedAt, i.closedAt')
+            ->andWhere('i IN (:items)')
+            ->setParameter('items', $items)
+            ->getQuery()
+            ->getArrayResult();
+
+        $byId = [];
+        foreach ($rows as $row) {
+            $byId[(string) $row['id']] = $row;
+        }
+
+        foreach ($items as $item) {
+            $row = $byId[(string) $item->id] ?? null;
+            if (null === $row) {
+                continue;
+            }
+            $item->title = $row['title'];
+            $item->body = $row['body'];
+            $item->blocking = $row['blocking'];
+            $item->options = $row['options'];
+            $item->multiple = $row['multiple'];
+            $item->freeText = $row['freeText'];
+            $item->state = $row['state'];
+            $item->selectedOptions = $row['selectedOptions'];
+            $item->answerText = $row['answerText'];
+            $item->closeNote = $row['closeNote'];
+            $item->updatedAt = $row['updatedAt'];
+            $item->closedAt = $row['closedAt'];
+        }
     }
 
     /**

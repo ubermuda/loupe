@@ -174,6 +174,22 @@ final class InboxReadRecordingTest extends KernelTestCase
         self::assertNotNull($this->readAt($ask, $item));
     }
 
+    /** The item is managed from its creation, so the page query alone would return the old copy. */
+    public function test_a_recorded_list_returns_the_answer_as_stored_under_the_lock(): void
+    {
+        [$project, $item, $ask] = $this->closedAsk('inbox-read-list-fresh');
+        $this->actAsMcpTokenBoundTo($project);
+        $this->em->getConnection()->executeStatement(
+            "UPDATE inbox_items SET answer_text = 'Use CSV' WHERE id = ?",
+            [(string) $item->id],
+        );
+
+        $result = ($this->list)(readerSessionId: (string) $ask->sessionId);
+
+        self::assertSame('Use CSV', $result['items'][0]['answerText']);
+        self::assertNotNull($this->readAt($ask, $item));
+    }
+
     /** @return array{Project, InboxItem, InboxAsk} */
     private function closedAsk(string $label): array
     {

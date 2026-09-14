@@ -31,7 +31,7 @@ final readonly class ShowInboxItemHandler
         return $this->em->wrapInTransaction(function () use ($item, $readerSessionId): InboxItemDetailView {
             $this->em->lock($item->project, LockMode::PESSIMISTIC_WRITE);
             // The caller loaded the item before the lock, and an answer can have landed since.
-            $this->inboxItems->reloadReadableColumns($item);
+            $this->inboxItems->reloadReadableColumns([$item]);
             $this->inboxAsks->recordRead($readerSessionId, [$item], new \DateTimeImmutable());
 
             return new InboxItemDetailView($item, $this->inboxAsks->findHolding($item));

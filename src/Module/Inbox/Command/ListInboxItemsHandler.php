@@ -39,6 +39,8 @@ final readonly class ListInboxItemsHandler
         return $this->em->wrapInTransaction(function () use ($command, $readerSessionId): ListInboxItemsView {
             $this->em->lock($command->project, LockMode::PESSIMISTIC_WRITE);
             $view = $this->page($command);
+            // An item managed since an earlier call keeps its old copy through the query.
+            $this->inboxItems->reloadReadableColumns($view->items);
             $this->inboxAsks->recordRead($readerSessionId, $view->items, new \DateTimeImmutable());
 
             return $view;
