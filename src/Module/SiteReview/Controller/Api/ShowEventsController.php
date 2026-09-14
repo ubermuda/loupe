@@ -60,6 +60,7 @@ final class ShowEventsController extends AppController
                 ],
                 $view->projects,
             ),
+            'flags' => $view->flags,
         ]);
     }
 }

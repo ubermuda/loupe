@@ -26,6 +26,8 @@ use Symfony\Component\Mercure\Update;
 
 final class ShowEventsControllerTest extends WebTestCase
 {
+    private const string INBOX_FLAG = 'inbox.enabled';
+
     public function test_returns_the_callers_own_topic_its_projects_and_a_jwt_for_that_topic_alone(): void
     {
         $client = static::createClient();
@@ -134,6 +136,52 @@ final class ShowEventsControllerTest extends WebTestCase
         self::assertSame([$data['topic']], $this->decodeJwtClaims((string) $data['jwt'])['mercure']['subscribe'] ?? null);
     }
 
+    /** An instance that never seeded the inbox flag holds no row for it, and the bridge must read that as off. */
+    public function test_the_inbox_flag_reads_as_off_when_it_has_no_row(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $em->getConnection()->executeStatement('DELETE FROM feature_flag WHERE name = ?', [self::INBOX_FLAG]);
+        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-flags-none@example.com');
+
+        self::assertSame([self::INBOX_FLAG => false], $this->events($client, $raw)['flags']);
+    }
+
+    public function test_the_flags_map_carries_the_inbox_flag_when_it_is_on(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $this->storeInboxFlag($em, 'true');
+        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-flags-on@example.com');
+
+        self::assertSame([self::INBOX_FLAG => true], $this->events($client, $raw)['flags']);
+    }
+
+    public function test_the_flags_map_carries_the_inbox_flag_when_it_is_off(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $this->storeInboxFlag($em, 'false');
+        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-flags-off@example.com');
+
+        self::assertSame([self::INBOX_FLAG => false], $this->events($client, $raw)['flags']);
+    }
+
+    /** The endpoint answers only while push is on, so that flag is stored and on, and still stays out of the map. */
+    public function test_the_flags_map_names_no_flag_outside_the_allowlist(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $this->storeInboxFlag($em, 'true');
+        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-flags-allowlist@example.com');
+
+        $flags = $this->events($client, $raw)['flags'];
+
+        self::assertIsArray($flags);
+        self::assertSame([self::INBOX_FLAG], array_keys($flags));
+        self::assertArrayNotHasKey(AgentPush::FLAG, $flags);
+    }
+
     public function test_push_disabled_hides_the_endpoint(): void
     {
         $client = static::createClient();
@@ -215,6 +263,15 @@ final class ShowEventsControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(403);
         self::assertJsonStringEqualsJsonString('{"error":"insufficient_scope"}', (string) $client->getResponse()->getContent());
+    }
+
+    private function storeInboxFlag(EntityManagerInterface $em, string $value): void
+    {
+        $em->getConnection()->executeStatement('DELETE FROM feature_flag WHERE name = ?', [self::INBOX_FLAG]);
+        $em->getConnection()->executeStatement(
+            "INSERT INTO feature_flag (name, type, value, tags, options) VALUES (?, 'bool', ?, '[]', NULL)",
+            [self::INBOX_FLAG, $value],
+        );
     }
 
     private function em(): EntityManagerInterface

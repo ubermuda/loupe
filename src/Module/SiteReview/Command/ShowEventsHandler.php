@@ -8,6 +8,7 @@ use App\Mercure\UserTopicBuilder;
 use App\Module\Project\Repository\ProjectRepository;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Mercure\Jwt\TokenFactoryInterface;
+use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 final readonly class ShowEventsHandler
 {
@@ -17,9 +18,15 @@ final readonly class ShowEventsHandler
      */
     private const int JWT_TTL_SECONDS = 3600;
 
+    /** The only flags an agent token reads. Any other flag stays on the server. */
+    private const array SHARED_FLAGS = [
+        'inbox.enabled',
+    ];
+
     public function __construct(
         private ProjectRepository $projects,
         private UserTopicBuilder $userTopics,
+        private FeatureFlagService $featureFlags,
 
         #[Autowire(service: 'mercure.hub.default.jwt.factory')]
         private TokenFactoryInterface $tokenFactory,
@@ -43,6 +50,19 @@ final readonly class ShowEventsHandler
             ),
             topic: $topic,
             projects: $this->projects->findByOwner($command->user),
+            flags: $this->sharedFlags(),
         );
+    }
+
+    /** @return array<string, bool> */
+    private function sharedFlags(): array
+    {
+        $flags = [];
+        foreach (self::SHARED_FLAGS as $name) {
+            // A flag with no row reads as false.
+            $flags[$name] = $this->featureFlags->isEnabled($name);
+        }
+
+        return $flags;
     }
 }
