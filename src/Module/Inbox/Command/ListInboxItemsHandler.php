@@ -35,12 +35,13 @@ final readonly class ListInboxItemsHandler
         }
 
         // The page and the stamp share the lock the ask closer takes, so an ask
-        // cannot close between a read of the old answer and the stamp.
-        return $this->em->wrapInTransaction(function () use ($command, $readerSessionId): ListInboxItemsView {
+        // cannot close between a read of the old answer and the stamp. A plain
+        // connection transaction, because a read must never flush the entity manager.
+        return $this->em->getConnection()->transactional(function () use ($command, $readerSessionId): ListInboxItemsView {
             $this->em->lock($command->project, LockMode::PESSIMISTIC_WRITE);
             $view = $this->page($command);
             // An item managed since an earlier call keeps its old copy through the query.
-            $this->inboxItems->reloadReadableColumns($view->items);
+            $this->inboxItems->reloadChangeableColumns($view->items);
             $this->inboxAsks->recordRead($readerSessionId, $view->items, new \DateTimeImmutable());
 
             return $view;

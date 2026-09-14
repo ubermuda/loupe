@@ -263,13 +263,14 @@ class InboxItemRepository extends ServiceEntityRepository
     }
 
     /**
-     * Copies onto each entity every column an agent reads that can change, as
-     * stored now. A query hydrates no fresh copy of an entity already managed,
-     * and refresh() would also reload the readonly columns, which Doctrine refuses.
+     * Copies onto each entity every column that can change, as stored now. A
+     * query hydrates no fresh copy of an entity already managed, and refresh()
+     * would also reload the readonly columns, which Doctrine refuses. A value
+     * that did not change keeps its object, so it leaves nothing for a flush.
      *
      * @param list<InboxItem> $items
      */
-    public function reloadReadableColumns(array $items): void
+    public function reloadChangeableColumns(array $items): void
     {
         if ([] === $items) {
             return;
@@ -303,30 +304,14 @@ class InboxItemRepository extends ServiceEntityRepository
             $item->selectedOptions = $row['selectedOptions'];
             $item->answerText = $row['answerText'];
             $item->closeNote = $row['closeNote'];
-            $item->updatedAt = $row['updatedAt'];
-            $item->closedAt = $row['closedAt'];
+            // Doctrine compares dates by identity, so an equal copy would still read as changed.
+            if ($item->updatedAt != $row['updatedAt']) {
+                $item->updatedAt = $row['updatedAt'];
+            }
+            if ($item->closedAt != $row['closedAt']) {
+                $item->closedAt = $row['closedAt'];
+            }
         }
-    }
-
-    /**
-     * Copies onto the entity the columns that decide which response the item
-     * takes, as stored now, whatever the loaded entity holds.
-     */
-    public function reloadMutableColumns(InboxItem $item): void
-    {
-        /** @var array{state: InboxItemState, closedAt: ?\DateTimeImmutable, options: list<string>, multiple: bool, freeText: bool} $row */
-        $row = $this->createQueryBuilder('i')
-            ->select('i.state, i.closedAt, i.options, i.multiple, i.freeText')
-            ->andWhere('i.id = :id')
-            ->setParameter('id', $item->id, UuidType::NAME)
-            ->getQuery()
-            ->getSingleResult();
-
-        $item->state = $row['state'];
-        $item->closedAt = $row['closedAt'];
-        $item->options = $row['options'];
-        $item->multiple = $row['multiple'];
-        $item->freeText = $row['freeText'];
     }
 
     /**

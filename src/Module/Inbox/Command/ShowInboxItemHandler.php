@@ -27,11 +27,12 @@ final readonly class ShowInboxItemHandler
             return new InboxItemDetailView($item, $this->inboxAsks->findHolding($item));
         }
 
-        // Under the lock the ask closer takes, so the answer returned and the stamp agree.
-        return $this->em->wrapInTransaction(function () use ($item, $readerSessionId): InboxItemDetailView {
+        // Under the lock the ask closer takes, so the answer returned and the stamp
+        // agree. A plain connection transaction, because a read must never flush.
+        return $this->em->getConnection()->transactional(function () use ($item, $readerSessionId): InboxItemDetailView {
             $this->em->lock($item->project, LockMode::PESSIMISTIC_WRITE);
             // The caller loaded the item before the lock, and an answer can have landed since.
-            $this->inboxItems->reloadReadableColumns([$item]);
+            $this->inboxItems->reloadChangeableColumns([$item]);
             $this->inboxAsks->recordRead($readerSessionId, [$item], new \DateTimeImmutable());
 
             return new InboxItemDetailView($item, $this->inboxAsks->findHolding($item));
