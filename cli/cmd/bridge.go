@@ -245,6 +245,7 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		return fmt.Errorf("GET /api/events does not list %s, so no event of theirs can reach the bridge", strings.Join(missing, ", "))
 	}
 	r.projects, r.topic = r.rules.Projects(), events.Topic
+	r.applyFlags(events)
 	if r.bridgeID != "" {
 		r.health = newHealthReporter(ctx, apiClient(cfg), r.bridgeID, r.log)
 		for _, slug := range r.projects {

@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/ubermuda/loupe/cli/internal/config"
 )
 
 // waitDelay bounds the wait after the context kills claude. A grandchild that
@@ -25,29 +27,32 @@ type workerResult struct {
 }
 
 // workerSpec is one claude process to run. An empty permissionMode or model
-// passes no flag.
+// passes no flag. sessionID is the id claude runs the session under.
 type workerSpec struct {
 	dir            string
 	permissionMode string
 	model          string
+	sessionID      string
 	prompt         string
 }
 
 // workerOps is the process surface the router drives. Tests replace run so the
-// routing and the in-flight bookkeeping need no claude binary.
+// routing and the in-flight bookkeeping need no claude binary, and sessionID so
+// a test knows the id each worker gets.
 type workerOps struct {
-	run func(ctx context.Context, spec workerSpec) workerResult
+	run       func(ctx context.Context, spec workerSpec) workerResult
+	sessionID func() string
 }
 
 func defaultWorkerOps() workerOps {
-	return workerOps{run: runWorker}
+	return workerOps{run: runWorker, sessionID: config.NewUUID}
 }
 
 // workerArgs builds claude's argv. The prompt is an argv element, so no shell
 // reads it. It follows --, because claude reads a prompt that starts with - as
 // an option.
 func workerArgs(spec workerSpec) []string {
-	args := make([]string, 0, 7)
+	args := make([]string, 0, 9)
 	if spec.permissionMode != "" {
 		args = append(args, "--permission-mode", spec.permissionMode)
 	}
@@ -55,10 +60,11 @@ func workerArgs(spec workerSpec) []string {
 		args = append(args, "--model", spec.model)
 	}
 
-	return append(args, "-p", "--", spec.prompt)
+	return append(args, "-p", "--session-id", spec.sessionID, "--", spec.prompt)
 }
 
-// runWorker runs `claude -p -- <prompt>` in the spec's dir and waits for it.
+// runWorker runs `claude -p --session-id <id> -- <prompt>` in the spec's dir
+// and waits for it.
 func runWorker(ctx context.Context, spec workerSpec) workerResult {
 	args := workerArgs(spec)
 
