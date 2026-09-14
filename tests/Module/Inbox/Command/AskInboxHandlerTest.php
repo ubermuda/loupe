@@ -11,6 +11,7 @@ use App\Module\Inbox\Command\AskInboxItem;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\Service\InboxLinkResolver;
+use App\Module\Inbox\Service\InboxOpenCountPublisher;
 use App\Module\Inbox\Service\InboxSearchIndexer;
 use App\Module\Inbox\Service\InboxSessionAsks;
 use App\Module\Project\Entity\Project;
@@ -121,6 +122,9 @@ final class AskInboxHandlerTest extends KernelTestCase
         $indexer = $container->get(InboxSearchIndexer::class);
         self::assertInstanceOf(InboxSearchIndexer::class, $indexer);
 
-        return new AskInboxHandler($items, $sessionAsks, $links, $indexer, $em, $this->audit->auditor);
+        $openCount = $container->get(InboxOpenCountPublisher::class);
+        self::assertInstanceOf(InboxOpenCountPublisher::class, $openCount);
+
+        return new AskInboxHandler($items, $sessionAsks, $links, $indexer, $em, $this->audit->auditor, $openCount);
     }
 }

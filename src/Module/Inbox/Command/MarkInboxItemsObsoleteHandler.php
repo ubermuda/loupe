@@ -9,6 +9,7 @@ use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\Service\InboxAvailability;
 use App\Module\Inbox\Service\InboxItemCloser;
+use App\Module\Inbox\Service\InboxOpenCountPublisher;
 
 /**
  * Closes as obsolete every open item of the moved cards whose linked cards all
@@ -17,7 +18,8 @@ use App\Module\Inbox\Service\InboxItemCloser;
  *
  * The caller holds the transaction of the move and flushes it, so this neither
  * opens a transaction nor flushes. It records no audit entry, because a record
- * written inside that transaction would outlive a rollback.
+ * written inside that transaction would outlive a rollback. The live count checks
+ * at terminate that the close committed.
  */
 final readonly class MarkInboxItemsObsoleteHandler
 {
@@ -25,6 +27,7 @@ final readonly class MarkInboxItemsObsoleteHandler
         private InboxItemRepository $inboxItems,
         private InboxItemCloser $closer,
         private InboxAvailability $inbox,
+        private InboxOpenCountPublisher $openCount,
     ) {
     }
 
@@ -36,10 +39,12 @@ final readonly class MarkInboxItemsObsoleteHandler
         }
 
         $now = new \DateTimeImmutable();
-
-        return array_values(array_filter(
+        $closed = array_values(array_filter(
             $this->inboxItems->findOpenWithEveryCardFinished($command->cardIds),
             fn (InboxItem $item): bool => $this->closer->close($item, InboxItemState::Obsolete, null, $now),
         ));
+        $this->openCount->closedBeforeCommit($closed);
+
+        return $closed;
     }
 }

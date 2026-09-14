@@ -14,7 +14,9 @@ use App\Module\Inbox\Entity\InboxItemDocument;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\LockMode;
+use Doctrine\DBAL\ParameterType;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
@@ -321,6 +323,21 @@ class InboxItemRepository extends ServiceEntityRepository
             ->setParameter('open', InboxItemState::Open)
             ->getQuery()
             ->getSingleScalarResult();
+    }
+
+    /**
+     * Whether any of the items reads closed as committed. Plain SQL, because it
+     * runs after the response, when a failed transaction has closed the EntityManager.
+     *
+     * @param non-empty-list<string> $itemIds
+     */
+    public function anyStoredClosed(array $itemIds): bool
+    {
+        return (bool) $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT EXISTS (SELECT 1 FROM inbox_items WHERE id IN (?) AND state <> ?)',
+            [$itemIds, InboxItemState::Open->value],
+            [ArrayParameterType::STRING, ParameterType::STRING],
+        );
     }
 
     /**
