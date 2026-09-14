@@ -2327,6 +2327,13 @@
     .lp-status-chip--ok .lp-status-chip__dot {
         @apply bg-status-ok;
     }
+    /* Red chip — a worker run that ran and exited non-zero. */
+    .lp-status-chip--failed {
+        @apply bg-status-danger-bg text-status-danger-deep border-status-danger-border;
+    }
+    .lp-status-chip--failed .lp-status-chip__dot {
+        @apply bg-status-danger;
+    }
 
     /* Quoted document excerpt a comment thread is anchored to. Shown at the head
        of every thread — essential for orphaned threads, where the in-document
@@ -4524,6 +4531,53 @@
     }
     .lp-done-row__when {
         @apply text-xs text-fg-dim;
+    }
+
+    /* ── Worker runs ────────────────────────────────────────────────── */
+
+    /* A neutral note above a list, for a caveat the reader must carry into
+       every row. The amber .lp-connect-alert reads as a warning, which this
+       is not. */
+    .lp-page-note {
+        @apply rounded-xl bg-surface-2 text-fg-mute m-0 mb-6 py-3 px-4 text-sm leading-normal;
+    }
+
+    .lp-worker-run-list {
+        @apply flex flex-col gap-2.5;
+    }
+    .lp-worker-run {
+        @apply flex flex-col gap-2 rounded-xl bg-surface-2 py-4 px-4.5;
+    }
+    .lp-worker-run__head {
+        @apply flex flex-wrap items-center gap-3;
+    }
+    .lp-worker-run__card {
+        @apply font-mono text-sm font-bold text-ink no-underline hover:text-accent-ink;
+    }
+    .lp-worker-run__rule {
+        @apply text-sm font-semibold text-fg-mute;
+    }
+    .lp-worker-run__meta {
+        @apply flex flex-wrap items-center gap-3 font-mono text-fg-dim text-xs;
+    }
+    .lp-worker-run__bridge {
+        @apply ml-auto;
+    }
+    .lp-worker-run__failure {
+        @apply rounded-lg bg-status-danger-bg text-status-danger-deep m-0 py-2 px-3 text-xs leading-normal;
+    }
+    .lp-worker-run__output-summary {
+        @apply cursor-pointer select-none text-xs font-semibold text-fg-dim hover:text-ink;
+    }
+    .lp-worker-run__output-empty {
+        @apply text-fg-faint m-0 mt-2 text-xs italic;
+    }
+    /* Agent-written text nobody reviewed, so it is shown as it arrived: wrapped
+       rather than clipped, because a debugger needs the whole line. */
+    .lp-worker-run__output {
+        @apply bg-app text-fg-mute rounded-lg m-0 mt-2 py-2 px-3 font-mono text-xs leading-normal overflow-x-auto;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
     }
 }
 

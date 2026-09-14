@@ -1785,6 +1785,10 @@
                 <source>nav.link.connect</source>
                 <target>Connect</target>
             </trans-unit>
+            <trans-unit id="nav.link.worker_runs">
+                <source>nav.link.worker_runs</source>
+                <target>Worker runs</target>
+            </trans-unit>
             <trans-unit id="nav.link.outbox">
                 <source>nav.link.outbox</source>
                 <target>Outbox</target>
@@ -4920,6 +4924,104 @@
             </trans-unit>
 
             <!-- Audit log (admin) -->
+
+            <!-- Worker runs (CLI bridge) -->
+            <trans-unit id="bridge.worker_runs.page.title">
+                <source>bridge.worker_runs.page.title</source>
+                <target>Worker runs</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.page.description">
+                <source>bridge.worker_runs.page.description</source>
+                <target>What a command-line bridge told this project about the workers it ran, newest report first.</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.unknown_notice">
+                <source>bridge.worker_runs.unknown_notice</source>
+                <target>A missing record means unknown. It never means that the worker did not run. A bridge holds its retry queue in memory, so a bridge that stops between a worker finishing and its report landing loses that outcome. Read this list as what the server was told.</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.meta.shown">
+                <source>bridge.worker_runs.meta.shown</source>
+                <target>%count% shown</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.search_label">
+                <source>bridge.worker_runs.filter.search_label</source>
+                <target>Search runs</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.search_placeholder">
+                <source>bridge.worker_runs.filter.search_placeholder</source>
+                <target>Search card, rule or output</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.outcome_label">
+                <source>bridge.worker_runs.filter.outcome_label</source>
+                <target>Outcome</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.all_outcomes">
+                <source>bridge.worker_runs.filter.all_outcomes</source>
+                <target>All outcomes</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.bridge_label">
+                <source>bridge.worker_runs.filter.bridge_label</source>
+                <target>Bridge</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.all_bridges">
+                <source>bridge.worker_runs.filter.all_bridges</source>
+                <target>All bridges</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.clear">
+                <source>bridge.worker_runs.filter.clear</source>
+                <target>Clear</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.filter.count">
+                <source>bridge.worker_runs.filter.count</source>
+                <target>{0} no runs|{1} 1 run|]1,Inf[ %count% runs</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.outcome.succeeded">
+                <source>bridge.worker_runs.outcome.succeeded</source>
+                <target>Succeeded</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.outcome.failed">
+                <source>bridge.worker_runs.outcome.failed</source>
+                <target>Failed</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.outcome.not_started">
+                <source>bridge.worker_runs.outcome.not_started</source>
+                <target>Never started</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.card_number">
+                <source>bridge.worker_runs.card_number</source>
+                <target>#%number%</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.started">
+                <source>bridge.worker_runs.started</source>
+                <target>started %time%</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.duration">
+                <source>bridge.worker_runs.duration</source>
+                <target>took %duration%</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.exit_code">
+                <source>bridge.worker_runs.exit_code</source>
+                <target>exit %code%</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.bridge">
+                <source>bridge.worker_runs.bridge</source>
+                <target>bridge …%bridge%</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.output.toggle">
+                <source>bridge.worker_runs.output.toggle</source>
+                <target>Output</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.output.empty">
+                <source>bridge.worker_runs.output.empty</source>
+                <target>The worker printed nothing.</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.empty">
+                <source>bridge.worker_runs.empty</source>
+                <target>No bridge has reported a run for this project.</target>
+            </trans-unit>
+            <trans-unit id="bridge.worker_runs.empty_filtered">
+                <source>bridge.worker_runs.empty_filtered</source>
+                <target>No run matches these filters.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>
