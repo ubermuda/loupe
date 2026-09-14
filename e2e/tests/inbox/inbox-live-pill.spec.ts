@@ -1,17 +1,12 @@
 /**
  * Browser coverage for the live inbox pill: an answer given in one browser
- * lowers the sidebar count in a second browser with no navigation there, and
- * the pill hides at zero. The hub delivers the count, so the run needs a hub.
+ * lowers the sidebar count in a second browser with no navigation there, a
+ * failed reload keeps the pill it had, and the pill goes away at zero. The hub
+ * delivers the signal, so the run needs a hub.
  */
 
-import {
-    test,
-    expect,
-    type APIRequestContext,
-    type Browser,
-    type Page,
-} from '@playwright/test';
-import { suppressToolbar, suppressWidget } from '../fixtures';
+import { test, expect, type APIRequestContext } from '@playwright/test';
+import { signedInPage } from '../fixtures';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eInboxLivePill1!';
@@ -27,38 +22,9 @@ async function setFlag(
     expect(response.ok()).toBeTruthy();
 }
 
-async function signedInPage(browser: Browser, email: string): Promise<Page> {
-    const { baseURL, extraHTTPHeaders, ignoreHTTPSErrors } =
-        test.info().project.use;
-    const context = await browser.newContext({
-        baseURL,
-        extraHTTPHeaders: {},
-        ignoreHTTPSErrors,
-        storageState: { cookies: [], origins: [] },
-        viewport: { width: 1600, height: 900 },
-    });
-    // The project headers go to the app only. On the hub request a custom
-    // header makes the EventSource preflight, which the hub refuses.
-    const appOrigin = new URL(baseURL ?? '').origin;
-    await context.route(
-        (url) => url.origin === appOrigin,
-        (route) =>
-            route.continue({
-                headers: { ...route.request().headers(), ...extraHTTPHeaders },
-            }),
-    );
-    const page = await context.newPage();
-    await suppressToolbar(page);
-    await suppressWidget(page);
-
-    await page.goto('/login');
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill(PASSWORD);
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).not.toHaveURL(/\/login$/);
-
-    return page;
-}
+// Two sign-ins, a seed, two answers and three frame loads took 28 seconds on a
+// warm local worktree, too close to the 30-second default.
+test.setTimeout(60_000);
 
 // The flag is global, so it goes back off for the specs that run after this one.
 test.afterAll(async ({ request }) => {
@@ -78,12 +44,12 @@ test('an answer in one browser lowers the pill in another without a reload', asy
     });
     expect(registered.status()).toBe(200);
 
-    const editor = await signedInPage(browser, email);
+    const editor = await signedInPage(browser, email, PASSWORD);
     const seeded = await editor.request.post('/dev/seed/inbox');
     expect(seeded.status()).toBe(201);
     const { projectId, questionNumber, todoNumber } = await seeded.json();
 
-    const watcher = await signedInPage(browser, email);
+    const watcher = await signedInPage(browser, email, PASSWORD);
     await watcher.goto(`/projects/${projectId}/documents`);
     const link = watcher.locator('a[data-controller="inbox-pill"]');
     // The hub keeps no history, so a change made before this connects is lost.
@@ -106,18 +72,48 @@ test('an answer in one browser lowers the pill in another without a reload', asy
 
     await expect(pill).toHaveText('1');
 
-    const todo = editor.locator(`#inbox-item-${todoNumber}`);
-    await todo.getByRole('button', { name: 'Mark done' }).click();
-    await expect(editor.locator('.lp-flash')).toContainText(
-        `Item ${todoNumber} is done.`,
+    // A reload that fails, as an expired session or a down server would, keeps
+    // the pill it had instead of writing Turbo's error into the link.
+    const countUrl = `**/projects/${projectId}/inbox/open-count`;
+    await watcher.route(countUrl, (route) =>
+        // HTML, as a proxy error page is: Turbo ignores any other body.
+        route.fulfill({
+            status: 502,
+            contentType: 'text/html',
+            body: '<html><body><h1>502 Bad Gateway</h1></body></html>',
+        }),
+    );
+    const failedReload = watcher.waitForResponse(
+        (response) =>
+            response.url().endsWith('/inbox/open-count') &&
+            response.status() === 502,
     );
 
-    await expect(pill).toHaveCount(0);
+    const todo = editor.locator(`#inbox-item-${todoNumber}`);
+    await todo.getByRole('button', { name: 'Mark done' }).click();
+    // The editor's own pill reloads on the answer, and requests of one session
+    // wait on its session lock, so this submit can queue behind that reload.
+    await expect(editor.locator('.lp-flash')).toContainText(
+        `Item ${todoNumber} is done.`,
+        { timeout: 15_000 },
+    );
+
+    await failedReload;
+    await expect(pill).toHaveText('1');
+    await expect(link).not.toContainText('Content missing');
     expect(
         await watcher.evaluate(
             () => (window as unknown as { stayed?: boolean }).stayed,
         ),
     ).toBe(true);
+
+    await watcher.unroute(countUrl);
+    await watcher.reload();
+    await expect(
+        watcher.locator(
+            'a[data-controller="inbox-pill"] [data-inbox-open-count]',
+        ),
+    ).toHaveCount(0);
 
     await editor.context().close();
     await watcher.context().close();

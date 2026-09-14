@@ -36,6 +36,11 @@ export default class extends Controller {
         this.element.removeAttribute('data-inbox-pill-connected');
     }
 
+    keepPill(event) {
+        // A failed reload has no frame to show, and Turbo would write "Content missing" into the link.
+        event.preventDefault();
+    }
+
     reload() {
         // A new load cancels the one in flight, so the last change wins.
         if (this.frameTarget.getAttribute('src') === null) {

@@ -71,6 +71,7 @@
                        class="lp-sidebar__link{% if route == 'app_project_inbox' %} lp-sidebar__link--active{% endif %}"
                        {% if route == 'app_project_inbox' %}aria-current="page"{% endif %}
                        data-controller="inbox-pill" data-inbox-pill-project-value="{{ project.id }}"
+                       data-action="turbo:frame-missing->inbox-pill#keepPill"
                        data-inbox-pill-url-value="{{ path('app_project_inbox_open_count', {id: project.id}) }}">
                         <twig:ux:icon name="lucide:inbox" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.inbox'|trans }}</span>
