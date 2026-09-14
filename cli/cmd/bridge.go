@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -103,9 +104,12 @@ func newBridgeRunCmd() *cobra.Command {
 			if err := set.Check(cmd.Context(), apiClient(cfg)); err != nil {
 				return fmt.Errorf("rule file %s: %w", path, err)
 			}
-			bridgeID, err := config.BridgeID()
+			bridgeID, err := config.EnsureBridgeID()
+			if errors.Is(err, config.ErrNotLoggedIn) {
+				return config.ErrNotLoggedIn
+			}
 			if err != nil {
-				return err
+				return fmt.Errorf("bridge id: %w", err)
 			}
 
 			logPath := logFile

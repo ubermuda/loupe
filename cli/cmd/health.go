@@ -203,7 +203,7 @@ func rejectedAdvice(err error, slug string, rules []api.RuleHealth) string {
 	case errors.Is(err, api.ErrProjectNotFound):
 		return fmt.Sprintf("the server knows no project %s of yours: fix the projects map in rules.yaml and restart the bridge", slug)
 	case errors.Is(err, api.ErrEndpointMissing):
-		return "the server has no rule health endpoint: upgrade Loupe, then restart the bridge"
+		return "the server has no rule health endpoint, or it refuses the bridgeId in config.json, which it takes as a lower-case uuid of version 1 or 3 to 8: upgrade Loupe or fix the id, then restart the bridge"
 	case rejected != nil && rejected.Status == http.StatusUnprocessableEntity:
 		fields := []string{"the report"}
 		if len(rejected.Violations) > 0 {
