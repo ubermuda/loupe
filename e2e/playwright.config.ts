@@ -107,6 +107,7 @@ export default defineConfig({
                 /billing\/trial-end-lifecycle\.spec\.ts/,
                 /install\/.*\.spec\.ts/,
                 /board\/.*\.spec\.ts/,
+                /inbox\/.*\.spec\.ts/,
                 /admin\/.*\.spec\.ts/,
                 /billing\/paywall\.spec\.ts/,
                 /account\/social-login\.spec\.ts/,
@@ -120,6 +121,16 @@ export default defineConfig({
             // Each board spec turns board.enabled off in its afterAll, which
             // 404s the board under any other board spec still running.
             testMatch: /board\/.*\.spec\.ts/,
+            workers: 1,
+            use: {
+                ...devices['Desktop Chrome'],
+            },
+        },
+        {
+            name: 'inbox',
+            // Each inbox spec turns inbox.enabled off in its afterAll, which
+            // 404s the inbox under any other inbox spec still running.
+            testMatch: /inbox\/.*\.spec\.ts/,
             workers: 1,
             use: {
                 ...devices['Desktop Chrome'],
@@ -147,7 +158,7 @@ export default defineConfig({
             use: {
                 ...devices['Desktop Chrome'],
             },
-            dependencies: ['chromium', 'board', 'admin'],
+            dependencies: ['chromium', 'board', 'inbox', 'admin'],
         },
         {
             name: 'waitlist',
@@ -181,6 +192,7 @@ export default defineConfig({
             dependencies: [
                 'chromium',
                 'board',
+                'inbox',
                 'admin',
                 'global-flags',
                 'waitlist',

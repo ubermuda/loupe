@@ -34,6 +34,10 @@
                     <span class="lp-project-row__sep">·</span>
                     <span class="lp-project-row__cards">{{ 'project.list.meta.cards'|trans({'%count%': item.openCardCount}) }}</span>
                     {% endif %}
+                    {% if is_feature_enabled('inbox.enabled') %}
+                    <span class="lp-project-row__sep">·</span>
+                    <span data-project-inbox-count>{{ 'inbox.project_list.open_items'|trans({'%count%': item.openInboxItemCount}) }}</span>
+                    {% endif %}
                 </div>
             </div>
             <a href="{{ path('app_project_edit', {id: project.id}) }}"

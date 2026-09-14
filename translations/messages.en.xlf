@@ -4335,6 +4335,201 @@
             </trans-unit>
 
 
+            <!-- Inbox page -->
+            <trans-unit id="nav.link.inbox">
+                <source>nav.link.inbox</source>
+                <target>Inbox</target>
+            </trans-unit>
+            <trans-unit id="inbox.page.title">
+                <source>inbox.page.title</source>
+                <target>Inbox</target>
+            </trans-unit>
+            <trans-unit id="inbox.page.description">
+                <source>inbox.page.description</source>
+                <target>Questions and to-dos that agents hand to you. Each ask groups what one agent session needs at once.</target>
+            </trans-unit>
+            <trans-unit id="inbox.page.empty">
+                <source>inbox.page.empty</source>
+                <target>No agent has asked you anything yet.</target>
+            </trans-unit>
+            <trans-unit id="inbox.section.open_asks">
+                <source>inbox.section.open_asks</source>
+                <target>Open asks (%count%)</target>
+            </trans-unit>
+            <trans-unit id="inbox.section.loose_items">
+                <source>inbox.section.loose_items</source>
+                <target>Open items outside an open ask (%count%)</target>
+            </trans-unit>
+            <trans-unit id="inbox.section.loose_items_note">
+                <source>inbox.section.loose_items_note</source>
+                <target>No agent waits on these, but they are still open.</target>
+            </trans-unit>
+            <trans-unit id="inbox.section.closed_asks">
+                <source>inbox.section.closed_asks</source>
+                <target>Closed asks (%count%)</target>
+            </trans-unit>
+            <trans-unit id="inbox.ask.session">
+                <source>inbox.ask.session</source>
+                <target>Session %session%</target>
+            </trans-unit>
+            <trans-unit id="inbox.ask.asked">
+                <source>inbox.ask.asked</source>
+                <target>Asked %time%</target>
+            </trans-unit>
+            <trans-unit id="inbox.ask.open">
+                <source>inbox.ask.open</source>
+                <target>Open</target>
+            </trans-unit>
+            <trans-unit id="inbox.ask.closed">
+                <source>inbox.ask.closed</source>
+                <target>Closed %time%</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.number">
+                <source>inbox.item.number</source>
+                <target>item %number%</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.kind.question">
+                <source>inbox.item.kind.question</source>
+                <target>Question</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.kind.todo">
+                <source>inbox.item.kind.todo</source>
+                <target>To-do</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.blocking">
+                <source>inbox.item.blocking</source>
+                <target>Blocking</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.state.open">
+                <source>inbox.item.state.open</source>
+                <target>Open</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.state.answered">
+                <source>inbox.item.state.answered</source>
+                <target>Answered</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.state.done">
+                <source>inbox.item.state.done</source>
+                <target>Done</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.state.declined">
+                <source>inbox.item.state.declined</source>
+                <target>Declined</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.state.withdrawn">
+                <source>inbox.item.state.withdrawn</source>
+                <target>Withdrawn</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.state.obsolete">
+                <source>inbox.item.state.obsolete</source>
+                <target>Obsolete</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.editable">
+                <source>inbox.item.editable</source>
+                <target>You can still change this response. It becomes final when an ask that holds this item closes.</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.final">
+                <source>inbox.item.final</source>
+                <target>This response is final, because an ask that holds this item has closed.</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.closed_by_agent">
+                <source>inbox.item.closed_by_agent</source>
+                <target>The agent closed this item, so it takes no response.</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.respond_elsewhere">
+                <source>inbox.item.respond_elsewhere</source>
+                <target>Respond to item %number% where it first shows on this page</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.error.final">
+                <source>inbox.item.error.final</source>
+                <target>This response is final, because an ask that holds this item has closed.</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.error.closed_by_agent">
+                <source>inbox.item.error.closed_by_agent</source>
+                <target>The agent closed this item, so it takes no response.</target>
+            </trans-unit>
+            <trans-unit id="inbox.answer.pick_one">
+                <source>inbox.answer.pick_one</source>
+                <target>Pick one</target>
+            </trans-unit>
+            <trans-unit id="inbox.answer.pick_any">
+                <source>inbox.answer.pick_any</source>
+                <target>Pick any</target>
+            </trans-unit>
+            <trans-unit id="inbox.answer.submit">
+                <source>inbox.answer.submit</source>
+                <target>Answer</target>
+            </trans-unit>
+            <trans-unit id="inbox.answer.change">
+                <source>inbox.answer.change</source>
+                <target>Change the answer</target>
+            </trans-unit>
+            <trans-unit id="inbox.answer.error.not_a_question">
+                <source>inbox.answer.error.not_a_question</source>
+                <target>Only a question takes an answer.</target>
+            </trans-unit>
+            <trans-unit id="inbox.answer.error.unknown_option">
+                <source>inbox.answer.error.unknown_option</source>
+                <target>Pick from the options this question offers.</target>
+            </trans-unit>
+            <trans-unit id="inbox.answer.error.one_option">
+                <source>inbox.answer.error.one_option</source>
+                <target>This question takes one option only.</target>
+            </trans-unit>
+            <trans-unit id="inbox.answer.error.no_free_text">
+                <source>inbox.answer.error.no_free_text</source>
+                <target>This question takes no written answer.</target>
+            </trans-unit>
+            <trans-unit id="inbox.answer.error.empty">
+                <source>inbox.answer.error.empty</source>
+                <target>Pick an option or write an answer.</target>
+            </trans-unit>
+            <trans-unit id="inbox.form.answer_inbox_item_form.answer_text.label">
+                <source>inbox.form.answer_inbox_item_form.answer_text.label</source>
+                <target>Your answer</target>
+            </trans-unit>
+            <trans-unit id="inbox.done.submit">
+                <source>inbox.done.submit</source>
+                <target>Mark done</target>
+            </trans-unit>
+            <trans-unit id="inbox.done.error.not_a_todo">
+                <source>inbox.done.error.not_a_todo</source>
+                <target>Only a to-do can be marked done.</target>
+            </trans-unit>
+            <trans-unit id="inbox.decline.toggle">
+                <source>inbox.decline.toggle</source>
+                <target>Decline</target>
+            </trans-unit>
+            <trans-unit id="inbox.decline.change">
+                <source>inbox.decline.change</source>
+                <target>Change the decline note</target>
+            </trans-unit>
+            <trans-unit id="inbox.decline.submit">
+                <source>inbox.decline.submit</source>
+                <target>Decline this item</target>
+            </trans-unit>
+            <trans-unit id="inbox.form.decline_inbox_item_form.close_note.label">
+                <source>inbox.form.decline_inbox_item_form.close_note.label</source>
+                <target>A note for the agent (optional)</target>
+            </trans-unit>
+            <trans-unit id="inbox.flash.answered">
+                <source>inbox.flash.answered</source>
+                <target>Item %number% is answered.</target>
+            </trans-unit>
+            <trans-unit id="inbox.flash.done">
+                <source>inbox.flash.done</source>
+                <target>Item %number% is done.</target>
+            </trans-unit>
+            <trans-unit id="inbox.flash.declined">
+                <source>inbox.flash.declined</source>
+                <target>Item %number% is declined.</target>
+            </trans-unit>
+            <trans-unit id="inbox.project_list.open_items">
+                <source>inbox.project_list.open_items</source>
+                <target>{0}0 open inbox items|{1}1 open inbox item|]1,Inf[%count% open inbox items</target>
+            </trans-unit>
+
+
             <!-- Board -->
             <trans-unit id="nav.link.board">
                 <source>nav.link.board</source>

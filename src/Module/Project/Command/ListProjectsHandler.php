@@ -54,6 +54,7 @@ final readonly class ListProjectsHandler
                         commentCount: $projectStats->commentCount,
                         openCount: $projectStats->openCommentCount,
                         openCardCount: $projectStats->openCardCount,
+                        openInboxItemCount: $projectStats->openInboxItemCount,
                     );
                 },
                 $projects,
