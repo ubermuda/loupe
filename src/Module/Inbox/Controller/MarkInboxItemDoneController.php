@@ -12,6 +12,7 @@ use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Form\MarkInboxItemDoneFormType;
 use App\Module\Inbox\Security\InboxItemVoter;
 use App\Module\Inbox\Service\InboxAvailability;
+use App\Module\Inbox\Service\InboxReturnTarget;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormFactoryInterface;
@@ -44,8 +45,7 @@ final class MarkInboxItemDoneController extends AppController
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(itemId, projectId)')] InboxItem $item,
     ): Response {
         $this->inbox->requireEnabled();
-        // The closed asks page the owner was on, kept on the way back.
-        $pageQuery = $request->query->getInt('page', 1) > 1 ? ['page' => $request->query->getInt('page')] : [];
+        $return = InboxReturnTarget::resolve($request, $item);
 
         $form = $this->formFactory->createNamed(MarkInboxItemDoneFormType::nameFor($item), MarkInboxItemDoneFormType::class);
         $form->handleRequest($request);
@@ -55,7 +55,7 @@ final class MarkInboxItemDoneController extends AppController
                 ($this->markDone)(new MarkInboxItemDoneCommand($item));
                 $this->addFlash('success', $this->translator->trans('inbox.flash.done', ['%number%' => $item->number]));
 
-                return $this->redirectToRoute('app_project_inbox', ['id' => (string) $item->project->id, ...$pageQuery]);
+                return $this->redirectToRoute($return->route, $return->routeParameters);
             } catch (DomainErrors $e) {
                 // The form has no field, so every refusal belongs to the form itself.
                 foreach ($e->errors as $translationKey) {
@@ -64,10 +64,9 @@ final class MarkInboxItemDoneController extends AppController
             }
         }
 
-        return $this->forward(ShowInboxController::class, [
-            'id' => (string) $item->project->id,
-            'project' => $item->project,
+        return $this->forward($return->controller, [
+            ...$return->attributes,
             ShowInboxController::REFUSED_FORM => $form->createView(),
-        ], $pageQuery)->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
+        ], $return->query)->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 }

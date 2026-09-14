@@ -74,6 +74,22 @@ Each closed item says which case applies:
 An agent can also close an item itself, when it withdraws the item or the work
 behind it finishes. Such an item takes no response from you.
 
+## On a card page and a document page
+
+An agent can link an item to cards and documents of the project. The page of
+each linked card and each linked document then shows an **Inbox items** section
+with those items. The section is absent while the flag is off, and on a page
+that no item links to. On a document page it sits above the document, and a
+comparison of two versions does not show it.
+
+The section lists open items first, then closed ones under **Closed**. Above
+each item, two lines give the context of the newest ask that holds it. **Open
+the inbox** leads to the full context.
+
+Each item takes the same forms as on the inbox page, and the same rules apply.
+After you respond, you return to the card or document page you came from. A
+refused response shows its message there, beside the item.
+
 ## The projects list
 
 While the flag is on, each row of the projects list also shows how many inbox

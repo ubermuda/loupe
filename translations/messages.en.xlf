@@ -4540,6 +4540,22 @@
                 <source>inbox.project_list.open_items</source>
                 <target>{0}0 open inbox items|{1}1 open inbox item|]1,Inf[%count% open inbox items</target>
             </trans-unit>
+            <trans-unit id="inbox.linked.title">
+                <source>inbox.linked.title</source>
+                <target>Inbox items</target>
+            </trans-unit>
+            <trans-unit id="inbox.linked.all">
+                <source>inbox.linked.all</source>
+                <target>Open the inbox</target>
+            </trans-unit>
+            <trans-unit id="inbox.linked.closed">
+                <source>inbox.linked.closed</source>
+                <target>{0}Closed (0)|]0,Inf[Closed (%count%)</target>
+            </trans-unit>
+            <trans-unit id="inbox.linked.asked">
+                <source>inbox.linked.asked</source>
+                <target>An agent asked %time%:</target>
+            </trans-unit>
 
 
             <!-- Board -->

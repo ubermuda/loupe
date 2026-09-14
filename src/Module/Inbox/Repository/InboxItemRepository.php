@@ -7,10 +7,14 @@ namespace App\Module\Inbox\Repository;
 use App\Module\Account\Entity\User;
 use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Inbox\Entity\InboxItem;
+use App\Module\Inbox\Entity\InboxItemCard;
+use App\Module\Inbox\Entity\InboxItemDocument;
 use App\Module\Inbox\Entity\InboxItemState;
+use App\Module\Inbox\Service\InboxLinkedPage;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -73,6 +77,47 @@ class InboxItemRepository extends ServiceEntityRepository
             ->setParameter('projectId', Uuid::fromString($projectId), UuidType::NAME)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /**
+     * The project's items linked to one card or one document, each with the
+     * memberships of every ask that holds it, in a single query.
+     *
+     * @return array{items: list<InboxItem>, memberships: list<InboxAskItem>}
+     */
+    public function findLinkedTo(Project $project, InboxLinkedPage $page, Uuid $targetId): array
+    {
+        [$linkClass, $targetField] = match ($page) {
+            InboxLinkedPage::Card => [InboxItemCard::class, 'card'],
+            InboxLinkedPage::Document => [InboxItemDocument::class, 'document'],
+        };
+
+        // No inverse collection leads from an item to its asks, so the memberships
+        // come back as rows of their own beside the items.
+        $rows = $this->createQueryBuilder('i')
+            ->leftJoin(InboxAskItem::class, 'm', Join::WITH, 'm.item = i')
+            ->leftJoin('m.ask', 'a')
+            ->addSelect('m', 'a')
+            ->andWhere('i.project = :project')
+            ->andWhere(\sprintf('EXISTS (SELECT t.id FROM %s t WHERE t.item = i AND t.%s = :target)', $linkClass, $targetField))
+            ->setParameter('project', $project)
+            ->setParameter('target', $targetId, UuidType::NAME)
+            ->orderBy('i.number', 'ASC')
+            ->addOrderBy('a.createdAt', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        $items = [];
+        $memberships = [];
+        foreach ($rows as $row) {
+            if ($row instanceof InboxItem) {
+                $items[(string) $row->id] = $row;
+            } elseif ($row instanceof InboxAskItem) {
+                $memberships[(string) $row->id] = $row;
+            }
+        }
+
+        return ['items' => array_values($items), 'memberships' => array_values($memberships)];
     }
 
     /**

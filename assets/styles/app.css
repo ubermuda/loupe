@@ -4676,6 +4676,37 @@
     .lp-inbox-decline__form {
         @apply mt-2;
     }
+
+    /* ── Inbox section of a card or document page ───────────────────────
+       The items linked to the page, open ones first. */
+    .lp-inbox-linked {
+        @apply flex flex-col gap-3 mt-8;
+    }
+    /* Above the review block, so it takes the block's left edge and the reading column's measure. */
+    .lp-inbox-linked--document {
+        @apply w-full max-w-160 mt-0 px-5 pt-6 lg:ml-12 lg:px-0 lg:pt-13;
+    }
+    .lp-inbox-linked__head {
+        @apply flex flex-wrap items-baseline gap-3;
+    }
+    .lp-inbox-linked__title {
+        @apply font-display font-extrabold text-lg tracking-tight text-ink m-0 mr-auto;
+    }
+    .lp-inbox-linked__all {
+        @apply text-sm font-semibold text-accent-ink no-underline hover:underline;
+    }
+    .lp-inbox-linked__entry {
+        @apply flex flex-col gap-1.5;
+    }
+    .lp-inbox-linked__context {
+        @apply flex flex-col gap-0.5 px-1 text-xs text-fg-dim;
+    }
+    .lp-inbox-linked__context-text {
+        @apply max-w-none text-xs line-clamp-2;
+    }
+    .lp-inbox-linked__subtitle {
+        @apply m-0 mt-2 text-sm font-bold uppercase tracking-widest text-fg-mute;
+    }
 }
 
 /* The typography plugin wraps inline code in literal backticks. Unlayered, not
