@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Inbox\Service;
 
+use App\Module\Board\Command\DeleteBoardColumnCommand;
+use App\Module\Board\Command\DeleteBoardColumnHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
@@ -245,6 +247,25 @@ final class InboxAskCloserTest extends KernelTestCase
         self::assertCount(1, $events);
         self::assertSame('agent', $events[0]['actor']);
         self::assertSame((string) $card->id, $events[0]['cardId']);
+    }
+
+    public function test_a_column_delete_that_makes_the_item_obsolete_commits_the_delete_and_both_rows(): void
+    {
+        $card = new Card(project: $this->managedProject(), column: $this->column($this->managedProject(), 'in-progress'), title: 'Moves', body: 'Body', number: 6);
+        $this->em->persist($card);
+        $item = $this->linkedQuestion(1, $card);
+        $this->em->flush();
+        $ask = $this->askHolding([$item]);
+
+        $handler = self::getContainer()->get(DeleteBoardColumnHandler::class);
+        self::assertInstanceOf(DeleteBoardColumnHandler::class, $handler);
+        $project = $this->managedProject();
+        $handler(new DeleteBoardColumnCommand($this->column($project, 'in-progress'), CardReporter::Human, $this->column($project, 'done')));
+
+        self::assertSame(InboxItemState::Obsolete, $this->reloadItem($item)->state);
+        self::assertNotNull($this->reloadAsk($ask)->closedAt);
+        self::assertSame(1, $this->countEvents('board.column_deleted'));
+        self::assertSame(['agent'], array_column($this->askClosedEvents(), 'actor'));
     }
 
     public function test_a_closed_ask_never_closes_again_or_writes_a_second_event(): void
