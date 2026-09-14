@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Board\Controller;
 
+use App\Mercure\LiveUpdates;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
+use App\Outbox\AgentPush;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
@@ -41,6 +43,14 @@ trait BoardScenario
         self::assertInstanceOf(FeatureFlagRepository::class, $flags);
         $flags->findAllIndexed()[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
         self::getContainer()->get(EntityManagerInterface::class)->flush();
+    }
+
+    /** Both flags ship on through a migration, so each row exists to flip. */
+    private function setHubFlags(EntityManagerInterface $em, bool $liveUpdates, bool $agentPush): void
+    {
+        foreach ([LiveUpdates::FLAG => $liveUpdates, AgentPush::FLAG => $agentPush] as $name => $value) {
+            self::assertSame(1, $em->getConnection()->executeStatement('UPDATE feature_flag SET value = ? WHERE name = ?', [$value ? 'true' : 'false', $name]));
+        }
     }
 
     /** @param non-empty-string $email */
