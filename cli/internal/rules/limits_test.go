@@ -47,6 +47,13 @@ func TestParseAcceptsTheLimits(t *testing.T) {
 		t.Fatalf("rules = %d", n)
 	}
 
+	// A non-breaking space is not in PHP's trim set, so the server counts it
+	// and it stays part of the name.
+	s = parse(t, "projects:\n  loupe:\n    dir: {dir}\nrules:\n  - {name: \" plan\", on: board.card_moved, project: loupe, to: ready, prompt: x}\n")
+	if got := s.Rules()[0].Name; got != " plan" {
+		t.Fatalf("name = %q, want the non-breaking space kept", got)
+	}
+
 	name := strings.Repeat("é", MaxNameLength)
 	s = parse(t, "projects:\n  loupe:\n    dir: {dir}\nrules:\n  - {name: '  "+name+"  ', on: board.card_moved, project: loupe, to: ready, prompt: x}\n")
 	if got := s.Rules()[0].Name; got != name {

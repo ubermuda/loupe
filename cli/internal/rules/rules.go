@@ -63,6 +63,9 @@ const (
 	MaxRulesPerProject = 200
 )
 
+// phpTrimSet is the set PHP's trim strips by default.
+const phpTrimSet = " \t\n\r\x00\x0b"
+
 // PermissionModes are the values claude 2.1.270 takes for --permission-mode.
 // Its help omits default, and it still accepts it. A later claude can add a
 // mode, so a value outside the list is logged at start rather than refused.
@@ -194,9 +197,9 @@ func Parse(data []byte, defaults Defaults) (*Set, error) {
 		if r.Name == "" {
 			r.Name = strconv.Itoa(i + 1)
 		}
-		// The server trims a name, so two names that differ in spaces alone
-		// would share one row in its report.
-		if trimmed := strings.TrimSpace(r.Name); trimmed == "" {
+		// The server trims a name with PHP's trim and counts code points, so
+		// two names that differ in spaces alone would share one row.
+		if trimmed := strings.Trim(r.Name, phpTrimSet); trimmed == "" {
 			errs = append(errs, fmt.Errorf("rule %d: name %q is blank", i+1, r.Name))
 		} else if n := utf8.RuneCountInString(trimmed); n > MaxNameLength {
 			errs = append(errs, fmt.Errorf("rule %d: name is %d characters, and the server takes at most %d", i+1, n, MaxNameLength))
