@@ -212,6 +212,28 @@ facts about the file itself.
 The e2e suite needs no messenger consumer. Every message dispatched during a
 request carrying `X-Playwright: 1` is handled inline.
 
+### A widget mode change does not settle in one frame
+
+Entering or leaving pick, draw or compose mode moves focus, re-renders both
+shadow roots, and animates the toast into its dock. A test that acts or asserts
+immediately after the mode change races all three.
+
+`widget.spec.ts` carries the two that bit. `canvasReadyAt` waits for the toast
+to stop moving and the canvas to be the topmost node before a stroke, because
+the toast crosses the page as it docks and swallows the press. The quote offer
+after draw mode was worse: it came back for about 15ms and then went, so the
+test passed on a transient until a loaded machine missed the window. That one
+was a widget defect, and the fix keeps the pick when the widget's own chrome
+takes focus.
+
+Wait on the precondition the next action needs, never on the mode flag. A flag
+often flips before the work it starts has finished.
+
+The same rule shapes a fix in the widget: read the promise rather than the flag,
+and narrow to the states that deliberately break it. Four attempts at the quote
+guard failed because they keyed on the mode that wanted the pick kept, and that
+flag is already false when the event lands.
+
 ## Common mistakes
 
 | Mistake | Reality |
