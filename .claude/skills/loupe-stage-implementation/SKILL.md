@@ -22,7 +22,7 @@ Build the approved tech design of one card into a ready, linked pull request.
 
 ## Procedure
 
-0. Load the Loupe tools, `EnterWorktree` and `Monitor` in one ToolSearch, and retry up to six times. When all fail, stop with `STAGE RESULT: loupe MCP unavailable`.
+0. Load the Loupe tools and `EnterWorktree` in one ToolSearch, and retry up to six times. When all fail, stop with `STAGE RESULT: loupe MCP unavailable`.
 1. Invoke `loupe-board`.
 2. Call `card_get`.
 3. Slug the prompt's column label (`references/commands.md`). When it differs from the card `status`, stop with `STAGE RESULT: card left <column>`.

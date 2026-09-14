@@ -9,7 +9,7 @@ Answer one round of feedback on the current stage of one card, then stop.
 
 ## Procedure
 
-1. Read `../loupe-stage-product-design/references/stage-contract.md`. Load the Loupe tools, `EnterWorktree` and `Monitor` in one ToolSearch, as its first steps say.
+1. Read `../loupe-stage-product-design/references/stage-contract.md`. Load the Loupe tools and `EnterWorktree` in one ToolSearch, as its first steps say.
 2. Invoke `loupe-board`.
 3. Call `card_get`, and run the contract's column check.
 4. Read the card `status`, and take one branch:

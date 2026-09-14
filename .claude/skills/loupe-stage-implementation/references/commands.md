@@ -50,7 +50,19 @@ The first must print the worktree path. The second must print the card branch. O
 
 ## Long commands
 
-A Bash call ends after 600000 ms. Run `just ci` and the CI wait with the Bash tool's `run_in_background`. Wait for the task to end with the `Monitor` tool. This path is untested.
+A Bash call ends after 600000 ms. Start `just ci`, or the CI watch, with the Bash tool's `run_in_background`. Write its output to a log file, and append an exit marker when it ends:
+
+```bash
+just ci > <log> 2>&1; echo "EXIT=$?" >> <log>
+```
+
+Then wait in the foreground with this loop, and a Bash timeout of 600000:
+
+```bash
+for i in $(seq 1 57); do grep -q '^EXIT=' <log> && break; sleep 10; done; grep '^EXIT=' <log> || echo still-running; tail -25 <log>
+```
+
+One loop waits 570 seconds at most. When it prints `still-running`, run it again. `EXIT=0` means the command passed. This loop ran successfully once, for a full `just ci` in a worktree.
 
 Never start `just ci` again over a run you killed. A killed host wrapper leaves PHPUnit running in the shared php-fpm container, and a second run collides with it. Find and stop it as `project-worktrees` says.
 
@@ -90,7 +102,7 @@ git rev-parse HEAD
 gh pr view <url> --json headRefOid,statusCheckRollup
 ```
 
-The `headRefOid` must equal the local head, and `statusCheckRollup` must hold entries. Then watch, in the background, for 60 minutes at most:
+The `headRefOid` must equal the local head, and `statusCheckRollup` must hold entries. Then watch in the background, with the loop from "Long commands", for 60 minutes at most:
 
 ```bash
 gh pr checks <url> --required --watch --fail-fast --interval 60
