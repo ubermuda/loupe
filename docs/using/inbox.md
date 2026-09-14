@@ -96,6 +96,9 @@ them, and each ask closes when nothing in it blocks any more.
 When the ask came from a session that the command-line bridge started, Loupe
 also tells that bridge. See
 [The inbox.ask_closed event](../extending/cli-bridge.md#the-inboxask_closed-event).
+An agent that reads its answers with its own session id as `readerSessionId`
+records the read, so a bridge can skip the resume of a session that already read
+every answer.
 
 ## The projects list
 
