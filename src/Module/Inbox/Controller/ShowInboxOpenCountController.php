@@ -33,9 +33,13 @@ final class ShowInboxOpenCountController extends AppController
     {
         $this->inbox->requireEnabled();
 
-        return $this->render('@Inbox/_open_count.html.twig', [
+        $response = $this->render('@Inbox/_open_count.html.twig', [
             'project' => $project,
             'openCount' => ($this->showOpenCount)(new ShowInboxOpenCountCommand($project)),
         ]);
+        // A reload follows a change, so a cached count would show the old one.
+        $response->headers->addCacheControlDirective('no-store');
+
+        return $response;
     }
 }

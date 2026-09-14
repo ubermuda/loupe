@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Inbox\Controller;
 
+use App\Mercure\LiveUpdates;
 use App\Mercure\UserTopicBuilder;
 use App\Module\Inbox\Command\ShowInboxHandler;
 use App\Module\Inbox\Entity\InboxItem;
@@ -15,6 +16,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class ShowInboxControllerTest extends WebTestCase
 {
@@ -120,6 +122,7 @@ final class ShowInboxControllerTest extends WebTestCase
         $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox/open-count');
 
         self::assertResponseIsSuccessful();
+        self::assertTrue($this->client->getResponse()->headers->hasCacheControlDirective('no-store'));
         self::assertCount(1, $crawler->filter('turbo-frame#inbox-open-count-'.$project->id));
         self::assertSelectorTextSame('[data-inbox-open-count]', '2');
         self::assertSelectorNotExists('nav');
@@ -141,6 +144,27 @@ final class ShowInboxControllerTest extends WebTestCase
         $this->setInboxFlag(false);
         $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox/open-count');
         self::assertResponseStatusCodeSame(404);
+    }
+
+    public function test_with_live_updates_off_the_pill_renders_its_count_and_nothing_subscribes(): void
+    {
+        $owner = $this->signedUpUser($this->em, 'inbox-pill-no-live');
+        $project = $this->inboxProject($this->em, $owner);
+        $this->question($this->em, $project, 1);
+        $this->question($this->em, $project, 2);
+        $this->setInboxFlag(true);
+        $flags = static::getContainer()->get(FeatureFlagRepository::class);
+        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
+        $flags->findAllIndexed()[LiveUpdates::FLAG]->value = false;
+        $this->em->flush();
+
+        $this->client->loginUser($owner);
+        $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/documents');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextSame('a[data-controller="inbox-pill"] [data-inbox-open-count]', '2');
+        self::assertNull(self::subscribedTopics($this->client->getResponse()));
+        self::assertSelectorNotExists('form#mercure-subscriptions');
     }
 
     public function test_no_topic_is_granted_while_the_inbox_is_off(): void
