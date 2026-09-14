@@ -22,6 +22,15 @@ final readonly class BoardView
          * @var array<string, int>
          */
         public array $pendingComments = [],
+        /** @var list<DeadBridgeRuleView> */
+        public array $deadBridgeRules = [],
+        /**
+         * The column slugs a live bridge rule watches. A rename or a delete of
+         * such a column stops the rule matching.
+         *
+         * @var list<string>
+         */
+        public array $watchedColumnSlugs = [],
     ) {
     }
 }

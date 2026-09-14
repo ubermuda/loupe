@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Mercure;
 
 use App\Mercure\EventListener\SetMercureCookieOnResponse;
+use App\Mercure\LiveUpdates;
 use App\Mercure\MercureSubscriptions;
 use App\Mercure\MercureTopicAuthorizerInterface;
 use App\Outbox\AgentPush;
@@ -93,12 +94,20 @@ final class MercureSubscriptionsTest extends TestCase
         self::assertSame([], $this->respond($subscriptions, $authorization, $request));
     }
 
-    public function test_push_off_allows_nothing(): void
+    public function test_live_updates_off_allows_nothing_even_with_agent_push_on(): void
     {
-        [$subscriptions] = $this->subscriptions(self::HUB, new TestHandler(), pushEnabled: false);
+        [$subscriptions] = $this->subscriptions(self::HUB, new TestHandler(), [LiveUpdates::FLAG => false, AgentPush::FLAG => true]);
         $subscriptions->request(self::BOARD);
 
         self::assertSame([], $subscriptions->allowedTopics());
+    }
+
+    public function test_live_updates_on_allows_topics_with_agent_push_off(): void
+    {
+        [$subscriptions] = $this->subscriptions(self::HUB, new TestHandler(), [LiveUpdates::FLAG => true, AgentPush::FLAG => false]);
+        $subscriptions->request(self::BOARD);
+
+        self::assertSame([self::BOARD], $subscriptions->allowedTopics());
     }
 
     public function test_reset_forgets_the_requested_topics(): void
@@ -112,8 +121,12 @@ final class MercureSubscriptionsTest extends TestCase
         self::assertSame([], $subscriptions->allowedTopics());
     }
 
-    /** @return array{MercureSubscriptions, Authorization, Request} */
-    private function subscriptions(string $hubUrl, TestHandler $log, bool $pushEnabled = true): array
+    /**
+     * @param array<string, bool> $flags
+     *
+     * @return array{MercureSubscriptions, Authorization, Request}
+     */
+    private function subscriptions(string $hubUrl, TestHandler $log, array $flags = [LiveUpdates::FLAG => true]): array
     {
         $hub = new MockHub(
             'http://mercure/.well-known/mercure',
@@ -132,7 +145,7 @@ final class MercureSubscriptionsTest extends TestCase
                 $this->authorizer('https://loupe.example.com/projects/', [self::BOARD]),
                 $this->authorizer('https://loupe.example.com/documents/', [self::REVIEW]),
             ],
-            FeatureFlags::service([AgentPush::FLAG => $pushEnabled]),
+            FeatureFlags::service($flags),
             $requests,
             new Logger('test', [$log]),
             static fn (): Authorization => $authorization,

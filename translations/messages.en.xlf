@@ -4778,6 +4778,10 @@
                 <source>board.column.rename.submit</source>
                 <target>Save name</target>
             </trans-unit>
+            <trans-unit id="board.column.rename.bridge_rule_warning">
+                <source>board.column.rename.bridge_rule_warning</source>
+                <target>A bridge rule watches this column. Renaming it changes its slug, and the rule stops matching.</target>
+            </trans-unit>
             <trans-unit id="board.column.move.left">
                 <source>board.column.move.left</source>
                 <target>Move left</target>
@@ -4829,6 +4833,34 @@
             <trans-unit id="board.column.delete.submit_empty">
                 <source>board.column.delete.submit_empty</source>
                 <target>Delete the column</target>
+            </trans-unit>
+            <trans-unit id="board.column.delete.bridge_rule_warning">
+                <source>board.column.delete.bridge_rule_warning</source>
+                <target>A bridge rule watches this column. Deleting it removes its slug, and the rule stops matching.</target>
+            </trans-unit>
+            <trans-unit id="board.bridge_rules.title">
+                <source>board.bridge_rules.title</source>
+                <target>{0}No bridge rule is dead.|{1}A bridge reports a dead rule|]1,Inf]A bridge reports %count% dead rules</target>
+            </trans-unit>
+            <trans-unit id="board.bridge_rules.hint">
+                <source>board.bridge_rules.hint</source>
+                <target>A dead rule starts no agent. Fix the rule in rules.yaml, then restart the bridge.</target>
+            </trans-unit>
+            <trans-unit id="board.bridge_rules.columns">
+                <source>board.bridge_rules.columns</source>
+                <target>Columns:</target>
+            </trans-unit>
+            <trans-unit id="board.bridge_rules.reason">
+                <source>board.bridge_rules.reason</source>
+                <target>Reason:</target>
+            </trans-unit>
+            <trans-unit id="board.bridge_rules.bridge">
+                <source>board.bridge_rules.bridge</source>
+                <target>Bridge:</target>
+            </trans-unit>
+            <trans-unit id="board.bridge_rules.reported">
+                <source>board.bridge_rules.reported</source>
+                <target>Reported %date%</target>
             </trans-unit>
             <trans-unit id="board.column.flash.deleted">
                 <source>board.column.flash.deleted</source>
