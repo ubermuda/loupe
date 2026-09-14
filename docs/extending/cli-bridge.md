@@ -31,10 +31,12 @@ mapped project is deleted or stops being yours, the bridge logs `project_gone`
 once, with the rules that stop working.
 
 The bridge authenticates with an account-level API token that carries the agent
-scope. Mint one at `/account`. It reaches `GET /api/projects`, `GET /api/events`
-and `GET /api/projects/{handle}/board/columns`, and no other endpoint. A
-project's widget token carries a different scope and the firewall refuses it
-here.
+scope. Mint one at `/account`. It reaches `GET /api/projects`, `GET /api/events`,
+`GET /api/projects/{handle}/board/columns` and
+`POST /api/projects/{handle}/worker-runs`, and no other endpoint. The last of
+those records a finished worker run, and the
+[Worker run API](../reference/worker-runs.md) page covers it. A project's widget
+token carries a different scope and the firewall refuses it here.
 
 The handle is a project id or a project slug. A project name does not resolve.
 The bridge reads the columns by the slug in `rules.yaml`.
