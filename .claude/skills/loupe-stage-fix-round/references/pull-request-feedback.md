@@ -49,11 +49,13 @@ An item whose first line is the marker is the worker's own, and it is never feed
 
 ## Open and closed items
 
-An item is closed when its thread is resolved. It is also closed when a marker comment or a marker thread reply cites its id in one of these forms:
+A thread is closed when it is resolved, or when its last comment is a marker reply. A newer reply without the marker opens the thread again.
+
+A review body or a top-level comment cannot take a reply. It is closed when a marker comment cites its id in one of these forms:
 
 ```
-Addressed <review|thread|comment> <id>: <what changed, commits>
-No change for <review|thread|comment> <id>: <reason>
+Addressed <review|comment> <id>: <what changed, commits>
+No change for <review|comment> <id>: <reason>
 ```
 
 Every other item is open. With no open item and no failing check, stop with `STAGE RESULT: nothing to fix`.
@@ -62,19 +64,23 @@ Every other item is open. With no open item and no failing check, stop with `STA
 
 Fix every open item and every failing check first. Then post one marker reply for each item you handled. Use `No change for` when the item asks for nothing you can act on.
 
-For a thread, reply inside the thread. Take the `databaseId` of its first comment:
+For a thread, reply inside the thread, with `Addressed thread <id>` or `No change for thread <id>`. Take the `databaseId` of its first comment:
 
 ```bash
 gh api repos/{owner}/{repo}/pulls/<n>/comments/<databaseId>/replies -f body='<!-- loupe-stage-worker -->
 Addressed thread <id>: <what changed, commits>'
 ```
 
-For a review body or a top-level comment, post a top-level comment:
+For a review body or a top-level comment, post a top-level comment. Name the kind of the item, `review` or `comment`:
 
 ```bash
 gh api repos/{owner}/{repo}/issues/<n>/comments -f body='<!-- loupe-stage-worker -->
-Addressed comment <id>: <what changed, commits>'
+Addressed review <id>: <what changed, commits>'
+gh api repos/{owner}/{repo}/issues/<n>/comments -f body='<!-- loupe-stage-worker -->
+No change for comment <id>: <reason>'
 ```
+
+The other two forms follow the same shape: `No change for review <id>` and `Addressed comment <id>`.
 
 Never resolve a thread. The reviewer resolves it.
 
