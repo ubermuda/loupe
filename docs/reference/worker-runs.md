@@ -60,7 +60,7 @@ report that sends both, or neither, is refused.
 The server stamps its own arrival time on the row. Both clocks are kept: the
 bridge clock says when the work happened, and the server clock says when the
 report landed. The gap between them is how long the report waited in the
-bridge's retry queue.
+bridge's outbound queue.
 
 A report is safe to retry. The server identifies a run by its project, its
 `bridgeId`, its `cardId` and its `startedAt`, so a report it already holds
@@ -99,7 +99,7 @@ with push off can produce no run to report, and the endpoint answers 404 there.
 ## What a missing record means
 
 A missing record means "unknown", never "the worker did not run". The bridge
-holds its retry queue in memory. A bridge stopped with Ctrl-C or `SIGTERM`
+holds its outbound queue in memory. A bridge stopped with Ctrl-C or `SIGTERM`
 gives each report it still holds one last attempt, in a short window. A bridge
 that dies without warning loses what is in flight for good. Read the list of
 runs as what the server was told, not as a complete history.

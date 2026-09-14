@@ -48,6 +48,12 @@ a project does not touch the rows of the bridges that follow it.
 
 The server stamps `lastSeenAt` from its own clock. The bridge sends no time.
 
+The bridge in `cli/` sends the heartbeat through its outbound queue, the same
+queue that carries its worker run reports. The heartbeat has a latest-wins
+policy: a newer heartbeat replaces one that has not gone out, and a failed one
+is not sent again. The next interval sends a fresh one. A slow or failing
+heartbeat never delays a run report.
+
 | Status | Body | When |
 |---|---|---|
 | 204 | | the heartbeat is accepted |

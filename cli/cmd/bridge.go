@@ -18,7 +18,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/config"
-	"github.com/ubermuda/loupe/cli/internal/report"
+	"github.com/ubermuda/loupe/cli/internal/outbound"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 	"github.com/ubermuda/loupe/cli/internal/transport"
 )
@@ -234,8 +234,9 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 
 	// The queue closes after the workers, so it sees every report a dying worker
 	// still makes, and its grace window can send them.
-	r.reports = newReportQueue(ctx, r.log, cfg)
-	defer r.reports.Close()
+	queue := newOutboundQueue(ctx, r.log, cfg)
+	r.reports = queue
+	defer queue.Close()
 
 	events, err := apiClient(cfg).Events(ctx)
 	if err != nil {
@@ -251,7 +252,7 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		for _, slug := range r.projects {
 			r.reportHealth(slug)
 		}
-		r.heartbeat = newHeartbeater(ctx, apiClient(cfg), r.bridgeID, heartbeatBody(r.rules), heartbeatInterval(events), r.log)
+		r.heartbeat = newHeartbeater(ctx, queue, apiClient(cfg), r.bridgeID, heartbeatBody(r.rules), heartbeatInterval(events), r.log)
 		r.heartbeat.start()
 	}
 
@@ -275,13 +276,14 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	return nil
 }
 
-// newReportQueue builds the queue that sends each finished run to Loupe. One
-// bridge follows several projects, so the handle travels with each report, and
-// it is the project id the event carried rather than the slug a rename changes.
-func newReportQueue(ctx context.Context, log *slog.Logger, cfg config.Config) report.Queue {
+// newOutboundQueue builds the queue that sends the bridge's reports and its
+// heartbeat to Loupe. One bridge follows several projects, so the handle travels
+// with each run report, and it is the project id the event carried rather than
+// the slug a rename changes.
+func newOutboundQueue(ctx context.Context, log *slog.Logger, cfg config.Config) *outbound.Sender {
 	client := apiClient(cfg)
 
-	return report.New(ctx, log, func(ctx context.Context, handle string, run api.WorkerRun) (bool, error) {
+	return outbound.New(ctx, log, func(ctx context.Context, handle string, run api.WorkerRun) (bool, error) {
 		return client.ReportWorkerRun(ctx, handle, run)
 	})
 }

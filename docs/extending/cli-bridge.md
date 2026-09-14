@@ -89,9 +89,11 @@ Loupe records a run against a card. A rule can name an event type that carries
 no card number, and the bridge logs `report_skipped` for such a run rather than
 sending it. That run has no record, and the log line is the only sign of it.
 
-The queue that carries those reports is held in memory. A failed send waits one
-second, then twice as long before each later attempt, up to sixty seconds. The
-bridge gives up after ten attempts and logs `report_failed`.
+Everything the bridge sends to Loupe goes through one outbound queue, held in
+memory. Each kind of item has its own delivery policy, and the kinds never wait
+on each other. Run reports go out in order. A failed send waits one second, then
+twice as long before each later attempt, up to sixty seconds. The bridge gives
+up after ten attempts and logs `report_failed`.
 
 Loupe keys a run by its project, its bridge, its card and the second it started.
 Two runs of one card that start inside the same second therefore count as one
@@ -108,9 +110,11 @@ not run".
 The bridge sends a heartbeat to `/api/bridges/{bridgeId}/heartbeat` once at
 start and then at the interval that `bridge.heartbeat_interval_seconds` gives,
 60 seconds by default. The heartbeat names the projects the rule file maps and
-the build of the bridge. A failed heartbeat is not retried on its own, because
-the next interval sends a fresh one. A server with no heartbeat endpoint answers
-404, and the bridge logs `heartbeat_unsupported` once and keeps working.
+the build of the bridge. The heartbeat has a latest-wins lane in the outbound
+queue. A newer heartbeat replaces one that has not gone out, and a failed one
+waits for the next interval. A slow or failing heartbeat never delays a run
+report. A server with no heartbeat endpoint answers 404, and the bridge logs
+`heartbeat_unsupported` once and keeps working.
 
 There is no terminal UI. The bridge writes one JSON object per line to stdout
 and to its log file, named by `--log-file`. Each line carries a stable `event`

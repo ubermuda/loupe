@@ -18,17 +18,28 @@ const defaultHeartbeatInterval = time.Minute
 // bridge spend most of its token's rate limit.
 const minHeartbeatSeconds = 10
 
+// heartbeatLane is the latest-wins lane of the outbound queue that carries the
+// heartbeat.
+const heartbeatLane = "heartbeat"
+
 // heartbeatSender sends one heartbeat. *api.Client is one.
 type heartbeatSender interface {
 	Heartbeat(ctx context.Context, bridgeID string, hb api.Heartbeat) error
 }
 
+// latestQueue is the latest-wins side of the outbound queue.
+// *outbound.Sender is one.
+type latestQueue interface {
+	SendLatest(key string, send func(context.Context) error, done func(error))
+}
+
 // heartbeater tells Loupe that the bridge runs: once at start, then at each
-// interval. A heartbeat is current state, so a failed one is not retried on its
-// own. The next interval sends a fresh one, and the server keeps no history
-// that a lost heartbeat would leave a gap in.
+// interval. Each heartbeat goes through the latest-wins lane of the outbound
+// queue, so a newer one replaces one that has not gone out, a failed one waits
+// for the next interval, and none of them delays a run report.
 type heartbeater struct {
 	ctx      context.Context
+	queue    latestQueue
 	client   heartbeatSender
 	bridgeID string
 	body     api.Heartbeat
@@ -42,15 +53,17 @@ type heartbeater struct {
 	reset chan struct{}
 	done  chan struct{}
 
-	// The loop goroutine alone reads and writes these.
+	// The queue calls record from the one goroutine of the lane, and nothing
+	// else reads or writes these.
 	sent        bool
 	failed      int
 	unsupported bool
 }
 
-func newHeartbeater(ctx context.Context, client heartbeatSender, bridgeID string, body api.Heartbeat, interval time.Duration, log *slog.Logger) *heartbeater {
+func newHeartbeater(ctx context.Context, queue latestQueue, client heartbeatSender, bridgeID string, body api.Heartbeat, interval time.Duration, log *slog.Logger) *heartbeater {
 	return &heartbeater{
 		ctx:      ctx,
+		queue:    queue,
 		client:   client,
 		bridgeID: bridgeID,
 		body:     body,
@@ -124,18 +137,22 @@ func (h *heartbeater) loop() {
 	}
 }
 
-// send posts one heartbeat and logs only what an operator acts on: the first
-// one that lands, each run of 404 answers once, and each failure streak at its
-// start and at its end.
+// send hands one heartbeat to the queue.
 func (h *heartbeater) send() {
-	err := h.client.Heartbeat(h.ctx, h.bridgeID, h.body)
+	h.queue.SendLatest(heartbeatLane, func(ctx context.Context) error {
+		return h.client.Heartbeat(ctx, h.bridgeID, h.body)
+	}, h.record)
+}
+
+// record logs only what an operator acts on: the first heartbeat that lands,
+// each run of 404 answers once, and each failure streak at its start and its end.
+func (h *heartbeater) record(err error) {
 	switch {
 	case err == nil:
 		if !h.sent || h.failed > 0 || h.unsupported {
 			h.log.Info("heartbeat_sent", "bridge_id", h.bridgeID, "interval_seconds", int(h.currentInterval()/time.Second), "failed_before", h.failed)
 		}
 		h.sent, h.failed, h.unsupported = true, 0, false
-	case h.ctx.Err() != nil:
 	case errors.Is(err, api.ErrHeartbeatMissing):
 		if !h.unsupported {
 			h.unsupported = true

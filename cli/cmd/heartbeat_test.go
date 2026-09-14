@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
+	"github.com/ubermuda/loupe/cli/internal/outbound"
 )
 
 // fakeTimers stands in for time.After. Each call records the delay it was
@@ -74,46 +75,89 @@ func (f *fakeHeartbeats) count() int {
 	return len(f.sent)
 }
 
-func startHeartbeater(t *testing.T, client *fakeHeartbeats, interval time.Duration) (*heartbeater, *fakeTimers, *syncBuffer, context.CancelFunc) {
-	t.Helper()
-	ctx, cancel := context.WithCancel(context.Background())
-	timers := &fakeTimers{}
-	log := &syncBuffer{}
-	body := api.Heartbeat{Projects: []string{testProject}, CLIVersion: "b4e39aa7"}
-	h := newHeartbeater(ctx, client, testBridgeID, body, interval, newBridgeLogger(log))
-	h.after = timers.after
-	h.start()
-	t.Cleanup(func() {
-		cancel()
-		h.wait()
-	})
+// countingQueue is the real outbound queue, and it counts each heartbeat whose
+// result the heartbeater has recorded, so a test reads the log only after that.
+type countingQueue struct {
+	inner *outbound.Sender
 
-	return h, timers, log, cancel
+	mu sync.Mutex
+	n  int
 }
 
-// tick fires the newest timer after checking its delay, and waits for the send
-// it causes.
-func tick(t *testing.T, client *fakeHeartbeats, timers *fakeTimers, want time.Duration) {
+func (c *countingQueue) SendLatest(key string, send func(context.Context) error, done func(error)) {
+	c.inner.SendLatest(key, send, func(err error) {
+		done(err)
+		c.mu.Lock()
+		c.n++
+		c.mu.Unlock()
+	})
+}
+
+func (c *countingQueue) recorded() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.n
+}
+
+type heartbeatHarness struct {
+	h      *heartbeater
+	client *fakeHeartbeats
+	queue  *countingQueue
+	timers *fakeTimers
+	log    *syncBuffer
+	cancel context.CancelFunc
+}
+
+func startHeartbeater(t *testing.T, client *fakeHeartbeats, interval time.Duration) *heartbeatHarness {
 	t.Helper()
-	sends, armed := client.count(), timers.count()
-	delay, ch := timers.last()
+	ctx, cancel := context.WithCancel(context.Background())
+	log := &syncBuffer{}
+	sender := outbound.New(ctx, newBridgeLogger(log), func(context.Context, string, api.WorkerRun) (bool, error) {
+		return true, nil
+	})
+	hh := &heartbeatHarness{client: client, queue: &countingQueue{inner: sender}, timers: &fakeTimers{}, log: log, cancel: cancel}
+	body := api.Heartbeat{Projects: []string{testProject}, CLIVersion: "b4e39aa7"}
+	hh.h = newHeartbeater(ctx, hh.queue, client, testBridgeID, body, interval, newBridgeLogger(log))
+	hh.h.after = hh.timers.after
+	hh.h.start()
+	t.Cleanup(func() {
+		cancel()
+		hh.h.wait()
+		sender.Close()
+	})
+	eventually(t, "the start heartbeat", func() bool { return hh.queue.recorded() == 1 && hh.timers.count() == 1 })
+
+	return hh
+}
+
+// tick fires the newest timer after checking its delay, and waits until the
+// heartbeat it causes is sent and recorded.
+func (hh *heartbeatHarness) tick(t *testing.T, want time.Duration) {
+	t.Helper()
+	recorded, armed := hh.queue.recorded(), hh.timers.count()
+	delay, ch := hh.timers.last()
 	if delay != want {
 		t.Fatalf("timer delay = %s, want %s", delay, want)
 	}
 	ch <- time.Now()
-	eventually(t, "the heartbeat of the tick", func() bool { return client.count() == sends+1 && timers.count() == armed+1 })
+	eventually(t, "the heartbeat of the tick", func() bool {
+		return hh.queue.recorded() == recorded+1 && hh.timers.count() == armed+1
+	})
 }
 
 func TestTheBridgeSendsAHeartbeatAtStartAndAtEachInterval(t *testing.T) {
 	client := &fakeHeartbeats{}
-	_, timers, _, _ := startHeartbeater(t, client, time.Minute)
+	hh := startHeartbeater(t, client, time.Minute)
 
-	eventually(t, "the start heartbeat", func() bool { return client.count() == 1 && timers.count() == 1 })
-	tick(t, client, timers, time.Minute)
-	tick(t, client, timers, time.Minute)
+	hh.tick(t, time.Minute)
+	hh.tick(t, time.Minute)
 
 	client.mu.Lock()
 	defer client.mu.Unlock()
+	if len(client.sent) != 3 {
+		t.Fatalf("%d heartbeats, want 3", len(client.sent))
+	}
 	for i, hb := range client.sent {
 		if client.ids[i] != testBridgeID || len(hb.Projects) != 1 || hb.Projects[0] != testProject || hb.CLIVersion != "b4e39aa7" {
 			t.Fatalf("heartbeat %d = %s %+v", i, client.ids[i], hb)
@@ -125,21 +169,20 @@ func TestTheBridgeSendsAHeartbeatAtStartAndAtEachInterval(t *testing.T) {
 // the old one fires.
 func TestAChangedIntervalRearmsTheTimer(t *testing.T) {
 	client := &fakeHeartbeats{}
-	h, timers, log, _ := startHeartbeater(t, client, time.Minute)
-	eventually(t, "the start heartbeat", func() bool { return client.count() == 1 && timers.count() == 1 })
-	_, stale := timers.last()
+	hh := startHeartbeater(t, client, time.Minute)
+	_, stale := hh.timers.last()
 
-	h.setInterval(time.Minute)
-	h.setInterval(15 * time.Second)
-	eventually(t, "a timer armed with the new interval", func() bool { return timers.count() == 2 })
+	hh.h.setInterval(time.Minute)
+	hh.h.setInterval(15 * time.Second)
+	eventually(t, "a timer armed with the new interval", func() bool { return hh.timers.count() == 2 })
 
 	stale <- time.Now()
-	tick(t, client, timers, 15*time.Second)
+	hh.tick(t, 15*time.Second)
 	if client.count() != 2 {
 		t.Fatalf("the stale timer sent a heartbeat: %d sends", client.count())
 	}
-	if strings.Count(log.String(), `"event":"heartbeat_interval_changed"`) != 1 || !strings.Contains(log.String(), `"interval_seconds":15`) {
-		t.Fatalf("log = %s", log.String())
+	if strings.Count(hh.log.String(), `"event":"heartbeat_interval_changed"`) != 1 || !strings.Contains(hh.log.String(), `"interval_seconds":15`) {
+		t.Fatalf("log = %s", hh.log.String())
 	}
 }
 
@@ -168,20 +211,18 @@ func TestTheIntervalFallsBackToSixtySeconds(t *testing.T) {
 // A refresh that carries a new interval reaches the running heartbeat, and a
 // refresh that carries none sets the fallback.
 func TestARefreshAppliesTheIntervalToTheHeartbeat(t *testing.T) {
-	client := &fakeHeartbeats{}
-	h, timers, _, _ := startHeartbeater(t, client, time.Minute)
-	eventually(t, "the start heartbeat", func() bool { return client.count() == 1 && timers.count() == 1 })
-	r := &router{log: h.log, heartbeat: h}
+	hh := startHeartbeater(t, &fakeHeartbeats{}, time.Minute)
+	r := &router{log: hh.h.log, heartbeat: hh.h}
 
 	r.applyFlags(api.Events{Flags: map[string]any{api.HeartbeatIntervalFlag: float64(20)}})
-	eventually(t, "a timer armed with the refreshed interval", func() bool { return timers.count() == 2 })
-	if delay, _ := timers.last(); delay != 20*time.Second {
+	eventually(t, "a timer armed with the refreshed interval", func() bool { return hh.timers.count() == 2 })
+	if delay, _ := hh.timers.last(); delay != 20*time.Second {
 		t.Fatalf("delay = %s", delay)
 	}
 
 	r.applyFlags(api.Events{})
-	eventually(t, "a timer armed with the fallback", func() bool { return timers.count() == 3 })
-	if delay, _ := timers.last(); delay != time.Minute {
+	eventually(t, "a timer armed with the fallback", func() bool { return hh.timers.count() == 3 })
+	if delay, _ := hh.timers.last(); delay != time.Minute {
 		t.Fatalf("delay = %s", delay)
 	}
 }
@@ -190,14 +231,13 @@ func TestARefreshAppliesTheIntervalToTheHeartbeat(t *testing.T) {
 // keeps sending, so an upgraded server hears from it with no restart.
 func TestAServerWithNoHeartbeatEndpointIsLoggedOnce(t *testing.T) {
 	client := &fakeHeartbeats{errors: []error{api.ErrHeartbeatMissing, api.ErrHeartbeatMissing, api.ErrHeartbeatMissing}}
-	_, timers, log, _ := startHeartbeater(t, client, time.Minute)
+	hh := startHeartbeater(t, client, time.Minute)
 
-	eventually(t, "the start heartbeat", func() bool { return client.count() == 1 && timers.count() == 1 })
-	tick(t, client, timers, time.Minute)
-	tick(t, client, timers, time.Minute)
-	tick(t, client, timers, time.Minute)
+	hh.tick(t, time.Minute)
+	hh.tick(t, time.Minute)
+	hh.tick(t, time.Minute)
 
-	out := log.String()
+	out := hh.log.String()
 	if strings.Count(out, `"event":"heartbeat_unsupported"`) != 1 || strings.Contains(out, "heartbeat_failed") {
 		t.Fatalf("log = %s", out)
 	}
@@ -210,14 +250,13 @@ func TestAServerWithNoHeartbeatEndpointIsLoggedOnce(t *testing.T) {
 // is news again.
 func TestARecoveryFromA404IsLoggedOnceAndALater404Again(t *testing.T) {
 	client := &fakeHeartbeats{errors: []error{nil, api.ErrHeartbeatMissing, api.ErrHeartbeatMissing, nil, nil, api.ErrHeartbeatMissing}}
-	_, timers, log, _ := startHeartbeater(t, client, time.Minute)
+	hh := startHeartbeater(t, client, time.Minute)
 
-	eventually(t, "the start heartbeat", func() bool { return client.count() == 1 && timers.count() == 1 })
 	for range 5 {
-		tick(t, client, timers, time.Minute)
+		hh.tick(t, time.Minute)
 	}
 
-	out := log.String()
+	out := hh.log.String()
 	if n := strings.Count(out, `"event":"heartbeat_sent"`); n != 2 {
 		t.Fatalf("%d heartbeat_sent lines, want the start and the recovery: %s", n, out)
 	}
@@ -231,14 +270,16 @@ func TestARecoveryFromA404IsLoggedOnceAndALater404Again(t *testing.T) {
 func TestAFailureStreakLogsOnceAndItsEnd(t *testing.T) {
 	down := errors.New("connection refused")
 	client := &fakeHeartbeats{errors: []error{down, down, down}}
-	_, timers, log, _ := startHeartbeater(t, client, time.Minute)
+	hh := startHeartbeater(t, client, time.Minute)
 
-	eventually(t, "the start heartbeat", func() bool { return client.count() == 1 && timers.count() == 1 })
-	tick(t, client, timers, time.Minute)
-	tick(t, client, timers, time.Minute)
-	tick(t, client, timers, time.Minute)
+	hh.tick(t, time.Minute)
+	hh.tick(t, time.Minute)
+	hh.tick(t, time.Minute)
 
-	out := log.String()
+	out := hh.log.String()
+	if client.count() != 4 {
+		t.Fatalf("%d sends, want one per tick and no retry of its own", client.count())
+	}
 	if strings.Count(out, `"event":"heartbeat_failed"`) != 1 || !strings.Contains(out, "connection refused") {
 		t.Fatalf("log = %s", out)
 	}
@@ -250,27 +291,24 @@ func TestAFailureStreakLogsOnceAndItsEnd(t *testing.T) {
 // Only the first heartbeat and the end of a failure streak are logged, so a
 // bridge that runs all day does not write a line a minute.
 func TestARoutineHeartbeatWritesNoLogLine(t *testing.T) {
-	client := &fakeHeartbeats{}
-	_, timers, log, _ := startHeartbeater(t, client, time.Minute)
+	hh := startHeartbeater(t, &fakeHeartbeats{}, time.Minute)
 
-	eventually(t, "the start heartbeat", func() bool { return client.count() == 1 && timers.count() == 1 })
-	tick(t, client, timers, time.Minute)
-	tick(t, client, timers, time.Minute)
+	hh.tick(t, time.Minute)
+	hh.tick(t, time.Minute)
 
-	if n := strings.Count(log.String(), "\n"); n != 1 {
-		t.Fatalf("%d log lines: %s", n, log.String())
+	if n := strings.Count(hh.log.String(), "\n"); n != 1 {
+		t.Fatalf("%d log lines: %s", n, hh.log.String())
 	}
 }
 
 func TestShutdownStopsTheHeartbeat(t *testing.T) {
 	client := &fakeHeartbeats{}
-	h, timers, _, cancel := startHeartbeater(t, client, time.Minute)
-	eventually(t, "the start heartbeat", func() bool { return client.count() == 1 && timers.count() == 1 })
+	hh := startHeartbeater(t, client, time.Minute)
 
-	cancel()
+	hh.cancel()
 	done := make(chan struct{})
 	go func() {
-		h.wait()
+		hh.h.wait()
 		close(done)
 	}()
 	select {
