@@ -21,18 +21,20 @@ A section whose `standing_approval_count` is above 0 is approved. Never change i
 
 ## Answer every open comment
 
-Reply to every open root comment, and mark it addressed. Do this for a comment you answer with no change too. Finish the replies before you call `document_revise`, because a revision invalidates every comment id (rule 7).
+Handle every open root comment, including a comment you answer with no change. Write down the reply for each one, and post the replies last, as "Revise, then reply" says.
 
 1. Apply a comment's `replacement` when it has one. Its `quote` is the exact span to substitute. An empty `replacement` deletes the span.
 2. When the `replacement` falls inside an approved section, do not apply it. Reply, and say that the section is approved.
-3. Reply to an `orphaned` comment. Never guess where its text belongs.
+3. Answer an `orphaned` comment with a reply only. Never guess where its text belongs.
 
-## Revise only when the Markdown changes
+## Revise, then reply
 
 1. Add a `**Decided:**` line for each answered decision that has none (rule 6). Keep every fence id, because a changed id discards the answer.
 2. When the current answer differs from the option a `**Decided:**` line names, rewrite that line. Rewrite every requirement and decision the change affects too. This counts as a text change.
 3. When the fence sits inside an approved section, put its `**Decided:**` line in the document's `Decided` section. When the document has none, add a `## Decisions` heading at the end.
 4. Cover each new requirement from the requirement source.
-5. When the Markdown is different, call `document_revise` with a `description` that names what changed (rule 9). Stop with `STAGE RESULT: <document> revised <id>`.
-6. When the Markdown is the same and you replied to at least one comment, send no version. Stop with `STAGE RESULT: comments answered`.
+5. When the Markdown is different, call `document_revise` first, with a `description` that names what changed (rule 9). Then call `document_get_review` again, because a revision gives every comment a new id (rule 7, order 2). Reply to each handled comment through its new id, and mark it addressed. Stop with `STAGE RESULT: <document> revised <id>`.
+6. When the Markdown is the same, send no version. Reply to each handled comment and mark it addressed directly. When you replied to at least one, stop with `STAGE RESULT: comments answered`.
 7. When the Markdown is the same and you replied to no comment, stop with `STAGE RESULT: <document> unchanged`.
+
+Revise before you reply, because a crash between the replies and the revision leaves comments marked addressed whose correction never landed.

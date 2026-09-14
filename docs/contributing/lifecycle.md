@@ -108,9 +108,17 @@ at the same time interfere with each other.
 
 No rule starts a fix round yet. Run one by hand after review feedback arrives.
 
-1. Stop the bridge, or wait until no worker runs. Every gate shares one
-   `php-fpm` container, so a worker on any card counts.
-2. Run this from the repository root:
+1. Wait until no worker runs, on any card. The bridge log shows the end line
+   of each worker. Then stop the bridge.
+2. Check that no test run is left. Stopping the bridge during a gate kills the
+   host process, and PHPUnit keeps running inside the shared `php-fpm`
+   container. From the main checkout, this command must print `0`:
+
+```sh
+docker compose exec php-fpm ps aux | grep -c phpunit
+```
+
+3. Run this from the repository root:
 
 ```sh
 claude -p --permission-mode bypassPermissions -- "Use the loupe-stage-fix-round skill. Card <number> (cardId <id>) in project loupe (projectId <id>), column <slug>. Loupe instance https://loupe.ac."
