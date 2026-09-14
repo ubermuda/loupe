@@ -82,6 +82,12 @@
                         <twig:ux:icon name="lucide:code-xml" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.connect'|trans }}</span>
                     </a>
+                    <a href="{{ path('app_project_worker_runs', {id: project.id}) }}"
+                       class="lp-sidebar__link{% if route == 'app_project_worker_runs' %} lp-sidebar__link--active{% endif %}"
+                       {% if route == 'app_project_worker_runs' %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:bot" />
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.worker_runs'|trans }}</span>
+                    </a>
                     <a href="{{ path('app_project_outbox', {id: project.id}) }}"
                        class="lp-sidebar__link{% if route == 'app_project_outbox' %} lp-sidebar__link--active{% endif %}"
                        {% if route == 'app_project_outbox' %}aria-current="page"{% endif %}>
