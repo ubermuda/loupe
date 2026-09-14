@@ -17,7 +17,7 @@ Build the approved tech design of one card into a ready, linked pull request.
 6. A subagent prompt carries rules 1 to 4, 7, 9 and 10, and the CLAUDE.md area skills for its files.
 7. Write in ASD-STE100.
 8. Never depend on `board_columns` or `card_search`. Reuse `tag_list` spellings when it exists.
-9. Never merge, and never use `--no-verify`, `--admin` or bare `docker compose`.
+9. Never merge or force-push. Never use `--no-verify`, `--admin` or bare `docker compose`.
 10. Follow "Borrowed skills" in `references/commands.md`.
 
 ## Procedure

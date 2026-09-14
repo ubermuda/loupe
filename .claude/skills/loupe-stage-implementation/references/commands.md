@@ -68,7 +68,7 @@ php bin/changelog.php --check
 
 When `git merge origin/main` conflicts, resolve it only when the conflict is mechanical and the gate then proves the result. Otherwise run `git merge --abort`, and stop with `STAGE RESULT: blocked: merge conflict with main in <files>`.
 
-Commit what `just cs` changes. Then run the Codex review with `mcp__codex-cli__review` and `model: "gpt-6-astra"`. Scope it to `origin/main` for a branch with one commit, and to the newest commit with `commit: "<sha>"` otherwise. Repeat until two passes in a row come back clean. Run `git status` after each pass. When the Codex MCP is missing, stop with `STAGE RESULT: blocked: codex MCP unavailable`.
+Commit what `just cs` changes. Then run the Codex review with `mcp__codex-cli__review` and `model: "gpt-6-astra"`. Scope it to `origin/main` for a branch with one commit. Otherwise review each commit that carries work, by its SHA, with `commit: "<sha>"`. Never scope it to the newest commit, because the gate adds merge and style commits after the work (`working-with-prs`, "Scope the review to the commit"). Repeat until two passes in a row come back clean. Run `git status` after each pass. When the Codex MCP is missing, stop with `STAGE RESULT: blocked: codex MCP unavailable`.
 
 ## Open the pull request
 
