@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Outbox\Command;
 
+use App\Mercure\UserTopicBuilder;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Outbox\AgentPush;
@@ -18,6 +19,7 @@ use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Mercure\HubInterface;
 use Symfony\Component\Mercure\Update;
+use Symfony\Component\Uid\Uuid;
 
 final class DrainOutboxHandlerTest extends KernelTestCase
 {
@@ -25,6 +27,7 @@ final class DrainOutboxHandlerTest extends KernelTestCase
     private HubInterface&MockObject $hub;
     private DrainOutboxHandler $handler;
     private OutboxEventRepository $outboxEvents;
+    private UserTopicBuilder $userTopics;
 
     #[\Override]
     protected function setUp(): void
@@ -37,7 +40,10 @@ final class DrainOutboxHandlerTest extends KernelTestCase
         self::assertInstanceOf(OutboxEventRepository::class, $outboxEvents);
         $this->outboxEvents = $outboxEvents;
         $this->hub = $this->createMock(HubInterface::class);
-        $this->handler = new DrainOutboxHandler($this->outboxEvents, $this->em, $this->hub, new NullLogger(), FeatureFlags::service([AgentPush::FLAG => true]));
+        $userTopics = self::getContainer()->get(UserTopicBuilder::class);
+        self::assertInstanceOf(UserTopicBuilder::class, $userTopics);
+        $this->userTopics = $userTopics;
+        $this->handler = new DrainOutboxHandler($this->outboxEvents, $this->em, $this->hub, new NullLogger(), FeatureFlags::service([AgentPush::FLAG => true]), $userTopics);
     }
 
     public function test_push_disabled_claims_nothing_at_all(): void
@@ -54,6 +60,7 @@ final class DrainOutboxHandlerTest extends KernelTestCase
             $this->hub,
             new NullLogger(),
             FeatureFlags::service([AgentPush::FLAG => false]),
+            $this->userTopics,
         );
 
         $result = ($handler)(new DrainOutboxCommand());
@@ -79,7 +86,7 @@ final class DrainOutboxHandlerTest extends KernelTestCase
         $this->em->flush();
 
         $this->hub->expects($this->once())->method('publish')
-            ->with(self::callback(fn (Update $update): bool => ['https://app/topic'] === $update->getTopics()
+            ->with(self::callback(fn (Update $update): bool => ['https://app/topic', $this->userTopics->forUser($project->owner->id ?? Uuid::v7())] === $update->getTopics()
                     && '{}' === $update->getData()
                     // The sequence rides along as the SSE id so a reconnecting
                     // subscriber can resume from it, exactly as on first publish.
@@ -96,6 +103,38 @@ final class DrainOutboxHandlerTest extends KernelTestCase
         self::assertNotNull($settled);
         self::assertNotNull($settled->publishedAt);
         self::assertSame(0, $this->outboxEvents->countUnsent($project));
+    }
+
+    /** The bridge follows one topic per user, so every owned project's event must reach it. */
+    public function test_each_event_also_goes_to_its_project_owners_user_topic(): void
+    {
+        $first = $this->project('drain-owner@example.com');
+        $second = new Project($first->owner, 'drain-second-'.bin2hex(random_bytes(4)));
+        $this->em->persist($second);
+        $foreign = $this->project('drain-foreign@example.com');
+        $this->event($first);
+        $this->event($second);
+        $this->event($foreign);
+        $this->em->flush();
+
+        $published = [];
+        $this->hub->expects($this->exactly(3))->method('publish')
+            ->willReturnCallback(static function (Update $update) use (&$published): string {
+                $published[] = $update->getTopics();
+
+                return 'id';
+            });
+
+        ($this->handler)(new DrainOutboxCommand());
+
+        $ownerTopic = $this->userTopics->forUser($first->owner->id ?? Uuid::v7());
+        $foreignTopic = $this->userTopics->forUser($foreign->owner->id ?? Uuid::v7());
+        self::assertCount(2, array_filter($published, static fn (array $topics): bool => \in_array($ownerTopic, $topics, true)));
+        self::assertCount(1, array_filter($published, static fn (array $topics): bool => \in_array($foreignTopic, $topics, true)));
+        foreach ($published as $topics) {
+            self::assertCount(2, $topics);
+            self::assertFalse(\in_array($ownerTopic, $topics, true) && \in_array($foreignTopic, $topics, true));
+        }
     }
 
     public function test_an_already_published_event_is_not_published_twice(): void

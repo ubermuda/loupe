@@ -11,6 +11,48 @@ import (
 	"time"
 )
 
+// Every topic rides one connection as its own topic parameter, which is how a
+// Mercure hub reads several topics.
+func TestSubscribeAsksForEveryTopicOnOneConnection(t *testing.T) {
+	topics := []string{"https://loupe.test/projects/a/events", "https://loupe.test/projects/b/events"}
+	got := make(chan []string, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case got <- r.URL.Query()["topic"]:
+		default:
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = Subscribe(ctx, srv.Client(), srv.URL+"?topic=stale", topics,
+			func(context.Context) (string, error) { return "jwt", nil }, Handler{})
+	}()
+
+	select {
+	case seen := <-got:
+		if strings.Join(seen, " ") != strings.Join(topics, " ") {
+			t.Fatalf("topics = %q, want %q", seen, topics)
+		}
+	case <-time.After(4 * time.Second):
+		t.Fatal("the hub saw no connection")
+	}
+	cancel()
+	<-done
+}
+
+func TestSubscribeRefusesNoTopic(t *testing.T) {
+	err := Subscribe(context.Background(), http.DefaultClient, "https://hub.test", nil,
+		func(context.Context) (string, error) { return "jwt", nil }, Handler{})
+	if err == nil || !strings.Contains(err.Error(), "at least one topic") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
 // TestSubscribeResumesFromLastEventID proves the bridge does not silently lose
 // notifications published while it was disconnected: the hub replays from
 // Last-Event-ID, so the id of the last event seen must be sent on reconnect.
@@ -46,7 +88,7 @@ func TestSubscribeResumesFromLastEventID(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		_ = Subscribe(ctx, srv.Client(), srv.URL, "https://example.test/topic",
+		_ = Subscribe(ctx, srv.Client(), srv.URL, []string{"https://example.test/topic"},
 			func(context.Context) (string, error) { return "jwt", nil },
 			Handler{
 				OnData: func(data []byte) {
@@ -126,7 +168,7 @@ func TestSubscribeDoesNotCommitIDOfUndeliveredEvent(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		_ = Subscribe(ctx, srv.Client(), srv.URL, "https://example.test/topic",
+		_ = Subscribe(ctx, srv.Client(), srv.URL, []string{"https://example.test/topic"},
 			func(context.Context) (string, error) { return "jwt", nil },
 			Handler{
 				OnData: func(data []byte) {
@@ -200,7 +242,7 @@ func TestSubscribeClearsResumePointOnEmptyID(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		_ = Subscribe(ctx, srv.Client(), srv.URL, "https://example.test/topic",
+		_ = Subscribe(ctx, srv.Client(), srv.URL, []string{"https://example.test/topic"},
 			func(context.Context) (string, error) { return "jwt", nil },
 			Handler{
 				OnData: func(data []byte) {
@@ -265,7 +307,7 @@ func TestStreamHandlesCRLFLineEndings(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		_ = Subscribe(ctx, srv.Client(), srv.URL, "https://example.test/topic",
+		_ = Subscribe(ctx, srv.Client(), srv.URL, []string{"https://example.test/topic"},
 			func(context.Context) (string, error) { return "jwt", nil },
 			Handler{
 				OnData: func(data []byte) {
@@ -341,7 +383,7 @@ func TestSubscribeMintsAFreshTokenAfterA401(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		_ = Subscribe(ctx, srv.Client(), srv.URL, "https://example.test/topic",
+		_ = Subscribe(ctx, srv.Client(), srv.URL, []string{"https://example.test/topic"},
 			func(context.Context) (string, error) {
 				mu.Lock()
 				defer mu.Unlock()
