@@ -1,0 +1,24 @@
+name: Mirror Docker Hub pulls
+description: Point the runner's Docker daemon at a public pull-through cache, so a CI pull spends no Docker Hub quota.
+
+# GitHub's shared runners pull anonymously from one IP pool, so this repository
+# reaches a quota it does not own. mirror.gcr.io needs no credentials and
+# returns no rate-limit headers. The daemon falls back to Docker Hub when the
+# mirror does not answer, so a mirror outage costs latency rather than a build.
+runs:
+  using: composite
+  steps:
+    - name: Point the Docker daemon at mirror.gcr.io
+      shell: bash
+      run: |
+        sudo mkdir -p /etc/docker
+        current='{}'
+        if [ -s /etc/docker/daemon.json ]; then current=$(cat /etc/docker/daemon.json); fi
+        printf '%s' "$current" | python3 -c '
+        import json, sys
+        config = json.load(sys.stdin)
+        config["registry-mirrors"] = ["https://mirror.gcr.io"]
+        sys.stdout.write(json.dumps(config, indent=2))
+        ' | sudo tee /etc/docker/daemon.json
+        sudo systemctl restart docker
+        docker info --format 'registry mirrors: {{.RegistryConfig.Mirrors}}'

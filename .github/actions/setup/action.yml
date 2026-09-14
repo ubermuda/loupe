@@ -52,8 +52,20 @@ runs:
         npm ci
         npm ci --prefix e2e
 
+    # First, because the buildx driver pulls its own buildkit image from Docker
+    # Hub before anything else does.
+    - if: inputs.docker == 'true'
+      uses: ./.github/actions/docker-mirror
+
+    # The daemon mirror does not reach BuildKit, which resolves the Dockerfile's
+    # `FROM` itself. BuildKit puts the upstream last in its host list, so this
+    # falls back to Docker Hub as well.
     - if: inputs.docker == 'true'
       uses: docker/setup-buildx-action@v4
+      with:
+        buildkitd-config-inline: |
+          [registry."docker.io"]
+            mirrors = ["mirror.gcr.io"]
 
     # Compose builds a service's image only when it is absent, so a build tagged
     # with the name compose expects is the image `up` then finds. Ask compose for
