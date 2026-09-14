@@ -8,6 +8,7 @@ use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Service\InboxLinkedPage;
+use App\Module\Inbox\Service\InboxReturnTarget;
 use App\Module\Project\Entity\Project;
 use Symfony\Component\Uid\Uuid;
 
@@ -30,6 +31,8 @@ final readonly class LinkedInboxItemsView implements InboxItemsView
         public Uuid $targetId,
         array $items,
         private array $asksByItem,
+        /** The older document version the page shows, or null for the current one. */
+        public ?int $versionNumber = null,
     ) {
         $this->openItems = array_values(array_filter($items, static fn (InboxItem $item): bool => InboxItemState::Open === $item->state));
         $this->closedItems = array_values(array_filter($items, static fn (InboxItem $item): bool => InboxItemState::Open !== $item->state));
@@ -64,7 +67,15 @@ final readonly class LinkedInboxItemsView implements InboxItemsView
     #[\Override]
     public function actionQuery(): array
     {
-        return ['returnTo' => $this->page->value, 'returnId' => $this->targetId->toRfc4122()];
+        $query = [
+            InboxReturnTarget::PAGE_QUERY => $this->page->value,
+            InboxReturnTarget::ID_QUERY => $this->targetId->toRfc4122(),
+        ];
+        if (null !== $this->versionNumber) {
+            $query[InboxReturnTarget::VERSION_QUERY] = $this->versionNumber;
+        }
+
+        return $query;
     }
 
     public function isEmpty(): bool

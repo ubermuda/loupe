@@ -15,6 +15,8 @@ final readonly class ShowLinkedInboxItemsCommand
         public Project $project,
         public InboxLinkedPage $page,
         public Uuid $targetId,
+        /** The older document version the page shows, which a response returns to. */
+        public ?int $versionNumber = null,
     ) {
     }
 }

@@ -63,7 +63,7 @@
        the review block, whose change and mouseup listeners would take the
        section's controls for the document's own. #}
     {% if not diffMode %}
-    {{ inbox_document_section(document) }}
+    {{ inbox_document_section(document, readOnly ? version.versionNumber : null) }}
     {% endif %}
 
     {# The comment-anchor controller attaches in diff mode only where the diff

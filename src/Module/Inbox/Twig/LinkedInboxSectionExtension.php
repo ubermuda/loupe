@@ -49,18 +49,19 @@ final class LinkedInboxSectionExtension extends AbstractExtension
         return $this->section($twig, $card->project, InboxLinkedPage::Card, $card->id);
     }
 
-    public function documentSection(Environment $twig, Document $document): string
+    /** @param int|null $versionNumber the older version the page shows, or null on the current one */
+    public function documentSection(Environment $twig, Document $document, ?int $versionNumber = null): string
     {
-        return $this->section($twig, $document->project, InboxLinkedPage::Document, $document->id);
+        return $this->section($twig, $document->project, InboxLinkedPage::Document, $document->id, $versionNumber);
     }
 
-    private function section(Environment $twig, Project $project, InboxLinkedPage $page, ?Uuid $targetId): string
+    private function section(Environment $twig, Project $project, InboxLinkedPage $page, ?Uuid $targetId, ?int $versionNumber = null): string
     {
         if (null === $targetId || !$this->inbox->isEnabled() || !$this->authorization->isGranted(ProjectVoter::VIEW, $project)) {
             return '';
         }
 
-        $view = ($this->showLinkedItems)(new ShowLinkedInboxItemsCommand($project, $page, $targetId));
+        $view = ($this->showLinkedItems)(new ShowLinkedInboxItemsCommand($project, $page, $targetId, $versionNumber));
         if ($view->isEmpty()) {
             return '';
         }

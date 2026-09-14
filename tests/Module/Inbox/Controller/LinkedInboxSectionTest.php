@@ -234,6 +234,30 @@ final class LinkedInboxSectionTest extends WebTestCase
         self::assertSelectorTextContains('[data-inbox-linked="document"] #inbox-item-2 [data-inbox-refusal]', 'The agent closed this item');
     }
 
+    public function test_a_response_from_an_older_document_version_stays_on_that_version(): void
+    {
+        $this->document->addVersion('# Export v2', '<h1>Export v2</h1>');
+        $this->em->flush();
+        $item = $this->question($this->em, $this->project, 5);
+        $todo = $this->answered($this->em, $this->todo($this->em, $this->project, 6), InboxItemState::Withdrawn);
+        $this->linkDocument($item);
+        $this->linkDocument($todo);
+        $versionUrl = $this->documentUrl().'/versions/1';
+
+        $crawler = $this->client->request(Request::METHOD_GET, $versionUrl);
+        $action = (string) $crawler->filter('form[name="inbox_answer_'.$item->id.'"]')->attr('action');
+        self::assertStringContainsString('returnVersion=1', $action);
+
+        $query = ['returnTo' => 'document', 'returnId' => (string) $this->document->id, 'returnVersion' => '1'];
+        $this->post($todo, 'done', [], $query);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorExists('.lp-version-banner');
+        self::assertSelectorTextContains('[data-inbox-linked="document"] #inbox-item-6 [data-inbox-refusal]', 'The agent closed this item');
+
+        $this->post($item, 'answer', ['selectedOptions' => '0'], $query);
+        self::assertResponseRedirects($versionUrl);
+    }
+
     /** @return iterable<string, array{array<string, string>}> */
     public static function untrustedReturns(): iterable
     {

@@ -23,6 +23,7 @@ final readonly class InboxReturnTarget
 {
     public const string PAGE_QUERY = 'returnTo';
     public const string ID_QUERY = 'returnId';
+    public const string VERSION_QUERY = 'returnVersion';
 
     /**
      * @param array<string, int|string> $routeParameters
@@ -47,9 +48,20 @@ final readonly class InboxReturnTarget
         if (null !== $page && Uuid::isValid($id) && self::links($item, $page, Uuid::fromString($id))) {
             $id = Uuid::fromString($id)->toRfc4122();
 
-            return match ($page) {
-                InboxLinkedPage::Card => new self('app_board_card', ['projectId' => $projectId, 'cardId' => $id], ShowCardController::class, ['projectId' => $projectId, 'cardId' => $id], []),
-                InboxLinkedPage::Document => new self('app_document_review', ['projectId' => $projectId, 'documentId' => $id], ShowDocumentController::class, ['projectId' => $projectId, 'documentId' => $id], []),
+            $target = match ($page) {
+                InboxLinkedPage::Card => ['projectId' => $projectId, 'cardId' => $id],
+                InboxLinkedPage::Document => ['projectId' => $projectId, 'documentId' => $id],
+            };
+            // An older version of a document is a page of its own, and the owner stays on it.
+            $version = InboxLinkedPage::Document === $page ? $request->query->getInt(self::VERSION_QUERY) : 0;
+            if ($version >= 1) {
+                $target['versionNumber'] = $version;
+            }
+
+            return match (true) {
+                InboxLinkedPage::Card === $page => new self('app_board_card', $target, ShowCardController::class, $target, []),
+                $version >= 1 => new self('app_document_review_version', $target, ShowDocumentController::class, $target, []),
+                default => new self('app_document_review', $target, ShowDocumentController::class, $target, []),
             };
         }
 

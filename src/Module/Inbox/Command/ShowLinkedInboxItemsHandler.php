@@ -29,6 +29,7 @@ final readonly class ShowLinkedInboxItemsHandler
             targetId: $command->targetId,
             items: $linked['items'],
             asksByItem: $asksByItem,
+            versionNumber: $command->versionNumber,
         );
     }
 }
