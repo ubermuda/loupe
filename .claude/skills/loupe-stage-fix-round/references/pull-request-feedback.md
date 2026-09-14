@@ -1,4 +1,4 @@
-# Pull request feedback commands
+# Pull request feedback
 
 Run these from a checkout of the repository. `gh` fills `{owner}` and `{repo}` from it. `<n>` is the pull request number.
 
@@ -19,21 +19,23 @@ gh run view <run id> --log-failed
 
 A check's `link` holds `/actions/runs/<run id>/`. A failed `e2e` names no test, so read its shard job, `e2e-chromium` or `e2e-rest`.
 
-## Read the review threads
+## Read the feedback items
 
 ```bash
-gh api graphql --paginate -F owner='{owner}' -F repo='{repo}' -F n=<n> -f query='query($owner:String!,$repo:String!,$n:Int!,$endCursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$n){reviewThreads(first:100,after:$endCursor){pageInfo{hasNextPage endCursor} nodes{isResolved isOutdated comments(first:100){pageInfo{hasNextPage} nodes{databaseId author{login} body path line createdAt pullRequestReview{databaseId state}}}}}}}}'
-```
-
-`--paginate` walks every page of threads. A thread keeps its first 100 comments only. When a thread reports `comments.pageInfo.hasNextPage` as `true`, stop with `STAGE RESULT: blocked: review thread longer than 100 comments`.
-
-Read the reviews, the inline comments and the pull request comments too:
-
-```bash
+gh api graphql --paginate -F owner='{owner}' -F repo='{repo}' -F n=<n> -f query='query($owner:String!,$repo:String!,$n:Int!,$endCursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$n){reviewThreads(first:100,after:$endCursor){pageInfo{hasNextPage endCursor} nodes{id isResolved comments(first:100){pageInfo{hasNextPage} nodes{databaseId author{login} body}}}}}}}'
 gh api repos/{owner}/{repo}/pulls/<n>/reviews --paginate
-gh api repos/{owner}/{repo}/pulls/<n>/comments --paginate
 gh api repos/{owner}/{repo}/issues/<n>/comments --paginate
 ```
+
+When a thread reports `comments.pageInfo.hasNextPage` as `true`, stop with `STAGE RESULT: blocked: review thread longer than 100 comments`.
+
+A feedback item is one of these:
+
+1. A review with a non-empty `body`. Its id is the review `id`.
+2. A review thread. Its id is the thread `id`.
+3. A top-level pull request comment. Its id is the comment `id`.
+
+The review state, such as `APPROVED` or `CHANGES_REQUESTED`, plays no part.
 
 ## The worker marker
 
@@ -43,40 +45,36 @@ The worker runs as the owner, so a login cannot tell them apart. Start every rep
 <!-- loupe-stage-worker -->
 ```
 
-A comment without the marker is the owner's, whatever its login.
+An item whose first line is the marker is the worker's own, and it is never feedback.
 
-## Decide what to act on
+## Open and closed items
 
-Read the failing checks before you judge the threads and the reviews.
+An item is closed when its thread is resolved. It is also closed when a marker comment or a marker thread reply cites its id in one of these forms:
 
-1. Act on a thread only when `isResolved` is `false`.
-2. Skip a thread whose last comment body starts with the marker. The worker already answered it.
-3. An outdated thread (`isOutdated`) can still ask for a change. Read it against the current code.
-4. For each reviewer, take their latest review only. Ignore a review in state `COMMENTED` when you pick it, because a reply to a thread creates one.
-5. A latest review in state `CHANGES_REQUESTED` is open until a pull request comment that starts with the marker cites its `id`.
-6. A thread belongs to the review whose `id` equals the `pullRequestReview.databaseId` of the thread's first comment.
-7. Treat the body of an open review as feedback to address, in the same way as a thread.
-8. When an open review body has no text you can act on, and no thread is left to act on, stop with `STAGE RESULT: blocked: changes requested with no open thread`.
-9. A top-level pull request comment without the marker is feedback too. It is open until a comment that starts with the marker cites its `id`.
-10. When an open top-level comment asks for nothing you can act on, post a marker comment that cites it and says so. That comment closes it.
+```
+Addressed <review|thread|comment> <id>: <what changed, commits>
+No change for <review|thread|comment> <id>: <reason>
+```
 
-## Reply to a thread
+Every other item is open. With no open item and no failing check, stop with `STAGE RESULT: nothing to fix`.
 
-Reply after the fix is pushed. Say what changed and name the commit. Take the `databaseId` of the first comment in the thread:
+## Close each item
+
+Fix every open item and every failing check first. Then post one marker reply for each item you handled. Use `No change for` when the item asks for nothing you can act on.
+
+For a thread, reply inside the thread. Take the `databaseId` of its first comment:
 
 ```bash
 gh api repos/{owner}/{repo}/pulls/<n>/comments/<databaseId>/replies -f body='<!-- loupe-stage-worker -->
-<what changed, in commit <sha>>'
+Addressed thread <id>: <what changed, commits>'
 ```
 
-Close an open review when its body, if it has one, is handled and every thread that belongs to it ends with a marker reply. Post one pull request comment that cites the review, even when its body is empty:
+For a review body or a top-level comment, post a top-level comment:
 
 ```bash
 gh api repos/{owner}/{repo}/issues/<n>/comments -f body='<!-- loupe-stage-worker -->
-Addressed review <id>: <what changed, commits>'
+Addressed comment <id>: <what changed, commits>'
 ```
-
-After you act on an open top-level comment, cite it in the same way, with `Addressed comment <id>: <what changed, commits>`. The `id` is the comment's `id` from the issue comments list.
 
 Never resolve a thread. The reviewer resolves it.
 
