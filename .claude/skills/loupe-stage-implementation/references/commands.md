@@ -45,7 +45,7 @@ The first must print the worktree path. The second must print the card branch. O
 ## Reruns
 
 1. A linked plan document whose `references` hold the tech design id is the plan. Reuse it, and create no second plan.
-2. An open pull request on a branch that starts `card-<number>-` belongs to this card. Enter its worktree, and resume at the gate.
+2. An open pull request on a branch that starts `card-<number>-` belongs to this card. Never cut a new branch from `origin/main` for it. Restore its `headRefName` with "Set up or refresh the worktree" in `../../loupe-stage-fix-round/references/pull-request-feedback.md`: fetch, prune, add the worktree on that branch, `just worktree-up`, `EnterWorktree`, and the fast-forward sync. Then run `git branch --show-current`. When it differs from `headRefName`, stop with `STAGE RESULT: blocked: worktree is not on the PR branch`. Otherwise resume at the gate.
 3. Before `gh pr create`, run `gh pr list --head <branch> --state open`. Link a pull request it lists, and create none.
 
 ## Long commands

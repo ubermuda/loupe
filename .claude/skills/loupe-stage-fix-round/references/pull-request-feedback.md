@@ -27,31 +27,50 @@ gh api graphql --paginate -F owner='{owner}' -F repo='{repo}' -F n=<n> -f query=
 
 `--paginate` walks every page of threads. A thread keeps its first 100 comments only. When a thread reports `comments.pageInfo.hasNextPage` as `true`, stop with `STAGE RESULT: blocked: review thread longer than 100 comments`.
 
-Read the reviews and the inline comments too:
+Read the reviews, the inline comments and the pull request comments too:
 
 ```bash
 gh pr view <url> --json reviews,reviewDecision
 gh api repos/{owner}/{repo}/pulls/<n>/comments --paginate
+gh api repos/{owner}/{repo}/issues/<n>/comments --paginate
 ```
+
+## The worker marker
+
+The worker runs as the owner, so a login cannot tell them apart. Start every reply and every comment the worker posts with this exact first line:
+
+```
+<!-- loupe-stage-worker -->
+```
+
+A comment without the marker is the owner's, whatever its login.
 
 ## Decide what to act on
 
 Read the failing checks before you judge the threads and the reviews.
 
 1. Act on a thread only when `isResolved` is `false`.
-2. Read the worker login with `gh api user -q .login`.
-3. Skip a thread whose last comment comes from the worker login. The worker already answered it.
-4. An outdated thread (`isOutdated`) can still ask for a change. Read it against the current code.
-5. Read the date of the head commit with `gh api repos/{owner}/{repo}/commits/<headRefOid> -q .commit.committer.date`.
-6. A review is open when its `state` is `CHANGES_REQUESTED` and its `submittedAt` is newer than that date.
-7. When no check fails, a review is open, and no thread is left to act on, stop with `STAGE RESULT: blocked: changes requested with no open thread`.
+2. Skip a thread whose last comment body starts with the marker. The worker already answered it.
+3. An outdated thread (`isOutdated`) can still ask for a change. Read it against the current code.
+4. For each reviewer, take their latest review only.
+5. A latest review in state `CHANGES_REQUESTED` is open until a pull request comment that starts with the marker cites its `id`.
+6. Treat the body of an open review as feedback to address, in the same way as a thread.
+7. When an open review body has no text you can act on, and no thread is left to act on, stop with `STAGE RESULT: blocked: changes requested with no open thread`.
 
 ## Reply to a thread
 
 Reply after the fix is pushed. Say what changed and name the commit. Take the `databaseId` of the first comment in the thread:
 
 ```bash
-gh api repos/{owner}/{repo}/pulls/<n>/comments/<databaseId>/replies -f body='<what changed, in commit <sha>>'
+gh api repos/{owner}/{repo}/pulls/<n>/comments/<databaseId>/replies -f body='<!-- loupe-stage-worker -->
+<what changed, in commit <sha>>'
+```
+
+After you fix the body of an open review, post one pull request comment that cites it:
+
+```bash
+gh api repos/{owner}/{repo}/issues/<n>/comments -f body='<!-- loupe-stage-worker -->
+Addressed review <id>: <what changed, commits>'
 ```
 
 Never resolve a thread. The reviewer resolves it.
