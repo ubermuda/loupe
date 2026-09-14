@@ -52,6 +52,29 @@ final class ListSitesApiTest extends WebTestCase
         self::assertCount(2, $data['sites']);
     }
 
+    /** The bridge lists these slugs when a rule file names a project that does not exist. */
+    public function test_each_site_carries_its_slug(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = new User(fullName: 'Owner', email: 'list-sites-slug@example.com', password: 'x');
+        $owner->emailVerifiedAt = new \DateTimeImmutable();
+        $em->persist($owner);
+        [$token, $raw] = ApiToken::issue($owner, 'tok', ApiTokenScope::Agent);
+        $em->persist($token);
+        $em->persist(new Project($owner, 'My Slugged Site'));
+        $em->flush();
+
+        $client->request(Request::METHOD_GET, '/api/projects',
+            server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertIsArray($data);
+        self::assertSame(['my-slugged-site'], array_column($data['sites'], 'slug'));
+    }
+
     public function test_the_old_agent_path_is_gone(): void
     {
         $client = static::createClient();

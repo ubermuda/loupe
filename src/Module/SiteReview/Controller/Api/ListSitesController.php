@@ -13,7 +13,8 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Lists the caller's projects for the bridge CLI's site picker.
+ * Lists the caller's projects for the loupe CLI, which checks a token with it
+ * and names the valid slugs when a rule file names an unknown project.
  *
  * Agent-scoped tokens only. The firewall grants this path to
  * ROLE_API_AGENT alone, so a project-bound widget token gets 403
@@ -44,7 +45,7 @@ final class ListSitesController extends AppController
         $view = ($this->listSites)(new ListSitesCommand($user));
 
         return $this->json(['sites' => array_values(array_map(
-            static fn (Project $project): array => ['id' => (string) $project->id, 'name' => $project->name],
+            static fn (Project $project): array => ['id' => (string) $project->id, 'slug' => $project->slug, 'name' => $project->name],
             $view->sites,
         ))]);
     }
