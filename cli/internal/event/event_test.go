@@ -203,6 +203,43 @@ func TestParseAcceptsATypeARuleNames(t *testing.T) {
 	}
 }
 
+// The payloads below copy the keys the server's outbox listeners write. These
+// types parse with no rule naming them, because they mark rules dead.
+const (
+	columnRenamedPayload  = `{"type":"board.column_renamed","projectId":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7","subject":{"type":"board_column","id":"0192f3a1-5555-7d3e-8f10-a2b3c4d5e6f7"},"actor":"human","fromSlug":"next","toSlug":"ready"}`
+	columnDeletedPayload  = `{"type":"board.column_deleted","projectId":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7","subject":{"type":"board_column","id":"0192f3a1-5555-7d3e-8f10-a2b3c4d5e6f7"},"actor":"human","slug":"next","targetSlug":null,"movedCardIds":[]}`
+	projectRenamedPayload = `{"type":"project.renamed","subject":{"type":"project","id":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7"},"projectId":"0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7","fromSlug":"loupe","toSlug":"loupe-app","actor":"human"}`
+)
+
+func TestParseTheSlugChangingEvents(t *testing.T) {
+	if e := parseOK(t, columnRenamedPayload, nil); e.Type != ColumnRenamedType || e.FromSlug != "next" || e.ToSlug != "ready" {
+		t.Fatalf("column renamed: %+v", e)
+	}
+	if e := parseOK(t, columnDeletedPayload, nil); e.Type != ColumnDeletedType || e.Slug != "next" {
+		t.Fatalf("column deleted: %+v", e)
+	}
+	if e := parseOK(t, `{"type":"board.column_deleted",`+subjectField+`,`+projectField+`,"actor":"agent","slug":"review","targetSlug":"done","movedCardIds":["0192f3a1-9999-7d3e-8f10-a2b3c4d5e6f7"]}`, nil); e.Slug != "review" {
+		t.Fatalf("column deleted with moved cards: %+v", e)
+	}
+	if e := parseOK(t, projectRenamedPayload, nil); e.Type != ProjectRenamedType || e.FromSlug != "loupe" || e.ToSlug != "loupe-app" {
+		t.Fatalf("project renamed: %+v", e)
+	}
+}
+
+func TestParseRejectsASlugChangingEventWithABadSlug(t *testing.T) {
+	for name, payload := range map[string]string{
+		"renamed, no fromSlug":   strings.Replace(columnRenamedPayload, `"fromSlug":"next"`, `"fromSlug":""`, 1),
+		"renamed, bad toSlug":    strings.Replace(columnRenamedPayload, `"toSlug":"ready"`, `"toSlug":"Ready now"`, 1),
+		"deleted, no slug":       strings.Replace(columnDeletedPayload, `"slug":"next"`, `"slug":null`, 1),
+		"project, bad fromSlug":  strings.Replace(projectRenamedPayload, `"fromSlug":"loupe"`, `"fromSlug":"-loupe"`, 1),
+		"project, unknown actor": strings.Replace(projectRenamedPayload, `"actor":"human"`, `"actor":"system"`, 1),
+	} {
+		if err := parseErr(t, payload, nil); errors.Is(err, ErrUnknownType) {
+			t.Fatalf("%s: must be malformed, not unknown", name)
+		}
+	}
+}
+
 func parseOK(t *testing.T, payload string, extra map[string]bool) Event {
 	t.Helper()
 	e, err := Parse([]byte(payload), extra)

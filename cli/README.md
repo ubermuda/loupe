@@ -75,6 +75,9 @@ inside your OS config directory (`~/Library/Application Support` on macOS,
 Where no keychain is reachable — a container, or a Linux box with no D-Bus
 session — the token falls back into that same file at `0600`.
 
+The same file holds `bridgeId`, the uuid that names this bridge in its
+[rule health reports](#rule-health-reports). A new login keeps it.
+
 Upgrading from a version that kept the token in `config.json` needs no action:
 the next command that reads it moves the token into the keychain and rewrites
 the file without it. On a host with no keychain, nothing changes and the file
@@ -168,6 +171,16 @@ list above, and logs a `permission_mode_unknown` line for it. The file holds
 one YAML document with content. An empty document before or after it is
 ignored, and a second one with content stops the bridge.
 
+The server stores a report of each rule, so the bridge also refuses at start
+what the server would refuse:
+
+- a `name` that is blank, or longer than 100 characters after the bridge trims
+  its spaces
+- an `on` longer than 100 characters, or one that does not match
+  `^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$`
+- a `to` or `from` longer than 2,000 characters
+- more than 200 rules for one project
+
 The first rule in file order that matches an event wins. A `board.card_moved`
 rule fires when the card enters `to` from another column. A move to a new rank
 inside one column fires nothing, because it carries that column on both sides.
@@ -259,10 +272,12 @@ An event from a person (`actor: human`) for that card resets every rule's count
 on the card. That covers every `board.card_moved` event, and an event of another
 type that some rule names, whether its rule matches or not. The bridge drops an
 event of a type no rule names before it reads the actor, so that event resets
-nothing. A reviewer's event resets nothing. A run that a person's event started
-does not count. An event that replaces a waiting one adds nothing, because the
-count follows runs. The counts live in the bridge process, so a restart resets
-them.
+nothing. A column or project event has no card, so it resets nothing either. A
+reviewer's event resets nothing.
+
+A run that a person's event started does not count. An event that replaces a
+waiting one adds nothing, because the count follows runs. The counts live in the
+bridge process, so a restart resets them.
 
 ### The queue
 
@@ -276,6 +291,62 @@ Stopping the bridge drops whatever is still queued, because those workers never
 started. The bridge logs one `queue_dropped` line naming the count and each card
 with its rule, so no trigger disappears in silence. Move those cards again to
 run them.
+
+### Dead rules
+
+A rule names column and project slugs, and a person can change a slug while the
+bridge runs. The bridge then marks the affected rules dead:
+
+| Event | Rules it kills | Reason |
+|---|---|---|
+| `board.column_renamed` | every rule of that project whose `to` or `from` is the old slug | `column_renamed` |
+| `board.column_deleted` | every rule of that project whose `to` or `from` is the deleted slug | `column_deleted` |
+| `project.renamed` | every rule of that project | `project_renamed` |
+| a JWT refresh no longer lists a mapped project | every rule of that project, logged with `project_gone` | `project_gone` |
+
+A dead rule matches nothing until the bridge restarts, and a later rule in the
+file can then catch the event. The bridge logs one `rule_dead` error line for
+each rule. An event that waits in the queue for a rule that dies never starts,
+and the bridge names it in a `queue_dropped` line. At the restart, the start
+checks refuse the old slug, so fix the rule file first.
+
+These events kill rules whatever their actor, so `allowUntrusted` does not apply
+to them. The bridge reads them even when no rule names their type.
+
+### Rule health reports
+
+The bridge tells the server which of its rules are live and which are dead. The
+board shows a banner when a rule is dead, and the column dialogs warn before a
+rename or a delete breaks a live rule.
+
+The bridge sends one report for each mapped project at start, after the start
+checks, and one for a project each time one of its rules dies. A report lists
+every rule of that project with its name, its event type, the column slugs of
+`to` and `from`, its state and the reason it died. It never carries the prompt.
+The bridge addresses the project by its id, which a project rename does not
+change.
+
+A report goes out in the background, so a slow server never delays an event. A
+report that fails on the network, with a 5xx or with a 429 is retried after 1
+second, then 2, 4 and so on, up to 1 minute. A newer report for the same project
+replaces the one that waits, and goes out at once.
+
+The bridge does not retry a report the server refuses with a 401, 403, 404 or
+422, because the same body fails again. Its `report_failed` line then carries a
+`message` that says what to fix. For a 422 it names each field and rule the
+server refused. For an unknown project it points at the `projects` map. Fix
+`rules.yaml` and restart the bridge.
+
+When the board is switched off, the bridge logs one `report_failed` line and
+stops reporting for that project until it restarts.
+
+Stopping the bridge leaves its reports on the server. The server keeps the 20
+newest reports of each project.
+
+The report names the bridge by a uuid, `bridgeId` in `config.json`. The bridge
+generates it on its first start and keeps it after that, and `loupe login` keeps
+it too. Two bridges that share one config directory share one id, so each
+replaces the other's report for a project both map.
 
 ### Output
 
@@ -297,7 +368,7 @@ names `card`, or `subject` for an event with no card number.
 
 | `event` | Fields |
 |---|---|
-| `bridge_started` | `rules`, `projects`, `rule_count`, `max_workers`, `log_file` |
+| `bridge_started` | `rules`, `projects`, `rule_count`, `max_workers`, `log_file`, `bridge_id` |
 | `connected` | `topic`: your user topic, `projects`: the mapped slugs |
 | `stream_error` | `error` |
 | `event_malformed` | `error` |
@@ -312,6 +383,9 @@ names `card`, or `subject` for an event with no card number.
 | `worker_finished` | `card`, `project`, `rule`, `exit`, `duration_ms`, `output` |
 | `worker_failed` | `card`, `project`, `rule`, `error`: the process never ran |
 | `queue_dropped` | `count`, `dropped`: a list of `{card, rule}` |
+| `rule_dead` | `rule`, `project`, `project_slug`, `reason`, `message`: a column or project change killed the rule. Level `ERROR` |
+| `report_sent` | `project`, `project_slug`, `rules`, `dead`: the server stored the rule health report of that project |
+| `report_failed` | `project`, `project_slug`, `error`, `retry`, `retry_in_ms` when `retry` is true, and `message` when the fix is yours |
 
 `queue_depth` counts the accepted events waiting at that moment, the new one
 included. `worker_failed` and `worker_finished` name two different faults: a
@@ -378,7 +452,10 @@ id or a project slug, and a project name does not resolve.
    a rule names the column it moves the card to.
 7. A type no rule names is dropped without a word. A newer server publishes
    events an older binary has never heard of, and that is normal. A payload
-   that will not parse is still logged.
+   that will not parse is still logged. The three events that kill rules are
+   the exception, and the bridge always reads them.
+8. `PUT /api/projects/{id}/bridges/{bridgeId}/rules` sends the rule health of
+   each project at start and when a rule dies.
 
 A prompt carries only validated identifiers and slugs: the project id and slug,
 the card id and number, and the two column slugs. It never carries text a

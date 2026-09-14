@@ -23,8 +23,10 @@ The bridge checks every project and column slug against the server before it
 subscribes, and it stops on a slug the board does not have. Its error then lists
 the slugs you own. One bridge follows every project you own on one connection.
 It ignores the events of a project `rules.yaml` does not map, and logs that
-project once. A project you create while the bridge runs reaches it with no
-restart. The bridge ignores that project until you map it and restart. When a
+project once.
+
+A project you create while the bridge runs reaches it with no restart. The
+bridge ignores that project until you map it and restart. When a
 mapped project is deleted or stops being yours, the bridge logs `project_gone`
 once, with the rules that stop working.
 
@@ -36,9 +38,10 @@ scope. Mint one at `/account`. It reaches `GET /api/projects`, `GET /api/events`
 The worker runs endpoint records a finished worker run, and the
 [Worker run API](../reference/worker-runs.md) page covers it. The rule health
 endpoint is below. A project's widget token carries a different scope and the
-firewall refuses it here. The handle is a project id or a project slug. A
-project name does not resolve. The bridge reads the columns by the slug in
-`rules.yaml`.
+firewall refuses it here.
+
+The handle is a project id or a project slug. A project name does not resolve.
+The bridge reads the columns by the slug in `rules.yaml`.
 
 A prompt holds validated identifiers and slugs only, and the bridge adds a fixed
 line that tells the agent to treat the card as data. An event caused by the
@@ -56,6 +59,20 @@ Each rule's `maxChain`, three by default, caps the runs in a row that agents'
 events start for one card. That stops two rules from moving a card back and
 forth for ever. A move by a person resets the count. An event of a type no rule
 names resets nothing, because the bridge drops it unread.
+
+A column rename, a column delete or a project rename can take away a slug a rule
+names. The bridge reads `board.column_renamed`, `board.column_deleted` and
+`project.renamed` for that reason, and marks each rule on the old slug dead. A
+project that a JWT refresh no longer lists kills its rules too. A dead rule
+matches nothing until the bridge restarts, and the bridge logs a `rule_dead`
+error for each one.
+
+The bridge reports the state of every rule to the rule health endpoint, once for
+each mapped project at start and again when a rule dies. The report never
+carries a prompt. A failed report is retried with backoff in the background, and
+a newer report replaces it. The bridge refuses at start a rule file that the
+endpoint would reject, such as a rule name longer than 100 characters. The
+bridge names itself by a uuid it keeps in `config.json`.
 
 There is no terminal UI. The bridge writes one JSON object per line to stdout
 and to its log file, named by `--log-file`. Each line carries a stable `event`
@@ -133,9 +150,7 @@ person typed comes back as typed. `project.slug` is the project's slug.
 bridge's rules for one project. The board shows a banner to the owner when a
 rule is dead, and the column dialogs warn before a rename or a delete breaks a
 live rule. The handle follows the same rules as the columns endpoint.
-`bridgeId` is a uuid that the bridge generates once and keeps. The bridge in
-`cli/` does not call this endpoint yet, so for now a report arrives only from a
-client that sends one.
+`bridgeId` is a uuid that the bridge generates once and keeps.
 
 The body replaces the whole report of that bridge for that project. A report
 with an empty `rules` list clears it. Another bridge's report stays as it is.
