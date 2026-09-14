@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -12,7 +13,16 @@ import (
 	"github.com/zalando/go-keyring"
 )
 
-const seededID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
+const (
+	seededID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301"
+	v7ID     = "018f3a5c-1c2d-7abc-8def-0123456789ab"
+	v1ID     = "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
+)
+
+// serverPattern is Symfony's Requirement::UUID, which the bridge routes put on
+// their bridgeId parameter. It is a second copy on purpose, so that loosening
+// isUUID cannot loosen the tests with it.
+var serverPattern = regexp.MustCompile(`\A[0-9a-f]{8}-[0-9a-f]{4}-[13-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z`)
 
 // useTempConfigHome points the config dir at a temp dir. HOME matters as well
 // as XDG_CONFIG_HOME, because os.UserConfigDir reads HOME on macOS.
@@ -69,25 +79,34 @@ func readStoredForTest(t *testing.T) Config {
 // first run, an older login, and a file an operator edited by hand. None of
 // them may stop the bridge.
 func TestEnsureBridgeIDHealsWhatItReads(t *testing.T) {
+	withID := func(id string) string { return `{"bridgeId":"` + id + `"}` }
+
 	cases := []struct {
 		name        string
 		file        string
+		seedID      string
 		keepsID     bool
 		wantBaseURL string
 	}{
 		{name: "logged in with no id", file: `{"baseUrl":"https://example.test"}`},
 		{name: "empty id", file: `{"baseUrl":"https://example.test","bridgeId":""}`},
-		{name: "id that is not a uuid", file: `{"baseUrl":"https://example.test","bridgeId":"not-a-uuid"}`},
-		{name: "id of the wrong length", file: `{"bridgeId":"0123456789abcdef"}`},
-		{name: "id with a bad separator", file: `{"bridgeId":"3f2504e04f89-41d3-9a0c-0305e82c3301"}`},
-		{name: "id with a non-hex digit", file: `{"bridgeId":"3f2504e0-4f89-41d3-9a0c-0305e82c330z"}`},
-		{name: "nil uuid", file: `{"bridgeId":"00000000-0000-0000-0000-000000000000"}`},
+		{name: "id that is not a uuid", file: `{"baseUrl":"https://example.test","bridgeId":"not-a-uuid"}`, seedID: "not-a-uuid"},
+		{name: "id of the wrong length", file: withID("0123456789abcdef"), seedID: "0123456789abcdef"},
+		{name: "id with a bad separator", file: withID("3f2504e04f89-41d3-9a0c-0305e82c3301"), seedID: "3f2504e04f89-41d3-9a0c-0305e82c3301"},
+		{name: "id with a non-hex digit", file: withID("3f2504e0-4f89-41d3-9a0c-0305e82c330z"), seedID: "3f2504e0-4f89-41d3-9a0c-0305e82c330z"},
+		{name: "nil uuid", file: withID("00000000-0000-0000-0000-000000000000"), seedID: "00000000-0000-0000-0000-000000000000"},
+		{name: "id in upper case", file: withID(strings.ToUpper(seededID)), seedID: strings.ToUpper(seededID)},
+		{name: "id of version 0", file: withID("3f2504e0-4f89-01d3-9a0c-0305e82c3301"), seedID: "3f2504e0-4f89-01d3-9a0c-0305e82c3301"},
+		{name: "id of version 2", file: withID("3f2504e0-4f89-21d3-9a0c-0305e82c3301"), seedID: "3f2504e0-4f89-21d3-9a0c-0305e82c3301"},
+		{name: "id of version 9", file: withID("3f2504e0-4f89-91d3-9a0c-0305e82c3301"), seedID: "3f2504e0-4f89-91d3-9a0c-0305e82c3301"},
+		{name: "id with a variant the server refuses", file: withID("3f2504e0-4f89-41d3-ca0c-0305e82c3301"), seedID: "3f2504e0-4f89-41d3-ca0c-0305e82c3301"},
 		{name: "id that is a number", file: `{"baseUrl":"https://example.test","bridgeId":123}`, wantBaseURL: "https://example.test"},
 		{name: "id that is an object", file: `{"baseUrl":"https://example.test","bridgeId":{"a":1}}`, wantBaseURL: "https://example.test"},
 		{name: "id of the wrong type under a key of another case", file: `{"baseUrl":"https://example.test","bridgeID":123}`, wantBaseURL: "https://example.test"},
 		{name: "blank file", file: "  \n"},
-		{name: "valid id", file: `{"bridgeId":"` + seededID + `"}`, keepsID: true},
-		{name: "valid id in upper case", file: `{"bridgeId":"` + strings.ToUpper(seededID) + `"}`, keepsID: true},
+		{name: "valid id", file: withID(seededID), seedID: seededID, keepsID: true},
+		{name: "valid id of version 7", file: withID(v7ID), seedID: v7ID, keepsID: true},
+		{name: "valid id of version 1", file: withID(v1ID), seedID: v1ID, keepsID: true},
 	}
 
 	for _, tc := range cases {
@@ -100,20 +119,16 @@ func TestEnsureBridgeIDHealsWhatItReads(t *testing.T) {
 			if err != nil {
 				t.Fatalf("EnsureBridgeID: %v", err)
 			}
-			if !isUUID(got) {
-				t.Fatalf("EnsureBridgeID returned %q, want a uuid", got)
+			if !serverPattern.MatchString(got) {
+				t.Fatalf("EnsureBridgeID returned %q, which the server route refuses", got)
 			}
 
 			if tc.keepsID {
-				var want Config
-				if err := json.Unmarshal([]byte(tc.file), &want); err != nil {
-					t.Fatalf("parse case file: %v", err)
+				if got != tc.seedID {
+					t.Fatalf("EnsureBridgeID replaced a valid id: got %q want %q", got, tc.seedID)
 				}
-				if got != want.BridgeID {
-					t.Fatalf("EnsureBridgeID replaced a valid id: got %q want %q", got, want.BridgeID)
-				}
-			} else if strings.EqualFold(got, seededID) {
-				t.Fatalf("EnsureBridgeID returned the seeded id %q for a case that must generate one", got)
+			} else if tc.seedID != "" && got == tc.seedID {
+				t.Fatalf("EnsureBridgeID kept %q, which the server route refuses", got)
 			}
 
 			onDisk := readStoredForTest(t)
@@ -144,6 +159,49 @@ func TestEnsureBridgeIDRefusesWithoutAConfigFile(t *testing.T) {
 	}
 	if _, err := os.Stat(d); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("config dir stat gives %v, want it still absent", err)
+	}
+}
+
+// TestEnsureBridgeIDRefusesWhenOnlyTheDirectoryExists is the state a file
+// deleted under a running bridge leaves behind. The read reports the missing
+// file, so the refusal holds and nothing gets written.
+func TestEnsureBridgeIDRefusesWhenOnlyTheDirectoryExists(t *testing.T) {
+	keyring.MockInit()
+	useTempConfigHome(t)
+
+	d, err := Dir()
+	if err != nil {
+		t.Fatalf("Dir: %v", err)
+	}
+	if err := os.MkdirAll(d, 0o700); err != nil {
+		t.Fatalf("create config dir: %v", err)
+	}
+
+	if _, err := EnsureBridgeID(); !errors.Is(err, ErrNotLoggedIn) {
+		t.Fatalf("want ErrNotLoggedIn, got %v", err)
+	}
+
+	entries, err := os.ReadDir(d)
+	if err != nil {
+		t.Fatalf("read config dir: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("config dir holds %d entries, want it empty", len(entries))
+	}
+}
+
+// TestReadStoredConfigReportsAMissingFile is what the refusal rests on. A
+// reader that swallowed the missing file would make EnsureBridgeID generate an
+// id for a file that is not there.
+func TestReadStoredConfigReportsAMissingFile(t *testing.T) {
+	useTempConfigHome(t)
+
+	d, err := Dir()
+	if err != nil {
+		t.Fatalf("Dir: %v", err)
+	}
+	if _, err := readStoredConfig(d); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("readStoredConfig gives %v, want an error matching os.ErrNotExist", err)
 	}
 }
 

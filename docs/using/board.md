@@ -198,7 +198,7 @@ history page of the board's first terminal column.
 A [command-line bridge](../extending/cli-bridge.md) can report the health of its
 rules for each project it follows. A rule is dead when it can no longer match,
 for example after its column was renamed or deleted. A dead rule starts no
-agent. The bridge in `cli/` does not send these reports yet.
+agent.
 
 When any bridge reports a dead rule, the board shows a banner above the columns.
 The banner names each dead rule, the column slugs it watches, the reason the
