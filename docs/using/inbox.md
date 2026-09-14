@@ -76,18 +76,21 @@ behind it finishes. Such an item takes no response from you.
 
 ## All inboxes
 
-Open **All inboxes** in the lower part of the sidebar to see the open asks of
-every project you own on one page. The link is absent while the flag is off.
+Open **All inboxes** in the lower part of the sidebar to see what waits on you
+in every project you own. The link is absent while the flag is off.
 
-The page groups the asks by project, in project name order. Each project shows
-how many items it has open, and its name links to its inbox. Inside a project,
-the asks come oldest first, each with its session, its context and the number,
-state and title of each item.
+The page groups by project, in project name order, and shows each project that
+has an open item. Each project shows how many items it has open, and its name
+links to its inbox. Inside a project, the page lists two things:
 
-The page is read-only. Select **Answer in the project inbox** on an ask to open
-that ask on its project inbox page, where the forms are. The page lists open
-asks only, so an open to-do from an ask that already closed shows in the open
-item count and on the project inbox page, not here.
+1. **Open asks**, oldest first, each with its session, its context and the
+   number, state and title of each item.
+2. **Open items outside an open ask**, such as a to-do from an ask that already
+   closed.
+
+The page is read-only. Select **Answer in the project inbox** on an ask, or
+**Respond in the project inbox** on an item outside an open ask. The link opens
+that ask or item on its project inbox page, where the forms are.
 
 ## The projects list
 

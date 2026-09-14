@@ -61,8 +61,7 @@ class InboxAskRepository extends ServiceEntityRepository
     }
 
     /**
-     * The open asks in every project the user owns, with their projects and items,
-     * ordered by project name and then oldest ask first.
+     * The open asks in every project the user owns, oldest first, with their projects and items.
      *
      * @return list<InboxAsk>
      */
@@ -71,13 +70,10 @@ class InboxAskRepository extends ServiceEntityRepository
         return array_values($this->withItems()
             ->join('a.project', 'p')
             ->addSelect('p')
-            ->addSelect('LOWER(p.name) AS HIDDEN projectName')
             ->andWhere('p.owner = :user')
             ->andWhere('a.closedAt IS NULL')
             ->setParameter('user', $user)
-            ->orderBy('projectName', 'ASC')
-            ->addOrderBy('p.id', 'ASC')
-            ->addOrderBy('a.createdAt', 'ASC')
+            ->orderBy('a.createdAt', 'ASC')
             ->addOrderBy('a.id', 'ASC')
             ->addOrderBy('l.addedAt', 'ASC')
             ->getQuery()

@@ -37,23 +37,20 @@
                 {% endif %}
                 <div class="lp-inbox-ask__items">
                     {% for link in ask.items %}
-                    {% set item = link.item %}
-                    <article class="lp-inbox-item" data-inbox-item="{{ item.number }}">
-                        <div class="lp-inbox-item__head">
-                            <span class="lp-inbox-item__number">{{ 'inbox.item.number'|trans({'%number%': item.number}) }}</span>
-                            <span class="lp-inbox-item__kind">{{ ('inbox.item.kind.' ~ item.kind.value)|trans }}</span>
-                            {% if item.blocking %}<span class="lp-inbox-item__blocking">{{ 'inbox.item.blocking'|trans }}</span>{% endif %}
-                            <span class="lp-status-chip lp-status-chip--{{ {open: 'pending', answered: 'ok', done: 'ok', declined: 'resolved', withdrawn: 'resolved', obsolete: 'resolved'}[item.state.value] }}">
-                                <span class="lp-status-chip__dot"></span>
-                                {{ ('inbox.item.state.' ~ item.state.value)|trans }}
-                            </span>
-                        </div>
-                        <h3 class="lp-inbox-item__title">{{ item.title }}</h3>
-                    </article>
+                        {% include '@Inbox/_account_inbox_item.html.twig' with {item: link.item, href: null} only %}
                     {% endfor %}
                 </div>
             </section>
             {% endfor %}
+            {% if group.looseItems|length > 0 %}
+            <div class="lp-inbox-ask__items" data-account-inbox-loose>
+                <p class="lp-inbox-section__note">{{ 'inbox.section.loose_items_note'|trans }}</p>
+                {# The project page gives an item its own anchor only outside every open ask, which holds for these. #}
+                {% for item in group.looseItems %}
+                    {% include '@Inbox/_account_inbox_item.html.twig' with {item: item, href: projectInbox ~ '#inbox-item-' ~ item.number} only %}
+                {% endfor %}
+            </div>
+            {% endif %}
         </section>
         {% endfor %}
     {% endif %}

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Inbox\Command;
 
-use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Repository\InboxAskRepository;
 use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\View\AccountInboxDetailView;
@@ -21,9 +20,7 @@ final readonly class ShowAccountInboxHandler
 
     public function __invoke(ShowAccountInboxCommand $command): AccountInboxDetailView
     {
-        /** @var array<string, Project> $projects */
         $projects = [];
-        /** @var array<string, list<InboxAsk>> $asks */
         $asks = [];
         foreach ($this->inboxAsks->findOpenByOwner($command->owner) as $ask) {
             $key = (string) $ask->project->id;
@@ -31,13 +28,21 @@ final readonly class ShowAccountInboxHandler
             $asks[$key][] = $ask;
         }
 
+        $looseItems = [];
+        foreach ($this->inboxItems->findOpenOutsideOpenAsksByOwner($command->owner) as $item) {
+            $key = (string) $item->project->id;
+            $projects[$key] = $item->project;
+            $looseItems[$key][] = $item;
+        }
+
+        uasort($projects, static fn (Project $a, Project $b): int => [mb_strtolower($a->name), (string) $a->id] <=> [mb_strtolower($b->name), (string) $b->id]);
         $counts = $this->inboxItems->countOpenByProjects(array_values($projects));
 
         $groups = [];
         foreach ($projects as $key => $project) {
-            $groups[] = new AccountInboxProjectGroup($project, $asks[$key], $counts[$key] ?? 0);
+            $groups[] = new AccountInboxProjectGroup($project, $asks[$key] ?? [], $looseItems[$key] ?? [], $counts[$key] ?? 0);
         }
 
-        return new AccountInboxDetailView($command->owner, $groups);
+        return new AccountInboxDetailView($groups);
     }
 }

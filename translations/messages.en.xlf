@@ -4550,11 +4550,11 @@
             </trans-unit>
             <trans-unit id="inbox.account.page.description">
                 <source>inbox.account.page.description</source>
-                <target>The open asks in every project you own. Open an ask to answer it on its project inbox.</target>
+                <target>The open asks and open items in every project you own. Answer them in the project inbox.</target>
             </trans-unit>
             <trans-unit id="inbox.account.page.empty">
                 <source>inbox.account.page.empty</source>
-                <target>No agent waits on you in any project.</target>
+                <target>No project has an open inbox item.</target>
             </trans-unit>
             <trans-unit id="inbox.account.project.open_items">
                 <source>inbox.account.project.open_items</source>
@@ -4563,6 +4563,10 @@
             <trans-unit id="inbox.account.ask.open">
                 <source>inbox.account.ask.open</source>
                 <target>Answer in the project inbox</target>
+            </trans-unit>
+            <trans-unit id="inbox.account.item.open">
+                <source>inbox.account.item.open</source>
+                <target>Respond in the project inbox</target>
             </trans-unit>
 
 
