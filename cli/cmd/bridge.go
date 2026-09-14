@@ -251,6 +251,8 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		for _, slug := range r.projects {
 			r.reportHealth(slug)
 		}
+		r.heartbeat = newHeartbeater(ctx, apiClient(cfg), r.bridgeID, heartbeatBody(r.rules), heartbeatInterval(events), r.log)
+		r.heartbeat.start()
 	}
 
 	err = transport.Subscribe(ctx, &http.Client{}, events.HubURL, []string{events.Topic}, jwtRefresher(cfg, events.JWT, r.onRefresh), r.handler())
@@ -262,6 +264,9 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 	stop()
 	if r.health != nil {
 		r.health.wait()
+	}
+	if r.heartbeat != nil {
+		r.heartbeat.wait()
 	}
 	if failed {
 		return err
@@ -279,6 +284,17 @@ func newReportQueue(ctx context.Context, log *slog.Logger, cfg config.Config) re
 	return report.New(ctx, log, func(ctx context.Context, handle string, run api.WorkerRun) (bool, error) {
 		return client.ReportWorkerRun(ctx, handle, run)
 	})
+}
+
+// heartbeatBody names the projects the rule file maps, by id, and the build
+// that `loupe version` reports.
+func heartbeatBody(set *rules.Set) api.Heartbeat {
+	ids := []string{}
+	for _, slug := range set.Projects() {
+		ids = append(ids, set.ProjectID(slug))
+	}
+
+	return api.Heartbeat{Projects: ids, CLIVersion: buildID()}
 }
 
 // missingProjects names the mapped projects that GET /api/events does not list:

@@ -105,6 +105,13 @@ seconds. It logs `report_dropped` with the count of the reports that miss the
 window. A missing record therefore means "unknown", and never "the worker did
 not run".
 
+The bridge sends a heartbeat to `/api/bridges/{bridgeId}/heartbeat` once at
+start and then at the interval that `bridge.heartbeat_interval_seconds` gives,
+60 seconds by default. The heartbeat names the projects the rule file maps and
+the build of the bridge. A failed heartbeat is not retried on its own, because
+the next interval sends a fresh one. A server with no heartbeat endpoint answers
+404, and the bridge logs `heartbeat_unsupported` once and keeps working.
+
 There is no terminal UI. The bridge writes one JSON object per line to stdout
 and to its log file, named by `--log-file`. Each line carries a stable `event`
 key, so `jq` selects what you want. The log file is appended, so it is a history

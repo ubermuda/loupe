@@ -35,6 +35,8 @@ type router struct {
 	// reports carries each finished run to Loupe. A nil queue reports nothing.
 	reports report.Queue
 	health  *healthReporter
+	// heartbeat tells Loupe the bridge runs. A nil one sends nothing.
+	heartbeat *heartbeater
 
 	mu sync.Mutex
 	// queue holds the accepted events in arrival order, at most one for each
@@ -220,11 +222,14 @@ func (r *router) reportHealth(project string) {
 }
 
 // applyFlags keeps the flags of one GET /api/events answer for the workers that
-// start after it.
+// start after it, and gives its heartbeat interval to the heartbeat.
 func (r *router) applyFlags(events api.Events) {
 	r.mu.Lock()
 	r.inbox = events.Enabled(api.InboxFlag)
 	r.mu.Unlock()
+	if r.heartbeat != nil {
+		r.heartbeat.setInterval(heartbeatInterval(events))
+	}
 }
 
 // onRefresh applies the flags of a fresh GET /api/events. It logs, once for

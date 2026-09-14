@@ -355,6 +355,34 @@ generates it on its first start and keeps it after that, and `loupe login` keeps
 it too. Two bridges that share one config directory share one id, so each
 replaces the other's report for a project both map.
 
+### Heartbeat
+
+The bridge tells the server that it runs. It sends a heartbeat once at start,
+right after the first `GET /api/events`, and then once per interval. The
+heartbeat carries the ids of the projects the rule file maps and the build that
+`loupe version` prints, such as `0f4a2c9b (dirty)`. The server stamps the time
+itself.
+
+The interval comes from `bridge.heartbeat_interval_seconds` in the `flags` map,
+60 seconds by default. The bridge falls back to 60 seconds when the map has no
+such key, or when its value is not a whole number above zero. It reads the map
+again at each reconnect. A new interval takes effect at once, and the bridge
+logs `heartbeat_interval_changed`.
+
+A heartbeat is not retried on its own. The next interval sends a fresh one. The
+bridge logs the first heartbeat that lands, the first failure of a run of
+failures, and the heartbeat that ends that run. A bridge that runs all day
+therefore writes no line a minute.
+
+A server that answers 404 has no heartbeat endpoint, or has agent push switched
+off. The bridge logs `heartbeat_unsupported` once and keeps working. It keeps
+sending, so an upgraded server hears from it with no restart.
+
+The heartbeat names the bridge by the same `bridgeId` as the rule health report.
+A server that already holds that id for another account answers as if it took
+the heartbeat, and writes nothing. That happens when two accounts share one
+config directory. Stopping the bridge stops the heartbeat.
+
 ### Output
 
 The bridge writes one JSON object per line, to stdout and to `--log-file` alike.
@@ -393,6 +421,10 @@ names `card`, or `subject` for an event with no card number.
 | `rule_dead` | `rule`, `project`, `project_slug`, `reason`, `message`: a column or project change killed the rule. Level `ERROR` |
 | `report_sent` | `project`, `project_slug`, `rules`, `dead`: the server stored the rule health report of that project |
 | `report_failed` | `project`, `project_slug`, `error`, `retry`, `retry_in_ms` when `retry` is true, and `message` when the fix is yours |
+| `heartbeat_sent` | `bridge_id`, `interval_seconds`, `failed_before`: the first heartbeat that lands, and the one that ends a run of failures |
+| `heartbeat_failed` | `error`, `retry_in_seconds`: the first failure of a run. Level `WARN` |
+| `heartbeat_unsupported` | `error`, `message`: the server answered 404, logged once. Level `WARN` |
+| `heartbeat_interval_changed` | `interval_seconds`: a reconnect brought a new interval |
 
 `queue_depth` counts the accepted events waiting at that moment, the new one
 included. `worker_failed` and `worker_finished` name two different faults: a
@@ -464,6 +496,8 @@ id or a project slug, and a project name does not resolve.
    the exception, and the bridge always reads them.
 8. `PUT /api/projects/{id}/bridges/{bridgeId}/rules` sends the rule health of
    each project at start and when a rule dies.
+9. `PUT /api/bridges/{bridgeId}/heartbeat` tells the server that the bridge
+   runs, at start and at each interval.
 
 A prompt carries only validated identifiers and slugs: the project id and slug,
 the card id and number, and the two column slugs. It never carries text a
@@ -478,7 +512,7 @@ reused one would make the hub reject each retry once it lapsed. The bridge also
 compares each fresh project list with the rule file, and logs `project_gone` for
 a mapped project that is no longer listed. It reads the `flags` map of each
 fresh answer too, so a flag change reaches a worker that starts after the next
-reconnect.
+reconnect, and a new heartbeat interval takes effect at that reconnect.
 
 A binary built before `GET /api/events` existed calls
 `GET /api/projects/{id}/stream`, which the server no longer has. Rebuild the CLI
