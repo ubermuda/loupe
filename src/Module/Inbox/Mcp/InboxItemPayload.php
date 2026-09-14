@@ -13,6 +13,7 @@ use App\Module\Inbox\Entity\InboxItemDocument;
  * The shapes every inbox tool returns an item in.
  *
  * @phpstan-type InboxItemListSummary array{itemId: string, number: int, kind: string, title: string, state: string, blocking: bool, createdAt: string, updatedAt: string, closedAt: ?string}
+ * @phpstan-type InboxItemListRow array{itemId: string, number: int, kind: string, title: string, state: string, blocking: bool, createdAt: string, updatedAt: string, closedAt: ?string, options: list<string>, selectedOptions: list<int>, answerText: ?string, closeNote: ?string}
  * @phpstan-type InboxItemCardSummary array{cardId: string, number: int, title: string}
  * @phpstan-type InboxItemDocumentSummary array{documentId: string, title: string}
  * @phpstan-type InboxItemAskSummary array{askId: string, sessionId: string, closedAt: ?string}
@@ -46,6 +47,25 @@ final readonly class InboxItemPayload
     public function forList(array $items): array
     {
         return array_map($this->forListItem(...), $items);
+    }
+
+    /**
+     * A row of inbox_list carries the response, because a reader session's list
+     * call records that the session read it.
+     *
+     * @param list<InboxItem> $items
+     *
+     * @return list<InboxItemListRow>
+     */
+    public function forListRows(array $items): array
+    {
+        return array_map(fn (InboxItem $item): array => [
+            ...$this->forListItem($item),
+            'options' => array_values($item->options),
+            'selectedOptions' => array_values($item->selectedOptions),
+            'answerText' => $item->answerText,
+            'closeNote' => $item->closeNote,
+        ], $items);
     }
 
     /**

@@ -52,7 +52,12 @@ final class InboxReadRecordingTest extends KernelTestCase
 
         $result = ($this->list)(readerSessionId: (string) $ask->sessionId);
 
+        // The stamp says the session saw the answer, so the row it stamps must carry it.
         self::assertSame([(string) $item->id], array_column($result['items'], 'itemId'));
+        self::assertSame(['JSON', 'CSV'], $result['items'][0]['options']);
+        self::assertSame([0], $result['items'][0]['selectedOptions']);
+        self::assertNull($result['items'][0]['answerText']);
+        self::assertNull($result['items'][0]['closeNote']);
         self::assertNotNull($this->readAt($ask, $item));
     }
 

@@ -160,7 +160,7 @@ Roughly in the order an agent uses them:
 | `inbox_ask` | Hand questions and to-dos to the project owner (off by default, see below) |
 | `inbox_search` | Search every inbox item's title and body by words, closed ones included |
 | `inbox_join` | Add an open item that is already in the inbox to the session's own ask |
-| `inbox_list` | Read a page of inbox items, filtered by state, ask, session, card or document |
+| `inbox_list` | Read a page of inbox items with their answers, filtered by state, ask, session, card or document |
 | `inbox_get` | Read one inbox item, with its answer and its links |
 | `inbox_withdraw` | Withdraw an open item that is no longer needed, with a reason |
 
