@@ -112,7 +112,11 @@ export default defineConfig({
         {
           label: 'Reference',
           collapsed: true,
-          items: [{ slug: 'reference/environment' }, { slug: 'reference/commands' }],
+          items: [
+            { slug: 'reference/environment' },
+            { slug: 'reference/commands' },
+            { slug: 'reference/worker-runs' },
+          ],
         },
         {
           label: 'Contributing',
