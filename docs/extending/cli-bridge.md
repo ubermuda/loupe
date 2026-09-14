@@ -63,6 +63,10 @@ only witness of those, so it posts a record of each run to
 start and end times, the exit code and the output. One bridge follows several
 projects, so the handle is the id of the project the event carried.
 
+Loupe records a run against a card. A rule can name an event type that carries
+no card number, and the bridge logs `report_skipped` for such a run rather than
+sending it. That run has no record, and the log line is the only sign of it.
+
 The queue that carries those reports is held in memory. A failed send waits one
 second, then twice as long before each later attempt, up to sixty seconds. The
 bridge gives up after ten attempts and logs `report_failed`.
