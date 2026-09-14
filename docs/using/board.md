@@ -183,9 +183,9 @@ column that no longer exists.
 When the owner adds, renames, reorders, flags or deletes a column, every open
 board of the project reloads and shows the change. A drag in progress on another
 screen can then fail, and the card goes back. The live reload needs a Mercure
-hub and the `agent.push.enabled` flag, see
-[Environment variables](../reference/environment.md). Without them, a board
-shows the change on its next load.
+hub and the `live_updates.enabled` flag, see
+[Environment variables](../reference/environment.md). If either is missing, a
+board shows the change on its next load.
 
 **New card** opens the create form. Under each terminal column, a link opens the
 history page at **`/projects/<project>/board/terminal/<column id>`**. That page

@@ -77,7 +77,7 @@ test('a column renamed in one browser shows in another without a reload', async 
     request,
 }) => {
     await setFlag(request, 'board.enabled', true);
-    await setFlag(request, 'agent.push.enabled', true);
+    await setFlag(request, 'live_updates.enabled', true);
 
     const email = `e2e+refresh+${RUN}@example.com`;
     const registered = await request.post('/dev/register-and-verify', {
