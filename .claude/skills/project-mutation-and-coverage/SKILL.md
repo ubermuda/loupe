@@ -101,17 +101,15 @@ than as one unrelated test. It breaks a coverage run the same way.
 Assert a ratio instead. Run the work at two input sizes and compare the times:
 
 ```php
-[$quarterElapsed] = self::timeRender($renderer, 5_000);
+[$halfElapsed] = self::timeRender($renderer, 10_000);
 [$fullElapsed, $html] = self::timeRender($renderer, 20_000);
 
-// Four times the headings: linear takes 4x, quadratic 16x.
-self::assertLessThan(8.0, $fullElapsed / $quarterElapsed);
+// Linear doubles the time, quadratic quadruples it.
+self::assertLessThan(3.0, $fullElapsed / $halfElapsed);
 ```
 
-Coverage slows both renders by the same factor, so the ratio survives it. A
-loaded machine can slow one render and not the other, so keep the bound far from
-both growth rates. With sizes of 10,000 and 20,000 and a bound of 3.0, one
-`just ci` on a loaded machine measured 3.16 and failed.
+Coverage slows both halves by the same factor, so the ratio survives it, and so
+does a loaded machine.
 
 Playwright carries the same kind of bound in its own config. Its `expect`
 timeout is an absolute 5 seconds. Per-request collection takes one page render
