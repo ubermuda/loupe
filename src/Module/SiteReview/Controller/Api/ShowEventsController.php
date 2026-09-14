@@ -12,6 +12,7 @@ use App\Module\SiteReview\Command\ShowEventsHandler;
 use App\Outbox\AgentPush;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
 
 /**
@@ -60,7 +61,9 @@ final class ShowEventsController extends AppController
                 ],
                 $view->projects,
             ),
-            'flags' => $view->flags,
-        ]);
+            // An empty map must encode as {}, and the serializer writes [] for an
+            // empty object unless it is told to preserve it.
+            'flags' => (object) $view->flags,
+        ], context: [AbstractObjectNormalizer::PRESERVE_EMPTY_OBJECTS => true]);
     }
 }

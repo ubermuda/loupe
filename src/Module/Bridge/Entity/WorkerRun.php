@@ -26,6 +26,8 @@ use Symfony\Component\Uid\Uuid;
 // migration creates it USING gin. flags: ['gin'] would make the comparator emit
 // a DROP plus a plain CREATE INDEX, downgrading it to a B-tree that @@ never uses.
 #[ORM\Index(name: 'idx_bridge_worker_runs_search_vector', columns: ['search_vector'])]
+// A resume finds the card of a session through its run.
+#[ORM\Index(name: 'idx_bridge_worker_runs_session', columns: ['session_id'])]
 #[ORM\Table(name: 'bridge_worker_runs')]
 // The bridge retries a report whose response it never saw, so the natural key
 // of a run is what stops the retry writing a second row. One bridge cannot

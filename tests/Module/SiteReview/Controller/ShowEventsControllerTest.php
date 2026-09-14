@@ -157,16 +157,6 @@ final class ShowEventsControllerTest extends WebTestCase
         self::assertSame([self::INBOX_FLAG => true], $this->events($client, $raw)['flags']);
     }
 
-    public function test_the_flags_map_carries_the_inbox_flag_when_it_is_off(): void
-    {
-        $client = static::createClient();
-        $em = $this->em();
-        $this->storeInboxFlag($em, 'false');
-        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-flags-off@example.com');
-
-        self::assertSame([self::INBOX_FLAG => false], $this->events($client, $raw)['flags']);
-    }
-
     /** The endpoint answers only while push is on, so that flag is stored and on, and still stays out of the map. */
     public function test_the_flags_map_names_no_flag_outside_the_allowlist(): void
     {

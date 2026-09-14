@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -53,6 +54,24 @@ func TestWorkerArgsCarryTheRulesSettings(t *testing.T) {
 		if got := strings.Join(workerArgs(tc.spec), " "); got != tc.want {
 			t.Fatalf("workerArgs(%+v) = %q, want %q", tc.spec, got, tc.want)
 		}
+	}
+}
+
+var v4UUID = regexp.MustCompile(`\A[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z`)
+
+// claude refuses a session id that is not a uuid, and two workers must never
+// share one, so the real generator is pinned apart from the fake in the tests.
+func TestTheDefaultOpsGiveEachWorkerANewV4SessionID(t *testing.T) {
+	ops := defaultWorkerOps()
+
+	first, second := ops.sessionID(), ops.sessionID()
+	for _, id := range []string{first, second} {
+		if !v4UUID.MatchString(id) {
+			t.Fatalf("session id %q is not a lower-case version 4 uuid", id)
+		}
+	}
+	if first == second {
+		t.Fatalf("two workers got the same session id %q", first)
 	}
 }
 

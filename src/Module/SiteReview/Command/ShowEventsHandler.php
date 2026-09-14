@@ -59,7 +59,6 @@ final readonly class ShowEventsHandler
     {
         $flags = [];
         foreach (self::SHARED_FLAGS as $name) {
-            // A flag with no row reads as false.
             $flags[$name] = $this->featureFlags->isEnabled($name);
         }
 

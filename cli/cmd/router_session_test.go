@@ -49,7 +49,8 @@ func TestEachWorkerStartsItsOwnSession(t *testing.T) {
 }
 
 // An instance with the inbox off, or a server that sends no flags, gets the
-// prompt the rule renders and nothing more.
+// prompt the rule renders and nothing more. Each case turns the inbox on first,
+// so a refresh that can switch the line on but never off leaves it in.
 func TestThePromptNamesNoIdsWhileTheInboxIsOff(t *testing.T) {
 	for name, flags := range map[string]map[string]any{
 		"no flags":      nil,
@@ -58,6 +59,7 @@ func TestThePromptNamesNoIdsWhileTheInboxIsOff(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			h := newHarness(t)
+			h.router.onRefresh(listed(map[string]any{api.InboxFlag: true}))
 			h.router.onRefresh(listed(flags))
 
 			h.send(cardMoved(87))
