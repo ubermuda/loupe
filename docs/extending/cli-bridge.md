@@ -74,6 +74,34 @@ a newer report replaces it. The bridge refuses at start a rule file that the
 endpoint would reject, such as a rule name longer than 100 characters. The
 bridge names itself by a uuid it keeps in `config.json`.
 
+The bridge reports every run it starts to Loupe. A worker that finishes says so
+itself, by writing to the card through an MCP tool. A worker that crashes, that
+a signal kills, or that never starts writes nothing at all. The bridge is the
+only witness of those, so it posts a record of each run to
+`/api/projects/{handle}/worker-runs`. The record names the rule, the card, the
+start and end times, the exit code and the output. One bridge follows several
+projects, so the handle is the id of the project the event carried.
+
+Loupe records a run against a card. A rule can name an event type that carries
+no card number, and the bridge logs `report_skipped` for such a run rather than
+sending it. That run has no record, and the log line is the only sign of it.
+
+The queue that carries those reports is held in memory. A failed send waits one
+second, then twice as long before each later attempt, up to sixty seconds. The
+bridge gives up after ten attempts and logs `report_failed`.
+
+Loupe keys a run by its project, its bridge, its card and the second it started.
+Two runs of one card that start inside the same second therefore count as one
+report, and the second record is lost. A worker runs for minutes, so this needs
+a run that ends in milliseconds, which a failure to start does. The bridge logs
+`report_folded` when it happens, so the loss is on the record.
+
+Stopping the bridge kills its workers, and those runs are the ones only the
+bridge can report. So it gives each report one last attempt, in a window of five
+seconds. It logs `report_dropped` with the count of the reports that miss the
+window. A missing record therefore means "unknown", and never "the worker did
+not run".
+
 There is no terminal UI. The bridge writes one JSON object per line to stdout
 and to its log file, named by `--log-file`. Each line carries a stable `event`
 key, so `jq` selects what you want. The log file is appended, so it is a history

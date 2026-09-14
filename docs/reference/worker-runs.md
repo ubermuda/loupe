@@ -12,9 +12,6 @@ This endpoint is where the bridge reports the run itself. The server keeps one
 row per run, and it never changes the row afterwards. The project's
 [Worker runs page](../using/worker-runs.md) shows what the server holds.
 
-The bridge in `cli/` does not call this endpoint yet, so for now a record
-arrives only from a client that sends one.
-
 ## Reporting a run
 
 `POST /api/projects/{handle}/worker-runs`
@@ -71,8 +68,10 @@ list reads the same whichever offset a bridge runs in.
 
 `startedAt` is stored to the second, and a fraction of a second in the value you
 send is dropped. Two runs of one card by one bridge that start inside the same
-second therefore count as one report. A worker runs for minutes, so this needs
-no attention from a bridge.
+second therefore count as one report, and the second record is lost. A worker
+runs for minutes, so this needs a run that ends in milliseconds, which a failure
+to start does. The bridge in `cli/` logs `report_folded` when the server answers
+200 to a report it is sending for the first time, so the loss is on the record.
 
 | Status | Body | When |
 |---|---|---|
@@ -94,9 +93,10 @@ with push off can produce no run to report, and the endpoint answers 404 there.
 ## What a missing record means
 
 A missing record means "unknown", never "the worker did not run". The bridge
-holds its retry queue in memory, so a bridge killed between a worker finishing
-and its report landing loses that outcome for good. Read the list of runs as
-what the server was told, not as a complete history.
+holds its retry queue in memory. A bridge stopped with Ctrl-C or `SIGTERM`
+gives each report it still holds one last attempt, in a short window. A bridge
+that dies without warning loses what is in flight for good. Read the list of
+runs as what the server was told, not as a complete history.
 
 The output is whatever the agent printed. It may carry file contents, paths or
 anything else the agent chose to say, and anyone who can view the project can

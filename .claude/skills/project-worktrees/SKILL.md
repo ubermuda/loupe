@@ -151,11 +151,26 @@ worktrees is per test database, through the `TEST_TOKEN` that
 `worktree-bootstrap.sh` writes into each `.env.test.local`, never per container.
 
 Two consequences. `docker compose exec php-fpm pkill -f phpunit` kills every
-worktree's run, so match the path instead: `pkill -f 'phpunit.*worktrees/<name>'`,
-after reading `docker exec loupe-php-fpm-1 ps aux | grep phpunit`. And two gates
+worktree's run. A pattern that names the worktree matches nothing, because
+`--workdir` never reaches the command line. Find the run by its working
+directory, then kill it by pid:
+
+```bash
+docker exec loupe-php-fpm-1 sh -c \
+  'for p in $(pgrep -f "^php vendor/bin/phpunit"); do echo "$p $(readlink /proc/$p/cwd)"; done'
+```
+
+Keep the `^` anchor, or the pattern also matches the `sh -c` wrapper. BusyBox
+`ps` has no `-p`, so test liveness with `test -d /proc/<pid>`. And two gates
 in one worktree share a token, hit one database, and crash in `tests/bootstrap.php`
 with `duplicate key value violates unique constraint "pg_type_typname_nsp_index"`.
 Gates in different worktrees are safe.
+
+Never run `npm ci` or `npm install` inside a worktree. Bootstrap links
+`node_modules` and `e2e/node_modules` to the main checkout, so an install writes
+through the link. `npm ci` deletes the shared directory first, which breaks
+`just cs` in every tree. The worktree then keeps a private copy that stops
+tracking main. Install from the main checkout. Card 123 tracks a real fix.
 
 Before you trust any write, confirm the path is in `git worktree list`. Existence
 on disk is exactly what misleads here. When a worktree is removed while an agent
