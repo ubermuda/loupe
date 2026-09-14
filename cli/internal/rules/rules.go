@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"unicode"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
@@ -397,9 +398,11 @@ func (s *Set) ExtraTypes() map[string]bool {
 	return out
 }
 
-// ColumnSource reads a project's columns from the server.
+// ColumnSource reads a project's columns, and the caller's projects, from the
+// server.
 type ColumnSource interface {
 	Columns(ctx context.Context, handle string) (api.ProjectColumns, error)
+	Sites(ctx context.Context) ([]api.Site, error)
 }
 
 // Check reads each mapped project's columns and refuses a project or a column
@@ -407,11 +410,12 @@ type ColumnSource interface {
 func (s *Set) Check(ctx context.Context, src ColumnSource) error {
 	slugs := map[string]string{}
 	var errs []error
+	known := sync.OnceValue(func() string { return knownSlugs(ctx, src) })
 	for _, slug := range s.Projects() {
 		pc, err := src.Columns(ctx, slug)
 		switch {
 		case errors.Is(err, api.ErrProjectNotFound):
-			errs = append(errs, fmt.Errorf("project %q: no project of yours has this slug", slug))
+			errs = append(errs, fmt.Errorf("project %q: no project of yours has this slug%s", slug, known()))
 		case errors.Is(err, api.ErrBoardDisabled):
 			errs = append(errs, fmt.Errorf("project %q: the board is switched off on this Loupe instance, so no card event can reach the bridge", slug))
 		case errors.Is(err, api.ErrEndpointMissing):
@@ -465,6 +469,27 @@ func (s *Set) Check(ctx context.Context, src ColumnSource) error {
 	s.slugs = slugs
 
 	return nil
+}
+
+// knownSlugs names the caller's project slugs for an error message. A failed
+// request leaves the message as it was, because the refusal matters more.
+func knownSlugs(ctx context.Context, src ColumnSource) string {
+	sites, err := src.Sites(ctx)
+	if err != nil {
+		return ""
+	}
+	var known []string
+	for _, site := range sites {
+		if site.Slug != "" {
+			known = append(known, site.Slug)
+		}
+	}
+	if len(known) == 0 {
+		return "; you have no project with a slug"
+	}
+	slices.Sort(known)
+
+	return "; your projects are " + strings.Join(known, ", ")
 }
 
 // Skip says why an event starts no worker.
