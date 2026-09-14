@@ -33,6 +33,15 @@ final class MarkdownRendererTest extends TestCase
         self::assertStringContainsString('href="#heading-intro"', $html);
     }
 
+    public function test_renders_without_heading_ids_on_request(): void
+    {
+        $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->renderWithoutHeadingIds("# Title\n\nHello <script>alert(1)</script>");
+
+        self::assertStringContainsString('<h1>Title</h1>', $html);
+        self::assertStringNotContainsString('id=', $html);
+        self::assertStringNotContainsString('<script>', $html);
+    }
+
     public function test_keeps_the_href_on_a_same_origin_path(): void
     {
         $html = new MarkdownRenderer(new NullLogger(), new IdentityTranslator())->render('[the project](/projects/abc)');
