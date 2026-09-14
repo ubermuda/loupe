@@ -8,6 +8,7 @@ use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Install\BoardInstallFlags;
+use App\Module\Inbox\Install\InboxInstallFlags;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Mcp\DocumentHighlightTool;
 use App\Tests\Support\AcceptedTerms;
@@ -52,6 +53,7 @@ final class ConnectAgentControllerTest extends WebTestCase
         $installedFlags = static::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed();
         $installedFlags[DocumentHighlightTool::FLAG]->value = true;
         $installedFlags[BoardInstallFlags::FLAG_BOARD_ENABLED]->value = true;
+        $installedFlags[InboxInstallFlags::FLAG_INBOX_ENABLED]->value = true;
         // The tool list only renders once a token exists; without one the page
         // shows the mint step instead and this would compare against nothing.
         [$token] = ApiToken::issue($owner, 'MCP: connect-site-tools', ApiTokenScope::Mcp);
