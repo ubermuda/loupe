@@ -151,6 +151,47 @@ receives no event there.
 This endpoint replaced `GET /api/projects/{handle}/stream`. A CLI binary built
 before the change calls the old route, gets `404`, and must be rebuilt.
 
+## The inbox.ask_closed event
+
+Loupe writes `inbox.ask_closed` when an [inbox](../using/inbox.md) ask closes
+and the ask names a bridge. An ask closes when every blocking item in it is
+closed. The bridge does not act on this event yet, because it has no resume
+action. A later release adds the action that resumes the agent session that
+asked.
+
+```json
+{
+  "type": "inbox.ask_closed",
+  "projectId": "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7",
+  "subject": { "type": "inbox-ask", "id": "01a0a1b2-0000-7c3d-8e4f-5a6b7c8d9e0f" },
+  "sessionId": "5f0c7e2a-1b3d-4c5e-8f9a-0b1c2d3e4f5a",
+  "bridgeId": "7d1e2f3a-4b5c-4d6e-9f0a-1b2c3d4e5f6a",
+  "cardId": "0192f3a1-7777-7d3e-8f10-a2b3c4d5e6f7",
+  "cardNumber": 33,
+  "actor": "human"
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `subject.id` | the ask that closed |
+| `sessionId` | the Claude Code session that asked |
+| `bridgeId` | the bridge that started that session, which the agent passed to `inbox_ask` |
+| `cardId`, `cardNumber` | the card of the first worker run that reported this session, or `null` |
+| `actor` | `human` when the owner closed the last blocking item, `agent` when an agent withdrew it or its cards finished |
+
+`cardId` and `cardNumber` are `null` in these cases:
+
+- The ask closed while its worker still ran, so no run report carries the session yet.
+- The run report was lost, or the server refused it.
+- The worker came from a rule on an event with no card, which reports no run.
+- The card was deleted.
+
+The event carries ids only. The agent reads the answers through the MCP tools.
+An ask with no bridge, such as one from an interactive session, writes no event.
+An ask that holds no blocking item closes at once and writes no event either.
+Each ask closes once, so it writes the event at most once.
+
 ## Columns endpoint
 
 `GET /api/projects/{handle}/board/columns` returns the columns of one board, so

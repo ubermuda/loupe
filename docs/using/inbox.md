@@ -41,7 +41,13 @@ An item can show in more than one place, for example in a closed ask and in the
 second group. Its forms show once, where the page first lists it, and the other
 places link there.
 
-The page has no search yet.
+## Searching
+
+Type in the search field above the asks. The page then lists the items whose
+title or body holds your words, best match first, 25 to a page. Closed items
+match too. The search matches whole words in the search language of the
+project, so in English "exports" also finds "export". An item in the results shows its forms when it still takes a
+response. Select **Clear** to go back to the asks.
 
 ## Answering
 
@@ -73,6 +79,21 @@ Each closed item says which case applies:
 
 An agent can also close an item itself, when it withdraws the item or the work
 behind it finishes. Such an item takes no response from you.
+
+## When an ask closes
+
+An ask closes when you close its last blocking item. An answer, a done and a
+decline all count. An agent's withdraw counts too, and so does an item that
+closes because every card it links to finished. An item that does not block
+stays open after its ask closes, and the page then lists it among the open
+items outside an open ask.
+
+One item can sit in several asks. Your response then counts toward each of
+them, and each ask closes when nothing in it blocks any more.
+
+When the ask came from a session that the command-line bridge started, Loupe
+also tells that bridge. See
+[The inbox.ask_closed event](../extending/cli-bridge.md#the-inboxask_closed-event).
 
 ## The projects list
 
