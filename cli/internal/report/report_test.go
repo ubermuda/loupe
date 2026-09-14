@@ -162,6 +162,9 @@ func TestQueueSendsEachReportOnce(t *testing.T) {
 	if lines := h.lines(t, "report_dropped"); len(lines) != 0 {
 		t.Fatalf("report_dropped = %v, want none", lines)
 	}
+	if lines := h.lines(t, "report_folded"); len(lines) != 0 {
+		t.Fatalf("report_folded = %v, want none for a report the server stored", lines)
+	}
 }
 
 // A Loupe restart is the common failure, so the report that fails once must
