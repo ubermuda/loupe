@@ -8,6 +8,7 @@ use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Bridge\Entity\WorkerRun;
+use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Project\Entity\Project;
 use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
@@ -61,23 +62,38 @@ trait BridgeScenario
         int $cardNumber = 1,
         ?int $exitCode = 0,
         ?string $failureReason = null,
+        string $output = 'worker output',
+        string $ruleName = 'plan',
+        ?Uuid $bridgeId = null,
+        ?Uuid $cardId = null,
     ): WorkerRun {
         $run = new WorkerRun(
             project: $project,
-            bridgeId: Uuid::v7(),
-            cardId: Uuid::v7(),
+            bridgeId: $bridgeId ?? Uuid::v7(),
+            cardId: $cardId ?? Uuid::v7(),
             cardNumber: $cardNumber,
-            ruleName: 'plan',
+            ruleName: $ruleName,
             startedAt: new \DateTimeImmutable('2026-01-01 10:00:00'),
             endedAt: new \DateTimeImmutable('2026-01-01 10:05:00'),
             exitCode: $exitCode,
             failureReason: $failureReason,
-            output: 'worker output',
+            output: $output,
             receivedAt: $receivedAt,
         );
         $em->persist($run);
         $em->flush();
+        // What the report endpoint does after it writes the row. A run seeded
+        // without this carries a null vector and no search can reach it.
+        $this->searchIndexer()->index($run);
 
         return $run;
+    }
+
+    private function searchIndexer(): WorkerRunSearchIndexer
+    {
+        $indexer = static::getContainer()->get(WorkerRunSearchIndexer::class);
+        self::assertInstanceOf(WorkerRunSearchIndexer::class, $indexer);
+
+        return $indexer;
     }
 }
