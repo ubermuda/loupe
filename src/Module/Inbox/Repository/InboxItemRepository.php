@@ -95,21 +95,24 @@ class InboxItemRepository extends ServiceEntityRepository
     }
 
     /**
-     * The state and close time as stored now, whatever the loaded entity holds.
-     *
-     * @return array{InboxItemState, ?\DateTimeImmutable}
+     * Copies onto the entity the columns that decide which response the item
+     * takes, as stored now, whatever the loaded entity holds.
      */
-    public function currentStateOf(InboxItem $item): array
+    public function reloadMutableColumns(InboxItem $item): void
     {
-        /** @var array{state: InboxItemState, closedAt: ?\DateTimeImmutable} $row */
+        /** @var array{state: InboxItemState, closedAt: ?\DateTimeImmutable, options: list<string>, multiple: bool, freeText: bool} $row */
         $row = $this->createQueryBuilder('i')
-            ->select('i.state, i.closedAt')
+            ->select('i.state, i.closedAt, i.options, i.multiple, i.freeText')
             ->andWhere('i.id = :id')
             ->setParameter('id', $item->id, UuidType::NAME)
             ->getQuery()
             ->getSingleResult();
 
-        return [$row['state'], $row['closedAt']];
+        $item->state = $row['state'];
+        $item->closedAt = $row['closedAt'];
+        $item->options = $row['options'];
+        $item->multiple = $row['multiple'];
+        $item->freeText = $row['freeText'];
     }
 
     /**

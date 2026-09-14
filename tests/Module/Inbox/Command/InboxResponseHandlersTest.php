@@ -70,6 +70,45 @@ final class InboxResponseHandlersTest extends KernelTestCase
         self::assertSame(InboxItemState::Open, $this->reload($item)->state);
     }
 
+    public function test_an_index_is_checked_against_the_options_as_stored_under_the_lock(): void
+    {
+        $item = $this->question($this->em, $this->project, 1, ['a', 'b', 'c']);
+        // The agent narrowed the options after this request loaded the item.
+        $this->em->getConnection()->executeStatement(
+            'UPDATE inbox_items SET options = ? WHERE id = ?',
+            ['["a","b"]', (string) $item->id],
+        );
+
+        $errors = $this->refusal(fn () => $this->answer($item, '2', ''));
+
+        self::assertSame(['selectedOptions' => 'inbox.answer.error.unknown_option'], $errors);
+        self::assertSame(InboxItemState::Open, $this->reload($item)->state);
+    }
+
+    public function test_free_text_is_checked_against_the_question_as_stored_under_the_lock(): void
+    {
+        $item = $this->question($this->em, $this->project, 1, freeText: true);
+        $this->em->getConnection()->executeStatement('UPDATE inbox_items SET free_text = false WHERE id = ?', [(string) $item->id]);
+
+        $errors = $this->refusal(fn () => $this->answer($item, '0', 'extra'));
+
+        self::assertSame(['answerText' => 'inbox.answer.error.no_free_text'], $errors);
+        self::assertSame(InboxItemState::Open, $this->reload($item)->state);
+    }
+
+    public function test_a_to_do_already_done_is_not_marked_done_again(): void
+    {
+        $stale = $this->todo($this->em, $this->project, 1);
+        // An older page marked it done after this request loaded the item.
+        $this->em->getConnection()->executeStatement(
+            "UPDATE inbox_items SET state = 'done', closed_at = NOW(), updated_at = '2026-01-01 00:00:00' WHERE id = ?",
+            [(string) $stale->id],
+        );
+
+        self::assertSame(['item' => 'inbox.done.error.already_done'], $this->refusal(fn () => $this->markDone($stale)));
+        self::assertSame('2026-01-01 00:00:00', $this->reload($stale)->updatedAt->format('Y-m-d H:i:s'));
+    }
+
     public function test_a_to_do_takes_no_answer_and_a_question_is_not_marked_done(): void
     {
         $todo = $this->todo($this->em, $this->project, 1);
@@ -201,6 +240,7 @@ final class InboxResponseHandlersTest extends KernelTestCase
 
     private function reload(InboxItem $item): InboxItem
     {
+        $this->em->clear();
         $stored = $this->em->find(InboxItem::class, $item->id);
         self::assertInstanceOf(InboxItem::class, $stored);
 

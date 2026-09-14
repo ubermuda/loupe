@@ -4500,6 +4500,10 @@
                 <source>inbox.done.error.not_a_todo</source>
                 <target>Only a to-do can be marked done.</target>
             </trans-unit>
+            <trans-unit id="inbox.done.error.already_done">
+                <source>inbox.done.error.already_done</source>
+                <target>This to-do is already done.</target>
+            </trans-unit>
             <trans-unit id="inbox.decline.toggle">
                 <source>inbox.decline.toggle</source>
                 <target>Decline</target>

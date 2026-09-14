@@ -12,7 +12,6 @@ class AnswerInboxItemRequest
 
     public function __construct(
         /** Comma-separated option indexes, which the answer controller copies from the option controls. */
-        #[Assert\Length(max: 255)]
         public ?string $selectedOptions = null,
 
         #[Assert\Length(max: self::MAX_ANSWER_LENGTH)]

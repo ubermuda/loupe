@@ -25,10 +25,12 @@ final readonly class DeclineInboxItemHandler
         $item = $command->item;
         $note = trim($command->note);
 
-        $this->closer->close($item, InboxItemState::Declined, 'closeNote', static function (InboxItem $item) use ($note): void {
+        $this->closer->close($item, InboxItemState::Declined, 'closeNote', static function (InboxItem $item) use ($note): ?array {
             $item->selectedOptions = [];
             $item->answerText = null;
             $item->closeNote = '' === $note ? null : $note;
+
+            return null;
         });
 
         $this->auditor->record(

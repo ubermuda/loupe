@@ -14,8 +14,8 @@ use Doctrine\ORM\EntityManagerInterface;
 
 /**
  * The one place an owner's response closes an item, or changes a response
- * already given. Every change runs under a lock on the project, which the
- * writers of asks take too, so an ask cannot close between the check that an
+ * already given. It runs under a lock on the project row. Every writer of asks
+ * MUST take the same lock, or an ask can close between the check that an
  * answer is still editable and the write that changes it.
  */
 final readonly class InboxItemCloser
@@ -37,39 +37,49 @@ final readonly class InboxItemCloser
      * while no closed ask holds it, because an agent may already act on the
      * answer that closed that ask.
      *
-     * @param \Closure(InboxItem): void $respond writes the response fields
+     * @param \Closure(InboxItem): (array<string, string>|null) $respond validates against the item as
+     *                                                                   stored, then writes the response
+     *                                                                   fields; it returns field errors
+     *                                                                   to refuse, or null
      *
-     * @throws DomainErrors keyed by $errorField when the item no longer takes a response
+     * @throws DomainErrors keyed by $errorField, or by the fields $respond names, when the item takes no such response
      */
     public function close(InboxItem $item, InboxItemState $state, string $errorField, \Closure $respond): void
     {
-        $refusal = $this->em->wrapInTransaction(function () use ($item, $state, $respond): ?string {
+        $errors = $this->em->wrapInTransaction(function () use ($item, $state, $errorField, $respond): ?array {
             $this->em->lock($item->project, LockMode::PESSIMISTIC_WRITE);
-            // Read under the lock, so a withdraw or a response that landed since
-            // the item was loaded counts. refresh() would also reload readonly
-            // columns, which Doctrine refuses to overwrite.
-            [$item->state, $item->closedAt] = $this->inboxItems->currentStateOf($item);
+            // Read under the lock, so a response or an agent's change that landed
+            // since the item was loaded counts. refresh() would also reload
+            // readonly columns, which Doctrine refuses to overwrite.
+            $this->inboxItems->reloadMutableColumns($item);
 
             $refusal = $this->refusal($item);
             if (null !== $refusal) {
-                return $refusal;
+                return [$errorField => $refusal];
+            }
+
+            $wasOpen = InboxItemState::Open === $item->state;
+            $errors = $respond($item);
+            if (null !== $errors && [] !== $errors) {
+                return $errors;
             }
 
             $now = new \DateTimeImmutable();
-            $respond($item);
-            if (InboxItemState::Open === $item->state) {
+            if ($wasOpen) {
                 $item->closedAt = $now;
             }
             $item->state = $state;
             $item->updatedAt = $now;
+            // The flush that ends the transaction writes only what differs from
+            // the copy Doctrine loaded, so it would miss a field cleared back to
+            // the value that copy held.
             $this->inboxItems->writeResponse($item);
-            $this->em->flush();
 
             return null;
         });
 
-        if (null !== $refusal) {
-            throw new DomainErrors([$errorField => $refusal]);
+        if (null !== $errors) {
+            throw new DomainErrors($errors);
         }
     }
 

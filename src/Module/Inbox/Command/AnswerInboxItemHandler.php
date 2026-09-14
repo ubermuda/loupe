@@ -29,26 +29,30 @@ final readonly class AnswerInboxItemHandler
             throw new DomainErrors(['selectedOptions' => 'inbox.answer.error.not_a_question']);
         }
 
-        $selected = self::parseIndexes($command->selectedOptions, \count($item->options));
-        if (null === $selected) {
-            throw new DomainErrors(['selectedOptions' => 'inbox.answer.error.unknown_option']);
-        }
-        if (!$item->multiple && \count($selected) > 1) {
-            throw new DomainErrors(['selectedOptions' => 'inbox.answer.error.one_option']);
-        }
-
         $text = trim($command->answerText);
-        if ('' !== $text && !$item->freeText) {
-            throw new DomainErrors(['answerText' => 'inbox.answer.error.no_free_text']);
-        }
-        if ([] === $selected && '' === $text) {
-            throw new DomainErrors([$item->freeText && [] === $item->options ? 'answerText' : 'selectedOptions' => 'inbox.answer.error.empty']);
-        }
 
-        $this->closer->close($item, InboxItemState::Answered, 'selectedOptions', static function (InboxItem $item) use ($selected, $text): void {
+        // Checked inside the lock, against the options as stored: an agent may
+        // change the question after the page loaded it.
+        $this->closer->close($item, InboxItemState::Answered, 'selectedOptions', static function (InboxItem $item) use ($command, $text): ?array {
+            $selected = self::parseIndexes($command->selectedOptions, \count($item->options));
+            if (null === $selected) {
+                return ['selectedOptions' => 'inbox.answer.error.unknown_option'];
+            }
+            if (!$item->multiple && \count($selected) > 1) {
+                return ['selectedOptions' => 'inbox.answer.error.one_option'];
+            }
+            if ('' !== $text && !$item->freeText) {
+                return ['answerText' => 'inbox.answer.error.no_free_text'];
+            }
+            if ([] === $selected && '' === $text) {
+                return [$item->freeText && [] === $item->options ? 'answerText' : 'selectedOptions' => 'inbox.answer.error.empty'];
+            }
+
             $item->selectedOptions = $selected;
             $item->answerText = '' === $text ? null : $text;
             $item->closeNote = null;
+
+            return null;
         });
 
         $this->auditor->record(
@@ -57,8 +61,8 @@ final readonly class AnswerInboxItemHandler
             [
                 'itemId' => (string) $item->id,
                 'projectId' => (string) $item->project->id,
-                'optionCount' => \count($selected),
-                'hasText' => '' !== $text,
+                'optionCount' => \count($item->selectedOptions),
+                'hasText' => null !== $item->answerText,
             ],
             new AuditSubject('inbox_item', (string) $item->id),
         );
