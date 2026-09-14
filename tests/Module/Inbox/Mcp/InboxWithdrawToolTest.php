@@ -101,6 +101,18 @@ final class InboxWithdrawToolTest extends KernelTestCase
         ($this->tool)($asked['items'][0]['itemId'], str_repeat('a', 2001));
     }
 
+    /** The schema measures the reason as sent, so the handler does too, spaces included. */
+    public function test_a_reason_over_the_limit_only_with_its_spaces_is_refused(): void
+    {
+        $this->enableInbox();
+        $this->actAsMcpTokenBoundTo($this->makeProject('inbox-withdraw-spaces'));
+        $asked = $this->askQuestion('Which column?');
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('reason: A withdraw reason must be at most 2000 characters.');
+        ($this->tool)($asked['items'][0]['itemId'], str_repeat('a', 2000).' ');
+    }
+
     public function test_an_item_in_another_project_is_not_reachable_and_the_refusal_is_audited(): void
     {
         $this->enableInbox();
