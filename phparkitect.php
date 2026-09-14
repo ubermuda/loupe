@@ -6,6 +6,7 @@ use Arkitect\ClassSet;
 use Arkitect\CLI\Config;
 use Arkitect\Expression\ForClasses\NotDependsOnTheseNamespaces;
 use Arkitect\Expression\ForClasses\NotResideInTheseNamespaces;
+use Arkitect\Expression\ForClasses\ResideInOneOfTheseNamespaces;
 use Arkitect\Rules\Rule;
 
 /*
@@ -37,8 +38,15 @@ return static function (Config $config): void {
 
     $config->add($src,
         Rule::allClasses()
-            ->that(new NotResideInTheseNamespaces('App\Module\Board'))
+            ->that(new NotResideInTheseNamespaces('App\Module\Board', 'App\Module\Inbox'))
             ->should(new NotDependsOnTheseNamespaces(['App\Module\Board']))
-            ->because('Board is a leaf: a card belongs to a project, so Board depends on Project and Project must not depend back. Folding a card export into ProjectExporter reads as the convenient move and closes the cycle'),
+            ->because('Board is a leaf: a card belongs to a project, so Board depends on Project and Project must not depend back. Folding a card export into ProjectExporter reads as the convenient move and closes the cycle. Inbox is exempt, because it links an item to a card by foreign key and Board never imports Inbox'),
+    );
+
+    $config->add($src,
+        Rule::allClasses()
+            ->that(new ResideInOneOfTheseNamespaces('App\Module\Board', 'App\Module\Review'))
+            ->should(new NotDependsOnTheseNamespaces(['App\Module\Inbox']))
+            ->because('Inbox depends on Board and Review to link an item to a card or a document, so either import back closes a cycle. A card or document page reaches the inbox through a Twig function'),
     );
 };
