@@ -2291,20 +2291,19 @@ const waitForInk = async (page: Page): Promise<Ink> => {
 };
 
 /**
- * The draw toast slides down into place when draw mode opens, and it crosses the
- * middle of the viewport on the way. It is visible from the first frame of that
- * slide, so a press that lands while it is still travelling hits the toast
- * rather than the canvas: the canvas then takes no pointerdown, `beginStroke`
- * never runs, and every later move is dropped.
+ * The draw toast animates from its `top: 18px` home down to the bottom dock over
+ * 220ms when draw mode opens, because a launcher in a top corner makes
+ * `toastHome()` return 'bottom'. A press that lands while it crosses the
+ * stroke's start point hits the toast, so the canvas gets no pointerdown,
+ * `beginStroke` never runs, and every later move is dropped.
  *
- * The toast lives at the top and dodges to the bottom while the pointer is in
- * the top band, on a 220ms transform transition. Moving the pointer to the
- * stroke's start point sends it back up, straight through the middle of the
- * screen, so the press must wait for the pointer to be where it will press
- * before this can mean anything.
+ * The `getAnimations()` check carries this, not the hit test. The toast
+ * approaches the start point from above, so the hit test reports `canvas` for
+ * the whole descent before it arrives, and a press one round trip later races
+ * it. Measured at 4x CPU throttling, 8 runs: the hit test alone dropped 4,
+ * pressing at toast tops of 427 to 436; with both, all 8 drew, every press at
+ * the settled 661. Do not simplify it to the hit test alone.
  *
- * So assert the precondition the press needs: nothing is animating, and the
- * canvas is the topmost node at the point about to be pressed.
  * `document.elementFromPoint` stops at the shadow host, so ask the widget's own
  * root, which retargets inside itself.
  */
@@ -2357,8 +2356,7 @@ const drawStroke = async (
 ): Promise<void> => {
     const steps = 8;
     await page.mouse.move(from.x, from.y);
-    // After the move, never before it: the move is itself what sends the toast
-    // back across the screen.
+    // After the move, so it reads the state nearest the press.
     await canvasReadyAt(page, from.x, from.y);
     await page.mouse.down();
     for (let step = 1; step <= steps; step++) {
