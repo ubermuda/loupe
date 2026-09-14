@@ -47,6 +47,7 @@ final class ReportWorkerRunController extends AppController
             owner: $user,
             handle: $handle,
             bridgeId: $payload->bridgeId(),
+            sessionId: $payload->sessionId(),
             cardId: $payload->cardId(),
             cardNumber: $payload->cardNumber ?? throw new \LogicException('cardNumber is required after validation.'),
             ruleName: $payload->ruleName(),
