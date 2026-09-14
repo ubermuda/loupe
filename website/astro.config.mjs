@@ -80,6 +80,7 @@ export default defineConfig({
             { slug: 'using/mcp' },
             { slug: 'using/site-review' },
             { slug: 'using/board' },
+            { slug: 'using/worker-runs' },
             { slug: 'using/admin' },
             { slug: 'using/data-exports' },
           ],
@@ -112,7 +113,11 @@ export default defineConfig({
         {
           label: 'Reference',
           collapsed: true,
-          items: [{ slug: 'reference/environment' }, { slug: 'reference/commands' }],
+          items: [
+            { slug: 'reference/environment' },
+            { slug: 'reference/commands' },
+            { slug: 'reference/worker-runs' },
+          ],
         },
         {
           label: 'Contributing',

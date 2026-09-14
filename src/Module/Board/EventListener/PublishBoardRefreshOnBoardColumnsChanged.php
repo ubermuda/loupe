@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Board\EventListener;
 
+use App\Mercure\LiveUpdates;
 use App\Mercure\ProjectTopicBuilder;
 use App\Module\Board\Event\BoardColumnsChanged;
-use App\Outbox\AgentPush;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\ConsoleEvents;
 use Symfony\Component\DependencyInjection\Attribute\AutowireServiceClosure;
@@ -59,7 +59,7 @@ final class PublishBoardRefreshOnBoardColumnsChanged implements ResetInterface
     {
         $pending = $this->pending;
         $this->pending = [];
-        if ([] === $pending || !$this->featureFlags->isEnabled(AgentPush::FLAG)) {
+        if ([] === $pending || !$this->featureFlags->isEnabled(LiveUpdates::FLAG)) {
             return;
         }
 

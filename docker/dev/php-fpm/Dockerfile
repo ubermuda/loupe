@@ -4,14 +4,14 @@ WORKDIR /var/www/html
 
 RUN apk add --no-cache $PHPIZE_DEPS postgresql-dev libzip-dev libxslt-dev bash icu-data-full linux-headers git
 
-RUN docker-php-ext-install bcmath pdo pdo_pgsql zip intl xsl
+RUN docker-php-ext-install -j"$(nproc)" bcmath pdo pdo_pgsql zip intl xsl
 
 # Built from the xdebug.org tarball without pecl, so the build never contacts
 # pecl.php.net. `pecl install <url>` still fetches that host's channel.xml, and a
 # 504 there failed a CI image build on 2026-09-12.
 RUN mkdir -p /usr/src/xdebug \
     && curl -fsSL https://xdebug.org/files/xdebug-3.5.3.tgz | tar -xz -C /usr/src/xdebug --strip-components=1 \
-    && docker-php-ext-install /usr/src/xdebug
+    && docker-php-ext-install -j"$(nproc)" /usr/src/xdebug
 
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 

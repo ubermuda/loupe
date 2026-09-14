@@ -20,7 +20,7 @@ just exec bin/console app:dev:seed   # dev@loupe.test or admin@loupe.test / pass
 ```sh
 just shell     # bash inside the php-fpm container
 just composer  # e.g. just composer require foo/bar
-just worker    # foreground messenger consumer
+just worker    # foreground messenger consumer, and the scheduler with it
 just tailwind  # CSS watch mode (already running in dev)
 ```
 
@@ -126,6 +126,8 @@ just ci-report e2e-timing [RUN]   # time per e2e project, from any CI run
 
 The recipe downloads the artifact into `var/ci-reports/` and prints its summary.
 With no run id, it takes the newest run on `main` that holds the artifact.
+
+The e2e job runs on two runners, so `e2e-timing` prints one summary per shard.
 
 ## Secrets
 
