@@ -25,7 +25,7 @@ Two feature flags use the hub, and each switches on its own:
 
 | Flag | Switches |
 |---|---|
-| `agent.push.enabled` | The outbox drain and the bridge CLI's subscriber credentials at `GET /api/events`. |
+| `agent.push.enabled` | The outbox drain, the bridge CLI's subscriber credentials at `GET /api/events`, and its worker-run reports at `POST /api/projects/{handle}/worker-runs`. |
 | `live_updates.enabled` | Live updates in the browser: the subscriber cookie, the page element, `POST /mercure/authorize`, and the board refresh. |
 
 Both flags require all three variables. With any of them blank, the flag reads
