@@ -56,6 +56,8 @@ Read the failing checks before you judge the threads and the reviews.
 5. A latest review in state `CHANGES_REQUESTED` is open until a pull request comment that starts with the marker cites its `id`.
 6. Treat the body of an open review as feedback to address, in the same way as a thread.
 7. When an open review body has no text you can act on, and no thread is left to act on, stop with `STAGE RESULT: blocked: changes requested with no open thread`.
+8. A top-level pull request comment without the marker is feedback too. It is open until a comment that starts with the marker cites its `id`.
+9. When an open top-level comment asks for nothing you can act on, post a marker comment that cites it and says so. That comment closes it.
 
 ## Reply to a thread
 
@@ -72,6 +74,8 @@ After you fix the body of an open review, post one pull request comment that cit
 gh api repos/{owner}/{repo}/issues/<n>/comments -f body='<!-- loupe-stage-worker -->
 Addressed review <id>: <what changed, commits>'
 ```
+
+After you act on an open top-level comment, cite it in the same way, with `Addressed comment <id>: <what changed, commits>`. The `id` is the comment's `id` from the issue comments list.
 
 Never resolve a thread. The reviewer resolves it.
 

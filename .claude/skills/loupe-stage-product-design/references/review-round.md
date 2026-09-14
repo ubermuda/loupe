@@ -10,7 +10,7 @@ Read `document_get_review`. Act when at least one of these holds:
 
 1. A root comment has `status` `pending`.
 2. The `verdict` is `changes-requested`.
-3. An entry in `decisions` has an answer, and the document has no `**Decided:**` line for it. A single-choice entry answers in `selected`. A multiple-choice entry answers in `selections`.
+3. An entry in `decisions` has an answer, and no `**Decided:**` line names that answer. A single-choice entry answers in `selected`. A multiple-choice entry answers in `selections`. A `**Decided:**` line that names an older answer does not count.
 4. The requirement source holds a requirement the document does not cover yet.
 
 When none holds, change nothing. Stop with `STAGE RESULT: <document> unchanged`.
@@ -30,8 +30,9 @@ Reply to every `pending` root comment, and mark it addressed. Do this for a comm
 ## Revise only when the Markdown changes
 
 1. Add a `**Decided:**` line for each answered decision that has none (rule 6). Keep every fence id, because a changed id discards the answer.
-2. When the fence sits inside an approved section, put its `**Decided:**` line in the document's `Decided` section. When the document has none, add a `## Decisions` heading at the end.
-3. Cover each new requirement from the requirement source.
-4. When the Markdown is different, call `document_revise` with a `description` that names what changed (rule 9). Stop with `STAGE RESULT: <document> revised <id>`.
-5. When the Markdown is the same and you replied to at least one comment, send no version. Stop with `STAGE RESULT: comments answered`.
-6. When the Markdown is the same and you replied to no comment, stop with `STAGE RESULT: <document> unchanged`.
+2. When the current answer differs from the option a `**Decided:**` line names, rewrite that line. Rewrite every requirement and decision the change affects too. This counts as a text change.
+3. When the fence sits inside an approved section, put its `**Decided:**` line in the document's `Decided` section. When the document has none, add a `## Decisions` heading at the end.
+4. Cover each new requirement from the requirement source.
+5. When the Markdown is different, call `document_revise` with a `description` that names what changed (rule 9). Stop with `STAGE RESULT: <document> revised <id>`.
+6. When the Markdown is the same and you replied to at least one comment, send no version. Stop with `STAGE RESULT: comments answered`.
+7. When the Markdown is the same and you replied to no comment, stop with `STAGE RESULT: <document> unchanged`.

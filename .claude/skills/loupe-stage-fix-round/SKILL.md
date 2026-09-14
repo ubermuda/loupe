@@ -22,7 +22,7 @@ Answer one round of feedback on the current stage of one card, then stop.
 1. Find the document among the linked documents. The product document has the tag `product`, or a title that starts `Product design`. The tech design has the tags `design` and `decisions`, or a title that starts `Tech design`.
 2. When the card links no such document, stop with `STAGE RESULT: no linked <document>`. Skip the contract's `document_list` search, and never create a document.
 3. When its `status` is `approved`, stop with `STAGE RESULT: <document> already approved`.
-4. Stop with `STAGE RESULT: blocked: changes requested with no comment` only when the `verdict` is `changes-requested`, no root comment is `pending`, and every answered decision has a `**Decided:**` line.
+4. Stop with `STAGE RESULT: blocked: changes requested with no comment` only when the `verdict` is `changes-requested`, no root comment is `pending`, and every `**Decided:**` line names the current answer.
 5. Invoke `loupe-documents`. For a product document, read `../loupe-stage-product-design/references/product-document.md`. For a tech design, invoke `project-tech-design`, and read the CLAUDE.md section "What a new entity or feature must also register".
 6. Follow `../loupe-stage-product-design/references/review-round.md`. The requirement source is the card body for the product document, and the product document for the tech design.
 7. When the review round ends `<document> unchanged`, stop with `STAGE RESULT: nothing to fix`.
@@ -30,12 +30,12 @@ Answer one round of feedback on the current stage of one card, then stop.
 ### Code round
 
 1. Read `references/pull-request-feedback.md`, then `gh pr view` each linked pull request. When none is `OPEN`, stop with `STAGE RESULT: no open pull request`.
-2. Read the failing checks first, then the review threads and the reviews, as the reference says.
-3. When no check fails, no thread needs action, and no review is open, stop with `STAGE RESULT: nothing to fix`.
+2. Read the failing checks first, then the threads, the reviews and the top-level comments, as the reference says.
+3. When no check fails and no thread, review or top-level comment is open, stop with `STAGE RESULT: nothing to fix`.
 4. Invoke `project-worktrees` and `working-with-prs`. Read `../loupe-stage-implementation/references/commands.md`.
 5. Set up or refresh `.claude/worktrees/card-<number>` from the pull request branch, as the reference says. Keep every existing commit.
 6. When the binding fails, or the branch is not the pull request branch, stop with `STAGE RESULT: blocked: worktree binding failed`.
 7. Fix the feedback with the Edit and Write tools. Follow the implementation skill for subagents, the borrowed skills, the gate, the push, the CI wait and the Codex review.
 8. Reply to each thread you acted on, as the reference says.
-9. When CI is green and two Codex passes in a row come back clean, stop with `STAGE RESULT: fixed <pr url>`.
+9. When CI is green and two Codex passes in a row are clean, stop with `STAGE RESULT: fixed <pr url>`.
 10. On a block, record it and stop as implementation step 15 says.
