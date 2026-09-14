@@ -4695,11 +4695,17 @@
     .lp-inbox-linked__all {
         @apply text-sm font-semibold text-accent-ink no-underline hover:underline;
     }
+    .lp-inbox-linked__items {
+        @apply flex flex-col gap-2.5;
+    }
     .lp-inbox-linked__entry {
         @apply flex flex-col gap-2 rounded-xl bg-surface-2 py-3 px-3.5;
     }
     .lp-inbox-linked__context {
         @apply flex flex-col gap-0.5 px-1 text-xs text-fg-dim;
+    }
+    .lp-inbox-linked__asked {
+        @apply font-semibold;
     }
     .lp-inbox-linked__context-text {
         @apply max-w-none text-xs line-clamp-2;

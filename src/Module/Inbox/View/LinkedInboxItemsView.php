@@ -7,8 +7,7 @@ namespace App\Module\Inbox\View;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemState;
-use App\Module\Inbox\Service\InboxLinkedPage;
-use App\Module\Inbox\Service\InboxReturnTarget;
+use App\Module\Inbox\Entity\InboxLinkedPage;
 use App\Module\Project\Entity\Project;
 use Symfony\Component\Uid\Uuid;
 
@@ -18,8 +17,14 @@ final readonly class LinkedInboxItemsView implements InboxItemsView
     /** @var list<InboxItem> */
     public array $openItems;
 
-    /** @var list<InboxItem> */
+    /** How many closed items the section shows. The inbox page lists the rest. */
+    public const int CLOSED_ITEMS_SHOWN = 10;
+
+    /** @var list<InboxItem> the newest closed items, newest close first */
     public array $closedItems;
+
+    /** Every closed item linked to the page, shown or not. */
+    public int $closedTotal;
 
     /**
      * @param list<InboxItem>               $items      by number
@@ -35,7 +40,15 @@ final readonly class LinkedInboxItemsView implements InboxItemsView
         public ?int $versionNumber = null,
     ) {
         $this->openItems = array_values(array_filter($items, static fn (InboxItem $item): bool => InboxItemState::Open === $item->state));
-        $this->closedItems = array_values(array_filter($items, static fn (InboxItem $item): bool => InboxItemState::Open !== $item->state));
+        $closed = array_values(array_filter($items, static fn (InboxItem $item): bool => InboxItemState::Open !== $item->state));
+        usort($closed, static fn (InboxItem $a, InboxItem $b): int => [$b->closedAt, $b->number] <=> [$a->closedAt, $a->number]);
+        $this->closedTotal = \count($closed);
+        $this->closedItems = \array_slice($closed, 0, self::CLOSED_ITEMS_SHOWN);
+    }
+
+    public function hasMoreClosedItems(): bool
+    {
+        return $this->closedTotal > \count($this->closedItems);
     }
 
     /** The newest ask that holds the item, whose context the section shows. */
@@ -80,6 +93,6 @@ final readonly class LinkedInboxItemsView implements InboxItemsView
 
     public function isEmpty(): bool
     {
-        return [] === $this->openItems && [] === $this->closedItems;
+        return [] === $this->openItems && 0 === $this->closedTotal;
     }
 }

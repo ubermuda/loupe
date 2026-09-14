@@ -5,7 +5,7 @@
     </div>
 
     {% if inbox.openItems|length > 0 %}
-    <div class="lp-inbox-ask__items" data-inbox-linked-open>
+    <div class="lp-inbox-linked__items" data-inbox-linked-open>
         {% for item in inbox.openItems %}
             {% include '@Inbox/_linked_inbox_entry.html.twig' with {item: item, inbox: inbox, refusedForm: refusedForm} only %}
         {% endfor %}
@@ -13,11 +13,14 @@
     {% endif %}
 
     {% if inbox.closedItems|length > 0 %}
-    <div class="lp-inbox-ask__items" data-inbox-linked-closed>
-        <h3 class="lp-inbox-linked__subtitle">{{ 'inbox.linked.closed'|trans({'%count%': inbox.closedItems|length}) }}</h3>
+    <div class="lp-inbox-linked__items" data-inbox-linked-closed>
+        <h3 class="lp-inbox-linked__subtitle">{{ 'inbox.linked.closed'|trans({'%count%': inbox.closedTotal}) }}</h3>
         {% for item in inbox.closedItems %}
             {% include '@Inbox/_linked_inbox_entry.html.twig' with {item: item, inbox: inbox, refusedForm: refusedForm} only %}
         {% endfor %}
+        {% if inbox.hasMoreClosedItems %}
+        <a class="lp-inbox-linked__all" href="{{ path('app_project_inbox', {id: inbox.project.id}) }}" data-inbox-linked-more>{{ 'inbox.linked.closed_more'|trans({'%count%': inbox.closedTotal}) }}</a>
+        {% endif %}
     </div>
     {% endif %}
 </section>

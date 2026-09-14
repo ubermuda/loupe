@@ -8,8 +8,8 @@ use App\Module\Board\Entity\Card;
 use App\Module\Inbox\Command\ShowLinkedInboxItemsCommand;
 use App\Module\Inbox\Command\ShowLinkedInboxItemsHandler;
 use App\Module\Inbox\Controller\ShowInboxController;
+use App\Module\Inbox\Entity\InboxLinkedPage;
 use App\Module\Inbox\Service\InboxAvailability;
-use App\Module\Inbox\Service\InboxLinkedPage;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
 use App\Module\Review\Entity\Document;
@@ -21,10 +21,7 @@ use Twig\Environment;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 
-/**
- * The inbox section of a card page and of a document page. Board and Review
- * must not import Inbox, so their templates call these functions instead.
- */
+/** Board and Review must not import Inbox, so their templates call these functions instead. */
 final class LinkedInboxSectionExtension extends AbstractExtension
 {
     public function __construct(

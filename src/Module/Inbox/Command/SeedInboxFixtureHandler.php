@@ -16,6 +16,7 @@ use App\Module\Review\Repository\DocumentRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\DependencyInjection\Attribute\When;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -67,12 +68,14 @@ final readonly class SeedInboxFixtureHandler
             $ask->items->add(new InboxAskItem($ask, $question));
             $ask->items->add(new InboxAskItem($ask, $todo));
 
-            $card = null === $command->cardId ? null : $this->cards->findOneByIdAndProjectId($command->cardId, (string) $project->id);
-            if (null !== $card) {
+            if (null !== $command->cardId) {
+                $card = $this->cards->findOneByIdAndProjectId($command->cardId, (string) $project->id)
+                    ?? throw new NotFoundHttpException('The project has no card with this id.');
                 $question->cards->add(new InboxItemCard($question, $card));
             }
-            $document = null === $command->documentId ? null : $this->documents->findOneByIdAndProjectId($command->documentId, (string) $project->id);
-            if (null !== $document) {
+            if (null !== $command->documentId) {
+                $document = $this->documents->findOneByIdAndProjectId($command->documentId, (string) $project->id)
+                    ?? throw new NotFoundHttpException('The project has no document with this id.');
                 $question->documents->add(new InboxItemDocument($question, $document));
             }
 

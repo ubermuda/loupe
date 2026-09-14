@@ -107,11 +107,60 @@ final class LinkedInboxSectionTest extends WebTestCase
 
         $this->client->request(Request::METHOD_GET, $this->cardUrl());
         self::assertResponseIsSuccessful();
+        self::assertSelectorExists('.lp-card-docs');
         self::assertSelectorNotExists('[data-inbox-linked]');
 
         $this->client->request(Request::METHOD_GET, $this->documentUrl());
         self::assertResponseIsSuccessful();
+        self::assertSelectorExists('.lp-review-doc');
         self::assertSelectorNotExists('[data-inbox-linked]');
+    }
+
+    public function test_inbox_markdown_above_a_document_takes_no_heading_id_of_the_document(): void
+    {
+        $this->document->addVersion('## Export', '<h2 id="heading-export">Export</h2>');
+        $this->em->flush();
+        $item = $this->question($this->em, $this->project, 1);
+        $item->body = "## Export\n\nWhich one?";
+        $this->askHolding($this->em, $this->project, [$item], context: "## Export\n\nBefore the migration.");
+        $this->linkDocument($item);
+
+        $crawler = $this->client->request(Request::METHOD_GET, $this->documentUrl());
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(2, $crawler->filter('[data-inbox-linked] h2')->reduce(static fn (Crawler $heading): bool => 'Export' === trim($heading->text())));
+        self::assertCount(1, $crawler->filter('[id="heading-export"]'));
+        self::assertCount(1, $crawler->filter('.lp-review-doc [id="heading-export"]'));
+    }
+
+    public function test_the_section_shows_ten_closed_items_newest_first_and_links_to_the_rest(): void
+    {
+        for ($number = 1; $number <= 12; ++$number) {
+            $item = $this->answered($this->em, $this->question($this->em, $this->project, $number));
+            $item->closedAt = new \DateTimeImmutable('-'.(20 - $number).' minutes');
+            $this->em->flush();
+            $this->linkCard($item);
+        }
+
+        $crawler = $this->client->request(Request::METHOD_GET, $this->cardUrl());
+
+        self::assertResponseIsSuccessful();
+        $shown = $crawler->filter('[data-inbox-linked-closed] [data-inbox-item]')->each(static fn (Crawler $node): string => (string) $node->attr('data-inbox-item'));
+        self::assertSame(['12', '11', '10', '9', '8', '7', '6', '5', '4', '3'], $shown);
+        $more = $crawler->filter('[data-inbox-linked-more]');
+        self::assertCount(1, $more);
+        self::assertSame('/projects/'.$this->project->id.'/inbox', $more->attr('href'));
+    }
+
+    public function test_the_section_links_to_no_more_closed_items_when_all_of_them_show(): void
+    {
+        $item = $this->answered($this->em, $this->question($this->em, $this->project, 1));
+        $this->linkCard($item);
+
+        $this->client->request(Request::METHOD_GET, $this->cardUrl());
+
+        self::assertSelectorExists('[data-inbox-linked-closed] [data-inbox-item="1"]');
+        self::assertSelectorNotExists('[data-inbox-linked-more]');
     }
 
     public function test_the_sections_render_nothing_without_a_linked_item(): void
@@ -164,12 +213,17 @@ final class LinkedInboxSectionTest extends WebTestCase
         self::assertInstanceOf(Profile::class, $profile);
         $collector = $profile->getCollector('db');
         self::assertInstanceOf(DoctrineDataCollector::class, $collector);
-        // The holder also kept the fixture inserts, so only reads count.
-        $inboxReads = array_filter(
-            array_merge(...array_values($collector->getQueries())),
-            static fn (array $query): bool => str_starts_with((string) $query['sql'], 'SELECT') && str_contains((string) $query['sql'], 'inbox_ask'),
-        );
-        self::assertCount(1, $inboxReads);
+        // The holder also kept the fixture inserts, so only reads count. The
+        // sidebar pill adds one count of open items beside the section's query.
+        $inboxReads = array_values(array_map(
+            static fn (array $query): string => (string) $query['sql'],
+            array_filter(
+                array_merge(...array_values($collector->getQueries())),
+                static fn (array $query): bool => str_starts_with((string) $query['sql'], 'SELECT') && str_contains((string) $query['sql'], 'inbox_'),
+            ),
+        ));
+        self::assertCount(2, $inboxReads, implode("\n", $inboxReads));
+        self::assertCount(1, array_filter($inboxReads, static fn (string $sql): bool => str_contains($sql, 'COUNT(')));
     }
 
     public function test_an_answer_from_the_card_page_returns_to_the_card_page(): void
@@ -196,6 +250,35 @@ final class LinkedInboxSectionTest extends WebTestCase
         self::assertCount(1, $crawler->filter('.lp-card-docs'));
         self::assertSelectorTextContains('[data-inbox-linked="card"] #inbox-item-1', 'This question takes one option only.');
         self::assertSame(InboxItemState::Open, $this->reload($item)->state);
+    }
+
+    public function test_a_refused_form_leaves_the_other_items_forms_clean(): void
+    {
+        $refused = $this->question($this->em, $this->project, 1);
+        $other = $this->question($this->em, $this->project, 2, freeText: true);
+        $this->linkCard($refused);
+        $this->linkCard($other);
+
+        $crawler = $this->post($refused, 'answer', ['selectedOptions' => '0,1', 'answerText' => ''], $this->cardQuery());
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('#inbox-item-1', 'This question takes one option only.');
+        $otherItem = $crawler->filter('#inbox-item-2');
+        self::assertCount(1, $otherItem->filter('form[name="inbox_answer_'.$other->id.'"]'));
+        self::assertSame('', trim(implode('', $otherItem->filter('.lp-field-errors')->each(static fn (Crawler $node): string => $node->text()))));
+        self::assertCount(0, $otherItem->filter('[data-inbox-refusal]'));
+        self::assertSame('', (string) $otherItem->filter('input[name="inbox_answer_'.$other->id.'[selectedOptions]"]')->attr('value'));
+    }
+
+    public function test_a_response_naming_a_version_the_document_lacks_returns_to_the_current_version(): void
+    {
+        $item = $this->question($this->em, $this->project, 5);
+        $this->linkDocument($item);
+
+        $this->post($item, 'answer', ['selectedOptions' => '0'], ['returnTo' => 'document', 'returnId' => (string) $this->document->id, 'returnVersion' => '99']);
+
+        self::assertResponseRedirects($this->documentUrl());
+        self::assertSame(InboxItemState::Answered, $this->reload($item)->state);
     }
 
     public function test_a_refused_change_to_a_final_answer_shows_on_the_card_page(): void

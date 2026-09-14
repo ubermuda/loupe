@@ -10,7 +10,7 @@ use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemDocument;
 use App\Module\Inbox\Entity\InboxItemState;
-use App\Module\Inbox\Service\InboxLinkedPage;
+use App\Module\Inbox\Entity\InboxLinkedPage;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\Types\Types;
@@ -104,6 +104,7 @@ class InboxItemRepository extends ServiceEntityRepository
             ->setParameter('target', $targetId, UuidType::NAME)
             ->orderBy('i.number', 'ASC')
             ->addOrderBy('a.createdAt', 'ASC')
+            ->addOrderBy('a.id', 'ASC')
             ->getQuery()
             ->getResult();
 

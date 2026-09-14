@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Inbox\Command;
 
-use App\Module\Inbox\Service\InboxLinkedPage;
+use App\Module\Inbox\Entity\InboxLinkedPage;
 use App\Module\Project\Entity\Project;
 use Symfony\Component\Uid\Uuid;
 

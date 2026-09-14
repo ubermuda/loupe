@@ -79,16 +79,22 @@ behind it finishes. Such an item takes no response from you.
 An agent can link an item to cards and documents of the project. The page of
 each linked card and each linked document then shows an **Inbox items** section
 with those items. The section is absent while the flag is off, and on a page
-that no item links to. On a document page it sits above the document, and a
-comparison of two versions does not show it.
+that no item links to. On a document page it sits above the document.
 
-The section lists open items first, then closed ones under **Closed**. Above
-each item, two lines give the context of the newest ask that holds it. **Open
-the inbox** leads to the full context.
+The section is hidden on a version comparison. It shows on an older version of
+a document, and a response from there returns to that version.
+
+The section lists open items first, then closed ones under **Closed**, newest
+close first. It shows at most ten closed items, and a link leads to the inbox
+page for the rest. Above each item, two lines give the context of the newest ask
+that holds it. **Open the inbox** leads to the full context.
 
 Each item takes the same forms as on the inbox page, and the same rules apply.
 After you respond, you return to the card or document page you came from. A
 refused response shows its message there, beside the item.
+
+Markdown in an item or an ask renders with no heading anchors, on this section
+and on the inbox page, so it never takes the anchor of a document heading.
 
 ## The projects list
 

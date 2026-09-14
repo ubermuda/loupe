@@ -13,7 +13,7 @@ use App\Module\Inbox\Form\AnswerInboxItemFormType;
 use App\Module\Inbox\Form\AnswerInboxItemRequest;
 use App\Module\Inbox\Security\InboxItemVoter;
 use App\Module\Inbox\Service\InboxAvailability;
-use App\Module\Inbox\Service\InboxReturnTarget;
+use App\Module\Inbox\Service\InboxReturnTargetResolver;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -36,6 +36,7 @@ final class AnswerInboxItemController extends AppController
         private readonly AnswerInboxItemHandler $answerItem,
         private readonly FormFactoryInterface $formFactory,
         private readonly InboxAvailability $inbox,
+        private readonly InboxReturnTargetResolver $returnTargets,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -45,7 +46,7 @@ final class AnswerInboxItemController extends AppController
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(itemId, projectId)')] InboxItem $item,
     ): Response {
         $this->inbox->requireEnabled();
-        $return = InboxReturnTarget::resolve($request, $item);
+        $return = $this->returnTargets->resolve($request, $item);
 
         $data = new AnswerInboxItemRequest();
         $form = $this->formFactory->createNamed(AnswerInboxItemFormType::nameFor($item), AnswerInboxItemFormType::class, $data);
