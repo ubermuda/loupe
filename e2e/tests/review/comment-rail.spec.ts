@@ -140,7 +140,7 @@ async function commentOn(
     });
 }
 
-/** Every marker's `top`, in DOM order, once the layout has settled. */
+/** Every visible marker's `top`, in DOM order. */
 async function markerTops(page: Page): Promise<number[]> {
     return page.evaluate(() =>
         [...document.querySelectorAll('.lp-comment-thread')]
@@ -156,6 +156,11 @@ async function seedThreeThreads(page: Page): Promise<void> {
     await commentOn(page, SECOND, 'The second one contradicts the first.');
     await commentOn(page, THIRD, 'Name the owner of the third.');
     await expect(page.locator(THREAD)).toHaveCount(3, {
+        timeout: coverageScaled(10000),
+    });
+    // Each post streams in fresh cards with no inline `top`, stacked at the
+    // margin's top until the rail's next animation frame places them.
+    await expect(page.locator(`${THREAD}[style*="top"]`)).toHaveCount(3, {
         timeout: coverageScaled(10000),
     });
 }
