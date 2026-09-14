@@ -6,25 +6,24 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/event"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 	"github.com/ubermuda/loupe/cli/internal/transport"
 )
 
 // router turns each event a rule matches into a worker process and reports
-// what it did.
-//
-// Workers run in their own goroutines. mu guards the queue, the running cards,
-// the chain counters, the running count and the closed flag. The logger needs
-// no lock, because slog serialises its own writes.
+// what it did. Workers run in their own goroutines. mu guards the fields below
+// it, and slog serialises its own writes.
 type router struct {
 	ctx        context.Context
 	log        *slog.Logger
 	rules      *rules.Set
-	project    string
+	projects   []string
 	topic      string
 	maxWorkers int
 	worker     workerOps
@@ -36,14 +35,17 @@ type router struct {
 	queue   []pending
 	running map[string]bool
 	// chains counts, per card key and rule name, the runs in a row that an
-	// agent's event started.
+	// agent's event started. An entry must outlive its workers to hold the cap,
+	// so it stays until a person acts: one small map per card agents ran on.
 	chains map[string]map[string]int
 	active int
 	closed bool
 
-	// unmapped remembers the projects already logged as unmapped. Only the
-	// stream goroutine reads events, so it needs no lock.
+	// unmapped remembers the projects already logged as unmapped, and gone the
+	// mapped projects already logged as gone. Only the stream goroutine reads
+	// events and refreshes the JWT, so neither needs a lock.
 	unmapped map[string]bool
+	gone     map[string]bool
 
 	// wg counts the workers in flight. Tests wait on it instead of sleeping.
 	wg sync.WaitGroup
@@ -60,38 +62,40 @@ type pending struct {
 	event    event.Event
 }
 
-// keyFor identifies the card, or other aggregate, an event is about. It keys
-// both the running worker and the chain counters.
-//
-// The subject id is the one identity every event type carries. A card number
-// repeats across projects, and an event of a type this build knows no fields of
-// may carry none, so a key built from it would give one card two keys.
+// keyFor keys the running worker and the chain counters by the subject id,
+// the one identity every event type carries. A card number repeats across
+// projects, and a type this build knows no fields of may carry none.
 func keyFor(e event.Event) string {
-	return "subject-" + e.Subject.ID
+	return e.Subject.ID
+}
+
+// label names an event's aggregate to a reader: its card number when the event
+// carries one, and its subject id otherwise.
+func label(e event.Event) (string, any) {
+	if e.Type == event.CardMovedType {
+		return "card", e.CardNumber
+	}
+
+	return "subject", e.Subject.ID
 }
 
 // about names the event's aggregate in a log line.
 func about(e event.Event, rule string) []any {
-	attrs := []any{"project", e.ProjectID, "rule", rule}
-	if e.Type == event.CardMovedType {
-		return append([]any{"card", e.CardNumber}, attrs...)
-	}
+	k, v := label(e)
 
-	return append([]any{"subject", e.Subject.ID}, attrs...)
+	return []any{k, v, "project", e.ProjectID, "rule", rule}
 }
 
-// aggregate names the event's card, or its subject, in a sentence.
+// aggregate names the event's aggregate in a sentence.
 func aggregate(e event.Event) string {
-	if e.Type == event.CardMovedType {
-		return fmt.Sprintf("card %d", e.CardNumber)
-	}
+	k, v := label(e)
 
-	return "subject " + e.Subject.ID
+	return fmt.Sprintf("%s %v", k, v)
 }
 
 func (r *router) handler() transport.Handler {
 	return transport.Handler{
-		OnConnect: func() { r.log.Info("connected", "topic", r.topic, "project", r.project) },
+		OnConnect: func() { r.log.Info("connected", "topic", r.topic, "projects", r.projects) },
 		OnError:   func(err error) { r.log.Error("stream_error", "error", err.Error()) },
 		OnData:    r.onData,
 	}
@@ -113,7 +117,7 @@ func (r *router) onData(data []byte) {
 	}
 
 	// A person who touches the card has seen it, which is what a capped chain
-	// waits for. Any event of theirs counts, whether a rule matches it or not.
+	// waits for. Any event of theirs that parsed counts, matched or not.
 	if e.Actor == event.ActorHuman {
 		r.mu.Lock()
 		delete(r.chains, keyFor(e))
@@ -143,40 +147,58 @@ func (r *router) onData(data []byte) {
 	}
 }
 
-// enqueue puts the event at the back of the queue, unless its card already has
-// an event waiting for the same rule. The newer event then replaces that one
-// in place, so a card dragged back and forth runs once per rule however many
-// times it was asked.
-//
-// An agent's event is refused once its rule has started maxChain runs in a row
-// for this card from agents' events. That stops two rules from moving one card
-// back and forth for ever.
-//
-// queue_depth counts the accepted events that wait at this moment, this one
-// included.
+// onRefresh logs, once for each, a mapped project that a fresh GET /api/events
+// no longer lists, with the rules that stop working.
+func (r *router) onRefresh(events api.Events) {
+	for _, slug := range missingProjects(r.rules, events) {
+		if r.gone[slug] {
+			continue
+		}
+		if r.gone == nil {
+			r.gone = map[string]bool{}
+		}
+		r.gone[slug] = true
+
+		var names []string
+		for _, rule := range r.rules.Rules() {
+			if rule.Project == slug {
+				names = append(names, rule.Name)
+			}
+		}
+		r.log.Error("project_gone",
+			"project", slug,
+			"rules", names,
+			"message", fmt.Sprintf("project %s is deleted or no longer yours, so rules %s stop working", slug, strings.Join(names, ", ")),
+		)
+	}
+}
+
+// enqueue puts the event at the back of the queue, or in place of a waiting
+// event for the same card and rule. It refuses an agent's event once its rule
+// has run maxChain times in a row on the card from agents' events. It logs
+// under mu, so no line for this event can follow worker_started.
 func (r *router) enqueue(p pending) {
 	r.mu.Lock()
 	if p.event.Actor == event.ActorAgent && r.chains[p.key][p.rule] >= p.maxChain {
-		r.mu.Unlock()
 		r.log.Warn("chain_capped", append(about(p.event, p.rule),
 			"max_chain", p.maxChain,
 			"message", fmt.Sprintf("%s hit the chain cap of rule %s, waiting for a person", aggregate(p.event), p.rule),
 		)...)
+		r.mu.Unlock()
 
 		return
 	}
 	if i := slices.IndexFunc(r.queue, func(q pending) bool { return q.key == p.key && q.rule == p.rule }); i >= 0 {
 		r.queue[i] = p
-		r.mu.Unlock()
 		r.log.Info("worker_coalesced", about(p.event, p.rule)...)
+		r.mu.Unlock()
 
 		return
 	}
 	r.queue = append(r.queue, p)
-	depth := len(r.queue)
+	r.log.Info("worker_queued", append(about(p.event, p.rule), "queue_depth", len(r.queue))...)
 	r.mu.Unlock()
 
-	r.log.Info("worker_queued", append(about(p.event, p.rule), "queue_depth", depth)...)
 	r.dispatch()
 }
 
@@ -190,17 +212,10 @@ func (r *router) dispatch() {
 	r.logDropped(dropped)
 }
 
-// dispatchLocked starts the oldest queued events whose card has no running
-// worker, while a slot is free. The caller holds mu. It returns the queue it
-// emptied when the router is shut, for the caller to log outside the lock.
-//
-// One card gets one worker at a time, on purpose: two agents working one card
-// in one checkout undo each other's work. A card's next event therefore waits
-// in the queue, behind later events for other cards if a slot frees first.
-//
-// The pop and the start share one critical section. Two workers that finish at
-// the same instant dispatch on their own goroutines, and a start outside the
-// lock would let the later event start first.
+// dispatchLocked starts the oldest queued events whose card has no worker, while
+// a slot is free. The caller holds mu, and logs the queue a shut router returns.
+// One card runs one worker, because two agents in one checkout undo each other.
+// Pop and start share the lock, or two finishing workers could reorder starts.
 func (r *router) dispatchLocked() []pending {
 	if r.shut() {
 		dropped := r.queue
@@ -303,12 +318,8 @@ func (r *router) logDropped(dropped []pending) {
 
 	lost := make([]map[string]any, len(dropped))
 	for i, p := range dropped {
-		lost[i] = map[string]any{"rule": p.rule}
-		if p.event.Type == event.CardMovedType {
-			lost[i]["card"] = p.event.CardNumber
-		} else {
-			lost[i]["subject"] = p.event.Subject.ID
-		}
+		k, v := label(p.event)
+		lost[i] = map[string]any{k: v, "rule": p.rule}
 	}
 	r.log.Warn("queue_dropped", "count", len(lost), "dropped", lost)
 }
