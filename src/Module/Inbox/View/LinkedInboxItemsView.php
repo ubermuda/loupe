@@ -17,7 +17,10 @@ final readonly class LinkedInboxItemsView implements InboxItemsView
     /** @var list<InboxItem> */
     public array $openItems;
 
-    /** How many closed items the section shows. The inbox page lists the rest. */
+    /**
+     * How many closed items the section shows. The inbox page lists the rest,
+     * because every item enters through an ask and that page lists every ask.
+     */
     public const int CLOSED_ITEMS_SHOWN = 10;
 
     /** @var list<InboxItem> the newest closed items, newest close first */

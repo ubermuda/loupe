@@ -135,12 +135,16 @@ final class LinkedInboxSectionTest extends WebTestCase
 
     public function test_the_section_shows_ten_closed_items_newest_first_and_links_to_the_rest(): void
     {
+        $items = [];
         for ($number = 1; $number <= 12; ++$number) {
             $item = $this->answered($this->em, $this->question($this->em, $this->project, $number));
             $item->closedAt = new \DateTimeImmutable('-'.(20 - $number).' minutes');
             $this->em->flush();
             $this->linkCard($item);
+            $items[] = $item;
         }
+        // Every item enters the inbox through an ask, which is how the inbox page reaches it.
+        $this->askHolding($this->em, $this->project, $items, closedAt: new \DateTimeImmutable('-1 minute'));
 
         $crawler = $this->client->request(Request::METHOD_GET, $this->cardUrl());
 
@@ -149,7 +153,12 @@ final class LinkedInboxSectionTest extends WebTestCase
         self::assertSame(['12', '11', '10', '9', '8', '7', '6', '5', '4', '3'], $shown);
         $more = $crawler->filter('[data-inbox-linked-more]');
         self::assertCount(1, $more);
-        self::assertSame('/projects/'.$this->project->id.'/inbox', $more->attr('href'));
+
+        $inbox = $this->client->click($more->link());
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $inbox->filter('[data-inbox-item="1"]'));
+        self::assertCount(1, $inbox->filter('[data-inbox-item="2"]'));
     }
 
     public function test_the_section_links_to_no_more_closed_items_when_all_of_them_show(): void
