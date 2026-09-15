@@ -14,6 +14,7 @@ final readonly class ReportWorkerRunCommand
         /** A project id or slug. A project name does not resolve. */
         public string $handle,
         public Uuid $bridgeId,
+        public Uuid $sessionId,
         public Uuid $cardId,
         public int $cardNumber,
         public string $ruleName,
