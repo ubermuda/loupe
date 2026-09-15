@@ -68,6 +68,31 @@ func TestEventsCallsTheEventsRoute(t *testing.T) {
 	}
 }
 
+// The flags map is mixed-type, and an absent map or a value that is not a
+// boolean reads as off.
+func TestEventsReadsTheFlags(t *testing.T) {
+	for body, want := range map[string]bool{
+		`,"flags":{"inbox.enabled":true,"bridge.heartbeat_interval_seconds":60}`: true,
+		`,"flags":{"inbox.enabled":false}`:                                       false,
+		`,"flags":{"inbox.enabled":"true"}`:                                      false,
+		`,"flags":{}`:                                                            false,
+		``:                                                                       false,
+	} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			fmt.Fprint(w, `{"hubUrl":"h","jwt":"j","topic":"t","projects":[]`+body+`}`)
+		}))
+
+		got, err := New(server.URL, "t", server.Client()).Events(context.Background())
+		server.Close()
+		if err != nil {
+			t.Fatalf("%s: %v", body, err)
+		}
+		if got.Enabled(InboxFlag) != want {
+			t.Fatalf("%s: Enabled(%q) = %v, want %v", body, InboxFlag, !want, want)
+		}
+	}
+}
+
 // A server that predates the per-user topic sends none, and the bridge would
 // otherwise subscribe to nothing.
 func TestEventsRefusesAnAnswerWithNoTopic(t *testing.T) {

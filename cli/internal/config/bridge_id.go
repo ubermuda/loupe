@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"os"
 	"regexp"
 	"sync"
@@ -48,11 +47,7 @@ func EnsureBridgeID() (string, error) {
 		return c.BridgeID, nil
 	}
 
-	id, err := newUUID()
-	if err != nil {
-		return "", err
-	}
-
+	id := NewUUID()
 	c.BridgeID = id
 	if err := writeConfig(d, c); err != nil {
 		return "", err
@@ -61,12 +56,12 @@ func EnsureBridgeID() (string, error) {
 	return id, nil
 }
 
-// newUUID returns a version 4 UUID in the canonical 8-4-4-4-12 form.
-func newUUID() (string, error) {
+// NewUUID returns a version 4 UUID in the canonical 8-4-4-4-12 form. It names
+// the bridge and each worker session.
+func NewUUID() string {
 	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return "", fmt.Errorf("generate bridge id: %w", err)
-	}
+	// crypto/rand.Read never returns an error. It crashes the program instead.
+	_, _ = rand.Read(b[:])
 	// Version 4 in the high nibble of byte 6, RFC 4122 variant in byte 8.
 	b[6] = b[6]&0x0f | 0x40
 	b[8] = b[8]&0x3f | 0x80
@@ -82,7 +77,7 @@ func newUUID() (string, error) {
 	out[23] = '-'
 	hex.Encode(out[24:36], b[10:16])
 
-	return string(out[:]), nil
+	return string(out[:])
 }
 
 // bridgeIDPattern is what the server accepts on its bridge routes, which is

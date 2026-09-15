@@ -59,6 +59,7 @@ final readonly class ReportWorkerRunHandler
             $run = new WorkerRun(
                 project: $project,
                 bridgeId: $command->bridgeId,
+                sessionId: $command->sessionId,
                 cardId: $command->cardId,
                 cardNumber: $command->cardNumber,
                 ruleName: $command->ruleName,
@@ -83,6 +84,7 @@ final readonly class ReportWorkerRunHandler
                 [
                     'projectId' => (string) $result->run->project->id,
                     'bridgeId' => (string) $command->bridgeId,
+                    'sessionId' => (string) $command->sessionId,
                     'cardNumber' => $command->cardNumber,
                     'ruleName' => $command->ruleName,
                     'exitCode' => $command->exitCode,

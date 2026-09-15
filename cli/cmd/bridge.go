@@ -60,7 +60,7 @@ func newBridgeRunCmd() *cobra.Command {
 		Use:   "run",
 		Short: "Watch a Loupe board and run a Claude Code worker for each rule an event matches",
 		Long: "Reads the rule file, rules.yaml in your config directory, and runs " +
-			"`claude -p -- <prompt>` for every event a rule matches. Each rule names an event, " +
+			"`claude -p --session-id <uuid> -- <prompt>` for every event a rule matches. Each rule names an event, " +
 			"a project and a column, and the prompt its worker runs. The projects map in " +
 			"the file gives each project the directory its workers run in.\n\n" +
 			"The bridge refuses to start without the file, and checks every project and " +
@@ -245,6 +245,7 @@ func subscribe(cmd *cobra.Command, cfg config.Config, r *router) error {
 		return fmt.Errorf("GET /api/events does not list %s, so no event of theirs can reach the bridge", strings.Join(missing, ", "))
 	}
 	r.projects, r.topic = r.rules.Projects(), events.Topic
+	r.applyFlags(events)
 	if r.bridgeID != "" {
 		r.health = newHealthReporter(ctx, apiClient(cfg), r.bridgeID, r.log)
 		for _, slug := range r.projects {
