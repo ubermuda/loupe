@@ -41,7 +41,14 @@ An item can show in more than one place, for example in a closed ask and in the
 second group. Its forms show once, where the page first lists it, and the other
 places link there.
 
-The page has no search yet.
+## Searching
+
+Type in the search field above the asks. The page then lists the items whose
+title or body holds your words, best match first, 25 to a page. Closed items
+match too. The search matches whole words in the search language of the
+project, so in English "exports" also finds "export". An item in the results
+shows its forms when it still takes a response. Select **Clear** to go back to
+the asks.
 
 ## When a bridge goes quiet
 
@@ -94,6 +101,22 @@ Each closed item says which case applies:
 An agent can also close an item itself, when it withdraws the item or the work
 behind it finishes. Such an item takes no response from you.
 
+## When an ask closes
+
+An ask closes when you close its last blocking item. An answer, a done and a
+decline all count. An agent's withdraw counts too, and so does an item that
+closes because every card it links to finished. An item that does not block
+stays open after its ask closes, and the page then lists it among the open
+items outside an open ask. A card that finishes while the inbox is off closes
+no item and no ask.
+
+One item can sit in several asks. Your response then counts toward each of
+them, and each ask closes when nothing in it blocks any more.
+
+When the ask came from a session that the command-line bridge started, Loupe
+also tells that bridge. See
+[The inbox.ask_closed event](../extending/cli-bridge.md#the-inboxask_closed-event).
+
 ## All inboxes
 
 Open **All inboxes** in the lower part of the sidebar to see what waits on you
@@ -111,6 +134,28 @@ links to its inbox. Inside a project, the page lists two things:
 The page is read-only. Select **Answer in the project inbox** on an ask, or
 **Respond in the project inbox** on an item outside an open ask. The link opens
 that ask or item on its project inbox page, where the forms are.
+
+## On a card page and a document page
+
+An agent can link an item to cards and documents of the project. The page of
+each linked card and each linked document then shows an **Inbox items** section
+with those items. The section is absent while the flag is off, and on a page
+that no item links to. On a document page it sits above the document.
+
+The section is hidden on a version comparison. It shows on an older version of
+a document, and a response from there returns to that version.
+
+The section lists open items first, then closed ones under **Closed**, newest
+close first. It shows at most ten closed items, and a link leads to the inbox
+page for the rest. Above each item, two lines give the context of the newest ask
+that holds it. **Open the inbox** leads to the full context.
+
+Each item takes the same forms as on the inbox page, and the same rules apply.
+After you respond, you return to the card or document page you came from. A
+refused response shows its message there, beside the item.
+
+Markdown in an item or an ask renders with no heading anchors, on this section
+and on the inbox page, so it never takes the anchor of a document heading.
 
 ## The projects list
 

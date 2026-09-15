@@ -13,7 +13,52 @@
     <h1 class="lp-workspace-title">{{ 'inbox.page.title'|trans }}</h1>
     <p class="lp-workspace-desc">{{ 'inbox.page.description'|trans }}</p>
 
-    {% if inbox.isEmpty %}
+    {% if not inbox.isEmpty %}
+    <div class="lp-list-filters">
+        {# A GET form, so the search lands in the URL. A new search starts at page one. #}
+        <form method="get"
+              action="{{ path('app_project_inbox', {id: inbox.project.id}) }}"
+              data-controller="autosearch"
+              class="lp-filter-form">
+            <div class="lp-filter-search">
+                <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
+                <label class="sr-only" for="inbox-search">{{ 'inbox.search.label'|trans }}</label>
+                <input type="search"
+                       id="inbox-search"
+                       name="q"
+                       class="lp-input lp-filter-input"
+                       value="{{ inbox.query }}"
+                       placeholder="{{ 'inbox.search.placeholder'|trans }}"
+                       data-autosearch-target="field"
+                       data-action="input->autosearch#search">
+            </div>
+            <a href="{{ path('app_project_inbox', {id: inbox.project.id}) }}"
+               data-autosearch-target="clearButton"
+               class="lp-filter-clear">{{ 'inbox.search.clear'|trans }}</a>
+        </form>
+        {% if inbox.isSearch %}
+        <span class="lp-filter-count">{{ 'inbox.search.count'|trans({'%count%': inbox.searchTotal}) }}</span>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if inbox.isSearch %}
+        {% if inbox.searchResults|length > 0 %}
+        <section class="lp-inbox-section" data-inbox-section="search-results">
+            <div class="lp-inbox-ask__items">
+                {% for item in inbox.searchResults %}
+                    {% include '@Inbox/_inbox_item.html.twig' with {item: item, ask: null, inbox: inbox, refusedForm: refusedForm} only %}
+                {% endfor %}
+            </div>
+            <twig:Pagination route="app_project_inbox" :page="inbox.page" :totalPages="inbox.totalPages" :pageList="inbox.pageList" :routeParams="{id: inbox.project.id, q: inbox.query}" />
+        </section>
+        {% else %}
+        <div class="lp-empty-state" data-inbox-search-empty>
+            <twig:ux:icon name="lucide:search" class="lp-empty-state__icon text-accent w-12 h-12" />
+            <h2 class="lp-empty-state__title">{{ 'inbox.search.empty'|trans }}</h2>
+        </div>
+        {% endif %}
+    {% elseif inbox.isEmpty %}
     <div class="lp-empty-state">
         <twig:ux:icon name="lucide:inbox" class="lp-empty-state__icon text-accent w-12 h-12" />
         <h2 class="lp-empty-state__title">{{ 'inbox.page.empty'|trans }}</h2>

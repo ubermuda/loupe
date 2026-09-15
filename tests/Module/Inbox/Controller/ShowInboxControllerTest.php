@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Module\Inbox\Controller;
 
 use App\Module\Inbox\Command\ShowInboxHandler;
+use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemState;
+use App\Module\Inbox\Service\InboxSearchIndexer;
 use App\Tests\Module\Inbox\InboxScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -187,5 +189,84 @@ final class ShowInboxControllerTest extends WebTestCase
         $second = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox?page=2');
         self::assertCount(1, $second->filter('[data-inbox-section="closed-asks"] [data-inbox-ask-id]'));
         self::assertCount(1, $second->filter('[data-inbox-item="'.(ShowInboxHandler::CLOSED_ASKS_PER_PAGE + 1).'"]'));
+    }
+
+    public function test_a_search_lists_the_matching_items_closed_ones_included(): void
+    {
+        $owner = $this->signedUpUser($this->em, 'inbox-search');
+        $project = $this->inboxProject($this->em, $owner);
+        $open = $this->indexed($this->question($this->em, $project, 1, title: 'Which export format?'));
+        $closed = $this->indexed($this->answered($this->em, $this->question($this->em, $project, 2, title: 'Export the archive too?')));
+        $this->askHolding($this->em, $project, [$closed], closedAt: new \DateTimeImmutable('-1 hour'));
+        $this->indexed($this->todo($this->em, $project, 3, title: 'Review pull request 482'));
+        $this->setInboxFlag(true);
+
+        $this->client->loginUser($owner);
+        $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox?q=export');
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('export', $crawler->filter('input[name="q"]')->attr('value'));
+        $results = $crawler->filter('[data-inbox-section="search-results"]');
+        self::assertCount(1, $results);
+        self::assertCount(2, $results->filter('[data-inbox-item]'));
+        self::assertGreaterThan(0, $results->filter('[data-inbox-item="'.$open->number.'"] form')->count());
+        self::assertCount(0, $results->filter('[data-inbox-item="'.$closed->number.'"] form'));
+        self::assertSame('no', $results->filter('[data-inbox-item="'.$closed->number.'"] [data-inbox-editable]')->attr('data-inbox-editable'));
+        self::assertCount(0, $crawler->filter('[data-inbox-item="3"]'));
+        self::assertCount(0, $crawler->filter('[data-inbox-section="open-asks"], [data-inbox-section="closed-asks"]'));
+    }
+
+    public function test_a_search_with_no_match_says_so_and_a_blank_one_shows_the_inbox(): void
+    {
+        $owner = $this->signedUpUser($this->em, 'inbox-search-none');
+        $project = $this->inboxProject($this->em, $owner);
+        $this->indexed($this->question($this->em, $project, 1, title: 'Which export format?'));
+        $this->setInboxFlag(true);
+
+        $this->client->loginUser($owner);
+        $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox?q=invoice');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-inbox-search-empty]');
+        self::assertSelectorNotExists('[data-inbox-item]');
+
+        $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox?q=%20%20');
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('[data-inbox-section="search-results"]'));
+        self::assertCount(1, $crawler->filter('[data-inbox-item="1"]'));
+    }
+
+    public function test_search_results_page_and_keep_the_query_in_the_page_links(): void
+    {
+        $owner = $this->signedUpUser($this->em, 'inbox-search-paging');
+        $project = $this->inboxProject($this->em, $owner);
+        for ($number = 1; $number <= ShowInboxHandler::SEARCH_RESULTS_PER_PAGE + 1; ++$number) {
+            $this->indexed($this->question($this->em, $project, $number, title: 'Rename column '.$number));
+        }
+        $this->setInboxFlag(true);
+
+        $this->client->loginUser($owner);
+        $first = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox?q=column');
+        self::assertCount(ShowInboxHandler::SEARCH_RESULTS_PER_PAGE, $first->filter('[data-inbox-section="search-results"] [data-inbox-item]'));
+        self::assertStringContainsString('q=column', (string) $first->filter('.lp-pagination a[href*="page=2"]')->attr('href'));
+
+        $second = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox?q=column&page=2');
+        self::assertCount(1, $second->filter('[data-inbox-section="search-results"] [data-inbox-item]'));
+        self::assertStringContainsString('q=column', (string) $second->filter('[data-inbox-item] form')->attr('action'));
+
+        // A page past the end shows the last page, not an empty list.
+        $pastTheEnd = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox?q=column&page=99');
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $pastTheEnd->filter('[data-inbox-section="search-results"] [data-inbox-item]'));
+        self::assertSelectorTextSame('.lp-pagination [aria-current="page"]', '2');
+        self::assertSelectorNotExists('[data-inbox-search-empty]');
+    }
+
+    private function indexed(InboxItem $item): InboxItem
+    {
+        $indexer = static::getContainer()->get(InboxSearchIndexer::class);
+        self::assertInstanceOf(InboxSearchIndexer::class, $indexer);
+        $indexer->index($item);
+
+        return $item;
     }
 }

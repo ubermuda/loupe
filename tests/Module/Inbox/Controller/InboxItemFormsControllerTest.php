@@ -9,6 +9,7 @@ use App\Module\Inbox\Command\ShowInboxHandler;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Form\AnswerInboxItemRequest;
+use App\Module\Inbox\Service\InboxSearchIndexer;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Inbox\InboxScenario;
 use Doctrine\ORM\EntityManagerInterface;
@@ -112,6 +113,23 @@ final class InboxItemFormsControllerTest extends WebTestCase
         $this->post($question, 'answer', ['selectedOptions' => '0'], page: 2);
 
         self::assertResponseRedirects($this->pageUrl().'?page=2');
+    }
+
+    public function test_a_refused_form_and_a_saved_one_keep_the_search(): void
+    {
+        $question = $this->question($this->em, $this->project, 1, title: 'Which export format?');
+        $indexer = static::getContainer()->get(InboxSearchIndexer::class);
+        self::assertInstanceOf(InboxSearchIndexer::class, $indexer);
+        $indexer->index($question);
+
+        $crawler = $this->post($question, 'answer', ['selectedOptions' => '0,1'], query: 'export');
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertCount(1, $crawler->filter('[data-inbox-section="search-results"] [data-inbox-item="1"]'));
+
+        $this->post($question, 'answer', ['selectedOptions' => '0'], query: 'export');
+
+        self::assertResponseRedirects($this->pageUrl().'?q=export');
     }
 
     public function test_marking_a_to_do_done(): void
@@ -219,10 +237,11 @@ final class InboxItemFormsControllerTest extends WebTestCase
     }
 
     /** @param array<string, string> $fields */
-    private function post(InboxItem $item, string $action, array $fields, ?int $page = null): Crawler
+    private function post(InboxItem $item, string $action, array $fields, ?int $page = null, ?string $query = null): Crawler
     {
         $prefix = ['answer' => 'inbox_answer_', 'done' => 'inbox_done_', 'decline' => 'inbox_decline_'][$action];
-        $url = $this->actionUrl($item, $action).(null === $page ? '' : '?page='.$page);
+        $parameters = array_filter(['page' => $page, 'q' => $query], static fn (int|string|null $value): bool => null !== $value);
+        $url = $this->actionUrl($item, $action).([] === $parameters ? '' : '?'.http_build_query($parameters));
 
         // 'csrf-token' is the SameOriginCsrfTokenManager sentinel, which a same-origin Referer lets stand in for a signed token.
         return $this->client->request(Request::METHOD_POST, $url, [$prefix.$item->id => [...$fields, '_token' => 'csrf-token']], [], ['HTTP_REFERER' => 'http://localhost'.$url]);

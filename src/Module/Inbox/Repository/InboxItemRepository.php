@@ -6,15 +6,18 @@ namespace App\Module\Inbox\Repository;
 
 use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
+use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemDocument;
 use App\Module\Inbox\Entity\InboxItemState;
+use App\Module\Inbox\Entity\InboxLinkedPage;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -184,6 +187,28 @@ class InboxItemRepository extends ServiceEntityRepository
     }
 
     /**
+     * The ids of the ask's blocking items that are open as stored.
+     *
+     * @return list<string>
+     */
+    public function findOpenBlockingIdsOf(InboxAsk $ask): array
+    {
+        /** @var list<array{id: mixed}> $rows */
+        $rows = $this->createQueryBuilder('i')
+            ->select('i.id')
+            ->join(InboxAskItem::class, 'l', 'WITH', 'l.item = i')
+            ->andWhere('l.ask = :ask')
+            ->andWhere('i.blocking = true')
+            ->andWhere('i.state = :open')
+            ->setParameter('ask', $ask)
+            ->setParameter('open', InboxItemState::Open)
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $row): string => (string) $row['id'], $rows);
+    }
+
+    /**
      * Every item in the projects the user owns, with its card and document links.
      *
      * @return list<InboxItem>
@@ -218,6 +243,48 @@ class InboxItemRepository extends ServiceEntityRepository
             ->setParameter('projectId', Uuid::fromString($projectId), UuidType::NAME)
             ->getQuery()
             ->getOneOrNullResult();
+    }
+
+    /**
+     * The project's items linked to one card or one document, each with the
+     * memberships of every ask that holds it, in a single query.
+     *
+     * @return array{items: list<InboxItem>, memberships: list<InboxAskItem>}
+     */
+    public function findLinkedTo(Project $project, InboxLinkedPage $page, Uuid $targetId): array
+    {
+        [$linkClass, $targetField] = match ($page) {
+            InboxLinkedPage::Card => [InboxItemCard::class, 'card'],
+            InboxLinkedPage::Document => [InboxItemDocument::class, 'document'],
+        };
+
+        // No inverse collection leads from an item to its asks, so the memberships
+        // come back as rows of their own beside the items.
+        $rows = $this->createQueryBuilder('i')
+            ->leftJoin(InboxAskItem::class, 'm', Join::WITH, 'm.item = i')
+            ->leftJoin('m.ask', 'a')
+            ->addSelect('m', 'a')
+            ->andWhere('i.project = :project')
+            ->andWhere(\sprintf('EXISTS (SELECT t.id FROM %s t WHERE t.item = i AND t.%s = :target)', $linkClass, $targetField))
+            ->setParameter('project', $project)
+            ->setParameter('target', $targetId, UuidType::NAME)
+            ->orderBy('i.number', 'ASC')
+            ->addOrderBy('a.createdAt', 'ASC')
+            ->addOrderBy('a.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        $items = [];
+        $memberships = [];
+        foreach ($rows as $row) {
+            if ($row instanceof InboxItem) {
+                $items[(string) $row->id] = $row;
+            } elseif ($row instanceof InboxAskItem) {
+                $memberships[(string) $row->id] = $row;
+            }
+        }
+
+        return ['items' => array_values($items), 'memberships' => array_values($memberships)];
     }
 
     /**
