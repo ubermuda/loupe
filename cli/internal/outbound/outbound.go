@@ -1,4 +1,5 @@
-// Package outbound is the one queue for everything the bridge sends to Loupe.
+// Package outbound queues the run reports and heartbeats the bridge sends to
+// Loupe. The ask check is a direct call, and rule health has its own retry.
 // Each kind of item has its own delivery policy:
 //
 //   - A worker run report waits in line, is sent in order and is retried. A

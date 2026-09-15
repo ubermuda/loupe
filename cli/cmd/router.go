@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -44,8 +45,9 @@ type router struct {
 
 	mu sync.Mutex
 	// queue holds the accepted events in arrival order, at most one for each
-	// card and rule. running holds the key of each card with a worker. The two
-	// are separate key spaces: a card runs once, and waits once per rule.
+	// card and rule, or for each ask of a resume. running holds the key of each
+	// card with a worker or an ask check. A card runs once, and waits once per
+	// rule or ask.
 	queue   []pending
 	running map[string]bool
 	// chains counts, per card key and rule name, the runs in a row that an
@@ -54,6 +56,7 @@ type router struct {
 	chains map[string]map[string]int
 	active int
 	closed bool
+	seq    uint64
 	// inbox is the inbox flag of the last GET /api/events. A worker that starts
 	// while it is on reads both ids in its prompt.
 	inbox bool
@@ -80,6 +83,11 @@ type pending struct {
 	maxChain int
 	spec     workerSpec
 	event    event.Event
+	// checked marks a resume whose ask check let it run. It holds its card key
+	// already, and waits for a slot alone.
+	checked bool
+	// seq is the arrival order. A resume back from its check returns to it.
+	seq uint64
 }
 
 // sessionCard is the key a session's worker ran under, and its card when the
@@ -94,8 +102,9 @@ type sessionCard struct {
 const askCheckTimeout = 10 * time.Second
 
 // keyFor keys the running worker and the chain counters by the subject id,
-// the one identity every event type carries. A card number repeats across
-// projects, and a type this build knows no fields of may carry none.
+// which every event type carries. A card number repeats across projects, and a
+// type this build knows no fields of may carry none. The subject of an ask is
+// no card, so resolve keys a resume instead.
 func keyFor(e event.Event) string {
 	return e.Subject.ID
 }
@@ -186,6 +195,12 @@ func (r *router) handler() transport.Handler {
 // A type no rule names is dropped in silence: a newer server publishes types
 // an older binary never heard of, which is normal.
 func (r *router) onData(data []byte) {
+	// Every bridge of the account receives an ask event, and only the one that
+	// started the session can resume it. Another bridge's event is not ours to
+	// validate, so it is dropped before Parse can log it.
+	if event.ForAnotherBridge(data, r.bridgeID) {
+		return
+	}
 	e, err := event.Parse(data, r.rules.ExtraTypes())
 	if err != nil {
 		if errors.Is(err, event.ErrUnknownType) {
@@ -193,11 +208,6 @@ func (r *router) onData(data []byte) {
 		}
 		r.log.Error("event_malformed", "error", err.Error())
 
-		return
-	}
-	// Only the bridge that started a session can resume it, and every bridge of
-	// the account receives the event.
-	if e.Type == event.AskClosedType && (e.BridgeID == "" || !strings.EqualFold(e.BridgeID, r.bridgeID)) {
 		return
 	}
 	e, key := r.resolve(e)
@@ -260,15 +270,24 @@ func (r *router) kill(do func() []rules.Dead) ([]rules.Dead, []pending) {
 		names[d.Rule] = true
 	}
 	var dropped []pending
+	released := false
 	r.queue = slices.DeleteFunc(r.queue, func(p pending) bool {
 		if names[p.rule] {
 			dropped = append(dropped, p)
+			// A checked resume holds its card, so dropping it frees the card.
+			if p.checked {
+				delete(r.running, p.key)
+				released = true
+			}
 
 			return true
 		}
 
 		return false
 	})
+	if released {
+		dropped = append(dropped, r.dispatchLocked()...)
+	}
 
 	return dead, dropped
 }
@@ -346,9 +365,10 @@ func (r *router) onRefresh(events api.Events) {
 }
 
 // enqueue puts the event at the back of the queue, or in place of a waiting
-// event for the same card and rule. It refuses an agent's event once its rule
-// has run maxChain times in a row on the card from agents' events. It logs
-// under mu, so no line for this event can follow worker_started.
+// event for the same card and rule. A resume replaces only a waiting resume of
+// the same ask, because each ask closes once. It refuses an agent's event once
+// its rule has run maxChain times in a row on the card from agents' events. It
+// logs under mu, so no line for this event can follow worker_started.
 func (r *router) enqueue(p pending) {
 	r.mu.Lock()
 	if p.event.Actor == event.ActorAgent && r.chains[p.key][p.rule] >= p.maxChain {
@@ -363,12 +383,15 @@ func (r *router) enqueue(p pending) {
 	if i := slices.IndexFunc(r.queue, func(q pending) bool {
 		return q.key == p.key && q.rule == p.rule && askOf(q.event) == askOf(p.event)
 	}); i >= 0 {
+		p.checked, p.seq = r.queue[i].checked, r.queue[i].seq
 		r.queue[i] = p
 		r.log.Info("worker_coalesced", about(p.event, p.rule)...)
 		r.mu.Unlock()
 
 		return
 	}
+	r.seq++
+	p.seq = r.seq
 	r.queue = append(r.queue, p)
 	r.log.Info("worker_queued", append(about(p.event, p.rule), "queue_depth", len(r.queue))...)
 	r.mu.Unlock()
@@ -386,9 +409,10 @@ func (r *router) dispatch() {
 	r.logDropped(dropped)
 }
 
-// dispatchLocked starts the oldest queued events whose card has no worker, while
-// a slot is free. The caller holds mu, and logs the queue a shut router returns.
-// One card runs one worker, because two agents in one checkout undo each other.
+// dispatchLocked starts the oldest queued events whose card is free, while a
+// slot is free, and starts the ask check of a queued resume whether or not a
+// slot is. The caller holds mu, and logs the queue a shut router returns. One
+// card runs one worker, because two agents in one checkout undo each other.
 // Pop and start share the lock, or two finishing workers could reorder starts.
 func (r *router) dispatchLocked() []pending {
 	if r.shut() {
@@ -398,26 +422,59 @@ func (r *router) dispatchLocked() []pending {
 		return dropped
 	}
 
-	for r.active < r.maxWorkers {
-		i := slices.IndexFunc(r.queue, func(q pending) bool { return !r.running[q.key] })
-		if i < 0 {
-			return nil
-		}
+	// waiting holds the keys of events this pass leaves queued, so a later
+	// event of the same card never goes first.
+	waiting := map[string]bool{}
+	for i := 0; i < len(r.queue); {
 		next := r.queue[i]
-		r.queue = slices.Delete(r.queue, i, i+1)
-		r.active++
-		if r.running == nil {
-			r.running = map[string]bool{}
+		if waiting[next.key] || (r.running[next.key] && !next.checked) {
+			waiting[next.key] = true
+			i++
+
+			continue
 		}
-		r.running[next.key] = true
-		// A resume counts once its check lets it run, because a skip is no run.
-		if next.event.Actor == event.ActorAgent && !next.spec.resume {
+		if next.spec.resume && !next.checked && r.checkAsk != nil {
+			r.queue = slices.Delete(r.queue, i, i+1)
+			r.hold(next.key)
+			r.check(next)
+
+			continue
+		}
+		if r.active >= r.maxWorkers {
+			waiting[next.key] = true
+			i++
+
+			continue
+		}
+		r.queue = slices.Delete(r.queue, i, i+1)
+		// Asks never coalesce, so several agent closes of one card can pass the
+		// cap at enqueue and wait together. The cap is read again here.
+		if next.spec.resume && next.event.Actor == event.ActorAgent && r.chains[next.key][next.rule] >= next.maxChain {
+			r.log.Warn("chain_capped", append(about(next.event, next.rule),
+				"max_chain", next.maxChain,
+				"message", fmt.Sprintf("%s hit the chain cap of rule %s, waiting for a person", aggregate(next.event), next.rule),
+			)...)
+			delete(r.running, next.key)
+
+			continue
+		}
+		r.active++
+		r.hold(next.key)
+		if next.event.Actor == event.ActorAgent {
 			r.countChain(next.key, next.rule)
 		}
 		r.start(next)
 	}
 
 	return nil
+}
+
+// hold reserves a card key. The caller holds mu.
+func (r *router) hold(key string) {
+	if r.running == nil {
+		r.running = map[string]bool{}
+	}
+	r.running[key] = true
 }
 
 // countChain records one more run in a row from an agent's event. The caller
@@ -433,8 +490,8 @@ func (r *router) countChain(key, rule string) {
 	r.chains[key][rule]++
 }
 
-// start runs one worker as a new claude session. The caller holds mu, and start
-// never takes it.
+// start runs one worker, as a new claude session or as the resume of the
+// session its ask names. The caller holds mu, and start never takes it.
 //
 // wg counts the worker before the goroutine exists, and the finish call that
 // admits the next worker runs before wg.Done, so a waiter never sees the count
@@ -442,6 +499,7 @@ func (r *router) countChain(key, rule string) {
 func (r *router) start(p pending) {
 	if p.spec.resume {
 		p.spec.sessionID = p.event.SessionID
+		r.log.Info("worker_started", about(p.event, p.rule)...)
 	} else {
 		p.spec.sessionID = r.worker.sessionID()
 		r.log.Info("worker_started", append(about(p.event, p.rule), "session_id", p.spec.sessionID)...)
@@ -459,12 +517,6 @@ func (r *router) start(p pending) {
 	go func() {
 		defer r.wg.Done()
 
-		if p.spec.resume && !r.admitResume(p) {
-			r.finish(p.key)
-
-			return
-		}
-
 		began := time.Now()
 		res := r.worker.run(r.workerContext(), p.spec)
 		r.report(p, res, began, time.Since(began))
@@ -472,12 +524,15 @@ func (r *router) start(p pending) {
 	}()
 }
 
-// admitResume checks the ask of a resume the queue released, on the worker
-// goroutine. It says no when the session read every item of its closed ask, or
-// when the bridge stops during the check. Any failed check resumes, so a fault
-// never loses a resume. It logs worker_started for a resume it admits.
-func (r *router) admitResume(p pending) bool {
-	if r.checkAsk != nil {
+// check reads the ask of a resume the queue released, on its own goroutine.
+// The resume holds its card key and no worker slot meanwhile. A session that
+// read every item of its closed ask is skipped. Any failed check resumes, so a
+// fault never loses a resume. The caller holds mu, and check never takes it.
+func (r *router) check(p pending) {
+	r.wg.Add(1)
+	go func() {
+		defer r.wg.Done()
+
 		timeout := r.checkTimeout
 		if timeout <= 0 {
 			timeout = askCheckTimeout
@@ -486,43 +541,41 @@ func (r *router) admitResume(p pending) bool {
 		state, err := r.checkAsk(ctx, p.event.ProjectID, p.event.Subject.ID)
 		cancel()
 
+		// A kill drops queued events only, and this resume was out of the queue
+		// during the check, so its rule is read again under the same lock.
+		r.mu.Lock()
 		switch {
-		case r.workerContext().Err() != nil:
-			r.logDropped([]pending{p})
+		case r.shut() || !r.rules.Live(p.rule):
+			delete(r.running, p.key)
+			dropped := append([]pending{p}, r.dispatchLocked()...)
+			r.mu.Unlock()
+			r.logDropped(dropped)
 
-			return false
+			return
 		case err != nil:
 			r.log.Warn("resume_check_failed", append(about(p.event, p.rule),
 				"error", err.Error(),
 				"message", "the bridge could not check the ask, so it resumes the session anyway",
 			)...)
+			p.checked = true
 		case state.Closed && state.AllRead:
 			r.log.Info("resume_skipped", append(about(p.event, p.rule),
 				"message", "the session already read every item of its ask",
 			)...)
-
-			return false
+			delete(r.running, p.key)
+		default:
+			p.checked = true
 		}
-	}
-
-	// Asks never coalesce, so several agent closes can pass the cap at enqueue
-	// and wait together. The cap is read again here.
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if p.event.Actor == event.ActorAgent {
-		if r.chains[p.key][p.rule] >= p.maxChain {
-			r.log.Warn("chain_capped", append(about(p.event, p.rule),
-				"max_chain", p.maxChain,
-				"message", fmt.Sprintf("%s hit the chain cap of rule %s, waiting for a person", aggregate(p.event), p.rule),
-			)...)
-
-			return false
+		// A resume the check lets through returns to its place in arrival order.
+		if p.checked {
+			i, _ := slices.BinarySearchFunc(r.queue, p.seq, func(q pending, seq uint64) int { return cmp.Compare(q.seq, seq) })
+			r.queue = slices.Insert(r.queue, i, p)
 		}
-		r.countChain(p.key, p.rule)
-	}
-	r.log.Info("worker_started", about(p.event, p.rule)...)
+		dropped := r.dispatchLocked()
+		r.mu.Unlock()
 
-	return true
+		r.logDropped(dropped)
+	}()
 }
 
 // finish frees the slot and the card, and starts what waits, in one critical
@@ -558,7 +611,7 @@ func (r *router) shutdown() {
 
 // logDropped names what a shut queue lost. These workers never started, so a
 // silent drop would hide a trigger the operator asked for. One card can wait
-// once per rule, so each entry names the card and the rule.
+// once per rule or per ask, so each entry names the card, the rule and the ask.
 func (r *router) logDropped(dropped []pending) {
 	if len(dropped) == 0 {
 		return
@@ -568,6 +621,9 @@ func (r *router) logDropped(dropped []pending) {
 	for i, p := range dropped {
 		k, v := label(p.event)
 		lost[i] = map[string]any{k: v, "rule": p.rule}
+		if ask := askOf(p.event); ask != "" {
+			lost[i]["ask"] = ask
+		}
 	}
 	r.log.Warn("queue_dropped", "count", len(lost), "dropped", lost)
 }

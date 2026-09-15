@@ -87,8 +87,7 @@ func TestMatchRendersAResumePrompt(t *testing.T) {
 	if m.Skip != Run || !m.Resume || m.Rule != "resume" {
 		t.Fatalf("Match = %+v", m)
 	}
-	want := directive.RenderResume("The owner closed ask "+askID+" of session "+sessionID+" on card 33 in loupe ("+projectID+").",
-		map[string]string{"sessionId": sessionID})
+	want := "The owner closed ask " + askID + " of session " + sessionID + " on card 33 in loupe (" + projectID + ").\n\n" + directive.ResumeFooter
 	if m.Prompt != want {
 		t.Fatalf("prompt = %q, want %q", m.Prompt, want)
 	}

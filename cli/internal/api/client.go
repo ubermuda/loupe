@@ -522,11 +522,10 @@ type AskState struct {
 	AllRead bool   `json:"allRead"`
 }
 
-// ErrAskNotFound marks a project that holds no ask with that id.
-var ErrAskNotFound = errors.New("ask not found")
-
 // CheckAsk reads whether an ask closed and whether its session read every item.
-// An answer that does not state both booleans for this ask is an error.
+// Any answer other than a 200 that states both booleans for this ask is an
+// error, and the error carries the server's body. The caller resumes on every
+// error alike, so no error kind is told apart.
 func (c *Client) CheckAsk(ctx context.Context, handle, askID string) (AskState, error) {
 	var out AskState
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
@@ -543,22 +542,7 @@ func (c *Client) CheckAsk(ctx context.Context, handle, askID string) (AskState, 
 	}
 	defer resp.Body.Close()
 
-	switch resp.StatusCode {
-	case http.StatusOK:
-	case http.StatusNotFound:
-		var payload struct {
-			Error string `json:"error"`
-		}
-		_ = json.NewDecoder(io.LimitReader(resp.Body, 4096)).Decode(&payload)
-		switch payload.Error {
-		case "ask_not_found":
-			return out, fmt.Errorf("%w: %s", ErrAskNotFound, askID)
-		case "project_not_found":
-			return out, fmt.Errorf("%w: %s", ErrProjectNotFound, handle)
-		default:
-			return out, errors.New("the server has no ask check endpoint, or the inbox is switched off")
-		}
-	default:
+	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return out, fmt.Errorf("ask check failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}

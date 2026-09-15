@@ -84,6 +84,26 @@ func IsID(s string) bool {
 // prompt through {from} and {to}.
 var SlugPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
+// ForAnotherBridge reports whether data is an inbox.ask_closed event that does
+// not name bridgeID as a string, whatever its case. The caller drops such an
+// event before Parse, so a malformed field of another bridge's event logs
+// nothing. Data that is not a JSON object is left to Parse.
+func ForAnotherBridge(data []byte, bridgeID string) bool {
+	var head struct {
+		Type     string          `json:"type"`
+		BridgeID json.RawMessage `json:"bridgeId"`
+	}
+	if json.Unmarshal(data, &head) != nil || head.Type != AskClosedType {
+		return false
+	}
+	var id string
+	if json.Unmarshal(head.BridgeID, &id) != nil {
+		return true
+	}
+
+	return id == "" || !strings.EqualFold(id, bridgeID)
+}
+
 // Parse decodes a Mercure data payload into an Event.
 //
 // board.card_moved and the three slug-changing types are always parsed, with

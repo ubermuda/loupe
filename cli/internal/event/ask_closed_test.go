@@ -60,6 +60,29 @@ func TestParseRejectsAMalformedAskClosed(t *testing.T) {
 	}
 }
 
+func TestForAnotherBridge(t *testing.T) {
+	const own = "7d1e2f3a-4b5c-4d6e-9f0a-1b2c3d4e5f6a"
+	for name, tc := range map[string]struct {
+		payload string
+		want    bool
+	}{
+		"this bridge, another case": {askClosedPayload, false},
+		"another bridge":            {strings.Replace(askClosedPayload, "7D1E2F3A", "00000000", 1), true},
+		"a null bridge":             {strings.Replace(askClosedPayload, `"7D1E2F3A-4B5C-4D6E-9F0A-1B2C3D4E5F6A"`, `null`, 1), true},
+		"an empty bridge":           {strings.Replace(askClosedPayload, `"7D1E2F3A-4B5C-4D6E-9F0A-1B2C3D4E5F6A"`, `""`, 1), true},
+		"no bridge key":             {strings.Replace(askClosedPayload, `"bridgeId":"7D1E2F3A-4B5C-4D6E-9F0A-1B2C3D4E5F6A",`, ``, 1), true},
+		"a bridge that is a number": {strings.Replace(askClosedPayload, `"7D1E2F3A-4B5C-4D6E-9F0A-1B2C3D4E5F6A"`, `7`, 1), true},
+		"another type":              {moved(nil), false},
+		"not json":                  {`{`, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := ForAnotherBridge([]byte(tc.payload), own); got != tc.want {
+				t.Fatalf("ForAnotherBridge = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 // A bridge with no resume rule drops the event unread, as any type no rule names.
 func TestParseDropsAskClosedWhenNoRuleNamesIt(t *testing.T) {
 	if err := parseErr(t, askClosedPayload, nil); !errors.Is(err, ErrUnknownType) {

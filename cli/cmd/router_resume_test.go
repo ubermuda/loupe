@@ -76,8 +76,8 @@ func (h *harness) mine(a ask) string {
 	return a.payload()
 }
 
-func resumePrompt(card string, session string) string {
-	return directive.RenderResume("Ask "+testAsk+" closed on card "+card+".", map[string]string{"sessionId": session})
+func resumePrompt(card string) string {
+	return "Ask " + testAsk + " closed on card " + card + ".\n\n" + directive.ResumeFooter
 }
 
 // receive waits for the next report, so a missing one fails rather than hangs.
@@ -152,7 +152,7 @@ func TestAnAskClosedResumesItsSession(t *testing.T) {
 	if !got.resume || got.sessionID != askSession || got.dir != h.dir {
 		t.Fatalf("worker = %+v", got)
 	}
-	if want := resumePrompt("87", askSession) + "\n" + inboxLine(askSession); got.prompt != want {
+	if want := resumePrompt("87") + "\n" + inboxLine(askSession); got.prompt != want {
 		t.Fatalf("prompt = %q, want %q", got.prompt, want)
 	}
 	started := h.only(t, "worker_started")
@@ -187,16 +187,23 @@ func TestAnAskClosedForAnotherBridgeIsDropped(t *testing.T) {
 	}
 }
 
-// The bridge's own id compares whatever its case in the payload.
-func TestAnAskClosedMatchesTheBridgeIDInAnyCase(t *testing.T) {
+// Another bridge's event is not validated, so a field that would be malformed
+// for this bridge logs nothing.
+func TestAMalformedAskForAnotherBridgeLogsNothing(t *testing.T) {
 	h := newHarnessWith(t, resumeRules, rules.Defaults{})
-	upper := strings.ToUpper(h.router.bridgeID)
+	other := foreignBridge
+	payload := strings.Replace(ask{card: 87, bridge: &other}.payload(), `"actor":"human"`, `"actor":"system"`, 1)
 
-	h.send(ask{card: 87, bridge: &upper}.payload())
+	h.send(payload)
 
-	if calls := h.worker.recorded(); len(calls) != 1 {
-		t.Fatalf("workers = %+v", calls)
+	if log := strings.TrimSpace(h.log.String()); log != "" {
+		t.Fatalf("log = %s, want nothing", log)
 	}
+
+	// The same payload for this bridge is malformed, so the test above drops it
+	// for its bridge id alone.
+	h.send(strings.Replace(payload, foreignBridge, h.router.bridgeID, 1))
+	h.only(t, "event_malformed")
 }
 
 // A resume never runs beside a worker of its card. It waits in the queue, and
@@ -255,7 +262,7 @@ func TestAResumeWithNoCardTakesTheCardOfItsSession(t *testing.T) {
 	if resumed.run.CardID != cardUUID(87) || resumed.run.CardNumber != 87 || resumed.run.SessionID != first.sessionID || resumed.run.RuleName != "resume" {
 		t.Fatalf("resume report = %+v", resumed.run)
 	}
-	if calls := h.worker.recorded(); calls[1].prompt != resumePrompt("87", first.sessionID) {
+	if calls := h.worker.recorded(); calls[1].prompt != resumePrompt("87") {
 		t.Fatalf("prompt = %q", calls[1].prompt)
 	}
 }
@@ -301,7 +308,7 @@ func TestAResumeWithNoCardAtAllKeysOnItsSession(t *testing.T) {
 	h.send(h.mine(ask{}))
 
 	calls := h.worker.recorded()
-	if len(calls) != 1 || calls[0].prompt != resumePrompt("unknown", askSession) {
+	if len(calls) != 1 || calls[0].prompt != resumePrompt("unknown") {
 		t.Fatalf("workers = %+v", calls)
 	}
 	select {
@@ -426,7 +433,7 @@ func TestAResumeRunsWhenTheCheckDoesNotSayAllRead(t *testing.T) {
 	for name, c := range map[string]*checks{
 		"not all read":  {state: api.AskState{AskID: testAsk, Closed: true, AllRead: false}},
 		"not closed":    {state: api.AskState{AskID: testAsk, Closed: false, AllRead: true}},
-		"ask not found": {err: fmt.Errorf("%w: ask", api.ErrAskNotFound)},
+		"ask not found": {err: errors.New(`ask check failed (HTTP 404): {"error":"ask_not_found"}`)},
 		"server error":  {err: errors.New("ask check failed (HTTP 500)")},
 		"timeout":       {wait: true},
 	} {
@@ -450,6 +457,192 @@ func TestAResumeRunsWhenTheCheckDoesNotSayAllRead(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// gate holds each ask check until the test releases it, and answers not read.
+type gate struct {
+	entered chan struct{}
+	release chan struct{}
+}
+
+func newGate() *gate {
+	return &gate{entered: make(chan struct{}, 4), release: make(chan struct{})}
+}
+
+func (g *gate) check(_ context.Context, _, askID string) (api.AskState, error) {
+	g.entered <- struct{}{}
+	<-g.release
+
+	return api.AskState{AskID: askID, Closed: true, AllRead: false}, nil
+}
+
+// A stream failure shuts the queue with the context still live. A check that
+// finishes after that starts no worker on a bridge that is exiting.
+func TestAResumeWhoseCheckEndsAfterShutdownDoesNotRun(t *testing.T) {
+	h := newHarnessWith(t, resumeRules, rules.Defaults{})
+	g := newGate()
+	h.router.checkAsk = g.check
+
+	h.router.onData([]byte(h.mine(ask{card: 87})))
+	<-g.entered
+	h.router.shutdown()
+	close(g.release)
+	h.router.wg.Wait()
+
+	if calls := h.worker.recorded(); len(calls) != 0 {
+		t.Fatalf("workers = %+v, want none after shutdown", calls)
+	}
+	if len(h.events(t, "worker_started")) != 0 {
+		t.Fatal("logged worker_started after shutdown")
+	}
+	line := h.only(t, "queue_dropped")
+	if got := dropped(t, line); len(got) != 1 || got[0] != "87/resume" {
+		t.Fatalf("dropped = %v", got)
+	}
+	entry, _ := line["dropped"].([]any)[0].(map[string]any)
+	if entry["ask"] != testAsk {
+		t.Fatalf("dropped entry = %v, want the ask id", entry)
+	}
+}
+
+// projectRenamed kills every rule of the loupe project.
+func projectRenamed() string {
+	return fmt.Sprintf(`{"type":"project.renamed","subject":{"type":"project","id":%q},"projectId":%q,"fromSlug":"loupe","toSlug":"loupe-app","actor":"human"}`, testProject, testProject)
+}
+
+// cardHeld reports whether the router still reserves the card key.
+func (h *harness) cardHeld(number int) bool {
+	h.router.mu.Lock()
+	defer h.router.mu.Unlock()
+
+	return h.router.running[cardUUID(number)]
+}
+
+// A resume is out of the queue while its check runs, so a kill cannot drop it
+// there. The check reads the rule again, and a dead rule starts nothing.
+func TestARuleThatDiesDuringTheCheckStartsNoResume(t *testing.T) {
+	h := newHarnessWith(t, resumeRules, rules.Defaults{})
+	g := newGate()
+	h.router.checkAsk = g.check
+
+	h.router.onData([]byte(h.mine(ask{card: 87})))
+	<-g.entered
+	h.router.onData([]byte(projectRenamed()))
+	close(g.release)
+	h.router.wg.Wait()
+
+	if calls := h.worker.recorded(); len(calls) != 0 {
+		t.Fatalf("workers = %+v, want none for a dead rule", calls)
+	}
+	if got := dropped(t, h.only(t, "queue_dropped")); len(got) != 1 || got[0] != "87/resume" {
+		t.Fatalf("dropped = %v", got)
+	}
+	if h.cardHeld(87) {
+		t.Fatal("the dropped resume still holds card 87")
+	}
+}
+
+// A checked resume that waits for a slot holds its card. A kill that drops it
+// releases the card too.
+func TestAKilledCheckedResumeReleasesItsCard(t *testing.T) {
+	h := newHarnessWith(t, resumeRules, rules.Defaults{})
+	h.router.maxWorkers = 1
+	c := &checks{state: api.AskState{AskID: testAsk, Closed: true, AllRead: false}}
+	h.router.checkAsk = c.check
+	h.worker.started = make(chan workerSpec, 2)
+	h.worker.block = make(chan struct{})
+
+	h.router.onData([]byte(cardMoved(88)))
+	<-h.worker.started
+	h.router.onData([]byte(h.mine(ask{card: 87})))
+	eventually(t, "the checked resume in the queue", func() bool {
+		h.router.mu.Lock()
+		defer h.router.mu.Unlock()
+
+		return len(h.router.queue) == 1 && h.router.queue[0].checked
+	})
+	h.router.onData([]byte(projectRenamed()))
+	close(h.worker.block)
+	h.router.wg.Wait()
+
+	if got := dropped(t, h.only(t, "queue_dropped")); len(got) != 1 || got[0] != "87/resume" {
+		t.Fatalf("dropped = %v", got)
+	}
+	if h.cardHeld(87) {
+		t.Fatal("the dropped resume still holds card 87")
+	}
+	if calls := h.worker.recorded(); len(calls) != 1 {
+		t.Fatalf("workers = %+v, want card 88 alone", calls)
+	}
+}
+
+// A checked resume keeps its place in arrival order, so an event that waited
+// before it still starts first.
+func TestACheckedResumeKeepsItsPlaceInTheQueue(t *testing.T) {
+	h := newHarnessWith(t, resumeRules, rules.Defaults{})
+	h.router.maxWorkers = 1
+	c := &checks{state: api.AskState{AskID: testAsk, Closed: true, AllRead: false}}
+	h.router.checkAsk = c.check
+	h.worker.started = make(chan workerSpec, 3)
+	h.worker.block = make(chan struct{})
+
+	h.router.onData([]byte(cardMoved(88)))
+	<-h.worker.started
+	h.router.onData([]byte(cardMoved(89)))
+	h.router.onData([]byte(h.mine(ask{card: 87})))
+	eventually(t, "the checked resume in the queue", func() bool {
+		h.router.mu.Lock()
+		defer h.router.mu.Unlock()
+
+		return len(h.router.queue) == 2
+	})
+	close(h.worker.block)
+	h.router.wg.Wait()
+
+	if got := startedCards(t, h); len(got) != 3 || got[0] != 88 || got[1] != 89 || got[2] != 87 {
+		t.Fatalf("started = %v, want 88, 89, then the resume of 87", got)
+	}
+}
+
+// The check holds its card, and no worker slot. With one slot, another card
+// starts while the check still waits.
+func TestTheAskCheckHoldsNoWorkerSlot(t *testing.T) {
+	h := newHarnessWith(t, resumeRules, rules.Defaults{})
+	h.router.maxWorkers = 1
+	g := newGate()
+	h.router.checkAsk = g.check
+	h.worker.block = make(chan struct{})
+
+	h.router.onData([]byte(h.mine(ask{card: 87})))
+	<-g.entered
+	h.router.onData([]byte(cardMoved(88)))
+	h.router.onData([]byte(cardMoved(87)))
+
+	// onData dispatches on this goroutine, so the starts are settled.
+	h.router.mu.Lock()
+	active, waiting := h.router.active, len(h.router.queue)
+	h.router.mu.Unlock()
+	started := startedCards(t, h)
+	close(g.release)
+	close(h.worker.block)
+	if active != 1 || waiting != 1 || len(started) != 1 || started[0] != 88 {
+		h.router.wg.Wait()
+		t.Fatalf("while the check waits: active = %d, waiting = %d, started = %v; want card 88 to run and card 87 to wait", active, waiting, started)
+	}
+	h.router.wg.Wait()
+	calls := h.worker.recorded()
+	if len(calls) != 3 {
+		t.Fatalf("workers = %+v, want card 88, the resume and card 87", calls)
+	}
+	if got := startedCards(t, h); len(got) != 3 || got[0] != 88 || got[1] != 87 || got[2] != 87 {
+		t.Fatalf("started = %v", got)
+	}
+	if first := h.events(t, "worker_started")[1]; first["ask"] != testAsk {
+		t.Fatalf("the resume did not start before card 87's move: %v", first)
+	}
+	if h.worker.peak() != 1 {
+		t.Fatalf("peak = %d, want the bound of 1", h.worker.peak())
 	}
 }
 

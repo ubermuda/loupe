@@ -682,6 +682,14 @@ func (s *Set) kill(slug, column, reason string) []Dead {
 	return out
 }
 
+// Live reports whether the named rule has not died.
+func (s *Set) Live(rule string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.dead[rule] == ""
+}
+
 // Health lists every rule of a mapped project with its state, in file order.
 func (s *Set) Health(slug string) []api.RuleHealth {
 	s.mu.RLock()

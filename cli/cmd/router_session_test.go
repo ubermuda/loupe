@@ -19,7 +19,8 @@ import (
 var plainPrompt = "Card 87 (" + testCard + ") entered next.\n\n" + directive.Footer
 
 func inboxLine(session string) string {
-	return "Your session id is " + session + " and your bridge id is " + testBridgeID + ". Pass both to inbox_ask."
+	return "Your session id is " + session + " and your bridge id is " + testBridgeID + ". Pass both to inbox_ask. " +
+		"When you read the answers of your asks with inbox_list or inbox_get, pass your session id as readerSessionId."
 }
 
 // listed answers GET /api/events with both mapped projects, so a refresh kills
