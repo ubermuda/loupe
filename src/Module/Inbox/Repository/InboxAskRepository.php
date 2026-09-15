@@ -12,6 +12,8 @@ use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Bridge\Doctrine\Types\UuidType;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * @extends ServiceEntityRepository<InboxAsk>
@@ -21,6 +23,36 @@ class InboxAskRepository extends ServiceEntityRepository
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, InboxAsk::class);
+    }
+
+    /** The session's open ask in any project. At most one exists. */
+    public function findOpenForSession(Uuid $sessionId): ?InboxAsk
+    {
+        /* @var ?InboxAsk */
+        return $this->createQueryBuilder('a')
+            ->andWhere('a.sessionId = :sessionId')
+            ->andWhere('a.closedAt IS NULL')
+            ->setParameter('sessionId', $sessionId, UuidType::NAME)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * Every ask that holds the item, oldest first.
+     *
+     * @return list<InboxAsk>
+     */
+    public function findHolding(InboxItem $item): array
+    {
+        /* @var list<InboxAsk> */
+        return $this->createQueryBuilder('a')
+            ->join('a.items', 'l')
+            ->andWhere('l.item = :item')
+            ->setParameter('item', $item)
+            ->orderBy('a.createdAt', 'ASC')
+            ->addOrderBy('a.id', 'ASC')
+            ->getQuery()
+            ->getResult();
     }
 
     /**
@@ -53,6 +85,26 @@ class InboxAskRepository extends ServiceEntityRepository
             ->andWhere('a.project = :project')
             ->andWhere('a.closedAt IS NULL')
             ->setParameter('project', $project)
+            ->orderBy('a.createdAt', 'ASC')
+            ->addOrderBy('a.id', 'ASC')
+            ->addOrderBy('l.addedAt', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
+     * The open asks in every project the user owns, oldest first, with their projects and items.
+     *
+     * @return list<InboxAsk>
+     */
+    public function findOpenByOwner(User $user): array
+    {
+        return array_values($this->withItems()
+            ->join('a.project', 'p')
+            ->addSelect('p')
+            ->andWhere('p.owner = :user')
+            ->andWhere('a.closedAt IS NULL')
+            ->setParameter('user', $user)
             ->orderBy('a.createdAt', 'ASC')
             ->addOrderBy('a.id', 'ASC')
             ->addOrderBy('l.addedAt', 'ASC')

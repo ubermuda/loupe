@@ -13,15 +13,18 @@ use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
- * The one place an owner's response closes an item, or changes a response
- * already given. It runs under a lock on the project row. Every writer of asks
- * MUST take the same lock, or an ask can close between the check that an
+ * The one place an item closes, or an owner changes a response already given.
+ * Every write runs under a lock on the project row. Every writer of items or
+ * asks MUST take that lock first, or an ask can close between the check that an
  * answer is still editable and the write that changes it.
  */
 final readonly class InboxItemCloser
 {
     public const string ERROR_FINAL = 'inbox.item.error.final';
     public const string ERROR_CLOSED_BY_AGENT = 'inbox.item.error.closed_by_agent';
+
+    /** The refusal a caller gives when the item it acts on is already closed. */
+    public const string ITEM_NOT_OPEN = 'inbox.item.error.not_open';
 
     public function __construct(
         private EntityManagerInterface $em,
@@ -31,7 +34,8 @@ final readonly class InboxItemCloser
     }
 
     /**
-     * Applies $respond to the item and closes it in $state, in one transaction.
+     * Applies the owner's $respond to the item and closes it in $state, in a
+     * transaction of its own that locks the project.
      *
      * An open item always takes a response. A closed one takes a change only
      * while no closed ask holds it, because an agent may already act on the
@@ -44,8 +48,10 @@ final readonly class InboxItemCloser
      *
      * @throws DomainErrors keyed by $errorField, or by the fields $respond names, when the item takes no such response
      */
-    public function close(InboxItem $item, InboxItemState $state, string $errorField, \Closure $respond): void
+    public function respond(InboxItem $item, InboxItemState $state, string $errorField, \Closure $respond): void
     {
+        self::assertClosed($state);
+
         $errors = $this->em->wrapInTransaction(function () use ($item, $state, $errorField, $respond): ?array {
             $this->em->lock($item->project, LockMode::PESSIMISTIC_WRITE);
             // Read under the lock, so a response or an agent's change that landed
@@ -80,6 +86,34 @@ final readonly class InboxItemCloser
 
         if (null !== $errors) {
             throw new DomainErrors($errors);
+        }
+    }
+
+    /**
+     * Closes an open item on an agent's behalf. The caller holds the project
+     * lock and the transaction, and flushes, so a listener inside a card move
+     * can call it. It returns false and changes nothing when the item is
+     * already closed, so that write never aborts.
+     */
+    public function close(InboxItem $item, InboxItemState $state, ?string $note, \DateTimeImmutable $now): bool
+    {
+        self::assertClosed($state);
+        if (InboxItemState::Open !== $item->state) {
+            return false;
+        }
+
+        $item->state = $state;
+        $item->closeNote = $note;
+        $item->closedAt = $now;
+        $item->updatedAt = $now;
+
+        return true;
+    }
+
+    private static function assertClosed(InboxItemState $state): void
+    {
+        if (InboxItemState::Open === $state) {
+            throw new \LogicException('An item closes into a closed state.');
         }
     }
 

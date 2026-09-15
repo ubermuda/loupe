@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"strings"
@@ -31,13 +32,45 @@ type EventsProject struct {
 	Name string `json:"name"`
 }
 
+// InboxFlag is the flag that switches the inbox on.
+const InboxFlag = "inbox.enabled"
+
 // Events is the response of GET /api/events: the hub, the caller's own topic,
-// a subscriber JWT for that topic, and the projects whose events arrive on it.
+// a subscriber JWT for that topic, the projects whose events arrive on it, and
+// the feature flags the server shares with a bridge.
 type Events struct {
 	HubURL   string          `json:"hubUrl"`
 	JWT      string          `json:"jwt"`
 	Topic    string          `json:"topic"`
 	Projects []EventsProject `json:"projects"`
+	// Flags holds values of several types. A server older than the map sends
+	// none, and every flag then reads as off.
+	Flags map[string]any `json:"flags"`
+}
+
+// HeartbeatIntervalFlag is the flag that holds the seconds between two
+// heartbeats.
+const HeartbeatIntervalFlag = "bridge.heartbeat_interval_seconds"
+
+// maxSeconds keeps a number of seconds inside what a time.Duration holds.
+const maxSeconds = math.MaxInt64 / int64(time.Second)
+
+// Enabled reports whether the server sent the flag name as the boolean true.
+func (e Events) Enabled(name string) bool {
+	on, ok := e.Flags[name].(bool)
+
+	return ok && on
+}
+
+// Seconds reads the flag name as a whole number of seconds above zero. It
+// reports false for a missing flag and for any other value.
+func (e Events) Seconds(name string) (int, bool) {
+	n, ok := e.Flags[name].(float64)
+	if !ok || n < 1 || n > float64(maxSeconds) || n != math.Trunc(n) {
+		return 0, false
+	}
+
+	return int(n), true
 }
 
 // maxBody caps a success body the client decodes. A columns or sites list is
@@ -351,6 +384,7 @@ func (c *Client) Sites(ctx context.Context) ([]Site, error) {
 // both or neither.
 type WorkerRun struct {
 	BridgeID      string    `json:"bridgeId"`
+	SessionID     string    `json:"sessionId"`
 	CardID        string    `json:"cardId"`
 	CardNumber    int       `json:"cardNumber"`
 	RuleName      string    `json:"ruleName"`
@@ -426,6 +460,58 @@ func (c *Client) ReportWorkerRun(ctx context.Context, handle string, run WorkerR
 		return false, fmt.Errorf("%w (HTTP %d): %s", ErrReportRefused, resp.StatusCode, strings.TrimSpace(string(detail)))
 	default:
 		return false, fmt.Errorf("worker run report failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(detail)))
+	}
+}
+
+// Heartbeat is the body of PUT /api/bridges/{bridgeId}/heartbeat: the ids of
+// the projects the bridge follows, and the build it runs.
+type Heartbeat struct {
+	Projects   []string `json:"projects"`
+	CLIVersion string   `json:"cliVersion"`
+}
+
+// maxCLIVersion is the server's cap on the version, which it measures trimmed.
+const maxCLIVersion = 100
+
+// ErrHeartbeatMissing marks a 404, which is the answer of a server that
+// predates the heartbeat or has agent push switched off. The route sends no
+// error code, so the two read the same.
+var ErrHeartbeatMissing = errors.New("the server has no heartbeat endpoint, or agent push is switched off")
+
+// Heartbeat tells the server that this bridge runs.
+func (c *Client) Heartbeat(ctx context.Context, bridgeID string, hb Heartbeat) error {
+	if hb.Projects == nil {
+		hb.Projects = []string{}
+	}
+	hb.CLIVersion = clip(strings.TrimSpace(hb.CLIVersion), maxCLIVersion)
+	body, err := json.Marshal(hb)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut,
+		c.baseURL+"/api/bridges/"+url.PathEscape(bridgeID)+"/heartbeat", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return fmt.Errorf("send the heartbeat: %w", err)
+	}
+	defer resp.Body.Close()
+
+	detail, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+
+	switch {
+	case resp.StatusCode == http.StatusNoContent, resp.StatusCode == http.StatusOK:
+		return nil
+	case resp.StatusCode == http.StatusNotFound:
+		return ErrHeartbeatMissing
+	default:
+		return fmt.Errorf("heartbeat failed (HTTP %d): %s", resp.StatusCode, strings.TrimSpace(string(detail)))
 	}
 }
 

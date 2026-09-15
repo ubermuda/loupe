@@ -21,7 +21,7 @@ final readonly class WorkerRunRetentionPolicy
     public function __construct(
         private FeatureFlagService $featureFlags,
 
-        #[Autowire(param: 'app.bridge.run_retention_days')]
+        #[Autowire(param: 'app.bridge.default_run_retention_days')]
         private int $default,
     ) {
     }

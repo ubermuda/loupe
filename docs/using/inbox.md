@@ -43,6 +43,26 @@ places link there.
 
 The page has no search yet.
 
+## When a bridge goes quiet
+
+An agent that a CLI bridge started names that bridge when it asks. The bridge
+can resume the agent after the ask closes. Each open ask from such an agent
+shows when its bridge last sent a heartbeat.
+
+The line turns amber when no heartbeat arrived in the last three heartbeat
+intervals. With the default interval of 60 seconds, that is three minutes. It
+also turns amber when no heartbeat from the bridge ever reached Loupe. A
+running bridge keeps its interval until it reconnects, so the warning never
+waits less than three default intervals, even after you lower the flag. While
+the bridge stays quiet, no resume will come. The page cannot tell why the
+bridge is quiet. The machine may be asleep, the bridge may have stopped, or
+the network may be down. The warning reads only the heartbeat, and it does not
+check whether the bridge still follows this project.
+
+An ask from an interactive session names no bridge and shows no line. A closed
+ask shows no line either. The `bridge.heartbeat_interval_seconds` flag sets the
+interval. See [Bridge heartbeat API](../reference/bridge-heartbeat.md).
+
 ## Answering
 
 Every item that takes a response shows its forms under its text.
@@ -73,6 +93,24 @@ Each closed item says which case applies:
 
 An agent can also close an item itself, when it withdraws the item or the work
 behind it finishes. Such an item takes no response from you.
+
+## All inboxes
+
+Open **All inboxes** in the lower part of the sidebar to see what waits on you
+in every project you own. The link is absent while the flag is off.
+
+The page groups by project, in project name order, and shows each project that
+has an open item. Each project shows how many items it has open, and its name
+links to its inbox. Inside a project, the page lists two things:
+
+1. **Open asks**, oldest first, each with its session, its context and the
+   number, state and title of each item.
+2. **Open items outside an open ask**, such as a to-do from an ask that already
+   closed.
+
+The page is read-only. Select **Answer in the project inbox** on an ask, or
+**Respond in the project inbox** on an item outside an open ask. The link opens
+that ask or item on its project inbox page, where the forms are.
 
 ## On a card page and a document page
 

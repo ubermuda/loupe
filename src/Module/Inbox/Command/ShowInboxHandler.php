@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Inbox\Command;
 
+use App\Module\Bridge\Service\BridgeLiveness;
 use App\Module\Inbox\Repository\InboxAskRepository;
 use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\View\InboxDetailView;
@@ -16,6 +17,7 @@ final readonly class ShowInboxHandler
     public function __construct(
         private InboxAskRepository $inboxAsks,
         private InboxItemRepository $inboxItems,
+        private BridgeLiveness $bridgeLiveness,
     ) {
     }
 
@@ -29,6 +31,13 @@ final readonly class ShowInboxHandler
         $openAsks = $this->inboxAsks->findOpenForProject($project);
         $looseItems = $this->inboxItems->findOpenOutsideOpenAsks($project);
         $closedAsks = $this->inboxAsks->findClosedPageForProject($project, ($page - 1) * self::CLOSED_ASKS_PER_PAGE, self::CLOSED_ASKS_PER_PAGE);
+
+        $bridgeIds = [];
+        foreach ($openAsks as $ask) {
+            if (null !== $ask->bridgeId) {
+                $bridgeIds[$ask->bridgeId->toRfc4122()] = $ask->bridgeId;
+            }
+        }
 
         $shown = [];
         foreach ($looseItems as $item) {
@@ -50,6 +59,7 @@ final readonly class ShowInboxHandler
             totalPages: $totalPages,
             pageList: PageList::build($page, $totalPages),
             finalItemIds: array_fill_keys($this->inboxAsks->findItemIdsHeldByClosedAsks(array_values($shown)), true),
+            bridgeStatuses: $this->bridgeLiveness->forOwner($project->owner, array_values($bridgeIds)),
         );
     }
 }

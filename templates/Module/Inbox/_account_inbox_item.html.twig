@@ -1,0 +1,12 @@
+<article class="lp-inbox-item" data-inbox-item="{{ item.number }}">
+    <div class="lp-inbox-item__head">
+        <span class="lp-inbox-item__number">{{ 'inbox.item.number'|trans({'%number%': item.number}) }}</span>
+        <span class="lp-inbox-item__kind">{{ ('inbox.item.kind.' ~ item.kind.value)|trans }}</span>
+        {% if item.blocking %}<span class="lp-inbox-item__blocking">{{ 'inbox.item.blocking'|trans }}</span>{% endif %}
+        {% include '@Inbox/_inbox_state_chip.html.twig' with {state: item.state} only %}
+    </div>
+    <h3 class="lp-inbox-item__title">{{ item.title }}</h3>
+    {% if href %}
+        <a class="lp-inbox-item__jump" href="{{ href }}" data-account-inbox-item-link>{{ 'inbox.account.item.open'|trans }}</a>
+    {% endif %}
+</article>
