@@ -9,7 +9,7 @@
 parameters:
     # CSP is static configuration, so an unset external origin needs to resolve
     # to a valid token rather than an empty one. Repeating 'self' is a no-op.
-    app.csp_origin_fallback: "'self'"
+    app.default_csp_origin: "'self'"
 
     # Sender of every transactional email. Environment-driven because a
     # self-hosted instance can only pass SPF/DKIM/DMARC with a domain its
@@ -24,7 +24,7 @@ parameters:
     # Proxies Symfony trusts for X-Forwarded-* when TRUSTED_PROXIES is unset.
     # Correct behind Docker and any private-network load balancer; an operator
     # whose balancer connects from a public IP overrides it.
-    app.trusted_proxies_default: 'PRIVATE_SUBNETS'
+    app.default_trusted_proxies: 'PRIVATE_SUBNETS'
     # Source-code location offered to network users in the footer. Overridable
     # per instance so a fork links to its own modified source, as the AGPL
     # requires.
