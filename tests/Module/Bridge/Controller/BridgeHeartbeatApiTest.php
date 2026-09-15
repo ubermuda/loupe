@@ -18,7 +18,6 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\RateLimiter\RateLimiterFactory;
-use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 use Symfony\Component\Uid\Uuid;
 
@@ -297,15 +296,41 @@ final class BridgeHeartbeatApiTest extends WebTestCase
     }
 
     /** The shipped limiter takes 60 heartbeats from one token in a minute and refuses the 61st. */
-    public function test_the_shipped_limit_allows_sixty_heartbeats_a_minute_per_token(): void
+    public function test_the_shipped_limit_refuses_the_sixty_first_heartbeat_of_a_token(): void
     {
-        static::createClient();
-        $factory = static::getContainer()->get('limiter.agent_bridge_heartbeats');
-        self::assertInstanceOf(RateLimiterFactoryInterface::class, $factory);
-        $limiter = $factory->create('heartbeat-capacity-'.Uuid::v4());
+        $client = static::createClient();
+        $client->disableReboot();
+        $em = $this->em();
+        $raw = $this->agentToken($em, $this->user($em, 'heartbeat-capacity@example.com'));
+        $body = ['projects' => [], 'cliVersion' => 'b4e39aa7'];
 
-        self::assertTrue($limiter->consume(60)->isAccepted());
-        self::assertFalse($limiter->consume()->isAccepted());
+        for ($heartbeat = 1; $heartbeat <= 60; ++$heartbeat) {
+            $this->put($client, (string) Uuid::v4(), $raw, $body);
+            self::assertResponseStatusCodeSame(204, 'heartbeat '.$heartbeat);
+        }
+
+        $this->put($client, (string) Uuid::v4(), $raw, $body);
+        self::assertResponseStatusCodeSame(429);
+        self::assertTrue($client->getResponse()->headers->has('Retry-After'));
+    }
+
+    /** The limiter runs before the payload is mapped, so a flood of invalid bodies still spends the budget. */
+    public function test_the_limit_answers_before_the_body_is_validated(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        static::getContainer()->set('limiter.agent_bridge_heartbeats', new RateLimiterFactory(
+            ['id' => 'agent_bridge_heartbeats', 'policy' => 'fixed_window', 'limit' => 1, 'interval' => '1 minute'],
+            new InMemoryStorage(),
+        ));
+        $em = $this->em();
+        $raw = $this->agentToken($em, $this->user($em, 'heartbeat-limit-order@example.com'));
+
+        $this->put($client, (string) Uuid::v4(), $raw, ['projects' => 'loupe']);
+        self::assertResponseStatusCodeSame(422);
+
+        $this->put($client, (string) Uuid::v4(), $raw, ['projects' => 'loupe']);
+        self::assertResponseStatusCodeSame(429);
     }
 
     /** @param array<string, mixed> $payload */

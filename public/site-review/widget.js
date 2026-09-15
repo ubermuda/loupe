@@ -2839,7 +2839,8 @@
             if (!stayed) setTargeting(false);
             state.addAnchor = stayed;
             sync();
-            if (!stayed && root.activeElement !== textareaNode) focusTextarea();
+            if (!stayed && root.activeElement !== textareaNode)
+                focusKeepingPick();
             return;
         }
         // The last chance to notice a page that swapped its marker after the
@@ -2859,10 +2860,7 @@
         if (!keepPicking) setTargeting(false);
         state.addAnchor = !!keepPicking;
         sync();
-        if (!keepPicking) {
-            keepPickThroughFocus();
-            focusTextarea();
-        }
+        if (!keepPicking) focusKeepingPick();
     };
     const openElementComposer = (el, keepPicking) =>
         addComposeAnchor(anchorFor(el), keepPicking);
@@ -2954,10 +2952,7 @@
         if (state.drawing) {
             setDrawing(false);
             sync();
-            if (state.composing) {
-                keepPickThroughFocus();
-                focusTextarea();
-            }
+            if (state.composing) focusKeepingPick();
             return;
         }
         if (state.editId != null) return;
@@ -3075,7 +3070,7 @@
         setTargeting(false);
         sync();
         if (state.composing && root.activeElement !== textareaNode)
-            focusTextarea();
+            focusKeepingPick();
     };
     // Re-open the composer pre-filled to edit an existing comment in place. The anchors
     // are preserved and rebuilt from storage; only the body is editable.
@@ -3927,27 +3922,24 @@
         commentOnSelection();
     });
 
-    // A page that reviews text of its own opts out: its own selection UI owns
-    // the selection there.
     // A transient mode ends by focusing the composer, and that focus collapses
-    // the page selection. Ten call sites focus the textarea and only these two
-    // promise the offer back, so the mode arms this on its way out instead of
-    // `readSelection` trying to infer which one it was: at event time every
-    // call site looks the same.
+    // the page selection. Many call sites focus the textarea and only the mode
+    // exits promise the offer back, so an exit marks the collapse as its own
+    // instead of `readSelection` trying to infer which one it was: at event time
+    // every call site looks the same.
+    let collapseOwed = false;
     let restoringPick = false;
-    const keepPickThroughFocus = () => {
-        if (!state.quotePick) return;
-        restoringPick = true;
-        // A focus move that collapses nothing raises no selectionchange, so the
-        // arm expires rather than wait for an event that never comes. Two
-        // frames, because the handler's own frame is queued before this one.
-        requestAnimationFrame(() =>
-            requestAnimationFrame(() => {
-                restoringPick = false;
-            }),
-        );
+    const focusKeepingPick = () => {
+        const selection = document.getSelection();
+        const live = !!state.quotePick && !!selection && !selection.isCollapsed;
+        focusTextarea();
+        // Armed only on a collapse seen here, so its selectionchange is owed and
+        // the arm needs no expiry. The event can land after any number of frames.
+        collapseOwed = live && selection.isCollapsed;
     };
 
+    // A page that reviews text of its own opts out: its own selection UI owns
+    // the selection there.
     const quotesOff = (node) => {
         const element = node.nodeType === 1 ? node : node.parentElement;
         return (
@@ -3962,11 +3954,9 @@
     // selectionchange rather than mouseup, so a keyboard selection reaches it.
     const readSelection = () => {
         const selection = document.getSelection();
-        // The mode we just left armed this, so keep the pick it promised to
-        // restore. Honoured once: a later collapse is the reviewer's own.
-        //
-        // A reviewer who clears their selection leaves no range at all, which
-        // is what tells that apart from our own focus move, which leaves one.
+        // The owed collapse of the mode we just left armed this, so keep the pick
+        // that mode promised back. Honoured once. A reviewer who clears their
+        // selection leaves no range at all, and our own focus move leaves one.
         if (restoringPick) {
             restoringPick = false;
             if (selection && selection.isCollapsed && selection.rangeCount > 0)
@@ -3992,12 +3982,23 @@
     };
     let selectionFrame = 0;
     document.addEventListener('selectionchange', () => {
+        if (collapseOwed) {
+            collapseOwed = false;
+            restoringPick = true;
+        }
         if (selectionFrame) return;
         selectionFrame = requestAnimationFrame(() => {
             selectionFrame = 0;
             readSelection();
         });
     });
+    // A browser that collapses without a selectionchange would leave the arm up
+    // for the reviewer's next collapse. Their next press drops it first.
+    const dropOwedCollapse = () => {
+        collapseOwed = false;
+    };
+    window.addEventListener('pointerdown', dropOwedCollapse, true);
+    window.addEventListener('keydown', dropOwedCollapse, true);
 
     textareaNode.addEventListener('input', (event) => {
         state.draft = event.target.value;
@@ -4076,7 +4077,7 @@
             if (state.drawing) {
                 setDrawing(false);
                 sync();
-                if (state.composing) focusTextarea();
+                if (state.composing) focusKeepingPick();
                 return;
             }
             if (state.composing) {

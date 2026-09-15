@@ -21,7 +21,7 @@ final readonly class HeartbeatInterval
     public function __construct(
         private FeatureFlagService $featureFlags,
 
-        #[Autowire(param: 'app.bridge.heartbeat_interval_seconds')]
+        #[Autowire(param: 'app.bridge.default_heartbeat_interval_seconds')]
         private int $default,
     ) {
     }
