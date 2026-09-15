@@ -27,6 +27,7 @@ func finishedRun() WorkerRun {
 
 	return WorkerRun{
 		BridgeID:   "0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90",
+		SessionID:  "5f0c2b1e-8d4a-4c3b-9e2f-1a0b3c4d5e6f",
 		CardID:     "0199a0e2-b1f3-7a44-9c11-2d3e4f506172",
 		CardNumber: 42,
 		RuleName:   "plan",
@@ -62,6 +63,7 @@ func TestReportWorkerRunPostsTheRun(t *testing.T) {
 	}
 	for field, want := range map[string]any{
 		"bridgeId":      "0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90",
+		"sessionId":     "5f0c2b1e-8d4a-4c3b-9e2f-1a0b3c4d5e6f",
 		"cardId":        "0199a0e2-b1f3-7a44-9c11-2d3e4f506172",
 		"cardNumber":    float64(42),
 		"ruleName":      "plan",

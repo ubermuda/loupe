@@ -31,13 +31,27 @@ type EventsProject struct {
 	Name string `json:"name"`
 }
 
+// InboxFlag is the flag that switches the inbox on.
+const InboxFlag = "inbox.enabled"
+
 // Events is the response of GET /api/events: the hub, the caller's own topic,
-// a subscriber JWT for that topic, and the projects whose events arrive on it.
+// a subscriber JWT for that topic, the projects whose events arrive on it, and
+// the feature flags the server shares with a bridge.
 type Events struct {
 	HubURL   string          `json:"hubUrl"`
 	JWT      string          `json:"jwt"`
 	Topic    string          `json:"topic"`
 	Projects []EventsProject `json:"projects"`
+	// Flags holds values of several types. A server older than the map sends
+	// none, and every flag then reads as off.
+	Flags map[string]any `json:"flags"`
+}
+
+// Enabled reports whether the server sent the flag name as the boolean true.
+func (e Events) Enabled(name string) bool {
+	on, ok := e.Flags[name].(bool)
+
+	return ok && on
 }
 
 // maxBody caps a success body the client decodes. A columns or sites list is
@@ -351,6 +365,7 @@ func (c *Client) Sites(ctx context.Context) ([]Site, error) {
 // both or neither.
 type WorkerRun struct {
 	BridgeID      string    `json:"bridgeId"`
+	SessionID     string    `json:"sessionId"`
 	CardID        string    `json:"cardId"`
 	CardNumber    int       `json:"cardNumber"`
 	RuleName      string    `json:"ruleName"`
