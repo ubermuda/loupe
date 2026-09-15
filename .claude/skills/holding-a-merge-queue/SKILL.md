@@ -42,6 +42,8 @@ while true; do
                elif length == 0 then "none" else "running" end' <<<"$out") ;;
       *) c=unread ;;
     esac
+    m=$(jq -r --argjson p "$pr" '.[]|select(.number==$p)|.mergeStateStatus' <<<"$prs")
+    if [ "$m" = UNKNOWN ]; then grep "^#$pr " "$prev" >> "$cur" && continue; fi
     jq -r --argjson p "$pr" --arg c "$c" '.[]|select(.number==$p)
       | "#\(.number) head=\(.headRefOid[0:8]) base=\(.baseRefName) draft=\(.isDraft) checks=\($c)"
         + " merge=\(if .mergeStateStatus=="DIRTY" or .mergeStateStatus=="BEHIND" then .mergeStateStatus else "-" end)"
@@ -70,6 +72,10 @@ green does not count.
 attached, and with a capital when one is. Keep the match on both if you change
 the script, or every stacked pull request reads `unread`. A failed GitHub read
 prints a line, so a broken monitor is not silent.
+
+GitHub reports `mergeStateStatus` as `UNKNOWN` while it recomputes after `main`
+moves. The script keeps the previous line for that pull request, or every merge
+prints each open pull request twice.
 
 Write the monitor's task id in the state file. Stop it only when the owner says
 so, or when you wind the queue down. Start a new one each time you take the
