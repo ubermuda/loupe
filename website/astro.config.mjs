@@ -80,6 +80,7 @@ export default defineConfig({
             { slug: 'using/mcp' },
             { slug: 'using/site-review' },
             { slug: 'using/board' },
+            { slug: 'using/inbox' },
             { slug: 'using/worker-runs' },
             { slug: 'using/admin' },
             { slug: 'using/data-exports' },
@@ -117,6 +118,7 @@ export default defineConfig({
             { slug: 'reference/environment' },
             { slug: 'reference/commands' },
             { slug: 'reference/worker-runs' },
+            { slug: 'reference/bridge-heartbeat' },
           ],
         },
         {
@@ -127,6 +129,7 @@ export default defineConfig({
             { slug: 'contributing/development' },
             { slug: 'contributing/architectural-priorities' },
             { slug: 'contributing/worktrees' },
+            { slug: 'contributing/lifecycle' },
           ],
         },
         { label: 'Troubleshooting', slug: 'troubleshooting' },

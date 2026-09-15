@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Module\SiteReview\Command;
 
 use App\Mercure\UserTopicBuilder;
+use App\Module\Bridge\Service\HeartbeatInterval;
 use App\Module\Project\Repository\ProjectRepository;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Mercure\Jwt\TokenFactoryInterface;
+use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
 final readonly class ShowEventsHandler
 {
@@ -17,9 +19,13 @@ final readonly class ShowEventsHandler
      */
     private const int JWT_TTL_SECONDS = 3600;
 
+    private const string INBOX_FLAG = 'inbox.enabled';
+
     public function __construct(
         private ProjectRepository $projects,
         private UserTopicBuilder $userTopics,
+        private FeatureFlagService $featureFlags,
+        private HeartbeatInterval $heartbeatInterval,
 
         #[Autowire(service: 'mercure.hub.default.jwt.factory')]
         private TokenFactoryInterface $tokenFactory,
@@ -43,6 +49,20 @@ final readonly class ShowEventsHandler
             ),
             topic: $topic,
             projects: $this->projects->findByOwner($command->user),
+            flags: $this->sharedFlags(),
         );
+    }
+
+    /**
+     * The only flags an agent token reads. Any other flag stays on the server.
+     *
+     * @return array<string, bool|int>
+     */
+    private function sharedFlags(): array
+    {
+        return [
+            self::INBOX_FLAG => $this->featureFlags->isEnabled(self::INBOX_FLAG),
+            HeartbeatInterval::FLAG => $this->heartbeatInterval->seconds(),
+        ];
     }
 }

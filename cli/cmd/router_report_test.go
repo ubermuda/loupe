@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/ubermuda/loupe/cli/internal/api"
-	"github.com/ubermuda/loupe/cli/internal/report"
+	"github.com/ubermuda/loupe/cli/internal/outbound"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 )
 
@@ -23,7 +23,7 @@ func (h *harness) reports(t *testing.T) chan reported {
 	t.Helper()
 
 	sent := make(chan reported, 16)
-	q := report.New(context.Background(), h.router.log, func(_ context.Context, handle string, run api.WorkerRun) (bool, error) {
+	q := outbound.New(context.Background(), h.router.log, func(_ context.Context, handle string, run api.WorkerRun) (bool, error) {
 		sent <- reported{handle: handle, run: run}
 
 		return true, nil
@@ -59,6 +59,24 @@ func TestEachFinishedRunReachesLoupe(t *testing.T) {
 	}
 	if got.run.EndedAt.Before(got.run.StartedAt) {
 		t.Fatalf("ended %v before it started %v, and the server refuses that", got.run.EndedAt, got.run.StartedAt)
+	}
+}
+
+// The report names the session the worker ran as, so Loupe can find the card of
+// a session later.
+func TestTheReportCarriesTheWorkersSessionID(t *testing.T) {
+	h := newHarness(t)
+	sent := h.reports(t)
+
+	h.send(movedPayload(87, "backlog", "next", "human"))
+
+	got := <-sent
+	calls := h.worker.recorded()
+	if len(calls) != 1 || calls[0].sessionID == "" {
+		t.Fatalf("workers = %+v", calls)
+	}
+	if got.run.SessionID != calls[0].sessionID {
+		t.Fatalf("session id = %q, want %q", got.run.SessionID, calls[0].sessionID)
 	}
 }
 
