@@ -34,6 +34,7 @@ The bridge authenticates with an account-level API token that carries the agent
 scope. Mint one at `/account`. It reaches `GET /api/projects`, `GET /api/events`,
 `GET /api/projects/{handle}/board/columns`,
 `POST /api/projects/{handle}/worker-runs`,
+`GET /api/projects/{handle}/inbox/asks/{askId}`,
 `PUT /api/projects/{handle}/bridges/{bridgeId}/rules` and
 `PUT /api/bridges/{bridgeId}/heartbeat`, and no other endpoint.
 The worker runs endpoint records a finished worker run, and the
@@ -211,6 +212,40 @@ The event carries ids only. The agent reads the answers through the MCP tools.
 An ask with no bridge, such as one from an interactive session, writes no event.
 An ask that holds no blocking item closes at once and writes no event either.
 Each ask closes once, so it writes the event at most once.
+
+## Ask check endpoint
+
+`GET /api/projects/{handle}/inbox/asks/{askId}` tells the bridge whether an ask
+closed and whether its session already read every item. It serves the resume
+action that a later bridge release adds, which checks the ask before it resumes
+a session. When `allRead` is `true`, the session read its answers while it
+still ran, and a resume has nothing to do. The handle follows the same rules
+as the columns endpoint, and `askId` is the `subject.id` of the event.
+
+```json
+{ "askId": "01a0a1b2-0000-7c3d-8e4f-5a6b7c8d9e0f", "closed": true, "allRead": false }
+```
+
+| Field | Meaning |
+|---|---|
+| `askId` | the ask the path names |
+| `closed` | `true` when every blocking item of the ask is closed |
+| `allRead` | `true` when the session that asked read every item of the ask after it closed |
+
+A read counts only when the agent passes its own session id as
+`readerSessionId` to `inbox_list` or `inbox_get`. See
+[MCP](../using/mcp.md). An open ask always reads `"allRead": false`, because
+Loupe records no read before the ask closes.
+
+| Status | Body | When |
+|---|---|---|
+| 200 | the object above | the user owns the project and the project holds the ask |
+| 401 | | the request carries no token |
+| 403 | `{"error":"insufficient_scope"}` | the token has no agent scope, such as a widget token |
+| 404 | `{"error":"project_not_found"}` | the user has no project with that handle, and another user's project counts as none |
+| 404 | `{"error":"ask_not_found"}` | the project holds no ask with that id, and an ask of another project counts as none |
+| 404 | | the inbox is switched off on the instance, or `askId` is not a uuid |
+| 429 | | more than 60 checks in one minute from one token |
 
 ## Columns endpoint
 

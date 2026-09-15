@@ -36,6 +36,11 @@ framework:
         agent_worker_runs:
             <<: *agent_per_token
 
+        # Bounds the bridge's ask checks, a GET. A bridge checks once before
+        # each resume, and a resume follows a finished worker.
+        agent_inbox_ask_checks:
+            <<: *agent_per_token
+
         # Bounds bridge heartbeats. Several bridges can share a token, and each
         # posts once a minute at the default interval.
         agent_bridge_heartbeats:

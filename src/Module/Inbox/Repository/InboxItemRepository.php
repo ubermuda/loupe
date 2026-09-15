@@ -327,24 +327,56 @@ class InboxItemRepository extends ServiceEntityRepository
     }
 
     /**
-     * Copies onto the entity the columns that decide which response the item
-     * takes, as stored now, whatever the loaded entity holds.
+     * Copies onto each entity every column that can change, as stored now. A
+     * query hydrates no fresh copy of an entity already managed, and refresh()
+     * would also reload the readonly columns, which Doctrine refuses.
+     *
+     * @param list<InboxItem> $items
      */
-    public function reloadMutableColumns(InboxItem $item): void
+    public function reloadChangeableColumns(array $items): void
     {
-        /** @var array{state: InboxItemState, closedAt: ?\DateTimeImmutable, options: list<string>, multiple: bool, freeText: bool} $row */
-        $row = $this->createQueryBuilder('i')
-            ->select('i.state, i.closedAt, i.options, i.multiple, i.freeText')
-            ->andWhere('i.id = :id')
-            ->setParameter('id', $item->id, UuidType::NAME)
-            ->getQuery()
-            ->getSingleResult();
+        if ([] === $items) {
+            return;
+        }
 
-        $item->state = $row['state'];
-        $item->closedAt = $row['closedAt'];
-        $item->options = $row['options'];
-        $item->multiple = $row['multiple'];
-        $item->freeText = $row['freeText'];
+        /** @var list<array{id: Uuid, title: string, body: ?string, blocking: bool, options: list<string>, multiple: bool, freeText: bool, state: InboxItemState, selectedOptions: list<int>, answerText: ?string, closeNote: ?string, updatedAt: \DateTimeImmutable, closedAt: ?\DateTimeImmutable}> $rows */
+        $rows = $this->createQueryBuilder('i')
+            ->select('i.id, i.title, i.body, i.blocking, i.options, i.multiple, i.freeText, i.state, i.selectedOptions, i.answerText, i.closeNote, i.updatedAt, i.closedAt')
+            ->andWhere('i IN (:items)')
+            ->setParameter('items', $items)
+            ->getQuery()
+            ->getArrayResult();
+
+        $byId = [];
+        foreach ($rows as $row) {
+            $byId[(string) $row['id']] = $row;
+        }
+
+        $unitOfWork = $this->getEntityManager()->getUnitOfWork();
+        foreach ($items as $item) {
+            $row = $byId[(string) $item->id] ?? null;
+            if (null === $row) {
+                continue;
+            }
+            $item->title = $row['title'];
+            $item->body = $row['body'];
+            $item->blocking = $row['blocking'];
+            $item->options = $row['options'];
+            $item->multiple = $row['multiple'];
+            $item->freeText = $row['freeText'];
+            $item->state = $row['state'];
+            $item->selectedOptions = $row['selectedOptions'];
+            $item->answerText = $row['answerText'];
+            $item->closeNote = $row['closeNote'];
+            $item->updatedAt = $row['updatedAt'];
+            $item->closedAt = $row['closedAt'];
+
+            // The snapshot moves with the copy, so a later flush writes no stored value back.
+            unset($row['id']);
+            foreach ($row as $property => $value) {
+                $unitOfWork->setOriginalEntityProperty(spl_object_id($item), $property, $value);
+            }
+        }
     }
 
     /**
