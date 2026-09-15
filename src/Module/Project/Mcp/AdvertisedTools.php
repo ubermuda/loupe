@@ -55,6 +55,12 @@ final class AdvertisedTools
         'card_search',
         'card_get',
         'card_update',
+        'inbox_ask',
+        'inbox_search',
+        'inbox_join',
+        'inbox_list',
+        'inbox_get',
+        'inbox_withdraw',
     ];
 
     /** @var list<array{name: string, descriptionKey: string}>|null */

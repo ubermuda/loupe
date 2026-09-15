@@ -2338,6 +2338,30 @@
                 <source>project.connect.tool.card_update</source>
                 <target>Change a card. Omitted fields keep their value, and moving a card to a terminal column stamps its completion time.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.inbox_ask">
+                <source>project.connect.tool.inbox_ask</source>
+                <target>Hand questions and to-dos to the project owner. The items go to the session's open ask, or to a new one, and each item gets a number.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.inbox_search">
+                <source>project.connect.tool.inbox_search</source>
+                <target>Search the inbox by words, over the title and the body of every item, closed ones included. Best match first, one page at a time.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.inbox_join">
+                <source>project.connect.tool.inbox_join</source>
+                <target>Add an open item that is already in the inbox to the session's ask, so one answer serves both.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.inbox_list">
+                <source>project.connect.tool.inbox_list</source>
+                <target>List the inbox items, newest first, filtered by state, ask, session, card or document. One page of summary rows at a time.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.inbox_get">
+                <source>project.connect.tool.inbox_get</source>
+                <target>Read one inbox item, with its answer and the cards, documents and asks it is linked to.</target>
+            </trans-unit>
+            <trans-unit id="project.connect.tool.inbox_withdraw">
+                <source>project.connect.tool.inbox_withdraw</source>
+                <target>Withdraw an open item that is no longer needed, with a reason the owner reads.</target>
+            </trans-unit>
 
             <!-- First-run wizard -->
             <trans-unit id="project.wizard.progress.step_1">
