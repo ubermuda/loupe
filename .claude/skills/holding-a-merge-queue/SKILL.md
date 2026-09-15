@@ -13,6 +13,51 @@ carries two things that only appear when a queue runs for hours across several
 sessions: reading check state without lying to yourself, and coordinating with
 peers who cannot see what you see.
 
+## Start a monitor when you take the queue
+
+Start a monitor before you do anything else with the queue. Peers push, the
+owner approves and checks finish while you wait, and no message tells you. A
+queue holder with no monitor sees each change only when it next looks.
+
+Use the `Monitor` tool with `persistent: true`, run from the main checkout, and
+this command:
+
+```bash
+.claude/skills/holding-a-merge-queue/scripts/queue-monitor.sh
+```
+
+It polls every open pull request once a minute. It prints one line for each pull
+request whose line changed, and one line for each pull request that left the open
+list. The first pass prints every open pull request, and that is your baseline.
+`ONCE=1` runs a single pass, which prints the whole queue once.
+
+A monitor line tells you where to look. Before you merge, run the bucket count
+and the approval-time check below on the current head.
+
+The script follows the counting rule. It prints `pass=N/N` only when every
+required check passed and no other bucket exists. `running` covers a pending
+check and a check that has not registered. `fail` covers a failed or a cancelled
+check. `none` means no required check exists, which is true of a stacked pull
+request and of a `CONFLICTING` one. `merge=BEHIND` next to `pass=N/N` means the
+green does not count.
+
+`gh` prints "no required checks reported" in lower case when no terminal is
+attached, and with a capital when one is. It prints "no checks reported" when no
+check has run at all, as on a pull request retargeted to `main` since its last
+push. A retarget starts no CI, so that pull request stays `none` until a push or
+a sync. Keep all four spellings if you change `scripts/queue-monitor.sh`, or those
+pull requests read `unread`. A failed GitHub read prints a line, so a broken
+monitor is not silent.
+
+GitHub reports `mergeStateStatus` as `UNKNOWN` while it recomputes after `main`
+moves. The script keeps the previous `merge=` value for that pull request, or
+every merge prints each open pull request twice. The head, checks and reviews
+are always fresh.
+
+Write the monitor's task id in the state file. Stop it only when the owner says
+so, or when you wind the queue down. Start a new one each time you take the
+queue.
+
 ## Read the checks by counting, never by absence
 
 ```bash
@@ -284,6 +329,7 @@ leaving it unmarked means a reader finds a dead recipe and runs it.
 
 ## Red flags
 
+- Holding the queue with no monitor running
 - About to merge because a PR "looks green" without running the bucket count
 - Reusing a saved conflict resolution after a head moved
 - Reporting a peer's finding you have not run
