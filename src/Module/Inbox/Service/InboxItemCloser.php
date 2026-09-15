@@ -128,12 +128,15 @@ final readonly class InboxItemCloser
     /** Why the item takes no response now, or null when it does. */
     private function refusal(InboxItem $item): ?string
     {
-        return match ($item->state) {
-            InboxItemState::Open => null,
-            InboxItemState::Withdrawn, InboxItemState::Obsolete => self::ERROR_CLOSED_BY_AGENT,
-            InboxItemState::Answered, InboxItemState::Done, InboxItemState::Declined => [] === $this->inboxAsks->findItemIdsHeldByClosedAsks([$item])
-                ? null
-                : self::ERROR_FINAL,
-        };
+        // The two calls that ignore the asks settle an open item and an agent's
+        // close with no query. Only a response the owner gave needs the asks.
+        if ($item->state->acceptsResponse(heldByClosedAsk: true)) {
+            return null;
+        }
+        if (!$item->state->acceptsResponse(heldByClosedAsk: false)) {
+            return self::ERROR_CLOSED_BY_AGENT;
+        }
+
+        return $item->state->acceptsResponse([] !== $this->inboxAsks->findItemIdsHeldByClosedAsks([$item])) ? null : self::ERROR_FINAL;
     }
 }

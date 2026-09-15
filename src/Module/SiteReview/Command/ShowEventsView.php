@@ -9,8 +9,8 @@ use App\Module\Project\Entity\Project;
 final readonly class ShowEventsView
 {
     /**
-     * @param list<Project>       $projects
-     * @param array<string, bool> $flags
+     * @param list<Project>           $projects
+     * @param array<string, bool|int> $flags
      */
     public function __construct(
         public string $hubUrl,

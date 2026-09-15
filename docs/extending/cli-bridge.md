@@ -33,11 +33,14 @@ once, with the rules that stop working.
 The bridge authenticates with an account-level API token that carries the agent
 scope. Mint one at `/account`. It reaches `GET /api/projects`, `GET /api/events`,
 `GET /api/projects/{handle}/board/columns`,
-`POST /api/projects/{handle}/worker-runs` and
-`PUT /api/projects/{handle}/bridges/{bridgeId}/rules`, and no other endpoint.
+`POST /api/projects/{handle}/worker-runs`,
+`PUT /api/projects/{handle}/bridges/{bridgeId}/rules` and
+`PUT /api/bridges/{bridgeId}/heartbeat`, and no other endpoint.
 The worker runs endpoint records a finished worker run, and the
-[Worker run API](../reference/worker-runs.md) page covers it. The rule health
-endpoint is below. A project's widget token carries a different scope and the
+[Worker run API](../reference/worker-runs.md) page covers it. The heartbeat
+endpoint records that the bridge runs, and the
+[Bridge heartbeat API](../reference/bridge-heartbeat.md) page covers it. The
+rule health endpoint is below. A project's widget token carries a different scope and the
 firewall refuses it here.
 
 The handle is a project id or a project slug. A project name does not resolve.
@@ -86,9 +89,11 @@ Loupe records a run against a card. A rule can name an event type that carries
 no card number, and the bridge logs `report_skipped` for such a run rather than
 sending it. That run has no record, and the log line is the only sign of it.
 
-The queue that carries those reports is held in memory. A failed send waits one
-second, then twice as long before each later attempt, up to sixty seconds. The
-bridge gives up after ten attempts and logs `report_failed`.
+Everything the bridge sends to Loupe goes through one outbound queue, held in
+memory. Each kind of item has its own delivery policy, and the kinds never wait
+on each other. Run reports go out in order. A failed send waits one second, then
+twice as long before each later attempt, up to sixty seconds. The bridge gives
+up after ten attempts and logs `report_failed`.
 
 Loupe keys a run by its project, its bridge, its card and the second it started.
 Two runs of one card that start inside the same second therefore count as one
@@ -101,6 +106,15 @@ bridge can report. So it gives each report one last attempt, in a window of five
 seconds. It logs `report_dropped` with the count of the reports that miss the
 window. A missing record therefore means "unknown", and never "the worker did
 not run".
+
+The bridge sends a heartbeat to `/api/bridges/{bridgeId}/heartbeat` once at
+start and then at the interval that `bridge.heartbeat_interval_seconds` gives,
+60 seconds by default. The heartbeat names the projects the rule file maps and
+the build of the bridge. The heartbeat has a latest-wins lane in the outbound
+queue. A newer heartbeat replaces one that has not gone out, and a failed one
+waits for the next interval. A slow or failing heartbeat never delays a run
+report. A server with no heartbeat endpoint answers 404, and the bridge logs
+`heartbeat_unsupported` once and keeps working.
 
 There is no terminal UI. The bridge writes one JSON object per line to stdout
 and to its log file, named by `--log-file`. Each line carries a stable `event`
@@ -123,16 +137,22 @@ project the token's user owns:
   "projects": [
     {"id": "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7", "slug": "my-app", "name": "My App"}
   ],
-  "flags": {"inbox.enabled": false}
+  "flags": {"inbox.enabled": false, "bridge.heartbeat_interval_seconds": 60}
 }
 ```
 
 `flags` holds the feature flags a bridge reads. The server lists a flag here
-only when its code names the flag, so no other flag reaches a token holder.
-Today the map holds `inbox.enabled`, which reads as `false` on an instance that
-holds no row for it. The bridge reads the map at start and again at each
-reconnect. A flag change therefore reaches a running bridge at its next
-reconnect.
+only when its code names the flag, so no other flag reaches a token holder. A
+value is a boolean or an integer, as the flag's type says. Today the map holds
+two flags:
+
+| Flag | Type | Value |
+|---|---|---|
+| `inbox.enabled` | boolean | `false` on an instance that holds no row for it |
+| `bridge.heartbeat_interval_seconds` | integer | the seconds between two heartbeats, 60 on an instance that holds no row for it. A stored value below 10 reads as 60 |
+
+The bridge reads the map at start and again at each reconnect. A flag change
+therefore reaches a running bridge at its next reconnect.
 
 `topic` is the user's own topic. The server publishes each event of a project on
 the project's topic and on its owner's topic. The JWT expires after an hour, and

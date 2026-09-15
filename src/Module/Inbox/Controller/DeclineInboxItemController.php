@@ -13,6 +13,7 @@ use App\Module\Inbox\Form\DeclineInboxItemFormType;
 use App\Module\Inbox\Form\DeclineInboxItemRequest;
 use App\Module\Inbox\Security\InboxItemVoter;
 use App\Module\Inbox\Service\InboxAvailability;
+use App\Module\Inbox\Service\InboxReturnTargetResolver;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -35,6 +36,7 @@ final class DeclineInboxItemController extends AppController
         private readonly DeclineInboxItemHandler $declineItem,
         private readonly FormFactoryInterface $formFactory,
         private readonly InboxAvailability $inbox,
+        private readonly InboxReturnTargetResolver $returnTargets,
         private readonly TranslatorInterface $translator,
     ) {
     }
@@ -44,12 +46,7 @@ final class DeclineInboxItemController extends AppController
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(itemId, projectId)')] InboxItem $item,
     ): Response {
         $this->inbox->requireEnabled();
-        // The page and the search the owner was on, kept on the way back.
-        $search = trim($request->query->getString('q'));
-        $pageQuery = [
-            ...($request->query->getInt('page', 1) > 1 ? ['page' => $request->query->getInt('page')] : []),
-            ...('' === $search ? [] : ['q' => $search]),
-        ];
+        $return = $this->returnTargets->resolve($request, $item);
 
         $data = new DeclineInboxItemRequest();
         $form = $this->formFactory->createNamed(DeclineInboxItemFormType::nameFor($item), DeclineInboxItemFormType::class, $data);
@@ -60,16 +57,15 @@ final class DeclineInboxItemController extends AppController
                 ($this->declineItem)(new DeclineInboxItemCommand($item, $data->closeNote ?? ''));
                 $this->addFlash('success', $this->translator->trans('inbox.flash.declined', ['%number%' => $item->number]));
 
-                return $this->redirectToRoute('app_project_inbox', ['id' => (string) $item->project->id, ...$pageQuery]);
+                return $this->redirectToRoute($return->route, $return->routeParameters);
             } catch (DomainErrors $e) {
                 $this->applyDomainErrors($form, $e);
             }
         }
 
-        return $this->forward(ShowInboxController::class, [
-            'id' => (string) $item->project->id,
-            'project' => $item->project,
+        return $this->forward($return->controller, [
+            ...$return->attributes,
             ShowInboxController::REFUSED_FORM => $form->createView(),
-        ], $pageQuery)->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
+        ], $return->query)->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 }
