@@ -30,6 +30,10 @@ final class ReportWorkerRunRequest
 
         #[Assert\NotBlank]
         #[Assert\Uuid]
+        public ?string $sessionId = null,
+
+        #[Assert\NotBlank]
+        #[Assert\Uuid]
         public ?string $cardId = null,
 
         #[Assert\NotNull]
@@ -109,6 +113,11 @@ final class ReportWorkerRunRequest
     public function bridgeId(): Uuid
     {
         return Uuid::fromString($this->bridgeId ?? throw new \LogicException('bridgeId is required after validation.'));
+    }
+
+    public function sessionId(): Uuid
+    {
+        return Uuid::fromString($this->sessionId ?? throw new \LogicException('sessionId is required after validation.'));
     }
 
     public function cardId(): Uuid

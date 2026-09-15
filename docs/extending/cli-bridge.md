@@ -5,7 +5,7 @@ description: "A Go binary that runs a Claude Code worker for each board event a 
 
 `cli/` holds a small Go binary that closes the loop: it watches your Loupe
 board and runs a non-interactive Claude Code worker for each event that a rule
-in your rule file matches. The worker is `claude -p -- <prompt>`. It reads the card
+in your rule file matches. The worker is `claude -p --session-id <uuid> -- <prompt>`, with a new session id for each worker. It reads the card
 through the MCP, prints its answer and exits. The bridge reports the exit code.
 Build it with `just cli-build`. See [`cli/README.md`](../../cli/README.md) for
 the commands, the flags and the rule format.
@@ -122,9 +122,17 @@ project the token's user owns:
   "topic": "https://loupe.example.com/users/0192f3a1-0000-7d3e-8f10-a2b3c4d5e6f7/events",
   "projects": [
     {"id": "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7", "slug": "my-app", "name": "My App"}
-  ]
+  ],
+  "flags": {"inbox.enabled": false}
 }
 ```
+
+`flags` holds the feature flags a bridge reads. The server lists a flag here
+only when its code names the flag, so no other flag reaches a token holder.
+Today the map holds `inbox.enabled`, which reads as `false` on an instance that
+holds no row for it. The bridge reads the map at start and again at each
+reconnect. A flag change therefore reaches a running bridge at its next
+reconnect.
 
 `topic` is the user's own topic. The server publishes each event of a project on
 the project's topic and on its owner's topic. The JWT expires after an hour, and
