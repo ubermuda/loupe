@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Security;
 
 use App\Module\Board\Entity\Card;
+use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
@@ -36,6 +37,7 @@ final class ProjectScopedSubjectTest extends KernelTestCase
         Card::class,
         Comment::class,
         Document::class,
+        InboxItem::class,
         Project::class,
         Series::class,
         SiteReviewComment::class,

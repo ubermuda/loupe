@@ -1,4 +1,4 @@
-package report
+package outbound
 
 import (
 	"bytes"
@@ -37,7 +37,7 @@ func (b *syncBuffer) String() string {
 // harness is a queue whose every wait returns at once, so a test waits for no
 // real second.
 type harness struct {
-	queue  *Retrying
+	queue  *Sender
 	log    *syncBuffer
 	sent   chan queued
 	cancel context.CancelFunc
@@ -141,6 +141,22 @@ func (h *harness) lines(t *testing.T, event string) []map[string]any {
 	return out
 }
 
+// waitFor waits until the log holds event. A send reaches h.sent before the
+// sender reads its answer, so a Close right after h.next can cancel the queue
+// first and turn a give-up into a shutdown.
+func (h *harness) waitFor(t *testing.T, event string) {
+	t.Helper()
+
+	deadline := time.After(5 * time.Second)
+	for len(h.lines(t, event)) == 0 {
+		select {
+		case <-deadline:
+			t.Fatalf("the log never held %s: %s", event, h.log.String())
+		case <-time.After(time.Millisecond):
+		}
+	}
+}
+
 const testHandle = "0192f3a1-4b2c-7d3e-8f10-a2b3c4d5e6f7"
 
 func run(card int) api.WorkerRun {
@@ -194,6 +210,7 @@ func TestQueueLogsAGiveUp(t *testing.T) {
 	for attempt := 1; attempt <= 3; attempt++ {
 		h.next(t, attempt)
 	}
+	h.waitFor(t, "report_failed")
 	h.queue.Close()
 
 	lines := h.lines(t, "report_failed")
@@ -211,6 +228,7 @@ func TestQueueStopsAtARefusedReport(t *testing.T) {
 
 	h.queue.Enqueue(testHandle, run(42))
 	h.next(t, 1)
+	h.waitFor(t, "report_failed")
 	h.queue.Close()
 
 	lines := h.lines(t, "report_failed")
@@ -348,4 +366,163 @@ func TestQueueTakesASecondClose(t *testing.T) {
 
 	h.queue.Close()
 	h.queue.Close()
+}
+
+// blockedHeartbeat is a latest-wins send that holds its lane until the test
+// releases it, then fails. It stands for a Loupe that does not answer.
+func blockedHeartbeat(started chan<- string, release <-chan struct{}, name string) func(context.Context) error {
+	return func(ctx context.Context) error {
+		started <- name
+		select {
+		case <-release:
+		case <-ctx.Done():
+		}
+
+		return fmt.Errorf("heartbeat %s: connection refused", name)
+	}
+}
+
+// A heartbeat that hangs and then fails holds its own lane only, so the reports
+// queued behind it still go out at once.
+func TestAStuckHeartbeatDoesNotDelayReports(t *testing.T) {
+	h := newHarness(t, 3)
+	started := make(chan string, 4)
+	release := make(chan struct{})
+	failed := make(chan error, 1)
+
+	h.queue.SendLatest("heartbeat", blockedHeartbeat(started, release, "a"), func(err error) { failed <- err })
+	if got := <-started; got != "a" {
+		t.Fatalf("started %q", got)
+	}
+	h.queue.Enqueue(testHandle, run(1))
+	h.queue.Enqueue(testHandle, run(2))
+
+	for attempt := 1; attempt <= 2; attempt++ {
+		if got := h.next(t, attempt); got.run.CardNumber != attempt {
+			t.Fatalf("attempt %d sent card %d", attempt, got.run.CardNumber)
+		}
+	}
+
+	close(release)
+	select {
+	case err := <-failed:
+		if err == nil || !strings.Contains(err.Error(), "connection refused") {
+			t.Fatalf("done got %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the heartbeat never reported its failure")
+	}
+}
+
+// A heartbeat that has not gone out is replaced by a newer one. The replaced one
+// is never sent and never reported, and a failed one is not sent again.
+func TestANewerHeartbeatReplacesAPendingOne(t *testing.T) {
+	h := newHarness(t, 3)
+	started := make(chan string, 4)
+	release := make(chan struct{})
+	var mu sync.Mutex
+	var reported []string
+	done := func(name string) func(error) {
+		return func(error) {
+			mu.Lock()
+			defer mu.Unlock()
+			reported = append(reported, name)
+		}
+	}
+
+	h.queue.SendLatest("heartbeat", blockedHeartbeat(started, release, "a"), done("a"))
+	<-started
+	h.queue.SendLatest("heartbeat", blockedHeartbeat(started, release, "b"), done("b"))
+	h.queue.SendLatest("heartbeat", blockedHeartbeat(started, release, "c"), done("c"))
+	close(release)
+
+	if got := <-started; got != "c" {
+		t.Fatalf("the lane sent %q after the first heartbeat, want the newest", got)
+	}
+	deadline := time.After(5 * time.Second)
+	for {
+		mu.Lock()
+		n := len(reported)
+		mu.Unlock()
+		if n == 2 {
+			break
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("reported = %v", reported)
+		case <-time.After(5 * time.Millisecond):
+		}
+	}
+	h.queue.Close()
+
+	select {
+	case got := <-started:
+		t.Fatalf("the lane sent %q again", got)
+	default:
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if strings.Join(reported, ",") != "a,c" {
+		t.Fatalf("reported = %v, want a then c", reported)
+	}
+}
+
+// A shutdown gives the reports their last attempt as before, and a heartbeat that
+// hangs on the network neither holds the shutdown nor reaches its callback.
+func TestShutdownDrainsReportsWhileAHeartbeatHangs(t *testing.T) {
+	h := newHarness(t, 3)
+	started := make(chan string, 4)
+	never := make(chan struct{})
+	h.queue.SendLatest("heartbeat", blockedHeartbeat(started, never, "a"), func(err error) {
+		t.Errorf("a heartbeat still sending when Close began reported %v", err)
+	})
+	<-started
+
+	h.cancel()
+	h.queue.Enqueue(testHandle, run(1))
+	h.queue.Enqueue(testHandle, run(2))
+	closed := make(chan struct{})
+	go func() {
+		h.queue.Close()
+		close(closed)
+	}()
+
+	for attempt := 1; attempt <= 2; attempt++ {
+		h.next(t, attempt)
+	}
+	select {
+	case <-closed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Close waited on the hanging heartbeat")
+	}
+	if lines := h.lines(t, "report_dropped"); len(lines) != 0 {
+		t.Fatalf("report_dropped = %v, want the shutdown to have delivered both", lines)
+	}
+}
+
+// A closed queue opens no lane, so an item of a new key never runs and no
+// goroutine outlives Close.
+func TestAClosedQueueOpensNoLane(t *testing.T) {
+	h := newHarness(t, 1)
+	h.queue.Close()
+	ran := make(chan struct{}, 1)
+
+	h.queue.SendLatest("after-close", func(context.Context) error {
+		ran <- struct{}{}
+
+		return nil
+	}, nil)
+
+	h.queue.mu.Lock()
+	_, opened := h.queue.lanes["after-close"]
+	h.queue.mu.Unlock()
+	if opened {
+		t.Fatal("a closed queue opened a lane")
+	}
+	h.queue.laneWG.Wait()
+	select {
+	case <-ran:
+		t.Fatal("a closed queue ran the send")
+	default:
+	}
 }
