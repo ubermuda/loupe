@@ -62,6 +62,24 @@ func TestEachFinishedRunReachesLoupe(t *testing.T) {
 	}
 }
 
+// The report names the session the worker ran as, so Loupe can find the card of
+// a session later.
+func TestTheReportCarriesTheWorkersSessionID(t *testing.T) {
+	h := newHarness(t)
+	sent := h.reports(t)
+
+	h.send(movedPayload(87, "backlog", "next", "human"))
+
+	got := <-sent
+	calls := h.worker.recorded()
+	if len(calls) != 1 || calls[0].sessionID == "" {
+		t.Fatalf("workers = %+v", calls)
+	}
+	if got.run.SessionID != calls[0].sessionID {
+		t.Fatalf("session id = %q, want %q", got.run.SessionID, calls[0].sessionID)
+	}
+}
+
 // A worker that never started is the run the bridge alone can report. It sends
 // no exit code, because none exists, and says why instead.
 func TestAWorkerThatNeverRanIsStillReported(t *testing.T) {

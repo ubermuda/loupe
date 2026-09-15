@@ -26,6 +26,8 @@ use Symfony\Component\Uid\Uuid;
 // migration creates it USING gin. flags: ['gin'] would make the comparator emit
 // a DROP plus a plain CREATE INDEX, downgrading it to a B-tree that @@ never uses.
 #[ORM\Index(name: 'idx_bridge_worker_runs_search_vector', columns: ['search_vector'])]
+// A resume finds the card of a session through its run.
+#[ORM\Index(name: 'idx_bridge_worker_runs_session', columns: ['session_id'])]
 #[ORM\Table(name: 'bridge_worker_runs')]
 // The bridge retries a report whose response it never saw, so the natural key
 // of a run is what stops the retry writing a second row. One bridge cannot
@@ -64,6 +66,10 @@ class WorkerRun
         /** The bridge that ran the work. An opaque scalar: no table holds a bridge. */
         #[ORM\Column(name: 'bridge_id', type: UuidType::NAME)]
         public readonly Uuid $bridgeId,
+
+        /** The claude session the worker ran as. The bridge generates it when it starts the worker. */
+        #[ORM\Column(name: 'session_id', type: UuidType::NAME)]
+        public readonly Uuid $sessionId,
 
         /** A scalar, never a foreign key, so a deleted card leaves its run history intact. */
         #[ORM\Column(name: 'card_id', type: UuidType::NAME)]

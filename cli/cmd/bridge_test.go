@@ -142,6 +142,8 @@ type fakeLoupe struct {
 	hubTopics   [][]string
 	sse         string
 	reports     []string
+	// flags is the raw flags object GET /api/events sends. Empty sends none.
+	flags string
 }
 
 const (
@@ -166,7 +168,11 @@ func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
 		if n == 1 {
 			projects += fmt.Sprintf(`,{"id":%q,"slug":"other","name":"Other"}`, otherProject)
 		}
-		fmt.Fprintf(w, `{"hubUrl":"http://%s/hub","jwt":"jwt-%d","topic":%q,"projects":[%s]}`, r.Host, n, userTopic, projects)
+		flags := ""
+		if f.flags != "" {
+			flags = `,"flags":` + f.flags
+		}
+		fmt.Fprintf(w, `{"hubUrl":"http://%s/hub","jwt":"jwt-%d","topic":%q,"projects":[%s]%s}`, r.Host, n, userTopic, projects, flags)
 	case "/hub":
 		f.mu.Lock()
 		f.hubAuth = append(f.hubAuth, r.Header.Get("Authorization"))
