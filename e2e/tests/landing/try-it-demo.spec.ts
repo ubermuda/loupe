@@ -17,9 +17,6 @@ import {
 test.use({
     storageState: { cookies: [], origins: [] },
     viewport: { width: 1440, height: 900 },
-    // Playwright's retry scroll is animated on a smooth-scrolling page, so a
-    // click can land after its target moves. Reduced motion makes it instant.
-    contextOptions: { reducedMotion: 'reduce' },
 });
 
 const MARGIN = '[data-comment-anchor-target="margin"]';
@@ -39,6 +36,11 @@ test.beforeEach(async ({ request, page }) => {
     // Seeded off, so `/` redirects guests to /login until it is on.
     await setLandingFlag(request, true);
     await page.goto('/');
+    // Playwright's retry scroll obeys the page's smooth scrolling, so a click
+    // could land after its target moved. Instant scrolling closes that window.
+    await page.addStyleTag({
+        content: 'html { scroll-behavior: auto !important; }',
+    });
 });
 
 // The flag is global: left on, a later spec's signed-out user lands here

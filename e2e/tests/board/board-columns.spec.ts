@@ -18,9 +18,8 @@ const PASSWORD = 'E2eBoardColumns1!';
 
 const COLUMN = '[data-board-columns-target="column"]';
 
-// A column change waits on a locked write, the redirect and a full board render.
-// Under a loaded run those two requests take longer than the 5 s default.
-const ROUND_TRIP = { timeout: 15_000 };
+// Under a loaded run, the POST and the redirected GET take longer than the 5 s default.
+const ROUND_TRIP = { timeout: process.env.COVERAGE ? 20_000 : 15_000 };
 
 async function setBoardFlag(
     request: APIRequestContext,
