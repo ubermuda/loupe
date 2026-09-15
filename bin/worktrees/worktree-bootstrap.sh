@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Prepare a git worktree under .claude/worktrees/ so it is a fully browsable
+# Prepare a git worktree under .worktrees/ so it is a fully browsable
 # application in its own right — its own URL, its own database — and so its
 # gates (just ci) run against its own code, isolated from other worktrees.
 #
@@ -34,7 +34,7 @@ context="${2:-}"
 
 # Target resolution. With a NAME the target is explicit, so this can be run
 # from anywhere — in particular from the main checkout, which is where the
-# session is supposed to stay (CLAUDE.md, "The main session never moves into a
+# session is supposed to stay (AGENTS.md, "The main session never moves into a
 # worktree"). Without one it falls back to "whatever tree I am standing in",
 # which is what every caller used to have to arrange by cd-ing first.
 #
@@ -43,14 +43,18 @@ context="${2:-}"
 # current directory, and doing that from inside a worktree is the one thing
 # the project-worktrees skill says never to do.
 if [ -n "${1:-}" ]; then
-    root="$main/.claude/worktrees/$1"
+    root="$main/.worktrees/$1"
+    legacy_root="$main/.claude/worktrees/$1"
+    if git -C "$main" worktree list --porcelain | grep -qxF "worktree $legacy_root"; then
+        root=$legacy_root
+    fi
     if [ ! -d "$root" ]; then
-        echo "No worktree at .claude/worktrees/$1." >&2
-        echo "Create it first: git worktree add .claude/worktrees/$1 <branch>" >&2
+        echo "No worktree at .worktrees/$1." >&2
+        echo "Create it first: git worktree add .worktrees/$1 <branch>" >&2
         exit 1
     fi
     if ! git -C "$main" worktree list --porcelain | grep -qxF "worktree $root"; then
-        echo ".claude/worktrees/$1 exists but is not a registered git worktree." >&2
+        echo ".worktrees/$1 exists but is not a registered git worktree." >&2
         echo "If it is a leftover directory, remove it and re-add it." >&2
         exit 1
     fi
@@ -64,8 +68,9 @@ else
 fi
 
 case "$root" in
-    "$main"/.claude/worktrees/*) ;;
-    *) echo "Worktree is not under .claude/worktrees/ — refusing to bootstrap." >&2; exit 1 ;;
+    "$main"/.worktrees/*) worktree_depth=2 ;;
+    "$main"/.claude/worktrees/*) worktree_depth=3 ;;
+    *) echo "Worktree is not under .worktrees/ — refusing to bootstrap." >&2; exit 1 ;;
 esac
 
 # Sourced relative to THIS script, so the helper always comes from the same
@@ -165,10 +170,10 @@ for d in node_modules e2e/node_modules; do
     [ -e "$root/$d" ] && continue
     [ -e "$main/$d" ] || continue
     mkdir -p "$(dirname "$root/$d")"
-    # A worktree lives at <main>/.claude/worktrees/<name> — 3 levels up to the
-    # main root, plus one more ../ per extra path segment in the worktree name
+    # A worktree lives below its worktree root and name. Legacy worktrees have
+    # one extra `.claude` segment. Add one more ../ per nested name segment
     # (a nested foo/bar sits one deeper) and per extra segment in $d.
-    depth=$(( 3 + $(printf '%s' "$name" | tr -cd '/' | wc -c) + $(printf '%s' "$d" | tr -cd '/' | wc -c) ))
+    depth=$(( worktree_depth + $(printf '%s' "$name" | tr -cd '/' | wc -c) + $(printf '%s' "$d" | tr -cd '/' | wc -c) ))
     prefix=$(printf '../%.0s' $(seq 1 "$depth"))
     ln -s "${prefix}${d}" "$root/$d"
 done
@@ -188,11 +193,10 @@ if [ -d "$main/var/tailwind" ]; then
         version=$(basename "$bindir")
         [ -e "$root/var/tailwind/$version" ] && continue
         # Up out of var/tailwind (2), then out of the worktree itself. A
-        # worktree sits 3 levels below main (.claude/worktrees/<name>) plus one
-        # more per extra segment in a nested name (foo/bar). Relative so the
-        # link also resolves inside the container, where the repo lives at a
-        # different absolute path.
-        tw_depth=$(( 2 + 3 + $(printf '%s' "$name" | tr -cd '/' | wc -c) ))
+        # Add the worktree depth and each extra segment in a nested name. The
+        # relative link also resolves inside the container, where the repo has
+        # a different absolute path.
+        tw_depth=$(( 2 + worktree_depth + $(printf '%s' "$name" | tr -cd '/' | wc -c) ))
         tw_prefix=$(printf '../%.0s' $(seq 1 "$tw_depth"))
         ln -s "${tw_prefix}var/tailwind/$version" "$root/var/tailwind/$version"
     done

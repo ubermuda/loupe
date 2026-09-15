@@ -28,7 +28,7 @@ Rector violations will fail `ci` with nothing having been fixed.
 ## Conventions
 
 Loupe follows a set of project conventions (module layout, the command + handler
-pattern, authorization voters, translations, and more). The `.claude/skills/`
+pattern, authorization voters, translations, and more). The `.agents/skills/`
 directory documents them in detail — please skim the relevant skill before
 working in an area. [Architectural priorities](architectural-priorities.md)
 ranks correctness, simplicity, performance and shipping speed, and says which

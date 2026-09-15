@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Remove a worktree under .claude/worktrees/<name> along with everything
+# Remove a worktree under .worktrees/<name> along with everything
 # bootstrap created for it: the nginx sidecar (and its Traefik route), the
 # per-worktree dev database, the test database, and the generated nginx config.
 #
@@ -13,7 +13,11 @@ set -euo pipefail
 
 name=${1:?usage: worktree-teardown.sh <name>}
 main=$(git worktree list --porcelain | awk '/^worktree /{print $2; exit}')
-root="$main/.claude/worktrees/$name"
+root="$main/.worktrees/$name"
+legacy_root="$main/.claude/worktrees/$name"
+if git -C "$main" worktree list --porcelain | grep -qxF "worktree $legacy_root"; then
+    root=$legacy_root
+fi
 
 # Sourced relative to THIS script, so the helper always comes from the same
 # checkout as the script running it (bootstrap runs from a worktree, teardown

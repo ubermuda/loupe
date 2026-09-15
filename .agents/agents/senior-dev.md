@@ -15,7 +15,7 @@ Use this strict order: correctness, then simplicity, then performance, then ship
 
 ## Instructions
 
-A dispatched agent inherits no instructions and no loaded skill. Before you touch a file, read the instruction files of the repository, such as `CLAUDE.md` or `AGENTS.md`, and follow them. Load each skill or instruction they name for the files you touch.
+A dispatched agent inherits no instructions and no loaded skill. Before you touch a file, read the repository instructions, such as `CLAUDE.md` or `AGENTS.md`, and follow them. Load each skill or instruction they name for the files you touch.
 
 ## How you work
 

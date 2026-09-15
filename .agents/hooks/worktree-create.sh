@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Claude Code WorktreeCreate hook: OWN the worktree, do not merely react to it.
+# WorktreeCreate compatibility hook: OWN the worktree, do not merely react to it.
 #
 # The event hands over a name and expects this script to produce the worktree
 # and print its absolute path as the last line of stdout. A non-zero exit or a
@@ -35,7 +35,7 @@ if [ -z "$name" ]; then
 fi
 
 # The name becomes a path segment and a branch, so refuse anything that could
-# climb out of .claude/worktrees/ or confuse git's ref parser.
+# climb out of .worktrees/ or confuse git's ref parser.
 case "$name" in
     /* | *..* | *' '* | -*)
         echo "worktree-create hook: refusing the worktree name '$name'." >&2
@@ -44,7 +44,7 @@ case "$name" in
 esac
 
 main=$(git -C "$cwd" worktree list --porcelain | awk '/^worktree /{print $2; exit}')
-root="$main/.claude/worktrees/$name"
+root="$main/.worktrees/$name"
 
 created_worktree=0
 created_branch=0

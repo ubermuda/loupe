@@ -3,7 +3,7 @@
 # Shared identifier derivation for the worktree tooling. Sourced by
 # worktree-bootstrap.sh and worktree-teardown.sh so both agree on every name.
 #
-# One input (the worktree's path under .claude/worktrees/) produces one slug,
+# One input (the worktree's path under .worktrees/) produces one slug,
 # and every artefact is derived from that slug:
 #
 #   hostname         <slug>.<base host>          e.g. my-branch.loupe.dev.localhost
@@ -39,11 +39,18 @@ worktree_db_token() {
     printf '%s' "${1//-/_}"
 }
 
-# The worktree's path relative to <main>/.claude/worktrees, so a nested
+# The worktree's path relative to <main>/.worktrees, so a nested
 # worktree (foo/bar) yields a single unambiguous slug (foo-bar).
 worktree_relative_name() {
     local root=$1 main=$2
-    printf '%s' "${root#"$main"/.claude/worktrees/}"
+    case "$root" in
+        "$main"/.worktrees/*) printf '%s' "${root#"$main"/.worktrees/}" ;;
+        "$main"/.claude/worktrees/*) printf '%s' "${root#"$main"/.claude/worktrees/}" ;;
+        *)
+            echo "Worktree is outside .worktrees/ and the legacy .claude/worktrees/ root: $root" >&2
+            return 1
+            ;;
+    esac
 }
 
 # Fails with a clear message rather than letting a bad slug reach Docker or
@@ -79,6 +86,7 @@ worktree_slug_index() {
     local main=$1 path rel slug
     git -C "$main" worktree list --porcelain | awk '/^worktree /{print $2}' | while read -r path; do
         case "$path" in
+            "$main"/.worktrees/*) ;;
             "$main"/.claude/worktrees/*) ;;
             *) continue ;;
         esac

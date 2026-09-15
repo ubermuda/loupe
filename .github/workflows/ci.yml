@@ -8,7 +8,7 @@ on:
 # Deliberately not path-filtered, unlike the docs deploy. These are required
 # checks: a filtered check never reports on a pull request it skipped, and a
 # pull request waiting for a report that will never arrive cannot be merged at
-# all. The local documentation-only carve-out in CLAUDE.md is about a human
+# all. The local documentation-only carve-out in AGENTS.md is about a human
 # waiting four minutes, which is not a cost a runner pays.
 concurrency:
   group: ci-${{ github.ref }}

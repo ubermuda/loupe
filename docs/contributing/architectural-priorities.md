@@ -24,7 +24,7 @@ practice, or when "leave it and note it" is a real answer.
 
 To escalate, name the severity, name the cost of the fix, and give a
 recommendation. The owner sets the bar. Reserve blocking language for what is
-unsafe to ship. [CLAUDE.md](../../CLAUDE.md) carries the longer version under
+unsafe to ship. [AGENTS.md](../../AGENTS.md) carries the longer version under
 "Recommendations and the quality bar".
 
 ## Performance has two states
@@ -76,7 +76,7 @@ acceptable response to a flaky test is a fix.
 stale decision submission, so a reviewer who submits against an old version gets
 an error and re-reads the block. Resolving the submission is faster for that
 reviewer, and it records a label they never clicked. The owner settled that call.
-[CLAUDE.md](../../CLAUDE.md) still lists it as an example of a judgement about
+[AGENTS.md](../../AGENTS.md) still lists it as an example of a judgement about
 rigour, to make the point that the owner makes such calls.
 
 ### Simplicity against performance

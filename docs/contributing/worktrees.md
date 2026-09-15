@@ -3,7 +3,7 @@ title: "Git worktrees"
 description: "Each worktree is a full application — its own URL, database and CSS."
 ---
 
-Worktrees live in `.claude/worktrees/` and are provisioned by name from the main
+Worktrees live in `.worktrees/` and are provisioned by name from the main
 checkout:
 
 ```sh
@@ -33,7 +33,7 @@ slug for exactly this reason.
 dies with the command:
 
 ```sh
-( cd .claude/worktrees/<name> && just worktree-up )
+( cd .worktrees/<name> && just worktree-up )
 ```
 
 ## Running tests in parallel
@@ -46,7 +46,7 @@ The e2e suite is the exception and cannot be parallelised — Mailpit is shared.
 ## Warm the cache before an e2e run
 
 ```sh
-( cd .claude/worktrees/<name> && bin/worktrees/compose-exec.sh bin/console cache:warmup )
+( cd .worktrees/<name> && bin/worktrees/compose-exec.sh bin/console cache:warmup )
 ```
 
 A run started against a cold `var/cache/dev`, or one whose cache is rebuilt

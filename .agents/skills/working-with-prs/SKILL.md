@@ -247,7 +247,7 @@ in the body, because it lands the reader on the login page and they must sign in
 by hand. Mint a signed link instead, from inside the worktree:
 
 ```bash
-( cd .claude/worktrees/<name> && bin/worktrees/compose-exec.sh \
+( cd .worktrees/<name> && bin/worktrees/compose-exec.sh \
     bin/console app:dev:preview-login-link --path=/projects )
 ```
 
@@ -383,7 +383,7 @@ diffing the fourth line, not by re-running.
 Warm its cache first:
 
 ```bash
-( cd .claude/worktrees/<name> && bin/worktrees/compose-exec.sh bin/console cache:warmup )
+( cd .worktrees/<name> && bin/worktrees/compose-exec.sh bin/console cache:warmup )
 ```
 
 This destroys that worktree's dev data. The suite's `install-reset` project

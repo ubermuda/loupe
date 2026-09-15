@@ -23,7 +23,9 @@
    skill cites `blur-[1.25rem]` as a value to convert, and that alone kept the
    utility alive after the last real use was gone. Documentation must not be a
    content source. */
+@source not "../../.agents";
 @source not "../../.claude";
+@source not "../../.worktrees";
 @source not "../../docs";
 
 /* ── Self-hosted fonts (variable, OFL — see ../fonts/LICENSE.txt) ─── */

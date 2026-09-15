@@ -3,6 +3,7 @@ vendor/
 var/
 tests/
 .claude/
+.worktrees/
 .phpunit.cache/
 .serena/
 e2e/

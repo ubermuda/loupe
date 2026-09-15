@@ -118,7 +118,7 @@ worktree-tailwind:
     bin/worktrees/compose-exec.sh bin/console tailwind:build --watch
 
 lint:
-    vendor/bin/parallel-lint --exclude vendor --exclude var --exclude node_modules --exclude .claude .
+    vendor/bin/parallel-lint --exclude vendor --exclude var --exclude node_modules --exclude .worktrees --exclude .claude .
     php bin/changelog.php --check
     npx prettier --check --log-level warn assets/ e2e/ public/site-review/ tests/js/
     npx eslint public/site-review/widget.js assets/controllers/

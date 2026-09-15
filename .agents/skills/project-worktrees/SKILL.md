@@ -1,6 +1,6 @@
 ---
 name: project-worktrees
-description: Use when creating, entering, debugging or removing a git worktree under `.claude/worktrees/`, when a worktree URL returns 404 or 502, or when writing tooling that resolves a worktree's hostname, database or container name.
+description: Use when creating, entering, debugging or removing a git worktree under `.worktrees/`, when a worktree URL returns 404 or 502, or when writing tooling that resolves a worktree's hostname, database or container name.
 ---
 
 # Git Worktrees
@@ -59,7 +59,7 @@ It rebuilds only a sheet that already exists. A missing sheet belongs to
 bootstrap, and leaving that case alone is what stops the two writing the same
 file at once.
 
-It globs `.claude/worktrees` rather than walking it, and a worktree name may
+It globs `.worktrees` rather than walking it, and a worktree name may
 carry up to two path segments. That limit is deliberate. A worktree holds a real
 `vendor/` of about 28,000 files, and `-path` filters what `find` prints rather
 than what it walks, so an exhaustive scan cost 13.8 seconds a pass and a pruned
@@ -97,19 +97,20 @@ never write the same file. Two watchers on **one** tree still race.
 
 ## The lifecycle runs itself
 
-`.claude/settings.json` registers two hooks, so a worktree arrives provisioned
-and leaves nothing behind.
+The Claude Code compatibility adapter in `.claude/settings.json` registers two
+hooks, so its worktrees arrive provisioned and leave nothing behind. Other
+harnesses can call the neutral scripts directly.
 
 | Hook | Script | Receives | Does |
 |---|---|---|---|
-| `WorktreeCreate` | `.claude/hooks/worktree-create.sh` | `name` | Creates the worktree, runs `worktree-bootstrap.sh`, prints the path |
-| `WorktreeRemove` | `.claude/hooks/worktree-remove.sh` | `worktree_path` | Runs `worktree-teardown.sh` with `WORKTREE_TEARDOWN_KEEP_TREE=1` |
+| `WorktreeCreate` | `.agents/hooks/worktree-create.sh` | `name` | Creates the worktree, runs `worktree-bootstrap.sh`, prints the path |
+| `WorktreeRemove` | `.agents/hooks/worktree-remove.sh` | `worktree_path` | Runs `worktree-teardown.sh` with `WORKTREE_TEARDOWN_KEEP_TREE=1` |
 
 The two events have different contracts. `WorktreeCreate` does not react to a
 worktree the harness made: it receives a *name*, produces the worktree itself,
 and prints its absolute path as the **last line of stdout**. A non-zero exit or a
 missing path fails the creation, so all other output goes to stderr. It puts the
-tree at `.claude/worktrees/<name>` on a branch of the same name, cut from `main`
+tree at `.worktrees/<name>` on a branch of the same name, cut from `main`
 rather than the current branch. If bootstrap fails it removes what it created
 before exiting non-zero, because a worktree that cannot run `just ci` is what the
 hook exists to remove, and an orphaned directory plus branch is a second problem.
@@ -124,7 +125,7 @@ something that predated the run?
 `WorktreeRemove` **cannot block**, because its exit code is only logged in debug
 mode. That script is best-effort and idempotent, and leaves `git worktree remove`
 to the harness so the two cannot race. `just worktree-down NAME` by hand removes
-the tree too. Both hooks ignore anything outside `.claude/worktrees/`. Hook
+the tree too. Both hooks ignore anything outside `.worktrees/`. Hook
 `timeout` is in seconds and defaults to 600, which these use; bootstrap must fit
 inside it.
 
@@ -140,7 +141,7 @@ Prefer the `NAME` form of every worktree command, and run it from the main
 checkout: `just worktree-up NAME`, `just worktree-down NAME`. `worktree-up` also
 accepts no argument and falls back to the tree you stand in, but that fallback is
 why sessions used to `cd` into a worktree, and a `cd` persists across later tool
-calls and moves the whole session (CLAUDE.md, "The main session never moves into
+calls and moves the whole session (AGENTS.md, "The main session never moves into
 a worktree"). Running from main is also correct by construction, because the bare
 `docker compose` calls inside the bootstrap script resolve their compose file
 from the current directory.
@@ -229,7 +230,11 @@ main checkout, so `replace_symbol_body` / `insert_*_symbol` / `replace_content`
 silently write there, which leaves your branch unchanged and the main tree dirty.
 Use Edit/Write. Serena **read** tools are safe from anywhere.
 
-## Subagents and the write binding
+## Claude Code write binding
+
+Other harnesses must bind each worker's writes and working directory to the
+same worktree, then verify both before editing. The details below document the
+Claude Code compatibility behavior.
 
 The Edit/Write binding is **single-valued per agent**, and depends on how the
 agent was launched.
@@ -249,11 +254,10 @@ you switch straight into a freshly created worktree; re-issue `EnterWorktree`
 until you get the first.
 
 Agents launched with `isolation: "worktree"` get their own binding and can write
-in parallel. Verified: the agent lands in `.claude/worktrees/agent-<id>` on its
-own branch, writes there freely, and is refused when writing into another
-worktree. The `WorktreeCreate` hook provisions it, so it is a full application
-from the start, not a bare `git worktree add`; if that hook is not registered,
-run `just worktree-up` yourself.
+in parallel. A harness that follows the neutral convention places the tree in
+`.worktrees/agent-<id>`. The `WorktreeCreate` hook provisions it, so it is a full
+application from the start, not a bare `git worktree add`. If the hook is not
+registered, run `just worktree-up` yourself.
 The name is harness-generated (`agent-<id>`, and the branch takes that name), so
 work that must land on a named branch has to be renamed and pushed deliberately.
 These worktrees are created **locked**, but `just worktree-down agent-<id>` still
@@ -385,7 +389,7 @@ bootstrap restores neither. Point the backend at the worktree host, then mint a
 local token and read the raw value from the output:
 
 ```bash
-( cd .claude/worktrees/<name> \
+( cd .worktrees/<name> \
   && bin/worktrees/compose-exec.sh bin/console app:dev:seed --reissue-widget-token )
 ```
 
@@ -414,8 +418,9 @@ while the widget, which is talking to production, still fails.
 - `just` claims `{{ }}`. To pass a Docker `--format` string through a recipe,
   write `'{{{{.Status}}'`. `{{{{` emits a literal `{{`, while `}}` needs no
   escaping.
-- Use relative symlinks, and count the depth. A worktree sits 3 levels below main
-  (`.claude/worktrees/<name>`), plus one per extra segment in a nested name.
+- Use relative symlinks, and count the depth. A worktree sits two levels below
+  main (`.worktrees/<name>`), plus one per extra segment in a nested name. A
+  legacy `.claude/worktrees/<name>` tree sits three levels below main.
   Links must be relative so they resolve both on the host and inside the
   container, where the repo lives at a different absolute path.
 
@@ -438,11 +443,11 @@ worktree" needs the worktree as its **cwd for that call only**, so wrap the `cd`
 in a subshell:
 
 ```sh
-( cd .claude/worktrees/<name> && just e2e )
+( cd .worktrees/<name> && just e2e )
 ```
 
 A bare `cd` persists across later tool calls and turns "run this one command
-there" into "move the session in", which CLAUDE.md forbids for the main session.
+there" into "move the session in", which AGENTS.md forbids for the main session.
 
 `E2E_BASE_URL` still overrides, and is what aims a run at a worktree from
 somewhere else. It also suppresses the repair and the per-worktree Mailpit,

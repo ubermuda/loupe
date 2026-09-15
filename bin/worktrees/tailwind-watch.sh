@@ -24,27 +24,28 @@ main=${WORKTREE_TAILWIND_ROOT:-/var/www/html}
 # not the tool for iterating on CSS: `just worktree-tailwind` is a real watcher
 # on one tree. A longer interval is what makes an exhaustive scan affordable.
 interval=${WORKTREE_TAILWIND_INTERVAL:-10}
-trees="$main/.claude/worktrees"
+trees=("$main/.worktrees" "$main/.claude/worktrees")
 
 # Tailwind's automatic detection scans the whole checkout, so the scan does too
 # rather than guessing which directories hold classes. `config/packages/
-# ubermuda_admin.yaml` carries `!bg-sunken`, and app.css excludes `.claude` and
-# `docs` explicitly, which is what says the rest of the tree is in scope.
+# ubermuda_admin.yaml` carries `!bg-sunken`, and app.css excludes `.agents`,
+# `.claude`, worktrees and `docs`, which says the rest of the tree is in scope.
 #
 # Scanning the root also covers composer.lock for free. app.css imports
 # vendor/ubermuda/admin-bundle/assets/admin.css and scans two vendored template
-# directories, and CLAUDE.md tells you to run composer install after switching
+# directories, and AGENTS.md tells you to run composer install after switching
 # branches in a reused worktree, so a lockfile change is a real reason to
 # rebuild.
 #
 # Two of these prunes are load-bearing rather than an optimisation. `var` holds
 # the log and the cache, which change on every request, so without it the
-# watcher would rebuild for ever. `.claude` is where worktrees live, so without
-# it a worktree would scan its siblings. The rest are size: this walks 1,918
-# entries per worktree instead of 28,000.
+# watcher would rebuild for ever. Agent instructions and nested worktree roots
+# are not content sources. The rest are size: this walks 1,918 entries per
+# worktree instead of 28,000.
 prune=(
     -name vendor -o -name node_modules -o -name .git -o -name var
-    -o -name .claude -o -name docs -o -name icons -o -name fonts
+    -o -name .agents -o -name .claude -o -name .worktrees
+    -o -name docs -o -name icons -o -name fonts
     -o -name test-results -o -name build
 )
 
@@ -65,18 +66,20 @@ is_stale() {
 }
 
 worktree_roots() {
-    local sheet
-    for sheet in "$trees"/*/var/tailwind/app.built.css \
-                 "$trees"/*/*/var/tailwind/app.built.css \
-                 "$trees"/*/*/*/var/tailwind/app.built.css; do
-        [ -f "$sheet" ] && dirname "$(dirname "$(dirname "$sheet")")"
+    local tree sheet
+    for tree in "${trees[@]}"; do
+        for sheet in "$tree"/*/var/tailwind/app.built.css \
+                 "$tree"/*/*/var/tailwind/app.built.css \
+                 "$tree"/*/*/*/var/tailwind/app.built.css; do
+            [ -f "$sheet" ] && dirname "$(dirname "$(dirname "$sheet")")"
+        done
     done
 }
 
-echo "tailwind-watch: polling $trees every ${interval}s"
+echo "tailwind-watch: polling ${trees[*]} every ${interval}s"
 
 while true; do
-    if [ -d "$trees" ]; then
+    if [ -d "${trees[0]}" ] || [ -d "${trees[1]}" ]; then
         while read -r root; do
             [ -n "$root" ] || continue
             built="$root/var/tailwind/app.built.css"
