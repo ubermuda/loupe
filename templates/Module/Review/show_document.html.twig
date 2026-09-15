@@ -59,6 +59,12 @@
     </div>
     {% endif %}
 
+    {# Empty unless the inbox is on and an item links to this document. Outside
+       the review block, whose change and mouseup listeners would take the
+       section's controls for the document's own. #}
+    {% if not diffMode %}
+    {{ inbox_document_section(document, readOnly ? version.versionNumber : null) }}
+    {% endif %}
 
     {# The comment-anchor controller attaches in diff mode only where the diff
        accepts comments, and its `diff` value tells it the pane holds two

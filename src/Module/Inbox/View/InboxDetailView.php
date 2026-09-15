@@ -7,11 +7,10 @@ namespace App\Module\Inbox\View;
 use App\Module\Bridge\View\BridgeStatus;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxItem;
-use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Project\Entity\Project;
 
 /** The project inbox page: open asks, open items outside them, and one page of closed asks. */
-final readonly class InboxDetailView
+final readonly class InboxDetailView implements InboxItemsView
 {
     /** Where an item shows when no ask on the page holds it. */
     private const string LOOSE = 'loose';
@@ -58,20 +57,23 @@ final readonly class InboxDetailView
         $this->homes = $homes;
     }
 
-    /** Whether the item's forms render here, in $ask, or on its own when $ask is null. */
+    #[\Override]
     public function isHome(InboxItem $item, ?InboxAsk $ask = null): bool
     {
         return ($this->homes[(string) $item->id] ?? null) === (null === $ask ? self::LOOSE : (string) $ask->id);
     }
 
-    /** Whether the owner can respond to the item, or change the response already given. */
+    #[\Override]
     public function acceptsResponse(InboxItem $item): bool
     {
-        return match ($item->state) {
-            InboxItemState::Open => true,
-            InboxItemState::Withdrawn, InboxItemState::Obsolete => false,
-            InboxItemState::Answered, InboxItemState::Done, InboxItemState::Declined => !isset($this->finalItemIds[(string) $item->id]),
-        };
+        return $item->state->acceptsResponse(isset($this->finalItemIds[(string) $item->id]));
+    }
+
+    /** The closed asks page the owner is on, kept on the way back. */
+    #[\Override]
+    public function actionQuery(): array
+    {
+        return $this->page > 1 ? ['page' => $this->page] : [];
     }
 
     /** Null for a closed ask, or for an interactive session that no bridge resumes. */

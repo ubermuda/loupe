@@ -12,9 +12,13 @@ use App\Module\Project\Command\EnsureHarnessProjectCommand;
 use App\Module\Project\Command\EnsureHarnessProjectHandler;
 use Symfony\Component\DependencyInjection\Attribute\When;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 
-/** Dev-only: seeds an open ask with a question and a to-do in the signed-in user's harness project. */
+/**
+ * Dev-only: seeds an open ask with a question and a to-do in the signed-in user's
+ * harness project. An optional cardId or documentId links the question to it.
+ */
 #[Route(
     '/dev/seed/inbox',
     name: 'app_dev_seed_inbox',
@@ -29,7 +33,7 @@ final class SeedInboxController extends AppController
     ) {
     }
 
-    public function __invoke(): JsonResponse
+    public function __invoke(Request $request): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
@@ -37,7 +41,11 @@ final class SeedInboxController extends AppController
         }
 
         $project = ($this->ensureHarnessProject)(new EnsureHarnessProjectCommand($user, 'e2e-harness'));
-        $seeded = ($this->seedInbox)(new SeedInboxFixtureCommand($project));
+        $seeded = ($this->seedInbox)(new SeedInboxFixtureCommand(
+            $project,
+            $request->request->getString('cardId') ?: null,
+            $request->request->getString('documentId') ?: null,
+        ));
 
         return $this->json([
             'projectId' => (string) $project->id,

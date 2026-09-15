@@ -1,6 +1,6 @@
 {% set home = inbox.isHome(item, ask) %}
 {% set open = item.state.value == 'open' %}
-{% set actionParams = {projectId: item.project.id, itemId: item.id}|merge(inbox.page > 1 ? {page: inbox.page} : {}) %}
+{% set actionParams = {projectId: item.project.id, itemId: item.id}|merge(inbox.actionQuery) %}
 <article class="lp-inbox-item"{% if home %} id="inbox-item-{{ item.number }}"{% endif %} data-inbox-item="{{ item.number }}">
     <div class="lp-inbox-item__head">
         <span class="lp-inbox-item__number">{{ 'inbox.item.number'|trans({'%number%': item.number}) }}</span>
