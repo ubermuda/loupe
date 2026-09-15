@@ -12,6 +12,7 @@ use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\InboxLimits;
 use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\Service\InboxLinkResolver;
+use App\Module\Inbox\Service\InboxOpenCountPublisher;
 use App\Module\Inbox\Service\InboxRefusal;
 use App\Module\Inbox\Service\InboxSearchIndexer;
 use App\Module\Inbox\Service\InboxSessionAsks;
@@ -50,6 +51,7 @@ final readonly class AskInboxHandler
         private InboxSearchIndexer $searchIndexer,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private InboxOpenCountPublisher $openCount,
     ) {
     }
 
@@ -134,6 +136,7 @@ final readonly class AskInboxHandler
         if ($view instanceof InboxRefusal) {
             throw new DomainErrors([$view->field => $view->key]);
         }
+        $this->openCount->countChanged($command->project);
 
         // After the commit, for the reason in CreateCardHandler. No title and no
         // body, because they are sentences an agent wrote.

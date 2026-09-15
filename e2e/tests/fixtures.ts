@@ -1,4 +1,9 @@
-import { test as base, expect, BrowserContext } from '@playwright/test';
+import {
+    test as base,
+    expect,
+    Browser,
+    BrowserContext,
+} from '@playwright/test';
 import { request as playwrightRequest } from '@playwright/test';
 import { Page } from '@playwright/test';
 import {
@@ -44,6 +49,50 @@ export async function suppressWidget(page: Page): Promise<void> {
             window as unknown as { __loupeSiteReviewLoaded?: boolean }
         ).__loupeSiteReviewLoaded = true;
     });
+}
+
+/**
+ * Signs a user in on a fresh browser context of its own, for a spec that
+ * drives two browsers at once, such as a live-update spec with an editor and
+ * a watcher. The project headers go to the app only: on the Mercure hub
+ * request a custom header makes the EventSource preflight, which the hub
+ * refuses.
+ */
+export async function signedInPage(
+    browser: Browser,
+    email: string,
+    password: string,
+): Promise<Page> {
+    const { baseURL, extraHTTPHeaders, ignoreHTTPSErrors } =
+        base.info().project.use;
+    const context = await browser.newContext({
+        baseURL,
+        extraHTTPHeaders: {},
+        ignoreHTTPSErrors,
+        storageState: { cookies: [], origins: [] },
+        viewport: { width: 1600, height: 900 },
+    });
+    const appOrigin = new URL(baseURL ?? '').origin;
+    await context.route(
+        (url) => url.origin === appOrigin,
+        (route) =>
+            route.continue({
+                headers: { ...route.request().headers(), ...extraHTTPHeaders },
+            }),
+    );
+    const page = await context.newPage();
+    await suppressToolbar(page);
+    await suppressWidget(page);
+
+    await page.goto('/login');
+    await page.getByLabel('Email').fill(email);
+    await page.getByLabel('Password').fill(password);
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    // The first sign-in lands on /welcome, and a later one on the last project.
+    // A cold worktree takes more than the default 5 seconds to answer the first one.
+    await expect(page).not.toHaveURL(/\/login$/, { timeout: 15_000 });
+
+    return page;
 }
 
 type StorageState = Awaited<ReturnType<BrowserContext['storageState']>>;

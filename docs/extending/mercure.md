@@ -1,9 +1,9 @@
 ---
 title: "Mercure hub"
-description: "Optional. Needed for site-review push and live board refresh; without it, submissions still save."
+description: "Optional. Needed for site-review push, live board refresh and the live inbox count; without it, submissions still save."
 ---
 
-Site-review push and live board refresh are the things that need a Mercure hub. Leaving it off is a
+Site-review push, live board refresh and the live inbox count are the things that need a Mercure hub. Leaving it off is a
 supported state: submissions reach the outbox first and a scheduled drain
 replays them once a hub exists, so nothing is lost — but nothing reaches a
 running agent either, and the publish failure is only logged. It degrades
@@ -26,7 +26,7 @@ Two feature flags use the hub, and each switches on its own:
 | Flag | Switches |
 |---|---|
 | `agent.push.enabled` | The outbox drain, the bridge CLI's subscriber credentials at `GET /api/events`, and its worker-run reports at `POST /api/projects/{handle}/worker-runs`. |
-| `live_updates.enabled` | Live updates in the browser: the subscriber cookie, the page element, `POST /mercure/authorize`, and the board refresh. |
+| `live_updates.enabled` | Live updates in the browser: the subscriber cookie, the page element, `POST /mercure/authorize`, the board refresh, and the inbox count in the sidebar. |
 
 Both flags require all three variables. With any of them blank, the flag reads
 as off whatever the admin page stores. Both ship on. An instance that upgrades
@@ -54,7 +54,8 @@ A feature that wants live updates on a page adds three things:
 1. A class that implements `App\Mercure\MercureTopicAuthorizerInterface`. It
    returns `null` for a topic its module does not own. For a topic it owns, it
    returns whether the current user may subscribe. `BoardTopicAuthorizer` is the
-   example, and it applies the project view permission.
+   example, and it applies the project view permission. `InboxTopicAuthorizer`
+   allows a user only their own `/users/{id}/inbox` topic, while the inbox is on.
 2. A call to `{% do mercure_subscribe(topic) %}` in the page template.
 3. A handler in a Stimulus controller, with `subscribe(type, handler)` or
    `subscribe(topic, types, handler)` from `assets/lib/mercure.js`. A handler

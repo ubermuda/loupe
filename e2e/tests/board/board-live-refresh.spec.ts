@@ -8,10 +8,9 @@ import {
     test,
     expect,
     type APIRequestContext,
-    type Browser,
     type Page,
 } from '@playwright/test';
-import { suppressToolbar, suppressWidget } from '../fixtures';
+import { signedInPage } from '../fixtures';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eBoardRefresh1!';
@@ -26,40 +25,6 @@ async function setFlag(
         form: { name, enabled: enabled ? 1 : 0 },
     });
     expect(response.ok()).toBeTruthy();
-}
-
-async function signedInPage(browser: Browser, email: string): Promise<Page> {
-    const { baseURL, extraHTTPHeaders, ignoreHTTPSErrors } =
-        test.info().project.use;
-    const context = await browser.newContext({
-        baseURL,
-        extraHTTPHeaders: {},
-        ignoreHTTPSErrors,
-        storageState: { cookies: [], origins: [] },
-        viewport: { width: 1600, height: 900 },
-    });
-    // The project headers go to the app only. On the hub request a custom
-    // header makes the EventSource preflight, which the hub refuses.
-    const appOrigin = new URL(baseURL ?? '').origin;
-    await context.route(
-        (url) => url.origin === appOrigin,
-        (route) =>
-            route.continue({
-                headers: { ...route.request().headers(), ...extraHTTPHeaders },
-            }),
-    );
-    const page = await context.newPage();
-    await suppressToolbar(page);
-    await suppressWidget(page);
-
-    await page.goto('/login');
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill(PASSWORD);
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    // The first sign-in lands on /welcome, and a later one on the last project.
-    await expect(page).not.toHaveURL(/\/login$/);
-
-    return page;
 }
 
 async function openBoard(page: Page, boardUrl: string): Promise<void> {
@@ -85,14 +50,14 @@ test('a column renamed in one browser shows in another without a reload', async 
     });
     expect(registered.status()).toBe(200);
 
-    const editor = await signedInPage(browser, email);
+    const editor = await signedInPage(browser, email, PASSWORD);
     const seeded = await editor.request.post('/dev/seed/document', {
         form: { title: 'E2E Refresh Project', markdown: '# Refresh' },
     });
     expect(seeded.status()).toBe(201);
     const boardUrl = `/projects/${(await seeded.json()).projectId}/board`;
 
-    const watcher = await signedInPage(browser, email);
+    const watcher = await signedInPage(browser, email, PASSWORD);
     await openBoard(editor, boardUrl);
 
     // The watcher's first hub request fails, so it renews its cookie through

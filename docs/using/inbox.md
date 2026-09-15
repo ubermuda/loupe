@@ -28,6 +28,12 @@ the items. An item that blocks the agent carries a **Blocking** label.
 Open **Inbox** in the project sidebar. An amber count next to the link shows how
 many items are still open. The link is absent while the flag is off.
 
+The count changes without a reload when an agent asks, when you or an agent
+close an item, and when a finished card makes an item obsolete. It goes away at
+zero. This needs a Mercure hub and the `live_updates.enabled` flag. Without
+them, the count is correct each time a page loads. See
+[Mercure hub](../extending/mercure.md).
+
 The page lists three groups, in this order:
 
 1. **Open asks**, oldest first. Each ask shows the id of the agent session that

@@ -32,6 +32,7 @@ final readonly class InboxItemCloser
         private InboxAskRepository $inboxAsks,
         private InboxItemRepository $inboxItems,
         private InboxAskCloser $askCloser,
+        private InboxOpenCountPublisher $openCount,
     ) {
     }
 
@@ -55,7 +56,7 @@ final readonly class InboxItemCloser
     {
         self::assertClosed($state);
 
-        $errors = $this->em->wrapInTransaction(function () use ($item, $state, $errorField, $respond): ?array {
+        $outcome = $this->em->wrapInTransaction(function () use ($item, $state, $errorField, $respond): array|bool {
             $this->em->lock($item->project, LockMode::PESSIMISTIC_WRITE);
             // Read under the lock, so a response or an agent's change that landed
             // since the item was loaded counts. refresh() would also reload
@@ -87,11 +88,14 @@ final readonly class InboxItemCloser
                 $this->askCloser->closeAsksHolding($item, InboxEventType::ACTOR_HUMAN, $now);
             }
 
-            return null;
+            return $wasOpen;
         });
 
-        if (null !== $errors) {
-            throw new DomainErrors($errors);
+        if (\is_array($outcome)) {
+            throw new DomainErrors($outcome);
+        }
+        if ($outcome) {
+            $this->openCount->countChanged($item->project);
         }
     }
 
