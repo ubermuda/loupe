@@ -1,13 +1,14 @@
-# Implementation stage commands
+# Implementation stage detail
 
-`SKILL.md` names each step. This file holds the detail. `project-worktrees` and `working-with-prs` stay the authority when they disagree with this file.
+`SKILL.md` names each step. This file holds the detail. The repository profile and the two adapters hold every value that belongs to one repository, one harness or one forge.
 
-## Borrowed skills
+## Load the adapters and the profile
 
-1. Use `superpowers-extended-cc:writing-plans` for the plan format only. Submit the plan to Loupe. Save no file under `docs/superpowers`, and skip its question about how to execute.
-2. Use `superpowers-extended-cc:subagent-driven-development` for the task loop only. Never invoke `superpowers-extended-cc:finishing-a-development-branch`. Never merge the pull request, and never merge into `main`. Merging `origin/main` into the card branch is required by the gate. Never remove the worktree.
-3. Never call `AskUserQuestion`. Nobody answers it.
-4. Nobody approves the plan. Start the work as soon as it is linked.
+1. Load the harness adapter for the harness you run in, from `harnesses/<harness>.md` in this directory. Claude Code is `claude-code`. When no such file exists, stop with `STAGE RESULT: blocked: no harness adapter for <harness>`.
+2. Read the repository profile at `.loupe/lifecycle.md` in the repository root. When the file, or a section a step needs, is missing, stop with `STAGE RESULT: blocked: no <section> in .loupe/lifecycle.md`.
+3. Pick the forge adapter as the next section says.
+
+The profile has these sections: `Instruction files`, `Worktree`, `Gate`, `Code review`, `Changelog` and `Pull request`. The harness adapter covers these steps: connect to the Loupe tools, load an instruction, bind writes to the worktree, run a long command, dispatch a sub-agent, write a plan, and run the plan task by task.
 
 ## Pick the forge adapter
 
@@ -18,104 +19,63 @@ The stage skills name forge operations: find and validate a pull request, list f
 3. Read `forges/<forge>.md` in this directory.
 4. When no such file exists, stop with `STAGE RESULT: blocked: no forge adapter for <forge>`.
 
-`forges/github.md` is the only adapter today.
-
 ## Column check
 
 Slug a column label from the prompt: lowercase, with hyphens for spaces. Compare the slug with the card `status`.
 
-## Provision the card worktree
+## Create the card worktree
 
-Run these from the main checkout, before `EnterWorktree`. `<short-slug>` is two to four lowercase words from the card title, joined with hyphens.
+The profile `Worktree` section names the card worktree path and the command that provisions it. `<base>` is the base branch from the profile `Gate` section. `<short-slug>` is two to four lowercase words from the card title, joined with hyphens. Run these from the main checkout:
 
 ```bash
 git fetch origin
-git worktree list --porcelain | grep -x "worktree $PWD/.claude/worktrees/card-<number>"
+git worktree list --porcelain | grep -x "worktree $PWD/<card worktree>"
 ```
 
-When the grep prints a line, the worktree exists. Skip the `git worktree add` and run `just worktree-up` only.
+When the grep prints a line, the worktree exists. Skip `git worktree add`, and provision it only.
 
 ```bash
-git worktree add -b card-<number>-<short-slug> .claude/worktrees/card-<number> origin/main
-just worktree-up card-<number>
+git worktree add -b card-<number>-<short-slug> <card worktree> origin/<base>
 ```
 
-When the branch exists and the worktree does not, drop `-b` and name the branch: `git worktree add .claude/worktrees/card-<number> card-<number>-<short-slug>`. `just worktree-up NAME` only bootstraps a registered worktree, so it never creates one.
+When the branch exists and the worktree does not, drop `-b` and name the branch: `git worktree add <card worktree> card-<number>-<short-slug>`. Then provision the worktree as the profile says.
 
-## Enter and verify the worktree
+## Bind writes and verify
 
-Call `EnterWorktree` with the absolute path. Then check both of these:
-
-```bash
-pwd
-git worktree list --porcelain | grep -qx "worktree $(pwd)" && git branch --show-current
-```
-
-The first must print the worktree path. The second must print the card branch. Otherwise stop with `STAGE RESULT: blocked: worktree binding failed`.
+Bind writes to the card worktree as the harness adapter says. The working directory must be the worktree, and `git branch --show-current` must print the card branch. Otherwise stop with `STAGE RESULT: blocked: worktree binding failed`.
 
 ## Reruns
 
 1. A linked plan document whose `references` hold the tech design id is the plan. Reuse it, and create no second plan.
-2. An open pull request on a branch that starts `card-<number>-` belongs to this card. Never cut a new branch from `origin/main` for it. Restore its head branch with "Set up or refresh the worktree" in `../../loupe-stage-fix-round/references/pull-request-feedback.md`: fetch, prune, add the worktree on that branch, the fast-forward sync, `just worktree-up`, and `EnterWorktree`. Then run `git branch --show-current`. When it differs from the head branch, stop with `STAGE RESULT: blocked: worktree is not on the PR branch`. Otherwise resume at the gate.
-3. Before you create a pull request, list the open pull requests for the branch with the adapter. Link one it lists, and create none.
-
-## Refresh after a sync
-
-`just worktree-up NAME` runs `bin/worktrees/worktree-bootstrap.sh`. It copies the `vendor/` of the main checkout when `composer.json` and `composer.lock` match it, and runs `composer install` in the container when they differ. It also runs the migrations, `app:dev:seed`, `tailwind:build` and `cache:warmup`, and starts the sidecars. It clears no cache. The test database needs nothing, because `tests/bootstrap.php` rebuilds it on each run.
-
-After any sync that brings commits, run it again from the main checkout. The main checkout is the first `worktree` line of `git worktree list --porcelain`. Then clear both caches from the worktree:
-
-```bash
-( cd <main checkout> && just worktree-up card-<number> )
-bin/worktrees/compose-exec.sh bin/console cache:clear
-bin/worktrees/compose-exec.sh bin/console cache:clear --env=test
-```
-
-## Long commands
-
-A Bash call ends after 600000 ms. Start `just ci`, or the CI watch, with the Bash tool's `run_in_background`. Write its output to a log file, and append an exit marker when it ends:
-
-```bash
-just ci > <log> 2>&1; echo "EXIT=$?" >> <log>
-```
-
-Then wait in the foreground with this loop, and a Bash timeout of 600000:
-
-```bash
-for i in $(seq 1 57); do grep -q '^EXIT=' <log> && break; sleep 10; done; grep '^EXIT=' <log> || echo still-running; tail -25 <log>
-```
-
-One loop waits 570 seconds at most. When it prints `still-running`, run it again. `EXIT=0` means the command passed. This loop ran successfully once, for a full `just ci` in a worktree.
-
-Never start `just ci` again over a run you killed. A killed host wrapper leaves PHPUnit running in the shared php-fpm container, and a second run collides with it. Find and stop it as `project-worktrees` says.
+2. An open pull request on a branch that starts `card-<number>-` belongs to this card. Never cut a new branch from `origin/<base>` for it. Restore its head branch with "Set up or refresh the worktree" in `../../loupe-stage-fix-round/references/pull-request-feedback.md`. Then run `git branch --show-current`. When it differs from the head branch, stop with `STAGE RESULT: blocked: worktree is not on the PR branch`. Otherwise resume at the gate.
+3. Before you create a pull request, list the open pull requests for the branch with the forge adapter. Link one it lists, and create none.
 
 ## The gate
 
-Run these in the worktree, in order, as `working-with-prs` "The gate, before you open anything" says:
+Run these in the worktree, in order:
 
 ```bash
 git fetch origin
-git merge origin/main
-just cs
-just ci
-php bin/changelog.php --check
+git merge origin/<base>
 ```
 
-When `git merge origin/main` conflicts, resolve it only when the conflict is mechanical and the gate then proves the result. Otherwise run `git merge --abort`, and stop with `STAGE RESULT: blocked: merge conflict with main in <files>`.
+When the merge conflicts, resolve it only when the conflict is mechanical and the gate then proves the result. Otherwise run `git merge --abort`, and stop with `STAGE RESULT: blocked: merge conflict with <base> in <files>`.
 
-When `git merge origin/main` brings commits, refresh the worktree as "Refresh after a sync" says, before `just cs`.
+When the merge brings commits, refresh the worktree as the profile `Worktree` section says.
 
-Commit what `just cs` changes. Then run the Codex review with `mcp__codex-cli__review` and `model: "gpt-6-astra"`. `working-with-prs` asks for two clean passes in a row, and for a commit scope once the branch has more than one commit. Alternate the scope: one pass with `base: "origin/main"`, the next with `commit: "<sha>"` for the newest commit that carries work. Count a pass as clean only against the current tree. Read each summary, and check that it covers the largest change. Before you act on a finding, read the file at HEAD, and dismiss a finding that HEAD already fixes. Run `git status` after each pass. When the Codex MCP is missing, stop with `STAGE RESULT: blocked: codex MCP unavailable`.
+Then run the commands of the profile `Gate` section in order. Run each long command as the harness adapter says. Run the check of the profile `Changelog` section. Then run the review of the profile `Code review` section, and follow its pass rule.
 
 ## Open the pull request
 
-Push the branch, and create the pull request with the adapter. Keep the body to the shape `working-with-prs` gives. The card page route is `/projects/{projectId}/board/cards/{cardId}`, in `src/Module/Board/Controller/ShowCardController.php`. The card URL is therefore `<instance>/projects/<projectId>/board/cards/<cardId>`. Take the instance from the prompt line `Loupe instance <url>.`, and the project id from the prompt. When the prompt lacks either, write `Loupe card <number>` instead.
+Push the branch, and create the pull request with the forge adapter. Follow the profile `Pull request` section for the title, the body and the ready state.
 
-Then write `changelog.d/<pr number>.md` in the `working-with-prs` format. Run `php bin/changelog.php --check`, commit, and push.
+Put the card URL in the body. The card page route is `/projects/{projectId}/board/cards/{cardId}`, so the URL is `<instance>/projects/<projectId>/board/cards/<cardId>`. Take the instance from the prompt line `Loupe instance <url>.`, and the project id from the prompt. When the prompt lacks either, write `Loupe card <number>` instead.
+
+Then write the changelog entry that the profile `Changelog` section names, run its check, commit, and push.
 
 ## Wait for CI
 
-First wait until checks exist for the pushed head. The head commit of the pull request must equal `git rev-parse HEAD`. Then watch the required checks with the adapter, in the background, with the loop from "Long commands", for 60 minutes at most. Confirm the result against that head, as `working-with-prs` "Merging" item 8 says. Green means every required check passes and none is pending. Read each failed log with the adapter.
+First wait until checks exist for the pushed head. The head commit of the pull request must equal `git rev-parse HEAD`. Then watch the required checks with the forge adapter, as a long command, for 60 minutes at most. The profile `Gate` section says which checks are required. Green means every required check passes and none is pending. Read each failed log with the forge adapter.
 
 After each fix, run the gate again before you push.
 

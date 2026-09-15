@@ -1,6 +1,6 @@
 # Pull request feedback
 
-This file describes the feedback model in forge terms: pull request, review thread, review body, top-level comment, check, head branch and base repository. The commands for a forge live in its adapter. Pick the adapter as "Pick the forge adapter" in `../../loupe-stage-implementation/references/commands.md` says.
+This file describes the feedback model in forge terms: pull request, review thread, review body, top-level comment, check, head branch and base repository. The commands for a forge live in its adapter. Pick the adapter as "Pick the forge adapter" in `../../loupe-stage-implementation/references/commands.md` says. The card worktree, its provisioning and its refresh come from the `Worktree` section of the repository profile.
 
 ## Find the open pull request
 
@@ -12,7 +12,7 @@ Compare the checks against the head commit of the pull request only. Wait until 
 
 ## Read the feedback items
 
-List the feedback items with the adapter, and walk every page. When a thread is too long to read, stop with `STAGE RESULT: blocked: review thread longer than 100 comments`.
+List the feedback items with the adapter, and walk every page. When a thread is too long to read, stop with `STAGE RESULT: blocked: review thread too long to read`.
 
 A feedback item is one of these:
 
@@ -60,7 +60,7 @@ Never resolve a thread. The reviewer resolves it.
 Run these from the main checkout. Find the worktree with the porcelain grep:
 
 ```bash
-git worktree list --porcelain | grep -x "worktree $PWD/.claude/worktrees/card-<number>"
+git worktree list --porcelain | grep -x "worktree $PWD/<card worktree>"
 ```
 
 When the grep prints nothing, create the worktree on the head branch:
@@ -68,20 +68,20 @@ When the grep prints nothing, create the worktree on the head branch:
 ```bash
 git worktree prune
 git fetch origin <head branch>
-git worktree add .claude/worktrees/card-<number> <head branch>
+git worktree add <card worktree> <head branch>
 ```
 
-When `git worktree add` finds no local branch, use `git worktree add --track -b <head branch> .claude/worktrees/card-<number> origin/<head branch>`.
+When `git worktree add` finds no local branch, use `git worktree add --track -b <head branch> <card worktree> origin/<head branch>`.
 
-For an existing worktree, first run `git -C .claude/worktrees/card-<number> branch --show-current`. When it differs from the head branch, change nothing, and stop with `STAGE RESULT: blocked: worktree is not on the PR branch`.
+For an existing worktree, first run `git -C <card worktree> branch --show-current`. When it differs from the head branch, change nothing, and stop with `STAGE RESULT: blocked: worktree is not on the PR branch`.
 
 Sync the branch before you provision it, for a new or an existing worktree:
 
 ```bash
-git -C .claude/worktrees/card-<number> fetch origin <head branch>
-git -C .claude/worktrees/card-<number> merge --ff-only origin/<head branch>
+git -C <card worktree> fetch origin <head branch>
+git -C <card worktree> merge --ff-only origin/<head branch>
 ```
 
 When the merge fails, stop with `STAGE RESULT: blocked: local branch diverged from origin`. Never force-push.
 
-Then provision it with `just worktree-up card-<number>`. When the sync brought commits, also clear both caches, as "Refresh after a sync" in `../../loupe-stage-implementation/references/commands.md` says. Call `EnterWorktree`, and verify it as that file says. The branch must be the head branch.
+Then provision it as the profile `Worktree` section says. When the sync brought commits, refresh it as that section says. Bind writes to the worktree, and verify it, as "Bind writes and verify" in `../../loupe-stage-implementation/references/commands.md` says. The branch must be the head branch.
