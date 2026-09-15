@@ -78,7 +78,7 @@ Give the document a section for the checks the work must satisfy. Gamache, arkit
 
 List the rules that apply, and say what each one forces. A design that ignores them produces a branch that cannot pass `just ci`.
 
-Read the five gamache layers before you claim no rule applies. `CLAUDE.md` lists them.
+Read the five gamache layers before you claim no rule applies. `AGENTS.md` lists them.
 
 ## Order the work and name what blocks it
 

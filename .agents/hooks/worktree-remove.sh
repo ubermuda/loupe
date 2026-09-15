@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Claude Code WorktreeRemove hook: tear down everything bootstrap created.
+# WorktreeRemove compatibility hook: tear down everything bootstrap created.
 #
 # Without this, a harness-removed worktree leaves its nginx sidecar, its Mailpit
 # sidecar and both databases behind — the sidecar then serves 502s on a route
@@ -37,11 +37,13 @@ cwd=$(read_field cwd)
 main=$(git -C "$cwd" worktree list --porcelain | awk '/^worktree /{print $2; exit}')
 
 case "$worktree_path" in
+    "$main"/.worktrees/*) ;;
     "$main"/.claude/worktrees/*) ;;
     *) exit 0 ;;
 esac
 
-name=${worktree_path#"$main"/.claude/worktrees/}
+name=${worktree_path#"$main"/.worktrees/}
+name=${name#"$main"/.claude/worktrees/}
 
 WORKTREE_TEARDOWN_KEEP_TREE=1 "$bin/worktree-teardown.sh" "$name" \
     || echo "worktree-remove hook: teardown of '$name' did not complete; 'just worktree-prune' will finish it." >&2

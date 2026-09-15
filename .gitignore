@@ -39,7 +39,7 @@
 # icons have to be in it. Re-ignoring them silently returns the product to
 # fetching its own icons over the network at render time.
 # Refresh with `bin/console ux:icons:lock`; icons whose name is built
-# dynamically in a template need an explicit `ux:icons:import` (see CLAUDE.md).
+# dynamically in a template need an explicit `ux:icons:import` (see AGENTS.md).
 
 ###> friendsofphp/php-cs-fixer ###
 /.php-cs-fixer.php
@@ -69,6 +69,7 @@ phpstan.neon
 .idea/
 .phpactor.json
 /.serena/
+/.worktrees/
 /.claude/worktrees/
 /.claude/scratch/
 /.claude/*.md
@@ -81,8 +82,6 @@ phpstan.neon
 e2e/.step-ca-root.crt
 
 .superpowers/
-.agents/
-
 # A scratchpad of enforcement ideas, not shared open work. Shared open work
 # lives on the project board. Deal with this file before the repository is
 # published.

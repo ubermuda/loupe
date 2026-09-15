@@ -23,7 +23,7 @@ Use the `Monitor` tool with `persistent: true`, run from the main checkout, and
 this command:
 
 ```bash
-.claude/skills/holding-a-merge-queue/scripts/queue-monitor.sh
+.agents/skills/holding-a-merge-queue/scripts/queue-monitor.sh
 ```
 
 It polls every open pull request once a minute. It prints one line for each pull
@@ -121,7 +121,7 @@ kinds of commit his approval survives, and record the answer.
 ## Report every flake you see
 
 The queue holder reads more CI runs than any other session, so it sees flakes first.
-CLAUDE.md treats a test that passes on retry as a real failure. A flake that
+AGENTS.md treats a test that passes on retry as a real failure. A flake that
 nobody reports gets merged past and forgotten.
 
 These are sightings:

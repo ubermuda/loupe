@@ -112,15 +112,17 @@ that change from one setup to the next.
 2. A harness adapter maps the steps of a worker to the tools of one agent
    harness: connect to Loupe, load an instruction, bind writes to a worktree,
    run a long command, dispatch a sub-agent, and write and run a plan. The
-   adapter for Claude Code is
-   `.claude/skills/loupe-stage-implementation/references/harnesses/claude-code.md`.
+   generic adapter is
+   `.agents/skills/loupe-stage-implementation/references/harnesses/generic.md`.
+   The compatibility adapter for Claude Code is
+   `.agents/skills/loupe-stage-implementation/references/harnesses/claude-code.md`.
 3. A forge adapter maps the pull request operations to the commands of one
    forge. The adapter for GitHub is
-   `.claude/skills/loupe-stage-implementation/references/forges/github.md`.
+   `.agents/skills/loupe-stage-implementation/references/forges/github.md`.
 
-When the profile, a section of it or an adapter is missing, the worker stops
-with a `STAGE RESULT: blocked:` line that names it. Another repository adds its
-own profile, and another harness or forge adds its own adapter file.
+When the profile, one of its sections, or a forge adapter is missing, the
+worker stops with a `STAGE RESULT: blocked:` line that names it. A harness with
+no dedicated adapter uses the generic adapter.
 
 ## Run the bridge
 

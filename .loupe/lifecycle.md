@@ -4,17 +4,17 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 
 ## Instruction files
 
-1. Read `CLAUDE.md`, and follow it.
-2. Load each skill that the CLAUDE.md skill table names for the files you touch.
+1. Read `AGENTS.md`, and follow it.
+2. Load each skill that the AGENTS.md skill table names for the files you touch.
 3. Load `working-with-prs` before the gate, a push or a pull request.
 4. Load `project-worktrees` before you create, refresh or remove a worktree.
-5. Writing style: CLAUDE.md "Writing style", which is ASD-STE100.
-6. Product document: answer the documentation and landing page checks of CLAUDE.md "Planning and shipping a feature". It names the `docs/` sections and the landing page templates.
-7. Tech design: load `project-tech-design`. Read the CLAUDE.md section "What a new entity or feature must also register", with its table and the list "Four more that no registry covers".
+5. Writing style: AGENTS.md "Writing style", which is ASD-STE100.
+6. Product document: answer the documentation and landing page checks of AGENTS.md "Planning and shipping a feature". It names the `docs/` sections and the landing page templates.
+7. Tech design: load `project-tech-design`. Read the AGENTS.md section "What a new entity or feature must also register", with its table and the list "Four more that no registry covers".
 
 ## Worktree
 
-1. The card worktree is `.claude/worktrees/card-<number>`. Run the worktree commands from the main checkout, which is the first `worktree` line of `git worktree list --porcelain`.
+1. The card worktree is `.worktrees/card-<number>`. Run the worktree commands from the main checkout, which is the first `worktree` line of `git worktree list --porcelain`.
 2. Create: after `git worktree add`, run `just worktree-up card-<number>`. It bootstraps a registered worktree, and it never creates one.
 3. `just worktree-up` copies `vendor/` from the main checkout, or runs `composer install` when the lock differs. It runs the migrations, the seed, the Tailwind build and a cache warmup. It clears no cache.
 4. Refresh after a sync that brings commits: run `( cd <main checkout> && just worktree-up card-<number> )`. Then, from the worktree, run `bin/worktrees/compose-exec.sh bin/console cache:clear` and the same command with `--env=test`.

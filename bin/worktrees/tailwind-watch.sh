@@ -24,7 +24,7 @@ main=${WORKTREE_TAILWIND_ROOT:-/var/www/html}
 # not the tool for iterating on CSS: `just worktree-tailwind` is a real watcher
 # on one tree. A longer interval is what makes an exhaustive scan affordable.
 interval=${WORKTREE_TAILWIND_INTERVAL:-10}
-trees="$main/.claude/worktrees"
+trees=("$main/.worktrees" "$main/.claude/worktrees")
 
 # Tailwind's automatic detection scans the whole checkout, so the scan does too
 # rather than guessing which directories hold classes. `config/packages/
@@ -33,7 +33,7 @@ trees="$main/.claude/worktrees"
 #
 # Scanning the root also covers composer.lock for free. app.css imports
 # vendor/ubermuda/admin-bundle/assets/admin.css and scans two vendored template
-# directories, and CLAUDE.md tells you to run composer install after switching
+# directories, and AGENTS.md tells you to run composer install after switching
 # branches in a reused worktree, so a lockfile change is a real reason to
 # rebuild.
 #
@@ -65,18 +65,20 @@ is_stale() {
 }
 
 worktree_roots() {
-    local sheet
-    for sheet in "$trees"/*/var/tailwind/app.built.css \
-                 "$trees"/*/*/var/tailwind/app.built.css \
-                 "$trees"/*/*/*/var/tailwind/app.built.css; do
-        [ -f "$sheet" ] && dirname "$(dirname "$(dirname "$sheet")")"
+    local tree sheet
+    for tree in "${trees[@]}"; do
+        for sheet in "$tree"/*/var/tailwind/app.built.css \
+                 "$tree"/*/*/var/tailwind/app.built.css \
+                 "$tree"/*/*/*/var/tailwind/app.built.css; do
+            [ -f "$sheet" ] && dirname "$(dirname "$(dirname "$sheet")")"
+        done
     done
 }
 
-echo "tailwind-watch: polling $trees every ${interval}s"
+echo "tailwind-watch: polling ${trees[*]} every ${interval}s"
 
 while true; do
-    if [ -d "$trees" ]; then
+    if [ -d "${trees[0]}" ] || [ -d "${trees[1]}" ]; then
         while read -r root; do
             [ -n "$root" ] || continue
             built="$root/var/tailwind/app.built.css"

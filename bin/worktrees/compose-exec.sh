@@ -5,7 +5,7 @@
 #
 # There is a single compose stack. The php-fpm container bind-mounts the main
 # checkout at /var/www/html, and git worktrees live under
-# <main>/.claude/worktrees/<name>, so they are visible inside the container.
+# <main>/.worktrees/<name>, so they are visible inside the container.
 # When invoked from a worktree we add `--workdir` so the command runs against
 # the worktree's files (and its rsynced vendor/) instead of main's. From the
 # main checkout this is a plain `docker compose exec php-fpm ...`.

@@ -296,7 +296,7 @@ Tests must never dictate what is nullable. Whether a constructor parameter is nu
 
 ## Custom static-analysis rules
 
-Custom PHPStan, PHP CS Fixer, Rector and TwigCsFixer rules live in the `ubermuda/gamache` package, in `vendor/ubermuda/gamache/src/`, consumed as `dev-main`. They are not in this repo. When a check fires for something that is not in the standard PHPStan, Rector or TwigCsFixer docs, look there first. The rule class names in the error output match the class names in that package. Add a new rule in the gamache repo. See "Gamache Checks" in `CLAUDE.md`. Run `just ci` to exercise all of them.
+Custom PHPStan, PHP CS Fixer, Rector and TwigCsFixer rules live in the `ubermuda/gamache` package, in `vendor/ubermuda/gamache/src/`, consumed as `dev-main`. They are not in this repo. When a check fires for something that is not in the standard PHPStan, Rector or TwigCsFixer docs, look there first. The rule class names in the error output match the class names in that package. Add a new rule in the gamache repo. See "Gamache Checks" in `AGENTS.md`. Run `just ci` to exercise all of them.
 
 ## Event listeners
 

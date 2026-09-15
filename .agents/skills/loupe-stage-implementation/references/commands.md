@@ -4,7 +4,7 @@
 
 ## Load the adapters and the profile
 
-1. Load the harness adapter for the harness you run in, from `harnesses/<harness>.md` in this directory. Claude Code is `claude-code`. When no such file exists, stop with `STAGE RESULT: blocked: no harness adapter for <harness>`.
+1. Load the adapter for your harness from `harnesses/<harness>.md` in this directory. Use `harnesses/generic.md` when no exact adapter exists.
 2. Read the repository profile at `.loupe/lifecycle.md` in the repository root. When the file, or a section a step needs, is missing, stop with `STAGE RESULT: blocked: no <section> in .loupe/lifecycle.md`.
 3. Pick the forge adapter as the next section says.
 
