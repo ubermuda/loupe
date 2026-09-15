@@ -4597,13 +4597,23 @@
         @apply m-0 text-sm text-fg-dim;
     }
     .lp-inbox-ask {
-        @apply flex flex-col gap-3 rounded-xl bg-surface-2 py-4 px-4.5;
+        @apply flex flex-col gap-3 rounded-xl bg-surface-2 py-4 px-4.5 scroll-mt-16;
     }
     .lp-inbox-ask--closed {
         @apply bg-surface-1 border border-line;
     }
     .lp-inbox-ask__head {
         @apply flex flex-wrap items-center gap-3 font-mono text-xs text-fg-dim;
+    }
+    /* When an open ask's bridge last sent a heartbeat. The amber variant warns that no resume will come. */
+    .lp-inbox-ask__bridge {
+        @apply flex items-start gap-2 m-0 text-xs text-fg-dim leading-normal;
+    }
+    .lp-inbox-ask__bridge--quiet {
+        @apply rounded-lg bg-status-pending-bg px-3 py-2 text-sm font-semibold text-status-pending-deep;
+    }
+    .lp-inbox-ask__bridge-icon {
+        @apply shrink-0 text-status-pending mt-0.5;
     }
     .lp-inbox-ask__context {
         @apply max-w-none text-sm;
@@ -4654,6 +4664,23 @@
     .lp-inbox-item__jump {
         @apply self-start text-sm font-semibold text-accent-ink no-underline hover:underline;
     }
+    /* The account inbox: one heading per project above its open asks. The
+       link to an ask's block on the project page sits at the end of its head. */
+    .lp-account-inbox-project__head {
+        @apply flex flex-wrap items-baseline gap-3;
+    }
+    .lp-account-inbox-project__title {
+        @apply m-0 text-lg font-semibold;
+    }
+    .lp-account-inbox-project__link {
+        @apply text-ink no-underline hover:underline;
+    }
+    .lp-account-inbox-project__count {
+        @apply text-sm text-fg-dim;
+    }
+    .lp-inbox-ask__link {
+        @apply ml-auto font-sans text-sm font-semibold text-accent-ink no-underline hover:underline;
+    }
     .lp-inbox-item__actions {
         @apply flex flex-col gap-3;
     }
@@ -4679,6 +4706,43 @@
     }
     .lp-inbox-decline__form {
         @apply mt-2;
+    }
+
+    /* ── Inbox section of a card or document page ───────────────────────
+       The items linked to the page, open ones first. */
+    .lp-inbox-linked {
+        @apply flex flex-col gap-3 mt-8;
+    }
+    /* Above the review block, so it takes the block's left edge and the reading column's measure. */
+    .lp-inbox-linked--document {
+        @apply w-full max-w-160 mt-0 px-5 pt-6 lg:ml-12 lg:px-0 lg:pt-13;
+    }
+    .lp-inbox-linked__head {
+        @apply flex flex-wrap items-baseline gap-3;
+    }
+    .lp-inbox-linked__title {
+        @apply font-display font-extrabold text-lg tracking-tight text-ink m-0 mr-auto;
+    }
+    .lp-inbox-linked__all {
+        @apply text-sm font-semibold text-accent-ink no-underline hover:underline;
+    }
+    .lp-inbox-linked__items {
+        @apply flex flex-col gap-2.5;
+    }
+    .lp-inbox-linked__entry {
+        @apply flex flex-col gap-2 rounded-xl bg-surface-2 py-3 px-3.5;
+    }
+    .lp-inbox-linked__context {
+        @apply flex flex-col gap-0.5 px-1 text-xs text-fg-dim;
+    }
+    .lp-inbox-linked__asked {
+        @apply font-semibold;
+    }
+    .lp-inbox-linked__context-text {
+        @apply max-w-none text-xs line-clamp-2;
+    }
+    .lp-inbox-linked__subtitle {
+        @apply m-0 mt-2 text-sm font-bold uppercase tracking-widest text-fg-mute;
     }
 }
 

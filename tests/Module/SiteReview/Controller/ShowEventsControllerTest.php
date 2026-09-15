@@ -16,6 +16,7 @@ use App\Outbox\OutboxWriter;
 use App\Outbox\Repository\OutboxEventRepository;
 use App\Tests\Support\FeatureFlags;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -27,6 +28,8 @@ use Symfony\Component\Mercure\Update;
 final class ShowEventsControllerTest extends WebTestCase
 {
     private const string INBOX_FLAG = 'inbox.enabled';
+
+    private const string HEARTBEAT_FLAG = 'bridge.heartbeat_interval_seconds';
 
     public function test_returns_the_callers_own_topic_its_projects_and_a_jwt_for_that_topic_alone(): void
     {
@@ -144,7 +147,7 @@ final class ShowEventsControllerTest extends WebTestCase
         $em->getConnection()->executeStatement('DELETE FROM feature_flag WHERE name = ?', [self::INBOX_FLAG]);
         [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-flags-none@example.com');
 
-        self::assertSame([self::INBOX_FLAG => false], $this->events($client, $raw)['flags']);
+        self::assertSame(false, $this->flags($client, $raw)[self::INBOX_FLAG]);
     }
 
     public function test_the_flags_map_carries_the_inbox_flag_when_it_is_on(): void
@@ -154,7 +157,7 @@ final class ShowEventsControllerTest extends WebTestCase
         $this->storeInboxFlag($em, 'true');
         [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-flags-on@example.com');
 
-        self::assertSame([self::INBOX_FLAG => true], $this->events($client, $raw)['flags']);
+        self::assertSame(true, $this->flags($client, $raw)[self::INBOX_FLAG]);
     }
 
     /** The endpoint answers only while push is on, so that flag is stored and on, and still stays out of the map. */
@@ -165,11 +168,51 @@ final class ShowEventsControllerTest extends WebTestCase
         $this->storeInboxFlag($em, 'true');
         [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-flags-allowlist@example.com');
 
-        $flags = $this->events($client, $raw)['flags'];
+        $flags = $this->flags($client, $raw);
 
-        self::assertIsArray($flags);
-        self::assertSame([self::INBOX_FLAG], array_keys($flags));
+        self::assertSame([self::INBOX_FLAG, self::HEARTBEAT_FLAG], array_keys($flags));
         self::assertArrayNotHasKey(AgentPush::FLAG, $flags);
+    }
+
+    /** An instance upgraded past the seed migration still has no row until it runs, so the bridge reads the coded default. */
+    public function test_the_heartbeat_interval_reads_as_sixty_seconds_when_it_has_no_row(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $em->getConnection()->executeStatement('DELETE FROM feature_flag WHERE name = ?', [self::HEARTBEAT_FLAG]);
+        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-heartbeat-none@example.com');
+
+        self::assertSame(60, $this->flags($client, $raw)[self::HEARTBEAT_FLAG]);
+    }
+
+    public function test_the_heartbeat_interval_carries_the_stored_value_as_an_integer(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $this->storeHeartbeatFlag($em, '90');
+        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-heartbeat-stored@example.com');
+
+        self::assertSame(90, $this->flags($client, $raw)[self::HEARTBEAT_FLAG]);
+    }
+
+    /** @return iterable<string, array{string, int}> */
+    public static function heartbeatFloor(): iterable
+    {
+        yield 'zero' => ['0', 60];
+        yield 'one below the floor' => ['9', 60];
+        yield 'the floor' => ['10', 10];
+    }
+
+    /** The flag is operator-typed, and a few seconds would let one bridge spend its token's rate limit. */
+    #[DataProvider('heartbeatFloor')]
+    public function test_a_heartbeat_interval_below_ten_seconds_reads_as_the_default(string $stored, int $shared): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $this->storeHeartbeatFlag($em, $stored);
+        [$raw] = $this->issue($em, ApiTokenScope::Agent, 'events-heartbeat-floor-'.$stored.'@example.com');
+
+        self::assertSame($shared, $this->flags($client, $raw)[self::HEARTBEAT_FLAG]);
     }
 
     public function test_push_disabled_hides_the_endpoint(): void
@@ -262,6 +305,24 @@ final class ShowEventsControllerTest extends WebTestCase
             "INSERT INTO feature_flag (name, type, value, tags, options) VALUES (?, 'bool', ?, '[]', NULL)",
             [self::INBOX_FLAG, $value],
         );
+    }
+
+    private function storeHeartbeatFlag(EntityManagerInterface $em, string $value): void
+    {
+        $em->getConnection()->executeStatement('DELETE FROM feature_flag WHERE name = ?', [self::HEARTBEAT_FLAG]);
+        $em->getConnection()->executeStatement(
+            "INSERT INTO feature_flag (name, type, value, tags, options) VALUES (?, 'int', ?, '[]', NULL)",
+            [self::HEARTBEAT_FLAG, $value],
+        );
+    }
+
+    /** @return array<string, mixed> */
+    private function flags(KernelBrowser $client, string $raw): array
+    {
+        $flags = $this->events($client, $raw)['flags'];
+        self::assertIsArray($flags);
+
+        return $flags;
     }
 
     private function em(): EntityManagerInterface

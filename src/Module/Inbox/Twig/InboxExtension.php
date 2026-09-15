@@ -54,7 +54,8 @@ final class InboxExtension extends AbstractExtension
     public function getFilters(): array
     {
         return [
-            new TwigFilter('inbox_markdown', $this->markdown->render(...), ['is_safe' => ['html']]),
+            // No heading ids: an item shows beside a document whose own headings carry them.
+            new TwigFilter('inbox_markdown', $this->markdown->renderWithoutHeadingIds(...), ['is_safe' => ['html']]),
         ];
     }
 

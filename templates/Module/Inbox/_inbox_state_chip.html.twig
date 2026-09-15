@@ -1,0 +1,5 @@
+{% set chip = {open: 'pending', answered: 'ok', done: 'ok', declined: 'resolved', withdrawn: 'resolved', obsolete: 'resolved'}[state.value] %}
+<span class="lp-status-chip lp-status-chip--{{ chip }}">
+    <span class="lp-status-chip__dot"></span>
+    {{ ('inbox.item.state.' ~ state.value)|trans }}
+</span>

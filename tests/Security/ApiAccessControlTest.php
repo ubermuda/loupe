@@ -50,6 +50,31 @@ final class ApiAccessControlTest extends KernelTestCase
         self::assertTrue($this->decide('/api/projects/loupe/board/columns', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertTrue($this->decide('/api/projects/loupe/bridges/0f6e6b9e-8f1c-4c4e-9a3a-1d2b3c4d5e6f/rules', ['ROLE_USER', 'ROLE_API_AGENT']));
         self::assertTrue($this->decide('/api/projects/loupe/worker-runs', ['ROLE_USER', 'ROLE_API_AGENT']));
+        self::assertTrue($this->decide('/api/projects/loupe/inbox/asks/0f6e6b9e-8f1c-4c4e-9a3a-1d2b3c4d5e6f', ['ROLE_USER', 'ROLE_API_AGENT']));
+        self::assertTrue($this->decide('/api/bridges/0f6e6b9e-8f1c-4c4e-9a3a-1d2b3c4d5e6f/heartbeat', ['ROLE_USER', 'ROLE_API_AGENT']));
+    }
+
+    /** The ask check rule grants one route, so a path near it stays denied by default. */
+    public function test_the_inbox_ask_check_rule_does_not_open_the_rest_of_a_project(): void
+    {
+        $ask = '0f6e6b9e-8f1c-4c4e-9a3a-1d2b3c4d5e6f';
+        self::assertFalse($this->decide('/api/projects/loupe/inbox', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/loupe/inbox/asks', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/loupe/inbox/asks/', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/loupe/inbox/asks/'.$ask.'/items', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/client/app/inbox/asks/'.$ask, self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/projects/loupe/inbox/asks/'.$ask, ['ROLE_USER', 'ROLE_API_SITE_REVIEW', 'ROLE_API_MCP']));
+    }
+
+    /** The heartbeat rule grants one route, so nothing beside it under /api/bridges opens. */
+    public function test_the_heartbeat_rule_does_not_open_the_rest_of_a_bridge(): void
+    {
+        $bridge = '0f6e6b9e-8f1c-4c4e-9a3a-1d2b3c4d5e6f';
+        self::assertFalse($this->decide('/api/bridges', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/bridges/'.$bridge, self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/bridges/'.$bridge.'/heartbeat/extra', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/bridges/a/b/heartbeat', self::ALL_ROLES));
+        self::assertFalse($this->decide('/api/bridges/'.$bridge.'/heartbeat', ['ROLE_USER', 'ROLE_API_SITE_REVIEW', 'ROLE_API_MCP']));
     }
 
     /** The rules rule grants one route, so nothing beside it under a bridge opens. */

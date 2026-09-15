@@ -25,6 +25,10 @@ A skill's name prefix says which side of the product you stand on. A `loupe-*` s
 | `project-tech-design` | A technical design that settles an architecture, an entity model, a module boundary, or a subsystem |
 | `loupe-site-review` | Acting on site-review feedback through the `loupe` MCP: `site_review_get`, fixing comments, marking them addressed |
 | `loupe-board` | Working a project board through the `loupe` MCP: `card_create`, `card_list`, `card_get`, `card_update`, writing a card, linking a pull request |
+| `loupe-stage-product-design` | A card entering the Product design column, or a prompt that names the skill: write or revise the product document |
+| `loupe-stage-tech-design` | A card entering the Tech design column, or a prompt that names the skill: write or revise the tech design |
+| `loupe-stage-implementation` | A card entering the Implementation column, or a prompt that names the skill: build the approved tech design into a ready pull request |
+| `loupe-stage-fix-round` | One round of review feedback on a card's current stage, a document review or a pull request review, run by hand |
 | `symfony-authorization` | Generic Symfony authorization mechanics: Voter classes, attribute naming, `#[IsGranted]` placement, `subject:` resolution, `is_granted()` in Twig |
 | `symfony-entity-route-mapping` | Routes that resolve entities from URL parameters: `{param:variable}` notation, `#[MapEntity]`, multi-entity routes |
 | `project-comments` | Writing or reviewing code comments and docblocks anywhere in `src/`, `assets/` or `tests/` |
@@ -111,7 +115,7 @@ Four more that no registry covers:
 
 1. **A new flag does not reach an instance that is already installed.** `SeedFlagsController` seeds the flags at `/install`, and that page runs once. An instance that upgrades therefore holds no row for the new flag, so `FeatureFlagService::isEnabled()` falls back to the coded default and the feature ships invisible. There is no console command that seeds flags. Ship a per-flag migration instead, because `docker/prod/release.sh` runs migrations. `migrations/Version20260906142530.php` is the worked example. `bin/console app:dev:seed` seeds no flags either, so dev reads the same defaults.
 2. **A new messenger transport or schedule name must reach the worker command in two files**, `worker_command` in `terraform/main.tf` and the `worker` service in `docker/compose/prod.yaml`. Otherwise the transport fills and nothing drains it. A message class missing from `config/packages/messenger.yaml` is handled inside the web request instead, which works and is in the wrong process.
-3. **CSP is enforced in prod and empty in dev and test.** A feature that loads a new script, font, image or XHR origin works locally, passes e2e, and is blocked in production. Declare the origin in `config/packages/nelmio_security.yaml` with the `%env(default:app.csp_origin_fallback:VAR)%` shape, so an unset variable resolves to `'self'`.
+3. **CSP is enforced in prod and empty in dev and test.** A feature that loads a new script, font, image or XHR origin works locally, passes e2e, and is blocked in production. Declare the origin in `config/packages/nelmio_security.yaml` with the `%env(default:app.default_csp_origin:VAR)%` shape, so an unset variable resolves to `'self'`.
 4. **Navigation is hand-written in three places**: the app sidebar in `templates/base.html.twig`, the docs sidebar in `website/astro.config.mjs`, and the tool order in `Project/Mcp/AdvertisedTools`. A page or tool that is not listed is reachable only by typing its URL.
 
 Security surfaces that fail loudly need no checklist entry. A new `/api/` route with no rule above `allow_if: 'false'` in `config/packages/security.yaml` is denied, and a missing `ApiTokenScope` case is a PHP error. Rate limiting is the exception: `config/packages/rate_limiter.yaml` is hand-declared, so a new token-authenticated write endpoint has none by default.

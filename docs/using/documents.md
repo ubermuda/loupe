@@ -21,6 +21,10 @@ Threads carry a status: pending, addressed, or resolved. The verdict on a
 version is either an approval or a request for changes, submitted at
 `/review/submit`.
 
+When the inbox is on, the review page lists the inbox items linked to the
+document above it, and you can answer them there. See
+[On a card page and a document page](inbox.md#on-a-card-page-and-a-document-page).
+
 The documents list answers one question per row: does this document wait for
 you? A row reads **1 thread waiting for you**, and counts up from there. A
 thread waits for you when the agent marked it addressed and nobody confirmed it

@@ -45,8 +45,8 @@ return static function (Config $config): void {
 
     $config->add($src,
         Rule::allClasses()
-            ->that(new ResideInOneOfTheseNamespaces('App\Module\Board', 'App\Module\Review'))
+            ->that(new ResideInOneOfTheseNamespaces('App\Module\Board', 'App\Module\Review', 'App\Module\Bridge'))
             ->should(new NotDependsOnTheseNamespaces(['App\Module\Inbox']))
-            ->because('Inbox depends on Board and Review to link an item to a card or a document, so either import back closes a cycle. A card or document page reaches the inbox through a Twig function'),
+            ->because('Inbox depends on Board and Review to link an item to a card or a document, and on Bridge to read whether a bridge still sends its heartbeat, so an import back closes a cycle. A card or document page reaches the inbox through a Twig function'),
     );
 };

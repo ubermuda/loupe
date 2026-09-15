@@ -110,6 +110,7 @@ final class InboxToolRegistrationTest extends KernelTestCase
         self::assertSame(InboxItem::MAX_TITLE_LENGTH, $item['title']['maxLength']);
         self::assertSame(InboxLimits::MAX_BODY_LENGTH, $item['body']['maxLength']);
         self::assertSame(InboxLimits::MAX_OPTIONS, $item['options']['maxItems']);
+        self::assertSame(InboxLimits::MAX_OPTION_LENGTH, $item['options']['items']['maxLength']);
         self::assertSame(InboxLimits::MAX_LINKS, $item['cardIds']['maxItems']);
         self::assertSame(InboxLimits::MAX_LINKS, $item['documentIds']['maxItems']);
         self::assertSame(InboxLimits::MAX_CONTEXT_LENGTH, $ask['context']['maxLength']);
@@ -131,10 +132,18 @@ final class InboxToolRegistrationTest extends KernelTestCase
     {
         $schema = $this->registry->getTool(InboxListTool::NAME)->tool->inputSchema;
 
-        foreach (['state', 'askId', 'sessionId', 'cardId', 'documentId', 'page', 'perPage'] as $argument) {
+        foreach (['state', 'askId', 'sessionId', 'cardId', 'documentId', 'page', 'perPage', 'readerSessionId'] as $argument) {
             self::assertArrayHasKey($argument, $schema['properties'], $argument);
         }
         self::assertSame([], $schema['required'] ?? []);
+    }
+
+    public function test_inbox_get_requires_the_item_and_takes_an_optional_reader_session(): void
+    {
+        $schema = $this->registry->getTool(InboxGetTool::NAME)->tool->inputSchema;
+
+        self::assertSame(['itemId'], $schema['required']);
+        self::assertArrayHasKey('readerSessionId', $schema['properties']);
     }
 
     public function test_inbox_withdraw_requires_a_reason(): void

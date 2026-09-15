@@ -4432,6 +4432,18 @@
                 <source>inbox.ask.closed</source>
                 <target>Closed %time%</target>
             </trans-unit>
+            <trans-unit id="inbox.ask.bridge.last_heard">
+                <source>inbox.ask.bridge.last_heard</source>
+                <target>Its bridge was last heard from %time%.</target>
+            </trans-unit>
+            <trans-unit id="inbox.ask.bridge.unheard">
+                <source>inbox.ask.bridge.unheard</source>
+                <target>No heartbeat from its bridge has reached Loupe.</target>
+            </trans-unit>
+            <trans-unit id="inbox.ask.bridge.quiet">
+                <source>inbox.ask.bridge.quiet</source>
+                <target>No resume will come while the bridge stays quiet.</target>
+            </trans-unit>
             <trans-unit id="inbox.item.number">
                 <source>inbox.item.number</source>
                 <target>item %number%</target>
@@ -4583,6 +4595,54 @@
             <trans-unit id="inbox.project_list.open_items">
                 <source>inbox.project_list.open_items</source>
                 <target>{0}0 open inbox items|{1}1 open inbox item|]1,Inf[%count% open inbox items</target>
+            </trans-unit>
+            <trans-unit id="inbox.account.nav">
+                <source>inbox.account.nav</source>
+                <target>All inboxes</target>
+            </trans-unit>
+            <trans-unit id="inbox.account.page.title">
+                <source>inbox.account.page.title</source>
+                <target>All inboxes</target>
+            </trans-unit>
+            <trans-unit id="inbox.account.page.description">
+                <source>inbox.account.page.description</source>
+                <target>The open asks and open items in every project you own. Answer them in the project inbox.</target>
+            </trans-unit>
+            <trans-unit id="inbox.account.page.empty">
+                <source>inbox.account.page.empty</source>
+                <target>No project has an open inbox item.</target>
+            </trans-unit>
+            <trans-unit id="inbox.account.project.open_items">
+                <source>inbox.account.project.open_items</source>
+                <target>{0}0 open items|{1}1 open item|]1,Inf[%count% open items</target>
+            </trans-unit>
+            <trans-unit id="inbox.account.ask.open">
+                <source>inbox.account.ask.open</source>
+                <target>Answer in the project inbox</target>
+            </trans-unit>
+            <trans-unit id="inbox.account.item.open">
+                <source>inbox.account.item.open</source>
+                <target>Respond in the project inbox</target>
+            </trans-unit>
+            <trans-unit id="inbox.linked.title">
+                <source>inbox.linked.title</source>
+                <target>Inbox items</target>
+            </trans-unit>
+            <trans-unit id="inbox.linked.all">
+                <source>inbox.linked.all</source>
+                <target>Open the inbox</target>
+            </trans-unit>
+            <trans-unit id="inbox.linked.closed">
+                <source>inbox.linked.closed</source>
+                <target>Closed (%count%)</target>
+            </trans-unit>
+            <trans-unit id="inbox.linked.closed_more">
+                <source>inbox.linked.closed_more</source>
+                <target>See all %count% closed items in the inbox</target>
+            </trans-unit>
+            <trans-unit id="inbox.linked.asked">
+                <source>inbox.linked.asked</source>
+                <target>An agent asked %time%:</target>
             </trans-unit>
 
 
