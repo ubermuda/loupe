@@ -75,7 +75,9 @@ Then write the changelog entry that the profile `Changelog` section names, run i
 
 ## Wait for CI
 
-First wait until checks exist for the pushed head. The head commit of the pull request must equal `git rev-parse HEAD`. Then watch the required checks with the forge adapter, as a long command, for 60 minutes at most. The profile `Gate` section says which checks are required. Green means every required check passes and none is pending. Read each failed log with the forge adapter.
+Keep the SHA that you gated, reviewed and pushed. First wait until checks exist for that head. The head commit of the pull request must equal that SHA. Then watch the required checks with the forge adapter, as a long command, for 60 minutes at most. The profile `Gate` section says which checks are required.
+
+When the wait ends, read the head commit of the pull request again with the forge adapter. Accept green only when the head still equals the gated SHA, and every required check passes with none pending. When the head moved, sync the branch, run the gate and the code review again, and push. Read each failed log with the forge adapter.
 
 After each fix, run the gate again before you push.
 

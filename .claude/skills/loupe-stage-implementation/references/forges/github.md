@@ -51,10 +51,16 @@ Wait until checks exist for the head commit, then watch them:
 ```bash
 gh pr view <url> --json headRefOid,statusCheckRollup
 gh pr checks <url> --required --watch --fail-fast --interval 60
+```
+
+Then read the head again, and count the checks:
+
+```bash
+gh pr view <url> --json headRefOid -q .headRefOid
 gh pr checks <url> --required --json bucket -q 'group_by(.bucket)|map("\(.[0].bucket)=\(length)")|join(" ")'
 ```
 
-Green means `pass=<required count>` and no other bucket. The repository profile says where the list of required checks comes from.
+The count describes the gated head only when `headRefOid` still equals it. A rollup can still describe an earlier head, as `working-with-prs` "Merging" item 8 says. Green means `pass=<required count>` and no other bucket. The repository profile says where the list of required checks comes from.
 
 A check's `link` holds `/actions/runs/<run id>/`. Read the failed steps of that run:
 
