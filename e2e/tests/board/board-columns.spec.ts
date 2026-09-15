@@ -18,6 +18,9 @@ const PASSWORD = 'E2eBoardColumns1!';
 
 const COLUMN = '[data-board-columns-target="column"]';
 
+// Under a loaded run, the POST and the redirected GET take longer than the 5 s default.
+const ROUND_TRIP = { timeout: process.env.COVERAGE ? 20_000 : 15_000 };
+
 async function setBoardFlag(
     request: APIRequestContext,
     enabled: boolean,
@@ -127,7 +130,7 @@ test('an owner adds a column after the last one', async ({ page, board }) => {
     await page.getByRole('button', { name: 'Add column' }).click();
 
     await expect
-        .poll(() => slugs(page))
+        .poll(() => slugs(page), ROUND_TRIP)
         .toEqual(['backlog', 'next', 'in-progress', 'done', 'parked']);
 
     await page.goto(board.boardUrl);
@@ -154,7 +157,7 @@ test('a rename shows the new slug before it saves', async ({ page, board }) => {
     await dialog.getByRole('button', { name: 'Save name' }).click();
 
     await expect
-        .poll(() => slugs(page))
+        .poll(() => slugs(page), ROUND_TRIP)
         .toEqual(['backlog', 'up-next', 'in-progress', 'done']);
     await page.goto(board.boardUrl);
     await expect(
@@ -227,7 +230,7 @@ test('an empty column asks for confirmation before it is deleted', async ({
         .getByRole('button', { name: 'Delete the column' })
         .click();
 
-    await expect(page.getByText('Deleted the column')).toBeVisible();
+    await expect(page.getByText('Deleted the column')).toBeVisible(ROUND_TRIP);
     await page.goto(board.boardUrl);
     expect(await slugs(page)).toEqual(['backlog', 'next', 'done']);
 });
@@ -258,7 +261,7 @@ test('a column with cards is deleted into the target the dialog picks', async ({
         .getByRole('button', { name: 'Move the cards and delete' })
         .click();
 
-    await expect(page.getByText('moved its card')).toBeVisible();
+    await expect(page.getByText('moved its card')).toBeVisible(ROUND_TRIP);
     await page.goto(board.boardUrl);
     expect(await slugs(page)).toEqual(['backlog', 'in-progress', 'done']);
     await expect(
