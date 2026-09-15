@@ -203,7 +203,8 @@ Use short bullets, not paragraphs.
 
 Write only these, and leave out any line that has nothing to say:
 
-- Preview links, at the top, when there is something to click.
+- Preview links, at the top. Every pull request has them.
+- The URL of the board card the branch works, when a card exists.
 - One or two sentences on what changed and why.
 - The rejected alternative, in one sentence, when there was a real one.
 - What you verified, one line per check.
@@ -215,7 +216,7 @@ Write only these, and leave out any line that has nothing to say:
 
 Leave these out:
 
-- A heading for every item. A body with no links needs no heading.
+- A heading for every item. `## Preview` is the only heading a body needs.
 - Any line that says something does not apply: "nothing to click", "no deploy
   need", "no changelog fragment", "the gate was not reduced".
 - The diff restated in prose, a code block of the change, or a table per file.
@@ -257,8 +258,18 @@ later. The signature covers the whole URL, host included, so a link works
 against that worktree only, and the host resolves on your own machine. The route
 is `#[When('dev')]`, so it does not exist in production.
 
-Open the link yourself before you write it down. When a branch has nothing to
-click, leave the Preview section out rather than paste a link that goes nowhere.
+Open the link yourself before you write it down.
+
+Every pull request has a Preview section. When a branch changes no page, link
+what the reviewer reads instead: each changed file rendered on GitHub, a
+published artifact, or the CI run that shows the change working. Pin a GitHub
+link to the pushed commit SHA, not to the branch name, so the link shows the
+code under review after the branch moves.
+
+Put the card URL on its own line under the Preview section, when a card exists.
+`loupe-board` says how to build that URL and how to add the pull request to the
+card. Keep the card line when you strip the Preview section, because a card URL
+stays valid after the merge.
 
 **Every such URL must be clickable, and that means one whole absolute URL in
 plain text.** A bare host followed by paths in backticks — the shape a body
