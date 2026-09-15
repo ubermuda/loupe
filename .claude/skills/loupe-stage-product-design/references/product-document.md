@@ -20,7 +20,7 @@ Describe what the product does today, from the user's side. Support each entry w
 
 Describe what the user sees and does after the change. Give each entry a stable ID, `R1`, `R2` and so on, and lead the entry with it. Write these as `R` entries too: who may act, the error and empty states, and any flag or opt-in. Numbering restarts at every heading, so other sections cite `R3`, never "entry 3" (rule 3).
 
-Write only behaviour a user or an operator can observe. Name no class, table, entity or module. The tech design (`project-tech-design`) makes those decisions.
+Write only behaviour a user or an operator can observe. Name no class, table, entity or module. The tech design makes those decisions.
 
 ## Out of scope
 
@@ -42,7 +42,7 @@ When a revision folds an answer in, keep the fence and add a `**Decided:**` line
 
 ## Docs and landing page impact
 
-Answer the checks from CLAUDE.md "Planning and shipping a feature".
+Answer the documentation and landing page checks that the `Instruction files` section of the repository profile names.
 
-1. Documentation. Say whether the change alters what a user or an operator does, sees or configures. Name the page under `docs/using/`, `docs/reference/`, `docs/operating/`, `docs/getting-started/` or `docs/extending/`. When no page changes, say so and give the reason.
-2. Landing page. Say whether the change adds, removes or alters a capability that `templates/Module/Landing/landing.html.twig`, its partials in `templates/Module/Landing/landing/`, or `templates/_marketing_footer.html.twig` claims.
+1. Documentation. Say whether the change alters what a user or an operator does, sees or configures. Name the documentation page that covers it. When no page changes, say so and give the reason.
+2. Landing page. Say whether the change adds, removes or alters a capability that the landing page of the product claims.

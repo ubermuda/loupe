@@ -54,7 +54,7 @@ gh pr checks <url> --required --watch --fail-fast --interval 60
 gh pr checks <url> --required --json bucket -q 'group_by(.bucket)|map("\(.[0].bucket)=\(length)")|join(" ")'
 ```
 
-Green means `pass=<required count>` and no other bucket. Read the required count from the ruleset command in `working-with-prs` "What the ruleset actually requires".
+Green means `pass=<required count>` and no other bucket. The repository profile says where the list of required checks comes from.
 
 A check's `link` holds `/actions/runs/<run id>/`. Read the failed steps of that run:
 
@@ -63,14 +63,12 @@ gh pr checks <url> --json name,bucket,link
 gh run view <run id> --log-failed
 ```
 
-A failed `e2e` check names no test. Read its shard job, `e2e-chromium` or `e2e-rest`.
-
 ## Create a pull request
 
 ```bash
 git push -u origin HEAD
 gh pr list --head <branch> --state open --json url
-gh pr create --base main --title "<type>(<area>): <summary>" --body-file <file>
+gh pr create --base <base> --title "<title>" --body-file <file>
 ```
 
 Link a pull request that `gh pr list` returns, and create none.
