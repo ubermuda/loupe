@@ -9,6 +9,17 @@
 3. Never call `AskUserQuestion`. Nobody answers it.
 4. Nobody approves the plan. Start the work as soon as it is linked.
 
+## Pick the forge adapter
+
+The stage skills name forge operations: find and validate a pull request, list feedback items, reply to a thread, post a top-level comment, read checks and failed logs, create a pull request, and check mergeability. An adapter file maps them to commands for one forge.
+
+1. Read the forge from `pullRequests[].forge` in `card_get`: `github`, `gitlab`, `bitbucket` or `other`.
+2. Before a pull request exists, read the host of `git remote get-url origin`. `github.com` is `github`, a `gitlab` host is `gitlab`, `bitbucket.org` is `bitbucket`, and any other host is `other`.
+3. Read `forges/<forge>.md` in this directory.
+4. When no such file exists, stop with `STAGE RESULT: blocked: no forge adapter for <forge>`.
+
+`forges/github.md` is the only adapter today.
+
 ## Column check
 
 Slug a column label from the prompt: lowercase, with hyphens for spaces. Compare the slug with the card `status`.
@@ -45,8 +56,8 @@ The first must print the worktree path. The second must print the card branch. O
 ## Reruns
 
 1. A linked plan document whose `references` hold the tech design id is the plan. Reuse it, and create no second plan.
-2. An open pull request on a branch that starts `card-<number>-` belongs to this card. Never cut a new branch from `origin/main` for it. Restore its `headRefName` with "Set up or refresh the worktree" in `../../loupe-stage-fix-round/references/pull-request-feedback.md`: fetch, prune, add the worktree on that branch, the fast-forward sync, `just worktree-up`, and `EnterWorktree`. Then run `git branch --show-current`. When it differs from `headRefName`, stop with `STAGE RESULT: blocked: worktree is not on the PR branch`. Otherwise resume at the gate.
-3. Before `gh pr create`, run `gh pr list --head <branch> --state open`. Link a pull request it lists, and create none.
+2. An open pull request on a branch that starts `card-<number>-` belongs to this card. Never cut a new branch from `origin/main` for it. Restore its head branch with "Set up or refresh the worktree" in `../../loupe-stage-fix-round/references/pull-request-feedback.md`: fetch, prune, add the worktree on that branch, the fast-forward sync, `just worktree-up`, and `EnterWorktree`. Then run `git branch --show-current`. When it differs from the head branch, stop with `STAGE RESULT: blocked: worktree is not on the PR branch`. Otherwise resume at the gate.
+3. Before you create a pull request, list the open pull requests for the branch with the adapter. Link one it lists, and create none.
 
 ## Refresh after a sync
 
@@ -98,37 +109,13 @@ Commit what `just cs` changes. Then run the Codex review with `mcp__codex-cli__r
 
 ## Open the pull request
 
-```bash
-git push -u origin HEAD
-gh pr create --base main --title "<type>(<area>): <summary>" --body-file <file>
-```
-
-Keep the body to the shape `working-with-prs` gives. The card page route is `/projects/{projectId}/board/cards/{cardId}`, in `src/Module/Board/Controller/ShowCardController.php`. The card URL is therefore `<instance>/projects/<projectId>/board/cards/<cardId>`. Take the instance from the prompt line `Loupe instance <url>.`, and the project id from the prompt. When the prompt lacks either, write `Loupe card <number>` instead.
+Push the branch, and create the pull request with the adapter. Keep the body to the shape `working-with-prs` gives. The card page route is `/projects/{projectId}/board/cards/{cardId}`, in `src/Module/Board/Controller/ShowCardController.php`. The card URL is therefore `<instance>/projects/<projectId>/board/cards/<cardId>`. Take the instance from the prompt line `Loupe instance <url>.`, and the project id from the prompt. When the prompt lacks either, write `Loupe card <number>` instead.
 
 Then write `changelog.d/<pr number>.md` in the `working-with-prs` format. Run `php bin/changelog.php --check`, commit, and push.
 
 ## Wait for CI
 
-First wait until checks exist for the pushed head:
-
-```bash
-git rev-parse HEAD
-gh pr view <url> --json headRefOid,statusCheckRollup
-```
-
-The `headRefOid` must equal the local head, and `statusCheckRollup` must hold entries. Then watch in the background, with the loop from "Long commands", for 60 minutes at most:
-
-```bash
-gh pr checks <url> --required --watch --fail-fast --interval 60
-```
-
-Confirm the result as `working-with-prs` "Merging" item 8 says:
-
-```bash
-gh pr checks <url> --required --json bucket -q 'group_by(.bucket)|map("\(.[0].bucket)=\(length)")|join(" ")'
-```
-
-Green means `pass=<required count>` and no other bucket. Read the required count from the ruleset command in `working-with-prs` "What the ruleset actually requires". Read a failed `e2e` in its shard job, `e2e-chromium` or `e2e-rest`.
+First wait until checks exist for the pushed head. The head commit of the pull request must equal `git rev-parse HEAD`. Then watch the required checks with the adapter, in the background, with the loop from "Long commands", for 60 minutes at most. Confirm the result against that head, as `working-with-prs` "Merging" item 8 says. Green means every required check passes and none is pending. Read each failed log with the adapter.
 
 After each fix, run the gate again before you push.
 

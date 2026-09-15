@@ -27,7 +27,7 @@ Build the approved tech design of one card into a ready, linked pull request.
 2. Call `card_get`.
 3. Slug the prompt's column label (`references/commands.md`). When it differs from the card `status`, stop with `STAGE RESULT: card left <column>`.
 4. Find the linked tech design by its tags `design` and `decisions`, read with `document_get`, or a title starting `Tech design`. When none has `status` `approved`, stop with `STAGE RESULT: no approved tech design`.
-5. Run `gh pr view <url> --json state,headRefName` per linked URL. An open one on a `card-<number>-` branch: take step 6, restore it per "Reruns", and skip to the gate. Any other open one: stop with `STAGE RESULT: open pull request exists <url>`.
+5. Read each linked pull request with the forge adapter (`references/commands.md`). An open one on a `card-<number>-` branch: take step 6, restore it per "Reruns", and skip to the gate. Any other open one: stop with `STAGE RESULT: open pull request exists <url>`.
 6. Invoke `project-worktrees` and `working-with-prs`, then read `references/commands.md`.
 7. From the main checkout, provision `.claude/worktrees/card-<number>` on a `card-<number>-<short-slug>` branch from `origin/main`.
 8. Enter the worktree with `EnterWorktree`, and verify it. When that fails, stop with `STAGE RESULT: blocked: worktree binding failed`.

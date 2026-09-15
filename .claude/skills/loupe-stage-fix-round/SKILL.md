@@ -5,7 +5,7 @@ description: "Use when a Loupe card needs one round of review feedback answered 
 
 # Fix round
 
-Answer one round of feedback on the current stage of a card, then stop.
+Answer one round of feedback on the current stage of a card.
 
 ## Procedure
 
@@ -29,13 +29,13 @@ Answer one round of feedback on the current stage of a card, then stop.
 
 ### Code round
 
-1. Read `references/pull-request-feedback.md`, then `gh pr view` each linked pull request. When none is `OPEN`, stop with `STAGE RESULT: no open pull request`.
+1. Read `references/pull-request-feedback.md`, then read each linked pull request with the forge adapter. When none is open, stop with `STAGE RESULT: no open pull request`.
 2. Read the checks and the open feedback items, per the reference.
 3. When no check fails and no item is open, stop with `STAGE RESULT: nothing to fix`.
 4. Invoke `project-worktrees` and `working-with-prs`. Read `../loupe-stage-implementation/references/commands.md`.
 5. Set up or refresh `.claude/worktrees/card-<number>` from the pull request branch, per the reference. Keep every existing commit.
 6. When the binding fails or the branch differs from the pull request branch, stop with `STAGE RESULT: blocked: worktree binding failed`.
 7. Fix every open item and failing check with the Edit and Write tools. Follow the implementation skill for subagents, borrowed skills, the gate, the push, the CI wait and Codex.
-8. Post one marker reply for each item you handled, per the reference.
+8. Post a marker reply for each handled item, per the reference.
 9. When CI is green and two Codex passes in a row are clean, stop with `STAGE RESULT: fixed <pr url>`.
 10. On a block, record it and stop per implementation step 15.

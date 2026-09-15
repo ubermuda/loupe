@@ -1,44 +1,26 @@
 # Pull request feedback
 
-Run these from a checkout of the repository. `<n>` is the pull request number. `<nameWithOwner>` is the checkout's repository, such as `ubermuda/loupe`, split into `<owner>` and `<repo>` where a command needs both.
+This file describes the feedback model in forge terms: pull request, review thread, review body, top-level comment, check, head branch and base repository. The commands for a forge live in its adapter. Pick the adapter as "Pick the forge adapter" in `../../loupe-stage-implementation/references/commands.md` says.
 
 ## Find the open pull request
 
-```bash
-gh repo view --json nameWithOwner
-gh api graphql -F url=<url> -f query='query($url:URI!){resource(url:$url){... on PullRequest{number state headRefName headRefOid isCrossRepository baseRepository{nameWithOwner}}}}'
-```
-
-Run this before any other query or reply. When `baseRepository.nameWithOwner` differs from the checkout's `nameWithOwner`, or `isCrossRepository` is `true`, stop with `STAGE RESULT: blocked: pull request outside this repository`.
+Before any other query or reply, find and validate the pull request with the adapter. When its base repository is not the repository of the checkout, or its head branch lives in another repository, stop with `STAGE RESULT: blocked: pull request outside this repository`.
 
 ## Read the checks before a worktree exists
 
-Compare the checks against the `headRefOid` above only. Wait until `gh pr view <url> --json headRefOid,statusCheckRollup` shows entries for that SHA. Then wait and count as "Wait for CI" in `../../loupe-stage-implementation/references/commands.md` says, and skip its `git rev-parse HEAD` comparison.
-
-```bash
-gh pr checks <url> --json name,bucket,link
-gh run view <run id> --log-failed
-```
-
-A check's `link` holds `/actions/runs/<run id>/`. A failed `e2e` names no test, so read its shard job, `e2e-chromium` or `e2e-rest`.
+Compare the checks against the head commit of the pull request only. Wait until checks exist for that commit. Then wait and count as "Wait for CI" in `../../loupe-stage-implementation/references/commands.md` says, and skip its comparison with the local head. Read the failed logs of each failing check with the adapter.
 
 ## Read the feedback items
 
-```bash
-gh api graphql --paginate -F owner='<owner>' -F repo='<repo>' -F n=<n> -f query='query($owner:String!,$repo:String!,$n:Int!,$endCursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$n){reviewThreads(first:100,after:$endCursor){pageInfo{hasNextPage endCursor} nodes{id isResolved comments(first:100){pageInfo{hasNextPage} nodes{databaseId author{login} body}}}}}}}'
-gh api repos/<nameWithOwner>/pulls/<n>/reviews --paginate
-gh api repos/<nameWithOwner>/issues/<n>/comments --paginate
-```
-
-When a thread reports `comments.pageInfo.hasNextPage` as `true`, stop with `STAGE RESULT: blocked: review thread longer than 100 comments`.
+List the feedback items with the adapter, and walk every page. When a thread is too long to read, stop with `STAGE RESULT: blocked: review thread longer than 100 comments`.
 
 A feedback item is one of these:
 
-1. A review with a non-empty `body`. Its id is the review `id`.
-2. A review thread. Its id is the thread `id`.
-3. A top-level pull request comment. Its id is the comment `id`.
+1. A review with a non-empty body. Its id is the review id.
+2. A review thread. Its id is the thread id.
+3. A top-level pull request comment. Its id is the comment id.
 
-The review state, such as `APPROVED` or `CHANGES_REQUESTED`, plays no part.
+The review state, such as approved or changes requested, plays no part.
 
 ## The worker marker
 
@@ -67,23 +49,9 @@ Every other item is open. With no open item and no failing check, stop with `STA
 
 Fix every open item and every failing check first. Then post one marker reply for each item you handled. Use `No change for` when the item asks for nothing you can act on.
 
-For a thread, reply inside the thread, with `Addressed thread <id>` or `No change for thread <id>`. Take the `databaseId` of its first comment:
-
-```bash
-gh api repos/<nameWithOwner>/pulls/<n>/comments/<databaseId>/replies -f body='<!-- loupe-stage-worker -->
-Addressed thread <id>: <what changed, commits>'
-```
-
-For a review body or a top-level comment, post a top-level comment. Name the kind of the item, `review` or `comment`:
-
-```bash
-gh api repos/<nameWithOwner>/issues/<n>/comments -f body='<!-- loupe-stage-worker -->
-Addressed review <id>: <what changed, commits>'
-gh api repos/<nameWithOwner>/issues/<n>/comments -f body='<!-- loupe-stage-worker -->
-No change for comment <id>: <reason>'
-```
-
-The other two forms follow the same shape: `No change for review <id>` and `Addressed comment <id>`.
+1. For a thread, reply inside the thread with the adapter, with `Addressed thread <id>` or `No change for thread <id>`.
+2. For a review body, post a top-level comment with `Addressed review <id>` or `No change for review <id>`.
+3. For a top-level comment, post a top-level comment with `Addressed comment <id>` or `No change for comment <id>`.
 
 Never resolve a thread. The reviewer resolves it.
 
@@ -95,25 +63,25 @@ Run these from the main checkout. Find the worktree with the porcelain grep:
 git worktree list --porcelain | grep -x "worktree $PWD/.claude/worktrees/card-<number>"
 ```
 
-When the grep prints nothing, create the worktree:
+When the grep prints nothing, create the worktree on the head branch:
 
 ```bash
 git worktree prune
-git fetch origin <headRefName>
-git worktree add .claude/worktrees/card-<number> <headRefName>
+git fetch origin <head branch>
+git worktree add .claude/worktrees/card-<number> <head branch>
 ```
 
-When `git worktree add` finds no local branch, use `git worktree add --track -b <headRefName> .claude/worktrees/card-<number> origin/<headRefName>`.
+When `git worktree add` finds no local branch, use `git worktree add --track -b <head branch> .claude/worktrees/card-<number> origin/<head branch>`.
 
-For an existing worktree, first run `git -C .claude/worktrees/card-<number> branch --show-current`. When it differs from `<headRefName>`, change nothing, and stop with `STAGE RESULT: blocked: worktree is not on the PR branch`.
+For an existing worktree, first run `git -C .claude/worktrees/card-<number> branch --show-current`. When it differs from the head branch, change nothing, and stop with `STAGE RESULT: blocked: worktree is not on the PR branch`.
 
 Sync the branch before you provision it, for a new or an existing worktree:
 
 ```bash
-git -C .claude/worktrees/card-<number> fetch origin <headRefName>
-git -C .claude/worktrees/card-<number> merge --ff-only origin/<headRefName>
+git -C .claude/worktrees/card-<number> fetch origin <head branch>
+git -C .claude/worktrees/card-<number> merge --ff-only origin/<head branch>
 ```
 
 When the merge fails, stop with `STAGE RESULT: blocked: local branch diverged from origin`. Never force-push.
 
-Then provision it with `just worktree-up card-<number>`. When the sync brought commits, also clear both caches, as "Refresh after a sync" in `../../loupe-stage-implementation/references/commands.md` says. Call `EnterWorktree`, and verify it as that file says. The branch must be `<headRefName>`.
+Then provision it with `just worktree-up card-<number>`. When the sync brought commits, also clear both caches, as "Refresh after a sync" in `../../loupe-stage-implementation/references/commands.md` says. Call `EnterWorktree`, and verify it as that file says. The branch must be the head branch.
