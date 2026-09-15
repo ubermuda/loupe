@@ -1,0 +1,54 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'inbox.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <a class="lp-topbar__crumb" href="{{ path('app_project_documents', {id: inbox.project.id}) }}">{{ inbox.project.name }}</a>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'inbox.page.title'|trans }}</span>
+{% endblock %}
+
+{% block body %}
+<div class="lp-workspace">
+    <h1 class="lp-workspace-title">{{ 'inbox.page.title'|trans }}</h1>
+    <p class="lp-workspace-desc">{{ 'inbox.page.description'|trans }}</p>
+
+    {% if inbox.isEmpty %}
+    <div class="lp-empty-state">
+        <twig:ux:icon name="lucide:inbox" class="lp-empty-state__icon text-accent w-12 h-12" />
+        <h2 class="lp-empty-state__title">{{ 'inbox.page.empty'|trans }}</h2>
+    </div>
+    {% else %}
+        {% if inbox.openAsks|length > 0 %}
+        <section class="lp-inbox-section" data-inbox-section="open-asks">
+            <h2 class="lp-inbox-section__title">{{ 'inbox.section.open_asks'|trans({'%count%': inbox.openAsks|length}) }}</h2>
+            {% for ask in inbox.openAsks %}
+                {% include '@Inbox/_inbox_ask.html.twig' with {ask: ask, inbox: inbox, refusedForm: refusedForm} only %}
+            {% endfor %}
+        </section>
+        {% endif %}
+
+        {% if inbox.looseItems|length > 0 %}
+        <section class="lp-inbox-section" data-inbox-section="loose-items">
+            <h2 class="lp-inbox-section__title">{{ 'inbox.section.loose_items'|trans({'%count%': inbox.looseItems|length}) }}</h2>
+            <p class="lp-inbox-section__note">{{ 'inbox.section.loose_items_note'|trans }}</p>
+            <div class="lp-inbox-ask__items">
+                {% for item in inbox.looseItems %}
+                    {% include '@Inbox/_inbox_item.html.twig' with {item: item, ask: null, inbox: inbox, refusedForm: refusedForm} only %}
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        {% if inbox.closedAskTotal > 0 %}
+        <section class="lp-inbox-section" data-inbox-section="closed-asks">
+            <h2 class="lp-inbox-section__title">{{ 'inbox.section.closed_asks'|trans({'%count%': inbox.closedAskTotal}) }}</h2>
+            {% for ask in inbox.closedAsks %}
+                {% include '@Inbox/_inbox_ask.html.twig' with {ask: ask, inbox: inbox, refusedForm: refusedForm} only %}
+            {% endfor %}
+            <twig:Pagination route="app_project_inbox" :page="inbox.page" :totalPages="inbox.totalPages" :pageList="inbox.pageList" :routeParams="{id: inbox.project.id}" />
+        </section>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

@@ -157,6 +157,12 @@ Roughly in the order an agent uses them:
 | `card_search` | Search every card's title and body by words, finished ones included |
 | `card_get` | Read one card, with the pull requests linked to it |
 | `card_update` | Change a card, or move it to another column |
+| `inbox_ask` | Hand questions and to-dos to the project owner (off by default, see below) |
+| `inbox_search` | Search every inbox item's title and body by words, closed ones included |
+| `inbox_join` | Add an open item that is already in the inbox to the session's own ask |
+| `inbox_list` | Read a page of inbox items, filtered by state, ask, session, card or document |
+| `inbox_get` | Read one inbox item, with its answer and its links |
+| `inbox_withdraw` | Withdraw an open item that is no longer needed, with a reason |
 
 ### Finding a document without reading every one
 
@@ -333,6 +339,31 @@ Every card carries a `number` beside its `cardId`. The number counts from 1
 inside one project, so a person can say "card 42" and an agent can name a branch
 after it. Two projects each have a card 1. The tools still take the `cardId`,
 never the number.
+
+The `inbox_*` tools are behind the `inbox.enabled` feature flag, seeded
+**off**. The gate behaves the same way as the board gate: while the flag is off
+the tools are absent from `tools/list` and from the Connect page, and a client
+that calls one anyway gets a plain refusal.
+
+An item is one question or one to-do for the project owner. An ask is the set of
+items that one agent session hands over at once. `inbox_ask` and `inbox_join`
+take a required `sessionId`, which a Claude Code session reads from
+`$CLAUDE_CODE_SESSION_ID`. One session holds at most one open ask, so a second
+`inbox_ask` from the same session adds its items to that ask. A question blocks
+by default and a to-do does not. An ask with no blocking item closes at once,
+and its items stay open in the inbox.
+
+Every card id and document id an item links to must belong to the token's
+project, or the call is refused. An item closes as `obsolete` when every card it
+links to is moved into a terminal column, by a move or by a column delete. Only
+an open item can be withdrawn.
+
+`inbox_ask` takes at most 20 items in one call. An item takes at most 20
+options, 20 card ids, 20 document ids and a body of 20,000 characters. Its title
+is one line, and its options must differ from each other. The context of an ask
+is at most 10,000 characters, counting what earlier calls appended. A withdraw
+reason is at most 2,000 characters. A second call that names a different
+`bridgeId` from the one the open ask holds is refused.
 
 `MCP_ALLOWED_HOSTS` is a DNS-rebinding allowlist — hostnames only, no port. It
 must contain the hostname agents actually use, or every call is rejected with a

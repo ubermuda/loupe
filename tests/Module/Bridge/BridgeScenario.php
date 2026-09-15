@@ -7,6 +7,7 @@ namespace App\Tests\Module\Bridge;
 use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
+use App\Module\Bridge\Entity\Bridge;
 use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\Bridge\Service\WorkerRunSearchIndexer;
 use App\Module\Project\Entity\Project;
@@ -88,6 +89,22 @@ trait BridgeScenario
         $this->searchIndexer()->index($run);
 
         return $run;
+    }
+
+    /** @param list<string> $projects */
+    private function seedBridge(
+        EntityManagerInterface $em,
+        User $owner,
+        ?Uuid $id = null,
+        array $projects = [],
+        string $cliVersion = 'b4e39aa7',
+        \DateTimeImmutable $lastSeenAt = new \DateTimeImmutable(),
+    ): Bridge {
+        $bridge = new Bridge($owner, $id ?? Uuid::v4(), $projects, $cliVersion, $lastSeenAt);
+        $em->persist($bridge);
+        $em->flush();
+
+        return $bridge;
     }
 
     private function searchIndexer(): WorkerRunSearchIndexer

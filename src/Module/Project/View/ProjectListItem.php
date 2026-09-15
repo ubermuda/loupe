@@ -21,6 +21,7 @@ final readonly class ProjectListItem
         public int $commentCount,
         public int $openCount,
         public int $openCardCount = 0,
+        public int $openInboxItemCount = 0,
     ) {
     }
 }

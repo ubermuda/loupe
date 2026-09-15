@@ -4579,6 +4579,103 @@
         white-space: pre-wrap;
         overflow-wrap: anywhere;
     }
+
+    /* ── Inbox page ─────────────────────────────────────────────────────
+       An ask is one block: the agent's context above its items. A closed ask
+       keeps its shape and loses its fill, so open work stands out. */
+    .lp-inbox-section {
+        @apply flex flex-col gap-3 mb-10;
+    }
+    .lp-inbox-section__title {
+        @apply m-0 text-sm font-bold uppercase tracking-widest text-fg-mute;
+    }
+    .lp-inbox-section__note {
+        @apply m-0 text-sm text-fg-dim;
+    }
+    .lp-inbox-ask {
+        @apply flex flex-col gap-3 rounded-xl bg-surface-2 py-4 px-4.5;
+    }
+    .lp-inbox-ask--closed {
+        @apply bg-surface-1 border border-line;
+    }
+    .lp-inbox-ask__head {
+        @apply flex flex-wrap items-center gap-3 font-mono text-xs text-fg-dim;
+    }
+    .lp-inbox-ask__context {
+        @apply max-w-none text-sm;
+    }
+    .lp-inbox-ask__items {
+        @apply flex flex-col gap-2.5;
+    }
+    .lp-inbox-item {
+        @apply flex flex-col gap-2 rounded-lg bg-elev py-3.5 px-4 scroll-mt-16;
+    }
+    .lp-inbox-item__head {
+        @apply flex flex-wrap items-center gap-2.5;
+    }
+    .lp-inbox-item__number {
+        @apply font-mono text-sm font-bold text-ink;
+    }
+    .lp-inbox-item__kind {
+        @apply text-xs font-semibold text-fg-mute;
+    }
+    .lp-inbox-item__blocking {
+        @apply rounded-full bg-status-pending-bg text-status-pending-deep text-xs font-bold py-0.5 px-2;
+    }
+    .lp-inbox-item__title {
+        @apply m-0 text-base font-semibold text-ink;
+    }
+    .lp-inbox-item__body {
+        @apply max-w-none text-sm;
+    }
+    .lp-inbox-item__response {
+        @apply flex flex-col gap-1.5 rounded-lg bg-tint py-2.5 px-3 text-sm text-ink;
+    }
+    .lp-inbox-item__choices {
+        @apply m-0 pl-5 list-disc font-semibold;
+    }
+    .lp-inbox-item__answer-text,
+    .lp-inbox-item__note {
+        @apply m-0 whitespace-pre-line;
+    }
+    .lp-inbox-item__editable {
+        @apply m-0 text-xs text-fg-mute;
+    }
+    .lp-inbox-item__refusal {
+        @apply rounded-lg bg-status-danger-bg text-status-danger-deep py-2 px-3 text-sm;
+    }
+    .lp-inbox-item__refusal p {
+        @apply m-0;
+    }
+    .lp-inbox-item__jump {
+        @apply self-start text-sm font-semibold text-accent-ink no-underline hover:underline;
+    }
+    .lp-inbox-item__actions {
+        @apply flex flex-col gap-3;
+    }
+    .lp-inbox-item__buttons {
+        @apply flex items-center justify-end gap-3;
+    }
+    /* The block sits inside a card here, so it drops the page margin the
+       document pane gives it, and its question is the item title above. */
+    .lp-decision--inbox {
+        @apply my-0 bg-surface-2;
+    }
+    .lp-decision--inbox .lp-decision__prompt {
+        @apply mb-2 text-xs font-bold uppercase tracking-widest text-fg-mute;
+    }
+    .lp-decision--inbox .lp-decision__prompt::before {
+        @apply hidden;
+    }
+    .lp-inbox-answer__clear {
+        @apply mt-2;
+    }
+    .lp-inbox-decline__summary {
+        @apply cursor-pointer select-none text-sm font-semibold text-fg-dim hover:text-ink;
+    }
+    .lp-inbox-decline__form {
+        @apply mt-2;
+    }
 }
 
 /* The typography plugin wraps inline code in literal backticks. Unlayered, not

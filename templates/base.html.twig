@@ -65,6 +65,20 @@
                         <span class="lp-sidebar__link-label">{{ 'nav.link.board'|trans }}</span>
                     </a>
                     {% endif %}
+                    {% if is_feature_enabled('inbox.enabled') %}
+                    <a href="{{ path('app_project_inbox', {id: project.id}) }}"
+                       class="lp-sidebar__link{% if route == 'app_project_inbox' %} lp-sidebar__link--active{% endif %}"
+                       {% if route == 'app_project_inbox' %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:inbox" />
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.inbox'|trans }}</span>
+                        {# Shown only while something waits on the owner, and amber then. #}
+                        {% set inboxOpenCount = project_inbox_open_count(project) %}
+                        {% if inboxOpenCount > 0 %}
+                        <span class="lp-sidebar__pill lp-sidebar__pill--amber" data-inbox-open-count aria-hidden="true">{{ inboxOpenCount }}</span>
+                        <span class="sr-only">{{ 'inbox.nav.open_items'|trans({'%count%': inboxOpenCount}) }}</span>
+                        {% endif %}
+                    </a>
+                    {% endif %}
                     <a href="{{ path('app_project_site_review', {id: project.id}) }}"
                        class="lp-sidebar__link{% if route == 'app_project_site_review' %} lp-sidebar__link--active{% endif %}"
                        {% if route == 'app_project_site_review' %}aria-current="page"{% endif %}>
