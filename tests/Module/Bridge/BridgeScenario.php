@@ -70,6 +70,7 @@ trait BridgeScenario
         $run = new WorkerRun(
             project: $project,
             bridgeId: $bridgeId ?? Uuid::v7(),
+            sessionId: Uuid::v4(),
             cardId: $cardId ?? Uuid::v7(),
             cardNumber: $cardNumber,
             ruleName: $ruleName,
