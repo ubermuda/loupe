@@ -25,6 +25,16 @@ class BridgeRepository extends ServiceEntityRepository
         return $this->findOneBy(['owner' => $owner, 'id' => $id]);
     }
 
+    /**
+     * @param list<Uuid> $ids
+     *
+     * @return list<Bridge>
+     */
+    public function findByOwnerAndIds(User $owner, array $ids): array
+    {
+        return $this->findBy(['owner' => $owner, 'id' => $ids]);
+    }
+
     /** @return list<Bridge> */
     public function findByOwner(User $owner): array
     {

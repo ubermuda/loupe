@@ -4412,6 +4412,18 @@
                 <source>inbox.ask.closed</source>
                 <target>Closed %time%</target>
             </trans-unit>
+            <trans-unit id="inbox.ask.bridge.last_heard">
+                <source>inbox.ask.bridge.last_heard</source>
+                <target>Its bridge was last heard from %time%.</target>
+            </trans-unit>
+            <trans-unit id="inbox.ask.bridge.unheard">
+                <source>inbox.ask.bridge.unheard</source>
+                <target>No heartbeat from its bridge has reached Loupe.</target>
+            </trans-unit>
+            <trans-unit id="inbox.ask.bridge.quiet">
+                <source>inbox.ask.bridge.quiet</source>
+                <target>No resume will come while the bridge stays quiet.</target>
+            </trans-unit>
             <trans-unit id="inbox.item.number">
                 <source>inbox.item.number</source>
                 <target>item %number%</target>

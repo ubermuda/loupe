@@ -14,6 +14,24 @@
             </span>
         {% endif %}
     </header>
+    {% set bridge = inbox.bridgeStatus(ask) %}
+    {% if bridge %}
+        <p class="lp-inbox-ask__bridge{{ bridge.quiet ? ' lp-inbox-ask__bridge--quiet' }}" data-inbox-bridge="{{ bridge.lastSeenAt is null ? 'unheard' : (bridge.quiet ? 'quiet' : 'heard') }}">
+            {% if bridge.quiet %}
+                <twig:ux:icon name="lucide:triangle-alert" class="lp-inbox-ask__bridge-icon w-4 h-4" />
+            {% endif %}
+            <span>
+                {% if bridge.lastSeenAt is null %}
+                    {{ 'inbox.ask.bridge.unheard'|trans }}
+                {% else %}
+                    <time datetime="{{ bridge.lastSeenAt|date('c') }}">{{ 'inbox.ask.bridge.last_heard'|trans({'%time%': bridge.lastSeenAt|relative_time(bridge.checkedAt)}) }}</time>
+                {% endif %}
+                {% if bridge.quiet %}
+                    {{ 'inbox.ask.bridge.quiet'|trans }}
+                {% endif %}
+            </span>
+        </p>
+    {% endif %}
     {% if ask.context|trim is not empty %}
         {# Agent Markdown, rendered and sanitized the way a card body is. #}
         <div class="prose lp-prose lp-inbox-ask__context">{{ ask.context|inbox_markdown }}</div>
