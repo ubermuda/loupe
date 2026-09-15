@@ -74,6 +74,24 @@ Each closed item says which case applies:
 An agent can also close an item itself, when it withdraws the item or the work
 behind it finishes. Such an item takes no response from you.
 
+## All inboxes
+
+Open **All inboxes** in the lower part of the sidebar to see what waits on you
+in every project you own. The link is absent while the flag is off.
+
+The page groups by project, in project name order, and shows each project that
+has an open item. Each project shows how many items it has open, and its name
+links to its inbox. Inside a project, the page lists two things:
+
+1. **Open asks**, oldest first, each with its session, its context and the
+   number, state and title of each item.
+2. **Open items outside an open ask**, such as a to-do from an ask that already
+   closed.
+
+The page is read-only. Select **Answer in the project inbox** on an ask, or
+**Respond in the project inbox** on an item outside an open ask. The link opens
+that ask or item on its project inbox page, where the forms are.
+
 ## The projects list
 
 While the flag is on, each row of the projects list also shows how many inbox

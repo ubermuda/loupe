@@ -240,6 +240,26 @@ class InboxItemRepository extends ServiceEntityRepository
     }
 
     /**
+     * The open items that no open ask holds, in every project the user owns, with their projects.
+     *
+     * @return list<InboxItem>
+     */
+    public function findOpenOutsideOpenAsksByOwner(User $user): array
+    {
+        return array_values($this->createQueryBuilder('i')
+            ->join('i.project', 'p')
+            ->addSelect('p')
+            ->andWhere('p.owner = :user')
+            ->andWhere('i.state = :open')
+            ->andWhere('NOT EXISTS (SELECT 1 FROM '.InboxAskItem::class.' l JOIN l.ask a WHERE l.item = i AND a.closedAt IS NULL)')
+            ->setParameter('user', $user)
+            ->setParameter('open', InboxItemState::Open)
+            ->orderBy('i.number', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
      * Copies onto the entity the columns that decide which response the item
      * takes, as stored now, whatever the loaded entity holds.
      */

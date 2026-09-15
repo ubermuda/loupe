@@ -4593,7 +4593,7 @@
         @apply m-0 text-sm text-fg-dim;
     }
     .lp-inbox-ask {
-        @apply flex flex-col gap-3 rounded-xl bg-surface-2 py-4 px-4.5;
+        @apply flex flex-col gap-3 rounded-xl bg-surface-2 py-4 px-4.5 scroll-mt-16;
     }
     .lp-inbox-ask--closed {
         @apply bg-surface-1 border border-line;
@@ -4649,6 +4649,23 @@
     }
     .lp-inbox-item__jump {
         @apply self-start text-sm font-semibold text-accent-ink no-underline hover:underline;
+    }
+    /* The account inbox: one heading per project above its open asks. The
+       link to an ask's block on the project page sits at the end of its head. */
+    .lp-account-inbox-project__head {
+        @apply flex flex-wrap items-baseline gap-3;
+    }
+    .lp-account-inbox-project__title {
+        @apply m-0 text-lg font-semibold;
+    }
+    .lp-account-inbox-project__link {
+        @apply text-ink no-underline hover:underline;
+    }
+    .lp-account-inbox-project__count {
+        @apply text-sm text-fg-dim;
+    }
+    .lp-inbox-ask__link {
+        @apply ml-auto font-sans text-sm font-semibold text-accent-ink no-underline hover:underline;
     }
     .lp-inbox-item__actions {
         @apply flex flex-col gap-3;

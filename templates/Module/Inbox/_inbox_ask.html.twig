@@ -1,4 +1,4 @@
-<section class="lp-inbox-ask{{ ask.closedAt ? ' lp-inbox-ask--closed' }}" data-inbox-ask-id="{{ ask.id }}">
+<section class="lp-inbox-ask{{ ask.closedAt ? ' lp-inbox-ask--closed' }}" id="inbox-ask-{{ ask.id }}" data-inbox-ask-id="{{ ask.id }}">
     <header class="lp-inbox-ask__head">
         <span class="lp-inbox-ask__session" title="{{ ask.sessionId }}">{{ 'inbox.ask.session'|trans({'%session%': ask.sessionId}) }}</span>
         <span class="lp-inbox-ask__time">{{ 'inbox.ask.asked'|trans({'%time%': ask.createdAt|relative_time}) }}</span>
