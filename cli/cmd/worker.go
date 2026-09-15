@@ -27,12 +27,14 @@ type workerResult struct {
 }
 
 // workerSpec is one claude process to run. An empty permissionMode or model
-// passes no flag. sessionID is the id claude runs the session under.
+// passes no flag. sessionID is the id claude runs the session under, a new one
+// or, with resume, the one it continues.
 type workerSpec struct {
 	dir            string
 	permissionMode string
 	model          string
 	sessionID      string
+	resume         bool
 	prompt         string
 }
 
@@ -60,11 +62,16 @@ func workerArgs(spec workerSpec) []string {
 		args = append(args, "--model", spec.model)
 	}
 
-	return append(args, "-p", "--session-id", spec.sessionID, "--", spec.prompt)
+	session := "--session-id"
+	if spec.resume {
+		session = "--resume"
+	}
+
+	return append(args, "-p", session, spec.sessionID, "--", spec.prompt)
 }
 
-// runWorker runs `claude -p --session-id <id> -- <prompt>` in the spec's dir
-// and waits for it.
+// runWorker runs `claude -p --session-id <id> -- <prompt>`, or `--resume <id>`,
+// in the spec's dir and waits for it.
 func runWorker(ctx context.Context, spec workerSpec) workerResult {
 	args := workerArgs(spec)
 

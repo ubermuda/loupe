@@ -27,6 +27,11 @@ type Event struct {
 	FromSlug string `json:"fromSlug"`
 	ToSlug   string `json:"toSlug"`
 	Slug     string `json:"slug"`
+	// SessionID, BridgeID and CardID belong to inbox.ask_closed. A null card or
+	// bridge decodes as "".
+	SessionID string `json:"sessionId"`
+	BridgeID  string `json:"bridgeId"`
+	CardID    string `json:"cardId"`
 }
 
 // Subject names the aggregate an event is about. The id is what an MCP tool
@@ -47,6 +52,10 @@ const (
 	ColumnDeletedType  = "board.column_deleted"
 	ProjectRenamedType = "project.renamed"
 )
+
+// AskClosedType is published when an inbox ask closes. The bridge parses it
+// only when a rule names it.
+const AskClosedType = "inbox.ask_closed"
 
 // The actors the server names. Reviewer is someone using the site-review
 // widget, whom the app cannot authenticate.
@@ -75,6 +84,26 @@ func IsID(s string) bool {
 // prompt through {from} and {to}.
 var SlugPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
+// ForAnotherBridge reports whether data is an inbox.ask_closed event that does
+// not name bridgeID as a string, whatever its case. The caller drops such an
+// event before Parse, so a malformed field of another bridge's event logs
+// nothing. Data that is not a JSON object is left to Parse.
+func ForAnotherBridge(data []byte, bridgeID string) bool {
+	var head struct {
+		Type     string          `json:"type"`
+		BridgeID json.RawMessage `json:"bridgeId"`
+	}
+	if json.Unmarshal(data, &head) != nil || head.Type != AskClosedType {
+		return false
+	}
+	var id string
+	if json.Unmarshal(head.BridgeID, &id) != nil {
+		return true
+	}
+
+	return id == "" || !strings.EqualFold(id, bridgeID)
+}
+
 // Parse decodes a Mercure data payload into an Event.
 //
 // board.card_moved and the three slug-changing types are always parsed, with
@@ -101,6 +130,10 @@ func Parse(data []byte, extraTypes map[string]bool) (Event, error) {
 		if err := checkSlugs(e, "slug", e.Slug); err != nil {
 			return e, err
 		}
+	case e.Type == AskClosedType && extraTypes[e.Type]:
+		if err := checkAskClosed(e); err != nil {
+			return e, err
+		}
 	case e.Type != "" && extraTypes[e.Type]:
 		if err := checkCommon(e); err != nil {
 			return e, err
@@ -114,6 +147,9 @@ func Parse(data []byte, extraTypes map[string]bool) (Event, error) {
 	// project map compare these ids, and two casings would not match.
 	e.ProjectID = strings.ToLower(e.ProjectID)
 	e.Subject.ID = strings.ToLower(e.Subject.ID)
+	e.SessionID = strings.ToLower(e.SessionID)
+	e.BridgeID = strings.ToLower(e.BridgeID)
+	e.CardID = strings.ToLower(e.CardID)
 
 	return e, nil
 }
@@ -149,6 +185,25 @@ func checkSlugs(e Event, pairs ...string) error {
 		if !SlugPattern.MatchString(pairs[i+1]) {
 			return fmt.Errorf("%s event has a %s that is not a slug", e.Type, pairs[i])
 		}
+	}
+
+	return nil
+}
+
+// checkAskClosed checks the ids a resume puts into claude's argv and into its
+// report. The router compares the bridge id with its own, so any other drops.
+func checkAskClosed(e Event) error {
+	if err := checkCommon(e); err != nil {
+		return err
+	}
+	if !uuidPattern.MatchString(e.SessionID) {
+		return fmt.Errorf("%s event has a sessionId that is not a uuid", e.Type)
+	}
+	if e.CardID != "" && !uuidPattern.MatchString(e.CardID) {
+		return fmt.Errorf("%s event has a cardId that is not a uuid", e.Type)
+	}
+	if e.CardNumber < 0 || (e.CardID == "") != (e.CardNumber == 0) {
+		return fmt.Errorf("%s event names half a card: cardId %q, cardNumber %d", e.Type, e.CardID, e.CardNumber)
 	}
 
 	return nil

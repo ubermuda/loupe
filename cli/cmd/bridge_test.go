@@ -145,6 +145,9 @@ type fakeLoupe struct {
 	heartbeats  []string
 	// flags is the raw flags object GET /api/events sends. Empty sends none.
 	flags string
+	// askState answers the ask check route. Empty answers 404.
+	askState  string
+	askChecks []string
 }
 
 const (
@@ -207,6 +210,16 @@ func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
 
 			return
+		}
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/inbox/asks/") {
+			f.mu.Lock()
+			f.askChecks = append(f.askChecks, r.URL.Path)
+			f.mu.Unlock()
+			if f.askState != "" {
+				fmt.Fprint(w, f.askState)
+
+				return
+			}
 		}
 		w.WriteHeader(http.StatusNotFound)
 	}

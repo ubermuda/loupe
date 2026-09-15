@@ -74,8 +74,13 @@ var PermissionModes = []string{"acceptEdits", "auto", "bypassPermissions", "defa
 // Placeholder names, and the ones each kind of event can fill.
 var (
 	cardMovedPlaceholders = []string{"cardId", "cardNumber", "projectId", "project", "from", "to"}
+	askClosedPlaceholders = []string{"askId", "sessionId", "cardNumber", "projectId", "project"}
 	genericPlaceholders   = []string{"projectId", "project"}
 )
+
+// UnknownCard is what {cardNumber} renders for a resume whose card neither the
+// server nor the bridge knows.
+const UnknownCard = "unknown"
 
 // File is the rule file as written.
 type File struct {
@@ -100,6 +105,9 @@ type Rule struct {
 	Model          string `yaml:"model"`
 	MaxChain       *int   `yaml:"maxChain"`
 	AllowUntrusted bool   `yaml:"allowUntrusted"`
+	// Resume runs claude --resume on the session an inbox ask names, instead
+	// of a new session.
+	Resume bool `yaml:"resume"`
 }
 
 // Defaults fill a rule's fields that the file leaves empty.
@@ -363,6 +371,14 @@ func checkRule(r Rule, projects map[string]Project) error {
 			errs = append(errs, fmt.Errorf("to and from apply to board.card_moved only, and this rule is on %s", r.On))
 		}
 	}
+	if r.On == event.AskClosedType {
+		allowed = askClosedPlaceholders
+		if !r.Resume {
+			errs = append(errs, errors.New("inbox.ask_closed needs resume: true, because resuming the session that asked is the one action it takes"))
+		}
+	} else if r.Resume {
+		errs = append(errs, fmt.Errorf("resume applies to inbox.ask_closed only, and this rule is on %s", r.On))
+	}
 
 	if strings.TrimSpace(r.Prompt) == "" {
 		errs = append(errs, errors.New("prompt is required"))
@@ -370,7 +386,7 @@ func checkRule(r Rule, projects map[string]Project) error {
 	for _, name := range directive.Placeholders(r.Prompt) {
 		switch {
 		case slices.Contains(allowed, name):
-		case slices.Contains(cardMovedPlaceholders, name):
+		case slices.Contains(cardMovedPlaceholders, name), slices.Contains(askClosedPlaceholders, name):
 			errs = append(errs, fmt.Errorf("placeholder {%s} has no value for %s events; this type fills %s", name, r.On, braces(allowed)))
 		default:
 			errs = append(errs, fmt.Errorf("unknown placeholder {%s}; this type fills %s", name, braces(allowed)))
@@ -557,6 +573,7 @@ type Match struct {
 	Model          string
 	MaxChain       int
 	Prompt         string
+	Resume         bool
 }
 
 // Match picks the first rule, in file order, that the event triggers.
@@ -585,6 +602,11 @@ func (s *Set) Match(e event.Event) Match {
 			return Match{Skip: Untrusted, Rule: r.Name, Project: slug}
 		}
 
+		render := directive.Render
+		if r.Resume {
+			render = directive.RenderResume
+		}
+
 		return Match{
 			Skip:           Run,
 			Rule:           r.Name,
@@ -593,7 +615,8 @@ func (s *Set) Match(e event.Event) Match {
 			PermissionMode: r.PermissionMode,
 			Model:          r.Model,
 			MaxChain:       *r.MaxChain,
-			Prompt:         directive.Render(r.Prompt, values(e, slug)),
+			Prompt:         render(r.Prompt, values(e, slug)),
+			Resume:         r.Resume,
 		}
 	}
 
@@ -659,6 +682,14 @@ func (s *Set) kill(slug, column, reason string) []Dead {
 	return out
 }
 
+// Live reports whether the named rule has not died.
+func (s *Set) Live(rule string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.dead[rule] == ""
+}
+
 // Health lists every rule of a mapped project with its state, in file order.
 func (s *Set) Health(slug string) []api.RuleHealth {
 	s.mu.RLock()
@@ -687,11 +718,19 @@ func (s *Set) Health(slug string) []api.RuleHealth {
 // rule file maps. Nothing a person wrote on the board is among them.
 func values(e event.Event, slug string) map[string]string {
 	v := map[string]string{"projectId": e.ProjectID, "project": slug}
-	if e.Type == event.CardMovedType {
+	switch e.Type {
+	case event.CardMovedType:
 		v["cardId"] = e.Subject.ID
 		v["cardNumber"] = strconv.Itoa(e.CardNumber)
 		v["from"] = e.FromStatus
 		v["to"] = e.ToStatus
+	case event.AskClosedType:
+		v["askId"] = e.Subject.ID
+		v["sessionId"] = e.SessionID
+		v["cardNumber"] = UnknownCard
+		if e.CardNumber > 0 {
+			v["cardNumber"] = strconv.Itoa(e.CardNumber)
+		}
 	}
 
 	return v
