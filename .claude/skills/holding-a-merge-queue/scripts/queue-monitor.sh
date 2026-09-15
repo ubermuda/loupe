@@ -7,7 +7,7 @@ while true; do
   id=$(gh api repos/{owner}/{repo}/rulesets -q '.[]|select(.name=="main")|.id' 2>/dev/null)
   n=$(gh api "repos/{owner}/{repo}/rulesets/$id" -q '[.rules[]|select(.type=="required_status_checks")|.parameters.required_status_checks[]]|length' 2>/dev/null)
   prs=$(gh pr list --state open --limit 100 --json number,headRefOid,baseRefName,isDraft,mergeStateStatus,latestReviews 2>/dev/null)
-  if [ -z "$n" ] || [ -z "$prs" ]; then echo "monitor: GitHub read failed at $(date -u +%H:%M:%SZ)"; sleep 60; continue; fi
+  if [ -z "$n" ] || [ -z "$prs" ]; then echo "monitor: GitHub read failed at $(date -u +%H:%M:%SZ)"; [ -n "$ONCE" ] && exit 1; sleep 60; continue; fi
   : > "$cur"
   for pr in $(jq -r '.[].number' <<<"$prs"); do
     out=$(gh pr checks "$pr" --required --json bucket 2>&1)
@@ -20,10 +20,14 @@ while true; do
       *) c=unread ;;
     esac
     m=$(jq -r --argjson p "$pr" '.[]|select(.number==$p)|.mergeStateStatus' <<<"$prs")
-    if [ "$m" = UNKNOWN ]; then grep "^#$pr " "$prev" >> "$cur" && continue; fi
-    jq -r --argjson p "$pr" --arg c "$c" '.[]|select(.number==$p)
+    case "$m" in
+      DIRTY|BEHIND) mg=$m ;;
+      UNKNOWN) mg=$(grep "^#$pr " "$prev" | sed -n 's/.* merge=\([^ ]*\).*/\1/p'); mg=${mg:--} ;;
+      *) mg=- ;;
+    esac
+    jq -r --argjson p "$pr" --arg c "$c" --arg mg "$mg" '.[]|select(.number==$p)
       | "#\(.number) head=\(.headRefOid[0:8]) base=\(.baseRefName) draft=\(.isDraft) checks=\($c)"
-        + " merge=\(if .mergeStateStatus=="DIRTY" or .mergeStateStatus=="BEHIND" then .mergeStateStatus else "-" end)"
+        + " merge=\($mg)"
         + " reviews=\([.latestReviews[]|.author.login+":"+.state+"@"+.submittedAt]|join(","))"' <<<"$prs" >> "$cur"
   done
   sort -o "$cur" "$cur"

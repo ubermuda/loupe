@@ -47,8 +47,9 @@ attached, and with a capital when one is. Keep the match on both if you change
 failed GitHub read prints a line, so a broken monitor is not silent.
 
 GitHub reports `mergeStateStatus` as `UNKNOWN` while it recomputes after `main`
-moves. The script keeps the previous line for that pull request, or every merge
-prints each open pull request twice.
+moves. The script keeps the previous `merge=` value for that pull request, or
+every merge prints each open pull request twice. The head, checks and reviews
+are always fresh.
 
 Write the monitor's task id in the state file. Stop it only when the owner says
 so, or when you wind the queue down. Start a new one each time you take the
