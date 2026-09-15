@@ -172,9 +172,47 @@ final class InboxAskCheckApiTest extends WebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
+    /** The shipped limiter takes 60 checks from one token in a minute and refuses the 61st. */
+    public function test_the_shipped_limit_refuses_the_sixty_first_check_of_a_token(): void
+    {
+        $this->client->disableReboot();
+        [$owner, $project] = $this->ownerAndProject('ask-check-capacity');
+        $ask = $this->closedAskReadUpTo($project, 1);
+        $raw = $this->agentToken($owner);
+        $this->setInboxFlag(true);
+
+        for ($check = 1; $check <= 60; ++$check) {
+            $this->check($raw, (string) $project->id, (string) $ask->id);
+            self::assertResponseStatusCodeSame(200, 'check '.$check);
+        }
+
+        $this->check($raw, (string) $project->id, (string) $ask->id);
+        self::assertResponseStatusCodeSame(429);
+        self::assertTrue($this->client->getResponse()->headers->has('Retry-After'));
+    }
+
+    /** The limit runs before the handler, so checks of unknown asks still spend the budget. */
+    public function test_the_limit_answers_before_an_unknown_ask_is_looked_up(): void
+    {
+        $this->client->disableReboot();
+        static::getContainer()->set('limiter.agent_inbox_ask_checks', new RateLimiterFactory(
+            ['id' => 'agent_inbox_ask_checks', 'policy' => 'fixed_window', 'limit' => 1, 'interval' => '1 minute'],
+            new InMemoryStorage(),
+        ));
+        [$owner, $project] = $this->ownerAndProject('ask-check-limit-order');
+        $raw = $this->agentToken($owner);
+        $this->setInboxFlag(true);
+
+        $this->check($raw, (string) $project->id, (string) Uuid::v4());
+        self::assertResponseStatusCodeSame(404);
+
+        $this->check($raw, (string) $project->id, (string) Uuid::v4());
+        self::assertResponseStatusCodeSame(429);
+    }
+
     /**
-     * With the token unresolved, the listener would key on the address, and the
-     * second check below would pass. A 429 proves the firewall ran first.
+     * With the token unresolved, the key would be the address, and the second
+     * check below would pass. A 429 proves the firewall ran first.
      */
     public function test_the_limit_counts_per_token_because_the_firewall_runs_first(): void
     {

@@ -9,7 +9,10 @@ use App\Module\Account\Entity\User;
 use App\Module\Inbox\Command\CheckInboxAskCommand;
 use App\Module\Inbox\Command\CheckInboxAskHandler;
 use App\Module\Inbox\Install\InboxInstallFlags;
+use App\Security\ApiTokenRateLimitKey;
+use Symfony\Component\ExpressionLanguage\Expression;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpKernel\Attribute\RateLimit;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Uid\Uuid;
@@ -19,7 +22,11 @@ use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
  * Tells the bridge, before it resumes a session, whether the ask closed and
  * whether that session already read every item. The firewall admits
  * agent-scoped tokens alone.
+ *
+ * The rate limit key expression sees only the request, the arguments and this
+ * controller, so the key service rides on a public property.
  */
+#[RateLimit('agent_inbox_ask_checks', key: new Expression('this.rateLimitKey.forRequest(request)'))]
 #[RequireFeatureFlag(InboxInstallFlags::FLAG_INBOX_ENABLED)]
 #[Route(
     '/api/projects/{handle}/inbox/asks/{askId}',
@@ -31,6 +38,7 @@ final class CheckInboxAskController extends AppController
 {
     public function __construct(
         private readonly CheckInboxAskHandler $checkAsk,
+        public readonly ApiTokenRateLimitKey $rateLimitKey,
     ) {
     }
 
