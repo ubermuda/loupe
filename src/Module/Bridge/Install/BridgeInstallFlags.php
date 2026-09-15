@@ -19,10 +19,10 @@ use Ubermuda\FeatureFlagsBundle\Enum\FeatureFlagType;
 final readonly class BridgeInstallFlags implements InstallFlagDefaultsInterface
 {
     public function __construct(
-        #[Autowire(param: 'app.bridge.run_retention_days')]
+        #[Autowire(param: 'app.bridge.default_run_retention_days')]
         private int $retentionDays,
 
-        #[Autowire(param: 'app.bridge.heartbeat_interval_seconds')]
+        #[Autowire(param: 'app.bridge.default_heartbeat_interval_seconds')]
         private int $heartbeatIntervalSeconds,
     ) {
     }

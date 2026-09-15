@@ -13,7 +13,7 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/directive"
 	"github.com/ubermuda/loupe/cli/internal/event"
-	"github.com/ubermuda/loupe/cli/internal/report"
+	"github.com/ubermuda/loupe/cli/internal/outbound"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 	"github.com/ubermuda/loupe/cli/internal/transport"
 )
@@ -33,7 +33,7 @@ type router struct {
 	// health alike. With none, as in most tests, the bridge sends no report.
 	bridgeID string
 	// reports carries each finished run to Loupe. A nil queue reports nothing.
-	reports report.Queue
+	reports outbound.Queue
 	health  *healthReporter
 	// heartbeat tells Loupe the bridge runs. A nil one sends nothing.
 	heartbeat *heartbeater

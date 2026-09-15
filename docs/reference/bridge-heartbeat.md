@@ -48,6 +48,12 @@ a project does not touch the rows of the bridges that follow it.
 
 The server stamps `lastSeenAt` from its own clock. The bridge sends no time.
 
+The bridge in `cli/` sends the heartbeat through its outbound queue, the same
+queue that carries its worker run reports. The heartbeat has a latest-wins
+policy: a newer heartbeat replaces one that has not gone out, and a failed one
+is not sent again. The next interval sends a fresh one. A slow or failing
+heartbeat never delays a run report.
+
 | Status | Body | When |
 |---|---|---|
 | 204 | | the heartbeat is accepted |
@@ -55,7 +61,7 @@ The server stamps `lastSeenAt` from its own clock. The bridge sends no time.
 | 403 | `{"error":"insufficient_scope"}` | the token has no agent scope, such as a widget token |
 | 404 | | `bridgeId` is not a uuid the server accepts, or agent push is switched off on the instance |
 | 422 | a problem object with a `violations` list | the body is invalid, and each violation names its field in `propertyPath` |
-| 429 | | more than 60 heartbeats in one minute from one token |
+| 429 | | more than 60 heartbeats in one minute from one token. The `Retry-After` header gives the seconds to wait |
 
 The server keys a row by the account and the bridge id together. Two accounts
 that share one config directory send the same bridge id, and each account keeps
@@ -72,7 +78,7 @@ default interval each one posts once a minute.
 The `bridge.heartbeat_interval_seconds` feature flag sets how often a bridge
 posts, and you change it at **`/admin/feature-flags`**. The default is 60
 seconds. An instance installed before the flag existed takes the value from
-`app.bridge.heartbeat_interval_seconds` in `config/services.yaml`, which is 60.
+`app.bridge.default_heartbeat_interval_seconds` in `config/services.yaml`, which is 60.
 A value below 10 reads as the default, because a shorter interval lets one
 bridge spend most of its token's limit. The bridge applies the same floor to the
 value it receives.

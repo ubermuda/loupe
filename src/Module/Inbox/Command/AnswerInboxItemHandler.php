@@ -33,7 +33,7 @@ final readonly class AnswerInboxItemHandler
 
         // Checked inside the lock, against the options as stored: an agent may
         // change the question after the page loaded it.
-        $this->closer->close($item, InboxItemState::Answered, 'selectedOptions', static function (InboxItem $item) use ($command, $text): ?array {
+        $this->closer->respond($item, InboxItemState::Answered, 'selectedOptions', static function (InboxItem $item) use ($command, $text): ?array {
             $selected = self::parseIndexes($command->selectedOptions, \count($item->options));
             if (null === $selected) {
                 return ['selectedOptions' => 'inbox.answer.error.unknown_option'];

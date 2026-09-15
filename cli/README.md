@@ -369,10 +369,19 @@ such key, or when its value is not a whole number of at least 10. It reads the m
 again at each reconnect. A new interval takes effect at once, and the bridge
 logs `heartbeat_interval_changed`.
 
-A heartbeat is not retried on its own. The next interval sends a fresh one. The
-bridge logs the first heartbeat that lands, the first failure of a run of
-failures, and the heartbeat that ends that run. A bridge that runs all day
-therefore writes no line a minute.
+Everything the bridge sends to Loupe goes through one outbound queue, in
+`internal/outbound`. Each kind of item has its own delivery policy, and the
+kinds never wait on each other:
+
+| Kind | Policy |
+|---|---|
+| Worker run report | In order. A failed send is retried with backoff for about four minutes. A shutdown gives each report one last attempt in a window of five seconds |
+| Heartbeat | Latest wins. A newer heartbeat replaces one that has not gone out. A failed heartbeat is not sent again, and the next interval sends a fresh one. A shutdown drops a heartbeat that has not gone out |
+
+A slow or failing heartbeat therefore never delays a run report. The bridge logs
+the first heartbeat that lands, the first failure of a run of failures, and the
+heartbeat that ends that run. A bridge that runs all day therefore writes no
+line a minute.
 
 A server that answers 404 has no heartbeat endpoint, or has agent push switched
 off. The bridge logs `heartbeat_unsupported` once and keeps working. It keeps

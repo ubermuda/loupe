@@ -22,7 +22,7 @@ final readonly class BridgeLiveness
         private HeartbeatInterval $heartbeatInterval,
         private ClockInterface $clock,
 
-        #[Autowire(param: 'app.bridge.heartbeat_interval_seconds')]
+        #[Autowire(param: 'app.bridge.default_heartbeat_interval_seconds')]
         private int $defaultInterval,
     ) {
     }

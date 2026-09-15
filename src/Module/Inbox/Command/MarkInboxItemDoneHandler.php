@@ -32,7 +32,7 @@ final readonly class MarkInboxItemDoneHandler
         }
 
         // A second done from an older page would only move updatedAt.
-        $this->closer->close($item, InboxItemState::Done, self::ERROR_FIELD, static function (InboxItem $item): ?array {
+        $this->closer->respond($item, InboxItemState::Done, self::ERROR_FIELD, static function (InboxItem $item): ?array {
             if (InboxItemState::Done === $item->state) {
                 return [self::ERROR_FIELD => 'inbox.done.error.already_done'];
             }

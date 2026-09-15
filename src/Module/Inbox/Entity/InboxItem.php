@@ -7,6 +7,7 @@ namespace App\Module\Inbox\Entity;
 use App\Doctrine\SearchLanguage;
 use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Project\Entity\Project;
+use App\Security\ProjectScopedSubject;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
@@ -24,7 +25,7 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Index(name: 'idx_inbox_items_project_search_language', columns: ['project_id', 'search_language'])]
 #[ORM\Table(name: 'inbox_items')]
 #[ORM\UniqueConstraint(name: 'uniq_inbox_item_project_number', columns: ['project_id', 'number'])]
-class InboxItem
+class InboxItem implements ProjectScopedSubject
 {
     public const int MAX_TITLE_LENGTH = 255;
 
@@ -114,5 +115,17 @@ class InboxItem
         $this->cards = new ArrayCollection();
         $this->documents = new ArrayCollection();
         $this->updatedAt = $this->createdAt;
+    }
+
+    #[\Override]
+    public function scopedProject(): Project
+    {
+        return $this->project;
+    }
+
+    #[\Override]
+    public function scopedSubjectType(): string
+    {
+        return 'inbox_item';
     }
 }
