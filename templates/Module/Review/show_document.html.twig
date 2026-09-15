@@ -96,12 +96,31 @@
         <div class="lp-review-doc{{ diffColumns ? ' lp-review-doc--wide' : '' }}" data-comment-anchor-target="block" data-controller="decision"{% if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}>
 
             <div class="lp-review-doc__head">
-                <h1 class="lp-review-doc__title">{{ document.title }}</h1>
+                <div class="lp-review-doc__title-row">
+                    <a class="lp-review-doc__back" href="{{ path('app_project_documents', {id: document.project.id}) }}"
+                       aria-label="{{ 'review.document.navigation.back'|trans }}">
+                        <twig:ux:icon name="lucide:arrow-left" />
+                    </a>
+                    <h1 class="lp-review-doc__title">{{ document.title }}</h1>
+                </div>
                 <p class="lp-review-doc__byline">{{ 'review.document.byline'|trans({
                     '%version%': version.versionNumber,
                     '%reviewer%': app.user.fullName,
                     '%updated%': version.createdAt|relative_time,
                 }) }}</p>
+                <nav class="lp-review-view-tabs" aria-label="{{ 'review.document.navigation.label'|trans }}">
+                    <a class="lp-review-view-tabs__item" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}"
+                       {% if not diffMode %}aria-current="page"{% endif %}>{{ 'review.document.navigation.document'|trans }}</a>
+                    {% if versions|length > 1 %}
+                    <a class="lp-review-view-tabs__item" href="{{ path('app_document_review_diff', {
+                        projectId: document.project.id,
+                        documentId: document.id,
+                        fromVersionNumber: version.versionNumber > 1 ? version.versionNumber - 1 : 1,
+                        toVersionNumber: version.versionNumber > 1 ? version.versionNumber : 2,
+                    }) }}" {% if diffMode %}aria-current="page"{% endif %}>{{ 'review.document.navigation.diff'|trans }}</a>
+                    {% endif %}
+                    <a class="lp-review-view-tabs__item" href="{{ path('app_document_review_history', {projectId: document.project.id, documentId: document.id}) }}">{{ 'review.document.navigation.history'|trans }}</a>
+                </nav>
             </div>
 
             {# The way back to a discussion a revision left behind: comments

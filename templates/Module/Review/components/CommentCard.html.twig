@@ -41,6 +41,7 @@
         </button>
 
         <div class="lp-comment-thread__header">
+            <span class="lp-comment-avatar" aria-hidden="true">{{ this.author|first|upper }}</span>
             <span class="lp-comment-author">{{ this.author }}</span>
             {# Blank for comments written before the timestamp column existed. #}
             {% if this.age != '' %}
@@ -80,6 +81,7 @@
             {% for reply in this.replies %}
             <div class="lp-comment--reply">
                 <div class="lp-comment-reply__head">
+                    <span class="lp-comment-avatar" aria-hidden="true">{{ reply.author|first|upper }}</span>
                     <span class="lp-comment-author">{{ reply.author }}</span>
                     {% if reply.age != '' %}
                     <span class="lp-comment-age">{{ reply.age }}</span>

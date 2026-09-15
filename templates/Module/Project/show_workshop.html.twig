@@ -1,0 +1,70 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'project.workshop.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <span class="lp-topbar__crumb">{{ workshop.project.name }}</span>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'project.workshop.page.title'|trans }}</span>
+{% endblock %}
+
+{% block body %}
+<div class="lp-workspace lp-workshop" data-workshop>
+    <header class="lp-page-header">
+        <div>
+            <h1 class="lp-workspace-title">{{ 'project.workshop.page.title'|trans }}</h1>
+            <p class="lp-workspace-desc">{{ 'project.workshop.page.description'|trans({'%project%': workshop.project.name}) }}</p>
+        </div>
+    </header>
+
+    <div class="lp-workshop-summary" aria-label="{{ 'project.workshop.summary.label'|trans }}">
+        {% if is_feature_enabled('inbox.enabled') %}<a class="lp-workshop-stat" href="{{ path('app_project_inbox', {id: workshop.project.id}) }}">{% else %}<div class="lp-workshop-stat">{% endif %}
+            <span class="lp-workshop-stat__value">{{ workshop.stats.openInboxItemCount }}</span>
+            <span class="lp-workshop-stat__label">{{ 'project.workshop.summary.requests'|trans }}</span>
+        {% if is_feature_enabled('inbox.enabled') %}</a>{% else %}</div>{% endif %}
+        {% if is_feature_enabled('board.enabled') %}<a class="lp-workshop-stat" href="{{ path('app_project_board', {id: workshop.project.id}) }}">{% else %}<div class="lp-workshop-stat">{% endif %}
+            <span class="lp-workshop-stat__value">{{ workshop.stats.openCardCount }}</span>
+            <span class="lp-workshop-stat__label">{{ 'project.workshop.summary.cards'|trans }}</span>
+        {% if is_feature_enabled('board.enabled') %}</a>{% else %}</div>{% endif %}
+        <a class="lp-workshop-stat" href="{{ path('app_project_documents', {id: workshop.project.id}) }}">
+            <span class="lp-workshop-stat__value">{{ workshop.stats.documentCount }}</span>
+            <span class="lp-workshop-stat__label">{{ 'project.workshop.summary.documents'|trans }}</span>
+        </a>
+    </div>
+
+    <div class="lp-workshop-grid">
+        <section class="lp-workshop-panel">
+            <div class="lp-section-heading">
+                <div>
+                    <p class="lp-eyebrow">{{ 'project.workshop.needs_you.eyebrow'|trans }}</p>
+                    <h2 class="lp-section-title">{{ 'project.workshop.needs_you.title'|trans }}</h2>
+                </div>
+                {% if is_feature_enabled('inbox.enabled') %}<a class="lp-btn lp-btn--ghost" href="{{ path('app_project_inbox', {id: workshop.project.id}) }}">{{ 'project.workshop.needs_you.action'|trans }}</a>{% endif %}
+            </div>
+            <p class="lp-workshop-panel__body">
+                {{ workshop.stats.openInboxItemCount > 0
+                    ? 'project.workshop.needs_you.pending'|trans({'%count%': workshop.stats.openInboxItemCount})
+                    : 'project.workshop.needs_you.clear'|trans }}
+            </p>
+        </section>
+
+        <section class="lp-workshop-panel">
+            <div class="lp-section-heading">
+                <div>
+                    <p class="lp-eyebrow">{{ 'project.workshop.in_motion.eyebrow'|trans }}</p>
+                    <h2 class="lp-section-title">{{ 'project.workshop.in_motion.title'|trans }}</h2>
+                </div>
+                {% if is_feature_enabled('board.enabled') %}<a class="lp-btn lp-btn--ghost" href="{{ path('app_project_board', {id: workshop.project.id}) }}">{{ 'project.workshop.in_motion.action'|trans }}</a>{% endif %}
+            </div>
+            <p class="lp-workshop-panel__body">{{ 'project.workshop.in_motion.body'|trans({'%count%': workshop.stats.openCardCount}) }}</p>
+        </section>
+
+        <aside class="lp-workshop-panel lp-workshop-panel--supporting">
+            <p class="lp-eyebrow">{{ 'project.workshop.connection.eyebrow'|trans }}</p>
+            <h2 class="lp-section-title">{{ 'project.workshop.connection.title'|trans }}</h2>
+            <p class="lp-workshop-panel__body">{{ 'project.workshop.connection.body'|trans }}</p>
+            <a class="lp-btn" href="{{ path('app_project_connect', {id: workshop.project.id}) }}">{{ 'project.workshop.connection.action'|trans }}</a>
+        </aside>
+    </div>
+</div>
+{% endblock %}

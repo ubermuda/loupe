@@ -10,9 +10,35 @@
 
 {% block body %}
 <div class="lp-workspace">
-    <h1 class="lp-workspace-title mb-5">{{ 'project.edit.page.title'|trans }}</h1>
+    <header class="lp-page-header">
+        <div>
+            <h1 class="lp-workspace-title">{{ 'project.edit.page.title'|trans }}</h1>
+            <p class="lp-workspace-desc">{{ 'project.edit.page.description'|trans }}</p>
+        </div>
+    </header>
 
-    <div class="max-w-170">
+    <div class="lp-settings-layout">
+        <nav class="lp-settings-nav" aria-label="{{ 'project.edit.nav.label'|trans }}">
+            <a class="lp-settings-nav__item lp-settings-nav__item--active" href="#general" aria-current="page">
+                <twig:ux:icon name="lucide:settings" />
+                {{ 'project.edit.nav.general'|trans }}
+            </a>
+            {% if is_feature_enabled('board.enabled') %}
+            <a class="lp-settings-nav__item" href="{{ path('app_project_board', {id: project.id}) }}">
+                <twig:ux:icon name="lucide:square-kanban" />
+                {{ 'project.edit.nav.columns'|trans }}
+            </a>
+            {% endif %}
+            <a class="lp-settings-nav__item" href="{{ path('app_project_connect', {id: project.id}) }}">
+                <twig:ux:icon name="lucide:code-xml" />
+                {{ 'project.edit.nav.connections'|trans }}
+            </a>
+        </nav>
+
+        <div class="lp-settings-content" id="general">
+        <section class="lp-settings-section">
+            <p class="lp-eyebrow">{{ 'project.edit.general.eyebrow'|trans }}</p>
+            <h2 class="lp-section-title">{{ 'project.edit.general.title'|trans }}</h2>
         {{ form_start(form, {'attr': {'class': 'lp-form'}}) }}
             <div class="lp-form-field">
                 {{ form_label(form.name, null, {'label_attr': {'class': 'lp-label'}}) }}
@@ -47,6 +73,7 @@
                 <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.edit.form.submit'|trans }}</button>
             </div>
         {{ form_end(form) }}
+        </section>
 
         <section class="lp-danger-zone" data-controller="modal"{% if deleteForm.vars.submitted %} data-modal-reopen-value="true"{% endif %}>
             <h2 class="lp-danger-zone-title">{{ 'project.delete.title'|trans }}</h2>
@@ -79,6 +106,7 @@
                 </div>
             </dialog>
         </section>
+        </div>
     </div>
 </div>
 {% endblock %}

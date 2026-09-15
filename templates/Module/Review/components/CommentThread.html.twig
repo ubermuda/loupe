@@ -45,7 +45,7 @@
     </form>
 
     {% if status != 'resolved' %}
-    <div class="lp-comment-reply-form">
+    <div class="lp-comment-thread__footer">
         {% set replyForm = replyForm ?? comment_reply_form(comment) %}
 
         {# Fieldless resolve form — submitted by the Resolve button below via form=. #}
@@ -53,19 +53,31 @@
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('comment-action') }}">
         </form>
 
-        {{ form_start(replyForm, {attr: {
-            class: 'contents',
-            'data-controller': 'keyboard-submit',
-            'data-action': 'keydown->keyboard-submit#submit',
-        }}) }}
-            {{ form_widget(replyForm.body) }}
-            <div class="lp-comment-error">{{ form_errors(replyForm.body) }}</div>
-            <div class="lp-comment-actions">
-                <button type="submit" class="lp-btn lp-btn--on-card lp-btn--sm">{{ 'review.document.comment.reply'|trans }}</button>
-                <button type="submit" form="resolve-form-{{ comment.id }}" class="lp-btn lp-btn--inverse lp-btn--sm">{{ 'review.document.comment.resolve'|trans }}</button>
-                <button type="submit" form="delete-form-{{ comment.id }}" class="lp-btn lp-btn--danger-ghost lp-btn--sm lp-comment-actions__delete">{{ 'review.document.comment.delete'|trans }}</button>
+        <button type="submit" form="delete-form-{{ comment.id }}" class="lp-comment-action lp-comment-action--delete">
+            <twig:ux:icon name="lucide:trash-2" />
+            {{ 'review.document.comment.delete'|trans }}
+        </button>
+        <details class="lp-comment-reply-disclosure">
+            <summary class="lp-comment-action">
+                <twig:ux:icon name="lucide:message-square" />
+                {{ 'review.document.comment.reply'|trans }}
+            </summary>
+            <div class="lp-comment-reply-form">
+                {{ form_start(replyForm, {attr: {
+                    class: 'contents',
+                    'data-controller': 'keyboard-submit',
+                    'data-action': 'keydown->keyboard-submit#submit',
+                }}) }}
+                    {{ form_widget(replyForm.body) }}
+                    <div class="lp-comment-error">{{ form_errors(replyForm.body) }}</div>
+                    <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">{{ 'review.document.comment.reply'|trans }}</button>
+                {{ form_end(replyForm) }}
             </div>
-        {{ form_end(replyForm) }}
+        </details>
+        <button type="submit" form="resolve-form-{{ comment.id }}" class="lp-comment-action lp-comment-action--resolve">
+            <twig:ux:icon name="lucide:circle-check" />
+            {{ 'review.document.comment.resolve'|trans }}
+        </button>
     </div>
     {% else %}
     {# Fieldless reopen form — the inverse of resolve, offered only once the thread
@@ -74,9 +86,15 @@
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('comment-action') }}">
     </form>
 
-    <div class="lp-comment-actions">
-        <button type="submit" form="reopen-form-{{ comment.id }}" class="lp-btn lp-btn--on-card lp-btn--sm">{{ 'review.document.comment.reopen'|trans }}</button>
-        <button type="submit" form="delete-form-{{ comment.id }}" class="lp-btn lp-btn--danger-ghost lp-btn--sm lp-comment-actions__delete">{{ 'review.document.comment.delete'|trans }}</button>
+    <div class="lp-comment-thread__footer">
+        <button type="submit" form="delete-form-{{ comment.id }}" class="lp-comment-action lp-comment-action--delete">
+            <twig:ux:icon name="lucide:trash-2" />
+            {{ 'review.document.comment.delete'|trans }}
+        </button>
+        <button type="submit" form="reopen-form-{{ comment.id }}" class="lp-comment-action lp-comment-action--resolve">
+            <twig:ux:icon name="lucide:rotate-cw" />
+            {{ 'review.document.comment.reopen'|trans }}
+        </button>
     </div>
     {% endif %}
     {% endif %}

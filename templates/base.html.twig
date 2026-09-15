@@ -31,7 +31,7 @@
                     {% set switcherCounts = project_document_counts(switcherProjects) %}
                     <div class="lp-switcher__panel" data-popover-target="panel" hidden>
                         {% for switcherProject in switcherProjects %}
-                        <a href="{{ path('app_project_documents', {id: switcherProject.id}) }}" class="lp-switcher__item">
+                        <a href="{{ path('app_project_workshop', {id: switcherProject.id}) }}" class="lp-switcher__item">
                             <span class="lp-switcher__item-avatar">{{ switcherProject.name|slice(0, 1)|upper }}</span>
                             <span class="lp-switcher__item-text">
                                 <span class="lp-switcher__item-name">{{ switcherProject.name }}</span>
@@ -46,6 +46,12 @@
                     </div>
                 </div>
                 <nav class="lp-sidebar__nav">
+                    <a href="{{ path('app_project_workshop', {id: project.id}) }}"
+                       class="lp-sidebar__link{% if route == 'app_project_workshop' %} lp-sidebar__link--active{% endif %}"
+                       {% if route == 'app_project_workshop' %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:layout-dashboard" />
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.workshop'|trans }}</span>
+                    </a>
                     {% set documentsActive = route == 'app_project_documents' or route starts with 'app_document' %}
                     <a href="{{ path('app_project_documents', {id: project.id}) }}"
                        class="lp-sidebar__link{% if documentsActive %} lp-sidebar__link--active{% endif %}"

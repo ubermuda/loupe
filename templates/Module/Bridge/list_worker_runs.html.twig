@@ -83,6 +83,13 @@
 
     {% if items|length > 0 %}
     <div class="lp-worker-run-list">
+        <div class="lp-worker-run-list__header" aria-hidden="true">
+            <span>{{ 'bridge.worker_runs.column.work'|trans }}</span>
+            <span>{{ 'bridge.worker_runs.column.outcome'|trans }}</span>
+            <span>{{ 'bridge.worker_runs.column.rule'|trans }}</span>
+            <span>{{ 'bridge.worker_runs.column.duration'|trans }}</span>
+            <span>{{ 'bridge.worker_runs.column.started'|trans }}</span>
+        </div>
         {% for item in items %}
         {% set run = item.run %}
         <article class="lp-worker-run" data-worker-run-id="{{ run.id }}">
@@ -119,7 +126,7 @@
                the output of a run that succeeded answers as many questions as
                the output of one that failed. #}
             <details class="lp-worker-run__output-disclosure">
-                <summary class="lp-worker-run__output-summary">{{ 'bridge.worker_runs.output.toggle'|trans }}</summary>
+                <summary class="lp-worker-run__output-summary"><twig:ux:icon name="lucide:terminal" class="w-4 h-4" />{{ 'bridge.worker_runs.output.toggle'|trans }}</summary>
                 {% if run.output is empty %}
                     <p class="lp-worker-run__output-empty">{{ 'bridge.worker_runs.output.empty'|trans }}</p>
                 {% else %}

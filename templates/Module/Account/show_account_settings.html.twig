@@ -9,12 +9,23 @@
 {% endblock %}
 
 {% block body %}
-<div class="lp-connect">
-    <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'account.settings.page.title'|trans }}</h1>
+<div class="lp-workspace">
+    <header class="lp-page-header">
+        <div>
+            <h1 class="lp-workspace-title">{{ 'account.settings.page.title'|trans }}</h1>
+            <p class="lp-workspace-desc">{{ 'account.settings.page.description'|trans }}</p>
+        </div>
+    </header>
+
+    <nav class="lp-section-tabs" aria-label="{{ 'account.settings.nav.label'|trans }}">
+        <a class="lp-section-tabs__item" href="#profile">{{ 'account.settings.nav.profile'|trans }}</a>
+        <a class="lp-section-tabs__item" href="#api-tokens">{{ 'account.settings.nav.tokens'|trans }}</a>
+        <a class="lp-section-tabs__item" href="#data">{{ 'account.settings.nav.data'|trans }}</a>
+    </nav>
 
     <twig:BillingSummary />
 
-    <section class="lp-connect-block" data-testid="profile-section">
+    <section class="lp-connect-block" id="profile" data-testid="profile-section">
         <p class="lp-eyebrow">{{ 'account.settings.profile.heading'|trans }}</p>
         <div class="lp-identity-row">
             <span class="lp-identity-row__avatar">{{ view.user.fullName|slice(0, 1)|upper }}</span>
@@ -26,7 +37,7 @@
         </div>
     </section>
 
-    <section class="lp-connect-block" data-testid="export-section">
+    <section class="lp-connect-block" id="data" data-testid="export-section">
         <p class="lp-eyebrow">{{ 'account.settings.export.heading'|trans }}</p>
         {# Panelled like the profile block above it: loose on the page the export
            controls read as a leftover rather than a section of the settings. #}
@@ -65,7 +76,7 @@
         </div>
     </section>
 
-    <section class="lp-connect-block" data-testid="api-tokens-section">
+    <section class="lp-connect-block" id="api-tokens" data-testid="api-tokens-section">
         <p class="lp-eyebrow">{{ 'account.settings.api_tokens.heading'|trans }}</p>
         <div class="lp-settings-panel">
         <p class="lp-connect-hint">{{ 'account.settings.api_tokens.intro'|trans }}</p>

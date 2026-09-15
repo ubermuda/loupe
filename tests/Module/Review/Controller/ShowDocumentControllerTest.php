@@ -80,6 +80,10 @@ final class ShowDocumentControllerTest extends WebTestCase
         // margin the comment cards are positioned in beside it.
         self::assertSelectorExists('.lp-review-doc');
         self::assertSelectorExists('.lp-review-margin');
+        self::assertSelectorExists('.lp-review-doc__back[aria-label="Back to documents"]');
+        self::assertSelectorTextContains('.lp-review-view-tabs', 'Document');
+        self::assertSelectorTextContains('.lp-review-view-tabs', 'History');
+        self::assertSelectorExists('.lp-review-view-tabs__item[aria-current="page"]');
     }
 
     public function test_review_page_renders_the_document_tags(): void
@@ -670,6 +674,9 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertCount(2, $latest->filter('.lp-topbar__actions button[name="submit_review_form[verdict]"]'));
         self::assertCount(2, $latest->filter('.lp-review-menu button[name="submit_review_form[verdict]"]'));
         self::assertGreaterThan(0, $latest->filter('.lp-comment-thread form')->count());
+        self::assertCount(1, $latest->filter('.lp-comment-thread__footer .lp-comment-action--delete'));
+        self::assertCount(1, $latest->filter('.lp-comment-thread__footer .lp-comment-reply-disclosure:not([open])'));
+        self::assertCount(1, $latest->filter('.lp-comment-thread__footer .lp-comment-action--resolve'));
     }
 
     public function test_an_unknown_version_number_is_not_found(): void

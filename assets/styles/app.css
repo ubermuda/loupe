@@ -484,6 +484,200 @@
     }
 }
 
+@layer components {
+    .lp-site-feedback-page {
+        @apply max-w-6xl;
+    }
+    .lp-feedback-receipt {
+        @apply flex items-center gap-3 rounded-xl bg-tint px-4 py-3 mb-5;
+    }
+    .lp-feedback-receipt div {
+        @apply min-w-0 mr-auto;
+    }
+    .lp-feedback-receipt h2 {
+        @apply text-sm font-bold text-ink m-0;
+    }
+    .lp-feedback-receipt p {
+        @apply text-sm text-fg-mute m-0 mt-0.5;
+    }
+    .lp-feedback-workspace {
+        @apply grid grid-cols-1 lg:grid-cols-5 min-h-96 rounded-2xl border border-line bg-surface-1 overflow-hidden;
+    }
+    .lp-feedback-list {
+        @apply lg:col-span-2 border-b lg:border-b-0 lg:border-r border-line bg-surface-2;
+    }
+    .lp-feedback-list__head {
+        @apply flex items-center justify-between gap-3 px-4 py-3 border-b border-line text-xs font-semibold text-fg-dim;
+    }
+    .lp-feedback-list__item {
+        @apply flex items-start gap-3 w-full px-4 py-4 border-b border-line text-left transition-colors hover:bg-surface-1;
+    }
+    .lp-feedback-list__item[aria-current='true'] {
+        @apply bg-surface-1;
+    }
+    .lp-feedback-list__copy {
+        @apply flex flex-col flex-1 min-w-0;
+    }
+    .lp-feedback-list__copy strong {
+        @apply text-sm text-ink;
+    }
+    .lp-feedback-list__copy > span {
+        @apply text-sm text-fg-mute truncate;
+    }
+    .lp-feedback-list__copy time {
+        @apply text-xs text-fg-dim mt-1;
+    }
+    .lp-feedback-detail {
+        @apply lg:col-span-3 min-w-0;
+    }
+    .lp-feedback-detail__panel {
+        @apply p-6;
+    }
+    .lp-feedback-detail__panel[hidden] {
+        @apply hidden;
+    }
+    .lp-feedback-detail__header {
+        @apply flex items-start justify-between gap-4 mb-5;
+    }
+    .lp-feedback-detail__eyebrow {
+        @apply text-xs font-semibold text-accent-ink m-0 mb-1;
+    }
+    .lp-feedback-detail__header h2 {
+        @apply font-display text-2xl font-extrabold tracking-tight text-ink m-0;
+    }
+    .lp-feedback-detail__message {
+        @apply rounded-xl bg-surface-2 px-4 py-4 text-base leading-relaxed text-ink m-0 mb-6;
+    }
+    .lp-feedback-detail__section {
+        @apply py-4 border-t border-line;
+    }
+    .lp-feedback-detail__section h3 {
+        @apply text-sm font-bold text-ink m-0 mb-2;
+    }
+    .lp-feedback-detail__section a {
+        @apply inline-flex items-center gap-2 text-sm text-accent-ink break-all;
+    }
+    .lp-feedback-anchors {
+        @apply flex flex-col gap-2;
+    }
+    .lp-feedback-anchors details {
+        @apply rounded-lg bg-surface-2 px-3 py-2;
+    }
+    .lp-feedback-anchors summary {
+        @apply cursor-pointer text-sm font-medium text-ink;
+    }
+    .lp-feedback-anchors code {
+        @apply block mt-2 text-xs text-fg-mute break-all;
+    }
+    .lp-feedback-detail__actions {
+        @apply flex items-center justify-end gap-2 pt-5 border-t border-line;
+    }
+}
+
+@layer components {
+    .lp-card-drawer {
+        @apply flex flex-col max-w-5xl min-h-screen mx-auto bg-surface-1 border-x border-line shadow-xl;
+    }
+    .lp-card-drawer__header,
+    .lp-card-drawer__footer {
+        @apply flex items-center justify-between gap-4 px-6 py-4 border-b border-line bg-surface-1;
+    }
+    .lp-card-drawer__footer {
+        @apply mt-auto border-t border-b-0;
+    }
+    .lp-card-drawer__identity,
+    .lp-card-drawer__header-actions {
+        @apply flex items-center gap-2;
+    }
+    .lp-card-drawer__icon,
+    .lp-source-avatar {
+        @apply inline-flex items-center justify-center w-8 h-8 shrink-0 rounded-lg bg-tint text-accent-ink;
+    }
+    .lp-card-drawer__body {
+        @apply px-6 py-5;
+    }
+    .lp-card-drawer__title {
+        @apply font-display text-3xl font-extrabold tracking-tight text-ink m-0 mb-5;
+    }
+    .lp-card-tabs {
+        @apply flex items-center gap-1 overflow-x-auto border-b border-line mb-6;
+        scrollbar-width: none;
+    }
+    .lp-card-tabs::-webkit-scrollbar {
+        display: none;
+    }
+    .lp-card-tabs__tab {
+        @apply px-3 py-2.5 border-b-2 border-transparent text-sm font-semibold text-fg-mute whitespace-nowrap transition-colors;
+    }
+    .lp-card-tabs__tab:hover,
+    .lp-card-tabs__tab:focus-visible {
+        @apply text-ink;
+    }
+    .lp-card-tabs__tab[aria-selected='true'] {
+        @apply border-accent text-ink;
+    }
+    .lp-card-panel[hidden] {
+        @apply hidden;
+    }
+    .lp-card-panel__title {
+        @apply font-display text-lg font-extrabold tracking-tight text-ink m-0;
+    }
+    .lp-card-overview-grid {
+        @apply grid grid-cols-1 lg:grid-cols-3 gap-8;
+    }
+    .lp-card-overview-grid__main {
+        @apply lg:col-span-2 flex flex-col gap-7;
+    }
+    .lp-card-overview-grid__facts {
+        @apply flex flex-col gap-6 rounded-xl bg-surface-2 p-4;
+    }
+    .lp-card-fact-list {
+        @apply flex flex-col m-0;
+    }
+    .lp-card-fact-list div {
+        @apply flex items-center justify-between gap-4 py-2.5 border-b border-line last:border-0;
+    }
+    .lp-card-fact-list dt {
+        @apply text-sm font-medium text-fg-mute;
+    }
+    .lp-card-fact-list dd {
+        @apply text-sm font-semibold text-ink m-0 text-right;
+    }
+    .lp-card-linked-list,
+    .lp-card-feedback-list {
+        @apply flex flex-col gap-2 list-none p-0 m-0 mt-3;
+    }
+    .lp-card-linked-list li {
+        @apply flex items-center justify-between gap-4 rounded-lg border border-line px-3 py-2.5 text-sm;
+    }
+    .lp-card-conversation-intro,
+    .lp-conversation-entry {
+        @apply flex items-start gap-3;
+    }
+    .lp-card-conversation-intro {
+        @apply pb-5 border-b border-line mb-5;
+    }
+    .lp-card-conversation-intro p,
+    .lp-conversation-entry p {
+        @apply text-sm text-fg-mute m-0 mt-1;
+    }
+    .lp-conversation-entry {
+        @apply py-4 border-b border-line;
+    }
+    .lp-conversation-entry__source {
+        @apply font-semibold text-ink;
+    }
+    .lp-card-feedback-list li {
+        @apply rounded-xl border border-line p-4;
+    }
+    .lp-card-feedback-list__head {
+        @apply flex items-center justify-between gap-3 mb-2 text-sm font-semibold text-ink;
+    }
+    .lp-card-feedback-list p {
+        @apply text-sm text-fg-mute mb-2;
+    }
+}
+
 /* ── lp- component classes (review UI, dashboard, api-tokens) ──────── */
 
 @layer components {
@@ -1239,8 +1433,32 @@
     .lp-review-doc__head {
         @apply flex flex-col gap-2.5 mb-9;
     }
+    /* Compact title row for the document back action and title. */
+    .lp-review-doc__title-row {
+        @apply flex items-center gap-3;
+    }
+    .lp-review-doc__back {
+        @apply inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
+    }
+    .lp-review-doc__back svg {
+        @apply size-4;
+    }
     .lp-review-doc__title {
         @apply font-display font-extrabold text-ink m-0 text-4xl tracking-tight leading-tight;
+    }
+    /* Primary document workspace views. */
+    .lp-review-view-tabs {
+        @apply mt-3 flex items-center gap-1 overflow-x-auto border-b border-line;
+        scrollbar-width: none;
+    }
+    .lp-review-view-tabs::-webkit-scrollbar {
+        display: none;
+    }
+    .lp-review-view-tabs__item {
+        @apply whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-sm font-semibold text-fg-mute no-underline transition-colors hover:text-ink;
+    }
+    .lp-review-view-tabs__item[aria-current='page'] {
+        @apply border-accent text-ink;
     }
 
     /* The side-by-side comparison, which renders no comment rail and takes the
@@ -2360,6 +2578,10 @@
     .lp-comment-author {
         @apply text-ink font-bold text-sm;
     }
+    /* Equal identity container for people and agents in document threads. */
+    .lp-comment-avatar {
+        @apply inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-tint text-xs font-bold text-fg-mute;
+    }
     /* How long ago the comment was written, beside its author. Quiet enough that
        a thread's ages read as a timeline rather than as competing labels. */
     .lp-comment-age {
@@ -2380,11 +2602,30 @@
     .lp-comment-reply__head {
         @apply flex items-baseline gap-2;
     }
-    .lp-comment-actions {
-        @apply flex items-center gap-2;
+    /* Final thread footer keeps Delete left and resolution actions right. */
+    .lp-comment-thread__footer {
+        @apply flex flex-wrap items-center gap-2 border-t border-line pt-3;
     }
-    .lp-comment-actions__delete {
-        @apply ml-auto;
+    .lp-comment-action {
+        @apply inline-flex min-h-9 cursor-pointer list-none items-center gap-1.5 rounded-lg border border-transparent bg-transparent px-3 py-1.5 text-sm font-semibold text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
+    }
+    .lp-comment-action::-webkit-details-marker {
+        display: none;
+    }
+    .lp-comment-action svg {
+        @apply size-4 shrink-0;
+    }
+    .lp-comment-action--delete {
+        @apply mr-auto text-danger hover:bg-status-danger-bg hover:text-danger;
+    }
+    .lp-comment-action--resolve {
+        @apply text-status-ok-deep hover:bg-status-ok-bg hover:text-status-ok-deep;
+    }
+    .lp-comment-reply-disclosure[open] {
+        @apply basis-full order-last;
+    }
+    .lp-comment-reply-disclosure[open] > .lp-comment-action {
+        @apply mb-2;
     }
     .lp-comment-reply-form {
         @apply flex flex-col gap-2;
@@ -4991,5 +5232,102 @@
 @media (width < 64rem) {
     .lp-review-actions__resolved {
         display: none;
+    }
+}
+
+@layer components {
+    /* Shared heading row for route-level workspaces. */
+    .lp-page-header {
+        @apply flex items-start justify-between gap-6 mb-8;
+    }
+    .lp-page-header .lp-workspace-desc {
+        @apply mb-0;
+    }
+    .lp-section-title {
+        @apply font-display text-2xl font-extrabold tracking-tight text-ink m-0 mt-1;
+    }
+    .lp-section-heading {
+        @apply flex items-start justify-between gap-4;
+    }
+
+    /* Project summary surface for current work and real rollup counts. */
+    .lp-workshop {
+        @apply max-w-6xl;
+    }
+    .lp-workshop-summary {
+        @apply grid grid-cols-1 sm:grid-cols-3 rounded-2xl bg-chrome overflow-hidden mb-6;
+    }
+    .lp-workshop-stat {
+        @apply flex flex-col gap-1 px-6 py-5 text-chrome-fg no-underline border-b sm:border-b-0 sm:border-r border-chrome-line last:border-0 transition-colors;
+    }
+    a.lp-workshop-stat:hover {
+        @apply bg-chrome-raised;
+    }
+    .lp-workshop-stat__value {
+        @apply font-display text-4xl leading-none font-extrabold text-accent;
+    }
+    .lp-workshop-stat__label {
+        @apply text-sm font-medium text-chrome-mute;
+    }
+    .lp-workshop-grid {
+        @apply grid grid-cols-1 lg:grid-cols-3 gap-4;
+    }
+    .lp-workshop-panel {
+        @apply lg:col-span-2 rounded-2xl bg-surface-2 p-6;
+    }
+    .lp-workshop-panel--supporting {
+        @apply lg:col-span-1 lg:row-span-2;
+    }
+    .lp-workshop-panel__body {
+        @apply text-base leading-relaxed text-fg-mute mt-5 mb-0;
+    }
+    .lp-workshop-panel--supporting .lp-btn {
+        @apply mt-5;
+    }
+
+    /* Responsive section navigation for project and account settings. */
+    .lp-settings-layout {
+        @apply grid grid-cols-1 lg:grid-cols-4 gap-8;
+    }
+    .lp-settings-nav {
+        @apply flex lg:flex-col gap-1 overflow-x-auto;
+        scrollbar-width: none;
+    }
+    .lp-settings-nav::-webkit-scrollbar,
+    .lp-section-tabs::-webkit-scrollbar {
+        display: none;
+    }
+    .lp-settings-nav__item {
+        @apply inline-flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium text-fg-mute no-underline whitespace-nowrap transition-colors;
+    }
+    .lp-settings-nav__item:hover {
+        @apply bg-tint text-ink;
+    }
+    .lp-settings-nav__item--active {
+        @apply bg-ink text-white;
+    }
+    .lp-settings-nav__item svg {
+        @apply w-4 h-4 shrink-0;
+    }
+    .lp-settings-content {
+        @apply lg:col-span-3 max-w-2xl;
+    }
+    .lp-settings-section {
+        @apply rounded-2xl bg-surface-2 p-6;
+    }
+    .lp-settings-section .lp-form {
+        @apply mt-6;
+    }
+
+    .lp-section-tabs {
+        @apply flex gap-1 overflow-x-auto mb-8 border-b border-line;
+        scrollbar-width: none;
+    }
+    .lp-section-tabs__item {
+        @apply px-3 py-3 text-sm font-semibold text-fg-mute no-underline whitespace-nowrap border-b-2 border-transparent transition-colors;
+    }
+    .lp-section-tabs__item:hover,
+    .lp-section-tabs__item:focus-visible {
+        @apply text-ink border-accent;
     }
 }

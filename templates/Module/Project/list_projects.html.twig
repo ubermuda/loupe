@@ -10,13 +10,18 @@
 
 {% block body %}
 <div class="lp-workspace">
-    <h1 class="lp-workspace-title">{{ 'project.list.page.title'|trans }}</h1>
+    <header class="lp-page-header">
+        <div>
+            <h1 class="lp-workspace-title">{{ 'project.list.page.title'|trans }}</h1>
+            <p class="lp-workspace-desc">{{ 'project.list.page.description'|trans }}</p>
+        </div>
+    </header>
 
     <div class="lp-project-list">
         {% for item in items %}
         {% set project = item.project %}
         <div class="lp-project-row" data-project-id="{{ project.id }}">
-            <a href="{{ path('app_project_documents', {id: project.id}) }}"
+            <a href="{{ path('app_project_workshop', {id: project.id}) }}"
                class="lp-project-row__link" aria-label="{{ project.name }}"></a>
             <span class="avatar site lp-project-row__avatar">{{ project.name|slice(0, 1)|upper }}</span>
             <div class="lp-project-row__main">
