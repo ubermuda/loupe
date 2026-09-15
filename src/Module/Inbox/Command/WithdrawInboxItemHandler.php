@@ -32,12 +32,12 @@ final readonly class WithdrawInboxItemHandler
 
     public function __invoke(WithdrawInboxItemCommand $command): InboxItem
     {
+        if (mb_strlen($command->reason) > InboxLimits::MAX_WITHDRAW_REASON_LENGTH) {
+            throw new DomainErrors(['reason' => self::REASON_TOO_LONG]);
+        }
         $reason = trim($command->reason);
         if ('' === $reason) {
             throw new DomainErrors(['reason' => self::REASON_BLANK]);
-        }
-        if (mb_strlen($reason) > InboxLimits::MAX_WITHDRAW_REASON_LENGTH) {
-            throw new DomainErrors(['reason' => self::REASON_TOO_LONG]);
         }
 
         $item = $command->item;

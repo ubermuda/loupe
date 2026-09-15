@@ -10,6 +10,7 @@ use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -33,6 +34,21 @@ class InboxAskRepository extends ServiceEntityRepository
             ->andWhere('a.sessionId = :sessionId')
             ->andWhere('a.closedAt IS NULL')
             ->setParameter('sessionId', $sessionId, UuidType::NAME)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /** The ask with its item memberships, or null when the project holds no such ask. */
+    public function findOneByIdAndProject(Uuid $id, Project $project): ?InboxAsk
+    {
+        /* @var ?InboxAsk */
+        return $this->createQueryBuilder('a')
+            ->leftJoin('a.items', 'l')
+            ->addSelect('l')
+            ->andWhere('a.id = :id')
+            ->andWhere('a.project = :project')
+            ->setParameter('id', $id, UuidType::NAME)
+            ->setParameter('project', $project)
             ->getQuery()
             ->getOneOrNullResult();
     }
@@ -202,6 +218,31 @@ class InboxAskRepository extends ServiceEntityRepository
             ->getArrayResult();
 
         return array_map(static fn (array $row): string => (string) $row['id'], $rows);
+    }
+
+    /**
+     * Stamps the read on each given item that a closed ask of the session holds.
+     * An earlier stamp stays, so the first read after the close is the one kept.
+     *
+     * @param list<InboxItem> $items
+     */
+    public function recordRead(Uuid $sessionId, array $items, \DateTimeImmutable $now): void
+    {
+        if ([] === $items) {
+            return;
+        }
+
+        $this->getEntityManager()->createQueryBuilder()
+            ->update(InboxAskItem::class, 'l')
+            ->set('l.readAt', ':now')
+            ->andWhere('l.readAt IS NULL')
+            ->andWhere('l.item IN (:items)')
+            ->andWhere(\sprintf('l.ask IN (SELECT a.id FROM %s a WHERE a.sessionId = :sessionId AND a.closedAt IS NOT NULL)', InboxAsk::class))
+            ->setParameter('now', $now, Types::DATETIME_IMMUTABLE)
+            ->setParameter('items', $items)
+            ->setParameter('sessionId', $sessionId, UuidType::NAME)
+            ->getQuery()
+            ->execute();
     }
 
     private function withItems(): QueryBuilder

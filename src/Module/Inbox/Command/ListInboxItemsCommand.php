@@ -20,6 +20,8 @@ final readonly class ListInboxItemsCommand
         public ?Uuid $documentId = null,
         public int $page = 1,
         public int $perPage = ListInboxItemsHandler::DEFAULT_PER_PAGE,
+        /** The session that reads, which is never a filter. */
+        public ?Uuid $readerSessionId = null,
     ) {
     }
 }
