@@ -10,6 +10,7 @@ use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\InboxLimits;
 use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\Service\InboxItemCloser;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -41,7 +42,9 @@ final readonly class WithdrawInboxItemHandler
 
         $item = $command->item;
         $refusal = $this->em->wrapInTransaction(function () use ($item, $reason): ?string {
-            // Read under the lock, so an answer that lands first is not overwritten.
+            // The project first, as every item writer takes it, then the state as
+            // stored, so an answer that lands first is not overwritten.
+            $this->em->lock($item->project, LockMode::PESSIMISTIC_WRITE);
             if (InboxItemState::Open !== $this->inboxItems->lockedState($item)
                 || !$this->closer->close($item, InboxItemState::Withdrawn, $reason, new \DateTimeImmutable())) {
                 return InboxItemCloser::ITEM_NOT_OPEN;

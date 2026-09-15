@@ -80,6 +80,7 @@ export default defineConfig({
             { slug: 'using/mcp' },
             { slug: 'using/site-review' },
             { slug: 'using/board' },
+            { slug: 'using/inbox' },
             { slug: 'using/worker-runs' },
             { slug: 'using/admin' },
             { slug: 'using/data-exports' },
