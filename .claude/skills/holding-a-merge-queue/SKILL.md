@@ -13,6 +13,68 @@ carries two things that only appear when a queue runs for hours across several
 sessions: reading check state without lying to yourself, and coordinating with
 peers who cannot see what you see.
 
+## Start a monitor when you take the queue
+
+Start a monitor before you do anything else with the queue. Peers push, the
+owner approves and checks finish while you wait, and no message tells you. A
+queue holder with no monitor sees each change only when it next looks.
+
+Use the `Monitor` tool with `persistent: true` and this script as its command.
+It polls every open pull request once a minute. It prints one line for each pull
+request whose line changed, and one line for each pull request that left the open
+list. The first pass prints every open pull request, and that is your baseline.
+
+```bash
+prev=$(mktemp); cur=$(mktemp)
+while true; do
+  id=$(gh api repos/{owner}/{repo}/rulesets -q '.[]|select(.name=="main")|.id' 2>/dev/null)
+  n=$(gh api "repos/{owner}/{repo}/rulesets/$id" -q '[.rules[]|select(.type=="required_status_checks")|.parameters.required_status_checks[]]|length' 2>/dev/null)
+  prs=$(gh pr list --state open --limit 100 --json number,headRefOid,baseRefName,isDraft,mergeStateStatus,latestReviews 2>/dev/null)
+  if [ -z "$n" ] || [ -z "$prs" ]; then echo "monitor: GitHub read failed at $(date -u +%H:%M:%SZ)"; sleep 60; continue; fi
+  : > "$cur"
+  for pr in $(jq -r '.[].number' <<<"$prs"); do
+    out=$(gh pr checks "$pr" --required --json bucket 2>&1)
+    case "$out" in
+      [Nn]"o required checks reported"*) c=none ;;
+      \[*) c=$(jq -r --argjson n "$n" 'group_by(.bucket)|map({(.[0].bucket):length})|add // {}
+             | if (.fail // 0) + (.cancel // 0) > 0 then "fail"
+               elif (.pass // 0) == $n and length == 1 then "pass=\($n)/\($n)"
+               elif length == 0 then "none" else "running" end' <<<"$out") ;;
+      *) c=unread ;;
+    esac
+    jq -r --argjson p "$pr" --arg c "$c" '.[]|select(.number==$p)
+      | "#\(.number) head=\(.headRefOid[0:8]) base=\(.baseRefName) draft=\(.isDraft) checks=\($c)"
+        + " merge=\(if .mergeStateStatus=="DIRTY" or .mergeStateStatus=="BEHIND" then .mergeStateStatus else "-" end)"
+        + " reviews=\([.latestReviews[]|.author.login+":"+.state+"@"+.submittedAt]|join(","))"' <<<"$prs" >> "$cur"
+  done
+  sort -o "$cur" "$cur"
+  comm -13 "$prev" "$cur"
+  for gone in $(comm -23 <(cut -d' ' -f1 "$prev") <(cut -d' ' -f1 "$cur")); do echo "$gone left the open list: read its merged state"; done
+  cp "$cur" "$prev"
+  [ -n "$ONCE" ] && break
+  sleep 60
+done
+```
+
+A monitor line tells you where to look. Before you merge, run the bucket count
+and the approval-time check below on the current head.
+
+The script follows the counting rule. It prints `pass=N/N` only when every
+required check passed and no other bucket exists. `running` covers a pending
+check and a check that has not registered. `fail` covers a failed or a cancelled
+check. `none` means no required check exists, which is true of a stacked pull
+request and of a `CONFLICTING` one. `merge=BEHIND` next to `pass=N/N` means the
+green does not count.
+
+`gh` prints "no required checks reported" in lower case when no terminal is
+attached, and with a capital when one is. Keep the match on both if you change
+the script, or every stacked pull request reads `unread`. A failed GitHub read
+prints a line, so a broken monitor is not silent.
+
+Write the monitor's task id in the state file. Stop it only when the owner says
+so, or when you wind the queue down. Start a new one each time you take the
+queue.
+
 ## Read the checks by counting, never by absence
 
 ```bash
@@ -284,6 +346,7 @@ leaving it unmarked means a reader finds a dead recipe and runs it.
 
 ## Red flags
 
+- Holding the queue with no monitor running
 - About to merge because a PR "looks green" without running the bucket count
 - Reusing a saved conflict resolution after a head moved
 - Reporting a peer's finding you have not run
