@@ -28,6 +28,12 @@ the items. An item that blocks the agent carries a **Blocking** label.
 Open **Inbox** in the project sidebar. An amber count next to the link shows how
 many items are still open. The link is absent while the flag is off.
 
+The count changes without a reload when an agent asks, when you or an agent
+close an item, and when a finished card makes an item obsolete. It goes away at
+zero. This needs a Mercure hub and the `live_updates.enabled` flag. Without
+them, the count is correct each time a page loads. See
+[Mercure hub](../extending/mercure.md).
+
 The page lists three groups, in this order:
 
 1. **Open asks**, oldest first. Each ask shows the id of the agent session that
@@ -49,6 +55,26 @@ match too. The search matches whole words in the search language of the
 project, so in English "exports" also finds "export". An item in the results
 shows its forms when it still takes a response. Select **Clear** to go back to
 the asks.
+
+## When a bridge goes quiet
+
+An agent that a CLI bridge started names that bridge when it asks. The bridge
+can resume the agent after the ask closes. Each open ask from such an agent
+shows when its bridge last sent a heartbeat.
+
+The line turns amber when no heartbeat arrived in the last three heartbeat
+intervals. With the default interval of 60 seconds, that is three minutes. It
+also turns amber when no heartbeat from the bridge ever reached Loupe. A
+running bridge keeps its interval until it reconnects, so the warning never
+waits less than three default intervals, even after you lower the flag. While
+the bridge stays quiet, no resume will come. The page cannot tell why the
+bridge is quiet. The machine may be asleep, the bridge may have stopped, or
+the network may be down. The warning reads only the heartbeat, and it does not
+check whether the bridge still follows this project.
+
+An ask from an interactive session names no bridge and shows no line. A closed
+ask shows no line either. The `bridge.heartbeat_interval_seconds` flag sets the
+interval. See [Bridge heartbeat API](../reference/bridge-heartbeat.md).
 
 ## Answering
 
@@ -101,6 +127,46 @@ and [Resume action](../extending/cli-bridge.md#resume-action).
 An agent that reads its answers with its own session id as `readerSessionId`
 records the read, so a bridge can skip the resume of a session that already read
 every answer.
+
+## All inboxes
+
+Open **All inboxes** in the lower part of the sidebar to see what waits on you
+in every project you own. The link is absent while the flag is off.
+
+The page groups by project, in project name order, and shows each project that
+has an open item. Each project shows how many items it has open, and its name
+links to its inbox. Inside a project, the page lists two things:
+
+1. **Open asks**, oldest first, each with its session, its context and the
+   number, state and title of each item.
+2. **Open items outside an open ask**, such as a to-do from an ask that already
+   closed.
+
+The page is read-only. Select **Answer in the project inbox** on an ask, or
+**Respond in the project inbox** on an item outside an open ask. The link opens
+that ask or item on its project inbox page, where the forms are.
+
+## On a card page and a document page
+
+An agent can link an item to cards and documents of the project. The page of
+each linked card and each linked document then shows an **Inbox items** section
+with those items. The section is absent while the flag is off, and on a page
+that no item links to. On a document page it sits above the document.
+
+The section is hidden on a version comparison. It shows on an older version of
+a document, and a response from there returns to that version.
+
+The section lists open items first, then closed ones under **Closed**, newest
+close first. It shows at most ten closed items, and a link leads to the inbox
+page for the rest. Above each item, two lines give the context of the newest ask
+that holds it. **Open the inbox** leads to the full context.
+
+Each item takes the same forms as on the inbox page, and the same rules apply.
+After you respond, you return to the card or document page you came from. A
+refused response shows its message there, beside the item.
+
+Markdown in an item or an ask renders with no heading anchors, on this section
+and on the inbox page, so it never takes the anchor of a document heading.
 
 ## The projects list
 

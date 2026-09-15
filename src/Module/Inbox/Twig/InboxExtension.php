@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Inbox\Twig;
 
+use App\Mercure\UserTopicBuilder;
+use App\Module\Account\Entity\User;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Form\AnswerInboxItemFormType;
 use App\Module\Inbox\Form\AnswerInboxItemRequest;
@@ -31,6 +33,7 @@ final class InboxExtension extends AbstractExtension
         private readonly FormFactoryInterface $formFactory,
         private readonly MarkdownRenderer $markdown,
         private readonly InboxItemRepository $inboxItems,
+        private readonly UserTopicBuilder $topics,
     ) {
     }
 
@@ -43,6 +46,7 @@ final class InboxExtension extends AbstractExtension
             new TwigFunction('inbox_decline_form', $this->declineForm(...)),
             new TwigFunction('inbox_refusals', $this->refusals(...)),
             new TwigFunction('project_inbox_open_count', $this->openCount(...)),
+            new TwigFunction('inbox_topic', $this->topic(...)),
         ];
     }
 
@@ -50,7 +54,8 @@ final class InboxExtension extends AbstractExtension
     public function getFilters(): array
     {
         return [
-            new TwigFilter('inbox_markdown', $this->markdown->render(...), ['is_safe' => ['html']]),
+            // No heading ids: an item shows beside a document whose own headings carry them.
+            new TwigFilter('inbox_markdown', $this->markdown->renderWithoutHeadingIds(...), ['is_safe' => ['html']]),
         ];
     }
 
@@ -121,5 +126,11 @@ final class InboxExtension extends AbstractExtension
     public function openCount(Project $project): int
     {
         return $this->inboxItems->countOpenByProject($project);
+    }
+
+    /** The topic the pill listens on for the open counts of every project of the user. */
+    public function topic(User $user): string
+    {
+        return $this->topics->forInbox($user->id ?? throw new \LogicException('User has no id.'));
     }
 }

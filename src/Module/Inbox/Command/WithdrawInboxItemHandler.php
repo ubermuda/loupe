@@ -10,6 +10,7 @@ use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\InboxLimits;
 use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\Service\InboxItemCloser;
+use App\Module\Inbox\Service\InboxOpenCountPublisher;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
@@ -27,6 +28,7 @@ final readonly class WithdrawInboxItemHandler
         private InboxItemCloser $closer,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private InboxOpenCountPublisher $openCount,
     ) {
     }
 
@@ -57,6 +59,7 @@ final readonly class WithdrawInboxItemHandler
         if (null !== $refusal) {
             throw new DomainErrors(['itemId' => $refusal]);
         }
+        $this->openCount->countChanged($item->project);
 
         $this->auditor->record(
             'inbox.item_withdrawn',

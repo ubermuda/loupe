@@ -32,6 +32,7 @@ final readonly class InboxItemCloser
         private InboxAskRepository $inboxAsks,
         private InboxItemRepository $inboxItems,
         private InboxAskCloser $askCloser,
+        private InboxOpenCountPublisher $openCount,
     ) {
     }
 
@@ -55,7 +56,7 @@ final readonly class InboxItemCloser
     {
         self::assertClosed($state);
 
-        $errors = $this->em->wrapInTransaction(function () use ($item, $state, $errorField, $respond): ?array {
+        $outcome = $this->em->wrapInTransaction(function () use ($item, $state, $errorField, $respond): array|bool {
             $this->em->lock($item->project, LockMode::PESSIMISTIC_WRITE);
             // Read under the lock, so a response or an agent's change that landed
             // since the item was loaded counts. refresh() would also reload
@@ -87,11 +88,14 @@ final readonly class InboxItemCloser
                 $this->askCloser->closeAsksHolding($item, InboxEventType::ACTOR_HUMAN, $now);
             }
 
-            return null;
+            return $wasOpen;
         });
 
-        if (null !== $errors) {
-            throw new DomainErrors($errors);
+        if (\is_array($outcome)) {
+            throw new DomainErrors($outcome);
+        }
+        if ($outcome) {
+            $this->openCount->countChanged($item->project);
         }
     }
 
@@ -128,12 +132,15 @@ final readonly class InboxItemCloser
     /** Why the item takes no response now, or null when it does. */
     private function refusal(InboxItem $item): ?string
     {
-        return match ($item->state) {
-            InboxItemState::Open => null,
-            InboxItemState::Withdrawn, InboxItemState::Obsolete => self::ERROR_CLOSED_BY_AGENT,
-            InboxItemState::Answered, InboxItemState::Done, InboxItemState::Declined => [] === $this->inboxAsks->findItemIdsHeldByClosedAsks([$item])
-                ? null
-                : self::ERROR_FINAL,
-        };
+        // The two calls that ignore the asks settle an open item and an agent's
+        // close with no query. Only a response the owner gave needs the asks.
+        if ($item->state->acceptsResponse(heldByClosedAsk: true)) {
+            return null;
+        }
+        if (!$item->state->acceptsResponse(heldByClosedAsk: false)) {
+            return self::ERROR_CLOSED_BY_AGENT;
+        }
+
+        return $item->state->acceptsResponse([] !== $this->inboxAsks->findItemIdsHeldByClosedAsks([$item])) ? null : self::ERROR_FINAL;
     }
 }

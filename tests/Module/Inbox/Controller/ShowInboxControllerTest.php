@@ -4,19 +4,24 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Inbox\Controller;
 
+use App\Mercure\LiveUpdates;
+use App\Mercure\UserTopicBuilder;
 use App\Module\Inbox\Command\ShowInboxHandler;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Service\InboxSearchIndexer;
 use App\Tests\Module\Inbox\InboxScenario;
+use App\Tests\Support\MercureCookies;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class ShowInboxControllerTest extends WebTestCase
 {
     use InboxScenario;
+    use MercureCookies;
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -77,6 +82,102 @@ final class ShowInboxControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('.lp-empty-state', 'No agent has asked you anything yet.');
         self::assertSelectorNotExists('[data-inbox-open-count]');
+        // The frame stays, so a live reload has somewhere to put a count.
+        self::assertSelectorExists('a[data-controller="inbox-pill"] turbo-frame#inbox-open-count-'.$project->id);
+    }
+
+    public function test_the_pill_listens_on_the_owner_inbox_topic(): void
+    {
+        $owner = $this->signedUpUser($this->em, 'inbox-pill-topic');
+        $project = $this->inboxProject($this->em, $owner);
+        $this->question($this->em, $project, 1);
+        $this->setInboxFlag(true);
+
+        $this->client->loginUser($owner);
+        $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/documents');
+
+        self::assertResponseIsSuccessful();
+        $topics = static::getContainer()->get(UserTopicBuilder::class);
+        self::assertInstanceOf(UserTopicBuilder::class, $topics);
+        $inboxTopic = $topics->forInbox($owner->id ?? throw new \LogicException('The owner has no id.'));
+        self::assertSame([$inboxTopic], self::subscribedTopics($this->client->getResponse()));
+        self::assertSame([$inboxTopic], $crawler->filter('form#mercure-subscriptions input[data-mercure-topic]')->each(static fn ($input): ?string => $input->attr('value')));
+
+        $link = $crawler->filter('a[data-controller="inbox-pill"]');
+        self::assertCount(1, $link);
+        self::assertSame((string) $project->id, $link->attr('data-inbox-pill-project-value'));
+        self::assertSame('/projects/'.$project->id.'/inbox/open-count', $link->attr('data-inbox-pill-url-value'));
+        self::assertSame('1', $link->filter('turbo-frame[data-inbox-pill-target="frame"] [data-inbox-open-count]')->text());
+    }
+
+    public function test_the_open_count_frame_renders_the_pill_alone(): void
+    {
+        $owner = $this->signedUpUser($this->em, 'inbox-pill-frame');
+        $project = $this->inboxProject($this->em, $owner);
+        $this->question($this->em, $project, 1);
+        $this->question($this->em, $project, 2);
+        $this->setInboxFlag(true);
+
+        $this->client->loginUser($owner);
+        $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox/open-count');
+
+        self::assertResponseIsSuccessful();
+        self::assertTrue($this->client->getResponse()->headers->hasCacheControlDirective('no-store'));
+        self::assertCount(1, $crawler->filter('turbo-frame#inbox-open-count-'.$project->id));
+        self::assertSelectorTextSame('[data-inbox-open-count]', '2');
+        self::assertSelectorNotExists('nav');
+    }
+
+    public function test_the_open_count_frame_is_refused_to_a_stranger_and_absent_while_the_inbox_is_off(): void
+    {
+        $project = $this->inboxProject($this->em, $this->signedUpUser($this->em, 'inbox-pill-frame-owner'));
+        $this->setInboxFlag(true);
+
+        $this->client->loginUser($this->signedUpUser($this->em, 'inbox-pill-frame-stranger'));
+        $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox/open-count');
+        self::assertResponseStatusCodeSame(403);
+
+        $this->client->loginUser($project->owner);
+        $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox/open-count');
+        self::assertResponseIsSuccessful();
+
+        $this->setInboxFlag(false);
+        $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox/open-count');
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    public function test_with_live_updates_off_the_pill_renders_its_count_and_nothing_subscribes(): void
+    {
+        $owner = $this->signedUpUser($this->em, 'inbox-pill-no-live');
+        $project = $this->inboxProject($this->em, $owner);
+        $this->question($this->em, $project, 1);
+        $this->question($this->em, $project, 2);
+        $this->setInboxFlag(true);
+        $flags = static::getContainer()->get(FeatureFlagRepository::class);
+        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
+        $flags->findAllIndexed()[LiveUpdates::FLAG]->value = false;
+        $this->em->flush();
+
+        $this->client->loginUser($owner);
+        $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/documents');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextSame('a[data-controller="inbox-pill"] [data-inbox-open-count]', '2');
+        self::assertNull(self::subscribedTopics($this->client->getResponse()));
+        self::assertSelectorNotExists('form#mercure-subscriptions');
+    }
+
+    public function test_no_topic_is_granted_while_the_inbox_is_off(): void
+    {
+        $owner = $this->signedUpUser($this->em, 'inbox-pill-off');
+        $project = $this->inboxProject($this->em, $owner);
+        $this->setInboxFlag(false);
+
+        $this->client->loginUser($owner);
+        $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/documents');
+
+        self::assertResponseIsSuccessful();
+        self::assertNull(self::subscribedTopics($this->client->getResponse()));
     }
 
     public function test_an_ask_shows_its_session_its_sanitized_context_and_its_numbered_items(): void
