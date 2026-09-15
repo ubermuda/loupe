@@ -29,7 +29,7 @@ Tailwind v4 does not emit `--radius-full`. Every other `rounded-{token}` produce
 
 Adding `rounded-full` to the hint div does not fix this. Only the `@theme` declaration does.
 
-Tailwind scans documentation, not only templates. Source detection walks every non-gitignored file in addition to the `@source` list, so a utility class merely named in `AGENTS.md`, a `SKILL.md` or a design note is compiled into the shipped stylesheet. `blur-[1.25rem]` stayed in `app.built.css` after every real use was removed, because this skill cites it as an example. `app.css` therefore carries `@source not "../../.claude"` and `@source not "../../docs"`. Keep them. Without them, prose inflates the CSS bundle and invalidates any verification that reads the compiled output, because a class you just deleted still appears there.
+Tailwind scans documentation, not only templates. Source detection walks every non-gitignored file in addition to the `@source` list, so a utility class merely named in `AGENTS.md`, a `SKILL.md` or a design note is compiled into the shipped stylesheet. `blur-[1.25rem]` stayed in `app.built.css` after every real use was removed, because this skill cites it as an example. `app.css` therefore excludes `.agents`, `.claude`, worktrees and `docs` with `@source not`. Keep those exclusions. Without them, prose inflates the CSS bundle and invalidates any verification that reads the compiled output, because a class you just deleted still appears there.
 
 Unlayered CSS in `app.css` always wins over layered rules at any specificity, `@layer components` and library layers included. Use unlayered declarations to override library component styles.
 

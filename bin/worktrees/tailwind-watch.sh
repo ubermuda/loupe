@@ -28,8 +28,8 @@ trees=("$main/.worktrees" "$main/.claude/worktrees")
 
 # Tailwind's automatic detection scans the whole checkout, so the scan does too
 # rather than guessing which directories hold classes. `config/packages/
-# ubermuda_admin.yaml` carries `!bg-sunken`, and app.css excludes `.claude` and
-# `docs` explicitly, which is what says the rest of the tree is in scope.
+# ubermuda_admin.yaml` carries `!bg-sunken`, and app.css excludes `.agents`,
+# `.claude`, worktrees and `docs`, which says the rest of the tree is in scope.
 #
 # Scanning the root also covers composer.lock for free. app.css imports
 # vendor/ubermuda/admin-bundle/assets/admin.css and scans two vendored template

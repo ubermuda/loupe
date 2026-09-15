@@ -78,6 +78,7 @@ A bare `cd .worktrees/<name> && just worktree-up` can leave a persistent shell i
 - Always branch off `main`, never off the current feature branch.
 - Tear down with `just worktree-down <name>`, never with a bare `git worktree remove`.
 - An editor or language server bound to the main checkout must not write worktree files. Confirm that every write-capable tool targets the worktree. Filesystem reads are safe from either checkout.
+- For example, Serena edit tools stay bound to the main checkout and write there from a worktree. Serena read tools are safe from either checkout.
 - Invoke the `project-deploy` skill before you deploy, run `terraform apply`, or report what version is live. It carries the trap that a `terraform apply` deployment does not re-pull the fixed `prod` tag, so the spec change ships and the code does not, and it names `/healthz` with `X-Probe-Token` as the only reliable way to read the running version.
 - Invoke the `project-worktrees` skill before you provision, debug or write tooling for a worktree. It carries the commands, the symptoms and causes table (404 against 502, unstyled CSS, a rejected widget token), and the two rules that prevent real damage: never run bare `docker compose` from a worktree, and never match worktrees by directory name instead of slug.
 
