@@ -5382,6 +5382,19 @@
             <trans-unit id="bridge.worker_runs.column.rule"><source>bridge.worker_runs.column.rule</source><target>Rule</target></trans-unit>
             <trans-unit id="bridge.worker_runs.column.duration"><source>bridge.worker_runs.column.duration</source><target>Duration</target></trans-unit>
             <trans-unit id="bridge.worker_runs.column.started"><source>bridge.worker_runs.column.started</source><target>Started</target></trans-unit>
+            <trans-unit id="inbox.page.open_summary"><source>inbox.page.open_summary</source><target>%count% need attention</target></trans-unit>
+            <trans-unit id="inbox.tabs.label"><source>inbox.tabs.label</source><target>Request state</target></trans-unit>
+            <trans-unit id="inbox.tabs.open"><source>inbox.tabs.open</source><target>Open</target></trans-unit>
+            <trans-unit id="inbox.tabs.completed"><source>inbox.tabs.completed</source><target>Completed</target></trans-unit>
+            <trans-unit id="inbox.source.agent"><source>inbox.source.agent</source><target>Agent request</target></trans-unit>
+            <trans-unit id="inbox.linked_items.title"><source>inbox.linked_items.title</source><target>Linked items</target></trans-unit>
+            <trans-unit id="inbox.linked_items.item"><source>inbox.linked_items.item</source><target>Item</target></trans-unit>
+            <trans-unit id="inbox.linked_items.status"><source>inbox.linked_items.status</source><target>Status</target></trans-unit>
+            <trans-unit id="inbox.linked_items.open"><source>inbox.linked_items.open</source><target>Open</target></trans-unit>
+            <trans-unit id="inbox.linked_items.card"><source>inbox.linked_items.card</source><target>Card</target></trans-unit>
+            <trans-unit id="inbox.linked_items.document"><source>inbox.linked_items.document</source><target>Document</target></trans-unit>
+            <trans-unit id="inbox.linked_items.open_card"><source>inbox.linked_items.open_card</source><target>Open %title% conversation</target></trans-unit>
+            <trans-unit id="inbox.linked_items.open_document"><source>inbox.linked_items.open_document</source><target>Open %title%</target></trans-unit>
             <trans-unit id="nav.link.workshop">
                 <source>nav.link.workshop</source>
                 <target>Workshop</target>
@@ -5513,6 +5526,46 @@
             <trans-unit id="account.settings.nav.data">
                 <source>account.settings.nav.data</source>
                 <target>Data</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.table.label">
+                <source>review.dashboard.table.label</source>
+                <target>Documents</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.table.document">
+                <source>review.dashboard.table.document</source>
+                <target>Document</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.table.status">
+                <source>review.dashboard.table.status</source>
+                <target>Status</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.table.author">
+                <source>review.dashboard.table.author</source>
+                <target>Author</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.table.updated">
+                <source>review.dashboard.table.updated</source>
+                <target>Updated</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.table.actions">
+                <source>review.dashboard.table.actions</source>
+                <target>Actions</target>
+            </trans-unit>
+            <trans-unit id="board.settings.action">
+                <source>board.settings.action</source>
+                <target>Board settings</target>
+            </trans-unit>
+            <trans-unit id="board.view.label">
+                <source>board.view.label</source>
+                <target>Board view</target>
+            </trans-unit>
+            <trans-unit id="board.view.board">
+                <source>board.view.board</source>
+                <target>Board</target>
+            </trans-unit>
+            <trans-unit id="board.card.count">
+                <source>board.card.count</source>
+                <target>{0} No cards|{1} 1 card|]1,Inf[ %count% cards</target>
             </trans-unit>
         </body>
     </file>

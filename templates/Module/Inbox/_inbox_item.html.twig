@@ -13,6 +13,31 @@
         <div class="prose lp-prose lp-inbox-item__body">{{ item.body|inbox_markdown }}</div>
     {% endif %}
 
+    {% if showLinkedItems|default(false) and (item.cards|length > 0 or item.documents|length > 0) %}
+    <div class="lp-inbox-linked-table-wrap">
+        <table class="lp-inbox-linked-table">
+            <caption>{{ 'inbox.linked_items.title'|trans }}</caption>
+            <thead><tr><th>{{ 'inbox.linked_items.item'|trans }}</th><th>{{ 'inbox.linked_items.status'|trans }}</th><th><span class="sr-only">{{ 'inbox.linked_items.open'|trans }}</span></th></tr></thead>
+            <tbody>
+                {% for link in item.cards %}
+                <tr>
+                    <td><span class="lp-inbox-linked-table__type"><twig:ux:icon name="lucide:layout-list" class="w-4 h-4" />{{ 'inbox.linked_items.card'|trans }}</span><strong>#{{ link.card.number }} {{ link.card.title }}</strong></td>
+                    <td><span class="lp-tag">{{ link.card.column.label|trans }}</span></td>
+                    <td><a class="lp-btn lp-btn--ghost lp-btn--icon" href="{{ path('app_board_card', {projectId: item.project.id, cardId: link.card.id, tab: 'conversation'}) }}" aria-label="{{ 'inbox.linked_items.open_card'|trans({'%title%': link.card.title}) }}"><twig:ux:icon name="lucide:arrow-up-right" class="w-4 h-4" /></a></td>
+                </tr>
+                {% endfor %}
+                {% for link in item.documents %}
+                <tr>
+                    <td><span class="lp-inbox-linked-table__type"><twig:ux:icon name="lucide:file-text" class="w-4 h-4" />{{ 'inbox.linked_items.document'|trans }}</span><strong>{{ link.document.title }}</strong></td>
+                    <td><span class="lp-tag">{{ link.document.status.translationKey()|trans }}</span></td>
+                    <td><a class="lp-btn lp-btn--ghost lp-btn--icon" href="{{ path('app_document_review', {projectId: item.project.id, documentId: link.document.id}) }}" aria-label="{{ 'inbox.linked_items.open_document'|trans({'%title%': link.document.title}) }}"><twig:ux:icon name="lucide:arrow-up-right" class="w-4 h-4" /></a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
     {% if not open %}
     <div class="lp-inbox-item__response" data-inbox-response>
         {% if item.selectedOptions|length > 0 %}

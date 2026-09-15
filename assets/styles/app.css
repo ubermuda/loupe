@@ -485,6 +485,202 @@
 }
 
 @layer components {
+    /* Dense document table for scanning current versions and review state. */
+    .lp-document-table {
+        @apply min-w-0 overflow-x-auto rounded-2xl border border-line;
+    }
+    .lp-document-table__head,
+    .lp-document-row {
+        @apply grid items-center gap-4;
+        grid-template-columns:
+            minmax(0, 2fr) minmax(calc(var(--spacing) * 34), 0.75fr)
+            minmax(calc(var(--spacing) * 36), 0.8fr) minmax(
+                calc(var(--spacing) * 28),
+                0.6fr
+            )
+            calc(var(--spacing) * 20);
+    }
+    .lp-document-table__head {
+        @apply min-w-4xl px-5 py-3 bg-surface-3 text-xs font-bold uppercase tracking-wider text-fg-dim;
+    }
+    .lp-document-table .lp-document-list {
+        @apply min-w-4xl gap-0;
+    }
+    .lp-document-table .lp-document-row {
+        @apply min-w-4xl rounded-none bg-surface-1 px-5 py-4 border-t border-line;
+    }
+    .lp-document-table .lp-document-row:hover {
+        @apply bg-surface-2;
+    }
+    .lp-document-row__main {
+        @apply min-w-0 flex flex-col gap-1.5;
+    }
+    .lp-document-table .lp-document-row__head {
+        @apply flex items-center gap-2 min-w-0;
+    }
+    .lp-document-row__description {
+        @apply m-0 text-sm text-fg-dim truncate;
+    }
+    .lp-document-table .lp-document-row__meta {
+        @apply flex flex-wrap items-center gap-1.5;
+    }
+    .lp-document-row__status {
+        @apply flex items-center;
+    }
+    .lp-document-row__author,
+    .lp-document-row__updated {
+        @apply text-sm text-fg-mute;
+    }
+    .lp-document-table .lp-document-row__actions {
+        @apply relative z-10 flex items-center justify-end;
+    }
+    .lp-document-table .lp-document-row__archive-reason {
+        @apply col-span-full;
+    }
+
+    /* Board controls and column framing for the supported kanban view. */
+    .lp-board-head__actions {
+        @apply flex items-center gap-2;
+    }
+    .lp-board-toolbar {
+        @apply flex items-center gap-3 min-h-9 mb-2;
+    }
+    .lp-board-toolbar__mode {
+        @apply inline-flex items-center rounded-lg bg-surface-3 p-1;
+    }
+    .lp-board-toolbar__mode-active {
+        @apply inline-flex items-center gap-2 rounded-md bg-surface-1 px-3 py-1.5 text-sm font-bold text-ink;
+    }
+    .lp-board-toolbar__count {
+        @apply ml-auto text-sm font-semibold text-fg-dim;
+    }
+    .lp-board__columns {
+        scroll-padding-inline: calc(var(--spacing) * 3);
+        scrollbar-width: thin;
+    }
+    .lp-workspace--board .lp-board__column {
+        @apply min-w-72 rounded-2xl bg-surface-2 p-4;
+    }
+    .lp-board__column-head {
+        @apply min-h-8;
+    }
+    .lp-workspace--board .lp-board-card {
+        @apply border border-line;
+    }
+    .lp-workspace--board .lp-board-card:hover {
+        @apply border-line-strong shadow-card;
+    }
+
+    @media (width < 40rem) {
+        .lp-board-head {
+            @apply flex-col;
+        }
+        .lp-board-head__actions {
+            @apply w-full;
+        }
+        .lp-board-head__actions .lp-btn {
+            @apply flex-1;
+        }
+    }
+}
+
+@layer components {
+    .lp-needs-you {
+        @apply max-w-6xl;
+    }
+    .lp-needs-you__summary {
+        @apply inline-flex items-center rounded-full bg-status-pending-bg px-3 py-1.5 text-sm font-bold text-status-pending-deep whitespace-nowrap;
+    }
+    .lp-section-tabs__item--active {
+        @apply border-accent text-ink;
+    }
+    .lp-section-tabs__item > span {
+        @apply inline-flex items-center justify-center min-w-5 rounded-full bg-surface-3 px-1.5 py-0.5 text-xs;
+    }
+    .lp-needs-you .lp-list-filters {
+        @apply rounded-xl bg-surface-2 p-2 mb-6;
+    }
+    .lp-needs-you .lp-filter-form {
+        @apply flex-1 min-w-0;
+    }
+    .lp-needs-you .lp-filter-search {
+        @apply flex-1 min-w-0;
+    }
+    .lp-inbox-section {
+        scroll-margin-top: calc(var(--spacing) * 20);
+    }
+    .lp-inbox-section--open,
+    .lp-inbox-section--completed {
+        @apply rounded-2xl bg-surface-2 p-4 sm:p-5;
+    }
+    .lp-inbox-section--completed {
+        @apply mt-8;
+    }
+    .lp-inbox-ask__head {
+        @apply gap-2;
+    }
+    .lp-inbox-ask__source {
+        @apply text-sm font-bold text-ink mr-auto;
+    }
+    .lp-inbox-ask__session {
+        @apply font-mono text-xs text-fg-dim;
+    }
+    .lp-inbox-item {
+        @apply bg-surface-1;
+    }
+    .lp-inbox-item__head {
+        @apply items-center;
+    }
+    .lp-inbox-item__kind {
+        @apply inline-flex items-center rounded-full bg-tint px-2 py-1 text-xs font-semibold text-accent-ink;
+    }
+    .lp-inbox-item__blocking {
+        @apply inline-flex items-center rounded-full bg-status-pending-bg px-2 py-1 text-xs font-semibold text-status-pending-deep;
+    }
+    .lp-inbox-linked-table-wrap {
+        @apply overflow-x-auto mt-5 rounded-xl border border-line;
+    }
+    .lp-inbox-linked-table {
+        @apply w-full min-w-lg border-collapse text-sm;
+    }
+    .lp-inbox-linked-table caption {
+        @apply px-4 pt-4 pb-2 text-left font-display text-base font-extrabold text-ink;
+    }
+    .lp-inbox-linked-table th {
+        @apply px-4 py-2 text-left text-xs font-semibold text-fg-dim border-b border-line;
+    }
+    .lp-inbox-linked-table th:nth-child(2) {
+        @apply w-36;
+    }
+    .lp-inbox-linked-table th:last-child {
+        @apply w-14;
+    }
+    .lp-inbox-linked-table td {
+        @apply px-4 py-3 border-b border-line last:border-b-0 align-middle;
+    }
+    .lp-inbox-linked-table td:first-child {
+        @apply flex flex-col gap-1;
+    }
+    .lp-inbox-linked-table__type {
+        @apply inline-flex items-center gap-1.5 text-xs font-medium text-fg-dim;
+    }
+    .lp-inbox-linked-table strong {
+        @apply font-semibold text-ink;
+    }
+    @media (width < 40rem) {
+        .lp-needs-you .lp-page-header {
+            @apply flex-col gap-3;
+        }
+        .lp-needs-you__summary {
+            @apply self-start;
+        }
+        .lp-inbox-ask__session {
+            @apply hidden;
+        }
+    }
+}
+
+@layer components {
     .lp-site-feedback-page {
         @apply max-w-6xl;
     }

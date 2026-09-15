@@ -3,6 +3,17 @@
    addColumnForm and renameColumnForm (a refused FormView, or null). #}
 {% set canManage = is_granted(constant('App\\Module\\Board\\Security\\BoardColumnVoter::MANAGE'), board.project) %}
 <div id="board" class="lp-board" data-controller="board-drag{{ canManage ? ' board-columns' }}">
+    {% set cardCount = 0 %}
+    {% for view in board.columns %}{% set cardCount = cardCount + view.count %}{% endfor %}
+    <div class="lp-board-toolbar">
+        <div class="lp-board-toolbar__mode" aria-label="{{ 'board.view.label'|trans }}">
+            <span class="lp-board-toolbar__mode-active" aria-current="page">
+                <twig:ux:icon name="lucide:square-kanban" class="w-4 h-4 shrink-0" />
+                {{ 'board.view.board'|trans }}
+            </span>
+        </div>
+        <span class="lp-board-toolbar__count">{{ 'board.card.count'|trans({'%count%': cardCount}) }}</span>
+    </div>
     {# A drop moves the card at once. This says so when the server refuses. #}
     <p class="lp-board__message"
        data-board-drag-target="message"

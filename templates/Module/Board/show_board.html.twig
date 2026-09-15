@@ -10,16 +10,22 @@
 
 {% block body %}
 <div class="lp-workspace lp-workspace--board">
-    <div class="lp-board-head">
+    <header class="lp-board-head">
         <div>
             <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'board.page.title'|trans }}</h1>
             <p class="lp-workspace-desc">{{ 'board.page.description'|trans }}</p>
         </div>
-        <a class="lp-btn lp-btn--primary" href="{{ path('app_board_card_create', {id: board.project.id}) }}">
-            <twig:ux:icon name="lucide:plus" class="w-4 h-4 shrink-0" />
-            {{ 'board.card.create.action'|trans }}
-        </a>
-    </div>
+        <div class="lp-board-head__actions">
+            <a class="lp-btn" href="{{ path('app_project_edit', {id: board.project.id}) }}">
+                <twig:ux:icon name="lucide:settings" class="w-4 h-4 shrink-0" />
+                {{ 'board.settings.action'|trans }}
+            </a>
+            <a class="lp-btn lp-btn--primary" href="{{ path('app_board_card_create', {id: board.project.id}) }}">
+                <twig:ux:icon name="lucide:plus" class="w-4 h-4 shrink-0" />
+                {{ 'board.card.create.action'|trans }}
+            </a>
+        </div>
+    </header>
 
     {% if board.deadBridgeRules is not empty and is_granted(constant('App\\Module\\Project\\Security\\ProjectVoter::MANAGE'), board.project) %}
     <section class="lp-board-rules" role="status" data-testid="bridge-rules-banner">

@@ -275,6 +275,13 @@ final class ListDocumentsControllerTest extends WebTestCase
         // Status chip keeps the lp-badge hook and the translated status text.
         self::assertSelectorTextContains($rowSelector.' .lp-badge', 'In review');
 
+        self::assertSelectorTextContains($rowSelector.' .lp-document-row__author', 'Alice3');
+        self::assertSelectorExists('.lp-document-table[role="table"]');
+        self::assertSelectorTextContains('.lp-document-table__head', 'Document');
+        self::assertSelectorTextContains('.lp-document-table__head', 'Status');
+        self::assertSelectorTextContains('.lp-document-table__head', 'Author');
+        self::assertSelectorTextContains('.lp-document-table__head', 'Updated');
+
         // Nothing waits for the reader, so the row carries no indicator at all.
         self::assertSelectorNotExists($rowSelector.' .lp-document-row__waiting');
     }

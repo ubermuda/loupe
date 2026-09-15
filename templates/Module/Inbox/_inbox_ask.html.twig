@@ -1,5 +1,7 @@
 <section class="lp-inbox-ask{{ ask.closedAt ? ' lp-inbox-ask--closed' }}" id="inbox-ask-{{ ask.id }}" data-inbox-ask-id="{{ ask.id }}">
     <header class="lp-inbox-ask__head">
+        <span class="lp-source-avatar" aria-hidden="true"><twig:ux:icon name="lucide:bot" class="w-4 h-4" /></span>
+        <span class="lp-inbox-ask__source">{{ 'inbox.source.agent'|trans }}</span>
         <span class="lp-inbox-ask__session" title="{{ ask.sessionId }}">{{ 'inbox.ask.session'|trans({'%session%': ask.sessionId}) }}</span>
         <span class="lp-inbox-ask__time">{{ 'inbox.ask.asked'|trans({'%time%': ask.createdAt|relative_time}) }}</span>
         {% if ask.closedAt %}
@@ -38,7 +40,7 @@
     {% endif %}
     <div class="lp-inbox-ask__items">
         {% for link in ask.items %}
-            {% include '@Inbox/_inbox_item.html.twig' with {item: link.item, ask: ask, inbox: inbox, refusedForm: refusedForm} only %}
+            {% include '@Inbox/_inbox_item.html.twig' with {item: link.item, ask: ask, inbox: inbox, refusedForm: refusedForm, showLinkedItems: showLinkedItems|default(false)} only %}
         {% endfor %}
     </div>
 </section>

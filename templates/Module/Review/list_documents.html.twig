@@ -17,7 +17,9 @@
    "the filters matched nothing". Same number the shell's nav pill shows. #}
 {% set totalDocuments = project_document_count(project) %}
 <div class="lp-workspace">
-    <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'review.dashboard.page.title'|trans }}</h1>
+    <header class="lp-page-header">
+        <div>
+            <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'review.dashboard.page.title'|trans }}</h1>
     {# The default line promises newest-first, which a ranked search and a series
        both make untrue. The series wins, because its order wins in the query. #}
     {% if listQuery.seriesName %}
@@ -27,7 +29,9 @@
     {% else %}
         {% set descriptionKey = 'review.dashboard.description' %}
     {% endif %}
-    <p class="lp-workspace-desc">{{ descriptionKey|trans }}</p>
+            <p class="lp-workspace-desc">{{ descriptionKey|trans }}</p>
+        </div>
+    </header>
 
     {# Six controls in front of a project that has nothing to filter are six dead
        controls, so the bar waits for a first document — but it stays once a
@@ -136,19 +140,28 @@
     {% endif %}
 
     {% if items|length > 0 %}
-    <div class="lp-document-list">
+    <div class="lp-document-table" role="table" aria-label="{{ 'review.dashboard.table.label'|trans }}">
+        <div class="lp-document-table__head" role="row">
+            <span role="columnheader">{{ 'review.dashboard.table.document'|trans }}</span>
+            <span role="columnheader">{{ 'review.dashboard.table.status'|trans }}</span>
+            <span role="columnheader">{{ 'review.dashboard.table.author'|trans }}</span>
+            <span role="columnheader">{{ 'review.dashboard.table.updated'|trans }}</span>
+            <span class="sr-only" role="columnheader">{{ 'review.dashboard.table.actions'|trans }}</span>
+        </div>
+        <div class="lp-document-list" role="rowgroup">
         {% for item in items %}
         {% set document = item.document %}
         {% set archived = document.archivedAt is not null %}
-        <div class="lp-document-row{% if archived %} lp-document-row--archived{% endif %}" data-document-id="{{ document.id }}">
+        <div class="lp-document-row{% if archived %} lp-document-row--archived{% endif %}" data-document-id="{{ document.id }}" role="row">
             <a href="{{ path('app_document_review', {projectId: project.id, documentId: document.id}) }}"
                class="lp-document-row__link" aria-label="{{ document.title }}"></a>
-            <div class="lp-document-row__head">
-                <span class="lp-document-row__title">{{ document.title }}</span>
-            </div>
-            <div class="lp-document-row__meta">
-                <span class="lp-document-row__version">{{ 'v' ~ item.versionNumber }}</span>
-                <span>{{ 'review.dashboard.meta.updated'|trans({'%time%': item.updatedAt|relative_time}) }}</span>
+            <div class="lp-document-row__main" role="cell">
+                <div class="lp-document-row__head">
+                    <span class="lp-document-row__title">{{ document.title }}</span>
+                    <span class="lp-document-row__version">{{ 'v' ~ item.versionNumber }}</span>
+                </div>
+                {% if item.description %}<p class="lp-document-row__description">{{ item.description }}</p>{% endif %}
+                <div class="lp-document-row__meta">
                 {% if document.series is not null %}
                 <span class="lp-series">{{ 'review.dashboard.series.item'|trans({
                     '%series%': document.series.name,
@@ -175,10 +188,16 @@
                 {% if item.signals.hasWaitingThreads %}
                 <span class="lp-document-row__waiting">{{ 'review.dashboard.meta.waiting_count'|trans({'%count%': item.signals.waitingThreadCount}) }}</span>
                 {% endif %}
+                </div>
+            </div>
+            <div class="lp-document-row__status" role="cell">
                 <span class="lp-badge lp-badge--{{ document.status.value }}">
                     {{ document.status.translationKey()|trans }}
                 </span>
-                <div class="lp-document-row__actions">
+            </div>
+            <span class="lp-document-row__author" role="cell">{{ document.owner.fullName }}</span>
+            <time class="lp-document-row__updated" datetime="{{ item.updatedAt|date('c') }}" role="cell">{{ item.updatedAt|relative_time }}</time>
+            <div class="lp-document-row__actions" role="cell">
                 <a href="{{ path('app_document_rename', {projectId: project.id, documentId: document.id}|merge(listQuery.routeParams)) }}"
                    class="lp-document-row__action"
                    aria-label="{{ 'review.dashboard.rename'|trans({'%title%': document.title}) }}">
@@ -199,7 +218,6 @@
                         {% endif %}
                     </button>
                 {{ form_end(archiveForm) }}
-                </div>
             </div>
             {# Only the MCP tool requires a reason, so most archived rows have
                none — which is the ordinary case, not a gap. Nothing is
@@ -210,6 +228,7 @@
             {% endif %}
         </div>
         {% endfor %}
+        </div>
     </div>
 
     <twig:Pagination route="app_project_documents" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}|merge(listQuery.routeParams)" />

@@ -41,6 +41,9 @@ final class ShowBoardControllerTest extends WebTestCase
         // Three priority groups per rankable column, and one flat group in Done.
         self::assertCount(10, $crawler->filter('[data-board-drag-target="group"]'));
         self::assertCount(2, $crawler->filter('[data-board-drag-target="card"]'));
+        self::assertSelectorTextContains('.lp-board-toolbar__count', '2 cards');
+        self::assertSelectorTextContains('.lp-board-toolbar__mode-active', 'Board');
+        self::assertSelectorExists('a[href="/projects/'.$project->id.'/edit"]');
 
         $counts = $crawler->filter('.lp-board__column-count')->each(
             static fn (Crawler $node): string => trim($node->text()),
