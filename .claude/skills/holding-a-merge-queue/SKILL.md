@@ -42,9 +42,12 @@ request and of a `CONFLICTING` one. `merge=BEHIND` next to `pass=N/N` means the
 green does not count.
 
 `gh` prints "no required checks reported" in lower case when no terminal is
-attached, and with a capital when one is. Keep the match on both if you change
-`scripts/queue-monitor.sh`, or every stacked pull request reads `unread`. A
-failed GitHub read prints a line, so a broken monitor is not silent.
+attached, and with a capital when one is. It prints "no checks reported" when no
+check has run at all, as on a pull request retargeted to `main` since its last
+push. A retarget starts no CI, so that pull request stays `none` until a push or
+a sync. Keep all four spellings if you change `scripts/queue-monitor.sh`, or those
+pull requests read `unread`. A failed GitHub read prints a line, so a broken
+monitor is not silent.
 
 GitHub reports `mergeStateStatus` as `UNKNOWN` while it recomputes after `main`
 moves. The script keeps the previous `merge=` value for that pull request, or

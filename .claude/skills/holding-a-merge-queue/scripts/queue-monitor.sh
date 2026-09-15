@@ -12,7 +12,7 @@ while true; do
   for pr in $(jq -r '.[].number' <<<"$prs"); do
     out=$(gh pr checks "$pr" --required --json bucket 2>&1)
     case "$out" in
-      [Nn]"o required checks reported"*) c=none ;;
+      [Nn]"o checks reported"*|[Nn]"o required checks reported"*) c=none ;;
       \[*) c=$(jq -r --argjson n "$n" 'group_by(.bucket)|map({(.[0].bucket):length})|add // {}
              | if (.fail // 0) + (.cancel // 0) > 0 then "fail"
                elif (.pass // 0) == $n and length == 1 then "pass=\($n)/\($n)"
