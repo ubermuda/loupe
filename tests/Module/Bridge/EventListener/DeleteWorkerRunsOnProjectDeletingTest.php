@@ -39,6 +39,34 @@ final class DeleteWorkerRunsOnProjectDeletingTest extends KernelTestCase
         self::assertSame((string) $keptRunId, (string) $remaining[0]->id);
     }
 
+    /**
+     * One bridge follows several projects, so deleting one of them leaves the
+     * bridge row and its list alone. The next heartbeat drops the id.
+     */
+    public function test_deleting_a_project_leaves_the_bridge_that_follows_it(): void
+    {
+        self::bootKernel();
+        $em = $this->em();
+        $owner = $this->user($em, 'bridge-survives-delete@example.com');
+        $doomed = $this->project($em, $owner, 'Doomed Bridge Project');
+        $kept = $this->project($em, $owner, 'Kept Bridge Project');
+        $projects = [(string) $doomed->id, (string) $kept->id];
+        $bridgeId = $this->seedBridge($em, $owner, projects: $projects)->id;
+        $ownerId = $owner->id;
+        $this->seedRun($em, $doomed);
+
+        $deleter = self::getContainer()->get(ProjectDeleter::class);
+        self::assertInstanceOf(ProjectDeleter::class, $deleter);
+        $deleter->delete($doomed);
+
+        self::assertSame(0, $this->countRuns());
+        $em->clear();
+        self::assertSame(
+            json_encode($projects),
+            $em->getConnection()->fetchOne('SELECT projects FROM bridges WHERE owner_id = ? AND id = ?', [(string) $ownerId, (string) $bridgeId]),
+        );
+    }
+
     /** @return list<WorkerRun> */
     private function allRuns(): array
     {

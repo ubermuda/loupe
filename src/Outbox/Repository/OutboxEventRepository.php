@@ -46,19 +46,23 @@ class OutboxEventRepository extends ServiceEntityRepository
      */
     public function claimDueForPublish(int $limit, \DateTimeImmutable $now, \DateTimeImmutable $leaseUntil): array
     {
+        // A materialized CTE runs once. As an IN subquery, a plan could rescan it
+        // per outer row, skip the rows already updated and claim past the limit.
         $sql = <<<'SQL'
-            UPDATE outbox_events
-            SET next_attempt_at = :leaseUntil
-            WHERE id IN (
-                SELECT due.id
-                FROM outbox_events due
-                WHERE due.published_at IS NULL
-                  AND (due.next_attempt_at IS NULL OR due.next_attempt_at <= :now)
-                ORDER BY due.sequence ASC
+            WITH due AS MATERIALIZED (
+                SELECT candidate.id
+                FROM outbox_events candidate
+                WHERE candidate.published_at IS NULL
+                  AND (candidate.next_attempt_at IS NULL OR candidate.next_attempt_at <= :now)
+                ORDER BY candidate.sequence ASC
                 LIMIT :limit
                 FOR UPDATE SKIP LOCKED
             )
-            RETURNING id
+            UPDATE outbox_events
+            SET next_attempt_at = :leaseUntil
+            FROM due
+            WHERE outbox_events.id = due.id
+            RETURNING outbox_events.id
             SQL;
 
         $claimedIds = $this->getEntityManager()->getConnection()->executeQuery(

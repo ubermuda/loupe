@@ -14,11 +14,27 @@ use App\Module\Review\Entity\Document;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\Service\ResetInterface;
+use Ubermuda\FeatureFlagsBundle\Reader\FeatureFlagReaderInterface;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 /** Persists and does not flush, so a test decides when the rows commit. */
 trait InboxFixtures
 {
     use BoardColumnFixtures;
+
+    /** Stores the flag and drops the reader's copy, which lasts for the whole test otherwise. */
+    private function switchFlag(EntityManagerInterface $em, string $name, bool $enabled): void
+    {
+        $flags = self::getContainer()->get(FeatureFlagRepository::class);
+        self::assertInstanceOf(FeatureFlagRepository::class, $flags);
+        $flags->findAllIndexed()[$name]->value = $enabled;
+        $em->flush();
+
+        $reader = self::getContainer()->get(FeatureFlagReaderInterface::class);
+        self::assertInstanceOf(ResetInterface::class, $reader);
+        $reader->reset();
+    }
 
     private function owner(EntityManagerInterface $em, string $slug): User
     {

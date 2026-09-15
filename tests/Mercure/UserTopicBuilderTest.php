@@ -24,4 +24,22 @@ final class UserTopicBuilderTest extends KernelTestCase
         self::assertSame(rtrim($defaultUri, '/').'/users/'.$userId.'/events', $builder->forUser($userId));
         self::assertNotSame($builder->forUser($userId), $builder->forUser(Uuid::v7()));
     }
+
+    public function test_the_inbox_topic_is_apart_from_the_agent_topic_and_names_its_user(): void
+    {
+        self::bootKernel();
+
+        $builder = self::getContainer()->get(UserTopicBuilder::class);
+        self::assertInstanceOf(UserTopicBuilder::class, $builder);
+        $userId = Uuid::v7();
+
+        $topic = $builder->forInbox($userId);
+
+        self::assertStringEndsWith('/users/'.$userId.'/inbox', $topic);
+        self::assertNotSame($builder->forUser($userId), $topic);
+        self::assertEquals($userId, $builder->userIdFromInboxTopic($topic));
+        self::assertNull($builder->userIdFromInboxTopic($builder->forUser($userId)));
+        self::assertNull($builder->userIdFromInboxTopic(str_replace((string) $userId, 'not-a-uuid', $topic)));
+        self::assertNull($builder->userIdFromInboxTopic('https://elsewhere.test/users/'.$userId.'/inbox'));
+    }
 }

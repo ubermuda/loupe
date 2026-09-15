@@ -13,6 +13,7 @@ use App\Module\Board\Entity\CardReporter;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemState;
+use App\Module\Inbox\Install\InboxInstallFlags;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Inbox\InboxFixtures;
 use Doctrine\ORM\EntityManagerInterface;
@@ -32,6 +33,7 @@ final class MarkInboxItemsObsoleteOnCardMovedTest extends KernelTestCase
         $em = self::getContainer()->get(EntityManagerInterface::class);
         self::assertInstanceOf(EntityManagerInterface::class, $em);
         $this->em = $em;
+        $this->switchFlag($em, InboxInstallFlags::FLAG_INBOX_ENABLED, true);
     }
 
     public function test_every_open_item_of_a_card_that_finishes_becomes_obsolete(): void

@@ -142,6 +142,12 @@ type fakeLoupe struct {
 	hubTopics   [][]string
 	sse         string
 	reports     []string
+	heartbeats  []string
+	// flags is the raw flags object GET /api/events sends. Empty sends none.
+	flags string
+	// askState answers the ask check route. Empty answers 404.
+	askState  string
+	askChecks []string
 }
 
 const (
@@ -166,7 +172,11 @@ func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
 		if n == 1 {
 			projects += fmt.Sprintf(`,{"id":%q,"slug":"other","name":"Other"}`, otherProject)
 		}
-		fmt.Fprintf(w, `{"hubUrl":"http://%s/hub","jwt":"jwt-%d","topic":%q,"projects":[%s]}`, r.Host, n, userTopic, projects)
+		flags := ""
+		if f.flags != "" {
+			flags = `,"flags":` + f.flags
+		}
+		fmt.Fprintf(w, `{"hubUrl":"http://%s/hub","jwt":"jwt-%d","topic":%q,"projects":[%s]%s}`, r.Host, n, userTopic, projects, flags)
 	case "/hub":
 		f.mu.Lock()
 		f.hubAuth = append(f.hubAuth, r.Header.Get("Authorization"))
@@ -191,6 +201,25 @@ func (f *fakeLoupe) serve(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
 
 			return
+		}
+		if r.Method == http.MethodPut && r.URL.Path == "/api/bridges/"+testBridgeID+"/heartbeat" {
+			raw, _ := io.ReadAll(r.Body)
+			f.mu.Lock()
+			f.heartbeats = append(f.heartbeats, string(raw))
+			f.mu.Unlock()
+			w.WriteHeader(http.StatusNoContent)
+
+			return
+		}
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/inbox/asks/") {
+			f.mu.Lock()
+			f.askChecks = append(f.askChecks, r.URL.Path)
+			f.mu.Unlock()
+			if f.askState != "" {
+				fmt.Fprint(w, f.askState)
+
+				return
+			}
 		}
 		w.WriteHeader(http.StatusNotFound)
 	}
@@ -365,6 +394,59 @@ func TestTheBridgeReportsRuleHealthAtStartAndOnAChange(t *testing.T) {
 	}
 	if strings.Contains(strings.Join(fake.sentReports(), ""), "SECRET") {
 		t.Fatal("a report carries prompt text")
+	}
+}
+
+// The bridge sends a heartbeat as soon as it has read GET /api/events, with the
+// ids of the projects it maps and its build, and stops cleanly with the stream.
+func TestTheBridgeSendsAHeartbeatAtStart(t *testing.T) {
+	fake := &fakeLoupe{flags: `{"bridge.heartbeat_interval_seconds":3600}`}
+	server := httptest.NewServer(http.HandlerFunc(fake.serve))
+	t.Cleanup(server.Close)
+	cfg := config.Config{BaseURL: server.URL, Token: "t"}
+
+	body := "projects:\n  loupe:\n    dir: " + t.TempDir() + "\n  other:\n    dir: " + t.TempDir() + "\nrules:\n" +
+		"  - name: plan\n    on: board.card_moved\n    project: loupe\n    to: next\n    prompt: go\n"
+	set, err := rules.Parse([]byte(body), rules.Defaults{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := set.Check(context.Background(), apiClient(cfg)); err != nil {
+		t.Fatal(err)
+	}
+	log := &syncBuffer{}
+	worker := &fakeWorker{}
+	r := &router{log: newBridgeLogger(log), rules: set, maxWorkers: defaultMaxWorkers, worker: worker.ops(), bridgeID: testBridgeID}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd := &cobra.Command{}
+	cmd.SetContext(ctx)
+	done := make(chan error, 1)
+	go func() { done <- subscribe(cmd, cfg, r) }()
+
+	eventually(t, "the start heartbeat", func() bool {
+		return strings.Contains(log.String(), `"event":"heartbeat_sent"`)
+	})
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	var sent api.Heartbeat
+	if err := json.Unmarshal([]byte(fake.heartbeats[0]), &sent); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(sent.Projects, []string{testProject, otherProject}) && !slices.Equal(sent.Projects, []string{otherProject, testProject}) {
+		t.Fatalf("projects = %v", sent.Projects)
+	}
+	if sent.CLIVersion != buildID() {
+		t.Fatalf("cliVersion = %q, want %q", sent.CLIVersion, buildID())
+	}
+	if !strings.Contains(log.String(), `"event":"heartbeat_sent"`) || !strings.Contains(log.String(), `"interval_seconds":3600`) {
+		t.Fatalf("log = %s", log.String())
 	}
 }
 

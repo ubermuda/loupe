@@ -62,7 +62,7 @@ final readonly class InboxAskTool implements FlagGatedToolInterface
                 'kind' => ['type' => 'string', 'enum' => ['question', 'todo']],
                 'title' => ['type' => 'string', 'maxLength' => InboxItem::MAX_TITLE_LENGTH, 'description' => 'one line'],
                 'body' => ['type' => 'string', 'maxLength' => InboxLimits::MAX_BODY_LENGTH, 'description' => 'the detail, in Markdown'],
-                'options' => ['type' => 'array', 'items' => ['type' => 'string'], 'maxItems' => InboxLimits::MAX_OPTIONS, 'description' => 'the answers the owner picks from, each different; a question only'],
+                'options' => ['type' => 'array', 'items' => ['type' => 'string', 'maxLength' => InboxLimits::MAX_OPTION_LENGTH], 'maxItems' => InboxLimits::MAX_OPTIONS, 'description' => 'the answers the owner picks from, each different; a question only'],
                 'multiple' => ['type' => 'boolean', 'description' => 'the owner may pick several options'],
                 'freeText' => ['type' => 'boolean', 'description' => 'the owner may write an answer; a question only'],
                 'blocking' => ['type' => 'boolean', 'description' => 'you wait for this item; defaults to true for a question and false for a todo'],

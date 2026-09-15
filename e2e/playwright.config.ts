@@ -107,6 +107,7 @@ export default defineConfig({
                 /billing\/trial-end-lifecycle\.spec\.ts/,
                 /install\/.*\.spec\.ts/,
                 /board\/.*\.spec\.ts/,
+                /inbox\/.*\.spec\.ts/,
                 /admin\/.*\.spec\.ts/,
                 /billing\/paywall\.spec\.ts/,
                 /account\/social-login\.spec\.ts/,
@@ -136,12 +137,13 @@ export default defineConfig({
         },
         {
             name: 'global-flags',
-            // billing.enabled and the OAuth provider flags change what every
-            // signed-in page and the login form render, so nothing else runs
-            // beside these.
+            // billing.enabled, inbox.enabled and the OAuth provider flags change
+            // what every signed-in page and the login form render, so nothing
+            // else runs beside these.
             testMatch: [
                 /billing\/paywall\.spec\.ts/,
                 /account\/social-login\.spec\.ts/,
+                /inbox\/.*\.spec\.ts/,
             ],
             workers: 1,
             use: {

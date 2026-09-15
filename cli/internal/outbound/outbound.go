@@ -1,6 +1,14 @@
-// Package report sends a finished worker run to Loupe, and retries the ones
-// that fail.
-package report
+// Package outbound queues the run reports and heartbeats the bridge sends to
+// Loupe. The ask check is a direct call, and rule health has its own retry.
+// Each kind of item has its own delivery policy:
+//
+//   - A worker run report waits in line, is sent in order and is retried. A
+//     shutdown gives it one last attempt.
+//   - A latest-wins item, such as a heartbeat, has a lane of its own. A newer
+//     item replaces one that has not gone out, and a failed one is not retried.
+//
+// The lanes never wait on each other, so a stuck heartbeat cannot delay a report.
+package outbound
 
 import (
 	"context"
@@ -12,14 +20,20 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/api"
 )
 
-// Queue takes a finished worker run and owns its delivery from there. handle
-// names the project the run belongs to, because one bridge follows several.
+// Queue takes what the bridge sends to Loupe and owns its delivery from there.
+// Each method names a kind of item, and each kind has its own delivery policy.
 //
-// Enqueue never blocks and never reports a failure, because the caller is a
-// worker goroutine with nothing to do about a failed send. A durable queue
-// replaces this one behind the same two methods.
+// Enqueue takes a finished worker run. handle names the project the run belongs
+// to, because one bridge follows several. It never blocks and never reports a
+// failure, because the caller is a worker goroutine with nothing to do about a
+// failed send.
+//
+// SendLatest takes a latest-wins item, such as a heartbeat. See Sender.SendLatest.
+//
+// A durable queue can replace the in-memory one behind the same methods.
 type Queue interface {
 	Enqueue(handle string, run api.WorkerRun)
+	SendLatest(key string, send func(context.Context) error, done func(error))
 	Close()
 }
 
@@ -31,6 +45,18 @@ type SendFunc func(ctx context.Context, handle string, run api.WorkerRun) (bool,
 type queued struct {
 	handle string
 	run    api.WorkerRun
+}
+
+// latest is the one item a latest-wins lane holds.
+type latest struct {
+	send func(context.Context) error
+	done func(error)
+}
+
+// lane holds the pending item of one latest-wins key. Sender.mu guards pending.
+type lane struct {
+	pending *latest
+	wake    chan struct{}
 }
 
 // capacity bounds the reports that wait in memory. A worker runs for minutes,
@@ -68,9 +94,10 @@ const (
 	aborted
 )
 
-// Retrying is the in-memory Queue. One goroutine sends, so reports land in the
-// order the workers finished, and a report under retry holds the next one back.
-type Retrying struct {
+// Sender is the in-memory queue. One goroutine sends the reports, so they land
+// in the order the workers finished, and a report under retry holds the next
+// one back. Each latest-wins key has a goroutine of its own.
+type Sender struct {
 	log    *slog.Logger
 	send   SendFunc
 	ctx    context.Context
@@ -85,12 +112,14 @@ type Retrying struct {
 
 	mu     sync.Mutex
 	closed bool
+	lanes  map[string]*lane
+	laneWG sync.WaitGroup
 }
 
-// New starts the sender. Close stops it.
-func New(ctx context.Context, log *slog.Logger, send SendFunc) *Retrying {
+// New starts the report sender. Close stops it and every latest-wins lane.
+func New(ctx context.Context, log *slog.Logger, send SendFunc) *Sender {
 	ctx, cancel := context.WithCancel(ctx)
-	q := &Retrying{
+	q := &Sender{
 		log:     log,
 		send:    send,
 		ctx:     ctx,
@@ -109,7 +138,7 @@ func New(ctx context.Context, log *slog.Logger, send SendFunc) *Retrying {
 
 // Enqueue hands one report to the sender. A full queue, or a queue that is
 // already closed, loses the report and says so.
-func (q *Retrying) Enqueue(handle string, run api.WorkerRun) {
+func (q *Sender) Enqueue(handle string, run api.WorkerRun) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
@@ -127,9 +156,43 @@ func (q *Retrying) Enqueue(handle string, run api.WorkerRun) {
 	}
 }
 
-// Close stops the sender, gives what it still holds one last attempt, and names
-// what it drops after that. A dropped record means "unknown".
-func (q *Retrying) Close() {
+// SendLatest puts send in the lane of key, in place of an item of that key that
+// has not gone out yet. send runs once, and done then receives its error. done
+// is not called for an item a newer one replaced, nor for one whose send was
+// still running when Close began. After Close, the item is dropped. The lane
+// goroutine calls done, so done may call SendLatest, and a Close inside done
+// deadlocks.
+func (q *Sender) SendLatest(key string, send func(context.Context) error, done func(error)) {
+	q.mu.Lock()
+	if q.closed {
+		q.mu.Unlock()
+
+		return
+	}
+	l := q.lanes[key]
+	if l == nil {
+		if q.lanes == nil {
+			q.lanes = map[string]*lane{}
+		}
+		l = &lane{wake: make(chan struct{}, 1)}
+		q.lanes[key] = l
+		q.laneWG.Add(1)
+		go q.runLane(l)
+	}
+	l.pending = &latest{send: send, done: done}
+	q.mu.Unlock()
+
+	select {
+	case l.wake <- struct{}{}:
+	default:
+	}
+}
+
+// Close stops the sender, gives the reports it still holds one last attempt,
+// and names what it drops after that. A dropped record means "unknown". A
+// latest-wins item that has not gone out is dropped with no log line, because
+// it holds current state and the next start sends a fresh one.
+func (q *Sender) Close() {
 	q.mu.Lock()
 	if q.closed {
 		q.mu.Unlock()
@@ -142,11 +205,45 @@ func (q *Retrying) Close() {
 
 	q.cancel()
 	<-q.done
+	q.laneWG.Wait()
+}
+
+// runLane sends the pending item of one latest-wins key, until the bridge stops.
+func (q *Sender) runLane(l *lane) {
+	defer q.laneWG.Done()
+
+	for {
+		select {
+		case <-q.ctx.Done():
+			return
+		case <-l.wake:
+		}
+
+		for {
+			q.mu.Lock()
+			next := l.pending
+			l.pending = nil
+			q.mu.Unlock()
+			if next == nil || q.ctx.Err() != nil {
+				break
+			}
+
+			err := next.send(q.ctx)
+			// Close has begun, so the error may be the cancellation and not an
+			// answer from Loupe. done is not told.
+			if q.ctx.Err() != nil {
+				return
+			}
+			if next.done != nil {
+				next.done(err)
+			}
+		}
+	}
 }
 
 // run sends each queued report in turn, and collects the ones a stopping bridge
 // leaves behind for one last attempt.
-func (q *Retrying) run() {
+func (q *Sender) run() {
 	defer close(q.done)
 
 	var lost []queued
@@ -165,7 +262,7 @@ func (q *Retrying) run() {
 //
 // A report the shutdown interrupted is sent again here. The server identifies a
 // run by its own key, so a second copy of a report that landed changes nothing.
-func (q *Retrying) flush(lost []queued) []queued {
+func (q *Sender) flush(lost []queued) []queued {
 	if len(lost) == 0 {
 		return nil
 	}
@@ -191,7 +288,7 @@ func (q *Retrying) flush(lost []queued) []queued {
 // deliver sends one report until the server takes it, until the server refuses
 // it, or until the attempts run out. It logs its own give-up, so no dropped
 // report is silent.
-func (q *Retrying) deliver(next queued) outcome {
+func (q *Sender) deliver(next queued) outcome {
 	for attempt := 0; ; attempt++ {
 		created, err := q.send(q.ctx, next.handle, next.run)
 		if err == nil {
@@ -228,7 +325,7 @@ func (q *Retrying) deliver(next queued) outcome {
 // second, so a second run of one card inside one second reads as the first, and
 // this record is lost. A later attempt that reads the same answer is the retry
 // working, so only the first one says anything.
-func (q *Retrying) logFolded(next queued) {
+func (q *Sender) logFolded(next queued) {
 	q.log.Warn("report_folded",
 		"card", next.run.CardNumber,
 		"rule", next.run.RuleName,
@@ -237,7 +334,7 @@ func (q *Retrying) logFolded(next queued) {
 }
 
 // logLost names the reports the bridge loses, and counts them.
-func (q *Retrying) logLost(lost []queued) {
+func (q *Sender) logLost(lost []queued) {
 	if len(lost) == 0 {
 		return
 	}

@@ -28,10 +28,19 @@ type fakeWorker struct {
 	started  chan workerSpec
 	block    chan struct{}
 	result   workerResult
+	sessions int
+}
+
+// testSession is the first session id a fakeWorker hands out.
+const testSession = "0199a0e2-0000-4000-8000-000000000001"
+
+// sessionUUID is the nth session id a fakeWorker hands out, counting from 1.
+func sessionUUID(n int) string {
+	return fmt.Sprintf("0199a0e2-0000-4000-8000-%012d", n)
 }
 
 func (f *fakeWorker) ops() workerOps {
-	return workerOps{run: func(_ context.Context, spec workerSpec) workerResult {
+	return workerOps{sessionID: f.nextSession, run: func(_ context.Context, spec workerSpec) workerResult {
 		f.enter(spec)
 
 		if f.started != nil {
@@ -44,6 +53,15 @@ func (f *fakeWorker) ops() workerOps {
 
 		return f.result
 	}}
+}
+
+func (f *fakeWorker) nextSession() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.sessions++
+
+	return sessionUUID(f.sessions)
 }
 
 func (f *fakeWorker) enter(spec workerSpec) {
@@ -353,7 +371,7 @@ func TestTheWorkerRunsWithTheMatchingRulesSettings(t *testing.T) {
 	if len(calls) != 1 {
 		t.Fatalf("expected one worker, got %+v", calls)
 	}
-	want := workerSpec{dir: h.dir, permissionMode: "plan", model: "opus", prompt: "Review " + testCard + " in loupe, from in-progress.\n\n" + directive.Footer}
+	want := workerSpec{dir: h.dir, permissionMode: "plan", model: "opus", sessionID: testSession, prompt: "Review " + testCard + " in loupe, from in-progress.\n\n" + directive.Footer}
 	if calls[0] != want {
 		t.Fatalf("worker = %+v, want %+v", calls[0], want)
 	}

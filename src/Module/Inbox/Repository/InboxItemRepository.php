@@ -6,14 +6,18 @@ namespace App\Module\Inbox\Repository;
 
 use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
+use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemDocument;
 use App\Module\Inbox\Entity\InboxItemState;
+use App\Module\Inbox\Entity\InboxLinkedPage;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\LockMode;
+use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\Query\Expr\Join;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -183,6 +187,28 @@ class InboxItemRepository extends ServiceEntityRepository
     }
 
     /**
+     * The ids of the ask's blocking items that are open as stored.
+     *
+     * @return list<string>
+     */
+    public function findOpenBlockingIdsOf(InboxAsk $ask): array
+    {
+        /** @var list<array{id: mixed}> $rows */
+        $rows = $this->createQueryBuilder('i')
+            ->select('i.id')
+            ->join(InboxAskItem::class, 'l', 'WITH', 'l.item = i')
+            ->andWhere('l.ask = :ask')
+            ->andWhere('i.blocking = true')
+            ->andWhere('i.state = :open')
+            ->setParameter('ask', $ask)
+            ->setParameter('open', InboxItemState::Open)
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $row): string => (string) $row['id'], $rows);
+    }
+
+    /**
      * Every item in the projects the user owns, with its card and document links.
      *
      * @return list<InboxItem>
@@ -201,5 +227,225 @@ class InboxItemRepository extends ServiceEntityRepository
             ->addOrderBy('i.id', 'ASC')
             ->getQuery()
             ->getResult());
+    }
+
+    /** The item with this id inside this project, so a URL cannot reach another project's item. */
+    public function findOneByIdAndProjectId(string $itemId, string $projectId): ?InboxItem
+    {
+        if (!Uuid::isValid($itemId) || !Uuid::isValid($projectId)) {
+            return null;
+        }
+
+        return $this->createQueryBuilder('i')
+            ->andWhere('i.id = :itemId')
+            ->andWhere('i.project = :projectId')
+            ->setParameter('itemId', Uuid::fromString($itemId), UuidType::NAME)
+            ->setParameter('projectId', Uuid::fromString($projectId), UuidType::NAME)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * The project's items linked to one card or one document, each with the
+     * memberships of every ask that holds it, in a single query.
+     *
+     * @return array{items: list<InboxItem>, memberships: list<InboxAskItem>}
+     */
+    public function findLinkedTo(Project $project, InboxLinkedPage $page, Uuid $targetId): array
+    {
+        [$linkClass, $targetField] = match ($page) {
+            InboxLinkedPage::Card => [InboxItemCard::class, 'card'],
+            InboxLinkedPage::Document => [InboxItemDocument::class, 'document'],
+        };
+
+        // No inverse collection leads from an item to its asks, so the memberships
+        // come back as rows of their own beside the items.
+        $rows = $this->createQueryBuilder('i')
+            ->leftJoin(InboxAskItem::class, 'm', Join::WITH, 'm.item = i')
+            ->leftJoin('m.ask', 'a')
+            ->addSelect('m', 'a')
+            ->andWhere('i.project = :project')
+            ->andWhere(\sprintf('EXISTS (SELECT t.id FROM %s t WHERE t.item = i AND t.%s = :target)', $linkClass, $targetField))
+            ->setParameter('project', $project)
+            ->setParameter('target', $targetId, UuidType::NAME)
+            ->orderBy('i.number', 'ASC')
+            ->addOrderBy('a.createdAt', 'ASC')
+            ->addOrderBy('a.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        $items = [];
+        $memberships = [];
+        foreach ($rows as $row) {
+            if ($row instanceof InboxItem) {
+                $items[(string) $row->id] = $row;
+            } elseif ($row instanceof InboxAskItem) {
+                $memberships[(string) $row->id] = $row;
+            }
+        }
+
+        return ['items' => array_values($items), 'memberships' => array_values($memberships)];
+    }
+
+    /**
+     * Open items that no open ask holds, such as a to-do left open in an ask
+     * that already closed.
+     *
+     * @return list<InboxItem>
+     */
+    public function findOpenOutsideOpenAsks(Project $project): array
+    {
+        return array_values($this->createQueryBuilder('i')
+            ->andWhere('i.project = :project')
+            ->andWhere('i.state = :open')
+            ->andWhere('NOT EXISTS (SELECT 1 FROM '.InboxAskItem::class.' l JOIN l.ask a WHERE l.item = i AND a.closedAt IS NULL)')
+            ->setParameter('project', $project)
+            ->setParameter('open', InboxItemState::Open)
+            ->orderBy('i.number', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
+     * The open items that no open ask holds, in every project the user owns, with their projects.
+     *
+     * @return list<InboxItem>
+     */
+    public function findOpenOutsideOpenAsksByOwner(User $user): array
+    {
+        return array_values($this->createQueryBuilder('i')
+            ->join('i.project', 'p')
+            ->addSelect('p')
+            ->andWhere('p.owner = :user')
+            ->andWhere('i.state = :open')
+            ->andWhere('NOT EXISTS (SELECT 1 FROM '.InboxAskItem::class.' l JOIN l.ask a WHERE l.item = i AND a.closedAt IS NULL)')
+            ->setParameter('user', $user)
+            ->setParameter('open', InboxItemState::Open)
+            ->orderBy('i.number', 'ASC')
+            ->getQuery()
+            ->getResult());
+    }
+
+    /**
+     * Copies onto each entity every column that can change, as stored now. A
+     * query hydrates no fresh copy of an entity already managed, and refresh()
+     * would also reload the readonly columns, which Doctrine refuses.
+     *
+     * @param list<InboxItem> $items
+     */
+    public function reloadChangeableColumns(array $items): void
+    {
+        if ([] === $items) {
+            return;
+        }
+
+        /** @var list<array{id: Uuid, title: string, body: ?string, blocking: bool, options: list<string>, multiple: bool, freeText: bool, state: InboxItemState, selectedOptions: list<int>, answerText: ?string, closeNote: ?string, updatedAt: \DateTimeImmutable, closedAt: ?\DateTimeImmutable}> $rows */
+        $rows = $this->createQueryBuilder('i')
+            ->select('i.id, i.title, i.body, i.blocking, i.options, i.multiple, i.freeText, i.state, i.selectedOptions, i.answerText, i.closeNote, i.updatedAt, i.closedAt')
+            ->andWhere('i IN (:items)')
+            ->setParameter('items', $items)
+            ->getQuery()
+            ->getArrayResult();
+
+        $byId = [];
+        foreach ($rows as $row) {
+            $byId[(string) $row['id']] = $row;
+        }
+
+        $unitOfWork = $this->getEntityManager()->getUnitOfWork();
+        foreach ($items as $item) {
+            $row = $byId[(string) $item->id] ?? null;
+            if (null === $row) {
+                continue;
+            }
+            $item->title = $row['title'];
+            $item->body = $row['body'];
+            $item->blocking = $row['blocking'];
+            $item->options = $row['options'];
+            $item->multiple = $row['multiple'];
+            $item->freeText = $row['freeText'];
+            $item->state = $row['state'];
+            $item->selectedOptions = $row['selectedOptions'];
+            $item->answerText = $row['answerText'];
+            $item->closeNote = $row['closeNote'];
+            $item->updatedAt = $row['updatedAt'];
+            $item->closedAt = $row['closedAt'];
+
+            // The snapshot moves with the copy, so a later flush writes no stored value back.
+            unset($row['id']);
+            foreach ($row as $property => $value) {
+                $unitOfWork->setOriginalEntityProperty(spl_object_id($item), $property, $value);
+            }
+        }
+    }
+
+    /**
+     * Writes every response column from the entity, changed or not.
+     *
+     * A flush writes only what differs from the copy Doctrine loaded, so a
+     * response cleared on a stale copy would leave another request's answer in place.
+     */
+    public function writeResponse(InboxItem $item): void
+    {
+        $this->createQueryBuilder('i')
+            ->update()
+            ->set('i.state', ':state')
+            ->set('i.selectedOptions', ':selectedOptions')
+            ->set('i.answerText', ':answerText')
+            ->set('i.closeNote', ':closeNote')
+            ->set('i.closedAt', ':closedAt')
+            ->set('i.updatedAt', ':updatedAt')
+            ->andWhere('i.id = :id')
+            ->setParameter('state', $item->state->value)
+            ->setParameter('selectedOptions', $item->selectedOptions, Types::JSON)
+            ->setParameter('answerText', $item->answerText)
+            ->setParameter('closeNote', $item->closeNote)
+            ->setParameter('closedAt', $item->closedAt, Types::DATETIME_IMMUTABLE)
+            ->setParameter('updatedAt', $item->updatedAt, Types::DATETIME_IMMUTABLE)
+            ->setParameter('id', $item->id, UuidType::NAME)
+            ->getQuery()
+            ->execute();
+    }
+
+    public function countOpenByProject(Project $project): int
+    {
+        return (int) $this->createQueryBuilder('i')
+            ->select('COUNT(i.id)')
+            ->andWhere('i.project = :project')
+            ->andWhere('i.state = :open')
+            ->setParameter('project', $project)
+            ->setParameter('open', InboxItemState::Open)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * @param list<Project> $projects
+     *
+     * @return array<string, int> keyed by project id; a project with no open item is absent
+     */
+    public function countOpenByProjects(array $projects): array
+    {
+        if ([] === $projects) {
+            return [];
+        }
+
+        /** @var list<array{id: mixed, total: mixed}> $rows */
+        $rows = $this->createQueryBuilder('i')
+            ->select('IDENTITY(i.project) AS id, COUNT(i.id) AS total')
+            ->andWhere('i.project IN (:projects)')
+            ->andWhere('i.state = :open')
+            ->setParameter('projects', $projects)
+            ->setParameter('open', InboxItemState::Open)
+            ->groupBy('i.project')
+            ->getQuery()
+            ->getArrayResult();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(string) $row['id']] = (int) $row['total'];
+        }
+
+        return $counts;
     }
 }

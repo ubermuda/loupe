@@ -10,6 +10,8 @@ use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\InboxLimits;
 use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\Service\InboxItemCloser;
+use App\Module\Inbox\Service\InboxOpenCountPublisher;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -26,22 +28,25 @@ final readonly class WithdrawInboxItemHandler
         private InboxItemCloser $closer,
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private InboxOpenCountPublisher $openCount,
     ) {
     }
 
     public function __invoke(WithdrawInboxItemCommand $command): InboxItem
     {
+        if (mb_strlen($command->reason) > InboxLimits::MAX_WITHDRAW_REASON_LENGTH) {
+            throw new DomainErrors(['reason' => self::REASON_TOO_LONG]);
+        }
         $reason = trim($command->reason);
         if ('' === $reason) {
             throw new DomainErrors(['reason' => self::REASON_BLANK]);
         }
-        if (mb_strlen($reason) > InboxLimits::MAX_WITHDRAW_REASON_LENGTH) {
-            throw new DomainErrors(['reason' => self::REASON_TOO_LONG]);
-        }
 
         $item = $command->item;
         $refusal = $this->em->wrapInTransaction(function () use ($item, $reason): ?string {
-            // Read under the lock, so an answer that lands first is not overwritten.
+            // The project first, as every item writer takes it, then the state as
+            // stored, so an answer that lands first is not overwritten.
+            $this->em->lock($item->project, LockMode::PESSIMISTIC_WRITE);
             if (InboxItemState::Open !== $this->inboxItems->lockedState($item)
                 || !$this->closer->close($item, InboxItemState::Withdrawn, $reason, new \DateTimeImmutable())) {
                 return InboxItemCloser::ITEM_NOT_OPEN;
@@ -54,6 +59,7 @@ final readonly class WithdrawInboxItemHandler
         if (null !== $refusal) {
             throw new DomainErrors(['itemId' => $refusal]);
         }
+        $this->openCount->countChanged($item->project);
 
         $this->auditor->record(
             'inbox.item_withdrawn',
