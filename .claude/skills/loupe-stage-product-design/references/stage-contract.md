@@ -38,4 +38,4 @@ When no linked document matches, page `document_list` for the title the stage sk
 
 ## Final reply
 
-The first characters of the reply are `STAGE RESULT:`, with no Markdown around them. Finish that line, then add at most three short sentences.
+Your final message starts with `STAGE RESULT:` as its very first characters. Write no sentence before it. After it, write at most three short sentences.

@@ -26,7 +26,7 @@ Build the approved tech design of one card into a ready, linked pull request.
 1. Load the `loupe-board` instruction.
 2. Call `card_get`.
 3. Slug the prompt's column label (`references/commands.md`). When it differs from the card `status`, stop with `STAGE RESULT: card left <column>`.
-4. Find the linked tech design by its tags `design` and `decisions`, read with `document_get`, or a title starting `Tech design`. When none has `status` `approved`, stop with `STAGE RESULT: no approved tech design`.
+4. Find the linked tech design by its tags `design` and `decisions` (`document_get`), or a title starting `Tech design`. When none has `status` `approved`, stop with `STAGE RESULT: no approved tech design`.
 5. Read each linked pull request with the forge adapter. An open one on a `card-<number>-` branch: take step 6, restore it per "Reruns", and skip to the gate. Any other open one: stop with `STAGE RESULT: open pull request exists <url>`.
 6. Read `references/commands.md` and the profile, and load its `Instruction files`.
 7. From the main checkout, create the card worktree on a `card-<number>-<short-slug>` branch, per `references/commands.md`.
@@ -34,9 +34,9 @@ Build the approved tech design of one card into a ready, linked pull request.
 9. Load `loupe-documents`. Write the plan, and submit it tagged `plan`, referencing the tech design id. Link it (contract rule 5).
 10. Run the plan task by task. Dispatch a sub-agent for each implementer and reviewer (contract rule 6).
 11. Run the gate in `references/commands.md`.
-12. Push, open the pull request ready or link the open one, add its changelog entry, and push. Link it (contract rule 5).
-13. Wait up to 60 minutes for CI. Fix failures, then gate and push again.
+12. Push, open or link the pull request, add its changelog entry, and push. Link it (contract rule 5).
+13. Wait for CI on the gated head, per `references/commands.md`.
 14. When CI and review are clean, stop with `STAGE RESULT: ready <pr url>`.
 15. After three failed fix pushes, or a timed-out wait, add a `Blocked:` paragraph to the card body (contract rule 5). Stop with `STAGE RESULT: blocked: <reason>`.
 
-Start the reply with a bare `STAGE RESULT:`. Add at most three short sentences.
+Your final message starts with `STAGE RESULT:` as its very first characters. Write no sentence before it. After it, write at most three short sentences.
