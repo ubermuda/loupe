@@ -1816,6 +1816,36 @@ const selectText = async (page: Page, span: Span): Promise<void> => {
     await spanIn(page, span, true);
 };
 
+/**
+ * Run an action that moves focus into the composer, then wait until the widget
+ * has read the selection that focus collapsed. The widget reads it a frame after
+ * the selectionchange, and the offer shows before then.
+ */
+const afterSelectionRead = async (
+    page: Page,
+    action: () => Promise<void>,
+): Promise<void> => {
+    await page.evaluate(() => {
+        (window as unknown as { selectionRead: Promise<void> }).selectionRead =
+            new Promise((resolve) => {
+                document.addEventListener(
+                    'selectionchange',
+                    () =>
+                        requestAnimationFrame(() =>
+                            requestAnimationFrame(() => resolve()),
+                        ),
+                    { once: true },
+                );
+            });
+    });
+    await action();
+    await page.evaluate(
+        () =>
+            (window as unknown as { selectionRead: Promise<void> })
+                .selectionRead,
+    );
+};
+
 /** Fill the composer and save, waiting for the API to accept the comment. */
 const saveComposed = async (page: Page, body: string): Promise<void> => {
     await page.getByPlaceholder(/Describe the issue/).fill(body);
@@ -2768,8 +2798,167 @@ test('the offer to quote a selection stands down while drawing', async ({
     await waitForInk(page);
 
     // Leaving draw mode gives the offer back, because the selection is intact.
-    await page.getByRole('button', { name: 'Done' }).click();
+    await afterSelectionRead(page, () =>
+        page.getByRole('button', { name: 'Done' }).click(),
+    );
     await expect(offer).toBeVisible();
+});
+
+/**
+ * Picking an element ends pick mode by focusing the composer, the way leaving
+ * draw mode does, so a selection made before the pick is offered again.
+ */
+test('the offer to quote a selection comes back after an element pick', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.getByRole('button', { name: 'Review' }).click();
+
+    const offer = page.locator('#lp-quote-btn');
+    await selectText(page, PROSE_QUOTE);
+    await expect(offer).toBeVisible();
+
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await expect(offer).toBeHidden();
+
+    await afterSelectionRead(page, () => page.locator('#target-me').click());
+    await expect(offer).toBeVisible();
+});
+
+/** Escape leaves draw mode the way Done does, so it gives the offer back too. */
+test('the offer to quote a selection comes back when Escape leaves drawing', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.getByRole('button', { name: 'Review' }).click();
+
+    const offer = page.locator('#lp-quote-btn');
+    await selectText(page, PROSE_QUOTE);
+    await expect(offer).toBeVisible();
+
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Draw', exact: true })
+        .click();
+    await expect(offer).toBeHidden();
+
+    await afterSelectionRead(page, () => page.keyboard.press('Escape'));
+    await expect(page.locator('#lp-draw-toast')).toBeHidden();
+    await expect(offer).toBeVisible();
+});
+
+/**
+ * A pick into a comment that is already open ends pick mode by focusing the
+ * composer, so the selection made before it is offered again.
+ */
+test('the offer to quote a selection comes back after a pick into an open comment', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.getByRole('button', { name: 'Review' }).click();
+    const pickElement = page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' });
+    await pickElement.click();
+    await page.locator('#target-me').click();
+
+    const offer = page.locator('#lp-quote-btn');
+    await selectText(page, PROSE_QUOTE);
+    await expect(offer).toBeVisible();
+
+    await pickElement.click();
+    await expect(offer).toBeHidden();
+
+    await afterSelectionRead(page, () => page.locator('#target-two').click());
+    await expect(page.locator('#lp-compose-head .lp-compose-chip')).toHaveCount(
+        2,
+    );
+    await expect(offer).toBeVisible();
+});
+
+/**
+ * Letting go of the add-another modifier ends pick mode by focusing the
+ * composer, so the selection made before the hold is offered again.
+ */
+test('the offer to quote a selection comes back when the add-another hold ends', async ({
+    page,
+}) => {
+    await openHarness(page);
+    const modifier = await addAnchorKey(page);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await page.locator('#target-me').click();
+
+    // A drag takes focus off the composer, the way a reviewer's selection does.
+    const offer = page.locator('#lp-quote-btn');
+    const prose = (await page.locator('#prose').boundingBox())!;
+    const y = prose.y + prose.height / 2;
+    await page.mouse.move(prose.x + 40, y);
+    await page.mouse.down();
+    await page.mouse.move(prose.x + 200, y, { steps: 5 });
+    await page.mouse.up();
+    await expect(offer).toBeVisible();
+
+    await page.keyboard.down(modifier);
+    await page.mouse.move(2, 2);
+    await expect(page.locator('#lp-toast')).toContainText(
+        'Click to add another element',
+    );
+    await expect(offer).toBeHidden();
+
+    await afterSelectionRead(page, () => page.keyboard.up(modifier));
+    await expect(page.locator('#lp-toast')).toBeHidden();
+    await expect(offer).toBeVisible();
+});
+
+/**
+ * The arm that keeps the pick waits for the selectionchange its focus owes. A
+ * browser that never sends one must not leave the arm up to swallow the
+ * reviewer's own collapse, so a press on the page drops it.
+ */
+test('a click on the page withdraws the offer when the collapse raised no event', async ({
+    page,
+}) => {
+    await openHarness(page);
+    await page.getByRole('button', { name: 'Review' }).click();
+
+    const offer = page.locator('#lp-quote-btn');
+    await selectText(page, PROSE_QUOTE);
+    await expect(offer).toBeVisible();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Draw', exact: true })
+        .click();
+
+    // Swallow the one selectionchange that leaving draw mode raises, before it
+    // reaches the document.
+    await page.evaluate(() => {
+        (window as unknown as { swallowed: Promise<void> }).swallowed =
+            new Promise((resolve) => {
+                window.addEventListener(
+                    'selectionchange',
+                    (event) => {
+                        event.stopImmediatePropagation();
+                        resolve();
+                    },
+                    { capture: true, once: true },
+                );
+            });
+    });
+    await page.getByRole('button', { name: 'Done' }).click();
+    await page.evaluate(
+        () => (window as unknown as { swallowed: Promise<void> }).swallowed,
+    );
+    await expect(offer).toBeVisible();
+
+    await afterSelectionRead(page, () => page.locator('#title').click());
+    await expect(offer).toBeHidden();
 });
 
 /**
