@@ -28,6 +28,7 @@ final readonly class WorkerRunExporter implements UserDataExporterInterface
             yield [
                 'project' => $run->project->name,
                 'bridgeId' => (string) $run->bridgeId,
+                'sessionId' => (string) $run->sessionId,
                 'cardId' => (string) $run->cardId,
                 'cardNumber' => $run->cardNumber,
                 'ruleName' => $run->ruleName,

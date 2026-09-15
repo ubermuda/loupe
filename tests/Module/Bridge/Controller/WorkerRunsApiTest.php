@@ -31,10 +31,12 @@ final class WorkerRunsApiTest extends WebTestCase
         $project = $this->project($em, $owner, 'Runs App');
         $raw = $this->agentToken($em, $owner);
         $bridgeId = (string) Uuid::v7();
+        $sessionId = (string) Uuid::v4();
         $cardId = (string) Uuid::v7();
 
         $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, [
             'bridgeId' => $bridgeId,
+            'sessionId' => $sessionId,
             'cardId' => $cardId,
             'cardNumber' => 42,
             'ruleName' => 'plan',
@@ -53,6 +55,7 @@ final class WorkerRunsApiTest extends WebTestCase
         self::assertInstanceOf(WorkerRun::class, $run);
         self::assertSame((string) $project->id, (string) $run->project->id);
         self::assertSame($bridgeId, (string) $run->bridgeId);
+        self::assertSame($sessionId, (string) $run->sessionId);
         self::assertSame($cardId, (string) $run->cardId);
         self::assertSame(42, $run->cardNumber);
         self::assertSame('plan', $run->ruleName);
@@ -292,6 +295,9 @@ final class WorkerRunsApiTest extends WebTestCase
     public static function invalidPayloads(): iterable
     {
         yield 'a bridge id that is not a uuid' => [['bridgeId' => 'not-a-uuid']];
+        yield 'a missing session id' => [['sessionId' => null]];
+        yield 'a blank session id' => [['sessionId' => '']];
+        yield 'a session id that is not a uuid' => [['sessionId' => 'not-a-uuid']];
         yield 'a card id that is not a uuid' => [['cardId' => 'not-a-uuid']];
         yield 'a card number of zero' => [['cardNumber' => 0]];
         yield 'a card number past a 32-bit integer' => [['cardNumber' => ReportWorkerRunRequest::MAX_CARD_NUMBER + 1]];
@@ -320,6 +326,27 @@ final class WorkerRunsApiTest extends WebTestCase
         $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, $this->payload($overrides));
 
         self::assertResponseStatusCodeSame(422);
+        self::assertSame(0, $this->countRuns());
+    }
+
+    /** A bridge older than the session id sends no such key, and its report is refused on that field. */
+    public function test_a_report_with_no_session_id_key_is_refused_on_that_field(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'runs-api-nosession@example.com');
+        $project = $this->project($em, $owner, 'No Session Runs');
+        $raw = $this->agentToken($em, $owner);
+        $payload = $this->payload();
+        unset($payload['sessionId']);
+
+        $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, $payload);
+
+        self::assertResponseStatusCodeSame(422);
+        $body = json_decode((string) $client->getResponse()->getContent(), true, flags: \JSON_THROW_ON_ERROR);
+        self::assertIsArray($body);
+        self::assertIsArray($body['violations'] ?? null);
+        self::assertSame(['sessionId'], array_values(array_unique(array_column($body['violations'], 'propertyPath'))));
         self::assertSame(0, $this->countRuns());
     }
 
@@ -488,6 +515,7 @@ final class WorkerRunsApiTest extends WebTestCase
     {
         return array_merge([
             'bridgeId' => (string) Uuid::v7(),
+            'sessionId' => (string) Uuid::v4(),
             'cardId' => (string) Uuid::v7(),
             'cardNumber' => 1,
             'ruleName' => 'plan',

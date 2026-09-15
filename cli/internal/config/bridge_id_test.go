@@ -299,12 +299,9 @@ func TestEnsureBridgeIDGeneratesAVersion4UUID(t *testing.T) {
 func TestNewUUIDReturnsADifferentValueEachTime(t *testing.T) {
 	seen := map[string]bool{}
 	for range 100 {
-		id, err := newUUID()
-		if err != nil {
-			t.Fatalf("newUUID: %v", err)
-		}
+		id := NewUUID()
 		if seen[id] {
-			t.Fatalf("newUUID repeated %q", id)
+			t.Fatalf("NewUUID repeated %q", id)
 		}
 		seen[id] = true
 	}

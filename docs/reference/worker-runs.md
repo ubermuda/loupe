@@ -24,6 +24,7 @@ slug. A project name does not resolve.
 ```json
 {
   "bridgeId": "0199a0e2-9d4c-7c5e-9f2a-3b1c6d7e8f90",
+  "sessionId": "5f0c2b1e-8d4a-4c3b-9e2f-1a0b3c4d5e6f",
   "cardId": "0199a0e2-b1f3-7a44-9c11-2d3e4f506172",
   "cardNumber": 42,
   "ruleName": "plan",
@@ -38,6 +39,7 @@ slug. A project name does not resolve.
 | Field | Rule |
 |---|---|
 | `bridgeId` | a uuid the bridge generates once and keeps. It points at no table, so any uuid is accepted |
+| `sessionId` | required. The uuid of the Claude Code session the worker ran as. The bridge generates a new one for each worker and passes it to `claude --session-id` |
 | `cardId` | the uuid of the card the worker was started for. It is a plain value, so a deleted card leaves its run history intact |
 | `cardNumber` | the short number the card shows, counting from 1 inside the project, at most 2147483647 |
 | `ruleName` | the rule that matched, 1 to 100 characters |
@@ -46,6 +48,10 @@ slug. A project name does not resolve.
 | `exitCode` | the process exit code, between -255 and 255. Send `null` when the process never started |
 | `failureReason` | why the process never started, at most 1000 characters. Required when `exitCode` is `null`, and refused when it is not |
 | `output` | what the worker printed, at most 4000 characters. It may be empty |
+
+A report without `sessionId` is refused with a 422 that names the field. A
+bridge built before the field existed sends none, so the server stores none of
+its runs. Rebuild the bridge from `cli/` to report runs again.
 
 The pairing of `exitCode` and `failureReason` is enforced, because a process
 that ran and failed is a different fault from a process that never started. A
