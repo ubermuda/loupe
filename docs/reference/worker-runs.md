@@ -115,7 +115,7 @@ arrived. An hourly sweep at minute 20 deletes the rest.
 
 The `bridge.run_retention_days` feature flag sets the window, and you change it
 at **`/admin/feature-flags`**. An instance installed before the flag existed
-takes the value from `app.bridge.run_retention_days` in
+takes the value from `app.bridge.default_run_retention_days` in
 `config/services.yaml`, which is 180. A window below 1 day reads as 1 day, so a
 typed zero cannot take the whole history.
 

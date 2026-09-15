@@ -60,13 +60,13 @@ parameters:
     # How long a CLI bridge worker run is kept, as the default the
     # `bridge.run_retention_days` feature flag starts from. An instance with no
     # flag row reads this number.
-    app.bridge.run_retention_days: 180
+    app.bridge.default_run_retention_days: 180
     # Twenty past the hour keeps the run sweep off the audit purge, the export
     # purge and the trial sweep.
     app.bridge.run_purge_schedule: '20 * * * *'
     # How often a CLI bridge posts its heartbeat, in seconds, as the default the
     # `bridge.heartbeat_interval_seconds` feature flag starts from.
-    app.bridge.heartbeat_interval_seconds: 60
+    app.bridge.default_heartbeat_interval_seconds: 60
     # Monthly price of the hosted plan during beta, in whole dollars. Shown on
     # the landing page only — Stripe remains the source of truth for what is
     # actually charged.

@@ -9,8 +9,11 @@ use App\Module\Account\Entity\User;
 use App\Module\Bridge\Command\RecordBridgeHeartbeatCommand;
 use App\Module\Bridge\Command\RecordBridgeHeartbeatHandler;
 use App\Outbox\AgentPush;
+use App\Security\ApiTokenRateLimitKey;
+use Symfony\Component\ExpressionLanguage\Expression;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapRequestPayload;
+use Symfony\Component\HttpKernel\Attribute\RateLimit;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Uid\Uuid;
@@ -18,10 +21,13 @@ use Ubermuda\FeatureFlagsBundle\Attribute\RequireFeatureFlag;
 
 /**
  * Records that one of the caller's bridges is alive. The firewall admits
- * agent-scoped tokens alone.
+ * agent-scoped tokens alone. With push off the answer is a 404, as the events
+ * endpoint gives, because a bridge cannot run without push.
+ *
+ * The rate limit key expression sees only the request, the arguments and this
+ * controller, so the key service rides on a public property.
  */
-// 404 rather than a disabled-looking 403, matching the events endpoint. A
-// bridge cannot run while push is off, so there is no bridge to hear from.
+#[RateLimit('agent_bridge_heartbeats', key: new Expression('this.rateLimitKey.forRequest(request)'))]
 #[RequireFeatureFlag(AgentPush::FLAG)]
 #[Route(
     '/api/bridges/{bridgeId}/heartbeat',
@@ -33,6 +39,7 @@ final class RecordBridgeHeartbeatController extends AppController
 {
     public function __construct(
         private readonly RecordBridgeHeartbeatHandler $recordHeartbeat,
+        public readonly ApiTokenRateLimitKey $rateLimitKey,
     ) {
     }
 
