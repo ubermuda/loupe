@@ -340,6 +340,8 @@ final class InboxAskToolTest extends KernelTestCase
         yield 'too many card ids' => [['cardIds' => array_fill(0, 21, (string) Uuid::v4())], 'items[0].cardIds: An item links at most 20 cards and 20 documents.'];
         yield 'too many document ids' => [['documentIds' => array_fill(0, 21, (string) Uuid::v4())], 'items[0].documentIds: An item links at most 20 cards and 20 documents.'];
         yield 'a body too long' => [['body' => str_repeat('a', 20001)], 'items[0].body: An item body must be at most 20000 characters.'];
+        yield 'a title over the limit only with its spaces' => [['title' => ' '.str_repeat('a', 255)], 'items[0].title: An item title must be at most 255 characters.'];
+        yield 'a body of spaces over the limit' => [['body' => str_repeat(' ', 20001)], 'items[0].body: An item body must be at most 20000 characters.'];
         yield 'an option too long' => [['options' => ['yes', str_repeat('a', 501)]], 'items[0].options: An option must be at most 500 characters.'];
         yield 'an option too long in multibyte text' => [['options' => ['yes', str_repeat('é', 501)]], 'items[0].options: An option must be at most 500 characters.'];
     }
@@ -395,6 +397,17 @@ final class InboxAskToolTest extends KernelTestCase
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('items: Pass at most 20 items in one call.');
         ($this->tool)(sessionId: (string) Uuid::v4(), items: array_fill(0, 21, ['kind' => 'todo', 'title' => 'Review']));
+    }
+
+    /** The schema measures the context as sent, so the handler does too, spaces included. */
+    public function test_a_context_over_the_limit_only_with_its_spaces_is_refused(): void
+    {
+        $this->enableInbox();
+        $this->actAsMcpTokenBoundTo($this->makeProject('inbox-ask-context-spaces'));
+
+        $this->expectException(ToolCallException::class);
+        $this->expectExceptionMessage('context: The context of an ask must be at most 10000 characters');
+        ($this->tool)(sessionId: (string) Uuid::v4(), items: [['kind' => 'question', 'title' => 'First', 'freeText' => true]], context: ' '.str_repeat('a', 10000));
     }
 
     public function test_a_context_that_grows_past_the_limit_is_refused(): void
