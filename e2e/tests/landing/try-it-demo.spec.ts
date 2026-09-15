@@ -17,6 +17,9 @@ import {
 test.use({
     storageState: { cookies: [], origins: [] },
     viewport: { width: 1440, height: 900 },
+    // Playwright's retry scroll is animated on a smooth-scrolling page, so a
+    // click can land after its target moves. Reduced motion makes it instant.
+    contextOptions: { reducedMotion: 'reduce' },
 });
 
 const MARGIN = '[data-comment-anchor-target="margin"]';
