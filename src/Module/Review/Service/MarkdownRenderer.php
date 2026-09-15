@@ -231,6 +231,20 @@ final readonly class MarkdownRenderer
 
     public function render(string $markdown): string
     {
+        return $this->renderHtml($markdown, headingIds: true);
+    }
+
+    /**
+     * The same HTML with no heading ids, for Markdown shown on a page it does not
+     * own. A heading there would otherwise take the id of the page's own heading.
+     */
+    public function renderWithoutHeadingIds(string $markdown): string
+    {
+        return $this->renderHtml($markdown, headingIds: false);
+    }
+
+    private function renderHtml(string $markdown, bool $headingIds): string
+    {
         $table = null;
         $rendered = null;
         $reason = null;
@@ -277,11 +291,12 @@ final readonly class MarkdownRenderer
         // heading ids are computed over it: an annotation written inside an
         // option is then converted within the label rather than left as a raw
         // marker, and a heading inside one is idded like any other.
-        $html = $this->withHeadingIds(
-            $this->withDocumentNotes(
-                $this->decisions->toControls($this->sanitizer->sanitize($rendered->getContent())),
-            ),
+        $html = $this->withDocumentNotes(
+            $this->decisions->toControls($this->sanitizer->sanitize($rendered->getContent())),
         );
+        if ($headingIds) {
+            $html = $this->withHeadingIds($html);
+        }
 
         return ($table ?? $literal).$html;
     }

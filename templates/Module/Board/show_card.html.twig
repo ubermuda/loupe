@@ -33,6 +33,9 @@
         {% endif %}
     </div>
 
+    {# Empty unless the inbox is on and an item links to this card. #}
+    {{ inbox_card_section(card) }}
+
     <section class="lp-card-reviews">
         <h2 class="lp-card-reviews__title">{{ 'board.card.site_review.title'|trans }}</h2>
         {% if siteReviewLinks|length > 0 %}

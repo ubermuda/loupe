@@ -224,6 +224,10 @@ feedback pointing at the card, and the times the card was created, last changed
 and completed. It also carries column and priority controls, which move a card
 with no drag. That is the way to move a card from a keyboard.
 
+When the inbox is on, the page also lists the inbox items linked to the card,
+and you can answer them there. See
+[On a card page and a document page](inbox.md#on-a-card-page-and-a-document-page).
+
 **Edit** opens the card for a change to its title, body, type, priority, column
 and links. **Delete** asks for a confirmation first, then removes the card and
 its links. A delete cannot be undone, and the number the card held is not
