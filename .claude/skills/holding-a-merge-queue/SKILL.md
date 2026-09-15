@@ -19,44 +19,17 @@ Start a monitor before you do anything else with the queue. Peers push, the
 owner approves and checks finish while you wait, and no message tells you. A
 queue holder with no monitor sees each change only when it next looks.
 
-Use the `Monitor` tool with `persistent: true` and this script as its command.
+Use the `Monitor` tool with `persistent: true`, run from the main checkout, and
+this command:
+
+```bash
+.claude/skills/holding-a-merge-queue/scripts/queue-monitor.sh
+```
+
 It polls every open pull request once a minute. It prints one line for each pull
 request whose line changed, and one line for each pull request that left the open
 list. The first pass prints every open pull request, and that is your baseline.
-
-```bash
-prev=$(mktemp); cur=$(mktemp)
-while true; do
-  id=$(gh api repos/{owner}/{repo}/rulesets -q '.[]|select(.name=="main")|.id' 2>/dev/null)
-  n=$(gh api "repos/{owner}/{repo}/rulesets/$id" -q '[.rules[]|select(.type=="required_status_checks")|.parameters.required_status_checks[]]|length' 2>/dev/null)
-  prs=$(gh pr list --state open --limit 100 --json number,headRefOid,baseRefName,isDraft,mergeStateStatus,latestReviews 2>/dev/null)
-  if [ -z "$n" ] || [ -z "$prs" ]; then echo "monitor: GitHub read failed at $(date -u +%H:%M:%SZ)"; sleep 60; continue; fi
-  : > "$cur"
-  for pr in $(jq -r '.[].number' <<<"$prs"); do
-    out=$(gh pr checks "$pr" --required --json bucket 2>&1)
-    case "$out" in
-      [Nn]"o required checks reported"*) c=none ;;
-      \[*) c=$(jq -r --argjson n "$n" 'group_by(.bucket)|map({(.[0].bucket):length})|add // {}
-             | if (.fail // 0) + (.cancel // 0) > 0 then "fail"
-               elif (.pass // 0) == $n and length == 1 then "pass=\($n)/\($n)"
-               elif length == 0 then "none" else "running" end' <<<"$out") ;;
-      *) c=unread ;;
-    esac
-    m=$(jq -r --argjson p "$pr" '.[]|select(.number==$p)|.mergeStateStatus' <<<"$prs")
-    if [ "$m" = UNKNOWN ]; then grep "^#$pr " "$prev" >> "$cur" && continue; fi
-    jq -r --argjson p "$pr" --arg c "$c" '.[]|select(.number==$p)
-      | "#\(.number) head=\(.headRefOid[0:8]) base=\(.baseRefName) draft=\(.isDraft) checks=\($c)"
-        + " merge=\(if .mergeStateStatus=="DIRTY" or .mergeStateStatus=="BEHIND" then .mergeStateStatus else "-" end)"
-        + " reviews=\([.latestReviews[]|.author.login+":"+.state+"@"+.submittedAt]|join(","))"' <<<"$prs" >> "$cur"
-  done
-  sort -o "$cur" "$cur"
-  comm -13 "$prev" "$cur"
-  for gone in $(comm -23 <(cut -d' ' -f1 "$prev") <(cut -d' ' -f1 "$cur")); do echo "$gone left the open list: read its merged state"; done
-  cp "$cur" "$prev"
-  [ -n "$ONCE" ] && break
-  sleep 60
-done
-```
+`ONCE=1` runs a single pass, which prints the whole queue once.
 
 A monitor line tells you where to look. Before you merge, run the bucket count
 and the approval-time check below on the current head.
@@ -70,8 +43,8 @@ green does not count.
 
 `gh` prints "no required checks reported" in lower case when no terminal is
 attached, and with a capital when one is. Keep the match on both if you change
-the script, or every stacked pull request reads `unread`. A failed GitHub read
-prints a line, so a broken monitor is not silent.
+`scripts/queue-monitor.sh`, or every stacked pull request reads `unread`. A
+failed GitHub read prints a line, so a broken monitor is not silent.
 
 GitHub reports `mergeStateStatus` as `UNKNOWN` while it recomputes after `main`
 moves. The script keeps the previous line for that pull request, or every merge
