@@ -21,7 +21,8 @@ use Symfony\Component\Uid\Uuid;
 
 /**
  * A test fixture for browser tests and previews: one open ask holding a
- * question and a to-do. Agents ask through MCP, which a browser cannot call.
+ * question and a to-do, both blocking, so the ask stays open until both
+ * close. Agents ask through MCP, which a browser cannot call.
  */
 #[When('dev')]
 final readonly class SeedInboxFixtureHandler
@@ -63,7 +64,7 @@ final readonly class SeedInboxFixtureHandler
                 number: $number + 1,
                 kind: InboxItemKind::Todo,
                 title: 'Review pull request 482',
-                blocking: false,
+                blocking: true,
             );
             $ask->items->add(new InboxAskItem($ask, $question));
             $ask->items->add(new InboxAskItem($ask, $todo));

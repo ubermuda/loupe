@@ -18,7 +18,7 @@ final readonly class InboxReturnTarget
     /**
      * @param array<string, int|string> $routeParameters
      * @param array<string, mixed>      $attributes      what the forward hands the controller
-     * @param array<string, int>        $query           what the forward keeps of the query string
+     * @param array<string, int|string> $query           what the forward keeps of the query string
      */
     public function __construct(
         public string $route,

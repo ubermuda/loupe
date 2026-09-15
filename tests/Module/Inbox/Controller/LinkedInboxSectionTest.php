@@ -350,6 +350,19 @@ final class LinkedInboxSectionTest extends WebTestCase
         self::assertResponseRedirects($versionUrl);
     }
 
+    public function test_a_search_query_returns_to_the_inbox_search_and_never_rides_to_a_card_page(): void
+    {
+        $fromCard = $this->todo($this->em, $this->project, 2);
+        $this->linkCard($fromCard);
+        $fromInbox = $this->todo($this->em, $this->project, 3);
+
+        $this->post($fromCard, 'done', [], [...$this->cardQuery(), 'q' => 'export']);
+        self::assertResponseRedirects($this->cardUrl());
+
+        $this->post($fromInbox, 'done', [], ['returnTo' => 'card', 'returnId' => (string) $this->card->id, 'q' => '  export  ']);
+        self::assertResponseRedirects('/projects/'.$this->project->id.'/inbox?q=export');
+    }
+
     /** @return iterable<string, array{array<string, string>}> */
     public static function untrustedReturns(): iterable
     {

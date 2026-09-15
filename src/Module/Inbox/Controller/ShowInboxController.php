@@ -37,7 +37,7 @@ final class ShowInboxController extends AppController
         $this->inbox->requireEnabled();
 
         return $this->render('@Inbox/show_inbox.html.twig', [
-            'inbox' => ($this->showInbox)(new ShowInboxCommand($project, $request->query->getInt('page', 1))),
+            'inbox' => ($this->showInbox)(new ShowInboxCommand($project, $request->query->getInt('page', 1), $request->query->getString('q'))),
             'refusedForm' => $this->getInjectedFormView($request, self::REFUSED_FORM),
         ]);
     }

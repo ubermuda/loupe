@@ -89,6 +89,32 @@ final class OutboxEventRepositoryTest extends KernelTestCase
         self::assertSame((string) $first->id, (string) $claimed[0]->id);
     }
 
+    public function test_claim_honours_the_limit_when_the_planner_rescans_the_locking_subquery(): void
+    {
+        $project = $this->project('claim-rescan@example.com');
+        $first = $this->event($project);
+        $this->event($project);
+        $this->event($project);
+        $this->em->flush();
+
+        // These settings force a nested loop that runs the locked, limited
+        // subquery once per outer row. Each run skips the rows the update already
+        // changed and locks the next one. Stale statistics can pick that plan too.
+        $connection = $this->em->getConnection();
+        foreach (['enable_material', 'enable_hashagg', 'enable_hashjoin', 'enable_mergejoin', 'enable_sort'] as $setting) {
+            $connection->executeStatement(\sprintf('SET LOCAL %s = off', $setting));
+        }
+
+        $claimed = $this->outboxEvents->claimDueForPublish(1, new \DateTimeImmutable(), $this->inFiveMinutes());
+
+        self::assertCount(1, $claimed);
+        self::assertSame((string) $first->id, (string) $claimed[0]->id);
+        self::assertSame(2, (int) $connection->fetchOne(
+            'SELECT COUNT(*) FROM outbox_events WHERE project_id = ? AND next_attempt_at IS NULL',
+            [(string) $project->id],
+        ));
+    }
+
     public function test_the_unsent_list_matches_what_the_drain_would_claim(): void
     {
         $project = $this->project('unsent-a@example.com');

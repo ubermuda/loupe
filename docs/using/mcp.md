@@ -355,8 +355,9 @@ and its items stay open in the inbox.
 
 Every card id and document id an item links to must belong to the token's
 project, or the call is refused. An item closes as `obsolete` when every card it
-links to is moved into a terminal column, by a move or by a column delete. Only
-an open item can be withdrawn.
+links to is moved into a terminal column, by a move or by a column delete. A
+move or a delete while the inbox is off closes no item. Only an open item can be
+withdrawn.
 
 `inbox_ask` takes at most 20 items in one call. An item takes at most 20
 options, 20 card ids, 20 document ids and a body of 20,000 characters. Its title

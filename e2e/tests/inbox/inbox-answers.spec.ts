@@ -107,7 +107,7 @@ test('the owner answers a question and declines a to-do', async ({
     await expect(question.locator('[data-inbox-editable="yes"]')).toBeVisible();
     await expect(sidebarPill).toHaveText('1');
 
-    // No ask has closed, so the answer can still change, here to text alone.
+    // The to-do still blocks the ask, so the answer can still change, here to text alone.
     await question.getByRole('button', { name: 'Clear the option' }).click();
     await question.getByLabel('Your answer').fill('Text alone this time.');
     await question.getByRole('button', { name: 'Change the answer' }).click();
@@ -136,4 +136,6 @@ test('the owner answers a question and declines a to-do', async ({
     await expect(question.locator('[data-inbox-response]')).toContainText(
         'Text alone this time.',
     );
+    // The decline closed the last blocking item, so the ask closed and the answer is final.
+    await expect(question.locator('[data-inbox-editable="no"]')).toBeVisible();
 });

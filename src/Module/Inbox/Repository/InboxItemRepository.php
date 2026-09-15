@@ -6,6 +6,7 @@ namespace App\Module\Inbox\Repository;
 
 use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
+use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxAskItem;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemCard;
@@ -183,6 +184,28 @@ class InboxItemRepository extends ServiceEntityRepository
             ->getQuery()
             ->setLockMode(LockMode::PESSIMISTIC_WRITE)
             ->getResult();
+    }
+
+    /**
+     * The ids of the ask's blocking items that are open as stored.
+     *
+     * @return list<string>
+     */
+    public function findOpenBlockingIdsOf(InboxAsk $ask): array
+    {
+        /** @var list<array{id: mixed}> $rows */
+        $rows = $this->createQueryBuilder('i')
+            ->select('i.id')
+            ->join(InboxAskItem::class, 'l', 'WITH', 'l.item = i')
+            ->andWhere('l.ask = :ask')
+            ->andWhere('i.blocking = true')
+            ->andWhere('i.state = :open')
+            ->setParameter('ask', $ask)
+            ->setParameter('open', InboxItemState::Open)
+            ->getQuery()
+            ->getArrayResult();
+
+        return array_map(static fn (array $row): string => (string) $row['id'], $rows);
     }
 
     /**

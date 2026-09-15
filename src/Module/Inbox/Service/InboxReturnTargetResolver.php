@@ -60,8 +60,12 @@ final readonly class InboxReturnTargetResolver
             return new InboxReturnTarget('app_document_review', $target, ShowDocumentController::class, $target, []);
         }
 
-        // The closed asks page the owner was on, kept on the way back.
-        $pageQuery = $request->query->getInt('page', 1) > 1 ? ['page' => $request->query->getInt('page')] : [];
+        // The page and the search the owner was on, kept on the way back.
+        $search = trim($request->query->getString('q'));
+        $pageQuery = [
+            ...($request->query->getInt('page', 1) > 1 ? ['page' => $request->query->getInt('page')] : []),
+            ...('' === $search ? [] : ['q' => $search]),
+        ];
 
         return new InboxReturnTarget('app_project_inbox', ['id' => $projectId, ...$pageQuery], ShowInboxController::class, ['id' => $projectId, 'project' => $item->project], $pageQuery);
     }
