@@ -46,7 +46,10 @@ worktree_relative_name() {
     case "$root" in
         "$main"/.worktrees/*) printf '%s' "${root#"$main"/.worktrees/}" ;;
         "$main"/.claude/worktrees/*) printf '%s' "${root#"$main"/.claude/worktrees/}" ;;
-        *) return 1 ;;
+        *)
+            echo "Worktree is outside .worktrees/ and the legacy .claude/worktrees/ root: $root" >&2
+            return 1
+            ;;
     esac
 }
 

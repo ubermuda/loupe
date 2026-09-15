@@ -5,7 +5,7 @@ use Gamache\PhpCsFixer\Fixers;
 require_once __DIR__.'/vendor/autoload.php';
 
 // Excludes are explicit rather than ignoreVCSIgnored(true): under a worktree in
-// the gitignored .worktrees/, that flag matched zero files, so `just cs`
+// the gitignored .claude/worktrees/, that flag matched zero files, so `just cs`
 // fixed nothing and `just ci`'s cs leg passed vacuously. Keep worktree roots
 // excluded because they live inside the main checkout and would otherwise
 // scan every worktree's copy of the tree.

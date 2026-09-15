@@ -81,6 +81,13 @@ A bare `cd .worktrees/<name> && just worktree-up` can leave a persistent shell i
 - Invoke the `project-deploy` skill before you deploy, run `terraform apply`, or report what version is live. It carries the trap that a `terraform apply` deployment does not re-pull the fixed `prod` tag, so the spec change ships and the code does not, and it names `/healthz` with `X-Probe-Token` as the only reliable way to read the running version.
 - Invoke the `project-worktrees` skill before you provision, debug or write tooling for a worktree. It carries the commands, the symptoms and causes table (404 against 502, unstyled CSS, a rejected widget token), and the two rules that prevent real damage: never run bare `docker compose` from a worktree, and never match worktrees by directory name instead of slug.
 
+## Harness integrations
+
+Shared workflows belong in `.agents/skills/`. Put harness-specific adapters in
+the harness's configuration directory, and keep them as thin wrappers around
+the shared instructions. The `.claude/` links and settings provide Claude Code
+compatibility; they are not the canonical source.
+
 ## Planning and shipping a feature
 
 Decide two things at planning time, and say in the plan which of them the change needs.
@@ -224,7 +231,7 @@ From inside the php-fpm container (`just shell`), use the `database` Docker serv
 
 **Database test isolation.** `dama/doctrine-test-bundle` wraps each test in a database transaction and rolls it back, so no custom schema-reset code is needed. Schema creation runs once in `tests/bootstrap.php`, which drops, creates and migrates. Never write a `resetSchema()` method that drops and recreates the schema per test.
 
-**php-cs-fixer works from worktrees.** `.php-cs-fixer.dist.php` uses explicit excludes rather than `ignoreVCSIgnored(true)`, and throws when the finder matches zero files. Both matter. The old VCS-ignore heuristic matched 0 files under the gitignored `.worktrees/`, so `just cs` fixed nothing and `just ci`'s cs-check leg passed vacuously. A committed brace jam once sailed through a green gate that way. Worktree roots stay excluded deliberately, because the main run would otherwise scan every worktree's copy of the tree.
+**php-cs-fixer works from worktrees.** `.php-cs-fixer.dist.php` uses explicit excludes rather than `ignoreVCSIgnored(true)`, and throws when the finder matches zero files. Both matter. The old VCS-ignore heuristic matched 0 files under the gitignored `.claude/worktrees/`, so `just cs` fixed nothing and `just ci`'s cs-check leg passed vacuously. A committed brace jam once sailed through a green gate that way. Worktree roots stay excluded deliberately, because the main run would otherwise scan every worktree's copy of the tree.
 
 ## End-to-end tests
 

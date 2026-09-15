@@ -254,11 +254,10 @@ you switch straight into a freshly created worktree; re-issue `EnterWorktree`
 until you get the first.
 
 Agents launched with `isolation: "worktree"` get their own binding and can write
-in parallel. Verified: the agent lands in `.worktrees/agent-<id>` on its
-own branch, writes there freely, and is refused when writing into another
-worktree. The `WorktreeCreate` hook provisions it, so it is a full application
-from the start, not a bare `git worktree add`; if that hook is not registered,
-run `just worktree-up` yourself.
+in parallel. A harness that follows the neutral convention places the tree in
+`.worktrees/agent-<id>`. The `WorktreeCreate` hook provisions it, so it is a full
+application from the start, not a bare `git worktree add`. If the hook is not
+registered, run `just worktree-up` yourself.
 The name is harness-generated (`agent-<id>`, and the branch takes that name), so
 work that must land on a named branch has to be renamed and pushed deliberately.
 These worktrees are created **locked**, but `just worktree-down agent-<id>` still

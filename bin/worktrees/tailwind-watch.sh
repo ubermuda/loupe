@@ -39,12 +39,13 @@ trees=("$main/.worktrees" "$main/.claude/worktrees")
 #
 # Two of these prunes are load-bearing rather than an optimisation. `var` holds
 # the log and the cache, which change on every request, so without it the
-# watcher would rebuild for ever. `.claude` is where worktrees live, so without
-# it a worktree would scan its siblings. The rest are size: this walks 1,918
-# entries per worktree instead of 28,000.
+# watcher would rebuild for ever. Agent instructions and nested worktree roots
+# are not content sources. The rest are size: this walks 1,918 entries per
+# worktree instead of 28,000.
 prune=(
     -name vendor -o -name node_modules -o -name .git -o -name var
-    -o -name .claude -o -name docs -o -name icons -o -name fonts
+    -o -name .agents -o -name .claude -o -name .worktrees
+    -o -name docs -o -name icons -o -name fonts
     -o -name test-results -o -name build
 )
 
