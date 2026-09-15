@@ -14,8 +14,8 @@ Answer one round of feedback on the current stage of a card.
 3. Call `card_get`, and run the contract's column check.
 4. Read the card `status`, and take one branch:
    - `product-design` or `tech-design`: the design round for the product document or the tech design, under the stage contract rules.
-   - `implementation`: the code round, under the contract of `../loupe-stage-implementation/SKILL.md` instead.
-   - Any other column: stop with `STAGE RESULT: no fix round for column <status>; expected product-design, tech-design or implementation`.
+   - `in-review` or `implementation`: the code round, under the contract of `../loupe-stage-implementation/SKILL.md` instead.
+   - Any other column: stop with `STAGE RESULT: no fix round for column <status>; expected product-design, tech-design, implementation or in-review`.
 
 ### Design round
 
@@ -30,7 +30,7 @@ Answer one round of feedback on the current stage of a card.
 ### Code round
 
 1. Read `references/pull-request-feedback.md`, then read each linked pull request with the forge adapter. When none is open, stop with `STAGE RESULT: no open pull request`.
-2. Read the checks and the open feedback items, per the reference.
+2. Read the checks and open feedback items, per the reference.
 3. When no check fails and no item is open, stop with `STAGE RESULT: nothing to fix`.
 4. Read `../loupe-stage-implementation/references/commands.md`, and load the profile `Instruction files`.
 5. Set up or refresh the card worktree from the pull request branch, per the reference. Keep every existing commit.

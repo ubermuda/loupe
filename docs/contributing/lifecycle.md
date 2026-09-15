@@ -3,8 +3,8 @@ title: "Development lifecycle"
 description: "The board columns a card passes, and the bridge rules that run a worker in each stage."
 ---
 
-A card on the Loupe project board moves through five columns. When a person
-moves a card into a stage column, `loupe bridge` starts an unattended
+A card on the Loupe project board moves through six columns. When a person
+moves a card into a column with a worker, `loupe bridge` starts an unattended
 `claude -p` worker in this repository. The worker runs the stage skill for that
 column, reports one result line, and stops. A person approves each document
 and moves each card. The worker never moves a card.
@@ -17,7 +17,14 @@ and moves each card. The worker never moves a card.
 | Product design | `product-design` | | `loupe-stage-product-design` |
 | Tech design | `tech-design` | | `loupe-stage-tech-design` |
 | Implementation | `implementation` | | `loupe-stage-implementation` |
+| In review | `in-review` | | none |
 | Done | `done` | terminal | none |
+
+A card moves from Implementation to In review when its pull request opens as
+ready. A person makes that move by hand today, and an automation makes it
+later. After the pull request merges, the card moves from In review to Done.
+Pull request fix rounds, for review feedback and failing checks, run while the
+card is in In review. No rule starts a worker when a card enters In review.
 
 A new board starts with `next` and `in-progress` columns. What to do with the
 cards in those two columns is the owner's call.
@@ -143,12 +150,14 @@ docker compose exec php-fpm ps aux | grep -c phpunit
 3. Run this from the repository root:
 
 ```sh
-claude -p --permission-mode bypassPermissions -- "Use the loupe-stage-fix-round skill. Card <number> (cardId <id>) in project loupe (projectId <id>), column <slug>. Loupe instance https://loupe.ac."
+claude -p --permission-mode bypassPermissions -- "Use the loupe-stage-fix-round skill. Card <number> (cardId <id>) in project loupe (projectId <id>), column in-review. Loupe instance https://loupe.ac."
 ```
 
-The fix round reads the column of the card. In a design column it answers the
-document review. In the Implementation column it answers the pull request
-review and the failed checks.
+The fix round reads the column of the card, and the prompt names the column
+the card is in. The example runs a pull request round, which answers the review
+and the failed checks in In review. A card in Implementation with an open pull
+request gets the same round, so use `implementation` for that card. For a
+document review, use `product-design` or `tech-design` instead.
 
 ## Result lines
 
@@ -161,14 +170,17 @@ it, and the worker runs page at `/projects/{id}/worker-runs` shows it.
    `board_columns`.
 2. Read the project slug on the project settings page. When it is not `loupe`,
    change the `projects` key and every `project` field in the rule file.
-3. A new board already has `backlog` and `done`. Create the three stage
-   columns with the slugs above.
+3. A new board already has `backlog` and `done`. Create the four other
+   columns with the slugs above: `product-design`, `tech-design`,
+   `implementation` and `in-review`.
 4. Write `rules.yaml`.
 5. Start the bridge with `loupe bridge run --max-workers 1`.
 6. Do one acceptance run with a small card. Move it through Product design,
    an approval, Tech design, an approval and Implementation. Run one document
-   fix round and one pull request fix round. Move the card to Done by hand.
-   Record the `STAGE RESULT` of each worker run on the card.
+   fix round in a design column. When the implementation worker opens the pull
+   request, move the card to In review. Run one pull request fix round there.
+   After the merge, move the card to Done by hand. Record the `STAGE RESULT` of
+   each worker run on the card.
 
 ## What comes later
 
