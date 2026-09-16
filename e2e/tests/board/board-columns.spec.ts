@@ -214,6 +214,26 @@ test('a card opens in a stable drawer and returns focus when closed', async ({
     await page.keyboard.press('Escape');
     await expect(drawer).toBeHidden();
     await expect(cardLink).toBeFocused();
+
+    await cardLink.click();
+    await expect(drawer.getByRole('tab', { name: 'Overview' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+    );
+    await expect(page).not.toHaveURL(/tab=conversation/);
+
+    const cardPath = await cardLink.getAttribute('href');
+    await page.goto(`${cardPath}?tab=feedback`);
+    await expect(page.getByRole('tab', { name: 'Feedback' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+    );
+    await page.getByRole('tab', { name: 'Conversation' }).click();
+    await expect(page).toHaveURL(`${cardPath}?tab=conversation`);
+    await page.reload();
+    await expect(
+        page.getByRole('tab', { name: 'Conversation' }),
+    ).toHaveAttribute('aria-selected', 'true');
 });
 
 test('an owner adds a column after the last one', async ({ page, board }) => {

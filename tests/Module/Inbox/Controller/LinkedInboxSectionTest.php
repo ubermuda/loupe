@@ -242,7 +242,7 @@ final class LinkedInboxSectionTest extends WebTestCase
 
         $this->post($item, 'answer', ['selectedOptions' => '1'], $this->cardQuery());
 
-        self::assertResponseRedirects($this->cardUrl());
+        self::assertResponseRedirects($this->cardUrl().'?tab=conversation');
         self::assertSame(InboxItemState::Answered, $this->reload($item)->state);
         $this->client->followRedirect();
         self::assertSelectorTextContains('.lp-flash', 'Item 4 is answered.');
@@ -357,7 +357,7 @@ final class LinkedInboxSectionTest extends WebTestCase
         $fromInbox = $this->todo($this->em, $this->project, 3);
 
         $this->post($fromCard, 'done', [], [...$this->cardQuery(), 'q' => 'export']);
-        self::assertResponseRedirects($this->cardUrl());
+        self::assertResponseRedirects($this->cardUrl().'?tab=conversation');
 
         $this->post($fromInbox, 'done', [], ['returnTo' => 'card', 'returnId' => (string) $this->card->id, 'q' => '  export  ']);
         self::assertResponseRedirects('/projects/'.$this->project->id.'/inbox?q=export');

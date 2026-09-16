@@ -83,6 +83,7 @@ test('the owner answers a linked question from the card page and stays there', a
     const { questionNumber } = await seeded.json();
 
     await page.goto(cardUrl);
+    await page.getByRole('tab', { name: 'Conversation' }).click();
     const section = page.locator('[data-inbox-linked="card"]');
     const question = section.locator(`#inbox-item-${questionNumber}`);
     await expect(section.locator('[data-inbox-linked-context]')).toContainText(
@@ -96,7 +97,7 @@ test('the owner answers a linked question from the card page and stays there', a
     await expect(page.locator('.lp-flash')).toContainText(
         `Item ${questionNumber} is answered.`,
     );
-    await expect(page).toHaveURL(cardUrl);
+    await expect(page).toHaveURL(`${cardUrl}?tab=conversation`);
     await expect(
         page.getByRole('heading', { name: 'Ship the export' }),
     ).toBeVisible();

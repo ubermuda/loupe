@@ -6,9 +6,14 @@ export default class extends Controller {
     static values = { active: { type: String, default: 'overview' } };
 
     connect() {
-        const requestedTab = new URL(window.location.href).searchParams.get(
-            'tab',
-        );
+        this.frame = this.element.closest('turbo-frame[src]');
+        const source = this.frame
+            ? this.frame.getAttribute('src') || window.location.pathname
+            : window.location.href;
+        const requestedTab = new URL(
+            source,
+            window.location.href,
+        ).searchParams.get('tab');
         this.show(requestedTab || this.activeValue, false);
     }
 
@@ -55,7 +60,7 @@ export default class extends Controller {
                 panel.dataset.panelPanel !== selectedTab.dataset.panelTab;
         });
 
-        if (updateUrl) {
+        if (updateUrl && !this.frame) {
             const url = new URL(window.location.href);
             url.searchParams.set('tab', selectedTab.dataset.panelTab);
             window.history.replaceState(window.history.state, '', url);

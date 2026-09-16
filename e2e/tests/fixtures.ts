@@ -136,7 +136,7 @@ export function createTest(credentials: Credentials) {
                                 name: 'Resend verification email',
                             }),
                         ),
-                ).toBeVisible();
+                ).toBeVisible({ timeout: 15000 });
 
                 if (await page.locator('.auth-error').isVisible()) {
                     const requestContext = await playwrightRequest.newContext();

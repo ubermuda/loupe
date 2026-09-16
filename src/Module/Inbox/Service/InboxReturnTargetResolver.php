@@ -42,7 +42,7 @@ final readonly class InboxReturnTargetResolver
         if (InboxLinkedPage::Card === $page && null !== $id && $item->cards->exists(static fn (int $key, InboxItemCard $link): bool => (bool) $link->card->id?->equals($id))) {
             $target = ['projectId' => $projectId, 'cardId' => $id->toRfc4122()];
 
-            return new InboxReturnTarget('app_board_card', $target, ShowCardController::class, $target, []);
+            return new InboxReturnTarget('app_board_card', [...$target, 'tab' => 'conversation'], ShowCardController::class, $target, ['tab' => 'conversation']);
         }
 
         $document = InboxLinkedPage::Document === $page && null !== $id ? $this->linkedDocument($item, $id) : null;

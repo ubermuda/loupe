@@ -78,7 +78,7 @@
             {% if item.kind.value == 'question' %}
                 {% set answerForm = inbox_answer_form(item, refusedForm) %}
                 {% set selectedErrorsId = answerForm.selectedOptions.vars.id ~ '_errors' %}
-                {{ form_start(answerForm, {action: path('app_inbox_item_answer', actionParams), attr: {class: 'lp-form lp-inbox-answer', 'data-controller': 'inbox-answer'}}) }}
+                {{ form_start(answerForm, {action: path('app_inbox_item_answer', actionParams), attr: {class: 'lp-form lp-inbox-answer', 'data-controller': 'inbox-answer', 'data-turbo-frame': '_top'}}) }}
                     {% if item.options|length > 0 %}
                         {% set selected = (answerForm.selectedOptions.vars.value ?? '')|split(',') %}
                         {# The controls post under a name outside the form, so the form reads the ticked indexes from selectedOptions, which the controller fills. #}
@@ -115,7 +115,7 @@
                 {{ form_end(answerForm, {render_rest: false}) }}
             {% elseif open or item.state.value != 'done' %}
                 {% set doneForm = inbox_done_form(item, refusedForm) %}
-                {{ form_start(doneForm, {action: path('app_inbox_item_done', actionParams), attr: {class: 'lp-inbox-done'}}) }}
+                {{ form_start(doneForm, {action: path('app_inbox_item_done', actionParams), attr: {class: 'lp-inbox-done', 'data-turbo-frame': '_top'}}) }}
                     <div class="lp-field-errors">{{ form_errors(doneForm) }}</div>
                     <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">{{ 'inbox.done.submit'|trans }}</button>
                 {{ form_end(doneForm) }}
@@ -124,7 +124,7 @@
             {% set declineForm = inbox_decline_form(item, refusedForm) %}
                 <details class="lp-inbox-decline"{{ refusedForm and refusedForm.vars.name == declineForm.vars.name ? ' open' }}>
                     <summary class="lp-inbox-decline__summary">{{ (item.state.value == 'declined' ? 'inbox.decline.change' : 'inbox.decline.toggle')|trans }}</summary>
-                    {{ form_start(declineForm, {action: path('app_inbox_item_decline', actionParams), attr: {class: 'lp-form lp-inbox-decline__form'}}) }}
+                    {{ form_start(declineForm, {action: path('app_inbox_item_decline', actionParams), attr: {class: 'lp-form lp-inbox-decline__form', 'data-turbo-frame': '_top'}}) }}
                         <div class="lp-form-field">
                             {{ form_label(declineForm.closeNote, null, {label_attr: {class: 'lp-label'}}) }}
                             {{ form_widget(declineForm.closeNote, {attr: {class: 'lp-input', rows: 2}}) }}
