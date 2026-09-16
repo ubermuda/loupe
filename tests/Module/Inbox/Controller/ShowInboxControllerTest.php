@@ -213,15 +213,19 @@ final class ShowInboxControllerTest extends WebTestCase
         $project = $this->inboxProject($this->em, $owner);
         $question = $this->question($this->em, $project, 1);
         $this->askHolding($this->em, $project, [$question]);
+        $this->askHolding($this->em, $project, [$this->question($this->em, $project, 2)]);
         $this->setInboxFlag(true);
 
         $this->client->loginUser($owner);
         $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox');
 
         self::assertResponseIsSuccessful();
-        self::assertSame(['Open 1', 'Completed 0'], $crawler->filter('.lp-section-tabs__item')->each(static fn ($node): string => $node->text()));
-        self::assertSame('Agent request', $crawler->filter('[data-inbox-ask-id] .lp-inbox-ask__source')->text());
+        self::assertSame(['Open 2', 'Completed 0'], $crawler->filter('.lp-section-tabs__item')->each(static fn ($node): string => $node->text()));
+        self::assertSame('Agent request', $crawler->filter('[data-inbox-ask-id] .lp-inbox-ask__source')->first()->text());
         self::assertCount(1, $crawler->filter('[data-inbox-section="open-asks"]#inbox-open'));
+        self::assertCount(2, $crawler->filter('.lp-inbox-request[role="tab"]'));
+        self::assertCount(1, $crawler->filter('[data-panel-tabs-target="panel"]:not([hidden])'));
+        self::assertCount(1, $crawler->filter('[data-panel-tabs-target="panel"][hidden]'));
     }
 
     public function test_open_asks_come_oldest_first_then_loose_items_then_closed_asks(): void

@@ -1,4 +1,4 @@
-<section class="lp-inbox-ask{{ ask.closedAt ? ' lp-inbox-ask--closed' }}" id="inbox-ask-{{ ask.id }}" data-inbox-ask-id="{{ ask.id }}">
+<section class="lp-inbox-ask{{ ask.closedAt ? ' lp-inbox-ask--closed' }}" id="inbox-ask-{{ ask.id }}" data-inbox-ask-id="{{ ask.id }}"{% if tabPanel|default(false) %} role="tabpanel" aria-labelledby="inbox-request-{{ ask.id }}" data-panel-tabs-target="panel" data-panel-panel="{{ ask.id }}"{% if hidden|default(false) %} hidden{% endif %}{% endif %}>
     <div class="lp-inbox-ask__summary">
         <header class="lp-inbox-ask__head">
             <span class="lp-source-avatar" aria-hidden="true"><twig:ux:icon name="lucide:bot" class="w-4 h-4" /></span>

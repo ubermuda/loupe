@@ -87,9 +87,38 @@
         {% if inbox.openAsks|length > 0 %}
         <section class="lp-inbox-section lp-inbox-section--open" id="inbox-open" data-inbox-section="open-asks">
             <h2 class="lp-inbox-section__title">{{ 'inbox.section.open_asks'|trans({'%count%': inbox.openAsks|length}) }}</h2>
-            {% for ask in inbox.openAsks %}
-                {% include '@Inbox/_inbox_ask.html.twig' with {ask: ask, inbox: inbox, refusedForm: refusedForm, showLinkedItems: true} only %}
-            {% endfor %}
+            <div class="lp-inbox-split" data-controller="panel-tabs" data-panel-tabs-active-value="{{ inbox.openAsks|first.id }}">
+                <div class="lp-inbox-request-list" role="tablist" aria-label="{{ 'inbox.section.open_asks'|trans({'%count%': inbox.openAsks|length}) }}">
+                    {% for ask in inbox.openAsks %}
+                        {% set firstItem = ask.items|first.item %}
+                        <button type="button"
+                                class="lp-inbox-request"
+                                role="tab"
+                                id="inbox-request-{{ ask.id }}"
+                                aria-controls="inbox-ask-{{ ask.id }}"
+                                data-panel-tabs-target="tab"
+                                data-panel-tab="{{ ask.id }}"
+                                data-action="click->panel-tabs#select keydown->panel-tabs#keydown">
+                            <span class="lp-inbox-request__byline">
+                                <span class="lp-source-avatar" aria-hidden="true"><twig:ux:icon name="lucide:bot" class="w-4 h-4" /></span>
+                                <strong>{{ 'inbox.source.agent'|trans }}</strong>
+                                <time datetime="{{ ask.createdAt|date('c') }}">{{ ask.createdAt|relative_time }}</time>
+                            </span>
+                            <span class="lp-inbox-request__title">{{ firstItem.title }}</span>
+                            {% if firstItem.body %}<span class="lp-inbox-request__body">{{ firstItem.body }}</span>{% endif %}
+                            <span class="lp-inbox-request__badges">
+                                <span class="lp-inbox-item__kind">{{ ('inbox.item.kind.' ~ firstItem.kind.value)|trans }}</span>
+                                {% if firstItem.blocking %}<span class="lp-inbox-item__blocking">{{ 'inbox.item.blocking'|trans }}</span>{% endif %}
+                            </span>
+                        </button>
+                    {% endfor %}
+                </div>
+                <div class="lp-inbox-request-detail">
+                    {% for ask in inbox.openAsks %}
+                        {% include '@Inbox/_inbox_ask.html.twig' with {ask: ask, inbox: inbox, refusedForm: refusedForm, showLinkedItems: true, tabPanel: true, hidden: not loop.first} only %}
+                    {% endfor %}
+                </div>
+            </div>
         </section>
         {% endif %}
 
