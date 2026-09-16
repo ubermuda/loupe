@@ -111,6 +111,10 @@
     font-weight: 600;
 }
 
+.lp-core-board .lp-board-card__excerpt {
+    min-height: calc(var(--spacing) * 10);
+}
+
 .lp-core-board .lp-board-card {
     position: relative;
     gap: calc(var(--spacing) * 2.5);

@@ -106,7 +106,7 @@
              data-priority="{{ group.priority ? group.priority.value : '' }}"
              data-rankable="{{ view.column.terminal ? '0' : '1' }}">
             {% if group.priority %}
-            <h3 class="lp-board__group-title">{{ ('board.card.priority.' ~ group.priority.label())|trans }}</h3>
+            <h3 class="lp-board__group-title sr-only">{{ ('board.card.priority.' ~ group.priority.label())|trans }}</h3>
             {% endif %}
             {% for card in group.cards %}
                 {# `~ ''` casts the Uuid, which cannot itself be an array key. #}

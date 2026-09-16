@@ -5062,6 +5062,9 @@
     .lp-board__group-title {
         @apply uppercase text-fg-dim m-0 text-xs font-bold tracking-widest;
     }
+    .lp-board__group:not(:has(.lp-board-card)) {
+        @apply min-h-6;
+    }
     .lp-board__placeholder {
         @apply rounded-xl border-2 border-dashed border-accent-border bg-accent-faint;
     }
@@ -5100,12 +5103,25 @@
     .lp-card-number {
         @apply font-mono align-middle text-2xl font-semibold text-fg-dim;
     }
+    .lp-board-card__excerpt {
+        @apply m-0 line-clamp-3 text-sm leading-relaxed text-fg-mute;
+    }
     .lp-board-card__meta {
         @apply flex flex-wrap items-center gap-2;
     }
     .lp-board-card__pulls,
-    .lp-board-card__reviews {
+    .lp-board-card__reviews,
+    .lp-board-card__documents {
         @apply inline-flex items-center gap-1 text-xs font-semibold text-fg-mute;
+    }
+    .lp-tag--priority-high {
+        @apply bg-status-danger-bg text-status-danger-deep;
+    }
+    .lp-tag--priority-medium {
+        @apply bg-status-pending-bg text-status-pending-deep;
+    }
+    .lp-tag--priority-low {
+        @apply bg-surface-3 text-fg-dim;
     }
 
     /* The move controls, on the card's own page. The board face carries the

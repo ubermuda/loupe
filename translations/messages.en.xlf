@@ -5626,6 +5626,7 @@
             <trans-unit id="board.list.agent.unassigned"><source>board.list.agent.unassigned</source><target>No agent assigned</target></trans-unit>
             <trans-unit id="board.list.linked_work"><source>board.list.linked_work</source><target>Linked work</target></trans-unit>
             <trans-unit id="board.list.feedback"><source>board.list.feedback</source><target>Feedback</target></trans-unit>
+            <trans-unit id="board.card.documents.count"><source>board.card.documents.count</source><target>{1} 1 linked document|]1,Inf[ %count% linked documents</target></trans-unit>
             <trans-unit id="board.card.count">
                 <source>board.card.count</source>
                 <target>{0} No cards|{1} 1 card|]1,Inf[ %count% cards</target>

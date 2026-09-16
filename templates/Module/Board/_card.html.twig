@@ -20,8 +20,12 @@
         <span class="lp-board-card__number">#{{ card.number }}</span>
         {{ card.title }}
     </a>
+    {% if card.body|trim is not empty %}
+    <p class="lp-board-card__excerpt">{{ card.body|striptags|slice(0, 110) }}{% if card.body|length > 110 %}…{% endif %}</p>
+    {% endif %}
     <div class="lp-board-card__meta">
         <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>
+        <span class="lp-tag lp-tag--priority-{{ card.priority.label() }}">{{ ('board.card.priority.' ~ card.priority.label())|trans }}</span>
         {% if pendingComments > 0 %}
         <span class="lp-board-card__reviews" title="{{ 'board.card.site_review.count'|trans({'%count%': pendingComments}) }}">
             <twig:ux:icon name="lucide:message-square" class="w-3.5 h-3.5 shrink-0" />
@@ -32,6 +36,12 @@
         <span class="lp-board-card__pulls" title="{{ 'board.card.pull_requests.count'|trans({'%count%': card.pullRequests|length}) }}">
             <twig:ux:icon name="lucide:git-pull-request" class="w-3.5 h-3.5 shrink-0" />
             {{ card.pullRequests|length }}
+        </span>
+        {% endif %}
+        {% if card.documents|length > 0 %}
+        <span class="lp-board-card__documents" title="{{ 'board.card.documents.count'|trans({'%count%': card.documents|length}) }}">
+            <twig:ux:icon name="lucide:file-text" class="w-3.5 h-3.5 shrink-0" />
+            {{ card.documents|length }}
         </span>
         {% endif %}
     </div>
