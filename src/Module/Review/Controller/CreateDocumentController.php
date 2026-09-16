@@ -36,6 +36,7 @@ final class CreateDocumentController extends AppController
     {
         $data = new CreateDocumentRequest();
         $form = $this->createForm(CreateDocumentFormType::class, $data, [
+            'project' => $project,
             'action' => $this->generateUrl('app_document_create', ['id' => (string) $project->id]),
         ]);
         $form->handleRequest($request);
@@ -47,6 +48,7 @@ final class CreateDocumentController extends AppController
                     title: $data->title ?? '',
                     markdown: $data->markdown ?? '',
                     draft: true,
+                    workLinkIds: $data->workLinkIds,
                 ));
                 $this->addFlash('success', $this->translator->trans('review.create.flash.success'));
 

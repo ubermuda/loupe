@@ -10,6 +10,7 @@
             <div class="lp-field-errors">{{ form_errors(field) }}</div>
         </div>
         {% endfor %}
+        {% include '@Review/_document_work_links.html.twig' with {form: form} only %}
         <div class="lp-review-verdict-actions">
             <button type="button" class="lp-btn lp-btn--ghost" data-action="click->modal#close">{{ 'review.create.cancel'|trans }}</button>
             <button type="submit" class="lp-btn lp-btn--primary">{{ 'review.create.submit'|trans }}</button>

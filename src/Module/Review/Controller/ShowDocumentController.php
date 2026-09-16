@@ -80,7 +80,7 @@ final class ShowDocumentController extends AppController
         $reviseDocumentForm = $this->getInjectedFormView($request, 'reviseDocumentForm') ?? $this->createForm(
             ReviseDocumentFormType::class,
             ReviseDocumentRequest::fromVersion($view->version),
-            ['action' => $this->generateUrl('app_document_revise', $routeParameters)],
+            ['action' => $this->generateUrl('app_document_revise', $routeParameters), 'project' => $project, 'document' => $document],
         )->createView();
 
         $addCommentForm = $this->createForm(AddCommentFormType::class, new AddCommentRequest(), [

@@ -40,6 +40,8 @@ final class ReviseDocumentController extends AppController
         $parameters = ['projectId' => (string) $document->project->id, 'documentId' => (string) $document->id];
         $data = new ReviseDocumentRequest();
         $form = $this->createForm(ReviseDocumentFormType::class, $data, [
+            'project' => $document->project,
+            'document' => $document,
             'action' => $this->generateUrl('app_document_revise', $parameters),
         ]);
         $form->handleRequest($request);
@@ -52,6 +54,7 @@ final class ReviseDocumentController extends AppController
                     description: $data->description ?? '',
                     title: $data->title,
                     versionNumber: $data->versionNumber,
+                    workLinkIds: $data->workLinkIds,
                 ));
                 $this->addFlash('success', $this->translator->trans('review.revise.flash.success'));
 

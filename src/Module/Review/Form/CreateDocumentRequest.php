@@ -9,6 +9,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 final class CreateDocumentRequest
 {
+    /** @param list<string>|null $workLinkIds */
     public function __construct(
         #[Assert\Length(max: Document::MAX_TITLE_LENGTH)]
         #[Assert\NotBlank]
@@ -16,6 +17,7 @@ final class CreateDocumentRequest
 
         #[Assert\NotBlank]
         public ?string $markdown = null,
+        public ?array $workLinkIds = null,
     ) {
     }
 }

@@ -1694,6 +1694,19 @@
     .lp-document-editor {
         @apply min-h-64 font-mono;
     }
+    /** Scrollable card choices in the document dialogs. */
+    .lp-document-work-links {
+        @apply max-h-40 overflow-y-auto flex flex-col gap-2;
+    }
+    .lp-document-work-links .lp-review-verdict-choice {
+        @apply min-w-0;
+    }
+    .lp-document-work-links .lp-review-verdict-choice span {
+        @apply min-w-0 break-words;
+    }
+    .lp-document-work-links input {
+        @apply shrink-0;
+    }
     .lp-dialog::backdrop {
         @apply bg-ink/40 backdrop-blur-xs;
         animation: lp-dialog-backdrop-in 220ms ease-out;

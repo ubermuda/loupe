@@ -198,6 +198,18 @@ class CardRepository extends ServiceEntityRepository
         return null === $highest ? 1 : ((int) $highest) + 1;
     }
 
+    public function isInOpenColumn(Card $card): bool
+    {
+        return 0 < (int) $this->createQueryBuilder('card')
+            ->select('COUNT(card.id)')
+            ->join('card.column', 'column')
+            ->where('card.id = :id')
+            ->andWhere('column.terminal = false')
+            ->setParameter('id', $card->id)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     /**
      * One card, scoped to its project.
      *

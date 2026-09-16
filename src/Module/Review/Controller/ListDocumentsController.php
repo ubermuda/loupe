@@ -54,7 +54,7 @@ class ListDocumentsController extends AppController
         $createDocumentForm = $this->getInjectedFormView($request, 'createDocumentForm') ?? $this->createForm(
             CreateDocumentFormType::class,
             new CreateDocumentRequest(),
-            ['action' => $this->generateUrl('app_document_create', ['id' => (string) $project->id])],
+            ['action' => $this->generateUrl('app_document_create', ['id' => (string) $project->id]), 'project' => $project],
         )->createView();
 
         return $this->render('@Review/list_documents.html.twig', [

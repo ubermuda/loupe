@@ -303,6 +303,7 @@ final class CreateDocumentHandlerTest extends KernelTestCase
             'tagCount' => 2,
             'referenceCount' => 0,
             'inSeries' => false,
+            'workLinkCount' => null,
         ], $record->context);
 
         // One record, because the tags are applied by a service that records

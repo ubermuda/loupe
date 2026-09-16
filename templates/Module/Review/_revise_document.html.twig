@@ -13,6 +13,7 @@
                 <div class="lp-field-errors">{{ form_errors(field) }}</div>
             </div>
             {% endfor %}
+            {% include '@Review/_document_work_links.html.twig' with {form: form} only %}
             {% if not form.versionNumber.vars.valid %}
             <a class="lp-btn lp-btn--outline" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">{{ 'review.document.version.back_to_latest'|trans }}</a>
             {% endif %}

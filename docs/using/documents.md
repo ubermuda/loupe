@@ -11,7 +11,9 @@ them.
 ## Creating
 
 Open Documents in a project, then select **New document**.
-Enter a title and Markdown, then select **Create document**.
+Enter a title and Markdown.
+When Board is enabled, select the cards to link.
+Select **Create document**.
 Loupe opens the first version with Draft status.
 You can review a draft with **Finish review**, or edit it with **Revise**.
 Documents submitted through the agent tools start with In review status.
@@ -21,7 +23,10 @@ Documents submitted through the agent tools start with In review status.
 Select **Revise** beside the document title to edit its title and Markdown.
 Enter a revision note, then select **Save new version**.
 Loupe creates a version and keeps the previous version unchanged.
-Unchanged sections keep their approvals, and existing card links stay attached.
+Unchanged sections keep their approvals.
+The Linked cards field keeps the current selection until you change it.
+Clear a checkbox to remove that card link.
+The picker offers open cards and keeps linked cards available after they finish.
 The document returns to Needs review.
 
 If another revision arrives while you edit, Loupe keeps your draft and refuses the submission.

@@ -120,9 +120,74 @@ test.use({
     viewport: { width: 1600, height: 900 },
 });
 
-// The flag is global, so it goes back off for the specs that run after this one.
 test.afterAll(async ({ request }) => {
     await setBoardFlag(request, false);
+});
+
+test('document dialogs create, retain and clear card links', async ({
+    page,
+    board,
+}) => {
+    await page.goto(`/projects/${board.projectId}/documents`);
+    await page
+        .getByRole('button', { name: 'New document', exact: true })
+        .click();
+    const createDialog = page.getByRole('dialog', {
+        name: 'New document',
+        exact: true,
+    });
+    await createDialog
+        .getByLabel('Title', { exact: true })
+        .fill('Linked document');
+    await createDialog
+        .getByLabel('Markdown', { exact: true })
+        .fill('# Linked content');
+    await createDialog
+        .getByRole('checkbox', { name: '#1 Waiting', exact: true })
+        .check();
+    await createDialog
+        .getByRole('button', { name: 'Create document', exact: true })
+        .click();
+    await expect(
+        page.getByRole('heading', { name: 'Linked document', exact: true }),
+    ).toBeVisible(ROUND_TRIP);
+    await page.getByRole('button', { name: 'Revise', exact: true }).click();
+    const reviseDialog = page.getByRole('dialog', { name: 'Revise document' });
+    await expect(
+        reviseDialog.getByRole('checkbox', { name: '#1 Waiting', exact: true }),
+    ).toBeChecked();
+    await reviseDialog
+        .getByLabel('Revision note', { exact: true })
+        .fill('Keep the card link.');
+    await reviseDialog
+        .getByRole('button', { name: 'Save new version' })
+        .click();
+    await expect(page.locator('.lp-review-doc__version')).toHaveText(
+        'v2',
+        ROUND_TRIP,
+    );
+    await page.getByRole('button', { name: 'Revise', exact: true }).click();
+    await expect(
+        reviseDialog.getByRole('checkbox', { name: '#1 Waiting', exact: true }),
+    ).toBeChecked();
+    await reviseDialog
+        .getByRole('checkbox', { name: '#1 Waiting', exact: true })
+        .uncheck();
+    await reviseDialog
+        .getByLabel('Revision note', { exact: true })
+        .fill('Remove the card link.');
+    await reviseDialog
+        .getByRole('button', { name: 'Save new version' })
+        .click();
+    await expect(page.locator('.lp-review-doc__version')).toHaveText(
+        'v3',
+        ROUND_TRIP,
+    );
+    await page.goto(`/projects/${board.projectId}/documents`);
+    const row = page
+        .locator('[data-document-id]')
+        .filter({ hasText: 'Linked document' });
+    await expect(row.locator('.lp-document-row__linked-card')).toHaveText('—');
 });
 
 test('a card opens in a stable drawer and returns focus when closed', async ({

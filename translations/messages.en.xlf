@@ -1213,6 +1213,34 @@
                 <source>document.status.draft</source>
                 <target>Draft</target>
             </trans-unit>
+            <trans-unit id="review.work_links.empty">
+                <source>review.work_links.empty</source>
+                <target>No open cards are available.</target>
+            </trans-unit>
+            <trans-unit id="review.work_links.error.unknown">
+                <source>review.work_links.error.unknown</source>
+                <target>A selected card is unavailable or belongs to another project.</target>
+            </trans-unit>
+            <trans-unit id="review.work_links.error.unavailable">
+                <source>review.work_links.error.unavailable</source>
+                <target>Card linking is unavailable.</target>
+            </trans-unit>
+            <trans-unit id="review.form.create_document_form.work_links.label">
+                <source>review.form.create_document_form.work_links.label</source>
+                <target>Linked cards</target>
+            </trans-unit>
+            <trans-unit id="review.form.create_document_form.work_links.help">
+                <source>review.form.create_document_form.work_links.help</source>
+                <target>Select the cards to link. Leave all cards clear for no links.</target>
+            </trans-unit>
+            <trans-unit id="review.form.revise_document_form.work_links.label">
+                <source>review.form.revise_document_form.work_links.label</source>
+                <target>Linked cards</target>
+            </trans-unit>
+            <trans-unit id="review.form.revise_document_form.work_links.help">
+                <source>review.form.revise_document_form.work_links.help</source>
+                <target>Select the cards to link. Leave all cards clear for no links.</target>
+            </trans-unit>
             <trans-unit id="review.create.title">
                 <source>review.create.title</source>
                 <target>New document</target>
@@ -1263,7 +1291,7 @@
             </trans-unit>
             <trans-unit id="review.revise.help">
                 <source>review.revise.help</source>
-                <target>Saving creates a new version. Unchanged sections keep their approval. Existing card links stay attached.</target>
+                <target>Saving creates a new version. Unchanged sections keep their approval.</target>
             </trans-unit>
             <trans-unit id="review.revise.cancel">
                 <source>review.revise.cancel</source>

@@ -10,6 +10,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 final class ReviseDocumentRequest
 {
+    /** @param list<string>|null $workLinkIds */
     public function __construct(
         #[Assert\Length(max: Document::MAX_TITLE_LENGTH)]
         #[Assert\NotBlank]
@@ -24,6 +25,7 @@ final class ReviseDocumentRequest
         #[Assert\NotNull]
         #[Assert\Positive]
         public ?int $versionNumber = null,
+        public ?array $workLinkIds = null,
     ) {
     }
 

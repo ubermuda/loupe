@@ -1,0 +1,18 @@
+{% if form.workLinkIds is defined %}
+<fieldset class="lp-form-field">
+    <legend class="lp-label">{{ form.workLinkIds.vars.label|trans }}</legend>
+    <p class="lp-form-hint">{{ form.workLinkIds.vars.help|trans }}</p>
+    <div class="lp-document-work-links">
+        {% for choice in form.workLinkIds %}
+        <label class="lp-review-verdict-choice">
+            {{ form_widget(choice) }}
+            <span>{{ choice.vars.label }}</span>
+        </label>
+        {% else %}
+        <p class="lp-form-hint">{{ 'review.work_links.empty'|trans }}</p>
+        {% endfor %}
+    </div>
+    <div class="lp-field-errors">{{ form_errors(form.workLinkIds) }}</div>
+    {% do form.workLinkIds.setRendered %}
+</fieldset>
+{% endif %}

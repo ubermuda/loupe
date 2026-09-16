@@ -750,6 +750,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
             'titleChanged' => true,
             'referencesReplaced' => false,
             'seriesChanged' => false,
+            'workLinkCount' => null,
             'commentsCarried' => 1,
             'commentsOrphaned' => 0,
             'sectionsCarried' => 0,
