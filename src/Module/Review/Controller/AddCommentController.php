@@ -66,6 +66,7 @@ final class AddCommentController extends AppController
                 ($this->addCommentHandler)(new AddCommentCommand(
                     actor: $user,
                     document: $document,
+                    displayedVersionNumber: $data->versionNumber ?? throw new \LogicException('Version required after validation'),
                     quote: $data->quote,
                     prefix: $data->prefix,
                     suffix: $data->suffix,
@@ -81,6 +82,10 @@ final class AddCommentController extends AppController
         }
 
         if (TurboBundle::STREAM_FORMAT !== $request->getPreferredFormat()) {
+            if (null !== $errorMessage) {
+                $this->addFlash('error', $errorMessage);
+            }
+
             return $this->redirectToRoute('app_document_review', [
                 'projectId' => (string) $project->id,
                 'documentId' => (string) $document->id,

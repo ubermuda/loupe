@@ -71,17 +71,17 @@ final class DiffDocumentVersionsController extends AppController
         $suggestRewordingForm = null;
         $strikePassageForm = null;
         if ($view->commentingEnabled) {
-            $addCommentForm = $this->createForm(AddCommentFormType::class, new AddCommentRequest(), [
+            $addCommentForm = $this->createForm(AddCommentFormType::class, new AddCommentRequest(versionNumber: $view->version->versionNumber), [
                 'action' => $this->generateUrl('app_comment_add', $routeParameters),
                 'method' => 'POST',
             ]);
 
-            $suggestRewordingForm = $this->createForm(SuggestRewordingFormType::class, new SuggestRewordingRequest(), [
+            $suggestRewordingForm = $this->createForm(SuggestRewordingFormType::class, new SuggestRewordingRequest(versionNumber: $view->version->versionNumber), [
                 'action' => $this->generateUrl('app_comment_suggest', $routeParameters),
                 'method' => 'POST',
             ]);
 
-            $strikePassageForm = $this->createForm(StrikePassageFormType::class, new StrikePassageRequest(), [
+            $strikePassageForm = $this->createForm(StrikePassageFormType::class, new StrikePassageRequest(versionNumber: $view->version->versionNumber), [
                 'action' => $this->generateUrl('app_comment_strike', $routeParameters),
                 'method' => 'POST',
             ]);

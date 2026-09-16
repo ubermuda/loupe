@@ -12,6 +12,7 @@ final readonly class AddCommentCommand
     public function __construct(
         public User $actor,
         public Document $document,
+        public int $displayedVersionNumber,
         public ?string $quote,
         public ?string $prefix,
         public ?string $suffix,

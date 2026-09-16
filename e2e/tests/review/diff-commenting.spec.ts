@@ -205,6 +205,73 @@ async function reviewState(
     return (await response.json()) as ReviewState;
 }
 
+for (const view of ['document', 'rendered', 'side-by-side']) {
+    test(`a stale ${view} keeps the comment draft and rejects the write`, async ({
+        page,
+    }) => {
+        const { projectId, documentId } = await seedDocument(
+            page,
+            `stale-${view}`,
+            [VERSION_TWO],
+        );
+        const reviewUrl = `/projects/${projectId}/documents/${documentId}/review`;
+        await page.goto(
+            view === 'document'
+                ? reviewUrl
+                : `${reviewUrl}/diff/1/2?view=${view}`,
+        );
+        await expect(page.locator(DOC)).toBeVisible();
+        await selectPhrase(
+            page,
+            INSERTED,
+            undefined,
+            view === 'side-by-side' ? 'new' : undefined,
+        );
+        await page
+            .getByRole('button', { name: 'Comment', exact: true })
+            .click();
+        await page.locator(COMPOSER_BODY).fill('Keep this draft.');
+        const revised = await page.request.post(
+            `/dev/review/${documentId}/revise`,
+            {
+                form: {
+                    markdown: VERSION_THREE,
+                    description: 'Another revision.',
+                },
+            },
+        );
+        expect(revised.status()).toBe(200);
+        const submission = page.waitForResponse(
+            (response) =>
+                response.request().method() === 'POST' &&
+                response.url().endsWith('/comments'),
+        );
+        await page.getByRole('button', { name: 'Post', exact: true }).click();
+        expect((await submission).status()).toBe(422);
+        await expect(page.locator('#composer-error')).toContainText(
+            'A newer version exists.',
+        );
+        await expect(page.locator(COMPOSER_BODY)).toHaveValue(
+            'Keep this draft.',
+        );
+        expect(
+            (await reviewState(page, documentId)).storedAnchors,
+        ).toHaveLength(0);
+
+        await page.goto(reviewUrl);
+        await selectPhrase(page, INSERTED);
+        await page
+            .getByRole('button', { name: 'Comment', exact: true })
+            .click();
+        await page.locator(COMPOSER_BODY).fill('Keep this draft.');
+        await page.getByRole('button', { name: 'Post', exact: true }).click();
+        await expect(page.locator(COMPOSER)).toBeHidden();
+        expect(
+            (await reviewState(page, documentId)).storedAnchors,
+        ).toHaveLength(1);
+    });
+}
+
 test('a comment made on an inserted run lands on the current version', async ({
     page,
 }) => {

@@ -41,6 +41,10 @@ reviewer wants that passage to become — which the author applies by rewriting
 the Markdown and submitting a new version. Loupe never edits the document
 itself.
 
+Comments, suggestions and strikes apply to the version shown on the page.
+If a newer version arrives, Loupe rejects the submission and keeps the draft open.
+Copy the draft before reloading, then select the passage in the current version.
+
 Threads carry a status: pending, addressed, or resolved.
 Select **Finish review** beside the document title to approve the version or request changes.
 A request for changes requires a review note. An approval can include a note.

@@ -63,6 +63,7 @@ final readonly class ToolCallErrorMessages
             'review.series.error.name_taken' => 'The project already has a series of that name.',
             'review.references.error.self_reference' => 'A document cannot reference itself.',
             'review.references.error.other_project' => 'A document can only reference documents in the same project.',
+            'review.document.comment.error.stale_version' => 'The document changed since you read it. Read it again, then submit your annotation.',
             'review.decision.error.stale_version' => 'The document changed since you read it. Read it again, then choose again.',
             'review.decision.error.changed_answer' => 'Another answer is saved. Reload the document and compare your choices before saving.',
             'review.decision.error.unknown' => 'This version of the document holds no decision with that id.',

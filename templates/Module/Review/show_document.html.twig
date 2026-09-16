@@ -501,6 +501,7 @@
                 hidden: true,
             }}) }}
                 {{ form_widget(addCommentForm.quote) }}
+                {{ form_widget(addCommentForm.versionNumber, {type: 'hidden'}) }}
                 {{ form_widget(addCommentForm.prefix) }}
                 {{ form_widget(addCommentForm.suffix) }}
                 <blockquote class="lp-composer-quote" data-comment-anchor-target="quotePreview"></blockquote>
@@ -703,6 +704,7 @@
                 hidden: true,
             }}) }}
                 {{ form_widget(strikePassageForm.quote) }}
+                {{ form_widget(strikePassageForm.versionNumber, {type: 'hidden'}) }}
                 {{ form_widget(strikePassageForm.prefix) }}
                 {{ form_widget(strikePassageForm.suffix) }}
             {{ form_end(strikePassageForm) }}
@@ -718,6 +720,7 @@
                 hidden: true,
             }}) }}
                 {{ form_widget(suggestRewordingForm.quote) }}
+                {{ form_widget(suggestRewordingForm.versionNumber, {type: 'hidden'}) }}
                 {{ form_widget(suggestRewordingForm.prefix) }}
                 {{ form_widget(suggestRewordingForm.suffix) }}
                 <blockquote class="lp-composer-quote lp-composer-quote--struck" data-comment-anchor-target="suggestQuotePreview"></blockquote>

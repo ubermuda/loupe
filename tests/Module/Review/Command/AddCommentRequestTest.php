@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Command;
 
 use App\Module\Review\Form\AddCommentRequest;
+use App\Module\Review\Form\StrikePassageRequest;
+use App\Module\Review\Form\SuggestRewordingRequest;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
@@ -15,6 +17,29 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  */
 final class AddCommentRequestTest extends KernelTestCase
 {
+    public function test_each_annotation_requires_a_positive_version_number(): void
+    {
+        self::bootKernel();
+        $validator = self::getContainer()->get(ValidatorInterface::class);
+        self::assertInstanceOf(ValidatorInterface::class, $validator);
+
+        foreach ([
+            new AddCommentRequest(versionNumber: 1, body: 'Comment'),
+            new StrikePassageRequest(versionNumber: 1, quote: 'Passage'),
+            new SuggestRewordingRequest(versionNumber: 1, quote: 'Passage', replacement: 'Replacement'),
+        ] as $request) {
+            self::assertCount(0, $validator->validate($request));
+            foreach ([null, 0, -1] as $versionNumber) {
+                $request->versionNumber = $versionNumber;
+                $violations = $validator->validate($request);
+                self::assertCount(1, $violations);
+                $violation = $violations[0];
+                self::assertNotNull($violation);
+                self::assertSame('versionNumber', $violation->getPropertyPath());
+            }
+        }
+    }
+
     public function test_overlong_prefix_and_suffix_are_rejected(): void
     {
         self::bootKernel();
@@ -22,6 +47,7 @@ final class AddCommentRequestTest extends KernelTestCase
         self::assertInstanceOf(ValidatorInterface::class, $validator);
 
         $request = new AddCommentRequest(
+            versionNumber: 1,
             quote: 'ok',
             prefix: str_repeat('a', 256),
             suffix: str_repeat('b', 256),
@@ -45,6 +71,7 @@ final class AddCommentRequestTest extends KernelTestCase
         self::assertInstanceOf(ValidatorInterface::class, $validator);
 
         $request = new AddCommentRequest(
+            versionNumber: 1,
             quote: str_repeat('a', 2001),
             prefix: '',
             suffix: '',
@@ -67,6 +94,7 @@ final class AddCommentRequestTest extends KernelTestCase
         self::assertInstanceOf(ValidatorInterface::class, $validator);
 
         $request = new AddCommentRequest(
+            versionNumber: 1,
             quote: str_repeat('a', 2000),
             prefix: str_repeat('b', 255),
             suffix: str_repeat('c', 255),

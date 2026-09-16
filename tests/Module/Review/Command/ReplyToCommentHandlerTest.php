@@ -42,7 +42,7 @@ final class ReplyToCommentHandlerTest extends KernelTestCase
 
         /** @var AddCommentHandler $addHandler */
         $addHandler = self::getContainer()->get(AddCommentHandler::class);
-        $parent = $addHandler(new AddCommentCommand($owner, $doc, 'content for the reply', '', '', 'Parent comment body'));
+        $parent = $addHandler(new AddCommentCommand($owner, $doc, 1, 'content for the reply', '', '', 'Parent comment body'));
 
         /** @var ReplyToCommentHandler $replyHandler */
         $replyHandler = self::getContainer()->get(ReplyToCommentHandler::class);
@@ -80,7 +80,7 @@ final class ReplyToCommentHandlerTest extends KernelTestCase
 
         /** @var AddCommentHandler $addHandler */
         $addHandler = self::getContainer()->get(AddCommentHandler::class);
-        $root = $addHandler(new AddCommentCommand($owner, $doc, 'content for the nested', '', '', 'Root comment body'));
+        $root = $addHandler(new AddCommentCommand($owner, $doc, 1, 'content for the nested', '', '', 'Root comment body'));
 
         /** @var ReplyToCommentHandler $replyHandler */
         $replyHandler = self::getContainer()->get(ReplyToCommentHandler::class);
@@ -168,7 +168,7 @@ final class ReplyToCommentHandlerTest extends KernelTestCase
 
         $add = self::getContainer()->get(AddCommentHandler::class);
         self::assertInstanceOf(AddCommentHandler::class, $add);
-        $parent = $add(new AddCommentCommand($owner, $document, 'content for the reply', '', '', 'Parent comment body'));
+        $parent = $add(new AddCommentCommand($owner, $document, 1, 'content for the reply', '', '', 'Parent comment body'));
 
         return [$owner, $document, $parent];
     }

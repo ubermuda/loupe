@@ -43,7 +43,7 @@ final class DeleteCommentHandlerTest extends KernelTestCase
 
         /** @var AddCommentHandler $addHandler */
         $addHandler = self::getContainer()->get(AddCommentHandler::class);
-        $root = $addHandler(new AddCommentCommand($owner, $doc, 'content to comment', '', '', 'Root comment'));
+        $root = $addHandler(new AddCommentCommand($owner, $doc, 1, 'content to comment', '', '', 'Root comment'));
 
         /** @var ReplyToCommentHandler $replyHandler */
         $replyHandler = self::getContainer()->get(ReplyToCommentHandler::class);
@@ -188,7 +188,7 @@ final class DeleteCommentHandlerTest extends KernelTestCase
 
         $add = self::getContainer()->get(AddCommentHandler::class);
         self::assertInstanceOf(AddCommentHandler::class, $add);
-        $comment = $add(new AddCommentCommand($owner, $document, 'content to comment', '', '', 'Root comment'));
+        $comment = $add(new AddCommentCommand($owner, $document, 1, 'content to comment', '', '', 'Root comment'));
 
         return [$owner, $document, $comment];
     }

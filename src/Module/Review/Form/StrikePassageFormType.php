@@ -6,6 +6,7 @@ namespace App\Module\Review\Form;
 
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
+use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
@@ -20,6 +21,7 @@ class StrikePassageFormType extends AbstractType
     #[\Override]
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
+        $builder->add('versionNumber', IntegerType::class, ['label' => false]);
         // trim => false, as on the comment composer: AnchorService matches the last
         // 8 characters of the prefix against the document, so trimming the boundary
         // space makes the fingerprint unmatchable for any selection starting or

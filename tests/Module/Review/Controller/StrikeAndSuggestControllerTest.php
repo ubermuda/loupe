@@ -47,7 +47,7 @@ final class StrikeAndSuggestControllerTest extends WebTestCase
         $client->request(
             Request::METHOD_POST,
             $this->url($document, 'strikes'),
-            ['strike_passage_form' => [
+            ['strike_passage_form' => ['versionNumber' => '1',
                 'quote' => 'bespoke ',
                 'prefix' => 'We utilise a ',
                 'suffix' => 'solution for',
@@ -74,7 +74,7 @@ final class StrikeAndSuggestControllerTest extends WebTestCase
         $client->request(
             Request::METHOD_POST,
             $this->url($document, 'suggestions'),
-            ['suggest_rewording_form' => [
+            ['suggest_rewording_form' => ['versionNumber' => '1',
                 'quote' => 'utilise',
                 'prefix' => 'We ',
                 'suffix' => ' a bespoke',
@@ -100,7 +100,7 @@ final class StrikeAndSuggestControllerTest extends WebTestCase
         $client->request(
             Request::METHOD_POST,
             $this->url($document, 'suggestions'),
-            ['suggest_rewording_form' => [
+            ['suggest_rewording_form' => ['versionNumber' => '1',
                 'quote' => 'utilise',
                 'prefix' => 'We ',
                 'suffix' => ' a bespoke',
@@ -127,7 +127,7 @@ final class StrikeAndSuggestControllerTest extends WebTestCase
         $client->request(
             Request::METHOD_POST,
             $this->url($document, 'suggestions'),
-            ['suggest_rewording_form' => [
+            ['suggest_rewording_form' => ['versionNumber' => '1',
                 'quote' => 'utilise',
                 'prefix' => 'We ',
                 'suffix' => ' a bespoke',
@@ -153,7 +153,7 @@ final class StrikeAndSuggestControllerTest extends WebTestCase
         $client->request(
             Request::METHOD_POST,
             $this->url($document, 'strikes'),
-            ['strike_passage_form' => ['quote' => '', 'prefix' => '', 'suffix' => '', '_token' => self::CSRF_TOKEN]],
+            ['strike_passage_form' => ['versionNumber' => '1', 'quote' => '', 'prefix' => '', 'suffix' => '', '_token' => self::CSRF_TOKEN]],
             server: self::TURBO_SERVER,
         );
 
@@ -178,7 +178,7 @@ final class StrikeAndSuggestControllerTest extends WebTestCase
         $client->request(
             Request::METHOD_POST,
             $this->url($document, 'suggestions'),
-            ['suggest_rewording_form' => [
+            ['suggest_rewording_form' => ['versionNumber' => '1',
                 'quote' => 'utilise',
                 'prefix' => 'We ',
                 'suffix' => ' a bespoke',
