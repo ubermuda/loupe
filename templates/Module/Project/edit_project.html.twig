@@ -9,7 +9,7 @@
 {% endblock %}
 
 {% block body %}
-<div class="lp-workspace">
+<div class="lp-workspace lp-redesign-secondary lp-redesign-settings">
     <header class="lp-page-header">
         <div>
             <h1 class="lp-workspace-title">{{ 'project.edit.page.title'|trans }}</h1>
@@ -36,7 +36,7 @@
         </nav>
 
         <div class="lp-settings-content" id="general">
-        <section class="lp-settings-section">
+        <section class="lp-settings-section lp-settings-panel-card">
             <p class="lp-eyebrow">{{ 'project.edit.general.eyebrow'|trans }}</p>
             <h2 class="lp-section-title">{{ 'project.edit.general.title'|trans }}</h2>
         {{ form_start(form, {'attr': {'class': 'lp-form'}}) }}
@@ -75,7 +75,7 @@
         {{ form_end(form) }}
         </section>
 
-        <section class="lp-danger-zone" data-controller="modal"{% if deleteForm.vars.submitted %} data-modal-reopen-value="true"{% endif %}>
+        <section class="lp-danger-zone lp-settings-panel-card" data-controller="modal"{% if deleteForm.vars.submitted %} data-modal-reopen-value="true"{% endif %}>
             <h2 class="lp-danger-zone-title">{{ 'project.delete.title'|trans }}</h2>
             <p class="lp-danger-zone-desc">{{ 'project.delete.warning'|trans }}</p>
             <button type="button" class="lp-btn lp-btn--danger" data-action="click->modal#open">

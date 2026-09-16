@@ -14,15 +14,17 @@
 
 {% block body %}
 {% set boardEnabled = is_feature_enabled('board.enabled') %}
-<div class="lp-workspace">
-    <h1 class="lp-workspace-title">{{ 'bridge.worker_runs.page.title'|trans }}</h1>
-    <p class="lp-workspace-desc">{{ 'bridge.worker_runs.page.description'|trans }}</p>
+<div class="lp-workspace lp-redesign-secondary lp-redesign-runs">
+    <header class="lp-page-header">
+        <div>
+            <h1 class="lp-workspace-title">{{ 'bridge.worker_runs.page.title'|trans }}</h1>
+            <p class="lp-workspace-desc">{{ 'bridge.worker_runs.page.description'|trans }}</p>
+        </div>
+    </header>
 
     {# Required on every render, empty list included: without it the page reads
        as a complete history, and a report lost with its bridge would read as a
        worker that never ran. #}
-    <p class="lp-page-note">{{ 'bridge.worker_runs.unknown_notice'|trans }}</p>
-
     {% if items|length > 0 or listQuery.isNarrowed %}
     <div class="lp-list-filters">
         {# A GET form, so every control lands in the URL and the view stays
@@ -93,29 +95,26 @@
         {% for item in items %}
         {% set run = item.run %}
         <article class="lp-worker-run" data-worker-run-id="{{ run.id }}">
-            <div class="lp-worker-run__head">
-                {% if boardEnabled %}
-                    {# The card id is a plain value on the run row, so the card may
-                       be gone. The link then answers 404 and the row still reads. #}
+            <div class="lp-worker-run__table-row">
+                <div class="lp-worker-run__work">
+                    {% if boardEnabled %}
                     <a class="lp-worker-run__card"
                        href="{{ path('app_board_card', {projectId: project.id, cardId: run.cardId}) }}">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</a>
-                {% else %}
-                    <span class="lp-worker-run__card">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</span>
-                {% endif %}
-                <span class="lp-worker-run__rule">{{ run.ruleName }}</span>
-                <span class="lp-status-chip lp-status-chip--{{ item.outcome.chipModifier() }} shrink-0">
+                    {% else %}
+                        <span class="lp-worker-run__card">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</span>
+                    {% endif %}
+                    <span class="lp-worker-run__bridge" title="{{ run.bridgeId }}">{{ 'bridge.worker_runs.bridge'|trans({'%bridge%': run.bridgeId|slice(-12)}) }}</span>
+                </div>
+                <span class="lp-status-chip lp-status-chip--{{ item.outcome.chipModifier() }}">
                     <span class="lp-status-chip__dot"></span>
                     {{ item.outcome.translationKey()|trans }}
                 </span>
-            </div>
-
-            <div class="lp-worker-run__meta">
-                <span>{{ 'bridge.worker_runs.started'|trans({'%time%': run.startedAt|date('Y-m-d H:i:s')}) }}</span>
-                <span>{{ 'bridge.worker_runs.duration'|trans({'%duration%': item.duration()}) }}</span>
-                {% if run.exitCode is not null %}
-                    <span>{{ 'bridge.worker_runs.exit_code'|trans({'%code%': run.exitCode}) }}</span>
-                {% endif %}
-                <span class="lp-worker-run__bridge" title="{{ run.bridgeId }}">{{ 'bridge.worker_runs.bridge'|trans({'%bridge%': run.bridgeId|slice(-12)}) }}</span>
+                <span class="lp-worker-run__rule">{{ run.ruleName }}</span>
+                <span class="lp-worker-run__duration">
+                    {{ item.duration() }}
+                    {% if run.exitCode is not null %}<small>{{ 'bridge.worker_runs.exit_code'|trans({'%code%': run.exitCode}) }}</small>{% endif %}
+                </span>
+                <time datetime="{{ run.startedAt|date('c') }}">{{ run.startedAt|date('M j, H:i') }}</time>
             </div>
 
             {% if run.failureReason %}
@@ -146,5 +145,6 @@
         <h2 class="lp-empty-state__title">{{ (listQuery.isNarrowed ? 'bridge.worker_runs.empty_filtered' : 'bridge.worker_runs.empty')|trans }}</h2>
     </div>
     {% endif %}
+    <p class="lp-page-note lp-rule-explanation"><twig:ux:icon name="lucide:circle-help" />{{ 'bridge.worker_runs.unknown_notice'|trans }}</p>
 </div>
 {% endblock %}

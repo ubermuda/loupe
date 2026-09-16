@@ -10,7 +10,7 @@
 
 {% block body %}
 {% set pendingCount = comments|filter(comment => comment.status.value == 'pending')|length %}
-<div class="lp-workspace lp-site-feedback-page">
+<div class="lp-workspace lp-site-feedback-page lp-core-prototype-page lp-core-site-review">
     <header class="lp-page-header">
         <div><h1 class="lp-workspace-title">{{ 'site_review.page.title'|trans }}</h1><p class="lp-workspace-desc">{{ 'site_review.page.description'|trans }}</p></div>
         <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}"><twig:ux:icon name="lucide:code-xml" class="w-4 h-4" />{{ 'site_review.widget.setup'|trans }}</a>
@@ -29,9 +29,15 @@
             {% for comment in comments %}
             {% set anchors = comment.anchors|filter(anchor => anchor.selector is not empty) %}
             <button type="button" class="lp-feedback-list__item" data-master-detail-target="trigger" data-master-detail-id="feedback-{{ comment.id }}" data-action="master-detail#select">
-                <span class="lp-source-avatar"><twig:ux:icon name="lucide:globe-2" class="w-4 h-4" /></span>
-                <span class="lp-feedback-list__copy"><strong>{{ 'site_review.source.widget'|trans }}</strong><span>{{ comment.body }}</span><time datetime="{{ comment.createdAt|date('c') }}">{{ comment.createdAt|relative_time }}</time></span>
-                <span class="lp-status-chip lp-status-chip--{{ comment.status.value }}">{{ ('site_review.comment.status.' ~ comment.status.value)|trans }}</span>
+                <span class="lp-feedback-list__meta">
+                    <span class="lp-site-review-index lp-site-review-index--{{ comment.status.value == 'pending' ? 'pending' : 'ok' }}">#{{ loop.index }}</span>
+                    <span class="lp-status-chip lp-status-chip--{{ comment.status.value }}">{{ ('site_review.comment.status.' ~ comment.status.value)|trans }}</span>
+                </span>
+                <span class="lp-feedback-list__copy">
+                    <strong>{{ anchors|length > 1 ? ('site_review.comment.element_count'|trans({'%count%': anchors|length})) : (anchors|length == 1 and anchors|first.text is not empty ? anchors|first.text : ('site_review.comment.general_page'|trans)) }}</strong>
+                    <span>{{ comment.body }}</span>
+                    <time datetime="{{ comment.createdAt|date('c') }}">{{ comment.createdAt|relative_time }}</time>
+                </span>
             </button>
             {% endfor %}
         </div>
@@ -40,8 +46,7 @@
             {% for comment in comments %}
             {% set anchors = comment.anchors|filter(anchor => anchor.selector is not empty) %}
             <article class="lp-feedback-detail__panel" id="feedback-{{ comment.id }}" data-comment-id="{{ comment.id }}" data-comment-status="{{ comment.status.value }}" data-master-detail-target="panel" data-master-detail-id="feedback-{{ comment.id }}" hidden>
-                <span class="lp-site-review-index lp-site-review-index--{{ comment.status.value == 'pending' ? 'pending' : 'ok' }}">{{ '%02d'|format(loop.index) }}</span>
-                <header class="lp-feedback-detail__header"><div><p class="lp-feedback-detail__eyebrow">{{ 'site_review.source.widget'|trans }}</p><h2>{{ 'site_review.feedback.original_message'|trans }}</h2></div><span class="lp-status-chip lp-status-chip--{{ comment.status.value }}">{{ ('site_review.comment.status.' ~ comment.status.value)|trans }}</span></header>
+                <header class="lp-feedback-detail__header"><div><p class="lp-feedback-detail__eyebrow">{{ 'site_review.source.widget'|trans }} · #{{ loop.index }}</p><h2>{{ 'site_review.feedback.original_message'|trans }}</h2></div><span class="lp-status-chip lp-status-chip--{{ comment.status.value }}">{{ ('site_review.comment.status.' ~ comment.status.value)|trans }}</span></header>
                 <p class="lp-site-review-quote">{{ anchors|length > 1 ? ('site_review.comment.element_count'|trans({'%count%': anchors|length})) : (anchors|length == 1 and anchors|first.text is not empty ? '“' ~ anchors|first.text ~ '”' : ('site_review.comment.general_page'|trans)) }}</p>
                 <blockquote class="lp-feedback-detail__message">{{ comment.body }}</blockquote>
 

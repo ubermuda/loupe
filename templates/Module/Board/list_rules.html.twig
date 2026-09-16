@@ -11,15 +11,20 @@
 {% block topbar_meta %}<span class="lp-topbar__meta">{{ 'board.rules.live_count'|trans({'%count%': liveCount}) }}</span>{% endblock %}
 
 {% block body %}
-<div class="lp-workspace lp-orchestration-page">
-    <h1 class="lp-workspace-title">{{ 'board.rules.heading'|trans }}</h1>
-    <p class="lp-workspace-desc">{{ 'board.rules.description'|trans }}</p>
-    <p class="lp-page-note">{{ 'board.rules.read_only_notice'|trans }}</p>
+<div class="lp-workspace lp-orchestration-page lp-redesign-secondary lp-redesign-rules">
+    <header class="lp-orchestration-header">
+        <div>
+            <h1 class="lp-workspace-title">{{ 'board.rules.heading'|trans }}</h1>
+            <p class="lp-workspace-desc">{{ 'board.rules.description'|trans }}</p>
+        </div>
+        <span class="lp-status-chip lp-status-chip--ok"><span class="lp-status-chip__dot"></span>{{ 'board.rules.live_count'|trans({'%count%': liveCount}) }}</span>
+    </header>
 
     {% if rules is not empty %}
     <div class="lp-rule-list">
         {% for rule in rules %}
         <article class="lp-rule-row" data-rule-name="{{ rule.name }}">
+            <twig:ux:icon name="lucide:zap" class="lp-rule-row__glyph" />
             <div class="lp-rule-row__main">
                 <div class="lp-rule-row__heading">
                     <h2>{{ rule.name }}</h2>
@@ -37,7 +42,9 @@
                 </div>
                 {% if rule.reason %}<p class="lp-rule-row__reason">{{ rule.reason }}</p>{% endif %}
             </div>
-            <time datetime="{{ rule.reportedAt|date('c') }}">{{ 'board.rules.reported_at'|trans({'%time%': rule.reportedAt|date('Y-m-d H:i:s')}) }}</time>
+            <div class="lp-rule-row__report">
+                <time datetime="{{ rule.reportedAt|date('c') }}">{{ 'board.rules.reported_at'|trans({'%time%': rule.reportedAt|date('M j, H:i')}) }}</time>
+            </div>
         </article>
         {% endfor %}
     </div>
@@ -48,5 +55,6 @@
         <p>{{ 'board.rules.empty.description'|trans }}</p>
     </div>
     {% endif %}
+    <p class="lp-rule-explanation"><twig:ux:icon name="lucide:shield" />{{ 'board.rules.read_only_notice'|trans }}</p>
 </div>
 {% endblock %}

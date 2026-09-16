@@ -16,7 +16,7 @@
 {# Unfiltered and archive-free, so it can tell "this project has nothing" from
    "the filters matched nothing". Same number the shell's nav pill shows. #}
 {% set totalDocuments = project_document_count(project) %}
-<div class="lp-workspace">
+<div class="lp-workspace lp-core-prototype-page lp-core-documents">
     <header class="lp-page-header">
         <div>
             <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'review.dashboard.page.title'|trans }}</h1>
@@ -157,6 +157,7 @@
                class="lp-document-row__link" aria-label="{{ document.title }}"></a>
             <div class="lp-document-row__main" role="cell">
                 <div class="lp-document-row__head">
+                    <twig:ux:icon name="lucide:file-text" class="lp-document-row__icon w-4 h-4 shrink-0" />
                     <span class="lp-document-row__title">{{ document.title }}</span>
                     <span class="lp-document-row__version">{{ 'v' ~ item.versionNumber }}</span>
                 </div>

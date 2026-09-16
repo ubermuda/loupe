@@ -9,7 +9,7 @@
 {% endblock %}
 
 {% block body %}
-<div class="lp-workspace lp-orchestration-page">
+<div class="lp-workspace lp-orchestration-page lp-redesign-secondary lp-redesign-agents">
     <header class="lp-orchestration-header">
         <div>
             <h1 class="lp-workspace-title">{{ 'bridge.agents.heading'|trans }}</h1>
@@ -21,29 +21,30 @@
         </a>
     </header>
 
-    <p class="lp-page-note">{{ 'bridge.agents.honest_notice'|trans }}</p>
-
     {% if connections is not empty %}
     <div class="lp-agent-grid">
         {% for connection in connections %}
         <article class="lp-agent-card" data-agent-connection-id="{{ connection.bridge.id }}">
-            <div class="lp-agent-card__avatar" aria-hidden="true"><twig:ux:icon name="lucide:bot" /></div>
+            <div class="lp-agent-card__art" aria-hidden="true">
+                <span class="lp-status-chip {{ connection.status.quiet ? 'lp-status-chip--pending' : 'lp-status-chip--ok' }}">
+                    <span class="lp-status-chip__dot"></span>
+                    {{ (connection.status.quiet ? 'bridge.agents.status.stale' : 'bridge.agents.status.healthy')|trans }}
+                </span>
+                <twig:ux:icon name="lucide:bot" />
+            </div>
             <div class="lp-agent-card__body">
                 <div class="lp-agent-card__heading">
                     <div>
                         <p class="lp-agent-card__eyebrow">{{ 'bridge.agents.connection_label'|trans }}</p>
                         <h2 class="lp-agent-card__name">{{ connection.bridge.id|slice(-12) }}</h2>
                     </div>
-                    <span class="lp-status-chip {{ connection.status.quiet ? 'lp-status-chip--pending' : 'lp-status-chip--ok' }}">
-                        <span class="lp-status-chip__dot"></span>
-                        {{ (connection.status.quiet ? 'bridge.agents.status.stale' : 'bridge.agents.status.healthy')|trans }}
-                    </span>
                 </div>
                 <p class="lp-agent-card__purpose">{{ 'bridge.agents.project_connection'|trans({'%project%': project.name}) }}</p>
-                <dl class="lp-agent-card__facts">
-                    <div><dt>{{ 'bridge.agents.runtime'|trans }}</dt><dd>{{ connection.bridge.cliVersion }}</dd></div>
-                    <div><dt>{{ 'bridge.agents.last_seen'|trans }}</dt><dd>{{ connection.status.lastSeenAt ? connection.status.lastSeenAt|date('Y-m-d H:i:s') : 'bridge.agents.never'|trans }}</dd></div>
-                </dl>
+                <div class="lp-agent-card__current">
+                    <span>{{ 'bridge.agents.last_seen'|trans }}</span>
+                    <strong>{{ connection.status.lastSeenAt ? connection.status.lastSeenAt|date('M j, H:i') : 'bridge.agents.never'|trans }}</strong>
+                </div>
+                <footer><span>{{ connection.bridge.cliVersion }}</span><span>{{ 'bridge.agents.runtime'|trans }}</span></footer>
             </div>
         </article>
         {% endfor %}
@@ -56,5 +57,18 @@
         <a class="lp-btn lp-btn--primary" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'bridge.agents.empty.action'|trans }}</a>
     </div>
     {% endif %}
+
+    <section class="lp-agent-connection-strip">
+        <twig:ux:icon name="lucide:cable" />
+        <div>
+            <h2>{{ connections is empty ? 'bridge.agents.empty.title'|trans : 'bridge.agents.connection'|trans }}</h2>
+            <p>{{ 'bridge.agents.honest_notice'|trans }}</p>
+        </div>
+        <span class="lp-status-chip {{ connections is empty ? 'lp-status-chip--failed' : 'lp-status-chip--ok' }}">
+            <span class="lp-status-chip__dot"></span>
+            {{ connections is empty ? 'bridge.agents.status.stale'|trans : 'bridge.agents.status.healthy'|trans }}
+        </span>
+        <a class="lp-btn lp-btn--ghost" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'bridge.agents.connection'|trans }}</a>
+    </section>
 </div>
 {% endblock %}

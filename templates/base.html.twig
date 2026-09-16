@@ -12,7 +12,10 @@
                         aria-label="{{ 'nav.drawer.close'|trans }}">
                     <twig:ux:icon name="lucide:x" />
                 </button>
-                <a href="{{ path('app_projects') }}" class="lp-sidebar__brand">{{ 'nav.brand'|trans }}</a>
+                <a href="{{ path('app_projects') }}" class="lp-sidebar__brand">
+                    <span class="lp-sidebar__brand-mark" aria-hidden="true"></span>
+                    <span>{{ 'nav.brand'|trans }}</span>
+                </a>
                 {% if project %}
                 <div class="lp-switcher" data-controller="popover">
                     <button type="button" class="lp-sidebar__switcher"
@@ -46,6 +49,7 @@
                     </div>
                 </div>
                 <nav class="lp-sidebar__nav">
+                    <span class="lp-sidebar__nav-label">{{ 'nav.group.workspace'|trans }}</span>
                     <a href="{{ path('app_project_workshop', {id: project.id}) }}"
                        class="lp-sidebar__link{% if route == 'app_project_workshop' %} lp-sidebar__link--active{% endif %}"
                        {% if route == 'app_project_workshop' %}aria-current="page"{% endif %}>
@@ -96,6 +100,7 @@
                         {% set reviewCounts = project_site_review_counts(project) %}
                         <span class="lp-sidebar__pill{% if reviewCounts.pending > 0 %} lp-sidebar__pill--amber{% endif %}">{{ reviewCounts.total }}</span>
                     </a>
+                    <span class="lp-sidebar__nav-label lp-sidebar__nav-label--spaced">{{ 'bridge.agents.heading'|trans }}</span>
                     <a href="{{ path('app_project_agents', {id: project.id}) }}"
                        class="lp-sidebar__link{% if route == 'app_project_agents' or route == 'app_project_connect' %} lp-sidebar__link--active{% endif %}"
                        {% if route == 'app_project_agents' or route == 'app_project_connect' %}aria-current="page"{% endif %}>

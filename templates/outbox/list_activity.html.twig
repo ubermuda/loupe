@@ -11,22 +11,36 @@
 {% block topbar_meta %}<span class="lp-topbar__meta">{{ 'activity.count'|trans({'%count%': events|length}) }}</span>{% endblock %}
 
 {% block body %}
-<div class="lp-workspace lp-orchestration-page">
+<div class="lp-workspace lp-orchestration-page lp-redesign-secondary lp-redesign-activity">
     <header class="lp-orchestration-header">
         <div>
             <h1 class="lp-workspace-title">{{ 'activity.heading'|trans }}</h1>
             <p class="lp-workspace-desc">{{ 'activity.description'|trans }}</p>
         </div>
-        <span class="lp-status-chip lp-status-chip--ok"><span class="lp-status-chip__dot"></span>{{ 'activity.status.recorded'|trans }}</span>
     </header>
-    <p class="lp-page-note">{{ 'activity.durable_notice'|trans }}</p>
+    <div class="lp-activity-toolbar">
+        <span><twig:ux:icon name="lucide:activity" />{{ 'activity.description'|trans }}</span>
+        <span class="lp-status-chip lp-status-chip--ok"><span class="lp-status-chip__dot"></span>{{ 'activity.status.recorded'|trans }}</span>
+    </div>
 
     {% if events is not empty %}
     <div class="lp-activity-feed">
         {% for event in events %}
         {% set family = event.type|split('.')|first %}
         <article class="lp-activity-row" data-activity-event-id="{{ event.id }}" data-event-family="{{ family }}">
-            <div class="lp-activity-row__icon"><twig:ux:icon name="lucide:activity" /></div>
+            <div class="lp-activity-row__icon">
+                {% if family == 'board' %}
+                    <twig:ux:icon name="lucide:square-kanban" />
+                {% elseif family == 'document' %}
+                    <twig:ux:icon name="lucide:file-text" />
+                {% elseif family == 'inbox' %}
+                    <twig:ux:icon name="lucide:inbox" />
+                {% elseif family == 'site_review' %}
+                    <twig:ux:icon name="lucide:globe" />
+                {% else %}
+                    <twig:ux:icon name="lucide:activity" />
+                {% endif %}
+            </div>
             <div class="lp-activity-row__body">
                 <div class="lp-activity-row__heading">
                     <h2>{{ event.type }}</h2>
@@ -52,5 +66,6 @@
         <p>{{ 'activity.empty.description'|trans }}</p>
     </div>
     {% endif %}
+    <p class="lp-rule-explanation"><twig:ux:icon name="lucide:shield" />{{ 'activity.durable_notice'|trans }}</p>
 </div>
 {% endblock %}

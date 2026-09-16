@@ -9,7 +9,7 @@
 {% endblock %}
 
 {% block body %}
-<div class="lp-workspace">
+<div class="lp-workspace lp-redesign-secondary lp-redesign-account">
     <header class="lp-page-header">
         <div>
             <h1 class="lp-workspace-title">{{ 'account.settings.page.title'|trans }}</h1>
@@ -17,12 +17,14 @@
         </div>
     </header>
 
+    <div class="lp-account-settings-layout">
     <nav class="lp-section-tabs" aria-label="{{ 'account.settings.nav.label'|trans }}">
         <a class="lp-section-tabs__item" href="#profile">{{ 'account.settings.nav.profile'|trans }}</a>
         <a class="lp-section-tabs__item" href="#api-tokens">{{ 'account.settings.nav.tokens'|trans }}</a>
         <a class="lp-section-tabs__item" href="#data">{{ 'account.settings.nav.data'|trans }}</a>
     </nav>
 
+    <div class="lp-account-settings-content">
     <twig:BillingSummary />
 
     <section class="lp-connect-block" id="profile" data-testid="profile-section">
@@ -162,5 +164,7 @@
             <button type="submit" class="lp-btn lp-btn--danger">{{ 'account.delete.danger.cta'|trans }}</button>
         </form>
     </section>
+    </div>
+    </div>
 </div>
 {% endblock %}

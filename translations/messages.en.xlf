@@ -5419,6 +5419,7 @@
                 <source>nav.link.workshop</source>
                 <target>Workshop</target>
             </trans-unit>
+            <trans-unit id="nav.group.workspace"><source>nav.group.workspace</source><target>Workspace</target></trans-unit>
             <trans-unit id="project.list.page.description">
                 <source>project.list.page.description</source>
                 <target>Choose a project and continue where its work left off.</target>
