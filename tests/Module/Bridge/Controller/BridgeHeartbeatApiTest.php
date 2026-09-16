@@ -311,7 +311,6 @@ final class BridgeHeartbeatApiTest extends WebTestCase
 
         $this->put($client, (string) Uuid::v4(), $raw, $body);
         self::assertResponseStatusCodeSame(429);
-        self::assertTrue($client->getResponse()->headers->has('Retry-After'));
     }
 
     /** The limiter runs before the payload is mapped, so a flood of invalid bodies still spends the budget. */
@@ -331,6 +330,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
 
         $this->put($client, (string) Uuid::v4(), $raw, ['projects' => 'loupe']);
         self::assertResponseStatusCodeSame(429);
+        self::assertTrue($client->getResponse()->headers->has('Retry-After'));
     }
 
     /** @param array<string, mixed> $payload */

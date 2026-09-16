@@ -188,7 +188,6 @@ final class InboxAskCheckApiTest extends WebTestCase
 
         $this->check($raw, (string) $project->id, (string) $ask->id);
         self::assertResponseStatusCodeSame(429);
-        self::assertTrue($this->client->getResponse()->headers->has('Retry-After'));
     }
 
     /** The limit runs before the handler, so checks of unknown asks still spend the budget. */
@@ -208,6 +207,7 @@ final class InboxAskCheckApiTest extends WebTestCase
 
         $this->check($raw, (string) $project->id, (string) Uuid::v4());
         self::assertResponseStatusCodeSame(429);
+        self::assertTrue($this->client->getResponse()->headers->has('Retry-After'));
     }
 
     /**
