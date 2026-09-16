@@ -17,11 +17,16 @@ use App\Module\Board\Form\CreateCardRequest;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
+use App\Module\SiteReview\Command\FindSiteReviewCommentCommand;
+use App\Module\SiteReview\Command\FindSiteReviewCommentHandler;
+use App\Module\SiteReview\Entity\SiteReviewComment;
+use App\Module\SiteReview\Security\SiteReviewCommentVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Uid\Uuid;
 
 #[IsGranted(ProjectVoter::MANAGE, subject: 'project')]
 #[Route(
@@ -34,6 +39,7 @@ final class CreateCardController extends AppController
     public function __construct(
         private readonly CreateCardHandler $createCard,
         private readonly BoardAvailability $board,
+        private readonly FindSiteReviewCommentHandler $findSiteReviewComment,
     ) {
     }
 
@@ -44,6 +50,9 @@ final class CreateCardController extends AppController
         #[MapEntity(expr: 'repository.findDefaultForProjectId(project)')] BoardColumn $defaultColumn,
     ): Response {
         $this->board->requireEnabled();
+
+        $feedbackId = $request->query->getString('feedback');
+        $feedback = $this->feedback($feedbackId, $project);
 
         $data = new CreateCardRequest(column: $defaultColumn);
         $form = $this->createForm(CreateCardFormType::class, $data, ['project' => $project]);
@@ -68,6 +77,7 @@ final class CreateCardController extends AppController
                     // A person filled this form in, whatever an agent may later do to the card.
                     reporter: CardReporter::Human,
                     pullRequestUrls: CreateCardRequest::toUrlList($data->pullRequestUrls),
+                    siteReviewComment: $feedback,
                 ));
 
                 return $this->redirectToRoute('app_board_card', [
@@ -79,6 +89,22 @@ final class CreateCardController extends AppController
             }
         }
 
-        return $this->renderFormResponse('@Board/create_card.html.twig', $form);
+        return $this->renderFormResponse('@Board/create_card.html.twig', $form, ['feedback' => $feedback]);
+    }
+
+    private function feedback(string $id, Project $project): ?SiteReviewComment
+    {
+        if ('' === $id) {
+            return null;
+        }
+        if (!Uuid::isValid($id)) {
+            throw $this->createNotFoundException();
+        }
+
+        $comment = ($this->findSiteReviewComment)(new FindSiteReviewCommentCommand($id, $project))
+            ?? throw $this->createNotFoundException();
+        $this->denyAccessUnlessGranted(SiteReviewCommentVoter::ATTACH, $comment);
+
+        return $comment;
     }
 }

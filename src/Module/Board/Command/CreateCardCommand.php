@@ -9,6 +9,7 @@ use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
+use App\Module\SiteReview\Entity\SiteReviewComment;
 
 final readonly class CreateCardCommand
 {
@@ -28,6 +29,7 @@ final readonly class CreateCardCommand
         public array $pullRequestUrls = [],
         /** @param list<string> $documentIds */
         public array $documentIds = [],
+        public ?SiteReviewComment $siteReviewComment = null,
     ) {
     }
 }

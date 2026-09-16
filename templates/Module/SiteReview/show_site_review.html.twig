@@ -103,6 +103,10 @@
                             {{ 'site_review.attach.submit'|trans }}
                         </button>
                     {{ form_end(attachForm) }}
+                    <a class="lp-btn lp-btn--ghost" href="{{ path('app_board_card_create', {id: project.id, feedback: comment.id}) }}">
+                        <twig:ux:icon name="lucide:plus" class="w-4 h-4" />
+                        {{ 'site_review.create_card.submit'|trans }}
+                    </a>
                 </section>
                 {% endif %}
 

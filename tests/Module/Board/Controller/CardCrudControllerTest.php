@@ -38,8 +38,12 @@ final class CardCrudControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
         self::assertResponseIsSuccessful();
+        self::assertStringContainsString(
+            'Create card and attach',
+            $crawler->filter('.lp-feedback-detail__panel a.lp-btn')->text(),
+        );
 
         $client->submitForm('Attach to card', [
             AttachSiteReviewCommentFormType::nameFor($comment).'[card]' => (string) $card->id,
@@ -89,6 +93,41 @@ final class CardCrudControllerTest extends WebTestCase
         // A form is a person writing the card down, whatever an agent does later.
         self::assertSame(CardReporter::Human, $created->reporter);
         self::assertCount(2, $created->pullRequests);
+    }
+
+    public function test_the_owner_creates_a_card_from_feedback_and_attaches_it(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'card-create-from-feedback@example.com');
+        $project = $this->project($em, $owner);
+        $comment = new SiteReviewComment($project, 0, 'Strengthen the button contrast', 'https://example.com');
+        $em->persist($comment);
+        $em->flush();
+        $commentId = $comment->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(
+            Request::METHOD_GET,
+            '/projects/'.$project->id.'/board/cards/new?feedback='.$commentId,
+        );
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Strengthen the button contrast', $crawler->filter('.lp-card-feedback-context')->text());
+
+        $client->submitForm('Create card', [
+            'create_card_form[title]' => 'Improve button contrast',
+        ]);
+
+        self::assertResponseRedirects();
+        $em->clear();
+        $created = static::getContainer()->get(CardRepository::class)->findOneBy(['title' => 'Improve button contrast']);
+        self::assertInstanceOf(Card::class, $created);
+        $link = static::getContainer()->get(CardSiteReviewCommentRepository::class)->findOneBy(['comment' => $commentId]);
+        self::assertNotNull($link);
+        self::assertSame((string) $created->id, (string) $link->card->id);
     }
 
     public function test_a_blank_title_re_renders_the_create_form_with_422(): void

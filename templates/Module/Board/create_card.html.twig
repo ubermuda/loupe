@@ -13,9 +13,16 @@
     <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'board.card.create.page.title'|trans }}</h1>
     <p class="lp-workspace-desc">{{ 'board.card.create.page.description'|trans }}</p>
 
+    {% if feedback %}
+    <div class="lp-callout lp-callout--info lp-card-feedback-context">
+        <twig:ux:icon name="lucide:message-square" class="w-4 h-4" />
+        <div><strong>{{ 'site_review.create_card.context_title'|trans }}</strong><p>{{ feedback.body }}</p></div>
+    </div>
+    {% endif %}
+
     {% include '@Board/_card_form.html.twig' with {
         form: form,
-        action: path('app_board_card_create', {id: project.id}),
+        action: path('app_board_card_create', {id: project.id, feedback: feedback ? feedback.id : null}),
         submitLabel: 'board.card.create.submit',
         cancelUrl: path('app_project_board', {id: project.id}),
     } only %}
