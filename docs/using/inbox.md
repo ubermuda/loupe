@@ -153,6 +153,11 @@ each linked card and each linked document then shows an **Inbox items** section
 with those items. The section is absent while the flag is off, and on a page
 that no item links to. On a document page it sits above the document.
 
+The project inbox lists linked cards, documents, and the pull requests attached to those cards.
+Each pull request URL appears once per item, even when several linked cards share it.
+Web links open on the code host. Their status reads **Not reported** because Loupe does not fetch code-host status.
+Other stored addresses read **Unavailable**, with an explanation and no open action.
+
 The section is hidden on a version comparison. It shows on an older version of
 a document, and a response from there returns to that version.
 

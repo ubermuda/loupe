@@ -34,6 +34,15 @@
                     <td><a class="lp-btn lp-btn--ghost lp-btn--icon" href="{{ path('app_document_review', {projectId: item.project.id, documentId: link.document.id}) }}" aria-label="{{ 'inbox.linked_items.open_document'|trans({'%title%': link.document.title}) }}"><twig:ux:icon name="lucide:arrow-up-right" class="w-4 h-4" /></a></td>
                 </tr>
                 {% endfor %}
+                {% set shownPullRequests = [] %}
+                {% for cardLink in item.cards %}
+                    {% for link in cardLink.card.pullRequests %}
+                        {% if link.url not in shownPullRequests %}
+                            {% include '@Board/_linked_pull_request.html.twig' with {link: link} only %}
+                            {% set shownPullRequests = shownPullRequests|merge([link.url]) %}
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
             </tbody>
         </table>
     </div>

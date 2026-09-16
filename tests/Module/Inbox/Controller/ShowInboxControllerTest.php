@@ -6,10 +6,14 @@ namespace App\Tests\Module\Inbox\Controller;
 
 use App\Mercure\LiveUpdates;
 use App\Mercure\UserTopicBuilder;
+use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Inbox\Command\ShowInboxHandler;
 use App\Module\Inbox\Entity\InboxItem;
+use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Service\InboxSearchIndexer;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Module\Inbox\InboxScenario;
 use App\Tests\Support\MercureCookies;
 use Doctrine\ORM\EntityManagerInterface;
@@ -21,6 +25,7 @@ use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 final class ShowInboxControllerTest extends WebTestCase
 {
     use InboxScenario;
+    use BoardColumnFixtures;
     use MercureCookies;
 
     private KernelBrowser $client;
@@ -84,6 +89,41 @@ final class ShowInboxControllerTest extends WebTestCase
         self::assertSelectorNotExists('[data-inbox-open-count]');
         // The frame stays, so a live reload has somewhere to put a count.
         self::assertSelectorExists('a[data-controller="inbox-pill"] turbo-frame#inbox-open-count-'.$project->id);
+    }
+
+    public function test_linked_card_pull_requests_appear_once_with_honest_status_and_safe_links(): void
+    {
+        $owner = $this->signedUpUser($this->em, 'inbox-pull-requests');
+        $project = $this->inboxProject($this->em, $owner);
+        $this->seedColumns($project);
+        $item = $this->question($this->em, $project, 1);
+        foreach ([1, 2] as $number) {
+            $card = new Card(project: $project, column: $this->column($project, 'backlog'), title: 'Linked work', body: 'Body', number: $number);
+            $this->em->persist($card);
+            $this->em->persist(new CardPullRequest($card, 'https://github.com/example/app/pull/42', repository: 'example/app', number: 42));
+            $this->em->persist(new CardPullRequest($card, 'javascript:alert(1)'));
+            $item->cards->add(new InboxItemCard($item, $card));
+        }
+        $this->em->flush();
+        $this->setInboxFlag(true);
+        $projectId = (string) $project->id;
+        $this->em->clear();
+
+        $this->client->loginUser($owner);
+        $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$projectId.'/inbox');
+
+        self::assertResponseIsSuccessful();
+        $rows = $crawler->filter('[data-linked-pull-request]');
+        self::assertCount(2, $rows);
+        self::assertStringContainsString('example/app #42', $rows->text());
+        self::assertSame('Not reported', $rows->first()->filter('.lp-tag')->text());
+        $link = $rows->first()->filter('a');
+        self::assertSame('https://github.com/example/app/pull/42', $link->attr('href'));
+        self::assertSame('_blank', $link->attr('target'));
+        self::assertSame('noopener noreferrer', $link->attr('rel'));
+        self::assertSame('Unavailable', $rows->last()->filter('.lp-tag')->text());
+        self::assertStringContainsString('Not a web address', $rows->last()->text());
+        self::assertCount(0, $rows->last()->filter('a'));
     }
 
     public function test_the_pill_listens_on_the_owner_inbox_topic(): void

@@ -50,6 +50,76 @@ test.afterAll(async ({ request }) => {
     await setFlag(request, 'board.enabled', false);
 });
 
+test('card and inbox show linked PRs with readable status and safe actions', async ({
+    page,
+}) => {
+    await suppressToolbar(page);
+    await suppressWidget(page);
+    await setFlag(page.request, 'inbox.enabled', true);
+    await setFlag(page.request, 'board.enabled', true);
+    await registerAndLogin(page, `e2e+inbox+pulls+${RUN}@example.com`);
+    const project = await page.request.post('/dev/seed/document', {
+        form: { title: 'Linked PR project', markdown: '# Review' },
+    });
+    expect(project.status()).toBe(201);
+    const { projectId } = await project.json();
+    await page.goto(`/projects/${projectId}/board/cards/new`);
+    await page.getByLabel('Title').fill('Review linked pull requests');
+    await page.getByLabel('Column').selectOption({ label: 'Backlog' });
+    await page
+        .locator('textarea[name="create_card_form[pullRequestUrls]"]')
+        .fill('https://github.com/example/app/pull/42\njavascript:alert(1)');
+    await page.getByRole('button', { name: 'Create card' }).click();
+    await expect(
+        page.getByRole('heading', { name: 'Review linked pull requests' }),
+    ).toBeVisible();
+    const cardUrl = new URL(page.url()).pathname;
+    const cardId = cardUrl.split('/').pop() ?? '';
+    const seeded = await page.request.post('/dev/seed/inbox', {
+        form: { cardId },
+    });
+    expect(seeded.status()).toBe(201);
+    const { questionNumber } = await seeded.json();
+
+    for (const path of [
+        cardUrl,
+        `/projects/${projectId}/inbox#inbox-item-${questionNumber}`,
+    ]) {
+        await page.goto(path);
+        const rows = page.locator('[data-linked-pull-request]');
+        await expect(rows).toHaveCount(2);
+        await expect(rows.first()).toContainText('example/app #42');
+        await expect(rows.first().locator('.lp-tag')).toHaveText(
+            'Not reported',
+        );
+        await expect(rows.first().getByRole('link')).toHaveAttribute(
+            'href',
+            'https://github.com/example/app/pull/42',
+        );
+        await expect(rows.last().locator('.lp-tag')).toHaveText('Unavailable');
+        await expect(rows.last()).toContainText('Not a web address');
+        await expect(rows.last().getByRole('link')).toHaveCount(0);
+        for (const width of [1440, 1150, 950, 780, 390]) {
+            await page.setViewportSize({ width, height: 900 });
+            for (const badge of await rows.locator('.lp-tag').all()) {
+                await expect(badge).toBeVisible();
+                await expect(badge).toHaveCSS('white-space', 'nowrap');
+                expect(
+                    await badge.evaluate(
+                        (element) => element.scrollWidth - element.clientWidth,
+                    ),
+                ).toBe(0);
+                const bounds = await badge.evaluate((element) => ({
+                    badgeRight: element.getBoundingClientRect().right,
+                    cellRight:
+                        element.parentElement!.getBoundingClientRect().right,
+                }));
+                expect(bounds.badgeRight).toBeLessThanOrEqual(bounds.cellRight);
+            }
+        }
+    }
+});
+
 for (const surface of ['page', 'drawer']) {
     test(`the owner answers a linked question from the card ${surface} and stays there`, async ({
         page,

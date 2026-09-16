@@ -57,12 +57,8 @@
                                         <td><a class="lp-btn lp-btn--ghost lp-btn--icon" href="{{ path('app_document_review', {projectId: card.project.id, documentId: link.document.id}) }}" data-turbo-frame="_top" aria-label="{{ 'inbox.linked_items.open_document'|trans({'%title%': link.document.title}) }}"><twig:ux:icon name="lucide:arrow-up-right" class="w-4 h-4" /></a></td>
                                     </tr>
                                     {% endfor %}
-                                    {% for link in card.pullRequests %}{% set href = safe_pull_request_url(link.url) %}
-                                    <tr class="lp-card-pulls__item">
-                                        <td><span class="lp-inbox-linked-table__type"><twig:ux:icon name="lucide:git-pull-request" class="w-4 h-4" />{{ 'board.card.link.pull_request'|trans }}</span><strong>{{ link.repository ? link.repository ~ ' #' ~ link.number : link.url }}</strong></td>
-                                        <td><span class="lp-tag">{{ href ? ('board.card.link.status_not_reported'|trans) : ('board.card.pull_requests.not_linkable'|trans) }}</span></td>
-                                        <td>{% if href %}<a class="lp-btn lp-btn--ghost lp-btn--icon" href="{{ href }}" rel="noopener noreferrer" target="_blank" aria-label="{{ 'board.card.link.open_pull_request'|trans }}"><twig:ux:icon name="lucide:arrow-up-right" class="w-4 h-4" /></a>{% endif %}</td>
-                                    </tr>
+                                    {% for link in card.pullRequests %}
+                                        {% include '@Board/_linked_pull_request.html.twig' with {link: link} only %}
                                     {% endfor %}
                                 </tbody>
                             </table>

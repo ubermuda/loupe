@@ -697,7 +697,7 @@
         @apply px-4 py-2 text-left text-xs font-semibold text-fg-dim border-b border-line;
     }
     .lp-inbox-linked-table th:nth-child(2) {
-        @apply w-36;
+        @apply w-48;
     }
     .lp-inbox-linked-table th:last-child {
         @apply w-14;
@@ -712,7 +712,14 @@
         @apply inline-flex items-center gap-1.5 text-xs font-medium text-fg-dim;
     }
     .lp-inbox-linked-table strong {
-        @apply font-semibold text-ink;
+        @apply font-semibold text-ink break-words;
+    }
+    .lp-inbox-linked-table .lp-tag {
+        @apply whitespace-nowrap;
+    }
+    /* An unavailable artifact keeps its explanation beside the artifact name. */
+    .lp-inbox-linked-table__note {
+        @apply m-0 text-xs text-fg-mute;
     }
     @media (width < 40rem) {
         .lp-needs-you .lp-page-header {
