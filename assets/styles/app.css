@@ -6101,4 +6101,12 @@
     .lp-activity-row__meta {
         @apply flex flex-wrap items-center gap-3 mt-3 text-xs text-fg-mute;
     }
+    @media (width < 40rem) {
+        .lp-activity-row {
+            @apply gap-3 p-4;
+        }
+        .lp-activity-row__heading {
+            @apply flex-col gap-1;
+        }
+    }
 }
