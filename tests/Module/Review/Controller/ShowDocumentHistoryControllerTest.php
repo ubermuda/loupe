@@ -7,6 +7,8 @@ namespace App\Tests\Module\Review\Controller;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\Review;
+use App\Module\Review\Entity\Verdict;
 use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -121,6 +123,52 @@ final class ShowDocumentHistoryControllerTest extends WebTestCase
         );
 
         self::assertCount(0, $crawler->filter('.lp-history__row[data-version-number="1"] .lp-history__compare'));
+    }
+
+    public function test_reviews_remain_with_their_version_and_withdrawals_preserve_the_log(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->createUser($em, 'history-reviewer', 'history-reviewer@example.com');
+        $project = $this->project($em, $owner);
+        $document = new Document(owner: $owner, project: $project, title: 'Reviewed history');
+        $first = $document->addVersion('# First', '<h1>First</h1>');
+        $second = $document->addVersion('# Second', '<h1>Second</h1>');
+        $document->addVersion('# Third', '<h1>Third</h1>');
+        $unrelated = new Document(owner: $owner, project: $project, title: 'Other document');
+        $unrelatedVersion = $unrelated->addVersion('# Other', '<h1>Other</h1>');
+        $time = new \DateTimeImmutable('2026-09-16T10:00:00+00:00');
+        $em->persist($document);
+        $em->persist($unrelated);
+        $em->persist(new Review($first, Verdict::Approved, $owner, 1, $time, 'Ready to ship.'));
+        $em->persist(new Review($first, Verdict::Withdrawn, $owner, 2, $time));
+        $em->persist(new Review($second, Verdict::ChangesRequested, $owner, 1, $time, "Fix <script>alert(1)</script>.\nThen submit again."));
+        $em->persist(new Review($unrelatedVersion, Verdict::Approved, $owner, 1, $time, 'Unrelated verdict.'));
+        $em->flush();
+        $path = '/projects/'.$project->id.'/documents/'.$document->id.'/review/history';
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, $path);
+
+        self::assertResponseIsSuccessful();
+        $firstRow = $crawler->filter('.lp-history__row[data-version-number="1"]');
+        self::assertSame(['Approved', 'Verdict withdrawn'], $firstRow->filter('.lp-history__verdict')->each(
+            static fn (Crawler $node): string => $node->text(),
+        ));
+        self::assertSame(['1', '2'], $firstRow->filter('[data-review-sequence]')->each(
+            static fn (Crawler $node): string => (string) $node->attr('data-review-sequence'),
+        ));
+        self::assertStringContainsString('Ready to ship.', $firstRow->text());
+        self::assertStringContainsString('History-reviewer', $firstRow->text());
+        self::assertSame('2026-09-16T10:00:00+00:00', $firstRow->filter('time')->first()->attr('datetime'));
+        $secondRow = $crawler->filter('.lp-history__row[data-version-number="2"]');
+        self::assertStringContainsString('Changes requested', $secondRow->text());
+        self::assertStringContainsString('Fix <script>alert(1)</script>.', $secondRow->text());
+        self::assertCount(0, $secondRow->filter('script'));
+        self::assertCount(1, $secondRow->filter('.lp-history__review'));
+        self::assertSelectorTextContains('.lp-history__row[data-version-number="3"]', 'No reviews for this version.');
+        self::assertStringNotContainsString('Unrelated verdict.', $crawler->text());
     }
 
     /**

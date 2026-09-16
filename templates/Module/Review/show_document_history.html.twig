@@ -79,6 +79,20 @@
             {% if meta.description %}
             <p class="lp-history__note">{{ meta.description }}</p>
             {% endif %}
+            <ol class="lp-history__reviews" aria-label="{{ 'review.document.history.reviews'|trans }}">
+                {% for review in meta.reviews %}
+                <li class="lp-history__review" data-review-sequence="{{ review.sequence }}">
+                    <div class="lp-history__head">
+                        <span class="lp-history__verdict">{{ ('review.document.verdict.' ~ review.verdict.value)|trans }}</span>
+                        <span>{{ review.reviewer.fullName }}</span>
+                        <time class="lp-history__date" datetime="{{ review.submittedAt|date('c') }}" title="{{ review.submittedAt|date('Y-m-d H:i:s T') }}">{{ review.submittedAt|relative_time }}</time>
+                    </div>
+                    {% if review.note %}<p class="lp-history__review-note">{{ review.note }}</p>{% endif %}
+                </li>
+                {% else %}
+                <li class="lp-history__date">{{ 'review.document.history.no_reviews'|trans }}</li>
+                {% endfor %}
+            </ol>
         </li>
         {% endfor %}
     </ol>

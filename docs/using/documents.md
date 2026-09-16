@@ -114,7 +114,9 @@ Three views help across versions:
 The Versions tab on the review page carries the version you are reading: its
 number, its date, its note and the way into its comparison with the version
 before it. A link at the end of the tab opens the history page, which lists every
-version the same way. The history page also has a picker that compares any two
+version with its review log. Each review shows the reviewer, verdict, note and time.
+Withdrawals remain beside the original verdict. Versions without reviews say so.
+The history page also has a picker that compares any two
 versions, not only two that follow one another.
 
 ### What a comparison looks like

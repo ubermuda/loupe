@@ -1603,6 +1603,18 @@
                 <source>review.document.history.page.title</source>
                 <target>Version history</target>
             </trans-unit>
+            <trans-unit id="review.document.history.reviews">
+                <source>review.document.history.reviews</source>
+                <target>Review history</target>
+            </trans-unit>
+            <trans-unit id="review.document.history.no_reviews">
+                <source>review.document.history.no_reviews</source>
+                <target>No reviews for this version.</target>
+            </trans-unit>
+            <trans-unit id="review.document.verdict.withdrawn">
+                <source>review.document.verdict.withdrawn</source>
+                <target>Verdict withdrawn</target>
+            </trans-unit>
             <trans-unit id="review.document.history.count">
                 <source>review.document.history.count</source>
                 <target>{0}No versions|{1}1 version|]1,Inf[%count% versions</target>

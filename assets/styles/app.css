@@ -2264,6 +2264,19 @@
     .lp-history-back {
         @apply inline-flex items-center gap-1.5 text-fg-mute no-underline transition-colors text-sm hover:text-accent;
     }
+    /** Verdict entries stay with the version that received them. */
+    .lp-history__reviews {
+        @apply list-none flex flex-col gap-3 m-0 mt-2 p-0;
+    }
+    .lp-history__review {
+        @apply flex flex-col gap-1 text-sm text-fg-mute;
+    }
+    .lp-history__verdict {
+        @apply font-medium text-fg;
+    }
+    .lp-history__review-note {
+        @apply m-0 max-w-prose whitespace-pre-wrap break-words;
+    }
     .lp-history-compare {
         @apply flex flex-col gap-2 mt-8;
     }

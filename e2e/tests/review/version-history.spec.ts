@@ -39,6 +39,24 @@ test('the History tab compares two distant versions', async ({ page }) => {
 
     await page.goto(`/projects/${projectId}/documents/${documentId}/review`);
 
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    const reviewDialog = page.getByRole('dialog', { name: 'Finish review' });
+    await reviewDialog
+        .getByRole('radio', { name: 'Approve', exact: true })
+        .check();
+    await reviewDialog
+        .getByLabel('Review note', { exact: true })
+        .fill('Ready for the rollout.');
+    await reviewDialog.getByRole('button', { name: 'Submit review' }).click();
+    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
+    await page
+        .locator('.lp-verdict-bar')
+        .getByRole('button', { name: 'Undo', exact: true })
+        .click();
+    await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
+
     await page.getByRole('link', { name: 'History', exact: true }).click();
     await expect(page).toHaveURL(
         `/projects/${projectId}/documents/${documentId}/review/history`,
@@ -47,6 +65,20 @@ test('the History tab compares two distant versions', async ({ page }) => {
         page.getByRole('heading', { name: 'Version history' }),
     ).toBeVisible();
     await expect(page.locator('.lp-history__row')).toHaveCount(4);
+    const currentVersion = page.locator(
+        '.lp-history__row[data-version-number="4"]',
+    );
+    await expect(currentVersion.locator('.lp-history__verdict')).toHaveText([
+        'Approved',
+        'Verdict withdrawn',
+    ]);
+    await expect(currentVersion).toContainText('Ready for the rollout.');
+    await expect(currentVersion).toContainText('E2E History');
+    await expect(
+        page.locator('.lp-history__row[data-version-number="3"]'),
+    ).toContainText('No reviews for this version.');
+    await page.reload();
+    await expect(currentVersion.locator('.lp-history__review')).toHaveCount(2);
 
     // v1 against v4: a pair the per-version compare controls never offer.
     await page.locator('#history-compare-from').selectOption('1');

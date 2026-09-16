@@ -23,6 +23,21 @@ class ReviewRepository extends ServiceEntityRepository
         parent::__construct($registry, Review::class);
     }
 
+    /** @return list<Review> */
+    public function findHistoryByDocument(Document $document): array
+    {
+        return $this->createQueryBuilder('review')
+            ->addSelect('version', 'reviewer')
+            ->join('review.version', 'version')
+            ->join('review.reviewer', 'reviewer')
+            ->andWhere('version.document = :document')
+            ->setParameter('document', $document)
+            ->orderBy('version.versionNumber', 'DESC')
+            ->addOrderBy('review.sequence', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     /**
      * The last row written to a version's verdict log, or null if none has been.
      *
