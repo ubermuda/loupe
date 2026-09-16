@@ -174,7 +174,7 @@
 
 .lp-core-board .lp-board-card__meta {
     padding-top: calc(var(--spacing) * 2.5);
-    border-top: 1px solid var(--border-subtle);
+    border-top: 1px solid var(--border-faint);
 }
 
 .lp-core-board .lp-board__add-column {
