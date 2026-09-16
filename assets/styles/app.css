@@ -1694,6 +1694,10 @@
     .lp-document-editor {
         @apply min-h-64 font-mono;
     }
+    /** Explicit save control for an embedded decision. */
+    .lp-decision__save {
+        @apply block ml-auto mt-4;
+    }
     /** Scrollable card choices in the document dialogs. */
     .lp-document-work-links {
         @apply max-h-40 overflow-y-auto flex flex-col gap-2;

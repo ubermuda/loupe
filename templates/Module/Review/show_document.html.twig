@@ -83,7 +83,7 @@
            is the TreeWalker root and must hold ONLY the rendered HTML, so its
            text === plainText(). #}
         {% set docActions = (canComment ? ['mouseup->comment-anchor#onDocMouseup', 'pointerup->comment-anchor#onDocPointerup', 'mousemove->comment-anchor#onDocMousemove', 'click->comment-anchor#onDocClick'] : [])|merge(readOnly ? [] : ['change->decision#select']) %}
-        <div class="lp-review-doc{{ diffColumns ? ' lp-review-doc--wide' : '' }}" data-comment-anchor-target="block" data-controller="decision"{% if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}>
+        <div class="lp-review-doc{{ diffColumns ? ' lp-review-doc--wide' : '' }}" data-comment-anchor-target="block" data-controller="decision" data-decision-save-label-value="{{ 'review.decision.save'|trans }}"{% if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}>
 
             <div class="lp-review-doc__head">
                 <div class="lp-review-doc__title-row">
@@ -716,11 +716,12 @@
             {% if not diffMode and decisionRows|length > 0 and not readOnly %}
             {{ form_start(selectDecisionForm, {attr: {
                 'data-decision-target': 'form',
+                'data-action': 'turbo:submit-end->decision#saved',
                 hidden: true,
             }}) }}
-                {{ form_widget(selectDecisionForm.decisionId) }}
-                {{ form_widget(selectDecisionForm.optionIndex) }}
-                {{ form_widget(selectDecisionForm.chosen) }}
+                {{ form_widget(selectDecisionForm.decisionId, {attr: {'data-decision-target': 'decisionId'}}) }}
+                {{ form_widget(selectDecisionForm.optionIndexes, {attr: {'data-decision-target': 'options', 'data-field-name': selectDecisionForm.optionIndexes.vars.full_name}}) }}
+                {{ form_widget(selectDecisionForm.expectedOptionIndexes, {attr: {'data-decision-target': 'expectedOptions', 'data-field-name': selectDecisionForm.expectedOptionIndexes.vars.full_name}}) }}
             {{ form_end(selectDecisionForm) }}
             {% endif %}
 

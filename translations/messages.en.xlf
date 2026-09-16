@@ -1421,7 +1421,9 @@
             <trans-unit id="review.document.margin.filter_empty"><source>review.document.margin.filter_empty</source><target>No comments match this filter.</target></trans-unit>
             <trans-unit id="review.document.margin.outline_empty"><source>review.document.margin.outline_empty</source><target>This document has no section headings.</target></trans-unit>
             <trans-unit id="review.document.margin.decisions_empty"><source>review.document.margin.decisions_empty</source><target>This document has no decisions.</target></trans-unit>
-            <trans-unit id="review.document.margin.decisions_save_hint"><source>review.document.margin.decisions_save_hint</source><target>Each choice saves when you select it.</target></trans-unit>
+            <trans-unit id="review.document.margin.decisions_save_hint"><source>review.document.margin.decisions_save_hint</source><target>Select your choices, then select Save decision in the document.</target></trans-unit>
+            <trans-unit id="review.decision.save"><source>review.decision.save</source><target>Save decision</target></trans-unit>
+            <trans-unit id="review.decision.status.selection_saved"><source>review.decision.status.selection_saved</source><target>Decision saved on v%version%.</target></trans-unit>
             <trans-unit id="review.document.margin.references_empty"><source>review.document.margin.references_empty</source><target>None</target></trans-unit>
             <trans-unit id="review.document.margin.series"><source>review.document.margin.series</source><target>Series</target></trans-unit>
             <trans-unit id="review.document.margin.version_note"><source>review.document.margin.version_note</source><target>Version note</target></trans-unit>
@@ -1804,6 +1806,10 @@
             <trans-unit id="review.decision.error.stale_version">
                 <source>review.decision.error.stale_version</source>
                 <target>This document changed while you were reading it. Reload the page and choose again.</target>
+            </trans-unit>
+            <trans-unit id="review.decision.error.changed_answer">
+                <source>review.decision.error.changed_answer</source>
+                <target>Another answer is saved. Reload the document and compare your choices before saving.</target>
             </trans-unit>
             <trans-unit id="review.document.sections.count_compact">
                 <source>review.document.sections.count_compact</source>

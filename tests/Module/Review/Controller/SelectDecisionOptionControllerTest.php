@@ -48,6 +48,38 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
 
     private const string LONG_OPTION = 'Ship straight to production on a Friday afternoon and then tell the entire company about it';
 
+    public function test_explicit_save_keeps_a_concurrent_answer_and_rejects_invalid_input(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+        $client->loginUser($owner);
+        [$token, $versionNumber] = $this->renderForm($client, $document);
+        $url = '/projects/'.$document->project->id.'/documents/'.$document->id.'/decisions/save';
+        $values = ['save_decision_form' => [
+            '_token' => $token,
+            'decisionId' => 'deploy-target',
+            'versionNumber' => $versionNumber,
+            'optionIndexes' => [1],
+            'expectedOptionIndexes' => [],
+        ]];
+        $headers = ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html'];
+        $client->request(Request::METHOD_POST, $url, $values, server: $headers);
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Decision saved on v1.', (string) $client->getResponse()->getContent());
+        $values['save_decision_form']['optionIndexes'] = [0];
+        $client->request(Request::METHOD_POST, $url, $values, server: $headers);
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringContainsString('Another answer is saved.', (string) $client->getResponse()->getContent());
+        foreach ([[''], ['invalid'], [-1], [99]] as $invalid) {
+            $values['save_decision_form']['optionIndexes'] = $invalid;
+            $client->request(Request::METHOD_POST, $url, $values, server: $headers);
+            self::assertResponseStatusCodeSame(422);
+        }
+        $stored = static::getContainer()->get(DecisionSelectionRepository::class)->findByDocumentAndDecisionId($document, 'deploy-target');
+        self::assertCount(1, $stored);
+        self::assertSame(1, $stored[0]->optionIndex);
+    }
+
     public function test_the_review_page_renders_a_fence_as_radios_the_reviewer_can_answer(): void
     {
         $client = static::createClient();
@@ -79,8 +111,8 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, $this->reviewPath($document));
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('#select_decision_option_form_versionNumber'));
-        self::assertCount(0, $crawler->filter('label[for^="select_decision_option_form_"]'));
+        self::assertCount(1, $crawler->filter('#save_decision_form_versionNumber'));
+        self::assertCount(0, $crawler->filter('label[for^="save_decision_form_"]'));
     }
 
     public function test_answering_records_the_choice_and_shows_it_on_the_next_visit(): void
@@ -730,8 +762,8 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         $crawler = $client->getCrawler();
 
         return [
-            (string) $crawler->filter('input[name="select_decision_option_form[_token]"]')->attr('value'),
-            (string) $crawler->filter('input[name="select_decision_option_form[versionNumber]"]')->attr('value'),
+            (string) $crawler->filter('input[name="save_decision_form[_token]"]')->attr('value'),
+            (string) $crawler->filter('input[name="save_decision_form[versionNumber]"]')->attr('value'),
         ];
     }
 

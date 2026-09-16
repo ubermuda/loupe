@@ -2,20 +2,6 @@ import { test, expect, type Page } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
 import { coverageScaled } from '../timeouts';
 
-/**
- * Browser coverage for reviewer-selectable decision blocks.
- *
- * PHPUnit covers DecisionBlockService and SelectDecisionOptionController; the
- * untested half was the JavaScript. decision_controller.js reads the clicked
- * control, copies its decision id and option index into a hidden form and calls
- * requestSubmit() — so the Stimulus target names, the `change` delegation and
- * the requestSubmit() choice could all break with a green `just ci`.
- *
- * requestSubmit() is the sharpest of those: `.submit()` fires no submit event,
- * so csrf_protection_controller.js's document-level listener would never run the
- * double-submit and every password-login session would 403 — invisible to a
- * suite that runs no JS.
- */
 // Guest by default, and self-registering through the dev endpoints — the same
 // shape as review-loop.spec.ts. The shared worker fixture expects to land on
 // /projects after login, which a freshly-registered user with no project does
@@ -105,15 +91,21 @@ test('choosing an option records the answer and survives a reload', async ({
     );
     await expect(secondOption).toHaveCount(2);
     await secondOption.nth(1).check();
+    const unsaved = await page.request.get(`/dev/review/${documentId}/state`);
+    expect((await unsaved.json()).decisions[0].selected).toBeNull();
+    await block.getByRole('button', { name: 'Save decision' }).click();
 
     // The status region, not the radio's own checked state. The form posts back
     // to the review URL it was submitted from, so toHaveURL resolves instantly,
     // and the radio reads as checked the moment the browser paints it —
     // whether or not the POST ever landed. Reloading on that signal cancels the
     // request in flight and the answer is silently lost.
-    await expect(page.locator('#decision-status')).toHaveText(/^Saved/, {
-        timeout: coverageScaled(15000),
-    });
+    await expect(page.locator('#decision-status')).toHaveText(
+        /^Decision saved/,
+        {
+            timeout: coverageScaled(15000),
+        },
+    );
 
     await page.reload();
     const afterReload = page
@@ -135,9 +127,13 @@ test('the answer reaches the review payload', async ({ page }) => {
         .locator(`[data-decision-id="${DECISION_ID}"]`)
         .locator('input[type="radio"][data-decision-option]');
     await radios.nth(0).check();
-    await expect(page.locator('#decision-status')).toHaveText(/^Saved/, {
-        timeout: coverageScaled(15000),
-    });
+    await page.getByRole('button', { name: 'Save decision' }).click();
+    await expect(page.locator('#decision-status')).toHaveText(
+        /^Decision saved/,
+        {
+            timeout: coverageScaled(15000),
+        },
+    );
 
     const stateRes = await page.request.get(`/dev/review/${documentId}/state`);
     expect(stateRes.status()).toBe(200);
@@ -267,10 +263,9 @@ test('the Decisions margin reports the saved answer', async ({ page }) => {
         .nth(1)
         .check();
 
-    // One region serves every block, so it has to say which option landed and
-    // against which version. It is aria-live, so this is also what is read out.
+    await page.getByRole('button', { name: 'Save decision' }).click();
     await expect(page.locator('#decision-status')).toHaveText(
-        `Saved “${OPTION_TWO}” for version 1.`,
+        'Decision saved on v1.',
         { timeout: coverageScaled(15000) },
     );
     // Streamed with `update`, so the panel the reviewer opened is still open.
@@ -305,6 +300,43 @@ test('the Decisions margin scrolls to its question without navigating', async ({
 });
 
 const MULTIPLE_ID = 'ship-with';
+
+test('a concurrent answer refuses the save and keeps the local choice', async ({
+    page,
+    context,
+}) => {
+    await signedInReviewer(page, 'concurrent');
+    const { documentId, reviewUrl } = await seedDocument(
+        page,
+        'Concurrent decision',
+    );
+    await page.goto(reviewUrl);
+    const other = await context.newPage();
+    await other.goto(reviewUrl);
+    await page.getByRole('radio', { name: OPTION_ONE, exact: true }).check();
+    await other.getByRole('radio', { name: OPTION_TWO, exact: true }).check();
+    await other.getByRole('button', { name: 'Save decision' }).click();
+    await expect(other.locator('#decision-status')).toHaveText(
+        'Decision saved on v1.',
+        { timeout: coverageScaled(15000) },
+    );
+    await page.getByRole('button', { name: 'Save decision' }).click();
+    await expect(page.locator('#decision-status')).toContainText(
+        'Another answer is saved.',
+        { timeout: coverageScaled(15000) },
+    );
+    await expect(
+        page.getByRole('radio', { name: OPTION_ONE, exact: true }),
+    ).toBeChecked();
+    const response = await page.request.get(`/dev/review/${documentId}/state`);
+    expect((await response.json()).decisions[0].selected).toBe(OPTION_TWO);
+    await page.reload();
+    await expect(
+        page.getByRole('radio', { name: OPTION_TWO, exact: true }),
+    ).toBeChecked();
+    await other.close();
+});
+
 const SHIP_ONE = 'The importer';
 const SHIP_TWO = 'The exporter';
 
@@ -339,12 +371,6 @@ async function readDecision(
     return state.decisions.find((d) => d.id === MULTIPLE_ID);
 }
 
-/**
- * The checkbox half of the same JavaScript. One click adds an option and a
- * second takes it back off, so the controller has to post an unticked box too —
- * a handler that only ever added would look correct until someone changed their
- * mind.
- */
 test('a multi-choice block records several answers and clears one', async ({
     page,
 }) => {
@@ -370,10 +396,9 @@ test('a multi-choice block records several answers and clears one', async ({
     // state: the browser paints a tick whether or not the POST landed, and the
     // status region already reads "saved" from the answer before this one.
     await boxes.nth(0).check();
-    await expect(page.locator('#decision-status')).toHaveText(/saved/i, {
-        timeout: coverageScaled(15000),
-    });
     await boxes.nth(1).check();
+    expect((await readDecision(page, body.documentId))?.selections).toEqual([]);
+    await page.getByRole('button', { name: 'Save decision' }).click();
     await expect
         .poll(
             async () =>
@@ -391,6 +416,7 @@ test('a multi-choice block records several answers and clears one', async ({
     ]);
 
     await boxes.nth(0).uncheck();
+    await page.getByRole('button', { name: 'Save decision' }).click();
     await expect
         .poll(
             async () =>
