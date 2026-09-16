@@ -126,6 +126,62 @@ const test = base.extend<{ review: SeededReview }>({
 // Guest by default — make the unauthenticated starting state explicit.
 test.use({ storageState: { cookies: [], origins: [] } });
 
+test('New document creates a draft that can be reviewed', async ({
+    page,
+    review,
+}) => {
+    await page.goto(review.dashboardUrl);
+    await page
+        .getByRole('button', { name: 'New document', exact: true })
+        .click();
+    const dialog = page.getByRole('dialog', {
+        name: 'New document',
+        exact: true,
+    });
+    await dialog.getByLabel('Title', { exact: true }).fill('A human draft');
+    await dialog
+        .getByLabel('Markdown', { exact: true })
+        .fill('# Draft scope\n\nA new document from the browser.');
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await page
+        .getByRole('button', { name: 'New document', exact: true })
+        .click();
+    await expect(dialog.getByLabel('Title', { exact: true })).toHaveValue(
+        'A human draft',
+    );
+    await dialog
+        .getByRole('button', { name: 'Create document', exact: true })
+        .click();
+    await expect(
+        page.getByRole('heading', { name: 'A human draft', exact: true }),
+    ).toBeVisible({ timeout: 20000 });
+    const draftUrl = page.url();
+    await expect(page.locator('.lp-review-doc__byline')).toContainText('Draft');
+    await expect(page.locator(DOC)).toContainText(
+        'A new document from the browser.',
+    );
+    await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
+    await page.goto(`${review.dashboardUrl}?status=draft`);
+    await expect(page.locator('[data-document-id]')).toHaveCount(1);
+    await expect(page.locator('[data-document-id]')).toContainText(
+        'A human draft',
+    );
+    await expect(page.locator('[data-document-id]')).toContainText('Draft');
+    await page.goto(draftUrl);
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    const finishDialog = page.getByRole('dialog', { name: 'Finish review' });
+    await finishDialog
+        .getByRole('radio', { name: 'Approve', exact: true })
+        .check();
+    await finishDialog.getByRole('button', { name: 'Submit review' }).click();
+    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible({
+        timeout: 20000,
+    });
+});
+
 test('Revise saves a new version and preserves the previous text', async ({
     page,
     review,

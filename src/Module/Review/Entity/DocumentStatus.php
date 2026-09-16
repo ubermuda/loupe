@@ -9,6 +9,7 @@ enum DocumentStatus: string
     case InReview = 'in-review';
     case Approved = 'approved';
     case ChangesRequested = 'changes-requested';
+    case Draft = 'draft';
 
     /** @return list<string> */
     public static function values(): array
@@ -22,6 +23,7 @@ enum DocumentStatus: string
             self::InReview => 'document.status.in_review',
             self::Approved => 'document.status.approved',
             self::ChangesRequested => 'document.status.changes_requested',
+            self::Draft => 'document.status.draft',
         };
     }
 }

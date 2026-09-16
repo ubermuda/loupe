@@ -16,7 +16,7 @@
 {# Unfiltered and archive-free, so it can tell "this project has nothing" from
    "the filters matched nothing". Same number the shell's nav pill shows. #}
 {% set totalDocuments = project_document_count(project) %}
-<div class="lp-workspace lp-core-prototype-page lp-core-documents">
+<div class="lp-workspace lp-core-prototype-page lp-core-documents" data-controller="modal" data-modal-reopen-value="{{ createDocumentForm.vars.submitted ? 'true' : 'false' }}">
     <header class="lp-page-header">
         <div>
             <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'review.dashboard.page.title'|trans }}</h1>
@@ -31,7 +31,9 @@
     {% endif %}
             <p class="lp-workspace-desc">{{ descriptionKey|trans }}</p>
         </div>
+        <button type="button" class="lp-btn lp-btn--primary" data-action="click->modal#open">{{ 'review.create.title'|trans }}</button>
     </header>
+    {% include '@Review/_create_document.html.twig' with {form: createDocumentForm} only %}
 
     {# Six controls in front of a project that has nothing to filter are six dead
        controls, so the bar waits for a first document — but it stays once a
@@ -259,6 +261,7 @@
     <div class="lp-empty-state">
         <twig:ux:icon name="lucide:file-text" class="lp-empty-state__icon w-12 h-12" />
         <h2 class="lp-empty-state__title">{{ 'review.dashboard.empty.title'|trans }}</h2>
+        <p class="lp-empty-state__body">{{ 'review.create.empty'|trans }}</p>
         {% if project.mcpToken %}
         <p class="lp-empty-state__body">{{ 'review.dashboard.empty.connected_body'|trans }}</p>
         <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'review.dashboard.empty.tools'|trans }}</a>

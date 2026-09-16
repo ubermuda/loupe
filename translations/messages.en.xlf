@@ -1101,7 +1101,7 @@
             </trans-unit>
             <trans-unit id="review.dashboard.description">
                 <source>review.dashboard.description</source>
-                <target>Documents the agent submitted for review, newest first.</target>
+                <target>Project documents, newest first.</target>
             </trans-unit>
             <trans-unit id="review.dashboard.description_ranked">
                 <source>review.dashboard.description_ranked</source>
@@ -1208,6 +1208,42 @@
             <trans-unit id="review.rename.error.too_long">
                 <source>review.rename.error.too_long</source>
                 <target>That title is too long.</target>
+            </trans-unit>
+            <trans-unit id="document.status.draft">
+                <source>document.status.draft</source>
+                <target>Draft</target>
+            </trans-unit>
+            <trans-unit id="review.create.title">
+                <source>review.create.title</source>
+                <target>New document</target>
+            </trans-unit>
+            <trans-unit id="review.create.empty">
+                <source>review.create.empty</source>
+                <target>Select New document to write a draft, or connect an agent to submit one.</target>
+            </trans-unit>
+            <trans-unit id="review.create.help">
+                <source>review.create.help</source>
+                <target>Write a title and Markdown. The document opens as a draft.</target>
+            </trans-unit>
+            <trans-unit id="review.create.cancel">
+                <source>review.create.cancel</source>
+                <target>Cancel</target>
+            </trans-unit>
+            <trans-unit id="review.create.submit">
+                <source>review.create.submit</source>
+                <target>Create document</target>
+            </trans-unit>
+            <trans-unit id="review.create.flash.success">
+                <source>review.create.flash.success</source>
+                <target>Document created.</target>
+            </trans-unit>
+            <trans-unit id="review.form.create_document_form.title.label">
+                <source>review.form.create_document_form.title.label</source>
+                <target>Title</target>
+            </trans-unit>
+            <trans-unit id="review.form.create_document_form.markdown.label">
+                <source>review.form.create_document_form.markdown.label</source>
+                <target>Markdown</target>
             </trans-unit>
             <trans-unit id="review.create.error.blank">
                 <source>review.create.error.blank</source>

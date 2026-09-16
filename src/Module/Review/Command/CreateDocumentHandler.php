@@ -6,6 +6,7 @@ namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Service\DocumentReferenceValidator;
 use App\Module\Review\Service\DocumentSearchIndexer;
@@ -59,6 +60,7 @@ final readonly class CreateDocumentHandler
             searchLanguage: $command->language ?? $command->project->searchLanguage,
         );
         $document->addVersion($command->markdown, $this->renderer->render($command->markdown), $command->description);
+        $document->status = $command->draft ? DocumentStatus::Draft : DocumentStatus::InReview;
 
         // Also before persist(), for the same reason: this rejects a reference
         // the project may not point at.

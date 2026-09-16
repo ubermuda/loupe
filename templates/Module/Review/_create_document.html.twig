@@ -1,0 +1,18 @@
+<dialog class="lp-dialog lp-dialog--document" data-modal-target="dialog" aria-labelledby="create-document-title" data-action="cancel->modal#close">
+    <h2 class="lp-dialog-title" id="create-document-title">{{ 'review.create.title'|trans }}</h2>
+    <p class="lp-dialog-desc">{{ 'review.create.help'|trans }}</p>
+    {{ form_start(form, {attr: {class: 'lp-form'}}) }}
+        <div class="lp-field-errors">{{ form_errors(form) }}</div>
+        {% for field in [form.title, form.markdown] %}
+        <div class="lp-form-field">
+            {{ form_label(field, null, {label_attr: {class: 'lp-label'}}) }}
+            {{ form_widget(field, {attr: {class: field.vars.name == 'markdown' ? 'lp-input lp-document-editor' : 'lp-input'}}) }}
+            <div class="lp-field-errors">{{ form_errors(field) }}</div>
+        </div>
+        {% endfor %}
+        <div class="lp-review-verdict-actions">
+            <button type="button" class="lp-btn lp-btn--ghost" data-action="click->modal#close">{{ 'review.create.cancel'|trans }}</button>
+            <button type="submit" class="lp-btn lp-btn--primary">{{ 'review.create.submit'|trans }}</button>
+        </div>
+    {{ form_end(form) }}
+</dialog>

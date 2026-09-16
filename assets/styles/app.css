@@ -1045,7 +1045,8 @@
     .lp-badge {
         @apply inline-flex items-center py-1 px-3 rounded-md text-sm font-bold whitespace-nowrap;
     }
-    .lp-badge--in-review {
+    .lp-badge--in-review,
+    .lp-badge--draft {
         @apply bg-surface-3 text-ink-soft;
     }
     .lp-badge--approved {

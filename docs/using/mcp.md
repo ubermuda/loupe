@@ -175,8 +175,8 @@ Four arguments narrow the list:
 - `search` matches full-text terms against every document's title and current
   content. Quotes and `OR` work as they do in a web search box. The rows come
   back by relevance instead of by recency.
-- `status` keeps one state: `in-review`, `approved` or `changes-requested`. An
-  unknown value is refused, and the error names the three.
+- `status` keeps one state: `draft`, `in-review`, `approved` or `changes-requested`. An
+  unknown value is refused, and the error names the accepted values.
 - `tag` keeps the documents that carry one tag. The match ignores case and
   surrounding spaces. Read `tag_list` for the project's vocabulary.
 - `series` keeps the documents in one series and orders them by their position

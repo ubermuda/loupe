@@ -375,7 +375,7 @@ final class DocumentListToolTest extends KernelTestCase
             ($this->tool)(status: 'done');
             self::fail('an unknown status must be refused rather than ignored');
         } catch (ToolCallException $e) {
-            self::assertSame('Unknown status "done". Use one of: in-review, approved, changes-requested.', $e->getMessage());
+            self::assertSame('Unknown status "done". Use one of: in-review, approved, changes-requested, draft.', $e->getMessage());
         }
     }
 

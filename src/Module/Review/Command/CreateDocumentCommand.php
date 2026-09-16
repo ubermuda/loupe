@@ -29,6 +29,7 @@ final readonly class CreateDocumentCommand
         public ?string $seriesName = null,
         public ?int $seriesOrdinal = null,
         public ?SearchLanguage $language = null,
+        public bool $draft = false,
     ) {
     }
 }

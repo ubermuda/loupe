@@ -8,6 +8,14 @@ description, tags, an optional place in a series, and links to other documents;
 each submission mints a new **version**, and the review UI keeps every one of
 them.
 
+## Creating
+
+Open Documents in a project, then select **New document**.
+Enter a title and Markdown, then select **Create document**.
+Loupe opens the first version with Draft status.
+You can review a draft with **Finish review**, or edit it with **Revise**.
+Documents submitted through the agent tools start with In review status.
+
 ## Revising
 
 Select **Revise** beside the document title to edit its title and Markdown.
