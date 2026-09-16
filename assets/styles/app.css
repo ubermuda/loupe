@@ -7,7 +7,7 @@
    single Tailwind pass. The primitive classes it deliberately leaves to the
    consuming app are defined near the bottom of this file. */
 @import '../../vendor/ubermuda/admin-bundle/assets/admin.css';
-@import './redesign-core.css';
+@import './redesign-core.css' layer(components);
 @import './redesign-secondary.css';
 
 /* ── Content sources for Tailwind v4 ──────────────────────────────── */
@@ -611,17 +611,8 @@
         scroll-padding-inline: calc(var(--spacing) * 3);
         scrollbar-width: thin;
     }
-    .lp-workspace--board .lp-board__column {
-        @apply min-w-72 rounded-2xl bg-surface-2 p-4;
-    }
     .lp-board__column-head {
         @apply min-h-8;
-    }
-    .lp-workspace--board .lp-board-card {
-        @apply border border-line;
-    }
-    .lp-workspace--board .lp-board-card:hover {
-        @apply border-line-strong shadow-card;
     }
 
     @media (width < 40rem) {

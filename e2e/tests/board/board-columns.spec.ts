@@ -280,6 +280,20 @@ test('a header dragged past its neighbour reorders the columns', async ({
     page,
     board,
 }) => {
+    const columnsDoNotOverlap = await page
+        .locator(COLUMN)
+        .evaluateAll((columns) => {
+            const rectangles = columns.map((column) =>
+                column.getBoundingClientRect(),
+            );
+
+            return rectangles.every(
+                (rectangle, index) =>
+                    index === 0 ||
+                    rectangles[index - 1].right <= rectangle.left,
+            );
+        });
+    expect(columnsDoNotOverlap).toBe(true);
     const grip = page.locator(
         `${COLUMN}[data-column-slug="backlog"] .lp-board__column-grip`,
     );

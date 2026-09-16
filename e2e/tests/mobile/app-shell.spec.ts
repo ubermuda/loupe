@@ -113,6 +113,27 @@ test.use({
     hasTouch: true,
 });
 
+test('workspace component styles allow utility overrides', async ({
+    page,
+    seeded,
+}) => {
+    await page.goto(`/projects/${seeded.projectId}/documents`);
+    await page.evaluate(() => {
+        const workspace = document.createElement('div');
+        workspace.className = 'lp-core-inbox';
+        const section = document.createElement('section');
+        section.id = 'cascade-probe';
+        section.className = 'lp-inbox-section--open';
+        section.textContent = 'Component cascade probe';
+        workspace.appendChild(section);
+        document.body.appendChild(workspace);
+    });
+    const section = page.locator('#cascade-probe');
+    await expect(section).toHaveCSS('display', 'flex');
+    await section.evaluate((element) => element.classList.add('hidden'));
+    await expect(section).toBeHidden();
+});
+
 test('no authenticated page scrolls sideways at 375px', async ({
     page,
     seeded,
