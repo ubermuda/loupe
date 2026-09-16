@@ -42,9 +42,9 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertCount(10, $crawler->filter('[data-board-drag-target="group"]'));
         self::assertCount(2, $crawler->filter('[data-board-drag-target="card"]'));
         self::assertCount(1, $crawler->filter('dialog[data-card-drawer-target="dialog"] turbo-frame#card-drawer-frame'));
-        self::assertCount(2, $crawler->filter('a[data-turbo-frame="card-drawer-frame"][data-action="click->card-drawer#prepare"]'));
+        self::assertCount(2, $crawler->filter('.lp-board__column a[data-turbo-frame="card-drawer-frame"][data-action="click->card-drawer#prepare"]'));
         self::assertSelectorTextContains('.lp-board-toolbar__count', '2 cards');
-        self::assertSelectorTextContains('.lp-board-toolbar__mode-active', 'Board');
+        self::assertSelectorTextContains('.lp-board-toolbar__mode-button[aria-pressed="true"]', 'Board');
         self::assertSelectorExists('a[href="/projects/'.$project->id.'/edit"]');
 
         $counts = $crawler->filter('.lp-board__column-count')->each(
