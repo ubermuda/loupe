@@ -250,6 +250,7 @@ Select your choices, then select **Save decision**.
 Choices remain unsaved until you select that button.
 The status line confirms the saved version.
 If another answer changes before you save, reload and compare your choices.
+Older per-option forms also reject changes based on an outdated answer.
 
 The identifier is permanent. The answer is stored against the id rather than
 against the words, so options can be reworded freely in a later version —

@@ -72,6 +72,7 @@ final class SelectDecisionOptionController extends AppController
                     optionIndex: $data->optionIndex ?? throw new \LogicException('optionIndex required after validation'),
                     displayedVersionNumber: $data->versionNumber ?? throw new \LogicException('versionNumber required after validation'),
                     chosen: $data->chosen,
+                    expectedOptionIndexes: $data->expectedOptionIndexes,
                 ));
                 // The stored label and version, never the submitted ones: the
                 // handler is what decides which option and which version the

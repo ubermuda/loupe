@@ -9,6 +9,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 class SelectDecisionOptionRequest
 {
+    /** @param list<int> $expectedOptionIndexes */
     public function __construct(
         // Both are filled client-side from the clicked radio, so neither is ever
         // typed. The constraints guard a hand-crafted POST: decisionId backs a
@@ -38,6 +39,9 @@ class SelectDecisionOptionRequest
         #[Assert\NotNull]
         #[Assert\Positive]
         public ?int $versionNumber = null,
+
+        #[Assert\All([new Assert\NotNull(), new Assert\PositiveOrZero()])]
+        public array $expectedOptionIndexes = [],
     ) {
     }
 }

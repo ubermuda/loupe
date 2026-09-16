@@ -474,7 +474,7 @@ final class ShowReviewHandlerTest extends KernelTestCase
         $select = self::getContainer()->get(SelectDecisionOptionHandler::class);
         self::assertInstanceOf(SelectDecisionOptionHandler::class, $select);
         $select(new SelectDecisionOptionCommand($doc, 'ship-with', 0, displayedVersionNumber: 1));
-        $select(new SelectDecisionOptionCommand($doc, 'ship-with', 2, displayedVersionNumber: 1));
+        $select(new SelectDecisionOptionCommand($doc, 'ship-with', 2, displayedVersionNumber: 1, expectedOptionIndexes: [0]));
 
         $decision = ($this->getReview)(new ShowReviewCommand($doc))['decisions'][0];
 
@@ -507,7 +507,7 @@ final class ShowReviewHandlerTest extends KernelTestCase
         $select = self::getContainer()->get(SelectDecisionOptionHandler::class);
         self::assertInstanceOf(SelectDecisionOptionHandler::class, $select);
         $select(new SelectDecisionOptionCommand($doc, 'ship-with', 0, displayedVersionNumber: 1));
-        $select(new SelectDecisionOptionCommand($doc, 'ship-with', 1, displayedVersionNumber: 1));
+        $select(new SelectDecisionOptionCommand($doc, 'ship-with', 1, displayedVersionNumber: 1, expectedOptionIndexes: [0]));
 
         $revise = self::getContainer()->get(ReviseDocumentHandler::class);
         self::assertInstanceOf(ReviseDocumentHandler::class, $revise);

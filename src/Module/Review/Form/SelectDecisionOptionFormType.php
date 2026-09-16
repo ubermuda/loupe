@@ -6,6 +6,7 @@ namespace App\Module\Review\Form;
 
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
+use Symfony\Component\Form\Extension\Core\Type\CollectionType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -50,6 +51,14 @@ class SelectDecisionOptionFormType extends AbstractType
         // list was rendered into the page. Labelless because form_rest() renders
         // this one as a row, and the auto label reaches the page untranslated.
         $builder->add('versionNumber', IntegerType::class, ['required' => false, 'label' => false]);
+        $builder->add('expectedOptionIndexes', CollectionType::class, [
+            'entry_type' => IntegerType::class,
+            'allow_add' => true,
+            'allow_delete' => true,
+            'prototype' => false,
+            'required' => false,
+            'label' => false,
+        ]);
     }
 
     #[\Override]

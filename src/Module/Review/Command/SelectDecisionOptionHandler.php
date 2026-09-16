@@ -30,7 +30,7 @@ final readonly class SelectDecisionOptionHandler
 
     public function __invoke(SelectDecisionOptionCommand $command): SelectDecisionOptionResult
     {
-        $result = $this->em->wrapInTransaction(function () use ($command): SelectDecisionOptionResult {
+        $result = $this->em->wrapInTransaction(function () use ($command): SelectDecisionOptionResult|DomainErrors {
             // Two overlapping answers would both find no row and both insert,
             // tripping the (document, decision, option) unique index. The
             // document is the only row existing before the first answer, so it
@@ -63,6 +63,19 @@ final readonly class SelectDecisionOptionHandler
                 ?? throw new DomainErrors(['optionIndex' => 'review.decision.error.unknown_option']);
 
             $stored = $this->decisionSelections->findByDocumentAndDecisionId($command->document, $command->decisionId);
+            $current = array_values(array_filter($decision->resolveIndexes(array_map(
+                static fn (DecisionSelection $selection): array => [$selection->optionLabel, $selection->optionIndex],
+                $stored,
+            )), static fn (?int $index): bool => null !== $index));
+            sort($current);
+            $alreadyApplied = DecisionType::Single === $decision->type
+                ? $current === [$command->optionIndex]
+                : \in_array($command->optionIndex, $current, true) === $command->chosen;
+            $expected = array_values(array_unique($command->expectedOptionIndexes));
+            sort($expected);
+            if (!$alreadyApplied && $current !== $expected) {
+                return new DomainErrors(['optionIndex' => 'review.decision.error.changed_answer']);
+            }
 
             $selection = DecisionType::Multiple === $decision->type
                 ? $this->setOption($command, $label, $version->versionNumber, $this->atCurrentIndexes($decision, $stored))
@@ -72,6 +85,9 @@ final readonly class SelectDecisionOptionHandler
 
             return new SelectDecisionOptionResult($selection, $version->versionNumber, $label);
         });
+        if ($result instanceof DomainErrors) {
+            throw $result;
+        }
 
         // After the commit, never inside it: the sink drains at kernel.terminate,
         // so a record written in the closure outlives a rollback. The chosen

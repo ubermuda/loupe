@@ -18,6 +18,7 @@ use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -47,6 +48,34 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
         MD;
 
     private const string LONG_OPTION = 'Ship straight to production on a Friday afternoon and then tell the entire company about it';
+
+    public function test_a_legacy_submission_cannot_replace_an_explicitly_saved_answer(): void
+    {
+        $client = static::createClient();
+        [$owner, $document] = $this->seed($client);
+        $client->loginUser($owner);
+        [$token, $versionNumber] = $this->renderForm($client, $document);
+        $client->request(Request::METHOD_POST, $this->decisionPath($document).'/save', [
+            'save_decision_form' => [
+                '_token' => $token,
+                'decisionId' => 'deploy-target',
+                'versionNumber' => $versionNumber,
+                'optionIndexes' => [1],
+                'expectedOptionIndexes' => [],
+            ],
+        ], server: ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html']);
+        self::assertResponseIsSuccessful();
+        $stored = static::getContainer()->get(DecisionSelectionRepository::class)->findByDocumentAndDecisionId($document, 'deploy-target');
+        self::assertCount(1, $stored);
+        self::assertSame(1, $stored[0]->optionIndex);
+
+        $this->submitAnswer($client, $document, 'deploy-target', '0', $token, $versionNumber, ['HTTP_ACCEPT' => 'text/vnd.turbo-stream.html']);
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
+        $stored = static::getContainer()->get(DecisionSelectionRepository::class)->findByDocumentAndDecisionId($document, 'deploy-target');
+        self::assertCount(1, $stored);
+        self::assertSame(1, $stored[0]->optionIndex);
+    }
 
     public function test_explicit_save_keeps_a_concurrent_answer_and_rejects_invalid_input(): void
     {
@@ -788,6 +817,7 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
             'optionIndex' => $optionIndex,
             'versionNumber' => $versionNumber,
             '_token' => $token,
+            'expectedOptionIndexes' => $this->displayedAnswer($client, $decisionId),
         ];
         if ($chosen) {
             $fields['chosen'] = '1';
@@ -822,6 +852,7 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
                 'optionIndex' => $optionIndex,
                 'versionNumber' => $versionNumber,
                 '_token' => $token,
+                'expectedOptionIndexes' => $this->displayedAnswer($client, $decisionId),
             ]],
             [],
             $server,
@@ -831,6 +862,14 @@ final class SelectDecisionOptionControllerTest extends WebTestCase
     private function reviewPath(Document $document): string
     {
         return '/projects/'.$document->project->id.'/documents/'.$document->id.'/review';
+    }
+
+    /** @return list<string> */
+    private function displayedAnswer(KernelBrowser $client, string $decisionId): array
+    {
+        return $client->getCrawler()
+            ->filter('[data-decision-id="'.$decisionId.'"] input[checked]')
+            ->each(static fn (Crawler $input): string => $input->attr('value') ?? '');
     }
 
     private function decisionPath(Document $document): string
