@@ -232,26 +232,10 @@
                     {% endblock %}
                 </header>
                 <main class="lp-main">
-                    {# Rendered once, here, rather than per page: reading app.flashes
-                       consumes them, so a page-level loop below this point would
-                       always find the bag empty.
-
-                       Whitelisted, and failing closed on anything else, because
-                       the flash bag is not only used for messages: the Connect
-                       page passes a freshly created token through it, and that
-                       value must never be printed as a notification. A new flash
-                       type has to be added here to appear, which is the safe way
-                       round. #}
-                    {% for label, messages in app.flashes(['success', 'error', 'warning', 'info']) %}
-                        {% for message in messages %}
-                        <div class="lp-flash lp-flash--{{ label }}" data-controller="flash">
-                            <span class="lp-flash__dot"></span>
-                            <span class="lp-flash__message">{{ message }}</span>
-                            <button type="button" class="lp-flash__dismiss"
-                                    data-action="click->flash#dismiss">{{ 'flash.dismiss'|trans }}</button>
-                        </div>
-                        {% endfor %}
-                    {% endfor %}
+                    {% block flash_messages %}
+                        {# Read notification types only; other flash values can contain credentials. #}
+                        {% include '_flash_messages.html.twig' with {flashes: app.flashes(['success', 'error', 'warning', 'info'])} only %}
+                    {% endblock %}
                     {% block body %}{% endblock %}
                 </main>
             </div>

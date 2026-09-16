@@ -2,6 +2,10 @@
 
 {% block title %}{{ card.title }} — {{ 'app.name'|trans }}{% endblock %}
 
+{% block flash_messages %}
+    {% if app.request.headers.get('Turbo-Frame') != 'card-drawer-frame' %}{{ parent() }}{% endif %}
+{% endblock %}
+
 {% block topbar_crumbs %}
     <a class="lp-topbar__crumb" href="{{ path('app_project_board', {id: card.project.id}) }}">{{ 'nav.link.board'|trans }}</a>
     <span class="lp-topbar__sep">/</span>
@@ -10,7 +14,10 @@
 
 {% block body %}
 <turbo-frame id="card-drawer-frame">
-<div class="lp-card-drawer" data-controller="panel-tabs" data-panel-tabs-active-value="overview">
+<div class="lp-card-drawer" data-controller="panel-tabs" data-panel-tabs-active-value="{{ app.request.query.get('tab', 'overview') }}">
+    {% if app.request.headers.get('Turbo-Frame') == 'card-drawer-frame' %}
+        {% include '_flash_messages.html.twig' with {flashes: app.flashes(['success', 'error', 'warning', 'info'])} only %}
+    {% endif %}
     <header class="lp-card-drawer__header">
         <div class="lp-card-drawer__identity">
             <span class="lp-card-drawer__icon"><twig:ux:icon name="lucide:layout-list" class="w-4 h-4" /></span>

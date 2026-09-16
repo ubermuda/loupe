@@ -1,0 +1,10 @@
+{% for label, messages in flashes %}
+    {% for message in messages %}
+    <div class="lp-flash lp-flash--{{ label }}" data-controller="flash">
+        <span class="lp-flash__dot"></span>
+        <span class="lp-flash__message">{{ message }}</span>
+        <button type="button" class="lp-flash__dismiss"
+                data-action="click->flash#dismiss">{{ 'flash.dismiss'|trans }}</button>
+    </div>
+    {% endfor %}
+{% endfor %}
