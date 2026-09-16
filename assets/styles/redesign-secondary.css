@@ -215,12 +215,12 @@
         @apply mb-0 flex-col border-0;
     }
     .lp-redesign-account .lp-section-tabs__item {
-        @apply rounded-lg border-0 px-3 py-2.5;
+        @apply cursor-pointer rounded-lg border-0 bg-transparent px-3 py-2.5 text-left;
     }
     .lp-redesign-account .lp-section-tabs__item:hover {
         @apply bg-accent-faint text-accent-ink;
     }
-    .lp-redesign-account .lp-section-tabs__item--active {
+    .lp-redesign-account .lp-section-tabs__item[aria-selected='true'] {
         @apply bg-accent-soft text-accent-ink;
     }
     .lp-redesign-account .lp-section-tabs__item svg {

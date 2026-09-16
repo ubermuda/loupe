@@ -17,17 +17,17 @@
         </div>
     </header>
 
-    <div class="lp-account-settings-layout">
-    <nav class="lp-section-tabs" aria-label="{{ 'account.settings.nav.label'|trans }}">
-        <a class="lp-section-tabs__item lp-section-tabs__item--active" href="#profile" aria-current="page"><twig:ux:icon name="lucide:users" />{{ 'account.settings.nav.profile'|trans }}</a>
-        <a class="lp-section-tabs__item" href="#api-tokens"><twig:ux:icon name="lucide:key-round" />{{ 'account.settings.nav.tokens'|trans }}</a>
-        <a class="lp-section-tabs__item" href="#data"><twig:ux:icon name="lucide:archive" />{{ 'account.settings.nav.data'|trans }}</a>
+    <div class="lp-account-settings-layout" data-controller="panel-tabs" data-panel-tabs-active-value="profile">
+    <nav class="lp-section-tabs" aria-label="{{ 'account.settings.nav.label'|trans }}" role="tablist">
+        <button type="button" class="lp-section-tabs__item" id="account-tab-profile" role="tab" aria-controls="profile" data-panel-tabs-target="tab" data-panel-tab="profile" data-action="click->panel-tabs#select keydown->panel-tabs#keydown"><twig:ux:icon name="lucide:users" />{{ 'account.settings.nav.profile'|trans }}</button>
+        <button type="button" class="lp-section-tabs__item" id="account-tab-api-tokens" role="tab" aria-controls="api-tokens" data-panel-tabs-target="tab" data-panel-tab="api-tokens" data-action="click->panel-tabs#select keydown->panel-tabs#keydown"><twig:ux:icon name="lucide:key-round" />{{ 'account.settings.nav.tokens'|trans }}</button>
+        <button type="button" class="lp-section-tabs__item" id="account-tab-data" role="tab" aria-controls="data" data-panel-tabs-target="tab" data-panel-tab="data" data-action="click->panel-tabs#select keydown->panel-tabs#keydown"><twig:ux:icon name="lucide:archive" />{{ 'account.settings.nav.data'|trans }}</button>
     </nav>
 
     <div class="lp-account-settings-content">
     <twig:BillingSummary />
 
-    <section class="lp-connect-block" id="profile" data-testid="profile-section">
+    <section class="lp-connect-block" id="profile" role="tabpanel" aria-labelledby="account-tab-profile" data-panel-tabs-target="panel" data-panel-panel="profile" data-testid="profile-section">
         <h2 class="lp-section-title">{{ 'account.settings.profile.heading'|trans }}</h2>
         <p class="lp-connect-hint">{{ 'account.settings.profile.description'|trans }}</p>
         {{ form_start(profileForm, {'action': path('app_account_profile'), 'attr': {'class': 'lp-form', 'novalidate': 'novalidate'}}) }}
@@ -47,7 +47,7 @@
         {{ form_end(profileForm) }}
     </section>
 
-    <section class="lp-connect-block" id="data" data-testid="export-section">
+    <section class="lp-connect-block" id="data" role="tabpanel" aria-labelledby="account-tab-data" data-panel-tabs-target="panel" data-panel-panel="data" data-testid="export-section" hidden>
         <p class="lp-eyebrow">{{ 'account.settings.export.heading'|trans }}</p>
         {# Panelled like the profile block above it: loose on the page the export
            controls read as a leftover rather than a section of the settings. #}
@@ -86,7 +86,7 @@
         </div>
     </section>
 
-    <section class="lp-connect-block" id="api-tokens" data-testid="api-tokens-section">
+    <section class="lp-connect-block" id="api-tokens" role="tabpanel" aria-labelledby="account-tab-api-tokens" data-panel-tabs-target="panel" data-panel-panel="api-tokens" data-testid="api-tokens-section" hidden>
         <p class="lp-eyebrow">{{ 'account.settings.api_tokens.heading'|trans }}</p>
         <div class="lp-settings-panel">
         <p class="lp-connect-hint">{{ 'account.settings.api_tokens.intro'|trans }}</p>
@@ -164,7 +164,7 @@
         </div>
     </section>
 
-    <section class="lp-danger-zone" data-testid="delete-account-section">
+    <section class="lp-danger-zone" role="tabpanel" aria-labelledby="account-tab-data" data-panel-tabs-target="panel" data-panel-panel="data" data-testid="delete-account-section" hidden>
         <h2 class="lp-danger-zone-title">{{ 'account.delete.danger.heading'|trans }}</h2>
         <p class="lp-danger-zone-desc">{{ 'account.delete.danger.body'|trans }}</p>
         <form method="post" action="{{ path('app_account_delete_request') }}">

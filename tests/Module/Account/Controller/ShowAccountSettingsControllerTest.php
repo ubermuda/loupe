@@ -36,10 +36,14 @@ final class ShowAccountSettingsControllerTest extends WebTestCase
         $user = $this->createVerifiedUser($em, 'alice', 'alice@example.com');
 
         $client->loginUser($user);
-        $client->request(Request::METHOD_GET, '/account');
+        $crawler = $client->request(Request::METHOD_GET, '/account');
 
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('[data-testid="export-section"]');
+        self::assertCount(3, $crawler->filter('[role="tab"][data-panel-tabs-target="tab"]'));
+        self::assertCount(1, $crawler->filter('[data-testid="profile-section"]:not([hidden])'));
+        self::assertCount(1, $crawler->filter('[data-testid="api-tokens-section"][hidden]'));
+        self::assertCount(1, $crawler->filter('[data-testid="export-section"][hidden]'));
     }
 
     public function test_a_user_with_no_tokens_sees_the_empty_state_and_the_mint_form(): void
