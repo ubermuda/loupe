@@ -808,7 +808,7 @@
         @apply fixed inset-y-0 right-0 left-auto m-0 p-0 w-full max-w-xl h-full max-h-none overflow-hidden border-0 bg-surface-1 shadow-2xl;
     }
     .lp-card-drawer-overlay::backdrop {
-        @apply bg-ink/60;
+        @apply bg-ink/40 backdrop-blur-xs;
     }
     .lp-card-drawer-overlay[open] {
         animation: lp-card-drawer-enter 200ms ease-out both;
@@ -841,10 +841,13 @@
     }
     .lp-card-drawer__header,
     .lp-card-drawer__footer {
-        @apply flex items-center justify-between gap-4 px-6 py-4 border-b border-line bg-surface-1;
+        @apply flex items-center justify-between gap-4 px-6 border-b border-line bg-surface-1;
+    }
+    .lp-card-drawer__header {
+        @apply py-3;
     }
     .lp-card-drawer__footer {
-        @apply mt-auto border-t border-b-0;
+        @apply mt-auto py-2 border-t border-b-0;
     }
     .lp-card-drawer__identity,
     .lp-card-drawer__header-actions {
@@ -855,10 +858,10 @@
         @apply inline-flex items-center justify-center w-8 h-8 shrink-0 rounded-lg bg-tint text-accent-ink;
     }
     .lp-card-drawer__body {
-        @apply px-6 py-5;
+        @apply px-6 py-2.5;
     }
     .lp-card-drawer__title {
-        @apply font-display text-3xl font-extrabold tracking-tight text-ink m-0 mb-5;
+        @apply font-display text-3xl font-extrabold tracking-tight text-ink m-0 mb-4;
     }
     .lp-card-tabs {
         @apply flex items-center gap-1 overflow-x-auto border-b border-line mb-6;
@@ -1631,7 +1634,6 @@
        Animated via WAAPI in modal_controller.js; only ::backdrop gets a CSS
        animation, because WAAPI cannot target it. The height cap keeps a tall
        modal on screen at the 33vh offset instead of running off the bottom. */
-    .lp-dialog,
     .admin-dialog-box {
         margin-inline: auto;
         margin-block: 33vh auto;
@@ -1640,10 +1642,13 @@
     }
 
     .lp-dialog {
-        @apply w-full max-w-md rounded-2xl border-0 bg-surface-1 p-6 shadow-composer;
+        width: calc(100% - calc(var(--spacing) * 7));
+        margin: auto;
+        max-height: 90vh;
+        @apply max-w-xl overflow-y-auto rounded-xl border-0 bg-surface-1 p-6 shadow-composer;
     }
     .lp-dialog::backdrop {
-        @apply bg-ink/55;
+        @apply bg-ink/40 backdrop-blur-xs;
         animation: lp-dialog-backdrop-in 220ms ease-out;
     }
     .lp-dialog-title {
