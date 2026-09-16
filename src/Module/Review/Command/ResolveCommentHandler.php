@@ -6,6 +6,7 @@ namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Review\Entity\CommentStatus;
+use App\Module\Review\Service\CommentWriteGuard;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -16,6 +17,7 @@ final readonly class ResolveCommentHandler
     public function __construct(
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private CommentWriteGuard $writeGuard,
     ) {
     }
 
@@ -30,11 +32,19 @@ final readonly class ResolveCommentHandler
             throw new DomainErrors(['comment' => 'comment.error.resolve_reply']);
         }
 
-        // Read before the assignment below overwrites it.
-        $alreadyResolved = CommentStatus::Resolved === $command->comment->status;
+        $alreadyResolved = $this->em->wrapInTransaction(function () use ($command): bool|DomainErrors {
+            $error = $this->writeGuard->lockAndCheck($command->comment, 'comment');
+            if (null !== $error) {
+                return $error;
+            }
+            $alreadyResolved = CommentStatus::Resolved === $command->comment->status;
+            $command->comment->status = CommentStatus::Resolved;
 
-        $command->comment->status = CommentStatus::Resolved;
-        $this->em->flush();
+            return $alreadyResolved;
+        });
+        if ($alreadyResolved instanceof DomainErrors) {
+            throw $alreadyResolved;
+        }
 
         $this->auditor->record(
             'review.comment_resolved',

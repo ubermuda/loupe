@@ -6,6 +6,7 @@ namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Review\Entity\Comment;
+use App\Module\Review\Service\CommentWriteGuard;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -22,6 +23,7 @@ final readonly class ReplyToCommentHandler
     public function __construct(
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private CommentWriteGuard $writeGuard,
     ) {
     }
 
@@ -49,16 +51,25 @@ final readonly class ReplyToCommentHandler
             throw new DomainErrors(['body' => 'comment.error.reply_to_reply']);
         }
 
-        $reply = new Comment(
-            version: $parent->version,
-            author: $command->actor,
-            body: $command->body,
-            anchor: $parent->anchor,
-            parent: $parent,
-        );
+        $reply = $this->em->wrapInTransaction(function () use ($command, $parent): Comment|DomainErrors {
+            $error = $this->writeGuard->lockAndCheck($parent, 'body');
+            if (null !== $error) {
+                return $error;
+            }
+            $reply = new Comment(
+                version: $parent->version,
+                author: $command->actor,
+                body: $command->body,
+                anchor: $parent->anchor,
+                parent: $parent,
+            );
+            $this->em->persist($reply);
 
-        $this->em->persist($reply);
-        $this->em->flush();
+            return $reply;
+        });
+        if ($reply instanceof DomainErrors) {
+            throw $reply;
+        }
 
         $this->auditor->record(
             'review.comment_replied',

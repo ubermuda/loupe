@@ -6,6 +6,7 @@ namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Review\Entity\CommentStatus;
+use App\Module\Review\Service\CommentWriteGuard;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -16,6 +17,7 @@ final readonly class ReopenCommentHandler
     public function __construct(
         private EntityManagerInterface $em,
         private Auditor $auditor,
+        private CommentWriteGuard $writeGuard,
     ) {
     }
 
@@ -30,12 +32,21 @@ final readonly class ReopenCommentHandler
             throw new DomainErrors(['comment' => 'comment.error.reopen_reply']);
         }
 
-        if (CommentStatus::Resolved !== $comment->status) {
-            throw new DomainErrors(['comment' => 'comment.error.reopen_not_resolved']);
-        }
+        $error = $this->em->wrapInTransaction(function () use ($comment): ?DomainErrors {
+            $error = $this->writeGuard->lockAndCheck($comment, 'comment');
+            if (null !== $error) {
+                return $error;
+            }
+            if (CommentStatus::Resolved !== $comment->status) {
+                return new DomainErrors(['comment' => 'comment.error.reopen_not_resolved']);
+            }
+            $comment->status = CommentStatus::Pending;
 
-        $comment->status = CommentStatus::Pending;
-        $this->em->flush();
+            return null;
+        });
+        if ($error instanceof DomainErrors) {
+            throw $error;
+        }
 
         $this->auditor->record(
             'review.comment_reopened',

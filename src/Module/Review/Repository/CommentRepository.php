@@ -13,6 +13,7 @@ use App\Module\Review\ValueObject\Anchor;
 use App\Module\Review\ValueObject\CommentSignals;
 use App\Module\Review\ValueObject\Engagement;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\LockMode;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -195,6 +196,39 @@ class CommentRepository extends ServiceEntityRepository
         return $this->findBy(['author' => $author]);
     }
 
+    public function lockAndRefreshState(Comment $comment): bool
+    {
+        $this->getEntityManager()->lock($comment->version->document, LockMode::PESSIMISTIC_WRITE);
+
+        return $this->refreshState($comment);
+    }
+
+    /** @phpstan-impure */
+    public function refreshState(Comment $comment): bool
+    {
+        $row = $this->createQueryBuilder('c')
+            ->select('c.status', 'c.deletedAt', 'c.deletionSequence')
+            ->where('c.id = :id')
+            ->setParameter('id', $comment->id, 'uuid')
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        if (!is_array($row)) {
+            return false;
+        }
+
+        $comment->status = $row['status'];
+        $comment->deletedAt = $row['deletedAt'];
+        $comment->deletionSequence = $row['deletionSequence'];
+        // Entity refresh cannot hydrate readonly fields. Move these snapshots
+        // with the values so a later flush cannot replay stale state.
+        foreach (['status', 'deletedAt', 'deletionSequence'] as $field) {
+            $this->getEntityManager()->getUnitOfWork()->setOriginalEntityProperty(spl_object_id($comment), $field, $row[$field]);
+        }
+
+        return true;
+    }
+
     /**
      * This author's most recent comment on a document, and the version they were
      * looking at when they wrote it. Null if they never commented on it.
@@ -250,6 +284,7 @@ class CommentRepository extends ServiceEntityRepository
             ->set('c.status', ':addressed')
             ->andWhere('c.id = :id')
             ->andWhere('c.status = :pending')
+            ->andWhere('c.deletedAt IS NULL')
             ->setParameter('addressed', CommentStatus::Addressed)
             ->setParameter('id', $comment->id, 'uuid')
             ->setParameter('pending', CommentStatus::Pending)

@@ -1957,6 +1957,26 @@
                 <source>comment.error.reopen_reply</source>
                 <target>Only the top-level comment of a thread can be reopened.</target>
             </trans-unit>
+            <trans-unit id="comment.error.not_found">
+                <source>comment.error.not_found</source>
+                <target>This thread no longer exists. Reload the document.</target>
+            </trans-unit>
+            <trans-unit id="comment.error.deleted">
+                <source>comment.error.deleted</source>
+                <target>This thread is deleted. Restore it from Deleted threads before making changes.</target>
+            </trans-unit>
+            <trans-unit id="comment.error.thread_required">
+                <source>comment.error.thread_required</source>
+                <target>Select the whole thread instead of a reply.</target>
+            </trans-unit>
+            <trans-unit id="comment.error.stale_deletion">
+                <source>comment.error.stale_deletion</source>
+                <target>The deletion state has changed. Reload Deleted threads and try again.</target>
+            </trans-unit>
+            <trans-unit id="comment.error.not_deleted">
+                <source>comment.error.not_deleted</source>
+                <target>This thread is active. Delete it before permanently purging it.</target>
+            </trans-unit>
             <trans-unit id="comment.error.reopen_not_resolved">
                 <source>comment.error.reopen_not_resolved</source>
                 <target>This thread is already open.</target>

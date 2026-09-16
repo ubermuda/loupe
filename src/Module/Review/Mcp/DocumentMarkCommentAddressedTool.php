@@ -90,6 +90,7 @@ final readonly class DocumentMarkCommentAddressedTool
                         MarkCommentAddressedOutcome::AlreadyAddressed => 'already_addressed',
                         MarkCommentAddressedOutcome::AlreadyResolved => 'already_resolved',
                         MarkCommentAddressedOutcome::NotFound => 'not_found',
+                        MarkCommentAddressedOutcome::Deleted => 'deleted',
                     };
                 }
 

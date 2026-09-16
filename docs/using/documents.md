@@ -202,6 +202,10 @@ addressed *before* submitting the new version, or re-read the review afterwards
 and use the fresh ids. Both operations reject a stale id rather than silently
 writing into a row nobody reads.
 
+Deleted threads reject replies and status changes. The
+`document_mark_comment_addressed` tool skips a deleted thread with the reason
+`deleted`. Historical threads remain read-only for Reply, Resolve, and Reopen.
+
 ## Decision blocks
 
 A document can ask the reviewer a question they answer by clicking rather than
