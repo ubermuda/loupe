@@ -2589,6 +2589,19 @@
         @apply block max-w-full overflow-x-auto lg:table;
     }
 
+    @media (width < 64rem) {
+        .lp-review-doc {
+            @apply flex flex-col;
+        }
+        .lp-review-doc__prose {
+            order: 20;
+        }
+        .lp-review-doc > [data-margin-panel='comments'],
+        .lp-review-context-panel {
+            order: 30;
+        }
+    }
+
     /* ── Table of contents ──────────────────────────────────────────────
        A collapsible panel in the document head that scrolls with the document.
        It must stay out of the rendered-HTML container: that element's

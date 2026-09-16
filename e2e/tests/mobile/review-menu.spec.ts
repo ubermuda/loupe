@@ -405,6 +405,26 @@ test('scrolling the paper closes the menu', async ({ page, seeded }) => {
     await expect(page.locator(PANEL)).toBeHidden();
 });
 
+test('the comment margin follows the paper on a narrow screen', async ({
+    page,
+    seeded,
+}) => {
+    await page.goto(reviewPath(seeded));
+
+    const positions = await page.evaluate(() => ({
+        paperBottom:
+            document
+                .querySelector('.lp-review-doc__prose')
+                ?.getBoundingClientRect().bottom ?? 0,
+        commentsTop:
+            document
+                .querySelector('.lp-comment-threads')
+                ?.getBoundingClientRect().top ?? 0,
+    }));
+
+    expect(positions.commentsTop).toBeGreaterThanOrEqual(positions.paperBottom);
+});
+
 test('the desktop bar is untouched above lg', async ({ page, seeded }) => {
     await page.setViewportSize(DESKTOP);
     await page.goto(reviewPath(seeded));
