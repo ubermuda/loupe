@@ -81,6 +81,19 @@ test.afterAll(async ({ request }) => {
     await setInboxFlag(request, false);
 });
 
+test('the project inbox filter row keeps its unboxed layout', async ({
+    page,
+}) => {
+    const filters = page.locator('.lp-needs-you .lp-list-filters');
+    for (const width of [1440, 1150, 950, 780, 390]) {
+        await page.setViewportSize({ width, height: 900 });
+        await expect(filters).toBeVisible();
+        await expect(filters).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+        await expect(filters).toHaveCSS('padding', '0px');
+        await expect(filters).toHaveCSS('margin-bottom', '20px');
+    }
+});
+
 test('the owner answers a question and declines a to-do', async ({
     page,
     inbox,

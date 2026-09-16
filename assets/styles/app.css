@@ -653,9 +653,6 @@
     .lp-section-tabs__item > span {
         @apply inline-flex items-center justify-center min-w-5 rounded-full bg-surface-3 px-1.5 py-0.5 text-xs;
     }
-    .lp-needs-you .lp-list-filters {
-        @apply rounded-xl bg-surface-2 p-2 mb-6;
-    }
     .lp-needs-you .lp-filter-form {
         @apply flex-1 min-w-0;
     }
