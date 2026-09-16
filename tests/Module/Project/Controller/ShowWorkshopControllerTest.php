@@ -29,7 +29,7 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id);
 
         self::assertResponseIsSuccessful();
-        self::assertSame('Workshop', trim($crawler->filter('[data-workshop] h1')->text()));
+        self::assertSame('Your workshop', trim($crawler->filter('[data-workshop] h1')->text()));
         self::assertSame('2', trim($crawler->filter('.lp-workshop-stat__value')->eq(2)->text()));
         self::assertSelectorExists('a[href="/projects/'.$project->id.'/documents"]');
     }

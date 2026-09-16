@@ -5454,6 +5454,10 @@
                 <source>project.workshop.page.title</source>
                 <target>Workshop</target>
             </trans-unit>
+            <trans-unit id="project.workshop.page.heading">
+                <source>project.workshop.page.heading</source>
+                <target>Your workshop</target>
+            </trans-unit>
             <trans-unit id="project.workshop.page.description">
                 <source>project.workshop.page.description</source>
                 <target>See what needs attention in %project%.</target>
