@@ -413,6 +413,11 @@ final class CardCrudControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$cardId);
 
         self::assertResponseIsSuccessful();
+        self::assertSame(
+            ['Item', 'Status', 'Open'],
+            $crawler->filter('.lp-card-pulls thead th')->each(static fn (Crawler $node): string => trim($node->text())),
+        );
+        self::assertStringContainsString('Not reported', $crawler->filter('.lp-card-pulls')->text());
         $hrefs = $crawler->filter('.lp-card-pulls__item a')->each(
             static fn (Crawler $node): string => (string) $node->attr('href'),
         );
