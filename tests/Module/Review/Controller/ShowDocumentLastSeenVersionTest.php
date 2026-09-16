@@ -121,7 +121,7 @@ final class ShowDocumentLastSeenVersionTest extends WebTestCase
         // The revision landed, so the page really is at a later version than the
         // one the other account commented on — the banner is absent because the
         // reader has never engaged with it, not because there is nothing to compare.
-        self::assertSelectorTextContains('.lp-version-switcher__all', 'See all 2 versions');
+        self::assertSelectorTextContains('.lp-version-pill', 'v2');
         self::assertSelectorNotExists('.lp-doc-meta__unread');
     }
 }

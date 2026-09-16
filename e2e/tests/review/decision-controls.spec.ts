@@ -236,14 +236,7 @@ ${PROMPT}
 ${'Filler paragraph.\n\n'.repeat(40)}
 This is ${BELOW_BLOCK_PHRASE} in the document.`;
 
-/**
- * The toolbar's running total is the only place a reviewer sees how much is
- * left to answer, and it is refreshed by a Turbo stream rather than a reload —
- * so a broken target id leaves a stale count with everything else still green.
- */
-test('the toolbar reports the decisions and tracks the answer', async ({
-    page,
-}) => {
+test('the Decisions margin reports the saved answer', async ({ page }) => {
     await signedInReviewer(page, 'summary');
     const response = await page.request.post('/dev/seed/document', {
         form: { title: 'Decision — summary', markdown: PROMPTED_MARKDOWN },
@@ -257,7 +250,7 @@ test('the toolbar reports the decisions and tracks the answer', async ({
         `/projects/${body.projectId}/documents/${body.documentId}/review`,
     );
 
-    const tab = page.getByRole('button', { name: /Decisions/ });
+    const tab = page.getByRole('tab', { name: 'Decisions', exact: true });
     await expect(page.locator('#decision-summary-count')).toHaveText('0/1');
 
     await tab.click();
@@ -286,12 +279,7 @@ test('the toolbar reports the decisions and tracks the answer', async ({
     await expect(page.locator('#decision-summary-list')).toBeVisible();
 });
 
-/**
- * The bar is sticky so the panels stay reachable from anywhere in a long
- * document. It only works while its containing block spans the document — it
- * used to sit inside the head, which unpins it a few dozen pixels down.
- */
-test('the metadata bar stays pinned while the document scrolls', async ({
+test('the Decisions margin scrolls to its question without navigating', async ({
     page,
 }) => {
     await signedInReviewer(page, 'sticky');
@@ -307,33 +295,13 @@ test('the metadata bar stays pinned while the document scrolls', async ({
         `/projects/${body.projectId}/documents/${body.documentId}/review`,
     );
 
-    const bar = page.locator('.lp-doc-meta-bar');
-    await expect(bar).toBeInViewport();
-
-    await page.getByText(BELOW_BLOCK_PHRASE).scrollIntoViewIfNeeded();
-    await expect(page.getByText(BELOW_BLOCK_PHRASE)).toBeInViewport();
-    await expect(bar).toBeInViewport();
-
-    // And the target clears the bar rather than hiding under it. The panel
-    // scrolls there rather than snapping, so this polls until it settles.
-    await bar.getByRole('button', { name: /Decisions/ }).click();
+    const reviewUrl = page.url();
+    await page.getByRole('tab', { name: 'Decisions', exact: true }).click();
     await page.locator('#decision-summary-list a').click();
-    await expect
-        .poll(
-            async () => {
-                const blockBox = await page
-                    .locator(`[data-decision-id="${DECISION_ID}"]`)
-                    .boundingBox();
-                const barBox = await bar.boundingBox();
-                if (null === blockBox || null === barBox) {
-                    return null;
-                }
-
-                return blockBox.y - (barBox.y + barBox.height);
-            },
-            { timeout: 5000 },
-        )
-        .toBeGreaterThanOrEqual(0);
+    await expect(
+        page.locator('[data-decision-id="' + DECISION_ID + '"]'),
+    ).toBeInViewport();
+    await expect(page).toHaveURL(reviewUrl);
 });
 
 const MULTIPLE_ID = 'ship-with';

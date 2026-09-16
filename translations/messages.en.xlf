@@ -1301,8 +1301,9 @@
             </trans-unit>
             <trans-unit id="review.document.byline">
                 <source>review.document.byline</source>
-                <target>%status% · %author% · updated %updated% · %approved%/%total% sections approved</target>
+                <target>%status% · %author% · updated %updated%</target>
             </trans-unit>
+            <trans-unit id="review.document.sections.progress"><source>review.document.sections.progress</source><target>%approved%/%total% sections approved</target></trans-unit>
             <trans-unit id="review.document.margin.label"><source>review.document.margin.label</source><target>Document context</target></trans-unit>
             <trans-unit id="review.document.margin.filter"><source>review.document.margin.filter</source><target>Filter comments</target></trans-unit>
             <trans-unit id="review.document.margin.comments"><source>review.document.margin.comments</source><target>Comments</target></trans-unit>
@@ -1317,6 +1318,9 @@
             <trans-unit id="review.document.margin.outline_empty"><source>review.document.margin.outline_empty</source><target>This document has no section headings.</target></trans-unit>
             <trans-unit id="review.document.margin.decisions_empty"><source>review.document.margin.decisions_empty</source><target>This document has no decisions.</target></trans-unit>
             <trans-unit id="review.document.margin.decisions_save_hint"><source>review.document.margin.decisions_save_hint</source><target>Each choice saves when you select it.</target></trans-unit>
+            <trans-unit id="review.document.margin.references_empty"><source>review.document.margin.references_empty</source><target>None</target></trans-unit>
+            <trans-unit id="review.document.margin.series"><source>review.document.margin.series</source><target>Series</target></trans-unit>
+            <trans-unit id="review.document.margin.version_note"><source>review.document.margin.version_note</source><target>Version note</target></trans-unit>
             <trans-unit id="review.document.margin.linked_card"><source>review.document.margin.linked_card</source><target>Linked card</target></trans-unit>
             <trans-unit id="review.document.margin.linked_card_unavailable"><source>review.document.margin.linked_card_unavailable</source><target>No linked board card is available for this document.</target></trans-unit>
             <trans-unit id="review.document.verdict.approve">

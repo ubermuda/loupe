@@ -22,6 +22,10 @@ version is either an approval or a request for changes, submitted at
 `/review/submit`.
 
 The margin has Comments, Outline, Decisions and Details tabs.
+Outline and Decisions show current progress and link to passages in the document.
+Details shows linked cards, outgoing and incoming references, tags, series and version notes.
+The History tab opens the full version list.
+
 Use Left and Right Arrow to select the adjacent tab.
 Use Home or End to select the first or last tab.
 Tab moves focus out of the tab list.
@@ -50,11 +54,9 @@ orphaned threads. Every count is a thread count, so a reply never adds to one.
 
 ### On a narrow screen
 
-On a narrow screen the bar keeps the document title and the two counts, and a
-round button in the bottom corner carries the rest. The button opens the
-contents, the versions, the references, the decisions, the resolved-thread
-toggle and the two verdict buttons. Each list opens inside the same panel, and
-the button becomes the way back out of it.
+On narrow screens, the workspace tabs and context tabs use separate rows.
+The context panels appear below the document.
+The corner menu also provides section navigation, version links, references and review actions.
 
 A wide window puts comment cards beside the document, aligned with their passages.
 Each card shows its author, status, body, replies and actions.

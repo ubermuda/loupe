@@ -658,7 +658,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         // The history page is the way back — a route with no entry point would
         // leave the discussion exactly as unreachable as before.
         $historyUrl = '/projects/'.$projectId.'/documents/'.$id.'/review/history';
-        self::assertCount(1, $latest->filter('.lp-version-switcher a[href="'.$historyUrl.'"]'));
+        self::assertCount(1, $latest->filter('.lp-review-view-tabs a[href="'.$historyUrl.'"]'));
 
         $versionUrl = '/projects/'.$projectId.'/documents/'.$id.'/review/versions/1';
         $history = $client->request(Request::METHOD_GET, $historyUrl);
@@ -711,7 +711,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertCount(2, $latest->filter('.lp-review-menu button[name="submit_review_form[verdict]"]'));
         self::assertGreaterThan(0, $latest->filter('.lp-comment-thread form')->count());
         self::assertCount(1, $latest->filter('.lp-comment-thread__footer .lp-comment-action--delete'));
-        self::assertCount(1, $latest->filter('.lp-comment-thread__footer .lp-comment-reply-disclosure:not([open])'));
+        self::assertCount(1, $latest->filter('.lp-comment-thread__footer [data-comment-reply-target="form"][hidden]'));
         self::assertCount(1, $latest->filter('.lp-comment-thread__footer .lp-comment-action--resolve'));
     }
 
@@ -764,7 +764,7 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
 
-        $panelNotes = $crawler->filter('.lp-version-entry__description')->each(
+        $panelNotes = $crawler->filter('[data-version-note]')->each(
             static fn (\Symfony\Component\DomCrawler\Crawler $node): string => trim($node->text()),
         );
 
@@ -807,7 +807,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('.lp-version-entry__description', 'The original brief.');
+        self::assertSelectorTextContains('[data-version-note]', 'The original brief.');
     }
 
     /**
@@ -840,12 +840,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('.lp-version-switcher'));
     }
 
-    /**
-     * A description on any version earns the list even when only one version has
-     * one — otherwise the descriptions on a multi-version document would be the
-     * only ones ever shown.
-     */
-    public function test_several_versions_without_descriptions_still_render_the_switcher(): void
+    public function test_several_versions_without_descriptions_still_link_to_history(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -867,8 +862,8 @@ final class ShowDocumentControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('.lp-version-switcher'));
-        self::assertCount(0, $crawler->filter('.lp-version-entry__description'));
+        self::assertCount(1, $crawler->filter('.lp-review-view-tabs a[href="/projects/'.$projectId.'/documents/'.$id.'/review/history"]'));
+        self::assertCount(0, $crawler->filter('[data-version-note]'));
     }
 
     public function test_the_table_of_contents_links_to_headings_from_outside_the_anchoring_target(): void
@@ -966,7 +961,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         // One section was too few for a table of contents. The panel now also
         // reports approval state, which is worth seeing for a single section.
-        self::assertCount(1, $crawler->filter('.lp-review-contents'));
+        self::assertCount(1, $crawler->filter('#review-margin-panel-outline'));
         self::assertCount(1, $crawler->filter('[data-panel="contents"] .lp-review-contents__link'));
         self::assertStringContainsString('0/1', $crawler->filter('#section-summary-count')->text());
     }
@@ -1114,7 +1109,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('.lp-doc-references'));
     }
 
-    public function test_the_version_panel_links_to_the_current_version_s_diff(): void
+    public function test_the_diff_tab_links_to_the_current_version_s_diff(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -1140,10 +1135,10 @@ final class ShowDocumentControllerTest extends WebTestCase
         $base = '/projects/'.$projectId.'/documents/'.$id.'/review/diff/';
         self::assertSame(
             [$base.'2/3'],
-            $crawler->filter('.lp-version-entry__diff')->each(
+            $crawler->filter('.lp-review-view-tabs a[href="'.$base.'2/3"]')->each(
                 static fn (\Symfony\Component\DomCrawler\Crawler $node): string => (string) $node->attr('href'),
             ),
-            'the panel carries the current version alone, so it offers one comparison',
+            'the Diff tab compares the current version with its predecessor',
         );
     }
 

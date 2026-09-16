@@ -38,7 +38,7 @@ Gamma is short too.
 
 Delta is short as well, and it is what the bottom of the pane holds.`;
 
-const RAIL = '.lp-review-rail';
+const RAIL = '#review-margin-panel-outline';
 const RAIL_LINK = `${RAIL} .lp-review-contents__link`;
 const CURRENT = `${RAIL} .lp-review-contents__link--current`;
 
@@ -80,6 +80,9 @@ const test = base.extend<{ reviewUrl: string }>({
             const url = `/projects/${body.projectId}/documents/${body.documentId}/review`;
 
             await page.goto(url);
+            await page
+                .getByRole('tab', { name: 'Outline', exact: true })
+                .click();
             await use(url);
         },
         { auto: true },
@@ -87,7 +90,6 @@ const test = base.extend<{ reviewUrl: string }>({
 });
 
 test.use({ storageState: { cookies: [], origins: [] } });
-// The rail is hidden below 100rem, so every test here needs a wide window.
 test.use({ viewport: { width: 1700, height: 900 } });
 test.describe.configure({ timeout: 90000 });
 
@@ -243,10 +245,9 @@ test('the current row survives an approval, which replaces the rows', async ({
         )
         .click();
     // The rail count is streamed alongside the rows, so it says the swap landed.
-    await expect(page.locator('#review-rail-sections-count')).toHaveText(
-        '1/4',
-        { timeout: 20000 },
-    );
+    await expect(page.locator('#section-summary-count')).toHaveText('1/4', {
+        timeout: 20000,
+    });
 
     await expect(page.locator(CURRENT)).toHaveText(/Alpha/);
 

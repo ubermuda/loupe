@@ -1745,6 +1745,10 @@
     .lp-review-doc__title {
         @apply font-display font-extrabold text-ink m-0 text-2xl tracking-tight leading-tight;
     }
+    /* Version shown beside the document title at every screen width. */
+    .lp-review-doc__version {
+        @apply shrink-0 font-mono text-sm text-fg-dim;
+    }
     /* Primary document workspace views. */
     .lp-review-view-tabs {
         @apply mt-3 flex items-center gap-1 overflow-x-auto border-b border-line;
@@ -2455,13 +2459,13 @@
     }
 
     .lp-review-workspace-nav {
-        @apply mt-3 flex w-full items-end gap-9;
+        @apply mt-3 flex w-full flex-col items-stretch gap-3 lg:flex-row lg:items-end lg:gap-9;
     }
     .lp-review-workspace-nav .lp-review-view-tabs {
         @apply mt-0 min-w-0 flex-1;
     }
     .lp-review-margin-tabs {
-        @apply hidden shrink-0 items-center justify-end gap-1 lg:flex;
+        @apply flex shrink-0 items-center justify-start gap-1 lg:justify-end;
     }
     .lp-review-margin-tabs__item {
         @apply inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-transparent bg-transparent px-2.5 py-1.5 text-sm font-semibold text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
@@ -2524,6 +2528,12 @@
     }
     .lp-review-context-panel h2 {
         @apply m-0 font-display text-lg font-bold text-ink;
+    }
+    .lp-review-context-panel h2 span {
+        @apply ml-2 font-mono text-xs font-normal text-fg-dim;
+    }
+    .lp-review-context-panel .lp-review-contents__link--current {
+        @apply bg-surface-3 text-ink font-semibold;
     }
     .lp-review-context-panel__hint {
         @apply m-0 text-xs text-fg-mute;

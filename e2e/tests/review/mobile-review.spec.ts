@@ -359,6 +359,22 @@ test('the reading column fills the screen instead of being clipped', async ({
     );
 });
 
+test('phone readers can open document details from the margin tabs', async ({
+    page,
+}) => {
+    const detailsTab = page.getByRole('tab', { name: 'Details', exact: true });
+    await expect(detailsTab).toBeVisible();
+    await detailsTab.click();
+    const details = page.locator('#review-margin-panel-details');
+    await expect(details).toBeVisible();
+    await expect(details).toContainText('No linked board card is available');
+    await expect(details).toContainText('Tags');
+    await expect(
+        page.getByLabel('Filter comments', { exact: true }),
+    ).toBeHidden();
+    expect(await contentEscapingItsBox(page)).toEqual([]);
+});
+
 test('nothing under the review block outgrows its own box', async ({
     page,
 }) => {
