@@ -65,8 +65,8 @@ A comment does not repeat its highlighted passage.
 Suggestions and strikes retain the quoted text.
 A thread whose passage is absent from this version also retains its quote.
 
-A narrow window has no room for the rail, so each thread moves into the document
-instead, directly after the paragraph it points at, and shows in full.
+On narrow screens, comment cards stack below the document in passage order.
+Resizing the window preserves open reply forms and their drafts.
 
 Touch works the same way as a mouse. Select a passage and the comment toolbar
 appears. A highlighted passage has no hover, so a tap on one takes its place: the

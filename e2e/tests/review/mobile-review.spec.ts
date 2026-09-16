@@ -1,15 +1,3 @@
-/**
- * Browser coverage for the review screen at a phone width.
- *
- * Below the lg breakpoint the review block is fluid, the comment margin loses
- * its absolute position, and comment_anchor_controller moves each card into the
- * prose after the block it points at. Above lg the margin layout is unchanged.
- *
- * Geometry is measured against `.lp-main`, the app's scroll container, and not
- * against the window. `.lp-main` carries overflow-x, so a column wider than the
- * screen shows up as horizontal overflow there and never on the document.
- */
-
 import { test as base, expect, type Page } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
 import { coverageScaled } from '../timeouts';
@@ -30,7 +18,7 @@ token: https://example.com/a/very/long/path/that/never/breaks/anywhere/at/all
 | production | ams3 | basic-xxs | managed-pg-16 | hub.example.com | consume async |
 | staging | ams3 | basic-xxs | managed-pg-16 | staging.example.com | consume async |`;
 
-const COMMENT_BODY = 'This comment must flow into the prose on a phone.';
+const COMMENT_BODY = 'This comment must sit below the document on a phone.';
 
 const DOC = '[data-comment-anchor-target="doc"]';
 const TOOLBAR = '[data-comment-anchor-target="toolbar"]';
@@ -38,7 +26,7 @@ const COMPOSER = '[data-comment-anchor-target="composer"]';
 const COMPOSER_BODY = '[data-comment-anchor-target="composerBody"]';
 const THREAD = '.lp-comment-thread';
 const ACTIVE_THREAD = '.lp-comment-thread.lp-comment-thread--active';
-const SLOT = '.lp-review-inline-threads';
+const MARGIN = '.lp-review-margin';
 const MENU_TRIGGER = '.lp-review-menu__trigger';
 const MENU_ROW = '.lp-review-menu__row';
 const IN_PAGE_RESOLVED = '.lp-review-actions__resolved';
@@ -137,9 +125,13 @@ async function selectByTouch(page: Page, phrase: string): Promise<void> {
     }, phrase);
 }
 
-/** Posts one comment anchored to the known phrase and waits for its card. */
-async function postComment(page: Page): Promise<void> {
-    await selectByTouch(page, KNOWN_PHRASE);
+async function postComment(
+    page: Page,
+    phrase = KNOWN_PHRASE,
+    body = COMMENT_BODY,
+    count = 1,
+): Promise<void> {
+    await selectByTouch(page, phrase);
     await expect(page.locator(TOOLBAR)).toBeVisible({
         timeout: coverageScaled(5000),
     });
@@ -147,12 +139,12 @@ async function postComment(page: Page): Promise<void> {
     await expect(page.locator(COMPOSER)).toBeVisible({
         timeout: coverageScaled(5000),
     });
-    await page.locator(COMPOSER_BODY).fill(COMMENT_BODY);
+    await page.locator(COMPOSER_BODY).fill(body);
     await page.getByRole('button', { name: 'Post' }).click();
     await expect(page.locator(COMPOSER)).toBeHidden({
         timeout: coverageScaled(10000),
     });
-    await expect(page.locator(THREAD)).toHaveCount(1, {
+    await expect(page.locator(THREAD)).toHaveCount(count, {
         timeout: coverageScaled(10000),
     });
 }
@@ -242,9 +234,6 @@ async function readLayout(page: Page) {
         const threadRect = thread?.getBoundingClientRect() ?? null;
         const commentBody = document.querySelector('.lp-comment-body');
         const commentQuote = document.querySelector('.lp-comment-quote');
-        const paragraph = document.querySelector(
-            '[data-comment-anchor-target="doc"] p',
-        );
 
         return {
             mainScrollWidth: main.scrollWidth,
@@ -265,11 +254,7 @@ async function readLayout(page: Page) {
             threadLeft: threadRect?.left ?? null,
             threadRight: threadRect?.right ?? null,
             threadTop: threadRect?.top ?? null,
-            paragraphBottom: paragraph?.getBoundingClientRect().bottom ?? null,
-            slotFollowsParagraph:
-                thread?.parentElement?.previousElementSibling === paragraph,
-            // The slot sits inside the rendered prose, so a card in it must not
-            // pick the document's reading type up from around it.
+            proseBottom: prose.getBoundingClientRect().bottom,
             cardType:
                 commentBody === null
                     ? null
@@ -443,7 +428,7 @@ test('a tap on a highlighted passage rings its card', async ({ page }) => {
     // Posting leaves the passage selected, and a click that ends a selection is
     // not a tap. Reloading is also how a reviewer reaches the page on a phone.
     await page.reload();
-    await expect(page.locator(SLOT)).toHaveCount(1, {
+    await expect(page.locator(MARGIN)).toBeVisible({
         timeout: coverageScaled(10000),
     });
     await expect(page.locator(ACTIVE_THREAD)).toHaveCount(0);
@@ -456,7 +441,7 @@ test('a tap on a highlighted passage rings its card', async ({ page }) => {
     });
 });
 
-test('a comment card flows into the prose below lg and returns above it', async ({
+test('a comment card stacks below the document on phones and returns to the margin', async ({
     page,
 }) => {
     await page.setViewportSize(DESKTOP);
@@ -474,9 +459,8 @@ test('a comment card flows into the prose below lg and returns above it', async 
     const phone = await readLayout(page);
     expect(phone.marginPosition).toBe('static');
     expect(phone.threadPosition).toBe('static');
-    expect(phone.threadParentClass).toContain('lp-review-inline-threads');
-    expect(phone.slotFollowsParagraph).toBe(true);
-    expect(phone.threadTop!).toBeGreaterThanOrEqual(phone.paragraphBottom!);
+    expect(phone.threadParentClass).toContain('lp-review-margin');
+    expect(phone.threadTop!).toBeGreaterThanOrEqual(phone.proseBottom);
     expect(phone.threadRight!).toBeLessThanOrEqual(phone.mainRight + 1);
     expect(phone.mainScrollWidth).toBeLessThanOrEqual(phone.mainClientWidth);
     expect(phone.cardType).toBe(desktop.cardType);
@@ -488,8 +472,36 @@ test('a comment card flows into the prose below lg and returns above it', async 
     expect(back.threadParentClass).toContain('lp-review-margin');
     expect(back.threadPosition).toBe('absolute');
     // Nothing is left behind in the prose when the margin comes back.
-    await expect(page.locator(SLOT)).toHaveCount(0);
+    await expect(page.locator(DOC).locator(THREAD)).toHaveCount(0);
     await expect(page.locator(THREAD)).toHaveCount(1);
+});
+
+test('phone cards follow passage order and retain a reply draft across resizing', async ({
+    page,
+}) => {
+    await page.setViewportSize(DESKTOP);
+    await postComment(page, 'second paragraph', 'Later passage');
+    await postComment(page, KNOWN_PHRASE, 'Earlier passage', 2);
+    const earlier = page.locator(THREAD).filter({ hasText: 'Earlier passage' });
+    await earlier.locator('[data-comment-reply-target="toggle"]').click();
+    await earlier.locator('textarea').fill('Keep this reply draft');
+
+    const proseBefore = await page.locator(DOC).textContent();
+    await givePhoneWidthReadingArea(page);
+    await expect(page.locator(THREAD).first()).toContainText('Earlier passage');
+    await expect(page.locator(THREAD).last()).toContainText('Later passage');
+    await expect(earlier.locator('textarea')).toHaveValue(
+        'Keep this reply draft',
+    );
+    await expect(page.locator(DOC)).toHaveText(proseBefore!);
+    const phone = await readLayout(page);
+    expect(phone.threadTop!).toBeGreaterThanOrEqual(phone.proseBottom);
+
+    await page.setViewportSize(DESKTOP);
+    await expect(earlier.locator('textarea')).toHaveValue(
+        'Keep this reply draft',
+    );
+    await expect(page.locator(THREAD)).toHaveCount(2);
 });
 
 test('the diff pane holds a phone column too', async ({ page }) => {
@@ -562,7 +574,7 @@ test('a read-only version leaves the strike key alone', async ({ page }) => {
     expect(swallowed).toBe(false);
 });
 
-test('a slot whose only card is hidden takes no room in the prose', async ({
+test('hiding resolved cards leaves the document text unchanged', async ({
     page,
 }) => {
     await page.setViewportSize(DESKTOP);
@@ -577,7 +589,8 @@ test('a slot whose only card is hidden takes no room in the prose', async ({
     await expect(page.locator(IN_PAGE_RESOLVED)).toBeVisible();
 
     await givePhoneWidthReadingArea(page);
-    await expect(page.locator(SLOT)).toHaveCount(1);
+    await expect(page.locator(MARGIN)).toBeVisible();
+    const proseBefore = await page.locator(DOC).textContent();
 
     // Below lg the review menu carries the only resolved toggle. The row is
     // revealed once a thread resolves, and it closes the menu as it fires.
@@ -585,18 +598,9 @@ test('a slot whose only card is hidden takes no room in the prose', async ({
     await page.locator(MENU_TRIGGER).click();
     await page.locator(MENU_ROW, { hasText: 'Hide resolved' }).click();
 
-    const slot = await page.evaluate(() => {
-        const element = document.querySelector('.lp-review-inline-threads')!;
-        const style = getComputedStyle(element);
-        return {
-            height: element.getBoundingClientRect().height,
-            marginTop: style.marginTop,
-            marginBottom: style.marginBottom,
-        };
-    });
-    expect(slot.height).toBe(0);
-    expect(slot.marginTop).toBe('0px');
-    expect(slot.marginBottom).toBe('0px');
+    await expect(page.locator('.lp-comment-thread--resolved')).toBeHidden();
+    await expect(page.locator(DOC)).toHaveText(proseBefore!);
+    await expect(page.locator(DOC).locator(THREAD)).toHaveCount(0);
 });
 
 test('the action row still hides resolved threads above lg', async ({

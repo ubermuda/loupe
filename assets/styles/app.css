@@ -1845,31 +1845,15 @@
         @apply hidden;
     }
 
-    /* The comment column, from lg up. Absolutely positioned, and every card
-       inside it is too: a paragraph carrying five comments has to be exactly as
-       tall as one carrying none, which it cannot be if the cards are in flow.
-       Below lg there is no gutter to hold it, so comment_anchor_controller moves
-       each card into the prose and only unplaceable ones stay here. */
+    /* Comment cards share the margin on wide screens and stack below on phones. */
     .lp-review-margin {
-        @apply flex flex-col gap-3 w-full lg:block lg:absolute lg:top-0;
+        @apply flex flex-col gap-3.5 w-full lg:block lg:absolute lg:top-0;
     }
-    /* Clears the prose below it while it holds a card. */
     .lp-review-margin:has(.lp-comment-thread) {
         @apply mb-9 lg:mb-0;
     }
-
-    /* Holds the cards for one paragraph below lg, in normal flow right after it.
-       The type reset undoes .lp-review-doc__prose, which the slot sits inside;
-       the typography plugin's own `not-prose` rides beside this class. */
-    .lp-review-inline-threads {
-        @apply flex flex-col gap-3 my-6 text-sm leading-normal text-fg;
-    }
-
-    /* A hidden card is still a card to :has and to a slot's own box, so both
-       take their space back when hiding resolved threads leaves them with
-       nothing on screen. */
     .lp-review-block--hide-resolved
-        :is(.lp-review-margin, .lp-review-inline-threads):not(
+        .lp-review-margin:not(
             :has(.lp-comment-thread:not(.lp-comment-thread--resolved))
         ) {
         @apply my-0;
@@ -2603,6 +2587,7 @@
         }
         .lp-review-doc > [data-margin-panel='comments'],
         .lp-review-context-panel {
+            @apply mt-5;
             order: 30;
         }
     }
