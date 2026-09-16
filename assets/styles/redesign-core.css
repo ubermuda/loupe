@@ -92,6 +92,21 @@
     letter-spacing: -0.01em;
 }
 
+.lp-core-board .lp-board__add-card {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(var(--spacing) * 1.5);
+    margin-top: calc(var(--spacing) * 2);
+    padding: calc(var(--spacing) * 1) calc(var(--spacing) * 0.75);
+    color: var(--text-dim);
+    font-size: var(--text-sm);
+    text-decoration: none;
+}
+
+.lp-core-board .lp-board__add-card:hover {
+    color: var(--ink);
+}
+
 .lp-core-board .lp-board__column-count,
 .lp-core-board .lp-board__column-flag {
     border: 0;

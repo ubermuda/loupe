@@ -8,6 +8,8 @@ use App\Controller\AppController;
 use App\Exception\DomainErrors;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
+use App\Module\Board\Command\FindBoardColumnCommand;
+use App\Module\Board\Command\FindBoardColumnHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
@@ -38,6 +40,7 @@ final class CreateCardController extends AppController
 {
     public function __construct(
         private readonly CreateCardHandler $createCard,
+        private readonly FindBoardColumnHandler $findBoardColumn,
         private readonly BoardAvailability $board,
         private readonly FindSiteReviewCommentHandler $findSiteReviewComment,
     ) {
@@ -53,8 +56,9 @@ final class CreateCardController extends AppController
 
         $feedbackId = $request->query->getString('feedback');
         $feedback = $this->feedback($feedbackId, $project);
+        $column = $this->column($request->query->getString('column'), $project, $defaultColumn);
 
-        $data = new CreateCardRequest(column: $defaultColumn);
+        $data = new CreateCardRequest(column: $column);
         $form = $this->createForm(CreateCardFormType::class, $data, ['project' => $project]);
         $form->handleRequest($request);
 
@@ -106,5 +110,18 @@ final class CreateCardController extends AppController
         $this->denyAccessUnlessGranted(SiteReviewCommentVoter::ATTACH, $comment);
 
         return $comment;
+    }
+
+    private function column(string $id, Project $project, BoardColumn $defaultColumn): BoardColumn
+    {
+        if ('' === $id) {
+            return $defaultColumn;
+        }
+        if (!Uuid::isValid($id)) {
+            throw $this->createNotFoundException();
+        }
+
+        return ($this->findBoardColumn)(new FindBoardColumnCommand($id, $project))
+            ?? throw $this->createNotFoundException();
     }
 }

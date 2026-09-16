@@ -22,7 +22,7 @@
 
     {% include '@Board/_card_form.html.twig' with {
         form: form,
-        action: path('app_board_card_create', {id: project.id, feedback: feedback ? feedback.id : null}),
+        action: path('app_board_card_create', {id: project.id, feedback: feedback ? feedback.id : null, column: form.vars.data.column.id}),
         submitLabel: 'board.card.create.submit',
         cancelUrl: path('app_project_board', {id: project.id}),
     } only %}

@@ -95,6 +95,30 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertCount(2, $created->pullRequests);
     }
 
+    public function test_a_column_add_action_preselects_that_column(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'card-create-in-column@example.com');
+        $project = $this->project($em, $owner);
+        $next = $this->column($project, 'next');
+        $em->clear();
+
+        $client->loginUser($owner);
+        $board = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
+        self::assertResponseIsSuccessful();
+        self::assertCount(4, $board->filter('.lp-board__add-card'));
+
+        $crawler = $client->request(
+            Request::METHOD_GET,
+            '/projects/'.$project->id.'/board/cards/new?column='.$next->id,
+        );
+        self::assertResponseIsSuccessful();
+        self::assertSame('Next', trim($crawler->filter('select[name="create_card_form[column]"] option[selected]')->text()));
+    }
+
     public function test_the_owner_creates_a_card_from_feedback_and_attaches_it(): void
     {
         $client = static::createClient();
