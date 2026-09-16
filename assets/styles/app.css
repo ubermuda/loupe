@@ -542,7 +542,23 @@
         @apply flex items-center gap-2;
     }
     .lp-board-toolbar {
-        @apply flex items-center gap-3 min-h-9 mb-2;
+        @apply flex items-center gap-2 min-h-9 mb-3;
+    }
+    .lp-board-toolbar__search {
+        @apply relative flex min-w-0 w-56 items-center;
+    }
+    .lp-board-toolbar__search-icon {
+        @apply pointer-events-none absolute left-3 h-4 w-4 text-fg-dim;
+    }
+    .lp-board-toolbar__input,
+    .lp-board-toolbar__select {
+        @apply h-9 rounded-lg border border-line bg-surface-1 text-sm text-ink outline-none focus:border-accent-border focus:ring-2 focus:ring-accent-soft;
+    }
+    .lp-board-toolbar__input {
+        @apply min-w-0 w-full py-2 pr-3 pl-9;
+    }
+    .lp-board-toolbar__select {
+        @apply w-28 px-3 py-1.5;
     }
     .lp-board-toolbar__mode {
         @apply inline-flex items-center rounded-lg bg-surface-3 p-1;
@@ -552,6 +568,12 @@
     }
     .lp-board-toolbar__count {
         @apply ml-auto text-sm font-semibold text-fg-dim;
+    }
+    .lp-board-filter-empty {
+        @apply m-0 rounded-lg bg-surface-2 px-4 py-3 text-sm text-fg-mute;
+    }
+    .lp-board-filter-empty[hidden] {
+        @apply hidden;
     }
     .lp-board__columns {
         scroll-padding-inline: calc(var(--spacing) * 3);
@@ -579,6 +601,15 @@
         }
         .lp-board-head__actions .lp-btn {
             @apply flex-1;
+        }
+        .lp-board-toolbar {
+            @apply flex-wrap;
+        }
+        .lp-board-toolbar__search {
+            @apply flex-1;
+        }
+        .lp-board-toolbar__count {
+            @apply order-3 ml-0 w-full;
         }
     }
 }
@@ -937,9 +968,9 @@
     .admin-field-label {
         @apply text-xs font-bold text-fg-mute;
     }
-    /* Borderless: the fill is the field. A border plus a fill reads as two
-       edges on a screen that otherwise has almost none. */
-    .lp-input,
+    .lp-input {
+        @apply w-full min-h-10 font-sans text-sm text-ink bg-surface-1 border border-line rounded-lg px-3 py-2 outline-hidden transition-colors placeholder:text-fg-dim focus:border-accent-border focus:ring-2 focus:ring-accent-soft;
+    }
     .admin-field-input {
         @apply w-full font-sans text-base text-ink bg-surface-3 border-0 rounded-xl px-4 py-3 outline-hidden transition-colors placeholder:text-fg-dim focus:bg-tint-strong;
     }
@@ -1501,20 +1532,20 @@
     /* ── Buttons (lp- namespace) ────────────────────────────────────── */
 
     .lp-btn {
-        @apply inline-flex items-center justify-center gap-1.5 border-0 bg-surface-3 text-ink text-sm font-semibold cursor-pointer whitespace-nowrap transition;
+        @apply inline-flex items-center justify-center gap-1.5 border border-line bg-surface-1 text-ink text-sm font-semibold cursor-pointer whitespace-nowrap transition;
         min-height: 36px;
         padding: 7px 13px;
         border-radius: 7px;
         line-height: 20px;
     }
     .lp-btn:hover {
-        @apply bg-tint-strong;
+        @apply bg-surface-2;
     }
     .lp-btn:active {
         @apply translate-y-px scale-97;
     }
     .lp-btn--primary {
-        @apply bg-accent text-ink font-bold;
+        @apply border-accent-border bg-accent text-ink font-bold;
     }
     .lp-btn--primary:hover {
         @apply bg-accent-hover;
@@ -1523,7 +1554,7 @@
        the other way round, so it reads as the decisive action on a light card
        without a second accent fill competing with the primary button. */
     .lp-btn--inverse {
-        @apply bg-ink text-accent font-bold;
+        @apply border-ink bg-ink text-accent font-bold;
     }
     .lp-btn--inverse:hover {
         @apply bg-chrome-raised;
@@ -1556,14 +1587,14 @@
         @apply bg-status-danger-border;
     }
     .lp-btn--ghost {
-        @apply bg-transparent text-fg-mute shadow-none;
+        @apply border-transparent bg-transparent text-fg-mute shadow-none;
     }
     .lp-btn--ghost:hover {
         @apply bg-tint-strong text-ink;
     }
     /* Text-only destructive — recoverable (Delete a comment, Revoke a token). */
     .lp-btn--danger-ghost {
-        @apply h-8.5 bg-transparent px-3 text-danger shadow-none;
+        @apply h-8.5 border-transparent bg-transparent px-3 text-danger shadow-none;
     }
     .lp-btn--danger-ghost:hover {
         @apply bg-status-danger-bg;
@@ -1572,7 +1603,7 @@
         @apply h-8.5 px-3.5 text-sm;
     }
     .lp-btn--icon {
-        @apply w-8.5 h-8.5 p-0 bg-transparent text-fg-mute;
+        @apply w-8.5 h-8.5 p-0 border-transparent bg-transparent text-fg-mute;
     }
     .lp-btn--icon:hover {
         @apply bg-tint-strong text-ink;
@@ -1663,7 +1694,7 @@
         @apply flex items-center gap-3;
     }
     .lp-review-doc__back {
-        @apply inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
+        @apply inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-line bg-surface-1 text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
     }
     .lp-review-doc__back svg {
         @apply size-4;
@@ -2406,7 +2437,7 @@
         @apply hidden shrink-0 items-center justify-end gap-1 lg:flex;
     }
     .lp-review-margin-tabs__item {
-        @apply inline-flex min-h-9 items-center gap-1.5 rounded-lg border-0 bg-transparent px-2.5 py-1.5 text-sm font-semibold text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
+        @apply inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-transparent bg-transparent px-2.5 py-1.5 text-sm font-semibold text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
     }
     .lp-review-margin-tabs__item svg {
         @apply size-4 shrink-0;
@@ -2415,7 +2446,7 @@
         @apply hidden;
     }
     .lp-review-margin-tabs__item--active {
-        @apply bg-surface-3 text-ink;
+        @apply border-accent-border bg-accent-soft text-accent-ink;
     }
     .lp-review-margin-tabs__item--active span {
         @apply inline;

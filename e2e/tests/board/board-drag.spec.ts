@@ -223,6 +223,27 @@ test.afterAll(async ({ request }) => {
     await setBoardFlag(request, false);
 });
 
+test('the board search filters cards and reports an empty result', async ({
+    page,
+}) => {
+    const search = page.getByPlaceholder('Find a card…');
+
+    await search.fill('Bravo');
+    await expect(page.locator('[data-card-title="Bravo"]')).toBeVisible();
+    await expect(page.locator('[data-card-title="Alpha"]')).toBeHidden();
+    await expect(page.locator('.lp-board-toolbar__count')).toHaveText('1 card');
+
+    await search.fill('Missing');
+    await expect(page.locator('[data-card-title="Alpha"]')).toBeHidden();
+    await expect(page.locator('[data-card-title="Bravo"]')).toBeHidden();
+    await expect(page.getByText('No cards match these filters.')).toBeVisible();
+
+    await search.fill('');
+    await expect(page.locator(CARD)).toHaveCount(2);
+    await expect(page.locator('[data-card-title="Alpha"]')).toBeVisible();
+    await expect(page.locator('[data-card-title="Bravo"]')).toBeVisible();
+});
+
 test('a drag inside a priority group reorders it, and the order survives a reload', async ({
     page,
     board,
@@ -287,8 +308,11 @@ test("the card's own page moves it without a pointer", async ({
     await page.locator('[data-card-title="Bravo"] a').click();
     await expect(page.getByRole('button', { name: 'Move card' })).toBeVisible();
 
-    await page.getByLabel('Column').selectOption({ label: 'Next' });
-    await page.getByRole('button', { name: 'Move card' }).click();
+    const moveForm = page.locator('.lp-card-move__form');
+    await moveForm.locator('select[name$="[column]"]').selectOption({
+        label: 'Next',
+    });
+    await moveForm.getByRole('button', { name: 'Move card' }).click();
 
     await expect(page).toHaveURL(board.boardUrl);
     await waitForDragReady(page);

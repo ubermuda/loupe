@@ -4692,7 +4692,7 @@
             </trans-unit>
             <trans-unit id="board.page.description">
                 <source>board.page.description</source>
-                <target>Columns of work, ranked by hand inside each priority group.</target>
+                <target>Every card has a next step.</target>
             </trans-unit>
             <trans-unit id="board.card.create.action">
                 <source>board.card.create.action</source>
@@ -5612,6 +5612,11 @@
                 <source>board.card.count</source>
                 <target>{0} No cards|{1} 1 card|]1,Inf[ %count% cards</target>
             </trans-unit>
+            <trans-unit id="board.filter.search.label"><source>board.filter.search.label</source><target>Search cards</target></trans-unit>
+            <trans-unit id="board.filter.search.placeholder"><source>board.filter.search.placeholder</source><target>Find a card…</target></trans-unit>
+            <trans-unit id="board.filter.priority.label"><source>board.filter.priority.label</source><target>Priority</target></trans-unit>
+            <trans-unit id="board.filter.priority.all"><source>board.filter.priority.all</source><target>All priorities</target></trans-unit>
+            <trans-unit id="board.filter.empty"><source>board.filter.empty</source><target>No cards match these filters.</target></trans-unit>
             <trans-unit id="nav.link.agents"><source>nav.link.agents</source><target>Agents</target></trans-unit>
             <trans-unit id="nav.link.rules"><source>nav.link.rules</source><target>Rules</target></trans-unit>
             <trans-unit id="nav.link.activity"><source>nav.link.activity</source><target>Activity</target></trans-unit>

@@ -242,6 +242,19 @@
         order: 4;
     }
 
+    @media (width <= 48.75rem) {
+        .lp-redesign-account .lp-section-tabs {
+            @apply flex-row overflow-x-auto whitespace-nowrap;
+            scrollbar-width: none;
+        }
+        .lp-redesign-account .lp-section-tabs::-webkit-scrollbar {
+            display: none;
+        }
+        .lp-redesign-account .lp-section-tabs__item {
+            @apply shrink-0;
+        }
+    }
+
     @media (width >= 64rem) {
         .lp-redesign-settings .lp-settings-layout,
         .lp-account-settings-layout {

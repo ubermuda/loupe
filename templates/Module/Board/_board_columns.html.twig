@@ -2,18 +2,42 @@
    stream, so the two can never drift apart. Props: board (BoardView),
    addColumnForm and renameColumnForm (a refused FormView, or null). #}
 {% set canManage = is_granted(constant('App\\Module\\Board\\Security\\BoardColumnVoter::MANAGE'), board.project) %}
-<div id="board" class="lp-board" data-controller="board-drag{{ canManage ? ' board-columns' }}">
+<div id="board" class="lp-board" data-controller="board-drag board-filter{{ canManage ? ' board-columns' }}">
     {% set cardCount = 0 %}
     {% for view in board.columns %}{% set cardCount = cardCount + view.count %}{% endfor %}
     <div class="lp-board-toolbar">
+        <label class="lp-board-toolbar__search">
+            <span class="sr-only">{{ 'board.filter.search.label'|trans }}</span>
+            <twig:ux:icon name="lucide:search" class="lp-board-toolbar__search-icon" />
+            <input type="search"
+                   class="lp-board-toolbar__input"
+                   placeholder="{{ 'board.filter.search.placeholder'|trans }}"
+                   data-board-filter-target="query"
+                   data-action="input->board-filter#filter">
+        </label>
+        <label>
+            <span class="sr-only">{{ 'board.filter.priority.label'|trans }}</span>
+            <select class="lp-board-toolbar__select"
+                    data-board-filter-target="priority"
+                    data-action="change->board-filter#filter">
+                <option value="">{{ 'board.filter.priority.all'|trans }}</option>
+                {% for priority in enum_cases('App\\Module\\Board\\Entity\\CardPriority') %}
+                    <option value="{{ priority.value }}">{{ ('board.card.priority.' ~ priority.label())|trans }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <span class="lp-board-toolbar__count"
+              data-board-filter-target="count"
+              data-one="{{ 'board.card.count'|trans({'%count%': 1}) }}"
+              data-many="{{ 'board.card.count'|trans({'%count%': 2})|replace({'2': '%count%'}) }}">{{ 'board.card.count'|trans({'%count%': cardCount}) }}</span>
         <div class="lp-board-toolbar__mode" aria-label="{{ 'board.view.label'|trans }}">
             <span class="lp-board-toolbar__mode-active" aria-current="page">
                 <twig:ux:icon name="lucide:square-kanban" class="w-4 h-4 shrink-0" />
                 {{ 'board.view.board'|trans }}
             </span>
         </div>
-        <span class="lp-board-toolbar__count">{{ 'board.card.count'|trans({'%count%': cardCount}) }}</span>
     </div>
+    <p class="lp-board-filter-empty" data-board-filter-target="empty" hidden>{{ 'board.filter.empty'|trans }}</p>
     {# A drop moves the card at once. This says so when the server refuses. #}
     <p class="lp-board__message"
        data-board-drag-target="message"

@@ -2,6 +2,7 @@
    Props: card (Card), pendingComments (int). #}
 <article class="lp-board-card"
          data-board-drag-target="card"
+         data-board-filter-target="card"
          data-action="pointerdown->board-drag#press"
          data-card-id="{{ card.id }}"
          data-card-title="{{ card.title }}">
