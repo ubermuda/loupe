@@ -2817,7 +2817,7 @@
        lg it is in normal flow, inside the slot the controller opens after that
        passage's block. Cards never move on hover — only the ring appears. */
     .lp-comment-thread {
-        @apply static lg:absolute left-0 right-0 flex flex-col gap-3 rounded-xl bg-surface-3 py-3.5 px-4 transition-shadow;
+        @apply static lg:absolute left-0 right-0 flex flex-col gap-3 rounded-xl border border-line bg-surface-1 py-3.5 px-4 transition-shadow;
     }
     .lp-comment-thread[hidden] {
         @apply hidden;
@@ -2834,8 +2834,6 @@
     .lp-comment-thread--general {
         @apply static;
     }
-    /* The one row a card shows in both states, so the author line sits at the
-       same offset whether the thread is collapsed or open. */
     .lp-comment-thread__top {
         @apply flex items-center gap-2;
     }
@@ -2849,64 +2847,12 @@
         @apply flex flex-col gap-3;
     }
 
-    /* ── Comment rail ──────────────────────────────────────────────────
-       One 32px marker per thread, one open at a time. Two gates: the
-       .lp-comment-rail class, which the landing mock and the demo do not carry,
-       and lg, below which a thread is a whole card wherever it sits — including
-       one #inlineThreads cannot place and leaves in the margin. */
-    .lp-comment-marker {
-        @apply hidden w-full items-center gap-2 h-8 p-0 bg-transparent border-0 text-left cursor-pointer;
-    }
-    .lp-comment-rail .lp-comment-marker {
-        @apply lg:flex lg:w-auto lg:flex-1 lg:min-w-0;
-    }
-    .lp-comment-marker:focus-visible {
-        @apply rounded-lg outline-2 -outline-offset-2 outline-accent;
-    }
-    .lp-comment-marker__dot {
-        @apply inline-block shrink-0 rounded-full w-2 h-2 bg-accent;
-    }
-    .lp-comment-marker__dot--ok {
-        @apply bg-status-ok;
-    }
-    .lp-comment-marker__dot--strike {
-        @apply bg-strike;
-    }
-    .lp-comment-marker__author {
-        @apply min-w-0 truncate text-ink font-bold text-sm;
-    }
-    .lp-comment-marker__count {
-        @apply ml-auto shrink-0 text-fg-mute font-bold text-xs;
-    }
-    /* Expanded, the replies are on screen, so the tally has nothing to say. */
-    .lp-comment-thread--expanded .lp-comment-marker__count {
+    .lp-review-block
+        .lp-comment-thread[data-anchor-kind='comment']:not(
+            .lp-comment-thread--orphaned
+        )
+        .lp-comment-quote {
         @apply hidden;
-    }
-    /* Only the detail collapses. The card keeps its box and its padding, so the
-       marker row does not jump when a thread opens, and hiding it any other way
-       would make offsetParent null, which is how a resolved card stops
-       advancing the floor in #positionThreads. */
-    .lp-comment-rail
-        .lp-comment-thread:not(.lp-comment-thread--expanded)
-        .lp-comment-thread__detail {
-        @apply lg:hidden;
-    }
-    /* The marker names the author, so the header beside it keeps the age and the
-       status alone, and yields the row's free space to the marker. */
-    .lp-comment-rail .lp-comment-thread__header > .lp-comment-author {
-        @apply lg:hidden;
-    }
-    .lp-comment-rail .lp-comment-thread__top > .lp-comment-thread__header {
-        @apply lg:flex-none;
-    }
-    /* The passage is highlighted in the prose level with the card, so quoting it
-       here repeats what the reader can already see. An orphaned thread keeps its
-       quote, because that passage is gone from this version; a suggestion keeps
-       the replacement, which is proposed wording rather than the passage. */
-    .lp-comment-rail
-        .lp-comment-thread:not(.lp-comment-thread--orphaned)
-        .lp-comment-quote:not(.lp-comment-quote--inserted) {
-        @apply lg:hidden;
     }
     /* Status as a plain label rather than a chip: on a card this small, six
        pills stacked down the margin read as the loudest thing on the page. */
@@ -3015,10 +2961,10 @@
     }
     /* Final thread footer keeps Delete left and resolution actions right. */
     .lp-comment-thread__footer {
-        @apply flex flex-wrap items-center gap-2 border-t border-line pt-3;
+        @apply flex flex-wrap items-center gap-1 border-t border-line pt-3;
     }
     .lp-comment-action {
-        @apply inline-flex min-h-9 cursor-pointer list-none items-center gap-1.5 rounded-lg border border-transparent bg-transparent px-3 py-1.5 text-sm font-semibold text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
+        @apply inline-flex min-h-9 cursor-pointer list-none items-center gap-1 rounded-lg border border-transparent bg-transparent px-1 py-1.5 text-sm font-semibold text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
     }
     .lp-comment-action::-webkit-details-marker {
         display: none;
@@ -3032,14 +2978,11 @@
     .lp-comment-action--resolve {
         @apply text-status-ok-deep hover:bg-status-ok-bg hover:text-status-ok-deep;
     }
-    .lp-comment-reply-disclosure[open] {
-        @apply basis-full order-last;
-    }
-    .lp-comment-reply-disclosure[open] > .lp-comment-action {
-        @apply mb-2;
-    }
     .lp-comment-reply-form {
-        @apply flex flex-col gap-2;
+        @apply order-last basis-full flex flex-col gap-2;
+    }
+    .lp-comment-reply-form[hidden] {
+        @apply hidden;
     }
     .lp-comment-reply-form textarea {
         @apply w-full text-sm bg-app border-0 rounded-lg px-3 py-2 text-ink placeholder:text-fg-dim resize-none outline-hidden transition-colors min-h-16;
@@ -3858,36 +3801,6 @@
         position: static !important;
         @apply rounded-xl;
         outline: 1px solid var(--color-status-pending-border);
-    }
-    /* Open, not collapsed to a marker: a marker names the author and points at a
-       passage, and this card has none to point at. Both selectors carry the
-       rail's own prefix, which is what the collapse rules use, or those would
-       out-rank these however late they come. */
-    .lp-comment-rail .lp-orphan-group .lp-comment-marker {
-        @apply hidden;
-    }
-    /* flex, not block: the detail is a flex column whose `gap` is the whole of
-       its vertical rhythm, and `display: block` drops every one of those gaps. */
-    .lp-comment-rail
-        .lp-orphan-group
-        .lp-comment-thread
-        .lp-comment-thread__detail {
-        @apply flex flex-col gap-3;
-    }
-    /* The marker is what names the author in the rail, and it is hidden here. */
-    .lp-comment-rail
-        .lp-orphan-group
-        .lp-comment-thread__header
-        > .lp-comment-author {
-        @apply inline;
-    }
-    /* The header has the row to itself here, so it takes the width back from
-       the hidden marker and the status keeps its flush-right place. */
-    .lp-comment-rail
-        .lp-orphan-group
-        .lp-comment-thread__top
-        > .lp-comment-thread__header {
-        @apply lg:flex-1;
     }
     /* The group's heading says this right above the card. The pill is for a card
        that stands on its own, which one in this group never does. */

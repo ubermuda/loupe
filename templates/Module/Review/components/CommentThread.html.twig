@@ -45,7 +45,7 @@
     </form>
 
     {% if status != 'resolved' %}
-    <div class="lp-comment-thread__footer">
+    <div class="lp-comment-thread__footer" data-controller="comment-reply">
         {% set replyForm = replyForm ?? comment_reply_form(comment) %}
 
         {# Fieldless resolve form — submitted by the Resolve button below via form=. #}
@@ -57,27 +57,26 @@
             <twig:ux:icon name="lucide:trash-2" />
             {{ 'review.document.comment.delete'|trans }}
         </button>
-        <details class="lp-comment-reply-disclosure">
-            <summary class="lp-comment-action">
-                <twig:ux:icon name="lucide:message-square" />
-                {{ 'review.document.comment.reply'|trans }}
-            </summary>
-            <div class="lp-comment-reply-form">
-                {{ form_start(replyForm, {attr: {
-                    class: 'contents',
-                    'data-controller': 'keyboard-submit',
-                    'data-action': 'keydown->keyboard-submit#submit',
-                }}) }}
-                    {{ form_widget(replyForm.body) }}
-                    <div class="lp-comment-error">{{ form_errors(replyForm.body) }}</div>
-                    <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">{{ 'review.document.comment.reply'|trans }}</button>
-                {{ form_end(replyForm) }}
-            </div>
-        </details>
+        <button type="button" class="lp-comment-action" data-comment-reply-target="toggle" data-action="comment-reply#toggle"
+                aria-expanded="false" aria-controls="reply-form-{{ comment.id }}">
+            <twig:ux:icon name="lucide:message-square" />
+            {{ 'review.document.comment.reply'|trans }}
+        </button>
         <button type="submit" form="resolve-form-{{ comment.id }}" class="lp-comment-action lp-comment-action--resolve">
             <twig:ux:icon name="lucide:circle-check" />
             {{ 'review.document.comment.resolve'|trans }}
         </button>
+        <div class="lp-comment-reply-form" id="reply-form-{{ comment.id }}" data-comment-reply-target="form" hidden>
+            {{ form_start(replyForm, {attr: {
+                class: 'contents',
+                'data-controller': 'keyboard-submit',
+                'data-action': 'keydown->keyboard-submit#submit',
+            }}) }}
+                {{ form_widget(replyForm.body) }}
+                <div class="lp-comment-error">{{ form_errors(replyForm.body) }}</div>
+                <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">{{ 'review.document.comment.reply'|trans }}</button>
+            {{ form_end(replyForm) }}
+        </div>
     </div>
     {% else %}
     {# Fieldless reopen form — the inverse of resolve, offered only once the thread

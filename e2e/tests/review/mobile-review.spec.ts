@@ -157,16 +157,10 @@ async function postComment(page: Page): Promise<void> {
     });
 }
 
-/**
- * Open a thread. Above lg the margin is a rail, so a thread is a marker until
- * it is clicked and its buttons live behind that disclosure. Below lg the card
- * is whole and the marker is not rendered.
- */
-async function expandThread(page: Page): Promise<void> {
-    const marker = page.locator('.lp-comment-marker').first();
-    await expect(marker).toBeVisible({ timeout: coverageScaled(10000) });
-    await marker.click();
-    await expect(marker).toHaveAttribute('aria-expanded', 'true');
+async function expectThreadVisible(page: Page, index = 0): Promise<void> {
+    await expect(
+        page.locator('.lp-comment-thread__detail').nth(index),
+    ).toBeVisible({ timeout: coverageScaled(10000) });
 }
 
 /** Viewport midpoint of the anchored phrase, which is painted with no element. */
@@ -406,7 +400,7 @@ test('the frame around the document shrinks with the screen', async ({
     await page.setViewportSize(DESKTOP);
 
     const desktop = await readLayout(page);
-    expect(desktop.blockPaddingTop).toBe(52);
+    expect(desktop.blockPaddingTop).toBe(28);
     expect(desktop.blockPaddingBottom).toBe(120);
 });
 
@@ -573,7 +567,7 @@ test('a slot whose only card is hidden takes no room in the prose', async ({
 }) => {
     await page.setViewportSize(DESKTOP);
     await postComment(page);
-    await expandThread(page);
+    await expectThreadVisible(page);
     await page.getByRole('button', { name: 'Resolve' }).click();
     await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
         timeout: coverageScaled(10000),
@@ -610,7 +604,7 @@ test('the action row still hides resolved threads above lg', async ({
 }) => {
     await page.setViewportSize(DESKTOP);
     await postComment(page);
-    await expandThread(page);
+    await expectThreadVisible(page);
     await page.getByRole('button', { name: 'Resolve' }).click();
     const resolved = page.locator('.lp-comment-thread--resolved');
     await expect(resolved).toBeVisible({ timeout: coverageScaled(10000) });

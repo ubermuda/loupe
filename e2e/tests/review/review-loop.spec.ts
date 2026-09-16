@@ -27,7 +27,6 @@ const DOC = '[data-comment-anchor-target="doc"]';
 const TOOLBAR = '[data-comment-anchor-target="toolbar"]';
 const COMPOSER = '[data-comment-anchor-target="composer"]';
 const COMPOSER_BODY = '[data-comment-anchor-target="composerBody"]';
-const MARKER = '.lp-comment-marker';
 
 /** Register a user via the dev endpoint and immediately mark them as verified. */
 async function devRegisterAndVerify(
@@ -210,23 +209,17 @@ async function postComment(page: Page): Promise<void> {
     await expect(page.locator(COMPOSER)).toBeHidden({
         timeout: coverageScaled(10000),
     });
-    await expect(page.locator(MARKER).first()).toBeVisible({
+    await expect(
+        page.locator('.lp-comment-thread__detail').first(),
+    ).toBeVisible({
         timeout: coverageScaled(10000),
     });
 }
 
-/**
- * Open a thread. Above the lg breakpoint the margin is a rail, so a thread is a
- * marker until it is clicked; its body, reply box and buttons are behind that
- * disclosure.
- */
-async function expandThread(page: Page, index = 0): Promise<void> {
-    const marker = page.locator(MARKER).nth(index);
-    await expect(marker).toBeVisible({ timeout: coverageScaled(10000) });
-    if ((await marker.getAttribute('aria-expanded')) !== 'true') {
-        await marker.click();
-    }
-    await expect(marker).toHaveAttribute('aria-expanded', 'true');
+async function expectThreadVisible(page: Page, index = 0): Promise<void> {
+    await expect(
+        page.locator('.lp-comment-thread__detail').nth(index),
+    ).toBeVisible({ timeout: coverageScaled(10000) });
 }
 
 test('posting a comment disables the submitter and renders the thread in the sidebar', async ({
@@ -260,7 +253,7 @@ test('posting a comment disables the submitter and renders the thread in the sid
         timeout: coverageScaled(10000),
     });
 
-    await expandThread(page);
+    await expectThreadVisible(page);
     const commentBody = page.locator('.lp-comment-body').first();
     await expect(commentBody).toBeVisible({ timeout: coverageScaled(10000) });
     await expect(commentBody).toContainText(COMMENT_BODY);
@@ -323,13 +316,16 @@ test('replying to a thread and resolving it re-render it in place', async ({
     const replyResponsePromise = page.waitForResponse(
         (r) => r.url().includes('/reply') && r.request().method() === 'POST',
     );
-    await expandThread(page);
-    await page.locator('.lp-comment-reply-disclosure summary').first().click();
+    await expectThreadVisible(page);
+    await page.locator('[data-comment-reply-target=toggle]').first().click();
     await page
         .locator('.lp-comment-reply-form textarea')
         .first()
         .fill(REPLY_BODY);
-    await page.getByRole('button', { name: 'Reply' }).click();
+    await page
+        .locator('.lp-comment-reply-form')
+        .getByRole('button', { name: 'Reply', exact: true })
+        .click();
     const replyResponse = await replyResponsePromise;
     expect(replyResponse.status()).toBe(200);
     expect(replyResponse.headers()['content-type']).toContain('turbo-stream');
@@ -361,7 +357,7 @@ test('requesting changes shows the verdict on the project dashboard', async ({
     // A verdict is reached on a document that has been commented on, so the
     // thread is part of the state under test, not incidental setup.
     await postComment(page);
-    await expandThread(page);
+    await expectThreadVisible(page);
     await page.getByRole('button', { name: 'Resolve' }).click();
     await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
         timeout: coverageScaled(10000),
@@ -398,7 +394,7 @@ test('a resolved comment survives a reload and can then be deleted for good', as
 }) => {
     await postComment(page);
 
-    await expandThread(page);
+    await expectThreadVisible(page);
     await page.getByRole('button', { name: 'Resolve' }).click();
     await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
         timeout: coverageScaled(10000),
@@ -406,7 +402,7 @@ test('a resolved comment survives a reload and can then be deleted for good', as
 
     await page.goto(review.reviewUrl);
     await expect(page.locator(DOC)).toBeVisible();
-    await expandThread(page);
+    await expectThreadVisible(page);
     const persistedCommentBody = page.locator('.lp-comment-body').first();
     await expect(persistedCommentBody).toBeVisible({
         timeout: coverageScaled(5000),
@@ -449,7 +445,7 @@ test('the composer submits on Ctrl/Cmd+Enter', async ({ page, review }) => {
     await expect(page.locator(COMPOSER)).toBeHidden({
         timeout: coverageScaled(10000),
     });
-    await expandThread(page);
+    await expectThreadVisible(page);
     const commentBody = page.locator('.lp-comment-body').first();
     await expect(commentBody).toBeVisible({ timeout: coverageScaled(10000) });
     await expect(commentBody).toContainText(COMMENT_BODY);

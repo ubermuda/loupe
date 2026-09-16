@@ -56,17 +56,14 @@ contents, the versions, the references, the decisions, the resolved-thread
 toggle and the two verdict buttons. Each list opens inside the same panel, and
 the button becomes the way back out of it.
 
-A wide window puts the comment threads in a rail beside the document, each one
-level with the passage it points at. A thread is one row there: a coloured dot
-for its state, its author, how many replies it carries, its age and its status.
-Click the row and the thread opens in place, with its body, its replies, the
-reply box and the buttons. That row stays where it is as the thread opens.
-Only one thread is open at a time, so opening a second closes the first,
-and a click on an open row closes it. Press Escape to close it from the keyboard.
+A wide window puts comment cards beside the document, aligned with their passages.
+Each card shows its author, status, body, replies and actions.
+Cards move down when necessary to prevent overlap.
+Reply opens an inline form and preserves its draft when closed.
 
-An open thread does not repeat the passage it points at, because that passage is
-highlighted in the document level with the row. A thread whose passage is gone
-from this version still quotes it, because there is nothing left to highlight.
+A comment does not repeat its highlighted passage.
+Suggestions and strikes retain the quoted text.
+A thread whose passage is absent from this version also retains its quote.
 
 A narrow window has no room for the rail, so each thread moves into the document
 instead, directly after the paragraph it points at, and shows in full.

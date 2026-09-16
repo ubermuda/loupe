@@ -163,7 +163,6 @@ export default class extends Controller {
             : new ServerTransport(this);
         this.pendingSelection = null;
         this.strikeInFlight = false;
-        this.expandedThreadId = this.#expandedFromHash();
         this.hoveredThread = null;
         this.hoverProbeFrame = null;
         this.docTextCache = null;
@@ -1252,63 +1251,6 @@ export default class extends Controller {
     }
 
     /**
-     * Marker action: open this thread and close whichever one was open.
-     *
-     * The open thread is held as a DOM id rather than as an element, so a Turbo
-     * Stream that replaces the card — every reply does — leaves it open. A card
-     * with no id, which is the demo prototype, cannot be opened; its marker is
-     * display:none there, so nothing reaches this.
-     */
-    toggleThread(event) {
-        event.preventDefault();
-        const thread = event.currentTarget.closest('.lp-comment-thread');
-        if (thread === null || thread.id === '') {
-            return;
-        }
-        this.expandedThreadId =
-            this.expandedThreadId === thread.id ? null : thread.id;
-        this.#applyExpansion();
-        this.#scheduleLayout();
-    }
-
-    /** Card action: Escape closes the open card and returns focus to its marker. */
-    threadKeydown(event) {
-        if (event.key !== 'Escape') {
-            return;
-        }
-        const thread = event.currentTarget;
-        if (!thread.classList.contains('lp-comment-thread--expanded')) {
-            return;
-        }
-        // The document-level handler would otherwise also drop a pending
-        // selection the reader still wants.
-        event.stopPropagation();
-        this.expandedThreadId = null;
-        this.#applyExpansion();
-        this.#scheduleLayout();
-        thread.querySelector('.lp-comment-marker')?.focus();
-    }
-
-    #applyExpansion() {
-        for (const thread of this.threadTargets) {
-            const expanded =
-                thread.id !== '' && thread.id === this.expandedThreadId;
-            thread.classList.toggle('lp-comment-thread--expanded', expanded);
-            thread
-                .querySelector('.lp-comment-marker')
-                ?.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-        }
-    }
-
-    /** A #comment-thread-… fragment opens that thread, which is what the
-     *  review screen's own deep links point at. */
-    #expandedFromHash() {
-        const id = window.location.hash.slice(1);
-
-        return id.startsWith('comment-thread-') ? id : null;
-    }
-
-    /**
      * Card action: ring this card and tint the passage it points at.
      *
      * The tint is a Highlight rather than an outline because ::highlight()
@@ -1495,9 +1437,6 @@ export default class extends Controller {
         } catch {
             this.agentHighlight?.clear();
         }
-        // Before the placement pass: it measures offsetHeight, and a marker is a
-        // different height from the card it opens into.
-        this.#applyExpansion();
         try {
             if (this.#threadsInMargin()) {
                 this.#collectInlineThreads();
