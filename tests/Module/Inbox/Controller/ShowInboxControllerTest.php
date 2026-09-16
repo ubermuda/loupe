@@ -212,7 +212,8 @@ final class ShowInboxControllerTest extends WebTestCase
         $owner = $this->signedUpUser($this->em, 'inbox-redesign');
         $project = $this->inboxProject($this->em, $owner);
         $question = $this->question($this->em, $project, 1);
-        $this->askHolding($this->em, $project, [$question]);
+        $todo = $this->todo($this->em, $project, 3);
+        $this->askHolding($this->em, $project, [$question, $todo]);
         $this->askHolding($this->em, $project, [$this->question($this->em, $project, 2)]);
         $this->setInboxFlag(true);
 
@@ -220,7 +221,8 @@ final class ShowInboxControllerTest extends WebTestCase
         $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox');
 
         self::assertResponseIsSuccessful();
-        self::assertSame(['Open 2', 'Completed 0'], $crawler->filter('.lp-section-tabs__item')->each(static fn ($node): string => $node->text()));
+        self::assertSame(['Open 3', 'Completed 0'], $crawler->filter('.lp-section-tabs__item')->each(static fn ($node): string => $node->text()));
+        self::assertSame('3 need attention', $crawler->filter('.lp-needs-you__summary')->text());
         self::assertSame('Agent request', $crawler->filter('[data-inbox-ask-id] .lp-inbox-ask__source')->first()->text());
         self::assertCount(1, $crawler->filter('[data-inbox-section="open-asks"]#inbox-open'));
         self::assertCount(2, $crawler->filter('.lp-inbox-request[role="tab"]'));

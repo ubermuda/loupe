@@ -7,6 +7,7 @@ namespace App\Module\Inbox\View;
 use App\Module\Bridge\View\BridgeStatus;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxItem;
+use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Project\Entity\Project;
 
 /** The project inbox page: open asks, open items outside them, and one page of closed asks, or one page of search results. */
@@ -17,6 +18,8 @@ final readonly class InboxDetailView implements InboxItemsView
 
     /** @var array<string, string> item id to the place its forms render */
     private array $homes;
+
+    public int $openItemCount;
 
     /**
      * @param list<InboxAsk>              $openAsks       oldest first
@@ -45,14 +48,26 @@ final readonly class InboxDetailView implements InboxItemsView
         // An item can sit in several asks, and a to-do in a closed ask also shows
         // on its own. Its forms render once, at the first place the page shows it.
         $homes = [];
+        $openItems = [];
         foreach ($openAsks as $ask) {
             foreach ($ask->items as $link) {
                 $homes[(string) $link->item->id] ??= (string) $ask->id;
+                if (InboxItemState::Open === $link->item->state) {
+                    $openItems[(string) $link->item->id] = true;
+                }
             }
         }
-        foreach ([...$looseItems, ...$searchResults] as $item) {
+        foreach ($looseItems as $item) {
+            $homes[(string) $item->id] ??= self::LOOSE;
+            $openItems[(string) $item->id] = true;
+        }
+
+        $this->openItemCount = count($openItems);
+
+        foreach ($searchResults as $item) {
             $homes[(string) $item->id] ??= self::LOOSE;
         }
+
         foreach ($closedAsks as $ask) {
             foreach ($ask->items as $link) {
                 $homes[(string) $link->item->id] ??= (string) $ask->id;

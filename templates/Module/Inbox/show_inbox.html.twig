@@ -17,7 +17,7 @@
         </div>
         <div class="lp-needs-you__header-actions">
             {% if not inbox.isSearch %}
-            <span class="lp-needs-you__summary">{{ 'inbox.page.open_summary'|trans({'%count%': inbox.openAsks|length + inbox.looseItems|length}) }}</span>
+            <span class="lp-needs-you__summary">{{ 'inbox.page.open_summary'|trans({'%count%': inbox.openItemCount}) }}</span>
             {% endif %}
             <a class="lp-btn" href="{{ path('app_project_activity', {id: inbox.project.id}) }}">
                 <twig:ux:icon name="lucide:activity" class="w-4 h-4" />
@@ -28,7 +28,7 @@
 
     {% if not inbox.isEmpty and not inbox.isSearch %}
     <nav class="lp-section-tabs" aria-label="{{ 'inbox.tabs.label'|trans }}">
-        <a class="lp-section-tabs__item{{ inbox.openAsks|length > 0 or inbox.looseItems|length > 0 ? ' lp-section-tabs__item--active' }}" href="#inbox-open">{{ 'inbox.tabs.open'|trans }} <span>{{ inbox.openAsks|length + inbox.looseItems|length }}</span></a>
+        <a class="lp-section-tabs__item{{ inbox.openItemCount > 0 ? ' lp-section-tabs__item--active' }}" href="#inbox-open">{{ 'inbox.tabs.open'|trans }} <span>{{ inbox.openItemCount }}</span></a>
         <a class="lp-section-tabs__item{{ inbox.openAsks|length == 0 and inbox.looseItems|length == 0 ? ' lp-section-tabs__item--active' }}" href="#inbox-completed">{{ 'inbox.tabs.completed'|trans }} <span>{{ inbox.closedAskTotal }}</span></a>
     </nav>
     {% endif %}
