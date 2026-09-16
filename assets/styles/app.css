@@ -3172,6 +3172,11 @@
     .lp-sidebar {
         @apply flex flex-col w-54 shrink-0 pt-7 px-3.5 pb-3.5;
     }
+    @media (width > 48.75rem) and (width <= 75rem) {
+        .lp-sidebar {
+            width: 12.1875rem;
+        }
+    }
 
     /* Below lg the sidebar slides in over the paper. Only the app shell opts
        in: the landing still reuses .lp-sidebar inside a fixed 1260px frame,
@@ -3461,6 +3466,43 @@
     }
     .lp-topbar__global-action--search {
         @apply w-auto gap-2 px-2.5 text-sm;
+    }
+
+    /* Tailwind's lg variants start at 1024px, but the rail stays in flow above
+       780px. Keep page-level responsive rules on their own breakpoints. */
+    @media (width > 48.75rem) and (width < 64rem) {
+        .lp-sidebar--drawer,
+        .lp-sidebar--drawer.lp-sidebar--open {
+            @apply static visible translate-x-0 overflow-visible;
+            transition: none;
+        }
+        .lp-sidebar__close,
+        .lp-scrim,
+        .lp-topbar__menu {
+            @apply hidden;
+        }
+        .lp-topbar {
+            @apply px-7.5;
+        }
+        .lp-topbar__lead {
+            @apply flex-row flex-wrap items-baseline justify-start gap-x-3.5 gap-y-1;
+        }
+        .lp-topbar__crumb,
+        .lp-topbar__sep,
+        .lp-topbar__trail .lp-version-pill,
+        .lp-topbar__lead .lp-signal {
+            @apply inline-flex;
+        }
+        .lp-topbar__meta {
+            @apply text-sm whitespace-nowrap;
+        }
+        .lp-topbar__actions,
+        .lp-topbar__global-actions {
+            @apply flex;
+        }
+        .lp-topbar__actions {
+            @apply flex-wrap;
+        }
     }
 
     /* ── Code / pre blocks ──────────────────────────────────────────────── */

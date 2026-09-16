@@ -1,7 +1,7 @@
 /**
  * The authenticated shell at a 375px phone viewport with a touch pointer.
  *
- * The sidebar is off-canvas below the lg breakpoint and the topbar carries the
+ * The sidebar is off-canvas at 780px and below, and the topbar carries the
  * hamburger that slides it in. Every test drives its own user and document
  * through the dev-only endpoints (/dev/register-and-verify, /dev/seed/document),
  * so nothing here touches Mailpit.
@@ -135,6 +135,18 @@ test('no authenticated page scrolls sideways at 375px', async ({
             `${path} overflows the viewport`,
         ).toBeLessThanOrEqual(0);
     }
+});
+
+test('the sidebar stays in flow above the 780px shell breakpoint', async ({
+    page,
+    seeded,
+}) => {
+    await page.setViewportSize({ width: 950, height: 900 });
+    await page.goto(`/projects/${seeded.projectId}/documents`);
+
+    await expect(page.locator(SIDEBAR)).toBeVisible();
+    await expect(page.locator('.lp-topbar__menu')).toBeHidden();
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 });
 
 test('a document title is readable rather than clipped to one letter', async ({
