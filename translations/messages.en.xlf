@@ -5593,6 +5593,14 @@
                 <source>review.dashboard.table.author</source>
                 <target>Author</target>
             </trans-unit>
+            <trans-unit id="review.dashboard.table.linked_card">
+                <source>review.dashboard.table.linked_card</source>
+                <target>Linked card</target>
+            </trans-unit>
+            <trans-unit id="review.dashboard.table.no_linked_card">
+                <source>review.dashboard.table.no_linked_card</source>
+                <target>No linked card</target>
+            </trans-unit>
             <trans-unit id="review.dashboard.table.updated">
                 <source>review.dashboard.table.updated</source>
                 <target>Updated</target>

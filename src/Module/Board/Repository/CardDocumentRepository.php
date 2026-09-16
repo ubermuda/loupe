@@ -30,4 +30,26 @@ final class CardDocumentRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * @param list<Document> $documents
+     *
+     * @return list<CardDocument>
+     */
+    public function findForDocuments(array $documents): array
+    {
+        if ([] === $documents) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('link')
+            ->addSelect('card', 'column')
+            ->join('link.card', 'card')
+            ->join('card.column', 'column')
+            ->where('link.document IN (:documents)')
+            ->setParameter('documents', $documents)
+            ->orderBy('link.linkedAt', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

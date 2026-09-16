@@ -140,11 +140,13 @@
     {% endif %}
 
     {% if items|length > 0 %}
+    {% set cardLinkMap = document_card_link_map(items) %}
     <div class="lp-document-table" role="table" aria-label="{{ 'review.dashboard.table.label'|trans }}">
         <div class="lp-document-table__head" role="row">
             <span role="columnheader">{{ 'review.dashboard.table.document'|trans }}</span>
             <span role="columnheader">{{ 'review.dashboard.table.status'|trans }}</span>
             <span role="columnheader">{{ 'review.dashboard.table.author'|trans }}</span>
+            <span role="columnheader">{{ 'review.dashboard.table.linked_card'|trans }}</span>
             <span role="columnheader">{{ 'review.dashboard.table.updated'|trans }}</span>
             <span class="sr-only" role="columnheader">{{ 'review.dashboard.table.actions'|trans }}</span>
         </div>
@@ -152,6 +154,7 @@
         {% for item in items %}
         {% set document = item.document %}
         {% set archived = document.archivedAt is not null %}
+        {% set cardLinks = cardLinkMap[document.id ~ '']|default([]) %}
         <div class="lp-document-row{% if archived %} lp-document-row--archived{% endif %}" data-document-id="{{ document.id }}" role="row">
             <a href="{{ path('app_document_review', {projectId: project.id, documentId: document.id}) }}"
                class="lp-document-row__link" aria-label="{{ document.title }}"></a>
@@ -197,6 +200,13 @@
                 </span>
             </div>
             <span class="lp-document-row__author" role="cell">{{ document.owner.fullName }}</span>
+            <span class="lp-document-row__linked-card" role="cell">
+                {% if cardLinks|length > 0 %}
+                    #{{ cardLinks|first.card.number }}{% if cardLinks|length > 1 %} +{{ cardLinks|length - 1 }}{% endif %}
+                {% else %}
+                    <span aria-label="{{ 'review.dashboard.table.no_linked_card'|trans }}">—</span>
+                {% endif %}
+            </span>
             <time class="lp-document-row__updated" datetime="{{ item.updatedAt|date('c') }}" role="cell">{{ item.updatedAt|relative_time }}</time>
             <div class="lp-document-row__actions" role="cell">
                 <a href="{{ path('app_document_rename', {projectId: project.id, documentId: document.id}|merge(listQuery.routeParams)) }}"

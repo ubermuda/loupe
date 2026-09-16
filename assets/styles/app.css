@@ -493,7 +493,8 @@
         @apply grid items-center gap-4;
         grid-template-columns:
             minmax(0, 2fr) minmax(calc(var(--spacing) * 34), 0.75fr)
-            minmax(calc(var(--spacing) * 36), 0.8fr) minmax(
+            minmax(calc(var(--spacing) * 32), 0.7fr)
+            minmax(calc(var(--spacing) * 28), 0.6fr) minmax(
                 calc(var(--spacing) * 28),
                 0.6fr
             )
@@ -527,6 +528,7 @@
         @apply flex items-center;
     }
     .lp-document-row__author,
+    .lp-document-row__linked-card,
     .lp-document-row__updated {
         @apply text-sm text-fg-mute;
     }

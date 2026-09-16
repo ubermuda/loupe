@@ -27,6 +27,7 @@ use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Service\MarkdownRenderer;
+use App\Module\Review\View\DocumentListItem;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\Form\FormView;
@@ -66,6 +67,7 @@ final class BoardExtension extends AbstractExtension
             new TwigFunction('card_site_review_links', $this->cardSiteReviewLinks(...)),
             new TwigFunction('site_review_attach_form', $this->siteReviewAttachForm(...)),
             new TwigFunction('document_card_links', $this->documentCardLinks(...)),
+            new TwigFunction('document_card_link_map', $this->documentCardLinkMap(...)),
         ];
     }
 
@@ -116,6 +118,24 @@ final class BoardExtension extends AbstractExtension
     public function documentCardLinks(Document $document): array
     {
         return $this->cardDocuments->findForDocument($document);
+    }
+
+    /**
+     * @param list<DocumentListItem> $items
+     *
+     * @return array<string, list<CardDocument>>
+     */
+    public function documentCardLinkMap(array $items): array
+    {
+        $linksByDocument = [];
+        foreach ($this->cardDocuments->findForDocuments(array_map(
+            static fn (DocumentListItem $item): Document => $item->document,
+            $items,
+        )) as $link) {
+            $linksByDocument[(string) $link->document->id][] = $link;
+        }
+
+        return $linksByDocument;
     }
 
     /** The refused form a failed add forwarded, or a fresh one. */

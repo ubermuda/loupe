@@ -312,7 +312,8 @@
     display: grid;
     grid-template-columns:
         minmax(0, 2fr) minmax(calc(var(--spacing) * 34), 0.75fr)
-        minmax(calc(var(--spacing) * 36), 0.8fr) minmax(
+        minmax(calc(var(--spacing) * 32), 0.7fr)
+        minmax(calc(var(--spacing) * 28), 0.6fr) minmax(
             calc(var(--spacing) * 28),
             0.6fr
         )
@@ -351,6 +352,7 @@
 .lp-core-documents .lp-document-row__description,
 .lp-core-documents .lp-document-row__meta,
 .lp-core-documents .lp-document-row__author,
+.lp-core-documents .lp-document-row__linked-card,
 .lp-core-documents .lp-document-row__updated {
     font-size: var(--text-xs);
 }
