@@ -335,6 +335,35 @@ test('the drawer closes on the page a nav link goes to', async ({
     ).toHaveAttribute('aria-expanded', 'false');
 });
 
+test('search and status stay aligned across workspace widths', async ({
+    page,
+    seeded,
+}) => {
+    for (const path of ['documents', 'worker-runs?search=missing']) {
+        await page.goto(`/projects/${seeded.projectId}/${path}`);
+        const search = page.locator('.lp-filter-input');
+        const status = page.locator('.lp-filter-select').first();
+        for (const width of [1440, 1150, 950, 780, 390]) {
+            await page.setViewportSize({ width, height: 900 });
+            await expect(search).toBeVisible();
+            await expect(status).toBeVisible();
+            const searchBox = await search.boundingBox();
+            const statusBox = await status.boundingBox();
+            expect(searchBox).not.toBeNull();
+            expect(statusBox).not.toBeNull();
+            expect(statusBox!.y).toBe(searchBox!.y);
+            expect(statusBox!.height).toBe(searchBox!.height);
+            expect(statusBox!.x - searchBox!.x - searchBox!.width).toBe(8);
+            expect(statusBox!.x + statusBox!.width).toBeLessThanOrEqual(width);
+            expect(searchBox!.width).toBeGreaterThan(80);
+        }
+        await search.fill('no matching work');
+        await expect(page).toHaveURL(/search=no\+matching\+work/);
+        await expect(search).toHaveValue('no matching work');
+        await expect(status).toBeVisible();
+    }
+});
+
 test('no touch control renders below the 16px iOS zoom threshold', async ({
     page,
     seeded,

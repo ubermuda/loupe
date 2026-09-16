@@ -33,29 +33,31 @@
               action="{{ path('app_project_worker_runs', {id: project.id}) }}"
               data-controller="autosearch"
               class="lp-filter-form">
-            <div class="lp-filter-search">
-                <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
-                <label class="sr-only" for="worker-run-search">{{ 'bridge.worker_runs.filter.search_label'|trans }}</label>
-                <input type="search"
-                       id="worker-run-search"
-                       name="search"
-                       class="lp-input lp-filter-input"
-                       value="{{ listQuery.search }}"
-                       placeholder="{{ 'bridge.worker_runs.filter.search_placeholder'|trans }}"
-                       data-autosearch-target="field"
-                       data-action="input->autosearch#search">
-            </div>
+            <div class="lp-filter-primary">
+                <div class="lp-filter-search">
+                    <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
+                    <label class="sr-only" for="worker-run-search">{{ 'bridge.worker_runs.filter.search_label'|trans }}</label>
+                    <input type="search"
+                           id="worker-run-search"
+                           name="search"
+                           class="lp-input lp-filter-input"
+                           value="{{ listQuery.search }}"
+                           placeholder="{{ 'bridge.worker_runs.filter.search_placeholder'|trans }}"
+                           data-autosearch-target="field"
+                           data-action="input->autosearch#search">
+                </div>
 
-            <label class="sr-only" for="worker-run-outcome">{{ 'bridge.worker_runs.filter.outcome_label'|trans }}</label>
-            <select id="worker-run-outcome"
-                    name="outcome"
-                    class="lp-input lp-select lp-filter-select"
-                    data-action="change->autosearch#search">
-                <option value="">{{ 'bridge.worker_runs.filter.all_outcomes'|trans }}</option>
-                {% for outcome in outcomes %}
-                    <option value="{{ outcome.value }}"{{ listQuery.outcome == outcome ? ' selected' : '' }}>{{ outcome.translationKey()|trans }}</option>
-                {% endfor %}
-            </select>
+                <label class="sr-only" for="worker-run-outcome">{{ 'bridge.worker_runs.filter.outcome_label'|trans }}</label>
+                <select id="worker-run-outcome"
+                        name="outcome"
+                        class="lp-input lp-select lp-filter-select"
+                        data-action="change->autosearch#search">
+                    <option value="">{{ 'bridge.worker_runs.filter.all_outcomes'|trans }}</option>
+                    {% for outcome in outcomes %}
+                        <option value="{{ outcome.value }}"{{ listQuery.outcome == outcome ? ' selected' : '' }}>{{ outcome.translationKey()|trans }}</option>
+                    {% endfor %}
+                </select>
+            </div>
 
             {# One bridge reports many runs, so the control waits until a second
                bridge makes it a choice rather than a label. #}

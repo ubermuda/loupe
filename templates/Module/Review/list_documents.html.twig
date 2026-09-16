@@ -52,33 +52,35 @@
                 <input type="hidden" name="archived" value="1">
             {% endif %}
 
-            <div class="lp-filter-search">
-                <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
-                <label class="sr-only" for="document-search">{{ 'review.dashboard.filter.search_label'|trans }}</label>
-                {# The field target lets the controller restore focus and caret
-                   after a debounced submit: this is a full Turbo visit, so the
-                   field being typed into is replaced mid-word. A full visit rather
-                   than a frame, so the query lands in the address bar. #}
-                <input type="search"
-                       id="document-search"
-                       name="search"
-                       class="lp-input lp-filter-input"
-                       value="{{ listQuery.search }}"
-                       placeholder="{{ 'review.dashboard.filter.search_placeholder'|trans }}"
-                       data-autosearch-target="field"
-                       data-action="input->autosearch#search">
-            </div>
+            <div class="lp-filter-primary">
+                <div class="lp-filter-search">
+                    <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
+                    <label class="sr-only" for="document-search">{{ 'review.dashboard.filter.search_label'|trans }}</label>
+                    {# The field target lets the controller restore focus and caret
+                       after a debounced submit: this is a full Turbo visit, so the
+                       field being typed into is replaced mid-word. A full visit rather
+                       than a frame, so the query lands in the address bar. #}
+                    <input type="search"
+                           id="document-search"
+                           name="search"
+                           class="lp-input lp-filter-input"
+                           value="{{ listQuery.search }}"
+                           placeholder="{{ 'review.dashboard.filter.search_placeholder'|trans }}"
+                           data-autosearch-target="field"
+                           data-action="input->autosearch#search">
+                </div>
 
-            <label class="sr-only" for="document-status">{{ 'review.dashboard.filter.status_label'|trans }}</label>
-            <select id="document-status"
-                    name="status"
-                    class="lp-input lp-select lp-filter-select"
-                    data-action="change->autosearch#search">
-                <option value="">{{ 'review.dashboard.filter.all_statuses'|trans }}</option>
-                {% for status in statuses %}
-                    <option value="{{ status.value }}"{{ listQuery.status == status ? ' selected' : '' }}>{{ status.translationKey()|trans }}</option>
-                {% endfor %}
-            </select>
+                <label class="sr-only" for="document-status">{{ 'review.dashboard.filter.status_label'|trans }}</label>
+                <select id="document-status"
+                        name="status"
+                        class="lp-input lp-select lp-filter-select"
+                        data-action="change->autosearch#search">
+                    <option value="">{{ 'review.dashboard.filter.all_statuses'|trans }}</option>
+                    {% for status in statuses %}
+                        <option value="{{ status.value }}"{{ listQuery.status == status ? ' selected' : '' }}>{{ status.translationKey()|trans }}</option>
+                    {% endfor %}
+                </select>
+            </div>
 
             {% if projectTags|length > 0 %}
                 <label class="sr-only" for="document-tag">{{ 'review.dashboard.filter.tag_label'|trans }}</label>

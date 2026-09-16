@@ -653,12 +653,6 @@
     .lp-section-tabs__item > span {
         @apply inline-flex items-center justify-center min-w-5 rounded-full bg-surface-3 px-1.5 py-0.5 text-xs;
     }
-    .lp-needs-you .lp-filter-form {
-        @apply flex-1 min-w-0;
-    }
-    .lp-needs-you .lp-filter-search {
-        @apply flex-1 min-w-0;
-    }
     .lp-inbox-section {
         scroll-margin-top: calc(var(--spacing) * 20);
     }
@@ -1415,7 +1409,7 @@
     /* Filter bar above a list. Lives outside the list's empty-state branch so a
        filter that matches nothing can still be turned off. */
     .lp-list-filters {
-        @apply flex flex-wrap items-center gap-2.5 mt-6;
+        @apply flex flex-wrap items-center gap-2 mt-6;
     }
     .lp-filter-chip {
         @apply inline-flex items-center gap-1.5 h-8.5 rounded-full bg-surface-3 text-fg-mute no-underline transition-colors text-sm font-semibold px-3.5;
@@ -1441,19 +1435,23 @@
     /* The bar's GET form. Its controls sit on .lp-input / .lp-select and are
        resized here, so they must be declared after those base classes. */
     .lp-filter-form {
-        @apply flex flex-wrap items-center gap-2.5;
+        @apply flex flex-1 basis-full sm:basis-auto min-w-0 flex-wrap items-center gap-2;
+    }
+    /* Primary search and status controls stay together as secondary filters wrap. */
+    .lp-filter-primary {
+        @apply flex flex-1 basis-80 min-w-0 items-center gap-2;
     }
     .lp-filter-search {
-        @apply relative flex items-center;
+        @apply relative flex flex-1 min-w-0 max-w-sm items-center;
     }
     .lp-filter-search__icon {
         @apply absolute left-4 w-4 h-4 text-fg-dim pointer-events-none;
     }
     .lp-filter-input {
-        @apply w-67.5 h-9 rounded-full py-0 pl-10 text-sm leading-5;
+        @apply w-full min-w-0 h-9 rounded-full py-0 pl-10 text-sm leading-5;
     }
     .lp-filter-select {
-        @apply w-auto h-9 rounded-full py-0 text-sm leading-5;
+        @apply w-auto shrink-0 h-9 rounded-full py-0 text-sm leading-5;
     }
 
     /* ── Flash messages ─────────────────────────────────────────────── */

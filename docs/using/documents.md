@@ -8,6 +8,9 @@ description, tags, an optional place in a series, and links to other documents;
 each submission mints a new **version**, and the review UI keeps every one of
 them.
 
+Search and the status filter stay on one row, including on narrow screens.
+Tag and series filters remain available when the project uses them.
+
 ## Creating
 
 Open Documents in a project, then select **New document**.
