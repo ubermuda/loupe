@@ -55,11 +55,16 @@ class RevokeApiTokenController extends AppController
 
         $this->addFlash('success', $this->translator->trans('account.api_token.flash.revoked', ['%label%' => $label]));
 
-        // Match account destinations exactly so deeper account routes remain excluded.
+        $accountTargets = [
+            $this->generateUrl('app_account_settings'),
+            $this->generateUrl('app_account_settings', ['tab' => 'api-tokens']),
+        ];
+        // The local-path check rejects off-site hosts; the allow-list restricts local destinations.
+        // Exact account URLs exclude deeper account routes.
         $returnTo = $request->request->get('returnTo');
         if (is_string($returnTo)
             && SafeRedirect::isLocalPath($returnTo)
-            && (str_starts_with($returnTo, '/projects/') || \in_array($returnTo, ['/account', '/account?tab=api-tokens'], true))
+            && (str_starts_with($returnTo, '/projects/') || \in_array($returnTo, $accountTargets, true))
         ) {
             return $this->redirect($returnTo);
         }

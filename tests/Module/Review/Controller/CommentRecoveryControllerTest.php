@@ -10,6 +10,7 @@ use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\ValueObject\Anchor;
 use App\Tests\Support\AcceptedTerms;
+use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -71,6 +72,7 @@ final class CommentRecoveryControllerTest extends WebTestCase
 
     public function test_purge_removes_the_root_and_replies(): void
     {
+        $audit = RecordingAuditor::installedIn(self::getContainer());
         $rootId = (string) $this->root->id;
         $crawler = $this->client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, $this->url);
         $this->client->submit($crawler->filter('dialog form')->form());
@@ -80,6 +82,13 @@ final class CommentRecoveryControllerTest extends WebTestCase
         $this->em->clear();
         self::assertNull($this->em->find(Comment::class, $rootId));
         self::assertNull($this->em->find(Comment::class, $this->replyId));
+        $records = $audit->records('review.comment_purged');
+        self::assertCount(2, $records);
+        self::assertSame($rootId, $records[0]->subject?->id);
+        self::assertSame($this->replyId, $records[1]->subject?->id);
+        self::assertSame(1, $records[0]->context['replyCount']);
+        self::assertSame(2, $records[0]->context['deletionSequence']);
+        self::assertCount(0, $audit->records('review.comment_deleted'));
     }
 
     #[DataProvider('invalidSubmissions')]

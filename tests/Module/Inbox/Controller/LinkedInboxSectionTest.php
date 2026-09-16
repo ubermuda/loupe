@@ -17,6 +17,7 @@ use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Module\Inbox\InboxScenario;
 use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
@@ -61,7 +62,9 @@ final class LinkedInboxSectionTest extends WebTestCase
         $this->client->loginUser($this->owner);
     }
 
-    public function test_the_card_page_lists_open_items_first_with_their_ask_context(): void
+    #[TestWith([null])]
+    #[TestWith(['card-drawer-frame'])]
+    public function test_the_card_page_lists_open_items_first_with_their_ask_context(?string $frame): void
     {
         $closed = $this->answered($this->em, $this->question($this->em, $this->project, 1, title: 'Which column?'));
         $open = $this->todo($this->em, $this->project, 2, title: 'Review pull request 482');
@@ -69,9 +72,10 @@ final class LinkedInboxSectionTest extends WebTestCase
         $this->linkCard($closed);
         $this->linkCard($open);
 
-        $crawler = $this->client->request(Request::METHOD_GET, $this->cardUrl());
+        $crawler = $this->client->request(Request::METHOD_GET, $this->cardUrl(), server: null === $frame ? [] : ['HTTP_TURBO_FRAME' => $frame]);
 
         self::assertResponseIsSuccessful();
+        self::assertContains('Turbo-Frame', $this->client->getResponse()->getVary());
         $section = $crawler->filter('[data-inbox-linked="card"]');
         self::assertCount(1, $section);
         self::assertSame(['2', '1'], $section->filter('[data-inbox-item]')->each(static fn (Crawler $node): string => (string) $node->attr('data-inbox-item')));
@@ -82,6 +86,7 @@ final class LinkedInboxSectionTest extends WebTestCase
         $action = (string) $section->filter('form[name="inbox_done_'.$open->id.'"]')->attr('action');
         self::assertStringContainsString('returnTo=card', $action);
         self::assertStringContainsString('returnId='.$this->card->id, $action);
+        self::assertSame($frame ?? '_top', $section->filter('form[name="inbox_done_'.$open->id.'"]')->attr('data-turbo-frame'));
     }
 
     public function test_the_document_page_lists_its_linked_items(): void

@@ -30,7 +30,7 @@ final readonly class DeleteCommentHandler
         $commentId = (string) $command->comment->id;
         $documentId = (string) $command->comment->version->document->id;
 
-        $replyIds = $this->em->wrapInTransaction(function () use ($command): array|DomainErrors|null {
+        $replyCount = $this->em->wrapInTransaction(function () use ($command): int|DomainErrors|null {
             $comment = $command->comment;
             if (!$this->comments->lockAndRefreshState($comment)) {
                 return new DomainErrors(['comment' => 'comment.error.not_found']);
@@ -38,22 +38,18 @@ final readonly class DeleteCommentHandler
             if ($comment->isDeleted) {
                 return null;
             }
-            if ($this->documentVersions->findLatest($comment->version->document)->id != $comment->version->id) {
+            if (!$this->documentVersions->findLatest($comment->version->document)->id?->equals($comment->version->id)) {
                 return new DomainErrors(['comment' => 'review.document.comment.error.stale_version']);
-            }
-            $replyIds = [];
-            foreach ($this->comments->findRepliesIncludingDeleted($comment) as $reply) {
-                $replyIds[] = (string) $reply->id;
             }
             $comment->deletedAt = new \DateTimeImmutable();
             ++$comment->deletionSequence;
 
-            return $replyIds;
+            return $this->comments->count(['parent' => $comment]);
         });
-        if ($replyIds instanceof DomainErrors) {
-            throw $replyIds;
+        if ($replyCount instanceof DomainErrors) {
+            throw $replyCount;
         }
-        if (null === $replyIds) {
+        if (null === $replyCount) {
             return;
         }
 
@@ -63,22 +59,10 @@ final readonly class DeleteCommentHandler
             [
                 'commentId' => $commentId,
                 'documentId' => $documentId,
-                'replyCount' => \count($replyIds),
+                'replyCount' => $replyCount,
+                'deletionSequence' => $command->comment->deletionSequence,
             ],
             new AuditSubject('comment', $commentId),
         );
-
-        foreach ($replyIds as $replyId) {
-            $this->auditor->record(
-                'review.comment_deleted',
-                AuditOutcome::Success,
-                [
-                    'commentId' => $replyId,
-                    'documentId' => $documentId,
-                    'parentCommentId' => $commentId,
-                ],
-                new AuditSubject('comment', $replyId),
-            );
-        }
     }
 }

@@ -38,9 +38,12 @@ final class ShowCardController extends AppController
 
         $view = ($this->handler)(new ShowCardCommand($card));
 
-        return $this->render('@Board/show_card.html.twig', [
+        $response = $this->render('@Board/show_card.html.twig', [
             'card' => $view->card,
             'siteReviewLinks' => $view->siteReviewLinks,
         ]);
+        $response->setVary('Turbo-Frame', false);
+
+        return $response;
     }
 }

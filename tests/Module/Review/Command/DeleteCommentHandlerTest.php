@@ -23,7 +23,6 @@ use App\Module\Review\Repository\CommentRepository;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Ubermuda\AuditBundle\AuditEvent;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 
@@ -98,7 +97,7 @@ final class DeleteCommentHandlerTest extends KernelTestCase
         $handler(new DeleteCommentCommand(comment: $root));
 
         $records = $audit->records('review.comment_deleted');
-        self::assertCount(2, $records, 'the root and its one reply are each recorded');
+        self::assertCount(1, $records);
 
         $record = $records[0];
         self::assertSame(AuditOutcome::Success, $record->outcome);
@@ -110,17 +109,18 @@ final class DeleteCommentHandlerTest extends KernelTestCase
             'commentId' => $commentId,
             'documentId' => $documentId,
             'replyCount' => 1,
+            'deletionSequence' => 1,
         ], $record->context);
         self::assertNotSame('', $record->subject->id);
 
         self::assertSame(
-            ['review.comment_deleted', 'review.comment_deleted'],
+            ['review.comment_deleted'],
             $audit->domainLogLines(),
         );
         self::assertSame([], $audit->securityLogLines());
     }
 
-    public function test_every_deleted_reply_gets_its_own_record(): void
+    public function test_retained_replies_are_counted_without_separate_deletion_records(): void
     {
         self::bootKernel();
         $audit = RecordingAuditor::installedIn(self::getContainer());
@@ -129,9 +129,8 @@ final class DeleteCommentHandlerTest extends KernelTestCase
         $reply = self::getContainer()->get(ReplyToCommentHandler::class);
         self::assertInstanceOf(ReplyToCommentHandler::class, $reply);
 
-        $replyIds = [];
         foreach (['First reply', 'Second reply', 'Third reply'] as $body) {
-            $replyIds[] = (string) $reply(new ReplyToCommentCommand(actor: $owner, parent: $root, body: $body))->id;
+            $reply(new ReplyToCommentCommand(actor: $owner, parent: $root, body: $body));
         }
 
         $commentId = (string) $root->id;
@@ -143,36 +142,14 @@ final class DeleteCommentHandlerTest extends KernelTestCase
         $handler(new DeleteCommentCommand(comment: $root));
 
         $records = $audit->records('review.comment_deleted');
-        self::assertCount(4, $records, 'one record per deleted comment, root included');
-
-        $subjectIds = array_map(
-            static function (AuditEvent $record): string {
-                self::assertNotNull($record->subject);
-                self::assertSame('comment', $record->subject->type);
-
-                return $record->subject->id;
-            },
-            $records,
-        );
-
-        sort($replyIds);
-        $recordedReplyIds = \array_slice($subjectIds, 1);
-        sort($recordedReplyIds);
-
-        self::assertSame($commentId, $subjectIds[0]);
-        self::assertSame($replyIds, $recordedReplyIds);
-        self::assertNotContains('', $subjectIds);
-
-        foreach (\array_slice($records, 1) as $replyRecord) {
-            self::assertSame(AuditOutcome::Success, $replyRecord->outcome);
-            self::assertSame(Auditor::CATEGORY_DOMAIN, $replyRecord->category);
-            self::assertNotNull($replyRecord->subject);
-            self::assertSame([
-                'commentId' => $replyRecord->subject->id,
-                'documentId' => $documentId,
-                'parentCommentId' => $commentId,
-            ], $replyRecord->context);
-        }
+        self::assertCount(1, $records);
+        self::assertSame([
+            'commentId' => $commentId,
+            'documentId' => $documentId,
+            'replyCount' => 3,
+            'deletionSequence' => 1,
+        ], $records[0]->context);
+        self::assertSame(['review.comment_deleted'], $audit->domainLogLines());
     }
 
     public function test_delete_after_restore_advances_the_sequence_and_refuses_the_old_undo(): void

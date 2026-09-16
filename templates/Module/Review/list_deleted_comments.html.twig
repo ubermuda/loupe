@@ -25,7 +25,7 @@
             <a class="lp-version-pill lp-version-pill--link" href="{{ path('app_document_review_version', {projectId: document.project.id, documentId: document.id, versionNumber: comment.version.versionNumber}) }}">{{ 'v' ~ comment.version.versionNumber }}</a>
             <span>{{ 'review.deleted_threads.deleted_at'|trans({'%date%': comment.deletedAt|date('Y-m-d H:i T')}) }}</span>
         </div>
-        <twig:CommentThread :comment="comment" :replies="comments|filter(reply => reply.parent == comment)" :readOnly="true" />
+        <twig:CommentThread :comment="comment" :replies="comments|filter(reply => reply.parent is not null and reply.parent.id ~ '' == commentId)" :readOnly="true" />
         <div class="lp-deleted-threads__actions">
             {% set restoreForm = failedAction == 'restore' and failedCommentId == commentId ? recoveryForm : comment_recovery_form(comment, 'restore') %}
             {{ form_start(restoreForm) }}

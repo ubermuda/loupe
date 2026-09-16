@@ -29,10 +29,15 @@ test('a verified ADMIN_EMAIL user is promoted and sees the dashboard', async ({
     ).toBeVisible();
 });
 
-test('the admin layout actually loads the stylesheet', async ({ page }) => {
+test('the admin layout loads its stylesheet and disables cached previews', async ({
+    page,
+}) => {
     await page.goto('/admin');
 
     await expect(page.locator('body')).toHaveCSS('display', 'flex');
+    await expect(
+        page.locator('meta[name="turbo-cache-control"]'),
+    ).toHaveAttribute('content', 'no-preview');
 });
 
 test('a bool flag can be created, toggled and deleted', async ({ page }) => {

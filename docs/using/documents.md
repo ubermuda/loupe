@@ -99,6 +99,8 @@ A restored thread on an older version stays read-only.
 
 Select **Purge permanently**, then confirm, to remove a thread and all its replies.
 Purge cannot be undone.
+The audit log records one thread deletion with its reply count and deletion sequence.
+Permanent purge records the root and every reply.
 Deleting the project or account also removes its retained threads.
 
 ### On a narrow screen

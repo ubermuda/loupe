@@ -25,7 +25,7 @@ final readonly class CommentWriteGuard
         if ($comment->isDeleted) {
             return new DomainErrors([$field => 'comment.error.deleted']);
         }
-        if ($this->documentVersions->findLatest($comment->version->document)->id != $comment->version->id) {
+        if (!$this->documentVersions->findLatest($comment->version->document)->id?->equals($comment->version->id)) {
             return new DomainErrors([$field => 'review.document.comment.error.stale_version']);
         }
 
