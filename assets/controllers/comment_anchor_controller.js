@@ -1722,6 +1722,19 @@ export default class extends Controller {
         event?.preventDefault();
         this.hideResolvedValue = !this.hideResolvedValue;
         this.#applyHideResolved();
+        this.dispatch('resolved-filter', {
+            detail: { hidden: this.hideResolvedValue },
+        });
+        this.#rememberHideResolved();
+    }
+
+    filterThreads(event) {
+        this.hideResolvedValue = event.detail.filter === 'open';
+        this.#applyHideResolved();
+        this.#rememberHideResolved();
+    }
+
+    #rememberHideResolved() {
         try {
             window.localStorage.setItem(
                 this.constructor.HIDE_RESOLVED_KEY,
@@ -1819,6 +1832,12 @@ export default class extends Controller {
         this.suggestionHighlight?.clear();
         for (const thread of this.threadTargets) {
             const status = thread.dataset.anchorStatus ?? 'pending';
+            if (
+                thread.hidden ||
+                (this.hideResolvedValue && status === 'resolved')
+            ) {
+                continue;
+            }
             const highlight =
                 this.statusHighlights[status] ?? this.statusHighlights.pending;
             const range = this.anchorRanges.get(thread);

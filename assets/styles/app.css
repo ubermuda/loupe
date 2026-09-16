@@ -2510,7 +2510,10 @@
         @apply absolute right-0 top-11 z-20 flex w-44 flex-col rounded-xl border border-line bg-elev p-1.5 shadow-card;
     }
     .lp-review-margin-filter__menu button {
-        @apply rounded-lg border-0 bg-transparent px-3 py-2 text-left text-sm text-fg-mute hover:bg-tint hover:text-ink;
+        @apply flex items-center justify-between gap-2 rounded-lg border-0 bg-transparent px-3 py-2 text-left text-sm text-fg-mute hover:bg-tint hover:text-ink;
+    }
+    .lp-review-margin-filter__menu button[aria-pressed='true'] {
+        @apply bg-accent-soft text-accent-ink;
     }
     .lp-review-context-panel {
         @apply mt-5 flex flex-col gap-3 lg:absolute lg:top-43 lg:mt-0;

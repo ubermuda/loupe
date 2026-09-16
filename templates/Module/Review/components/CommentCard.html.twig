@@ -15,6 +15,7 @@
     {% if this.domId != '' %}id="comment-thread-{{ this.domId }}"{% endif %}
     class="lp-comment-thread{% if this.status == 'resolved' %} lp-comment-thread--resolved{% endif %}{% if this.orphaned %} lp-comment-thread--orphaned{% endif %}{% if this.isGeneral %} lp-comment-thread--general{% endif %}"
     data-comment-anchor-target="thread"
+    data-review-margin-target="thread"
     data-anchor-quote="{{ this.quote }}"
     data-anchor-prefix="{{ this.prefix }}"
     data-anchor-suffix="{{ this.suffix }}"

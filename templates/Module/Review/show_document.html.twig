@@ -83,6 +83,7 @@
     {% set diffColumns = diffMode and diffView is not null and diffView.value == 'side-by-side' %}
     <div class="lp-review-block{{ diffColumns ? ' lp-review-block--wide' : '' }}"
         data-controller="{{ (reviewControllers|merge(['review-margin']))|join(' ') }}"
+        data-action="review-margin:filter->comment-anchor#filterThreads comment-anchor:resolved-filter->review-margin#resolvedFilter"
         {%- if diffNavigation %} data-diff-navigation-position-value="{{ 'review.document.diff.nav.position'|trans({'%total%': diffChangeCount}) }}"{% endif %}
         {%- if diffCommenting %} data-comment-anchor-diff-value="true"
             data-comment-anchor-deleted-message-value="{{ 'review.document.diff.comment.deleted_refused'|trans }}"
@@ -127,7 +128,7 @@
                 </nav>
                 {% if not diffMode %}
                 <div class="lp-review-margin-tabs" role="tablist" aria-label="{{ 'review.document.margin.label'|trans }}">
-                    <details class="lp-review-margin-filter" data-review-margin-target="filter">
+                    <details class="lp-review-margin-filter" data-review-margin-target="filter" data-action="keydown.esc->review-margin#closeFilter">
                         <summary class="lp-review-margin-tabs__item lp-review-margin-tabs__item--icon"
                                  aria-label="{{ 'review.document.margin.filter'|trans }}"
                                  title="{{ 'review.document.margin.filter'|trans }}">
@@ -135,7 +136,7 @@
                         </summary>
                         <div class="lp-review-margin-filter__menu">
                             {% for filterName in ['open', 'resolved', 'unanchored', 'all'] %}
-                            <button type="button" data-review-margin-filter-param="{{ filterName }}" data-action="review-margin#filter">{{ ('review.document.margin.filter_' ~ filterName)|trans }}</button>
+                            <button type="button" data-review-margin-target="option" data-review-margin-filter-param="{{ filterName }}" data-action="review-margin#filter" aria-pressed="{{ filterName == 'all' ? 'true' : 'false' }}">{{ ('review.document.margin.filter_' ~ filterName)|trans }} <span data-filter-count>0</span></button>
                             {% endfor %}
                         </div>
                     </details>

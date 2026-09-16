@@ -1313,6 +1313,7 @@
             <trans-unit id="review.document.margin.filter_resolved"><source>review.document.margin.filter_resolved</source><target>Resolved</target></trans-unit>
             <trans-unit id="review.document.margin.filter_unanchored"><source>review.document.margin.filter_unanchored</source><target>Unanchored</target></trans-unit>
             <trans-unit id="review.document.margin.filter_all"><source>review.document.margin.filter_all</source><target>All</target></trans-unit>
+            <trans-unit id="review.document.margin.filter_empty"><source>review.document.margin.filter_empty</source><target>No comments match this filter.</target></trans-unit>
             <trans-unit id="review.document.margin.outline_empty"><source>review.document.margin.outline_empty</source><target>This document has no section headings.</target></trans-unit>
             <trans-unit id="review.document.margin.decisions_empty"><source>review.document.margin.decisions_empty</source><target>This document has no decisions.</target></trans-unit>
             <trans-unit id="review.document.margin.decisions_save_hint"><source>review.document.margin.decisions_save_hint</source><target>Each choice saves when you select it.</target></trans-unit>

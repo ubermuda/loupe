@@ -27,6 +27,10 @@ Use Home or End to select the first or last tab.
 Tab moves focus out of the tab list.
 Switching tabs preserves an unfinished reply.
 
+The filter beside Comments shows counts for Open, Resolved, Unanchored and All.
+The selected filter stays active when you resolve or reopen a thread.
+An empty result shows a message in the margin.
+
 When the inbox is on, the review page lists the inbox items linked to the
 document above it, and you can answer them there. See
 [On a card page and a document page](inbox.md#on-a-card-page-and-a-document-page).

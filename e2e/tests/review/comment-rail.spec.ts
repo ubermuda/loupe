@@ -184,6 +184,63 @@ test('margin tabs support keyboard navigation and preserve a reply draft', async
     await expect(details).not.toBeFocused();
 });
 
+test('margin filters keep counts and visibility after thread updates', async ({
+    page,
+}) => {
+    await commentOn(page, FIRST, 'A discussion to filter.');
+    const thread = page
+        .locator(THREAD)
+        .filter({ hasText: 'A discussion to filter.' });
+    const filter = page.locator('[data-review-margin-target="filter"]');
+    const trigger = filter.locator('summary');
+    const empty = page.getByText('No comments match this filter.', {
+        exact: true,
+    });
+
+    await trigger.click();
+    await expect(
+        filter.getByRole('button', { name: 'Open 1', exact: true }),
+    ).toBeVisible();
+    await filter.getByRole('button', { name: 'Open 1', exact: true }).click();
+    await thread.locator(MARKER).click();
+    await thread.getByRole('button', { name: 'Resolve', exact: true }).click();
+    await expect(thread).toHaveAttribute('data-anchor-status', 'resolved');
+    await expect(thread).toBeHidden();
+    await expect(empty).toBeVisible();
+
+    await trigger.click();
+    await expect(
+        filter.getByRole('button', { name: 'Open 0', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    await filter
+        .getByRole('button', { name: 'Resolved 1', exact: true })
+        .click();
+    await expect(trigger).toBeFocused();
+    await expect(thread).toBeVisible();
+    await expect(empty).toBeHidden();
+    await thread.getByRole('button', { name: 'Reopen', exact: true }).click();
+    await expect(thread).toHaveAttribute('data-anchor-status', 'pending');
+    await expect(thread).toBeHidden();
+    await expect(empty).toBeVisible();
+
+    await trigger.click();
+    await expect(
+        filter.getByRole('button', { name: 'Resolved 0', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    await filter.getByRole('button', { name: 'All 1', exact: true }).click();
+    await expect(thread).toBeVisible();
+    await trigger.click();
+    await filter
+        .getByRole('button', { name: 'Unanchored 0', exact: true })
+        .click();
+    await expect(thread).toBeHidden();
+    await expect(empty).toBeVisible();
+    await trigger.click();
+    await page.keyboard.press('Escape');
+    await expect(filter).not.toHaveAttribute('open');
+    await expect(trigger).toBeFocused();
+});
+
 /** Every visible marker's `top`, in DOM order. */
 async function markerTops(page: Page): Promise<number[]> {
     return page.evaluate(() =>
