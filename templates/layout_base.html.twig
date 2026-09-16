@@ -3,6 +3,7 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        {% if app.user %}<meta name="turbo-cache-control" content="no-preview">{% endif %}
         <title>{% block title %}{{ 'app.name'|trans }}{% endblock %}</title>
         {% block meta_description %}{% endblock %}
         {# A plain <link>, not an `import` in app.js: AssetMapper turns a CSS

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
 
@@ -5,11 +6,10 @@ import { suppressToolbar, suppressWidget } from '../fixtures';
 // shape as the other review specs, which seed their own document.
 test.use({ storageState: { cookies: [], origins: [] } });
 
-const RUN = Date.now();
 const PASSWORD = 'e2e_password_123';
 
 test('the History tab compares two distant versions', async ({ page }) => {
-    const email = `e2e-history-${RUN}@example.com`;
+    const email = `e2e-history-${randomUUID()}@example.com`;
     const register = await page.request.post('/dev/register-and-verify', {
         form: { fullName: 'E2E History', email, password: PASSWORD },
     });
@@ -109,6 +109,22 @@ test('the History tab compares two distant versions', async ({ page }) => {
         }),
     ).toHaveCount(1);
 
+    await page.evaluate(() => {
+        performance.clearMarks('review-preview-render');
+        document.addEventListener('turbo:render', () => {
+            if (document.documentElement.hasAttribute('data-turbo-preview')) {
+                performance.mark('review-preview-render');
+            }
+        });
+    });
+    await page.route(
+        `**/documents/${documentId}/review/history`,
+        async (route) => {
+            const response = await route.fetch();
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            await route.fulfill({ response });
+        },
+    );
     await page.getByRole('link', { name: 'History', exact: true }).click();
     await expect(
         page.getByRole('heading', { name: 'Version history' }),
@@ -117,6 +133,11 @@ test('the History tab compares two distant versions', async ({ page }) => {
         'data-turbo-preview',
     );
     await expect(page.locator('html')).not.toHaveAttribute('aria-busy', 'true');
+    expect(
+        await page.evaluate(
+            () => performance.getEntriesByName('review-preview-render').length,
+        ),
+    ).toBe(0);
     await page.getByRole('button', { name: 'Revise', exact: true }).click();
     const reviseDialog = page.getByRole('dialog', { name: 'Revise document' });
     await expect(reviseDialog.getByLabel('Title', { exact: true })).toHaveValue(
