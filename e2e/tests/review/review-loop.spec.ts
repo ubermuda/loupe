@@ -324,6 +324,7 @@ test('replying to a thread and resolving it re-render it in place', async ({
         (r) => r.url().includes('/reply') && r.request().method() === 'POST',
     );
     await expandThread(page);
+    await page.locator('.lp-comment-reply-disclosure summary').first().click();
     await page
         .locator('.lp-comment-reply-form textarea')
         .first()

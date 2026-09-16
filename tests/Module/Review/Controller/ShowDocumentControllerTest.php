@@ -162,8 +162,11 @@ final class ShowDocumentControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        // Byline names the reviewer (the author side is the literal "Claude").
-        self::assertSelectorTextContains('.lp-review-doc__byline', 'reviewed by');
+        self::assertSelectorTextContains('.lp-review-doc__byline', 'Ribbonowner');
+        self::assertSelectorTextContains('.lp-review-doc__byline', '0/0 sections approved');
+        self::assertSelectorCount(4, '.lp-review-margin-tabs [role="tab"]');
+        self::assertSelectorTextContains('.lp-review-margin-tabs', 'Comments');
+        self::assertSelectorExists('[data-margin-panel="details"]');
         // While the document is still in review both verdict buttons are offered;
         // the bar that reports a verdict only replaces them once there is one.
         self::assertSelectorExists('button[name="submit_review_form[verdict]"][value="approved"]');

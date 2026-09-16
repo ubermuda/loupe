@@ -41,6 +41,8 @@ final class ShowBoardControllerTest extends WebTestCase
         // Three priority groups per rankable column, and one flat group in Done.
         self::assertCount(10, $crawler->filter('[data-board-drag-target="group"]'));
         self::assertCount(2, $crawler->filter('[data-board-drag-target="card"]'));
+        self::assertCount(1, $crawler->filter('dialog[data-card-drawer-target="dialog"] turbo-frame#card-drawer-frame'));
+        self::assertCount(2, $crawler->filter('a[data-turbo-frame="card-drawer-frame"][data-action="click->card-drawer#prepare"]'));
         self::assertSelectorTextContains('.lp-board-toolbar__count', '2 cards');
         self::assertSelectorTextContains('.lp-board-toolbar__mode-active', 'Board');
         self::assertSelectorExists('a[href="/projects/'.$project->id.'/edit"]');

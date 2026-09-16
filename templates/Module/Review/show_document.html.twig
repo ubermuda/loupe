@@ -82,7 +82,7 @@
        no rail. #}
     {% set diffColumns = diffMode and diffView is not null and diffView.value == 'side-by-side' %}
     <div class="lp-review-block{{ diffColumns ? ' lp-review-block--wide' : '' }}"
-        {%- if reviewControllers|length > 0 %} data-controller="{{ reviewControllers|join(' ') }}"{% endif %}
+        data-controller="{{ (reviewControllers|merge(['review-margin']))|join(' ') }}"
         {%- if diffNavigation %} data-diff-navigation-position-value="{{ 'review.document.diff.nav.position'|trans({'%total%': diffChangeCount}) }}"{% endif %}
         {%- if diffCommenting %} data-comment-anchor-diff-value="true"
             data-comment-anchor-deleted-message-value="{{ 'review.document.diff.comment.deleted_refused'|trans }}"
@@ -104,10 +104,14 @@
                     <h1 class="lp-review-doc__title">{{ document.title }}</h1>
                 </div>
                 <p class="lp-review-doc__byline">{{ 'review.document.byline'|trans({
+                    '%status%': ('document.status.' ~ document.status.value|replace({'-': '_'}))|trans,
                     '%version%': version.versionNumber,
-                    '%reviewer%': app.user.fullName,
+                    '%author%': document.owner.fullName,
                     '%updated%': version.createdAt|relative_time,
+                    '%approved%': diffMode ? 0 : sections.approvedCount,
+                    '%total%': diffMode ? diffHeadings|length : sections.rows|length,
                 }) }}</p>
+                <div class="lp-review-workspace-nav">
                 <nav class="lp-review-view-tabs" aria-label="{{ 'review.document.navigation.label'|trans }}">
                     <a class="lp-review-view-tabs__item" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}"
                        {% if not diffMode %}aria-current="page"{% endif %}>{{ 'review.document.navigation.document'|trans }}</a>
@@ -121,6 +125,44 @@
                     {% endif %}
                     <a class="lp-review-view-tabs__item" href="{{ path('app_document_review_history', {projectId: document.project.id, documentId: document.id}) }}">{{ 'review.document.navigation.history'|trans }}</a>
                 </nav>
+                {% if not diffMode %}
+                <div class="lp-review-margin-tabs" role="tablist" aria-label="{{ 'review.document.margin.label'|trans }}">
+                    <details class="lp-review-margin-filter" data-review-margin-target="filter">
+                        <summary class="lp-review-margin-tabs__item lp-review-margin-tabs__item--icon"
+                                 aria-label="{{ 'review.document.margin.filter'|trans }}"
+                                 title="{{ 'review.document.margin.filter'|trans }}">
+                            <twig:ux:icon name="lucide:list-filter" />
+                        </summary>
+                        <div class="lp-review-margin-filter__menu">
+                            {% for filterName in ['open', 'resolved', 'unanchored', 'all'] %}
+                            <button type="button" data-review-margin-filter-param="{{ filterName }}" data-action="review-margin#filter">{{ ('review.document.margin.filter_' ~ filterName)|trans }}</button>
+                            {% endfor %}
+                        </div>
+                    </details>
+                    {% for marginTab in [
+                        {name: 'comments', icon: 'lucide:message-square'},
+                        {name: 'outline', icon: 'lucide:list-tree'},
+                        {name: 'decisions', icon: 'lucide:circle-help'},
+                        {name: 'details', icon: 'lucide:info'},
+                    ] %}
+                    <button type="button" role="tab"
+                            class="lp-review-margin-tabs__item{{ loop.first ? ' lp-review-margin-tabs__item--active' }}"
+                            aria-selected="{{ loop.first ? 'true' : 'false' }}"
+                            aria-label="{{ ('review.document.margin.' ~ marginTab.name)|trans }}"
+                            title="{{ ('review.document.margin.' ~ marginTab.name)|trans }}"
+                            data-review-margin-target="tab"
+                            data-review-margin-name-param="{{ marginTab.name }}"
+                            data-action="review-margin#select">
+                        {% if marginTab.name == 'comments' %}<twig:ux:icon name="lucide:message-square" />{% endif %}
+                        {% if marginTab.name == 'outline' %}<twig:ux:icon name="lucide:list-tree" />{% endif %}
+                        {% if marginTab.name == 'decisions' %}<twig:ux:icon name="lucide:circle-help" />{% endif %}
+                        {% if marginTab.name == 'details' %}<twig:ux:icon name="lucide:info" />{% endif %}
+                        <span>{{ ('review.document.margin.' ~ marginTab.name)|trans }}</span>
+                    </button>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                </div>
             </div>
 
             {# The way back to a discussion a revision left behind: comments
@@ -565,7 +607,36 @@
             {# Also on a diff that accepts comments: the add-comment stream
                replaces this list, so a comment made there needs it on the page. #}
             {% if not diffMode or diffCommenting %}
-            {% include '@Review/_comment_threads.html.twig' with {comments: comments, readOnly: readOnly and not diffCommenting} only %}
+            <div data-review-margin-target="panel" data-margin-panel="comments">
+                {% include '@Review/_comment_threads.html.twig' with {comments: comments, readOnly: readOnly and not diffCommenting} only %}
+            </div>
+            {% if not diffMode %}
+            <aside class="lp-review-context-panel" data-review-margin-target="panel" data-margin-panel="outline" hidden>
+                <h2>{{ 'review.document.margin.outline'|trans }}</h2>
+                {% if sectionRows|length > 0 %}
+                <ul class="lp-review-contents__list">
+                    {% include '@Review/_contents_rows.html.twig' with {rows: sectionRows, approvable: sectionsApprovable} only %}
+                </ul>
+                {% else %}<p class="lp-empty">{{ 'review.document.margin.outline_empty'|trans }}</p>{% endif %}
+            </aside>
+            <aside class="lp-review-context-panel" data-review-margin-target="panel" data-margin-panel="decisions" hidden>
+                <h2>{{ 'review.document.margin.decisions'|trans }}</h2>
+                {% if decisionRows|length > 0 %}
+                <ul class="lp-decision-summary__list">
+                    {% include '@Review/_decision_summary_rows.html.twig' with {rows: decisionRows} only %}
+                </ul>
+                <p class="lp-review-context-panel__hint">{{ 'review.document.margin.decisions_save_hint'|trans }}</p>
+                {% else %}<p class="lp-empty">{{ 'review.document.margin.decisions_empty'|trans }}</p>{% endif %}
+            </aside>
+            <aside class="lp-review-context-panel" data-review-margin-target="panel" data-margin-panel="details" hidden>
+                <h2>{{ 'review.document.margin.details'|trans }}</h2>
+                <dl class="lp-review-details">
+                    <div><dt>{{ 'review.document.margin.linked_card'|trans }}</dt><dd>{{ 'review.document.margin.linked_card_unavailable'|trans }}</dd></div>
+                    <div><dt>{{ 'review.document.meta.references'|trans }}</dt><dd>{{ referenceCount }}</dd></div>
+                    <div><dt>{{ 'review.document.meta.tags'|trans }}</dt><dd>{{ document.tags|map(tag => tag.name)|join(', ') ?: '—' }}</dd></div>
+                </dl>
+            </aside>
+            {% endif %}
             {% endif %}
 
             {# The one part the diff view replaces — see diff_document_versions.html.twig.

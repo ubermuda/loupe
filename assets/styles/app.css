@@ -198,51 +198,51 @@
     /* Accent (chartreuse). Deliberately not lime-400: the handoff maps it there
        only to honour its own named-Tailwind-token rule, and says the prototype
        wins wherever the two disagree. lime-400 is visibly greener. */
-    --accent: #c4d600;
-    --accent-hover: #b0c000;
+    --accent: #d4e94c;
+    --accent-hover: #c4dc32;
     /* Highlight — the open-comment anchor, open-thread chip, trial chip. */
-    --accent-soft: #e8f24d;
-    --accent-faint: #f3f7c4;
-    --accent-faint-2: #f9fbe6;
-    --accent-border: #dfe97a;
+    --accent-soft: #edf2ce;
+    --accent-faint: #f5f8df;
+    --accent-faint-2: #fafbf1;
+    --accent-border: #dce69b;
     /* Accent dark enough to read as text on paper — links, active counts. */
-    --accent-ink: #5c6600;
+    --accent-ink: #596313;
     --switcher-hover-border: #3a3a34;
 
     /* Text ladder */
-    --ink: #0f0f0d;
-    --text: #14140f;
-    --text-mute: #4a4a44;
+    --ink: #20241f;
+    --text: #20241f;
+    --text-mute: #555b52;
     /* The lightest grey clearing 4.5:1 on every light surface, sunken included.
        Nothing lighter can carry text; --faint is for hairlines, not words. */
-    --text-dim: #6e6e63;
-    --faint: #c9c9c0;
+    --text-dim: #74796e;
+    --faint: #bec3b7;
     --prose: #22262b;
 
     /* Borders / hairlines */
-    --border: #f0f0ec;
-    --border-strong: #e2e2dc;
-    --border-faint: #f6f6f2;
+    --border: #e1e5da;
+    --border-strong: #cdd3c6;
+    --border-faint: #edf0e8;
 
     /* Surfaces — "paper": the white panel the content sits on. */
-    --bg: #ffffff;
-    --sidebar: #0f0f0d;
+    --bg: #f7f8f3;
+    --sidebar: #181d18;
     --surface-1: #ffffff;
-    --surface-2: #f9f9f6;
-    --surface-3: #f4f4f0;
+    --surface-2: #f7f8f3;
+    --surface-3: #f0f2eb;
     --bg-elev: #ffffff;
-    --bg-sunken: #f4f4f0;
-    --bg-hover: #f9f9f6;
-    --bg-active: #f0f0ec;
+    --bg-sunken: #f0f2eb;
+    --bg-hover: #f7f8f3;
+    --bg-active: #e9ede3;
 
     /* Chrome — the dark shell the paper is inset into. */
-    --chrome: #0f0f0d;
-    --chrome-raised: #1c1c18;
-    --chrome-control: #26261f;
-    --chrome-line: #3a3a34;
-    --chrome-fg: #e8e8e2;
-    --chrome-mute: #a8a89e;
-    --chrome-dim: #8f8f84;
+    --chrome: #181d18;
+    --chrome-raised: #242a23;
+    --chrome-control: #30372e;
+    --chrome-line: #41493e;
+    --chrome-fg: #f0f2eb;
+    --chrome-mute: #b5bcaf;
+    --chrome-dim: #929a8d;
 
     /* Status ladder — pending (amber) / addressed·resolved (green) / removed (red) */
     --status-pending: #9a6a1c;
@@ -773,6 +773,41 @@
 @layer components {
     .lp-card-drawer {
         @apply flex flex-col max-w-5xl min-h-screen mx-auto bg-surface-1 border-x border-line shadow-xl;
+    }
+    .lp-card-drawer-overlay {
+        @apply fixed inset-y-0 right-0 left-auto m-0 p-0 w-full max-w-xl h-full max-h-none overflow-hidden border-0 bg-surface-1 shadow-2xl;
+    }
+    .lp-card-drawer-overlay::backdrop {
+        @apply bg-ink/60;
+    }
+    .lp-card-drawer-overlay[open] {
+        animation: lp-card-drawer-enter 200ms ease-out both;
+    }
+    .lp-card-drawer-overlay > turbo-frame {
+        @apply block h-full;
+    }
+    .lp-card-drawer-overlay .lp-card-drawer {
+        @apply h-full min-h-0 max-w-none mx-0 border-0 shadow-none;
+    }
+    .lp-card-drawer-overlay .lp-card-drawer__body {
+        @apply flex-1 min-h-0 overflow-y-auto;
+    }
+    .lp-card-drawer-overlay__loading {
+        @apply absolute inset-0 z-10 flex items-center justify-center gap-2 bg-surface-1 text-sm font-semibold text-fg-mute;
+    }
+    .lp-card-drawer-overlay__loading[hidden] {
+        @apply hidden;
+    }
+    .lp-card-drawer-overlay__loading svg {
+        @apply animate-spin;
+    }
+    @keyframes lp-card-drawer-enter {
+        from {
+            translate: 100% 0;
+        }
+        to {
+            translate: 0 0;
+        }
     }
     .lp-card-drawer__header,
     .lp-card-drawer__footer {
@@ -1627,7 +1662,7 @@
         @apply relative w-full max-w-160;
     }
     .lp-review-doc__head {
-        @apply flex flex-col gap-2.5 mb-9;
+        @apply flex flex-col gap-2.5 mb-9 lg:w-243;
     }
     /* Compact title row for the document back action and title. */
     .lp-review-doc__title-row {
@@ -2366,6 +2401,73 @@
     .lp-review-doc__byline {
         @apply text-fg-dim m-0 text-sm;
     }
+
+    .lp-review-workspace-nav {
+        @apply mt-3 flex w-full items-end gap-9;
+    }
+    .lp-review-workspace-nav .lp-review-view-tabs {
+        @apply mt-0 min-w-0 flex-1;
+    }
+    .lp-review-margin-tabs {
+        @apply hidden w-74 shrink-0 items-center justify-end gap-1 lg:flex;
+    }
+    .lp-review-margin-tabs__item {
+        @apply inline-flex min-h-9 items-center gap-1.5 rounded-lg border-0 bg-transparent px-2.5 py-1.5 text-sm font-semibold text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
+    }
+    .lp-review-margin-tabs__item svg {
+        @apply size-4 shrink-0;
+    }
+    .lp-review-margin-tabs__item span {
+        @apply hidden;
+    }
+    .lp-review-margin-tabs__item--active {
+        @apply bg-surface-3 text-ink;
+    }
+    .lp-review-margin-tabs__item--active span {
+        @apply inline;
+    }
+    .lp-review-margin-tabs__item--icon {
+        @apply size-9 justify-center p-0;
+    }
+    .lp-review-margin-tabs__item--icon::-webkit-details-marker {
+        display: none;
+    }
+    .lp-review-margin-filter {
+        @apply relative;
+    }
+    .lp-review-margin-filter[hidden] {
+        @apply hidden;
+    }
+    .lp-review-margin-filter__menu {
+        @apply absolute right-0 top-11 z-20 flex w-44 flex-col rounded-xl border border-line bg-elev p-1.5 shadow-card;
+    }
+    .lp-review-margin-filter__menu button {
+        @apply rounded-lg border-0 bg-transparent px-3 py-2 text-left text-sm text-fg-mute hover:bg-tint hover:text-ink;
+    }
+    .lp-review-context-panel {
+        @apply mt-5 flex flex-col gap-3 lg:absolute lg:left-169 lg:top-43 lg:mt-0 lg:w-74;
+    }
+    .lp-review-context-panel[hidden] {
+        @apply hidden;
+    }
+    .lp-review-context-panel h2 {
+        @apply m-0 font-display text-lg font-bold text-ink;
+    }
+    .lp-review-context-panel__hint {
+        @apply m-0 text-xs text-fg-mute;
+    }
+    .lp-review-details {
+        @apply m-0 flex flex-col divide-y divide-line rounded-xl border border-line bg-surface-2;
+    }
+    .lp-review-details div {
+        @apply flex flex-col gap-1 px-3.5 py-3;
+    }
+    .lp-review-details dt {
+        @apply text-xs font-semibold uppercase tracking-wide text-fg-dim;
+    }
+    .lp-review-details dd {
+        @apply m-0 text-sm text-fg;
+    }
     /* Long-form reading type: 18px on a 32px line, in the faintly cool prose ink
        rather than the warm UI ink. The measure is fixed by .lp-review-doc. */
     .lp-review-doc__prose {
@@ -2606,6 +2708,9 @@
        passage's block. Cards never move on hover — only the ring appears. */
     .lp-comment-thread {
         @apply static lg:absolute left-0 right-0 flex flex-col gap-3 rounded-xl bg-surface-3 py-3.5 px-4 transition-shadow;
+    }
+    .lp-comment-thread[hidden] {
+        @apply hidden;
     }
     .lp-comment-thread:hover,
     .lp-comment-thread--active {
@@ -2983,7 +3088,7 @@
     }
 
     .lp-sidebar {
-        @apply flex flex-col gap-1 w-59 shrink-0 pt-5 px-3.5 pb-3.5;
+        @apply flex flex-col gap-1 w-54 shrink-0 pt-5 px-3.5 pb-3.5;
     }
 
     /* Below lg the sidebar slides in over the paper. Only the app shell opts
@@ -3237,6 +3342,18 @@
     /* Below lg the verdict actions move into the review menu. */
     .lp-topbar__actions {
         @apply hidden items-center gap-2.5 ml-auto lg:flex lg:flex-wrap;
+    }
+    .lp-topbar__global-actions {
+        @apply hidden items-center gap-2 ml-auto lg:flex;
+    }
+    .lp-topbar__global-action {
+        @apply inline-flex items-center justify-center w-9 h-9 rounded-lg text-chrome-mute no-underline transition-colors;
+    }
+    .lp-topbar__global-action:hover {
+        @apply bg-chrome-raised text-chrome-fg;
+    }
+    .lp-topbar__global-action svg {
+        @apply w-4 h-4;
     }
 
     /* ── Code / pre blocks ──────────────────────────────────────────────── */
@@ -5364,6 +5481,10 @@
         transition: none;
     }
 
+    .lp-card-drawer-overlay[open] {
+        animation: none;
+    }
+
     @keyframes lp-appear {
         from {
             opacity: 0;
@@ -5525,5 +5646,113 @@
     .lp-section-tabs__item:hover,
     .lp-section-tabs__item:focus-visible {
         @apply text-ink border-accent;
+    }
+
+    .lp-orchestration-page {
+        @apply max-w-6xl;
+    }
+    .lp-orchestration-header {
+        @apply flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6;
+    }
+    .lp-orchestration-header .lp-workspace-desc {
+        @apply mb-0;
+    }
+    .lp-agent-grid {
+        @apply grid grid-cols-1 xl:grid-cols-2 gap-4 mt-6;
+    }
+    .lp-agent-card {
+        @apply flex gap-5 rounded-2xl border border-line bg-surface-2 p-5;
+    }
+    .lp-agent-card__avatar {
+        @apply flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-ink text-accent;
+    }
+    .lp-agent-card__avatar svg {
+        @apply h-7 w-7;
+    }
+    .lp-agent-card__body {
+        @apply min-w-0 flex-1;
+    }
+    .lp-agent-card__heading,
+    .lp-rule-row__heading,
+    .lp-activity-row__heading {
+        @apply flex items-start justify-between gap-4;
+    }
+    .lp-agent-card__eyebrow {
+        @apply m-0 text-xs font-bold uppercase tracking-wider text-fg-mute;
+    }
+    .lp-agent-card__name {
+        @apply m-0 mt-1 font-display text-xl font-extrabold text-ink;
+    }
+    .lp-agent-card__purpose {
+        @apply my-4 text-sm leading-relaxed text-fg-mute;
+    }
+    .lp-agent-card__facts {
+        @apply grid grid-cols-1 sm:grid-cols-2 gap-3 m-0;
+    }
+    .lp-agent-card__facts div {
+        @apply rounded-xl bg-surface px-3 py-2;
+    }
+    .lp-agent-card__facts dt {
+        @apply text-xs font-semibold text-fg-mute;
+    }
+    .lp-agent-card__facts dd {
+        @apply m-0 mt-1 text-sm font-medium text-ink;
+    }
+    .lp-rule-list,
+    .lp-activity-feed {
+        @apply flex flex-col gap-3 mt-6;
+    }
+    .lp-rule-row {
+        @apply flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 rounded-2xl border border-line bg-surface-2 p-5;
+    }
+    .lp-rule-row__main {
+        @apply min-w-0 flex-1;
+    }
+    .lp-rule-row__heading h2,
+    .lp-activity-row__heading h2 {
+        @apply m-0 font-display text-lg font-extrabold text-ink;
+    }
+    .lp-rule-row__main > p {
+        @apply mt-1 mb-0 text-sm text-fg-mute;
+    }
+    .lp-rule-flow {
+        @apply flex flex-wrap items-center gap-2 mt-4;
+    }
+    .lp-rule-flow span {
+        @apply inline-flex items-center gap-2 rounded-lg bg-surface px-3 py-2 text-sm font-semibold text-ink;
+    }
+    .lp-rule-flow svg {
+        @apply h-4 w-4;
+    }
+    .lp-rule-flow__arrow {
+        @apply text-fg-mute;
+    }
+    .lp-rule-row__reason,
+    .lp-activity-row__error {
+        @apply mt-3 rounded-lg bg-status-danger-bg px-3 py-2 text-sm text-danger;
+    }
+    .lp-rule-row > time {
+        @apply shrink-0 text-xs text-fg-mute;
+    }
+    .lp-activity-row {
+        @apply flex gap-4 rounded-2xl border border-line bg-surface-2 p-5;
+    }
+    .lp-activity-row__icon {
+        @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ink text-accent;
+    }
+    .lp-activity-row__icon svg {
+        @apply h-5 w-5;
+    }
+    .lp-activity-row__body {
+        @apply min-w-0 flex-1;
+    }
+    .lp-activity-row__heading time {
+        @apply shrink-0 text-xs text-fg-mute;
+    }
+    .lp-activity-row__body > p {
+        @apply mt-1 mb-0 text-sm text-fg-mute;
+    }
+    .lp-activity-row__meta {
+        @apply flex flex-wrap items-center gap-3 mt-3 text-xs text-fg-mute;
     }
 }

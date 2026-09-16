@@ -9,6 +9,7 @@
 {% endblock %}
 
 {% block body %}
+<turbo-frame id="card-drawer-frame">
 <div class="lp-card-drawer" data-controller="panel-tabs" data-panel-tabs-active-value="overview">
     <header class="lp-card-drawer__header">
         <div class="lp-card-drawer__identity">
@@ -17,8 +18,8 @@
             <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>
         </div>
         <div class="lp-card-drawer__header-actions">
-            <a class="lp-btn lp-btn--ghost" href="{{ path('app_board_card_edit', {projectId: card.project.id, cardId: card.id}) }}"><twig:ux:icon name="lucide:pencil" class="w-4 h-4" />{{ 'board.card.edit.action'|trans }}</a>
-            <a class="lp-btn lp-btn--ghost lp-btn--icon" href="{{ path('app_project_board', {id: card.project.id}) }}" aria-label="{{ 'board.card.drawer.close'|trans }}"><twig:ux:icon name="lucide:x" class="w-4 h-4" /></a>
+            <a class="lp-btn lp-btn--ghost" href="{{ path('app_board_card_edit', {projectId: card.project.id, cardId: card.id}) }}" data-turbo-frame="_top"><twig:ux:icon name="lucide:pencil" class="w-4 h-4" />{{ 'board.card.edit.action'|trans }}</a>
+            <a class="lp-btn lp-btn--ghost lp-btn--icon" href="{{ path('app_project_board', {id: card.project.id}) }}" aria-label="{{ 'board.card.drawer.close'|trans }}" data-action="card-drawer#close"><twig:ux:icon name="lucide:x" class="w-4 h-4" /></a>
         </div>
     </header>
 
@@ -38,7 +39,7 @@
                     <section class="lp-card-docs">
                         <h2 class="lp-card-panel__title">{{ 'board.card.documents.title'|trans }}</h2>
                         {% if card.documents|length > 0 %}
-                        <ul class="lp-card-linked-list">{% for link in card.documents %}<li><a href="{{ path('app_document_review', {projectId: card.project.id, documentId: link.document.id}) }}">{{ link.document.title }}</a><span class="lp-tag">{{ link.document.status.translationKey()|trans }}</span></li>{% endfor %}</ul>
+                        <ul class="lp-card-linked-list">{% for link in card.documents %}<li><a href="{{ path('app_document_review', {projectId: card.project.id, documentId: link.document.id}) }}" data-turbo-frame="_top">{{ link.document.title }}</a><span class="lp-tag">{{ link.document.status.translationKey()|trans }}</span></li>{% endfor %}</ul>
                         {% else %}<p class="lp-card-detail__empty">{{ 'board.card.documents.empty'|trans }}</p>{% endif %}
                     </section>
                     <section class="lp-card-pulls">
@@ -86,7 +87,7 @@
             <ul class="lp-card-feedback-list">
                 {% for link in siteReviewLinks %}<li><div class="lp-card-feedback-list__head"><span>{{ 'site_review.source.widget'|trans }}</span><span class="lp-status-chip lp-status-chip--{{ link.comment.status.value }}">{{ ('site_review.comment.status.' ~ link.comment.status.value)|trans }}</span></div><p>{{ link.comment.body }}</p>{% if link.comment.url starts with 'https://' or link.comment.url starts with 'http://' %}<a href="{{ link.comment.url }}" rel="noopener noreferrer nofollow" target="_blank">{{ 'site_review.comment.open_source'|trans }}</a>{% endif %}</li>{% endfor %}
             </ul>
-            <a class="lp-btn lp-btn--ghost" href="{{ path('app_project_site_review', {id: card.project.id}) }}">{{ 'board.card.site_review.all'|trans }}</a>
+            <a class="lp-btn lp-btn--ghost" href="{{ path('app_project_site_review', {id: card.project.id}) }}" data-turbo-frame="_top">{{ 'board.card.site_review.all'|trans }}</a>
             {% else %}<p class="lp-card-detail__empty">{{ 'board.card.site_review.empty'|trans }}</p>{% endif %}
         </section>
     </div>
@@ -94,8 +95,9 @@
     <footer class="lp-card-drawer__footer">
         <div data-controller="modal">
             <button type="button" class="lp-btn lp-btn--danger" data-action="click->modal#open">{{ 'board.card.delete.action'|trans }}</button>
-            <dialog data-modal-target="dialog" class="lp-dialog"><h3 class="lp-dialog-title">{{ 'board.card.delete.confirm.title'|trans }}</h3><p class="lp-dialog-desc">{{ 'board.card.delete.confirm.body'|trans({'%title%': card.title}) }}</p><form method="post" action="{{ path('app_board_card_delete', {projectId: card.project.id, cardId: card.id}) }}" class="flex items-center justify-end gap-3 pt-2"><input type="hidden" name="_csrf_token" value="{{ csrf_token('board-card-delete') }}"><button type="button" class="lp-btn" data-action="click->modal#close">{{ 'board.card.delete.confirm.cancel'|trans }}</button><button type="submit" class="lp-btn lp-btn--danger">{{ 'board.card.delete.confirm.submit'|trans }}</button></form></dialog>
+            <dialog data-modal-target="dialog" class="lp-dialog"><h3 class="lp-dialog-title">{{ 'board.card.delete.confirm.title'|trans }}</h3><p class="lp-dialog-desc">{{ 'board.card.delete.confirm.body'|trans({'%title%': card.title}) }}</p><form method="post" action="{{ path('app_board_card_delete', {projectId: card.project.id, cardId: card.id}) }}" class="flex items-center justify-end gap-3 pt-2" data-turbo-frame="_top"><input type="hidden" name="_csrf_token" value="{{ csrf_token('board-card-delete') }}"><button type="button" class="lp-btn" data-action="click->modal#close">{{ 'board.card.delete.confirm.cancel'|trans }}</button><button type="submit" class="lp-btn lp-btn--danger">{{ 'board.card.delete.confirm.submit'|trans }}</button></form></dialog>
         </div>
     </footer>
 </div>
+</turbo-frame>
 {% endblock %}

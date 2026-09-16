@@ -11,7 +11,9 @@
     {# draggable="false" stops the browser's own link drag taking the gesture. #}
     <a class="lp-board-card__title"
        draggable="false"
-       href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}">
+       href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}"
+       data-turbo-frame="card-drawer-frame"
+       data-action="click->card-drawer#prepare">
         {# The per-project number is the handle a person quotes, so it reads
            beside the title rather than instead of it. #}
         <span class="lp-board-card__number">#{{ card.number }}</span>

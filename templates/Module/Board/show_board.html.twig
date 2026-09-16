@@ -9,7 +9,7 @@
 {% endblock %}
 
 {% block body %}
-<div class="lp-workspace lp-workspace--board">
+<div class="lp-workspace lp-workspace--board" data-controller="card-drawer">
     <header class="lp-board-head">
         <div>
             <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'board.page.title'|trans }}</h1>
@@ -55,5 +55,18 @@
             {% include '@Board/_board_columns.html.twig' with {board: board, addColumnForm: addColumnForm, renameColumnForm: renameColumnForm} only %}
         </turbo-frame>
     </div>
+
+    <dialog class="lp-card-drawer-overlay"
+            aria-label="{{ 'board.card.drawer.label'|trans }}"
+            data-card-drawer-target="dialog"
+            data-action="cancel->card-drawer#cancel click->card-drawer#backdropClick">
+        <div class="lp-card-drawer-overlay__loading" data-card-drawer-target="loading" role="status">
+            <twig:ux:icon name="lucide:loader-circle" class="w-5 h-5" />
+            {{ 'board.card.drawer.loading'|trans }}
+        </div>
+        <turbo-frame id="card-drawer-frame"
+                     data-card-drawer-target="frame"
+                     data-action="turbo:frame-load->card-drawer#loaded"></turbo-frame>
+    </dialog>
 </div>
 {% endblock %}

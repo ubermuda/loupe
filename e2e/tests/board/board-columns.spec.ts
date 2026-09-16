@@ -125,6 +125,32 @@ test.afterAll(async ({ request }) => {
     await setBoardFlag(request, false);
 });
 
+test('a card opens in a stable drawer and returns focus when closed', async ({
+    page,
+}) => {
+    const cardLink = page.getByRole('link', { name: /Waiting/ });
+    await cardLink.focus();
+    await cardLink.click();
+
+    const drawer = page.getByRole('dialog', { name: 'Card details' });
+    await expect(drawer).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Board' })).toBeVisible();
+    await expect(drawer.getByRole('tab', { name: 'Overview' })).toHaveAttribute(
+        'aria-selected',
+        'true',
+    );
+
+    await drawer.getByRole('tab', { name: 'Conversation' }).click();
+    await expect(drawer).toBeVisible();
+    await expect(
+        drawer.getByRole('tab', { name: 'Conversation' }),
+    ).toHaveAttribute('aria-selected', 'true');
+
+    await page.keyboard.press('Escape');
+    await expect(drawer).toBeHidden();
+    await expect(cardLink).toBeFocused();
+});
+
 test('an owner adds a column after the last one', async ({ page, board }) => {
     await page.getByLabel('New column').fill('Parked');
     await page.getByRole('button', { name: 'Add column' }).click();

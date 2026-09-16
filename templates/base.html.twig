@@ -96,17 +96,31 @@
                         {% set reviewCounts = project_site_review_counts(project) %}
                         <span class="lp-sidebar__pill{% if reviewCounts.pending > 0 %} lp-sidebar__pill--amber{% endif %}">{{ reviewCounts.total }}</span>
                     </a>
-                    <a href="{{ path('app_project_connect', {id: project.id}) }}"
-                       class="lp-sidebar__link{% if route == 'app_project_connect' %} lp-sidebar__link--active{% endif %}"
-                       {% if route == 'app_project_connect' %}aria-current="page"{% endif %}>
-                        <twig:ux:icon name="lucide:code-xml" />
-                        <span class="lp-sidebar__link-label">{{ 'nav.link.connect'|trans }}</span>
+                    <a href="{{ path('app_project_agents', {id: project.id}) }}"
+                       class="lp-sidebar__link{% if route == 'app_project_agents' or route == 'app_project_connect' %} lp-sidebar__link--active{% endif %}"
+                       {% if route == 'app_project_agents' or route == 'app_project_connect' %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:users" />
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.agents'|trans }}</span>
                     </a>
+                    {% if is_feature_enabled('board.enabled') %}
+                    <a href="{{ path('app_project_rules', {id: project.id}) }}"
+                       class="lp-sidebar__link{% if route == 'app_project_rules' %} lp-sidebar__link--active{% endif %}"
+                       {% if route == 'app_project_rules' %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:workflow" />
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.rules'|trans }}</span>
+                    </a>
+                    {% endif %}
                     <a href="{{ path('app_project_worker_runs', {id: project.id}) }}"
                        class="lp-sidebar__link{% if route == 'app_project_worker_runs' %} lp-sidebar__link--active{% endif %}"
                        {% if route == 'app_project_worker_runs' %}aria-current="page"{% endif %}>
                         <twig:ux:icon name="lucide:bot" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.worker_runs'|trans }}</span>
+                    </a>
+                    <a href="{{ path('app_project_activity', {id: project.id}) }}"
+                       class="lp-sidebar__link{% if route == 'app_project_activity' %} lp-sidebar__link--active{% endif %}"
+                       {% if route == 'app_project_activity' %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:activity" />
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.activity'|trans }}</span>
                     </a>
                     <a href="{{ path('app_project_outbox', {id: project.id}) }}"
                        class="lp-sidebar__link{% if route == 'app_project_outbox' %} lp-sidebar__link--active{% endif %}"
@@ -198,6 +212,16 @@
                             <nav class="lp-topbar__trail">{% block topbar_crumbs %}{% endblock %}</nav>
                             {% block topbar_meta %}{% endblock %}
                         </div>
+                        {% if project %}
+                        <div class="lp-topbar__global-actions" aria-label="{{ 'nav.global_actions.label'|trans }}">
+                            <a class="lp-topbar__global-action" href="{{ path('app_project_documents', {id: project.id}) }}" title="{{ 'nav.search.documents'|trans }}" aria-label="{{ 'nav.search.documents'|trans }}">
+                                <twig:ux:icon name="lucide:search" />
+                            </a>
+                            <a class="lp-topbar__global-action" href="{{ path('app_project_activity', {id: project.id}) }}" title="{{ 'nav.activity.open'|trans }}" aria-label="{{ 'nav.activity.open'|trans }}">
+                                <twig:ux:icon name="lucide:bell" />
+                            </a>
+                        </div>
+                        {% endif %}
                         {% block topbar_actions %}{% endblock %}
                     {% endblock %}
                 </header>

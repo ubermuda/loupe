@@ -1301,8 +1301,23 @@
             </trans-unit>
             <trans-unit id="review.document.byline">
                 <source>review.document.byline</source>
-                <target>Version %version% · reviewed by %reviewer% · updated %updated%</target>
+                <target>%status% · %author% · updated %updated% · %approved%/%total% sections approved</target>
             </trans-unit>
+            <trans-unit id="review.document.margin.label"><source>review.document.margin.label</source><target>Document context</target></trans-unit>
+            <trans-unit id="review.document.margin.filter"><source>review.document.margin.filter</source><target>Filter comments</target></trans-unit>
+            <trans-unit id="review.document.margin.comments"><source>review.document.margin.comments</source><target>Comments</target></trans-unit>
+            <trans-unit id="review.document.margin.outline"><source>review.document.margin.outline</source><target>Outline</target></trans-unit>
+            <trans-unit id="review.document.margin.decisions"><source>review.document.margin.decisions</source><target>Decisions</target></trans-unit>
+            <trans-unit id="review.document.margin.details"><source>review.document.margin.details</source><target>Details</target></trans-unit>
+            <trans-unit id="review.document.margin.filter_open"><source>review.document.margin.filter_open</source><target>Open</target></trans-unit>
+            <trans-unit id="review.document.margin.filter_resolved"><source>review.document.margin.filter_resolved</source><target>Resolved</target></trans-unit>
+            <trans-unit id="review.document.margin.filter_unanchored"><source>review.document.margin.filter_unanchored</source><target>Unanchored</target></trans-unit>
+            <trans-unit id="review.document.margin.filter_all"><source>review.document.margin.filter_all</source><target>All</target></trans-unit>
+            <trans-unit id="review.document.margin.outline_empty"><source>review.document.margin.outline_empty</source><target>This document has no section headings.</target></trans-unit>
+            <trans-unit id="review.document.margin.decisions_empty"><source>review.document.margin.decisions_empty</source><target>This document has no decisions.</target></trans-unit>
+            <trans-unit id="review.document.margin.decisions_save_hint"><source>review.document.margin.decisions_save_hint</source><target>Each choice saves when you select it.</target></trans-unit>
+            <trans-unit id="review.document.margin.linked_card"><source>review.document.margin.linked_card</source><target>Linked card</target></trans-unit>
+            <trans-unit id="review.document.margin.linked_card_unavailable"><source>review.document.margin.linked_card_unavailable</source><target>No linked board card is available for this document.</target></trans-unit>
             <trans-unit id="review.document.verdict.approve">
                 <source>review.document.verdict.approve</source>
                 <target>Approve</target>
@@ -5354,6 +5369,11 @@
                 <target>No run matches these filters.</target>
             </trans-unit>
             <trans-unit id="board.card.drawer.close"><source>board.card.drawer.close</source><target>Close card</target></trans-unit>
+            <trans-unit id="board.card.drawer.label"><source>board.card.drawer.label</source><target>Card details</target></trans-unit>
+            <trans-unit id="board.card.drawer.loading"><source>board.card.drawer.loading</source><target>Loading card…</target></trans-unit>
+            <trans-unit id="nav.global_actions.label"><source>nav.global_actions.label</source><target>Global tools</target></trans-unit>
+            <trans-unit id="nav.search.documents"><source>nav.search.documents</source><target>Search documents</target></trans-unit>
+            <trans-unit id="nav.activity.open"><source>nav.activity.open</source><target>Open project activity</target></trans-unit>
             <trans-unit id="board.card.drawer.sections"><source>board.card.drawer.sections</source><target>Card sections</target></trans-unit>
             <trans-unit id="board.card.tab.overview"><source>board.card.tab.overview</source><target>Overview</target></trans-unit>
             <trans-unit id="board.card.tab.conversation"><source>board.card.tab.conversation</source><target>Conversation</target></trans-unit>
@@ -5567,6 +5587,50 @@
                 <source>board.card.count</source>
                 <target>{0} No cards|{1} 1 card|]1,Inf[ %count% cards</target>
             </trans-unit>
+            <trans-unit id="nav.link.agents"><source>nav.link.agents</source><target>Agents</target></trans-unit>
+            <trans-unit id="nav.link.rules"><source>nav.link.rules</source><target>Rules</target></trans-unit>
+            <trans-unit id="nav.link.activity"><source>nav.link.activity</source><target>Activity</target></trans-unit>
+            <trans-unit id="bridge.agents.page.title"><source>bridge.agents.page.title</source><target>Agents</target></trans-unit>
+            <trans-unit id="bridge.agents.heading"><source>bridge.agents.heading</source><target>Your crew</target></trans-unit>
+            <trans-unit id="bridge.agents.description"><source>bridge.agents.description</source><target>See the connections that can receive work for this project.</target></trans-unit>
+            <trans-unit id="bridge.agents.connection"><source>bridge.agents.connection</source><target>Connection setup</target></trans-unit>
+            <trans-unit id="bridge.agents.honest_notice"><source>bridge.agents.honest_notice</source><target>Loupe identifies connected bridges. Individual agent profiles are not reported by the current bridge protocol.</target></trans-unit>
+            <trans-unit id="bridge.agents.connection_label"><source>bridge.agents.connection_label</source><target>Bridge connection</target></trans-unit>
+            <trans-unit id="bridge.agents.status.stale"><source>bridge.agents.status.stale</source><target>Stale</target></trans-unit>
+            <trans-unit id="bridge.agents.status.healthy"><source>bridge.agents.status.healthy</source><target>Healthy</target></trans-unit>
+            <trans-unit id="bridge.agents.project_connection"><source>bridge.agents.project_connection</source><target>Receives eligible work for %project%.</target></trans-unit>
+            <trans-unit id="bridge.agents.runtime"><source>bridge.agents.runtime</source><target>CLI version</target></trans-unit>
+            <trans-unit id="bridge.agents.last_seen"><source>bridge.agents.last_seen</source><target>Last heartbeat</target></trans-unit>
+            <trans-unit id="bridge.agents.never"><source>bridge.agents.never</source><target>Not reported</target></trans-unit>
+            <trans-unit id="bridge.agents.empty.title"><source>bridge.agents.empty.title</source><target>No crew connection yet</target></trans-unit>
+            <trans-unit id="bridge.agents.empty.description"><source>bridge.agents.empty.description</source><target>Connect the bridge to make this project available to your local crew.</target></trans-unit>
+            <trans-unit id="bridge.agents.empty.action"><source>bridge.agents.empty.action</source><target>Connect a bridge</target></trans-unit>
+            <trans-unit id="board.rules.page.title"><source>board.rules.page.title</source><target>Rules</target></trans-unit>
+            <trans-unit id="board.rules.nav"><source>board.rules.nav</source><target>Rules</target></trans-unit>
+            <trans-unit id="board.rules.heading"><source>board.rules.heading</source><target>The handoffs</target></trans-unit>
+            <trans-unit id="board.rules.description"><source>board.rules.description</source><target>See which reported events can hand work to a connected bridge.</target></trans-unit>
+            <trans-unit id="board.rules.read_only_notice"><source>board.rules.read_only_notice</source><target>Rules come from bridge configuration. This page reports their health and does not change them.</target></trans-unit>
+            <trans-unit id="board.rules.live_count"><source>board.rules.live_count</source><target>{0} No live rules|{1} 1 live rule|]1,Inf[ %count% live rules</target></trans-unit>
+            <trans-unit id="board.rules.status.live"><source>board.rules.status.live</source><target>Live</target></trans-unit>
+            <trans-unit id="board.rules.status.dead"><source>board.rules.status.dead</source><target>Invalid</target></trans-unit>
+            <trans-unit id="board.rules.event_description"><source>board.rules.event_description</source><target>Listens for %event%.</target></trans-unit>
+            <trans-unit id="board.rules.flow_label"><source>board.rules.flow_label</source><target>Rule handoff</target></trans-unit>
+            <trans-unit id="board.rules.reported_at"><source>board.rules.reported_at</source><target>Reported %time%</target></trans-unit>
+            <trans-unit id="board.rules.empty.title"><source>board.rules.empty.title</source><target>No rules reported</target></trans-unit>
+            <trans-unit id="board.rules.empty.description"><source>board.rules.empty.description</source><target>A connected bridge reports the rules it has loaded for this project.</target></trans-unit>
+            <trans-unit id="activity.page.title"><source>activity.page.title</source><target>Activity</target></trans-unit>
+            <trans-unit id="activity.heading"><source>activity.heading</source><target>Project activity</target></trans-unit>
+            <trans-unit id="activity.description"><source>activity.description</source><target>Trace durable project events and their delivery to connected bridges.</target></trans-unit>
+            <trans-unit id="activity.count"><source>activity.count</source><target>{0} No events|{1} 1 event|]1,Inf[ %count% events</target></trans-unit>
+            <trans-unit id="activity.status.recorded"><source>activity.status.recorded</source><target>Recorded history</target></trans-unit>
+            <trans-unit id="activity.durable_notice"><source>activity.durable_notice</source><target>This feed shows durable delivery records. It does not infer whether an agent completed the resulting work.</target></trans-unit>
+            <trans-unit id="activity.event_detail"><source>activity.event_detail</source><target>%family% event · sequence %sequence%</target></trans-unit>
+            <trans-unit id="activity.delivery.delivered"><source>activity.delivery.delivered</source><target>Delivered</target></trans-unit>
+            <trans-unit id="activity.delivery.failed"><source>activity.delivery.failed</source><target>Delivery failed</target></trans-unit>
+            <trans-unit id="activity.delivery.pending"><source>activity.delivery.pending</source><target>Pending delivery</target></trans-unit>
+            <trans-unit id="activity.attempts"><source>activity.attempts</source><target>{0} No failed attempts|{1} 1 failed attempt|]1,Inf[ %count% failed attempts</target></trans-unit>
+            <trans-unit id="activity.empty.title"><source>activity.empty.title</source><target>No recorded activity</target></trans-unit>
+            <trans-unit id="activity.empty.description"><source>activity.empty.description</source><target>Project events will appear here after Loupe records them.</target></trans-unit>
         </body>
     </file>
 </xliff>

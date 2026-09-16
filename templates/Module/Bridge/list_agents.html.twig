@@ -1,0 +1,60 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'bridge.agents.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <a class="lp-topbar__crumb" href="{{ path('app_project_workshop', {id: project.id}) }}">{{ project.name }}</a>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'bridge.agents.page.title'|trans }}</span>
+{% endblock %}
+
+{% block body %}
+<div class="lp-workspace lp-orchestration-page">
+    <header class="lp-orchestration-header">
+        <div>
+            <h1 class="lp-workspace-title">{{ 'bridge.agents.heading'|trans }}</h1>
+            <p class="lp-workspace-desc">{{ 'bridge.agents.description'|trans }}</p>
+        </div>
+        <a class="lp-btn lp-btn--secondary" href="{{ path('app_project_connect', {id: project.id}) }}">
+            <twig:ux:icon name="lucide:cable" />
+            {{ 'bridge.agents.connection'|trans }}
+        </a>
+    </header>
+
+    <p class="lp-page-note">{{ 'bridge.agents.honest_notice'|trans }}</p>
+
+    {% if connections is not empty %}
+    <div class="lp-agent-grid">
+        {% for connection in connections %}
+        <article class="lp-agent-card" data-agent-connection-id="{{ connection.bridge.id }}">
+            <div class="lp-agent-card__avatar" aria-hidden="true"><twig:ux:icon name="lucide:bot" /></div>
+            <div class="lp-agent-card__body">
+                <div class="lp-agent-card__heading">
+                    <div>
+                        <p class="lp-agent-card__eyebrow">{{ 'bridge.agents.connection_label'|trans }}</p>
+                        <h2 class="lp-agent-card__name">{{ connection.bridge.id|slice(-12) }}</h2>
+                    </div>
+                    <span class="lp-status-chip {{ connection.status.quiet ? 'lp-status-chip--pending' : 'lp-status-chip--ok' }}">
+                        <span class="lp-status-chip__dot"></span>
+                        {{ (connection.status.quiet ? 'bridge.agents.status.stale' : 'bridge.agents.status.healthy')|trans }}
+                    </span>
+                </div>
+                <p class="lp-agent-card__purpose">{{ 'bridge.agents.project_connection'|trans({'%project%': project.name}) }}</p>
+                <dl class="lp-agent-card__facts">
+                    <div><dt>{{ 'bridge.agents.runtime'|trans }}</dt><dd>{{ connection.bridge.cliVersion }}</dd></div>
+                    <div><dt>{{ 'bridge.agents.last_seen'|trans }}</dt><dd>{{ connection.status.lastSeenAt ? connection.status.lastSeenAt|date('Y-m-d H:i:s') : 'bridge.agents.never'|trans }}</dd></div>
+                </dl>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="lp-empty-state" data-agent-empty>
+        <twig:ux:icon name="lucide:unplug" class="lp-empty-state__icon w-12 h-12" />
+        <h2 class="lp-empty-state__title">{{ 'bridge.agents.empty.title'|trans }}</h2>
+        <p>{{ 'bridge.agents.empty.description'|trans }}</p>
+        <a class="lp-btn lp-btn--primary" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'bridge.agents.empty.action'|trans }}</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
