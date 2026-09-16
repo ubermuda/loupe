@@ -46,6 +46,7 @@ final class DataExportArchiveIntegrationTest extends KernelTestCase
         $version2 = $document->addVersion('# v2', '<h1>v2</h1>');
 
         $parentComment = new Comment($version1, $user, 'first', Anchor::unanchored());
+        $parentComment->deletedAt = new \DateTimeImmutable('2026-09-16T20:00:00+00:00');
         $reply = new Comment($version2, $user, 'reply', new Anchor('quote', 'pre', 'post', 3), $parentComment);
         $em->persist($parentComment);
         $em->persist($reply);
@@ -98,6 +99,7 @@ final class DataExportArchiveIntegrationTest extends KernelTestCase
             self::assertSame('My doc', $replyRow['document']);
             self::assertSame(2, $replyRow['versionNumber']);
             self::assertSame((string) $parentComment->id, $replyRow['parentId']);
+            self::assertSame('2026-09-16T20:00:00+00:00', $replyRow['deletedAt']);
 
             $allJson = '';
             for ($i = 0; $i < $zip->numFiles; ++$i) {

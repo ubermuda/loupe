@@ -25,6 +25,11 @@ worker is consuming.
 
 ## What the archive contains
 
+`comments.json` includes the user's comments and replies, including retained
+deleted threads. Each row carries `deletedAt`, which is the thread's deletion
+time or `null` for an active thread. Replies use their parent thread's deletion
+time. The export preserves comment text, anchors, and review status.
+
 The archive holds one file per kind of data. `audit_log.json` is one of them. It
 holds the audit records the user is the actor of, and the records that name the
 user as the subject. What was done to the account is the account's data too.

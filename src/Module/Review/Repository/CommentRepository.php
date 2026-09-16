@@ -41,6 +41,7 @@ class CommentRepository extends ServiceEntityRepository
             // join would drop every root from the result.
             ->leftJoin('c.parent', 'p')
             ->where('c.version = :version')
+            ->andWhere('c.deletedAt IS NULL AND p.deletedAt IS NULL')
             ->andWhere('COALESCE(p.status, c.status) != :resolved')
             ->setParameter('version', $version)
             ->setParameter('resolved', CommentStatus::Resolved)
@@ -76,6 +77,7 @@ class CommentRepository extends ServiceEntityRepository
             ->select('IDENTITY(c.version) AS id', 'c.status AS status', 'c.orphaned AS orphaned', 'COUNT(c.id) AS total')
             ->where('c.version IN (:versions)')
             ->andWhere('c.parent IS NULL')
+            ->andWhere('c.deletedAt IS NULL')
             ->setParameter('versions', $versionIds)
             ->groupBy('c.version', 'c.status', 'c.orphaned')
             ->getQuery()
@@ -124,7 +126,9 @@ class CommentRepository extends ServiceEntityRepository
             // this each comment costs its own query to load the author proxy.
             ->addSelect('author')
             ->join('c.author', 'author')
+            ->leftJoin('c.parent', 'p')
             ->where('c.version = :version')
+            ->andWhere('c.deletedAt IS NULL AND p.deletedAt IS NULL')
             ->setParameter('version', $version)
             // Document order — see findOpenByVersion().
             ->orderBy('c.anchor.offsetHint', 'ASC')
@@ -142,12 +146,45 @@ class CommentRepository extends ServiceEntityRepository
     public function findReplies(Comment $parent): array
     {
         return $this->createQueryBuilder('c')
+            ->addSelect('author')
+            ->join('c.author', 'author')
+            ->join('c.parent', 'p')
+            ->where('c.parent = :parent')
+            ->andWhere('c.deletedAt IS NULL AND p.deletedAt IS NULL')
+            ->setParameter('parent', $parent)
+            ->orderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** @return list<Comment> */
+    public function findRepliesIncludingDeleted(Comment $parent): array
+    {
+        return $this->createQueryBuilder('c')
             // Replies render their author too — same reason as findByVersion().
             ->addSelect('author')
             ->join('c.author', 'author')
             ->where('c.parent = :parent')
             ->setParameter('parent', $parent)
             ->orderBy('c.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** @return list<Comment> */
+    public function findDeletedByDocument(Document $document): array
+    {
+        return $this->createQueryBuilder('c')
+            ->addSelect('author', 'version')
+            ->join('c.author', 'author')
+            ->join('c.version', 'version')
+            ->leftJoin('c.parent', 'p')
+            ->where('version.document = :document')
+            ->andWhere('c.deletedAt IS NOT NULL OR p.deletedAt IS NOT NULL')
+            ->setParameter('document', $document)
+            ->orderBy('version.versionNumber', 'DESC')
+            ->addOrderBy('c.anchor.offsetHint', 'ASC')
+            ->addOrderBy('c.id', 'ASC')
             ->getQuery()
             ->getResult();
     }
@@ -172,7 +209,9 @@ class CommentRepository extends ServiceEntityRepository
         $row = $this->createQueryBuilder('c')
             ->select('c.createdAt AS createdAt', 'v.versionNumber AS versionNumber')
             ->join('c.version', 'v')
+            ->leftJoin('c.parent', 'p')
             ->andWhere('v.document = :document')
+            ->andWhere('c.deletedAt IS NULL AND p.deletedAt IS NULL')
             ->andWhere('c.author = :author')
             // Load-bearing: createdAt is nullable for comments written before the
             // column existed, and Postgres orders NULLS FIRST on a DESC sort.

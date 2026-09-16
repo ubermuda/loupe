@@ -30,7 +30,7 @@ final readonly class DeleteCommentHandler
         // Deleting a thread removes its replies too — they reference the root via
         // a non-nullable parent FK, so they would otherwise dangle.
         $replyIds = [];
-        foreach ($this->comments->findReplies($command->comment) as $reply) {
+        foreach ($this->comments->findRepliesIncludingDeleted($command->comment) as $reply) {
             $replyIds[] = (string) $reply->id;
             $this->em->remove($reply);
         }

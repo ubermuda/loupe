@@ -266,6 +266,7 @@ final class ProjectDeleterTest extends KernelTestCase
         $document->references->add($referenced);
         $version = $document->addVersion('# Hi', '<h1>Hi</h1>');
         $parent = new Comment(version: $version, author: $owner, body: 'root', anchor: Anchor::unanchored());
+        $parent->deletedAt = new \DateTimeImmutable();
         $em->persist($parent);
         $reply = new Comment(version: $version, author: $owner, body: 'reply', anchor: Anchor::unanchored(), parent: $parent);
         $em->persist($reply);

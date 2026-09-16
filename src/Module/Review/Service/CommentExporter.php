@@ -36,6 +36,7 @@ final readonly class CommentExporter implements UserDataExporterInterface
                 // One flat row per comment, so a reply reports the status of the
                 // thread it belongs to rather than dropping the column.
                 'status' => $comment->threadStatus->value,
+                'deletedAt' => $comment->threadDeletedAt?->format(\DateTimeInterface::ATOM),
                 'orphaned' => $comment->orphaned,
                 'anchor' => [
                     'quote' => $comment->anchor->quote,

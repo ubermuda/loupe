@@ -479,12 +479,14 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $otherVersion = $otherDocument->addVersion('# Other', '<h1>Other</h1>');
 
         $ownerComment = new Comment(version: $otherVersion, author: $owner, body: 'owner review comment', anchor: Anchor::unanchored());
+        $ownerComment->deletedAt = new \DateTimeImmutable();
         $em->persist($ownerComment);
         $replyToOwner = new Comment(version: $otherVersion, author: $other, body: 'reply by project owner', anchor: Anchor::unanchored(), parent: $ownerComment);
         $em->persist($replyToOwner);
         $grandchildReply = new Comment(version: $otherVersion, author: $third, body: 'grandchild reply', anchor: Anchor::unanchored(), parent: $replyToOwner);
         $em->persist($grandchildReply);
         $otherAuthoredComment = new Comment(version: $otherVersion, author: $other, body: 'unrelated comment by project owner', anchor: Anchor::unanchored());
+        $otherAuthoredComment->deletedAt = new \DateTimeImmutable();
         $em->persist($otherAuthoredComment);
 
         $em->persist(new Review(version: $otherVersion, verdict: Verdict::Approved, reviewer: $owner));
@@ -496,6 +498,7 @@ final class DeleteAccountHandlerTest extends KernelTestCase
         $em->persist($foreignDocument);
         $foreignVersion = $foreignDocument->addVersion('# Foreign', '<h1>Foreign</h1>');
         $foreignDocumentComment = new Comment(version: $foreignVersion, author: $other, body: 'other user comments on it', anchor: Anchor::unanchored());
+        $foreignDocumentComment->deletedAt = new \DateTimeImmutable();
         $em->persist($foreignDocumentComment);
         // decision_selections.document_id is NOT DEFERRABLE with no ON DELETE
         // CASCADE, so an answered decision on this document aborts the whole
