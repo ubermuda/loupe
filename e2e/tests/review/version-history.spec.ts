@@ -110,6 +110,13 @@ test('the History tab compares two distant versions', async ({ page }) => {
     ).toHaveCount(1);
 
     await page.getByRole('link', { name: 'History', exact: true }).click();
+    await expect(
+        page.getByRole('heading', { name: 'Version history' }),
+    ).toBeVisible();
+    await expect(page.locator('html')).not.toHaveAttribute(
+        'data-turbo-preview',
+    );
+    await expect(page.locator('html')).not.toHaveAttribute('aria-busy', 'true');
     await page.getByRole('button', { name: 'Revise', exact: true }).click();
     const reviseDialog = page.getByRole('dialog', { name: 'Revise document' });
     await expect(reviseDialog.getByLabel('Title', { exact: true })).toHaveValue(
