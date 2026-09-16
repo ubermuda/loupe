@@ -18,6 +18,10 @@ final class SubmitReviewRequest
     public function __construct(
         #[Assert\NotBlank]
         public ?string $verdict = null,
+
+        #[Assert\NotNull]
+        #[Assert\Positive]
+        public ?int $versionNumber = null,
     ) {
     }
 }

@@ -44,6 +44,9 @@ final readonly class SubmitReviewHandler
             $this->em->lock($document, LockMode::PESSIMISTIC_WRITE);
 
             $version = $this->documentVersions->findLatest($document);
+            if ($version->versionNumber !== $command->versionNumber) {
+                throw new DomainErrors(['versionNumber' => 'review.document.flash.verdict_stale']);
+            }
 
             // Appended rather than replacing whatever stands: a version may be
             // approved, withdrawn and approved again, and the log keeps all three.

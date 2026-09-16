@@ -15,6 +15,7 @@ final readonly class SubmitReviewCommand
         // Raw submitted value — parsed into a Verdict by the handler, which
         // throws DomainErrors on an unrecognised value.
         public string $verdict,
+        public int $versionNumber,
     ) {
     }
 }

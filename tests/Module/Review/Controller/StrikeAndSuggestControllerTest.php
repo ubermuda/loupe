@@ -193,7 +193,7 @@ final class StrikeAndSuggestControllerTest extends WebTestCase
         $client->request(
             Request::METHOD_POST,
             '/projects/'.$document->project->id.'/documents/'.$document->id.'/review/submit',
-            ['submit_review_form' => ['verdict' => 'approved'], '_csrf_token' => 'csrf-token'],
+            ['submit_review_form' => ['verdict' => 'approved', 'versionNumber' => 1], '_csrf_token' => 'csrf-token'],
         );
 
         self::assertResponseRedirects();

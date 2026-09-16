@@ -74,6 +74,7 @@ final class SubmitReviewController extends AppController
                 reviewer: $user,
                 document: $document,
                 verdict: $verdict,
+                versionNumber: $data->versionNumber ?? throw new \LogicException('versionNumber required after validation'),
             ));
         } catch (DomainErrors $e) {
             foreach ($e->errors as $translationKey) {

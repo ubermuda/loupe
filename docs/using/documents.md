@@ -21,6 +21,9 @@ Threads carry a status: pending, addressed, or resolved. The verdict on a
 version is either an approval or a request for changes, submitted at
 `/review/submit`.
 
+A verdict applies to the version shown when the reviewer opens the page.
+If a revision arrives first, Loupe rejects the verdict and asks the reviewer to check the current version.
+
 The margin has Comments, Outline, Decisions and Details tabs.
 Outline and Decisions show current progress and link to passages in the document.
 Details shows linked cards, outgoing and incoming references, tags, series and version notes.

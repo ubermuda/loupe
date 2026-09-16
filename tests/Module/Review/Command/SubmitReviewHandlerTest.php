@@ -59,6 +59,7 @@ final class SubmitReviewHandlerTest extends KernelTestCase
             reviewer: $reviewer,
             document: $doc,
             verdict: Verdict::ChangesRequested->value,
+            versionNumber: 1,
         ));
 
         self::assertInstanceOf(Review::class, $review);
@@ -97,6 +98,7 @@ final class SubmitReviewHandlerTest extends KernelTestCase
             reviewer: $reviewer,
             document: $doc,
             verdict: Verdict::Approved->value,
+            versionNumber: 1,
         ));
 
         self::assertInstanceOf(Review::class, $review);
@@ -126,7 +128,7 @@ final class SubmitReviewHandlerTest extends KernelTestCase
         $handler = self::getContainer()->get(SubmitReviewHandler::class);
 
         try {
-            $handler(new SubmitReviewCommand($reviewer, $doc, Verdict::Withdrawn->value));
+            $handler(new SubmitReviewCommand($reviewer, $doc, Verdict::Withdrawn->value, 1));
             self::fail('Withdrawn is written by undo, never submitted');
         } catch (DomainErrors $e) {
             self::assertContains('review.document.flash.verdict_invalid', $e->errors);
@@ -153,6 +155,7 @@ final class SubmitReviewHandlerTest extends KernelTestCase
             reviewer: $reviewer,
             document: $doc,
             verdict: 'not-a-real-verdict',
+            versionNumber: 1,
         ));
     }
 }

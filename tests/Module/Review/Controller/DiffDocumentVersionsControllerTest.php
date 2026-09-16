@@ -813,8 +813,8 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         // The review page for the same document still reports approval state, so
         // the assertions above cannot pass by the panel having lost it outright.
         $latest = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
-        self::assertCount(1, $latest->filter('.lp-review-contents'));
-        self::assertCount(3, $latest->filter('.lp-review-contents .lp-review-contents__tick'));
+        self::assertCount(1, $latest->filter('[data-margin-panel="outline"]'));
+        self::assertCount(3, $latest->filter('[data-margin-panel="outline"] .lp-review-contents__tick'));
     }
 
     /**

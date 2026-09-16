@@ -58,7 +58,7 @@ final class UndoVerdictHandlerTest extends KernelTestCase
 
         /** @var SubmitReviewHandler $submit */
         $submit = self::getContainer()->get(SubmitReviewHandler::class);
-        $approval = $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::Approved->value));
+        $approval = $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::Approved->value, 1));
         self::assertSame(DocumentStatus::Approved, $doc->status);
 
         /** @var UndoVerdictHandler $undo */
@@ -147,9 +147,9 @@ final class UndoVerdictHandlerTest extends KernelTestCase
         /** @var UndoVerdictHandler $undo */
         $undo = self::getContainer()->get(UndoVerdictHandler::class);
 
-        $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::Approved->value));
+        $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::Approved->value, 1));
         $undo(new UndoVerdictCommand(document: $doc, actor: $reviewer));
-        $second = $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::ChangesRequested->value));
+        $second = $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::ChangesRequested->value, 1));
 
         self::assertSame(DocumentStatus::ChangesRequested, $doc->status);
         self::assertSame(3, $second->sequence, 'The third row in the log, not a replacement for the first');
@@ -172,7 +172,7 @@ final class UndoVerdictHandlerTest extends KernelTestCase
 
         /** @var SubmitReviewHandler $submit */
         $submit = self::getContainer()->get(SubmitReviewHandler::class);
-        $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::Approved->value));
+        $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::Approved->value, 1));
 
         /** @var UndoVerdictHandler $undo */
         $undo = self::getContainer()->get(UndoVerdictHandler::class);

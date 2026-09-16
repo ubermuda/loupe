@@ -26,6 +26,7 @@
     {% if not readOnly and not diffMode and document.status.value == 'in-review' %}
     <form class="lp-topbar__actions" method="POST" action="{{ path('app_document_review_submit', {projectId: document.project.id, documentId: document.id}) }}">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('submit-review') }}">
+        <input type="hidden" name="submit_review_form[versionNumber]" value="{{ version.versionNumber }}">
         <button type="submit" name="submit_review_form[verdict]" value="changes-requested" class="lp-btn lp-btn--outline">
             {{ 'review.document.verdict.request_changes'|trans }}
         </button>

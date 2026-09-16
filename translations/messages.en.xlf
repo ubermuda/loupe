@@ -1327,6 +1327,10 @@
                 <source>review.document.verdict.approve</source>
                 <target>Approve</target>
             </trans-unit>
+            <trans-unit id="review.document.flash.verdict_stale">
+                <source>review.document.flash.verdict_stale</source>
+                <target>The document has a newer version. Review the current version before you submit a verdict.</target>
+            </trans-unit>
             <trans-unit id="review.document.verdict.request_changes">
                 <source>review.document.verdict.request_changes</source>
                 <target>Request changes</target>

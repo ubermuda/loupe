@@ -6,6 +6,7 @@ namespace App\Module\Review\Form;
 
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
+use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
@@ -29,6 +30,7 @@ final class SubmitReviewFormType extends AbstractType
             'required' => false,
             'label' => false,
         ]);
+        $builder->add('versionNumber', IntegerType::class, ['required' => false, 'label' => false]);
     }
 
     #[\Override]

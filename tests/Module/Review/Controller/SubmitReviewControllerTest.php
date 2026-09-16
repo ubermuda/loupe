@@ -20,6 +20,54 @@ use Ubermuda\AuditBundle\AuditOutcome;
 
 final class SubmitReviewControllerTest extends WebTestCase
 {
+    public function test_a_stale_verdict_does_not_approve_a_new_version(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$owner, , $projectId, $docId] = $this->seedOwnerAndDocument($em, 'stale');
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, "/projects/$projectId/documents/$docId/review");
+        $form = $crawler->selectButton('Approve')->form();
+        self::assertSame('1', $crawler->filter('input[name="submit_review_form[versionNumber]"]')->first()->attr('value'));
+
+        $document = $em->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $document);
+        $document->addVersion('# Revised', '<h1>Revised</h1>');
+        $em->flush();
+        $em->clear();
+
+        $client->submit($form);
+        self::assertResponseRedirects("/projects/$projectId/documents/$docId/review");
+        $client->followRedirect();
+        self::assertSelectorTextContains('.lp-flash--error', 'The document has a newer version.');
+
+        $fresh = static::getContainer()->get(EntityManagerInterface::class)->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $fresh);
+        self::assertSame(DocumentStatus::InReview, $fresh->status);
+        self::assertSame(2, $fresh->currentVersion()->versionNumber);
+        $reviews = static::getContainer()->get(\App\Module\Review\Repository\ReviewRepository::class);
+        self::assertNull($reviews->findNewestByVersion($fresh->currentVersion()));
+    }
+
+    public function test_a_verdict_without_a_version_is_rejected(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$owner, , $projectId, $docId] = $this->seedOwnerAndDocument($em, 'no-version');
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, "/projects/$projectId/documents/$docId/review");
+        $client->request(Request::METHOD_POST, "/projects/$projectId/documents/$docId/review/submit", [
+            '_csrf_token' => 'csrf-token',
+            'submit_review_form' => ['verdict' => 'approved'],
+        ]);
+        self::assertResponseRedirects("/projects/$projectId/documents/$docId/review");
+        $client->followRedirect();
+        self::assertSelectorExists('.lp-flash--error');
+        $fresh = static::getContainer()->get(EntityManagerInterface::class)->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $fresh);
+        self::assertSame(DocumentStatus::InReview, $fresh->status);
+    }
+
     /** @param non-empty-string $email */
     private function createUser(EntityManagerInterface $em, string $username, string $email): User
     {
@@ -69,7 +117,7 @@ final class SubmitReviewControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, "/projects/$projectId/documents/$docId/review");
         $client->request(Request::METHOD_POST, "/projects/$projectId/documents/$docId/review/submit", [
             '_csrf_token' => 'csrf-token',
-            'submit_review_form' => ['verdict' => 'changes-requested'],
+            'submit_review_form' => ['verdict' => 'changes-requested', 'versionNumber' => 1],
         ]);
 
         self::assertResponseRedirects("/projects/$projectId/documents/$docId/review");
@@ -125,7 +173,7 @@ final class SubmitReviewControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, "/projects/$projectId/documents/$docId/review");
         $client->request(Request::METHOD_POST, "/projects/$projectId/documents/$docId/review/submit", [
             '_csrf_token' => 'csrf-token',
-            'submit_review_form' => ['verdict' => 'not-a-real-verdict'],
+            'submit_review_form' => ['verdict' => 'not-a-real-verdict', 'versionNumber' => 1],
         ]);
 
         self::assertResponseRedirects("/projects/$projectId/documents/$docId/review");
@@ -154,7 +202,7 @@ final class SubmitReviewControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, "/projects/$projectId/documents/$docId/review");
         $client->request(Request::METHOD_POST, "/projects/$projectId/documents/$docId/review/submit", [
             '_csrf_token' => 'csrf-token',
-            'submit_review_form' => ['verdict' => '0'],
+            'submit_review_form' => ['verdict' => '0', 'versionNumber' => 1],
         ]);
 
         self::assertResponseRedirects("/projects/$projectId/documents/$docId/review");
@@ -184,7 +232,7 @@ final class SubmitReviewControllerTest extends WebTestCase
 
         $client->request(Request::METHOD_POST, "/projects/$projectId/documents/$docId/review/submit", [
             '_csrf_token' => 'csrf-token',
-            'submit_review_form' => ['verdict' => 'approved'],
+            'submit_review_form' => ['verdict' => 'approved', 'versionNumber' => 1],
         ]);
 
         self::assertResponseRedirects("/projects/$projectId/documents/$docId/review");
@@ -221,7 +269,7 @@ final class SubmitReviewControllerTest extends WebTestCase
 
         $client->request(Request::METHOD_POST, "/projects/$projectId/documents/$docId/review/submit", [
             '_csrf_token' => 'csrf-token',
-            'submit_review_form' => ['verdict' => 'withdrawn'],
+            'submit_review_form' => ['verdict' => 'withdrawn', 'versionNumber' => 1],
         ]);
 
         self::assertSame([], $audit->operations());

@@ -350,6 +350,32 @@ test('replying to a thread and resolving it re-render it in place', async ({
     });
 });
 
+test('a stale review page cannot approve a newer version', async ({
+    page,
+    review,
+}) => {
+    const revised = await page.request.post(
+        `/dev/review/${review.documentId}/revise`,
+        {
+            form: {
+                markdown:
+                    '# Revised document\n\nThis version needs its own review.',
+            },
+        },
+    );
+    expect(revised.status()).toBe(200);
+    await page.getByRole('button', { name: 'Approve', exact: true }).click();
+    await expect(page.locator('.lp-flash--error')).toContainText(
+        'The document has a newer version.',
+    );
+    await expect(page.locator('.lp-review-doc__version')).toHaveText('v2');
+    await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
+    await page.goto(review.dashboardUrl);
+    await expect(
+        page.locator(`[data-document-id="${review.documentId}"] .lp-badge`),
+    ).toHaveText('In review');
+});
+
 test('requesting changes shows the verdict on the project dashboard', async ({
     page,
     review,

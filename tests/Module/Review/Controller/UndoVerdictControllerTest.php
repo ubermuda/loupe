@@ -66,7 +66,7 @@ final class UndoVerdictControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, "/projects/$projectId/documents/$documentId/review");
         $client->request(Request::METHOD_POST, "/projects/$projectId/documents/$documentId/review/submit", [
             '_csrf_token' => 'csrf-token',
-            'submit_review_form' => ['verdict' => 'approved'],
+            'submit_review_form' => ['verdict' => 'approved', 'versionNumber' => 1],
         ]);
         $audit->forget();
 
