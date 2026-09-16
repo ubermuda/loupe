@@ -73,6 +73,30 @@ const VOID_CELL = '.lp-diff-columns__cell--void';
 const MARGIN = '.lp-review-margin';
 const VIEWS = '.lp-diff-views';
 
+test('comparison controls share the standard desktop metrics', async ({
+    page,
+}) => {
+    await signIn(page, `e2e-sbs-controls-${RUN}@example.com`);
+    const reviewPath = await seedComparison(page);
+    await page.goto(`${reviewPath}/diff/1/2`);
+    const controls = page.locator(
+        '.lp-diff-bar .lp-version-compare select, .lp-diff-bar .lp-version-compare button, .lp-diff-views__link',
+    );
+    await expect(controls).toHaveCount(6);
+    for (const control of await controls.all()) {
+        await expect(control).toBeVisible();
+        await expect(control).toHaveCSS('height', '36px');
+        await expect(control).toHaveCSS('font-size', '14px');
+        await expect(control).toHaveCSS('line-height', '20px');
+    }
+    await page.goto(`${reviewPath.split('/documents/')[0]}/documents`);
+    for (const selector of ['.lp-filter-input', '.lp-filter-select']) {
+        const control = page.locator(selector).first();
+        await expect(control).toBeVisible();
+        await expect(control).toHaveCSS('height', '36px');
+    }
+});
+
 test('the visible picker compares equal versions and keeps the view', async ({
     page,
 }) => {

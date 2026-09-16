@@ -344,6 +344,7 @@ test('no touch control renders below the 16px iOS zoom threshold', async ({
     for (const selector of ['.lp-filter-input', '.lp-filter-select']) {
         const control = page.locator(selector).first();
         await expect(control).toBeVisible();
+        await expect(control).toHaveCSS('height', '44px');
         expect(
             await control.evaluate((element) =>
                 parseFloat(getComputedStyle(element).fontSize),

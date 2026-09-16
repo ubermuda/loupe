@@ -396,7 +396,7 @@
                         idPrefix: 'diff',
                     } only %}
                     <nav class="lp-diff-views" aria-label="{{ 'review.document.diff.view.label'|trans }}">
-                        <a class="lp-diff-views__link"
+                        <a class="lp-btn lp-btn--ghost lp-diff-views__link"
                            href="{{ path('app_document_review_diff', viewParams|merge({view: 'rendered'})) }}"
                            {% if diffView.value == 'rendered' %}aria-current="page"{% endif %}
                            {% if diffColumns %}aria-describedby="diff-columns-notice"{% endif %}
@@ -405,14 +405,14 @@
                            why this view is worth opening, and this is the control that
                            opens it. Second of the three: it reads the same document,
                            where the columns rebuild the page. #}
-                        <a class="lp-diff-views__link"
+                        <a class="lp-btn lp-btn--ghost lp-diff-views__link"
                            href="{{ path('app_document_review_diff', viewParams|merge({view: 'source'})) }}"
                            {% if diffView.value == 'source' %}aria-current="page"{% endif %}
                            {% if diffUnmarked %}aria-describedby="diff-unmarked-notice"{% endif %}
                         >{{ 'review.document.diff.view.source'|trans }}</a>
                         {# The same rendered blocks in two columns. The notice
                            below says what it gives up, and this link opens it. #}
-                        <a class="lp-diff-views__link"
+                        <a class="lp-btn lp-btn--ghost lp-diff-views__link"
                            href="{{ path('app_document_review_diff', viewParams|merge({view: 'side-by-side'})) }}"
                            {% if diffColumns %}aria-current="page"{% endif %}
                         >{{ 'review.document.diff.view.side_by_side'|trans }}</a>

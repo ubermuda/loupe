@@ -171,6 +171,8 @@ other views cannot mark. Its contents list names every heading line, the removed
 ones included, and a row takes you to that line.
 
 The toolbar includes the from/to picker and **Compare** button.
+Version selectors, Compare, and diff-view buttons use the same control height.
+Touch screens retain larger targets.
 Comparing another pair keeps the selected view.
 Equal versions show no changes and disable change navigation.
 Expand **Revision notes** to read the notes for the compared revisions.
