@@ -11,7 +11,7 @@
 {% block topbar_meta %}<span class="lp-topbar__meta">{{ 'activity.count'|trans({'%count%': events|length}) }}</span>{% endblock %}
 
 {% block body %}
-<div class="lp-workspace lp-orchestration-page lp-redesign-secondary lp-redesign-activity">
+<div class="lp-workspace lp-orchestration-page lp-redesign-secondary lp-redesign-activity" data-controller="activity-filter">
     <header class="lp-orchestration-header">
         <div>
             <h1 class="lp-workspace-title">{{ 'activity.heading'|trans }}</h1>
@@ -24,10 +24,27 @@
     </div>
 
     {% if events is not empty %}
+    <div class="lp-list-filters">
+        <div class="lp-filter-form">
+            <div class="lp-filter-search">
+                <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
+                <label class="sr-only" for="activity-search">{{ 'activity.filter.search_label'|trans }}</label>
+                <input type="search" id="activity-search" class="lp-input lp-filter-input" placeholder="{{ 'activity.filter.search_placeholder'|trans }}" data-activity-filter-target="query" data-action="input->activity-filter#filter">
+            </div>
+            <label class="sr-only" for="activity-family">{{ 'activity.filter.family_label'|trans }}</label>
+            <select id="activity-family" class="lp-input lp-select lp-filter-select" data-activity-filter-target="family" data-action="change->activity-filter#filter">
+                <option value="all">{{ 'activity.filter.all_families'|trans }}</option>
+                {% for family in ['board', 'worker', 'inbox', 'document', 'rule', 'site_review'] %}
+                <option value="{{ family }}">{{ ('activity.family.' ~ family)|trans }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <span class="lp-filter-count">{{ 'activity.count'|trans({'%count%': events|length}) }}</span>
+    </div>
     <div class="lp-activity-feed">
         {% for event in events %}
         {% set family = event.type|split('.')|first %}
-        <article class="lp-activity-row" data-activity-event-id="{{ event.id }}" data-event-family="{{ family }}">
+        <article class="lp-activity-row" data-activity-event-id="{{ event.id }}" data-event-family="{{ family }}" data-activity-filter-target="row">
             <div class="lp-activity-row__icon">
                 {% if family == 'board' %}
                     <twig:ux:icon name="lucide:square-kanban" />
@@ -58,6 +75,10 @@
             </div>
         </article>
         {% endfor %}
+    </div>
+    <div class="lp-empty-state" data-activity-filter-target="empty" hidden>
+        <twig:ux:icon name="lucide:search-x" class="lp-empty-state__icon w-12 h-12" />
+        <h2 class="lp-empty-state__title">{{ 'activity.filter.empty'|trans }}</h2>
     </div>
     {% else %}
     <div class="lp-empty-state" data-activity-empty>

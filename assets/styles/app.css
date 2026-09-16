@@ -3386,6 +3386,9 @@
     .lp-topbar__global-action svg {
         @apply w-4 h-4;
     }
+    .lp-topbar__global-action--search {
+        @apply w-auto gap-2 px-2.5 text-sm;
+    }
 
     /* ── Code / pre blocks ──────────────────────────────────────────────── */
 

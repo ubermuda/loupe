@@ -4696,7 +4696,7 @@
             </trans-unit>
             <trans-unit id="board.card.create.action">
                 <source>board.card.create.action</source>
-                <target>New card</target>
+                <target>Add card</target>
             </trans-unit>
 
             <!-- Board columns and card vocabulary -->
@@ -5407,6 +5407,17 @@
             <trans-unit id="site_review.filter.status_all"><source>site_review.filter.status_all</source><target>All statuses</target></trans-unit>
             <trans-unit id="site_review.filter.summary"><source>site_review.filter.summary</source><target>%pending% pending · %total% total</target></trans-unit>
             <trans-unit id="site_review.filter.empty"><source>site_review.filter.empty</source><target>No feedback matches these filters.</target></trans-unit>
+            <trans-unit id="activity.filter.search_label"><source>activity.filter.search_label</source><target>Search activity</target></trans-unit>
+            <trans-unit id="activity.filter.search_placeholder"><source>activity.filter.search_placeholder</source><target>Search project activity…</target></trans-unit>
+            <trans-unit id="activity.filter.family_label"><source>activity.filter.family_label</source><target>Filter by event family</target></trans-unit>
+            <trans-unit id="activity.filter.all_families"><source>activity.filter.all_families</source><target>All event types</target></trans-unit>
+            <trans-unit id="activity.filter.empty"><source>activity.filter.empty</source><target>No activity matches these filters.</target></trans-unit>
+            <trans-unit id="activity.family.board"><source>activity.family.board</source><target>Board</target></trans-unit>
+            <trans-unit id="activity.family.worker"><source>activity.family.worker</source><target>Worker</target></trans-unit>
+            <trans-unit id="activity.family.inbox"><source>activity.family.inbox</source><target>Needs you</target></trans-unit>
+            <trans-unit id="activity.family.document"><source>activity.family.document</source><target>Documents</target></trans-unit>
+            <trans-unit id="activity.family.rule"><source>activity.family.rule</source><target>Rules</target></trans-unit>
+            <trans-unit id="activity.family.site_review"><source>activity.family.site_review</source><target>Site review</target></trans-unit>
             <trans-unit id="bridge.worker_runs.column.work"><source>bridge.worker_runs.column.work</source><target>Work</target></trans-unit>
             <trans-unit id="bridge.worker_runs.column.outcome"><source>bridge.worker_runs.column.outcome</source><target>Outcome</target></trans-unit>
             <trans-unit id="bridge.worker_runs.column.rule"><source>bridge.worker_runs.column.rule</source><target>Rule</target></trans-unit>
