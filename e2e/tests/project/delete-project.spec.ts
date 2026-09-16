@@ -12,7 +12,10 @@ test('deleting a project requires typing its exact name', async ({ page }) => {
     // Create the project through the real UI. "New project" is a disclosure
     // toggle (not a link) that reveals the create form.
     await page.goto('/projects');
-    await page.getByRole('button', { name: /new project/i }).click();
+    await page
+        .locator('.lp-page-header')
+        .getByRole('button', { name: /new project/i })
+        .click();
     await page.getByLabel('Project name').fill(projectName);
     await page.getByRole('button', { name: 'Add project' }).click();
 
