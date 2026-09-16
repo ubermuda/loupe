@@ -94,6 +94,67 @@ test('the project inbox filter row keeps its unboxed layout', async ({
     }
 });
 
+test('inbox search keeps Clear reachable before and after filtering', async ({
+    page,
+}) => {
+    const search = page.locator('#inbox-search');
+    const clear = page.locator('.lp-filter-clear');
+    const filters = page.locator('.lp-list-filters');
+    async function verifyLayout(): Promise<void> {
+        for (const width of [1440, 1150, 950, 780, 390]) {
+            await page.setViewportSize({ width, height: 900 });
+            await expect(search).toBeVisible();
+            await expect(clear).toBeVisible();
+            const searchBox = await search.boundingBox();
+            const clearBox = await clear.boundingBox();
+            const filtersBox = await filters.boundingBox();
+            expect(searchBox).not.toBeNull();
+            expect(clearBox).not.toBeNull();
+            expect(filtersBox).not.toBeNull();
+            expect(searchBox!.width).toBe(270);
+            expect(clearBox!.x - searchBox!.x - searchBox!.width).toBe(8);
+            expect(clearBox!.y + clearBox!.height / 2).toBe(
+                searchBox!.y + searchBox!.height / 2,
+            );
+            expect(clearBox!.x + clearBox!.width).toBeLessThanOrEqual(
+                filtersBox!.x + filtersBox!.width,
+            );
+            for (const count of await page.locator('.lp-filter-count').all()) {
+                const countBox = await count.boundingBox();
+                expect(countBox).not.toBeNull();
+                expect(countBox!.x + countBox!.width).toBeLessThanOrEqual(
+                    filtersBox!.x + filtersBox!.width,
+                );
+                const overlapWidth =
+                    Math.min(
+                        countBox!.x + countBox!.width,
+                        clearBox!.x + clearBox!.width,
+                    ) - Math.max(countBox!.x, clearBox!.x);
+                const overlapHeight =
+                    Math.min(
+                        countBox!.y + countBox!.height,
+                        clearBox!.y + clearBox!.height,
+                    ) - Math.max(countBox!.y, clearBox!.y);
+                expect(
+                    Math.min(overlapWidth, overlapHeight),
+                ).toBeLessThanOrEqual(0);
+            }
+        }
+    }
+    await verifyLayout();
+    await search.fill('unmatched-inbox-query');
+    await expect(page.locator('[data-inbox-search-empty]')).toBeVisible();
+    await expect(page.locator('.lp-filter-count')).toHaveText(
+        'No item matches',
+    );
+    await verifyLayout();
+    await clear.click();
+    await expect(search).toHaveValue('');
+    await expect(
+        page.locator('[data-inbox-section="open-asks"]'),
+    ).toBeVisible();
+});
+
 test('the owner answers a question and declines a to-do', async ({
     page,
     inbox,

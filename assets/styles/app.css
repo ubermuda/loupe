@@ -1451,6 +1451,9 @@
     .lp-filter-search {
         @apply relative flex flex-1 min-w-0 max-w-sm items-center;
     }
+    .lp-needs-you .lp-filter-search {
+        @apply flex-initial w-67.5;
+    }
     .lp-filter-search__icon {
         @apply absolute left-4 w-4 h-4 text-fg-dim pointer-events-none;
     }

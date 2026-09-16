@@ -34,6 +34,9 @@ zero. This needs a Mercure hub and the `live_updates.enabled` flag. Without
 them, the count is correct each time a page loads. See
 [Mercure hub](../extending/mercure.md).
 
+The search field keeps its compact width beside **Clear**.
+After a search, the result count remains visible without covering either control.
+
 The page lists three groups, in this order:
 
 1. **Open asks**, oldest first. Each ask shows the id of the agent session that
