@@ -7,6 +7,7 @@ namespace App\Module\Board\Twig;
 use App\Module\Board\Command\BoardColumnView;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Form\AddBoardColumnFormType;
 use App\Module\Board\Form\AddBoardColumnRequest;
 use App\Module\Board\Form\DeleteBoardColumnFormType;
@@ -17,6 +18,8 @@ use App\Module\Board\Form\RenameBoardColumnFormType;
 use App\Module\Board\Form\RenameBoardColumnRequest;
 use App\Module\Board\Form\ReorderBoardColumnsFormType;
 use App\Module\Board\Form\ReorderBoardColumnsRequest;
+use App\Module\Board\Repository\CardSiteReviewCommentRepository;
+use App\Module\Project\Entity\Project;
 use App\Module\Review\Service\MarkdownRenderer;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\Form\FormView;
@@ -36,6 +39,7 @@ final class BoardExtension extends AbstractExtension
         private readonly FormFactoryInterface $formFactory,
         private readonly MarkdownRenderer $markdown,
         private readonly TranslatorInterface $translator,
+        private readonly CardSiteReviewCommentRepository $cardSiteReviewComments,
     ) {
     }
 
@@ -50,6 +54,7 @@ final class BoardExtension extends AbstractExtension
             new TwigFunction('board_columns_reorder_form', $this->boardColumnsReorderForm(...)),
             new TwigFunction('board_column_order', $this->boardColumnOrder(...)),
             new TwigFunction('safe_pull_request_url', $this->safePullRequestUrl(...)),
+            new TwigFunction('card_site_review_links', $this->cardSiteReviewLinks(...)),
         ];
     }
 
@@ -71,6 +76,17 @@ final class BoardExtension extends AbstractExtension
                 ['project' => $card->project],
             )
             ->createView();
+    }
+
+    /** @return array<string, CardSiteReviewComment> */
+    public function cardSiteReviewLinks(Project $project): array
+    {
+        $links = [];
+        foreach ($this->cardSiteReviewComments->findForProject($project) as $link) {
+            $links[(string) $link->comment->id] = $link;
+        }
+
+        return $links;
     }
 
     /** The refused form a failed add forwarded, or a fresh one. */

@@ -150,9 +150,6 @@
     --color-chrome-dim: var(--chrome-dim);
     --color-switcher-hover: var(--switcher-hover-border);
 
-    /* Long-form document prose — faintly cool where the rest of the ink is
-       warm, which is what keeps a 640px column of body text from reading as
-       brown. */
     --color-prose: var(--prose);
 
     /* Status ladder — pending (amber) / ok (green) trios */
@@ -974,7 +971,7 @@
        the resting state of every document, so colouring it would leave a list of
        untouched documents looking like a list of alerts. */
     .lp-badge {
-        @apply inline-flex items-center py-1 px-3 rounded-full text-sm font-bold whitespace-nowrap;
+        @apply inline-flex items-center py-1 px-3 rounded-md text-sm font-bold whitespace-nowrap;
     }
     .lp-badge--in-review {
         @apply bg-surface-3 text-ink-soft;
@@ -990,7 +987,7 @@
        What a document's comment threads say about it. Sized like .lp-badge, so
        the two sit level beside each other on a list row and in the topbar. */
     .lp-signal {
-        @apply inline-flex items-center shrink-0 py-1 px-3 rounded-full text-sm font-bold whitespace-nowrap;
+        @apply inline-flex items-center shrink-0 py-1 px-3 rounded-md text-sm font-bold whitespace-nowrap;
     }
     .lp-signal--addressed {
         @apply bg-status-pending-bg text-status-pending-deep;
@@ -1505,10 +1502,12 @@
 
     /* ── Buttons (lp- namespace) ────────────────────────────────────── */
 
-    /* Every button in this design is fully rounded. There are no square buttons
-       anywhere — a rectangular one will look like it belongs to another app. */
     .lp-btn {
-        @apply inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-full border-0 bg-surface-3 text-ink text-sm font-semibold cursor-pointer whitespace-nowrap transition;
+        @apply inline-flex items-center justify-center gap-1.5 border-0 bg-surface-3 text-ink text-sm font-semibold cursor-pointer whitespace-nowrap transition;
+        min-height: 36px;
+        padding: 7px 13px;
+        border-radius: 7px;
+        line-height: 20px;
     }
     .lp-btn:hover {
         @apply bg-tint-strong;
@@ -1517,7 +1516,7 @@
         @apply translate-y-px scale-97;
     }
     .lp-btn--primary {
-        @apply bg-accent px-5 text-ink font-bold;
+        @apply bg-accent text-ink font-bold;
     }
     .lp-btn--primary:hover {
         @apply bg-accent-hover;
@@ -1574,7 +1573,6 @@
     .lp-btn--sm {
         @apply h-8.5 px-3.5 text-sm;
     }
-    /* Square-footprint icon button — still a circle, just without a label. */
     .lp-btn--icon {
         @apply w-8.5 h-8.5 p-0 bg-transparent text-fg-mute;
     }
@@ -1648,23 +1646,19 @@
         @apply min-w-0;
     }
 
-    /* The 972px review block: a 640px reading column, a 36px gutter, and a
-       296px comment column. It starts at the same left edge as .lp-workspace.
-       The left offset must be a margin, never padding: this is the offset
-       parent of the comment stack and the floating panels, and padding moves
-       the padding box they are placed against. */
     .lp-review-block {
-        @apply relative w-full max-w-243 px-5 pt-6 pb-19 lg:ml-12 lg:w-auto lg:px-0 lg:pt-13 lg:pb-30;
+        @apply relative w-full px-5 pt-6 pb-19 lg:mx-7 lg:w-auto lg:px-0 lg:pt-7 lg:pb-30;
+        max-width: 73rem;
     }
 
     /* ── Document pane ──────────────────────────────────────────────────
        The reading column. position:relative so the composer and toolbar
        position against it. Plain prose — no card, no line numbers. */
     .lp-review-doc {
-        @apply relative w-full max-w-160;
+        @apply relative w-full;
     }
     .lp-review-doc__head {
-        @apply flex flex-col gap-2.5 mb-9 lg:w-243;
+        @apply flex flex-col gap-2 mb-6;
     }
     /* Compact title row for the document back action and title. */
     .lp-review-doc__title-row {
@@ -1677,7 +1671,7 @@
         @apply size-4;
     }
     .lp-review-doc__title {
-        @apply font-display font-extrabold text-ink m-0 text-4xl tracking-tight leading-tight;
+        @apply font-display font-extrabold text-ink m-0 text-2xl tracking-tight leading-tight;
     }
     /* Primary document workspace views. */
     .lp-review-view-tabs {
@@ -1785,7 +1779,7 @@
        Below lg there is no gutter to hold it, so comment_anchor_controller moves
        each card into the prose and only unplaceable ones stay here. */
     .lp-review-margin {
-        @apply flex flex-col gap-3 w-full lg:block lg:absolute lg:left-169 lg:top-0 lg:w-74;
+        @apply flex flex-col gap-3 w-full lg:block lg:absolute lg:top-0;
     }
     /* Clears the prose below it while it holds a card. */
     .lp-review-margin:has(.lp-comment-thread) {
@@ -1810,7 +1804,7 @@
     }
 
     .lp-version-pill {
-        @apply inline-flex items-center rounded-full font-bold bg-accent text-ink text-xs py-0.5 px-2.5;
+        @apply inline-flex items-center rounded-md font-bold bg-accent text-ink text-xs py-0.5 px-2.5;
     }
     /* One entry in the version switcher pointing at a version other than the one
        on screen. Muted so the accent-coloured pill still reads as "you are here". */
@@ -1931,7 +1925,7 @@
        rather than on the prose. It carries no display: this is a .lp-btn, and
        the two rules that hide it are unlayered, below the coarse-pointer block. */
     .lp-review-actions__resolved {
-        @apply absolute left-169 whitespace-nowrap;
+        @apply absolute whitespace-nowrap;
     }
     /* One icon of the pair at a time, chosen by the state the controller writes
        onto the button. Specificity, not source order, does the picking. */
@@ -2411,7 +2405,7 @@
         @apply mt-0 min-w-0 flex-1;
     }
     .lp-review-margin-tabs {
-        @apply hidden w-74 shrink-0 items-center justify-end gap-1 lg:flex;
+        @apply hidden shrink-0 items-center justify-end gap-1 lg:flex;
     }
     .lp-review-margin-tabs__item {
         @apply inline-flex min-h-9 items-center gap-1.5 rounded-lg border-0 bg-transparent px-2.5 py-1.5 text-sm font-semibold text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
@@ -2447,7 +2441,24 @@
         @apply rounded-lg border-0 bg-transparent px-3 py-2 text-left text-sm text-fg-mute hover:bg-tint hover:text-ink;
     }
     .lp-review-context-panel {
-        @apply mt-5 flex flex-col gap-3 lg:absolute lg:left-169 lg:top-43 lg:mt-0 lg:w-74;
+        @apply mt-5 flex flex-col gap-3 lg:absolute lg:top-43 lg:mt-0;
+    }
+    @media (width >= 64rem) {
+        .lp-review-doc {
+            max-width: calc(100% - 20.625rem);
+        }
+        .lp-review-doc__head {
+            width: calc(100% + 20.625rem);
+        }
+        .lp-review-margin,
+        .lp-review-actions__resolved,
+        .lp-review-context-panel {
+            left: calc(100% + 1.5rem);
+            width: 19.125rem;
+        }
+        .lp-review-margin-tabs {
+            width: 19.125rem;
+        }
     }
     .lp-review-context-panel[hidden] {
         @apply hidden;
@@ -2470,10 +2481,9 @@
     .lp-review-details dd {
         @apply m-0 text-sm text-fg;
     }
-    /* Long-form reading type: 18px on a 32px line, in the faintly cool prose ink
-       rather than the warm UI ink. The measure is fixed by .lp-review-doc. */
     .lp-review-doc__prose {
-        @apply mt-0 max-w-none text-lg leading-8 text-prose break-words;
+        @apply mt-0 min-h-96 rounded-xl border border-line bg-surface-1 px-8.5 py-7 text-base leading-7 text-prose break-words;
+        box-shadow: 0 1px 3px rgba(15, 15, 13, 0.06);
     }
     /* The paper scrolls, not this pane, so a jump from the contents or decisions
        panel would otherwise land its target under the sticky metadata bar. */
@@ -2819,7 +2829,7 @@
 
     /* Status chip (thread header + ladder), pill with a colored dot. */
     .lp-status-chip {
-        @apply inline-flex items-center gap-1.5 ml-auto rounded-full font-medium border text-xs py-0.5 px-2;
+        @apply inline-flex items-center gap-1.5 ml-auto rounded-md font-medium border text-xs py-0.5 px-2;
     }
     .lp-status-chip__dot {
         @apply inline-block rounded-full shrink-0 w-1.5 h-1.5;
@@ -5326,6 +5336,10 @@
 /* The typography plugin wraps inline code in literal backticks. Unlayered, not
    in @layer components: the plugin's own rule is layered, and an unlayered
    declaration outranks it without a specificity fight. */
+.lp-review-doc__prose {
+    max-width: none;
+}
+
 .lp-review-doc__prose code::before,
 .lp-review-doc__prose code::after {
     content: none;
@@ -5794,7 +5808,7 @@
         @apply bg-tint text-ink;
     }
     .lp-settings-nav__item--active {
-        @apply bg-ink text-white;
+        @apply bg-accent-soft text-accent-ink;
     }
     .lp-settings-nav__item svg {
         @apply w-4 h-4 shrink-0;

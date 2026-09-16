@@ -22,7 +22,10 @@ test('opening the new-project disclosure puts the caret in the name field', asyn
     });
 
     await page.goto('/projects');
-    await page.getByRole('button', { name: /new project/i }).click();
+    await page
+        .locator('.lp-page-header')
+        .getByRole('button', { name: /new project/i })
+        .click();
 
     await expect(page.getByLabel('Project name')).toBeFocused();
 });

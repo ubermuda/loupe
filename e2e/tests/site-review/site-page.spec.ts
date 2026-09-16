@@ -72,6 +72,17 @@ test('a saved comment is live and resolvable on the site page', async ({
     await expect(comment).toHaveAttribute('data-comment-status', 'pending');
     await expect(comment.getByText('Pending')).toBeVisible();
 
+    await expect(
+        page.getByRole('button', { name: /Needs a card 1/ }),
+    ).toBeVisible();
+    const search = page.getByPlaceholder('Find feedback or a page…');
+    await search.fill('does not match');
+    await expect(
+        page.getByText('No feedback matches these filters.'),
+    ).toBeVisible();
+    await search.fill('header');
+    await expect(comment).toBeVisible();
+
     // Resolve flips the status. The form POST redirects back to this same
     // page, so the attribute change is the post-submit signal to wait on.
     await comment.getByRole('button', { name: 'Resolve' }).click();
