@@ -191,6 +191,7 @@ final readonly class SideBySideDiffBuilder
      */
     private function rename(\Dom\Element $element, array &$renamed): void
     {
+        $element->removeAttribute(RenderedDiffBuilder::OFFSET_ATTRIBUTE);
         $id = $element->getAttribute('id');
         if (null !== $id && '' !== $id && !$element->hasAttribute(self::NAVIGATION_ATTRIBUTE)) {
             $renamed[$id] = self::OLD_SIDE_PREFIX.$id;

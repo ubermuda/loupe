@@ -1075,7 +1075,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertSame('1', $spanning->filter('#diff-from option[selected]')->attr('value'));
     }
 
-    public function test_the_side_by_side_view_pairs_the_blocks_and_takes_no_comment(): void
+    public function test_the_side_by_side_view_pairs_blocks_and_accepts_current_version_comments(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -1110,9 +1110,10 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertSame(0, $cells->count() % 2);
         self::assertGreaterThan(0, $columns->filter('.lp-diff-columns__cell--void')->count());
 
-        // The rail is off and the page says so, and the block takes the width
-        // the rail leaves behind.
-        self::assertCount(0, $columns->filter('.lp-review-margin'));
+        self::assertCount(1, $columns->filter('.lp-review-margin'));
+        self::assertCount(1, $columns->filter('[data-comment-anchor-target="doc"]'));
+        self::assertCount(1, $columns->filter('[data-comment-anchor-diff-value="true"]'));
+        self::assertCount(0, $columns->filter('[data-diff-side="old"] [data-diff-offset]'));
         self::assertCount(1, $columns->filter('#diff-columns-notice'));
         self::assertCount(1, $columns->filter('.lp-review-block--wide'));
         self::assertCount(1, $columns->filter('.lp-review-doc--wide'));

@@ -110,9 +110,10 @@ async function selectPhrase(
     page: Page,
     phrase: string,
     endPhrase?: string,
+    side?: 'old' | 'new',
 ): Promise<void> {
     await page.evaluate(
-        ({ from, to }: { from: string; to?: string }) => {
+        ({ from, to, side }: { from: string; to?: string; side?: string }) => {
             const docEl = document.querySelector(
                 '[data-comment-anchor-target="doc"]',
             );
@@ -127,7 +128,14 @@ async function selectPhrase(
                 let node = walker.nextNode() as Text | null;
                 while (node !== null) {
                     const index = node.textContent?.indexOf(needle) ?? -1;
-                    if (index !== -1) return { node, index };
+                    if (
+                        index !== -1 &&
+                        (side === undefined ||
+                            node.parentElement?.closest(
+                                `[data-diff-side="${side}"]`,
+                            ))
+                    )
+                        return { node, index };
                     node = walker.nextNode() as Text | null;
                 }
                 throw new Error(`Phrase "${needle}" not found`);
@@ -151,7 +159,7 @@ async function selectPhrase(
 
             docEl.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
         },
-        { from: phrase, to: endPhrase },
+        { from: phrase, to: endPhrase, side },
     );
 }
 
@@ -250,6 +258,80 @@ test('a comment made on an inserted run lands on the current version', async ({
         .toEqual({ text: INSERTED, stamped: true, deleted: false });
 });
 
+test('side-by-side comments anchor only to the new side and stay below the comparison', async ({
+    page,
+}) => {
+    const { projectId, documentId } = await seedDocument(page, 'columns', [
+        VERSION_TWO,
+    ]);
+    const reviewPath = `/projects/${projectId}/documents/${documentId}/review`;
+    await page.goto(`${reviewPath}/diff/1/2?view=side-by-side`);
+    await expect(page.locator(DOC)).toBeVisible();
+    await expect(
+        page.locator('[data-diff-side="old"] [data-diff-offset]'),
+    ).toHaveCount(0);
+
+    await selectPhrase(page, 'The rollout takes', undefined, 'old');
+    await expect(page.locator(ACTION_ERROR)).toContainText(
+        'You cannot comment on this selection',
+    );
+    await expect(page.locator(TOOLBAR)).toBeHidden();
+    await selectPhrase(page, DELETED, undefined, 'old');
+    await expect(page.locator(ACTION_ERROR)).toContainText(
+        'text this revision removed',
+    );
+    await expect(page.locator(TOOLBAR)).toBeHidden();
+
+    await selectPhrase(page, INSERTED, undefined, 'new');
+    await expect(page.locator(TOOLBAR)).toBeVisible();
+    await page.getByRole('button', { name: 'Comment', exact: true }).click();
+    await page.locator(COMPOSER_BODY).fill('Check the new steps.');
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await expect(page.locator('#comment-threads')).toContainText(
+        'Check the new steps.',
+    );
+    expect((await reviewState(page, documentId)).storedAnchors[0].quote).toBe(
+        INSERTED,
+    );
+    await page.reload();
+    await expect
+        .poll(() => paintedAnchor(page))
+        .toEqual({ text: INSERTED, stamped: true, deleted: false });
+    await expect(page.locator('.lp-review-margin')).toHaveCSS(
+        'position',
+        'static',
+    );
+    const grid = await page.locator('.lp-diff-columns').boundingBox();
+    const thread = await page.locator('.lp-comment-thread').boundingBox();
+    expect(grid).not.toBeNull();
+    expect(thread).not.toBeNull();
+    expect(thread!.y).toBeGreaterThanOrEqual(grid!.y + grid!.height);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await selectPhrase(page, 'The rollout takes', undefined, 'new');
+    await expect(page.locator(TOOLBAR)).toBeVisible();
+    await page.getByRole('button', { name: 'Comment', exact: true }).click();
+    await page
+        .locator(COMPOSER_BODY)
+        .fill('Retained text also accepts comments.');
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    await expect(page.locator('#comment-threads')).toContainText(
+        'Retained text also accepts comments.',
+    );
+    expect(
+        (await reviewState(page, documentId)).storedAnchors.map(
+            (anchor) => anchor.quote,
+        ),
+    ).toEqual(expect.arrayContaining([INSERTED, 'The rollout takes']));
+    await page.goto(reviewPath);
+    await expect(page.locator('#comment-threads')).toContainText(
+        'Check the new steps.',
+    );
+    await expect(page.locator('#comment-threads')).toContainText(
+        'Retained text also accepts comments.',
+    );
+});
+
 test('a selection that touches deleted text is refused', async ({ page }) => {
     const { projectId, documentId } = await seedDocument(page, 'deleted', [
         VERSION_TWO,
@@ -302,6 +384,17 @@ test('a diff whose newer side is not the current version offers no commenting', 
     await expect(page.locator(DOC)).toHaveCount(0);
     await expect(page.locator(TOOLBAR)).toHaveCount(0);
     await expect(page.locator('#comment-threads')).toHaveCount(0);
+
+    await page.goto(
+        `/projects/${projectId}/documents/${documentId}/review/diff/1/2?view=side-by-side`,
+    );
+    await expect(page.locator('.lp-diff-columns')).toBeVisible();
+    await expect(page.locator(DOC)).toHaveCount(0);
+    await expect(page.locator(TOOLBAR)).toHaveCount(0);
+    await expect(page.locator('[data-diff-offset]')).toHaveCount(0);
+    await expect(page.locator('#diff-columns-notice')).toContainText(
+        'This comparison is read-only',
+    );
 
     // The pair that does end at the current version still accepts one.
     await page.goto(

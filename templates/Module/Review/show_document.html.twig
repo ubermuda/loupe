@@ -63,8 +63,7 @@
     {% set canComment = not readOnly or diffCommenting %}
     {% set reviewControllers = (diffNavigation ? ['diff-navigation'] : [])|merge(diffMode and not diffCommenting ? [] : ['comment-anchor']) %}
     {% set diffUnmarked = diffNavigation and diff.hasChanges and diffView.value != 'source' and diffChangeCount == 0 %}
-    {# Two columns take the width the comment rail holds, and this view renders
-       no rail. #}
+    {# Two columns use the full reading width; their comments follow below. #}
     {% set diffColumns = diffMode and diffView is not null and diffView.value == 'side-by-side' %}
     <div class="lp-review-block{{ diffColumns ? ' lp-review-block--wide' : '' }}"
         data-controller="{{ (reviewControllers|merge(['review-margin']))|join(' ') }}"
@@ -439,7 +438,7 @@
                 {% if diffColumns %}
                 <p id="diff-columns-notice" class="lp-diff-notice">
                     <twig:ux:icon name="lucide:info" class="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{{ 'review.document.diff.side_by_side.comments_hidden'|trans }}</span>
+                    <span>{{ (diffCommenting ? 'review.document.diff.side_by_side.commenting' : 'review.document.diff.side_by_side.read_only')|trans }}</span>
                 </p>
                 {% endif %}
 

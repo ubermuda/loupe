@@ -3963,9 +3963,13 @@
                 <source>review.document.diff.side_by_side.empty</source>
                 <target>This version has nothing here.</target>
             </trans-unit>
-            <trans-unit id="review.document.diff.side_by_side.comments_hidden">
-                <source>review.document.diff.side_by_side.comments_hidden</source>
-                <target>Comments are hidden in this view. Open the Document view to read and write them.</target>
+            <trans-unit id="review.document.diff.side_by_side.commenting">
+                <source>review.document.diff.side_by_side.commenting</source>
+                <target>Select text on the new side to annotate the current version. Comments appear below the comparison.</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.side_by_side.read_only">
+                <source>review.document.diff.side_by_side.read_only</source>
+                <target>This comparison is read-only. Open the current document to add comments.</target>
             </trans-unit>
             <trans-unit id="review.document.diff.mark.inserted">
                 <source>review.document.diff.mark.inserted</source>

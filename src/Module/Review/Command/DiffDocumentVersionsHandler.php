@@ -78,11 +78,7 @@ final readonly class DiffDocumentVersionsHandler
         // rendered diff would be measured against is not read at all.
         $isCurrent = $this->documentVersions->findLatest($command->document)->versionNumber === $version->versionNumber;
 
-        // Only the showing view is built. Rendering another one costs a whole
-        // Markdown pass, and its count would then be on the page describing jump
-        // targets that are not. Side by side pairs the rendered pane rather than
-        // showing it, and takes no comments, because its two columns need the
-        // width the comment rail otherwise holds.
+        // Build only the selected view so its count describes the visible jump targets.
         if (null !== $diff && $diff->hasChanges()) {
             if (DiffView::Source === $command->view) {
                 $changeCount = $diff->changeCount();
@@ -91,7 +87,7 @@ final readonly class DiffDocumentVersionsHandler
             } else {
                 $rendered = $this->renderedDiffs->build(
                     $this->markdownRenderer->renderDiff($diff),
-                    $isCurrent && DiffView::Rendered === $command->view ? $version->plainText() : null,
+                    $isCurrent ? $version->plainText() : null,
                 );
                 $changeCount = $rendered->changeCount;
 
@@ -119,7 +115,7 @@ final readonly class DiffDocumentVersionsHandler
             changeCount: $changeCount,
             headings: $headings,
             sourceHeadings: $sourceHeadings,
-            commentingEnabled: $isCurrent && null !== $renderedDiff,
+            commentingEnabled: $isCurrent && (null !== $renderedDiff || null !== $sideBySide),
             comments: $comments,
             versions: $this->documentVersions->findAllMetaByDocument($command->document),
             signals: $this->comments->signalsByVersions([(string) $version->id])[(string) $version->id] ?? new CommentSignals(),

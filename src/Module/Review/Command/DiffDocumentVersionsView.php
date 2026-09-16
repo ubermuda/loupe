@@ -26,9 +26,7 @@ final readonly class DiffDocumentVersionsView
      * is ever built.
      *
      * `commentingEnabled` says whether a reviewer may comment on this pane. It
-     * needs the rendered view, and it needs the newer side to be the version a
-     * comment would land on, which is the latest one. The side-by-side view
-     * therefore never comments, since it leaves `renderedDiff` null.
+     * needs rendered text on the newer side and that version must be current.
      *
      * `headings` lists the headings of the pane that is showing, in document
      * order. The source view renders no heading elements, so `sourceHeadings`

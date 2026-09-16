@@ -135,10 +135,10 @@ reads whole on both sides. Where one version has nothing, that side shows an
 empty slot and the pair stays level. The change count and the jump arrows work
 here too, and a jump can land in either column.
 
-The comment column is hidden in this view, because the second column takes its
-width. The page says so above the two columns, and the **Rendered** view brings
-the comments back. On a phone the two columns stack, older above newer, and each
-one names its version.
+Comments appear below the comparison so both columns keep their reading width.
+Select text on the new side to annotate the current version.
+The old side and comparisons of earlier versions remain read-only.
+On a phone the columns stack, older above newer, and each names its version.
 
 **Markdown** compares the two sources line by line, so it shows a change the
 other views cannot mark. Its contents list names every heading line, the removed

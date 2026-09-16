@@ -2015,6 +2015,26 @@
         }
     }
 
+    /** Side-by-side annotations keep both columns visible and place threads below. */
+    .lp-review-doc.lp-review-doc--wide {
+        @apply flex max-w-none flex-col;
+    }
+    .lp-review-doc.lp-review-doc--wide > .lp-review-doc__head {
+        @apply w-full;
+    }
+    .lp-review-doc--wide > .lp-diff-columns {
+        @apply order-20;
+    }
+    .lp-review-doc--wide > [data-margin-panel='comments'] {
+        @apply order-30 mt-5;
+    }
+    .lp-review-doc--wide .lp-review-margin {
+        @apply static flex w-full flex-col gap-3.5;
+    }
+    .lp-review-doc--wide .lp-comment-thread {
+        @apply static;
+    }
+
     /* ── Review action row ──────────────────────────────────────────────
        "Add general comment" plus the hint that select-to-comment exists, with
        the resolved toggle pushed out over the comment column. */
@@ -2341,6 +2361,9 @@
     }
     .lp-diff-columns__cell {
         @apply min-w-0;
+    }
+    .lp-diff-columns__cell > .lp-diff-doc {
+        @apply min-h-0;
     }
     /* A block one version does not hold. The dashed box keeps the pair level and
        shows the side is empty; .lp-diff-columns__note says the same in words. */
