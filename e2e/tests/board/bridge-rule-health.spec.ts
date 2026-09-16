@@ -51,6 +51,7 @@ async function seedProject(page: Page): Promise<string> {
 
 async function mintAgentToken(page: Page): Promise<string> {
     await page.goto('/account');
+    await page.locator('#account-tab-api-tokens').click();
     const form = page.getByTestId('mint-api-token-form');
     await form.getByLabel('Name').fill('E2E bridge');
     await form.getByRole('button', { name: 'Create token' }).click();

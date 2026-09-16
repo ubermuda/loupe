@@ -118,6 +118,42 @@ final class CommentRecoveryControllerTest extends WebTestCase
         }
     }
 
+    #[DataProvider('deleteFormats')]
+    public function test_delete_retains_a_current_thread_and_offers_undo(string $accept): void
+    {
+        $document = $this->em->find(Document::class, $this->root->version->document->id);
+        self::assertInstanceOf(Document::class, $document);
+        $active = new Comment($document->currentVersion(), $document->owner, 'Current thread', new Anchor('Later', '', '', 0));
+        $this->em->persist($active);
+        $this->em->flush();
+        $activeId = (string) $active->id;
+        $this->client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, str_replace('/deleted-threads', '/review', $this->url));
+        $this->client->request(\Symfony\Component\HttpFoundation\Request::METHOD_POST, '/comments/'.$activeId.'/delete', ['_csrf_token' => 'csrf-token'], [], ['HTTP_ACCEPT' => $accept]);
+        if ('text/html' === $accept) {
+            self::assertResponseRedirects($this->url);
+            $this->client->followRedirect();
+            self::assertSelectorTextContains('[data-deleted-thread="'.$activeId.'"]', 'Undo');
+        } else {
+            self::assertResponseIsSuccessful();
+            self::assertSelectorExists('turbo-stream[target="comment-recovery"]');
+            self::assertStringContainsString('Undo', $this->client->getResponse()->getContent() ?: '');
+        }
+        $this->em->clear();
+        $retained = $this->em->find(Comment::class, $activeId);
+        self::assertInstanceOf(Comment::class, $retained);
+        self::assertNotNull($retained->deletedAt);
+        self::assertSame(1, $retained->deletionSequence);
+        $this->client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, $this->url);
+        self::assertSelectorTextContains('[data-deleted-thread="'.$activeId.'"]', 'Current thread');
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function deleteFormats(): iterable
+    {
+        yield 'ordinary HTML' => ['text/html'];
+        yield 'Turbo' => ['text/vnd.turbo-stream.html'];
+    }
+
     /** @return iterable<string, array{string, ?int}> */
     public static function invalidSubmissions(): iterable
     {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Review\Controller;
 
 use App\Controller\AppController;
+use App\Exception\DomainErrors;
 use App\Module\Review\Command\DeleteCommentCommand;
 use App\Module\Review\Command\DeleteCommentHandler;
 use App\Module\Review\Command\ListVersionCommentsCommand;
@@ -15,6 +16,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\UX\Turbo\TurboBundle;
 use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
@@ -34,6 +36,7 @@ final class DeleteCommentController extends AppController
     public function __construct(
         private readonly DeleteCommentHandler $deleteCommentHandler,
         private readonly ListVersionCommentsHandler $listVersionComments,
+        private readonly TranslatorInterface $translator,
     ) {
     }
 
@@ -42,19 +45,31 @@ final class DeleteCommentController extends AppController
         $version = $comment->version;
         $document = $version->document;
 
-        ($this->deleteCommentHandler)(new DeleteCommentCommand(comment: $comment));
+        try {
+            ($this->deleteCommentHandler)(new DeleteCommentCommand(comment: $comment));
+        } catch (DomainErrors $error) {
+            foreach ($error->errors as $translationKey) {
+                $this->addFlash('error', $this->translator->trans($translationKey));
+            }
 
-        if (TurboBundle::STREAM_FORMAT !== $request->getPreferredFormat()) {
             return $this->redirectToRoute('app_document_review', [
                 'projectId' => (string) $document->project->id,
                 'documentId' => (string) $document->id,
             ]);
         }
 
-        // Re-render the whole thread list (restores the empty state when the last
-        // comment is gone).
-        $html = $this->renderView('@Review/_comment_added.stream.html.twig', [
+        if (TurboBundle::STREAM_FORMAT !== $request->getPreferredFormat()) {
+            $this->addFlash('deleted_thread', (string) $comment->id);
+
+            return $this->redirectToRoute('app_document_deleted_threads', [
+                'projectId' => (string) $document->project->id,
+                'documentId' => (string) $document->id,
+            ]);
+        }
+
+        $html = $this->renderView('@Review/_comment_deleted.stream.html.twig', [
             'comments' => ($this->listVersionComments)(new ListVersionCommentsCommand($version))->comments,
+            'deletedComment' => $comment,
         ]);
 
         return new Response($html, Response::HTTP_OK, ['Content-Type' => TurboBundle::STREAM_MEDIA_TYPE]);

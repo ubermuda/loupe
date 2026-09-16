@@ -88,6 +88,19 @@ and resolved counts, a chip that counts the addressed threads, and **All
 answered** when no thread is pending. The banner above the document counts the
 orphaned threads. Every count is a thread count, so a reply never adds to one.
 
+### Deleted threads
+
+Delete hides a thread and its replies from the review without changing their status.
+Select **Undo** in the deletion notice to restore the thread immediately.
+Deleted threads have no expiry date.
+In Details, select **Deleted threads** to find retained threads from every document version.
+Select **Restore thread** to return a thread to its original version.
+A restored thread on an older version stays read-only.
+
+Select **Purge permanently**, then confirm, to remove a thread and all its replies.
+Purge cannot be undone.
+Deleting the project or account also removes its retained threads.
+
 ### On a narrow screen
 
 On narrow screens, the workspace tabs and context tabs use separate rows.

@@ -634,40 +634,95 @@ test('requesting changes shows the verdict on the project dashboard', async ({
     await expect(badge).toHaveText('Changes requested');
 });
 
-test('a resolved comment survives a reload and can then be deleted for good', async ({
-    page,
-    review,
-}) => {
-    await postComment(page);
+for (const width of [1440, 390]) {
+    test(`a resolved thread supports Undo, later restore, and explicit purge at ${width}px`, async ({
+        page,
+        review,
+    }) => {
+        await page.setViewportSize({ width, height: 900 });
+        await postComment(page);
 
-    await expectThreadVisible(page);
-    await page.getByRole('button', { name: 'Resolve' }).click();
-    await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
-        timeout: coverageScaled(10000),
+        await expectThreadVisible(page);
+        await page.getByRole('button', { name: 'Resolve' }).click();
+        await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
+            timeout: coverageScaled(10000),
+        });
+
+        await page.goto(review.reviewUrl);
+        await expect(page.locator(DOC)).toBeVisible();
+        await expectThreadVisible(page);
+        const persistedCommentBody = page.locator('.lp-comment-body').first();
+        await expect(persistedCommentBody).toBeVisible({
+            timeout: coverageScaled(5000),
+        });
+        await expect(persistedCommentBody).toContainText(COMMENT_BODY);
+        await expect(page.locator('.lp-comment-thread')).toHaveCount(1);
+        const threadId = await page
+            .locator('.lp-comment-thread')
+            .getAttribute('id');
+
+        // Delete is a fieldless form guarded by a data-turbo-confirm dialog; accept
+        // it, then the Turbo Stream re-renders the thread list without the comment.
+        page.on('dialog', (dialog) => dialog.accept());
+        await page.getByRole('button', { name: 'Delete' }).click();
+        await expect(page.locator('.lp-comment-thread')).toHaveCount(0, {
+            timeout: coverageScaled(10000),
+        });
+        await page.getByRole('button', { name: 'Undo', exact: true }).click();
+        await expect(
+            page.locator('.lp-comment-thread--resolved'),
+        ).toHaveAttribute('id', threadId!);
+        await page.getByRole('button', { name: 'Delete', exact: true }).click();
+        await expect(page.locator('.lp-comment-thread')).toHaveCount(0);
+
+        await page.goto(review.reviewUrl);
+        await expect(page.locator(DOC)).toBeVisible();
+        await expect(page.locator('.lp-comment-thread')).toHaveCount(0);
+        await page.getByRole('tab', { name: 'Details', exact: true }).click();
+        await page
+            .getByRole('link', { name: 'Deleted threads', exact: true })
+            .click();
+        await expect(page.locator('[data-deleted-thread]')).toContainText(
+            COMMENT_BODY,
+        );
+        await page
+            .getByRole('button', { name: 'Restore thread', exact: true })
+            .click();
+        await expect(
+            page.locator('.lp-comment-thread--resolved'),
+        ).toHaveAttribute('id', threadId!);
+
+        await page.getByRole('button', { name: 'Delete', exact: true }).click();
+        await expect(page.locator('.lp-comment-thread')).toHaveCount(0);
+        await page
+            .locator('#comment-recovery')
+            .getByRole('link', { name: 'Deleted threads' })
+            .click();
+        await page
+            .getByRole('button', { name: 'Purge permanently', exact: true })
+            .click();
+        const purgeDialog = page.getByRole('dialog', {
+            name: 'Purge this thread permanently?',
+        });
+        await expect(purgeDialog).toBeVisible();
+        await purgeDialog
+            .getByRole('button', { name: 'Cancel', exact: true })
+            .click();
+        await expect(purgeDialog).toBeHidden();
+        await expect(page.locator('[data-deleted-thread]')).toHaveCount(1);
+        await page
+            .getByRole('button', { name: 'Purge permanently', exact: true })
+            .click();
+        await purgeDialog
+            .getByRole('button', { name: 'Purge permanently', exact: true })
+            .click();
+        await expect(
+            page.getByText('No deleted threads.', { exact: true }),
+        ).toBeVisible();
+        await page.reload();
+        await expect(page.locator('[data-deleted-thread]')).toHaveCount(0);
     });
-
-    await page.goto(review.reviewUrl);
-    await expect(page.locator(DOC)).toBeVisible();
-    await expectThreadVisible(page);
-    const persistedCommentBody = page.locator('.lp-comment-body').first();
-    await expect(persistedCommentBody).toBeVisible({
-        timeout: coverageScaled(5000),
-    });
-    await expect(persistedCommentBody).toContainText(COMMENT_BODY);
-    await expect(page.locator('.lp-comment-thread')).toHaveCount(1);
-
-    // Delete is a fieldless form guarded by a data-turbo-confirm dialog; accept
-    // it, then the Turbo Stream re-renders the thread list without the comment.
-    page.on('dialog', (dialog) => dialog.accept());
-    await page.getByRole('button', { name: 'Delete' }).click();
-    await expect(page.locator('.lp-comment-thread')).toHaveCount(0, {
-        timeout: coverageScaled(10000),
-    });
-
-    await page.goto(review.reviewUrl);
-    await expect(page.locator(DOC)).toBeVisible();
-    await expect(page.locator('.lp-comment-thread')).toHaveCount(0);
-});
+}
 
 /**
  * The composer's hint promises "⌘⏎ to submit", so the shortcut is part of the

@@ -26,6 +26,8 @@ final class MintApiTokenControllerTest extends WebTestCase
 
         $client->loginUser($user);
         $raw = $this->mint($client, 'Laptop CLI');
+        self::assertSelectorExists('[data-panel-tabs-active-value="api-tokens"]');
+        self::assertSelectorNotExists('[data-testid="api-tokens-section"][hidden]');
 
         // A 64-character hex string: the value ApiToken::issue() generates.
         self::assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $raw);

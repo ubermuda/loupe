@@ -533,6 +533,7 @@
             {% if not diffMode or diffCommenting %}
             <div data-review-margin-target="panel" data-margin-panel="comments"
                  {% if not diffMode %}id="review-margin-panel-comments" role="tabpanel" aria-labelledby="review-margin-tab-comments" tabindex="0"{% endif %}>
+                <div id="comment-recovery" aria-live="polite"></div>
                 {% include '@Review/_comment_threads.html.twig' with {comments: comments, readOnly: readOnly and not diffCommenting} only %}
             </div>
             {% if not diffMode %}

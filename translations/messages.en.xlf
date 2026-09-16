@@ -1791,7 +1791,7 @@
             </trans-unit>
             <trans-unit id="review.document.comment.delete_confirm">
                 <source>review.document.comment.delete_confirm</source>
-                <target>Delete this comment and its replies? This can’t be undone.</target>
+                <target>Delete this thread and its replies? You can restore it from Deleted threads until you purge it.</target>
             </trans-unit>
             <trans-unit id="review.document.comment.add_failed">
                 <source>review.document.comment.add_failed</source>
@@ -5916,6 +5916,8 @@
             <trans-unit id="review.deleted_threads.empty"><source>review.deleted_threads.empty</source><target>No deleted threads.</target></trans-unit>
             <trans-unit id="review.deleted_threads.flash.restored"><source>review.deleted_threads.flash.restored</source><target>Thread restored.</target></trans-unit>
             <trans-unit id="review.deleted_threads.flash.purged"><source>review.deleted_threads.flash.purged</source><target>Thread permanently purged.</target></trans-unit>
+            <trans-unit id="review.deleted_threads.deleted"><source>review.deleted_threads.deleted</source><target>Thread deleted. You can restore it until you purge it.</target></trans-unit>
+            <trans-unit id="review.deleted_threads.undo"><source>review.deleted_threads.undo</source><target>Undo</target></trans-unit>
         </body>
     </file>
 </xliff>

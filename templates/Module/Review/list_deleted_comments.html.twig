@@ -10,6 +10,7 @@
 
 {% block body %}
 <div class="lp-deleted-threads">
+    {% set justDeletedIds = app.flashes('deleted_thread') %}
     <h1 class="lp-history-title">{{ 'review.deleted_threads.title'|trans }}</h1>
     <p class="lp-form-hint">{{ 'review.deleted_threads.description'|trans }}</p>
     <a class="lp-btn lp-btn--ghost" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">{{ 'review.deleted_threads.back'|trans }}</a>
@@ -30,7 +31,8 @@
             {{ form_start(restoreForm) }}
                 <div class="lp-field-errors" role="alert">{{ form_errors(restoreForm) }}{{ form_errors(restoreForm.deletionSequence) }}</div>
                 {{ form_widget(restoreForm.deletionSequence, {type: 'hidden'}) }}
-                <button type="submit" class="lp-btn">{{ 'review.deleted_threads.restore'|trans }}</button>
+                {% if commentId in justDeletedIds %}<p>{{ 'review.deleted_threads.deleted'|trans }}</p>{% endif %}
+                <button type="submit" class="lp-btn">{{ (commentId in justDeletedIds ? 'review.deleted_threads.undo' : 'review.deleted_threads.restore')|trans }}</button>
             {{ form_end(restoreForm) }}
             <div data-controller="modal" data-modal-reopen-value="{{ failedAction == 'purge' and failedCommentId == commentId ? 'true' : 'false' }}">
                 <button type="button" class="lp-btn lp-btn--danger-ghost" data-action="click->modal#open">{{ 'review.deleted_threads.purge'|trans }}</button>

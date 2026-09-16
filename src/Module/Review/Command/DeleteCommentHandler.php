@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\Review\Command;
 
+use App\Exception\DomainErrors;
 use App\Module\Review\Repository\CommentRepository;
+use App\Module\Review\Repository\DocumentVersionRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -15,31 +17,46 @@ final readonly class DeleteCommentHandler
     public function __construct(
         private EntityManagerInterface $em,
         private CommentRepository $comments,
+        private DocumentVersionRepository $documentVersions,
         private Auditor $auditor,
     ) {
     }
 
     public function __invoke(DeleteCommentCommand $command): void
     {
-        // Read before the flush, here and for each reply below: Doctrine nulls a
-        // removed entity's identifier, so every id is gone by the time the
-        // records are written.
+        if (null !== $command->comment->parent) {
+            throw new DomainErrors(['comment' => 'comment.error.thread_required']);
+        }
         $commentId = (string) $command->comment->id;
         $documentId = (string) $command->comment->version->document->id;
 
-        // Deleting a thread removes its replies too — they reference the root via
-        // a non-nullable parent FK, so they would otherwise dangle.
-        $replyIds = [];
-        foreach ($this->comments->findRepliesIncludingDeleted($command->comment) as $reply) {
-            $replyIds[] = (string) $reply->id;
-            $this->em->remove($reply);
-        }
-        $this->em->remove($command->comment);
-        $this->em->flush();
+        $replyIds = $this->em->wrapInTransaction(function () use ($command): array|DomainErrors|null {
+            $comment = $command->comment;
+            if (!$this->comments->lockAndRefreshState($comment)) {
+                return new DomainErrors(['comment' => 'comment.error.not_found']);
+            }
+            if ($comment->isDeleted) {
+                return null;
+            }
+            if ($this->documentVersions->findLatest($comment->version->document)->id != $comment->version->id) {
+                return new DomainErrors(['comment' => 'review.document.comment.error.stale_version']);
+            }
+            $replyIds = [];
+            foreach ($this->comments->findRepliesIncludingDeleted($comment) as $reply) {
+                $replyIds[] = (string) $reply->id;
+            }
+            $comment->deletedAt = new \DateTimeImmutable();
+            ++$comment->deletionSequence;
 
-        // One record per deleted comment: a reply is a row of its own, written
-        // by its own author, and a single record for the thread leaves no trace
-        // that those ids existed.
+            return $replyIds;
+        });
+        if ($replyIds instanceof DomainErrors) {
+            throw $replyIds;
+        }
+        if (null === $replyIds) {
+            return;
+        }
+
         $this->auditor->record(
             'review.comment_deleted',
             AuditOutcome::Success,

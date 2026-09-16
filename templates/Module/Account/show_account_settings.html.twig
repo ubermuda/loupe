@@ -9,6 +9,8 @@
 {% endblock %}
 
 {% block body %}
+{% set mintedApiToken = app.flashes('minted_api_token')|first %}
+{% set tokenTabActive = mintedApiToken or mintForm.vars.submitted %}
 <div class="lp-workspace lp-redesign-secondary lp-redesign-account">
     <header class="lp-page-header">
         <div>
@@ -17,7 +19,7 @@
         </div>
     </header>
 
-    <div class="lp-account-settings-layout" data-controller="panel-tabs" data-panel-tabs-active-value="profile">
+    <div class="lp-account-settings-layout" data-controller="panel-tabs" data-panel-tabs-active-value="{{ tokenTabActive ? 'api-tokens' : 'profile' }}">
     <nav class="lp-section-tabs" aria-label="{{ 'account.settings.nav.label'|trans }}" role="tablist">
         <button type="button" class="lp-section-tabs__item" id="account-tab-profile" role="tab" aria-controls="profile" data-panel-tabs-target="tab" data-panel-tab="profile" data-action="click->panel-tabs#select keydown->panel-tabs#keydown"><twig:ux:icon name="lucide:users" />{{ 'account.settings.nav.profile'|trans }}</button>
         <button type="button" class="lp-section-tabs__item" id="account-tab-api-tokens" role="tab" aria-controls="api-tokens" data-panel-tabs-target="tab" data-panel-tab="api-tokens" data-action="click->panel-tabs#select keydown->panel-tabs#keydown"><twig:ux:icon name="lucide:key-round" />{{ 'account.settings.nav.tokens'|trans }}</button>
@@ -27,7 +29,7 @@
     <div class="lp-account-settings-content">
     <twig:BillingSummary />
 
-    <section class="lp-connect-block" id="profile" role="tabpanel" aria-labelledby="account-tab-profile" data-panel-tabs-target="panel" data-panel-panel="profile" data-testid="profile-section">
+    <section class="lp-connect-block" id="profile" role="tabpanel" aria-labelledby="account-tab-profile" data-panel-tabs-target="panel" data-panel-panel="profile" data-testid="profile-section"{% if tokenTabActive %} hidden{% endif %}>
         <h2 class="lp-section-title">{{ 'account.settings.profile.heading'|trans }}</h2>
         <p class="lp-connect-hint">{{ 'account.settings.profile.description'|trans }}</p>
         {{ form_start(profileForm, {'action': path('app_account_profile'), 'attr': {'class': 'lp-form', 'novalidate': 'novalidate'}}) }}
@@ -86,7 +88,7 @@
         </div>
     </section>
 
-    <section class="lp-connect-block" id="api-tokens" role="tabpanel" aria-labelledby="account-tab-api-tokens" data-panel-tabs-target="panel" data-panel-panel="api-tokens" data-testid="api-tokens-section" hidden>
+    <section class="lp-connect-block" id="api-tokens" role="tabpanel" aria-labelledby="account-tab-api-tokens" data-panel-tabs-target="panel" data-panel-panel="api-tokens" data-testid="api-tokens-section"{% if not tokenTabActive %} hidden{% endif %}>
         <p class="lp-eyebrow">{{ 'account.settings.api_tokens.heading'|trans }}</p>
         <div class="lp-settings-panel">
         <p class="lp-connect-hint">{{ 'account.settings.api_tokens.intro'|trans }}</p>
@@ -94,7 +96,6 @@
         {# The raw value arrives through a dedicated flash key, which base.html.twig
            excludes from the flash strip. It is never stored, so this is the only
            render: a reload shows the masked tail below instead. #}
-        {%- set mintedApiToken = app.flashes('minted_api_token')|first -%}
         {% if mintedApiToken %}
         <div class="lp-connect-secret" data-testid="minted-api-token">
             <div class="lp-connect-alert">
