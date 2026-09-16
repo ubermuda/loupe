@@ -1,7 +1,7 @@
 @layer components {
     /* Secondary workspace pages mirror the approved prototype's compact paper surfaces. */
     .lp-workspace.lp-redesign-secondary {
-        @apply max-w-6xl;
+        max-width: 95.625rem;
     }
     .lp-redesign-secondary .lp-workspace-title {
         @apply text-4xl;
@@ -195,11 +195,11 @@
     /* Settings pages keep section navigation beside narrow paper panels. */
     .lp-redesign-settings .lp-settings-layout,
     .lp-account-settings-layout {
-        @apply mt-8 grid grid-cols-1 lg:grid-cols-4 gap-8;
+        @apply mt-8 grid grid-cols-1 gap-8;
     }
     .lp-redesign-settings .lp-settings-content,
     .lp-account-settings-content {
-        @apply lg:col-span-3 max-w-3xl;
+        @apply max-w-none;
     }
     .lp-settings-panel-card,
     .lp-redesign-account .lp-connect-block,
@@ -219,5 +219,38 @@
     }
     .lp-redesign-account .lp-section-tabs__item:hover {
         @apply bg-accent-faint text-accent-ink;
+    }
+    .lp-redesign-account .lp-section-tabs__item--active {
+        @apply bg-accent-soft text-accent-ink;
+    }
+    .lp-redesign-account .lp-section-tabs__item svg {
+        @apply h-4 w-4 shrink-0;
+    }
+    .lp-account-settings-content {
+        @apply flex flex-col;
+    }
+    .lp-account-settings-content #profile {
+        order: 1;
+    }
+    .lp-account-settings-content #api-tokens {
+        order: 2;
+    }
+    .lp-account-settings-content #data {
+        order: 3;
+    }
+    .lp-account-settings-content > .lp-danger-zone {
+        order: 4;
+    }
+
+    @media (width >= 64rem) {
+        .lp-redesign-settings .lp-settings-layout,
+        .lp-account-settings-layout {
+            grid-template-columns: 11.25rem minmax(0, 46.25rem);
+            column-gap: 2.125rem;
+        }
+        .lp-redesign-settings .lp-settings-content,
+        .lp-account-settings-content {
+            grid-column: 2;
+        }
     }
 }

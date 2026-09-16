@@ -52,6 +52,12 @@ class EditProfileController extends AppController
             return $this->redirectToRoute('app_account_settings');
         }
 
+        if ($form->isSubmitted()) {
+            return $this->forward(ShowAccountSettingsController::class, [
+                'profileForm' => $form->createView(),
+            ])->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         return $this->renderFormResponse('@Account/edit_profile.html.twig', $form);
     }
 }

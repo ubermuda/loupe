@@ -1125,11 +1125,9 @@
 
     /* ── Workspace / projects index ─────────────────────────────────── */
 
-    /* Left-aligned page container. Its top/side padding matches the document
-       and site-review screens so the breadcrumb sits at the same height on
-       every screen of the app. */
     .lp-workspace {
-        @apply max-w-225 pt-10 px-12 pb-14;
+        @apply w-full px-8 pt-8 pb-14;
+        max-width: 95.625rem;
     }
     .lp-eyebrow {
         @apply uppercase text-fg-dim m-0 text-xs font-bold tracking-widest;

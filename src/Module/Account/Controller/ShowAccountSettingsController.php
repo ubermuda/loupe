@@ -10,6 +10,8 @@ use App\Module\Account\Command\ShowAccountSettingsHandler;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Form\MintApiTokenFormType;
 use App\Module\Account\Form\MintApiTokenRequest;
+use App\Module\Account\Form\ProfileFormType;
+use App\Module\Account\Form\ProfileRequest;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -39,6 +41,8 @@ class ShowAccountSettingsController extends AppController
             'view' => $view,
             'mintForm' => $this->getInjectedFormView($request, 'mintForm')
                 ?? $this->createForm(MintApiTokenFormType::class, new MintApiTokenRequest())->createView(),
+            'profileForm' => $this->getInjectedFormView($request, 'profileForm')
+                ?? $this->createForm(ProfileFormType::class, new ProfileRequest(fullName: $user->fullName))->createView(),
         ]);
     }
 }

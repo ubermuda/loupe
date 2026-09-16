@@ -19,24 +19,32 @@
 
     <div class="lp-account-settings-layout">
     <nav class="lp-section-tabs" aria-label="{{ 'account.settings.nav.label'|trans }}">
-        <a class="lp-section-tabs__item" href="#profile">{{ 'account.settings.nav.profile'|trans }}</a>
-        <a class="lp-section-tabs__item" href="#api-tokens">{{ 'account.settings.nav.tokens'|trans }}</a>
-        <a class="lp-section-tabs__item" href="#data">{{ 'account.settings.nav.data'|trans }}</a>
+        <a class="lp-section-tabs__item lp-section-tabs__item--active" href="#profile" aria-current="page"><twig:ux:icon name="lucide:users" />{{ 'account.settings.nav.profile'|trans }}</a>
+        <a class="lp-section-tabs__item" href="#api-tokens"><twig:ux:icon name="lucide:key-round" />{{ 'account.settings.nav.tokens'|trans }}</a>
+        <a class="lp-section-tabs__item" href="#data"><twig:ux:icon name="lucide:archive" />{{ 'account.settings.nav.data'|trans }}</a>
     </nav>
 
     <div class="lp-account-settings-content">
     <twig:BillingSummary />
 
     <section class="lp-connect-block" id="profile" data-testid="profile-section">
-        <p class="lp-eyebrow">{{ 'account.settings.profile.heading'|trans }}</p>
-        <div class="lp-identity-row">
-            <span class="lp-identity-row__avatar">{{ view.user.fullName|slice(0, 1)|upper }}</span>
-            <span class="lp-identity-row__text">
-                <span class="lp-identity-row__name">{{ view.user.fullName }}</span>
-                <span class="lp-identity-row__meta">{{ view.user.email }}</span>
-            </span>
-            <a href="{{ path('app_account_profile') }}" class="lp-btn lp-btn--ghost">{{ 'account.settings.profile.edit_link'|trans }}</a>
-        </div>
+        <h2 class="lp-section-title">{{ 'account.settings.profile.heading'|trans }}</h2>
+        <p class="lp-connect-hint">{{ 'account.settings.profile.description'|trans }}</p>
+        {{ form_start(profileForm, {'action': path('app_account_profile'), 'attr': {'class': 'lp-form', 'novalidate': 'novalidate'}}) }}
+            <div class="lp-form-field">
+                {{ form_label(profileForm.fullName, null, {'label_attr': {'class': 'lp-label'}}) }}
+                {{ form_widget(profileForm.fullName, {'attr': {'class': 'lp-input'}}) }}
+                <div class="lp-field-errors">{{ form_errors(profileForm.fullName) }}</div>
+            </div>
+            <div class="lp-form-field">
+                <label class="lp-label" for="account-profile-email">{{ 'account.settings.profile.email_label'|trans }}</label>
+                <input class="lp-input" id="account-profile-email" type="email" value="{{ view.user.email }}" readonly>
+                <p class="lp-form-hint">{{ 'account.settings.profile.email_hint'|trans }}</p>
+            </div>
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <button type="submit" class="lp-btn lp-btn--primary">{{ 'account.profile.save_button'|trans }}</button>
+            </div>
+        {{ form_end(profileForm) }}
     </section>
 
     <section class="lp-connect-block" id="data" data-testid="export-section">
