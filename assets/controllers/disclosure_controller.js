@@ -1,21 +1,10 @@
 import { Controller } from '@hotwired/stimulus';
 
-/**
- * Animates a native <details> open/close with WAAPI. CSS transitions on a
- * <details> stop firing after the first cycle, so the height/opacity tween is
- * driven here instead. The controller intercepts the <summary> click, animates
- * the content target, and toggles the `open` attribute around the animation.
- *
- * Usage:
- *   <details data-controller="disclosure">
- *     <summary data-action="click->disclosure#toggle"> ... </summary>
- *     <div data-disclosure-target="content" class="overflow-hidden"> ... </div>
- *   </details>
- */
+// Native details transitions stop firing after the first cycle; WAAPI supports repeated toggles.
 export default class extends Controller {
     // `autofocus` is opt-in: the same controller collapses read-only context
     // rows, and stealing the caret when one of those opens would be wrong.
-    static targets = ['content', 'autofocus', 'container'];
+    static targets = ['content', 'autofocus', 'container', 'trigger'];
 
     get disclosureElement() {
         return this.hasContainerTarget ? this.containerTarget : this.element;
@@ -30,6 +19,19 @@ export default class extends Controller {
         if (undefined === this.disclosureElement.open) {
             this.disclosureElement.open =
                 this.disclosureElement.classList.contains('disclosure-open');
+        }
+        this.syncExpandedState();
+    }
+
+    syncExpandedState() {
+        if (this.disclosureElement instanceof HTMLDetailsElement) {
+            return;
+        }
+        for (const trigger of this.triggerTargets) {
+            trigger.setAttribute(
+                'aria-expanded',
+                String(this.disclosureElement.open),
+            );
         }
     }
 
@@ -47,6 +49,7 @@ export default class extends Controller {
 
     expand() {
         this.disclosureElement.open = true;
+        this.syncExpandedState();
         // `.open` on this.element only reflects natively for a real <details>
         // element. For a plain wrapper div (e.g. list_projects.html.twig's
         // "New project" disclosure), visibility is driven entirely by these
@@ -76,6 +79,7 @@ export default class extends Controller {
         );
         this.animation.onfinish = () => {
             this.disclosureElement.open = false;
+            this.syncExpandedState();
             this.disclosureElement.classList.remove('disclosure-open');
             content.classList.remove('open');
             content.style.height = '';

@@ -88,6 +88,9 @@ and resolved counts, a chip that counts the addressed threads, and **All
 answered** when no thread is pending. The banner above the document counts the
 orphaned threads. Every count is a thread count, so a reply never adds to one.
 
+The General comments and orphaned-thread buttons expand or collapse their groups.
+Each button reports its expanded state to assistive technology.
+
 ### Deleted threads
 
 Delete hides a thread and its replies from the review without changing their status.

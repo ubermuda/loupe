@@ -38,7 +38,7 @@
        the .disclosure-open class, because a <section> has no native `open`. #}
     <section class="lp-general-comments disclosure-open" data-controller="disclosure">
         <button type="button" class="lp-general-comments__toggle"
-                aria-controls="general-comments-list"
+                aria-controls="general-comments-list" aria-expanded="true" data-disclosure-target="trigger"
                 data-action="click->disclosure#toggle">
             <twig:ux:icon name="lucide:chevron-right" class="lp-general-comments__caret" />
             {{ 'review.document.group.general'|trans }} · {{ generalComments|length }}
@@ -60,7 +60,7 @@
         {% if orphanedComments|length > 0 %}
         <div class="lp-orphan-group" data-controller="disclosure">
             <button type="button" class="lp-orphan-group__title"
-                    aria-controls="orphaned-threads"
+                    aria-controls="orphaned-threads" aria-expanded="false" data-disclosure-target="trigger"
                     data-action="click->disclosure#toggle">
                 <twig:ux:icon name="lucide:chevron-right" class="lp-orphan-group__caret" />
                 <twig:ux:icon name="lucide:bell-off" class="lp-orphan-group__icon" />

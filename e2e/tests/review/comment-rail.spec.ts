@@ -172,6 +172,31 @@ test('margin tabs support keyboard navigation and preserve a reply draft', async
     await expect(details).not.toBeFocused();
 });
 
+test('general comments expose their initial and toggled disclosure state', async ({
+    page,
+}) => {
+    await page
+        .locator('[data-action="comment-anchor#startUntargeted"]')
+        .click();
+    await page.locator(COMPOSER_BODY).fill('A general review comment.');
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    const toggle = page.locator('.lp-general-comments__toggle');
+    const panel = page.locator('#general-comments-list');
+    await expect(panel).toContainText('A general review comment.');
+    await expect(panel).toBeVisible();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(toggle).toHaveAttribute(
+        'aria-controls',
+        'general-comments-list',
+    );
+    await toggle.click();
+    await expect(panel).toBeHidden();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await toggle.click();
+    await expect(panel).toBeVisible();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+});
+
 test('margin filters keep counts and visibility after thread updates', async ({
     page,
 }) => {
@@ -444,6 +469,8 @@ test('expanding the orphan group pushes the anchored cards below it', async ({
     await page.goto(reviewUrl);
     const group = page.locator('.lp-orphan-group');
     await expect(group).toBeVisible({ timeout: coverageScaled(10000) });
+    const toggle = group.getByRole('button', { expanded: false });
+    await expect(toggle).toHaveAttribute('aria-controls', 'orphaned-threads');
     await expect(
         page.locator('.lp-comment-thread__detail:visible'),
     ).toHaveCount(1);
@@ -451,6 +478,7 @@ test('expanding the orphan group pushes the anchored cards below it', async ({
 
     await page.locator('.lp-orphan-group__title').click();
     await expect(group).toHaveClass(/disclosure-open/);
+    await expect(group.getByRole('button', { expanded: true })).toBeVisible();
     // The disclosure sets `height: auto` when its tween finishes, and the gap
     // below is still clear while the group is halfway open.
     await expect(page.locator('.lp-orphan-group__list')).toHaveAttribute(

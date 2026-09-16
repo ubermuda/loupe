@@ -22,10 +22,33 @@ test('opening the new-project disclosure puts the caret in the name field', asyn
     });
 
     await page.goto('/projects');
-    await page
+    const headerToggle = page
         .locator('.lp-page-header')
-        .getByRole('button', { name: /new project/i })
-        .click();
+        .getByRole('button', { name: /new project/i });
+    const tileToggle = page.locator('.lp-project-new__toggle');
+    const panel = page.locator('#new-project-panel');
+    await expect(headerToggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(tileToggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(headerToggle).toHaveAttribute(
+        'aria-controls',
+        'new-project-panel',
+    );
+    await expect(tileToggle).toHaveAttribute(
+        'aria-controls',
+        'new-project-panel',
+    );
+    await headerToggle.click();
 
     await expect(page.getByLabel('Project name')).toBeFocused();
+    await expect(headerToggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(tileToggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(panel).toBeVisible();
+    await tileToggle.click();
+    await expect(panel).toBeHidden();
+    await expect(headerToggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(tileToggle).toHaveAttribute('aria-expanded', 'false');
+    await tileToggle.click();
+    await expect(panel).toBeVisible();
+    await expect(headerToggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(tileToggle).toHaveAttribute('aria-expanded', 'true');
 });
