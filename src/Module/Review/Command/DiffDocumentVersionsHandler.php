@@ -69,6 +69,7 @@ final readonly class DiffDocumentVersionsHandler
             );
         } else {
             $diff = $result;
+            $changeCount = 0;
         }
 
         // A comment always lands on the latest version, so anchoring one against

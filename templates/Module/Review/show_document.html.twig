@@ -62,11 +62,7 @@
     {% set diffNavigation = diffMode and diffChangeCount is not null %}
     {% set canComment = not readOnly or diffCommenting %}
     {% set reviewControllers = (diffNavigation ? ['diff-navigation'] : [])|merge(diffMode and not diffCommenting ? [] : ['comment-anchor']) %}
-    {# The one state where the page misleads rather than merely simplifies: the
-       two versions do differ, and the rendered view marked none of it, so the
-       count says "No changes" about a revision that changed something. A null
-       count is a refusal or two identical versions, and both say so already. #}
-    {% set diffUnmarked = diffNavigation and diffView.value != 'source' and diffChangeCount == 0 %}
+    {% set diffUnmarked = diffNavigation and diff.hasChanges and diffView.value != 'source' and diffChangeCount == 0 %}
     {# Two columns take the width the comment rail holds, and this view renders
        no rail. #}
     {% set diffColumns = diffMode and diffView is not null and diffView.value == 'side-by-side' %}
@@ -370,19 +366,6 @@
                         <p class="lp-version-entry__description">{{ version.description }}</p>
                         {% endif %}
                     </div>
-                    {# Only while comparing: on the review page the panel is about
-                       the version on screen, and a pair picker there would offer
-                       a comparison nobody asked for. #}
-                    {% if diffMode and versions|length > 1 %}
-                    {% include '@Review/_version_compare_picker.html.twig' with {
-                        document: document,
-                        versions: versions,
-                        fromVersionNumber: diffFromVersion,
-                        toVersionNumber: version.versionNumber,
-                        viewValue: diffView.value,
-                        idPrefix: 'diff',
-                    } only %}
-                    {% endif %}
                     <a class="lp-version-switcher__all" href="{{ path('app_document_review_history', {projectId: document.project.id, documentId: document.id}) }}">
                         <twig:ux:icon name="lucide:history" class="w-3.5 h-3.5 shrink-0" />
                         <span>{{ 'review.document.version.see_all'|trans({'%count%': versions|length}) }}</span>
@@ -475,9 +458,17 @@
                    stay plain links, so each is addressable. The rendered one
                    cannot mark front matter, a link reference definition or a
                    setext underline, hence the Markdown one. #}
-                {% if diffNavigation %}
+                {% if diffMode %}
                 {% set viewParams = {projectId: document.project.id, documentId: document.id, fromVersionNumber: diffFromVersion, toVersionNumber: version.versionNumber} %}
                 <div class="lp-diff-bar">
+                    {% include '@Review/_version_compare_picker.html.twig' with {
+                        document: document,
+                        versions: versions,
+                        fromVersionNumber: diffFromVersion,
+                        toVersionNumber: version.versionNumber,
+                        viewValue: diffView.value,
+                        idPrefix: 'diff',
+                    } only %}
                     <nav class="lp-diff-views" aria-label="{{ 'review.document.diff.view.label'|trans }}">
                         <a class="lp-diff-views__link"
                            href="{{ path('app_document_review_diff', viewParams|merge({view: 'rendered'})) }}"
@@ -500,19 +491,21 @@
                            {% if diffColumns %}aria-current="page"{% endif %}
                         >{{ 'review.document.diff.view.side_by_side'|trans }}</a>
                     </nav>
+                    {% if diffNavigation %}
                     <div class="lp-diff-nav">
                         <p class="lp-diff-nav__count" aria-live="polite" data-diff-navigation-target="counter">{{ 'review.document.diff.nav.count'|trans({'%count%': diffChangeCount}) }}</p>
-                        <button type="button" class="lp-btn lp-btn--icon" data-diff-navigation-target="previousButton" data-action="diff-navigation#previous"
+                        <button type="button" class="lp-btn lp-btn--icon" data-diff-navigation-target="previousButton" data-action="diff-navigation#previous"{% if diffChangeCount == 0 %} disabled{% endif %}
                                 aria-label="{{ 'review.document.diff.nav.previous'|trans }}"
                                 title="{{ 'review.document.diff.nav.previous'|trans }}">
                             <twig:ux:icon name="lucide:arrow-up" class="w-4 h-4 shrink-0" />
                         </button>
-                        <button type="button" class="lp-btn lp-btn--icon" data-diff-navigation-target="nextButton" data-action="diff-navigation#next"
+                        <button type="button" class="lp-btn lp-btn--icon" data-diff-navigation-target="nextButton" data-action="diff-navigation#next"{% if diffChangeCount == 0 %} disabled{% endif %}
                                 aria-label="{{ 'review.document.diff.nav.next'|trans }}"
                                 title="{{ 'review.document.diff.nav.next'|trans }}">
                             <twig:ux:icon name="lucide:arrow-down" class="w-4 h-4 shrink-0" />
                         </button>
                     </div>
+                    {% endif %}
                 </div>
                 {% endif %}
 

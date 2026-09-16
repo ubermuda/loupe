@@ -48,7 +48,7 @@ final class DiffDocumentVersionsController extends AppController
         int $fromVersionNumber,
         int $toVersionNumber,
     ): Response {
-        if ($fromVersionNumber >= $toVersionNumber) {
+        if ($fromVersionNumber > $toVersionNumber) {
             throw $this->createNotFoundException('A diff runs from an earlier version to a later one.');
         }
 

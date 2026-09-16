@@ -385,13 +385,13 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $rendered = $client->request(Request::METHOD_GET, $base);
         self::assertCount(3, $rendered->filter('.lp-diff-views__link'));
         self::assertSame(
-            'Document',
+            'Rendered',
             $rendered->filter('.lp-diff-views__link[aria-current]')->text(),
         );
         // Document, Markdown, Side by side. Markdown reads the same document and
         // sits next to it; the columns rebuild the page and go last.
         self::assertSame(
-            ['Document', 'Markdown', 'Side by side'],
+            ['Rendered', 'Markdown', 'Side by side'],
             $rendered->filter('.lp-diff-views__link')->each(
                 static fn (Crawler $link): string => $link->text(),
             ),
@@ -707,7 +707,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(0, $crawler->filter('.lp-diff-doc'));
-        self::assertCount(0, $crawler->filter('[data-controller~="diff-navigation"]'));
+        self::assertCount(1, $crawler->filter('[data-controller~="diff-navigation"]'));
         self::assertSelectorTextContains('.lp-empty', 'identical');
     }
 
@@ -947,7 +947,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         }
     }
 
-    public function test_a_diff_that_does_not_run_forwards_is_not_found(): void
+    public function test_backwards_and_missing_versions_are_refused_but_equal_versions_are_valid(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -972,7 +972,8 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
 
         $client->request(Request::METHOD_GET, $base.'1/1');
-        self::assertResponseStatusCodeSame(404);
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.lp-empty', 'identical');
 
         $client->request(Request::METHOD_GET, $base.'1/9');
         self::assertResponseStatusCodeSame(404);

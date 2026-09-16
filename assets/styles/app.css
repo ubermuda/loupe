@@ -2197,14 +2197,15 @@
     .lp-version-entry__diff[aria-current] {
         @apply text-accent;
     }
-    /* Starts another comparison from inside the versions panel and the review
-       menu. Its selects are shorter than the filter bar's, because the panel is
-       the width of the reading column. */
+    /** Version selection shared by the diff toolbar, history and review menu. */
     .lp-version-compare {
         @apply flex flex-wrap items-center gap-2 w-full;
     }
-    .lp-version-compare .lp-filter-select {
-        @apply h-8.5;
+    .lp-diff-bar .lp-version-compare {
+        @apply w-auto;
+    }
+    .lp-version-compare .lp-btn {
+        @apply min-h-10;
     }
     /* Way out of the panel and into the full history. */
     .lp-version-switcher__all {
@@ -2398,21 +2399,17 @@
         @apply block rounded-lg;
     }
 
-    /* One row of the document metadata bar, which is what makes it sticky: two
-       bars pinned to the same edge would overlap. The view switch leads and the
-       count and its jumps ride the right end as one group. It wraps rather than
-       overflows: at a 375px reading column the group is about 12px too wide,
-       and the bar has overflow:visible, so it would escape its own box. */
+    /** Comparison controls wrap within the reading column on narrow screens. */
     .lp-diff-bar {
-        @apply flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5 border-b border-line;
+        @apply flex flex-wrap items-center gap-3 py-3 border-b border-line;
     }
     /* The two views of one comparison, as links rather than a control: each is
        addressable, and switching is a plain navigation. */
     .lp-diff-views {
-        @apply inline-flex items-center gap-0.5 shrink-0 rounded-full bg-surface-2 p-0.5;
+        @apply inline-flex items-center gap-0.5 shrink-0 rounded-lg bg-surface-2 p-0.5;
     }
     .lp-diff-views__link {
-        @apply rounded-full no-underline text-fg-dim text-xs py-1 px-3 transition-colors hover:text-fg;
+        @apply inline-flex items-center h-9 rounded-md no-underline text-fg-dim text-xs px-3 transition-colors hover:text-fg;
     }
     /* Weight and tint together, so the current view is not colour alone. */
     .lp-diff-views__link[aria-current] {
@@ -2453,13 +2450,13 @@
     /* The same gap the action row takes below the bar, so the note does not sit
        against the controls above it. */
     .lp-diff-notes {
-        @apply max-w-2xl flex flex-col gap-1.5 mt-5.5 mb-6 p-4 rounded-lg border bg-surface-2 border-line;
+        @apply max-w-2xl mt-4 mb-4 p-4 rounded-lg border bg-surface-2 border-line;
     }
     .lp-diff-notes__title {
-        @apply font-mono text-fg-dim m-0 text-xs uppercase tracking-widest;
+        @apply font-mono text-fg-dim m-0 text-xs uppercase tracking-widest cursor-pointer;
     }
     .lp-diff-notes__entry {
-        @apply flex items-start gap-2 m-0 text-sm text-fg-mute;
+        @apply flex items-start gap-2 mt-3 mb-0 text-sm text-fg-mute;
     }
 
     .lp-doc-references {

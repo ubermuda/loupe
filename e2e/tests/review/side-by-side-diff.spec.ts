@@ -73,6 +73,43 @@ const VOID_CELL = '.lp-diff-columns__cell--void';
 const MARGIN = '.lp-review-margin';
 const VIEWS = '.lp-diff-views';
 
+test('the visible picker compares equal versions and keeps the view', async ({
+    page,
+}) => {
+    await signIn(page, `e2e-sbs-equal-${RUN}@example.com`);
+    const reviewPath = await seedComparison(page);
+    await page.goto(`${reviewPath}/diff/1/2?view=source`);
+    const toolbar = page.locator('.lp-diff-bar');
+    await expect(
+        toolbar.getByLabel('Compare from version', { exact: true }),
+    ).toBeVisible();
+    await toolbar
+        .getByLabel('Compare from version', { exact: true })
+        .selectOption('2');
+    await toolbar.getByRole('button', { name: 'Compare', exact: true }).click();
+    await expect(page).toHaveURL(`${reviewPath}/diff/2/2?view=source`);
+    await expect(page.locator('.lp-empty')).toContainText('identical');
+    await expect(
+        toolbar.getByRole('button', { name: 'Next change', exact: true }),
+    ).toBeDisabled();
+    await expect(
+        toolbar.getByRole('button', { name: 'Previous change', exact: true }),
+    ).toBeDisabled();
+    await expect(
+        toolbar.getByLabel('Compare from version', { exact: true }),
+    ).toBeVisible();
+    await toolbar
+        .getByLabel('Compare from version', { exact: true })
+        .selectOption('1');
+    await toolbar.getByRole('button', { name: 'Compare', exact: true }).click();
+    await expect(page).toHaveURL(`${reviewPath}/diff/1/2?view=source`);
+    const notes = page.locator('.lp-diff-notes');
+    await expect(notes).not.toHaveAttribute('open');
+    await notes.locator('summary').click();
+    await expect(notes).toHaveAttribute('open');
+    await expect(notes.locator('.lp-diff-notes__entry')).toBeVisible();
+});
+
 async function signIn(page: Page, email: string): Promise<void> {
     const registered = await page.request.post('/dev/register-and-verify', {
         form: { fullName: 'E2E Side By Side', email, password: PASSWORD },
@@ -261,7 +298,7 @@ test('the two columns pair the blocks and drop the comment rail', async ({
     // Scoped: the sidebar and the crumbs both carry a Documents link.
     await page
         .locator(VIEWS)
-        .getByRole('link', { name: 'Document', exact: true })
+        .getByRole('link', { name: 'Rendered', exact: true })
         .click();
     await expect(page).toHaveURL(`${reviewPath}/diff/1/2?view=rendered`);
     await expect(page.locator(MARGIN)).toHaveCount(1);

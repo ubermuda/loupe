@@ -122,7 +122,7 @@ versions, not only two that follow one another.
 A comparison is the review page with one pane replaced, so the document keeps its
 place on the screen. A green chip in the metadata bar names the pair, and the ×
 on the chip returns you to the latest version. One row under it holds the view
-switch, **Document**, **Side by side** and **Markdown**, with the change count
+switch, **Rendered**, **Markdown** and **Side by side**, with the change count
 and the two jump arrows at the right end. `j` and `k` move between changes as
 well.
 
@@ -133,7 +133,7 @@ empty slot and the pair stays level. The change count and the jump arrows work
 here too, and a jump can land in either column.
 
 The comment column is hidden in this view, because the second column takes its
-width. The page says so above the two columns, and the **Document** view brings
+width. The page says so above the two columns, and the **Rendered** view brings
 the comments back. On a phone the two columns stack, older above newer, and each
 one names its version.
 
@@ -141,8 +141,10 @@ one names its version.
 other views cannot mark. Its contents list names every heading line, the removed
 ones included, and a row takes you to that line.
 
-While you compare, the Versions tab also holds a from/to picker, so any other
-pair is two clicks away. It keeps the view you are on.
+The toolbar includes the from/to picker and **Compare** button.
+Comparing another pair keeps the selected view.
+Equal versions show no changes and disable change navigation.
+Expand **Revision notes** to read the notes for the compared revisions.
 
 ### Commenting on a diff
 

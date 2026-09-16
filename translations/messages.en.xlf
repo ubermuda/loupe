@@ -1639,7 +1639,7 @@
             </trans-unit>
             <trans-unit id="review.document.diff.notes_title">
                 <source>review.document.diff.notes_title</source>
-                <target>What the author said changed</target>
+                <target>Revision notes</target>
             </trans-unit>
             <trans-unit id="review.document.diff.identical">
                 <source>review.document.diff.identical</source>
@@ -3937,7 +3937,7 @@
             </trans-unit>
             <trans-unit id="review.document.diff.view.rendered">
                 <source>review.document.diff.view.rendered</source>
-                <target>Document</target>
+                <target>Rendered</target>
             </trans-unit>
             <trans-unit id="review.document.diff.view.source">
                 <source>review.document.diff.view.source</source>

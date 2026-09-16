@@ -49,15 +49,10 @@ final class CompareDocumentVersionsController extends AppController
 
         $routeParameters = ['projectId' => $projectId, 'documentId' => (string) $document->id];
 
-        // Anything that is not two different versions of this document goes back
-        // to the history, so the redirector lands on a diff or on a page and
-        // never on a URL the diff route answers with a 404. The equality test
-        // comes first, because one number counted twice would count as two.
-        $found = $from === $to
-            ? 0
-            : ($this->countDocumentVersions)(new CountDocumentVersionsCommand($document, [$from, $to]));
+        $expected = $from === $to ? 1 : 2;
+        $found = ($this->countDocumentVersions)(new CountDocumentVersionsCommand($document, [$from, $to]));
 
-        if (2 !== $found) {
+        if ($expected !== $found) {
             return $this->redirectToRoute('app_document_review_history', $routeParameters);
         }
 
