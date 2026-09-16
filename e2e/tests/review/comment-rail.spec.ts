@@ -215,8 +215,23 @@ test('one marker expands on click and a second collapses the first', async ({
     await expect(
         page.locator(EXPANDED).locator('.lp-comment-quote'),
     ).toBeHidden();
-    // The reply box is reachable while the card is open.
-    await expect(page.locator(EXPANDED).locator('textarea')).toBeVisible();
+    const expandedThread = page.locator(EXPANDED);
+    const replyDisclosure = expandedThread.locator(
+        '.lp-comment-reply-disclosure',
+    );
+    const replyBody = replyDisclosure.locator('textarea');
+
+    // Reply stays collapsed until requested, and closing it keeps the draft.
+    await expect(replyBody).toBeHidden();
+    await replyDisclosure.locator('summary').click();
+    await expect(replyBody).toBeVisible();
+    await replyBody.fill('Keep this draft while the composer is toggled.');
+    await replyDisclosure.locator('summary').click();
+    await expect(replyBody).toBeHidden();
+    await replyDisclosure.locator('summary').click();
+    await expect(replyBody).toHaveValue(
+        'Keep this draft while the composer is toggled.',
+    );
 
     await markers.nth(2).click();
     await expect(page.locator(EXPANDED)).toHaveCount(1);

@@ -262,7 +262,9 @@ test('growing the window past lg releases the drawer', async ({
     // The scrim and both close controls are display:none at lg, so an inert
     // shell would leave the desktop page unclickable with nothing to fix it.
     await expect(page.locator('.lp-shell')).not.toHaveAttribute('inert', '');
-    await expect(page.getByRole('link', { name: 'Connect' })).toBeVisible();
+    await expect(
+        page.getByRole('heading', { name: 'Documents' }),
+    ).toBeVisible();
 });
 
 test('tapping the scrim closes the drawer', async ({ page, seeded }) => {
@@ -288,10 +290,12 @@ test('the drawer closes on the page a nav link goes to', async ({
     const sidebar = page.locator(SIDEBAR);
     await expect(sidebar).toBeVisible();
 
-    await sidebar.getByRole('link', { name: 'Connect' }).tap();
+    await sidebar.getByRole('link', { name: 'Agents' }).tap();
 
-    await expect(page).toHaveURL(`/projects/${projectId}/connect`);
-    await expect(page.locator('.lp-connect')).toBeVisible();
+    await expect(page).toHaveURL(`/projects/${projectId}/agents`);
+    await expect(
+        page.getByRole('heading', { name: 'Your crew' }),
+    ).toBeVisible();
     await expect(sidebar).toBeHidden();
     await expect(
         page.getByRole('button', { name: 'Open navigation' }),
