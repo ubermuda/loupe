@@ -438,7 +438,9 @@ test('the stored anchor keeps the quote and the whitespace around it', async ({
 
 test('replying to a thread and resolving it re-render it in place', async ({
     page,
+    context,
 }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await postComment(page);
 
     // Asserting both status and content type guards the whole path: CSRF, the
@@ -478,6 +480,55 @@ test('replying to a thread and resolving it re-render it in place', async ({
 
     await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
         timeout: coverageScaled(10000),
+    });
+    await page.getByRole('tab', { name: 'Details', exact: true }).click();
+    await page.getByRole('button', { name: 'Copy review summary' }).click();
+    await expect(
+        page.locator('[data-review-summary-target="status"]'),
+    ).toHaveText('Review summary copied.');
+    const summary = await page.evaluate(() => navigator.clipboard.readText());
+    expect(summary).toContain('E2E Review Test Document · v1');
+    expect(summary).toContain('[Resolved] Comment · E2E Reviewer');
+    expect(summary).toContain(KNOWN_PHRASE);
+    expect(summary).toContain(COMMENT_BODY);
+    expect(summary).toContain(REPLY_BODY);
+});
+
+test('copying an empty review reports clipboard success and failure', async ({
+    page,
+    context,
+}) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.getByRole('tab', { name: 'Details', exact: true }).click();
+    await page.getByRole('button', { name: 'Copy review summary' }).click();
+    await expect(
+        page.locator('[data-review-summary-target="status"]'),
+    ).toHaveText('Review summary copied.');
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
+        'No comment threads.',
+    );
+    await page.evaluate(() => {
+        navigator.clipboard.writeText = async () => {
+            throw new DOMException('Clipboard denied', 'NotAllowedError');
+        };
+    });
+    await page.getByRole('button', { name: 'Copy review summary' }).click();
+    await expect(
+        page.locator('[data-review-summary-target="status"]'),
+    ).toContainText('The browser could not copy the summary.');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.reload();
+    await page.getByRole('tab', { name: 'Details', exact: true }).click();
+    await page.getByRole('button', { name: 'Copy review summary' }).click();
+    await expect(
+        page.locator('[data-review-summary-target="status"]'),
+    ).toHaveText('Review summary copied.');
+    await page
+        .getByRole('button', { name: 'Copy review summary' })
+        .scrollIntoViewIfNeeded();
+    await page.screenshot({
+        path: '/tmp/loupe-review-summary-mobile.png',
+        fullPage: true,
     });
 });
 

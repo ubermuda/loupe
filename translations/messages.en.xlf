@@ -1413,6 +1413,16 @@
             <trans-unit id="review.document.margin.comments"><source>review.document.margin.comments</source><target>Comments</target></trans-unit>
             <trans-unit id="review.document.margin.outline"><source>review.document.margin.outline</source><target>Outline</target></trans-unit>
             <trans-unit id="review.document.margin.decisions"><source>review.document.margin.decisions</source><target>Decisions</target></trans-unit>
+            <trans-unit id="review.document.summary.copy"><source>review.document.summary.copy</source><target>Copy review summary</target></trans-unit>
+            <trans-unit id="review.document.summary.copied"><source>review.document.summary.copied</source><target>Review summary copied.</target></trans-unit>
+            <trans-unit id="review.document.summary.failed"><source>review.document.summary.failed</source><target>The browser could not copy the summary. Allow clipboard access. Try again.</target></trans-unit>
+            <trans-unit id="review.document.summary.status"><source>review.document.summary.status</source><target>Document status: %status%</target></trans-unit>
+            <trans-unit id="review.document.summary.comment"><source>review.document.summary.comment</source><target>Comment</target></trans-unit>
+            <trans-unit id="review.document.summary.suggestion"><source>review.document.summary.suggestion</source><target>Suggestion</target></trans-unit>
+            <trans-unit id="review.document.summary.strike"><source>review.document.summary.strike</source><target>Strike</target></trans-unit>
+            <trans-unit id="review.document.summary.replacement"><source>review.document.summary.replacement</source><target>Suggested: %replacement%</target></trans-unit>
+            <trans-unit id="review.document.summary.unanchored"><source>review.document.summary.unanchored</source><target>Unanchored</target></trans-unit>
+            <trans-unit id="review.document.summary.empty"><source>review.document.summary.empty</source><target>No comment threads.</target></trans-unit>
             <trans-unit id="review.document.margin.details"><source>review.document.margin.details</source><target>Details</target></trans-unit>
             <trans-unit id="review.document.margin.filter_open"><source>review.document.margin.filter_open</source><target>Open</target></trans-unit>
             <trans-unit id="review.document.margin.filter_resolved"><source>review.document.margin.filter_resolved</source><target>Resolved</target></trans-unit>

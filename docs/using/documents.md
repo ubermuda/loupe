@@ -58,6 +58,8 @@ If a revision arrives first, Loupe rejects the verdict and asks the reviewer to 
 The margin has Comments, Outline, Decisions and Details tabs.
 Outline and Decisions show current progress and link to passages in the document.
 Details shows linked cards, outgoing and incoming references, tags, series and version notes.
+In Details, select **Copy review summary** to copy this version’s threads, including resolved threads and replies.
+The summary includes quoted passages, replacement text and unanchored markers.
 The History tab opens the full version list.
 
 Use Left and Right Arrow to select the adjacent tab.

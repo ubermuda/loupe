@@ -617,6 +617,16 @@
                         </dd>
                     </div>
                 </dl>
+                <div data-controller="review-summary"
+                     data-review-summary-header-value="{{ document.title ~ ' · v' ~ version.versionNumber ~ "\n" ~ 'review.document.summary.status'|trans({'%status%': ('document.status.' ~ document.status.value|replace({'-': '_'}))|trans}) }}"
+                     data-review-summary-copied-value="{{ 'review.document.summary.copied'|trans }}"
+                     data-review-summary-failed-value="{{ 'review.document.summary.failed'|trans }}">
+                    <button type="button" class="lp-btn lp-btn--ghost" data-action="review-summary#copy">
+                        <twig:ux:icon name="lucide:copy" class="w-4 h-4" />
+                        {{ 'review.document.summary.copy'|trans }}
+                    </button>
+                    <p class="lp-review-context-panel__hint" data-review-summary-target="status" role="status"></p>
+                </div>
             </aside>
             {% endif %}
             {% endif %}
