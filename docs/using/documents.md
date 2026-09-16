@@ -90,6 +90,8 @@ orphaned threads. Every count is a thread count, so a reply never adds to one.
 
 The General comments and orphaned-thread buttons expand or collapse their groups.
 Each button reports its expanded state to assistive technology.
+You can reverse a panel transition with another click. Panels, dialogs, and flash
+messages skip their movement when your system requests reduced motion.
 
 ### Deleted threads
 

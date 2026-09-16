@@ -1,4 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
+import { prefersReducedMotion } from '../lib/smooth_scroll.js';
 
 // Native details transitions stop firing after the first cycle; WAAPI supports repeated toggles.
 export default class extends Controller {
@@ -20,6 +21,7 @@ export default class extends Controller {
             this.disclosureElement.open =
                 this.disclosureElement.classList.contains('disclosure-open');
         }
+        this.expanded = this.disclosureElement.open;
         this.syncExpandedState();
     }
 
@@ -28,26 +30,32 @@ export default class extends Controller {
             return;
         }
         for (const trigger of this.triggerTargets) {
-            trigger.setAttribute(
-                'aria-expanded',
-                String(this.disclosureElement.open),
-            );
+            trigger.setAttribute('aria-expanded', String(this.expanded));
         }
     }
 
     toggle(event) {
         event.preventDefault();
+        let current;
         if (this.animation) {
+            current = {
+                height: this.contentTarget.getBoundingClientRect().height,
+                opacity: Number(
+                    window.getComputedStyle(this.contentTarget).opacity,
+                ),
+            };
             this.animation.cancel();
+            this.animation = null;
         }
-        if (this.disclosureElement.open) {
-            this.collapse();
+        if (this.expanded) {
+            this.collapse(current);
         } else {
-            this.expand();
+            this.expand(current);
         }
     }
 
-    expand() {
+    expand(current = { height: 0, opacity: 0 }) {
+        this.expanded = true;
         this.disclosureElement.open = true;
         this.syncExpandedState();
         // `.open` on this.element only reflects natively for a real <details>
@@ -58,32 +66,54 @@ export default class extends Controller {
         this.disclosureElement.classList.add('disclosure-open');
         const content = this.contentTarget;
         content.classList.add('open');
-        this.animation = content.animate(
-            { height: ['0px', `${content.scrollHeight}px`], opacity: [0, 1] },
-            { duration: 200, easing: 'ease' },
-        );
-        this.animation.onfinish = () => {
+        const finish = () => {
             content.style.height = 'auto';
             this.animation = null;
         };
+        if (prefersReducedMotion()) {
+            finish();
+        } else {
+            this.animation = content.animate(
+                {
+                    height: [
+                        `${current.height}px`,
+                        `${content.scrollHeight}px`,
+                    ],
+                    opacity: [current.opacity, 1],
+                },
+                { duration: 200, easing: 'ease' },
+            );
+            this.animation.onfinish = finish;
+        }
         if (this.hasAutofocusTarget) {
             this.autofocusTarget.focus();
         }
     }
 
-    collapse() {
+    collapse(
+        current = { height: this.contentTarget.scrollHeight, opacity: 1 },
+    ) {
+        this.expanded = false;
+        this.syncExpandedState();
         const content = this.contentTarget;
-        this.animation = content.animate(
-            { height: [`${content.scrollHeight}px`, '0px'], opacity: [1, 0] },
-            { duration: 200, easing: 'ease' },
-        );
-        this.animation.onfinish = () => {
+        const finish = () => {
             this.disclosureElement.open = false;
-            this.syncExpandedState();
             this.disclosureElement.classList.remove('disclosure-open');
             content.classList.remove('open');
             content.style.height = '';
             this.animation = null;
         };
+        if (prefersReducedMotion()) {
+            finish();
+        } else {
+            this.animation = content.animate(
+                {
+                    height: [`${current.height}px`, '0px'],
+                    opacity: [current.opacity, 0],
+                },
+                { duration: 200, easing: 'ease' },
+            );
+            this.animation.onfinish = finish;
+        }
     }
 }

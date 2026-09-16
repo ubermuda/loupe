@@ -4,6 +4,7 @@
 // Do NOT add CSS animation: rules targeting .mp-dialog-box.is-opening or .mp-dialog-box.is-closing.
 // Only the ::backdrop animations remain as CSS (WAAPI cannot animate the backdrop).
 import { Controller } from '@hotwired/stimulus';
+import { prefersReducedMotion } from '../lib/smooth_scroll.js';
 
 const OPEN_KEYFRAMES = [
     { opacity: 0, transform: 'translateY(-16px)' },
@@ -72,6 +73,10 @@ export default class extends Controller {
         // CSS animations cache state per-element and don't reliably restart
         // after a close/reopen cycle; WAAPI always creates a new animation object.
         dialog.getAnimations().forEach((a) => a.cancel());
+        if (prefersReducedMotion()) {
+            dialog.classList.remove('is-opening');
+            return;
+        }
         const keyframes = isMobile() ? OPEN_KEYFRAMES_MOBILE : OPEN_KEYFRAMES;
         dialog.animate(keyframes, { duration: 220, easing: 'ease-out' });
     }
@@ -107,6 +112,11 @@ export default class extends Controller {
         dialog.classList.remove('is-opening');
         dialog.classList.add('is-closing');
         dialog.getAnimations().forEach((a) => a.cancel());
+
+        if (prefersReducedMotion()) {
+            dialog.classList.remove('is-closing');
+            return Promise.resolve();
+        }
 
         const keyframes = isMobile() ? CLOSE_KEYFRAMES_MOBILE : CLOSE_KEYFRAMES;
         const anim = dialog.animate(keyframes, {
