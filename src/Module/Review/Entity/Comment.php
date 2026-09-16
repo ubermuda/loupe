@@ -34,6 +34,20 @@ class Comment implements ProjectScopedSubject
     #[ORM\Column]
     public bool $orphaned = false;
 
+    #[ORM\Column(nullable: true)]
+    public ?\DateTimeImmutable $deletedAt = null;
+
+    #[ORM\Column(options: ['default' => 0])]
+    public int $deletionSequence = 0;
+
+    public ?\DateTimeImmutable $threadDeletedAt {
+        get => null !== $this->parent ? $this->parent->deletedAt : $this->deletedAt;
+    }
+
+    public bool $isDeleted {
+        get => null !== $this->threadDeletedAt;
+    }
+
     /** The status of the thread this comment belongs to. */
     public CommentStatus $threadStatus {
         get => null !== $this->parent ? $this->parent->status : $this->status;

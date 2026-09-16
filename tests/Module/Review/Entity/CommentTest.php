@@ -24,6 +24,9 @@ final class CommentTest extends TestCase
         self::assertSame(CommentStatus::Pending, $comment->status);
         self::assertFalse($comment->orphaned);
         self::assertNull($comment->parent);
+        self::assertNull($comment->deletedAt);
+        self::assertFalse($comment->isDeleted);
+        self::assertSame(0, $comment->deletionSequence);
 
         $reply = new Comment($version, $user, 'because', new Anchor('hello', '', ' world', 0), $comment);
         self::assertSame($comment, $reply->parent);
@@ -43,5 +46,29 @@ final class CommentTest extends TestCase
         self::assertSame(CommentStatus::Resolved, $root->threadStatus);
         self::assertSame(CommentStatus::Resolved, $reply->threadStatus, 'A reply reports its thread root status, not its own');
         self::assertSame(CommentStatus::Pending, $reply->status, 'A reply keeps its own untouched default');
+    }
+
+    public function test_deletion_belongs_to_the_thread_and_preserves_its_status(): void
+    {
+        $user = new User(fullName: 'Rev', email: 'deleted-thread@example.com');
+        $document = new Document(owner: $user, project: new Project($user, 'p'), title: 'Doc');
+        $version = $document->addVersion('hello world', '<p>hello world</p>');
+        $root = new Comment($version, $user, 'why?', new Anchor('hello', '', ' world', 0));
+        $reply = new Comment($version, $user, 'because', $root->anchor, $root);
+        $root->status = CommentStatus::Resolved;
+        $root->deletedAt = new \DateTimeImmutable('2026-09-16T12:30:00Z');
+        ++$root->deletionSequence;
+
+        self::assertTrue($root->isDeleted);
+        self::assertTrue($reply->isDeleted);
+        self::assertSame($root->deletedAt, $reply->threadDeletedAt);
+        self::assertSame(CommentStatus::Resolved, $root->threadStatus);
+        self::assertNull($reply->deletedAt);
+
+        $root->deletedAt = null;
+        self::assertFalse($root->isDeleted);
+        self::assertFalse($reply->isDeleted);
+        self::assertSame(1, $root->deletionSequence);
+        self::assertSame(CommentStatus::Resolved, $reply->threadStatus);
     }
 }
