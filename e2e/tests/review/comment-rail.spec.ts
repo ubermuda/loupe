@@ -140,6 +140,50 @@ async function commentOn(
     });
 }
 
+test('margin tabs support keyboard navigation and preserve a reply draft', async ({
+    page,
+}) => {
+    await commentOn(page, FIRST, 'Keep this discussion mounted.');
+    const thread = page
+        .locator(THREAD)
+        .filter({ hasText: 'Keep this discussion mounted.' });
+    await thread.locator(MARKER).click();
+    await thread.locator('.lp-comment-reply-disclosure > summary').click();
+    const reply = thread.getByRole('textbox');
+    await reply.fill('An unfinished reply');
+
+    const comments = page.getByRole('tab', { name: 'Comments', exact: true });
+    const outline = page.getByRole('tab', { name: 'Outline', exact: true });
+    const details = page.getByRole('tab', { name: 'Details', exact: true });
+    const filter = page.locator('[data-review-margin-target="filter"]');
+    await filter.locator('summary').click();
+    await comments.focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(outline).toBeFocused();
+    await expect(outline).toHaveAttribute('aria-selected', 'true');
+    await expect(comments).toHaveAttribute('tabindex', '-1');
+    await expect(
+        page.getByRole('tabpanel', { name: 'Outline', exact: true }),
+    ).toBeVisible();
+    await expect(filter).toBeHidden();
+
+    await page.keyboard.press('End');
+    await expect(details).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(comments).toBeFocused();
+    await expect(reply).toHaveValue('An unfinished reply');
+    await expect(filter).toBeVisible();
+    await expect(filter).not.toHaveAttribute('open');
+
+    await page.keyboard.press('ArrowLeft');
+    await expect(details).toBeFocused();
+    await page.keyboard.press('Home');
+    await expect(comments).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(outline).not.toBeFocused();
+    await expect(details).not.toBeFocused();
+});
+
 /** Every visible marker's `top`, in DOM order. */
 async function markerTops(page: Page): Promise<number[]> {
     return page.evaluate(() =>

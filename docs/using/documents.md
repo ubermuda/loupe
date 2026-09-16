@@ -21,6 +21,12 @@ Threads carry a status: pending, addressed, or resolved. The verdict on a
 version is either an approval or a request for changes, submitted at
 `/review/submit`.
 
+The margin has Comments, Outline, Decisions and Details tabs.
+Use Left and Right Arrow to select the adjacent tab.
+Use Home or End to select the first or last tab.
+Tab moves focus out of the tab list.
+Switching tabs preserves an unfinished reply.
+
 When the inbox is on, the review page lists the inbox items linked to the
 document above it, and you can answer them there. See
 [On a card page and a document page](inbox.md#on-a-card-page-and-a-document-page).

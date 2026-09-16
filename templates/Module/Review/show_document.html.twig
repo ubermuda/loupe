@@ -146,13 +146,16 @@
                         {name: 'details', icon: 'lucide:info'},
                     ] %}
                     <button type="button" role="tab"
+                            id="review-margin-tab-{{ marginTab.name }}"
+                            aria-controls="review-margin-panel-{{ marginTab.name }}"
+                            tabindex="{{ loop.first ? '0' : '-1' }}"
                             class="lp-review-margin-tabs__item{{ loop.first ? ' lp-review-margin-tabs__item--active' }}"
                             aria-selected="{{ loop.first ? 'true' : 'false' }}"
                             aria-label="{{ ('review.document.margin.' ~ marginTab.name)|trans }}"
                             title="{{ ('review.document.margin.' ~ marginTab.name)|trans }}"
                             data-review-margin-target="tab"
                             data-review-margin-name-param="{{ marginTab.name }}"
-                            data-action="review-margin#select">
+                            data-action="click->review-margin#select keydown->review-margin#navigate">
                         {% if marginTab.name == 'comments' %}<twig:ux:icon name="lucide:message-square" />{% endif %}
                         {% if marginTab.name == 'outline' %}<twig:ux:icon name="lucide:list-tree" />{% endif %}
                         {% if marginTab.name == 'decisions' %}<twig:ux:icon name="lucide:circle-help" />{% endif %}
@@ -607,11 +610,13 @@
             {# Also on a diff that accepts comments: the add-comment stream
                replaces this list, so a comment made there needs it on the page. #}
             {% if not diffMode or diffCommenting %}
-            <div data-review-margin-target="panel" data-margin-panel="comments">
+            <div data-review-margin-target="panel" data-margin-panel="comments"
+                 {% if not diffMode %}id="review-margin-panel-comments" role="tabpanel" aria-labelledby="review-margin-tab-comments" tabindex="0"{% endif %}>
                 {% include '@Review/_comment_threads.html.twig' with {comments: comments, readOnly: readOnly and not diffCommenting} only %}
             </div>
             {% if not diffMode %}
-            <aside class="lp-review-context-panel" data-review-margin-target="panel" data-margin-panel="outline" hidden>
+            <aside class="lp-review-context-panel" data-review-margin-target="panel" data-margin-panel="outline"
+                   id="review-margin-panel-outline" role="tabpanel" aria-labelledby="review-margin-tab-outline" tabindex="0" hidden>
                 <h2>{{ 'review.document.margin.outline'|trans }}</h2>
                 {% if sectionRows|length > 0 %}
                 <ul class="lp-review-contents__list">
@@ -619,7 +624,8 @@
                 </ul>
                 {% else %}<p class="lp-empty">{{ 'review.document.margin.outline_empty'|trans }}</p>{% endif %}
             </aside>
-            <aside class="lp-review-context-panel" data-review-margin-target="panel" data-margin-panel="decisions" hidden>
+            <aside class="lp-review-context-panel" data-review-margin-target="panel" data-margin-panel="decisions"
+                   id="review-margin-panel-decisions" role="tabpanel" aria-labelledby="review-margin-tab-decisions" tabindex="0" hidden>
                 <h2>{{ 'review.document.margin.decisions'|trans }}</h2>
                 {% if decisionRows|length > 0 %}
                 <ul class="lp-decision-summary__list">
@@ -628,7 +634,8 @@
                 <p class="lp-review-context-panel__hint">{{ 'review.document.margin.decisions_save_hint'|trans }}</p>
                 {% else %}<p class="lp-empty">{{ 'review.document.margin.decisions_empty'|trans }}</p>{% endif %}
             </aside>
-            <aside class="lp-review-context-panel" data-review-margin-target="panel" data-margin-panel="details" hidden>
+            <aside class="lp-review-context-panel" data-review-margin-target="panel" data-margin-panel="details"
+                   id="review-margin-panel-details" role="tabpanel" aria-labelledby="review-margin-tab-details" tabindex="0" hidden>
                 <h2>{{ 'review.document.margin.details'|trans }}</h2>
                 {% set cardLinks = document_card_links(document) %}
                 <dl class="lp-review-details">
