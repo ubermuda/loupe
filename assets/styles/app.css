@@ -2560,13 +2560,14 @@
     .lp-review-doc__prose :is(h1, h2, h3, h4, h5, h6) {
         @apply scroll-mt-16;
     }
-    .lp-review-doc__prose :is(h2, h3, h4) {
-        @apply font-display font-extrabold text-ink text-2xl tracking-tight;
-    }
-    /* A short all-caps label rather than another size of heading: the document's
-       own H2s are already the sub-heading tier. */
     .lp-review-doc__prose h1 {
-        @apply uppercase text-ink text-xs font-bold tracking-widest;
+        @apply font-display text-xl font-extrabold tracking-tight text-ink;
+    }
+    .lp-review-doc__prose h2 {
+        @apply font-display text-lg font-bold tracking-tight text-ink;
+    }
+    .lp-review-doc__prose :is(h3, h4, h5, h6) {
+        @apply font-display text-base font-bold text-ink;
     }
     .lp-review-doc__prose code {
         @apply font-mono bg-surface-3 rounded-md text-ink py-0.5 px-1.5;
