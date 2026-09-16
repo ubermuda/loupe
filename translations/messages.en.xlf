@@ -4398,7 +4398,7 @@
             <!-- Inbox page -->
             <trans-unit id="nav.link.inbox">
                 <source>nav.link.inbox</source>
-                <target>Inbox</target>
+                <target>Needs you</target>
             </trans-unit>
             <trans-unit id="inbox.nav.open_items">
                 <source>inbox.nav.open_items</source>
@@ -4406,12 +4406,13 @@
             </trans-unit>
             <trans-unit id="inbox.page.title">
                 <source>inbox.page.title</source>
-                <target>Inbox</target>
+                <target>Needs you</target>
             </trans-unit>
             <trans-unit id="inbox.page.description">
                 <source>inbox.page.description</source>
-                <target>Questions and to-dos that agents hand to you. Each ask groups what one agent session needs at once.</target>
+                <target>The decisions, reviews, and questions that keep your crew moving.</target>
             </trans-unit>
+            <trans-unit id="inbox.activity"><source>inbox.activity</source><target>View activity</target></trans-unit>
             <trans-unit id="inbox.page.empty">
                 <source>inbox.page.empty</source>
                 <target>No agent has asked you anything yet.</target>

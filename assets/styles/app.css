@@ -651,6 +651,9 @@
     .lp-needs-you__summary {
         @apply inline-flex items-center rounded-full bg-status-pending-bg px-3 py-1.5 text-sm font-bold text-status-pending-deep whitespace-nowrap;
     }
+    .lp-needs-you__header-actions {
+        @apply flex items-center gap-2;
+    }
     .lp-section-tabs__item--active {
         @apply border-accent text-ink;
     }
@@ -733,6 +736,9 @@
         }
         .lp-needs-you__summary {
             @apply self-start;
+        }
+        .lp-needs-you__header-actions {
+            @apply w-full justify-between;
         }
         .lp-inbox-ask__session {
             @apply hidden;

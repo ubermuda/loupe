@@ -176,9 +176,9 @@
 .lp-core-inbox .lp-inbox-section--open,
 .lp-core-inbox .lp-inbox-section--completed {
     display: grid;
-    grid-template-columns: minmax(calc(var(--spacing) * 72), 0.72fr) minmax(
+    grid-template-columns: minmax(calc(var(--spacing) * 72), 0.58fr) minmax(
             0,
-            1.28fr
+            1.42fr
         );
     gap: 0;
     padding: 0;

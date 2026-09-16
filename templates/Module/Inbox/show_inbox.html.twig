@@ -15,9 +15,15 @@
             <h1 class="lp-workspace-title">{{ 'inbox.page.title'|trans }}</h1>
             <p class="lp-workspace-desc">{{ 'inbox.page.description'|trans }}</p>
         </div>
-        {% if not inbox.isSearch %}
-        <span class="lp-needs-you__summary">{{ 'inbox.page.open_summary'|trans({'%count%': inbox.openAsks|length + inbox.looseItems|length}) }}</span>
-        {% endif %}
+        <div class="lp-needs-you__header-actions">
+            {% if not inbox.isSearch %}
+            <span class="lp-needs-you__summary">{{ 'inbox.page.open_summary'|trans({'%count%': inbox.openAsks|length + inbox.looseItems|length}) }}</span>
+            {% endif %}
+            <a class="lp-btn" href="{{ path('app_project_activity', {id: inbox.project.id}) }}">
+                <twig:ux:icon name="lucide:activity" class="w-4 h-4" />
+                {{ 'inbox.activity'|trans }}
+            </a>
+        </div>
     </header>
 
     {% if not inbox.isEmpty and not inbox.isSearch %}
