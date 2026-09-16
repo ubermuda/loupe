@@ -1721,6 +1721,10 @@
     .lp-dialog-desc {
         @apply text-sm text-fg-mute mt-2 mb-4 leading-relaxed;
     }
+    /** Action row for a confirmation dialog. */
+    .lp-dialog-actions {
+        @apply flex items-center justify-end gap-3 pt-2;
+    }
 
     /* ── Danger zone ──────────────────────────────────────────────────── */
 

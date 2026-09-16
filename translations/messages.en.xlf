@@ -5918,6 +5918,10 @@
             <trans-unit id="review.deleted_threads.flash.purged"><source>review.deleted_threads.flash.purged</source><target>Thread permanently purged.</target></trans-unit>
             <trans-unit id="review.deleted_threads.deleted"><source>review.deleted_threads.deleted</source><target>Thread deleted. You can restore it until you purge it.</target></trans-unit>
             <trans-unit id="review.deleted_threads.undo"><source>review.deleted_threads.undo</source><target>Undo</target></trans-unit>
+            <trans-unit id="account.api_token.revoke.title"><source>account.api_token.revoke.title</source><target>Revoke this token?</target></trans-unit>
+            <trans-unit id="account.api_token.revoke.description"><source>account.api_token.revoke.description</source><target>Connections that use “%label%” lose access immediately. You cannot restore this token.</target></trans-unit>
+            <trans-unit id="account.api_token.revoke.cancel"><source>account.api_token.revoke.cancel</source><target>Cancel</target></trans-unit>
+            <trans-unit id="account.api_token.revoke.confirm"><source>account.api_token.revoke.confirm</source><target>Revoke token</target></trans-unit>
         </body>
     </file>
 </xliff>

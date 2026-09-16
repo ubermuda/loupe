@@ -22,6 +22,10 @@ and copy the value from the page: Loupe stores only a hash, so the page shows
 the raw token once and never again. The same page lists every token you own and
 revokes any of them.
 
+Open the API tokens tab and select Revoke beside a token.
+Confirm the dialog to revoke it. Cancel or Escape keeps the token active.
+Revocation immediately prevents authentication with that token. It cannot be undone.
+
 An account-level token always gets the agent scope, which is what the Loupe CLI
 needs. That scope reaches `/api/projects`, `/api/events` and
 `/api/projects/{handle}/board/columns`, and nothing else. It does not reach the

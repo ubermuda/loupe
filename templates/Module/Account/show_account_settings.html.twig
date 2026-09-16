@@ -23,7 +23,7 @@
     <nav class="lp-section-tabs" aria-label="{{ 'account.settings.nav.label'|trans }}" role="tablist">
         <button type="button" class="lp-section-tabs__item" id="account-tab-profile" role="tab" aria-controls="profile" data-panel-tabs-target="tab" data-panel-tab="profile" data-action="click->panel-tabs#select keydown->panel-tabs#keydown"><twig:ux:icon name="lucide:users" />{{ 'account.settings.nav.profile'|trans }}</button>
         <button type="button" class="lp-section-tabs__item" id="account-tab-api-tokens" role="tab" aria-controls="api-tokens" data-panel-tabs-target="tab" data-panel-tab="api-tokens" data-action="click->panel-tabs#select keydown->panel-tabs#keydown"><twig:ux:icon name="lucide:key-round" />{{ 'account.settings.nav.tokens'|trans }}</button>
-        <button type="button" class="lp-section-tabs__item" id="account-tab-data" role="tab" aria-controls="data" data-panel-tabs-target="tab" data-panel-tab="data" data-action="click->panel-tabs#select keydown->panel-tabs#keydown"><twig:ux:icon name="lucide:archive" />{{ 'account.settings.nav.data'|trans }}</button>
+        <button type="button" class="lp-section-tabs__item" id="account-tab-data" role="tab" aria-controls="data danger-zone" data-panel-tabs-target="tab" data-panel-tab="data" data-action="click->panel-tabs#select keydown->panel-tabs#keydown"><twig:ux:icon name="lucide:archive" />{{ 'account.settings.nav.data'|trans }}</button>
     </nav>
 
     <div class="lp-account-settings-content">
@@ -138,11 +138,21 @@
                     {{ 'account.api_token.created'|trans({'%date%': token.createdAt|date('M j, Y')}) }}
                 </span>
             </span>
-            <form method="post" action="{{ path('app_api_token_revoke', {tokenId: token.id}) }}">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
-                <input type="hidden" name="returnTo" value="{{ path('app_account_settings') }}">
-                <button type="submit" class="lp-btn lp-btn--danger-ghost lp-btn--sm">{{ 'account.api_token.action.revoke'|trans }}</button>
-            </form>
+            <div data-controller="modal">
+                <button type="button" class="lp-btn lp-btn--danger-ghost lp-btn--sm" data-action="click->modal#open">{{ 'account.api_token.action.revoke'|trans }}</button>
+                <dialog class="lp-dialog" data-modal-target="dialog" aria-labelledby="revoke-token-title-{{ token.id }}" data-action="cancel->modal#close">
+                    <h2 class="lp-dialog-title" id="revoke-token-title-{{ token.id }}">{{ 'account.api_token.revoke.title'|trans }}</h2>
+                    <p class="lp-dialog-desc">{{ 'account.api_token.revoke.description'|trans({'%label%': token.label}) }}</p>
+                    <form method="post" action="{{ path('app_api_token_revoke', {tokenId: token.id}) }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
+                        <input type="hidden" name="returnTo" value="{{ path('app_account_settings', {tab: 'api-tokens'}) }}">
+                        <div class="lp-dialog-actions">
+                            <button type="button" class="lp-btn lp-btn--ghost" data-action="click->modal#close">{{ 'account.api_token.revoke.cancel'|trans }}</button>
+                            <button type="submit" class="lp-btn lp-btn--danger">{{ 'account.api_token.revoke.confirm'|trans }}</button>
+                        </div>
+                    </form>
+                </dialog>
+            </div>
         </div>
         {% else %}
         <p class="lp-connect-hint" data-testid="api-tokens-empty">{{ 'account.settings.api_tokens.empty'|trans }}</p>
@@ -165,7 +175,7 @@
         </div>
     </section>
 
-    <section class="lp-danger-zone" role="tabpanel" aria-labelledby="account-tab-data" data-panel-tabs-target="panel" data-panel-panel="data" data-testid="delete-account-section" hidden>
+    <section class="lp-danger-zone" id="danger-zone" role="tabpanel" aria-labelledby="account-tab-data" data-panel-tabs-target="panel" data-panel-panel="data" data-testid="delete-account-section" hidden>
         <h2 class="lp-danger-zone-title">{{ 'account.delete.danger.heading'|trans }}</h2>
         <p class="lp-danger-zone-desc">{{ 'account.delete.danger.body'|trans }}</p>
         <form method="post" action="{{ path('app_account_delete_request') }}">
