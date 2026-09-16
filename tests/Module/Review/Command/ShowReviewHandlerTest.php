@@ -111,7 +111,7 @@ final class ShowReviewHandlerTest extends KernelTestCase
             parent: $rootComment,
         );
 
-        $review = new Review($version, Verdict::ChangesRequested, $this->owner);
+        $review = new Review($version, Verdict::ChangesRequested, $this->owner, note: 'Explain the retry behaviour.');
 
         $this->em->persist($doc);
         $this->em->persist($rootComment);
@@ -123,6 +123,7 @@ final class ShowReviewHandlerTest extends KernelTestCase
 
         self::assertSame('in-review', $result['status']);
         self::assertSame('changes-requested', $result['verdict']);
+        self::assertSame('Explain the retry behaviour.', $result['note']);
         self::assertSame(1, $result['version']);
 
         $comments = $result['comments'];

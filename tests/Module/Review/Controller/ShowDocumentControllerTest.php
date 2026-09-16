@@ -200,10 +200,8 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertSelectorCount(4, '.lp-review-margin-tabs [role="tab"]');
         self::assertSelectorTextContains('.lp-review-margin-tabs', 'Comments');
         self::assertSelectorExists('[data-margin-panel="details"]');
-        // While the document is still in review both verdict buttons are offered;
-        // the bar that reports a verdict only replaces them once there is one.
-        self::assertSelectorExists('button[name="submit_review_form[verdict]"][value="approved"]');
-        self::assertSelectorExists('button[name="submit_review_form[verdict]"][value="changes-requested"]');
+        self::assertSelectorExists('input[name="submit_review_form[verdict]"][value="approved"]');
+        self::assertSelectorExists('input[name="submit_review_form[verdict]"][value="changes-requested"]');
         self::assertSelectorNotExists('.lp-verdict-bar');
     }
 
@@ -507,8 +505,8 @@ final class ShowDocumentControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$documentId.'/review');
         self::assertSelectorNotExists('.lp-verdict-bar');
         // The top bar carries the pair above lg and the review menu below it.
-        self::assertCount(2, $crawler->filter('.lp-topbar__actions button[name="submit_review_form[verdict]"]'));
-        self::assertCount(2, $crawler->filter('.lp-review-menu button[name="submit_review_form[verdict]"]'));
+        self::assertCount(2, $crawler->filter('dialog input[name="submit_review_form[verdict]"]'));
+        self::assertCount(1, $crawler->filter('.lp-review-menu__verdict'));
     }
 
     public function test_a_comment_card_shows_its_age_and_an_undated_one_shows_none(): void
@@ -569,7 +567,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         // Once a verdict exists it replaces the buttons that produced it.
         self::assertSelectorExists('.lp-verdict-bar--approved');
         self::assertSelectorTextContains('.lp-verdict-bar__title', 'Approved');
-        self::assertSelectorNotExists('button[name="submit_review_form[verdict]"]');
+        self::assertSelectorNotExists('input[name="submit_review_form[verdict]"]');
     }
 
     public function test_non_owner_gets_403(): void
@@ -698,7 +696,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertCount(0, $earlier->filter('.lp-comment-composer'), 'the composer posts onto the current version');
         self::assertCount(0, $earlier->filter('.lp-anchor-toolbar'));
         self::assertCount(0, $earlier->filter('form[name="strike_passage_form"]'), 'a strike would land on the wrong version');
-        self::assertCount(0, $earlier->filter('button[name="submit_review_form[verdict]"]'), 'the verdict applies to the document as it stands');
+        self::assertCount(0, $earlier->filter('input[name="submit_review_form[verdict]"]'), 'the verdict applies to the document as it stands');
         self::assertCount(0, $earlier->filter('.lp-comment-thread form'), 'reply, resolve and delete all act on the live discussion');
 
         // Same page on the current version, to prove the assertions above are not
@@ -707,8 +705,8 @@ final class ShowDocumentControllerTest extends WebTestCase
         // Two composers: one for a comment, one for a rewording.
         self::assertCount(2, $latest->filter('.lp-comment-composer'));
         self::assertCount(1, $latest->filter('form[name="strike_passage_form"]'));
-        self::assertCount(2, $latest->filter('.lp-topbar__actions button[name="submit_review_form[verdict]"]'));
-        self::assertCount(2, $latest->filter('.lp-review-menu button[name="submit_review_form[verdict]"]'));
+        self::assertCount(2, $latest->filter('dialog input[name="submit_review_form[verdict]"]'));
+        self::assertCount(1, $latest->filter('.lp-review-menu__verdict'));
         self::assertGreaterThan(0, $latest->filter('.lp-comment-thread form')->count());
         self::assertCount(1, $latest->filter('.lp-comment-thread__footer .lp-comment-action--delete'));
         self::assertCount(1, $latest->filter('.lp-comment-thread__footer [data-comment-reply-target="form"][hidden]'));

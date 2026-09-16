@@ -507,8 +507,8 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertCount(1, $latest->filter('[data-controller~="comment-anchor"]'));
         self::assertCount(1, $latest->filter('[data-comment-anchor-target="doc"]'));
         self::assertCount(1, $latest->filter('#comment-threads'));
-        self::assertCount(2, $latest->filter('.lp-topbar__actions button[name="submit_review_form[verdict]"]'));
-        self::assertCount(2, $latest->filter('.lp-review-menu button[name="submit_review_form[verdict]"]'));
+        self::assertCount(2, $latest->filter('dialog input[name="submit_review_form[verdict]"]'));
+        self::assertCount(1, $latest->filter('.lp-review-menu__verdict'));
         // Not an exact count: how many composers the review page offers is the
         // business of whatever review actions exist, and it has already grown from
         // one to two. What this control has to establish is that the selector
@@ -553,7 +553,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertGreaterThan(0, $diff->filter('.lp-comment-composer')->count());
 
         // Still a comparison: nothing that reports on a single version is offered.
-        self::assertCount(0, $diff->filter('button[name="submit_review_form[verdict]"]'));
+        self::assertCount(0, $diff->filter('input[name="submit_review_form[verdict]"]'));
 
         // Inserted text carries an offset. Deleted text carries none, which is
         // what lets the browser refuse a selection that touches it.

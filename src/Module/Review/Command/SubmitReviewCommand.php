@@ -16,6 +16,7 @@ final readonly class SubmitReviewCommand
         // throws DomainErrors on an unrecognised value.
         public string $verdict,
         public int $versionNumber,
+        public ?string $note = null,
     ) {
     }
 }

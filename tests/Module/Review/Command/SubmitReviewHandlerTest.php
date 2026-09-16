@@ -60,6 +60,7 @@ final class SubmitReviewHandlerTest extends KernelTestCase
             document: $doc,
             verdict: Verdict::ChangesRequested->value,
             versionNumber: 1,
+            note: '  Explain the retry behaviour.  ',
         ));
 
         self::assertInstanceOf(Review::class, $review);
@@ -78,6 +79,7 @@ final class SubmitReviewHandlerTest extends KernelTestCase
         $savedReview = $reviewRepo->findOneBy(['version' => $currentVersion]);
         self::assertInstanceOf(Review::class, $savedReview);
         self::assertSame(Verdict::ChangesRequested, $savedReview->verdict);
+        self::assertSame('Explain the retry behaviour.', $savedReview->note);
     }
 
     public function test_approved_creates_review_and_transitions_status(): void

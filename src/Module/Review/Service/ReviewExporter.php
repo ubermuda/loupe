@@ -29,6 +29,7 @@ final readonly class ReviewExporter implements UserDataExporterInterface
                 'document' => $review->version->document->title,
                 'versionNumber' => $review->version->versionNumber,
                 'verdict' => $review->verdict->value,
+                'note' => $review->note,
                 'submittedAt' => $review->submittedAt->format(\DateTimeInterface::ATOM),
             ];
         }

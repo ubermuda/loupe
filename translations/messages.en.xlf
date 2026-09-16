@@ -1331,6 +1331,46 @@
                 <source>review.document.flash.verdict_stale</source>
                 <target>The document has a newer version. Review the current version before you submit a verdict.</target>
             </trans-unit>
+            <trans-unit id="review.document.flash.note_required">
+                <source>review.document.flash.note_required</source>
+                <target>Explain the changes you request in a review note.</target>
+            </trans-unit>
+            <trans-unit id="review.document.finish.title">
+                <source>review.document.finish.title</source>
+                <target>Finish review</target>
+            </trans-unit>
+            <trans-unit id="review.document.finish.context">
+                <source>review.document.finish.context</source>
+                <target>v%version% · %approved%/%total% sections approved · %open% open threads</target>
+            </trans-unit>
+            <trans-unit id="review.document.finish.cancel">
+                <source>review.document.finish.cancel</source>
+                <target>Cancel</target>
+            </trans-unit>
+            <trans-unit id="review.document.finish.submit">
+                <source>review.document.finish.submit</source>
+                <target>Submit review</target>
+            </trans-unit>
+            <trans-unit id="review.form.submit_review_form.verdict.label">
+                <source>review.form.submit_review_form.verdict.label</source>
+                <target>Verdict</target>
+            </trans-unit>
+            <trans-unit id="review.form.submit_review_form.verdict.approve">
+                <source>review.form.submit_review_form.verdict.approve</source>
+                <target>Approve</target>
+            </trans-unit>
+            <trans-unit id="review.form.submit_review_form.verdict.changes">
+                <source>review.form.submit_review_form.verdict.changes</source>
+                <target>Request changes</target>
+            </trans-unit>
+            <trans-unit id="review.form.submit_review_form.note.label">
+                <source>review.form.submit_review_form.note.label</source>
+                <target>Review note</target>
+            </trans-unit>
+            <trans-unit id="review.form.submit_review_form.note.help">
+                <source>review.form.submit_review_form.note.help</source>
+                <target>A note is required when you request changes.</target>
+            </trans-unit>
             <trans-unit id="review.document.verdict.request_changes">
                 <source>review.document.verdict.request_changes</source>
                 <target>Request changes</target>

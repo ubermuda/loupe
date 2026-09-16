@@ -21,24 +21,12 @@
 {% endblock %}
 
 {% block topbar_actions %}
-    {# The verdict actions leave the bar once a verdict exists — the bar at the
-       bottom of the paper is what reports it from then on. #}
-    {% if not readOnly and not diffMode and document.status.value == 'in-review' %}
-    <form class="lp-topbar__actions" method="POST" action="{{ path('app_document_review_submit', {projectId: document.project.id, documentId: document.id}) }}">
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token('submit-review') }}">
-        <input type="hidden" name="submit_review_form[versionNumber]" value="{{ version.versionNumber }}">
-        <button type="submit" name="submit_review_form[verdict]" value="changes-requested" class="lp-btn lp-btn--outline">
-            {{ 'review.document.verdict.request_changes'|trans }}
-        </button>
-        <button type="submit" name="submit_review_form[verdict]" value="approved" class="lp-btn lp-btn--primary">
-            {{ 'review.document.verdict.approve'|trans }}
-        </button>
-    </form>
-    {% endif %}
 {% endblock %}
 
 {% block body %}
-<div class="lp-review" data-site-review-quotes="off" data-controller="card-drawer">
+{% set finishReviewAvailable = not diffMode and not readOnly and (document.status.value == 'in-review' or submitReviewForm.vars.submitted) %}
+<div class="lp-review" data-site-review-quotes="off" data-controller="card-drawer{{ finishReviewAvailable ? ' modal' : '' }}"
+     {% if finishReviewAvailable %}data-modal-reopen-value="{{ submitReviewForm.vars.submitted ? 'true' : 'false' }}"{% endif %}>
     {# Both controllers pass diffMode explicitly: Twig's `default` filter fires
        on any falsy value, so `|default(true)` would send every show-page render
        down the diff branch. A comparison names itself with the chip in the
@@ -105,6 +93,13 @@
                     </a>
                     <h1 class="lp-review-doc__title">{{ document.title }}</h1>
                     <span class="lp-review-doc__version">{{ 'v' ~ version.versionNumber }}</span>
+                    {% if not readOnly and not diffMode and document.status.value == 'in-review' %}
+                    <div class="lp-review-doc__actions">
+                        <button type="button" class="lp-btn lp-btn--primary" data-action="click->modal#open">
+                            {{ 'review.document.finish.title'|trans }}
+                        </button>
+                    </div>
+                    {% endif %}
                 </div>
                 <p class="lp-review-doc__byline">{{ 'review.document.byline'|trans({
                     '%status%': ('document.status.' ~ document.status.value|replace({'-': '_'}))|trans,
@@ -853,9 +848,6 @@
         {% endif %}
     </div>
 
-    {# The verdict, once there is one. The buttons that produce it live in the
-       top bar and disappear when it does — this is what reports the outcome
-       from then on. #}
     {% if not readOnly and not diffMode and document.status.value != 'in-review' %}
     {% set verdict = document.status.value %}
     <div class="lp-verdict-bar lp-verdict-bar--{{ verdict }}">
@@ -863,12 +855,55 @@
         <span class="lp-verdict-bar__text">
             <span class="lp-verdict-bar__title">{{ ('review.document.verdict.' ~ verdict)|trans }}</span>
             <span class="lp-verdict-bar__detail">{{ ('review.document.verdict.' ~ verdict ~ '_detail')|trans }}</span>
+            {% if review %}
+            <span class="lp-verdict-bar__detail">{{ review.reviewer.fullName }} · {{ review.submittedAt|relative_time }} · {{ 'v' ~ review.version.versionNumber }}</span>
+            {% if review.note %}<span class="lp-review-verdict-note">{{ review.note }}</span>{% endif %}
+            {% endif %}
         </span>
         <form class="lp-verdict-bar__undo" method="POST" action="{{ path('app_document_review_undo', {projectId: document.project.id, documentId: document.id}) }}">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('submit-review') }}">
             <button type="submit" class="lp-btn lp-btn--ghost lp-btn--sm">{{ 'review.document.verdict.undo'|trans }}</button>
         </form>
     </div>
+    {% endif %}
+
+    {% if finishReviewAvailable %}
+    <dialog class="lp-dialog" data-modal-target="dialog" aria-labelledby="finish-review-title" data-action="cancel->modal#close">
+        <h2 class="lp-dialog-title" id="finish-review-title">{{ 'review.document.finish.title'|trans }}</h2>
+        <p class="lp-dialog-desc">{{ 'review.document.finish.context'|trans({
+            '%version%': submitReviewForm.versionNumber.vars.value,
+            '%approved%': sections.approvedCount,
+            '%total%': sections.rows|length,
+            '%open%': signals.openThreadCount,
+        }) }}</p>
+        {{ form_start(submitReviewForm, {attr: {class: 'lp-form'}}) }}
+            <div class="lp-field-errors">{{ form_errors(submitReviewForm) }}{{ form_errors(submitReviewForm.versionNumber) }}</div>
+            {{ form_widget(submitReviewForm.versionNumber, {type: 'hidden'}) }}
+            <fieldset class="lp-form-field">
+                <legend class="lp-label">{{ submitReviewForm.verdict.vars.label|trans }}</legend>
+                {% for choice in submitReviewForm.verdict %}
+                <label class="lp-review-verdict-choice">
+                    {{ form_widget(choice) }}
+                    <span>{{ choice.vars.label|trans }}</span>
+                </label>
+                {% endfor %}
+                <div class="lp-field-errors">{{ form_errors(submitReviewForm.verdict) }}</div>
+            </fieldset>
+            <div class="lp-form-field">
+                {{ form_label(submitReviewForm.note, null, {label_attr: {class: 'lp-label'}}) }}
+                {{ form_widget(submitReviewForm.note, {attr: {class: 'lp-input', rows: 4}}) }}
+                <p class="lp-form-hint">{{ submitReviewForm.note.vars.help|trans }}</p>
+                <div class="lp-field-errors">{{ form_errors(submitReviewForm.note) }}</div>
+            </div>
+            {% if not submitReviewForm.versionNumber.vars.valid %}
+            <a class="lp-btn lp-btn--outline" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">{{ 'review.document.version.back_to_latest'|trans }}</a>
+            {% endif %}
+            <div class="lp-review-verdict-actions">
+                <button type="button" class="lp-btn lp-btn--ghost" data-action="click->modal#close">{{ 'review.document.finish.cancel'|trans }}</button>
+                <button type="submit" class="lp-btn lp-btn--primary">{{ 'review.document.finish.submit'|trans }}</button>
+            </div>
+        {{ form_end(submitReviewForm) }}
+    </dialog>
     {% endif %}
 
     <dialog class="lp-card-drawer-overlay"

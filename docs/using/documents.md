@@ -17,9 +17,12 @@ reviewer wants that passage to become — which the author applies by rewriting
 the Markdown and submitting a new version. Loupe never edits the document
 itself.
 
-Threads carry a status: pending, addressed, or resolved. The verdict on a
-version is either an approval or a request for changes, submitted at
-`/review/submit`.
+Threads carry a status: pending, addressed, or resolved.
+Select **Finish review** beside the document title to approve the version or request changes.
+A request for changes requires a review note. An approval can include a note.
+The saved verdict shows the reviewer, version, time and note.
+The account export and `document_get_review` result include the note.
+Open threads and unapproved sections do not prevent approval.
 
 A verdict applies to the version shown when the reviewer opens the page.
 If a revision arrives first, Loupe rejects the verdict and asks the reviewer to check the current version.

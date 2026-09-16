@@ -8,6 +8,7 @@ use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
+use App\Module\Review\Repository\ReviewRepository;
 use App\Module\Review\Service\DecisionBlockService;
 use App\Module\Review\Service\DecisionSummaryReader;
 use App\Module\Review\Service\HeadingExtractor;
@@ -26,6 +27,7 @@ final readonly class ShowDocumentHandler
         private DecisionSummaryReader $decisionSummary,
         private LastSeenVersionResolver $lastSeenVersion,
         private SectionApprovalReader $sectionApprovals,
+        private ReviewRepository $reviews,
     ) {
     }
 
@@ -61,6 +63,7 @@ final readonly class ShowDocumentHandler
             ),
             lastSeenVersionNumber: $this->lastSeenVersion->versionNumberFor($command->document, $command->reader),
             sections: ($this->sectionApprovals)($command->document, $version, $headings, $command->reader),
+            review: $this->reviews->findStandingVerdictByVersion($version),
         );
     }
 

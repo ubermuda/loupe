@@ -22,6 +22,7 @@ final class SubmitReviewRequest
         #[Assert\NotNull]
         #[Assert\Positive]
         public ?int $versionNumber = null,
+        public ?string $note = null,
     ) {
     }
 }

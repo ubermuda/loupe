@@ -216,8 +216,10 @@ test.describe('per-section approval', () => {
         await expectSectionCount(page, '1/2');
 
         await page
-            .getByRole('button', { name: 'Approve', exact: true })
+            .getByRole('button', { name: 'Finish review', exact: true })
             .click();
+        await page.getByRole('radio', { name: 'Approve', exact: true }).check();
+        await page.getByRole('button', { name: 'Submit review' }).click();
         // Same generous wait as the count above: the verdict still redirects
         // and re-renders on the shared container.
         await expect(page.locator('.lp-verdict-bar')).toBeVisible({

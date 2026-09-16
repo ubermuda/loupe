@@ -364,10 +364,24 @@ test('a stale review page cannot approve a newer version', async ({
         },
     );
     expect(revised.status()).toBe(200);
-    await page.getByRole('button', { name: 'Approve', exact: true }).click();
-    await expect(page.locator('.lp-flash--error')).toContainText(
-        'The document has a newer version.',
-    );
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    await page.getByRole('radio', { name: 'Approve', exact: true }).check();
+    await page
+        .getByRole('textbox', { name: 'Review note' })
+        .fill('Keep this draft.');
+    await page.getByRole('button', { name: 'Submit review' }).click();
+    await expect(
+        page
+            .getByRole('dialog', { name: 'Finish review' })
+            .locator('.lp-field-errors')
+            .filter({ hasText: 'The document has a newer version.' }),
+    ).toContainText('The document has a newer version.');
+    await expect(
+        page.getByRole('textbox', { name: 'Review note' }),
+    ).toHaveValue('Keep this draft.');
+    await page.getByRole('link', { name: 'Go to the current version' }).click();
     await expect(page.locator('.lp-review-doc__version')).toHaveText('v2');
     await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
     await page.goto(review.dashboardUrl);
@@ -389,7 +403,28 @@ test('requesting changes shows the verdict on the project dashboard', async ({
         timeout: coverageScaled(10000),
     });
 
-    await page.getByRole('button', { name: 'Request changes' }).click();
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    await page.getByRole('radio', { name: 'Request changes' }).check();
+    await page.getByRole('button', { name: 'Submit review' }).click();
+    await expect(
+        page.getByRole('dialog', { name: 'Finish review' }),
+    ).toContainText('Explain the changes you request in a review note.');
+    await page
+        .getByRole('textbox', { name: 'Review note' })
+        .fill('Explain the retry behaviour.');
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(
+        page.getByRole('dialog', { name: 'Finish review' }),
+    ).toBeHidden();
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    await expect(
+        page.getByRole('textbox', { name: 'Review note' }),
+    ).toHaveValue('Explain the retry behaviour.');
+    await page.getByRole('button', { name: 'Submit review' }).click();
 
     // The form POSTs (Turbo Drive) and redirects back to the *same* review URL,
     // so "doc is visible" proves nothing (it never went away). Wait for the
@@ -410,6 +445,9 @@ test('requesting changes shows the verdict on the project dashboard', async ({
     // Leave and come back: the verdict is stored, not a property of the response
     // that happened to follow the POST.
     await page.goto(review.reviewUrl);
+    await expect(page.locator('.lp-review-verdict-note')).toHaveText(
+        'Explain the retry behaviour.',
+    );
     await page.goto(review.dashboardUrl);
     await expect(badge).toHaveText('Changes requested');
 });

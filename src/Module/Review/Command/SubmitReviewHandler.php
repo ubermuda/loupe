@@ -34,9 +34,14 @@ final readonly class SubmitReviewHandler
             throw new DomainErrors(['verdict' => 'review.document.flash.verdict_invalid']);
         }
 
+        $note = trim($command->note ?? '');
+        if (Verdict::ChangesRequested === $verdict && '' === $note) {
+            throw new DomainErrors(['note' => 'review.document.flash.note_required']);
+        }
+
         $document = $command->document;
 
-        return $this->em->wrapInTransaction(function () use ($command, $document, $verdict): Review {
+        $result = $this->em->wrapInTransaction(function () use ($command, $document, $verdict, $note): Review|DomainErrors {
             // The version is read under the document's own row lock, as
             // SelectDecisionOptionHandler does: a revision landing between the
             // read and the write would otherwise attach the verdict to a
@@ -45,7 +50,7 @@ final readonly class SubmitReviewHandler
 
             $version = $this->documentVersions->findLatest($document);
             if ($version->versionNumber !== $command->versionNumber) {
-                throw new DomainErrors(['versionNumber' => 'review.document.flash.verdict_stale']);
+                return new DomainErrors(['versionNumber' => 'review.document.flash.verdict_stale']);
             }
 
             // Appended rather than replacing whatever stands: a version may be
@@ -55,6 +60,7 @@ final readonly class SubmitReviewHandler
                 verdict: $verdict,
                 reviewer: $command->reviewer,
                 sequence: $this->reviews->nextSequenceFor($version),
+                note: '' === $note ? null : $note,
             );
 
             $document->status = $verdict->documentStatus();
@@ -64,5 +70,11 @@ final readonly class SubmitReviewHandler
 
             return $review;
         });
+
+        if ($result instanceof DomainErrors) {
+            throw $result;
+        }
+
+        return $result;
     }
 }

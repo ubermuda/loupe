@@ -15,6 +15,7 @@ use App\Module\Review\Form\SubmitReviewFormType;
 use App\Module\Review\Form\SubmitReviewRequest;
 use App\Module\Review\Security\DocumentVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -23,9 +24,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
-use Ubermuda\SymfonyExtra\Csrf\Attribute\CsrfToken;
 
-#[CsrfToken('submit-review')]
 #[IsGranted(DocumentVoter::CONTRIBUTE, subject: 'document')]
 #[Route(
     '/projects/{projectId}/documents/{documentId}/review/submit',
@@ -47,65 +46,60 @@ final class SubmitReviewController extends AppController
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(documentId, projectId)')] Document $document,
     ): Response {
         $data = new SubmitReviewRequest();
-        $form = $this->createForm(SubmitReviewFormType::class, $data);
-        $form->handleRequest($request);
-
-        if (!$form->isSubmitted() || !$form->isValid()) {
-            $this->addFlash('error', $this->translator->trans('review.document.flash.verdict_invalid'));
-
-            return $this->redirectToRoute('app_document_review', [
+        $form = $this->createForm(SubmitReviewFormType::class, $data, [
+            'action' => $this->generateUrl('app_document_review_submit', [
                 'projectId' => (string) $project->id,
                 'documentId' => (string) $document->id,
-            ]);
-        }
+            ]),
+        ]);
+        $form->handleRequest($request);
 
         $user = $this->getUser();
         if (!$user instanceof User) {
             throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s); this route must stay behind the ROLE_USER catch-all.', self::class, get_debug_type($user)));
         }
 
-        $verdict = $data->verdict ?? '';
-        if ('' === $verdict) {
-            throw new \LogicException('verdict required after validation');
-        }
+        if ($form->isSubmitted() && $form->isValid() && null !== $data->versionNumber) {
+            try {
+                $review = ($this->submitReviewHandler)(new SubmitReviewCommand(
+                    reviewer: $user,
+                    document: $document,
+                    verdict: $data->verdict ?? '',
+                    versionNumber: $data->versionNumber,
+                    note: $data->note,
+                ));
 
-        try {
-            $review = ($this->submitReviewHandler)(new SubmitReviewCommand(
-                reviewer: $user,
-                document: $document,
-                verdict: $verdict,
-                versionNumber: $data->versionNumber ?? throw new \LogicException('versionNumber required after validation'),
-            ));
-        } catch (DomainErrors $e) {
-            foreach ($e->errors as $translationKey) {
-                $this->addFlash('error', $this->translator->trans($translationKey));
+                $this->addFlash('success', $this->translator->trans('review.document.flash.verdict_submitted'));
+
+                $this->auditor->record(
+                    'review.document_verdict_submitted',
+                    AuditOutcome::Success,
+                    [
+                        'documentId' => (string) $document->id,
+                        'verdict' => $review->verdict->value,
+                        // Whose verdict the Review row carries, not who acted — the
+                        // Auditor resolves the actor itself. The two coincide only
+                        // while a reviewer can submit on nobody else's behalf.
+                        'reviewerId' => (string) $user->id,
+                    ],
+                    new AuditSubject('document', (string) $document->id),
+                );
+
+                return $this->redirectToRoute('app_document_review', [
+                    'projectId' => (string) $project->id,
+                    'documentId' => (string) $document->id,
+                ]);
+            } catch (DomainErrors $e) {
+                foreach ($e->errors as $field => $translationKey) {
+                    $form->get($field)->addError(new FormError($this->translator->trans($translationKey)));
+                }
             }
-
-            return $this->redirectToRoute('app_document_review', [
-                'projectId' => (string) $project->id,
-                'documentId' => (string) $document->id,
-            ]);
         }
 
-        $this->addFlash('success', $this->translator->trans('review.document.flash.verdict_submitted'));
-
-        $this->auditor->record(
-            'review.document_verdict_submitted',
-            AuditOutcome::Success,
-            [
-                'documentId' => (string) $document->id,
-                'verdict' => $review->verdict->value,
-                // Whose verdict the Review row carries, not who acted — the
-                // Auditor resolves the actor itself. The two coincide only
-                // while a reviewer can submit on nobody else's behalf.
-                'reviewerId' => (string) $user->id,
-            ],
-            new AuditSubject('document', (string) $document->id),
-        );
-
-        return $this->redirectToRoute('app_document_review', [
+        return $this->forward(ShowDocumentController::class, [
             'projectId' => (string) $project->id,
             'documentId' => (string) $document->id,
-        ]);
+            'submitReviewForm' => $form->createView(),
+        ])->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 }

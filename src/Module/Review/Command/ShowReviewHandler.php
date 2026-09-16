@@ -22,6 +22,7 @@ use App\Module\Review\ValueObject\DocumentHeading;
  * @phpstan-type ReviewPayload array{
  *     status: string,
  *     verdict: string|null,
+ *     note: string|null,
  *     version: int,
  *     comments: list<array{id: string, quote: string, body: string, replacement: string|null, author: 'agent'|'human', status: string, orphaned: bool, thread: list<array{id: string, quote: string, body: string, author: 'agent'|'human', orphaned: bool}>}>,
  *     decisions: list<array{id: string, type: string, options: list<string>, selected: string|null, selected_index: int|null, answered_at: string|null, answered_at_version: int|null, selections: list<array{option: string, index: int|null, answered_at: string, answered_at_version: int}>}>,
@@ -188,6 +189,7 @@ final readonly class ShowReviewHandler
         return [
             'status' => $document->status->value,
             'verdict' => $review?->verdict->value,
+            'note' => $review?->note,
             'version' => $currentVersion->versionNumber,
             'comments' => $threadedComments,
             'decisions' => $decisions,

@@ -16,10 +16,13 @@ use App\Module\Review\Form\SelectDecisionOptionFormType;
 use App\Module\Review\Form\SelectDecisionOptionRequest;
 use App\Module\Review\Form\StrikePassageFormType;
 use App\Module\Review\Form\StrikePassageRequest;
+use App\Module\Review\Form\SubmitReviewFormType;
+use App\Module\Review\Form\SubmitReviewRequest;
 use App\Module\Review\Form\SuggestRewordingFormType;
 use App\Module\Review\Form\SuggestRewordingRequest;
 use App\Module\Review\Security\DocumentVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -49,6 +52,7 @@ final class ShowDocumentController extends AppController
     }
 
     public function __invoke(
+        Request $request,
         #[MapEntity(mapping: ['projectId' => 'id'])] Project $project,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(documentId, projectId)')] Document $document,
         ?int $versionNumber = null,
@@ -64,6 +68,12 @@ final class ShowDocumentController extends AppController
             'projectId' => (string) $project->id,
             'documentId' => (string) $document->id,
         ];
+
+        $submitReviewForm = $this->getInjectedFormView($request, 'submitReviewForm') ?? $this->createForm(
+            SubmitReviewFormType::class,
+            new SubmitReviewRequest(versionNumber: $view->version->versionNumber),
+            ['action' => $this->generateUrl('app_document_review_submit', $routeParameters)],
+        )->createView();
 
         $addCommentForm = $this->createForm(AddCommentFormType::class, new AddCommentRequest(), [
             'action' => $this->generateUrl('app_comment_add', $routeParameters),
@@ -90,6 +100,8 @@ final class ShowDocumentController extends AppController
 
         return $this->render('@Review/show_document.html.twig', [
             'document' => $view->document,
+            'review' => $view->review,
+            'submitReviewForm' => $submitReviewForm,
             'version' => $view->version,
             'versions' => $view->versions,
             // The shared page shell reads these to decide whether it is showing a

@@ -73,6 +73,7 @@ final readonly class ToolCallErrorMessages
             'review.document.flash.verdict_already_withdrawn' => 'You already withdrew your verdict on this document.',
             'review.document.flash.verdict_invalid' => 'That verdict is not one this document accepts.',
             'review.document.flash.verdict_stale' => 'The document has a newer version. Review it before you submit a verdict.',
+            'review.document.flash.note_required' => 'Explain the changes you request in a review note.',
             'comment.error.not_owner' => 'You can only comment on your own documents.',
             'comment.error.reply_empty' => 'A reply must not be blank.',
             'comment.error.reply_too_long' => \sprintf('A reply must be at most %d bytes.', ReplyToCommentHandler::MAX_BODY_BYTES),

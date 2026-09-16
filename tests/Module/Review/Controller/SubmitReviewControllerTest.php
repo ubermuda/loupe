@@ -20,14 +20,39 @@ use Ubermuda\AuditBundle\AuditOutcome;
 
 final class SubmitReviewControllerTest extends WebTestCase
 {
+    public function test_requesting_changes_requires_a_note_and_preserves_the_verdict(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$owner, , $projectId, $docId] = $this->seedOwnerAndDocument($em, 'note');
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, "/projects/$projectId/documents/$docId/review");
+        $client->submit($crawler->selectButton('Submit review')->form([
+            'submit_review_form[verdict]' => 'changes-requested',
+            'submit_review_form[note]' => '   ',
+        ]));
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('dialog .lp-field-errors li', 'Explain the changes you request in a review note.');
+        self::assertSelectorExists('input[name="submit_review_form[verdict]"][value="changes-requested"]:checked');
+        self::assertSelectorExists('[data-modal-reopen-value="true"]');
+
+        $fresh = static::getContainer()->get(EntityManagerInterface::class)->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $fresh);
+        self::assertSame(DocumentStatus::InReview, $fresh->status);
+        $reviews = static::getContainer()->get(\App\Module\Review\Repository\ReviewRepository::class);
+        self::assertNull($reviews->findNewestByVersion($fresh->currentVersion()));
+    }
+
     public function test_a_stale_verdict_does_not_approve_a_new_version(): void
     {
         $client = static::createClient();
+        $client->catchExceptions(false);
         $em = static::getContainer()->get(EntityManagerInterface::class);
         [$owner, , $projectId, $docId] = $this->seedOwnerAndDocument($em, 'stale');
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, "/projects/$projectId/documents/$docId/review");
-        $form = $crawler->selectButton('Approve')->form();
+        $form = $crawler->selectButton('Submit review')->form(['submit_review_form[verdict]' => 'approved', 'submit_review_form[note]' => 'Keep this note.']);
         self::assertSame('1', $crawler->filter('input[name="submit_review_form[versionNumber]"]')->first()->attr('value'));
 
         $document = $em->find(Document::class, $docId);
@@ -37,9 +62,9 @@ final class SubmitReviewControllerTest extends WebTestCase
         $em->clear();
 
         $client->submit($form);
-        self::assertResponseRedirects("/projects/$projectId/documents/$docId/review");
-        $client->followRedirect();
-        self::assertSelectorTextContains('.lp-flash--error', 'The document has a newer version.');
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('dialog .lp-field-errors li', 'The document has a newer version.');
+        self::assertSelectorTextContains('textarea[name="submit_review_form[note]"]', 'Keep this note.');
 
         $fresh = static::getContainer()->get(EntityManagerInterface::class)->find(Document::class, $docId);
         self::assertInstanceOf(Document::class, $fresh);
@@ -57,12 +82,10 @@ final class SubmitReviewControllerTest extends WebTestCase
         $client->loginUser($owner);
         $client->request(Request::METHOD_GET, "/projects/$projectId/documents/$docId/review");
         $client->request(Request::METHOD_POST, "/projects/$projectId/documents/$docId/review/submit", [
-            '_csrf_token' => 'csrf-token',
-            'submit_review_form' => ['verdict' => 'approved'],
+            'submit_review_form' => ['_token' => 'csrf-token', 'verdict' => 'approved'],
         ]);
-        self::assertResponseRedirects("/projects/$projectId/documents/$docId/review");
-        $client->followRedirect();
-        self::assertSelectorExists('.lp-flash--error');
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorExists('.lp-field-errors li');
         $fresh = static::getContainer()->get(EntityManagerInterface::class)->find(Document::class, $docId);
         self::assertInstanceOf(Document::class, $fresh);
         self::assertSame(DocumentStatus::InReview, $fresh->status);
@@ -116,20 +139,20 @@ final class SubmitReviewControllerTest extends WebTestCase
         // and rejects the request as a 403 regardless of controller logic.
         $client->request(Request::METHOD_GET, "/projects/$projectId/documents/$docId/review");
         $client->request(Request::METHOD_POST, "/projects/$projectId/documents/$docId/review/submit", [
-            '_csrf_token' => 'csrf-token',
-            'submit_review_form' => ['verdict' => 'changes-requested', 'versionNumber' => 1],
+            'submit_review_form' => ['_token' => 'csrf-token', 'verdict' => 'changes-requested', 'versionNumber' => 1, 'note' => 'Explain the retry behaviour.'],
         ]);
 
         self::assertResponseRedirects("/projects/$projectId/documents/$docId/review");
         $client->followRedirect();
         self::assertSelectorExists('.lp-flash--success');
+        self::assertSelectorTextContains('.lp-review-verdict-note', 'Explain the retry behaviour.');
 
         $freshDoc = static::getContainer()->get(EntityManagerInterface::class)->find(Document::class, $docId);
         self::assertInstanceOf(Document::class, $freshDoc);
         self::assertSame(DocumentStatus::ChangesRequested, $freshDoc->status);
     }
 
-    public function test_a_missing_verdict_field_flashes_error_and_does_not_change_status(): void
+    public function test_a_missing_verdict_field_shows_an_error_and_does_not_change_status(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -142,15 +165,12 @@ final class SubmitReviewControllerTest extends WebTestCase
         // sees neither an Origin/Referer match nor a real double-submit token
         // and rejects the request as a 403 regardless of controller logic.
         $client->request(Request::METHOD_GET, "/projects/$projectId/documents/$docId/review");
-        // No submit_review_form[verdict] key at all — the form is not
-        // considered submitted, mirroring a request without a clicked button.
         $client->request(Request::METHOD_POST, "/projects/$projectId/documents/$docId/review/submit", [
-            '_csrf_token' => 'csrf-token',
+            'submit_review_form' => ['_token' => 'csrf-token', 'versionNumber' => 1],
         ]);
 
-        self::assertResponseRedirects("/projects/$projectId/documents/$docId/review");
-        $client->followRedirect();
-        self::assertSelectorExists('.lp-flash--error');
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorExists('.lp-field-errors li');
         self::assertSelectorNotExists('.lp-flash--danger');
 
         $freshDoc = static::getContainer()->get(EntityManagerInterface::class)->find(Document::class, $docId);
@@ -158,7 +178,7 @@ final class SubmitReviewControllerTest extends WebTestCase
         self::assertSame(DocumentStatus::InReview, $freshDoc->status);
     }
 
-    public function test_an_unrecognised_verdict_value_flashes_error_via_domain_errors(): void
+    public function test_an_unrecognised_verdict_value_shows_a_field_error(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -172,13 +192,11 @@ final class SubmitReviewControllerTest extends WebTestCase
         // and rejects the request as a 403 regardless of controller logic.
         $client->request(Request::METHOD_GET, "/projects/$projectId/documents/$docId/review");
         $client->request(Request::METHOD_POST, "/projects/$projectId/documents/$docId/review/submit", [
-            '_csrf_token' => 'csrf-token',
-            'submit_review_form' => ['verdict' => 'not-a-real-verdict', 'versionNumber' => 1],
+            'submit_review_form' => ['_token' => 'csrf-token', 'verdict' => 'not-a-real-verdict', 'versionNumber' => 1],
         ]);
 
-        self::assertResponseRedirects("/projects/$projectId/documents/$docId/review");
-        $client->followRedirect();
-        self::assertSelectorExists('.lp-flash--error');
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorExists('.lp-field-errors li');
         self::assertSelectorNotExists('.lp-flash--danger');
 
         $freshDoc = static::getContainer()->get(EntityManagerInterface::class)->find(Document::class, $docId);
@@ -186,12 +204,7 @@ final class SubmitReviewControllerTest extends WebTestCase
         self::assertSame(DocumentStatus::InReview, $freshDoc->status);
     }
 
-    /**
-     * NotBlank accepts "0", so it arrives as a submitted value and must travel
-     * the same unrecognised-verdict path as any other unknown string rather
-     * than tripping the can't-happen guard.
-     */
-    public function test_a_verdict_of_zero_flashes_error_via_domain_errors(): void
+    public function test_a_verdict_of_zero_shows_a_field_error(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -201,13 +214,11 @@ final class SubmitReviewControllerTest extends WebTestCase
         $client->loginUser($owner);
         $client->request(Request::METHOD_GET, "/projects/$projectId/documents/$docId/review");
         $client->request(Request::METHOD_POST, "/projects/$projectId/documents/$docId/review/submit", [
-            '_csrf_token' => 'csrf-token',
-            'submit_review_form' => ['verdict' => '0', 'versionNumber' => 1],
+            'submit_review_form' => ['_token' => 'csrf-token', 'verdict' => '0', 'versionNumber' => 1],
         ]);
 
-        self::assertResponseRedirects("/projects/$projectId/documents/$docId/review");
-        $client->followRedirect();
-        self::assertSelectorExists('.lp-flash--error');
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorExists('.lp-field-errors li');
 
         $freshDoc = static::getContainer()->get(EntityManagerInterface::class)->find(Document::class, $docId);
         self::assertInstanceOf(Document::class, $freshDoc);
@@ -231,8 +242,7 @@ final class SubmitReviewControllerTest extends WebTestCase
         $audit->forget();
 
         $client->request(Request::METHOD_POST, "/projects/$projectId/documents/$docId/review/submit", [
-            '_csrf_token' => 'csrf-token',
-            'submit_review_form' => ['verdict' => 'approved', 'versionNumber' => 1],
+            'submit_review_form' => ['_token' => 'csrf-token', 'verdict' => 'approved', 'versionNumber' => 1],
         ]);
 
         self::assertResponseRedirects("/projects/$projectId/documents/$docId/review");
@@ -268,8 +278,7 @@ final class SubmitReviewControllerTest extends WebTestCase
         $audit->forget();
 
         $client->request(Request::METHOD_POST, "/projects/$projectId/documents/$docId/review/submit", [
-            '_csrf_token' => 'csrf-token',
-            'submit_review_form' => ['verdict' => 'withdrawn', 'versionNumber' => 1],
+            'submit_review_form' => ['_token' => 'csrf-token', 'verdict' => 'withdrawn', 'versionNumber' => 1],
         ]);
 
         self::assertSame([], $audit->operations());

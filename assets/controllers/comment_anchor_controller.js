@@ -212,6 +212,12 @@ export default class extends Controller {
         // Turbo navigation, when getBoundingClientRect would read zeros).
         this.resizeObserver = new ResizeObserver(() => this.#scheduleLayout());
         this.resizeObserver.observe(this.docTarget);
+        const documentHeader = this.element.querySelector(
+            '.lp-review-doc__head',
+        );
+        if (documentHeader) {
+            this.resizeObserver.observe(documentHeader);
+        }
         for (const thread of this.threadTargets) {
             this.resizeObserver.observe(thread);
         }
@@ -1412,6 +1418,7 @@ export default class extends Controller {
         if (this.hasBlockTarget) {
             this.blockTarget.style.minHeight = '';
         }
+        this.marginTarget.style.top = '';
 
         const threads = this.threadTargets.filter(
             (thread) => thread.parentElement === this.marginTarget,
@@ -1456,6 +1463,13 @@ export default class extends Controller {
     #positionThreads() {
         if (!this.hasMarginTarget || !this.hasBlockTarget) {
             return;
+        }
+
+        const content = this.blockTarget.querySelector('[data-rail-align]');
+        if (content) {
+            const contentTop = content.getBoundingClientRect().top;
+            const blockTop = this.blockTarget.getBoundingClientRect().top;
+            this.marginTarget.style.top = `${Math.max(0, Math.round(contentTop - blockTop))}px`;
         }
 
         const anchored = this.threadTargets.filter(

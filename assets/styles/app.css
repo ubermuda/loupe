@@ -1734,7 +1734,24 @@
     }
     /* Compact title row for the document back action and title. */
     .lp-review-doc__title-row {
-        @apply flex items-center gap-3;
+        @apply flex flex-wrap items-center gap-3;
+    }
+    /* Actions stay beside the title and wrap on narrow screens. */
+    .lp-review-doc__actions {
+        @apply ml-auto flex items-center gap-2;
+    }
+    /* Verdict choices and notes in the Finish review dialog. */
+    .lp-review-verdict-choice {
+        @apply flex items-center gap-3 rounded-lg border border-line p-3 text-sm text-ink;
+    }
+    .lp-review-verdict-choice input {
+        @apply size-4 accent-accent;
+    }
+    .lp-review-verdict-actions {
+        @apply flex items-center justify-end gap-3 pt-2;
+    }
+    .lp-review-verdict-note {
+        @apply whitespace-pre-wrap text-sm text-ink;
     }
     .lp-review-doc__back {
         @apply inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-line bg-surface-1 text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
