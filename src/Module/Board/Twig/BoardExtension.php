@@ -10,6 +10,8 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Form\AddBoardColumnFormType;
 use App\Module\Board\Form\AddBoardColumnRequest;
+use App\Module\Board\Form\AttachSiteReviewCommentFormType;
+use App\Module\Board\Form\AttachSiteReviewCommentRequest;
 use App\Module\Board\Form\DeleteBoardColumnFormType;
 use App\Module\Board\Form\DeleteBoardColumnRequest;
 use App\Module\Board\Form\MoveCardFormType;
@@ -18,9 +20,11 @@ use App\Module\Board\Form\RenameBoardColumnFormType;
 use App\Module\Board\Form\RenameBoardColumnRequest;
 use App\Module\Board\Form\ReorderBoardColumnsFormType;
 use App\Module\Board\Form\ReorderBoardColumnsRequest;
+use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Service\MarkdownRenderer;
+use App\Module\SiteReview\Entity\SiteReviewComment;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\Form\FormView;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -40,6 +44,7 @@ final class BoardExtension extends AbstractExtension
         private readonly MarkdownRenderer $markdown,
         private readonly TranslatorInterface $translator,
         private readonly CardSiteReviewCommentRepository $cardSiteReviewComments,
+        private readonly CardRepository $cards,
     ) {
     }
 
@@ -55,6 +60,7 @@ final class BoardExtension extends AbstractExtension
             new TwigFunction('board_column_order', $this->boardColumnOrder(...)),
             new TwigFunction('safe_pull_request_url', $this->safePullRequestUrl(...)),
             new TwigFunction('card_site_review_links', $this->cardSiteReviewLinks(...)),
+            new TwigFunction('site_review_attach_form', $this->siteReviewAttachForm(...)),
         ];
     }
 
@@ -87,6 +93,18 @@ final class BoardExtension extends AbstractExtension
         }
 
         return $links;
+    }
+
+    public function siteReviewAttachForm(SiteReviewComment $comment): FormView
+    {
+        return $this->formFactory
+            ->createNamed(
+                AttachSiteReviewCommentFormType::nameFor($comment),
+                AttachSiteReviewCommentFormType::class,
+                new AttachSiteReviewCommentRequest(),
+                ['cards' => $this->cards->searchOpenForProject($comment->project, '', 100)],
+            )
+            ->createView();
     }
 
     /** The refused form a failed add forwarded, or a fresh one. */

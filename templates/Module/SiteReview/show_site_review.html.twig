@@ -91,6 +91,19 @@
                         <twig:ux:icon name="lucide:chevron-right" />
                     </a>
                 </section>
+                {% elseif is_feature_enabled('board.enabled') %}
+                {% set attachForm = site_review_attach_form(comment) %}
+                <section class="lp-feedback-detail__section">
+                    <h3>{{ 'site_review.attach.title'|trans }}</h3>
+                    {{ form_start(attachForm, {action: path('app_site_review_comment_attach', {projectId: project.id, commentId: comment.id}), attr: {class: 'lp-site-review-attach'}}) }}
+                        {{ form_label(attachForm.card, null, {label_attr: {class: 'sr-only'}}) }}
+                        {{ form_widget(attachForm.card, {attr: {class: 'lp-input lp-select'}}) }}
+                        <button type="submit" class="lp-btn">
+                            <twig:ux:icon name="lucide:link" class="w-4 h-4" />
+                            {{ 'site_review.attach.submit'|trans }}
+                        </button>
+                    {{ form_end(attachForm) }}
+                </section>
                 {% endif %}
 
                 <section class="lp-feedback-detail__section">

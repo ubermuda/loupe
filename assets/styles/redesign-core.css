@@ -524,6 +524,16 @@
     font-size: var(--text-sm);
 }
 
+.lp-site-review-attach {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--spacing) * 2);
+}
+
+.lp-site-review-attach .lp-select {
+    min-width: 0;
+}
+
 @media (max-width: 68rem) {
     .lp-core-prototype-page {
         padding: calc(var(--spacing) * 6);

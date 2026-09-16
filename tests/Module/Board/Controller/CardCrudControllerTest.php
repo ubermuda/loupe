@@ -9,7 +9,10 @@ use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Form\AttachSiteReviewCommentFormType;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Repository\CardSiteReviewCommentRepository;
+use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Tests\Module\Board\CardMovedOutbox;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -19,6 +22,36 @@ use Symfony\Component\HttpFoundation\Request;
 final class CardCrudControllerTest extends WebTestCase
 {
     use BoardScenario;
+
+    public function test_the_owner_attaches_unlinked_feedback_to_an_open_card(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+
+        $owner = $this->user($em, 'card-attach-feedback@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Fix the feedback');
+        $comment = new SiteReviewComment($project, 0, 'Move the control', 'https://example.com');
+        $em->persist($comment);
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
+        self::assertResponseIsSuccessful();
+
+        $client->submitForm('Attach to card', [
+            AttachSiteReviewCommentFormType::nameFor($comment).'[card]' => (string) $card->id,
+        ]);
+
+        self::assertResponseRedirects('/projects/'.$project->id.'/site-review#feedback-'.$comment->id);
+        $em->clear();
+        $links = static::getContainer()->get(CardSiteReviewCommentRepository::class);
+        $link = $links->findOneBy(['comment' => $comment->id]);
+        self::assertNotNull($link);
+        self::assertSame((string) $card->id, (string) $link->card->id);
+    }
 
     public function test_the_owner_creates_a_card_with_pull_request_links(): void
     {

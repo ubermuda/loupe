@@ -5611,6 +5611,14 @@
                 <target>Board</target>
             </trans-unit>
             <trans-unit id="board.view.list"><source>board.view.list</source><target>List</target></trans-unit>
+            <trans-unit id="site_review.attach.title"><source>site_review.attach.title</source><target>Linked work</target></trans-unit>
+            <trans-unit id="board.form.attach_site_review_comment_form.card.label"><source>board.form.attach_site_review_comment_form.card.label</source><target>Card</target></trans-unit>
+            <trans-unit id="board.form.attach_site_review_comment_form.card.placeholder"><source>board.form.attach_site_review_comment_form.card.placeholder</source><target>Select a card</target></trans-unit>
+            <trans-unit id="site_review.attach.submit"><source>site_review.attach.submit</source><target>Attach to card</target></trans-unit>
+            <trans-unit id="site_review.attach.success"><source>site_review.attach.success</source><target>Feedback attached to %card%.</target></trans-unit>
+            <trans-unit id="site_review.attach.error.invalid"><source>site_review.attach.error.invalid</source><target>Select an available card.</target></trans-unit>
+            <trans-unit id="site_review.attach.error.foreign_card"><source>site_review.attach.error.foreign_card</source><target>The card belongs to another project.</target></trans-unit>
+            <trans-unit id="site_review.attach.error.already_linked"><source>site_review.attach.error.already_linked</source><target>This feedback is already attached to a card.</target></trans-unit>
             <trans-unit id="board.list.work"><source>board.list.work</source><target>Work</target></trans-unit>
             <trans-unit id="board.list.status"><source>board.list.status</source><target>Status</target></trans-unit>
             <trans-unit id="board.list.priority"><source>board.list.priority</source><target>Priority</target></trans-unit>
