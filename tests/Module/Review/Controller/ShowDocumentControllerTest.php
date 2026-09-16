@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Entity\Card;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\ReviseDocumentCommand;
 use App\Module\Review\Command\ReviseDocumentHandler;
@@ -84,6 +86,37 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertSelectorTextContains('.lp-review-view-tabs', 'Document');
         self::assertSelectorTextContains('.lp-review-view-tabs', 'History');
         self::assertSelectorExists('.lp-review-view-tabs__item[aria-current="page"]');
+    }
+
+    public function test_details_show_the_card_linked_to_the_document(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'linked-card-owner', 'linked-card-owner@example.com');
+        $project = $this->project($em, $owner);
+        $document = new Document(owner: $owner, project: $project, title: 'Linked document');
+        $document->addVersion('# Linked', '<h1>Linked</h1>');
+        $column = new BoardColumn($project, 'Ready', 'ready', 0, isDefault: true);
+        $card = new Card($project, $column, 'Implement the document', '', 1);
+        $em->persist($document);
+        $em->persist($column);
+        $em->persist($card);
+        $em->flush();
+        $card->syncDocuments($document);
+        $em->flush();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(
+            Request::METHOD_GET,
+            '/projects/'.$project->id.'/documents/'.$document->id.'/review',
+        );
+
+        self::assertResponseIsSuccessful();
+        $link = $crawler->filter('[data-margin-panel="details"] .lp-review-details__card');
+        self::assertCount(1, $link);
+        self::assertStringContainsString('#1 Implement the document', $link->text());
+        self::assertSame('card-drawer-frame', $link->attr('data-turbo-frame'));
     }
 
     public function test_review_page_renders_the_document_tags(): void

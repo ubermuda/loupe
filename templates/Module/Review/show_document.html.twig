@@ -37,7 +37,7 @@
 {% endblock %}
 
 {% block body %}
-<div class="lp-review" data-site-review-quotes="off">
+<div class="lp-review" data-site-review-quotes="off" data-controller="card-drawer">
     {# Both controllers pass diffMode explicitly: Twig's `default` filter fires
        on any falsy value, so `|default(true)` would send every show-page render
        down the diff branch. A comparison names itself with the chip in the
@@ -630,8 +630,27 @@
             </aside>
             <aside class="lp-review-context-panel" data-review-margin-target="panel" data-margin-panel="details" hidden>
                 <h2>{{ 'review.document.margin.details'|trans }}</h2>
+                {% set cardLinks = document_card_links(document) %}
                 <dl class="lp-review-details">
-                    <div><dt>{{ 'review.document.margin.linked_card'|trans }}</dt><dd>{{ 'review.document.margin.linked_card_unavailable'|trans }}</dd></div>
+                    <div>
+                        <dt>{{ 'review.document.margin.linked_card'|trans }}</dt>
+                        <dd>
+                            {% if cardLinks is empty %}
+                                {{ 'review.document.margin.linked_card_unavailable'|trans }}
+                            {% else %}
+                                {% for link in cardLinks %}
+                                <a class="lp-review-details__card"
+                                   href="{{ path('app_board_card', {projectId: document.project.id, cardId: link.card.id}) }}"
+                                   data-turbo-frame="card-drawer-frame"
+                                   data-action="click->card-drawer#prepare">
+                                    <span>#{{ link.card.number }} {{ link.card.title }}</span>
+                                    <span class="lp-status-chip">{{ link.card.column.label|trans }}</span>
+                                    <twig:ux:icon name="lucide:chevron-right" class="w-4 h-4" />
+                                </a>
+                                {% endfor %}
+                            {% endif %}
+                        </dd>
+                    </div>
                     <div><dt>{{ 'review.document.meta.references'|trans }}</dt><dd>{{ referenceCount }}</dd></div>
                     <div><dt>{{ 'review.document.meta.tags'|trans }}</dt><dd>{{ document.tags|map(tag => tag.name)|join(', ') ?: '—' }}</dd></div>
                 </dl>
@@ -806,5 +825,18 @@
         </form>
     </div>
     {% endif %}
+
+    <dialog class="lp-card-drawer-overlay"
+            aria-label="{{ 'board.card.drawer.label'|trans }}"
+            data-card-drawer-target="dialog"
+            data-action="cancel->card-drawer#cancel click->card-drawer#backdropClick">
+        <div class="lp-card-drawer-overlay__loading" data-card-drawer-target="loading" role="status">
+            <twig:ux:icon name="lucide:loader-circle" class="w-5 h-5" />
+            {{ 'board.card.drawer.loading'|trans }}
+        </div>
+        <turbo-frame id="card-drawer-frame"
+                     data-card-drawer-target="frame"
+                     data-action="turbo:frame-load->card-drawer#loaded"></turbo-frame>
+    </dialog>
 </div>
 {% endblock %}

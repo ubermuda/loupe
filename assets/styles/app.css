@@ -2551,6 +2551,15 @@
     .lp-review-details dd {
         @apply m-0 text-sm text-fg;
     }
+    .lp-review-details__card {
+        @apply flex items-center gap-2 rounded-lg border border-line bg-surface-1 px-3 py-2 text-sm font-semibold text-ink no-underline hover:bg-tint;
+    }
+    .lp-review-details__card + .lp-review-details__card {
+        @apply mt-2;
+    }
+    .lp-review-details__card > :first-child {
+        @apply min-w-0 flex-1;
+    }
     .lp-review-doc__prose {
         @apply mt-0 min-h-96 rounded-xl border border-line bg-surface-1 px-8.5 py-7 text-base leading-7 text-prose break-words;
         box-shadow: 0 1px 3px rgba(15, 15, 13, 0.06);

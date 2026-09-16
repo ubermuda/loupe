@@ -7,6 +7,7 @@ namespace App\Module\Board\Twig;
 use App\Module\Board\Command\BoardColumnView;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardDocument;
 use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Form\AddBoardColumnFormType;
 use App\Module\Board\Form\AddBoardColumnRequest;
@@ -20,9 +21,11 @@ use App\Module\Board\Form\RenameBoardColumnFormType;
 use App\Module\Board\Form\RenameBoardColumnRequest;
 use App\Module\Board\Form\ReorderBoardColumnsFormType;
 use App\Module\Board\Form\ReorderBoardColumnsRequest;
+use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Entity\Document;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use Symfony\Component\Form\FormFactoryInterface;
@@ -45,6 +48,7 @@ final class BoardExtension extends AbstractExtension
         private readonly TranslatorInterface $translator,
         private readonly CardSiteReviewCommentRepository $cardSiteReviewComments,
         private readonly CardRepository $cards,
+        private readonly CardDocumentRepository $cardDocuments,
     ) {
     }
 
@@ -61,6 +65,7 @@ final class BoardExtension extends AbstractExtension
             new TwigFunction('safe_pull_request_url', $this->safePullRequestUrl(...)),
             new TwigFunction('card_site_review_links', $this->cardSiteReviewLinks(...)),
             new TwigFunction('site_review_attach_form', $this->siteReviewAttachForm(...)),
+            new TwigFunction('document_card_links', $this->documentCardLinks(...)),
         ];
     }
 
@@ -105,6 +110,12 @@ final class BoardExtension extends AbstractExtension
                 ['cards' => $this->cards->searchOpenForProject($comment->project, '', 100)],
             )
             ->createView();
+    }
+
+    /** @return list<CardDocument> */
+    public function documentCardLinks(Document $document): array
+    {
+        return $this->cardDocuments->findForDocument($document);
     }
 
     /** The refused form a failed add forwarded, or a fresh one. */
