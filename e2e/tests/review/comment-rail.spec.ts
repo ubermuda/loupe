@@ -266,6 +266,58 @@ async function seedThreeThreads(page: Page): Promise<void> {
     });
 }
 
+test('thread placement follows text order and reflows around reply drafts', async ({
+    page,
+}) => {
+    await commentOn(page, THIRD, 'Last passage');
+    await commentOn(page, FIRST, 'First passage');
+    await commentOn(page, SECOND, 'Middle passage');
+
+    const first = page.locator(THREAD).filter({ hasText: 'First passage' });
+    const middle = page.locator(THREAD).filter({ hasText: 'Middle passage' });
+    const last = page.locator(THREAD).filter({ hasText: 'Last passage' });
+    await expect
+        .poll(async () => {
+            const firstBox = await first.boundingBox();
+            const middleBox = await middle.boundingBox();
+            const lastBox = await last.boundingBox();
+            return (
+                !!firstBox &&
+                !!middleBox &&
+                !!lastBox &&
+                middleBox.y >= firstBox.y + firstBox.height + 14 &&
+                lastBox.y >= middleBox.y + middleBox.height + 14
+            );
+        })
+        .toBe(true);
+
+    await middle.locator(MARKER).click();
+    const disclosure = middle.locator('.lp-comment-reply-disclosure');
+    await disclosure.locator('summary').click();
+    await disclosure
+        .getByRole('textbox')
+        .fill('Keep this draft while the rail reflows.');
+    await expect
+        .poll(async () => {
+            const middleBox = await middle.boundingBox();
+            const lastBox = await last.boundingBox();
+            return middleBox && lastBox
+                ? lastBox.y - middleBox.y - middleBox.height
+                : -1;
+        })
+        .toBeGreaterThanOrEqual(14);
+    const expandedTop = (await last.boundingBox())!.y;
+
+    await disclosure.locator('summary').click();
+    await expect
+        .poll(async () => (await last.boundingBox())!.y)
+        .toBeLessThan(expandedTop);
+    await disclosure.locator('summary').click();
+    await expect(disclosure.getByRole('textbox')).toHaveValue(
+        'Keep this draft while the rail reflows.',
+    );
+});
+
 test('threads anchored close together render as markers, not cards', async ({
     page,
 }) => {

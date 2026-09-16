@@ -117,7 +117,7 @@ export default class extends Controller {
 
     // Clearance between one comment card and the next when a passage carries
     // more comments than the space beside it can hold.
-    static CARD_GAP = 12;
+    static CARD_GAP = 14;
 
     // Strike is the only action that completes without a form, so it is the only
     // one worth a keystroke — one for Comment or Suggest would still leave a
@@ -228,6 +228,9 @@ export default class extends Controller {
         // Turbo navigation, when getBoundingClientRect would read zeros).
         this.resizeObserver = new ResizeObserver(() => this.#scheduleLayout());
         this.resizeObserver.observe(this.docTarget);
+        for (const thread of this.threadTargets) {
+            this.resizeObserver.observe(thread);
+        }
         this.observedOrphans = null;
 
         // Turbo Streams swap the thread list (add/delete/resolve replace the
@@ -241,6 +244,14 @@ export default class extends Controller {
             childList: true,
             subtree: true,
         });
+    }
+
+    threadTargetConnected(thread) {
+        this.resizeObserver?.observe(thread);
+    }
+
+    threadTargetDisconnected(thread) {
+        this.resizeObserver?.unobserve(thread);
     }
 
     disconnect() {
@@ -1672,6 +1683,19 @@ export default class extends Controller {
 
             return;
         }
+
+        anchored.sort((first, second) => {
+            const firstRange = this.anchorRanges.get(first);
+            const secondRange = this.anchorRanges.get(second);
+            if (!firstRange || !secondRange) {
+                return 0;
+            }
+
+            return firstRange.compareBoundaryPoints(
+                Range.START_TO_START,
+                secondRange,
+            );
+        });
 
         const marginTop = this.marginTarget.getBoundingClientRect().top;
         // The orphan group leads the column in flow, so the positioned cards
