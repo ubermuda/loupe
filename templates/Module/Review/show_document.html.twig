@@ -81,90 +81,17 @@
         {% set docActions = (canComment ? ['mouseup->comment-anchor#onDocMouseup', 'pointerup->comment-anchor#onDocPointerup', 'mousemove->comment-anchor#onDocMousemove', 'click->comment-anchor#onDocClick'] : [])|merge(readOnly ? [] : ['change->decision#select']) %}
         <div class="lp-review-doc{{ diffColumns ? ' lp-review-doc--wide' : '' }}" data-comment-anchor-target="block" data-controller="decision" data-decision-save-label-value="{{ 'review.decision.save'|trans }}"{% if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}>
 
-            <div class="lp-review-doc__head">
-                <div class="lp-review-doc__title-row">
-                    <a class="lp-review-doc__back" href="{{ path('app_project_documents', {id: document.project.id}) }}"
-                       aria-label="{{ 'review.document.navigation.back'|trans }}">
-                        <twig:ux:icon name="lucide:arrow-left" />
-                    </a>
-                    <h1 class="lp-review-doc__title">{{ document.title }}</h1>
-                    <span class="lp-review-doc__version">{{ 'v' ~ version.versionNumber }}</span>
-                    {% if not readOnly and not diffMode %}
-                    <div class="lp-review-doc__actions">
-                        {% include '@Review/_revise_document.html.twig' with {form: reviseDocumentForm, document: document} only %}
-                        {% if document.status.value in ['draft', 'in-review'] %}
-                        <button type="button" class="lp-btn lp-btn--primary" data-action="click->modal#open">
-                            {{ 'review.document.finish.title'|trans }}
-                        </button>
-                        {% endif %}
-                    </div>
-                    {% endif %}
-                </div>
-                <p class="lp-review-doc__byline">{{ 'review.document.byline'|trans({
-                    '%status%': ('document.status.' ~ document.status.value|replace({'-': '_'}))|trans,
-                    '%version%': version.versionNumber,
-                    '%author%': document.owner.fullName,
-                    '%updated%': version.createdAt|relative_time,
-                }) }} · <span id="section-byline-count">{{ 'review.document.sections.progress'|trans({
-                    '%approved%': diffMode ? 0 : sections.approvedCount,
-                    '%total%': diffMode ? diffHeadings|length : sections.rows|length,
-                }) }}</span></p>
-                <div class="lp-review-workspace-nav">
-                <nav class="lp-review-view-tabs" aria-label="{{ 'review.document.navigation.label'|trans }}">
-                    <a class="lp-review-view-tabs__item" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}"
-                       {% if not diffMode %}aria-current="page"{% endif %}>{{ 'review.document.navigation.document'|trans }}</a>
-                    {% if versions|length > 1 %}
-                    <a class="lp-review-view-tabs__item" href="{{ path('app_document_review_diff', {
-                        projectId: document.project.id,
-                        documentId: document.id,
-                        fromVersionNumber: version.versionNumber > 1 ? version.versionNumber - 1 : 1,
-                        toVersionNumber: version.versionNumber > 1 ? version.versionNumber : 2,
-                    }) }}" {% if diffMode %}aria-current="page"{% endif %}>{{ 'review.document.navigation.diff'|trans }}</a>
-                    {% endif %}
-                    <a class="lp-review-view-tabs__item" href="{{ path('app_document_review_history', {projectId: document.project.id, documentId: document.id}) }}">{{ 'review.document.navigation.history'|trans }}</a>
-                </nav>
-                {% if not diffMode %}
-                <div class="lp-review-margin-tabs" role="tablist" aria-label="{{ 'review.document.margin.label'|trans }}">
-                    <details class="lp-review-margin-filter" data-review-margin-target="filter" data-action="keydown.esc->review-margin#closeFilter">
-                        <summary class="lp-review-margin-tabs__item lp-review-margin-tabs__item--icon"
-                                 aria-label="{{ 'review.document.margin.filter'|trans }}"
-                                 title="{{ 'review.document.margin.filter'|trans }}">
-                            <twig:ux:icon name="lucide:list-filter" />
-                        </summary>
-                        <div class="lp-review-margin-filter__menu">
-                            {% for filterName in ['open', 'resolved', 'unanchored', 'all'] %}
-                            <button type="button" data-review-margin-target="option" data-review-margin-filter-param="{{ filterName }}" data-action="review-margin#filter" aria-pressed="{{ filterName == 'all' ? 'true' : 'false' }}">{{ ('review.document.margin.filter_' ~ filterName)|trans }} <span data-filter-count>0</span></button>
-                            {% endfor %}
-                        </div>
-                    </details>
-                    {% for marginTab in [
-                        {name: 'comments', icon: 'lucide:message-square'},
-                        {name: 'outline', icon: 'lucide:list-tree'},
-                        {name: 'decisions', icon: 'lucide:circle-help'},
-                        {name: 'details', icon: 'lucide:info'},
-                    ] %}
-                    <button type="button" role="tab"
-                            id="review-margin-tab-{{ marginTab.name }}"
-                            aria-controls="review-margin-panel-{{ marginTab.name }}"
-                            tabindex="{{ loop.first ? '0' : '-1' }}"
-                            class="lp-review-margin-tabs__item{{ loop.first ? ' lp-review-margin-tabs__item--active' }}"
-                            aria-selected="{{ loop.first ? 'true' : 'false' }}"
-                            aria-label="{{ ('review.document.margin.' ~ marginTab.name)|trans }}"
-                            title="{{ ('review.document.margin.' ~ marginTab.name)|trans }}"
-                            data-review-margin-target="tab"
-                            data-review-margin-name-param="{{ marginTab.name }}"
-                            data-action="click->review-margin#select keydown->review-margin#navigate">
-                        {% if marginTab.name == 'comments' %}<twig:ux:icon name="lucide:message-square" />{% endif %}
-                        {% if marginTab.name == 'outline' %}<twig:ux:icon name="lucide:list-tree" />{% endif %}
-                        {% if marginTab.name == 'decisions' %}<twig:ux:icon name="lucide:circle-help" />{% endif %}
-                        {% if marginTab.name == 'details' %}<twig:ux:icon name="lucide:info" />{% endif %}
-                        <span>{{ ('review.document.margin.' ~ marginTab.name)|trans }}</span>
-                    </button>
-                    {% endfor %}
-                </div>
-                {% endif %}
-                </div>
-            </div>
+            {% include '@Review/_document_header.html.twig' with {
+                document: document,
+                version: version,
+                versionCount: versions|length,
+                activeView: diffMode ? 'diff' : 'document',
+                showDocumentActions: not readOnly and not diffMode,
+                reviseDocumentForm: not readOnly and not diffMode ? reviseDocumentForm : null,
+                approvedSections: diffMode ? 0 : sections.approvedCount,
+                totalSections: diffMode ? diffHeadings|length : sections.rows|length,
+                showMarginControls: not diffMode,
+            } only %}
 
             {# The way back to a discussion a revision left behind: comments
                resolved on an earlier version stay there, so the thread is
@@ -865,42 +792,12 @@
     {% endif %}
 
     {% if finishReviewAvailable %}
-    <dialog class="lp-dialog" data-modal-target="dialog" aria-labelledby="finish-review-title" data-action="cancel->modal#close">
-        <h2 class="lp-dialog-title" id="finish-review-title">{{ 'review.document.finish.title'|trans }}</h2>
-        <p class="lp-dialog-desc">{{ 'review.document.finish.context'|trans({
-            '%version%': submitReviewForm.versionNumber.vars.value,
-            '%approved%': sections.approvedCount,
-            '%total%': sections.rows|length,
-            '%open%': signals.openThreadCount,
-        }) }}</p>
-        {{ form_start(submitReviewForm, {attr: {class: 'lp-form'}}) }}
-            <div class="lp-field-errors">{{ form_errors(submitReviewForm) }}{{ form_errors(submitReviewForm.versionNumber) }}</div>
-            {{ form_widget(submitReviewForm.versionNumber, {type: 'hidden'}) }}
-            <fieldset class="lp-form-field">
-                <legend class="lp-label">{{ submitReviewForm.verdict.vars.label|trans }}</legend>
-                {% for choice in submitReviewForm.verdict %}
-                <label class="lp-review-verdict-choice">
-                    {{ form_widget(choice) }}
-                    <span>{{ choice.vars.label|trans }}</span>
-                </label>
-                {% endfor %}
-                <div class="lp-field-errors">{{ form_errors(submitReviewForm.verdict) }}</div>
-            </fieldset>
-            <div class="lp-form-field">
-                {{ form_label(submitReviewForm.note, null, {label_attr: {class: 'lp-label'}}) }}
-                {{ form_widget(submitReviewForm.note, {attr: {class: 'lp-input', rows: 4}}) }}
-                <p class="lp-form-hint">{{ submitReviewForm.note.vars.help|trans }}</p>
-                <div class="lp-field-errors">{{ form_errors(submitReviewForm.note) }}</div>
-            </div>
-            {% if not submitReviewForm.versionNumber.vars.valid %}
-            <a class="lp-btn lp-btn--outline" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">{{ 'review.document.version.back_to_latest'|trans }}</a>
-            {% endif %}
-            <div class="lp-review-verdict-actions">
-                <button type="button" class="lp-btn lp-btn--ghost" data-action="click->modal#close">{{ 'review.document.finish.cancel'|trans }}</button>
-                <button type="submit" class="lp-btn lp-btn--primary">{{ 'review.document.finish.submit'|trans }}</button>
-            </div>
-        {{ form_end(submitReviewForm) }}
-    </dialog>
+    {% include '@Review/_finish_review.html.twig' with {
+        document: document,
+        submitReviewForm: submitReviewForm,
+        sections: sections,
+        signals: signals,
+    } only %}
     {% endif %}
 
     <dialog class="lp-card-drawer-overlay"

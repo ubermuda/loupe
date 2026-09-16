@@ -2261,8 +2261,9 @@
     .lp-history__note {
         @apply text-fg-mute m-0 max-w-prose text-sm;
     }
-    .lp-history-back {
-        @apply inline-flex items-center gap-1.5 text-fg-mute no-underline transition-colors text-sm hover:text-accent;
+    /** The version list heading sits below the shared document navigation. */
+    .lp-history-title {
+        @apply m-0 font-display text-lg font-bold text-ink;
     }
     /** Verdict entries stay with the version that received them. */
     .lp-history__reviews {
@@ -2563,7 +2564,7 @@
         .lp-review-doc {
             max-width: calc(100% - 20.625rem);
         }
-        .lp-review-doc__head {
+        .lp-review-doc > .lp-review-doc__head {
             width: calc(100% + 20.625rem);
         }
         .lp-review-margin,

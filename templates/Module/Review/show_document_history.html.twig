@@ -1,5 +1,3 @@
-{# The document's whole revision history, newest first.
-   Params: document, versions. #}
 {% extends 'base.html.twig' %}
 
 {% block title %}{{ 'review.document.history.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
@@ -20,14 +18,21 @@
 {% set routeParameters = {projectId: document.project.id, documentId: document.id} %}
 {% set latestVersion = versions|first.versionNumber %}
 {% set earliestVersion = versions|last.versionNumber %}
-<div class="lp-workspace">
-    <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'review.document.history.page.title'|trans }}</h1>
-    <p class="lp-workspace-desc">{{ document.title }}</p>
-
-    <a class="lp-history-back" href="{{ path('app_document_review', routeParameters) }}">
-        <twig:ux:icon name="lucide:arrow-left" class="w-4 h-4 shrink-0" />
-        <span>{{ 'review.document.history.back'|trans }}</span>
-    </a>
+{% set finishReviewAvailable = document.status.value in ['draft', 'in-review'] %}
+<div class="lp-review" data-site-review-quotes="off"{% if finishReviewAvailable %} data-controller="modal"{% endif %}>
+<div class="lp-review-block">
+    {% include '@Review/_document_header.html.twig' with {
+        document: document,
+        version: version,
+        versionCount: versions|length,
+        activeView: 'history',
+        showDocumentActions: true,
+        reviseDocumentForm: reviseDocumentForm,
+        approvedSections: sections.approvedCount,
+        totalSections: sections.rows|length,
+        showMarginControls: false,
+    } only %}
+    <h2 class="lp-history-title">{{ 'review.document.history.page.title'|trans }}</h2>
 
     {# A plain GET form, so the picker works with no JavaScript. The diff route
        carries its two versions as path segments, which a GET form cannot build,
@@ -96,5 +101,14 @@
         </li>
         {% endfor %}
     </ol>
+</div>
+{% if finishReviewAvailable %}
+{% include '@Review/_finish_review.html.twig' with {
+    document: document,
+    submitReviewForm: submitReviewForm,
+    sections: sections,
+    signals: signals,
+} only %}
+{% endif %}
 </div>
 {% endblock %}

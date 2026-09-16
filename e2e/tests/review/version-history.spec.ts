@@ -38,6 +38,15 @@ test('the History tab compares two distant versions', async ({ page }) => {
     const { projectId, documentId } = await seeded.json();
 
     await page.goto(`/projects/${projectId}/documents/${documentId}/review`);
+    await page.getByRole('link', { name: 'History', exact: true }).click();
+    await expect(
+        page.locator('.lp-review-view-tabs__item[aria-current="page"]'),
+    ).toHaveText('History');
+    await expect(
+        page.getByRole('heading', { name: 'Versioned Plan', exact: true }),
+    ).toBeVisible();
+    await expect(page.locator('.lp-review-doc__version')).toHaveText('v4');
+    await expect(page.locator('.lp-review-margin-tabs')).toHaveCount(0);
 
     await page
         .getByRole('button', { name: 'Finish review', exact: true })
@@ -99,4 +108,24 @@ test('the History tab compares two distant versions', async ({ page }) => {
             hasText: 'four careful steps',
         }),
     ).toHaveCount(1);
+
+    await page.getByRole('link', { name: 'History', exact: true }).click();
+    await page.getByRole('button', { name: 'Revise', exact: true }).click();
+    const reviseDialog = page.getByRole('dialog', { name: 'Revise document' });
+    await expect(reviseDialog.getByLabel('Title', { exact: true })).toHaveValue(
+        'Versioned Plan',
+    );
+    await reviseDialog
+        .getByLabel('Markdown', { exact: true })
+        .fill('# Plan\n\nThe rollout takes five verified steps.');
+    await reviseDialog
+        .getByLabel('Revision note', { exact: true })
+        .fill('Add the verification step.');
+    await reviseDialog
+        .getByRole('button', { name: 'Save new version', exact: true })
+        .click();
+    await expect(page.locator('.lp-review-doc__version')).toHaveText('v5');
+    await page.getByRole('link', { name: 'History', exact: true }).click();
+    await expect(page.locator('.lp-history__row')).toHaveCount(5);
+    await expect(currentVersion.locator('.lp-history__review')).toHaveCount(2);
 });

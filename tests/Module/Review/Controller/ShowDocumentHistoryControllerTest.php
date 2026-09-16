@@ -63,8 +63,14 @@ final class ShowDocumentHistoryControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/history');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('.lp-workspace-title', 'Version history');
-        self::assertSelectorTextContains('.lp-workspace-desc', 'Historied Doc');
+        self::assertSelectorTextContains('.lp-history-title', 'Version history');
+        self::assertSelectorTextContains('.lp-review-doc__title', 'Historied Doc');
+        self::assertSelectorTextContains('.lp-review-doc__version', 'v3');
+        self::assertSelectorTextContains('.lp-review-view-tabs__item[aria-current="page"]', 'History');
+        self::assertSelectorCount(0, '.lp-review-margin-tabs');
+        self::assertSelectorExists('#revise-document-title');
+        self::assertSelectorExists('#finish-review-title');
+        self::assertSelectorExists('input[name="submit_review_form[versionNumber]"][value="3"]');
 
         self::assertSame(
             ['3', '2', '1'],
@@ -80,10 +86,9 @@ final class ShowDocumentHistoryControllerTest extends WebTestCase
             ),
         );
 
-        // The way back to the document the history belongs to.
         self::assertCount(
             1,
-            $crawler->filter('.lp-history-back[href="/projects/'.$projectId.'/documents/'.$id.'/review"]'),
+            $crawler->filter('.lp-review-view-tabs__item[href="/projects/'.$projectId.'/documents/'.$id.'/review"]'),
         );
     }
 

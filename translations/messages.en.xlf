@@ -1619,10 +1619,6 @@
                 <source>review.document.history.count</source>
                 <target>{0}No versions|{1}1 version|]1,Inf[%count% versions</target>
             </trans-unit>
-            <trans-unit id="review.document.history.back">
-                <source>review.document.history.back</source>
-                <target>Back to the document</target>
-            </trans-unit>
             <trans-unit id="review.document.history.compare.submit">
                 <source>review.document.history.compare.submit</source>
                 <target>Compare these two</target>

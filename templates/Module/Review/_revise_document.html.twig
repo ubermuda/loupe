@@ -1,5 +1,5 @@
 <div data-controller="modal" data-modal-reopen-value="{{ form.vars.submitted ? 'true' : 'false' }}">
-    <button type="button" class="lp-btn lp-btn--outline" data-action="click->modal#open">{{ 'review.revise.open'|trans }}</button>
+    <button type="button" class="lp-btn" data-action="click->modal#open">{{ 'review.revise.open'|trans }}</button>
     <dialog class="lp-dialog lp-dialog--document" data-modal-target="dialog" aria-labelledby="revise-document-title" data-action="cancel->modal#close">
         <h2 class="lp-dialog-title" id="revise-document-title">{{ 'review.revise.title'|trans }}</h2>
         <p class="lp-dialog-desc">{{ 'review.revise.help'|trans }}</p>
@@ -15,7 +15,7 @@
             {% endfor %}
             {% include '@Review/_document_work_links.html.twig' with {form: form} only %}
             {% if not form.versionNumber.vars.valid %}
-            <a class="lp-btn lp-btn--outline" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">{{ 'review.document.version.back_to_latest'|trans }}</a>
+            <a class="lp-btn" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">{{ 'review.document.version.back_to_latest'|trans }}</a>
             {% endif %}
             <div class="lp-review-verdict-actions">
                 <button type="button" class="lp-btn lp-btn--ghost" data-action="click->modal#close">{{ 'review.revise.cancel'|trans }}</button>

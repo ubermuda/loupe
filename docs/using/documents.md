@@ -111,11 +111,12 @@ Three views help across versions:
 - `/review/diff/{from}/{to}` — what changed between two versions.
 - `/review/history` — every version, newest first.
 
-The Versions tab on the review page carries the version you are reading: its
-number, its date, its note and the way into its comparison with the version
-before it. A link at the end of the tab opens the history page, which lists every
-version with its review log. Each review shows the reviewer, verdict, note and time.
+Open **History** from the document navigation to see every version, newest first.
+Each version shows its revision note and review log.
+Each review shows the reviewer, verdict, note and time.
 Withdrawals remain beside the original verdict. Versions without reviews say so.
+History keeps the document header and the Document, Diff and History tabs.
+Use **Revise** or **Finish review** there to act on the current version.
 The history page also has a picker that compares any two
 versions, not only two that follow one another.
 
