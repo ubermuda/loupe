@@ -244,6 +244,31 @@ test('the board search filters cards and reports an empty result', async ({
     await expect(page.locator('[data-card-title="Bravo"]')).toBeVisible();
 });
 
+test('the list view uses the same cards and opens the stable drawer', async ({
+    page,
+}) => {
+    await page.getByRole('button', { name: 'List' }).click();
+
+    await expect(page.locator('.lp-board__columns')).toBeHidden();
+    await expect(page.locator('.lp-board-list')).toBeVisible();
+    await expect(page.locator('.lp-board-list__row')).toHaveCount(2);
+
+    await page.getByPlaceholder('Find a card…').fill('Bravo');
+    await expect(
+        page.locator('.lp-board-list__row', { hasText: 'Bravo' }),
+    ).toBeVisible();
+    await expect(
+        page.locator('.lp-board-list__row', { hasText: 'Alpha' }),
+    ).toBeHidden();
+
+    await page.locator('.lp-board-list__row', { hasText: 'Bravo' }).click();
+    await expect(page.locator('.lp-card-drawer-overlay')).toHaveJSProperty(
+        'open',
+        true,
+    );
+    await expect(page.getByRole('heading', { name: 'Bravo' })).toBeVisible();
+});
+
 test('a drag inside a priority group reorders it, and the order survives a reload', async ({
     page,
     board,

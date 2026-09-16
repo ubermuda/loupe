@@ -1,7 +1,7 @@
 import { Controller } from '@hotwired/stimulus';
 
 export default class extends Controller {
-    static targets = ['query', 'priority', 'card', 'count', 'empty'];
+    static targets = ['query', 'priority', 'card', 'row', 'count', 'empty'];
 
     filter() {
         const query = this.queryTarget.value.trim().toLocaleLowerCase();
@@ -20,6 +20,13 @@ export default class extends Controller {
             if (visible) {
                 visibleCount += 1;
             }
+        }
+
+        for (const row of this.rowTargets) {
+            row.hidden =
+                (priority !== '' && row.dataset.cardPriority !== priority) ||
+                (query !== '' &&
+                    !row.dataset.cardTitle.toLocaleLowerCase().includes(query));
         }
 
         this.countTarget.textContent =

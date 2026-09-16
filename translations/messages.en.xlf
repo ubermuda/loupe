@@ -1806,8 +1806,9 @@
             <!-- Navigation bar -->
             <trans-unit id="nav.brand">
                 <source>nav.brand</source>
-                <target>Loupe</target>
+                <target>loupe</target>
             </trans-unit>
+            <trans-unit id="nav.switcher.project_label"><source>nav.switcher.project_label</source><target>Project</target></trans-unit>
             <trans-unit id="nav.link.documents">
                 <source>nav.link.documents</source>
                 <target>Documents</target>
@@ -5608,6 +5609,14 @@
                 <source>board.view.board</source>
                 <target>Board</target>
             </trans-unit>
+            <trans-unit id="board.view.list"><source>board.view.list</source><target>List</target></trans-unit>
+            <trans-unit id="board.list.work"><source>board.list.work</source><target>Work</target></trans-unit>
+            <trans-unit id="board.list.status"><source>board.list.status</source><target>Status</target></trans-unit>
+            <trans-unit id="board.list.priority"><source>board.list.priority</source><target>Priority</target></trans-unit>
+            <trans-unit id="board.list.agent"><source>board.list.agent</source><target>Agent</target></trans-unit>
+            <trans-unit id="board.list.agent.unassigned"><source>board.list.agent.unassigned</source><target>No agent assigned</target></trans-unit>
+            <trans-unit id="board.list.linked_work"><source>board.list.linked_work</source><target>Linked work</target></trans-unit>
+            <trans-unit id="board.list.feedback"><source>board.list.feedback</source><target>Feedback</target></trans-unit>
             <trans-unit id="board.card.count">
                 <source>board.card.count</source>
                 <target>{0} No cards|{1} 1 card|]1,Inf[ %count% cards</target>

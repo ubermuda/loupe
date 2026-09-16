@@ -25,10 +25,10 @@
                             aria-label="{{ 'nav.switcher.label'|trans }}">
                         <span class="lp-sidebar__switcher-avatar">{{ project.name|slice(0, 1)|upper }}</span>
                         <span class="lp-sidebar__switcher-text">
+                            <span class="lp-sidebar__switcher-label">{{ 'nav.switcher.project_label'|trans }}</span>
                             <span class="lp-sidebar__switcher-name">{{ project.name }}</span>
-                            {% if project.domain %}<span class="lp-sidebar__switcher-domain">{{ project.domain }}</span>{% endif %}
                         </span>
-                        <twig:ux:icon name="lucide:arrow-up-down" class="lp-sidebar__switcher-caret" />
+                        <twig:ux:icon name="lucide:arrow-down" class="lp-sidebar__switcher-caret" />
                     </button>
                     {% set switcherProjects = switchable_projects() %}
                     {% set switcherCounts = project_document_counts(switcherProjects) %}
@@ -56,25 +56,6 @@
                         <twig:ux:icon name="lucide:layout-dashboard" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.workshop'|trans }}</span>
                     </a>
-                    {% set documentsActive = route == 'app_project_documents' or route starts with 'app_document' %}
-                    <a href="{{ path('app_project_documents', {id: project.id}) }}"
-                       class="lp-sidebar__link{% if documentsActive %} lp-sidebar__link--active{% endif %}"
-                       {% if documentsActive %}aria-current="page"{% endif %}>
-                        <twig:ux:icon name="lucide:file-text" />
-                        <span class="lp-sidebar__link-label">{{ 'nav.link.documents'|trans }}</span>
-                        <span class="lp-sidebar__pill">{{ project_document_count(project) }}</span>
-                    </a>
-                    {# Opt-in: the flag ships off, so an instance nobody has told
-                       otherwise shows no link to a page that answers 404. #}
-                    {% if is_feature_enabled('board.enabled') %}
-                    {% set boardActive = route starts with 'app_project_board' or route starts with 'app_board_card' %}
-                    <a href="{{ path('app_project_board', {id: project.id}) }}"
-                       class="lp-sidebar__link{% if boardActive %} lp-sidebar__link--active{% endif %}"
-                       {% if boardActive %}aria-current="page"{% endif %}>
-                        <twig:ux:icon name="lucide:square-kanban" />
-                        <span class="lp-sidebar__link-label">{{ 'nav.link.board'|trans }}</span>
-                    </a>
-                    {% endif %}
                     {% if is_feature_enabled('inbox.enabled') %}
                     {% do mercure_subscribe(inbox_topic(app.user)) %}
                     <a href="{{ path('app_project_inbox', {id: project.id}) }}"
@@ -89,6 +70,25 @@
                         {% include '@Inbox/_open_count.html.twig' with {project: project, openCount: project_inbox_open_count(project)} only %}
                     </a>
                     {% endif %}
+                    {# Opt-in: the flag ships off, so an instance nobody has told
+                       otherwise shows no link to a page that answers 404. #}
+                    {% if is_feature_enabled('board.enabled') %}
+                    {% set boardActive = route starts with 'app_project_board' or route starts with 'app_board_card' %}
+                    <a href="{{ path('app_project_board', {id: project.id}) }}"
+                       class="lp-sidebar__link{% if boardActive %} lp-sidebar__link--active{% endif %}"
+                       {% if boardActive %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:square-kanban" />
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.board'|trans }}</span>
+                    </a>
+                    {% endif %}
+                    {% set documentsActive = route == 'app_project_documents' or route starts with 'app_document' %}
+                    <a href="{{ path('app_project_documents', {id: project.id}) }}"
+                       class="lp-sidebar__link{% if documentsActive %} lp-sidebar__link--active{% endif %}"
+                       {% if documentsActive %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:file-text" />
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.documents'|trans }}</span>
+                        <span class="lp-sidebar__pill">{{ project_document_count(project) }}</span>
+                    </a>
                     <a href="{{ path('app_project_site_review', {id: project.id}) }}"
                        class="lp-sidebar__link{% if route == 'app_project_site_review' %} lp-sidebar__link--active{% endif %}"
                        {% if route == 'app_project_site_review' %}aria-current="page"{% endif %}>
@@ -104,21 +104,21 @@
                     <a href="{{ path('app_project_agents', {id: project.id}) }}"
                        class="lp-sidebar__link{% if route == 'app_project_agents' or route == 'app_project_connect' %} lp-sidebar__link--active{% endif %}"
                        {% if route == 'app_project_agents' or route == 'app_project_connect' %}aria-current="page"{% endif %}>
-                        <twig:ux:icon name="lucide:users" />
+                        <twig:ux:icon name="lucide:bot" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.agents'|trans }}</span>
                     </a>
                     {% if is_feature_enabled('board.enabled') %}
                     <a href="{{ path('app_project_rules', {id: project.id}) }}"
                        class="lp-sidebar__link{% if route == 'app_project_rules' %} lp-sidebar__link--active{% endif %}"
                        {% if route == 'app_project_rules' %}aria-current="page"{% endif %}>
-                        <twig:ux:icon name="lucide:workflow" />
+                        <twig:ux:icon name="lucide:zap" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.rules'|trans }}</span>
                     </a>
                     {% endif %}
                     <a href="{{ path('app_project_worker_runs', {id: project.id}) }}"
                        class="lp-sidebar__link{% if route == 'app_project_worker_runs' %} lp-sidebar__link--active{% endif %}"
                        {% if route == 'app_project_worker_runs' %}aria-current="page"{% endif %}>
-                        <twig:ux:icon name="lucide:bot" />
+                        <twig:ux:icon name="lucide:history" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.worker_runs'|trans }}</span>
                     </a>
                     <a href="{{ path('app_project_activity', {id: project.id}) }}"

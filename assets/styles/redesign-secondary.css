@@ -4,7 +4,7 @@
         max-width: 95.625rem;
     }
     .lp-redesign-secondary .lp-workspace-title {
-        @apply text-4xl;
+        @apply text-3xl;
     }
     .lp-redesign-secondary .lp-workspace-desc {
         @apply mt-2 mb-0 text-sm;

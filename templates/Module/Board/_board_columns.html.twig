@@ -2,7 +2,7 @@
    stream, so the two can never drift apart. Props: board (BoardView),
    addColumnForm and renameColumnForm (a refused FormView, or null). #}
 {% set canManage = is_granted(constant('App\\Module\\Board\\Security\\BoardColumnVoter::MANAGE'), board.project) %}
-<div id="board" class="lp-board" data-controller="board-drag board-filter{{ canManage ? ' board-columns' }}">
+<div id="board" class="lp-board" data-controller="board-drag board-filter board-view{{ canManage ? ' board-columns' }}">
     {% set cardCount = 0 %}
     {% for view in board.columns %}{% set cardCount = cardCount + view.count %}{% endfor %}
     <div class="lp-board-toolbar">
@@ -31,10 +31,22 @@
               data-one="{{ 'board.card.count'|trans({'%count%': 1}) }}"
               data-many="{{ 'board.card.count'|trans({'%count%': 2})|replace({'2': '%count%'}) }}">{{ 'board.card.count'|trans({'%count%': cardCount}) }}</span>
         <div class="lp-board-toolbar__mode" aria-label="{{ 'board.view.label'|trans }}">
-            <span class="lp-board-toolbar__mode-active" aria-current="page">
+            <button type="button"
+                    class="lp-board-toolbar__mode-button"
+                    aria-pressed="true"
+                    data-board-view-target="boardButton"
+                    data-action="board-view#showBoard">
                 <twig:ux:icon name="lucide:square-kanban" class="w-4 h-4 shrink-0" />
                 {{ 'board.view.board'|trans }}
-            </span>
+            </button>
+            <button type="button"
+                    class="lp-board-toolbar__mode-button"
+                    aria-pressed="false"
+                    data-board-view-target="listButton"
+                    data-action="board-view#showList">
+                <twig:ux:icon name="lucide:list" class="w-4 h-4 shrink-0" />
+                {{ 'board.view.list'|trans }}
+            </button>
         </div>
     </div>
     <p class="lp-board-filter-empty" data-board-filter-target="empty" hidden>{{ 'board.filter.empty'|trans }}</p>
@@ -55,7 +67,9 @@
         {{ form_widget(reorderForm.order, {attr: {'data-board-columns-target': 'order'}}) }}
     </form>
     {% endif %}
-    <div class="lp-board__columns"{% if canManage %} data-action="dragover->board-columns#over drop->board-columns#drop"{% endif %}>
+    <div class="lp-board__columns"
+         data-board-view-target="board"
+         {% if canManage %}data-action="dragover->board-columns#over drop->board-columns#drop"{% endif %}>
     {% for view in board.columns %}
     {% set label = view.column.label|trans %}
     <section class="lp-board__column"
@@ -125,5 +139,36 @@
             {{ form_end(addForm) }}
         </section>
     {% endif %}
+    </div>
+    <div class="lp-board-list" data-board-view-target="list" hidden>
+        <div class="lp-board-list__header" aria-hidden="true">
+            <span>{{ 'board.list.work'|trans }}</span>
+            <span>{{ 'board.list.status'|trans }}</span>
+            <span>{{ 'board.list.priority'|trans }}</span>
+            <span>{{ 'board.list.agent'|trans }}</span>
+            <span>{{ 'board.list.linked_work'|trans }}</span>
+            <span>{{ 'board.list.feedback'|trans }}</span>
+        </div>
+        {% for view in board.columns %}
+            {% for group in view.groups %}
+                {% for card in group.cards %}
+                    {% set feedbackCount = board.pendingComments[card.id ~ '']|default(0) %}
+                    <a class="lp-board-list__row"
+                       href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}"
+                       data-turbo-frame="card-drawer-frame"
+                       data-action="click->card-drawer#prepare"
+                       data-board-filter-target="row"
+                       data-card-title="{{ card.title }}"
+                       data-card-priority="{{ card.priority.value }}">
+                        <span class="lp-board-list__work"><strong>#{{ card.number }} {{ card.title }}</strong><span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span></span>
+                        <span>{{ view.column.label|trans }}</span>
+                        <span>{{ ('board.card.priority.' ~ card.priority.label())|trans }}</span>
+                        <span aria-label="{{ 'board.list.agent.unassigned'|trans }}">—</span>
+                        <span>{{ card.pullRequests|length + card.documents|length }}</span>
+                        <span>{{ feedbackCount }}</span>
+                    </a>
+                {% endfor %}
+            {% endfor %}
+        {% endfor %}
     </div>
 </div>

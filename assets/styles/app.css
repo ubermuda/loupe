@@ -563,8 +563,11 @@
     .lp-board-toolbar__mode {
         @apply inline-flex items-center rounded-lg bg-surface-3 p-1;
     }
-    .lp-board-toolbar__mode-active {
-        @apply inline-flex items-center gap-2 rounded-md bg-surface-1 px-3 py-1.5 text-sm font-bold text-ink;
+    .lp-board-toolbar__mode-button {
+        @apply inline-flex min-h-7 items-center gap-2 rounded-md border-0 bg-transparent px-3 py-1 text-sm font-semibold text-fg-dim cursor-pointer;
+    }
+    .lp-board-toolbar__mode-button[aria-pressed='true'] {
+        @apply bg-surface-1 font-bold text-ink shadow-sm;
     }
     .lp-board-toolbar__count {
         @apply ml-auto text-sm font-semibold text-fg-dim;
@@ -574,6 +577,33 @@
     }
     .lp-board-filter-empty[hidden] {
         @apply hidden;
+    }
+    .lp-board-list {
+        @apply overflow-x-auto rounded-xl border border-line bg-surface-1;
+    }
+    .lp-board-list[hidden] {
+        @apply hidden;
+    }
+    .lp-board-list__header,
+    .lp-board-list__row {
+        display: grid;
+        grid-template-columns: minmax(18rem, 2fr) repeat(5, minmax(7rem, 1fr));
+        min-width: 62rem;
+    }
+    .lp-board-list__header {
+        @apply border-b border-line bg-surface-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-fg-mute;
+    }
+    .lp-board-list__row {
+        @apply items-center border-b border-line px-4 py-3 text-sm text-fg no-underline last:border-b-0 hover:bg-surface-2;
+    }
+    .lp-board-list__row[hidden] {
+        @apply hidden;
+    }
+    .lp-board-list__work {
+        @apply flex min-w-0 items-center gap-2 pr-4;
+    }
+    .lp-board-list__work strong {
+        @apply truncate text-ink;
     }
     .lp-board__columns {
         scroll-padding-inline: calc(var(--spacing) * 3);
@@ -3210,6 +3240,9 @@
     }
     .lp-sidebar__switcher-name {
         @apply font-bold text-white truncate text-sm;
+    }
+    .lp-sidebar__switcher-label {
+        @apply text-xs text-chrome-dim;
     }
     .lp-sidebar__switcher-domain {
         @apply font-mono text-chrome-mute truncate text-xs;
