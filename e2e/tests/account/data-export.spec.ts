@@ -35,6 +35,7 @@ test('requesting a data export emails a working download link', async ({
     );
 
     await page.goto('/account');
+    await page.locator('#account-tab-data').click();
     await expect(page.locator('[data-testid="export-section"]')).toBeVisible();
 
     await page

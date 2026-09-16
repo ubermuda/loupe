@@ -124,7 +124,7 @@ async function dragCardTo(
     target: { x: number; y: number },
 ): Promise<void> {
     const grip = page.locator(
-        `[data-card-title="${title}"] .lp-board-card__title`,
+        `${CARD}[data-card-title="${title}"] .lp-board-card__title`,
     );
     const from = await grip.boundingBox();
     expect(from).not.toBeNull();
@@ -155,7 +155,7 @@ async function topEdgeOf(
     title: string,
 ): Promise<{ x: number; y: number }> {
     const box = await page
-        .locator(`[data-card-title="${title}"]`)
+        .locator(`${CARD}[data-card-title="${title}"]`)
         .boundingBox();
     expect(box).not.toBeNull();
     if (box === null) {
@@ -229,19 +229,25 @@ test('the board search filters cards and reports an empty result', async ({
     const search = page.getByPlaceholder('Find a card…');
 
     await search.fill('Bravo');
-    await expect(page.locator('[data-card-title="Bravo"]')).toBeVisible();
-    await expect(page.locator('[data-card-title="Alpha"]')).toBeHidden();
+    await expect(
+        page.locator(CARD + '[data-card-title="Bravo"]'),
+    ).toBeVisible();
+    await expect(page.locator(CARD + '[data-card-title="Alpha"]')).toBeHidden();
     await expect(page.locator('.lp-board-toolbar__count')).toHaveText('1 card');
 
     await search.fill('Missing');
-    await expect(page.locator('[data-card-title="Alpha"]')).toBeHidden();
-    await expect(page.locator('[data-card-title="Bravo"]')).toBeHidden();
+    await expect(page.locator(CARD + '[data-card-title="Alpha"]')).toBeHidden();
+    await expect(page.locator(CARD + '[data-card-title="Bravo"]')).toBeHidden();
     await expect(page.getByText('No cards match these filters.')).toBeVisible();
 
     await search.fill('');
     await expect(page.locator(CARD)).toHaveCount(2);
-    await expect(page.locator('[data-card-title="Alpha"]')).toBeVisible();
-    await expect(page.locator('[data-card-title="Bravo"]')).toBeVisible();
+    await expect(
+        page.locator(CARD + '[data-card-title="Alpha"]'),
+    ).toBeVisible();
+    await expect(
+        page.locator(CARD + '[data-card-title="Bravo"]'),
+    ).toBeVisible();
 });
 
 test('the list view uses the same cards and opens the stable drawer', async ({
@@ -330,7 +336,7 @@ test("the card's own page moves it without a pointer", async ({
 }) => {
     // The board face offers dragging and nothing else, so the keyboard path to
     // the same endpoint is the form on the card page.
-    await page.locator('[data-card-title="Bravo"] a').click();
+    await page.locator(CARD + '[data-card-title="Bravo"] a').click();
     await expect(page.getByRole('button', { name: 'Move card' })).toBeVisible();
 
     const moveForm = page.locator('.lp-card-move__form');

@@ -5904,6 +5904,18 @@
             <trans-unit id="activity.attempts"><source>activity.attempts</source><target>{0} No failed attempts|{1} 1 failed attempt|]1,Inf[ %count% failed attempts</target></trans-unit>
             <trans-unit id="activity.empty.title"><source>activity.empty.title</source><target>No recorded activity</target></trans-unit>
             <trans-unit id="activity.empty.description"><source>activity.empty.description</source><target>Project events will appear here after Loupe records them.</target></trans-unit>
+            <trans-unit id="review.deleted_threads.title"><source>review.deleted_threads.title</source><target>Deleted threads</target></trans-unit>
+            <trans-unit id="review.deleted_threads.description"><source>review.deleted_threads.description</source><target>Deleted threads stay here until you purge them. Restore returns each thread to its original version.</target></trans-unit>
+            <trans-unit id="review.deleted_threads.back"><source>review.deleted_threads.back</source><target>Back to document</target></trans-unit>
+            <trans-unit id="review.deleted_threads.deleted_at"><source>review.deleted_threads.deleted_at</source><target>Deleted %date%</target></trans-unit>
+            <trans-unit id="review.deleted_threads.restore"><source>review.deleted_threads.restore</source><target>Restore thread</target></trans-unit>
+            <trans-unit id="review.deleted_threads.purge"><source>review.deleted_threads.purge</source><target>Purge permanently</target></trans-unit>
+            <trans-unit id="review.deleted_threads.purge_title"><source>review.deleted_threads.purge_title</source><target>Purge this thread permanently?</target></trans-unit>
+            <trans-unit id="review.deleted_threads.purge_description"><source>review.deleted_threads.purge_description</source><target>This removes the thread and all its replies. You cannot undo a purge.</target></trans-unit>
+            <trans-unit id="review.deleted_threads.cancel"><source>review.deleted_threads.cancel</source><target>Cancel</target></trans-unit>
+            <trans-unit id="review.deleted_threads.empty"><source>review.deleted_threads.empty</source><target>No deleted threads.</target></trans-unit>
+            <trans-unit id="review.deleted_threads.flash.restored"><source>review.deleted_threads.flash.restored</source><target>Thread restored.</target></trans-unit>
+            <trans-unit id="review.deleted_threads.flash.purged"><source>review.deleted_threads.flash.purged</source><target>Thread permanently purged.</target></trans-unit>
         </body>
     </file>
 </xliff>

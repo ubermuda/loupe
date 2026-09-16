@@ -1,6 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 
-/* stimulusFetch: 'lazy' */
+/* stimulusFetch: 'eager' */
 export default class extends Controller {
     static targets = ['tab', 'panel'];
     static values = { active: { type: String, default: 'overview' } };

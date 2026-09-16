@@ -1744,6 +1744,20 @@
         @apply min-w-0;
     }
 
+    /* Document-scoped recovery list, outside the anchored review margin. */
+    .lp-deleted-threads {
+        @apply mx-auto flex max-w-3xl flex-col gap-4;
+    }
+    .lp-deleted-threads__thread {
+        @apply flex min-w-0 flex-col gap-3 border-t border-line pt-5;
+    }
+    .lp-deleted-threads__meta {
+        @apply flex flex-wrap items-center gap-3 text-sm text-fg-mute;
+    }
+    .lp-deleted-threads__actions {
+        @apply flex flex-wrap items-start justify-between gap-3;
+    }
+
     .lp-review-block {
         @apply relative w-full px-5 pt-6 pb-19 lg:mx-7 lg:w-auto lg:px-0 lg:pt-7 lg:pb-30;
         max-width: 73rem;

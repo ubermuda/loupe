@@ -617,6 +617,7 @@
                         </dd>
                     </div>
                 </dl>
+                <a class="lp-btn lp-btn--ghost" href="{{ path('app_document_deleted_threads', {projectId: document.project.id, documentId: document.id}) }}">{{ 'review.deleted_threads.title'|trans }}</a>
                 <div data-controller="review-summary"
                      data-review-summary-header-value="{{ document.title ~ ' · v' ~ version.versionNumber ~ "\n" ~ 'review.document.summary.status'|trans({'%status%': ('document.status.' ~ document.status.value|replace({'-': '_'}))|trans}) }}"
                      data-review-summary-copied-value="{{ 'review.document.summary.copied'|trans }}"
