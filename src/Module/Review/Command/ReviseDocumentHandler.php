@@ -94,7 +94,7 @@ final readonly class ReviseDocumentHandler
 
         $newVersionNumber = 0;
 
-        $summary = $this->em->wrapInTransaction(function () use ($document, $command, $description, $title, $references, $placesInSeries, &$newVersionNumber): array {
+        $summary = $this->em->wrapInTransaction(function () use ($document, $command, $description, $title, $references, $placesInSeries, &$newVersionNumber): array|DomainErrors {
             // Locks the documents row before the number below is read, so two
             // concurrent revisions serialize here rather than both deriving the
             // same next version number.
@@ -105,6 +105,9 @@ final readonly class ReviseDocumentHandler
             // helper calls count() and add() on ->versions, and the association is
             // not EXTRA_LAZY, so either one loads every version of the document.
             $previousVersion = $this->documentVersions->findLatest($document);
+            if (null !== $command->versionNumber && $previousVersion->versionNumber !== $command->versionNumber) {
+                return new DomainErrors(['versionNumber' => 'review.revise.error.stale_version']);
+            }
 
             $newVersion = new DocumentVersion(
                 $document,
@@ -173,6 +176,10 @@ final readonly class ReviseDocumentHandler
                 'sectionsDropped' => $sections['dropped'],
             ];
         });
+
+        if ($summary instanceof DomainErrors) {
+            throw $summary;
+        }
 
         // After the commit, never inside it: the sink drains at kernel.terminate,
         // so a record written in the closure outlives a rollback.

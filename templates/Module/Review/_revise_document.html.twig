@@ -1,0 +1,25 @@
+<div data-controller="modal" data-modal-reopen-value="{{ form.vars.submitted ? 'true' : 'false' }}">
+    <button type="button" class="lp-btn lp-btn--outline" data-action="click->modal#open">{{ 'review.revise.open'|trans }}</button>
+    <dialog class="lp-dialog lp-dialog--document" data-modal-target="dialog" aria-labelledby="revise-document-title" data-action="cancel->modal#close">
+        <h2 class="lp-dialog-title" id="revise-document-title">{{ 'review.revise.title'|trans }}</h2>
+        <p class="lp-dialog-desc">{{ 'review.revise.help'|trans }}</p>
+        {{ form_start(form, {attr: {class: 'lp-form'}}) }}
+            <div class="lp-field-errors">{{ form_errors(form) }}{{ form_errors(form.versionNumber) }}</div>
+            {{ form_widget(form.versionNumber, {type: 'hidden'}) }}
+            {% for field in [form.title, form.markdown, form.description] %}
+            <div class="lp-form-field">
+                {{ form_label(field, null, {label_attr: {class: 'lp-label'}}) }}
+                {{ form_widget(field, {attr: {class: field.vars.name == 'markdown' ? 'lp-input lp-document-editor' : 'lp-input'}}) }}
+                <div class="lp-field-errors">{{ form_errors(field) }}</div>
+            </div>
+            {% endfor %}
+            {% if not form.versionNumber.vars.valid %}
+            <a class="lp-btn lp-btn--outline" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">{{ 'review.document.version.back_to_latest'|trans }}</a>
+            {% endif %}
+            <div class="lp-review-verdict-actions">
+                <button type="button" class="lp-btn lp-btn--ghost" data-action="click->modal#close">{{ 'review.revise.cancel'|trans }}</button>
+                <button type="submit" class="lp-btn lp-btn--primary">{{ 'review.revise.submit'|trans }}</button>
+            </div>
+        {{ form_end(form) }}
+    </dialog>
+</div>

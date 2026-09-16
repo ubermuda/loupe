@@ -24,6 +24,7 @@ final readonly class ReviseDocumentCommand
         public ?array $references = null,
         public ?string $seriesName = null,
         public ?int $seriesOrdinal = null,
+        public ?int $versionNumber = null,
     ) {
     }
 }

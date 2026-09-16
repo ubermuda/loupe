@@ -1217,6 +1217,46 @@
                 <source>review.create.error.too_long</source>
                 <target>That title is too long.</target>
             </trans-unit>
+            <trans-unit id="review.revise.open">
+                <source>review.revise.open</source>
+                <target>Revise</target>
+            </trans-unit>
+            <trans-unit id="review.revise.title">
+                <source>review.revise.title</source>
+                <target>Revise document</target>
+            </trans-unit>
+            <trans-unit id="review.revise.help">
+                <source>review.revise.help</source>
+                <target>Saving creates a new version. Unchanged sections keep their approval. Existing card links stay attached.</target>
+            </trans-unit>
+            <trans-unit id="review.revise.cancel">
+                <source>review.revise.cancel</source>
+                <target>Cancel</target>
+            </trans-unit>
+            <trans-unit id="review.revise.submit">
+                <source>review.revise.submit</source>
+                <target>Save new version</target>
+            </trans-unit>
+            <trans-unit id="review.revise.flash.success">
+                <source>review.revise.flash.success</source>
+                <target>New version saved.</target>
+            </trans-unit>
+            <trans-unit id="review.revise.error.stale_version">
+                <source>review.revise.error.stale_version</source>
+                <target>The document has a newer version. Compare it with your draft before you save a revision.</target>
+            </trans-unit>
+            <trans-unit id="review.form.revise_document_form.title.label">
+                <source>review.form.revise_document_form.title.label</source>
+                <target>Title</target>
+            </trans-unit>
+            <trans-unit id="review.form.revise_document_form.markdown.label">
+                <source>review.form.revise_document_form.markdown.label</source>
+                <target>Markdown</target>
+            </trans-unit>
+            <trans-unit id="review.form.revise_document_form.description.label">
+                <source>review.form.revise_document_form.description.label</source>
+                <target>Revision note</target>
+            </trans-unit>
             <trans-unit id="review.revise.error.description_blank">
                 <source>review.revise.error.description_blank</source>
                 <target>Say what changed in this version.</target>

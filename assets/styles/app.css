@@ -1685,6 +1685,14 @@
         max-height: 90vh;
         @apply max-w-xl overflow-y-auto rounded-xl border-0 bg-surface-1 p-6 shadow-composer;
     }
+    /** Wide dialog for editing document Markdown. */
+    .lp-dialog--document {
+        @apply max-w-4xl;
+    }
+    /** Multiline source field inside a document dialog. */
+    .lp-document-editor {
+        @apply min-h-64 font-mono;
+    }
     .lp-dialog::backdrop {
         @apply bg-ink/40 backdrop-blur-xs;
         animation: lp-dialog-backdrop-in 220ms ease-out;

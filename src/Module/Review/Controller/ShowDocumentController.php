@@ -12,6 +12,8 @@ use App\Module\Review\Command\ShowDocumentHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Form\AddCommentFormType;
 use App\Module\Review\Form\AddCommentRequest;
+use App\Module\Review\Form\ReviseDocumentFormType;
+use App\Module\Review\Form\ReviseDocumentRequest;
 use App\Module\Review\Form\SelectDecisionOptionFormType;
 use App\Module\Review\Form\SelectDecisionOptionRequest;
 use App\Module\Review\Form\StrikePassageFormType;
@@ -75,6 +77,12 @@ final class ShowDocumentController extends AppController
             ['action' => $this->generateUrl('app_document_review_submit', $routeParameters)],
         )->createView();
 
+        $reviseDocumentForm = $this->getInjectedFormView($request, 'reviseDocumentForm') ?? $this->createForm(
+            ReviseDocumentFormType::class,
+            ReviseDocumentRequest::fromVersion($view->version),
+            ['action' => $this->generateUrl('app_document_revise', $routeParameters)],
+        )->createView();
+
         $addCommentForm = $this->createForm(AddCommentFormType::class, new AddCommentRequest(), [
             'action' => $this->generateUrl('app_comment_add', $routeParameters),
             'method' => 'POST',
@@ -102,6 +110,7 @@ final class ShowDocumentController extends AppController
             'document' => $view->document,
             'review' => $view->review,
             'submitReviewForm' => $submitReviewForm,
+            'reviseDocumentForm' => $reviseDocumentForm,
             'version' => $view->version,
             'versions' => $view->versions,
             // The shared page shell reads these to decide whether it is showing a

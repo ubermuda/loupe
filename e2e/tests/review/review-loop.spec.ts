@@ -126,6 +126,81 @@ const test = base.extend<{ review: SeededReview }>({
 // Guest by default — make the unauthenticated starting state explicit.
 test.use({ storageState: { cookies: [], origins: [] } });
 
+test('Revise saves a new version and preserves the previous text', async ({
+    page,
+    review,
+}) => {
+    await page.getByRole('button', { name: 'Revise', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Revise document' });
+    await expect(dialog.getByLabel('Markdown', { exact: true })).toHaveValue(
+        DOCUMENT_MARKDOWN,
+    );
+    await dialog
+        .getByLabel('Title', { exact: true })
+        .fill('Revised review document');
+    await dialog
+        .getByLabel('Markdown', { exact: true })
+        .fill('# Revised content');
+    await dialog
+        .getByLabel('Revision note', { exact: true })
+        .fill('Clarify the document.');
+    await dialog.getByRole('button', { name: 'Save new version' }).click();
+    await expect(page.locator('.lp-review-doc__version')).toHaveText('v2', {
+        timeout: 20000,
+    });
+    await expect(page.locator(DOC)).toContainText('Revised content');
+    await expect(
+        page.getByRole('heading', {
+            name: 'Revised review document',
+            exact: true,
+        }),
+    ).toBeVisible();
+    await page.goto(`${review.reviewUrl}/versions/1`);
+    await expect(page.locator(DOC)).toContainText(KNOWN_PHRASE);
+    await expect(
+        page.getByRole('button', { name: 'Revise', exact: true }),
+    ).toHaveCount(0);
+});
+
+test('Revise retains a stale draft and offers the current version', async ({
+    page,
+    review,
+}) => {
+    await page.getByRole('button', { name: 'Revise', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Revise document' });
+    await dialog
+        .getByLabel('Markdown', { exact: true })
+        .fill('# Unsaved draft');
+    await dialog
+        .getByLabel('Revision note', { exact: true })
+        .fill('Keep this note.');
+    const revised = await page.request.post(
+        `/dev/review/${review.documentId}/revise`,
+        {
+            form: {
+                markdown: '# Concurrent revision',
+                description: 'Another revision.',
+            },
+        },
+    );
+    expect(revised.status()).toBe(200);
+    await dialog.getByRole('button', { name: 'Save new version' }).click();
+    await expect(dialog).toContainText('The document has a newer version.', {
+        timeout: 20000,
+    });
+    await expect(dialog.getByLabel('Markdown', { exact: true })).toHaveValue(
+        '# Unsaved draft',
+    );
+    await expect(
+        dialog.getByLabel('Revision note', { exact: true }),
+    ).toHaveValue('Keep this note.');
+    await dialog
+        .getByRole('link', { name: 'Go to the current version' })
+        .click();
+    await expect(page.locator(DOC)).toContainText('Concurrent revision');
+    await expect(page.locator('.lp-review-doc__version')).toHaveText('v2');
+});
+
 /**
  * Drive text selection inside [data-comment-anchor-target="doc"] by
  * programmatically setting a DOM Range over KNOWN_PHRASE, then dispatching

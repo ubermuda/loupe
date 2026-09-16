@@ -8,6 +8,17 @@ description, tags, an optional place in a series, and links to other documents;
 each submission mints a new **version**, and the review UI keeps every one of
 them.
 
+## Revising
+
+Select **Revise** beside the document title to edit its title and Markdown.
+Enter a revision note, then select **Save new version**.
+Loupe creates a version and keeps the previous version unchanged.
+Unchanged sections keep their approvals, and existing card links stay attached.
+The document returns to Needs review.
+
+If another revision arrives while you edit, Loupe keeps your draft and refuses the submission.
+Compare your draft with the current version before you submit a new revision.
+
 ## Reviewing
 
 `/projects/{projectId}/documents/{documentId}/review` renders the current

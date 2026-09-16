@@ -93,11 +93,14 @@
                     </a>
                     <h1 class="lp-review-doc__title">{{ document.title }}</h1>
                     <span class="lp-review-doc__version">{{ 'v' ~ version.versionNumber }}</span>
-                    {% if not readOnly and not diffMode and document.status.value == 'in-review' %}
+                    {% if not readOnly and not diffMode %}
                     <div class="lp-review-doc__actions">
+                        {% include '@Review/_revise_document.html.twig' with {form: reviseDocumentForm, document: document} only %}
+                        {% if document.status.value == 'in-review' %}
                         <button type="button" class="lp-btn lp-btn--primary" data-action="click->modal#open">
                             {{ 'review.document.finish.title'|trans }}
                         </button>
+                        {% endif %}
                     </div>
                     {% endif %}
                 </div>
