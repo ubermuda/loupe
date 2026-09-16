@@ -1620,7 +1620,7 @@
     }
     /* Filled destructive — irreversible, and the only red fill on the screen. */
     .lp-btn--danger {
-        @apply h-10.5 bg-status-danger-bg px-4.5 text-danger font-bold;
+        @apply bg-status-danger-bg text-danger font-bold;
     }
     .lp-btn--danger:hover {
         @apply bg-status-danger-border;
