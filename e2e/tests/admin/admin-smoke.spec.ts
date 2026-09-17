@@ -42,6 +42,22 @@ test('the admin layout loads its stylesheet and disables cached previews', async
     ).toHaveAttribute('content', 'no-preview');
 });
 
+test('admin user filters show a dark focus ring in normal colors', async ({
+    page,
+}) => {
+    await page.goto('/admin/users');
+    const fields = page.locator('.admin-field-input');
+    await expect(fields).toHaveCount(4);
+    for (const field of await fields.all()) {
+        await field.focus();
+        await expect(field).toBeFocused();
+        await expect(field).toHaveCSS(
+            'box-shadow',
+            /rgb\(89, 99, 19\) 0px 0px 0px 2px/,
+        );
+    }
+});
+
 test('a bool flag can be created, toggled and deleted', async ({ page }) => {
     await page.goto('/admin/feature-flags');
     await page.getByRole('link', { name: 'New flag', exact: true }).click();

@@ -131,6 +131,22 @@ test.afterAll(async ({ request }) => {
     await setBoardFlag(request, false);
 });
 
+test('board filters retain an outline in forced colors', async ({ page }) => {
+    await page.emulateMedia({ forcedColors: 'active' });
+    for (const selector of [
+        '.lp-board-toolbar__input',
+        '.lp-board-toolbar__select',
+    ]) {
+        const field = page.locator(selector);
+        await field.focus();
+        await expect(field).toBeFocused();
+        await expect(field).toHaveCSS('outline-style', 'solid');
+        await expect(field).toHaveCSS('outline-width', '2px');
+        await expect(field).toHaveCSS('outline-offset', '0px');
+        await expect(field).not.toHaveCSS('outline-color', 'rgba(0, 0, 0, 0)');
+    }
+});
+
 async function expectFilterRingClearance(page: Page): Promise<void> {
     await expect(page.locator('.lp-board-toolbar__filters :focus')).toHaveCSS(
         'box-shadow',

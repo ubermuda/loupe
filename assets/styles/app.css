@@ -577,7 +577,7 @@
     }
     .lp-board-toolbar__input,
     .lp-board-toolbar__select {
-        @apply h-9 rounded-lg border border-line bg-surface-1 text-sm text-ink outline-none focus:border-accent-ink focus:ring-2 focus:ring-accent-ink;
+        @apply h-9 rounded-lg border border-line bg-surface-1 text-sm text-ink outline-hidden forced-colors:outline-offset-0 focus:border-accent-ink focus:ring-2 focus:ring-accent-ink;
     }
     .lp-board-toolbar__input {
         @apply min-w-0 w-full py-2 pr-3 pl-9;
@@ -1035,7 +1035,7 @@
         @apply w-full min-h-9 font-sans text-sm leading-5 text-ink bg-surface-1 border border-line rounded-lg px-3.25 py-1.75 outline-hidden transition-colors placeholder:text-fg-dim focus:border-accent-ink focus:ring-2 focus:ring-accent-ink;
     }
     .admin-field-input {
-        @apply w-full font-sans text-base text-ink bg-surface-3 border-0 rounded-xl px-4 py-3 outline-hidden transition-colors placeholder:text-fg-dim focus:bg-tint-strong;
+        @apply w-full font-sans text-base text-ink bg-surface-3 border-0 rounded-xl px-4 py-3 outline-hidden transition-colors placeholder:text-fg-dim focus:bg-tint-strong focus:ring-2 focus:ring-accent-ink;
     }
     /* Native <select>: hide the OS arrow and draw a design-system chevron.
        Defined after .lp-input so it can layer the chevron on top. */
