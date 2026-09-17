@@ -54,7 +54,7 @@ test('Workshop shows reported connections and opens the matching details', async
         await page.evaluate((size) => {
             document.documentElement.style.fontSize = size;
         }, fontSize);
-        for (const width of [1440, 950, 780, 390]) {
+        for (const width of [1440, 1150, 950, 780, 390]) {
             await page.setViewportSize({ width, height: 1000 });
             await expect
                 .poll(() =>
@@ -71,6 +71,10 @@ test('Workshop shows reported connections and opens the matching details', async
                 )
                 .toBeLessThanOrEqual(1);
             await connection.scrollIntoViewIfNeeded();
+            const bounds = await connection.boundingBox();
+            expect(bounds).not.toBeNull();
+            expect(bounds!.x).toBeGreaterThanOrEqual(0);
+            expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
             await page.screenshot({
                 path: testInfo.outputPath(
                     `workshop-crew-${width}-${fontSize}.png`,

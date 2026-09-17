@@ -115,9 +115,31 @@ test('connection health remains accessible at enlarged text sizes', async ({
                     ),
                 )
                 .toBeLessThanOrEqual(1);
+            for (const action of await page
+                .locator('.lp-orchestration-page a')
+                .all()) {
+                await action.scrollIntoViewIfNeeded();
+                const geometry = await action.evaluate((element) => ({
+                    bounds: element.getBoundingClientRect().toJSON(),
+                    parent: element
+                        .parentElement!.getBoundingClientRect()
+                        .toJSON(),
+                    viewport: [innerWidth, innerHeight],
+                }));
+                await expect(action, JSON.stringify(geometry)).toBeInViewport({
+                    ratio: 1,
+                });
+                expect(geometry.bounds.left).toBeGreaterThanOrEqual(
+                    geometry.parent.left,
+                );
+                expect(geometry.bounds.right).toBeLessThanOrEqual(
+                    geometry.parent.right,
+                );
+            }
             await page.screenshot({
                 path: testInfo.outputPath(`agents-${width}-${fontSize}.png`),
                 animations: 'disabled',
+                fullPage: true,
             });
             await connection.locator('footer').scrollIntoViewIfNeeded();
             await page.screenshot({
@@ -287,9 +309,18 @@ test('a dead rule shows a banner and a watched column warns before a rename or a
             expect(inputBounds!.x + inputBounds!.width).toBeLessThanOrEqual(
                 submitBounds!.x,
             );
+            await input.focus();
+            await expect(input).toBeInViewport({ ratio: 1 });
+            await input.press('Tab');
+            await expect(submit).toBeFocused();
+            await expect(submit).toBeInViewport({ ratio: 1 });
+            await submit.press('Shift+Tab');
+            await expect(input).toBeFocused();
+            await expect(input).toBeInViewport({ ratio: 1 });
             await page.screenshot({
                 path: testInfo.outputPath(`rules-${width}-${fontSize}.png`),
                 animations: 'disabled',
+                fullPage: true,
             });
         }
     }

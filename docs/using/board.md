@@ -212,6 +212,7 @@ history page of the board's first terminal column.
 Open Rules to read the project's reported handoffs. Search by rule name and submit with the search button or Enter.
 Matching ignores case. Clear search restores the full list; the live-rule count always covers the project's complete report.
 Searches with no matches show a different message from a project with no reported rules.
+On narrow screens or with enlarged text, the search row scrolls to reveal each control as you press Tab or Shift+Tab.
 This page remains read-only. Change rules in the bridge configuration.
 
 A [command-line bridge](../extending/cli-bridge.md) can report the health of its

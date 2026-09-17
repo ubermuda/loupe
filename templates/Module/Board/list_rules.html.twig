@@ -20,8 +20,8 @@
     </header>
 
     <div class="lp-list-filters">
-        {{ form_start(searchForm, {'action': path('app_project_rules', {id: project.id}), 'attr': {'class': 'lp-filter-form'}}) }}
-            <div class="lp-filter-primary">
+        {{ form_start(searchForm, {'action': path('app_project_rules', {id: project.id}), 'attr': {'class': 'lp-filter-form', 'data-controller': 'autosearch'}}) }}
+            <div class="lp-filter-primary" data-action="focusin->autosearch#revealField">
                 <div class="lp-filter-search">
                     <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
                     {{ form_label(searchForm.search, null, {'label_attr': {'class': 'sr-only'}}) }}
