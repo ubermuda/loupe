@@ -75,7 +75,7 @@ final class CommentRecoveryControllerTest extends WebTestCase
         $audit = RecordingAuditor::installedIn(self::getContainer());
         $rootId = (string) $this->root->id;
         $crawler = $this->client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, $this->url);
-        $this->client->submit($crawler->filter('dialog form')->form());
+        $this->client->submit($crawler->filter('[data-deleted-thread="'.$rootId.'"] dialog form')->form());
         self::assertResponseRedirects($this->url);
         $this->client->followRedirect();
         self::assertSelectorTextContains('.lp-deleted-threads', 'No deleted threads.');

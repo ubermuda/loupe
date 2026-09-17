@@ -219,10 +219,7 @@
                         </div>
                         {% if project %}
                         <div class="lp-topbar__global-actions" aria-label="{{ 'nav.global_actions.label'|trans }}">
-                            <a class="lp-topbar__global-action lp-topbar__global-action--search" href="{{ path('app_project_documents', {id: project.id}) }}" title="{{ 'nav.search.documents'|trans }}">
-                                <twig:ux:icon name="lucide:search" />
-                                <span>{{ 'nav.search.documents'|trans }}</span>
-                            </a>
+                            {% include 'search/_search_dialog.html.twig' with {project: project} only %}
                             {% include 'outbox/_activity_drawer.html.twig' with {project: project} only %}
                         </div>
                         {% endif %}

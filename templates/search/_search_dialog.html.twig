@@ -1,0 +1,21 @@
+<div data-controller="modal global-search" data-action="keydown@window->global-search#shortcut turbo:before-fetch-request->global-search#loading turbo:before-fetch-response->global-search#received turbo:fetch-request-error->global-search#failed">
+    <a class="lp-topbar__global-action lp-topbar__global-action--search" href="{{ path('app_project_search', {id: project.id}) }}" title="{{ 'search.title'|trans }}" aria-label="{{ 'search.title'|trans }}" aria-haspopup="dialog" aria-keyshortcuts="Control+k Meta+k" data-global-search-target="trigger" data-action="click->modal#open click->global-search#open">
+        <twig:ux:icon name="lucide:search" />
+        <span>{{ 'search.title'|trans }}</span>
+    </a>
+    <dialog class="lp-dialog lp-dialog--search" data-modal-target="dialog" data-global-search-target="dialog" data-action="cancel->modal#close" aria-labelledby="project-search-title">
+        <header class="lp-search-dialog__header">
+            <h2 class="lp-dialog-title" id="project-search-title">{{ 'search.title'|trans }}</h2>
+            <button type="button" class="lp-btn lp-btn--icon" data-global-search-target="close" data-action="modal#close" aria-label="{{ 'search.close'|trans }}"><twig:ux:icon name="lucide:x" /></button>
+        </header>
+        <form method="get" action="{{ path('app_project_search', {id: project.id}) }}" class="lp-search-dialog__form" data-turbo-frame="project-search-results" data-global-search-target="form" data-action="submit->global-search#submitted">
+            <label class="lp-search-dialog__label" for="project-search-query">{{ 'search.form.search_form.query.label'|trans }}</label>
+            <input class="lp-input" type="search" name="query" id="project-search-query" maxlength="200" autocomplete="off" autofocus data-global-search-target="query" data-action="input->global-search#search">
+            <button type="submit" class="lp-btn">{{ 'search.submit'|trans }}</button>
+        </form>
+        <p class="lp-dialog-desc" role="status" data-global-search-target="loading">{{ 'search.loading'|trans }}</p>
+        <p class="lp-dialog-desc" role="alert" data-global-search-target="error" hidden>{{ 'search.failed'|trans }}</p>
+        <turbo-frame id="project-search-results" data-global-search-target="frame" data-action="turbo:frame-load->global-search#loaded turbo:frame-missing->global-search#failed" hidden></turbo-frame>
+        <p class="lp-dialog-desc">{{ 'search.keyboard_hint'|trans }}</p>
+    </dialog>
+</div>

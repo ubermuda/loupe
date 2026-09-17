@@ -1686,6 +1686,34 @@
     .lp-dialog--document {
         @apply max-w-4xl;
     }
+    /** Project search dialog, results, and paging controls. */
+    .lp-dialog--search {
+        @apply max-w-2xl;
+    }
+    .lp-search-dialog__header {
+        @apply flex items-center justify-between gap-3 mb-4;
+    }
+    .lp-search-dialog__form {
+        @apply flex flex-wrap items-center gap-2 mb-4;
+    }
+    .lp-search-dialog__form .lp-input {
+        @apply min-w-0 flex-1 basis-48;
+    }
+    .lp-search-dialog__label {
+        @apply sr-only;
+    }
+    .lp-search-result {
+        @apply flex flex-wrap items-center justify-between gap-3 border-b border-line py-3 text-ink no-underline;
+    }
+    .lp-search-result > :first-child {
+        @apply min-w-0 flex-1 basis-48 break-words;
+    }
+    .lp-search-result:hover {
+        @apply bg-surface-2;
+    }
+    .lp-search-pagination {
+        @apply flex flex-wrap gap-3 py-4;
+    }
     /** Recent project events in the topbar's right-hand drawer. */
     .lp-activity-drawer {
         @apply fixed inset-y-0 right-0 left-auto m-0 ml-auto w-full max-w-lg rounded-none p-0;
@@ -3546,7 +3574,10 @@
         @apply w-4 h-4;
     }
     .lp-topbar__global-action--search {
-        @apply hidden w-auto gap-2 px-2.5 text-sm lg:inline-flex;
+        @apply gap-2 text-sm lg:w-auto lg:px-2.5;
+    }
+    .lp-topbar__global-action--search > span {
+        @apply hidden lg:inline;
     }
 
     /* Tailwind's lg variants start at 1024px, but the rail stays in flow above
@@ -3585,7 +3616,10 @@
             @apply flex-wrap;
         }
         .lp-topbar__global-action--search {
-            @apply inline-flex;
+            @apply w-auto px-2.5;
+        }
+        .lp-topbar__global-action--search > span {
+            @apply inline;
         }
     }
 

@@ -83,6 +83,7 @@ export default defineConfig({
             { slug: 'using/inbox' },
             { slug: 'using/worker-runs' },
             { slug: 'using/activity' },
+            { slug: 'using/search' },
             { slug: 'using/admin' },
             { slug: 'using/data-exports' },
           ],
