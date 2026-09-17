@@ -577,7 +577,7 @@
     }
     .lp-board-toolbar__input,
     .lp-board-toolbar__select {
-        @apply h-9 rounded-lg border border-line bg-surface-1 text-sm text-ink outline-none focus:border-accent-border focus:ring-2 focus:ring-accent-soft;
+        @apply h-9 rounded-lg border border-line bg-surface-1 text-sm text-ink outline-none focus:border-accent-ink focus:ring-2 focus:ring-accent-ink;
     }
     .lp-board-toolbar__input {
         @apply min-w-0 w-full py-2 pr-3 pl-9;
@@ -1035,7 +1035,7 @@
         @apply text-xs font-bold text-fg-mute;
     }
     .lp-input {
-        @apply w-full min-h-9 font-sans text-sm leading-5 text-ink bg-surface-1 border border-line rounded-lg px-3.25 py-1.75 outline-hidden transition-colors placeholder:text-fg-dim focus:border-accent-border focus:ring-2 focus:ring-accent-soft;
+        @apply w-full min-h-9 font-sans text-sm leading-5 text-ink bg-surface-1 border border-line rounded-lg px-3.25 py-1.75 outline-hidden transition-colors placeholder:text-fg-dim focus:border-accent-ink focus:ring-2 focus:ring-accent-ink;
     }
     .admin-field-input {
         @apply w-full font-sans text-base text-ink bg-surface-3 border-0 rounded-xl px-4 py-3 outline-hidden transition-colors placeholder:text-fg-dim focus:bg-tint-strong;

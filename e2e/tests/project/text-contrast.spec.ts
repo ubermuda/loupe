@@ -6,8 +6,11 @@ const test = createTest({
     password: 'e2e_password_123',
 });
 
-async function contrast(locator: Locator): Promise<number> {
-    return locator.evaluate((element) => {
+async function contrast(
+    locator: Locator,
+    indicator: 'text' | 'ring' = 'text',
+): Promise<number> {
+    return locator.evaluate((element, indicator) => {
         const canvas = document.createElement('canvas');
         canvas.width = canvas.height = 1;
         const context = canvas.getContext('2d', { willReadFrequently: true });
@@ -49,7 +52,8 @@ async function contrast(locator: Locator): Promise<number> {
         }
         const ancestors: CSSStyleDeclaration[] = [];
         for (
-            let ancestor: Element | null = element;
+            let ancestor: Element | null =
+                indicator === 'ring' ? element.parentElement : element;
             ancestor;
             ancestor = ancestor.parentElement
         )
@@ -66,16 +70,45 @@ async function contrast(locator: Locator): Promise<number> {
                 );
             background = blend(color(style.backgroundColor), background);
         }
+        const style = getComputedStyle(element);
+        const ringColor = style.boxShadow.match(
+            /(rgba?\([^)]*\)) 0px 0px 0px 2px/,
+        )?.[1];
+        if (indicator === 'ring' && !ringColor)
+            throw new Error('Expected a rendered 2px focus ring.');
         const foreground = blend(
-            color(getComputedStyle(element).color),
+            color(indicator === 'ring' ? ringColor! : style.color),
             background,
         );
         const values = [luminance(foreground), luminance(background)].sort(
             (left, right) => left - right,
         );
         return (values[1] + 0.05) / (values[0] + 0.05);
-    });
+    }, indicator);
 }
+
+test('document filter focus rings contrast with their surroundings', async ({
+    page,
+}) => {
+    const seeded = await page.request.post('/dev/seed/document', {
+        form: {
+            title: 'Focused filters',
+            markdown: '# Focus\n\nFilter contrast fixture.',
+        },
+    });
+    expect(seeded.status()).toBe(201);
+    const { projectId } = await seeded.json();
+    const response = await page.goto(`/projects/${projectId}/documents`);
+    expect(response?.status()).toBe(200);
+    for (const selector of ['#document-search', '#document-status']) {
+        const field = page.locator(selector);
+        await field.focus();
+        await expect(field).toBeFocused();
+        expect
+            .soft(await contrast(field, 'ring'), selector)
+            .toBeGreaterThanOrEqual(3);
+    }
+});
 
 test('contrast measurement distinguishes black from white and identical colors', async ({
     page,
