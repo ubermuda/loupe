@@ -81,6 +81,75 @@ test.afterAll(async ({ request }) => {
     await setInboxFlag(request, false);
 });
 
+for (const workspace of [
+    { route: 'inbox', action: 'View activity', destination: 'activity' },
+    { route: 'site-review', action: 'Widget setup', destination: 'connect' },
+]) {
+    test(`${workspace.route} header keeps its action reachable with enlarged text`, async ({
+        page,
+        inbox,
+    }, testInfo) => {
+        const projectPath = inbox.inboxUrl.replace(/\/inbox$/, '');
+        await page.goto(`${projectPath}/${workspace.route}`);
+        const header = page.locator('.lp-page-header');
+        const action = header.getByRole('link', {
+            name: workspace.action,
+            exact: true,
+        });
+        await expect(action).toHaveCount(1);
+        for (const fontSize of ['100%', '200%']) {
+            await page.evaluate((size) => {
+                document.documentElement.style.fontSize = size;
+            }, fontSize);
+            for (const width of [1440, 1150, 950, 780, 390]) {
+                await page.setViewportSize({ width, height: 1000 });
+                await page.screenshot({
+                    path: testInfo.outputPath(
+                        `${workspace.route}-${width}-${fontSize}.png`,
+                    ),
+                    animations: 'disabled',
+                });
+                await expect(action).toBeInViewport({ ratio: 1 });
+                const copyBounds = await header
+                    .locator('.lp-page-header__copy')
+                    .boundingBox();
+                const descriptionBounds = await header
+                    .locator('.lp-workspace-desc')
+                    .boundingBox();
+                expect(copyBounds).not.toBeNull();
+                expect(descriptionBounds).not.toBeNull();
+                expect(
+                    copyBounds!.y +
+                        copyBounds!.height -
+                        descriptionBounds!.y -
+                        descriptionBounds!.height,
+                ).toBeLessThanOrEqual(1);
+                expect(
+                    await header.evaluate(
+                        (element) => element.scrollWidth - element.clientWidth,
+                    ),
+                ).toBeLessThanOrEqual(1);
+                expect(
+                    await action.evaluate((element) => {
+                        const bounds = element.getBoundingClientRect();
+                        const range = document.createRange();
+                        range.selectNodeContents(element);
+                        const content = range.getBoundingClientRect();
+                        return Math.max(
+                            bounds.left - content.left,
+                            content.right - bounds.right,
+                        );
+                    }),
+                ).toBeLessThanOrEqual(1);
+            }
+        }
+        await action.focus();
+        await expect(action).toBeFocused();
+        await action.press('Enter');
+        await expect(page).toHaveURL(`${projectPath}/${workspace.destination}`);
+    });
+}
+
 test('the project inbox filter row keeps its unboxed layout', async ({
     page,
 }) => {

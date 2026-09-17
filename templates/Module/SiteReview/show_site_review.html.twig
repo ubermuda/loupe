@@ -14,7 +14,7 @@
 {% set unlinkedCount = comments|filter(comment => cardLinks[comment.id ~ ''] is not defined)|length %}
 <div class="lp-workspace lp-site-feedback-page lp-core-prototype-page lp-core-site-review" data-controller="site-review-filter">
     <header class="lp-page-header">
-        <div><h1 class="lp-workspace-title">{{ 'site_review.page.title'|trans }}</h1><p class="lp-workspace-desc">{{ 'site_review.page.description'|trans }}</p></div>
+        <div class="lp-page-header__copy"><h1 class="lp-workspace-title">{{ 'site_review.page.title'|trans }}</h1><p class="lp-workspace-desc">{{ 'site_review.page.description'|trans }}</p></div>
         <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}"><twig:ux:icon name="lucide:code-xml" class="w-4 h-4" />{{ 'site_review.widget.setup'|trans }}</a>
     </header>
 

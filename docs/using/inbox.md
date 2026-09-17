@@ -29,6 +29,9 @@ the items. An item that blocks the agent carries a **Blocking** label.
 Open **Inbox** in the project sidebar. An amber count next to the link shows how
 many items are still open. The link is absent while the flag is off.
 
+The header keeps its open-item summary and View activity link visible on narrow
+screens, including with enlarged text. They wrap below the title when needed.
+
 The count changes without a reload when an agent asks, when you or an agent
 close an item, and when a finished card makes an item obsolete. It goes away at
 zero. This needs a Mercure hub and the `live_updates.enabled` flag. Without

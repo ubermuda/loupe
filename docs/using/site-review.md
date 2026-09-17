@@ -15,6 +15,9 @@ covered by any release promise, and the pieces around it — the hub, the
 
 ## Embedding it
 
+The Site review header links to Widget setup. The action moves below the title
+when a narrow screen or enlarged text needs more space.
+
 Mint a widget token from the project (`/projects/{id}/widget-token`, and
 `/regenerate` to roll it), then paste the snippet the project page gives you:
 

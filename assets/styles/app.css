@@ -654,10 +654,14 @@
         @apply max-w-6xl;
     }
     .lp-needs-you__summary {
-        @apply inline-flex items-center rounded-full bg-status-pending-bg px-3 py-1.5 text-sm font-bold text-status-pending-deep whitespace-nowrap;
+        @apply inline-flex max-w-full items-center rounded-full bg-status-pending-bg px-3 py-1.5 text-sm font-bold text-status-pending-deep;
     }
     .lp-needs-you__header-actions {
-        @apply flex items-center gap-2;
+        @apply flex flex-wrap max-w-full items-center gap-2;
+    }
+    .lp-needs-you .lp-page-header,
+    .lp-site-feedback-page .lp-page-header {
+        @apply flex-wrap;
     }
     .lp-section-tabs__item--active {
         @apply border-accent text-ink;
@@ -735,7 +739,7 @@
     }
     @media (width < 40rem) {
         .lp-needs-you .lp-page-header {
-            @apply flex-col gap-3;
+            @apply gap-3;
         }
         .lp-needs-you__summary {
             @apply self-start;
@@ -5855,6 +5859,9 @@
     }
     .lp-page-header .lp-workspace-desc {
         @apply mb-0;
+    }
+    .lp-page-header__copy {
+        @apply flex-1 basis-80 min-w-0;
     }
     .lp-section-title {
         @apply font-display text-2xl font-extrabold tracking-tight text-ink m-0 mt-1;
