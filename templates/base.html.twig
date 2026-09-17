@@ -220,12 +220,12 @@
                             <nav class="lp-topbar__trail">{% block topbar_crumbs %}{% endblock %}</nav>
                             {% block topbar_meta %}{% endblock %}
                         </div>
-                        {% if project %}
                         <div class="lp-topbar__global-actions" aria-label="{{ 'nav.global_actions.label'|trans }}">
                             {% include 'search/_search_dialog.html.twig' with {project: project} only %}
+                            {% if project %}
                             {% include 'outbox/_activity_drawer.html.twig' with {project: project} only %}
+                            {% endif %}
                         </div>
-                        {% endif %}
                         {% block topbar_actions %}{% endblock %}
                     {% endblock %}
                 </header>

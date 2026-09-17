@@ -1,11 +1,15 @@
 ---
 title: Search
-description: "Find pages, cards, and documents in the current project."
+description: "Find pages, cards, and documents in one project or all owned projects."
 ---
 
 Open **Search project** in the topbar, or press Cmd+K on macOS or Ctrl+K elsewhere.
-The search dialog keeps the current page open. Card and document results belong to the current project.
+The search dialog keeps the current page open. On project pages, card and document results belong to the current project.
 An empty query lists its available pages.
+
+On Account and All projects, **Search all projects** searches every project you own.
+Results include the project name. Projects owned by another account never appear.
+Next advances the results within each owned project; the last page can contain results from fewer projects.
 
 Type to search, or press **Search**. Tab to a result and press Enter to open it.
 Escape closes the dialog and restores focus. Closing it preserves unsaved fields on the page beneath it.

@@ -6,6 +6,49 @@ const test = createTest({
     password: 'e2e_password_123',
 });
 
+for (const entry of ['/account', '/projects']) {
+    test(`search from ${entry} opens owned-project documents`, async ({
+        page,
+    }) => {
+        const query = `beryl${Date.now()}`;
+        const response = await page.request.post('/dev/seed/document', {
+            form: { title: query, markdown: query },
+        });
+        expect(response.ok()).toBeTruthy();
+        const { projectId, documentId } = await response.json();
+        await page.goto(entry);
+        await page
+            .getByRole('link', { name: 'Search all projects', exact: true })
+            .click();
+        const dialog = page.getByRole('dialog', {
+            name: 'Search all projects',
+            exact: true,
+        });
+        await dialog.getByRole('searchbox').fill(query);
+        await dialog
+            .getByRole('button', { name: 'Search', exact: true })
+            .click();
+        await expect(
+            dialog.locator('#project-search-results'),
+        ).not.toHaveAttribute('busy', '');
+        const result = dialog.locator('[data-search-kind="document"]');
+        await expect(result).toBeVisible();
+        await expect(result).toHaveCount(1);
+        await expect(result).toContainText(`e2e-harness · ${query}`);
+        await expect(result).toHaveAttribute(
+            'href',
+            `/projects/${projectId}/documents/${documentId}/review`,
+        );
+        await result.click();
+        await expect(
+            page.getByRole('heading', { name: query, exact: true }),
+        ).toBeVisible();
+        await expect(
+            page.getByRole('link', { name: 'Search project', exact: true }),
+        ).toBeVisible();
+    });
+}
+
 test('project search opens matching documents and pages', async ({ page }) => {
     const query = `quartz${Date.now()}`;
     const title = `Searchable document ${query}`;

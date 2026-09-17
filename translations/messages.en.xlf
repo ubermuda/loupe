@@ -5911,6 +5911,8 @@
             <trans-unit id="activity.count"><source>activity.count</source><target>{0} No events|{1} 1 event|]1,Inf[ %count% events</target></trans-unit>
             <trans-unit id="activity.status.recorded"><source>activity.status.recorded</source><target>Recorded history</target></trans-unit>
             <trans-unit id="search.title"><source>search.title</source><target>Search project</target></trans-unit>
+            <trans-unit id="search.all_title"><source>search.all_title</source><target>Search all projects</target></trans-unit>
+            <trans-unit id="search.all_scope"><source>search.all_scope</source><target>Search all projects you own.</target></trans-unit>
             <trans-unit id="search.close"><source>search.close</source><target>Close search</target></trans-unit>
             <trans-unit id="search.loading"><source>search.loading</source><target>Searching…</target></trans-unit>
             <trans-unit id="search.failed"><source>search.failed</source><target>Search is unavailable. Press Search to retry.</target></trans-unit>
