@@ -49,7 +49,7 @@
         <span class="lp-site-review-toolbar__summary">{{ 'site_review.filter.summary'|trans({'%pending%': pendingCount, '%total%': comments|length}) }}</span>
     </div>
 
-    <div class="lp-feedback-workspace" data-controller="master-detail">
+    <div class="lp-feedback-workspace" data-controller="master-detail" data-master-detail-selected-value="{{ selectedFeedback }}">
         <div class="lp-feedback-list" aria-label="{{ 'site_review.feedback.list'|trans }}">
             <div class="lp-feedback-list__head"><span>{{ 'site_review.page.comment_count'|trans({'%count%': comments|length}) }}</span>{% if project.domain %}<span>{{ project.domain }}</span>{% endif %}</div>
             {% for comment in comments %}
@@ -85,7 +85,7 @@
                 {% set cardLink = cardLinks[comment.id ~ ''] %}
                 <section class="lp-feedback-detail__section">
                     <h3>{{ 'site_review.feedback.linked_work'|trans }}</h3>
-                    <a class="lp-site-review-card-link" href="{{ path('app_board_card', {projectId: project.id, cardId: cardLink.card.id}) }}">
+                    <a class="lp-site-review-card-link" href="{{ path('app_board_card', {projectId: project.id, cardId: cardLink.card.id, tab: 'feedback'}) }}">
                         <twig:ux:icon name="lucide:square-kanban" />
                         <span>#{{ cardLink.card.number }} {{ cardLink.card.title }}</span>
                         <twig:ux:icon name="lucide:chevron-right" />
@@ -123,6 +123,7 @@
                     {% if comment.status.value != 'resolved' %}<form method="POST" action="{{ path('app_site_review_comment_resolve', {id: comment.id}) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}"><button type="submit" class="lp-btn lp-btn--primary">{{ 'site_review.comment.action.resolve'|trans }}</button></form>{% endif %}
                     {% if comment.status.value != 'pending' %}<form method="POST" action="{{ path('app_site_review_comment_reopen', {id: comment.id}) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}"><button type="submit" class="lp-btn lp-btn--ghost">{{ 'site_review.comment.action.reopen'|trans }}</button></form>{% endif %}
                 </footer>
+                {% include '@SiteReview/_replies.html.twig' with {comment: comment, replies: replies.forComment(comment), surface: 'site', refusedForm: refusedReply, action: path('app_site_review_comment_reply', {id: comment.id}), responseFrame: '_top'} only %}
             </article>
             {% endfor %}
             <div class="lp-site-review-no-results" data-site-review-filter-target="empty" hidden>{{ 'site_review.filter.empty'|trans }}</div>

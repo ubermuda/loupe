@@ -9,6 +9,7 @@ use App\Module\SiteReview\Command\ListSiteReviewCommentsHandler;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentAnchor;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
+use App\Module\SiteReview\Entity\SiteReviewReply;
 use Mcp\Capability\Attribute\McpTool;
 use Mcp\Exception\ToolCallException;
 
@@ -25,7 +26,7 @@ final readonly class SiteReviewGetTool
      * @param string|null $site   optional site id or site name; must match the project your MCP token is bound to
      * @param string|null $status which comments to return: pending (the default), addressed, resolved, or all
      *
-     * @return array{site: array{id: string, name: string}, comments: list<array{id: string, url: string, anchors: list<array{selector: string, text: string, quote: string|null, quotePrefix: string|null, quoteSuffix: string|null}>, body: string, hasDrawing: bool, status: string, context: string|null, createdAt: string}>}
+     * @return array{site: array{id: string, name: string}, comments: list<array{id: string, url: string, anchors: list<array{selector: string, text: string, quote: string|null, quotePrefix: string|null, quoteSuffix: string|null}>, body: string, hasDrawing: bool, status: string, context: string|null, createdAt: string, replies: list<array{id: string, authorId: string, authorName: string, body: string, createdAt: string}>}>}
      */
     public function __invoke(?string $site = null, ?string $status = null): array
     {
@@ -43,7 +44,7 @@ final readonly class SiteReviewGetTool
                 default => throw new ToolCallException(\sprintf('Unknown status "%s". Use pending, addressed, resolved or all.', $status)),
             };
 
-            $comments = ($this->listComments)(new ListSiteReviewCommentsCommand($project, $filter))->comments;
+            $view = ($this->listComments)(new ListSiteReviewCommentsCommand($project, $filter));
 
             return [
                 'site' => ['id' => (string) $project->id, 'name' => $project->name],
@@ -73,8 +74,15 @@ final readonly class SiteReviewGetTool
                         // not, so null is the common answer rather than a gap.
                         'context' => $c->context,
                         'createdAt' => $c->createdAt->format(\DateTimeInterface::ATOM),
+                        'replies' => array_map(static fn (SiteReviewReply $reply): array => [
+                            'id' => (string) $reply->id,
+                            'authorId' => (string) $reply->author->id,
+                            'authorName' => $reply->author->fullName,
+                            'body' => $reply->body,
+                            'createdAt' => $reply->createdAt->format(\DATE_ATOM),
+                        ], $view->replies->forComment($c)),
                     ],
-                    $comments,
+                    $view->comments,
                 )),
             ];
         } catch (ToolCallException $e) {

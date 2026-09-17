@@ -5952,6 +5952,13 @@
             <trans-unit id="inbox.reply.failed"><source>inbox.reply.failed</source><target>Your reply could not be confirmed. Your draft is still here. Try again.</target></trans-unit>
             <trans-unit id="inbox.reply.submit"><source>inbox.reply.submit</source><target>Post reply</target></trans-unit>
             <trans-unit id="inbox.reply.conversation"><source>inbox.reply.conversation</source><target>Replies</target></trans-unit>
+            <trans-unit id="site_review.reply.error.body"><source>site_review.reply.error.body</source><target>Write a reply of up to 2,000 characters.</target></trans-unit>
+            <trans-unit id="site_review.reply.error.submission"><source>site_review.reply.error.submission</source><target>This reply form is no longer current. Copy your draft, reload the feedback, and try again.</target></trans-unit>
+            <trans-unit id="site_review.reply.added"><source>site_review.reply.added</source><target>Reply added.</target></trans-unit>
+            <trans-unit id="site_review.reply.failed"><source>site_review.reply.failed</source><target>Your reply could not be confirmed. Your draft is still here. Try again.</target></trans-unit>
+            <trans-unit id="site_review.reply.submit"><source>site_review.reply.submit</source><target>Post reply</target></trans-unit>
+            <trans-unit id="site_review.reply.conversation"><source>site_review.reply.conversation</source><target>Replies</target></trans-unit>
+            <trans-unit id="sitereview.form.reply_to_site_review_comment_form.body.label"><source>sitereview.form.reply_to_site_review_comment_form.body.label</source><target>Reply to this feedback</target></trans-unit>
             <trans-unit id="inbox.form.reply_to_inbox_item_form.body.label"><source>inbox.form.reply_to_inbox_item_form.body.label</source><target>Reply to this thread</target></trans-unit>
         </body>
     </file>

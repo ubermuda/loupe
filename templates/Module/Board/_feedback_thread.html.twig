@@ -1,0 +1,33 @@
+<article class="lp-conversation-entry" data-site-feedback="{{ link.comment.id }}">
+    <span class="lp-source-avatar"><twig:ux:icon name="lucide:globe-2" class="w-4 h-4" /></span>
+    <div>
+        <div class="lp-card-feedback-list__head"><span>{{ 'site_review.source.widget'|trans }}</span><span class="lp-status-chip lp-status-chip--{{ link.comment.status.value }}">{{ ('site_review.comment.status.' ~ link.comment.status.value)|trans }}</span></div>
+        <p class="lp-inbox-item__answer-text">{{ link.comment.body }}</p>
+        {% if link.comment.url starts with 'https://' or link.comment.url starts with 'http://' %}
+            <a href="{{ link.comment.url }}" rel="noopener noreferrer nofollow" target="_blank">{{ 'site_review.comment.open_source'|trans }}</a>
+        {% endif %}
+        <details class="lp-site-review-selector">
+            <summary>{{ 'site_review.feedback.captured_elements'|trans }}</summary>
+            {% for anchor in link.comment.anchors %}
+                {% if anchor.text is not empty %}<blockquote>{{ anchor.text }}</blockquote>{% endif %}
+                <code>{{ anchor.selector }}</code>
+            {% else %}<p>{{ 'site_review.comment.general_page'|trans }}</p>{% endfor %}
+        </details>
+        <div class="lp-feedback-detail__actions">
+            {% if link.comment.status.value != 'resolved' and is_granted(constant('App\\Module\\Board\\Security\\CardFeedbackVoter::RESOLVE'), link) %}
+                <form method="POST" action="{{ path('app_card_feedback_resolve', {id: link.id, surface: surface}) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}">
+                    <button type="submit" class="lp-btn lp-btn--primary">{{ 'site_review.comment.action.resolve'|trans }}</button>
+                </form>
+            {% endif %}
+            {% if link.comment.status.value != 'pending' and is_granted(constant('App\\Module\\Board\\Security\\CardFeedbackVoter::REOPEN'), link) %}
+                <form method="POST" action="{{ path('app_card_feedback_reopen', {id: link.id, surface: surface}) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}">
+                    <button type="submit" class="lp-btn lp-btn--ghost">{{ 'site_review.comment.action.reopen'|trans }}</button>
+                </form>
+            {% endif %}
+        </div>
+        <a class="lp-btn lp-btn--ghost" href="{{ path('app_project_site_review', {id: link.card.project.id, _fragment: 'feedback-' ~ link.comment.id}) }}" data-turbo-frame="_top">{{ 'board.card.site_review.all'|trans }}</a>
+        {% include '@SiteReview/_replies.html.twig' with {comment: link.comment, replies: replies, surface: surface, refusedForm: refusedForm, action: path('app_card_feedback_reply', {id: link.id, surface: surface}), responseFrame: app.request.headers.get('Turbo-Frame') == 'card-drawer-frame' ? 'card-drawer-frame' : '_top'} only %}
+    </div>
+</article>

@@ -42,6 +42,21 @@ Resolving keeps the comment. It moves to **Resolved** on the project's
 site-review page, where you can read it again and reopen it. Deleting is the
 control that removes a comment, and it asks you to confirm first.
 
+## Discussing feedback in Loupe
+
+Use **Reply to this feedback** on the Site review page or a linked card.
+The card's Conversation and Feedback tabs show the same replies as Site review.
+Each reply keeps its author and time. Replies remain available after the feedback is addressed or resolved.
+Adding a reply does not change the original capture or its status.
+
+Use **Resolve** or **Reopen** on either card tab to change the shared feedback status.
+The linked card opens on its Feedback tab from Site review.
+The form accepts up to 2,000 characters and keeps the draft when a submission fails.
+Retrying an unchanged submission does not add a duplicate.
+
+Your agent reads these replies through `site_review_get`.
+Replies are included in your account export. The widget's public read response does not include them.
+
 ## Quoting a passage of text
 
 Open the widget, then select text on the page as you normally would. A **Comment

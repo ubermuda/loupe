@@ -10,7 +10,9 @@ use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
+use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Module\SiteReview\Entity\SiteReviewCommentStatus;
+use App\Module\SiteReview\Entity\SiteReviewReply;
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use App\Module\SiteReview\SiteReviewDrawing;
 use App\Tests\Module\Board\BoardColumnFixtures;
@@ -19,6 +21,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Uid\Uuid;
 use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class SiteReviewApiTest extends WebTestCase
@@ -69,6 +72,24 @@ final class SiteReviewApiTest extends WebTestCase
 
         $pending = static::getContainer()->get(SiteReviewCommentRepository::class)->findPendingForProject($project);
         self::assertCount(1, $pending);
+    }
+
+    public function test_widget_reads_do_not_expose_replies_written_in_loupe(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw, $project] = $this->projectWithToken($em, 'api-reply-privacy@example.com');
+        $comment = new SiteReviewComment($project, 0, 'The captured feedback.', 'https://example.com');
+        $em->persist($comment);
+        $em->persist(new SiteReviewReply($comment, $project->owner, 'Discussion inside Loupe.', Uuid::v4()));
+        $em->flush();
+        $em->clear();
+        $this->api($client, Request::METHOD_GET, '/api/site-review/review', $raw);
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('The captured feedback.', $body);
+        self::assertStringNotContainsString('Discussion inside Loupe.', $body);
+        self::assertStringNotContainsString('"replies"', $body);
     }
 
     public function test_the_embed_context_reaches_the_comment_and_a_blank_one_stores_null(): void

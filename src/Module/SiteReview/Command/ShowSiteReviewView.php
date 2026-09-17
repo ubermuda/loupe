@@ -6,6 +6,7 @@ namespace App\Module\SiteReview\Command;
 
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Entity\SiteReviewComment;
+use App\Module\SiteReview\View\SiteReviewReplyThreads;
 
 final readonly class ShowSiteReviewView
 {
@@ -13,6 +14,7 @@ final readonly class ShowSiteReviewView
     public function __construct(
         public Project $project,
         public array $comments,
+        public SiteReviewReplyThreads $replies,
     ) {
     }
 }

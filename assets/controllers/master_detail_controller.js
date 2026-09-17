@@ -3,9 +3,10 @@ import { Controller } from '@hotwired/stimulus';
 /* stimulusFetch: 'lazy' */
 export default class extends Controller {
     static targets = ['trigger', 'panel'];
+    static values = { selected: String };
 
     connect() {
-        const selected = window.location.hash.slice(1);
+        const selected = this.selectedValue || window.location.hash.slice(1);
         this.show(
             selected || this.triggerTargets[0]?.dataset.masterDetailId,
             false,

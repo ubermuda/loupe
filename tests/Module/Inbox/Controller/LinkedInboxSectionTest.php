@@ -297,7 +297,7 @@ final class LinkedInboxSectionTest extends WebTestCase
         $otherItem = $crawler->filter('#inbox-item-2');
         self::assertCount(1, $otherItem->filter('form[name="inbox_answer_'.$other->id.'"]'));
         self::assertSame('', trim(implode('', $otherItem->filter('.lp-field-errors:not([hidden])')->each(static fn (Crawler $node): string => $node->text()))));
-        self::assertCount(1, $otherItem->filter('[data-inbox-reply-target="error"][hidden]'));
+        self::assertCount(1, $otherItem->filter('[data-reply-submission-target="error"][hidden]'));
         self::assertCount(0, $otherItem->filter('[data-inbox-refusal]'));
         self::assertSame('', (string) $otherItem->filter('input[name="inbox_answer_'.$other->id.'[selectedOptions]"]')->attr('value'));
     }

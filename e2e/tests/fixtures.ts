@@ -180,7 +180,9 @@ export function createTest(credentials: Credentials) {
 
                 // Wait for the session to be established before snapshotting
                 // cookies, or the storage state races the login POST.
-                await expect(page).toHaveURL('/projects');
+                await expect(
+                    page.locator('form[action="/logout"]'),
+                ).toBeVisible();
 
                 const storageState = await ctx.storageState();
                 await ctx.close();

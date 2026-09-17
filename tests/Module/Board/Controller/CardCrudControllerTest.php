@@ -8,20 +8,137 @@ use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
+use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Form\AttachSiteReviewCommentFormType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
+use App\Module\Board\Security\CardFeedbackVoter;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Tests\Module\Board\CardMovedOutbox;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
+use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
 
 final class CardCrudControllerTest extends WebTestCase
 {
     use BoardScenario;
+
+    #[TestWith([false])]
+    #[TestWith([true])]
+    public function test_feedback_replies_refuse_a_foreign_owner_or_project(bool $foreignProject): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'feedback-scope-owner@example.com');
+        $stranger = $this->user($em, 'feedback-scope-stranger@example.com');
+        $project = $this->project($em, $owner);
+        $otherProject = $this->project($em, $owner, 'Other project');
+        $card = $this->card($em, $project, 'Private feedback');
+        $comment = new SiteReviewComment($foreignProject ? $otherProject : $project, 0, 'Private capture', 'https://example.com');
+        $link = new CardSiteReviewComment($card, $comment);
+        $em->persist($comment);
+        $em->persist($link);
+        $em->flush();
+        $token = new UsernamePasswordToken($foreignProject ? $owner : $stranger, 'main', ['ROLE_USER']);
+        foreach ([CardFeedbackVoter::REPLY, CardFeedbackVoter::RESOLVE, CardFeedbackVoter::REOPEN] as $attribute) {
+            self::assertSame(VoterInterface::ACCESS_DENIED, new CardFeedbackVoter()->vote($token, $link, [$attribute]));
+        }
+        $em->clear();
+        $client->loginUser($foreignProject ? $owner : $stranger);
+        $name = 'site_reply_feedback_'.$comment->id;
+        $client->request(Request::METHOD_POST, '/board/feedback/'.$link->id.'/feedback/reply', [
+            $name => ['body' => 'Must not be saved.', 'submissionId' => '01995498-93aa-7000-8000-000000000001', '_token' => 'forged'],
+        ]);
+        self::assertResponseStatusCodeSame(403);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertSame(0, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM site_review_replies'));
+    }
+
+    #[TestWith(['conversation'])]
+    #[TestWith(['feedback'])]
+    public function test_card_feedback_status_actions_update_the_original_and_preserve_the_tab(string $surface): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'card-feedback-status@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Resolve the capture');
+        $comment = new SiteReviewComment($project, 0, 'Original capture', 'https://example.com');
+        $link = new CardSiteReviewComment($card, $comment);
+        $em->persist($comment);
+        $em->persist($link);
+        $em->flush();
+        $em->clear();
+        $client->loginUser($owner);
+        $url = '/projects/'.$project->id.'/board/cards/'.$card->id.'?tab='.$surface;
+        foreach (['resolve' => 'resolved', 'reopen' => 'pending'] as $action => $status) {
+            $crawler = $client->request(Request::METHOD_GET, $url);
+            self::assertResponseIsSuccessful();
+            $actionUrl = '/board/feedback/'.$link->id.'/'.$surface.'/'.$action;
+            $form = $crawler->filter('form[action="'.$actionUrl.'"]')->form();
+            $client->request(Request::METHOD_POST, $actionUrl, ['_csrf_token' => 'forged']);
+            self::assertResponseStatusCodeSame(403);
+            $client->submit($form);
+            self::assertResponseRedirects($url);
+            $client->followRedirect();
+            self::assertSelectorExists('[data-panel-tabs-active-value="'.$surface.'"]');
+            $em = static::getContainer()->get(EntityManagerInterface::class);
+            $em->clear();
+            $saved = $em->find(SiteReviewComment::class, $comment->id);
+            self::assertInstanceOf(SiteReviewComment::class, $saved);
+            self::assertSame($status, $saved->status->value);
+            self::assertSame('Original capture', $saved->body);
+            self::assertSame('https://example.com', $saved->url);
+        }
+    }
+
+    #[TestWith(['conversation'])]
+    #[TestWith(['feedback'])]
+    public function test_card_feedback_replies_share_the_site_record_and_keep_the_selected_tab(string $surface): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->enableBoard();
+        $owner = $this->user($em, 'card-feedback-reply@example.com');
+        $project = $this->project($em, $owner);
+        $card = $this->card($em, $project, 'Reply to the capture');
+        $comment = new SiteReviewComment($project, 0, 'Move the control', 'https://example.com');
+        $em->persist($comment);
+        $em->persist(new CardSiteReviewComment($card, $comment));
+        $em->flush();
+        $em->clear();
+        $client->loginUser($owner);
+        $url = '/projects/'.$project->id.'/board/cards/'.$card->id;
+        $crawler = $client->request(Request::METHOD_GET, $url.'?tab='.$surface);
+        self::assertResponseIsSuccessful();
+        $name = 'site_reply_'.$surface.'_'.$comment->id;
+        $form = $crawler->filter('form[name="'.$name.'"]')->form([$name.'[body]' => 'The shared reply.']);
+        $client->submit($form);
+        self::assertResponseRedirects($url.'?tab='.$surface);
+        $client->followRedirect();
+        self::assertSelectorTextContains('#card-panel-conversation [data-site-review-reply]', 'The shared reply.');
+        self::assertSelectorTextContains('#card-panel-feedback [data-site-review-reply]', 'The shared reply.');
+        $client->submit($form);
+        self::assertResponseRedirects($url.'?tab='.$surface);
+        $form[$name.'[body]'] = 'Keep this conflicting draft.';
+        $client->submit($form);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorExists('[data-panel-tabs-active-value="'.$surface.'"]');
+        self::assertSelectorTextContains('textarea[name="'.$name.'[body]"]', 'Keep this conflicting draft.');
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
+        self::assertSelectorCount(1, '[data-site-review-reply]');
+        self::assertSelectorTextContains('[data-site-review-reply]', 'The shared reply.');
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertSame(1, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM site_review_replies WHERE comment_id = ?', [(string) $comment->id]));
+    }
 
     public function test_the_owner_attaches_unlinked_feedback_to_an_open_card(): void
     {

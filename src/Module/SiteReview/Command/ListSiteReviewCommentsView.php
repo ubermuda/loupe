@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Module\SiteReview\Command;
 
 use App\Module\SiteReview\Entity\SiteReviewComment;
+use App\Module\SiteReview\View\SiteReviewReplyThreads;
 
 final readonly class ListSiteReviewCommentsView
 {
     /** @param list<SiteReviewComment> $comments */
     public function __construct(
         public array $comments,
+        public SiteReviewReplyThreads $replies,
     ) {
     }
 }

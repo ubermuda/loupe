@@ -1,17 +1,17 @@
 /** @vitest-environment jsdom */
 import { Application } from '@hotwired/stimulus';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import InboxReplyController from '../../assets/controllers/inbox_reply_controller.js';
+import ReplySubmissionController from '../../assets/controllers/reply_submission_controller.js';
 
 let application;
 let form;
 
 beforeEach(async () => {
     application = Application.start();
-    application.register('inbox-reply', InboxReplyController);
-    document.body.innerHTML = `<form data-controller="inbox-reply"
-        data-action="turbo:submit-start->inbox-reply#start turbo:fetch-request-error->inbox-reply#failed turbo:before-fetch-response->inbox-reply#response">
-        <p data-inbox-reply-target="error" hidden>Try again.</p>
+    application.register('reply-submission', ReplySubmissionController);
+    document.body.innerHTML = `<form data-controller="reply-submission"
+        data-action="turbo:submit-start->reply-submission#start turbo:fetch-request-error->reply-submission#failed turbo:before-fetch-response->reply-submission#response">
+        <p data-reply-submission-target="error" hidden>Try again.</p>
         <textarea>Keep my draft.</textarea>
     </form>`;
     form = document.querySelector('form');

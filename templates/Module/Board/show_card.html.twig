@@ -91,14 +91,18 @@
         <section class="lp-card-panel" id="card-panel-conversation" role="tabpanel" aria-labelledby="card-tab-conversation" data-panel-tabs-target="panel" data-panel-panel="conversation" hidden>
             <div class="lp-card-conversation-intro"><span class="lp-source-avatar"><twig:ux:icon name="lucide:messages-square" class="w-4 h-4" /></span><div><h2 class="lp-card-panel__title">{{ 'board.card.conversation.title'|trans }}</h2><p>{{ 'board.card.conversation.description'|trans }}</p></div></div>
             {{ inbox_card_section(card) }}
-            {% for link in siteReviewLinks %}<article class="lp-conversation-entry"><span class="lp-source-avatar"><twig:ux:icon name="lucide:globe-2" class="w-4 h-4" /></span><div><p class="lp-conversation-entry__source">{{ 'site_review.source.widget'|trans }}</p><p>{{ link.comment.body }}</p></div></article>{% endfor %}
+            {% for link in siteReviewLinks %}
+                {% include '@Board/_feedback_thread.html.twig' with {link: link, replies: siteReviewReplies.forComment(link.comment), surface: 'conversation', refusedForm: refusedFeedbackReply} only %}
+            {% endfor %}
         </section>
 
         <section class="lp-card-panel" id="card-panel-feedback" role="tabpanel" aria-labelledby="card-tab-feedback" data-panel-tabs-target="panel" data-panel-panel="feedback" hidden>
             <div class="lp-card-conversation-intro"><span class="lp-source-avatar"><twig:ux:icon name="lucide:globe-2" class="w-4 h-4" /></span><div><h2 class="lp-card-panel__title">{{ 'board.card.site_review.title'|trans }}</h2><p>{{ 'board.card.feedback.description'|trans }}</p></div></div>
             {% if siteReviewLinks|length > 0 %}
             <ul class="lp-card-feedback-list">
-                {% for link in siteReviewLinks %}<li><div class="lp-card-feedback-list__head"><span>{{ 'site_review.source.widget'|trans }}</span><span class="lp-status-chip lp-status-chip--{{ link.comment.status.value }}">{{ ('site_review.comment.status.' ~ link.comment.status.value)|trans }}</span></div><p>{{ link.comment.body }}</p>{% if link.comment.url starts with 'https://' or link.comment.url starts with 'http://' %}<a href="{{ link.comment.url }}" rel="noopener noreferrer nofollow" target="_blank">{{ 'site_review.comment.open_source'|trans }}</a>{% endif %}</li>{% endfor %}
+                {% for link in siteReviewLinks %}
+                    <li>{% include '@Board/_feedback_thread.html.twig' with {link: link, replies: siteReviewReplies.forComment(link.comment), surface: 'feedback', refusedForm: refusedFeedbackReply} only %}</li>
+                {% endfor %}
             </ul>
             <a class="lp-btn lp-btn--ghost" href="{{ path('app_project_site_review', {id: card.project.id}) }}" data-turbo-frame="_top">{{ 'board.card.site_review.all'|trans }}</a>
             {% else %}<p class="lp-card-detail__empty">{{ 'board.card.site_review.empty'|trans }}</p>{% endif %}
