@@ -44,8 +44,26 @@ test('a saved comment is live and resolvable on the site page', async ({
         .locator('#lp-panel')
         .getByRole('button', { name: 'Add note' })
         .click();
+    await expect
+        .poll(() =>
+            page
+                .locator('#lp-panel')
+                .evaluate((panel) =>
+                    panel
+                        .getAnimations({ subtree: true })
+                        .some((animation) => animation.playState === 'running'),
+                ),
+        )
+        .toBe(false);
     await page.getByPlaceholder(/Describe the issue/).fill(COMMENT_BODY);
-    await page.getByRole('button', { name: 'Save' }).click();
+    await Promise.all([
+        page.waitForResponse(
+            (response) =>
+                response.url().endsWith('/api/site-review/comments') &&
+                response.request().method() === 'POST',
+        ),
+        page.getByRole('button', { name: 'Save' }).click(),
+    ]);
     // The save is the whole transaction — nothing else is clicked from here on.
     await expect(page.locator('#lp-head-count')).toHaveText('1');
 
