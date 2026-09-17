@@ -172,6 +172,40 @@ test('margin tabs support keyboard navigation and preserve a reply draft', async
     await expect(details).not.toBeFocused();
 });
 
+test('margin filter stays outside the tablist and within narrow viewports', async ({
+    page,
+}) => {
+    const filter = page.locator('[data-review-margin-target="filter"]');
+    for (const width of [1440, 1150, 950, 780, 390]) {
+        await page.setViewportSize({ width, height: 900 });
+        await filter.locator('summary').click();
+        const menu = filter.locator('.lp-review-margin-filter__menu');
+        await expect(menu).toBeVisible();
+        const bounds = await menu.boundingBox();
+        expect(bounds).not.toBeNull();
+        expect(bounds!.x).toBeGreaterThanOrEqual(0);
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+        const triggerBounds = (await filter.locator('summary').boundingBox())!;
+        const commentsBounds = (await page
+            .getByRole('tab', { name: 'Comments', exact: true })
+            .boundingBox())!;
+        expect(commentsBounds.x - triggerBounds.x - triggerBounds.width).toBe(
+            4,
+        );
+        await page.keyboard.press('Escape');
+        await expect(filter.locator('summary')).toBeFocused();
+    }
+    await expect(page.getByRole('tablist').locator('details')).toHaveCount(0);
+    await expect(page.getByRole('tablist').getByRole('tab')).toHaveCount(4);
+    await page.addStyleTag({ content: 'html { font-size: 200%; }' });
+    await filter.locator('summary').click();
+    const enlargedBounds = (await filter
+        .locator('.lp-review-margin-filter__menu')
+        .boundingBox())!;
+    expect(enlargedBounds.x).toBeGreaterThanOrEqual(0);
+    expect(enlargedBounds.x + enlargedBounds.width).toBeLessThanOrEqual(390);
+});
+
 test('general comments expose their initial and toggled disclosure state', async ({
     page,
 }) => {

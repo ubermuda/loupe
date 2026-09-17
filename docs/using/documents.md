@@ -83,6 +83,7 @@ Tab moves focus out of the tab list.
 Switching tabs preserves an unfinished reply.
 
 The filter beside Comments shows counts for Open, Resolved, Unanchored and All.
+With the filter closed, Tab moves focus to Comments. Arrow keys select the other margin tabs.
 The selected filter stays active when you resolve or reopen a thread.
 An empty result shows a message in the margin.
 

@@ -41,7 +41,7 @@
         <a class="lp-review-view-tabs__item" href="{{ path('app_document_review_history', {projectId: document.project.id, documentId: document.id}) }}" {% if activeView == 'history' %}aria-current="page"{% endif %}>{{ 'review.document.navigation.history'|trans }}</a>
     </nav>
     {% if showMarginControls %}
-    <div class="lp-review-margin-tabs" role="tablist" aria-label="{{ 'review.document.margin.label'|trans }}">
+    <div class="lp-review-margin-tabs">
         <details class="lp-review-margin-filter" data-review-margin-target="filter" data-action="keydown.esc->review-margin#closeFilter">
             <summary class="lp-review-margin-tabs__item lp-review-margin-tabs__item--icon"
                      aria-label="{{ 'review.document.margin.filter'|trans }}"
@@ -54,6 +54,7 @@
                 {% endfor %}
             </div>
         </details>
+        <div class="lp-review-margin-tablist" role="tablist" aria-label="{{ 'review.document.margin.label'|trans }}">
         {% for marginTab in [
             {name: 'comments', icon: 'lucide:message-square'},
             {name: 'outline', icon: 'lucide:list-tree'},
@@ -78,6 +79,7 @@
             <span>{{ ('review.document.margin.' ~ marginTab.name)|trans }}</span>
         </button>
         {% endfor %}
+        </div>
     </div>
     {% endif %}
     </div>

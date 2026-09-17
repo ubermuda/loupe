@@ -2618,6 +2618,9 @@
     .lp-review-margin-tabs {
         @apply flex shrink-0 items-center justify-start gap-1 lg:justify-end;
     }
+    .lp-review-margin-tablist {
+        @apply flex items-center gap-1;
+    }
     .lp-review-margin-tabs__item {
         @apply inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-transparent bg-transparent px-2.5 py-1.5 text-sm font-semibold text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
     }
@@ -2646,7 +2649,8 @@
         @apply hidden;
     }
     .lp-review-margin-filter__menu {
-        @apply absolute right-0 top-11 z-20 flex w-44 flex-col rounded-xl border border-line bg-elev p-1.5 shadow-card;
+        max-width: calc(100vw - var(--spacing) * 10);
+        @apply absolute left-0 top-11 z-20 flex w-44 flex-col rounded-xl border border-line bg-elev p-1.5 shadow-card lg:left-auto lg:right-0;
     }
     .lp-review-margin-filter__menu button {
         @apply flex items-center justify-between gap-2 rounded-lg border-0 bg-transparent px-3 py-2 text-left text-sm text-fg-mute hover:bg-tint hover:text-ink;
