@@ -76,10 +76,9 @@
 }
 
 @font-face {
-    font-family: 'Bricolage Grotesque';
-    src: url('../fonts/BricolageGrotesque-latin.woff2') format('woff2');
+    font-family: 'Manrope';
+    src: url('../fonts/Manrope-latin.woff2') format('woff2');
     font-weight: 200 800;
-    font-stretch: 100%;
     font-style: normal;
     font-display: swap;
     unicode-range:
@@ -89,10 +88,9 @@
 }
 
 @font-face {
-    font-family: 'Bricolage Grotesque';
-    src: url('../fonts/BricolageGrotesque-latin-ext.woff2') format('woff2');
+    font-family: 'Manrope';
+    src: url('../fonts/Manrope-latin-ext.woff2') format('woff2');
     font-weight: 200 800;
-    font-stretch: 100%;
     font-style: normal;
     font-display: swap;
     unicode-range:
@@ -108,7 +106,7 @@
     --font-sans:
         'DM Sans', ui-sans-serif, -apple-system, BlinkMacSystemFont, system-ui,
         sans-serif;
-    --font-display: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Manrope', ui-sans-serif, system-ui, sans-serif;
     --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
     /* Colors — semantic palette */
@@ -177,10 +175,10 @@
 
     --color-danger: var(--status-danger);
 
-    /* Shadows — the only three the design allows: selection toolbar (dark
-       floating pill), floating composer, and the active-card focus ring.
-       The fourth is the landing page's comic balloon, which is a hard offset
-       rather than a blur and belongs to nothing else. */
+    /* Shadows — reserved for surfaces that float above the page: the selection
+       toolbar, the floating composer, and menus and overlays (`--shadow-card`).
+       `--shadow-focus` is the halo for a selected surface. The comic balloon is
+       a hard offset rather than a blur and belongs to the landing page alone. */
     --shadow-comic: 6px 6px 0 var(--accent);
     --shadow-toolbar: 0 6px 20px rgba(15, 15, 13, 0.25);
     --shadow-composer: 0 10px 34px rgba(15, 15, 13, 0.22);
@@ -592,7 +590,7 @@
         @apply inline-flex min-w-0 min-h-7 items-center gap-2 rounded-md border-0 bg-transparent px-1.5 py-1 text-sm font-semibold text-fg-dim cursor-pointer;
     }
     .lp-board-toolbar__mode-button[aria-pressed='true'] {
-        @apply bg-surface-1 font-bold text-ink shadow-sm;
+        @apply bg-surface-1 font-bold text-ink;
     }
     .lp-board-toolbar__count {
         @apply ml-auto text-sm font-semibold text-fg-dim;
@@ -1228,12 +1226,12 @@
         @apply uppercase text-fg-dim m-0 text-xs font-bold tracking-widest;
     }
     .lp-workspace-title {
-        @apply font-display font-extrabold text-ink m-0 text-5xl tracking-tight leading-none;
+        @apply font-display font-extrabold text-ink m-0 text-3xl tracking-tight leading-none;
     }
     /* Documents/Connect page H1 — same tier as the base class. Kept separate
        because templates apply it and it records which screens use this tier. */
     .lp-workspace-title--doc {
-        @apply text-5xl tracking-tight;
+        @apply text-3xl tracking-tight;
     }
     .lp-workspace-desc {
         @apply text-fg-mute m-0 mt-2 mb-8 text-base leading-relaxed;
@@ -1679,16 +1677,16 @@
     }
     /* Text-only destructive — recoverable (Delete a comment, Revoke a token). */
     .lp-btn--danger-ghost {
-        @apply h-8.5 border-transparent bg-transparent px-3 text-danger shadow-none;
+        @apply border-transparent bg-transparent px-3 text-danger shadow-none;
     }
     .lp-btn--danger-ghost:hover {
         @apply bg-status-danger-bg;
     }
     .lp-btn--sm {
-        @apply h-8.5 px-3.5 text-sm;
+        @apply px-3.5 text-sm;
     }
     .lp-btn--icon {
-        @apply w-8.5 h-8.5 p-0 border-transparent bg-transparent text-fg-mute;
+        @apply w-9 h-9 p-0 border-transparent bg-transparent text-fg-mute;
     }
     .lp-btn--icon:hover {
         @apply bg-tint-strong text-ink;
@@ -3072,7 +3070,7 @@
     }
     .lp-comment-thread:hover,
     .lp-comment-thread--active {
-        @apply outline-2 -outline-offset-1 outline-accent shadow-card z-3;
+        @apply outline-2 -outline-offset-1 outline-accent shadow-focus z-3;
     }
     .lp-comment-thread--resolved {
         @apply bg-surface-2 py-3;
@@ -3445,7 +3443,7 @@
 
     /* Compact brand lockup used by the application rail. */
     .lp-sidebar__brand {
-        @apply flex items-center gap-2.5 px-2 pb-7 font-sans font-extrabold text-2xl tracking-tight text-white no-underline;
+        @apply flex items-center gap-2.5 px-2 pb-7 font-display font-extrabold text-2xl tracking-tight text-white no-underline;
     }
     .lp-sidebar__brand-mark {
         @apply relative grid place-items-center w-7 h-7 shrink-0 rounded-lg bg-accent -rotate-6;
@@ -5864,7 +5862,7 @@
     }
 }
 
-/* Touch pointers cannot hit a 34px control accurately. Desktop density is
+/* Touch pointers cannot hit a 36px control accurately. Desktop density is
    deliberately unchanged, so this is scoped to coarse pointers only. */
 @media (pointer: coarse) {
     .lp-btn,

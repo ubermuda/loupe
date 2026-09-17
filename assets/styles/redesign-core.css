@@ -11,13 +11,6 @@
     margin-bottom: calc(var(--spacing) * 6);
 }
 
-.lp-core-prototype-page .lp-workspace-title {
-    font-family: var(--font-display);
-    font-size: var(--text-3xl);
-    line-height: var(--text-3xl--line-height);
-    letter-spacing: -0.035em;
-}
-
 .lp-core-prototype-page .lp-workspace-desc {
     max-width: none;
     margin-top: calc(var(--spacing) * 1.5);
@@ -137,13 +130,11 @@
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     background: var(--surface-1);
-    box-shadow: 0 2px 3px rgb(45 61 32 / 6%);
 }
 
 .lp-core-board .lp-board-card:hover {
-    transform: translateY(calc(var(--spacing) * -0.5));
     border-color: var(--border-strong);
-    box-shadow: 0 5px 14px rgb(45 61 32 / 9%);
+    background: var(--surface-2);
 }
 
 .lp-core-board .lp-board-card__grip {

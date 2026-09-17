@@ -3,9 +3,6 @@
     .lp-workspace.lp-redesign-secondary {
         max-width: 95.625rem;
     }
-    .lp-redesign-secondary .lp-workspace-title {
-        @apply text-3xl;
-    }
     .lp-redesign-secondary .lp-workspace-desc {
         @apply mt-2 mb-0 text-sm;
     }
@@ -72,7 +69,7 @@
         @apply gap-3 mt-7;
     }
     .lp-redesign-rules .lp-filter-primary .lp-btn--icon {
-        @apply h-9 w-9 shrink-0;
+        @apply shrink-0;
     }
     .lp-redesign-rules .lp-rule-row {
         @apply flex-col lg:flex-row items-stretch lg:items-center gap-5 rounded-xl bg-surface-1 px-5 py-4;
