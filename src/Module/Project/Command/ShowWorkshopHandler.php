@@ -6,6 +6,10 @@ namespace App\Module\Project\Command;
 
 use App\Module\Project\Stats\ProjectStats;
 use App\Module\Project\Stats\ProjectStatsProviderInterface;
+use App\Module\Project\Workshop\WorkshopAttentionProviderInterface;
+use App\Module\Project\Workshop\WorkshopCardsProviderInterface;
+use App\Outbox\Command\ListActivityCommand;
+use App\Outbox\Command\ListActivityHandler;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 final readonly class ShowWorkshopHandler
@@ -14,6 +18,9 @@ final readonly class ShowWorkshopHandler
     public function __construct(
         #[AutowireIterator('app.project_stats_provider')]
         private iterable $statsProviders,
+        private WorkshopAttentionProviderInterface $attention,
+        private WorkshopCardsProviderInterface $cards,
+        private ListActivityHandler $activity,
     ) {
     }
 
@@ -29,6 +36,12 @@ final readonly class ShowWorkshopHandler
             }
         }
 
-        return new ShowWorkshopView($command->project, $stats);
+        return new ShowWorkshopView(
+            $command->project,
+            $stats,
+            $this->attention->forProject($command->project),
+            $this->cards->forProject($command->project),
+            ($this->activity)(new ListActivityCommand($command->project, 4))->entries,
+        );
     }
 }

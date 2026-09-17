@@ -45,6 +45,7 @@ class CardRepository extends ServiceEntityRepository
     {
         $qb = $this->createQueryBuilder('c')
             ->join('c.column', 'k')
+            ->addSelect('k')
             ->where('c.project = :project')
             ->andWhere('k.terminal = false')
             ->setParameter('project', $project)

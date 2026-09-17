@@ -5917,22 +5917,22 @@
         @apply grid grid-cols-1 gap-3 mt-4 sm:grid-cols-2;
     }
     .lp-workshop-work-card {
-        @apply block rounded-xl border border-line bg-white p-4 no-underline transition-colors;
+        @apply block min-w-0 rounded-xl border border-line bg-white p-4 no-underline transition-colors;
     }
     .lp-workshop-work-card:hover {
         @apply border-accent-border;
     }
     .lp-workshop-work-card header {
-        @apply flex items-center justify-between gap-3 text-xs text-fg-dim;
+        @apply flex flex-wrap items-center justify-between gap-3 text-xs text-fg-dim;
     }
     .lp-workshop-work-card__badge {
-        @apply rounded-md bg-accent-soft px-2 py-1 font-semibold text-accent-ink;
+        @apply min-w-0 max-w-full break-words rounded-md bg-accent-soft px-2 py-1 font-semibold text-accent-ink;
     }
     .lp-workshop-work-card__badge--quiet {
         @apply bg-surface-3 text-fg-dim;
     }
     .lp-workshop-work-card h3 {
-        @apply mt-3 font-sans text-sm font-bold leading-snug text-ink;
+        @apply mt-3 break-words font-sans text-sm font-bold leading-snug text-ink;
     }
     .lp-workshop-work-card footer {
         @apply flex items-center gap-2 mt-4 text-xs text-fg-dim;

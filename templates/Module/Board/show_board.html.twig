@@ -56,17 +56,6 @@
         </turbo-frame>
     </div>
 
-    <dialog class="lp-card-drawer-overlay"
-            aria-label="{{ 'board.card.drawer.label'|trans }}"
-            data-card-drawer-target="dialog"
-            data-action="cancel->card-drawer#cancel click->card-drawer#backdropClick">
-        <div class="lp-card-drawer-overlay__loading" data-card-drawer-target="loading" role="status">
-            <twig:ux:icon name="lucide:loader-circle" class="w-5 h-5" />
-            {{ 'board.card.drawer.loading'|trans }}
-        </div>
-        <turbo-frame id="card-drawer-frame"
-                     data-card-drawer-target="frame"
-                     data-action="turbo:frame-load->card-drawer#loaded"></turbo-frame>
-    </dialog>
+    {% include '@Board/_card_drawer.html.twig' with {} only %}
 </div>
 {% endblock %}

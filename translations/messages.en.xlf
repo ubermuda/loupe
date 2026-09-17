@@ -5703,6 +5703,10 @@
                 <source>project.workshop.needs_you.pending</source>
                 <target>{0} No request waits for you.|{1} One request waits for you.|]1,Inf[ %count% requests wait for you.</target>
             </trans-unit>
+            <trans-unit id="project.workshop.activity.empty"><source>project.workshop.activity.empty</source><target>No recorded activity yet.</target></trans-unit>
+            <trans-unit id="project.workshop.cards.empty"><source>project.workshop.cards.empty</source><target>No open cards. Open the board to create work.</target></trans-unit>
+            <trans-unit id="project.workshop.cards.disabled"><source>project.workshop.cards.disabled</source><target>The board is disabled on this instance.</target></trans-unit>
+            <trans-unit id="project.workshop.needs_you.disabled"><source>project.workshop.needs_you.disabled</source><target>The inbox is disabled on this instance.</target></trans-unit>
             <trans-unit id="project.workshop.needs_you.clear">
                 <source>project.workshop.needs_you.clear</source>
                 <target>No request needs your answer.</target>
