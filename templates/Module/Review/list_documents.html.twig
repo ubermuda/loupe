@@ -18,7 +18,7 @@
 {% set totalDocuments = project_document_count(project) %}
 <div class="lp-workspace lp-core-prototype-page lp-core-documents" data-controller="modal" data-modal-reopen-value="{{ createDocumentForm.vars.submitted ? 'true' : 'false' }}">
     <header class="lp-page-header">
-        <div>
+        <div class="lp-page-header__copy">
             <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'review.dashboard.page.title'|trans }}</h1>
     {# The default line promises newest-first, which a ranked search and a series
        both make untrue. The series wins, because its order wins in the query. #}
@@ -52,7 +52,7 @@
                 <input type="hidden" name="archived" value="1">
             {% endif %}
 
-            <div class="lp-filter-primary">
+            <div class="lp-filter-primary" data-action="focusin->autosearch#revealField">
                 <div class="lp-filter-search">
                     <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
                     <label class="sr-only" for="document-search">{{ 'review.dashboard.filter.search_label'|trans }}</label>

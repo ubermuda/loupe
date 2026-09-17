@@ -33,7 +33,7 @@
               action="{{ path('app_project_worker_runs', {id: project.id}) }}"
               data-controller="autosearch"
               class="lp-filter-form">
-            <div class="lp-filter-primary">
+            <div class="lp-filter-primary" data-action="focusin->autosearch#revealField">
                 <div class="lp-filter-search">
                     <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
                     <label class="sr-only" for="worker-run-search">{{ 'bridge.worker_runs.filter.search_label'|trans }}</label>

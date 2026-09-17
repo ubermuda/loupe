@@ -67,6 +67,7 @@ Two filters narrow the list further:
 Every control lands in the URL, so a filtered view is a link you can share.
 Select **Clear** to go back to the whole list.
 Search and Outcome stay on one row on narrow screens.
+With enlarged text, the row scrolls horizontally when needed. Keyboard focus brings each control into view.
 The Bridge filter remains available below them when space is limited.
 
 ## A card that no longer exists

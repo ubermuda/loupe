@@ -9,6 +9,7 @@ each submission mints a new **version**, and the review UI keeps every one of
 them.
 
 Search and the status filter stay on one row, including on narrow screens.
+With enlarged text, the row scrolls horizontally when needed. Keyboard focus brings each control into view.
 Tag and series filters remain available when the project uses them.
 
 ## Creating

@@ -454,6 +454,59 @@ test('search and status stay aligned across workspace widths', async ({
     }
 });
 
+test('enlarged document creation action remains reachable', async ({
+    page,
+    seeded,
+}) => {
+    await page.goto(`/projects/${seeded.projectId}/documents`);
+    await page.evaluate(() => {
+        document.documentElement.style.fontSize = '200%';
+    });
+    for (const width of [1440, 1150, 950, 780, 390]) {
+        await page.setViewportSize({ width, height: 1000 });
+        await expect(
+            page.getByRole('button', {
+                name: 'New document',
+                exact: true,
+            }),
+        ).toBeInViewport({ ratio: 1 });
+    }
+});
+
+test('enlarged workspace filters remain reachable', async ({
+    page,
+    seeded,
+}) => {
+    for (const path of ['documents', 'worker-runs?search=missing']) {
+        await page.goto(`/projects/${seeded.projectId}/${path}`);
+        await page.evaluate(() => {
+            document.documentElement.style.fontSize = '200%';
+        });
+        const search = page.locator('.lp-filter-input');
+        const status = page.locator('.lp-filter-select').first();
+        for (const width of [1440, 1150, 950, 780, 390]) {
+            await page.setViewportSize({ width, height: 1000 });
+            const searchBounds = await search.boundingBox();
+            const statusBounds = await status.boundingBox();
+            expect(searchBounds).not.toBeNull();
+            expect(statusBounds).not.toBeNull();
+            expect(statusBounds!.y).toBe(searchBounds!.y);
+            expect(statusBounds!.height).toBe(searchBounds!.height);
+            expect(
+                statusBounds!.x - searchBounds!.x - searchBounds!.width,
+            ).toBe(16);
+            await search.focus();
+            await expect(search).toBeInViewport({ ratio: 1 });
+            await search.press('Tab');
+            await expect(status).toBeFocused();
+            await expect(status).toBeInViewport({ ratio: 1 });
+            await status.press('Shift+Tab');
+            await expect(search).toBeFocused();
+            await expect(search).toBeInViewport({ ratio: 1 });
+        }
+    }
+});
+
 test('no touch control renders below the 16px iOS zoom threshold', async ({
     page,
     seeded,
