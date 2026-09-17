@@ -131,6 +131,26 @@ test.afterAll(async ({ request }) => {
     await setBoardFlag(request, false);
 });
 
+async function expectFilterRingClearance(page: Page): Promise<void> {
+    await expect(page.locator('.lp-board-toolbar__filters :focus')).toHaveCSS(
+        'box-shadow',
+        /0px 0px 0px 2px/,
+    );
+    const clearance = await page.evaluate(() => {
+        const field = document.activeElement!;
+        const group = field.closest('.lp-board-toolbar__filters')!;
+        const outer = group.getBoundingClientRect();
+        const inner = field.getBoundingClientRect();
+        return Math.min(
+            inner.left - outer.left,
+            outer.right - inner.right,
+            inner.top - outer.top,
+            outer.bottom - inner.bottom,
+        );
+    });
+    expect(clearance).toBeGreaterThanOrEqual(2);
+}
+
 test('board controls remain usable at enlarged text sizes without page overflow', async ({
     page,
 }, testInfo) => {
@@ -186,6 +206,17 @@ test('board controls remain usable at enlarged text sizes without page overflow'
                 priorityBounds!.x,
             );
             expect(queryBounds!.y).toBe(priorityBounds!.y);
+            await query.focus();
+            await expect(query).toBeInViewport({ ratio: 1 });
+            await expectFilterRingClearance(page);
+            await query.press('Tab');
+            await expect(priority).toBeFocused();
+            await expect(priority).toBeInViewport({ ratio: 1 });
+            await expectFilterRingClearance(page);
+            await priority.press('Shift+Tab');
+            await expect(query).toBeFocused();
+            await expect(query).toBeInViewport({ ratio: 1 });
+            await expectFilterRingClearance(page);
         }
     }
     const query = page.getByRole('searchbox', {

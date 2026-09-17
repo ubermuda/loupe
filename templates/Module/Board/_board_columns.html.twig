@@ -6,7 +6,7 @@
     {% set cardCount = 0 %}
     {% for view in board.columns %}{% set cardCount = cardCount + view.count %}{% endfor %}
     <div class="lp-board-toolbar">
-        <div class="lp-board-toolbar__filters">
+        <div class="lp-board-toolbar__filters" data-action="focusin->board-filter#revealField">
             <label class="lp-board-toolbar__search">
                 <span class="sr-only">{{ 'board.filter.search.label'|trans }}</span>
                 <twig:ux:icon name="lucide:search" class="lp-board-toolbar__search-icon" />
