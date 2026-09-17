@@ -62,7 +62,14 @@ async function createCard(
     await page.goto(`/projects/${projectId}/board/cards/new`);
     await page.getByLabel('Title').fill(title);
     await page.getByLabel('Column').selectOption({ label: column });
-    await page.getByRole('button', { name: 'Create card' }).click();
+    await Promise.all([
+        page.waitForResponse(
+            (response) =>
+                response.request().method() === 'POST' &&
+                new URL(response.url()).pathname.endsWith('/board/cards/new'),
+        ),
+        page.getByRole('button', { name: 'Create card' }).click(),
+    ]);
     await expect(page.getByRole('heading', { name: title })).toBeVisible();
 }
 

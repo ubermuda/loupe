@@ -8,6 +8,10 @@ export default class extends Controller {
 
     connect() {
         this.previouslyFocused = null;
+        this.lastFocused = document.activeElement;
+        this.onFocus = (event) => {
+            this.lastFocused = event.target;
+        };
         // Bound on the document rather than the element: the panel covers the
         // page, so the tap that means "close" lands outside every action.
         this.onDocumentClick = (event) => {
@@ -25,20 +29,24 @@ export default class extends Controller {
         this.onBeforeCache = () => this.#reset();
         this.desktopQuery = window.matchMedia(DESKTOP_QUERY);
         this.onDesktop = (event) => {
-            const focusInPanel = this.panelTarget.contains(
-                document.activeElement,
-            );
+            const focused =
+                document.activeElement === document.body
+                    ? this.lastFocused
+                    : document.activeElement;
+            const focusInPanel = this.panelTarget.contains(focused);
             const focusOnDismiss =
-                this.hasDismissTarget &&
-                document.activeElement === this.dismissTarget;
+                this.hasDismissTarget && focused === this.dismissTarget;
+            const focusOnTrigger =
+                this.hasTriggerTarget && focused === this.triggerTarget;
             this.#reset();
             if (!event.matches && focusInPanel && this.hasTriggerTarget) {
                 this.triggerTarget.focus();
-            } else if (event.matches && focusOnDismiss) {
+            } else if (event.matches && (focusOnDismiss || focusOnTrigger)) {
                 this.panelTarget.querySelector('a[href]')?.focus();
             }
         };
         document.addEventListener('click', this.onDocumentClick);
+        document.addEventListener('focusin', this.onFocus);
         document.addEventListener('keydown', this.onKeydown);
         document.addEventListener('turbo:before-cache', this.onBeforeCache);
         this.desktopQuery.addEventListener('change', this.onDesktop);
@@ -47,6 +55,7 @@ export default class extends Controller {
 
     disconnect() {
         document.removeEventListener('click', this.onDocumentClick);
+        document.removeEventListener('focusin', this.onFocus);
         document.removeEventListener('keydown', this.onKeydown);
         document.removeEventListener('turbo:before-cache', this.onBeforeCache);
         this.desktopQuery.removeEventListener('change', this.onDesktop);
