@@ -9,6 +9,7 @@ import {
     extractLink,
     logout,
     registerAndVerify,
+    submitAuthForm,
 } from '../helpers';
 
 // Guest by default — make the unauthenticated starting state explicit.
@@ -34,7 +35,11 @@ test('requesting reset with unknown email succeeds silently', async ({
 }) => {
     await page.goto('/forgot-password');
     await page.getByLabel('Email').fill('nobody@example.com');
-    await page.getByRole('button', { name: /reset/i }).click();
+    await submitAuthForm(
+        page,
+        page.getByRole('button', { name: /reset/i }),
+        '/forgot-password',
+    );
     await expect(page).toHaveURL('/forgot-password/check-email');
 });
 
@@ -46,7 +51,11 @@ test('valid reset token allows password change', async ({ page, request }) => {
     // Request reset
     await page.goto('/forgot-password');
     await page.getByLabel('Email').fill(email);
-    await page.getByRole('button', { name: /reset/i }).click();
+    await submitAuthForm(
+        page,
+        page.getByRole('button', { name: /reset/i }),
+        '/forgot-password',
+    );
     await expect(page).toHaveURL('/forgot-password/check-email');
 
     // Get reset link from email. Wait for the reset SUBJECT specifically:
@@ -98,7 +107,11 @@ test('used (already-consumed) token redirects to forgot-password with error', as
     // Request a reset link
     await page.goto('/forgot-password');
     await page.getByLabel('Email').fill(email);
-    await page.getByRole('button', { name: /reset/i }).click();
+    await submitAuthForm(
+        page,
+        page.getByRole('button', { name: /reset/i }),
+        '/forgot-password',
+    );
     await expect(page).toHaveURL('/forgot-password/check-email');
 
     // Subject-matched for the same async-delivery reason as above.

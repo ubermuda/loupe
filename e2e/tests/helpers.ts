@@ -1,4 +1,9 @@
-import { APIRequestContext, expect, Page } from '@playwright/test';
+import {
+    APIRequestContext,
+    expect,
+    Page,
+    type Locator,
+} from '@playwright/test';
 import { coverageScaled } from './timeouts';
 
 const mailpitUrl =
@@ -232,6 +237,23 @@ export interface Credentials {
  */
 export const DEFAULT_DISPLAY_NAME = 'E2E User';
 
+export async function submitAuthForm(
+    page: Page,
+    button: Locator,
+    path: string,
+): Promise<void> {
+    const url = new URL(path, page.url()).href;
+    const [response] = await Promise.all([
+        page.waitForResponse(
+            (response) =>
+                response.url() === url &&
+                response.request().method() === 'POST',
+        ),
+        button.click(),
+    ]);
+    expect(response.status()).toBe(302);
+}
+
 /**
  * Fill the registration form, poll Mailpit for the verification link, and
  * navigate to it. Returns with the browser on the first-run wizard's welcome
@@ -261,7 +283,11 @@ export async function registerFreshUser(
         .fill(credentials.fullName ?? DEFAULT_DISPLAY_NAME);
     await page.getByLabel('Password').fill(credentials.password);
     await page.getByLabel('I agree to').check();
-    await page.getByRole('button', { name: 'Create account' }).click();
+    await submitAuthForm(
+        page,
+        page.getByRole('button', { name: 'Create account' }),
+        '/register',
+    );
     await expect(page).toHaveURL('/register/check-email');
 
     const received = await getEmailWithSubject(
