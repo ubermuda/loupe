@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { getLatestEmailTo } from '../helpers';
+import { getLatestEmailTo, submitAuthForm } from '../helpers';
 
 // Guest by default — make the unauthenticated starting state explicit.
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -32,7 +32,11 @@ test('successful signup redirects to check-email page', async ({ page }) => {
     await page.getByLabel('Display name').fill('Riley Chen');
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();
-    await page.getByRole('button', { name: 'Create account' }).click();
+    await submitAuthForm(
+        page,
+        page.getByRole('button', { name: 'Create account' }),
+        '/register',
+    );
 
     await expect(page).toHaveURL('/register/check-email');
     await expect(page.locator('h1')).toContainText('Check your email');
@@ -45,7 +49,11 @@ test('sends verification email after signup', async ({ page, request }) => {
     await page.getByLabel('Display name').fill('Riley Chen');
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();
-    await page.getByRole('button', { name: 'Create account' }).click();
+    await submitAuthForm(
+        page,
+        page.getByRole('button', { name: 'Create account' }),
+        '/register',
+    );
 
     const received = await getLatestEmailTo(request, email);
 
@@ -62,7 +70,11 @@ test('shows error on duplicate email', async ({ page }) => {
     await page.getByLabel('Display name').fill('Riley Chen');
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();
-    await page.getByRole('button', { name: 'Create account' }).click();
+    await submitAuthForm(
+        page,
+        page.getByRole('button', { name: 'Create account' }),
+        '/register',
+    );
     await expect(page).toHaveURL('/register/check-email');
 
     // Second registration with same email

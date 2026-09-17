@@ -218,7 +218,11 @@ export function extractLink(body: string, pattern: RegExp): string {
  */
 export async function logout(page: Page): Promise<void> {
     await page.goto('/projects');
-    await page.getByRole('button', { name: 'Log out' }).click();
+    await submitAuthForm(
+        page,
+        page.getByRole('button', { name: 'Log out' }),
+        '/logout',
+    );
     await expect(page).toHaveURL('/login');
 }
 

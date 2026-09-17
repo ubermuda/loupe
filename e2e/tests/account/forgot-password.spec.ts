@@ -80,19 +80,31 @@ test('valid reset token allows password change', async ({ page, request }) => {
         .getByLabel('New password', { exact: true })
         .fill('NewPassword1!');
     await page.getByLabel('Repeat new password').fill('NewPassword1!');
-    await page.getByRole('button', { name: /reset/i }).click();
+    await submitAuthForm(
+        page,
+        page.getByRole('button', { name: /reset/i }),
+        '/forgot-password/reset',
+    );
     await expect(page).toHaveURL('/login');
 
     // Old password should no longer work
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('OldPassword1!');
-    await page.getByRole('button', { name: 'Sign in' }).click();
+    await submitAuthForm(
+        page,
+        page.getByRole('button', { name: 'Sign in' }),
+        '/login',
+    );
     await expect(page.locator('.auth-error')).toBeVisible();
 
     // New password works
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('NewPassword1!');
-    await page.getByRole('button', { name: 'Sign in' }).click();
+    await submitAuthForm(
+        page,
+        page.getByRole('button', { name: 'Sign in' }),
+        '/login',
+    );
     await expect(page).toHaveURL('/projects');
 });
 
@@ -132,7 +144,11 @@ test('used (already-consumed) token redirects to forgot-password with error', as
         .getByLabel('New password', { exact: true })
         .fill('NewPassword1!');
     await page.getByLabel('Repeat new password').fill('NewPassword1!');
-    await page.getByRole('button', { name: /reset/i }).click();
+    await submitAuthForm(
+        page,
+        page.getByRole('button', { name: /reset/i }),
+        '/forgot-password/reset',
+    );
     await expect(page).toHaveURL('/login');
 
     // Try to use the same link again — token is now consumed

@@ -1,5 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
-import { countEmailsTo, getLatestEmailTo, extractLink } from '../helpers';
+import {
+    countEmailsTo,
+    getLatestEmailTo,
+    extractLink,
+    submitAuthForm,
+} from '../helpers';
 import { coverageScaled } from '../timeouts';
 
 // Guest by default — make the unauthenticated starting state explicit.
@@ -12,7 +17,11 @@ async function signUp(page: Page, email: string): Promise<void> {
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();
-    await page.getByRole('button', { name: 'Create account' }).click();
+    await submitAuthForm(
+        page,
+        page.getByRole('button', { name: 'Create account' }),
+        '/register',
+    );
     await expect(page).toHaveURL('/register/check-email');
 }
 

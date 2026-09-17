@@ -4,7 +4,7 @@ import {
     type Page,
     type APIRequestContext,
 } from '@playwright/test';
-import { logout, registerAndVerify } from '../helpers';
+import { logout, registerAndVerify, submitAuthForm } from '../helpers';
 
 // Guest by default — make the unauthenticated starting state explicit.
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -35,7 +35,11 @@ test('valid credentials log in and redirect to home', async ({
     await page.goto('/login');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('SecurePassword1!');
-    await page.getByRole('button', { name: 'Sign in' }).click();
+    await submitAuthForm(
+        page,
+        page.getByRole('button', { name: 'Sign in' }),
+        '/login',
+    );
 
     await expect(page).toHaveURL('/projects');
 });
@@ -48,7 +52,11 @@ test('wrong password shows auth-error', async ({ page, request }) => {
     await page.goto('/login');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('WrongPassword!');
-    await page.getByRole('button', { name: 'Sign in' }).click();
+    await submitAuthForm(
+        page,
+        page.getByRole('button', { name: 'Sign in' }),
+        '/login',
+    );
 
     await expect(page).toHaveURL('/login');
     await expect(page.locator('.auth-error')).toBeVisible();
@@ -67,7 +75,11 @@ test('remember-me cookie survives browser restart', async ({
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('Stay signed in on this device').check();
-    await page.getByRole('button', { name: 'Sign in' }).click();
+    await submitAuthForm(
+        page,
+        page.getByRole('button', { name: 'Sign in' }),
+        '/login',
+    );
     await expect(page).toHaveURL('/projects');
 
     // Grab cookies from the current context
@@ -96,16 +108,22 @@ test('unverified user after login is redirected to check-email', async ({
     await page.getByLabel('Display name').fill('Riley Chen');
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();
-    await page.getByRole('button', { name: 'Create account' }).click();
-    // Wait for registration to complete before navigating away — clicking the
-    // button fires a Turbo XHR; going to /login immediately can abort it.
+    await submitAuthForm(
+        page,
+        page.getByRole('button', { name: 'Create account' }),
+        '/register',
+    );
     await expect(page).toHaveURL('/register/check-email');
     // Do NOT click the verification link — skip straight to login
 
     await page.goto('/login');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('SecurePassword1!');
-    await page.getByRole('button', { name: 'Sign in' }).click();
+    await submitAuthForm(
+        page,
+        page.getByRole('button', { name: 'Sign in' }),
+        '/login',
+    );
 
     // EmailVerificationSubscriber redirects unverified users to check-email
     await expect(page).toHaveURL('/register/check-email');
