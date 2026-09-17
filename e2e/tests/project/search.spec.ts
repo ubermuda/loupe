@@ -25,7 +25,12 @@ test('project search opens matching documents and pages', async ({ page }) => {
     });
     await field.fill(query);
     await page.getByRole('button', { name: 'Search', exact: true }).click();
+    await expect(page.locator('#project-search-results')).not.toHaveAttribute(
+        'busy',
+        '',
+    );
     const result = page.locator('[data-search-kind="document"]');
+    await expect(result).toBeVisible();
     await expect(result).toHaveCount(1);
     await expect(result).toContainText(title);
     await expect(result).toHaveAttribute(
