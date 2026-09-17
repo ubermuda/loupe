@@ -11,10 +11,62 @@ use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Uid\Uuid;
 
 final class ListRulesControllerTest extends WebTestCase
 {
+    public function test_search_matches_names_and_distinguishes_no_matches_from_no_reports(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $owner = new User(fullName: 'Owner', email: 'rules-search@example.com', password: 'x');
+        $owner->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($owner, static::getContainer());
+        $project = new Project($owner, 'Search rules');
+        $other = new Project($owner, 'Other rules');
+        $em->persist($owner);
+        $em->persist($project);
+        $em->persist($other);
+        foreach ([$project, $other] as $target) {
+            $em->persist(new BridgeRuleReport($target, Uuid::v4(), [
+                ['name' => 'Préparer', 'on' => 'board.card_moved', 'columns' => ['ready'], 'state' => BridgeRuleReport::STATE_LIVE, 'reason' => null],
+                ['name' => 'Review', 'on' => 'board.card_moved', 'columns' => ['ready'], 'state' => BridgeRuleReport::STATE_DEAD, 'reason' => 'column_renamed'],
+            ]));
+        }
+        $em->flush();
+        $em->clear();
+        $client->loginUser($owner);
+        $path = '/projects/'.$project->id.'/rules';
+        $crawler = $client->request(Request::METHOD_GET, $path);
+        self::assertResponseIsSuccessful();
+        self::assertCount(2, $crawler->filter('[data-rule-name]'));
+
+        $crawler = $client->submit($crawler->filter('form[name="search_rules_form"]')->form(['search_rules_form[search]' => ' PRÉP ']));
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-rule-name="Préparer"]'));
+        self::assertCount(1, $crawler->filter('[data-rule-name]'));
+        self::assertSelectorTextContains('[data-rule-live-count]', '1 live rule');
+
+        $crawler = $client->submit($crawler->filter('form[name="search_rules_form"]')->form(['search_rules_form[search]' => 'missing']));
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('[data-rule-name]'));
+        self::assertSelectorTextContains('[data-rules-no-match]', 'No matching rules');
+        self::assertSelectorTextContains('[data-rule-live-count]', '1 live rule');
+        self::assertSelectorNotExists('[data-rules-empty]');
+
+        $crawler = $client->click($crawler->filter('a[aria-label="Clear search"]')->link());
+        self::assertResponseIsSuccessful();
+        self::assertCount(2, $crawler->filter('[data-rule-name]'));
+
+        $client->request(Request::METHOD_GET, $path, ['search_rules_form' => ['search' => str_repeat('x', 201)]]);
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        self::assertSelectorTextContains('.lp-field-errors', '200');
+        $client->request(Request::METHOD_GET, $path, ['search_rules_form' => ['search' => ['invalid']]]);
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+    }
+
     public function test_it_lists_reported_rule_health_without_edit_controls(): void
     {
         $client = static::createClient();

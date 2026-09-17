@@ -132,7 +132,7 @@ test('connection health remains accessible at enlarged text sizes', async ({
 
 test('a dead rule shows a banner and a watched column warns before a rename or a delete', async ({
     page,
-}) => {
+}, testInfo) => {
     await suppressToolbar(page);
     await suppressWidget(page);
     await setBoardFlag(page.request, true);
@@ -160,6 +160,13 @@ test('a dead rule shows a banner and a watched column warns before a rename or a
                     },
                     {
                         name: 'review',
+                        on: 'board.card_moved',
+                        columns: ['in-progress'],
+                        state: 'live',
+                        reason: null,
+                    },
+                    {
+                        name: 'R'.repeat(100),
                         on: 'board.card_moved',
                         columns: ['in-progress'],
                         state: 'live',
@@ -195,4 +202,95 @@ test('a dead rule shows a banner and a watched column warns before a rename or a
     await expect(remove.locator('.lp-board__rule-warning')).toContainText(
         'Deleting it removes its slug',
     );
+    await remove.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.goto(`/projects/${projectId}/rules`);
+    const rows = page.locator('[data-rule-name]');
+    await expect(rows).toHaveCount(3);
+    await page
+        .getByRole('searchbox', { name: 'Find a rule', exact: true })
+        .fill('REVIEW');
+    await page
+        .getByRole('button', { name: 'Search rules', exact: true })
+        .click();
+    await expect(rows).toHaveCount(1);
+    await expect(rows).toHaveAttribute('data-rule-name', 'review');
+    await page.reload();
+    await expect(rows).toHaveCount(1);
+    await page
+        .getByRole('searchbox', { name: 'Find a rule', exact: true })
+        .fill('missing');
+    await page
+        .getByRole('button', { name: 'Search rules', exact: true })
+        .click();
+    await expect(
+        page.getByRole('heading', { name: 'No matching rules', exact: true }),
+    ).toBeVisible();
+    await expect(rows).toHaveCount(0);
+    await expect(page.locator('[data-rule-live-count]')).toHaveText(
+        '2 live rules',
+    );
+    await page.getByRole('link', { name: 'Clear search', exact: true }).click();
+    await expect(rows).toHaveCount(3);
+    for (const fontSize of ['100%', '200%']) {
+        await page.evaluate((size) => {
+            document.documentElement.style.fontSize = size;
+        }, fontSize);
+        for (const width of [1440, 1150, 950, 780, 390]) {
+            await page.setViewportSize({ width, height: 1000 });
+            await expect
+                .poll(() =>
+                    page.evaluate(
+                        () =>
+                            document.documentElement.scrollWidth -
+                            window.innerWidth,
+                    ),
+                )
+                .toBeLessThanOrEqual(1);
+            await expect
+                .poll(() =>
+                    rows.evaluateAll((elements) =>
+                        Math.max(
+                            0,
+                            ...elements.flatMap((element) => {
+                                const card = element.getBoundingClientRect();
+                                return Array.from(
+                                    element.querySelectorAll('*'),
+                                ).flatMap((child) => {
+                                    const bounds =
+                                        child.getBoundingClientRect();
+                                    return [
+                                        bounds.right - card.right,
+                                        card.left - bounds.left,
+                                    ];
+                                });
+                            }),
+                        ),
+                    ),
+                )
+                .toBeLessThanOrEqual(1);
+            const input = page.getByRole('searchbox', {
+                name: 'Find a rule',
+                exact: true,
+            });
+            const submit = page.getByRole('button', {
+                name: 'Search rules',
+                exact: true,
+            });
+            const inputBounds = await input.boundingBox();
+            const submitBounds = await submit.boundingBox();
+            expect(inputBounds).not.toBeNull();
+            expect(submitBounds).not.toBeNull();
+            expect(submitBounds!.height).toBe(inputBounds!.height);
+            expect(
+                Math.abs(submitBounds!.y - inputBounds!.y),
+            ).toBeLessThanOrEqual(1);
+            expect(inputBounds!.x + inputBounds!.width).toBeLessThanOrEqual(
+                submitBounds!.x,
+            );
+            await page.screenshot({
+                path: testInfo.outputPath(`rules-${width}-${fontSize}.png`),
+                animations: 'disabled',
+            });
+        }
+    }
 });

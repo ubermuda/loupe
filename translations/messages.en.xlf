@@ -5915,6 +5915,12 @@
             <trans-unit id="board.rules.event_description"><source>board.rules.event_description</source><target>Listens for %event%.</target></trans-unit>
             <trans-unit id="board.rules.flow_label"><source>board.rules.flow_label</source><target>Rule handoff</target></trans-unit>
             <trans-unit id="board.rules.reported_at"><source>board.rules.reported_at</source><target>Reported %time%</target></trans-unit>
+            <trans-unit id="board.form.search_rules_form.search.label"><source>board.form.search_rules_form.search.label</source><target>Find a rule</target></trans-unit>
+            <trans-unit id="board.form.search_rules_form.search.placeholder"><source>board.form.search_rules_form.search.placeholder</source><target>Find a rule…</target></trans-unit>
+            <trans-unit id="board.rules.search.submit"><source>board.rules.search.submit</source><target>Search rules</target></trans-unit>
+            <trans-unit id="board.rules.search.clear"><source>board.rules.search.clear</source><target>Clear search</target></trans-unit>
+            <trans-unit id="board.rules.search.empty"><source>board.rules.search.empty</source><target>No matching rules</target></trans-unit>
+            <trans-unit id="board.rules.search.try_again"><source>board.rules.search.try_again</source><target>Try another rule name or clear the search.</target></trans-unit>
             <trans-unit id="board.rules.empty.title"><source>board.rules.empty.title</source><target>No rules reported</target></trans-unit>
             <trans-unit id="board.rules.empty.description"><source>board.rules.empty.description</source><target>A connected bridge reports the rules it has loaded for this project.</target></trans-unit>
             <trans-unit id="activity.page.title"><source>activity.page.title</source><target>Activity</target></trans-unit>

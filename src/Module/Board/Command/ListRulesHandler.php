@@ -32,10 +32,13 @@ final readonly class ListRulesHandler
             }
         }
 
+        $search = trim($command->search);
+
         return new ListRulesView(
             $command->project,
-            $rules,
+            array_values(array_filter($rules, static fn (ReportedRule $rule): bool => '' === $search || false !== mb_stripos($rule->name, $search))),
             count(array_filter($rules, static fn (ReportedRule $rule): bool => BridgeRuleReport::STATE_LIVE === $rule->state)),
+            $search,
         );
     }
 }

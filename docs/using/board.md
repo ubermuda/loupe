@@ -205,6 +205,11 @@ history page of the board's first terminal column.
 
 ### Bridge rule health
 
+Open Rules to read the project's reported handoffs. Search by rule name and submit with the search button or Enter.
+Matching ignores case. Clear search restores the full list; the live-rule count always covers the project's complete report.
+Searches with no matches show a different message from a project with no reported rules.
+This page remains read-only. Change rules in the bridge configuration.
+
 A [command-line bridge](../extending/cli-bridge.md) can report the health of its
 rules for each project it follows. A rule is dead when it can no longer match,
 for example after its column was renamed or deleted. A dead rule starts no

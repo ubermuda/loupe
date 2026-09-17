@@ -17,8 +17,23 @@
             <h1 class="lp-workspace-title">{{ 'board.rules.heading'|trans }}</h1>
             <p class="lp-workspace-desc">{{ 'board.rules.description'|trans }}</p>
         </div>
-        <span class="lp-status-chip lp-status-chip--ok"><span class="lp-status-chip__dot"></span>{{ 'board.rules.live_count'|trans({'%count%': liveCount}) }}</span>
     </header>
+
+    <div class="lp-list-filters">
+        {{ form_start(searchForm, {'action': path('app_project_rules', {id: project.id}), 'attr': {'class': 'lp-filter-form'}}) }}
+            <div class="lp-filter-primary">
+                <div class="lp-filter-search">
+                    <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
+                    {{ form_label(searchForm.search, null, {'label_attr': {'class': 'sr-only'}}) }}
+                    {{ form_widget(searchForm.search, {'attr': {'class': 'lp-input lp-filter-input'}}) }}
+                </div>
+                <button type="submit" class="lp-btn lp-btn--icon" aria-label="{{ 'board.rules.search.submit'|trans }}"><twig:ux:icon name="lucide:search" /></button>
+                {% if searchForm.search.vars.value is not empty %}<a class="lp-btn lp-btn--icon" href="{{ path('app_project_rules', {id: project.id}) }}" aria-label="{{ 'board.rules.search.clear'|trans }}"><twig:ux:icon name="lucide:x" /></a>{% endif %}
+            </div>
+            <div class="lp-field-errors">{{ form_errors(searchForm.search) }}{{ form_errors(searchForm) }}</div>
+        {{ form_end(searchForm) }}
+        <span class="lp-status-chip lp-status-chip--ok" data-rule-live-count><span class="lp-status-chip__dot"></span>{{ 'board.rules.live_count'|trans({'%count%': liveCount}) }}</span>
+    </div>
 
     {% if rules is not empty %}
     <div class="lp-rule-list">
@@ -47,6 +62,12 @@
             </div>
         </article>
         {% endfor %}
+    </div>
+    {% elseif search is not empty %}
+    <div class="lp-empty-state" data-rules-no-match>
+        <twig:ux:icon name="lucide:search" class="lp-empty-state__icon w-12 h-12" />
+        <h2 class="lp-empty-state__title">{{ 'board.rules.search.empty'|trans }}</h2>
+        <p>{{ 'board.rules.search.try_again'|trans }}</p>
     </div>
     {% else %}
     <div class="lp-empty-state" data-rules-empty>

@@ -14,6 +14,7 @@ final readonly class ListRulesView
         public Project $project,
         public array $rules,
         public int $liveCount,
+        public string $search = '',
     ) {
     }
 }

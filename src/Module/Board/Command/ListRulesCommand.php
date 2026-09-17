@@ -10,6 +10,7 @@ final readonly class ListRulesCommand
 {
     public function __construct(
         public Project $project,
+        public string $search = '',
     ) {
     }
 }
