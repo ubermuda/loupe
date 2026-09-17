@@ -852,8 +852,14 @@
     .lp-card-drawer-overlay__loading {
         @apply absolute inset-0 z-10 flex items-center justify-center gap-2 bg-surface-1 text-sm font-semibold text-fg-mute;
     }
-    .lp-card-drawer-overlay__loading[hidden] {
+    .lp-card-drawer-overlay__loading[hidden],
+    .lp-card-drawer-overlay__error[hidden],
+    .lp-card-drawer-overlay > turbo-frame[hidden] {
         @apply hidden;
+    }
+    /** Recovery controls for failed card drawer navigation. */
+    .lp-card-drawer-overlay__error {
+        @apply p-6;
     }
     .lp-card-drawer-overlay__loading svg {
         @apply animate-spin;

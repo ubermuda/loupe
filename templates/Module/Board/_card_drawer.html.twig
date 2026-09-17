@@ -5,8 +5,16 @@
     <div class="lp-card-drawer-overlay__loading" data-card-drawer-target="loading" role="status">
         <twig:ux:icon name="lucide:loader-circle" class="w-5 h-5" />
         {{ 'board.card.drawer.loading'|trans }}
+        <button type="button" class="lp-btn" data-action="card-drawer#close">{{ 'board.card.drawer.close'|trans }}</button>
+    </div>
+    <div class="lp-card-drawer-overlay__error" data-card-drawer-target="error" hidden>
+        <p class="lp-dialog-desc" role="alert">{{ 'board.card.drawer.failed'|trans }}</p>
+        <div class="lp-dialog-actions">
+            <button type="button" class="lp-btn lp-btn--primary" data-action="card-drawer#retry">{{ 'board.card.drawer.retry'|trans }}</button>
+            <button type="button" class="lp-btn" data-action="card-drawer#close">{{ 'board.card.drawer.close'|trans }}</button>
+        </div>
     </div>
     <turbo-frame id="card-drawer-frame"
                  data-card-drawer-target="frame"
-                 data-action="turbo:frame-load->card-drawer#loaded"></turbo-frame>
+                 data-action="turbo:frame-load->card-drawer#loaded turbo:before-fetch-response->card-drawer#received turbo:fetch-request-error->card-drawer#failed turbo:frame-missing->card-drawer#failed"></turbo-frame>
 </dialog>

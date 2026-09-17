@@ -1,4 +1,4 @@
-import { expect } from '@playwright/test';
+import { expect, type Route } from '@playwright/test';
 import { createTest } from '../fixtures';
 
 const test = createTest({
@@ -51,12 +51,31 @@ test('workshop opens the matching request and keeps card details in its drawer',
     const card = page
         .locator('[data-workshop-card]')
         .filter({ hasText: title });
+    const cardUrl = (await card.getAttribute('href'))!;
+    await page.route(`**${cardUrl}`, (route) =>
+        route.fulfill({
+            status: 503,
+            contentType: 'text/html',
+            body: 'Unavailable',
+        }),
+    );
     await card.click();
     const drawer = page.getByRole('dialog', {
         name: 'Card details',
         exact: true,
     });
     await expect(drawer).toBeVisible();
+    await expect(drawer.getByRole('alert')).toHaveText(
+        'The card could not load. Try again.',
+    );
+    await drawer
+        .getByRole('button', { name: 'Close card', exact: true })
+        .click();
+    await expect(card).toBeFocused();
+    await card.click();
+    await expect(drawer.getByRole('alert')).toBeVisible();
+    await page.unroute(`**${cardUrl}`);
+    await drawer.getByRole('button', { name: 'Retry', exact: true }).click();
     await expect(
         drawer.getByRole('heading', { name: title, exact: true }),
     ).toBeVisible();
@@ -67,6 +86,37 @@ test('workshop opens the matching request and keeps card details in its drawer',
     await page.keyboard.press('Escape');
     await expect(drawer).toBeHidden();
     await expect(card).toBeFocused();
+    for (const fail of [
+        (route: Route) => route.abort('failed'),
+        (route: Route) =>
+            route.fulfill({
+                status: 200,
+                contentType: 'text/html',
+                body: '<p>No frame</p>',
+            }),
+        (route: Route) =>
+            route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: '{}',
+            }),
+    ]) {
+        await page.route(`**${cardUrl}`, fail);
+        await card.click();
+        await expect(drawer.getByRole('alert')).toBeVisible();
+        await expect(
+            drawer.getByRole('button', { name: 'Retry', exact: true }),
+        ).toBeFocused();
+        await page.unroute(`**${cardUrl}`, fail);
+        await drawer
+            .getByRole('button', { name: 'Retry', exact: true })
+            .click();
+        await expect(
+            drawer.getByRole('heading', { name: title, exact: true }),
+        ).toBeVisible();
+        await page.keyboard.press('Escape');
+        await expect(card).toBeFocused();
+    }
     for (const width of [1440, 1150, 950, 780, 390]) {
         await page.setViewportSize({ width, height: 1000 });
         await expect

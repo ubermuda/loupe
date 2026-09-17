@@ -13,6 +13,7 @@ When the inbox is disabled, Workshop says so instead of claiming that no request
 In motion shows the six newest open cards. Each tile shows its number, title, column, and priority.
 Select a tile to open the card drawer without leaving Workshop.
 Escape closes the drawer and returns focus to the tile.
+If a card fails to load, Retry loads it again. Close card returns to Workshop.
 Open board shows the full board, including other open cards.
 Completed cards stay outside this list.
 

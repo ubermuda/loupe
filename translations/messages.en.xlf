@@ -5582,6 +5582,8 @@
             <trans-unit id="board.card.drawer.close"><source>board.card.drawer.close</source><target>Close card</target></trans-unit>
             <trans-unit id="board.card.drawer.label"><source>board.card.drawer.label</source><target>Card details</target></trans-unit>
             <trans-unit id="board.card.drawer.loading"><source>board.card.drawer.loading</source><target>Loading card…</target></trans-unit>
+            <trans-unit id="board.card.drawer.failed"><source>board.card.drawer.failed</source><target>The card could not load. Try again.</target></trans-unit>
+            <trans-unit id="board.card.drawer.retry"><source>board.card.drawer.retry</source><target>Retry</target></trans-unit>
             <trans-unit id="nav.global_actions.label"><source>nav.global_actions.label</source><target>Global tools</target></trans-unit>
             <trans-unit id="nav.activity.open"><source>nav.activity.open</source><target>Open project activity</target></trans-unit>
             <trans-unit id="board.card.drawer.sections"><source>board.card.drawer.sections</source><target>Card sections</target></trans-unit>
