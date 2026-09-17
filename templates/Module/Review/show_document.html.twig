@@ -786,6 +786,9 @@
         {% endif %}
     </div>
 
+    {% if undoVerdictForm is defined %}
+        <div class="lp-field-errors" data-review-withdrawal-errors>{{ form_errors(undoVerdictForm) }}{{ form_errors(undoVerdictForm.reviewId) }}</div>
+    {% endif %}
     {% if not readOnly and not diffMode and document.status.value in ['approved', 'changes-requested'] %}
     {% set verdict = document.status.value %}
     <div class="lp-verdict-bar lp-verdict-bar--{{ verdict }}">
@@ -798,10 +801,12 @@
             {% if review.note %}<span class="lp-review-verdict-note">{{ review.note }}</span>{% endif %}
             {% endif %}
         </span>
-        <form class="lp-verdict-bar__undo" method="POST" action="{{ path('app_document_review_undo', {projectId: document.project.id, documentId: document.id}) }}">
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token('submit-review') }}">
+        {% if review is not null %}
+        {{ form_start(undoVerdictForm, {attr: {class: 'lp-verdict-bar__undo'}}) }}
+            {{ form_widget(undoVerdictForm.reviewId) }}
             <button type="submit" class="lp-btn lp-btn--ghost lp-btn--sm">{{ 'review.document.verdict.undo'|trans }}</button>
-        </form>
+        {{ form_end(undoVerdictForm) }}
+        {% endif %}
     </div>
     {% endif %}
 

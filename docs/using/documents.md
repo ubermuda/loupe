@@ -58,6 +58,11 @@ Open threads and unapproved sections do not prevent approval.
 A verdict applies to the version shown when the reviewer opens the page.
 If a revision arrives first, Loupe rejects the verdict and asks the reviewer to check the current version.
 
+Select **Undo** beside a saved verdict to withdraw it and reopen review.
+The history retains the original verdict and its withdrawal.
+If another verdict or revision arrives first, Loupe rejects the old Undo form.
+Reload the page before withdrawing the current verdict.
+
 The margin has Comments, Outline, Decisions and Details tabs.
 Outline and Decisions show current progress and link to passages in the document.
 Details shows linked cards, outgoing and incoming references, tags, series and version notes.

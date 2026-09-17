@@ -572,6 +572,72 @@ test('a stale review page cannot approve a newer version', async ({
     ).toHaveText('In review');
 });
 
+test('a stale withdrawal preserves the verdict from another tab', async ({
+    page,
+    context,
+    review,
+}) => {
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    await page.getByRole('radio', { name: 'Approve', exact: true }).check();
+    await page.getByRole('button', { name: 'Submit review' }).click();
+    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
+
+    const current = await context.newPage();
+    await suppressToolbar(current);
+    await suppressWidget(current);
+    await current.goto(review.reviewUrl);
+    await current
+        .locator('.lp-verdict-bar__undo')
+        .getByRole('button', { name: 'Undo', exact: true })
+        .click();
+    await expect(current.locator('.lp-flash--success')).toContainText(
+        'Your verdict has been withdrawn.',
+    );
+    await current
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    await current
+        .getByRole('radio', { name: 'Request changes', exact: true })
+        .check();
+    await current
+        .getByRole('textbox', { name: 'Review note' })
+        .fill('Clarify the retry policy.');
+    await current.getByRole('button', { name: 'Submit review' }).click();
+    await expect(
+        current.locator('.lp-verdict-bar--changes-requested'),
+    ).toContainText('Clarify the retry policy.');
+
+    await page
+        .locator('.lp-verdict-bar__undo')
+        .getByRole('button', { name: 'Undo', exact: true })
+        .click();
+    await expect(page.locator('[data-review-withdrawal-errors]')).toContainText(
+        'The review changed after this page loaded.',
+    );
+    await expect(
+        page.locator('.lp-verdict-bar--changes-requested'),
+    ).toContainText('Clarify the retry policy.');
+    await page.reload();
+    await expect(
+        page.locator('.lp-verdict-bar--changes-requested'),
+    ).toContainText('Clarify the retry policy.');
+    await page
+        .locator('.lp-verdict-bar__undo')
+        .getByRole('button', { name: 'Undo', exact: true })
+        .click();
+    await expect(page.locator('.lp-flash--success')).toContainText(
+        'Your verdict has been withdrawn.',
+    );
+    await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
+    await page.reload();
+    await expect(page.locator('.lp-review-doc__byline')).toContainText(
+        'In review',
+    );
+    await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
+});
+
 test('requesting changes shows the verdict on the project dashboard', async ({
     page,
     review,

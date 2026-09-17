@@ -1447,6 +1447,10 @@
                 <source>review.document.flash.verdict_stale</source>
                 <target>The document has a newer version. Review the current version before you submit a verdict.</target>
             </trans-unit>
+            <trans-unit id="review.document.flash.verdict_changed">
+                <source>review.document.flash.verdict_changed</source>
+                <target>The review changed after this page loaded. Reload the page before withdrawing the current verdict.</target>
+            </trans-unit>
             <trans-unit id="review.document.flash.note_required">
                 <source>review.document.flash.note_required</source>
                 <target>Explain the changes you request in a review note.</target>

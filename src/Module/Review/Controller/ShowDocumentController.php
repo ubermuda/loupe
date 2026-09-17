@@ -22,6 +22,8 @@ use App\Module\Review\Form\SubmitReviewFormType;
 use App\Module\Review\Form\SubmitReviewRequest;
 use App\Module\Review\Form\SuggestRewordingFormType;
 use App\Module\Review\Form\SuggestRewordingRequest;
+use App\Module\Review\Form\UndoVerdictFormType;
+use App\Module\Review\Form\UndoVerdictRequest;
 use App\Module\Review\Security\DocumentVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Request;
@@ -83,6 +85,12 @@ final class ShowDocumentController extends AppController
             ['action' => $this->generateUrl('app_document_revise', $routeParameters), 'project' => $project, 'document' => $document],
         )->createView();
 
+        $undoVerdictForm = $this->getInjectedFormView($request, 'undoVerdictForm') ?? $this->createForm(
+            UndoVerdictFormType::class,
+            new UndoVerdictRequest(reviewId: $view->review?->id?->toRfc4122()),
+            ['action' => $this->generateUrl('app_document_review_undo', $routeParameters)],
+        )->createView();
+
         $addCommentForm = $this->createForm(AddCommentFormType::class, new AddCommentRequest(versionNumber: $view->version->versionNumber), [
             'action' => $this->generateUrl('app_comment_add', $routeParameters),
             'method' => 'POST',
@@ -110,6 +118,7 @@ final class ShowDocumentController extends AppController
             'document' => $view->document,
             'review' => $view->review,
             'submitReviewForm' => $submitReviewForm,
+            'undoVerdictForm' => $undoVerdictForm,
             'reviseDocumentForm' => $reviseDocumentForm,
             'version' => $view->version,
             'versions' => $view->versions,

@@ -514,12 +514,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('.lp-verdict-bar__undo'));
 
-        $client->request(
-            Request::METHOD_POST,
-            '/projects/'.$projectId.'/documents/'.$documentId.'/review/undo',
-            ['_csrf_token' => 'csrf-token'],
-            server: ['HTTP_REFERER' => 'http://localhost/projects/'.$projectId.'/documents/'.$documentId.'/review'],
-        );
+        $client->submit($crawler->filter('.lp-verdict-bar__undo button')->form());
 
         self::assertResponseRedirects('/projects/'.$projectId.'/documents/'.$documentId.'/review');
 
@@ -602,6 +597,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         // Once a verdict exists it replaces the buttons that produced it.
         self::assertSelectorExists('.lp-verdict-bar--approved');
         self::assertSelectorTextContains('.lp-verdict-bar__title', 'Approved');
+        self::assertSelectorNotExists('input[name="undo_verdict_form[reviewId]"]');
         self::assertSelectorNotExists('input[name="submit_review_form[verdict]"]');
     }
 
