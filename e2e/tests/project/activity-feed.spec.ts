@@ -73,6 +73,15 @@ test('pause keeps the feed fixed while real events arrive and resume reconciles 
     });
     await page.addStyleTag({ content: 'html { font-size: 200%; }' });
     await expect
+        .poll(() =>
+            page
+                .locator('.lp-activity-row__body')
+                .evaluate(
+                    (element) => element.scrollWidth - element.clientWidth,
+                ),
+        )
+        .toBeLessThanOrEqual(1);
+    await expect
         .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
         .toBeLessThanOrEqual(390);
     await expect

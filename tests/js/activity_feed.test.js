@@ -27,6 +27,7 @@ beforeEach(async () => {
     document.body.innerHTML = `<div data-controller="activity-filter"
         data-activity-filter-url-value="/projects/project-a/activity"
         data-activity-filter-project-value="project-a"
+        data-activity-filter-page-size-value="50"
         data-activity-filter-labels-value='{"connecting":"Connecting","listening":"Live","paused":"Paused","failed":"Failed","stale":"Stale","pause":"Pause","resume":"Resume"}'>
         <button data-activity-filter-target="toggle" data-action="activity-filter#toggle" disabled>Pause</button>
         <span data-activity-filter-target="status"></span>
@@ -161,17 +162,17 @@ it('keeps focus and compensates for new rows above the reading position', async 
     expect(window.scrollBy).not.toHaveBeenCalled();
 });
 
-it('reports a gap when the latest hundred rows no longer overlap', async () => {
+it('uses the server page size to detect a full non-overlapping window', async () => {
     fetch.mockResolvedValue(
         response(
-            Array.from({ length: 100 }, (_, index) => row(`new-${index}`)).join(
+            Array.from({ length: 50 }, (_, index) => row(`new-${index}`)).join(
                 '',
             ),
         ),
     );
     await controller.refresh();
     expect(controller.gapTarget.hidden).toBe(false);
-    expect(controller.rowTargets).toHaveLength(101);
+    expect(controller.rowTargets).toHaveLength(51);
 });
 
 it('distinguishes failed loading from an empty successful snapshot', async () => {

@@ -6090,7 +6090,7 @@
         @apply shrink-0 text-xs text-fg-mute;
     }
     .lp-activity-row {
-        @apply flex gap-4 rounded-2xl border border-line bg-surface-2 p-5;
+        @apply flex flex-wrap gap-4 rounded-2xl border border-line bg-surface-2 p-5;
     }
     .lp-activity-row__icon {
         @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ink text-accent;
@@ -6099,7 +6099,7 @@
         @apply h-5 w-5;
     }
     .lp-activity-row__body {
-        @apply min-w-0 flex-1;
+        @apply min-w-0 flex-1 basis-48;
     }
     .lp-activity-row__heading time {
         @apply shrink-0 text-xs text-fg-mute;
@@ -6109,6 +6109,10 @@
     }
     .lp-activity-row__meta {
         @apply flex flex-wrap items-center gap-3 mt-3 text-xs text-fg-mute;
+    }
+    /* Related-work links within the compact event metadata row. */
+    .lp-activity-row__work {
+        @apply min-w-0 break-words text-accent-ink underline underline-offset-2 hover:text-ink;
     }
     @media (width < 40rem) {
         .lp-activity-row {

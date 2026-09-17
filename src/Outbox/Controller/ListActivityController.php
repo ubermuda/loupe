@@ -32,7 +32,8 @@ final class ListActivityController extends AppController
 
         return $this->render('outbox/list_activity.html.twig', [
             'project' => $view->project,
-            'events' => $view->events,
+            'entries' => $view->entries,
+            'pageSize' => $view->pageSize,
         ]);
     }
 }

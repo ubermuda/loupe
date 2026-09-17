@@ -5910,7 +5910,7 @@
             <trans-unit id="activity.feed.failed"><source>activity.feed.failed</source><target>Updates unavailable; retrying</target></trans-unit>
             <trans-unit id="activity.feed.pause"><source>activity.feed.pause</source><target>Pause feed</target></trans-unit>
             <trans-unit id="activity.feed.resume"><source>activity.feed.resume</source><target>Resume feed</target></trans-unit>
-            <trans-unit id="activity.feed.gap"><source>activity.feed.gap</source><target>Some events may be missing between earlier rows and the latest 100 events.</target></trans-unit>
+            <trans-unit id="activity.feed.gap"><source>activity.feed.gap</source><target>Some events may be missing between earlier rows and the latest %count% events.</target></trans-unit>
             <trans-unit id="activity.durable_notice"><source>activity.durable_notice</source><target>This feed shows durable delivery records. It does not infer whether an agent completed the resulting work.</target></trans-unit>
             <trans-unit id="activity.event_detail"><source>activity.event_detail</source><target>%family% event · sequence %sequence%</target></trans-unit>
             <trans-unit id="activity.delivery.delivered"><source>activity.delivery.delivered</source><target>Delivered</target></trans-unit>

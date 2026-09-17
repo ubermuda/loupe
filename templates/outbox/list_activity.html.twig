@@ -14,6 +14,7 @@
 <div class="lp-workspace lp-orchestration-page lp-redesign-secondary lp-redesign-activity" data-controller="activity-filter"
     data-activity-filter-url-value="{{ path('app_project_activity', {id: project.id}) }}"
     data-activity-filter-project-value="{{ project.id }}"
+    data-activity-filter-page-size-value="{{ pageSize }}"
     data-activity-filter-labels-value="{{ {
         connecting: 'activity.feed.connecting'|trans,
         listening: 'activity.feed.listening'|trans,
@@ -50,11 +51,12 @@
                 {% endfor %}
             </select>
         </div>
-        <span class="lp-filter-count" data-activity-filter-target="count">{{ 'activity.count'|trans({'%count%': events|length}) }}</span>
+        <span class="lp-filter-count" data-activity-filter-target="count">{{ 'activity.count'|trans({'%count%': entries|length}) }}</span>
     </div>
-    <p class="lp-rule-explanation" data-activity-filter-target="gap" role="status" hidden>{{ 'activity.feed.gap'|trans }}</p>
+    <p class="lp-rule-explanation" data-activity-filter-target="gap" role="status" hidden>{{ 'activity.feed.gap'|trans({'%count%': pageSize}) }}</p>
     <div class="lp-activity-feed" data-activity-filter-target="feed">
-        {% for event in events %}
+        {% for entry in entries %}
+        {% set event = entry.event %}
         {% set family = event.type|split('.')|first %}
         {% set family = family == 'review' ? 'document' : family %}
         <article class="lp-activity-row" data-activity-event-id="{{ event.id }}" data-event-family="{{ family }}" data-activity-filter-target="row">
@@ -78,6 +80,9 @@
                 </div>
                 <p>{{ 'activity.event_detail'|trans({'%sequence%': event.sequence ?? '—', '%family%': family}) }}</p>
                 <div class="lp-activity-row__meta">
+                    {% if entry.link %}
+                    <a class="lp-activity-row__work" data-activity-work-link href="{{ entry.link.url }}">{{ entry.link.label }}</a>
+                    {% endif %}
                     <span class="lp-status-chip {{ event.publishedAt ? 'lp-status-chip--ok' : (event.lastPublishError ? 'lp-status-chip--failed' : 'lp-status-chip--pending') }}">
                         <span class="lp-status-chip__dot"></span>
                         {{ (event.publishedAt ? 'activity.delivery.delivered' : (event.lastPublishError ? 'activity.delivery.failed' : 'activity.delivery.pending'))|trans }}
@@ -93,7 +98,7 @@
         <twig:ux:icon name="lucide:search-x" class="lp-empty-state__icon w-12 h-12" />
         <h2 class="lp-empty-state__title">{{ 'activity.filter.empty'|trans }}</h2>
     </div>
-    <div class="lp-empty-state" data-activity-empty data-activity-filter-target="noEvents" {% if events is not empty %}hidden{% endif %}>
+    <div class="lp-empty-state" data-activity-empty data-activity-filter-target="noEvents" {% if entries is not empty %}hidden{% endif %}>
         <twig:ux:icon name="lucide:activity" class="lp-empty-state__icon w-12 h-12" />
         <h2 class="lp-empty-state__title">{{ 'activity.empty.title'|trans }}</h2>
         <p>{{ 'activity.empty.description'|trans }}</p>

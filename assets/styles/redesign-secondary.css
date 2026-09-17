@@ -154,7 +154,7 @@
         @apply h-9 w-9 rounded-lg bg-accent-faint text-accent-ink;
     }
     .lp-redesign-activity .lp-activity-row__heading h2 {
-        @apply text-sm;
+        @apply max-w-full break-words text-sm;
     }
 
     /* Project choices use the prototype's three-column destination tiles. */

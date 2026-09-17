@@ -13,6 +13,8 @@ Repeated reads do not duplicate events. Filters, keyboard focus, and the reading
 
 Search matches the text of each row. The event-family filter includes document review events under **Documents**.
 The count beside the filters shows visible rows against loaded rows.
+Card events link to the current card when it still exists in this project.
+Deleted cards leave their event records without a link. Disabling the board also hides card links.
 
 Each refresh reads the latest 100 events. Earlier rows remain visible during the current visit.
 If no event overlaps the previous view, the page warns that some intervening events may be missing.

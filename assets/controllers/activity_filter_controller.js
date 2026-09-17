@@ -14,7 +14,12 @@ export default class extends Controller {
         'gap',
         'count',
     ];
-    static values = { url: String, project: String, labels: Object };
+    static values = {
+        url: String,
+        project: String,
+        labels: Object,
+        pageSize: Number,
+    };
 
     connect() {
         this.paused = false;
@@ -119,7 +124,7 @@ export default class extends Controller {
         const activeElement = document.activeElement;
         if (
             existing.size > 0 &&
-            rows.length === 100 &&
+            rows.length === this.pageSizeValue &&
             !rows.some((row) => existing.has(row.dataset.activityEventId))
         ) {
             this.gapTarget.hidden = false;
