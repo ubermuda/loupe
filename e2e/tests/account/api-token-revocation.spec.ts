@@ -1,5 +1,6 @@
 import { expect } from '@playwright/test';
 import { createTest } from '../fixtures';
+import { submitRedirectingForm } from '../helpers';
 
 const test = createTest({
     email: 'e2e-token-revocation@example.com',
@@ -24,7 +25,16 @@ test('revocation requires confirmation and disables the credential', async ({
     const label = `Revocation ${Date.now()}`;
     const form = page.getByTestId('mint-api-token-form');
     await form.getByLabel('Name').fill(label);
-    await form.getByRole('button', { name: 'Create token' }).click();
+    await page.route('**/account/api-tokens', async (route) => {
+        const response = await route.fetch({ maxRedirects: 0 });
+        await new Promise((resolve) => setTimeout(resolve, 6000));
+        await route.fulfill({ response });
+    });
+    await submitRedirectingForm(
+        page,
+        form.getByRole('button', { name: 'Create token' }),
+        '/account/api-tokens',
+    );
     const secret = page.getByTestId('minted-api-token-value');
     await expect(secret).toBeVisible();
     const raw = (await secret.innerText()).trim();

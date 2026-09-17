@@ -9,7 +9,7 @@ import {
     extractLink,
     logout,
     registerAndVerify,
-    submitAuthForm,
+    submitRedirectingForm,
 } from '../helpers';
 
 // Guest by default — make the unauthenticated starting state explicit.
@@ -35,7 +35,7 @@ test('requesting reset with unknown email succeeds silently', async ({
 }) => {
     await page.goto('/forgot-password');
     await page.getByLabel('Email').fill('nobody@example.com');
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: /reset/i }),
         '/forgot-password',
@@ -51,7 +51,7 @@ test('valid reset token allows password change', async ({ page, request }) => {
     // Request reset
     await page.goto('/forgot-password');
     await page.getByLabel('Email').fill(email);
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: /reset/i }),
         '/forgot-password',
@@ -80,7 +80,7 @@ test('valid reset token allows password change', async ({ page, request }) => {
         .getByLabel('New password', { exact: true })
         .fill('NewPassword1!');
     await page.getByLabel('Repeat new password').fill('NewPassword1!');
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: /reset/i }),
         '/forgot-password/reset',
@@ -90,7 +90,7 @@ test('valid reset token allows password change', async ({ page, request }) => {
     // Old password should no longer work
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('OldPassword1!');
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: 'Sign in' }),
         '/login',
@@ -100,7 +100,7 @@ test('valid reset token allows password change', async ({ page, request }) => {
     // New password works
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('NewPassword1!');
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: 'Sign in' }),
         '/login',
@@ -119,7 +119,7 @@ test('used (already-consumed) token redirects to forgot-password with error', as
     // Request a reset link
     await page.goto('/forgot-password');
     await page.getByLabel('Email').fill(email);
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: /reset/i }),
         '/forgot-password',
@@ -144,7 +144,7 @@ test('used (already-consumed) token redirects to forgot-password with error', as
         .getByLabel('New password', { exact: true })
         .fill('NewPassword1!');
     await page.getByLabel('Repeat new password').fill('NewPassword1!');
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: /reset/i }),
         '/forgot-password/reset',

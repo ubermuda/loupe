@@ -4,7 +4,7 @@ import {
     type Page,
     type APIRequestContext,
 } from '@playwright/test';
-import { logout, registerAndVerify, submitAuthForm } from '../helpers';
+import { logout, registerAndVerify, submitRedirectingForm } from '../helpers';
 
 // Guest by default — make the unauthenticated starting state explicit.
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -35,7 +35,7 @@ test('valid credentials log in and redirect to home', async ({
     await page.goto('/login');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('SecurePassword1!');
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: 'Sign in' }),
         '/login',
@@ -52,7 +52,7 @@ test('wrong password shows auth-error', async ({ page, request }) => {
     await page.goto('/login');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('WrongPassword!');
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: 'Sign in' }),
         '/login',
@@ -75,7 +75,7 @@ test('remember-me cookie survives browser restart', async ({
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('Stay signed in on this device').check();
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: 'Sign in' }),
         '/login',
@@ -108,7 +108,7 @@ test('unverified user after login is redirected to check-email', async ({
     await page.getByLabel('Display name').fill('Riley Chen');
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: 'Create account' }),
         '/register',
@@ -119,7 +119,7 @@ test('unverified user after login is redirected to check-email', async ({
     await page.goto('/login');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('SecurePassword1!');
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: 'Sign in' }),
         '/login',

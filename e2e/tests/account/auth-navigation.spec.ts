@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { registerAndVerify, submitAuthForm } from '../helpers';
+import { registerAndVerify, submitRedirectingForm } from '../helpers';
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -24,7 +24,7 @@ test('login waits for a delayed POST before checking navigation', async ({
     await page.goto('/login');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(password);
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: 'Sign in' }),
         '/login',
@@ -66,7 +66,7 @@ test('password reset waits for a delayed successful POST before checking navigat
     });
     await page.goto('/forgot-password');
     await page.getByLabel('Email').fill(`unknown-${Date.now()}@example.com`);
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: /reset/i }),
         '/forgot-password',
@@ -87,7 +87,7 @@ test('auth submission reports a rejected POST instead of waiting for navigation'
         }),
     );
     await expect(
-        submitAuthForm(
+        submitRedirectingForm(
             page,
             page.getByRole('button', { name: /reset/i }),
             '/forgot-password',

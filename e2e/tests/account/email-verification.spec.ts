@@ -3,7 +3,7 @@ import {
     countEmailsTo,
     getLatestEmailTo,
     extractLink,
-    submitAuthForm,
+    submitRedirectingForm,
 } from '../helpers';
 import { coverageScaled } from '../timeouts';
 
@@ -17,7 +17,7 @@ async function signUp(page: Page, email: string): Promise<void> {
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: 'Create account' }),
         '/register',

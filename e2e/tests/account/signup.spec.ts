@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { getLatestEmailTo, submitAuthForm } from '../helpers';
+import { getLatestEmailTo, submitRedirectingForm } from '../helpers';
 
 // Guest by default — make the unauthenticated starting state explicit.
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -32,7 +32,7 @@ test('successful signup redirects to check-email page', async ({ page }) => {
     await page.getByLabel('Display name').fill('Riley Chen');
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: 'Create account' }),
         '/register',
@@ -49,7 +49,7 @@ test('sends verification email after signup', async ({ page, request }) => {
     await page.getByLabel('Display name').fill('Riley Chen');
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: 'Create account' }),
         '/register',
@@ -70,7 +70,7 @@ test('shows error on duplicate email', async ({ page }) => {
     await page.getByLabel('Display name').fill('Riley Chen');
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: 'Create account' }),
         '/register',

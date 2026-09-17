@@ -4,7 +4,7 @@ import {
     getEmailWithSubject,
     latestEmailIdWithSubject,
     extractLink,
-    submitAuthForm,
+    submitRedirectingForm,
 } from '../helpers';
 
 // Guest by default — make the unauthenticated starting state explicit.
@@ -77,7 +77,7 @@ test('a user can delete their account end to end via the emailed confirmation li
     // The credentials no longer resolve to anything.
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(password);
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: 'Sign in' }),
         '/login',

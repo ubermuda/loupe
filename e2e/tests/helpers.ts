@@ -218,7 +218,7 @@ export function extractLink(body: string, pattern: RegExp): string {
  */
 export async function logout(page: Page): Promise<void> {
     await page.goto('/projects');
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: 'Log out' }),
         '/logout',
@@ -241,7 +241,7 @@ export interface Credentials {
  */
 export const DEFAULT_DISPLAY_NAME = 'E2E User';
 
-export async function submitAuthForm(
+export async function submitRedirectingForm(
     page: Page,
     button: Locator,
     path: string,
@@ -287,7 +287,7 @@ export async function registerFreshUser(
         .fill(credentials.fullName ?? DEFAULT_DISPLAY_NAME);
     await page.getByLabel('Password').fill(credentials.password);
     await page.getByLabel('I agree to').check();
-    await submitAuthForm(
+    await submitRedirectingForm(
         page,
         page.getByRole('button', { name: 'Create account' }),
         '/register',
