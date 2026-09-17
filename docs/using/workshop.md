@@ -4,6 +4,9 @@ description: "See open requests, cards, and recent project activity."
 ---
 
 Open a project to see its Workshop. The summary counts belong to that project.
+It shows open requests, open cards, and completed cards.
+Cards in terminal columns count as completed, regardless of the column's name.
+Disabled inbox or board features show an explanation instead of a zero count.
 
 Needs you shows the six newest open inbox items. The count includes all open items, including those outside this list.
 Select a request to open its question, to-do, or review in the inbox.

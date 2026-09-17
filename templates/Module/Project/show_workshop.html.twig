@@ -18,18 +18,18 @@
     </header>
 
     <div class="lp-workshop-summary" aria-label="{{ 'project.workshop.summary.label'|trans }}">
-        {% if is_feature_enabled('inbox.enabled') %}<a class="lp-workshop-stat" href="{{ path('app_project_inbox', {id: workshop.project.id}) }}">{% else %}<div class="lp-workshop-stat">{% endif %}
-            <span class="lp-workshop-stat__value">{{ workshop.stats.openInboxItemCount }}</span>
-            <span class="lp-workshop-stat__copy"><strong>{{ 'project.workshop.summary.requests'|trans }}</strong>{{ 'project.workshop.needs_you.pending'|trans({'%count%': workshop.stats.openInboxItemCount}) }}</span>
+        {% if is_feature_enabled('inbox.enabled') %}<a class="lp-workshop-stat" data-workshop-stat="requests" href="{{ path('app_project_inbox', {id: workshop.project.id}) }}">{% else %}<div class="lp-workshop-stat" data-workshop-stat="requests">{% endif %}
+            {% if is_feature_enabled('inbox.enabled') %}<span class="lp-workshop-stat__value">{{ workshop.stats.openInboxItemCount }}</span>{% endif %}
+            <span class="lp-workshop-stat__copy"><strong>{{ 'project.workshop.summary.requests'|trans }}</strong>{{ is_feature_enabled('inbox.enabled') ? 'project.workshop.needs_you.pending'|trans({'%count%': workshop.stats.openInboxItemCount}) : 'project.workshop.needs_you.disabled'|trans }}</span>
         {% if is_feature_enabled('inbox.enabled') %}</a>{% else %}</div>{% endif %}
-        {% if is_feature_enabled('board.enabled') %}<a class="lp-workshop-stat" href="{{ path('app_project_board', {id: workshop.project.id}) }}">{% else %}<div class="lp-workshop-stat">{% endif %}
-            <span class="lp-workshop-stat__value">{{ workshop.stats.openCardCount }}</span>
-            <span class="lp-workshop-stat__copy"><strong>{{ 'project.workshop.summary.cards'|trans }}</strong>{{ 'project.workshop.in_motion.body'|trans({'%count%': workshop.stats.openCardCount}) }}</span>
+        {% if is_feature_enabled('board.enabled') %}<a class="lp-workshop-stat" data-workshop-stat="open-cards" href="{{ path('app_project_board', {id: workshop.project.id}) }}">{% else %}<div class="lp-workshop-stat" data-workshop-stat="open-cards">{% endif %}
+            {% if is_feature_enabled('board.enabled') %}<span class="lp-workshop-stat__value">{{ workshop.stats.openCardCount }}</span>{% endif %}
+            <span class="lp-workshop-stat__copy"><strong>{{ 'project.workshop.summary.cards'|trans }}</strong>{{ is_feature_enabled('board.enabled') ? 'project.workshop.in_motion.body'|trans({'%count%': workshop.stats.openCardCount}) : 'project.workshop.cards.disabled'|trans }}</span>
         {% if is_feature_enabled('board.enabled') %}</a>{% else %}</div>{% endif %}
-        <a class="lp-workshop-stat" href="{{ path('app_project_documents', {id: workshop.project.id}) }}">
-            <span class="lp-workshop-stat__value">{{ workshop.stats.documentCount }}</span>
-            <span class="lp-workshop-stat__copy"><strong>{{ 'project.workshop.summary.documents'|trans }}</strong>{{ 'project.workshop.page.description'|trans({'%project%': workshop.project.name}) }}</span>
-        </a>
+        {% if is_feature_enabled('board.enabled') %}<a class="lp-workshop-stat" data-workshop-stat="completed-cards" href="{{ path('app_project_board', {id: workshop.project.id}) }}">{% else %}<div class="lp-workshop-stat" data-workshop-stat="completed-cards">{% endif %}
+            {% if is_feature_enabled('board.enabled') %}<span class="lp-workshop-stat__value">{{ workshop.stats.completedCardCount }}</span>{% endif %}
+            <span class="lp-workshop-stat__copy"><strong>{{ 'project.workshop.summary.completed'|trans }}</strong>{{ is_feature_enabled('board.enabled') ? 'project.workshop.summary.completed_detail'|trans : 'project.workshop.cards.disabled'|trans }}</span>
+        {% if is_feature_enabled('board.enabled') %}</a>{% else %}</div>{% endif %}
         {% if is_feature_enabled('board.enabled') %}
         <a class="lp-btn lp-btn--outline lp-workshop-summary__action" href="{{ path('app_project_board', {id: workshop.project.id}) }}">
             <twig:ux:icon name="lucide:square-kanban" />
@@ -42,7 +42,7 @@
         <div class="lp-workshop-primary">
         <section class="lp-workshop-section">
             <div class="lp-section-heading">
-                <h2 class="lp-workshop-section__title">{{ 'project.workshop.needs_you.title'|trans }} <span>{{ workshop.stats.openInboxItemCount }}</span></h2>
+                <h2 class="lp-workshop-section__title">{{ 'project.workshop.needs_you.title'|trans }}{% if is_feature_enabled('inbox.enabled') %} <span>{{ workshop.stats.openInboxItemCount }}</span>{% endif %}</h2>
                 {% if is_feature_enabled('inbox.enabled') %}<a class="lp-workshop-text-link" href="{{ path('app_project_inbox', {id: workshop.project.id}) }}">{{ 'project.workshop.needs_you.action'|trans }} <twig:ux:icon name="lucide:chevron-right" /></a>{% endif %}
             </div>
             {% for item in workshop.attention %}

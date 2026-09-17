@@ -40,15 +40,14 @@ final class CardProjectStatsProviderTest extends KernelTestCase
         $stats = $this->provider->statsFor([$project]);
 
         self::assertSame(3, $stats[(string) $project->id]->openCardCount);
+        self::assertSame(1, $stats[(string) $project->id]->completedCardCount);
     }
 
-    public function test_a_project_whose_cards_are_all_done_is_absent(): void
+    public function test_a_project_whose_cards_are_all_done_has_only_completed_work(): void
     {
         $this->enableBoard();
         $finished = $this->makeProject('stats-done');
         $this->em->persist(new Card(project: $finished, column: $this->column($finished, 'done'), title: 'Shipped', body: '', number: 1));
-        // A sibling with one open card, so the absence below cannot pass on a
-        // provider that reported nothing at all.
         $busy = $this->makeProject('stats-still-going');
         $this->em->persist(new Card(project: $busy, column: $this->column($busy, 'backlog'), title: 'Underway', body: '', number: 1));
         $this->em->flush();
@@ -56,7 +55,9 @@ final class CardProjectStatsProviderTest extends KernelTestCase
         $stats = $this->provider->statsFor([$finished, $busy]);
 
         self::assertSame(1, $stats[(string) $busy->id]->openCardCount);
-        self::assertArrayNotHasKey((string) $finished->id, $stats);
+        self::assertSame(0, $stats[(string) $finished->id]->openCardCount);
+        self::assertSame(1, $stats[(string) $finished->id]->completedCardCount);
+        self::assertSame(0, $stats[(string) $busy->id]->completedCardCount);
     }
 
     public function test_it_counts_each_project_separately(): void
@@ -72,6 +73,24 @@ final class CardProjectStatsProviderTest extends KernelTestCase
 
         self::assertSame(2, $stats[(string) $busy->id]->openCardCount);
         self::assertArrayNotHasKey((string) $quiet->id, $stats);
+    }
+
+    public function test_completion_follows_terminal_columns_instead_of_names(): void
+    {
+        $this->enableBoard();
+        $project = $this->makeProject('stats-custom-terminal');
+        $this->seedOnePerStatus($project);
+        $this->column($project, 'next')->terminal = true;
+        $this->column($project, 'done')->terminal = false;
+        $this->em->flush();
+        $stats = $this->provider->statsFor([$project]);
+        self::assertSame(3, $stats[(string) $project->id]->openCardCount);
+        self::assertSame(1, $stats[(string) $project->id]->completedCardCount);
+        $this->column($project, 'in-progress')->terminal = true;
+        $this->em->flush();
+        $stats = $this->provider->statsFor([$project]);
+        self::assertSame(2, $stats[(string) $project->id]->openCardCount);
+        self::assertSame(2, $stats[(string) $project->id]->completedCardCount);
     }
 
     public function test_it_reports_nothing_while_the_flag_is_off(): void

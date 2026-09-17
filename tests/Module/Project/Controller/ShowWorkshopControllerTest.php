@@ -70,6 +70,7 @@ final class ShowWorkshopControllerTest extends WebTestCase
         }
         $create(new CreateCardCommand($project, 'Completed work', '', CardType::Feature, CardPriority::Low, column: $this->column($project, 'done')));
         $create(new CreateCardCommand($foreign, 'Foreign work', '', CardType::Feature, CardPriority::High));
+        $create(new CreateCardCommand($foreign, 'Foreign completed work', '', CardType::Feature, CardPriority::Low, column: $this->column($foreign, 'done')));
         $em->clear();
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id);
@@ -77,6 +78,8 @@ final class ShowWorkshopControllerTest extends WebTestCase
         self::assertSame(['8', '7', '6', '5', '4', '3'], $crawler->filter('[data-workshop-card]')->extract(['data-workshop-card']));
         self::assertSelectorTextContains('[data-workshop-card="8"]', 'Work 8');
         self::assertSelectorTextContains('[data-workshop-card="8"]', 'High');
+        self::assertSelectorTextSame('[data-workshop-stat="open-cards"] .lp-workshop-stat__value', '8');
+        self::assertSelectorTextSame('[data-workshop-stat="completed-cards"] .lp-workshop-stat__value', '1');
         self::assertSame('card-drawer-frame', $crawler->filter('[data-workshop-card="8"]')->attr('data-turbo-frame'));
         self::assertCount(1, $crawler->filter('#card-drawer-frame'));
         $client->click($crawler->filter('[data-workshop-card="8"]')->link());
@@ -88,6 +91,8 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/'.$project->id);
         self::assertResponseIsSuccessful();
         self::assertSelectorNotExists('[data-workshop-card]');
+        self::assertSelectorNotExists('[data-workshop-stat="open-cards"] .lp-workshop-stat__value');
+        self::assertSelectorNotExists('[data-workshop-stat="completed-cards"] .lp-workshop-stat__value');
         self::assertSelectorTextContains('[data-workshop]', 'The board is disabled on this instance.');
     }
 
@@ -107,7 +112,10 @@ final class ShowWorkshopControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame('Your workshop', trim($crawler->filter('[data-workshop] h1')->text()));
-        self::assertSame('2', trim($crawler->filter('.lp-workshop-stat__value')->eq(2)->text()));
+        self::assertSelectorNotExists('.lp-workshop-stat__value');
+        self::assertSelectorTextContains('[data-workshop-stat="requests"]', 'The inbox is disabled');
+        self::assertSelectorTextContains('[data-workshop-stat="open-cards"]', 'The board is disabled');
+        self::assertSelectorTextContains('[data-workshop-stat="completed-cards"]', 'The board is disabled');
         self::assertSelectorExists('a[href="/projects/'.$project->id.'/documents"]');
     }
 

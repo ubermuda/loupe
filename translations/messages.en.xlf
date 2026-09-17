@@ -5686,10 +5686,11 @@
                 <source>project.workshop.summary.cards</source>
                 <target>Open cards</target>
             </trans-unit>
-            <trans-unit id="project.workshop.summary.documents">
-                <source>project.workshop.summary.documents</source>
-                <target>Documents</target>
+            <trans-unit id="project.workshop.summary.completed">
+                <source>project.workshop.summary.completed</source>
+                <target>Completed cards</target>
             </trans-unit>
+            <trans-unit id="project.workshop.summary.completed_detail"><source>project.workshop.summary.completed_detail</source><target>Cards in terminal columns.</target></trans-unit>
             <trans-unit id="project.workshop.needs_you.eyebrow">
                 <source>project.workshop.needs_you.eyebrow</source>
                 <target>Attention</target>

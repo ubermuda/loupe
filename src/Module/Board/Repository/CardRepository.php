@@ -474,27 +474,21 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /**
-     * How many cards each project still has open, for the projects list.
-     *
-     * Open is every column that is not terminal, so a board whose work is
-     * finished counts zero rather than counting its history.
-     *
      * @param list<Project> $projects
      *
-     * @return array<string, int> project id => count, projects with none omitted
+     * @return array<string, array{open: int, completed: int}>
      */
-    public function countOpenByProjects(array $projects): array
+    public function countByProjects(array $projects): array
     {
         if ([] === $projects) {
             return [];
         }
 
-        /** @var list<array{id: mixed, total: mixed}> $rows */
+        /** @var list<array{id: mixed, open: mixed, completed: mixed}> $rows */
         $rows = $this->createQueryBuilder('c')
-            ->select('IDENTITY(c.project) AS id, COUNT(c.id) AS total')
+            ->select('IDENTITY(c.project) AS id, SUM(CASE WHEN k.terminal = false THEN 1 ELSE 0 END) AS open, SUM(CASE WHEN k.terminal = true THEN 1 ELSE 0 END) AS completed')
             ->join('c.column', 'k')
             ->andWhere('c.project IN (:projects)')
-            ->andWhere('k.terminal = false')
             ->setParameter('projects', $projects)
             ->groupBy('c.project')
             ->getQuery()
@@ -502,7 +496,7 @@ class CardRepository extends ServiceEntityRepository
 
         $counts = [];
         foreach ($rows as $row) {
-            $counts[(string) $row['id']] = (int) $row['total'];
+            $counts[(string) $row['id']] = ['open' => (int) $row['open'], 'completed' => (int) $row['completed']];
         }
 
         return $counts;
