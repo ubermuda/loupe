@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test';
 import { createTest } from '../fixtures';
 import { submitRedirectingForm } from '../helpers';
+import { coverageScaled } from '../timeouts';
 
 const test = createTest({
     email: 'e2e-token-revocation@example.com',
@@ -27,7 +28,9 @@ test('revocation requires confirmation and disables the credential', async ({
     await form.getByLabel('Name').fill(label);
     await page.route('**/account/api-tokens', async (route) => {
         const response = await route.fetch({ maxRedirects: 0 });
-        await new Promise((resolve) => setTimeout(resolve, 6000));
+        await new Promise((resolve) =>
+            setTimeout(resolve, coverageScaled(6000)),
+        );
         await route.fulfill({ response });
     });
     await submitRedirectingForm(

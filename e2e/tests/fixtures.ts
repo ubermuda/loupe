@@ -6,6 +6,7 @@ import {
 } from '@playwright/test';
 import { request as playwrightRequest } from '@playwright/test';
 import { Page } from '@playwright/test';
+import { coverageScaled } from './timeouts';
 import {
     Credentials,
     extractLink,
@@ -90,7 +91,9 @@ export async function signedInPage(
     await page.getByRole('button', { name: 'Sign in' }).click();
     // The first sign-in lands on /welcome, and a later one on the last project.
     // A cold worktree takes more than the default 5 seconds to answer the first one.
-    await expect(page).not.toHaveURL(/\/login$/, { timeout: 15_000 });
+    await expect(page).not.toHaveURL(/\/login$/, {
+        timeout: coverageScaled(15_000),
+    });
 
     return page;
 }
@@ -136,7 +139,7 @@ export function createTest(credentials: Credentials) {
                                 name: 'Resend verification email',
                             }),
                         ),
-                ).toBeVisible({ timeout: 15000 });
+                ).toBeVisible({ timeout: coverageScaled(15000) });
 
                 if (await page.locator('.auth-error').isVisible()) {
                     const requestContext = await playwrightRequest.newContext();

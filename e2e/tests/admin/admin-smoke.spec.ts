@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test';
 import { createTest } from '../fixtures';
 import { submitRedirectingForm } from '../helpers';
+import { coverageScaled } from '../timeouts';
 
 // This email matches ADMIN_EMAIL in compose.yaml. The login the worker fixture
 // performs is what triggers PromoteAdminUserListener — nothing in this spec
@@ -61,7 +62,9 @@ test('a bool flag can be created, toggled and deleted', async ({ page }) => {
     // screen: the badge swaps from the neutral "Disabled" pill to the "on" one.
     await page.route('**/admin/feature-flags/*/toggle', async (route) => {
         const response = await route.fetch({ maxRedirects: 0 });
-        await new Promise((resolve) => setTimeout(resolve, 6000));
+        await new Promise((resolve) =>
+            setTimeout(resolve, coverageScaled(6000)),
+        );
         await route.fulfill({ response });
     });
     const enable = row.getByRole('button', { name: 'Enable', exact: true });

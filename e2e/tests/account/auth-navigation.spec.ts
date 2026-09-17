@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { registerAndVerify, submitRedirectingForm } from '../helpers';
+import { coverageScaled } from '../timeouts';
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -18,7 +19,9 @@ test('login waits for a delayed POST before checking navigation', async ({
             return;
         }
         const response = await route.fetch({ maxRedirects: 0 });
-        await new Promise((resolve) => setTimeout(resolve, 6000));
+        await new Promise((resolve) =>
+            setTimeout(resolve, coverageScaled(6000)),
+        );
         await route.fulfill({ response });
     });
     await page.goto('/login');
@@ -42,7 +45,9 @@ test('registration waits for a delayed successful POST before checking navigatio
             return;
         }
         const response = await route.fetch({ maxRedirects: 0 });
-        await new Promise((resolve) => setTimeout(resolve, 6000));
+        await new Promise((resolve) =>
+            setTimeout(resolve, coverageScaled(6000)),
+        );
         await route.fulfill({ response });
     });
     await registerAndVerify(page, request, {
@@ -61,7 +66,9 @@ test('password reset waits for a delayed successful POST before checking navigat
             return;
         }
         const response = await route.fetch({ maxRedirects: 0 });
-        await new Promise((resolve) => setTimeout(resolve, 6000));
+        await new Promise((resolve) =>
+            setTimeout(resolve, coverageScaled(6000)),
+        );
         await route.fulfill({ response });
     });
     await page.goto('/forgot-password');

@@ -131,8 +131,7 @@ for (const workspace of [
                 });
                 await expect(action).toBeInViewport({ ratio: 1 });
                 const copyBounds = await header
-                    .locator('div')
-                    .filter({ has: page.getByRole('heading', { level: 1 }) })
+                    .locator('.lp-page-header__copy')
                     .boundingBox();
                 const descriptionBounds = await header
                     .locator('.lp-workspace-desc')
