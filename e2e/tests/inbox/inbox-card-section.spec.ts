@@ -376,6 +376,18 @@ for (const surface of ['page', 'drawer']) {
         await question
             .getByLabel('Your answer')
             .fill('The importer reads CSV.');
+        if (surface === 'drawer') {
+            await drawer.getByRole('link', { name: 'Close card' }).click();
+            await expect(drawer).toBeHidden();
+            await page.getByRole('link', { name: /Ship the export/ }).click();
+            await drawer.getByRole('tab', { name: 'Conversation' }).click();
+            await expect(question.getByLabel('Your answer')).toHaveValue(
+                'The importer reads CSV.',
+            );
+            await expect(
+                question.getByLabel('CSV', { exact: true }),
+            ).toBeChecked();
+        }
         await question.getByRole('button', { name: 'Answer' }).click();
 
         await expect(page.locator('.lp-flash')).toContainText(

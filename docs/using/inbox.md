@@ -95,6 +95,10 @@ Every item that takes a response shows its forms under its text.
 The item then shows your response and its new state: answered, done or
 declined.
 
+Unsent question answers keep their text and selected options when you close and reopen a card drawer in the same browser tab.
+A successful submission clears that draft. A rejected submission keeps it for correction.
+Drafts stay in memory and do not survive a reload or a closed tab.
+
 ## Changing a response
 
 Review results are final when submitted, even if no agent waits on the request.

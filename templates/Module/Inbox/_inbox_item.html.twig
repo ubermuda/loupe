@@ -103,7 +103,7 @@
             {% if item.kind.value == 'question' %}
                 {% set answerForm = inbox_answer_form(item, refusedForm) %}
                 {% set selectedErrorsId = answerForm.selectedOptions.vars.id ~ '_errors' %}
-                {{ form_start(answerForm, {action: path('app_inbox_item_answer', actionParams), attr: {class: 'lp-form lp-inbox-answer', 'data-controller': 'inbox-answer', 'data-turbo-frame': responseFrame}}) }}
+                {{ form_start(answerForm, {action: path('app_inbox_item_answer', actionParams), attr: {class: 'lp-form lp-inbox-answer', 'data-controller': 'inbox-answer', 'data-inbox-answer-owner-value': app.user.id, 'data-inbox-answer-key-value': item.id, 'data-action': 'submit->inbox-answer#start turbo:before-fetch-response->inbox-answer#response inbox-answer:accepted@document->inbox-answer#accepted', 'data-turbo-frame': responseFrame}}) }}
                     {% if item.options|length > 0 %}
                         {% set selected = (answerForm.selectedOptions.vars.value ?? '')|split(',') %}
                         {# The controls post under a name outside the form, so the form reads the ticked indexes from selectedOptions, which the controller fills. #}
@@ -128,7 +128,7 @@
                     {% if item.freeText %}
                         <div class="lp-form-field">
                             {{ form_label(answerForm.answerText, null, {label_attr: {class: 'lp-label'}}) }}
-                            {{ form_widget(answerForm.answerText, {attr: {class: 'lp-input lp-inbox-answer__text', rows: 3}}) }}
+                            {{ form_widget(answerForm.answerText, {attr: {class: 'lp-input lp-inbox-answer__text', rows: 3, 'data-inbox-answer-target': 'text', 'data-action': 'input->inbox-answer#remember'}}) }}
                             <div class="lp-field-errors">{{ form_errors(answerForm.answerText) }}</div>
                         </div>
                     {% endif %}
