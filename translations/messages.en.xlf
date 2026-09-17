@@ -5903,6 +5903,14 @@
             <trans-unit id="activity.description"><source>activity.description</source><target>Trace durable project events and their delivery to connected bridges.</target></trans-unit>
             <trans-unit id="activity.count"><source>activity.count</source><target>{0} No events|{1} 1 event|]1,Inf[ %count% events</target></trans-unit>
             <trans-unit id="activity.status.recorded"><source>activity.status.recorded</source><target>Recorded history</target></trans-unit>
+            <trans-unit id="activity.feed.connecting"><source>activity.feed.connecting</source><target>Connecting</target></trans-unit>
+            <trans-unit id="activity.feed.listening"><source>activity.feed.listening</source><target>Live updates every 10 seconds</target></trans-unit>
+            <trans-unit id="activity.feed.paused"><source>activity.feed.paused</source><target>Feed paused; recording continues</target></trans-unit>
+            <trans-unit id="activity.feed.stale"><source>activity.feed.stale</source><target>Updates delayed; showing earlier history</target></trans-unit>
+            <trans-unit id="activity.feed.failed"><source>activity.feed.failed</source><target>Updates unavailable; retrying</target></trans-unit>
+            <trans-unit id="activity.feed.pause"><source>activity.feed.pause</source><target>Pause feed</target></trans-unit>
+            <trans-unit id="activity.feed.resume"><source>activity.feed.resume</source><target>Resume feed</target></trans-unit>
+            <trans-unit id="activity.feed.gap"><source>activity.feed.gap</source><target>Some events may be missing between earlier rows and the latest 100 events.</target></trans-unit>
             <trans-unit id="activity.durable_notice"><source>activity.durable_notice</source><target>This feed shows durable delivery records. It does not infer whether an agent completed the resulting work.</target></trans-unit>
             <trans-unit id="activity.event_detail"><source>activity.event_detail</source><target>%family% event · sequence %sequence%</target></trans-unit>
             <trans-unit id="activity.delivery.delivered"><source>activity.delivery.delivered</source><target>Delivered</target></trans-unit>

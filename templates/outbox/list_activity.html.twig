@@ -8,22 +8,33 @@
     <span class="lp-topbar__here">{{ 'activity.page.title'|trans }}</span>
 {% endblock %}
 
-{% block topbar_meta %}<span class="lp-topbar__meta">{{ 'activity.count'|trans({'%count%': events|length}) }}</span>{% endblock %}
+{% block topbar_meta %}{% endblock %}
 
 {% block body %}
-<div class="lp-workspace lp-orchestration-page lp-redesign-secondary lp-redesign-activity" data-controller="activity-filter">
+<div class="lp-workspace lp-orchestration-page lp-redesign-secondary lp-redesign-activity" data-controller="activity-filter"
+    data-activity-filter-url-value="{{ path('app_project_activity', {id: project.id}) }}"
+    data-activity-filter-project-value="{{ project.id }}"
+    data-activity-filter-labels-value="{{ {
+        connecting: 'activity.feed.connecting'|trans,
+        listening: 'activity.feed.listening'|trans,
+        paused: 'activity.feed.paused'|trans,
+        stale: 'activity.feed.stale'|trans,
+        failed: 'activity.feed.failed'|trans,
+        pause: 'activity.feed.pause'|trans,
+        resume: 'activity.feed.resume'|trans
+    }|json_encode|e('html_attr') }}">
     <header class="lp-orchestration-header">
         <div>
             <h1 class="lp-workspace-title">{{ 'activity.heading'|trans }}</h1>
             <p class="lp-workspace-desc">{{ 'activity.description'|trans }}</p>
         </div>
+        <button type="button" class="lp-btn" data-activity-filter-target="toggle" data-action="activity-filter#toggle" aria-pressed="false" disabled>{{ 'activity.feed.pause'|trans }}</button>
     </header>
     <div class="lp-activity-toolbar">
         <span><twig:ux:icon name="lucide:activity" />{{ 'activity.description'|trans }}</span>
-        <span class="lp-status-chip lp-status-chip--ok"><span class="lp-status-chip__dot"></span>{{ 'activity.status.recorded'|trans }}</span>
+        <span class="lp-status-chip lp-status-chip--pending" data-activity-filter-target="status" role="status">{{ 'activity.status.recorded'|trans }}</span>
     </div>
 
-    {% if events is not empty %}
     <div class="lp-list-filters">
         <div class="lp-filter-form">
             <div class="lp-filter-search">
@@ -39,11 +50,13 @@
                 {% endfor %}
             </select>
         </div>
-        <span class="lp-filter-count">{{ 'activity.count'|trans({'%count%': events|length}) }}</span>
+        <span class="lp-filter-count" data-activity-filter-target="count">{{ 'activity.count'|trans({'%count%': events|length}) }}</span>
     </div>
-    <div class="lp-activity-feed">
+    <p class="lp-rule-explanation" data-activity-filter-target="gap" role="status" hidden>{{ 'activity.feed.gap'|trans }}</p>
+    <div class="lp-activity-feed" data-activity-filter-target="feed">
         {% for event in events %}
         {% set family = event.type|split('.')|first %}
+        {% set family = family == 'review' ? 'document' : family %}
         <article class="lp-activity-row" data-activity-event-id="{{ event.id }}" data-event-family="{{ family }}" data-activity-filter-target="row">
             <div class="lp-activity-row__icon">
                 {% if family == 'board' %}
@@ -80,13 +93,11 @@
         <twig:ux:icon name="lucide:search-x" class="lp-empty-state__icon w-12 h-12" />
         <h2 class="lp-empty-state__title">{{ 'activity.filter.empty'|trans }}</h2>
     </div>
-    {% else %}
-    <div class="lp-empty-state" data-activity-empty>
+    <div class="lp-empty-state" data-activity-empty data-activity-filter-target="noEvents" {% if events is not empty %}hidden{% endif %}>
         <twig:ux:icon name="lucide:activity" class="lp-empty-state__icon w-12 h-12" />
         <h2 class="lp-empty-state__title">{{ 'activity.empty.title'|trans }}</h2>
         <p>{{ 'activity.empty.description'|trans }}</p>
     </div>
-    {% endif %}
     <p class="lp-rule-explanation"><twig:ux:icon name="lucide:shield" />{{ 'activity.durable_notice'|trans }}</p>
 </div>
 {% endblock %}

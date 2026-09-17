@@ -41,6 +41,9 @@ final class ActivityPageTest extends WebTestCase
         self::assertCount(2, $crawler->filter('[data-activity-event-id]'));
         self::assertStringContainsString('board.card_moved', $crawler->text());
         self::assertStringContainsString('review.document_revised', $crawler->text());
+        self::assertCount(1, $crawler->filter('[data-event-family="document"]'));
+        self::assertCount(1, $crawler->filter('[data-activity-filter-target="toggle"]'));
+        self::assertSame((string) $project->id, $crawler->filter('[data-activity-filter-project-value]')->attr('data-activity-filter-project-value'));
         self::assertStringNotContainsString('other.secret', $crawler->text());
     }
 }

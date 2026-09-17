@@ -136,13 +136,13 @@
 
     /* Activity uses a compact chronological feed, not a second run table. */
     .lp-activity-toolbar {
-        @apply mt-6 flex items-center justify-between gap-4 rounded-xl border border-line bg-surface-1 px-4 py-3 text-xs text-fg-mute;
+        @apply mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-line bg-surface-1 px-4 py-3 text-xs text-fg-mute;
     }
     .lp-activity-toolbar > span:first-child {
         @apply flex items-center gap-2;
     }
     .lp-activity-toolbar svg {
-        @apply h-4 w-4;
+        @apply h-4 w-4 shrink-0;
     }
     .lp-redesign-activity .lp-activity-feed {
         @apply gap-0 overflow-hidden rounded-xl border border-line bg-surface-1;
