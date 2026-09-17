@@ -240,7 +240,7 @@ final class ShowInboxControllerTest extends WebTestCase
         self::assertCount(0, $block->filter('script'));
         self::assertSame('item 12', $block->filter('#inbox-item-12 .lp-inbox-item__number')->text());
         self::assertSame('item 13', $block->filter('#inbox-item-13 .lp-inbox-item__number')->text());
-        self::assertCount(2, $block->filter('#inbox-item-12 input[data-inbox-answer-target="option"]'));
+        self::assertCount(2, $block->filter('#inbox-item-12 input[data-form-draft-target="option"]'));
         self::assertCount(1, $block->filter('#inbox-item-12 textarea[name="inbox_answer_'.$question->id.'[answerText]"]'));
         self::assertCount(1, $block->filter('#inbox-item-13 form[name="inbox_done_'.$todo->id.'"]'));
         self::assertSelectorTextSame('[data-inbox-open-count]', '2');

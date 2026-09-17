@@ -1,33 +1,40 @@
 import { Controller } from '@hotwired/stimulus';
 import {
-    acceptInboxAnswerDraft,
-    discardInboxAnswerDraft,
-    inboxAnswerDraft,
-    inboxAnswerWasCleared,
-    inboxAnswerWasSubmitted,
-    rememberInboxAnswerDraft,
-    submitInboxAnswerDraft,
-    useInboxAnswerDraftOwner,
-} from '../lib/inbox_answer_drafts.js';
+    acceptFormDraft,
+    discardFormDraft,
+    formDraft,
+    formDraftWasCleared,
+    formDraftWasSubmitted,
+    rememberFormDraft,
+    submitFormDraft,
+    useFormDraftOwner,
+} from '../lib/form_drafts.js';
 
 export default class extends Controller {
-    static targets = ['option', 'selectedOptions', 'text', 'guard', 'stale'];
+    static targets = [
+        'option',
+        'selectedOptions',
+        'text',
+        'field',
+        'guard',
+        'stale',
+        'notice',
+    ];
     static values = { owner: String, key: String };
 
     connect() {
-        useInboxAnswerDraftOwner(this.ownerValue);
+        useFormDraftOwner(this.ownerValue);
         this.freshGuards = JSON.parse(
-            this.element.dataset.inboxAnswerFreshGuards ??
+            this.element.dataset.formDraftFreshGuards ??
                 JSON.stringify(this.guards()),
         );
-        this.element.dataset.inboxAnswerFreshGuards = JSON.stringify(
+        this.element.dataset.formDraftFreshGuards = JSON.stringify(
             this.freshGuards,
         );
         this.baseline = JSON.stringify(this.fields());
         this.identity =
-            this.element.dataset.inboxAnswerDraftIdentity ??
-            crypto.randomUUID();
-        const draft = inboxAnswerDraft(this.keyValue);
+            this.element.dataset.formDraftIdentity ?? crypto.randomUUID();
+        const draft = formDraft(this.keyValue);
         if (draft) {
             this.baseline = draft.baseline;
             this.identity = draft.identity;
@@ -35,19 +42,27 @@ export default class extends Controller {
                 option.checked = draft.options.includes(option.value);
             });
             if (this.hasTextTarget) this.textTarget.value = draft.text;
+            for (const field of this.fieldTargets) {
+                const saved = draft.fields?.find(
+                    ([name]) => name === field.name,
+                );
+                if (saved) field.value = saved[1];
+            }
             this.restoreGuards(draft.guards ?? this.freshGuards);
             this.element.closest('details')?.setAttribute('open', '');
-        } else if (inboxAnswerWasCleared(this.identity)) {
+        } else if (formDraftWasCleared(this.identity)) {
             this.optionTargets.forEach((option) => {
                 option.checked = option.defaultChecked;
             });
             if (this.hasTextTarget)
                 this.textTarget.value = this.textTarget.defaultValue;
+            for (const field of this.fieldTargets)
+                field.value = field.defaultValue;
             this.restoreGuards(this.freshGuards);
             this.baseline = JSON.stringify(this.fields());
             this.identity = crypto.randomUUID();
         }
-        this.element.dataset.inboxAnswerDraftIdentity = this.identity;
+        this.element.dataset.formDraftIdentity = this.identity;
         this.sync();
     }
 
@@ -57,6 +72,8 @@ export default class extends Controller {
     }
 
     sync() {
+        if (this.hasNoticeTarget)
+            this.noticeTarget.hidden = !formDraft(this.keyValue);
         if (this.hasStaleTarget) {
             this.staleTarget.hidden =
                 JSON.stringify(this.guards()) ===
@@ -73,12 +90,12 @@ export default class extends Controller {
     }
 
     remember() {
-        if (inboxAnswerWasSubmitted(this.identity)) {
+        if (formDraftWasSubmitted(this.identity)) {
             this.identity = crypto.randomUUID();
-            this.element.dataset.inboxAnswerDraftIdentity = this.identity;
+            this.element.dataset.formDraftIdentity = this.identity;
         }
         const fields = this.fields();
-        rememberInboxAnswerDraft(
+        rememberFormDraft(
             this.keyValue,
             JSON.stringify(fields) === this.baseline
                 ? null
@@ -88,6 +105,7 @@ export default class extends Controller {
                       ...fields,
                   },
         );
+        this.sync();
     }
 
     fields() {
@@ -97,6 +115,7 @@ export default class extends Controller {
                 .map((option) => option.value),
             text: this.hasTextTarget ? this.textTarget.value : '',
             guards: this.guards(),
+            fields: this.fieldTargets.map((field) => [field.name, field.value]),
         };
     }
 
@@ -112,13 +131,13 @@ export default class extends Controller {
     }
 
     discard() {
-        discardInboxAnswerDraft(this.keyValue);
-        this.textTarget.focus();
+        discardFormDraft(this.keyValue);
+        (this.fieldTargets[0] ?? this.textTarget).focus();
     }
 
     start() {
         this.submitted = this.identity;
-        submitInboxAnswerDraft(this.element, this.keyValue, this.identity);
+        submitFormDraft(this.element, this.keyValue, this.identity);
     }
 
     cleared(event) {
@@ -132,16 +151,17 @@ export default class extends Controller {
         });
         if (this.hasTextTarget)
             this.textTarget.value = this.textTarget.defaultValue;
+        for (const field of this.fieldTargets) field.value = field.defaultValue;
         this.restoreGuards(this.freshGuards);
         this.baseline = JSON.stringify(this.fields());
         this.identity = crypto.randomUUID();
-        this.element.dataset.inboxAnswerDraftIdentity = this.identity;
+        this.element.dataset.formDraftIdentity = this.identity;
         this.sync();
     }
 
     response(event) {
         if (event.detail.fetchResponse.succeeded && this.submitted) {
-            acceptInboxAnswerDraft(this.keyValue, this.submitted);
+            acceptFormDraft(this.keyValue, this.submitted);
         }
     }
 

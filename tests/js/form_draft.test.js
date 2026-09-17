@@ -1,12 +1,12 @@
 /** @vitest-environment jsdom */
 import { Application } from '@hotwired/stimulus';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import InboxAnswerController from '../../assets/controllers/inbox_answer_controller.js';
+import FormDraftController from '../../assets/controllers/form_draft_controller.js';
 import {
-    discardInboxAnswerDraft,
-    inboxAnswerDraft,
-    useInboxAnswerDraftOwner,
-} from '../../assets/lib/inbox_answer_drafts.js';
+    discardFormDraft,
+    formDraft,
+    useFormDraftOwner,
+} from '../../assets/lib/form_drafts.js';
 
 let application;
 let owner;
@@ -16,29 +16,29 @@ async function mount(markup = '') {
     else
         document.body.innerHTML =
             markup ||
-            `<form data-controller="inbox-answer" data-action="inbox-answer:cleared@document->inbox-answer#cleared" data-inbox-answer-owner-value="${owner}" data-inbox-answer-key-value="question">
-        <input type="checkbox" value="0" data-inbox-answer-target="option">
-        <input type="checkbox" value="1" data-inbox-answer-target="option">
-        <input type="hidden" data-inbox-answer-target="selectedOptions">
-        <textarea data-inbox-answer-target="text"></textarea>
+            `<form data-controller="form-draft" data-action="form-draft:cleared@document->form-draft#cleared" data-form-draft-owner-value="${owner}" data-form-draft-key-value="question">
+        <input type="checkbox" value="0" data-form-draft-target="option">
+        <input type="checkbox" value="1" data-form-draft-target="option">
+        <input type="hidden" data-form-draft-target="selectedOptions">
+        <textarea data-form-draft-target="text"></textarea>
     </form>`;
     await new Promise((resolve) => setTimeout(resolve, 0));
     return application.getControllerForElementAndIdentifier(
         document.querySelector('form'),
-        'inbox-answer',
+        'form-draft',
     );
 }
 
 beforeEach(() => {
     owner = crypto.randomUUID();
     application = Application.start();
-    application.register('inbox-answer', InboxAnswerController);
+    application.register('form-draft', FormDraftController);
 });
 
 afterEach(() => {
     application.stop();
     document.body.replaceChildren();
-    useInboxAnswerDraftOwner('');
+    useFormDraftOwner('');
 });
 
 it('restores text and selected options after the form is replaced', async () => {
@@ -53,6 +53,43 @@ it('restores text and selected options after the form is replaced', async () => 
         true,
     ]);
     expect(controller.selectedOptionsTarget.value).toBe('1');
+});
+
+it('restores named document fields without restoring a CSRF token', async () => {
+    const markup = (
+        token,
+    ) => `<form data-controller="form-draft" data-action="form-draft:cleared@document->form-draft#cleared" data-form-draft-owner-value="${owner}" data-form-draft-key-value="document">
+        <input name="title" value="Original title" data-form-draft-target="field">
+        <input name="description" value="" data-form-draft-target="field">
+        <textarea data-form-draft-target="text">Original text</textarea>
+        <input type="hidden" name="_token" value="${token}">
+        <p data-form-draft-target="notice" hidden></p>
+    </form>`;
+    let controller = await mount(markup('old-token'));
+    controller.fieldTargets[0].value = 'Revised title';
+    controller.fieldTargets[1].value = 'Explain the revision';
+    controller.textTarget.value = 'Revised text';
+    controller.remember();
+    expect(controller.noticeTarget.hidden).toBe(false);
+    controller = await mount(markup('fresh-token'));
+    expect(controller.fieldTargets.map((field) => field.value)).toEqual([
+        'Revised title',
+        'Explain the revision',
+    ]);
+    expect(controller.textTarget.value).toBe('Revised text');
+    expect(controller.element.querySelector('[name="_token"]').value).toBe(
+        'fresh-token',
+    );
+    const cached = controller.element.cloneNode(true);
+    controller.start();
+    controller.response({ detail: { fetchResponse: { succeeded: true } } });
+    controller = await mount(cached);
+    expect(controller.fieldTargets.map((field) => field.value)).toEqual([
+        'Original title',
+        '',
+    ]);
+    expect(controller.textTarget.value).toBe('Original text');
+    expect(controller.noticeTarget.hidden).toBe(true);
 });
 
 it('keeps a newer draft when an earlier answer succeeds', async () => {
@@ -75,7 +112,7 @@ it('clears accepted drafts from fresh and cached forms', async () => {
     expect(cached.querySelector('textarea').value).toBe('Submitted answer');
     controller.start();
     controller.response({ detail: { fetchResponse: { succeeded: true } } });
-    expect(inboxAnswerDraft('question')).toBeUndefined();
+    expect(formDraft('question')).toBeUndefined();
     controller = await mount();
     expect(controller.textTarget.value).toBe('');
     controller = await mount(cached);
@@ -101,7 +138,7 @@ it('removes a draft when the fields return to their initial values', async () =>
     controller.remember();
     controller.textTarget.value = '';
     controller.remember();
-    expect(inboxAnswerDraft('question')).toBeUndefined();
+    expect(formDraft('question')).toBeUndefined();
 });
 
 it('preserves edits made after reopening a pending submission', async () => {
@@ -139,11 +176,11 @@ it('acknowledges a submission after its original form disconnects', async () => 
         }),
     );
     expect(reopened.textTarget.value).toBe('');
-    expect(inboxAnswerDraft('question')).toBeUndefined();
+    expect(formDraft('question')).toBeUndefined();
 });
 
 it('ignores unrelated successful forms before an owner is known', () => {
-    useInboxAnswerDraftOwner(undefined);
+    useFormDraftOwner(undefined);
     document.dispatchEvent(
         new CustomEvent('turbo:submit-end', {
             detail: {
@@ -152,7 +189,7 @@ it('ignores unrelated successful forms before an owner is known', () => {
             },
         }),
     );
-    expect(inboxAnswerDraft('question')).toBeUndefined();
+    expect(formDraft('question')).toBeUndefined();
 });
 
 it('does not restore a discarded draft from a cached form', async () => {
@@ -160,17 +197,17 @@ it('does not restore a discarded draft from a cached form', async () => {
     controller.textTarget.value = 'Discard this text';
     controller.remember();
     const cached = controller.element.cloneNode(true);
-    discardInboxAnswerDraft('question');
+    discardFormDraft('question');
     controller = await mount(cached);
     expect(controller.textTarget.value).toBe('');
-    expect(inboxAnswerDraft('question')).toBeUndefined();
+    expect(formDraft('question')).toBeUndefined();
 });
 
 it('restores and reveals a decline note without replacing the question draft', async () => {
     let controller = await mount();
     controller.textTarget.value = 'Question answer';
     controller.remember();
-    const decline = `<details><summary>Decline</summary><form data-controller="inbox-answer" data-inbox-answer-owner-value="${owner}" data-inbox-answer-key-value="question:decline"><textarea data-inbox-answer-target="text"></textarea></form></details>`;
+    const decline = `<details><summary>Decline</summary><form data-controller="form-draft" data-form-draft-owner-value="${owner}" data-form-draft-key-value="question:decline"><textarea data-form-draft-target="text"></textarea></form></details>`;
     controller = await mount(decline);
     controller.textTarget.value = 'Decline note';
     controller.remember();
@@ -185,11 +222,11 @@ it('restores and reveals a decline note without replacing the question draft', a
 it('restores review guards with the draft and resets them only on discard', async () => {
     const review = (
         version,
-    ) => `<form data-controller="inbox-answer" data-action="inbox-answer:cleared@document->inbox-answer#cleared" data-inbox-answer-owner-value="${owner}" data-inbox-answer-key-value="question:review">
-        <input type="hidden" name="version" value="${version}" data-inbox-answer-target="guard">
-        <input type="radio" value="approve" data-inbox-answer-target="option">
-        <textarea data-inbox-answer-target="text"></textarea>
-        <p hidden data-inbox-answer-target="stale"></p>
+    ) => `<form data-controller="form-draft" data-action="form-draft:cleared@document->form-draft#cleared" data-form-draft-owner-value="${owner}" data-form-draft-key-value="question:review">
+        <input type="hidden" name="version" value="${version}" data-form-draft-target="guard">
+        <input type="radio" value="approve" data-form-draft-target="option">
+        <textarea data-form-draft-target="text"></textarea>
+        <p hidden data-form-draft-target="stale"></p>
     </form>`;
     let controller = await mount(review('1'));
     controller.textTarget.value = 'Review of version one';
@@ -212,7 +249,7 @@ it('restores review guards with the draft and resets them only on discard', asyn
         '2',
     );
     expect(controller.element.querySelector('p').hidden).toBe(true);
-    expect(inboxAnswerDraft('question:review')).toBeUndefined();
+    expect(formDraft('question:review')).toBeUndefined();
 });
 
 it.each(['expectedReviewId', 'expectedUrl'])(
@@ -220,10 +257,10 @@ it.each(['expectedReviewId', 'expectedUrl'])(
     async (name) => {
         const review = (
             value,
-        ) => `<form data-controller="inbox-answer" data-inbox-answer-owner-value="${owner}" data-inbox-answer-key-value="question:review">
-            <input type="hidden" name="${name}" value="${value}" data-inbox-answer-target="guard">
-            <textarea data-inbox-answer-target="text"></textarea>
-            <p hidden data-inbox-answer-target="stale"></p>
+        ) => `<form data-controller="form-draft" data-form-draft-owner-value="${owner}" data-form-draft-key-value="question:review">
+            <input type="hidden" name="${name}" value="${value}" data-form-draft-target="guard">
+            <textarea data-form-draft-target="text"></textarea>
+            <p hidden data-form-draft-target="stale"></p>
         </form>`;
         let controller = await mount(review('original'));
         controller.textTarget.value = 'Review note';

@@ -1,12 +1,12 @@
-<div{% if fallbackNote|default('')|trim is empty %} hidden{% endif %} data-controller="inbox-answer-recovery" data-inbox-answer-recovery-owner-value="{{ app.user.id }}" data-inbox-answer-recovery-key-value="{{ key }}" data-inbox-answer-recovery-options-value="{{ options|json_encode|e('html_attr') }}"{% if labels|default(null) %} data-inbox-answer-recovery-labels-value="{{ labels|json_encode|e('html_attr') }}"{% endif %} data-action="inbox-answer:cleared@document->inbox-answer-recovery#render">
-    <section class="lp-inbox-item__response" hidden data-inbox-draft-kind="{{ kind }}" data-inbox-answer-recovery-target="panel">
+<div{% if fallbackNote|default('')|trim is empty %} hidden{% endif %} data-controller="form-draft-recovery" data-form-draft-recovery-owner-value="{{ app.user.id }}" data-form-draft-recovery-key-value="{{ key }}" data-form-draft-recovery-options-value="{{ options|json_encode|e('html_attr') }}"{% if labels|default(null) %} data-form-draft-recovery-labels-value="{{ labels|json_encode|e('html_attr') }}"{% endif %} data-action="form-draft:cleared@document->form-draft-recovery#render">
+    <section class="lp-inbox-item__response" hidden data-inbox-draft-kind="{{ kind }}" data-form-draft-recovery-target="panel">
         <p class="lp-label">{{ title|trans }}</p>
         <p class="lp-inbox-item__note">{{ (hint|default('inbox.answer.unsent_closed'))|trans }}</p>
-        <ul class="lp-inbox-item__choices" data-inbox-answer-recovery-target="options"></ul>
-        <p class="lp-inbox-item__answer-text" data-inbox-answer-recovery-target="text"></p>
-        <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="inbox-answer-recovery#discard">{{ 'inbox.answer.discard_draft'|trans }}</button>
+        <ul class="lp-inbox-item__choices" data-form-draft-recovery-target="options"></ul>
+        <p class="lp-inbox-item__answer-text" data-form-draft-recovery-target="text"></p>
+        <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="form-draft-recovery#discard">{{ 'inbox.answer.discard_draft'|trans }}</button>
     </section>
     {% if fallbackNote|default('')|trim is not empty %}
-        <div data-inbox-review-draft data-inbox-answer-recovery-target="fallback"><p class="lp-label">{{ 'inbox.review.unsent_note'|trans }}</p><p class="lp-inbox-item__answer-text">{{ fallbackNote }}</p></div>
+        <div data-inbox-review-draft data-form-draft-recovery-target="fallback"><p class="lp-label">{{ 'inbox.review.unsent_note'|trans }}</p><p class="lp-inbox-item__answer-text">{{ fallbackNote }}</p></div>
     {% endif %}
 </div>

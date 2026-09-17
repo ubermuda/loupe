@@ -33,7 +33,7 @@
         </div>
         <button type="button" class="lp-btn lp-btn--primary" data-action="click->modal#open">{{ 'review.create.title'|trans }}</button>
     </header>
-    {% include '@Review/_create_document.html.twig' with {form: createDocumentForm} only %}
+    {% include '@Review/_create_document.html.twig' with {form: createDocumentForm, projectId: project.id} only %}
 
     {# Six controls in front of a project that has nothing to filter are six dead
        controls, so the bar waits for a first document — but it stays once a

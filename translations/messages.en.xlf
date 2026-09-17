@@ -5984,6 +5984,10 @@
             <trans-unit id="inbox.review.withdrawn"><source>inbox.review.withdrawn</source><target>%name% withdrew this verdict at %time%. This request keeps its original answer.</target></trans-unit>
             <trans-unit id="inbox.review.error.not_a_document"><source>inbox.review.error.not_a_document</source><target>This request does not target a document.</target></trans-unit>
             <trans-unit id="inbox.review.unsent_note"><source>inbox.review.unsent_note</source><target>Your unsent review note</target></trans-unit>
+            <trans-unit id="review.draft.retained"><source>review.draft.retained</source><target>This unsaved draft stays in this tab during in-app navigation. Reloading or closing the tab discards it.</target></trans-unit>
+            <trans-unit id="review.draft.unavailable"><source>review.draft.unavailable</source><target>This document already has a completed review. Your draft was not sent. Copy it before discarding it or closing this tab.</target></trans-unit>
+            <trans-unit id="review.draft.discard"><source>review.draft.discard</source><target>Discard draft</target></trans-unit>
+            <trans-unit id="review.draft.stale"><source>review.draft.stale</source><target>This draft belongs to an earlier document or review state. Inspect the current version and copy your changes before discarding the draft.</target></trans-unit>
             <trans-unit id="inbox.review.unsent"><source>inbox.review.unsent</source><target>Your unsent review</target></trans-unit>
             <trans-unit id="inbox.review.unsent_unavailable"><source>inbox.review.unsent_unavailable</source><target>This request no longer accepts a review here. This draft was not sent.</target></trans-unit>
             <trans-unit id="inbox.review.stale_draft"><source>inbox.review.stale_draft</source><target>This draft belongs to an earlier review state. Inspect the current content before reviewing again. Copy your note before discarding this draft.</target></trans-unit>

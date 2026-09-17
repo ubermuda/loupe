@@ -810,6 +810,9 @@
     </div>
     {% endif %}
 
+    {% if not finishReviewAvailable and not diffMode and not readOnly %}
+    {% include '@Review/_review_draft_recovery.html.twig' with {document: document} only %}
+    {% endif %}
     {% if finishReviewAvailable %}
     {% include '@Review/_finish_review.html.twig' with {
         document: document,

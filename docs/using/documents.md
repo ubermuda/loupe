@@ -19,7 +19,12 @@ When Board is enabled, select the cards to link.
 Select **Create document**.
 Loupe opens the first version with Draft status.
 You can review a draft with **Finish review**, or edit it with **Revise**.
-Closing either dialog keeps its fields until you leave or reload the page.
+
+New document, Revise, and Finish review keep unsent drafts during in-app navigation in the same tab.
+Closing a dialog keeps its draft. Select **Discard draft** to remove it.
+Reloading or closing the browser tab discards these local drafts; copy important text first.
+If another tab completes the review, the document shows your unsent review separately so you can copy or discard it.
+Restored review and revision drafts retain their original version checks. They cannot silently apply to a newer version.
 Documents submitted through the agent tools start with In review status.
 
 ## Revising

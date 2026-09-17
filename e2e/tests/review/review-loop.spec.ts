@@ -144,6 +144,10 @@ test('New document creates a draft that can be reviewed', async ({
         .fill('# Draft scope\n\nA new document from the browser.');
     await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(dialog).toBeHidden();
+    await page.getByRole('link', { name: 'Workshop', exact: true }).click();
+    await expect(page).not.toHaveURL(review.dashboardUrl);
+    await page.getByRole('link', { name: /^Documents \d+$/ }).click();
+    await expect(page).toHaveURL(review.dashboardUrl);
     await page
         .getByRole('button', { name: 'New document', exact: true })
         .click();
@@ -200,6 +204,22 @@ test('Revise saves a new version and preserves the previous text', async ({
     await dialog
         .getByLabel('Revision note', { exact: true })
         .fill('Clarify the document.');
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await page.getByRole('link', { name: 'History', exact: true }).click();
+    await expect(page).toHaveURL(`${review.reviewUrl}/history`);
+    await page.getByRole('link', { name: 'Document', exact: true }).click();
+    await expect(page).toHaveURL(review.reviewUrl);
+    await page.getByRole('button', { name: 'Revise', exact: true }).click();
+    await expect(dialog.getByLabel('Title', { exact: true })).toHaveValue(
+        'Revised review document',
+    );
+    await expect(dialog.getByLabel('Markdown', { exact: true })).toHaveValue(
+        '# Revised content',
+    );
+    await expect(
+        dialog.getByLabel('Revision note', { exact: true }),
+    ).toHaveValue('Clarify the document.');
     await dialog.getByRole('button', { name: 'Save new version' }).click();
     await expect(page.locator('.lp-review-doc__version')).toHaveText('v2', {
         timeout: 20000,
@@ -532,6 +552,53 @@ test('copying an empty review reports clipboard success and failure', async ({
     });
 });
 
+test('a completed review leaves another tabs unsent review recoverable', async ({
+    page,
+    context,
+    review,
+}) => {
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    const dialog = page.getByRole('dialog', { name: 'Finish review' });
+    await dialog
+        .getByRole('radio', { name: 'Request changes', exact: true })
+        .check();
+    await dialog
+        .getByRole('textbox', { name: 'Review note' })
+        .fill('Keep my unsent review.');
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    const other = await context.newPage();
+    await other.goto(review.reviewUrl);
+    await other
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    await other.getByRole('radio', { name: 'Approve', exact: true }).check();
+    await other.getByRole('button', { name: 'Submit review' }).click();
+    await expect(other.locator('.lp-verdict-bar--approved')).toBeVisible();
+    await page.getByRole('link', { name: 'History', exact: true }).click();
+    await expect(page).toHaveURL(`${review.reviewUrl}/history`);
+    await page.getByRole('link', { name: 'Document', exact: true }).click();
+    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
+    const recovery = page.locator(
+        '[data-form-draft-recovery-key-value="document:review:' +
+            review.documentId +
+            '"]',
+    );
+    await expect(recovery).toBeVisible();
+    await expect(recovery).toContainText('Keep my unsent review.');
+    await expect(recovery).toContainText('Changes requested');
+    await expect(
+        page.getByRole('button', { name: 'Submit review' }),
+    ).toHaveCount(0);
+    await recovery.getByRole('button', { name: 'Discard draft' }).click();
+    await expect(recovery).toBeHidden();
+    await expect(page.locator('#review-document-title')).toBeFocused();
+    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
+    await other.close();
+});
+
 test('a stale review page cannot approve a newer version', async ({
     page,
     review,
@@ -566,6 +633,27 @@ test('a stale review page cannot approve a newer version', async ({
     await page.getByRole('link', { name: 'Go to the current version' }).click();
     await expect(page.locator('.lp-review-doc__version')).toHaveText('v2');
     await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    const restored = page.getByRole('dialog', { name: 'Finish review' });
+    await expect(
+        restored.getByRole('textbox', { name: 'Review note' }),
+    ).toHaveValue('Keep this draft.');
+    await expect(
+        restored.locator('[data-form-draft-target="guard"]').first(),
+    ).toHaveValue('1');
+    await expect(
+        restored.locator('[data-form-draft-target="stale"]'),
+    ).toBeVisible();
+    await restored.getByRole('button', { name: 'Discard draft' }).click();
+    await expect(
+        restored.getByRole('textbox', { name: 'Review note' }),
+    ).toHaveValue('');
+    await expect(
+        restored.locator('[data-form-draft-target="guard"]').first(),
+    ).toHaveValue('2');
+    await restored.getByRole('button', { name: 'Cancel', exact: true }).click();
     await page.goto(review.dashboardUrl);
     await expect(
         page.locator(`[data-document-id="${review.documentId}"] .lp-badge`),

@@ -4,7 +4,7 @@
            aria-label="{{ 'review.document.navigation.back'|trans }}">
             <twig:ux:icon name="lucide:arrow-left" />
         </a>
-        <h1 class="lp-review-doc__title">{{ document.title }}</h1>
+        <h1 class="lp-review-doc__title" id="review-document-title">{{ document.title }}</h1>
         <span class="lp-review-doc__version">{{ 'v' ~ version.versionNumber }}</span>
         {% if showDocumentActions %}
         <div class="lp-review-doc__actions">

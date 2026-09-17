@@ -4,7 +4,7 @@ const submitted = new Set();
 const submissions = new WeakMap();
 let owner;
 
-export function useInboxAnswerDraftOwner(value) {
+export function useFormDraftOwner(value) {
     if (owner !== value) {
         drafts.clear();
         cleared.clear();
@@ -13,55 +13,55 @@ export function useInboxAnswerDraftOwner(value) {
     }
 }
 
-export function inboxAnswerDraft(key) {
+export function formDraft(key) {
     return drafts.get(key);
 }
 
-export function rememberInboxAnswerDraft(key, draft) {
+export function rememberFormDraft(key, draft) {
     if (draft) drafts.set(key, draft);
     else drafts.delete(key);
 }
 
-export function acceptInboxAnswerDraft(key, identity) {
-    clearInboxAnswerDraft(key, identity);
+export function acceptFormDraft(key, identity) {
+    clearFormDraft(key, identity);
 }
 
-export function discardInboxAnswerDraft(key) {
+export function discardFormDraft(key) {
     const draft = drafts.get(key);
-    if (draft) clearInboxAnswerDraft(key, draft.identity);
+    if (draft) clearFormDraft(key, draft.identity);
 }
 
-function clearInboxAnswerDraft(key, identity) {
+function clearFormDraft(key, identity) {
     cleared.add(identity);
     if (drafts.get(key)?.identity === identity) drafts.delete(key);
     document.dispatchEvent(
-        new CustomEvent('inbox-answer:cleared', { detail: { key, identity } }),
+        new CustomEvent('form-draft:cleared', { detail: { key, identity } }),
     );
 }
 
-export function submitInboxAnswerDraft(form, key, identity) {
+export function submitFormDraft(form, key, identity) {
     submitted.add(identity);
     submissions.set(form, { owner, key, identity });
 }
 
-export function inboxAnswerWasSubmitted(identity) {
+export function formDraftWasSubmitted(identity) {
     return submitted.has(identity);
 }
 
-export function inboxAnswerWasCleared(identity) {
+export function formDraftWasCleared(identity) {
     return cleared.has(identity);
 }
 
 document.addEventListener('turbo:submit-end', (event) => {
     const submission = submissions.get(event.detail.formSubmission.formElement);
     if (event.detail.success && submission && submission.owner === owner) {
-        acceptInboxAnswerDraft(submission.key, submission.identity);
+        acceptFormDraft(submission.key, submission.identity);
     }
 });
 
 document.addEventListener('turbo:before-render', (event) => {
     if (event.detail.newBody.hasAttribute('data-reply-draft-owner')) {
-        useInboxAnswerDraftOwner(event.detail.newBody.dataset.replyDraftOwner);
+        useFormDraftOwner(event.detail.newBody.dataset.replyDraftOwner);
     }
 });
 

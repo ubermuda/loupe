@@ -105,23 +105,23 @@
             {% if item.kind.value == 'question' %}
                 {% set answerForm = inbox_answer_form(item, refusedForm) %}
                 {% set selectedErrorsId = answerForm.selectedOptions.vars.id ~ '_errors' %}
-                {{ form_start(answerForm, {action: path('app_inbox_item_answer', actionParams), attr: {class: 'lp-form lp-inbox-answer', 'data-controller': 'inbox-answer', 'data-inbox-answer-owner-value': app.user.id, 'data-inbox-answer-key-value': item.id, 'data-action': 'submit->inbox-answer#start turbo:before-fetch-response->inbox-answer#response inbox-answer:cleared@document->inbox-answer#cleared', 'data-turbo-frame': responseFrame}}) }}
+                {{ form_start(answerForm, {action: path('app_inbox_item_answer', actionParams), attr: {class: 'lp-form lp-inbox-answer', 'data-controller': 'form-draft', 'data-form-draft-owner-value': app.user.id, 'data-form-draft-key-value': item.id, 'data-action': 'submit->form-draft#start turbo:before-fetch-response->form-draft#response form-draft:cleared@document->form-draft#cleared', 'data-turbo-frame': responseFrame}}) }}
                     {% if item.options|length > 0 %}
                         {% set selected = (answerForm.selectedOptions.vars.value ?? '')|split(',') %}
                         {# The controls post under a name outside the form, so the form reads the ticked indexes from selectedOptions, which the controller fills. #}
-                        <fieldset class="lp-decision lp-decision--inbox" data-decision-type="{{ item.multiple ? 'multiple' : 'single' }}" data-action="change->inbox-answer#select"{% if answerForm.selectedOptions.vars.errors|length > 0 %} aria-describedby="{{ selectedErrorsId }}"{% endif %}>
+                        <fieldset class="lp-decision lp-decision--inbox" data-decision-type="{{ item.multiple ? 'multiple' : 'single' }}" data-action="change->form-draft#select"{% if answerForm.selectedOptions.vars.errors|length > 0 %} aria-describedby="{{ selectedErrorsId }}"{% endif %}>
                             <legend class="lp-decision__prompt">{{ (item.multiple ? 'inbox.answer.pick_any' : 'inbox.answer.pick_one')|trans }}</legend>
                             <div class="lp-decision__options">
                                 {% for option in item.options %}
                                     {% set optionId = 'inbox_option_' ~ item.id ~ '_' ~ loop.index0 %}
                                     <div class="lp-decision__option">
-                                        <input type="{{ item.multiple ? 'checkbox' : 'radio' }}" name="lp-inbox-{{ item.id }}" value="{{ loop.index0 }}" id="{{ optionId }}" data-inbox-answer-target="option"{{ (loop.index0 ~ '') in selected ? ' checked' }}>
+                                        <input type="{{ item.multiple ? 'checkbox' : 'radio' }}" name="lp-inbox-{{ item.id }}" value="{{ loop.index0 }}" id="{{ optionId }}" data-form-draft-target="option"{{ (loop.index0 ~ '') in selected ? ' checked' }}>
                                         <label for="{{ optionId }}">{{ option }}</label>
                                     </div>
                                 {% endfor %}
                             </div>
                             {% if not item.multiple and item.freeText %}
-                                <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm lp-inbox-answer__clear" data-action="inbox-answer#clear">{{ 'inbox.answer.clear'|trans }}</button>
+                                <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm lp-inbox-answer__clear" data-action="form-draft#clear">{{ 'inbox.answer.clear'|trans }}</button>
                             {% endif %}
                         </fieldset>
                     {% endif %}
@@ -130,7 +130,7 @@
                     {% if item.freeText %}
                         <div class="lp-form-field">
                             {{ form_label(answerForm.answerText, null, {label_attr: {class: 'lp-label'}}) }}
-                            {{ form_widget(answerForm.answerText, {attr: {class: 'lp-input lp-inbox-answer__text', rows: 3, 'data-inbox-answer-target': 'text', 'data-action': 'input->inbox-answer#remember'}}) }}
+                            {{ form_widget(answerForm.answerText, {attr: {class: 'lp-input lp-inbox-answer__text', rows: 3, 'data-form-draft-target': 'text', 'data-action': 'input->form-draft#remember'}}) }}
                             <div class="lp-field-errors">{{ form_errors(answerForm.answerText) }}</div>
                         </div>
                     {% endif %}
@@ -170,10 +170,10 @@
             {% set declineForm = inbox_decline_form(item, refusedForm) %}
                 <details class="lp-inbox-decline"{{ refusedForm and refusedForm.vars.name == declineForm.vars.name ? ' open' }}>
                     <summary class="lp-inbox-decline__summary">{{ (item.state.value == 'declined' ? 'inbox.decline.change' : 'inbox.decline.toggle')|trans }}</summary>
-                    {{ form_start(declineForm, {action: path('app_inbox_item_decline', actionParams), attr: {class: 'lp-form lp-inbox-decline__form', 'data-controller': 'inbox-answer', 'data-inbox-answer-owner-value': app.user.id, 'data-inbox-answer-key-value': item.id ~ ':decline', 'data-action': 'submit->inbox-answer#start turbo:before-fetch-response->inbox-answer#response inbox-answer:cleared@document->inbox-answer#cleared', 'data-turbo-frame': responseFrame}}) }}
+                    {{ form_start(declineForm, {action: path('app_inbox_item_decline', actionParams), attr: {class: 'lp-form lp-inbox-decline__form', 'data-controller': 'form-draft', 'data-form-draft-owner-value': app.user.id, 'data-form-draft-key-value': item.id ~ ':decline', 'data-action': 'submit->form-draft#start turbo:before-fetch-response->form-draft#response form-draft:cleared@document->form-draft#cleared', 'data-turbo-frame': responseFrame}}) }}
                         <div class="lp-form-field">
                             {{ form_label(declineForm.closeNote, null, {label_attr: {class: 'lp-label'}}) }}
-                            {{ form_widget(declineForm.closeNote, {attr: {class: 'lp-input', rows: 2, 'data-inbox-answer-target': 'text', 'data-action': 'input->inbox-answer#remember'}}) }}
+                            {{ form_widget(declineForm.closeNote, {attr: {class: 'lp-input', rows: 2, 'data-form-draft-target': 'text', 'data-action': 'input->form-draft#remember'}}) }}
                             <div class="lp-field-errors">{{ form_errors(declineForm.closeNote) }}</div>
                         </div>
                         <div class="lp-field-errors">{{ form_errors(declineForm) }}</div>

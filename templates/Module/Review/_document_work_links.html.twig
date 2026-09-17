@@ -5,7 +5,7 @@
     <div class="lp-document-work-links">
         {% for choice in form.workLinkIds %}
         <label class="lp-review-verdict-choice">
-            {{ form_widget(choice) }}
+            {{ form_widget(choice, {attr: {'data-form-draft-target': 'option'}}) }}
             <span>{{ choice.vars.label }}</span>
         </label>
         {% else %}

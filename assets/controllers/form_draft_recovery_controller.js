@@ -1,9 +1,9 @@
 import { Controller } from '@hotwired/stimulus';
 import {
-    discardInboxAnswerDraft,
-    inboxAnswerDraft,
-    useInboxAnswerDraftOwner,
-} from '../lib/inbox_answer_drafts.js';
+    discardFormDraft,
+    formDraft,
+    useFormDraftOwner,
+} from '../lib/form_drafts.js';
 
 export default class extends Controller {
     static targets = ['text', 'options', 'panel', 'fallback'];
@@ -12,15 +12,16 @@ export default class extends Controller {
         owner: String,
         options: Array,
         labels: Object,
+        focus: String,
     };
 
     connect() {
-        useInboxAnswerDraftOwner(this.ownerValue);
+        useFormDraftOwner(this.ownerValue);
         this.render();
     }
 
     render() {
-        const draft = inboxAnswerDraft(this.keyValue);
+        const draft = formDraft(this.keyValue);
         this.panelTarget.hidden = !draft;
         if (draft && this.hasFallbackTarget) this.fallbackTarget.hidden = true;
         this.element.hidden =
@@ -40,10 +41,12 @@ export default class extends Controller {
 
     discard() {
         const containsFocus = this.element.contains(document.activeElement);
-        const heading = this.element
-            .closest('[data-inbox-item]')
-            ?.querySelector('.lp-inbox-item__title');
-        discardInboxAnswerDraft(this.keyValue);
+        const heading = this.hasFocusValue
+            ? document.getElementById(this.focusValue)
+            : this.element
+                  .closest('[data-inbox-item]')
+                  ?.querySelector('.lp-inbox-item__title');
+        discardFormDraft(this.keyValue);
         this.render();
         if (containsFocus && heading) {
             heading.setAttribute('tabindex', '-1');

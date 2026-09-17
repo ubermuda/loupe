@@ -66,7 +66,7 @@ final class ReviseDocumentControllerTest extends WebTestCase
         $em->clear();
         $client->submit($form);
         self::assertResponseStatusCodeSame(422);
-        self::assertSelectorTextContains('.lp-field-errors', 'The document has a newer version.');
+        self::assertSelectorTextContains('[data-revision-errors]', 'The document has a newer version.');
         self::assertSelectorTextContains('textarea[name="revise_document_form[markdown]"]', '# My draft');
         self::assertSelectorExists('[data-modal-reopen-value="true"]');
         $em = static::getContainer()->get(EntityManagerInterface::class);

@@ -1,44 +1,41 @@
 /** @vitest-environment jsdom */
 import { Application } from '@hotwired/stimulus';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import InboxAnswerRecoveryController from '../../assets/controllers/inbox_answer_recovery_controller.js';
+import FormDraftRecoveryController from '../../assets/controllers/form_draft_recovery_controller.js';
 import {
-    acceptInboxAnswerDraft,
-    inboxAnswerDraft,
-    rememberInboxAnswerDraft,
-    useInboxAnswerDraftOwner,
-} from '../../assets/lib/inbox_answer_drafts.js';
+    acceptFormDraft,
+    formDraft,
+    rememberFormDraft,
+    useFormDraftOwner,
+} from '../../assets/lib/form_drafts.js';
 
 let application;
 let controller;
 
 beforeEach(async () => {
-    useInboxAnswerDraftOwner('owner');
-    rememberInboxAnswerDraft('question', {
+    useFormDraftOwner('owner');
+    rememberFormDraft('question', {
         identity: 'draft',
         text: '<b>Unsent text</b>',
         options: ['1'],
     });
-    document.body.innerHTML = `<div data-controller="inbox-answer-recovery" data-inbox-answer-recovery-owner-value="owner" data-inbox-answer-recovery-key-value="question" data-inbox-answer-recovery-options-value='["CSV", "JSON"]' data-action="inbox-answer:cleared@document->inbox-answer-recovery#render"><section hidden data-inbox-answer-recovery-target="panel">
-        <p data-inbox-answer-recovery-target="text"></p>
-        <ul data-inbox-answer-recovery-target="options"></ul>
+    document.body.innerHTML = `<div data-controller="form-draft-recovery" data-form-draft-recovery-owner-value="owner" data-form-draft-recovery-key-value="question" data-form-draft-recovery-options-value='["CSV", "JSON"]' data-action="form-draft:cleared@document->form-draft-recovery#render"><section hidden data-form-draft-recovery-target="panel">
+        <p data-form-draft-recovery-target="text"></p>
+        <ul data-form-draft-recovery-target="options"></ul>
     </section></div>`;
     application = Application.start();
-    application.register(
-        'inbox-answer-recovery',
-        InboxAnswerRecoveryController,
-    );
+    application.register('form-draft-recovery', FormDraftRecoveryController);
     await new Promise((resolve) => setTimeout(resolve, 0));
     controller = application.getControllerForElementAndIdentifier(
         document.body.firstElementChild,
-        'inbox-answer-recovery',
+        'form-draft-recovery',
     );
 });
 
 afterEach(() => {
     application.stop();
     document.body.replaceChildren();
-    useInboxAnswerDraftOwner('');
+    useFormDraftOwner('');
 });
 
 it('shows unsent text and option labels as plain text', () => {
@@ -50,9 +47,9 @@ it('shows unsent text and option labels as plain text', () => {
 });
 
 it('hides the recovery panel after an acknowledgment or explicit discard', () => {
-    acceptInboxAnswerDraft('question', 'draft');
+    acceptFormDraft('question', 'draft');
     expect(controller.panelTarget.hidden).toBe(true);
-    rememberInboxAnswerDraft('question', {
+    rememberFormDraft('question', {
         identity: 'later',
         text: 'Later text',
         options: [],
@@ -61,12 +58,12 @@ it('hides the recovery panel after an acknowledgment or explicit discard', () =>
     expect(controller.panelTarget.hidden).toBe(false);
     controller.discard();
     expect(controller.panelTarget.hidden).toBe(true);
-    expect(inboxAnswerDraft('question')).toBeUndefined();
+    expect(formDraft('question')).toBeUndefined();
     expect(controller.element.hidden).toBe(true);
 });
 
 it('keeps a newer draft visible when an older submission finishes', () => {
-    acceptInboxAnswerDraft('question', 'older');
+    acceptFormDraft('question', 'older');
     expect(controller.panelTarget.hidden).toBe(false);
     expect(controller.textTarget.textContent).toBe('<b>Unsent text</b>');
 });
@@ -86,13 +83,25 @@ it('returns focus to the request heading after discarding a draft', () => {
     expect(document.activeElement).toBe(heading);
 });
 
+it('returns focus to the document heading after discarding a review draft', () => {
+    const heading = document.createElement('h1');
+    heading.id = 'review-document-title';
+    controller.element.before(heading);
+    controller.focusValue = heading.id;
+    const button = document.createElement('button');
+    controller.panelTarget.append(button);
+    button.focus();
+    controller.discard();
+    expect(document.activeElement).toBe(heading);
+});
+
 it('translates verdicts and suppresses the fallback note after recovery and discard', () => {
     const fallback = document.createElement('p');
-    fallback.dataset.inboxAnswerRecoveryTarget = 'fallback';
+    fallback.dataset.formDraftRecoveryTarget = 'fallback';
     fallback.textContent = 'Server note';
     controller.element.append(fallback);
     controller.labelsValue = { 'changes-requested': 'Changes requested' };
-    rememberInboxAnswerDraft('question', {
+    rememberFormDraft('question', {
         identity: 'review',
         text: 'Local note',
         options: ['changes-requested'],
@@ -108,10 +117,10 @@ it('translates verdicts and suppresses the fallback note after recovery and disc
 
 it('keeps a server-rendered note visible when there is no local draft', () => {
     const fallback = document.createElement('p');
-    fallback.dataset.inboxAnswerRecoveryTarget = 'fallback';
+    fallback.dataset.formDraftRecoveryTarget = 'fallback';
     fallback.textContent = 'Server note';
     controller.element.append(fallback);
-    rememberInboxAnswerDraft('question', null);
+    rememberFormDraft('question', null);
     controller.render();
     expect(controller.panelTarget.hidden).toBe(true);
     expect(fallback.hidden).toBe(false);

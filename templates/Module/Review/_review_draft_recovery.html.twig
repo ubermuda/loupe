@@ -1,0 +1,14 @@
+<section class="lp-inbox-item__response" hidden data-controller="form-draft-recovery"
+         data-form-draft-recovery-owner-value="{{ app.user.id }}"
+         data-form-draft-recovery-key-value="{{ 'document:review:' ~ document.id }}"
+         data-form-draft-recovery-focus-value="review-document-title"
+         data-form-draft-recovery-labels-value="{{ {'approved': 'review.document.verdict.approved'|trans, 'changes-requested': 'review.document.verdict.changes-requested'|trans}|json_encode|e('html_attr') }}"
+         data-action="form-draft:cleared@document->form-draft-recovery#render">
+    <div data-form-draft-recovery-target="panel">
+        <p class="lp-label">{{ 'inbox.review.unsent'|trans }}</p>
+        <p class="lp-form-hint">{{ 'review.draft.unavailable'|trans }}</p>
+        <ul class="lp-inbox-item__choices" data-form-draft-recovery-target="options"></ul>
+        <p class="lp-inbox-item__answer-text" data-form-draft-recovery-target="text"></p>
+        <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="form-draft-recovery#discard">{{ 'review.draft.discard'|trans }}</button>
+    </div>
+</section>

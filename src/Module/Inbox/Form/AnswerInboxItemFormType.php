@@ -33,7 +33,7 @@ class AnswerInboxItemFormType extends AbstractType
             // A hidden field hands its errors to the form by default. Kept here,
             // they render beside the options the fieldset describes.
             'error_bubbling' => false,
-            'attr' => ['data-inbox-answer-target' => 'selectedOptions'],
+            'attr' => ['data-form-draft-target' => 'selectedOptions'],
         ]);
         $builder->add('answerText', TextareaType::class, [
             'required' => false,
