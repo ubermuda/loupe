@@ -265,6 +265,49 @@ for (const target of ['document', 'pull-request']) {
         await form
             .locator('textarea')
             .fill('Explain retries before implementation.');
+        await drawer.getByRole('link', { name: 'Close card' }).click();
+        await expect(drawer).toBeHidden();
+        await page.getByRole('link', { name: /Shared review card/ }).click();
+        await drawer.getByRole('tab', { name: 'Conversation' }).click();
+        await expect(form.locator('textarea')).toHaveValue(
+            'Explain retries before implementation.',
+        );
+        await expect(
+            form.getByLabel('Request changes', { exact: true }),
+        ).toBeChecked();
+        if (target === 'document') {
+            const revised = await page.request.post(
+                `/dev/review/${documentId}/revise`,
+                {
+                    form: {
+                        markdown: '# Revised design\n\nInspect this version.',
+                    },
+                },
+            );
+            expect(revised.status()).toBe(200);
+            await drawer.getByRole('link', { name: 'Close card' }).click();
+            await expect(drawer).toBeHidden();
+            await page
+                .getByRole('link', { name: /Shared review card/ })
+                .click();
+            await drawer.getByRole('tab', { name: 'Conversation' }).click();
+            await expect(form.locator('[name$="[versionNumber]"]')).toHaveValue(
+                '1',
+            );
+            await expect(form.getByRole('status')).toContainText(
+                'This draft belongs to an earlier review state.',
+            );
+            await form.getByRole('button', { name: 'Discard draft' }).click();
+            await expect(form.locator('[name$="[versionNumber]"]')).toHaveValue(
+                '2',
+            );
+            await expect(form.locator('textarea')).toHaveValue('');
+            await expect(form.locator('textarea')).toBeFocused();
+            await form.getByLabel('Request changes', { exact: true }).check();
+            await form
+                .locator('textarea')
+                .fill('Explain retries before implementation.');
+        }
         await form
             .getByRole('button', { name: 'Submit review', exact: true })
             .click();

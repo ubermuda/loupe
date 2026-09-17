@@ -135,6 +135,10 @@ A PR submission records a result in Loupe only. It does not post a review to the
 
 A stale form cannot replace a newer document verdict or review a changed PR address.
 The error keeps your note so you can copy it before reloading.
+Unsent review notes and verdict selections survive drawer replacement in the same browser tab.
+They keep their original document version, previous verdict identifier, or PR address.
+If that review state changes, the restored form shows a warning.
+Inspect the current content and copy your note before selecting **Discard draft** to start a fresh review.
 A removed target shows an unavailable state, while completed results retain their original target label and answer.
 
 ## Replies

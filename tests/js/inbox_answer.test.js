@@ -181,3 +181,64 @@ it('restores and reveals a decline note without replacing the question draft', a
     controller = await mount();
     expect(controller.textTarget.value).toBe('Question answer');
 });
+
+it('restores review guards with the draft and resets them only on discard', async () => {
+    const review = (
+        version,
+    ) => `<form data-controller="inbox-answer" data-action="inbox-answer:cleared@document->inbox-answer#cleared" data-inbox-answer-owner-value="${owner}" data-inbox-answer-key-value="question:review">
+        <input type="hidden" name="version" value="${version}" data-inbox-answer-target="guard">
+        <input type="radio" value="approve" data-inbox-answer-target="option">
+        <textarea data-inbox-answer-target="text"></textarea>
+        <p hidden data-inbox-answer-target="stale"></p>
+    </form>`;
+    let controller = await mount(review('1'));
+    controller.textTarget.value = 'Review of version one';
+    controller.optionTargets[0].checked = true;
+    controller.select();
+    controller = await mount(review('2'));
+    expect(controller.textTarget.value).toBe('Review of version one');
+    expect(controller.optionTargets[0].checked).toBe(true);
+    expect(controller.element.querySelector('[name="version"]').value).toBe(
+        '1',
+    );
+    expect(controller.element.querySelector('p').hidden).toBe(false);
+    const cached = controller.element.cloneNode(true);
+    controller = await mount(cached);
+    expect(controller.element.querySelector('p').hidden).toBe(false);
+    controller.discard();
+    expect(controller.textTarget.value).toBe('');
+    expect(controller.optionTargets[0].checked).toBe(false);
+    expect(controller.element.querySelector('[name="version"]').value).toBe(
+        '2',
+    );
+    expect(controller.element.querySelector('p').hidden).toBe(true);
+    expect(inboxAnswerDraft('question:review')).toBeUndefined();
+});
+
+it.each(['expectedReviewId', 'expectedUrl'])(
+    'keeps the original %s after a rejected review and form replacement',
+    async (name) => {
+        const review = (
+            value,
+        ) => `<form data-controller="inbox-answer" data-inbox-answer-owner-value="${owner}" data-inbox-answer-key-value="question:review">
+            <input type="hidden" name="${name}" value="${value}" data-inbox-answer-target="guard">
+            <textarea data-inbox-answer-target="text"></textarea>
+            <p hidden data-inbox-answer-target="stale"></p>
+        </form>`;
+        let controller = await mount(review('original'));
+        controller.textTarget.value = 'Review note';
+        controller.remember();
+        controller.start();
+        controller.response({
+            detail: { fetchResponse: { succeeded: false } },
+        });
+        controller = await mount(review('original'));
+        expect(controller.element.querySelector('p').hidden).toBe(true);
+        controller = await mount(review('changed'));
+        expect(controller.textTarget.value).toBe('Review note');
+        expect(controller.element.querySelector('input').value).toBe(
+            'original',
+        );
+        expect(controller.element.querySelector('p').hidden).toBe(false);
+    },
+);

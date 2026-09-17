@@ -1,6 +1,7 @@
 import { Controller } from '@hotwired/stimulus';
 import {
     acceptInboxAnswerDraft,
+    discardInboxAnswerDraft,
     inboxAnswerDraft,
     inboxAnswerWasCleared,
     inboxAnswerWasSubmitted,
@@ -10,11 +11,18 @@ import {
 } from '../lib/inbox_answer_drafts.js';
 
 export default class extends Controller {
-    static targets = ['option', 'selectedOptions', 'text'];
+    static targets = ['option', 'selectedOptions', 'text', 'guard', 'stale'];
     static values = { owner: String, key: String };
 
     connect() {
         useInboxAnswerDraftOwner(this.ownerValue);
+        this.freshGuards = JSON.parse(
+            this.element.dataset.inboxAnswerFreshGuards ??
+                JSON.stringify(this.guards()),
+        );
+        this.element.dataset.inboxAnswerFreshGuards = JSON.stringify(
+            this.freshGuards,
+        );
         this.baseline = JSON.stringify(this.fields());
         this.identity =
             this.element.dataset.inboxAnswerDraftIdentity ??
@@ -27,6 +35,7 @@ export default class extends Controller {
                 option.checked = draft.options.includes(option.value);
             });
             if (this.hasTextTarget) this.textTarget.value = draft.text;
+            this.restoreGuards(draft.guards ?? this.freshGuards);
             this.element.closest('details')?.setAttribute('open', '');
         } else if (inboxAnswerWasCleared(this.identity)) {
             this.optionTargets.forEach((option) => {
@@ -34,6 +43,7 @@ export default class extends Controller {
             });
             if (this.hasTextTarget)
                 this.textTarget.value = this.textTarget.defaultValue;
+            this.restoreGuards(this.freshGuards);
             this.baseline = JSON.stringify(this.fields());
             this.identity = crypto.randomUUID();
         }
@@ -47,6 +57,11 @@ export default class extends Controller {
     }
 
     sync() {
+        if (this.hasStaleTarget) {
+            this.staleTarget.hidden =
+                JSON.stringify(this.guards()) ===
+                JSON.stringify(this.freshGuards);
+        }
         if (!this.hasSelectedOptionsTarget) {
             return;
         }
@@ -81,7 +96,24 @@ export default class extends Controller {
                 .filter((option) => option.checked)
                 .map((option) => option.value),
             text: this.hasTextTarget ? this.textTarget.value : '',
+            guards: this.guards(),
         };
+    }
+
+    guards() {
+        return this.guardTargets.map((guard) => [guard.name, guard.value]);
+    }
+
+    restoreGuards(values) {
+        for (const guard of this.guardTargets) {
+            const saved = values.find(([name]) => name === guard.name);
+            if (saved) guard.value = saved[1];
+        }
+    }
+
+    discard() {
+        discardInboxAnswerDraft(this.keyValue);
+        this.textTarget.focus();
     }
 
     start() {
@@ -100,6 +132,7 @@ export default class extends Controller {
         });
         if (this.hasTextTarget)
             this.textTarget.value = this.textTarget.defaultValue;
+        this.restoreGuards(this.freshGuards);
         this.baseline = JSON.stringify(this.fields());
         this.identity = crypto.randomUUID();
         this.element.dataset.inboxAnswerDraftIdentity = this.identity;
