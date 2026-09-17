@@ -6,5 +6,5 @@
         {% if not href %}<p class="lp-inbox-linked-table__note">{{ 'board.card.pull_requests.not_linkable'|trans }}</p>{% endif %}
     </td>
     <td><span class="lp-tag">{{ (href ? 'board.card.link.status_not_reported' : 'board.card.link.status_unavailable')|trans }}</span></td>
-    <td>{% if href %}<a class="lp-btn lp-btn--ghost lp-btn--icon" href="{{ href }}" rel="noopener noreferrer" target="_blank" aria-label="{{ 'board.card.link.open_pull_request'|trans }}"><twig:ux:icon name="lucide:arrow-up-right" class="w-4 h-4" /></a>{% endif %}</td>
+    <td>{% if href %}<a class="lp-btn lp-btn--ghost lp-btn--open" href="{{ href }}" rel="noopener noreferrer" target="_blank" aria-label="{{ 'board.card.link.open_pull_request'|trans }}"><twig:ux:icon name="lucide:arrow-up-right" class="w-4 h-4" /><span class="lp-btn__label">{{ 'inbox.linked_items.open'|trans }}</span></a>{% endif %}</td>
 </tr>

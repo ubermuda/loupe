@@ -1030,7 +1030,8 @@
         @apply text-xs font-bold text-fg-mute;
     }
     .lp-input {
-        @apply w-full min-h-9 font-sans text-sm leading-5 text-ink bg-surface-1 border border-line rounded-lg px-3.25 py-1.75 outline-hidden transition-colors placeholder:text-fg-dim focus:border-accent-ink focus:ring-2 focus:ring-accent-ink;
+        @apply w-full min-h-9 font-sans text-sm leading-5 text-ink bg-surface-1 border border-line px-3.25 py-1.75 outline-hidden transition-colors placeholder:text-fg-dim focus:border-accent-ink focus:ring-2 focus:ring-accent-ink;
+        border-radius: 7px;
     }
     .admin-field-input {
         @apply w-full font-sans text-base text-ink bg-surface-3 border-0 rounded-xl px-4 py-3 outline-hidden transition-colors placeholder:text-fg-dim focus:bg-tint-strong focus:ring-2 focus:ring-accent-ink;
@@ -1100,7 +1101,7 @@
         @apply flex items-start gap-2.5;
     }
     .status-check-badge {
-        @apply inline-flex items-center gap-1 shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium;
+        @apply inline-flex items-center gap-1 shrink-0 rounded-md border px-2 py-0.5 text-xs font-medium;
     }
     .status-check-badge-ok {
         @apply bg-status-ok-bg text-status-ok-deep border-status-ok-border;
@@ -1143,7 +1144,7 @@
     /* ── Tag chip ───────────────────────────────────────────────────── */
 
     .lp-tag {
-        @apply inline-flex items-center py-1 px-2.5 rounded-full text-xs font-semibold bg-surface-3 text-fg-mute;
+        @apply inline-flex items-center py-1 px-2.5 rounded-md text-xs font-semibold bg-surface-3 text-fg-mute;
     }
 
     /* A series chip carries a position, so it reads in the accent ink to
@@ -1691,6 +1692,17 @@
     .lp-btn--icon:hover {
         @apply bg-tint-strong text-ink;
     }
+    /* Open control on a linked-work row: labelled where the table has room,
+       and a named icon button below `sm`, where the word costs a column. */
+    .lp-btn--open {
+        @apply w-9 p-0 sm:w-auto sm:px-3.5 border-transparent bg-transparent text-fg-mute;
+    }
+    .lp-btn--open:hover {
+        @apply bg-tint-strong text-ink;
+    }
+    .lp-btn__label {
+        @apply hidden sm:inline;
+    }
 
     /* ── Pagination (shared `<twig:Pagination>` component) ─────────────── */
 
@@ -1729,7 +1741,7 @@
     }
     /** Wide dialog for editing document Markdown. */
     .lp-dialog--document {
-        @apply max-w-4xl;
+        @apply max-w-3xl;
     }
     /** Read-only details for a reported worker attempt. */
     .lp-dialog.lp-run-drawer {
@@ -2966,7 +2978,8 @@
         animation: lp-appear 120ms ease-out both;
     }
     .lp-anchor-toolbar__btn {
-        @apply inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-transparent text-white text-sm font-semibold cursor-pointer border-0 transition-colors;
+        @apply inline-flex items-center gap-1.5 h-8.5 px-3 bg-transparent text-white text-sm font-semibold cursor-pointer border-0 transition-colors;
+        border-radius: 7px;
     }
     .lp-anchor-toolbar__btn:hover {
         @apply bg-chrome-control;

@@ -82,14 +82,14 @@
 
                             <div class="flex flex-col">
                                 <div class="admin-switch-row">
-                                    {{ form_widget(form.isAdmin, {'attr': {'class': 'admin-switch'}}) }}
+                                    {{ form_widget(form.isAdmin, {'attr': {'class': 'admin-switch', 'role': 'switch'}}) }}
                                     <div>
                                         {{ form_label(form.isAdmin, null, {'label_attr': {'class': 'admin-switch-label'}}) }}
                                         <p class="admin-switch-help">{{ 'account.admin.users.detail.access.admin.help'|trans }}</p>
                                     </div>
                                 </div>
                                 <div class="admin-switch-row">
-                                    {{ form_widget(form.isVerified, {'attr': {'class': 'admin-switch'}}) }}
+                                    {{ form_widget(form.isVerified, {'attr': {'class': 'admin-switch', 'role': 'switch'}}) }}
                                     <div>
                                         {{ form_label(form.isVerified, null, {'label_attr': {'class': 'admin-switch-label'}}) }}
                                         <p class="admin-switch-help">{{ 'account.admin.users.detail.access.verified.help'|trans }}</p>
