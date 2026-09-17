@@ -2616,13 +2616,20 @@
         @apply mt-0 min-w-0 flex-1;
     }
     .lp-review-margin-tabs {
-        @apply flex shrink-0 items-center justify-start gap-1 lg:justify-end;
+        @apply flex min-w-0 max-w-full shrink-0 scroll-mb-24 items-center justify-start gap-1 lg:scroll-mb-0 lg:justify-end;
     }
     .lp-review-margin-tablist {
-        @apply flex items-center gap-1;
+        @apply flex min-w-0 items-center gap-1 overflow-x-auto scroll-px-4 whitespace-nowrap;
+        scrollbar-width: none;
+    }
+    .lp-review-margin-tablist::-webkit-scrollbar {
+        display: none;
+    }
+    .lp-review-margin-tablist .lp-review-margin-tabs__item:focus-visible {
+        @apply -outline-offset-2;
     }
     .lp-review-margin-tabs__item {
-        @apply inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-transparent bg-transparent px-2.5 py-1.5 text-sm font-semibold text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
+        @apply inline-flex min-h-9 max-w-full shrink-0 items-center gap-1.5 rounded-lg border border-transparent bg-transparent px-2.5 py-1.5 text-sm font-semibold text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
     }
     .lp-review-margin-tabs__item svg {
         @apply size-4 shrink-0;

@@ -206,6 +206,57 @@ test('margin filter stays outside the tablist and within narrow viewports', asyn
     expect(enlargedBounds.x + enlargedBounds.width).toBeLessThanOrEqual(390);
 });
 
+test('enlarged margin tabs scroll within the document controls', async ({
+    page,
+}) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await page.addStyleTag({ content: 'html { font-size: 200%; }' });
+    const tablist = page.getByRole('tablist');
+    const bounds = (await tablist.boundingBox())!;
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
+    const controls = page.locator('.lp-review-margin-tabs');
+    const controlsLeft = (await controls.boundingBox())!.x;
+    const expectSelectedVisible = async () => {
+        const selected = tablist.locator('[aria-selected="true"]');
+        await expect(selected).toBeFocused();
+        const selectedBounds = (await selected.boundingBox())!;
+        expect(selectedBounds.y).toBeGreaterThanOrEqual(0);
+        const visibleBounds = (await tablist.boundingBox())!;
+        expect((await controls.boundingBox())!.x).toBe(controlsLeft);
+        expect(selectedBounds.x).toBeGreaterThanOrEqual(visibleBounds.x);
+        expect(selectedBounds.x + selectedBounds.width).toBeLessThanOrEqual(
+            visibleBounds.x + visibleBounds.width,
+        );
+        const labelBounds = (await selected.locator('span').boundingBox())!;
+        expect(labelBounds.x).toBeGreaterThanOrEqual(selectedBounds.x);
+        expect(labelBounds.x + labelBounds.width).toBeLessThanOrEqual(
+            selectedBounds.x + selectedBounds.width,
+        );
+        const launcherBounds = (await page
+            .locator('.lp-review-menu__trigger')
+            .boundingBox())!;
+        expect(selectedBounds.y + selectedBounds.height).toBeLessThanOrEqual(
+            launcherBounds.y,
+        );
+    };
+    await page.getByRole('tab', { name: 'Comments', exact: true }).focus();
+    for (const key of [
+        'End',
+        'Home',
+        'ArrowRight',
+        'ArrowRight',
+        'ArrowRight',
+    ]) {
+        await page.keyboard.press(key);
+        await expectSelectedVisible();
+    }
+    for (const name of ['Comments', 'Details', 'Comments']) {
+        await page.getByRole('tab', { name, exact: true }).click();
+        await expectSelectedVisible();
+    }
+});
+
 test('general comments expose their initial and toggled disclosure state', async ({
     page,
 }) => {

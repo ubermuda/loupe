@@ -26,6 +26,7 @@ export default class extends Controller {
 
     select(event) {
         this.selectTab(event.params.name);
+        this.revealTab(event.currentTarget);
     }
 
     navigate(event) {
@@ -54,7 +55,26 @@ export default class extends Controller {
         event.preventDefault();
         const tab = this.tabTargets[nextIndex];
         this.selectTab(tab.dataset.reviewMarginNameParam);
-        tab.focus();
+        tab.focus({ preventScroll: true });
+        this.revealTab(tab);
+    }
+
+    revealTab(tab) {
+        const tablist = tab.closest('[role="tablist"]');
+        tablist.parentElement.scrollIntoView({
+            block: 'nearest',
+            inline: 'nearest',
+            behavior: 'instant',
+        });
+        const tabBounds = tab.getBoundingClientRect();
+        const listBounds = tablist.getBoundingClientRect();
+        tablist.scrollBy({
+            left:
+                tabBounds.left -
+                listBounds.left +
+                (tabBounds.width - listBounds.width) / 2,
+            behavior: 'instant',
+        });
     }
 
     selectTab(name) {

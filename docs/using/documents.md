@@ -80,6 +80,7 @@ The History tab opens the full version list.
 Use Left and Right Arrow to select the adjacent tab.
 Use Home or End to select the first or last tab.
 Tab moves focus out of the tab list.
+On narrow screens, the margin tabs scroll horizontally. Selecting a tab brings its label into view.
 Switching tabs preserves an unfinished reply.
 
 The filter beside Comments shows counts for Open, Resolved, Unanchored and All.
