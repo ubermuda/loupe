@@ -92,6 +92,46 @@ final class SiteReviewApiTest extends WebTestCase
         self::assertStringNotContainsString('"replies"', $body);
     }
 
+    public function test_delivery_retries_keep_one_comment_and_refuse_changed_content(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw, $project] = $this->projectWithToken($em, 'api-delivery@example.com');
+        $payload = ['body' => 'Original delivery', 'url' => 'https://example.com', 'deliveryId' => (string) Uuid::v4()];
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, $payload);
+        self::assertResponseStatusCodeSame(201);
+        $first = (string) $client->getResponse()->getContent();
+        $commentId = json_decode($first, true, flags: \JSON_THROW_ON_ERROR)['commentId'];
+        $this->api($client, Request::METHOD_PATCH, '/api/site-review/comments/'.$commentId, $raw, ['body' => 'Edited after saving']);
+        self::assertResponseIsSuccessful();
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, $payload);
+        self::assertResponseStatusCodeSame(201);
+        self::assertSame($first, (string) $client->getResponse()->getContent());
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, array_replace($payload, ['body' => 'Conflicting retry']));
+        self::assertResponseStatusCodeSame(409);
+        self::assertJsonStringEqualsJsonString('{"error":"delivery_conflict"}', (string) $client->getResponse()->getContent());
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertTrue($em->isOpen());
+        $em->clear();
+        $stored = $em->find(SiteReviewComment::class, $commentId);
+        self::assertInstanceOf(SiteReviewComment::class, $stored);
+        self::assertSame('Edited after saving', $stored->body);
+        self::assertSame(1, static::getContainer()->get(SiteReviewCommentRepository::class)->count(['project' => $project->id]));
+    }
+
+    public function test_invalid_delivery_identity_is_rejected_before_writing(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$raw, $project] = $this->projectWithToken($em, 'api-invalid-delivery@example.com');
+        $payload = ['body' => 'A valid comment', 'url' => 'https://example.com'];
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, $payload);
+        self::assertResponseStatusCodeSame(201);
+        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw, $payload + ['deliveryId' => 'not-a-uuid']);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(1, static::getContainer()->get(SiteReviewCommentRepository::class)->count(['project' => $project->id]));
+    }
+
     public function test_the_embed_context_reaches_the_comment_and_a_blank_one_stores_null(): void
     {
         $client = static::createClient();

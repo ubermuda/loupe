@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\SiteReview\Command;
 
+use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\SiteReview\Command\AddCommentCommand;
@@ -17,8 +18,10 @@ use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\EventDispatcher\EventDispatcher;
+use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\AuditActorProviderInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -26,6 +29,7 @@ use Ubermuda\AuditBundle\AuditOutcome;
 final class AddCommentHandlerTest extends KernelTestCase
 {
     private EntityManagerInterface $em;
+    private SiteReviewCommentRepository $siteReviewCommentRepository;
     private AddCommentHandler $handler;
     private RecordingAuditor $audit;
     private EventDispatcher $events;
@@ -40,6 +44,7 @@ final class AddCommentHandlerTest extends KernelTestCase
         $this->em = $em;
         $comments = self::getContainer()->get(SiteReviewCommentRepository::class);
         self::assertInstanceOf(SiteReviewCommentRepository::class, $comments);
+        $this->siteReviewCommentRepository = $comments;
         $actors = self::getContainer()->get(AuditActorProviderInterface::class);
         self::assertInstanceOf(AuditActorProviderInterface::class, $actors);
         $this->audit = new RecordingAuditor($actors);
@@ -60,6 +65,85 @@ final class AddCommentHandlerTest extends KernelTestCase
         self::assertNotNull($comment->id);
         self::assertSame(SiteReviewCommentStatus::Pending, $comment->status);
         self::assertSame(0, $comment->position);
+    }
+
+    public function test_repeated_delivery_emits_one_event_and_one_audit_record(): void
+    {
+        $project = $this->project('delivery-event@example.com');
+        $command = new AddCommentCommand($project, 'hello', 'https://app/x', deliveryId: (string) Uuid::v4());
+        $first = ($this->handler)($command);
+        $first->status = SiteReviewCommentStatus::Addressed;
+        $this->em->flush();
+        $repeated = ($this->handler)($command);
+
+        self::assertSame($first->id, $repeated->id);
+        self::assertSame(SiteReviewCommentStatus::Addressed, $repeated->status);
+        self::assertCount(1, $this->dispatched);
+        self::assertSame(['site_review.comment_added'], $this->audit->domainLogLines());
+        self::assertSame(1, $this->siteReviewCommentRepository->count(['project' => $project]));
+    }
+
+    public function test_delivery_identity_is_scoped_to_its_project(): void
+    {
+        $firstProject = $this->project('delivery-a@example.com');
+        $secondProject = $this->project('delivery-b@example.com');
+        $deliveryId = (string) Uuid::v4();
+        $first = ($this->handler)(new AddCommentCommand($firstProject, 'hello', 'https://app/x', deliveryId: $deliveryId));
+        $second = ($this->handler)(new AddCommentCommand($secondProject, 'hello', 'https://app/x', deliveryId: $deliveryId));
+
+        self::assertNotNull($first->id);
+        self::assertFalse($first->id->equals($second->id));
+        self::assertSame($firstProject, $first->project);
+        self::assertSame($secondProject, $second->project);
+        self::assertCount(2, $this->dispatched);
+    }
+
+    public function test_legacy_deliveries_without_identity_remain_independent(): void
+    {
+        $project = $this->project('delivery-legacy@example.com');
+        $command = new AddCommentCommand($project, 'hello', 'https://app/x');
+        $first = ($this->handler)($command);
+        $second = ($this->handler)($command);
+
+        self::assertNotNull($first->id);
+        self::assertFalse($first->id->equals($second->id));
+        self::assertNull($first->deliveryId);
+        self::assertNull($second->deliveryId);
+        self::assertCount(2, $this->dispatched);
+    }
+
+    #[TestWith(['body'])]
+    #[TestWith(['url'])]
+    #[TestWith(['anchors'])]
+    #[TestWith(['strokes'])]
+    #[TestWith(['context'])]
+    public function test_reusing_delivery_identity_with_changed_content_is_rejected(string $field): void
+    {
+        $project = $this->project('delivery-conflict@example.com');
+        $deliveryId = (string) Uuid::v4();
+        $original = new AddCommentCommand($project, 'hello', 'https://app/x', deliveryId: $deliveryId);
+        $first = ($this->handler)($original);
+        $changed = new AddCommentCommand(
+            $project,
+            'body' === $field ? 'changed' : 'hello',
+            'url' === $field ? 'https://app/y' : 'https://app/x',
+            anchors: 'anchors' === $field ? [new NewAnchor('.a', 'A')] : [],
+            strokes: 'strokes' === $field ? [new NewStroke('page', [[0.25, 0.5], [0.75, 0.5]])] : [],
+            context: 'context' === $field ? 'card:changed' : null,
+            deliveryId: $deliveryId,
+        );
+        try {
+            ($this->handler)($changed);
+            self::fail('A changed delivery must not reuse the original identity.');
+        } catch (DomainErrors $error) {
+            self::assertSame(['deliveryId' => 'delivery_conflict'], $error->errors);
+        }
+
+        self::assertTrue($this->em->isOpen());
+        self::assertSame($first->id, ($this->handler)($original)->id);
+        self::assertCount(1, $this->dispatched);
+        self::assertSame(['site_review.comment_added'], $this->audit->domainLogLines());
+        self::assertSame(1, $this->siteReviewCommentRepository->count(['project' => $project]));
     }
 
     public function test_the_context_is_stored_as_given_and_defaults_to_null(): void

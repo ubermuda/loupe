@@ -53,6 +53,9 @@ final class AddCommentRequest
          */
         #[Assert\Length(max: 255)]
         public ?string $context = null,
+
+        #[Assert\Uuid]
+        public ?string $deliveryId = null,
     ) {
     }
 

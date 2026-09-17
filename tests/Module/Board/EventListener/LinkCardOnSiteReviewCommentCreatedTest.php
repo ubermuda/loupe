@@ -14,6 +14,7 @@ use App\Module\SiteReview\Command\AddCommentHandler;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Service\ResetInterface;
 use Ubermuda\FeatureFlagsBundle\Reader\FeatureFlagReaderInterface;
 use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
@@ -63,6 +64,26 @@ final class LinkCardOnSiteReviewCommentCreatedTest extends KernelTestCase
         $found = $this->links->findForCard($card);
         self::assertCount(1, $found);
         self::assertSame((string) $comment->id, (string) $found[0]->comment->id);
+    }
+
+    public function test_retrying_a_delivery_keeps_one_comment_and_card_link(): void
+    {
+        [$project, $card] = $this->projectWithCard('link-retry');
+        $command = new AddCommentCommand(
+            $project, 'One capture', 'https://preview/x',
+            context: 'card:'.$card->id,
+            deliveryId: (string) Uuid::v4(),
+        );
+        $first = ($this->addComment)($command);
+        $second = ($this->addComment)($command);
+        self::assertSame($first->id, $second->id);
+        $this->em->clear();
+        $reloaded = $this->em->find(Card::class, $card->id);
+        self::assertNotNull($reloaded);
+        $found = $this->links->findForCard($reloaded);
+        self::assertCount(1, $found);
+        self::assertNotNull($first->id);
+        self::assertTrue($first->id->equals($found[0]->comment->id));
     }
 
     /**

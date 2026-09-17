@@ -32,6 +32,23 @@ project, not only the ones its holder wrote. Keeping the widget off public pages
 bounds who that is. Use a dedicated site-review-scoped token, never an MCP token
 or a production credential.
 
+## Retrying a save
+
+A failed save keeps the draft open. Press **Save** again to retry it.
+The widget retains the submission ID until you save successfully or cancel the draft.
+If the server saves the comment but its response is lost, an unchanged retry returns the same comment.
+It does not repeat card attachment or create another comment.
+
+If you change the content after the server accepts it, the retry reports a conflict and keeps your draft.
+Copy the draft before you reload, then review the saved comment.
+Reloading or cancelling starts a new submission; it does not undo a comment that already reached the server.
+
+The comment API accepts an optional UUID in `deliveryId`.
+Clients must reuse it with unchanged content when retrying a POST to `/api/site-review/comments`.
+Its scope is one project, and its lifetime is the stored comment's lifetime.
+Reusing it with different content returns HTTP 409 with `delivery_conflict`.
+Older clients without this field remain supported, but their repeated requests create separate comments.
+
 ## Resolving a comment
 
 Press the tick on a comment, either in the widget's list or on the card that
