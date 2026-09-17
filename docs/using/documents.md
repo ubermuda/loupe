@@ -54,6 +54,9 @@ Comments, suggestions and strikes apply to the version shown on the page.
 If a newer version arrives, Loupe rejects the submission and keeps the draft open.
 Copy the draft before reloading, then select the passage in the current version.
 
+Select Dismiss selection in the selection toolbar to clear the selection without posting an annotation.
+Focus returns to the document. Select a passage again to annotate it.
+
 Threads carry a status: pending, addressed, or resolved.
 Select **Finish review** beside the document title to approve the version or request changes.
 A request for changes requires a review note. An approval can include a note.

@@ -373,6 +373,79 @@ async function expectThreadVisible(page: Page, index = 0): Promise<void> {
     ).toBeVisible({ timeout: coverageScaled(10000) });
 }
 
+for (const width of [1440, 390]) {
+    test(`Dismiss clears the selection and disarms Strike at ${width}px`, async ({
+        page,
+        review,
+    }, testInfo) => {
+        await page.setViewportSize({ width, height: 1000 });
+        const posts: string[] = [];
+        page.on('request', (request) => {
+            if (
+                request.method() === 'POST' &&
+                request.url().endsWith('/strikes')
+            ) {
+                posts.push(request.url());
+            }
+        });
+        await selectKnownPhrase(page, KNOWN_PHRASE);
+        const toolbar = page.locator(TOOLBAR);
+        const dismiss = toolbar.getByRole('button', {
+            name: 'Dismiss selection',
+            exact: true,
+        });
+        const comment = toolbar.getByRole('button', {
+            name: 'Comment',
+            exact: true,
+        });
+        await expect(dismiss).toBeVisible();
+        await expect(dismiss).toBeInViewport({ ratio: 1 });
+        expect((await dismiss.boundingBox())!.height).toBe(
+            (await comment.boundingBox())!.height,
+        );
+        await dismiss.hover();
+        const hoverColor = await dismiss.evaluate(async (element) => {
+            await Promise.all(
+                element.getAnimations().map((animation) => animation.finished),
+            );
+            return getComputedStyle(element).backgroundColor;
+        });
+        await comment.hover();
+        await expect(comment).toHaveCSS('background-color', hoverColor);
+        await page.screenshot({
+            path: testInfo.outputPath(`selection-toolbar-${width}.png`),
+        });
+        await dismiss.focus();
+        await dismiss.press('Enter');
+        await expect(toolbar).toBeHidden();
+        await expect(page.locator(DOC)).toBeFocused();
+        expect(
+            await page.evaluate(() => window.getSelection()?.toString()),
+        ).toBe('');
+        await page.keyboard.press('s');
+
+        await selectKnownPhrase(page, KNOWN_PHRASE);
+        await toolbar.getByRole('button', { name: /^Strike/ }).click();
+        await expect(page.locator('.lp-comment-status--strike')).toBeVisible();
+        await expect(page.locator(COMPOSER)).toBeHidden();
+        await expect(
+            page.locator('[data-comment-anchor-target="suggestComposer"]'),
+        ).toBeHidden();
+        expect(posts).toHaveLength(1);
+        const response = await page.request.get(
+            `/dev/review/${review.documentId}/state`,
+        );
+        expect(response.status()).toBe(200);
+        const state = await response.json();
+        expect(state.comments).toHaveLength(1);
+        expect(state.comments[0]).toMatchObject({
+            quote: KNOWN_PHRASE,
+            replacement: '',
+            body: '',
+        });
+    });
+}
+
 test('posting a comment disables the submitter and renders the thread in the sidebar', async ({
     page,
 }) => {

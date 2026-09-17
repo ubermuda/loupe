@@ -429,6 +429,14 @@ export default class extends Controller {
         this.#hideToolbar();
     }
 
+    dismissSelection(event) {
+        event?.preventDefault();
+        this.#clearPendingSelection();
+        this.#clearActiveHighlight();
+        window.getSelection()?.removeAllRanges();
+        this.docTarget.focus({ preventScroll: true });
+    }
+
     /** Toolbar action: open the comment composer for the captured selection. */
     startComment(event) {
         event?.preventDefault();

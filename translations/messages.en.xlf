@@ -1897,6 +1897,10 @@
                 <source>review.document.suggestion.add</source>
                 <target>Suggest</target>
             </trans-unit>
+            <trans-unit id="review.document.selection.dismiss">
+                <source>review.document.selection.dismiss</source>
+                <target>Dismiss selection</target>
+            </trans-unit>
             <trans-unit id="review.document.suggestion.submit">
                 <source>review.document.suggestion.submit</source>
                 <target>Suggest</target>

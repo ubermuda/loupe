@@ -205,6 +205,38 @@ async function reviewState(
     return (await response.json()) as ReviewState;
 }
 
+for (const view of ['rendered', 'side-by-side']) {
+    test(`Dismiss selection returns focus to the ${view} diff`, async ({
+        page,
+    }) => {
+        const { projectId, documentId } = await seedDocument(
+            page,
+            `dismiss-${view}`,
+            [VERSION_TWO],
+        );
+        await page.goto(
+            `/projects/${projectId}/documents/${documentId}/review/diff/1/2?view=${view}`,
+        );
+        await selectPhrase(
+            page,
+            INSERTED,
+            undefined,
+            view === 'side-by-side' ? 'new' : undefined,
+        );
+        const dismiss = page.getByRole('button', { name: 'Dismiss selection' });
+        await dismiss.focus();
+        await page.keyboard.press('Enter');
+        await expect(page.locator(TOOLBAR)).toBeHidden();
+        await expect(page.locator(DOC)).toBeFocused();
+        expect(
+            await page.evaluate(() => window.getSelection()?.toString()),
+        ).toBe('');
+        expect(
+            (await reviewState(page, documentId)).storedAnchors,
+        ).toHaveLength(0);
+    });
+}
+
 for (const view of ['document', 'rendered', 'side-by-side']) {
     test(`a stale ${view} keeps the comment draft and rejects the write`, async ({
         page,

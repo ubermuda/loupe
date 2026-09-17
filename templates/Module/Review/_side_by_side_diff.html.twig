@@ -3,7 +3,7 @@
    its height. A void cell is a block that version does not hold, and its note is
    screen-reader text, since the dashed box says the same to the eye.
    Params: rows (list<SideBySideRow>), fromVersion, toVersion, commenting. #}
-<div class="lp-diff-columns"{% if commenting %} data-comment-anchor-target="doc"{% endif %}>
+<div class="lp-diff-columns"{% if commenting %} data-comment-anchor-target="doc" tabindex="-1"{% endif %}>
     <p class="lp-diff-columns__title">{{ 'review.document.diff.side_by_side.column'|trans({'%version%': fromVersion}) }}</p>
     <p class="lp-diff-columns__title">{{ 'review.document.diff.side_by_side.column'|trans({'%version%': toVersion}) }}</p>
 
