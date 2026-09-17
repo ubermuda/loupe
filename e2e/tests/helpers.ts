@@ -6,6 +6,40 @@ import {
 } from '@playwright/test';
 import { coverageScaled } from './timeouts';
 
+export async function expectFilterFocusRingVisible(
+    field: Locator,
+    group: Locator,
+): Promise<void> {
+    await expect(field).toBeFocused();
+    await expect(field).toHaveCSS('box-shadow', /0px 0px 0px 2px/);
+    expect(
+        await group.evaluate((element) => {
+            const style = getComputedStyle(element);
+            return {
+                scrollbarWidth: style.scrollbarWidth,
+                borders: ['top', 'right', 'bottom', 'left'].map((side) =>
+                    style.getPropertyValue(`border-${side}-width`),
+                ),
+            };
+        }),
+    ).toEqual({
+        scrollbarWidth: 'none',
+        borders: ['0px', '0px', '0px', '0px'],
+    });
+    const outer = await group.boundingBox();
+    const inner = await field.boundingBox();
+    expect(outer).not.toBeNull();
+    expect(inner).not.toBeNull();
+    expect(
+        Math.min(
+            inner!.x - outer!.x,
+            outer!.x + outer!.width - inner!.x - inner!.width,
+            inner!.y - outer!.y,
+            outer!.y + outer!.height - inner!.y - inner!.height,
+        ),
+    ).toBeGreaterThanOrEqual(2);
+}
+
 const mailpitUrl =
     process.env['MAILPIT_URL'] ?? 'https://mailpit.loupe.dev.localhost';
 

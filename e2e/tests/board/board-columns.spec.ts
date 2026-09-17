@@ -12,6 +12,7 @@ import {
     type Page,
 } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
+import { expectFilterFocusRingVisible } from '../helpers';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eBoardColumns1!';
@@ -147,26 +148,6 @@ test('board filters retain an outline in forced colors', async ({ page }) => {
     }
 });
 
-async function expectFilterRingClearance(page: Page): Promise<void> {
-    await expect(page.locator('.lp-board-toolbar__filters :focus')).toHaveCSS(
-        'box-shadow',
-        /0px 0px 0px 2px/,
-    );
-    const clearance = await page.evaluate(() => {
-        const field = document.activeElement!;
-        const group = field.closest('.lp-board-toolbar__filters')!;
-        const outer = group.getBoundingClientRect();
-        const inner = field.getBoundingClientRect();
-        return Math.min(
-            inner.left - outer.left,
-            outer.right - inner.right,
-            inner.top - outer.top,
-            outer.bottom - inner.bottom,
-        );
-    });
-    expect(clearance).toBeGreaterThanOrEqual(2);
-}
-
 test('board controls remain usable at enlarged text sizes without page overflow', async ({
     page,
 }, testInfo) => {
@@ -224,15 +205,16 @@ test('board controls remain usable at enlarged text sizes without page overflow'
             expect(queryBounds!.y).toBe(priorityBounds!.y);
             await query.focus();
             await expect(query).toBeInViewport({ ratio: 1 });
-            await expectFilterRingClearance(page);
+            const filters = page.locator('.lp-board-toolbar__filters');
+            await expectFilterFocusRingVisible(query, filters);
             await query.press('Tab');
             await expect(priority).toBeFocused();
             await expect(priority).toBeInViewport({ ratio: 1 });
-            await expectFilterRingClearance(page);
+            await expectFilterFocusRingVisible(priority, filters);
             await priority.press('Shift+Tab');
             await expect(query).toBeFocused();
             await expect(query).toBeInViewport({ ratio: 1 });
-            await expectFilterRingClearance(page);
+            await expectFilterFocusRingVisible(query, filters);
         }
     }
     const query = page.getByRole('searchbox', {
