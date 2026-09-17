@@ -6008,10 +6008,10 @@
         @apply w-4 h-4;
     }
     .lp-workshop-crew__row {
-        @apply flex items-center gap-2.5 pt-4 mt-1 border-t border-line-faint no-underline;
+        @apply flex flex-wrap items-center gap-2.5 pt-4 mt-1 border-t border-line-faint no-underline;
     }
     .lp-workshop-crew__row > span:nth-child(2) {
-        @apply flex flex-col min-w-0;
+        @apply flex flex-1 flex-col min-w-0 wrap-anywhere;
     }
     .lp-workshop-crew__row strong {
         @apply text-sm font-semibold text-ink;

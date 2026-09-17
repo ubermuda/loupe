@@ -8,6 +8,7 @@ use App\Module\Project\Stats\ProjectStats;
 use App\Module\Project\Stats\ProjectStatsProviderInterface;
 use App\Module\Project\Workshop\WorkshopAttentionProviderInterface;
 use App\Module\Project\Workshop\WorkshopCardsProviderInterface;
+use App\Module\Project\Workshop\WorkshopConnectionsProviderInterface;
 use App\Outbox\Command\ListActivityCommand;
 use App\Outbox\Command\ListActivityHandler;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
@@ -21,6 +22,7 @@ final readonly class ShowWorkshopHandler
         private WorkshopAttentionProviderInterface $attention,
         private WorkshopCardsProviderInterface $cards,
         private ListActivityHandler $activity,
+        private WorkshopConnectionsProviderInterface $connections,
     ) {
     }
 
@@ -42,6 +44,7 @@ final readonly class ShowWorkshopHandler
             $this->attention->forProject($command->project),
             $this->cards->forProject($command->project),
             ($this->activity)(new ListActivityCommand($command->project, 4))->entries,
+            $this->connections->forProject($command->project),
         );
     }
 }

@@ -82,11 +82,19 @@
                     <h2 class="lp-workshop-section__title">{{ 'bridge.agents.heading'|trans }}</h2>
                     <a class="lp-workshop-icon-link" href="{{ path('app_project_agents', {id: workshop.project.id}) }}" aria-label="{{ 'nav.link.agents'|trans }}"><twig:ux:icon name="lucide:chevron-right" /></a>
                 </div>
-                <a class="lp-workshop-crew__row" href="{{ path('app_project_agents', {id: workshop.project.id}) }}">
+                {% for connection in workshop.connections %}
+                <a class="lp-workshop-crew__row" href="{{ connection.url }}" data-workshop-connection="{{ connection.id }}">
+                    <span class="lp-workshop-crew__avatar"><twig:ux:icon name="lucide:bot" /></span>
+                    <span><strong>{{ connection.id|slice(-12) }}</strong><small>{{ connection.cliVersion }}</small></span>
+                    <span class="lp-workshop-crew__status">{{ (connection.quiet ? 'bridge.agents.status.stale' : 'bridge.agents.status.healthy')|trans }}</span>
+                </a>
+                {% else %}
+                <a class="lp-workshop-crew__row" href="{{ path('app_project_connect', {id: workshop.project.id}) }}" data-workshop-crew-empty>
                     <span class="lp-workshop-crew__avatar"><twig:ux:icon name="lucide:bot" /></span>
                     <span><strong>{{ 'project.workshop.connection.title'|trans }}</strong><small>{{ 'project.workshop.connection.eyebrow'|trans }}</small></span>
                     <span class="lp-workshop-crew__status">{{ 'project.workshop.connection.action'|trans }}</span>
                 </a>
+                {% endfor %}
             </section>
 
             <section class="lp-workshop-note">

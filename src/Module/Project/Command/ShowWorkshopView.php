@@ -8,6 +8,7 @@ use App\Module\Project\Entity\Project;
 use App\Module\Project\Stats\ProjectStats;
 use App\Module\Project\Workshop\WorkshopAttentionItem;
 use App\Module\Project\Workshop\WorkshopCard;
+use App\Module\Project\Workshop\WorkshopConnection;
 use App\Outbox\ActivityEntry;
 
 final readonly class ShowWorkshopView
@@ -23,6 +24,8 @@ final readonly class ShowWorkshopView
         public array $attention,
         public array $cards,
         public array $activity,
+        /** @var list<WorkshopConnection> */
+        public array $connections,
     ) {
     }
 }

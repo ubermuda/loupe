@@ -23,5 +23,7 @@ The first-project setup form also accepts a description.
 Account data exports include descriptions in `projects.json`.
 
 Open Agents to see the project's reported bridge connections, CLI versions, and latest heartbeats.
+Workshop's Your crew section shows these connections and their health. Select a row to open its connection details in Agents.
+When the project has no reported connections, Your crew links to connection setup.
 Each connection shows its own health. This does not report whether an individual agent is available or running.
 Agent configuration and rules remain read-only in Loupe. Configure them through the CLI and its rule file.
