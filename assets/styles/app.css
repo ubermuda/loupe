@@ -184,9 +184,6 @@
     --shadow-composer: 0 10px 34px rgba(15, 15, 13, 0.22);
     --shadow-card: 0 8px 26px rgba(15, 15, 13, 0.18);
     --shadow-focus: 0 0 0 3px var(--accent-faint);
-
-    /* Animations */
-    --animate-spin-fast: spin 0.7s linear infinite;
 }
 
 /* ── Design tokens ──────────────────────────────────────────────────── */
@@ -5872,6 +5869,12 @@
         to {
             opacity: 1;
         }
+    }
+
+    /* A spinner is the only sign that work is in flight, so it slows down
+       rather than stopping. */
+    .lp-card-drawer-overlay__loading svg {
+        animation-duration: 3s;
     }
 }
 
