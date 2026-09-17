@@ -16,6 +16,11 @@
             <div class="lp-field-errors">{{ form_errors(form.name) }}</div>
         </div>
         <div class="lp-form-field">
+            {{ form_label(form.description, null, {'label_attr': {'class': 'lp-label'}}) }}
+            {{ form_widget(form.description, {'attr': {'class': 'lp-input'}}) }}
+            <div class="lp-field-errors">{{ form_errors(form.description) }}</div>
+        </div>
+        <div class="lp-form-field">
             {{ form_label(form.domain, null, {'label_attr': {'class': 'lp-label'}}) }}
             {{ form_widget(form.domain, {'attr': {'class': 'lp-input'}}) }}
             <div class="lp-field-errors">{{ form_errors(form.domain) }}</div>

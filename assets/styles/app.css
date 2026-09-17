@@ -1245,6 +1245,10 @@
     .lp-project-row__name {
         @apply font-display font-semibold text-ink shrink-0 text-2xl tracking-tight;
     }
+    /** Optional project purpose shown on project tiles. */
+    .lp-project-row__description {
+        @apply m-0 whitespace-pre-line break-words text-sm leading-relaxed text-fg-mute;
+    }
     .lp-project-row__domain {
         @apply font-mono text-fg-dim truncate text-xs;
     }

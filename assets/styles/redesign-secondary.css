@@ -174,7 +174,7 @@
         @apply flex-col items-start gap-1;
     }
     .lp-project-tile-grid .lp-project-row__name {
-        @apply whitespace-normal text-xl;
+        @apply max-w-full break-words whitespace-normal text-xl;
     }
     .lp-project-tile-grid .lp-project-row__meta {
         @apply mt-5 flex-wrap border-t border-line pt-4 text-xs;

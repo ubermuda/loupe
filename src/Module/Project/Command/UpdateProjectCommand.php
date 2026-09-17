@@ -18,6 +18,7 @@ final readonly class UpdateProjectCommand
         public SearchLanguage $searchLanguage,
         /** @phpstan-var ProjectEventType::ACTOR_* */
         public string $actor,
+        public ?string $description = null,
     ) {
     }
 }

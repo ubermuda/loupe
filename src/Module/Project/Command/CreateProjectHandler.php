@@ -41,6 +41,8 @@ final readonly class CreateProjectHandler
         }
 
         $project = new Project($command->owner, $command->name, $command->domain);
+        $description = trim($command->description ?? '');
+        $project->description = '' === $description ? null : $description;
         $project->searchLanguage = $command->searchLanguage;
 
         try {

@@ -76,6 +76,7 @@ export default defineConfig({
           label: 'Using Loupe',
           collapsed: true,
           items: [
+            { slug: 'using/projects' },
             { slug: 'using/documents' },
             { slug: 'using/mcp' },
             { slug: 'using/site-review' },

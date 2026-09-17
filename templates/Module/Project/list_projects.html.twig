@@ -35,6 +35,7 @@
                     <span class="lp-project-row__name">{{ project.name }}</span>
                     {% if project.domain %}<span class="lp-project-row__domain">{{ project.domain }}</span>{% endif %}
                 </div>
+                {% if project.description is not null %}<p class="lp-project-row__description">{{ project.description }}</p>{% endif %}
                 <div class="lp-project-row__meta">
                     <span>{{ 'project.list.meta.documents'|trans({'%count%': item.documentCount}) }}</span>
                     <span class="lp-project-row__sep">·</span>
@@ -75,6 +76,11 @@
                         {{ form_label(form.name, null, {'label_attr': {'class': 'lp-label'}}) }}
                         {{ form_widget(form.name, {'attr': {'class': 'lp-input', 'data-disclosure-target': 'autofocus'}}) }}
                         <div class="lp-field-errors">{{ form_errors(form.name) }}</div>
+                    </div>
+                    <div class="lp-form-field">
+                        {{ form_label(form.description, null, {'label_attr': {'class': 'lp-label'}}) }}
+                        {{ form_widget(form.description, {'attr': {'class': 'lp-input'}}) }}
+                        <div class="lp-field-errors">{{ form_errors(form.description) }}</div>
                     </div>
                     <div class="lp-form-field">
                         {{ form_label(form.domain, null, {'label_attr': {'class': 'lp-label'}}) }}

@@ -53,6 +53,7 @@ class CreateProjectController extends AppController
                     name: $name,
                     domain: trim($data->domain ?? '') ?: null,
                     searchLanguage: $data->searchLanguage ?? throw new \LogicException('search language required after validation'),
+                    description: $data->description,
                 ));
 
                 return $this->redirectToRoute('app_projects');

@@ -23,6 +23,9 @@ class CreateProjectRequest
          */
         #[Assert\NotNull]
         public ?SearchLanguage $searchLanguage = SearchLanguage::DEFAULT,
+
+        #[Assert\Length(max: 500, normalizer: 'trim')]
+        public ?string $description = null,
     ) {
     }
 }

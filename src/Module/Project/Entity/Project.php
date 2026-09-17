@@ -82,6 +82,9 @@ class Project implements ProjectScopedSubject
 
         #[ORM\Column]
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
+
+        #[ORM\Column(type: Types::TEXT, nullable: true)]
+        public ?string $description = null,
     ) {
     }
 

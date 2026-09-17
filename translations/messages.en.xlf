@@ -2100,6 +2100,7 @@
                 <source>project.list.form.submit</source>
                 <target>Add project</target>
             </trans-unit>
+            <trans-unit id="project.form.create_project_form.description.label"><source>project.form.create_project_form.description.label</source><target>Description (optional)</target></trans-unit>
             <trans-unit id="project.form.create_project_form.name.label">
                 <source>project.form.create_project_form.name.label</source>
                 <target>Project name</target>
