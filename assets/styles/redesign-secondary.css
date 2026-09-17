@@ -12,7 +12,11 @@
 
     /* Crew cards separate bridge health, runtime, and last contact. */
     .lp-redesign-agents .lp-agent-grid {
-        @apply grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5 mt-7;
+        @apply gap-5 mt-7;
+        grid-template-columns: repeat(
+            auto-fill,
+            minmax(min(100%, var(--container-xs)), 1fr)
+        );
     }
     .lp-redesign-agents .lp-agent-card {
         @apply block overflow-hidden rounded-xl border border-line bg-surface-1 p-0;
@@ -30,7 +34,7 @@
         @apply p-5;
     }
     .lp-redesign-agents .lp-agent-card__name {
-        @apply text-xl;
+        @apply text-xl break-all;
     }
     .lp-redesign-agents .lp-agent-card__purpose {
         @apply min-h-11 my-2 mb-4 text-sm;
@@ -42,7 +46,7 @@
         @apply text-sm font-semibold text-accent-ink;
     }
     .lp-redesign-agents .lp-agent-card footer {
-        @apply mt-4 flex items-center justify-between border-t border-line pt-3 text-xs text-fg-dim;
+        @apply mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-xs text-fg-dim break-all;
     }
     .lp-agent-connection-strip {
         @apply mt-6 flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border border-line bg-surface-1 px-5 py-4;

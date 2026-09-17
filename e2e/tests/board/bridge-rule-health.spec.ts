@@ -72,6 +72,64 @@ test.afterAll(async ({ request }) => {
     await setBoardFlag(request, false);
 });
 
+test('connection health remains accessible at enlarged text sizes', async ({
+    page,
+}, testInfo) => {
+    await suppressToolbar(page);
+    await suppressWidget(page);
+    await registerAndLogin(page, `e2e+bridge-health+${RUN}@example.com`);
+    const projectId = await seedProject(page);
+    const token = await mintAgentToken(page);
+    const bridgeId = crypto.randomUUID();
+    const heartbeat = await page.request.put(
+        `/api/bridges/${bridgeId}/heartbeat`,
+        {
+            headers: { Authorization: `Bearer ${token}` },
+            data: { projects: [projectId], cliVersion: 'a'.repeat(100) },
+        },
+    );
+    expect(heartbeat.status()).toBe(204);
+    await page.goto(`/projects/${projectId}/agents`);
+    const connection = page.locator(`[data-agent-connection-id="${bridgeId}"]`);
+    await expect(connection).toBeVisible();
+    expect(await connection.ariaSnapshot()).toContain('Healthy');
+    for (const fontSize of ['100%', '200%']) {
+        await page.evaluate((size) => {
+            document.documentElement.style.fontSize = size;
+        }, fontSize);
+        for (const width of [1440, 1150, 950, 780, 390]) {
+            await page.setViewportSize({ width, height: 1000 });
+            await expect
+                .poll(() =>
+                    page.evaluate(
+                        () =>
+                            document.documentElement.scrollWidth -
+                            window.innerWidth,
+                    ),
+                )
+                .toBeLessThanOrEqual(1);
+            await expect
+                .poll(() =>
+                    connection.evaluate(
+                        (element) => element.scrollWidth - element.clientWidth,
+                    ),
+                )
+                .toBeLessThanOrEqual(1);
+            await page.screenshot({
+                path: testInfo.outputPath(`agents-${width}-${fontSize}.png`),
+                animations: 'disabled',
+            });
+            await connection.locator('footer').scrollIntoViewIfNeeded();
+            await page.screenshot({
+                path: testInfo.outputPath(
+                    `agents-details-${width}-${fontSize}.png`,
+                ),
+                animations: 'disabled',
+            });
+        }
+    }
+});
+
 test('a dead rule shows a banner and a watched column warns before a rename or a delete', async ({
     page,
 }) => {

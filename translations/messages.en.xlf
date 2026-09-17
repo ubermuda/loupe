@@ -5889,7 +5889,7 @@
             <trans-unit id="bridge.agents.page.title"><source>bridge.agents.page.title</source><target>Agents</target></trans-unit>
             <trans-unit id="bridge.agents.heading"><source>bridge.agents.heading</source><target>Your crew</target></trans-unit>
             <trans-unit id="bridge.agents.page_heading"><source>bridge.agents.page_heading</source><target>Meet your crew</target></trans-unit>
-            <trans-unit id="bridge.agents.description"><source>bridge.agents.description</source><target>Give each agent a purpose. Let the rules handle the handoffs.</target></trans-unit>
+            <trans-unit id="bridge.agents.description"><source>bridge.agents.description</source><target>See this project's bridge connections and their latest heartbeat.</target></trans-unit>
             <trans-unit id="bridge.agents.connection"><source>bridge.agents.connection</source><target>Connection setup</target></trans-unit>
             <trans-unit id="bridge.agents.honest_notice"><source>bridge.agents.honest_notice</source><target>Loupe identifies connected bridges. Individual agent profiles are not reported by the current bridge protocol.</target></trans-unit>
             <trans-unit id="bridge.agents.connection_label"><source>bridge.agents.connection_label</source><target>Bridge connection</target></trans-unit>

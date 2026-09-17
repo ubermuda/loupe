@@ -26,7 +26,7 @@
     <div class="lp-agent-grid">
         {% for connection in connections %}
         <article class="lp-agent-card" data-agent-connection-id="{{ connection.bridge.id }}">
-            <div class="lp-agent-card__art" aria-hidden="true">
+            <div class="lp-agent-card__art">
                 <span class="lp-status-chip {{ connection.status.quiet ? 'lp-status-chip--pending' : 'lp-status-chip--ok' }}">
                     <span class="lp-status-chip__dot"></span>
                     {{ (connection.status.quiet ? 'bridge.agents.status.stale' : 'bridge.agents.status.healthy')|trans }}

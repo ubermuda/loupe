@@ -19,3 +19,7 @@ An invalid submission keeps the entered text so you can correct it.
 
 The first-project setup form also accepts a description.
 Account data exports include descriptions in `projects.json`.
+
+Open Agents to see the project's reported bridge connections, CLI versions, and latest heartbeats.
+Each connection shows its own health. This does not report whether an individual agent is available or running.
+Agent configuration and rules remain read-only in Loupe. Configure them through the CLI and its rule file.
