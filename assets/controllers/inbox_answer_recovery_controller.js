@@ -28,7 +28,15 @@ export default class extends Controller {
     }
 
     discard() {
+        const containsFocus = this.element.contains(document.activeElement);
+        const heading = this.element
+            .closest('[data-inbox-item]')
+            ?.querySelector('.lp-inbox-item__title');
         discardInboxAnswerDraft(this.keyValue);
         this.render();
+        if (containsFocus && heading) {
+            heading.setAttribute('tabindex', '-1');
+            heading.focus();
+        }
     }
 }

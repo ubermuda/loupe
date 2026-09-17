@@ -68,3 +68,18 @@ it('keeps a newer draft visible when an older submission finishes', () => {
     expect(controller.element.hidden).toBe(false);
     expect(controller.textTarget.textContent).toBe('<b>Unsent text</b>');
 });
+
+it('returns focus to the request heading after discarding a draft', () => {
+    const request = document.createElement('article');
+    request.dataset.inboxItem = '1';
+    const heading = document.createElement('h3');
+    heading.className = 'lp-inbox-item__title';
+    heading.textContent = 'Request';
+    controller.element.before(request);
+    request.append(heading, controller.element);
+    const button = document.createElement('button');
+    controller.element.append(button);
+    button.focus();
+    controller.discard();
+    expect(document.activeElement).toBe(heading);
+});

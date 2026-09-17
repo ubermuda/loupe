@@ -222,6 +222,7 @@ test('the owner answers a question and declines a to-do', async ({
     );
     await recovery.getByRole('button', { name: 'Discard draft' }).click();
     await expect(recovery).toBeHidden();
+    await expect(question.getByRole('heading')).toBeFocused();
     const declineRecovery = question.locator(
         '[data-inbox-draft-kind="decline"]',
     );
@@ -231,6 +232,7 @@ test('the owner answers a question and declines a to-do', async ({
         .getByRole('button', { name: 'Discard draft' })
         .click();
     await expect(declineRecovery).toBeHidden();
+    await expect(question.getByRole('heading')).toBeFocused();
 
     await page.reload();
     await expect(question.locator('[data-inbox-response]')).toContainText(
