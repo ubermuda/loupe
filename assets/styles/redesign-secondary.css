@@ -115,6 +115,9 @@
     .lp-redesign-runs .lp-list-filters {
         @apply mt-6 rounded-t-xl border border-b-0 border-line bg-surface-1 px-4 py-3;
     }
+    .lp-redesign-runs .lp-filter-form > .lp-filter-select {
+        @apply max-w-full;
+    }
     .lp-redesign-runs .lp-worker-run-list {
         @apply gap-0 overflow-x-auto rounded-xl border border-line bg-surface-1;
     }
@@ -131,13 +134,13 @@
         @apply grid grid-cols-5 gap-4;
     }
     .lp-redesign-runs .lp-worker-run__table-row .lp-status-chip {
-        @apply justify-self-start;
+        @apply self-start justify-self-start;
     }
     .lp-redesign-runs .lp-worker-run__work {
         @apply flex min-w-0 flex-col gap-1;
     }
     .lp-redesign-runs .lp-worker-run__rule {
-        @apply text-xs;
+        @apply min-w-0 break-all text-xs;
     }
     .lp-redesign-runs .lp-worker-run__bridge {
         @apply m-0 text-xs text-fg-dim;

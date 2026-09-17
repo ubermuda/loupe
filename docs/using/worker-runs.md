@@ -34,7 +34,7 @@ The bridge holds its retry queue in memory. A bridge that stops between a worker
 finishing and its report landing loses that outcome for good. So read this page
 as what the server was told, not as a complete history of every worker.
 
-The page carries this caveat above the list, on every project.
+The page carries this caveat below the list, on every project.
 
 ## Bridge health
 
@@ -69,6 +69,8 @@ Select **Clear** to go back to the whole list.
 Search and Outcome stay on one row on narrow screens.
 With enlarged text, the row scrolls horizontally when needed. Keyboard focus brings each control into view.
 The Bridge filter remains available below them when space is limited.
+It stays within the form width at enlarged text sizes.
+Long rule names wrap within their column, while outcome badges keep their compact height.
 
 ## A card that no longer exists
 
