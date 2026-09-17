@@ -15,8 +15,8 @@
     </div>
 
     <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm">
-        <a href="{{ path('app_terms') }}" class="text-accent font-medium hover:underline">{{ 'account.accept_terms.link.terms'|trans }}</a>
-        <a href="{{ path('app_privacy') }}" class="text-accent font-medium hover:underline">{{ 'account.accept_terms.link.privacy'|trans }}</a>
+        <a href="{{ path('app_terms') }}" class="auth-link font-medium">{{ 'account.accept_terms.link.terms'|trans }}</a>
+        <a href="{{ path('app_privacy') }}" class="auth-link font-medium">{{ 'account.accept_terms.link.privacy'|trans }}</a>
     </div>
 
     <form method="post" action="{{ path('app_account_accept_terms_submit') }}" class="mt-1.5 w-full">

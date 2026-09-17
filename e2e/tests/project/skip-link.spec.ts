@@ -36,6 +36,7 @@ async function skipNavigation(page: Page): Promise<void> {
     });
     await page.keyboard.press('Tab');
     await expect(link).toBeFocused();
+    await expect(link).toHaveCSS('position', 'fixed');
     const bounds = await link.boundingBox();
     expect(bounds).not.toBeNull();
     expect(bounds!.x).toBeGreaterThanOrEqual(0);

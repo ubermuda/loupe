@@ -239,6 +239,7 @@
             </div>
         </div>
         {% else %}
+        {# Overrides must place main#main-content with tabindex="-1" after navigation. #}
         {% block body_unauthenticated %}<main id="main-content" tabindex="-1">{{ block('body') }}</main>{% endblock %}
         {% endif %}
         {# After the body, so every mercure_subscribe() call has run. assets/lib/mercure.js reads it. #}

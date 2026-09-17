@@ -5,7 +5,7 @@
 {% block topbar_nav %}
 <span class="text-sm text-fg-mute">
     {{ 'account.registration.topbar.prompt'|trans }}
-    <a href="{{ path('app_login') }}" class="ml-1.5 text-xs text-accent hover:underline">{{ 'account.registration.topbar.link'|trans }}</a>
+    <a href="{{ path('app_login') }}" class="auth-link ml-1.5 text-xs">{{ 'account.registration.topbar.link'|trans }}</a>
 </span>
 {% endblock %}
 
@@ -76,6 +76,6 @@
 
 <div class="text-center text-sm text-fg-mute">
     {{ 'account.registration.footer.prompt'|trans }}
-    <a href="{{ path('app_login') }}" class="pl-1 text-accent font-medium hover:underline">{{ 'account.registration.footer.link'|trans }}</a>
+    <a href="{{ path('app_login') }}" class="auth-link pl-1 font-medium">{{ 'account.registration.footer.link'|trans }}</a>
 </div>
 {% endblock %}

@@ -446,7 +446,7 @@
 
     /* Auth form primary submit button */
     .auth-submit {
-        @apply inline-flex items-center justify-center gap-2 w-full px-3.5 py-2.5 rounded-md border border-accent bg-accent text-white font-sans text-base font-medium cursor-pointer transition-colors hover:bg-accent-hover hover:enabled:border-accent-hover disabled:opacity-60 disabled:cursor-not-allowed;
+        @apply inline-flex items-center justify-center gap-2 w-full px-3.5 py-2.5 rounded-md border border-accent bg-accent text-ink font-sans text-base font-medium cursor-pointer transition-colors hover:bg-accent-hover hover:enabled:border-accent-hover disabled:opacity-60 disabled:cursor-not-allowed;
     }
 
     /* Auth page social sign-in button — secondary counterpart to .auth-submit */
@@ -477,6 +477,10 @@
     }
     .auth-forgot {
         @apply self-center text-xs text-fg-mute;
+    }
+    /* Accent links on the light authentication surfaces. */
+    .auth-link {
+        @apply text-accent-ink hover:underline;
     }
     .auth-forgot:hover {
         @apply text-fg underline;
