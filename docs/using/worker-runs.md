@@ -36,6 +36,13 @@ as what the server was told, not as a complete history of every worker.
 
 The page carries this caveat above the list, on every project.
 
+## Bridge health
+
+Open **Agents** in the project sidebar to inspect bridge heartbeats.
+The page lists only bridges that follow the current project.
+Its summary distinguishes no connections, healthy connections, stale connections, and a mix of healthy and stale connections.
+Heartbeat health does not show whether an individual worker is running or available for work.
+
 ## The output
 
 Every row shows the worker's output in full, collapsed. Open **Output** to read

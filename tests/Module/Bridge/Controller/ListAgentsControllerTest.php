@@ -5,12 +5,35 @@ declare(strict_types=1);
 namespace App\Tests\Module\Bridge\Controller;
 
 use App\Tests\Module\Bridge\BridgeScenario;
+use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 final class ListAgentsControllerTest extends WebTestCase
 {
     use BridgeScenario;
+
+    #[TestWith([0, 0, 'No connections'])]
+    #[TestWith([1, 0, 'Healthy'])]
+    #[TestWith([0, 1, 'Stale'])]
+    #[TestWith([1, 1, 'Some connections are stale'])]
+    public function test_the_connection_summary_uses_heartbeat_health(int $healthy, int $stale, string $expected): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'agents-health@example.com');
+        $project = $this->project($em, $owner, 'Health');
+        for ($index = 0; $index < $healthy + $stale; ++$index) {
+            $this->seedBridge($em, $owner, projects: [(string) $project->id], lastSeenAt: new \DateTimeImmutable($index < $healthy ? 'now' : '-1 day'));
+        }
+        $em->clear();
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/agents');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextSame('.lp-agent-connection-strip .lp-status-chip', $expected);
+        self::assertSelectorCount($healthy + $stale, '[data-agent-connection-id]');
+    }
 
     public function test_it_lists_only_connections_that_follow_the_project(): void
     {

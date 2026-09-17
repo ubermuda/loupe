@@ -5876,6 +5876,8 @@
             <trans-unit id="bridge.agents.connection_label"><source>bridge.agents.connection_label</source><target>Bridge connection</target></trans-unit>
             <trans-unit id="bridge.agents.status.stale"><source>bridge.agents.status.stale</source><target>Stale</target></trans-unit>
             <trans-unit id="bridge.agents.status.healthy"><source>bridge.agents.status.healthy</source><target>Healthy</target></trans-unit>
+            <trans-unit id="bridge.agents.status.empty"><source>bridge.agents.status.empty</source><target>No connections</target></trans-unit>
+            <trans-unit id="bridge.agents.status.mixed"><source>bridge.agents.status.mixed</source><target>Some connections are stale</target></trans-unit>
             <trans-unit id="bridge.agents.project_connection"><source>bridge.agents.project_connection</source><target>Receives eligible work for %project%.</target></trans-unit>
             <trans-unit id="bridge.agents.runtime"><source>bridge.agents.runtime</source><target>CLI version</target></trans-unit>
             <trans-unit id="bridge.agents.last_seen"><source>bridge.agents.last_seen</source><target>Last heartbeat</target></trans-unit>
