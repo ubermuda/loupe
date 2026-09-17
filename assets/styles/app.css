@@ -776,10 +776,22 @@
         @apply text-sm text-fg-mute m-0 mt-0.5;
     }
     .lp-feedback-workspace {
-        @apply grid grid-cols-1 lg:grid-cols-5 min-h-96 rounded-2xl border border-line bg-surface-1 overflow-hidden;
+        @apply grid grid-cols-1 min-h-96 rounded-2xl border border-line bg-surface-1 overflow-hidden;
     }
     .lp-feedback-list {
-        @apply lg:col-span-2 border-b lg:border-b-0 lg:border-r border-line bg-surface-2;
+        @apply border-b border-line bg-surface-2;
+    }
+    /* The list sits beside the detail from 680px up, and above it below. */
+    @media (width > 42.5rem) {
+        .lp-feedback-workspace {
+            @apply grid-cols-5;
+        }
+        .lp-feedback-list {
+            @apply col-span-2 border-b-0 border-r;
+        }
+        .lp-feedback-detail {
+            @apply col-span-3;
+        }
     }
     .lp-feedback-list__head {
         @apply flex items-center justify-between gap-3 px-4 py-3 border-b border-line text-xs font-semibold text-fg-dim;
@@ -803,7 +815,7 @@
         @apply text-xs text-fg-dim mt-1;
     }
     .lp-feedback-detail {
-        @apply lg:col-span-3 min-w-0;
+        @apply min-w-0;
     }
     .lp-feedback-detail__panel {
         @apply p-6;
@@ -2068,10 +2080,18 @@
 
     /* Comment cards share the margin on wide screens and stack below on phones. */
     .lp-review-margin {
-        @apply flex flex-col gap-3.5 w-full lg:block lg:absolute lg:top-0;
+        @apply flex flex-col gap-3.5 w-full;
     }
     .lp-review-margin:has(.lp-comment-thread) {
-        @apply mb-9 lg:mb-0;
+        @apply mb-9;
+    }
+    @media (width >= 59.375rem) {
+        .lp-review-margin {
+            @apply block absolute top-0;
+        }
+        .lp-review-margin:has(.lp-comment-thread) {
+            @apply mb-0;
+        }
     }
     .lp-review-block--hide-resolved
         .lp-review-margin:not(
@@ -2150,7 +2170,12 @@
     /* Chips in the bar itself below lg, where the tab that holds them is
        display:none and the review menu carries no tags row. */
     .lp-doc-meta__tags {
-        @apply flex items-center gap-1.5 ml-auto lg:hidden;
+        @apply flex items-center gap-1.5 ml-auto;
+    }
+    @media (width >= 59.375rem) {
+        .lp-doc-meta__tags {
+            @apply hidden;
+        }
     }
     .lp-doc-tags__list {
         @apply flex flex-wrap items-center gap-1.5;
@@ -2173,7 +2198,7 @@
     /* Below lg the four tabs are rows of the review menu instead. A display
        utility outside this query would outrank the UA [hidden] rule above and
        hold every panel open on desktop. */
-    @media (width < 64rem) {
+    @media (width < 59.375rem) {
         .lp-doc-meta__tab,
         .lp-doc-meta__panel {
             @apply hidden;
@@ -2248,7 +2273,12 @@
        from one round button in the bottom right where a thumb rests. The panel
        opens upward from the button and drills down in place. */
     .lp-review-menu {
-        @apply lg:hidden;
+        @apply block;
+    }
+    @media (width >= 59.375rem) {
+        .lp-review-menu {
+            @apply hidden;
+        }
     }
     .lp-review-menu[hidden],
     .lp-review:has(.lp-comment-composer:not([hidden])) .lp-review-menu {
@@ -2708,13 +2738,24 @@
     }
 
     .lp-review-workspace-nav {
-        @apply mt-3 flex w-full flex-col items-stretch gap-3 lg:flex-row lg:items-end lg:gap-9;
+        @apply mt-3 flex w-full flex-col items-stretch gap-3;
+    }
+    /* Above 700px the view tabs and the margin controls share one row. */
+    @media (width > 43.75rem) {
+        .lp-review-workspace-nav {
+            @apply flex-row items-end gap-9;
+        }
     }
     .lp-review-workspace-nav .lp-review-view-tabs {
         @apply mt-0 min-w-0 flex-1;
     }
     .lp-review-margin-tabs {
-        @apply flex min-w-0 max-w-full shrink-0 scroll-mb-24 items-center justify-start gap-1 lg:scroll-mb-0 lg:justify-end;
+        @apply flex min-w-0 max-w-full shrink-0 scroll-mb-24 items-center justify-start gap-1;
+    }
+    @media (width > 43.75rem) {
+        .lp-review-margin-tabs {
+            @apply scroll-mb-0 justify-end;
+        }
     }
     .lp-review-margin-tablist {
         @apply flex min-w-0 items-center gap-1 overflow-x-auto scroll-px-4 whitespace-nowrap;
@@ -2764,23 +2805,46 @@
         @apply bg-accent-soft text-accent-ink;
     }
     .lp-review-context-panel {
-        @apply mt-5 flex flex-col gap-3 lg:absolute lg:top-43 lg:mt-0;
+        @apply mt-5 flex flex-col gap-3;
     }
-    @media (width >= 64rem) {
+    @media (width >= 59.375rem) {
+        .lp-review-context-panel {
+            @apply absolute top-43 mt-0;
+        }
+    }
+    /* The margin runs three widths, so a narrow laptop keeps a readable
+       column and a wide window spends the room on both. */
+    .lp-review-block {
+        --doc-margin: 17.1875rem;
+        --doc-margin-gap: 1.0625rem;
+    }
+    @media (width > 71.875rem) {
+        .lp-review-block {
+            --doc-margin: 19.125rem;
+            --doc-margin-gap: 1.5rem;
+        }
+    }
+    @media (width >= 93.75rem) {
+        .lp-review-block {
+            --doc-margin: 20.625rem;
+            --doc-margin-gap: 1.875rem;
+        }
+    }
+    @media (width >= 59.375rem) {
         .lp-review-doc {
-            max-width: calc(100% - 20.625rem);
+            max-width: calc(100% - (var(--doc-margin) + var(--doc-margin-gap)));
         }
         .lp-review-doc > .lp-review-doc__head {
-            width: calc(100% + 20.625rem);
+            width: calc(100% + var(--doc-margin) + var(--doc-margin-gap));
         }
         .lp-review-margin,
         .lp-review-actions__resolved,
         .lp-review-context-panel {
-            left: calc(100% + 1.5rem);
-            width: 19.125rem;
+            left: calc(100% + var(--doc-margin-gap));
+            width: var(--doc-margin);
         }
         .lp-review-margin-tabs {
-            width: 19.125rem;
+            width: var(--doc-margin);
         }
     }
     .lp-review-context-panel[hidden] {
@@ -2823,6 +2887,11 @@
         @apply mt-0 min-h-96 rounded-xl border border-line bg-surface-1 px-8.5 py-7 text-base leading-7 text-prose break-words;
         box-shadow: 0 1px 3px rgba(15, 15, 13, 0.06);
     }
+    @media (width >= 93.75rem) {
+        .lp-review-doc__prose {
+            @apply px-12 py-8.5;
+        }
+    }
     /* The paper scrolls, not this pane, so a jump from the contents or decisions
        panel would otherwise land its target under the sticky metadata bar. */
     .lp-review-doc__prose :is(h1, h2, h3, h4, h5, h6) {
@@ -2848,7 +2917,7 @@
         @apply block max-w-full overflow-x-auto lg:table;
     }
 
-    @media (width < 64rem) {
+    @media (width < 59.375rem) {
         .lp-review-doc {
             @apply flex flex-col;
         }
@@ -3073,7 +3142,12 @@
        lg it is in normal flow, inside the slot the controller opens after that
        passage's block. Cards never move on hover — only the ring appears. */
     .lp-comment-thread {
-        @apply static lg:absolute left-0 right-0 flex flex-col gap-3 rounded-xl border border-line bg-surface-1 py-3.5 px-4 transition-shadow;
+        @apply static left-0 right-0 flex flex-col gap-3 rounded-xl border border-line bg-surface-1 py-3.5 px-4 transition-shadow;
+    }
+    @media (width >= 59.375rem) {
+        .lp-comment-thread {
+            @apply absolute;
+        }
     }
     .lp-comment-thread[hidden] {
         @apply hidden;
@@ -5933,7 +6007,7 @@
     display: none;
 }
 
-@media (width < 64rem) {
+@media (width < 59.375rem) {
     .lp-review-actions__resolved {
         display: none;
     }

@@ -6,7 +6,7 @@ import { Controller } from '@hotwired/stimulus';
  * drill down inside the same panel, and the button becomes the way back, so the
  * exit stays under the thumb. Leaf actions act and close.
  */
-const DESKTOP_QUERY = '(min-width: 64rem)';
+const DESKTOP_QUERY = '(min-width: 59.375rem)';
 
 export default class extends Controller {
     static targets = [

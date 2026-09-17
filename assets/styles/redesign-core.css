@@ -219,6 +219,20 @@
     background: var(--surface-2);
 }
 
+/* Below 560px the list stacks above the detail and keeps a bounded height,
+   so the detail is still reachable without scrolling the whole list first. */
+@media (width <= 35rem) {
+    .lp-core-inbox .lp-inbox-split {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .lp-core-inbox .lp-inbox-request-list {
+        max-height: calc(var(--spacing) * 80);
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+    }
+}
+
 .lp-core-inbox .lp-inbox-request {
     display: flex;
     width: 100%;
