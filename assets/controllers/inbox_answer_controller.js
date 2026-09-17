@@ -27,6 +27,7 @@ export default class extends Controller {
                 option.checked = draft.options.includes(option.value);
             });
             if (this.hasTextTarget) this.textTarget.value = draft.text;
+            this.element.closest('details')?.setAttribute('open', '');
         } else if (inboxAnswerWasCleared(this.identity)) {
             this.optionTargets.forEach((option) => {
                 option.checked = option.defaultChecked;

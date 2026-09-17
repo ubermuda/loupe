@@ -85,14 +85,9 @@
 
     {% if home and not inbox.acceptsResponse(item) %}
         {% if item.kind.value == 'question' %}
-        <section class="lp-inbox-item__response" hidden data-controller="inbox-answer-recovery" data-inbox-answer-recovery-owner-value="{{ app.user.id }}" data-inbox-answer-recovery-key-value="{{ item.id }}" data-inbox-answer-recovery-options-value="{{ item.options|json_encode|e('html_attr') }}" data-action="inbox-answer:cleared@document->inbox-answer-recovery#render">
-            <p class="lp-label">{{ 'inbox.answer.unsent'|trans }}</p>
-            <p class="lp-inbox-item__note">{{ 'inbox.answer.unsent_closed'|trans }}</p>
-            <ul class="lp-inbox-item__choices" data-inbox-answer-recovery-target="options"></ul>
-            <p class="lp-inbox-item__answer-text" data-inbox-answer-recovery-target="text"></p>
-            <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="inbox-answer-recovery#discard">{{ 'inbox.answer.discard_draft'|trans }}</button>
-        </section>
+            {% include '@Inbox/_response_draft.html.twig' with {kind: 'answer', key: item.id, options: item.options, title: 'inbox.answer.unsent'} only %}
         {% endif %}
+        {% include '@Inbox/_response_draft.html.twig' with {kind: 'decline', key: item.id ~ ':decline', options: [], title: 'inbox.decline.unsent'} only %}
         {% set refusals = inbox_refusals(item, refusedForm) %}
         {% if refusals|length > 0 %}
         <div class="lp-inbox-item__refusal" role="alert" data-inbox-refusal>
@@ -176,10 +171,10 @@
             {% set declineForm = inbox_decline_form(item, refusedForm) %}
                 <details class="lp-inbox-decline"{{ refusedForm and refusedForm.vars.name == declineForm.vars.name ? ' open' }}>
                     <summary class="lp-inbox-decline__summary">{{ (item.state.value == 'declined' ? 'inbox.decline.change' : 'inbox.decline.toggle')|trans }}</summary>
-                    {{ form_start(declineForm, {action: path('app_inbox_item_decline', actionParams), attr: {class: 'lp-form lp-inbox-decline__form', 'data-turbo-frame': responseFrame}}) }}
+                    {{ form_start(declineForm, {action: path('app_inbox_item_decline', actionParams), attr: {class: 'lp-form lp-inbox-decline__form', 'data-controller': 'inbox-answer', 'data-inbox-answer-owner-value': app.user.id, 'data-inbox-answer-key-value': item.id ~ ':decline', 'data-action': 'submit->inbox-answer#start turbo:before-fetch-response->inbox-answer#response inbox-answer:cleared@document->inbox-answer#cleared', 'data-turbo-frame': responseFrame}}) }}
                         <div class="lp-form-field">
                             {{ form_label(declineForm.closeNote, null, {label_attr: {class: 'lp-label'}}) }}
-                            {{ form_widget(declineForm.closeNote, {attr: {class: 'lp-input', rows: 2}}) }}
+                            {{ form_widget(declineForm.closeNote, {attr: {class: 'lp-input', rows: 2, 'data-inbox-answer-target': 'text', 'data-action': 'input->inbox-answer#remember'}}) }}
                             <div class="lp-field-errors">{{ form_errors(declineForm.closeNote) }}</div>
                         </div>
                         <div class="lp-field-errors">{{ form_errors(declineForm) }}</div>

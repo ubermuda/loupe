@@ -192,6 +192,10 @@ test('the owner answers a question and declines a to-do', async ({
 
     await question.getByText('CSV', { exact: true }).click();
     await question.getByLabel('Your answer').fill('An unsent correction.');
+    await question.locator('.lp-inbox-decline__summary').click();
+    await question
+        .getByLabel('A note for the agent (optional)')
+        .fill('An unsent decline note.');
 
     const todo = page.locator(`#inbox-item-${inbox.todoNumber}`);
     await todo.getByText('Decline', { exact: true }).click();
@@ -209,9 +213,7 @@ test('the owner answers a question and declines a to-do', async ({
     await expect(todo).toContainText('Declined');
     await expect(sidebarPill).toHaveCount(0);
 
-    const recovery = question.locator(
-        '[data-controller="inbox-answer-recovery"]',
-    );
+    const recovery = question.locator('[data-inbox-draft-kind="answer"]');
     await expect(recovery).toBeVisible();
     await expect(recovery).toContainText('An unsent correction.');
     await expect(recovery.locator('li')).toHaveText(['CSV']);
@@ -220,6 +222,15 @@ test('the owner answers a question and declines a to-do', async ({
     );
     await recovery.getByRole('button', { name: 'Discard draft' }).click();
     await expect(recovery).toBeHidden();
+    const declineRecovery = question.locator(
+        '[data-inbox-draft-kind="decline"]',
+    );
+    await expect(declineRecovery).toBeVisible();
+    await expect(declineRecovery).toContainText('An unsent decline note.');
+    await declineRecovery
+        .getByRole('button', { name: 'Discard draft' })
+        .click();
+    await expect(declineRecovery).toBeHidden();
 
     await page.reload();
     await expect(question.locator('[data-inbox-response]')).toContainText(

@@ -96,9 +96,10 @@ The item then shows your response and its new state: answered, done or
 declined.
 
 Unsent question answers keep their text and selected options when you close and reopen a card drawer in the same browser tab.
+Decline notes also survive drawer replacement. A restored note opens its Decline section so you can find it.
 A successful submission clears that draft. A rejected submission keeps it for correction.
 Drafts stay in memory and do not survive a reload or a closed tab.
-If the request closes before you send an answer, its page shows your unsent text and selected options separately from the recorded response.
+If the request closes before you respond, its page shows your unsent answer or decline note separately from the recorded response.
 Copy that draft if needed, or select **Discard draft** to clear it from this tab.
 
 ## Changing a response

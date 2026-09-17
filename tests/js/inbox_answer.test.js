@@ -165,3 +165,19 @@ it('does not restore a discarded draft from a cached form', async () => {
     expect(controller.textTarget.value).toBe('');
     expect(inboxAnswerDraft('question')).toBeUndefined();
 });
+
+it('restores and reveals a decline note without replacing the question draft', async () => {
+    let controller = await mount();
+    controller.textTarget.value = 'Question answer';
+    controller.remember();
+    const decline = `<details><summary>Decline</summary><form data-controller="inbox-answer" data-inbox-answer-owner-value="${owner}" data-inbox-answer-key-value="question:decline"><textarea data-inbox-answer-target="text"></textarea></form></details>`;
+    controller = await mount(decline);
+    controller.textTarget.value = 'Decline note';
+    controller.remember();
+    controller = await mount(decline);
+    expect(controller.textTarget.value).toBe('Decline note');
+    expect(controller.element.closest('details').open).toBe(true);
+    expect(controller.hasSelectedOptionsTarget).toBe(false);
+    controller = await mount();
+    expect(controller.textTarget.value).toBe('Question answer');
+});
