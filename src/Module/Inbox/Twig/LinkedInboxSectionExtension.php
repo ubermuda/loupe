@@ -58,7 +58,13 @@ final class LinkedInboxSectionExtension extends AbstractExtension
             return '';
         }
 
-        $view = ($this->showLinkedItems)(new ShowLinkedInboxItemsCommand($project, $page, $targetId, $versionNumber));
+        $view = ($this->showLinkedItems)(new ShowLinkedInboxItemsCommand(
+            $project,
+            $page,
+            $targetId,
+            $versionNumber,
+            focusedItemNumber: $this->requestStack->getCurrentRequest()?->query->getInt('inboxItem'),
+        ));
         if ($view->isEmpty()) {
             return '';
         }

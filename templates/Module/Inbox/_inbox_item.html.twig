@@ -24,7 +24,7 @@
                 <tr>
                     <td><span class="lp-inbox-linked-table__type"><twig:ux:icon name="lucide:layout-list" class="w-4 h-4" />{{ 'inbox.linked_items.card'|trans }}</span><strong>#{{ link.card.number }} {{ link.card.title }}</strong></td>
                     <td><span class="lp-tag">{{ link.card.column.label|trans }}</span></td>
-                    <td><a class="lp-btn lp-btn--ghost lp-btn--icon" href="{{ path('app_board_card', {projectId: item.project.id, cardId: link.card.id, tab: 'conversation'}) }}" aria-label="{{ 'inbox.linked_items.open_card'|trans({'%title%': link.card.title}) }}"><twig:ux:icon name="lucide:arrow-up-right" class="w-4 h-4" /></a></td>
+                    <td><a class="lp-btn lp-btn--ghost lp-btn--icon" href="{{ path('app_board_card', {projectId: item.project.id, cardId: link.card.id, tab: 'conversation', inboxItem: item.number, _fragment: 'inbox-item-' ~ item.number}) }}" aria-label="{{ 'inbox.linked_items.open_card'|trans({'%title%': link.card.title}) }}"><twig:ux:icon name="lucide:arrow-up-right" class="w-4 h-4" /></a></td>
                 </tr>
                 {% endfor %}
                 {% for link in item.documents %}

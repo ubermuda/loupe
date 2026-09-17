@@ -10,11 +10,34 @@ export default class extends Controller {
         const source = this.frame
             ? this.frame.getAttribute('src') || window.location.pathname
             : window.location.href;
-        const requestedTab = new URL(
-            source,
-            window.location.href,
-        ).searchParams.get('tab');
+        const url = new URL(source, window.location.href);
+        const requestedTab = url.searchParams.get('tab');
         this.show(requestedTab || this.activeValue, false);
+        this.revealAnchor(url.hash);
+        this.onHashChange = () => {
+            if (!this.frame) {
+                this.revealAnchor(window.location.hash);
+            }
+        };
+        window.addEventListener('hashchange', this.onHashChange);
+    }
+
+    disconnect() {
+        window.removeEventListener('hashchange', this.onHashChange);
+        cancelAnimationFrame(this.anchorFrame);
+    }
+
+    revealAnchor(hash) {
+        const target = document.getElementById(hash.slice(1));
+        const panel = this.panelTargets.find((panel) => panel.contains(target));
+        if (!target || !panel) {
+            return;
+        }
+
+        this.show(panel.dataset.panelPanel, false);
+        this.anchorFrame = requestAnimationFrame(() => {
+            target.scrollIntoView({ block: 'start', behavior: 'instant' });
+        });
     }
 
     select(event) {
@@ -43,6 +66,7 @@ export default class extends Controller {
     }
 
     show(name, updateUrl) {
+        cancelAnimationFrame(this.anchorFrame);
         const selectedTab =
             this.tabTargets.find((tab) => tab.dataset.panelTab === name) ||
             this.tabTargets[0];
@@ -63,6 +87,7 @@ export default class extends Controller {
         if (updateUrl && !this.frame) {
             const url = new URL(window.location.href);
             url.searchParams.set('tab', selectedTab.dataset.panelTab);
+            url.hash = '';
             window.history.replaceState(window.history.state, '', url);
         }
     }

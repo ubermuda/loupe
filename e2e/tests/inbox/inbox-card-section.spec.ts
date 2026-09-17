@@ -120,6 +120,77 @@ test('card and inbox show linked PRs with readable status and safe actions', asy
     }
 });
 
+test('an inbox card link reveals its matching request in Conversation', async ({
+    page,
+}) => {
+    await suppressToolbar(page);
+    await suppressWidget(page);
+    await setFlag(page.request, 'inbox.enabled', true);
+    await setFlag(page.request, 'board.enabled', true);
+    await registerAndLogin(page, `e2e+inbox+target+${RUN}@example.com`);
+    const project = await page.request.post('/dev/seed/document', {
+        form: { title: 'Request navigation project', markdown: '# Requests' },
+    });
+    expect(project.status()).toBe(201);
+    const { projectId } = await project.json();
+    await page.goto(`/projects/${projectId}/board/cards/new`);
+    await page.getByLabel('Title').fill('Find the matching request');
+    await page.getByLabel('Column').selectOption({ label: 'Backlog' });
+    await page.getByRole('button', { name: 'Create card' }).click();
+    await expect(
+        page.getByRole('heading', { name: 'Find the matching request' }),
+    ).toBeVisible();
+    const cardUrl = new URL(page.url()).pathname;
+    const cardId = cardUrl.split('/').pop() ?? '';
+    for (let index = 0; index < 3; index++) {
+        const earlier = await page.request.post('/dev/seed/inbox', {
+            form: { cardId },
+        });
+        expect(earlier.status()).toBe(201);
+    }
+    const seeded = await page.request.post('/dev/seed/inbox', {
+        form: { cardId },
+    });
+    expect(seeded.status()).toBe(201);
+    const { questionNumber } = await seeded.json();
+    for (const width of [1440, 390]) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(
+            `/projects/${projectId}/inbox#inbox-item-${questionNumber}`,
+        );
+        await page
+            .locator(`#inbox-item-${questionNumber}`)
+            .getByRole('link', {
+                name: 'Open Find the matching request conversation',
+            })
+            .click();
+        await expect(page).toHaveURL(
+            `${cardUrl}?tab=conversation&inboxItem=${questionNumber}#inbox-item-${questionNumber}`,
+        );
+        await expect(
+            page.getByRole('tab', { name: 'Conversation' }),
+        ).toHaveAttribute('aria-selected', 'true');
+        await expect(
+            page.locator('[data-inbox-linked="card"] [data-inbox-item]'),
+        ).toHaveCount(4);
+        const target = page.locator(
+            `[data-inbox-linked="card"] #inbox-item-${questionNumber}`,
+        );
+        await expect(target.getByRole('heading')).toBeInViewport();
+        await page.reload();
+        await expect(
+            page.getByRole('tab', { name: 'Conversation' }),
+        ).toHaveAttribute('aria-selected', 'true');
+        await expect(target.getByRole('heading')).toBeInViewport();
+        await page.getByRole('tab', { name: 'Overview' }).click();
+        await page.reload();
+        await expect(
+            page.getByRole('tab', { name: 'Overview' }),
+        ).toHaveAttribute('aria-selected', 'true');
+        await expect(target).toBeHidden();
+    }
+});
+
 for (const surface of ['page', 'drawer']) {
     test(`the owner answers a linked question from the card ${surface} and stays there`, async ({
         page,

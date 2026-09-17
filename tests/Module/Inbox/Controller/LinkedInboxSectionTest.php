@@ -138,7 +138,13 @@ final class LinkedInboxSectionTest extends WebTestCase
         self::assertCount(1, $crawler->filter('.lp-review-doc [id="heading-export"]'));
     }
 
-    public function test_the_section_shows_ten_closed_items_newest_first_and_links_to_the_rest(): void
+    #[TestWith([null, '3'])]
+    #[TestWith([1, '1'])]
+    #[TestWith([12, '3'])]
+    #[TestWith([13, '3'])]
+    #[TestWith([14, '3'])]
+    #[TestWith([99, '3'])]
+    public function test_the_section_shows_ten_closed_items_including_the_link_target(?int $focusedNumber, string $lastNumber): void
     {
         $items = [];
         for ($number = 1; $number <= 12; ++$number) {
@@ -150,12 +156,15 @@ final class LinkedInboxSectionTest extends WebTestCase
         }
         // Every item enters the inbox through an ask, which is how the inbox page reaches it.
         $this->askHolding($this->em, $this->project, $items, closedAt: new \DateTimeImmutable('-1 minute'));
+        $this->answered($this->em, $this->question($this->em, $this->project, 13, title: 'Unlinked question'));
+        $other = $this->inboxProject($this->em, $this->owner);
+        $this->linkCard($this->answered($this->em, $this->question($this->em, $other, 14, title: 'Foreign question')));
 
-        $crawler = $this->client->request(Request::METHOD_GET, $this->cardUrl());
+        $crawler = $this->client->request(Request::METHOD_GET, $this->cardUrl(), null === $focusedNumber ? [] : ['inboxItem' => $focusedNumber]);
 
         self::assertResponseIsSuccessful();
         $shown = $crawler->filter('[data-inbox-linked-closed] [data-inbox-item]')->each(static fn (Crawler $node): string => (string) $node->attr('data-inbox-item'));
-        self::assertSame(['12', '11', '10', '9', '8', '7', '6', '5', '4', '3'], $shown);
+        self::assertSame(['12', '11', '10', '9', '8', '7', '6', '5', '4', $lastNumber], $shown);
         $more = $crawler->filter('[data-inbox-linked-more]');
         self::assertCount(1, $more);
 
@@ -164,6 +173,13 @@ final class LinkedInboxSectionTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(1, $inbox->filter('[data-inbox-item="1"]'));
         self::assertCount(1, $inbox->filter('[data-inbox-item="2"]'));
+
+        $link = $inbox->filter('#inbox-item-1 a[aria-label="Open Ship the export conversation"]');
+        self::assertCount(1, $link);
+        self::assertSame($this->cardUrl().'?tab=conversation&inboxItem=1#inbox-item-1', $link->attr('href'));
+        $destination = $this->client->click($link->link());
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $destination->filter('[data-inbox-linked-closed] #inbox-item-1'));
     }
 
     public function test_the_section_links_to_no_more_closed_items_when_all_of_them_show(): void

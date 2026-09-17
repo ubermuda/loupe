@@ -161,6 +161,10 @@ Each pull request URL appears once per item, even when several linked cards shar
 Web links open on the code host. Their status reads **Not reported** because Loupe does not fetch code-host status.
 Other stored addresses read **Unavailable**, with an explanation and no open action.
 
+A card link opens **Conversation** at the matching inbox item.
+If that item falls outside the ten newest closed items, it replaces the oldest item in that list.
+The section still shows ten closed items, in closing order.
+
 The section is hidden on a version comparison. It shows on an older version of
 a document, and a response from there returns to that version.
 
