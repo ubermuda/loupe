@@ -460,6 +460,7 @@ export default class extends Controller {
         this.composerErrorTarget.textContent = '';
         this.composerBodyTarget.value = '';
         this.composerBodyTarget.focus();
+        this.#revealComposer(this.composerTarget);
     }
 
     /**
@@ -489,6 +490,7 @@ export default class extends Controller {
         this.suggestReplacementTarget.value = this.pendingSelection.quote;
         this.suggestReplacementTarget.focus();
         this.suggestReplacementTarget.select();
+        this.#revealComposer(this.suggestComposerTarget);
     }
 
     /**
@@ -1801,6 +1803,17 @@ export default class extends Controller {
         const maxLeft = Math.max(0, host.clientWidth - panel.offsetWidth);
         panel.style.top = `${base.top}px`;
         panel.style.left = `${Math.min(base.left, maxLeft)}px`;
+    }
+
+    /**
+     * Focusing a field scrolls that field into view, which can leave the panel's
+     * own buttons below the fold on a phone. Reveal the whole panel instead.
+     */
+    #revealComposer(panel) {
+        if (panel.getBoundingClientRect().bottom <= window.innerHeight) {
+            return;
+        }
+        panel.scrollIntoView({ block: 'nearest', behavior: 'auto' });
     }
 
     #showComposerUntargeted() {
