@@ -170,6 +170,96 @@ test('the sidebar stays in flow above the 780px shell breakpoint', async ({
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 });
 
+test('account panels fit narrow screens and enlarged text', async ({
+    page,
+}) => {
+    await page.goto('/account');
+    const sections = [
+        { tab: 'profile', panelCount: 1 },
+        { tab: 'api-tokens', panelCount: 1 },
+        { tab: 'data', panelCount: 2 },
+    ];
+    for (const width of [1440, 1150, 950, 780, 390]) {
+        await page.setViewportSize({ width, height: 1000 });
+        for (const { tab, panelCount } of sections) {
+            await page.locator(`#account-tab-${tab}`).click();
+            const panels = page.locator('[role="tabpanel"]:visible');
+            await expect(panels).toHaveCount(panelCount);
+            for (const panel of await panels.all()) {
+                const bounds = (await panel.boundingBox())!;
+                expect(bounds.x).toBeGreaterThanOrEqual(0);
+                expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+                expect(
+                    await panel.evaluate(
+                        (element) => element.scrollWidth - element.clientWidth,
+                    ),
+                ).toBeLessThanOrEqual(1);
+            }
+        }
+    }
+    await page.addStyleTag({ content: 'html { font-size: 200%; }' });
+    for (const { tab, panelCount } of sections) {
+        await page.locator(`#account-tab-${tab}`).click();
+        const panels = page.locator('[role="tabpanel"]:visible');
+        await expect(panels).toHaveCount(panelCount);
+        for (const panel of await panels.all()) {
+            const bounds = (await panel.boundingBox())!;
+            expect(bounds.x).toBeGreaterThanOrEqual(0);
+            expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
+            expect(
+                await panel.evaluate(
+                    (element) => element.scrollWidth - element.clientWidth,
+                ),
+            ).toBeLessThanOrEqual(1);
+            for (const button of await panel.getByRole('button').all()) {
+                await button.scrollIntoViewIfNeeded();
+                await expect(button).toBeInViewport({ ratio: 1 });
+                expect(
+                    await button.evaluate(
+                        (element) => element.scrollWidth - element.clientWidth,
+                    ),
+                ).toBeLessThanOrEqual(1);
+            }
+        }
+    }
+    await expect(page.getByTestId('export-section')).not.toContainText(
+        'The download link was sent to your email.',
+    );
+});
+
+test('project settings fit narrow screens and enlarged text', async ({
+    page,
+    seeded,
+}) => {
+    await page.goto(`/projects/${seeded.projectId}/edit`);
+    const panels = page.locator('.lp-settings-panel-card');
+    await expect(panels).toHaveCount(2);
+    for (const width of [1440, 1150, 950, 780, 390]) {
+        await page.setViewportSize({ width, height: 1000 });
+        for (const panel of await panels.all()) {
+            const bounds = (await panel.boundingBox())!;
+            expect(bounds.x).toBeGreaterThanOrEqual(0);
+            expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+            expect(
+                await panel.evaluate(
+                    (element) => element.scrollWidth - element.clientWidth,
+                ),
+            ).toBeLessThanOrEqual(1);
+        }
+    }
+    await page.addStyleTag({ content: 'html { font-size: 200%; }' });
+    for (const panel of await panels.all()) {
+        const bounds = (await panel.boundingBox())!;
+        expect(bounds.x).toBeGreaterThanOrEqual(0);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
+        expect(
+            await panel.evaluate(
+                (element) => element.scrollWidth - element.clientWidth,
+            ),
+        ).toBeLessThanOrEqual(1);
+    }
+});
+
 test('a document title is readable rather than clipped to one letter', async ({
     page,
     seeded,

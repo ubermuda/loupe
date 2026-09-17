@@ -937,10 +937,6 @@
                 <source>account.settings.export.flash.requested</source>
                 <target>Your export has been requested. We'll email you a download link when it's ready.</target>
             </trans-unit>
-            <trans-unit id="account.settings.export.link_hint">
-                <source>account.settings.export.link_hint</source>
-                <target>The download link was sent to your email.</target>
-            </trans-unit>
             <trans-unit id="account.settings.export.download_link">
                 <source>account.settings.export.download_link</source>
                 <target>Download</target>

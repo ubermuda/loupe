@@ -229,6 +229,16 @@
     .lp-account-settings-content {
         @apply flex flex-col;
     }
+    .lp-redesign-account .lp-settings-panel {
+        @apply rounded-none bg-transparent p-0;
+    }
+    .lp-redesign-account .lp-btn,
+    .lp-redesign-settings .lp-btn {
+        @apply max-w-full whitespace-normal leading-5;
+    }
+    .lp-settings-form-actions {
+        @apply flex flex-wrap items-center justify-end gap-3 pt-2;
+    }
     .lp-account-settings-content #profile {
         order: 1;
     }
