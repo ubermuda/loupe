@@ -65,13 +65,40 @@ test('completed reports retain outcomes and escaped output at enlarged text size
     await page.goto(`/projects/${projectId}/worker-runs`);
     for (const [index, report] of reports.entries()) {
         const row = page.locator(`[data-worker-run-id="${ids[index]}"]`);
-        await expect(row.locator('.lp-status-chip')).toHaveText(report.outcome);
+        await expect(
+            row.locator('.lp-worker-run__table-row .lp-status-chip'),
+        ).toHaveText(report.outcome);
         const toggle = row.locator('summary');
         await toggle.focus();
         await toggle.press('Enter');
-        await expect(row.locator('pre')).toHaveText(output);
+        await expect(row.locator('details pre')).toHaveText(output);
         await expect(row.locator('img')).toHaveCount(0);
         await toggle.press('Enter');
+        const open = row.getByRole('button', { name: 'View attempt' });
+        await open.focus();
+        await open.press('Enter');
+        const drawer = page.getByRole('dialog', { name: 'Run attempt' });
+        await expect(drawer).toBeVisible();
+        await expect(drawer).toContainText(ids[index]);
+        await expect(drawer.locator('.lp-status-chip')).toHaveText(
+            report.outcome,
+        );
+        await expect(drawer.locator('time')).toHaveCount(3);
+        await expect(drawer.locator('pre')).toHaveText(output);
+        await expect(drawer).toContainText(
+            report.failureReason ?? `exit ${report.exitCode}`,
+        );
+        await page
+            .context()
+            .grantPermissions(['clipboard-read', 'clipboard-write']);
+        await drawer.getByRole('button', { name: 'Copy output' }).click();
+        await expect(drawer.getByRole('status')).toHaveText('Output copied.');
+        expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+            output,
+        );
+        await page.keyboard.press('Escape');
+        await expect(drawer).toBeHidden();
+        await expect(open).toBeFocused();
     }
     for (const fontSize of ['100%', '200%']) {
         await page.evaluate((size) => {
@@ -85,7 +112,7 @@ test('completed reports retain outcomes and escaped output at enlarged text size
             expect(bounds!.x).toBeGreaterThanOrEqual(0);
             expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
             for (const rule of await page
-                .locator('.lp-worker-run__rule')
+                .locator('.lp-worker-run__table-row .lp-worker-run__rule')
                 .all()) {
                 expect(
                     await rule.evaluate(
@@ -102,7 +129,7 @@ test('completed reports retain outcomes and escaped output at enlarged text size
                 formBounds.x + formBounds.width,
             );
             const outcome = page
-                .locator('.lp-worker-run .lp-status-chip')
+                .locator('.lp-worker-run__table-row .lp-status-chip')
                 .first();
             const badge = await outcome.evaluate((element) => {
                 const style = getComputedStyle(element);
@@ -133,6 +160,72 @@ test('completed reports retain outcomes and escaped output at enlarged text size
                 path: testInfo.outputPath(`runs-${width}-${fontSize}.png`),
                 animations: 'disabled',
             });
+            const open = page
+                .getByRole('button', { name: 'View attempt' })
+                .first();
+            await open.click();
+            const drawer = page.getByRole('dialog', { name: 'Run attempt' });
+            await expect(drawer).toBeVisible();
+            await expect(
+                drawer.getByRole('button', { name: 'Close', exact: true }),
+            ).toBeInViewport({ ratio: 1 });
+            await expect(
+                drawer.getByRole('button', { name: 'Copy output' }),
+            ).toBeInViewport({ ratio: 1 });
+            for (const region of [
+                '.lp-run-drawer__header',
+                '.lp-run-drawer__body',
+            ]) {
+                expect(
+                    await drawer
+                        .locator(region)
+                        .evaluate(
+                            (element) =>
+                                element.scrollWidth - element.clientWidth,
+                        ),
+                ).toBeLessThanOrEqual(1);
+            }
+            await page.screenshot({
+                path: testInfo.outputPath(
+                    `run-drawer-${width}-${fontSize}.png`,
+                ),
+                animations: 'disabled',
+            });
+            await page.keyboard.press('Escape');
+            await expect(drawer).toBeHidden();
+            await expect(open).toBeFocused();
         }
     }
+    await page.getByRole('button', { name: 'View attempt' }).first().click();
+    const drawer = page.getByRole('dialog', { name: 'Run attempt' });
+    await page.evaluate(() => {
+        Object.defineProperty(navigator.clipboard, 'writeText', {
+            configurable: true,
+            value: () => Promise.reject(new Error('Clipboard denied')),
+        });
+    });
+    await drawer.getByRole('button', { name: 'Copy output' }).click();
+    await expect(drawer.getByRole('status')).toHaveText(
+        'The browser could not copy the output. Select and copy the text instead.',
+    );
+    await expect(drawer.locator('pre')).toHaveText(output);
+    await drawer.getByRole('button', { name: 'Close', exact: true }).focus();
+    await page.keyboard.press('Tab');
+    expect(
+        await drawer.evaluate((element) =>
+            element.contains(document.activeElement),
+        ),
+    ).toBe(true);
+    const backgroundButton = page
+        .getByRole('button', { name: 'View attempt' })
+        .first();
+    await backgroundButton.focus();
+    await expect(backgroundButton).not.toBeFocused();
+    expect(
+        await drawer.evaluate((element) =>
+            element.contains(document.activeElement),
+        ),
+    ).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(drawer).toBeHidden();
 });

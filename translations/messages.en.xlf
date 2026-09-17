@@ -5492,6 +5492,19 @@
                 <source>bridge.worker_runs.page.title</source>
                 <target>Run history</target>
             </trans-unit>
+            <trans-unit id="bridge.worker_runs.details.open"><source>bridge.worker_runs.details.open</source><target>View attempt</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.title"><source>bridge.worker_runs.details.title</source><target>Run attempt</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.close"><source>bridge.worker_runs.details.close</source><target>Close</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.card"><source>bridge.worker_runs.details.card</source><target>Card</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.session"><source>bridge.worker_runs.details.session</source><target>Session</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.unreported"><source>bridge.worker_runs.details.unreported</source><target>The bridge does not report the agent identity or the triggering event.</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.timeline"><source>bridge.worker_runs.details.timeline</source><target>Reported timeline</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.started"><source>bridge.worker_runs.details.started</source><target>Attempt started</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.ended"><source>bridge.worker_runs.details.ended</source><target>Attempt ended</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.received"><source>bridge.worker_runs.details.received</source><target>Report received</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.copy"><source>bridge.worker_runs.details.copy</source><target>Copy output</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.copied"><source>bridge.worker_runs.details.copied</source><target>Output copied.</target></trans-unit>
+            <trans-unit id="bridge.worker_runs.details.copy_failed"><source>bridge.worker_runs.details.copy_failed</source><target>The browser could not copy the output. Select and copy the text instead.</target></trans-unit>
             <trans-unit id="bridge.worker_runs.page.description">
                 <source>bridge.worker_runs.page.description</source>
                 <target>Every reported attempt, with the context to understand it.</target>

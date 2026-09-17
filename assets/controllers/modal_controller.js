@@ -22,12 +22,20 @@ const CLOSE_KEYFRAMES_MOBILE = [
     { transform: 'translateY(0)' },
     { transform: 'translateY(100%)' },
 ];
+const OPEN_KEYFRAMES_DRAWER = [
+    { transform: 'translateX(100%)' },
+    { transform: 'translateX(0)' },
+];
+const CLOSE_KEYFRAMES_DRAWER = [
+    { transform: 'translateX(0)' },
+    { transform: 'translateX(100%)' },
+];
 
 const isMobile = () => window.innerWidth < 640;
 
 export default class extends Controller {
     static targets = ['dialog'];
-    static values = { reopen: Boolean };
+    static values = { reopen: Boolean, drawer: Boolean };
 
     connect() {
         document.addEventListener(
@@ -82,7 +90,11 @@ export default class extends Controller {
             dialog.classList.remove('is-opening');
             return;
         }
-        const keyframes = isMobile() ? OPEN_KEYFRAMES_MOBILE : OPEN_KEYFRAMES;
+        const keyframes = this.drawerValue
+            ? OPEN_KEYFRAMES_DRAWER
+            : isMobile()
+              ? OPEN_KEYFRAMES_MOBILE
+              : OPEN_KEYFRAMES;
         dialog.animate(keyframes, { duration: 220, easing: 'ease-out' });
     }
 
@@ -133,7 +145,11 @@ export default class extends Controller {
             return Promise.resolve();
         }
 
-        const keyframes = isMobile() ? CLOSE_KEYFRAMES_MOBILE : CLOSE_KEYFRAMES;
+        const keyframes = this.drawerValue
+            ? CLOSE_KEYFRAMES_DRAWER
+            : isMobile()
+              ? CLOSE_KEYFRAMES_MOBILE
+              : CLOSE_KEYFRAMES;
         const anim = dialog.animate(keyframes, {
             duration: 180,
             easing: 'ease-in',

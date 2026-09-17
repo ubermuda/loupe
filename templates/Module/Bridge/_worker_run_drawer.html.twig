@@ -1,0 +1,42 @@
+{% set run = item.run %}
+<dialog class="lp-dialog lp-run-drawer" aria-labelledby="run-title-{{ run.id }}"
+        data-modal-target="dialog" data-action="cancel->modal#close"
+        data-controller="worker-run-output"
+        data-worker-run-output-copied-value="{{ 'bridge.worker_runs.details.copied'|trans }}"
+        data-worker-run-output-failed-value="{{ 'bridge.worker_runs.details.copy_failed'|trans }}">
+    <header class="lp-run-drawer__header">
+        <div>
+            <h2 class="lp-dialog-title" id="run-title-{{ run.id }}">{{ 'bridge.worker_runs.details.title'|trans }}</h2>
+            <p class="lp-run-drawer__identifier">{{ run.id }}</p>
+            <span class="lp-status-chip lp-status-chip--{{ item.outcome.chipModifier() }}">{{ item.outcome.translationKey()|trans }}</span>
+        </div>
+        <button type="button" class="lp-btn" data-action="modal#close" autofocus>{{ 'bridge.worker_runs.details.close'|trans }}</button>
+    </header>
+    <div class="lp-run-drawer__body">
+        <dl class="lp-run-drawer__metadata">
+            <div><dt>{{ 'bridge.worker_runs.details.card'|trans }}</dt><dd>
+                {% if boardEnabled %}<a href="{{ path('app_board_card', {projectId: project.id, cardId: run.cardId}) }}">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</a>{% else %}{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}{% endif %}
+                <span class="lp-run-drawer__identifier">{{ run.cardId }}</span>
+            </dd></div>
+            <div><dt>{{ 'bridge.worker_runs.column.rule'|trans }}</dt><dd>{{ run.ruleName }}</dd></div>
+            <div><dt>{{ 'bridge.worker_runs.filter.bridge_label'|trans }}</dt><dd>{{ run.bridgeId }}</dd></div>
+            <div><dt>{{ 'bridge.worker_runs.details.session'|trans }}</dt><dd>{{ run.sessionId }}</dd></div>
+            <div><dt>{{ 'bridge.worker_runs.column.duration'|trans }}</dt><dd>{{ item.duration() }}{% if run.exitCode is not null %} · {{ 'bridge.worker_runs.exit_code'|trans({'%code%': run.exitCode}) }}{% endif %}</dd></div>
+        </dl>
+        <p class="lp-dialog-desc">{{ 'bridge.worker_runs.details.unreported'|trans }}</p>
+        <h3 class="lp-run-drawer__heading">{{ 'bridge.worker_runs.details.timeline'|trans }}</h3>
+        <ol class="lp-run-drawer__timeline">
+            <li>{{ 'bridge.worker_runs.details.started'|trans }} <time datetime="{{ run.startedAt|date('c') }}">{{ run.startedAt|date('Y-m-d H:i:s T') }}</time></li>
+            <li>{{ 'bridge.worker_runs.details.ended'|trans }} <time datetime="{{ run.endedAt|date('c') }}">{{ run.endedAt|date('Y-m-d H:i:s T') }}</time></li>
+            <li>{{ 'bridge.worker_runs.details.received'|trans }} <time datetime="{{ run.receivedAt|date('c') }}">{{ run.receivedAt|date('Y-m-d H:i:s T') }}</time></li>
+        </ol>
+        {% if run.failureReason %}<p class="lp-worker-run__failure">{{ run.failureReason }}</p>{% endif %}
+        <h3 class="lp-run-drawer__heading">{{ 'bridge.worker_runs.output.toggle'|trans }}</h3>
+        {% if run.output is empty %}<p>{{ 'bridge.worker_runs.output.empty'|trans }}</p>{% endif %}
+        <pre class="lp-worker-run__output" data-worker-run-output-target="output">{{ run.output }}</pre>
+    </div>
+    <footer class="lp-run-drawer__footer">
+        <p role="status" data-worker-run-output-target="status"></p>
+        <button type="button" class="lp-btn" data-action="worker-run-output#copy">{{ 'bridge.worker_runs.details.copy'|trans }}</button>
+    </footer>
+</dialog>

@@ -45,6 +45,15 @@ Heartbeat health does not show whether an individual worker is running or availa
 
 ## The output
 
+Select **View attempt** to open a read-only drawer without leaving the list.
+It shows the attempt ID, card, rule, bridge, session, duration, and reported timestamps.
+Agent identity and the triggering event remain unreported rather than inferred.
+Press Escape or select **Close** to return focus to the opening button.
+
+Select **Copy output** to copy the original output text.
+If the browser refuses clipboard access, the drawer keeps the text available for manual copying.
+The drawer has no live state, Stop, or Retry controls.
+
 Every row shows the worker's output in full, collapsed. Open **Output** to read
 it. A run that succeeded shows its output the same way a run that failed does,
 because a reader of a run record is usually debugging.

@@ -1733,6 +1733,57 @@
     .lp-dialog--document {
         @apply max-w-4xl;
     }
+    /** Read-only details for a reported worker attempt. */
+    .lp-dialog.lp-run-drawer {
+        @apply w-full max-w-2xl m-0 ml-auto rounded-none p-0 overflow-hidden;
+        height: 100dvh;
+        max-height: 100dvh;
+    }
+    .lp-run-drawer[open] {
+        @apply flex flex-col;
+    }
+    .lp-run-drawer__header {
+        @apply flex items-start justify-between gap-3 p-6 border-b border-line shrink-0;
+    }
+    .lp-run-drawer__header > div {
+        @apply min-w-0;
+    }
+    .lp-run-drawer .lp-btn {
+        @apply max-w-full whitespace-normal shrink-0;
+    }
+    .lp-run-drawer__identifier {
+        @apply block break-all text-xs text-fg-dim my-2;
+    }
+    .lp-run-drawer__body {
+        @apply min-h-0 flex-1 overflow-y-auto p-6;
+    }
+    .lp-run-drawer__metadata {
+        @apply grid grid-cols-1 sm:grid-cols-2 gap-4 m-0;
+    }
+    .lp-run-drawer__metadata dt {
+        @apply text-xs text-fg-dim;
+    }
+    .lp-run-drawer__metadata dd {
+        @apply m-0 mt-1 text-sm break-all;
+    }
+    .lp-run-drawer__metadata a {
+        @apply text-accent-ink underline;
+    }
+    .lp-run-drawer__heading {
+        @apply text-base font-semibold mt-6 mb-2;
+    }
+    .lp-run-drawer__timeline {
+        @apply list-none p-0 m-0 grid gap-3 text-sm;
+    }
+    .lp-run-drawer__timeline time {
+        @apply block text-xs text-fg-dim;
+    }
+    .lp-run-drawer__footer {
+        @apply flex flex-wrap items-center justify-end gap-3 p-4 border-t border-line shrink-0;
+    }
+    .lp-run-drawer__footer p {
+        @apply m-0 mr-auto text-sm;
+    }
     /** Project search dialog, results, and paging controls. */
     .lp-dialog--search {
         @apply max-w-2xl;

@@ -78,3 +78,25 @@ it('does not animate a dialog that is already closed', () => {
     controller.close();
     expect(dialog.animate).not.toHaveBeenCalled();
 });
+
+it('slides an opted-in drawer horizontally', () => {
+    controller.drawerValue = true;
+    controller.open();
+    expect(dialog.animate.mock.calls[0][0]).toEqual([
+        { transform: 'translateX(100%)' },
+        { transform: 'translateX(0)' },
+    ]);
+    controller.close();
+    expect(dialog.animate.mock.calls[1][0]).toEqual([
+        { transform: 'translateX(0)' },
+        { transform: 'translateX(100%)' },
+    ]);
+});
+
+it('suppresses drawer motion when reduced motion is requested', () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true }));
+    controller.drawerValue = true;
+    controller.open();
+    controller.close();
+    expect(dialog.animate).not.toHaveBeenCalled();
+});

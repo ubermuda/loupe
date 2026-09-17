@@ -96,7 +96,7 @@
         </div>
         {% for item in items %}
         {% set run = item.run %}
-        <article class="lp-worker-run" data-worker-run-id="{{ run.id }}">
+        <article class="lp-worker-run" data-worker-run-id="{{ run.id }}" data-controller="modal" data-modal-drawer-value="true">
             <div class="lp-worker-run__table-row">
                 <div class="lp-worker-run__work">
                     {% if boardEnabled %}
@@ -106,6 +106,7 @@
                         <span class="lp-worker-run__card">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</span>
                     {% endif %}
                     <span class="lp-worker-run__bridge" title="{{ run.bridgeId }}">{{ 'bridge.worker_runs.bridge'|trans({'%bridge%': run.bridgeId|slice(-12)}) }}</span>
+                    <button type="button" class="lp-btn lp-btn--ghost" data-action="modal#open">{{ 'bridge.worker_runs.details.open'|trans }}</button>
                 </div>
                 <span class="lp-status-chip lp-status-chip--{{ item.outcome.chipModifier() }}">
                     <span class="lp-status-chip__dot"></span>
@@ -136,6 +137,7 @@
                     <pre class="lp-worker-run__output">{{ run.output }}</pre>
                 {% endif %}
             </details>
+            {% include '@Bridge/_worker_run_drawer.html.twig' with {item: item, project: project, boardEnabled: boardEnabled} only %}
         </article>
         {% endfor %}
     </div>
