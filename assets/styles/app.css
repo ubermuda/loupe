@@ -212,9 +212,7 @@
     --ink: #20241f;
     --text: #20241f;
     --text-mute: #555b52;
-    /* The lightest grey clearing 4.5:1 on every light surface, sunken included.
-       Nothing lighter can carry text; --faint is for hairlines, not words. */
-    --text-dim: #74796e;
+    --text-dim: #656b60;
     --faint: #bec3b7;
     --prose: #22262b;
 
@@ -3463,9 +3461,6 @@
     .lp-sidebar__link-label {
         @apply truncate;
     }
-    /* Secondary nav sits a rung quieter than the primary one — but not when it is
-       the current page. Without the :not() this rule wins on source order and
-       paints the selected item's label grey on the accent fill. */
     .lp-sidebar__nav--secondary
         .lp-sidebar__link:not(.lp-sidebar__link--active) {
         @apply text-chrome-dim;
@@ -3489,7 +3484,7 @@
         @apply contents;
     }
     .lp-sidebar__link--active .lp-sidebar__pill {
-        @apply text-ink;
+        @apply text-chrome-fg;
     }
 
     .lp-sidebar__spacer {
@@ -3564,7 +3559,7 @@
         @apply text-ink;
     }
     .lp-topbar__sep {
-        @apply text-sm text-fg-faint;
+        @apply text-sm text-fg-dim;
     }
     .lp-topbar__here {
         @apply text-sm font-medium text-ink min-w-0 truncate;
