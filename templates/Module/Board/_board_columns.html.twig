@@ -6,26 +6,28 @@
     {% set cardCount = 0 %}
     {% for view in board.columns %}{% set cardCount = cardCount + view.count %}{% endfor %}
     <div class="lp-board-toolbar">
-        <label class="lp-board-toolbar__search">
-            <span class="sr-only">{{ 'board.filter.search.label'|trans }}</span>
-            <twig:ux:icon name="lucide:search" class="lp-board-toolbar__search-icon" />
-            <input type="search"
-                   class="lp-board-toolbar__input"
-                   placeholder="{{ 'board.filter.search.placeholder'|trans }}"
-                   data-board-filter-target="query"
-                   data-action="input->board-filter#filter">
-        </label>
-        <label>
-            <span class="sr-only">{{ 'board.filter.priority.label'|trans }}</span>
-            <select class="lp-board-toolbar__select"
-                    data-board-filter-target="priority"
-                    data-action="change->board-filter#filter">
-                <option value="">{{ 'board.filter.priority.all'|trans }}</option>
-                {% for priority in enum_cases('App\\Module\\Board\\Entity\\CardPriority') %}
-                    <option value="{{ priority.value }}">{{ ('board.card.priority.' ~ priority.label())|trans }}</option>
-                {% endfor %}
-            </select>
-        </label>
+        <div class="lp-board-toolbar__filters">
+            <label class="lp-board-toolbar__search">
+                <span class="sr-only">{{ 'board.filter.search.label'|trans }}</span>
+                <twig:ux:icon name="lucide:search" class="lp-board-toolbar__search-icon" />
+                <input type="search"
+                       class="lp-board-toolbar__input"
+                       placeholder="{{ 'board.filter.search.placeholder'|trans }}"
+                       data-board-filter-target="query"
+                       data-action="input->board-filter#filter">
+            </label>
+            <label class="lp-board-toolbar__priority">
+                <span class="sr-only">{{ 'board.filter.priority.label'|trans }}</span>
+                <select class="lp-board-toolbar__select"
+                        data-board-filter-target="priority"
+                        data-action="change->board-filter#filter">
+                    <option value="">{{ 'board.filter.priority.all'|trans }}</option>
+                    {% for priority in enum_cases('App\\Module\\Board\\Entity\\CardPriority') %}
+                        <option value="{{ priority.value }}">{{ ('board.card.priority.' ~ priority.label())|trans }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
         <span class="lp-board-toolbar__count"
               data-board-filter-target="count"
               data-one="{{ 'board.card.count'|trans({'%count%': 1}) }}"

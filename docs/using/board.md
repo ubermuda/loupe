@@ -173,6 +173,10 @@ number, its title, its type, how many pull requests it links to, and how many
 review comments still wait on it. The priority is the group the card sits in,
 so the card face does not repeat it.
 
+Search and priority filters share one row. With enlarged text on a narrow
+screen, that row scrolls horizontally. Tab brings the priority filter into
+view. Board settings and Add card stack when their labels need more space.
+
 Drag a card to move it. The whole card is the handle, and the grip on its left
 says so. Where you drop the card decides what the move does.
 

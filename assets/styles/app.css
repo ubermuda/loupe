@@ -539,13 +539,26 @@
 
     /* Board controls and column framing for the supported kanban view. */
     .lp-board-head__actions {
-        @apply flex items-center gap-2;
+        @apply flex flex-wrap items-center gap-2 max-w-full;
+    }
+    .lp-board-head__actions .lp-btn {
+        @apply min-w-0 h-auto min-h-9 whitespace-normal py-1.5;
     }
     .lp-board-toolbar {
         @apply flex items-center gap-2 min-h-9 mb-3;
     }
+    .lp-board-toolbar__filters {
+        @apply relative flex flex-1 basis-80 min-w-0 items-center gap-2 overflow-x-auto scroll-px-4;
+        scrollbar-width: none;
+    }
+    .lp-board-toolbar__filters::-webkit-scrollbar {
+        display: none;
+    }
     .lp-board-toolbar__search {
-        @apply relative flex min-w-0 w-56 items-center;
+        @apply relative flex flex-1 min-w-40 w-56 items-center;
+    }
+    .lp-board-toolbar__priority {
+        @apply shrink-0;
     }
     .lp-board-toolbar__search-icon {
         @apply pointer-events-none absolute left-3 h-4 w-4 text-fg-dim;
@@ -561,10 +574,10 @@
         @apply w-28 px-3 py-1.5;
     }
     .lp-board-toolbar__mode {
-        @apply inline-flex items-center rounded-lg bg-surface-3 p-1;
+        @apply inline-flex max-w-full items-center rounded-lg bg-surface-3 p-1;
     }
     .lp-board-toolbar__mode-button {
-        @apply inline-flex min-h-7 items-center gap-2 rounded-md border-0 bg-transparent px-3 py-1 text-sm font-semibold text-fg-dim cursor-pointer;
+        @apply inline-flex min-w-0 min-h-7 items-center gap-2 rounded-md border-0 bg-transparent px-1.5 py-1 text-sm font-semibold text-fg-dim cursor-pointer;
     }
     .lp-board-toolbar__mode-button[aria-pressed='true'] {
         @apply bg-surface-1 font-bold text-ink shadow-sm;
@@ -606,6 +619,7 @@
         @apply truncate text-ink;
     }
     .lp-board__columns {
+        @apply relative;
         scroll-padding-inline: calc(var(--spacing) * 3);
         scrollbar-width: thin;
     }
@@ -621,7 +635,7 @@
             @apply w-full;
         }
         .lp-board-head__actions .lp-btn {
-            @apply flex-1;
+            @apply flex-1 basis-40;
         }
         .lp-board-toolbar {
             @apply flex-wrap;

@@ -131,6 +131,103 @@ test.afterAll(async ({ request }) => {
     await setBoardFlag(request, false);
 });
 
+test('board controls remain usable at enlarged text sizes without page overflow', async ({
+    page,
+}, testInfo) => {
+    for (const fontSize of ['100%', '200%']) {
+        await page.evaluate((size) => {
+            document.documentElement.style.fontSize = size;
+        }, fontSize);
+        for (const width of [1440, 1150, 950, 780, 390]) {
+            await page.setViewportSize({ width, height: 1000 });
+            await page.screenshot({
+                path: testInfo.outputPath(`board-${width}-${fontSize}.png`),
+                animations: 'disabled',
+            });
+            await expect
+                .poll(() =>
+                    page.evaluate(
+                        () =>
+                            document.documentElement.scrollWidth -
+                            window.innerWidth,
+                    ),
+                )
+                .toBeLessThanOrEqual(1);
+            for (const link of await page
+                .locator('.lp-board-head__actions a')
+                .all()) {
+                await expect(link).toBeInViewport({ ratio: 1 });
+                expect(
+                    await link.evaluate((element) => {
+                        const bounds = element.getBoundingClientRect();
+                        const range = document.createRange();
+                        range.selectNodeContents(element);
+                        const content = range.getBoundingClientRect();
+                        return Math.max(
+                            bounds.left - content.left,
+                            content.right - bounds.right,
+                        );
+                    }),
+                ).toBeLessThanOrEqual(1);
+            }
+            const query = page.getByRole('searchbox', {
+                name: 'Search cards',
+                exact: true,
+            });
+            const priority = page.getByRole('combobox', {
+                name: 'Priority',
+                exact: true,
+            });
+            const queryBounds = await query.boundingBox();
+            const priorityBounds = await priority.boundingBox();
+            expect(queryBounds).not.toBeNull();
+            expect(priorityBounds).not.toBeNull();
+            expect(queryBounds!.x + queryBounds!.width).toBeLessThanOrEqual(
+                priorityBounds!.x,
+            );
+            expect(queryBounds!.y).toBe(priorityBounds!.y);
+        }
+    }
+    const query = page.getByRole('searchbox', {
+        name: 'Search cards',
+        exact: true,
+    });
+    const priority = page.getByRole('combobox', {
+        name: 'Priority',
+        exact: true,
+    });
+    await query.fill('No matching card');
+    await expect(
+        page.locator('[data-board-filter-target="empty"]'),
+    ).toBeVisible();
+    await query.fill('Waiting');
+    await expect(
+        page.locator('[data-board-filter-target="empty"]'),
+    ).toBeHidden();
+    await query.press('Tab');
+    await expect(priority).toBeFocused();
+    await expect(priority).toBeInViewport({ ratio: 1 });
+    await priority.selectOption({ label: 'High' });
+    await expect(
+        page.locator('[data-board-filter-target="empty"]'),
+    ).toBeVisible();
+    await priority.selectOption('');
+    await page.getByRole('button', { name: 'List', exact: true }).click();
+    await expect(page.locator('.lp-board-list')).toBeVisible();
+    await expect(page.locator('.lp-board-list__row:not([hidden])')).toHaveCount(
+        1,
+    );
+    await page.getByRole('button', { name: 'Board', exact: true }).click();
+    await expect(page.locator('.lp-board__columns')).toBeVisible();
+    await expect
+        .poll(() =>
+            page.evaluate(
+                () => document.documentElement.scrollWidth - window.innerWidth,
+            ),
+        )
+        .toBeLessThanOrEqual(1);
+});
+
 test('column settings fits long names and enlarged text', async ({
     page,
     board,
