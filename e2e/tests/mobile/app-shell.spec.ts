@@ -7,7 +7,12 @@
  * so nothing here touches Mailpit.
  */
 
-import { test as base, expect, type Page } from '@playwright/test';
+import {
+    test as base,
+    expect,
+    type Page,
+    type Locator,
+} from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
 
 const RUN = Date.now();
@@ -473,6 +478,23 @@ test('enlarged document creation action remains reachable', async ({
     }
 });
 
+async function expectFilterFocusRingVisible(field: Locator): Promise<void> {
+    await expect(field).toBeFocused();
+    await expect(field).toHaveCSS('box-shadow', /0px 0px 0px 2px/);
+    const clearance = await field.evaluate((element) => {
+        const group = element.closest('.lp-filter-primary')!;
+        const outer = group.getBoundingClientRect();
+        const inner = element.getBoundingClientRect();
+        return Math.min(
+            inner.left - outer.left,
+            outer.left + group.clientWidth - inner.right,
+            inner.top - outer.top,
+            outer.top + group.clientHeight - inner.bottom,
+        );
+    });
+    expect(clearance).toBeGreaterThanOrEqual(2);
+}
+
 test('enlarged workspace filters remain reachable', async ({
     page,
     seeded,
@@ -497,12 +519,15 @@ test('enlarged workspace filters remain reachable', async ({
             ).toBe(16);
             await search.focus();
             await expect(search).toBeInViewport({ ratio: 1 });
+            await expectFilterFocusRingVisible(search);
             await search.press('Tab');
             await expect(status).toBeFocused();
             await expect(status).toBeInViewport({ ratio: 1 });
+            await expectFilterFocusRingVisible(status);
             await status.press('Shift+Tab');
             await expect(search).toBeFocused();
             await expect(search).toBeInViewport({ ratio: 1 });
+            await expectFilterFocusRingVisible(search);
         }
     }
 });

@@ -1486,7 +1486,11 @@
     }
     /* Primary search and status controls stay together as secondary filters wrap. */
     .lp-filter-primary {
-        @apply flex flex-1 basis-80 min-w-0 items-center gap-2 overflow-x-auto;
+        @apply flex flex-1 basis-80 min-w-0 items-center gap-2 overflow-x-auto scroll-p-0.5 p-0.5 -m-0.5;
+        scrollbar-width: none;
+    }
+    .lp-filter-primary::-webkit-scrollbar {
+        display: none;
     }
     .lp-filter-primary .lp-filter-search {
         @apply min-w-24;
