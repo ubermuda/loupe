@@ -123,6 +123,49 @@ for (const surface of ['page', 'drawer']) {
             await conversation
                 .getByLabel('Reply to this feedback')
                 .fill('From the card.');
+            await page
+                .getByRole('tab', { name: 'Feedback', exact: true })
+                .click();
+            const feedbackDraft = page
+                .locator(
+                    '#card-panel-feedback [data-site-feedback="' +
+                        commentId +
+                        '"]',
+                )
+                .getByLabel('Reply to this feedback');
+            await feedbackDraft.fill('A separate feedback draft.');
+            await page
+                .getByRole('tab', { name: 'Conversation', exact: true })
+                .click();
+            if (surface === 'drawer') {
+                const submissionId = await conversation
+                    .locator('input[name$="[submissionId]"]')
+                    .inputValue();
+                await page.keyboard.press('Escape');
+                await page
+                    .getByRole('link', { name: 'Workshop', exact: true })
+                    .click();
+                await expect(page).toHaveURL('/projects/' + projectId);
+                await expect(page.locator('html')).not.toHaveAttribute(
+                    'data-turbo-preview',
+                );
+                await page
+                    .locator('.lp-sidebar')
+                    .getByRole('link', { name: 'Board', exact: true })
+                    .click();
+                await page
+                    .locator('.lp-board-card__title[href="' + cardUrl + '"]')
+                    .click();
+                await page
+                    .getByRole('tab', { name: 'Conversation', exact: true })
+                    .click();
+                await expect(
+                    conversation.getByLabel('Reply to this feedback'),
+                ).toHaveValue('From the card.');
+                await expect(
+                    conversation.locator('input[name$="[submissionId]"]'),
+                ).toHaveValue(submissionId);
+            }
             await page.route(
                 '**/board/feedback/*/conversation/reply',
                 (route) =>
@@ -147,6 +190,21 @@ for (const surface of ['page', 'drawer']) {
                 conversation.locator('[data-site-review-reply]'),
             ).toHaveCount(2);
             await expect(conversation).toContainText('From the card.');
+            await expect(
+                conversation.getByLabel('Reply to this feedback'),
+            ).toHaveValue('');
+            if (surface === 'drawer') {
+                await page.keyboard.press('Escape');
+                await page
+                    .locator('.lp-board-card__title[href="' + cardUrl + '"]')
+                    .click();
+                await page
+                    .getByRole('tab', { name: 'Conversation', exact: true })
+                    .click();
+                await expect(
+                    conversation.getByLabel('Reply to this feedback'),
+                ).toHaveValue('');
+            }
             await expect(page).toHaveURL(
                 surface === 'drawer' ? boardUrl : cardUrl + '?tab=conversation',
             );
@@ -161,6 +219,10 @@ for (const surface of ['page', 'drawer']) {
             ).toHaveCount(2);
             await expect(feedback).toContainText('Before attaching.');
             await expect(feedback).toContainText('From the card.');
+            await expect(feedbackDraft).toHaveValue(
+                'A separate feedback draft.',
+            );
+            await feedbackDraft.fill('');
             await feedback
                 .getByText('Captured elements', { exact: true })
                 .click();

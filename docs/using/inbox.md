@@ -136,6 +136,8 @@ Use **Reply to this thread** to add context without changing an answer.
 Replies show their author and time in both the inbox and the card conversation.
 You can reply to completed requests. A reply does not reopen the request or resume an agent.
 The form accepts up to 2,000 characters and keeps an invalid draft for correction.
+Unsent replies stay in this browser tab when you close a card drawer or follow an in-app link.
+The browser asks before a reload or tab closure discards them. Signing out clears them.
 
 ## When an ask closes
 

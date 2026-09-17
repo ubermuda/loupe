@@ -25,7 +25,7 @@
         <script src="https://cdn.jsdelivr.net/npm/frankenphp-hot-reload/+esm" type="module"></script>
         {% endif %}
     </head>
-    <body class="{% block body_class %}{% endblock %}">
+    <body class="{% block body_class %}{% endblock %}" data-reply-draft-owner="{{ app.user ? app.user.id : '' }}">
         {# The page's outermost chrome, and the only thing that decides whether
            the application shell is present. `base.html.twig` fills it with the
            sidebar shell; `@Account/auth_base.html.twig` fills it with a bare
