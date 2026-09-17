@@ -1,7 +1,8 @@
 {# One column's header menu, for a reader who may change the columns.
    Props: board (BoardView), view (BoardColumnView), index (int),
-   renameColumnForm (a refused FormView, or null). #}
+   renameColumnForm (a refused FormView, or null), returnView (board or settings). #}
 {% set column = view.column %}
+{% set returnParams = returnView == 'settings' ? {view: 'settings'} : {} %}
 {% set label = column.label|trans %}
 {% set terminalCount = board.columns|filter(other => other.column.terminal)|length %}
 {# A terminal column shows a recent slice, so its count on the page is not every card it holds. #}
@@ -30,7 +31,7 @@
                 {% if watched %}
                 <p class="lp-board__rule-warning">{{ 'board.column.rename.bridge_rule_warning'|trans }}</p>
                 {% endif %}
-                {{ form_start(renameForm, {action: path('app_board_column_rename', {projectId: board.project.id, columnId: column.id}), attr: {
+                {{ form_start(renameForm, {action: path('app_board_column_rename', {projectId: board.project.id, columnId: column.id}|merge(returnParams)), attr: {
                     class: 'lp-form',
                     'data-controller': 'board-column-slug',
                     'data-board-column-slug-url-value': path('app_board_column_rename_preview', {projectId: board.project.id, columnId: column.id}),
@@ -56,10 +57,11 @@
 
         {% for move in [{offset: -1, key: 'board.column.move.left'}, {offset: 1, key: 'board.column.move.right'}] %}
             {% if board.columns[index + move.offset] is defined %}
-            {% set moveForm = board_columns_reorder_form(board_column_order(board.columns, index, move.offset)) %}
+            {% set moveForm = board_columns_reorder_form(board_column_order(board.columns, index, move.offset), board_column_order(board.columns, 0, 0)) %}
             {% set moveId = 'board-column-move-' ~ column.id ~ '-' ~ loop.index %}
-            <form method="post" action="{{ path('app_board_columns_reorder', {id: board.project.id}) }}">
+            <form method="post" action="{{ path('app_board_columns_reorder', {id: board.project.id}|merge(returnParams)) }}">
                 {{ form_widget(moveForm._token, {id: moveId ~ '-token'}) }}
+                {{ form_widget(moveForm.expectedOrder, {id: moveId ~ '-expected-order'}) }}
                 {{ form_widget(moveForm.order, {id: moveId ~ '-order'}) }}
                 <button type="submit" class="lp-board__column-menu-item">{{ move.key|trans }}</button>
             </form>
@@ -67,22 +69,23 @@
         {% endfor %}
 
         {% if column.terminal and terminalCount > 1 %}
-        <form method="post" action="{{ path('app_board_column_not_terminal', {projectId: board.project.id, columnId: column.id}) }}">
+        <form method="post" action="{{ path('app_board_column_not_terminal', {projectId: board.project.id, columnId: column.id}|merge(returnParams)) }}">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('board-column-terminal') }}">
             <button type="submit" class="lp-board__column-menu-item">{{ 'board.column.terminal.clear'|trans }}</button>
         </form>
         {% elseif not column.terminal and not column.isDefault %}
-        <form method="post" action="{{ path('app_board_column_terminal', {projectId: board.project.id, columnId: column.id}) }}">
+        <form method="post" action="{{ path('app_board_column_terminal', {projectId: board.project.id, columnId: column.id}|merge(returnParams)) }}">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('board-column-terminal') }}">
             <button type="submit" class="lp-board__column-menu-item">{{ 'board.column.terminal.set'|trans }}</button>
         </form>
         {% endif %}
 
         {% if not column.terminal and not column.isDefault %}
-        <form method="post" action="{{ path('app_board_column_default', {projectId: board.project.id, columnId: column.id}) }}">
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token('board-column-default') }}">
+        {% set defaultForm = board_column_default_form(column, (board.columns|filter(other => other.column.isDefault)|first).column.id ~ '') %}
+        {{ form_start(defaultForm, {action: path('app_board_column_default', {projectId: board.project.id, columnId: column.id}|merge(returnParams))}) }}
+            {{ form_widget(defaultForm.expectedDefaultId) }}
             <button type="submit" class="lp-board__column-menu-item">{{ 'board.column.default.set'|trans }}</button>
-        </form>
+        {{ form_end(defaultForm) }}
         {% endif %}
 
         {% if column.isDefault or (column.terminal and terminalCount == 1) %}
@@ -91,7 +94,7 @@
         </p>
         {% else %}
         {% set deleteForm = board_column_delete_form(column, board.columns) %}
-        {% set deleteAction = path('app_board_column_delete', {projectId: board.project.id, columnId: column.id}) %}
+        {% set deleteAction = path('app_board_column_delete', {projectId: board.project.id, columnId: column.id}|merge(returnParams)) %}
             <div data-controller="modal">
                 <button type="button" class="lp-board__column-menu-item lp-board__column-menu-item--danger" data-action="click->modal#open">
                     {{ 'board.column.delete.action'|trans }}

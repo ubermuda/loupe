@@ -34,6 +34,97 @@ final class BoardColumnControllersTest extends WebTestCase
         $this->enableBoard();
     }
 
+    public function test_settings_keeps_a_refused_add_and_a_successful_add_on_the_settings_page(): void
+    {
+        [, $project] = $this->ownedBoard('columns-settings-add@example.com');
+        $url = '/projects/'.$project->id.'/settings/columns';
+        $this->em->clear();
+        $crawler = $this->client->request(Request::METHOD_GET, $url);
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-board-column-settings]'));
+
+        $crawler = $this->client->submit($crawler->filter('form[name="add_board_column_form"]')->form(['add_board_column_form[label]' => 'Done']));
+        self::assertResponseStatusCodeSame(422);
+        self::assertCount(1, $crawler->filter('[data-board-column-settings]'));
+        self::assertStringContainsString('already has this slug', $crawler->filter('form[name="add_board_column_form"] .lp-field-errors')->text());
+        self::assertSame(['backlog', 'next', 'in-progress', 'done'], $this->slugs($project));
+
+        $this->client->submit($crawler->filter('form[name="add_board_column_form"]')->form(['add_board_column_form[label]' => 'Parked']));
+        self::assertResponseRedirects($url);
+        $this->client->followRedirect();
+        self::assertSelectorExists('[data-board-column-settings]');
+        self::assertSame(['backlog', 'next', 'in-progress', 'done', 'parked'], $this->slugs($project));
+    }
+
+    public function test_a_stale_settings_rename_keeps_the_newer_name_and_the_rejected_draft(): void
+    {
+        [, $project] = $this->ownedBoard('columns-settings-stale@example.com');
+        $next = $this->column($project, 'next');
+        $name = RenameBoardColumnFormType::nameFor($next);
+        $url = '/projects/'.$project->id.'/settings/columns';
+        $this->em->clear();
+        $crawler = $this->client->request(Request::METHOD_GET, $url);
+        self::assertResponseIsSuccessful();
+        $stale = $crawler->filter('form[name="'.$name.'"]')->form([$name.'[label]' => 'My draft']);
+        $fresh = $crawler->filter('form[name="'.$name.'"]')->form([$name.'[label]' => 'Newer name']);
+        $this->client->submit($fresh);
+        self::assertResponseRedirects($url);
+        self::assertSame(['backlog', 'newer-name', 'in-progress', 'done'], $this->slugs($project));
+
+        $crawler = $this->client->submit($stale);
+        self::assertResponseStatusCodeSame(422);
+        $form = $crawler->filter('form[name="'.$name.'"]');
+        self::assertSame('My draft', $form->filter('input[name="'.$name.'[label]"]')->attr('value'));
+        self::assertStringContainsString('changed after you opened', $form->filter('.lp-field-errors')->text());
+        self::assertSame(['backlog', 'newer-name', 'in-progress', 'done'], $this->slugs($project));
+    }
+
+    public function test_a_stale_move_preserves_the_order_saved_by_another_editor(): void
+    {
+        [, $project] = $this->ownedBoard('columns-settings-stale-order@example.com');
+        $url = '/projects/'.$project->id.'/settings/columns';
+        $this->em->clear();
+        $crawler = $this->client->request(Request::METHOD_GET, $url);
+        self::assertResponseIsSuccessful();
+        $form = $crawler->filter('form[action$="/reorder?view=settings"]')->first()->form();
+        $this->client->submit($form);
+        self::assertResponseRedirects($url);
+        $saved = $this->slugs($project);
+        self::assertSame(['next', 'backlog', 'in-progress', 'done'], $saved);
+
+        $order = array_map(fn (string $slug): string => (string) $this->column($project, $slug)->id, ['backlog', 'next', 'done', 'in-progress']);
+        $form['reorder_board_columns_form[order]'] = implode(',', $order);
+        $this->client->submit($form);
+        self::assertResponseRedirects($url);
+        $this->client->followRedirect();
+        self::assertSame($saved, $this->slugs($project));
+    }
+
+    public function test_a_stale_default_action_keeps_the_newer_default(): void
+    {
+        [, $project] = $this->ownedBoard('columns-settings-stale-default@example.com');
+        $nextId = (string) $this->column($project, 'next')->id;
+        $progressId = (string) $this->column($project, 'in-progress')->id;
+        $url = '/projects/'.$project->id.'/settings/columns';
+        $this->em->clear();
+        $crawler = $this->client->request(Request::METHOD_GET, $url);
+        self::assertResponseIsSuccessful();
+        $stale = $crawler->filter('form[action$="/'.$progressId.'/default?view=settings"]')->form();
+        $fresh = $crawler->filter('form[action$="/'.$nextId.'/default?view=settings"]')->form();
+        $this->client->submit($fresh);
+        self::assertResponseRedirects($url);
+        $this->em->clear();
+        self::assertTrue($this->column($project, 'next')->isDefault);
+
+        $this->client->submit($stale);
+        self::assertResponseRedirects($url);
+        $crawler = $this->client->followRedirect();
+        self::assertStringContainsString('The default column changed', $crawler->text());
+        $this->em->clear();
+        self::assertTrue($this->column($project, 'next')->isDefault);
+        self::assertFalse($this->column($project, 'in-progress')->isDefault);
+    }
+
     public function test_the_owner_sees_the_column_controls(): void
     {
         [, $project] = $this->ownedBoard('columns-controls@example.com');

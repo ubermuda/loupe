@@ -16,7 +16,7 @@
             <p class="lp-workspace-desc">{{ 'board.page.description'|trans }}</p>
         </div>
         <div class="lp-board-head__actions">
-            <a class="lp-btn" href="{{ path('app_project_edit', {id: board.project.id}) }}">
+            <a class="lp-btn" href="{{ path('app_board_settings', {id: board.project.id}) }}">
                 <twig:ux:icon name="lucide:settings" class="w-4 h-4 shrink-0" />
                 {{ 'board.settings.action'|trans }}
             </a>

@@ -24,6 +24,7 @@ use Ubermuda\AuditBundle\AuditSubject;
 final readonly class RenameBoardColumnHandler
 {
     public const string GONE = 'board.column.error.gone';
+    public const string STALE = 'board.column.error.rename_stale';
 
     public function __construct(
         private BoardColumnRepository $boardColumns,
@@ -53,6 +54,9 @@ final readonly class RenameBoardColumnHandler
             $columns = $this->boardColumns->findForProjectFresh($column->project);
             if (!\in_array($column, $columns, true)) {
                 return self::GONE;
+            }
+            if ($command->expectedLabel !== $column->label) {
+                return self::STALE;
             }
 
             $refusal = $this->rules->refuseRename($columns, $column, $slug);

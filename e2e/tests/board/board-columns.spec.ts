@@ -131,6 +131,110 @@ test.afterAll(async ({ request }) => {
     await setBoardFlag(request, false);
 });
 
+test('column settings preserves edits and navigation', async ({
+    page,
+    board,
+}) => {
+    await page
+        .getByRole('link', { name: 'Board settings', exact: true })
+        .click();
+    const settingsUrl = `/projects/${board.projectId}/settings/columns`;
+    await expect(page).toHaveURL(settingsUrl);
+    const settings = page.locator('[data-board-column-settings]');
+    await expect(settings).toBeVisible();
+    await page
+        .getByRole('button', { name: 'Add a column', exact: true })
+        .click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('textbox').fill('Parked');
+    await dialog
+        .getByRole('button', { name: 'Add column', exact: true })
+        .click();
+    await expect(
+        settings.getByRole('heading', { name: 'Parked', exact: true }),
+    ).toBeVisible(ROUND_TRIP);
+    await expect(page).toHaveURL(settingsUrl);
+
+    const parked = settings.locator('[data-column-id]').filter({
+        has: page.getByRole('heading', { name: 'Parked', exact: true }),
+    });
+    await parked
+        .getByRole('button', { name: 'Move left', exact: true })
+        .click();
+    await expect(settings.locator('.lp-settings-column__name code')).toHaveText(
+        ['backlog', 'next', 'in-progress', 'parked', 'done'],
+        ROUND_TRIP,
+    );
+    await expect(page).toHaveURL(settingsUrl);
+    await page.reload();
+    await expect(settings.locator('.lp-settings-column__name code')).toHaveText(
+        ['backlog', 'next', 'in-progress', 'parked', 'done'],
+    );
+
+    await parked.locator('.lp-board__column-menu-trigger').click();
+    await parked.getByRole('button', { name: 'Rename', exact: true }).click();
+    await dialog.getByLabel('Name', { exact: true }).fill('Done');
+    await dialog
+        .getByRole('button', { name: 'Save name', exact: true })
+        .click();
+    await expect(dialog.locator('.lp-field-errors')).toContainText(
+        'already has this slug',
+        ROUND_TRIP,
+    );
+    await expect(dialog.getByLabel('Name', { exact: true })).toHaveValue(
+        'Done',
+    );
+    await expect(settings).toBeVisible();
+    await dialog.getByLabel('Name', { exact: true }).fill('On hold');
+    await dialog
+        .getByRole('button', { name: 'Save name', exact: true })
+        .click();
+    await expect(
+        settings.getByRole('heading', { name: 'On hold', exact: true }),
+    ).toBeVisible(ROUND_TRIP);
+    await expect(page).toHaveURL(settingsUrl);
+    await page.reload();
+    await expect(settings.locator('.lp-settings-column__name code')).toHaveText(
+        ['backlog', 'next', 'in-progress', 'on-hold', 'done'],
+    );
+    const renamed = settings.locator('[data-column-id]').filter({
+        has: page.getByRole('heading', { name: 'On hold', exact: true }),
+    });
+    await renamed.locator('.lp-board__column-menu-trigger').click();
+    await renamed
+        .getByRole('button', { name: 'Mark as terminal', exact: true })
+        .click();
+    await expect(renamed.locator('.lp-board__column-flag')).toHaveText(
+        'Terminal',
+        ROUND_TRIP,
+    );
+    await expect(page).toHaveURL(settingsUrl);
+    await renamed.locator('.lp-board__column-menu-trigger').click();
+    await renamed
+        .getByRole('button', { name: 'Unmark as terminal', exact: true })
+        .click();
+    await expect(renamed.locator('.lp-board__column-flag')).toHaveCount(
+        0,
+        ROUND_TRIP,
+    );
+    await renamed.locator('.lp-board__column-menu-trigger').click();
+    await renamed
+        .getByRole('button', {
+            name: 'Make the default for new cards',
+            exact: true,
+        })
+        .click();
+    await expect(renamed.locator('.lp-board__column-flag')).toHaveText(
+        'Default',
+        ROUND_TRIP,
+    );
+    await expect(page).toHaveURL(settingsUrl);
+    await page.reload();
+    await expect(renamed.locator('.lp-board__column-flag')).toHaveText(
+        'Default',
+    );
+});
+
 test('document dialogs create, retain and clear card links', async ({
     page,
     board,

@@ -46,9 +46,19 @@ time. A board has at least one terminal column, and it can have more. See
 
 ### Change the columns
 
-Only the project owner changes the columns, and only on the board screen. No MCP
-tool and no API route writes a column. Another reader of the board sees no
-column controls.
+Only the project owner changes columns, through the board or project settings.
+No MCP tool and no API route writes a column.
+Another reader of the board sees no column controls.
+
+Open **Board settings** to manage columns beside the other project settings.
+The **Board columns** section offers add, rename, move, default, terminal,
+and delete controls. Each action saves separately and returns to this section.
+The board header menus remain available.
+
+Rename, reorder, and default changes check the state shown when the form opens.
+If another editor changes that state first, Loupe refuses the stale change.
+A refused rename keeps your draft in its dialog. Copy it before you reload.
+Reorder and default refusals show the current configuration with an error message.
 
 The owner adds a column with the form after the last column. A new column is
 neither terminal nor the default. The owner drags a column header by its grip to

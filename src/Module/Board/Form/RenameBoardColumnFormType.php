@@ -6,6 +6,7 @@ namespace App\Module\Board\Form;
 
 use App\Module\Board\Entity\BoardColumn;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -29,6 +30,7 @@ final class RenameBoardColumnFormType extends AbstractType
         $builder->add('label', TextType::class, [
             'label' => 'board.form.rename_board_column_form.label.label',
         ]);
+        $builder->add('expectedLabel', HiddenType::class);
     }
 
     #[\Override]

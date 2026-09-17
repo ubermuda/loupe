@@ -45,6 +45,7 @@ final class RenameBoardColumnController extends AppController
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(columnId, projectId)')] BoardColumn $column,
     ): Response {
         $this->board->requireEnabled();
+        $settings = 'settings' === $request->query->get('view');
 
         $project = $column->project;
         $data = new RenameBoardColumnRequest();
@@ -53,15 +54,15 @@ final class RenameBoardColumnController extends AppController
 
         if ($form->isSubmitted() && $form->isValid()) {
             try {
-                ($this->renameColumn)(new RenameBoardColumnCommand($column, CardReporter::Human, $data->label ?? ''));
+                ($this->renameColumn)(new RenameBoardColumnCommand($column, CardReporter::Human, $data->label ?? '', $data->expectedLabel ?? ''));
 
-                return $this->redirectToRoute('app_project_board', ['id' => (string) $project->id]);
+                return $this->redirectToRoute($settings ? 'app_board_settings' : 'app_project_board', ['id' => (string) $project->id]);
             } catch (DomainErrors $e) {
                 // The forwarded board has no dialog for a column that went away.
                 if (isset($e->errors['column'])) {
                     $this->addFlash('error', $this->translator->trans($e->errors['column']));
 
-                    return $this->redirectToRoute('app_project_board', ['id' => (string) $project->id]);
+                    return $this->redirectToRoute($settings ? 'app_board_settings' : 'app_project_board', ['id' => (string) $project->id]);
                 }
                 $this->applyDomainErrors($form, $e);
             }
@@ -71,6 +72,7 @@ final class RenameBoardColumnController extends AppController
             'id' => (string) $project->id,
             'project' => $project,
             'renameColumnForm' => $form->createView(),
+            'boardSettings' => $settings,
         ])->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 }

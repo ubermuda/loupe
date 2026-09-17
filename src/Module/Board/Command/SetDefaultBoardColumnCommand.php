@@ -10,6 +10,7 @@ final readonly class SetDefaultBoardColumnCommand
 {
     public function __construct(
         public BoardColumn $column,
+        public string $expectedDefaultId,
     ) {
     }
 }

@@ -18,6 +18,8 @@ use Ubermuda\AuditBundle\AuditSubject;
 /** Makes a column the one new cards land in, and takes the flag from the column that had it. */
 final readonly class SetDefaultBoardColumnHandler
 {
+    public const string STALE = 'board.column.error.default_stale';
+
     public function __construct(
         private BoardColumnRepository $boardColumns,
         private BoardColumns $rules,
@@ -33,7 +35,7 @@ final readonly class SetDefaultBoardColumnHandler
 
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
         $previousId = null;
-        $result = $this->em->wrapInTransaction(function () use ($column, &$previousId): bool|string {
+        $result = $this->em->wrapInTransaction(function () use ($column, $command, &$previousId): bool|string {
             $this->em->lock($column->project, LockMode::PESSIMISTIC_WRITE);
             $columns = $this->boardColumns->findForProjectFresh($column->project);
             if (!\in_array($column, $columns, true)) {
@@ -41,6 +43,11 @@ final readonly class SetDefaultBoardColumnHandler
             }
             if ($column->isDefault) {
                 return false;
+            }
+            foreach ($columns as $other) {
+                if ($other->isDefault && (string) $other->id !== $command->expectedDefaultId) {
+                    return self::STALE;
+                }
             }
 
             $refusal = $this->rules->refuseDefault($columns, $column);

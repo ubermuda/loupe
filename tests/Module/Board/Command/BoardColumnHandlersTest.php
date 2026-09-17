@@ -97,7 +97,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
     public function test_a_label_that_is_a_translation_key_is_refused(): void
     {
         $this->assertRefused(['label' => BoardColumns::LABEL_RESERVED], fn () => $this->handler(AddBoardColumnHandler::class)(new AddBoardColumnCommand($this->project, 'board.page.description')));
-        $this->assertRefused(['label' => BoardColumns::LABEL_RESERVED], fn () => $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($this->column($this->project, 'next'), CardReporter::Human, 'board.card.status.done')));
+        $this->assertRefused(['label' => BoardColumns::LABEL_RESERVED], fn () => $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($this->column($this->project, 'next'), CardReporter::Human, 'board.card.status.done', $this->column($this->project, 'next')->label)));
         self::assertSame(BoardColumns::LABEL_RESERVED, $this->handler(PreviewBoardColumnRenameHandler::class)(new PreviewBoardColumnRenameCommand($this->column($this->project, 'next'), 'board.page.description'))->refusal);
     }
 
@@ -110,7 +110,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
     {
         $next = $this->column($this->project, 'next');
 
-        $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($next, CardReporter::Human, 'Up next'));
+        $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($next, CardReporter::Human, 'Up next', $next->label));
 
         $this->em->clear();
         $renamed = $this->em->find(BoardColumn::class, $next->id);
@@ -127,7 +127,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
     {
         $next = $this->column($this->project, 'next');
 
-        $this->assertRefused(['label' => BoardColumns::SLUG_TAKEN], fn () => $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($next, CardReporter::Human, 'In progress')));
+        $this->assertRefused(['label' => BoardColumns::SLUG_TAKEN], fn () => $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($next, CardReporter::Human, 'In progress', $next->label)));
 
         $this->em->clear();
         self::assertSame(['backlog', 'next', 'in-progress', 'done'], $this->slugs());
@@ -136,7 +136,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
 
     public function test_a_rename_to_a_label_with_no_slug_is_refused(): void
     {
-        $this->assertRefused(['label' => BoardColumns::SLUG_EMPTY], fn () => $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($this->column($this->project, 'next'), CardReporter::Human, '!!!')));
+        $this->assertRefused(['label' => BoardColumns::SLUG_EMPTY], fn () => $this->handler(RenameBoardColumnHandler::class)(new RenameBoardColumnCommand($this->column($this->project, 'next'), CardReporter::Human, '!!!', $this->column($this->project, 'next')->label)));
     }
 
     public function test_the_preview_shows_the_slug_a_rename_would_write_and_the_rule_it_would_break(): void
@@ -155,9 +155,10 @@ final class BoardColumnHandlersTest extends KernelTestCase
 
     public function test_a_reorder_writes_the_order_given(): void
     {
+        $expected = implode(',', array_map(fn (string $slug): string => (string) $this->column($this->project, $slug)->id, $this->slugs()));
         $order = array_map(fn (string $slug): string => (string) $this->column($this->project, $slug)->id, ['done', 'backlog', 'in-progress', 'next']);
 
-        $this->handler(ReorderBoardColumnsHandler::class)(new ReorderBoardColumnsCommand($this->project, implode(',', $order)));
+        $this->handler(ReorderBoardColumnsHandler::class)(new ReorderBoardColumnsCommand($this->project, implode(',', $order), $expected));
 
         $this->em->clear();
         self::assertSame(['done', 'backlog', 'in-progress', 'next'], $this->slugs());
@@ -166,17 +167,19 @@ final class BoardColumnHandlersTest extends KernelTestCase
 
     public function test_a_reorder_that_misses_a_column_is_refused(): void
     {
+        $expected = implode(',', array_map(fn (string $slug): string => (string) $this->column($this->project, $slug)->id, $this->slugs()));
         $order = array_map(fn (string $slug): string => (string) $this->column($this->project, $slug)->id, ['done', 'backlog', 'next']);
 
-        $this->assertRefused(['order' => ReorderBoardColumnsHandler::ORDER_STALE], fn () => $this->handler(ReorderBoardColumnsHandler::class)(new ReorderBoardColumnsCommand($this->project, implode(',', $order))));
+        $this->assertRefused(['order' => ReorderBoardColumnsHandler::ORDER_STALE], fn () => $this->handler(ReorderBoardColumnsHandler::class)(new ReorderBoardColumnsCommand($this->project, implode(',', $order), $expected)));
         self::assertSame(['backlog', 'next', 'in-progress', 'done'], $this->slugs());
     }
 
     public function test_a_reorder_that_names_a_column_twice_is_refused(): void
     {
+        $expected = implode(',', array_map(fn (string $slug): string => (string) $this->column($this->project, $slug)->id, $this->slugs()));
         $ids = array_map(fn (string $slug): string => (string) $this->column($this->project, $slug)->id, ['backlog', 'next', 'next', 'done']);
 
-        $this->assertRefused(['order' => ReorderBoardColumnsHandler::ORDER_STALE], fn () => $this->handler(ReorderBoardColumnsHandler::class)(new ReorderBoardColumnsCommand($this->project, implode(',', $ids))));
+        $this->assertRefused(['order' => ReorderBoardColumnsHandler::ORDER_STALE], fn () => $this->handler(ReorderBoardColumnsHandler::class)(new ReorderBoardColumnsCommand($this->project, implode(',', $ids), $expected)));
     }
 
     public function test_a_column_turned_terminal_stamps_the_cards_it_holds(): void
@@ -232,7 +235,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
         $next = $this->column($this->project, 'next');
         $backlog = $this->column($this->project, 'backlog');
 
-        $this->handler(SetDefaultBoardColumnHandler::class)(new SetDefaultBoardColumnCommand($next));
+        $this->handler(SetDefaultBoardColumnHandler::class)(new SetDefaultBoardColumnCommand($next, (string) $this->column($this->project, 'backlog')->id));
 
         $this->em->clear();
         $defaults = array_values(array_filter($this->board(), static fn (BoardColumn $column): bool => $column->isDefault));
@@ -243,7 +246,7 @@ final class BoardColumnHandlersTest extends KernelTestCase
 
     public function test_a_terminal_column_cannot_become_the_default(): void
     {
-        $this->assertRefused(['default' => BoardColumns::DEFAULT_TERMINAL], fn () => $this->handler(SetDefaultBoardColumnHandler::class)(new SetDefaultBoardColumnCommand($this->column($this->project, 'done'))));
+        $this->assertRefused(['default' => BoardColumns::DEFAULT_TERMINAL], fn () => $this->handler(SetDefaultBoardColumnHandler::class)(new SetDefaultBoardColumnCommand($this->column($this->project, 'done'), (string) $this->column($this->project, 'backlog')->id)));
     }
 
     public function test_an_empty_column_deletes_at_once_and_the_rest_close_up(): void

@@ -35,6 +35,7 @@ final class AddBoardColumnController extends AppController
     public function __invoke(Request $request, Project $project): Response
     {
         $this->board->requireEnabled();
+        $settings = 'settings' === $request->query->get('view');
 
         $data = new AddBoardColumnRequest();
         $form = $this->createForm(AddBoardColumnFormType::class, $data);
@@ -44,7 +45,7 @@ final class AddBoardColumnController extends AppController
             try {
                 ($this->addColumn)(new AddBoardColumnCommand($project, $data->label ?? ''));
 
-                return $this->redirectToRoute('app_project_board', ['id' => (string) $project->id]);
+                return $this->redirectToRoute($settings ? 'app_board_settings' : 'app_project_board', ['id' => (string) $project->id]);
             } catch (DomainErrors $e) {
                 $this->applyDomainErrors($form, $e);
             }
@@ -56,6 +57,7 @@ final class AddBoardColumnController extends AppController
             'id' => (string) $project->id,
             'project' => $project,
             'addColumnForm' => $form->createView(),
+            'boardSettings' => $settings,
         ])->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 }

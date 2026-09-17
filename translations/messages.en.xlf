@@ -5826,6 +5826,22 @@
                 <source>review.dashboard.table.actions</source>
                 <target>Actions</target>
             </trans-unit>
+            <trans-unit id="board.column.error.rename_stale">
+                <source>board.column.error.rename_stale</source>
+                <target>This column name changed after you opened the form. Copy your draft and reload before you try again.</target>
+            </trans-unit>
+            <trans-unit id="board.column.error.default_stale">
+                <source>board.column.error.default_stale</source>
+                <target>The default column changed after this page opened. Check the current default before you try again.</target>
+            </trans-unit>
+            <trans-unit id="board.settings.heading">
+                <source>board.settings.heading</source>
+                <target>Board columns</target>
+            </trans-unit>
+            <trans-unit id="board.settings.description">
+                <source>board.settings.description</source>
+                <target>Keep a default starting column and at least one terminal column. Column options include rename, move and configuration actions.</target>
+            </trans-unit>
             <trans-unit id="board.settings.action">
                 <source>board.settings.action</source>
                 <target>Board settings</target>

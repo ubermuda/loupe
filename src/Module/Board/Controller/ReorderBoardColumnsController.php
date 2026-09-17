@@ -48,7 +48,7 @@ final class ReorderBoardColumnsController extends AppController
         $refusal = ReorderBoardColumnsHandler::ORDER_STALE;
         if ($form->isSubmitted() && $form->isValid()) {
             try {
-                ($this->reorderColumns)(new ReorderBoardColumnsCommand($project, $data->order ?? ''));
+                ($this->reorderColumns)(new ReorderBoardColumnsCommand($project, $data->order ?? '', $data->expectedOrder ?? ''));
                 $refusal = null;
             } catch (DomainErrors $e) {
                 $refusal = array_first($e->errors);
@@ -59,6 +59,6 @@ final class ReorderBoardColumnsController extends AppController
             $this->addFlash('error', $this->translator->trans($refusal));
         }
 
-        return $this->redirectToRoute('app_project_board', ['id' => (string) $project->id]);
+        return $this->redirectToRoute('settings' === $request->query->get('view') ? 'app_board_settings' : 'app_project_board', ['id' => (string) $project->id]);
     }
 }

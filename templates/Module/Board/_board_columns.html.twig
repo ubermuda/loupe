@@ -58,12 +58,13 @@
        aria-live="polite"></p>
     {% if canManage %}
     {# A header drop fills this form with the new order and submits it. #}
-    {% set reorderForm = board_columns_reorder_form() %}
+    {% set reorderForm = board_columns_reorder_form('', board_column_order(board.columns, 0, 0)) %}
     <form hidden
           method="post"
           action="{{ path('app_board_columns_reorder', {id: board.project.id}) }}"
           data-board-columns-target="form">
         {{ form_widget(reorderForm._token) }}
+        {{ form_widget(reorderForm.expectedOrder) }}
         {{ form_widget(reorderForm.order, {attr: {'data-board-columns-target': 'order'}}) }}
     </form>
     {% endif %}
@@ -95,7 +96,7 @@
             {% endif %}
             <span class="lp-board__column-count">{{ view.count }}</span>
             {% if canManage %}
-                {% include '@Board/_board_column_menu.html.twig' with {board: board, view: view, index: loop.index0, renameColumnForm: renameColumnForm} only %}
+                {% include '@Board/_board_column_menu.html.twig' with {board: board, view: view, index: loop.index0, renameColumnForm: renameColumnForm, returnView: 'board'} only %}
             {% endif %}
         </header>
 

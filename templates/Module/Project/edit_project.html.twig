@@ -24,7 +24,7 @@
                 {{ 'project.edit.nav.general'|trans }}
             </a>
             {% if is_feature_enabled('board.enabled') %}
-            <a class="lp-settings-nav__item" href="{{ path('app_project_board', {id: project.id}) }}">
+            <a class="lp-settings-nav__item" href="{{ path('app_board_settings', {id: project.id}) }}">
                 <twig:ux:icon name="lucide:square-kanban" />
                 {{ 'project.edit.nav.columns'|trans }}
             </a>

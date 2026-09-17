@@ -21,6 +21,8 @@ use App\Module\Board\Form\RenameBoardColumnFormType;
 use App\Module\Board\Form\RenameBoardColumnRequest;
 use App\Module\Board\Form\ReorderBoardColumnsFormType;
 use App\Module\Board\Form\ReorderBoardColumnsRequest;
+use App\Module\Board\Form\SetDefaultBoardColumnFormType;
+use App\Module\Board\Form\SetDefaultBoardColumnRequest;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
@@ -61,6 +63,7 @@ final class BoardExtension extends AbstractExtension
             new TwigFunction('board_column_add_form', $this->boardColumnAddForm(...)),
             new TwigFunction('board_column_rename_form', $this->boardColumnRenameForm(...)),
             new TwigFunction('board_column_delete_form', $this->boardColumnDeleteForm(...)),
+            new TwigFunction('board_column_default_form', $this->boardColumnDefaultForm(...)),
             new TwigFunction('board_columns_reorder_form', $this->boardColumnsReorderForm(...)),
             new TwigFunction('board_column_order', $this->boardColumnOrder(...)),
             new TwigFunction('safe_pull_request_url', $this->safePullRequestUrl(...)),
@@ -157,7 +160,7 @@ final class BoardExtension extends AbstractExtension
         }
 
         return $this->formFactory
-            ->createNamed($name, RenameBoardColumnFormType::class, new RenameBoardColumnRequest($this->translator->trans($column->label)))
+            ->createNamed($name, RenameBoardColumnFormType::class, new RenameBoardColumnRequest($this->translator->trans($column->label), $column->label))
             ->createView();
     }
 
@@ -177,10 +180,17 @@ final class BoardExtension extends AbstractExtension
             ->createView();
     }
 
-    public function boardColumnsReorderForm(string $order = ''): FormView
+    public function boardColumnDefaultForm(BoardColumn $column, string $expectedDefaultId): FormView
     {
         return $this->formFactory
-            ->create(ReorderBoardColumnsFormType::class, new ReorderBoardColumnsRequest($order))
+            ->createNamed(SetDefaultBoardColumnFormType::nameFor($column), SetDefaultBoardColumnFormType::class, new SetDefaultBoardColumnRequest($expectedDefaultId))
+            ->createView();
+    }
+
+    public function boardColumnsReorderForm(string $order, string $expectedOrder): FormView
+    {
+        return $this->formFactory
+            ->create(ReorderBoardColumnsFormType::class, new ReorderBoardColumnsRequest($order, $expectedOrder))
             ->createView();
     }
 

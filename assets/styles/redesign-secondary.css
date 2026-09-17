@@ -239,6 +239,21 @@
     .lp-settings-form-actions {
         @apply flex flex-wrap items-center justify-end gap-3 pt-2;
     }
+    .lp-settings-columns {
+        @apply my-6 flex list-none flex-col gap-2 p-0;
+    }
+    .lp-settings-column {
+        @apply flex flex-wrap items-center gap-2 rounded-lg border border-line p-3;
+    }
+    .lp-settings-column__name {
+        @apply min-w-0 flex-1 break-words;
+    }
+    .lp-settings-column__name h3 {
+        @apply m-0 text-sm font-semibold;
+    }
+    .lp-settings-column__name code {
+        @apply text-xs text-fg-mute;
+    }
     .lp-account-settings-content #profile {
         order: 1;
     }
