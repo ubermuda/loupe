@@ -127,3 +127,20 @@ test('secondary text and active navigation counts remain legible on their render
             .toBeGreaterThanOrEqual(4.5);
     }
 });
+
+test('outdated version note style has readable contrast', async ({ page }) => {
+    await page.goto('/about');
+    const card = page.locator('.lp-about-card__main').first();
+    await expect(card).toBeVisible();
+    await card.evaluate((element) => {
+        const specimen = document.createElement('p');
+        specimen.className =
+            'lp-about-card__note lp-about-card__note--outdated';
+        specimen.textContent = 'New version available';
+        specimen.dataset.testid = 'outdated-contrast-specimen';
+        element.append(specimen);
+    });
+    const note = page.getByTestId('outdated-contrast-specimen');
+    await expect(note).toBeVisible();
+    expect(await contrast(note)).toBeGreaterThanOrEqual(4.5);
+});

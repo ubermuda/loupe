@@ -1,5 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
-import { submitRedirectingForm } from '../helpers';
+import { registerFreshUser, submitRedirectingForm } from '../helpers';
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -105,4 +105,31 @@ test('verification resend text has contrast', async ({ page }) => {
         page,
         page.getByRole('button', { name: 'Resend verification email' }),
     );
+});
+
+test('wizard step numbers and labels have contrast', async ({
+    page,
+    request,
+}) => {
+    await registerFreshUser(page, request, {
+        email: `e2e-wizard-contrast-${crypto.randomUUID()}@example.com`,
+        password: 'SecurePassword1!',
+    });
+    await expect(page).toHaveURL('/welcome');
+    await page.getByLabel(/Project name/i).fill('Contrast project');
+    await submitRedirectingForm(
+        page,
+        page.getByRole('button', { name: 'Create project' }),
+        '/welcome/project',
+    );
+    await expect(page).toHaveURL('/welcome/connect');
+    for (const state of ['completed', 'current', 'upcoming']) {
+        for (const part of ['circle', 'label']) {
+            const text = page.locator(`.lp-ribbon__${part}--${state}`).first();
+            await expect(text).toBeVisible();
+            expect
+                .soft(await contrast(text), `${state} ${part}`)
+                .toBeGreaterThanOrEqual(4.5);
+        }
+    }
 });

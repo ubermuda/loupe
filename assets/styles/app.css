@@ -1171,13 +1171,13 @@
         @apply inline-flex items-center justify-center shrink-0 rounded-full border font-mono font-medium w-5.5 h-5.5 text-xs;
     }
     .lp-ribbon__circle--current {
-        @apply bg-accent text-white border-accent;
+        @apply bg-accent text-ink border-accent;
     }
     .lp-ribbon__circle--completed {
-        @apply bg-accent-soft text-accent-hover border-accent-border;
+        @apply bg-accent-soft text-accent-ink border-accent-border;
     }
     .lp-ribbon__circle--upcoming {
-        @apply bg-elev text-fg-faint border-line-strong;
+        @apply bg-elev text-fg-dim border-line-strong;
     }
     .lp-ribbon__label {
         @apply text-sm;
@@ -1187,7 +1187,7 @@
         @apply text-ink font-semibold;
     }
     .lp-ribbon__label--completed {
-        @apply text-accent-hover;
+        @apply text-accent-ink;
     }
     .lp-ribbon__label--upcoming {
         @apply text-fg-dim;
@@ -1562,7 +1562,7 @@
         @apply inline-flex items-center rounded-full bg-tint-strong px-2.5 py-1 text-xs font-bold text-fg-mute m-0;
     }
     .lp-about-card__note--outdated {
-        @apply bg-accent-soft text-accent-hover;
+        @apply bg-accent-soft text-accent-ink;
     }
 
     /* Error pages. Centred in the viewport because they render without the
