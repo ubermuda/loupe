@@ -130,6 +130,13 @@ A stale form cannot replace a newer document verdict or review a changed PR addr
 The error keeps your note so you can copy it before reloading.
 A removed target shows an unavailable state, while completed results retain their original target label and answer.
 
+## Replies
+
+Use **Reply to this thread** to add context without changing an answer.
+Replies show their author and time in both the inbox and the card conversation.
+You can reply to completed requests. A reply does not reopen the request or resume an agent.
+The form accepts up to 2,000 characters and keeps an invalid draft for correction.
+
 ## When an ask closes
 
 An ask closes when you close its last blocking item. An answer, a done and a

@@ -315,7 +315,8 @@ final class ShowInboxControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter('#inbox-item-1 form[name="inbox_answer_'.$editable->id.'"]'));
         self::assertSame('no', $crawler->filter('#inbox-item-2 [data-inbox-editable]')->attr('data-inbox-editable'));
         self::assertStringContainsString('This response is final', $crawler->filter('#inbox-item-2')->text());
-        self::assertCount(0, $crawler->filter('#inbox-item-2 form'));
+        self::assertCount(0, $crawler->filter('#inbox-item-2 form:not([name^="inbox_reply_"])'));
+        self::assertCount(1, $crawler->filter('#inbox-item-2 form[name^="inbox_reply_"]'));
     }
 
     public function test_an_answer_of_zero_still_shows(): void
@@ -374,7 +375,8 @@ final class ShowInboxControllerTest extends WebTestCase
         self::assertCount(1, $results);
         self::assertCount(2, $results->filter('[data-inbox-item]'));
         self::assertGreaterThan(0, $results->filter('[data-inbox-item="'.$open->number.'"] form')->count());
-        self::assertCount(0, $results->filter('[data-inbox-item="'.$closed->number.'"] form'));
+        self::assertCount(0, $results->filter('[data-inbox-item="'.$closed->number.'"] form:not([name^="inbox_reply_"])'));
+        self::assertCount(1, $results->filter('[data-inbox-item="'.$closed->number.'"] form[name^="inbox_reply_"]'));
         self::assertSame('no', $results->filter('[data-inbox-item="'.$closed->number.'"] [data-inbox-editable]')->attr('data-inbox-editable'));
         self::assertCount(0, $crawler->filter('[data-inbox-item="3"]'));
         self::assertCount(0, $crawler->filter('[data-inbox-section="open-asks"], [data-inbox-section="closed-asks"]'));

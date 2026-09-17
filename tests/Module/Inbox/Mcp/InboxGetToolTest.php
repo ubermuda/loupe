@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Inbox\Mcp;
 
+use App\Module\Inbox\Command\ReplyToInboxItemCommand;
+use App\Module\Inbox\Command\ReplyToInboxItemHandler;
+use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Mcp\InboxAskTool;
 use App\Module\Inbox\Mcp\InboxGetTool;
 use App\Module\Inbox\Mcp\InboxListTool;
@@ -70,7 +73,18 @@ final class InboxGetToolTest extends KernelTestCase
             'reviewDocumentId' => (string) $document->id,
         ]]);
         $itemId = $asked['items'][0]['itemId'];
+        $item = $this->em->find(InboxItem::class, $itemId);
+        self::assertInstanceOf(InboxItem::class, $item);
+        $reply = self::getContainer()->get(ReplyToInboxItemHandler::class);
+        $posted = $reply(new ReplyToInboxItemCommand($item, $project->owner, 'Read this additional context.', (string) Uuid::v4()));
         $open = ($this->tool)($itemId);
+        self::assertSame([[
+            'replyId' => (string) $posted->id,
+            'authorId' => (string) $project->owner->id,
+            'authorName' => $project->owner->fullName,
+            'body' => 'Read this additional context.',
+            'createdAt' => $posted->createdAt->format(\DATE_ATOM),
+        ]], $open['replies']);
         self::assertNotNull($open['review']);
         self::assertSame('document', $open['review']['targetKind']);
         self::assertSame((string) $document->id, $open['review']['documentId']);

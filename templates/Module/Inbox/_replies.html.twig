@@ -1,0 +1,23 @@
+<section class="lp-inbox-item__response" aria-label="{{ 'inbox.reply.conversation'|trans }}" data-inbox-replies>
+    {% for reply in replies %}
+        <div data-inbox-reply="{{ reply.id }}">
+            <p class="lp-inbox-item__note"><strong>{{ reply.author.fullName }}</strong> · <time datetime="{{ reply.createdAt|date('c') }}">{{ reply.createdAt|date('Y-m-d H:i') }}</time></p>
+            <p class="lp-inbox-item__answer-text">{{ reply.body }}</p>
+        </div>
+    {% endfor %}
+    {% if is_granted(constant('App\\Module\\Inbox\\Security\\InboxItemVoter::REPLY'), item) %}
+        {% set form = inbox_reply_form(item, refusedForm) %}
+        {{ form_start(form, {action: path('app_inbox_item_reply', actionParams), attr: {class: 'lp-form', 'data-turbo-frame': responseFrame, 'data-controller': 'inbox-reply', 'data-action': 'turbo:submit-start->inbox-reply#start turbo:fetch-request-error->inbox-reply#failed turbo:before-fetch-response->inbox-reply#response'}}) }}
+            <p class="lp-field-errors" role="alert" data-inbox-reply-target="error" hidden>{{ 'inbox.reply.failed'|trans }}</p>
+            <div class="lp-field-errors">{{ form_errors(form) }}</div>
+            {{ form_widget(form.submissionId) }}
+            <div class="lp-field-errors">{{ form_errors(form.submissionId) }}</div>
+            <div class="lp-form-field">
+                {{ form_label(form.body, null, {label_attr: {class: 'lp-label'}}) }}
+                {{ form_widget(form.body, {attr: {class: 'lp-input', rows: 2, maxlength: 2000}}) }}
+                <div class="lp-field-errors">{{ form_errors(form.body) }}</div>
+            </div>
+            <div class="lp-inbox-item__buttons"><button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">{{ 'inbox.reply.submit'|trans }}</button></div>
+        {{ form_end(form) }}
+    {% endif %}
+</section>

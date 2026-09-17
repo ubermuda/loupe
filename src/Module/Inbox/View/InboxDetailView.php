@@ -42,6 +42,7 @@ final readonly class InboxDetailView implements InboxItemsView
         public array $pageList,
         public array $finalItemIds,
         public array $bridgeStatuses,
+        public InboxReplyThreads $replies,
         public string $query = '',
         public array $searchResults = [],
         public int $searchTotal = 0,

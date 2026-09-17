@@ -115,7 +115,8 @@ final class InboxItemFormsControllerTest extends WebTestCase
         self::assertSelectorTextContains('[data-inbox-review-withdrawal]', 'Riley Chen withdrew this verdict');
         self::assertSelectorTextContains('[data-inbox-review-withdrawal]', 'This request keeps its original answer.');
         self::assertSelectorExists('#inbox-item-1 a[href="/projects/'.$this->project->id.'/documents/'.$document->id.'/review"]');
-        self::assertSelectorNotExists('#inbox-item-1 form');
+        self::assertSelectorNotExists('#inbox-item-1 form:not([name^="inbox_reply_"])');
+        self::assertSelectorExists('#inbox-item-1 form[name^="inbox_reply_"]');
     }
 
     public function test_an_inline_document_review_rejects_a_stale_version_then_records_the_current_one(): void
@@ -186,6 +187,38 @@ final class InboxItemFormsControllerTest extends WebTestCase
         $this->post($item, 'review-document', ['verdict' => 'approved', 'versionNumber' => '1']);
         self::assertResponseStatusCodeSame(403);
         self::assertSame(InboxItemState::Open, $this->reload($item)->state);
+    }
+
+    public function test_a_reply_keeps_a_completed_answer_and_a_failed_draft(): void
+    {
+        $item = $this->answered($this->em, $this->question($this->em, $this->project, 1));
+        $this->askHolding($this->em, $this->project, [$item], closedAt: new \DateTimeImmutable());
+        $originalAnswer = $item->answerText;
+        $name = 'inbox_reply_'.$item->id;
+        $page = $this->client->request(Request::METHOD_GET, $this->pageUrl());
+        $form = $page->filter('form[name="'.$name.'"]')->form([$name.'[body]' => 'One more detail.']);
+        $this->client->submit($form);
+        self::assertResponseRedirects($this->pageUrl());
+        $this->client->followRedirect();
+        self::assertSelectorTextContains('[data-inbox-reply]', 'One more detail.');
+        $this->client->submit($form);
+        self::assertResponseRedirects($this->pageUrl());
+        $this->client->followRedirect();
+        self::assertSelectorCount(1, '[data-inbox-reply]');
+
+        $form[$name.'[body]'] = 'Keep this changed draft.';
+        $this->client->submit($form);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('form[name="'.$name.'"]', 'This reply form is no longer current.');
+        self::assertSelectorTextContains('textarea[name="'.$name.'[body]"]', 'Keep this changed draft.');
+        self::assertSelectorTextContains('[data-inbox-reply]', 'One more detail.');
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $stored = $em->find(InboxItem::class, $item->id);
+        self::assertInstanceOf(InboxItem::class, $stored);
+        self::assertSame(InboxItemState::Answered, $stored->state);
+        self::assertSame($originalAnswer, $stored->answerText);
+        self::assertSame(1, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM inbox_replies WHERE item_id = ?', [(string) $item->id]));
     }
 
     public function test_the_page_form_answers_a_question(): void
@@ -335,6 +368,7 @@ final class InboxItemFormsControllerTest extends WebTestCase
         yield 'decline' => ['decline', 'inbox_decline_', ['closeNote' => '']];
         yield 'review-pull-request' => ['review-pull-request', 'inbox_review_', ['verdict' => 'approved', 'expectedUrl' => 'https://github.com/example/project/pull/12']];
         yield 'review-document' => ['review-document', 'inbox_document_review_', ['verdict' => 'approved', 'versionNumber' => '1']];
+        yield 'reply' => ['reply', 'inbox_reply_', ['body' => 'A reply.', 'submissionId' => '01995498-93aa-7000-8000-000000000001']];
     }
 
     /** @param array<string, string> $fields */
@@ -389,7 +423,7 @@ final class InboxItemFormsControllerTest extends WebTestCase
     /** @param array<string, string> $fields */
     private function post(InboxItem $item, string $action, array $fields, ?int $page = null, ?string $query = null): Crawler
     {
-        $prefix = ['answer' => 'inbox_answer_', 'done' => 'inbox_done_', 'decline' => 'inbox_decline_', 'review-pull-request' => 'inbox_review_', 'review-document' => 'inbox_document_review_'][$action];
+        $prefix = ['answer' => 'inbox_answer_', 'done' => 'inbox_done_', 'decline' => 'inbox_decline_', 'review-pull-request' => 'inbox_review_', 'review-document' => 'inbox_document_review_', 'reply' => 'inbox_reply_'][$action];
         $parameters = array_filter(['page' => $page, 'q' => $query], static fn (int|string|null $value): bool => null !== $value);
         $url = $this->actionUrl($item, $action).([] === $parameters ? '' : '?'.http_build_query($parameters));
 

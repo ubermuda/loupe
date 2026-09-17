@@ -5946,6 +5946,13 @@
             <trans-unit id="inbox.review.withdrawn"><source>inbox.review.withdrawn</source><target>%name% withdrew this verdict at %time%. This request keeps its original answer.</target></trans-unit>
             <trans-unit id="inbox.review.error.not_a_document"><source>inbox.review.error.not_a_document</source><target>This request does not target a document.</target></trans-unit>
             <trans-unit id="inbox.review.unsent_note"><source>inbox.review.unsent_note</source><target>Your unsent review note</target></trans-unit>
+            <trans-unit id="inbox.reply.error.body"><source>inbox.reply.error.body</source><target>Write a reply of up to 2,000 characters.</target></trans-unit>
+            <trans-unit id="inbox.reply.error.submission"><source>inbox.reply.error.submission</source><target>This reply form is no longer current. Copy your draft, reload the request, and try again.</target></trans-unit>
+            <trans-unit id="inbox.reply.added"><source>inbox.reply.added</source><target>Reply added.</target></trans-unit>
+            <trans-unit id="inbox.reply.failed"><source>inbox.reply.failed</source><target>Your reply could not be confirmed. Your draft is still here. Try again.</target></trans-unit>
+            <trans-unit id="inbox.reply.submit"><source>inbox.reply.submit</source><target>Post reply</target></trans-unit>
+            <trans-unit id="inbox.reply.conversation"><source>inbox.reply.conversation</source><target>Replies</target></trans-unit>
+            <trans-unit id="inbox.form.reply_to_inbox_item_form.body.label"><source>inbox.form.reply_to_inbox_item_form.body.label</source><target>Reply to this thread</target></trans-unit>
         </body>
     </file>
 </xliff>

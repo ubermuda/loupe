@@ -182,4 +182,7 @@
         </div>
         {% endif %}
     {% endif %}
+    {% if home %}
+        {% include '@Inbox/_replies.html.twig' with {item: item, replies: inbox.replies.forItem(item), refusedForm: refusedForm, actionParams: actionParams, responseFrame: responseFrame} only %}
+    {% endif %}
 </article>

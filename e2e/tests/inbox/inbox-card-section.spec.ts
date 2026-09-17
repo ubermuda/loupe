@@ -405,6 +405,29 @@ for (const surface of ['page', 'drawer']) {
         await expect(question.locator('[data-inbox-response]')).toContainText(
             'The importer reads CSV.',
         );
+        const replyDraft = question.getByLabel('Reply to this thread');
+        await replyDraft.fill('Keep the existing column order.');
+        await page.route(
+            '**/inbox/items/*/reply*',
+            async (route) => {
+                await route.fetch();
+                await route.abort('failed');
+            },
+            { times: 1 },
+        );
+        await question.getByRole('button', { name: 'Post reply' }).click();
+        await expect(question.getByRole('alert')).toContainText(
+            'Your reply could not be confirmed.',
+        );
+        await expect(replyDraft).toHaveValue('Keep the existing column order.');
+        await question.getByRole('button', { name: 'Post reply' }).click();
+        await expect(question.locator('[data-inbox-reply]')).toHaveCount(1);
+        await expect(question.locator('[data-inbox-reply]')).toContainText(
+            'Keep the existing column order.',
+        );
+        await expect(page).toHaveURL(
+            surface === 'drawer' ? boardUrl : `${cardUrl}?tab=conversation`,
+        );
         await question.locator('.lp-inbox-decline__summary').click();
         await question
             .getByLabel('A note for the agent (optional)')
@@ -432,5 +455,15 @@ for (const surface of ['page', 'drawer']) {
                 page.getByRole('link', { name: /Ship the export/ }),
             ).toBeFocused();
         }
+        await page.goto(
+            `/projects/${projectId}/inbox#inbox-item-${questionNumber}`,
+        );
+        const inboxReply = page.locator(
+            `#inbox-item-${questionNumber} [data-inbox-reply]`,
+        );
+        await expect(inboxReply).toHaveCount(1);
+        await expect(inboxReply).toContainText(
+            'Keep the existing column order.',
+        );
     });
 }

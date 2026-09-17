@@ -8,7 +8,9 @@ use App\Module\Bridge\Service\BridgeLiveness;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Repository\InboxAskRepository;
 use App\Module\Inbox\Repository\InboxItemRepository;
+use App\Module\Inbox\Repository\InboxReplyRepository;
 use App\Module\Inbox\View\InboxDetailView;
+use App\Module\Inbox\View\InboxReplyThreads;
 use App\Module\Project\Entity\Project;
 use App\Utils\PageList;
 
@@ -23,6 +25,7 @@ final readonly class ShowInboxHandler
         private InboxItemRepository $inboxItems,
         private BridgeLiveness $bridgeLiveness,
         private SearchInboxHandler $searchInbox,
+        private InboxReplyRepository $inboxReplies,
     ) {
     }
 
@@ -72,6 +75,7 @@ final readonly class ShowInboxHandler
             pageList: PageList::build($page, $totalPages),
             finalItemIds: $this->finalItemIds(array_values($shown)),
             bridgeStatuses: $this->bridgeLiveness->forOwner($project->owner, array_values($bridgeIds)),
+            replies: new InboxReplyThreads($this->inboxReplies->findForItems(array_values($shown))),
         );
     }
 
@@ -95,6 +99,7 @@ final readonly class ShowInboxHandler
             pageList: PageList::build($results->page, $totalPages),
             finalItemIds: $this->finalItemIds($results->items),
             bridgeStatuses: [],
+            replies: new InboxReplyThreads($this->inboxReplies->findForItems($results->items)),
             query: $query,
             searchResults: $results->items,
             searchTotal: $results->total,
