@@ -229,7 +229,7 @@
                         {% block topbar_actions %}{% endblock %}
                     {% endblock %}
                 </header>
-                <main class="lp-main">
+                <main id="main-content" class="lp-main" tabindex="-1">
                     {% block flash_messages %}
                         {# Read notification types only; other flash values can contain credentials. #}
                         {% include '_flash_messages.html.twig' with {flashes: app.flashes(['success', 'error', 'warning', 'info'])} only %}
@@ -239,9 +239,7 @@
             </div>
         </div>
         {% else %}
-        {# The shell above has its own <main>; this branch skips the shell, so
-           without one here an unauthenticated page offers no main landmark. #}
-        <main>{% block body_unauthenticated %}{{ block('body') }}{% endblock %}</main>
+        {% block body_unauthenticated %}<main id="main-content" tabindex="-1">{{ block('body') }}</main>{% endblock %}
         {% endif %}
         {# After the body, so every mercure_subscribe() call has run. assets/lib/mercure.js reads it. #}
         {% set mercureTopics = mercure_allowed_topics() %}

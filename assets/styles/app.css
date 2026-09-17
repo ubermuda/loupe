@@ -313,6 +313,14 @@
 /* ── Component classes ──────────────────────────────────────────────── */
 
 @layer components {
+    /* Keyboard bypass for navigation in the app, auth, and public layouts. */
+    .lp-skip-link {
+        @apply sr-only;
+    }
+    .lp-skip-link:focus {
+        @apply not-sr-only fixed top-2 left-2 z-100 max-w-full rounded-lg border border-line bg-surface-1 px-4 py-2 text-base font-semibold text-ink outline-2 outline-offset-2 outline-accent;
+    }
+
     /* Buttons */
     .btn {
         @apply inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-line bg-surface-1 text-fg text-base font-medium cursor-pointer whitespace-nowrap transition;

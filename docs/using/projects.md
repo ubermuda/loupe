@@ -4,6 +4,8 @@ description: "Create projects and describe their purpose."
 ---
 
 Open All projects to choose a workspace. Each tile links to its Workshop and shows that project's counts.
+Press Tab to reveal Skip to content. Press Enter to bypass navigation and focus the page content.
+The next Tab moves to a control within that content.
 The sidebar picker marks the current project with a check. It includes the current project even when newer projects fill the list.
 Select another project to open its Workshop. Escape closes the picker and returns focus to Switch project.
 The sidebar marks the current page. Document and site-feedback counts remain visible beside their labels on the selected row.

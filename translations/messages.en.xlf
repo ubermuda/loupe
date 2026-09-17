@@ -4,6 +4,10 @@
         <body>
 
             <!-- Global -->
+            <trans-unit id="nav.skip_to_content">
+                <source>nav.skip_to_content</source>
+                <target>Skip to content</target>
+            </trans-unit>
             <trans-unit id="app.name">
                 <source>app.name</source>
                 <target>Loupe</target>

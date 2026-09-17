@@ -26,6 +26,7 @@
         {% endif %}
     </head>
     <body class="{% block body_class %}{% endblock %}" data-reply-draft-owner="{{ app.user ? app.user.id : '' }}">
+        <a class="lp-skip-link" href="#main-content" data-turbo="false">{{ 'nav.skip_to_content'|trans }}</a>
         {# The page's outermost chrome, and the only thing that decides whether
            the application shell is present. `base.html.twig` fills it with the
            sidebar shell; `@Account/auth_base.html.twig` fills it with a bare

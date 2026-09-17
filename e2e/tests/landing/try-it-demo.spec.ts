@@ -68,6 +68,23 @@ function firstProse(page: Page): Locator {
     return page.locator('.lp-demo-page .lp-landing-lead').first();
 }
 
+test('the skip link bypasses marketing navigation', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.addStyleTag({ content: 'html { font-size: 200%; }' });
+    await page.keyboard.press('Tab');
+    const skip = page.getByRole('link', {
+        name: 'Skip to content',
+        exact: true,
+    });
+    await expect(skip).toBeFocused();
+    await skip.press('Enter');
+    await expect(page.getByRole('main')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(
+        page.locator('.lp-landing-hero__actions a').first(),
+    ).toBeFocused();
+});
+
 test('a visitor comments on the landing copy and the card lands beside it', async ({
     page,
 }) => {
