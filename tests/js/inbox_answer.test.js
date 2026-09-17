@@ -3,6 +3,7 @@ import { Application } from '@hotwired/stimulus';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import InboxAnswerController from '../../assets/controllers/inbox_answer_controller.js';
 import {
+    discardInboxAnswerDraft,
     inboxAnswerDraft,
     useInboxAnswerDraftOwner,
 } from '../../assets/lib/inbox_answer_drafts.js';
@@ -15,7 +16,7 @@ async function mount(markup = '') {
     else
         document.body.innerHTML =
             markup ||
-            `<form data-controller="inbox-answer" data-action="inbox-answer:accepted@document->inbox-answer#accepted" data-inbox-answer-owner-value="${owner}" data-inbox-answer-key-value="question">
+            `<form data-controller="inbox-answer" data-action="inbox-answer:cleared@document->inbox-answer#cleared" data-inbox-answer-owner-value="${owner}" data-inbox-answer-key-value="question">
         <input type="checkbox" value="0" data-inbox-answer-target="option">
         <input type="checkbox" value="1" data-inbox-answer-target="option">
         <input type="hidden" data-inbox-answer-target="selectedOptions">
@@ -151,5 +152,16 @@ it('ignores unrelated successful forms before an owner is known', () => {
             },
         }),
     );
+    expect(inboxAnswerDraft('question')).toBeUndefined();
+});
+
+it('does not restore a discarded draft from a cached form', async () => {
+    let controller = await mount();
+    controller.textTarget.value = 'Discard this text';
+    controller.remember();
+    const cached = controller.element.cloneNode(true);
+    discardInboxAnswerDraft('question');
+    controller = await mount(cached);
+    expect(controller.textTarget.value).toBe('');
     expect(inboxAnswerDraft('question')).toBeUndefined();
 });

@@ -5984,6 +5984,9 @@
             <trans-unit id="inbox.review.withdrawn"><source>inbox.review.withdrawn</source><target>%name% withdrew this verdict at %time%. This request keeps its original answer.</target></trans-unit>
             <trans-unit id="inbox.review.error.not_a_document"><source>inbox.review.error.not_a_document</source><target>This request does not target a document.</target></trans-unit>
             <trans-unit id="inbox.review.unsent_note"><source>inbox.review.unsent_note</source><target>Your unsent review note</target></trans-unit>
+            <trans-unit id="inbox.answer.unsent"><source>inbox.answer.unsent</source><target>Your unsent answer</target></trans-unit>
+            <trans-unit id="inbox.answer.unsent_closed"><source>inbox.answer.unsent_closed</source><target>This request no longer accepts answers. This draft was not sent.</target></trans-unit>
+            <trans-unit id="inbox.answer.discard_draft"><source>inbox.answer.discard_draft</source><target>Discard draft</target></trans-unit>
             <trans-unit id="inbox.reply.error.body"><source>inbox.reply.error.body</source><target>Write a reply of up to 2,000 characters.</target></trans-unit>
             <trans-unit id="inbox.reply.error.submission"><source>inbox.reply.error.submission</source><target>This reply form is no longer current. Copy your draft, reload the request, and try again.</target></trans-unit>
             <trans-unit id="inbox.reply.added"><source>inbox.reply.added</source><target>Reply added.</target></trans-unit>

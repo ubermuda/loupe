@@ -1,5 +1,5 @@
 const drafts = new Map();
-const accepted = new Set();
+const cleared = new Set();
 const submitted = new Set();
 const submissions = new WeakMap();
 let owner;
@@ -7,7 +7,7 @@ let owner;
 export function useInboxAnswerDraftOwner(value) {
     if (owner !== value) {
         drafts.clear();
-        accepted.clear();
+        cleared.clear();
         submitted.clear();
         owner = value;
     }
@@ -23,10 +23,19 @@ export function rememberInboxAnswerDraft(key, draft) {
 }
 
 export function acceptInboxAnswerDraft(key, identity) {
-    accepted.add(identity);
+    clearInboxAnswerDraft(key, identity);
+}
+
+export function discardInboxAnswerDraft(key) {
+    const draft = drafts.get(key);
+    if (draft) clearInboxAnswerDraft(key, draft.identity);
+}
+
+function clearInboxAnswerDraft(key, identity) {
+    cleared.add(identity);
     if (drafts.get(key)?.identity === identity) drafts.delete(key);
     document.dispatchEvent(
-        new CustomEvent('inbox-answer:accepted', { detail: { key, identity } }),
+        new CustomEvent('inbox-answer:cleared', { detail: { key, identity } }),
     );
 }
 
@@ -39,8 +48,8 @@ export function inboxAnswerWasSubmitted(identity) {
     return submitted.has(identity);
 }
 
-export function inboxAnswerWasAccepted(identity) {
-    return accepted.has(identity);
+export function inboxAnswerWasCleared(identity) {
+    return cleared.has(identity);
 }
 
 document.addEventListener('turbo:submit-end', (event) => {

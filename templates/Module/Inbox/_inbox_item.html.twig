@@ -84,6 +84,15 @@
     {% endif %}
 
     {% if home and not inbox.acceptsResponse(item) %}
+        {% if item.kind.value == 'question' %}
+        <section class="lp-inbox-item__response" hidden data-controller="inbox-answer-recovery" data-inbox-answer-recovery-owner-value="{{ app.user.id }}" data-inbox-answer-recovery-key-value="{{ item.id }}" data-inbox-answer-recovery-options-value="{{ item.options|json_encode|e('html_attr') }}" data-action="inbox-answer:cleared@document->inbox-answer-recovery#render">
+            <p class="lp-label">{{ 'inbox.answer.unsent'|trans }}</p>
+            <p class="lp-inbox-item__note">{{ 'inbox.answer.unsent_closed'|trans }}</p>
+            <ul class="lp-inbox-item__choices" data-inbox-answer-recovery-target="options"></ul>
+            <p class="lp-inbox-item__answer-text" data-inbox-answer-recovery-target="text"></p>
+            <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="inbox-answer-recovery#discard">{{ 'inbox.answer.discard_draft'|trans }}</button>
+        </section>
+        {% endif %}
         {% set refusals = inbox_refusals(item, refusedForm) %}
         {% if refusals|length > 0 %}
         <div class="lp-inbox-item__refusal" role="alert" data-inbox-refusal>
@@ -103,7 +112,7 @@
             {% if item.kind.value == 'question' %}
                 {% set answerForm = inbox_answer_form(item, refusedForm) %}
                 {% set selectedErrorsId = answerForm.selectedOptions.vars.id ~ '_errors' %}
-                {{ form_start(answerForm, {action: path('app_inbox_item_answer', actionParams), attr: {class: 'lp-form lp-inbox-answer', 'data-controller': 'inbox-answer', 'data-inbox-answer-owner-value': app.user.id, 'data-inbox-answer-key-value': item.id, 'data-action': 'submit->inbox-answer#start turbo:before-fetch-response->inbox-answer#response inbox-answer:accepted@document->inbox-answer#accepted', 'data-turbo-frame': responseFrame}}) }}
+                {{ form_start(answerForm, {action: path('app_inbox_item_answer', actionParams), attr: {class: 'lp-form lp-inbox-answer', 'data-controller': 'inbox-answer', 'data-inbox-answer-owner-value': app.user.id, 'data-inbox-answer-key-value': item.id, 'data-action': 'submit->inbox-answer#start turbo:before-fetch-response->inbox-answer#response inbox-answer:cleared@document->inbox-answer#cleared', 'data-turbo-frame': responseFrame}}) }}
                     {% if item.options|length > 0 %}
                         {% set selected = (answerForm.selectedOptions.vars.value ?? '')|split(',') %}
                         {# The controls post under a name outside the form, so the form reads the ticked indexes from selectedOptions, which the controller fills. #}

@@ -2,7 +2,7 @@ import { Controller } from '@hotwired/stimulus';
 import {
     acceptInboxAnswerDraft,
     inboxAnswerDraft,
-    inboxAnswerWasAccepted,
+    inboxAnswerWasCleared,
     inboxAnswerWasSubmitted,
     rememberInboxAnswerDraft,
     submitInboxAnswerDraft,
@@ -27,7 +27,7 @@ export default class extends Controller {
                 option.checked = draft.options.includes(option.value);
             });
             if (this.hasTextTarget) this.textTarget.value = draft.text;
-        } else if (inboxAnswerWasAccepted(this.identity)) {
+        } else if (inboxAnswerWasCleared(this.identity)) {
             this.optionTargets.forEach((option) => {
                 option.checked = option.defaultChecked;
             });
@@ -88,7 +88,7 @@ export default class extends Controller {
         submitInboxAnswerDraft(this.element, this.keyValue, this.identity);
     }
 
-    accepted(event) {
+    cleared(event) {
         if (
             event.detail.key !== this.keyValue ||
             event.detail.identity !== this.identity

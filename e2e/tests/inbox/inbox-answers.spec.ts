@@ -190,6 +190,9 @@ test('the owner answers a question and declines a to-do', async ({
         'Text alone this time.',
     );
 
+    await question.getByText('CSV', { exact: true }).click();
+    await question.getByLabel('Your answer').fill('An unsent correction.');
+
     const todo = page.locator(`#inbox-item-${inbox.todoNumber}`);
     await todo.getByText('Decline', { exact: true }).click();
     await todo
@@ -205,6 +208,18 @@ test('the owner answers a question and declines a to-do', async ({
     );
     await expect(todo).toContainText('Declined');
     await expect(sidebarPill).toHaveCount(0);
+
+    const recovery = question.locator(
+        '[data-controller="inbox-answer-recovery"]',
+    );
+    await expect(recovery).toBeVisible();
+    await expect(recovery).toContainText('An unsent correction.');
+    await expect(recovery.locator('li')).toHaveText(['CSV']);
+    await expect(question.locator('[data-inbox-response]')).toContainText(
+        'Text alone this time.',
+    );
+    await recovery.getByRole('button', { name: 'Discard draft' }).click();
+    await expect(recovery).toBeHidden();
 
     await page.reload();
     await expect(question.locator('[data-inbox-response]')).toContainText(
