@@ -1,40 +1,20 @@
-import {
-    test,
-    expect,
-    type Page,
-    type APIRequestContext,
-} from '@playwright/test';
-import { logout, registerAndVerify, submitRedirectingForm } from '../helpers';
+import { expect } from '@playwright/test';
+import { testWithVerifiedAccount as test } from '../fixtures';
+import { logout, submitRedirectingForm } from '../helpers';
 
 // Guest by default — make the unauthenticated starting state explicit.
 test.use({ storageState: { cookies: [], origins: [] } });
 
 const RUN = Date.now();
 
-/**
- * Register a user and click the verification link so they end up fully verified.
- * Returns with the browser on the home page (logged in).
- */
-async function createVerifiedUser(
-    page: Page,
-    request: APIRequestContext,
-    email: string,
-    password: string,
-): Promise<void> {
-    await registerAndVerify(page, request, { email, password });
-}
-
 test('valid credentials log in and redirect to home', async ({
     page,
-    request,
+    verifiedAccount: { email, password },
 }) => {
-    const email = `test+login+${RUN}@example.com`;
-    await createVerifiedUser(page, request, email, 'SecurePassword1!');
-
     await logout(page);
     await page.goto('/login');
     await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill('SecurePassword1!');
+    await page.getByLabel('Password').fill(password);
     await submitRedirectingForm(
         page,
         page.getByRole('button', { name: 'Sign in' }),
@@ -44,10 +24,10 @@ test('valid credentials log in and redirect to home', async ({
     await expect(page).toHaveURL('/projects');
 });
 
-test('wrong password shows auth-error', async ({ page, request }) => {
-    const email = `test+badpw+${RUN}@example.com`;
-    await createVerifiedUser(page, request, email, 'SecurePassword1!');
-
+test('wrong password shows auth-error', async ({
+    page,
+    verifiedAccount: { email },
+}) => {
     await logout(page);
     await page.goto('/login');
     await page.getByLabel('Email').fill(email);
@@ -65,15 +45,12 @@ test('wrong password shows auth-error', async ({ page, request }) => {
 test('remember-me cookie survives browser restart', async ({
     page,
     context,
-    request,
+    verifiedAccount: { email, password },
 }) => {
-    const email = `test+remember+${RUN}@example.com`;
-    await createVerifiedUser(page, request, email, 'SecurePassword1!');
-
     await logout(page);
     await page.goto('/login');
     await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill('SecurePassword1!');
+    await page.getByLabel('Password').fill(password);
     await page.getByLabel('Stay signed in on this device').check();
     await submitRedirectingForm(
         page,

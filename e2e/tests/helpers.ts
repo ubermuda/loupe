@@ -247,15 +247,36 @@ export async function submitRedirectingForm(
     path: string,
 ): Promise<void> {
     const url = new URL(path, page.url()).href;
-    const [response] = await Promise.all([
+    const [response, destination] = await Promise.all([
         page.waitForResponse(
             (response) =>
                 response.url() === url &&
                 response.request().method() === 'POST',
         ),
+        page.waitForResponse((response) => {
+            const request = response.request();
+            if (request.url() === url && request.method() === 'POST') {
+                return response.status() !== 302;
+            }
+            if (response.status() >= 300 && response.status() < 400) {
+                return false;
+            }
+            for (
+                let previous = request.redirectedFrom();
+                previous;
+                previous = previous.redirectedFrom()
+            ) {
+                if (previous.url() === url && previous.method() === 'POST') {
+                    return true;
+                }
+            }
+            return false;
+        }),
         button.click(),
     ]);
     expect(response.status()).toBe(302);
+    expect(destination.ok()).toBe(true);
+    expect(await destination.finished()).toBeNull();
 }
 
 /**
@@ -324,7 +345,11 @@ export async function registerAndVerify(
     await registerFreshUser(page, request, credentials);
 
     if (page.url().includes('/welcome')) {
-        await page.getByRole('button', { name: 'Skip setup' }).click();
+        await submitRedirectingForm(
+            page,
+            page.getByRole('button', { name: 'Skip setup' }),
+            '/welcome/skip',
+        );
         await expect(page).toHaveURL('/projects');
     }
 }

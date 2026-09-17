@@ -100,6 +100,22 @@ export async function signedInPage(
 
 type StorageState = Awaited<ReturnType<BrowserContext['storageState']>>;
 
+export const testWithVerifiedAccount = base.extend<{
+    verifiedAccount: Credentials;
+}>({
+    verifiedAccount: [
+        async ({ page, request }, use) => {
+            const credentials = {
+                email: `e2e-account-${crypto.randomUUID()}@example.com`,
+                password: 'E2eAccountPassword1!',
+            };
+            await registerAndVerify(page, request, credentials);
+            await use(credentials);
+        },
+        { timeout: coverageScaled(30_000) },
+    ],
+});
+
 /**
  * Factory that creates a test object with a worker-scoped login for the given credentials.
  * Each spec file calls this with its own per-file user so tests in different files never share

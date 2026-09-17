@@ -1,34 +1,14 @@
-import {
-    test,
-    expect,
-    type Page,
-    type APIRequestContext,
-} from '@playwright/test';
+import { expect } from '@playwright/test';
+import { testWithVerifiedAccount as test } from '../fixtures';
 import {
     getEmailWithSubject,
     extractLink,
     logout,
-    registerAndVerify,
     submitRedirectingForm,
 } from '../helpers';
 
 // Guest by default — make the unauthenticated starting state explicit.
 test.use({ storageState: { cookies: [], origins: [] } });
-
-const RUN = Date.now();
-
-/**
- * Register a user and verify their email so they are fully active.
- * Returns with the browser on the home page (logged in).
- */
-async function createVerifiedUser(
-    page: Page,
-    request: APIRequestContext,
-    email: string,
-    password: string,
-): Promise<void> {
-    await registerAndVerify(page, request, { email, password });
-}
 
 test('requesting reset with unknown email succeeds silently', async ({
     page,
@@ -43,9 +23,11 @@ test('requesting reset with unknown email succeeds silently', async ({
     await expect(page).toHaveURL('/forgot-password/check-email');
 });
 
-test('valid reset token allows password change', async ({ page, request }) => {
-    const email = `test+reset+${RUN}@example.com`;
-    await createVerifiedUser(page, request, email, 'OldPassword1!');
+test('valid reset token allows password change', async ({
+    page,
+    request,
+    verifiedAccount: { email, password },
+}) => {
     await logout(page);
 
     // Request reset
@@ -89,7 +71,7 @@ test('valid reset token allows password change', async ({ page, request }) => {
 
     // Old password should no longer work
     await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill('OldPassword1!');
+    await page.getByLabel('Password').fill(password);
     await submitRedirectingForm(
         page,
         page.getByRole('button', { name: 'Sign in' }),
@@ -111,9 +93,8 @@ test('valid reset token allows password change', async ({ page, request }) => {
 test('used (already-consumed) token redirects to forgot-password with error', async ({
     page,
     request,
+    verifiedAccount: { email },
 }) => {
-    const email = `test+usedtoken+${RUN}@example.com`;
-    await createVerifiedUser(page, request, email, 'OldPassword1!');
     await logout(page);
 
     // Request a reset link

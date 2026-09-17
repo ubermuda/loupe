@@ -81,6 +81,27 @@ test('password reset waits for a delayed successful POST before checking navigat
     await expect(page).toHaveURL('/forgot-password/check-email');
 });
 
+test('password reset waits for a delayed redirect response before checking navigation', async ({
+    page,
+}) => {
+    await page.goto('/forgot-password');
+    await page.getByLabel('Email').fill(`unknown-${Date.now()}@example.com`);
+    const network = await page.context().newCDPSession(page);
+    await network.send('Network.enable');
+    await network.send('Network.emulateNetworkConditions', {
+        offline: false,
+        latency: coverageScaled(6000),
+        downloadThroughput: -1,
+        uploadThroughput: -1,
+    });
+    await submitRedirectingForm(
+        page,
+        page.getByRole('button', { name: /reset/i }),
+        '/forgot-password',
+    );
+    await expect(page).toHaveURL('/forgot-password/check-email');
+});
+
 test('auth submission reports a rejected POST instead of waiting for navigation', async ({
     page,
 }) => {

@@ -1,6 +1,6 @@
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { testWithVerifiedAccount as test } from '../fixtures';
 import {
-    registerAndVerify,
     getEmailWithSubject,
     latestEmailIdWithSubject,
     extractLink,
@@ -10,23 +10,13 @@ import {
 // Guest by default — make the unauthenticated starting state explicit.
 test.use({ storageState: { cookies: [], origins: [] } });
 
-const RUN = Date.now();
 const DELETE_SUBJECT = 'Confirm your account deletion';
 
 test('a user can delete their account end to end via the emailed confirmation link', async ({
     page,
     request,
+    verifiedAccount: { email, password },
 }) => {
-    const email = `e2e-delete-${RUN}@example.com`;
-    const password = 'e2e_password_123!';
-
-    // Throwaway user: this flow destroys the account, so it must never be the
-    // shared worker user another spec file in this worker relies on.
-    await registerAndVerify(page, request, {
-        email,
-        password,
-    });
-
     // Mailpit is shared by every worktree and never cleared, so this address
     // could already hold deletion mail from an earlier run of this same spec
     // — mark the inbox before acting so we can tell "this run's email" apart
