@@ -185,5 +185,15 @@ final class SidebarStatesTest extends WebTestCase
         // is the batched one rather than the |default(0) fallback.
         self::assertStringContainsString('switch-9', $items->first()->text());
         self::assertStringContainsString('1', $items->first()->filter('.lp-switcher__item-count')->text());
+        self::assertSelectorCount(1, '.lp-switcher__item[aria-current="true"]');
+        self::assertSelectorExists('.lp-switcher__item[aria-current="true"][href="/projects/'.$id.'"]');
+
+        $oldestId = (string) $projects[0]->id;
+        $client->request(Request::METHOD_GET, '/projects/'.$oldestId.'/documents');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorCount(8, '.lp-switcher__item');
+        self::assertSelectorCount(1, '.lp-switcher__item[aria-current="true"]');
+        self::assertSelectorExists('.lp-switcher__item[aria-current="true"][href="/projects/'.$oldestId.'"]');
+        self::assertSelectorExists('.lp-switcher__item[href="/projects/'.$id.'"]');
     }
 }

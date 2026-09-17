@@ -22,6 +22,7 @@
                             data-popover-target="trigger"
                             data-action="click->popover#toggle"
                             aria-expanded="false"
+                            aria-controls="project-switcher-panel"
                             aria-label="{{ 'nav.switcher.label'|trans }}">
                         <span class="lp-sidebar__switcher-avatar">{{ project.name|slice(0, 1)|upper }}</span>
                         <span class="lp-sidebar__switcher-text">
@@ -32,14 +33,16 @@
                     </button>
                     {% set switcherProjects = switchable_projects() %}
                     {% set switcherCounts = project_document_counts(switcherProjects) %}
-                    <div class="lp-switcher__panel" data-popover-target="panel" hidden>
+                    <div class="lp-switcher__panel" id="project-switcher-panel" data-popover-target="panel" hidden>
                         {% for switcherProject in switcherProjects %}
-                        <a href="{{ path('app_project_workshop', {id: switcherProject.id}) }}" class="lp-switcher__item">
+                        {% set currentProject = switcherProject.id.equals(project.id) %}
+                        <a href="{{ path('app_project_workshop', {id: switcherProject.id}) }}" class="lp-switcher__item"{% if currentProject %} aria-current="true"{% endif %}>
                             <span class="lp-switcher__item-avatar">{{ switcherProject.name|slice(0, 1)|upper }}</span>
                             <span class="lp-switcher__item-text">
                                 <span class="lp-switcher__item-name">{{ switcherProject.name }}</span>
                                 <span class="lp-switcher__item-count">{{ 'nav.switcher.document_count'|trans({'%count%': switcherCounts[switcherProject.id.toRfc4122()]|default(0)}) }}</span>
                             </span>
+                            {% if currentProject %}<twig:ux:icon name="lucide:check" class="lp-switcher__item-check" />{% endif %}
                         </a>
                         {% endfor %}
                         <a href="{{ path('app_projects') }}" class="lp-switcher__all">

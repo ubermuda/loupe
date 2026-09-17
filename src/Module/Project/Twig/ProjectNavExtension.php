@@ -12,10 +12,6 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 
-/**
- * Exposes the request's current project to templates — it drives the app-shell
- * switcher and scoped nav. Delegates to the resolver; no logic lives here.
- */
 final class ProjectNavExtension extends AbstractExtension
 {
     /** How many the panel shows before deferring to its own see-all link. */
@@ -42,19 +38,26 @@ final class ProjectNavExtension extends AbstractExtension
         return $this->currentProjectProvider->current();
     }
 
-    /**
-     * The projects the shell's switcher panel offers.
-     *
-     * Capped rather than complete: the panel is rendered into every
-     * project-scoped page, opened or not, and it already ends in a link to the
-     * full list for whatever does not fit.
-     *
-     * @return list<Project>
-     */
+    /** @return list<Project> */
     public function switchableProjects(): array
     {
         $user = $this->security->getUser();
+        if (!$user instanceof User) {
+            return [];
+        }
 
-        return $user instanceof User ? $this->projects->findNewestByOwner($user, self::SWITCHER_LIMIT) : [];
+        $projects = $this->projects->findNewestByOwner($user, self::SWITCHER_LIMIT);
+        $current = $this->currentProject();
+        if (null === $current) {
+            return $projects;
+        }
+
+        foreach ($projects as $project) {
+            if ($project->id?->equals($current->id)) {
+                return $projects;
+            }
+        }
+
+        return [...\array_slice($projects, 0, self::SWITCHER_LIMIT - 1), $current];
     }
 }

@@ -1,24 +1,7 @@
 import { Controller } from '@hotwired/stimulus';
 
-/**
- * Slides the app sidebar in from the left below the lg breakpoint, where the
- * sidebar is off-canvas. Closes on Escape, on a click outside the panel, and
- * before Turbo caches the page, so a tapped nav link cannot leave the drawer
- * open over the screen it went to.
- *
- * Usage:
- *   <div data-controller="drawer">
- *     <aside data-drawer-target="panel"> ... </aside>
- *     <div data-drawer-target="scrim" data-action="click->drawer#close" hidden></div>
- *     <div data-drawer-target="content">
- *       <button data-drawer-target="trigger" data-action="click->drawer#toggle"
- *               aria-expanded="false"> ... </button>
- *     </div>
- *   </div>
- */
 const OPEN_CLASS = 'lp-sidebar--open';
-/** Tailwind's `lg`, where app.css puts the sidebar back in the flow. */
-const DESKTOP_QUERY = '(min-width: 64rem)';
+const DESKTOP_QUERY = '(width > 48.75rem)';
 
 export default class extends Controller {
     static targets = ['trigger', 'panel', 'scrim', 'dismiss', 'content'];
@@ -40,12 +23,19 @@ export default class extends Controller {
         // Turbo caches the page as it leaves it, and an open drawer in that
         // snapshot comes back open on the next restore visit.
         this.onBeforeCache = () => this.#reset();
-        // A window that grows past lg hides the scrim and both close controls,
-        // and would strand the shell inert with nothing left to release it.
         this.desktopQuery = window.matchMedia(DESKTOP_QUERY);
         this.onDesktop = (event) => {
-            if (event.matches) {
-                this.#reset();
+            const focusInPanel = this.panelTarget.contains(
+                document.activeElement,
+            );
+            const focusOnDismiss =
+                this.hasDismissTarget &&
+                document.activeElement === this.dismissTarget;
+            this.#reset();
+            if (!event.matches && focusInPanel && this.hasTriggerTarget) {
+                this.triggerTarget.focus();
+            } else if (event.matches && focusOnDismiss) {
+                this.panelTarget.querySelector('a[href]')?.focus();
             }
         };
         document.addEventListener('click', this.onDocumentClick);

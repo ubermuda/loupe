@@ -3395,8 +3395,13 @@
     .lp-switcher__item {
         @apply flex items-center gap-2.5 px-2 py-1.5 rounded-lg no-underline transition-colors;
     }
-    .lp-switcher__item:hover {
+    .lp-switcher__item:hover,
+    .lp-switcher__item[aria-current='true'] {
         @apply bg-chrome-control;
+    }
+    /* Current-project indicator in the workspace picker. */
+    .lp-switcher__item-check {
+        @apply ml-auto w-4 h-4 shrink-0 text-accent;
     }
     .lp-switcher__item-avatar {
         @apply w-6 h-6 bg-chrome shrink-0 inline-flex items-center justify-center text-accent text-xs font-bold rounded-lg;
