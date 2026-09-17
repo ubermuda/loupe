@@ -5903,6 +5903,11 @@
             <trans-unit id="activity.description"><source>activity.description</source><target>Trace durable project events and their delivery to connected bridges.</target></trans-unit>
             <trans-unit id="activity.count"><source>activity.count</source><target>{0} No events|{1} 1 event|]1,Inf[ %count% events</target></trans-unit>
             <trans-unit id="activity.status.recorded"><source>activity.status.recorded</source><target>Recorded history</target></trans-unit>
+            <trans-unit id="activity.recent.title"><source>activity.recent.title</source><target>Recent activity</target></trans-unit>
+            <trans-unit id="activity.recent.close"><source>activity.recent.close</source><target>Close activity</target></trans-unit>
+            <trans-unit id="activity.recent.loading"><source>activity.recent.loading</source><target>Loading recent activity…</target></trans-unit>
+            <trans-unit id="activity.recent.failed"><source>activity.recent.failed</source><target>Recent activity is unavailable. Reopen this panel to retry, or open the full Activity page.</target></trans-unit>
+            <trans-unit id="activity.recent.open"><source>activity.recent.open</source><target>Open activity</target></trans-unit>
             <trans-unit id="activity.feed.connecting"><source>activity.feed.connecting</source><target>Connecting</target></trans-unit>
             <trans-unit id="activity.feed.listening"><source>activity.feed.listening</source><target>Live updates every 10 seconds</target></trans-unit>
             <trans-unit id="activity.feed.paused"><source>activity.feed.paused</source><target>Feed paused; recording continues</target></trans-unit>

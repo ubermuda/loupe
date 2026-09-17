@@ -1686,6 +1686,27 @@
     .lp-dialog--document {
         @apply max-w-4xl;
     }
+    /** Recent project events in the topbar's right-hand drawer. */
+    .lp-activity-drawer {
+        @apply fixed inset-y-0 right-0 left-auto m-0 ml-auto w-full max-w-lg rounded-none p-0;
+        height: 100dvh;
+        max-height: 100dvh;
+    }
+    .lp-activity-drawer[open] {
+        @apply flex flex-col;
+    }
+    .lp-activity-drawer__header {
+        @apply flex shrink-0 items-center justify-between gap-4 border-b border-line p-5;
+    }
+    .lp-activity-drawer__body {
+        @apply min-h-0 flex-1 overflow-y-auto p-5;
+    }
+    .lp-activity-drawer__footer {
+        @apply shrink-0 border-t border-line p-5;
+    }
+    .lp-activity-drawer .lp-activity-row__heading {
+        @apply flex-col gap-1;
+    }
     /** Multiline source field inside a document dialog. */
     .lp-document-editor {
         @apply min-h-64 font-mono;
@@ -3513,7 +3534,7 @@
         @apply hidden items-center gap-2.5 ml-auto lg:flex lg:flex-wrap;
     }
     .lp-topbar__global-actions {
-        @apply hidden items-center gap-2 ml-auto lg:flex;
+        @apply flex items-center gap-2 ml-auto;
     }
     .lp-topbar__global-action {
         @apply inline-flex items-center justify-center w-9 h-9 rounded-lg text-fg-dim no-underline transition-colors;
@@ -3525,7 +3546,7 @@
         @apply w-4 h-4;
     }
     .lp-topbar__global-action--search {
-        @apply w-auto gap-2 px-2.5 text-sm;
+        @apply hidden w-auto gap-2 px-2.5 text-sm lg:inline-flex;
     }
 
     /* Tailwind's lg variants start at 1024px, but the rail stays in flow above
@@ -3562,6 +3583,9 @@
         }
         .lp-topbar__actions {
             @apply flex-wrap;
+        }
+        .lp-topbar__global-action--search {
+            @apply inline-flex;
         }
     }
 

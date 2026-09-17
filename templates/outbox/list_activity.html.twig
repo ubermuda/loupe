@@ -55,44 +55,7 @@
     </div>
     <p class="lp-rule-explanation" data-activity-filter-target="gap" role="status" hidden>{{ 'activity.feed.gap'|trans({'%count%': pageSize}) }}</p>
     <div class="lp-activity-feed" data-activity-filter-target="feed">
-        {% for entry in entries %}
-        {% set event = entry.event %}
-        {% set family = event.type|split('.')|first %}
-        {% set family = family == 'review' ? 'document' : family %}
-        <article class="lp-activity-row" data-activity-event-id="{{ event.id }}" data-event-family="{{ family }}" data-activity-filter-target="row">
-            <div class="lp-activity-row__icon">
-                {% if family == 'board' %}
-                    <twig:ux:icon name="lucide:square-kanban" />
-                {% elseif family == 'document' %}
-                    <twig:ux:icon name="lucide:file-text" />
-                {% elseif family == 'inbox' %}
-                    <twig:ux:icon name="lucide:inbox" />
-                {% elseif family == 'site_review' %}
-                    <twig:ux:icon name="lucide:globe" />
-                {% else %}
-                    <twig:ux:icon name="lucide:activity" />
-                {% endif %}
-            </div>
-            <div class="lp-activity-row__body">
-                <div class="lp-activity-row__heading">
-                    <h2>{{ event.type }}</h2>
-                    <time datetime="{{ event.createdAt|date('c') }}">{{ event.createdAt|date('Y-m-d H:i:s') }}</time>
-                </div>
-                <p>{{ 'activity.event_detail'|trans({'%sequence%': event.sequence ?? '—', '%family%': family}) }}</p>
-                <div class="lp-activity-row__meta">
-                    {% if entry.link %}
-                    <a class="lp-activity-row__work" data-activity-work-link href="{{ entry.link.url }}">{{ entry.link.label }}</a>
-                    {% endif %}
-                    <span class="lp-status-chip {{ event.publishedAt ? 'lp-status-chip--ok' : (event.lastPublishError ? 'lp-status-chip--failed' : 'lp-status-chip--pending') }}">
-                        <span class="lp-status-chip__dot"></span>
-                        {{ (event.publishedAt ? 'activity.delivery.delivered' : (event.lastPublishError ? 'activity.delivery.failed' : 'activity.delivery.pending'))|trans }}
-                    </span>
-                    {% if event.publishAttempts > 0 %}<span>{{ 'activity.attempts'|trans({'%count%': event.publishAttempts}) }}</span>{% endif %}
-                </div>
-                {% if event.lastPublishError %}<p class="lp-activity-row__error">{{ event.lastPublishError }}</p>{% endif %}
-            </div>
-        </article>
-        {% endfor %}
+        {% include 'outbox/_activity_entries.html.twig' with {entries: entries} only %}
     </div>
     <div class="lp-empty-state" data-activity-filter-target="empty" hidden>
         <twig:ux:icon name="lucide:search-x" class="lp-empty-state__icon w-12 h-12" />

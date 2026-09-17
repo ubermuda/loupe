@@ -1,0 +1,9 @@
+<turbo-frame id="recent-activity-frame" target="_top">
+    {% if entries is empty %}
+    <p class="lp-dialog-desc">{{ 'activity.empty.title'|trans }}</p>
+    {% else %}
+    <div class="lp-activity-feed">
+        {% include 'outbox/_activity_entries.html.twig' with {entries: entries} only %}
+    </div>
+    {% endif %}
+</turbo-frame>

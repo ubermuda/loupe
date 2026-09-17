@@ -6,6 +6,10 @@ description: "Read durable project events and pause their presentation without s
 Open **Activity** in a project's sidebar to read its durable event history.
 Delivery status describes delivery to bridges, not the outcome of an agent's work.
 
+The topbar bell opens the latest 12 events without leaving the current page.
+Closing the panel returns focus to the bell and keeps the page's unsaved fields.
+Reopening reloads the recent events. **Open activity** goes to the full feed.
+
 The page refreshes every ten seconds while it remains open.
 **Pause feed** freezes the displayed rows. Recording and agent work continue.
 **Resume feed** immediately reads the latest events and reconciles them with the displayed history.

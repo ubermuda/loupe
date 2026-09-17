@@ -1,4 +1,4 @@
-import { expect } from '@playwright/test';
+import { expect, type Route } from '@playwright/test';
 import { createTest } from '../fixtures';
 
 const test = createTest({
@@ -96,4 +96,86 @@ test('pause keeps the feed fixed while real events arrive and resume reconciles 
         fullPage: true,
         animations: 'disabled',
     });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto(editUrl!);
+    await page
+        .getByLabel('Project name', { exact: true })
+        .fill('Unsaved local draft');
+    const trigger = page.getByRole('link', {
+        name: 'Open project activity',
+        exact: true,
+    });
+    await trigger.click();
+    const drawer = page.getByRole('dialog', { name: 'Recent activity' });
+    await expect(drawer).toBeVisible();
+    await expect(drawer.locator('[data-activity-event-id]')).toHaveCount(1);
+    await expect(
+        drawer.getByRole('button', { name: 'Close activity' }),
+    ).toBeFocused();
+    await page
+        .getByLabel('Project name', { exact: true })
+        .evaluate((element) => element.focus());
+    await expect(
+        drawer.getByRole('button', { name: 'Close activity' }),
+    ).toBeFocused();
+    await page.screenshot({
+        path: '/tmp/loupe-activity-drawer-1440.png',
+        animations: 'disabled',
+    });
+    await expect(page).toHaveURL(new RegExp(`${editUrl!}$`));
+    await page.keyboard.press('Escape');
+    await expect(drawer).toBeHidden();
+    await expect(trigger).toBeFocused();
+    await expect(page.getByLabel('Project name', { exact: true })).toHaveValue(
+        'Unsaved local draft',
+    );
+    let pendingRequest: (route: Route) => void;
+    const requested = new Promise<Route>((resolve) => {
+        pendingRequest = resolve;
+    });
+    await page.route(`**${activityUrl}/recent`, (route) =>
+        pendingRequest(route),
+    );
+    await trigger.click();
+    const failedRequest = await requested;
+    await expect(drawer.getByRole('status')).toHaveText(
+        'Loading recent activity…',
+    );
+    await failedRequest.fulfill({ status: 503, body: 'Unavailable' });
+    await expect(drawer.getByRole('alert')).toContainText(
+        'Recent activity is unavailable',
+    );
+    await drawer.getByRole('button', { name: 'Close activity' }).click();
+    await expect(drawer).toBeHidden();
+    await page.unroute(`**${activityUrl}/recent`);
+    await trigger.click();
+    await expect(drawer.locator('[data-activity-event-id]')).toBeVisible();
+    await drawer
+        .getByRole('link', { name: 'Open activity', exact: true })
+        .click();
+    await expect(page).toHaveURL(new RegExp(`${activityUrl}$`));
+    await expect(
+        page.getByRole('heading', { name: 'Project activity', exact: true }),
+    ).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await trigger.click();
+    await expect(drawer.locator('[data-activity-event-id]')).toBeVisible();
+    await page.addStyleTag({ content: 'html { font-size: 200%; }' });
+    await expect
+        .poll(() =>
+            drawer
+                .locator('.lp-activity-drawer__body')
+                .evaluate(
+                    (element) => element.scrollWidth - element.clientWidth,
+                ),
+        )
+        .toBeLessThanOrEqual(1);
+    await drawer.locator('[data-activity-event-id]').scrollIntoViewIfNeeded();
+    await page.screenshot({
+        path: '/tmp/loupe-activity-drawer-390-text200.png',
+        animations: 'disabled',
+    });
+    await page.keyboard.press('Escape');
+    await expect(drawer).toBeHidden();
+    await expect(trigger).toBeFocused();
 });

@@ -11,8 +11,6 @@ use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 
 final readonly class ListActivityHandler
 {
-    private const int PAGE_SIZE = 100;
-
     /** @param iterable<ActivityLinkProviderInterface> $linkProviders */
     public function __construct(
         private OutboxEventRepository $outboxEvents,
@@ -24,7 +22,7 @@ final readonly class ListActivityHandler
 
     public function __invoke(ListActivityCommand $command): ListActivityView
     {
-        $events = $this->outboxEvents->findRecentForProject($command->project, self::PAGE_SIZE);
+        $events = $this->outboxEvents->findRecentForProject($command->project, $command->limit);
         $links = [];
         foreach ($this->linkProviders as $provider) {
             $links += $provider->linksFor($command->project, $events);
@@ -34,6 +32,6 @@ final readonly class ListActivityHandler
             $entries[] = new ActivityEntry($event, $links[(string) $event->id] ?? null);
         }
 
-        return new ListActivityView($command->project, $entries, self::PAGE_SIZE);
+        return new ListActivityView($command->project, $entries, $command->limit);
     }
 }

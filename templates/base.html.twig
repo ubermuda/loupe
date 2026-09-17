@@ -223,9 +223,7 @@
                                 <twig:ux:icon name="lucide:search" />
                                 <span>{{ 'nav.search.documents'|trans }}</span>
                             </a>
-                            <a class="lp-topbar__global-action" href="{{ path('app_project_activity', {id: project.id}) }}" title="{{ 'nav.activity.open'|trans }}" aria-label="{{ 'nav.activity.open'|trans }}">
-                                <twig:ux:icon name="lucide:bell" />
-                            </a>
+                            {% include 'outbox/_activity_drawer.html.twig' with {project: project} only %}
                         </div>
                         {% endif %}
                         {% block topbar_actions %}{% endblock %}
