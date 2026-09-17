@@ -1,11 +1,13 @@
 const drafts = new Map();
 const accepted = new Set();
+const submitted = new Map();
 let owner;
 
 export function useReplyDraftOwner(value) {
     if (owner !== value) {
         drafts.clear();
         accepted.clear();
+        submitted.clear();
         owner = value;
     }
 }
@@ -15,11 +17,23 @@ export function replyDraft(key) {
 }
 
 export function rememberReplyDraft(key, body, submissionId) {
+    if (
+        body.trim() !== '' &&
+        submitted.has(submissionId) &&
+        submitted.get(submissionId) !== body
+    ) {
+        submissionId = crypto.randomUUID();
+    }
     if (body.trim() === '' || accepted.has(submissionId)) {
         drafts.delete(key);
     } else {
         drafts.set(key, { body, submissionId });
     }
+    return submissionId;
+}
+
+export function markReplySubmitted(submissionId, body) {
+    submitted.set(submissionId, body);
 }
 
 export function replyWasAccepted(submissionId) {

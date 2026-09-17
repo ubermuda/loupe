@@ -58,6 +58,20 @@ test('the History tab compares two distant versions', async ({ page }) => {
     await reviewDialog
         .getByLabel('Review note', { exact: true })
         .fill('Ready for the rollout.');
+    await page.keyboard.press('Escape');
+    await expect(reviewDialog).toBeHidden();
+    await expect(
+        page.getByRole('button', { name: 'Finish review', exact: true }),
+    ).toBeFocused();
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    await expect(
+        reviewDialog.getByLabel('Review note', { exact: true }),
+    ).toHaveValue('Ready for the rollout.');
+    await expect(
+        reviewDialog.getByRole('radio', { name: 'Approve', exact: true }),
+    ).toBeChecked();
     await reviewDialog.getByRole('button', { name: 'Submit review' }).click();
     await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
     await page
@@ -149,6 +163,18 @@ test('the History tab compares two distant versions', async ({ page }) => {
     await reviseDialog
         .getByLabel('Revision note', { exact: true })
         .fill('Add the verification step.');
+    await page.keyboard.press('Escape');
+    await expect(reviseDialog).toBeHidden();
+    await expect(
+        page.getByRole('button', { name: 'Revise', exact: true }),
+    ).toBeFocused();
+    await page.getByRole('button', { name: 'Revise', exact: true }).click();
+    await expect(
+        reviseDialog.getByLabel('Markdown', { exact: true }),
+    ).toHaveValue('# Plan\n\nThe rollout takes five verified steps.');
+    await expect(
+        reviseDialog.getByLabel('Revision note', { exact: true }),
+    ).toHaveValue('Add the verification step.');
     await reviseDialog
         .getByRole('button', { name: 'Save new version', exact: true })
         .click();

@@ -183,16 +183,40 @@ for (const surface of ['page', 'drawer']) {
             await expect(
                 conversation.getByLabel('Reply to this feedback'),
             ).toHaveValue('From the card.');
+            let releaseResponse!: () => void;
+            let savedReply!: () => void;
+            const responseReleased = new Promise<void>((resolve) => {
+                releaseResponse = resolve;
+            });
+            const replySaved = new Promise<void>((resolve) => {
+                savedReply = resolve;
+            });
+            await page.route(
+                '**/board/feedback/*/conversation/reply',
+                async (route) => {
+                    const response = await route.fetch({ maxRedirects: 0 });
+                    savedReply();
+                    await responseReleased;
+                    await route.fulfill({ response });
+                },
+                { times: 1 },
+            );
             await conversation
                 .getByRole('button', { name: 'Post reply' })
                 .click();
+            await replySaved;
+            await conversation
+                .getByLabel('Reply to this feedback')
+                .fill('A new draft during confirmation.');
+            releaseResponse();
             await expect(
                 conversation.locator('[data-site-review-reply]'),
             ).toHaveCount(2);
             await expect(conversation).toContainText('From the card.');
             await expect(
                 conversation.getByLabel('Reply to this feedback'),
-            ).toHaveValue('');
+            ).toHaveValue('A new draft during confirmation.');
+            await conversation.getByLabel('Reply to this feedback').fill('');
             if (surface === 'drawer') {
                 await page.keyboard.press('Escape');
                 await page

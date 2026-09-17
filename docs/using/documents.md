@@ -19,6 +19,7 @@ When Board is enabled, select the cards to link.
 Select **Create document**.
 Loupe opens the first version with Draft status.
 You can review a draft with **Finish review**, or edit it with **Revise**.
+Closing either dialog keeps its fields until you leave or reload the page.
 Documents submitted through the agent tools start with In review status.
 
 ## Revising

@@ -75,6 +75,37 @@ it('keeps drafts separated when the signed-in owner changes', () => {
     expect(replyDraft('reply')).toBeUndefined();
 });
 
+it('keeps retry identity for unchanged text but gives edited text a new identity', () => {
+    form.dispatchEvent(
+        new CustomEvent('turbo:submit-start', { bubbles: true }),
+    );
+    form.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(form.querySelector('input').value).toBe('submission-one');
+    form.querySelector('textarea').value = 'My next reply.';
+    form.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(form.querySelector('input').value).not.toBe('submission-one');
+    const newFrame = document.createElement('turbo-frame');
+    newFrame.innerHTML =
+        '<div data-reply-submission-id="submission-one"></div>';
+    document.dispatchEvent(
+        new CustomEvent('turbo:before-frame-render', { detail: { newFrame } }),
+    );
+    expect(replyDraft('reply').body).toBe('My next reply.');
+});
+
+it('remembers a submitted identity after its text is cleared and the form is replaced', async () => {
+    form.dispatchEvent(
+        new CustomEvent('turbo:submit-start', { bubbles: true }),
+    );
+    form.querySelector('textarea').value = '';
+    form.dispatchEvent(new Event('input', { bubbles: true }));
+    const replacement = form.cloneNode(true);
+    replacement.querySelector('textarea').value = 'Different text.';
+    form.replaceWith(replacement);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(replacement.querySelector('input').value).not.toBe('submission-one');
+});
+
 it('restores a newer draft over a cached submitted form', async () => {
     const newBody = document.createElement('body');
     newBody.innerHTML = '<div data-reply-submission-id="submission-one"></div>';

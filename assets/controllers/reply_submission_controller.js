@@ -1,6 +1,7 @@
 import { Controller } from '@hotwired/stimulus';
 import {
     acknowledgeReplyDrafts,
+    markReplySubmitted,
     rememberReplyDraft,
     replyDraft,
     replyWasAccepted,
@@ -26,7 +27,7 @@ export default class extends Controller {
     }
 
     remember() {
-        rememberReplyDraft(
+        this.submissionTarget.value = rememberReplyDraft(
             this.keyValue,
             this.bodyTarget.value,
             this.submissionTarget.value,
@@ -35,6 +36,7 @@ export default class extends Controller {
 
     start() {
         this.remember();
+        markReplySubmitted(this.submissionTarget.value, this.bodyTarget.value);
         this.errorTarget.hidden = true;
     }
 

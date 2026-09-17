@@ -73,6 +73,7 @@ Retrying an unchanged submission does not add a duplicate.
 Unsent replies stay in this browser tab across drawer closure, tab changes, and in-app navigation.
 Conversation and Feedback keep separate drafts. The browser asks before a reload or tab closure discards them.
 Signing out clears the drafts.
+Text you type while a reply is being saved remains an unsent draft after confirmation.
 
 Your agent reads these replies through `site_review_get`.
 Replies are included in your account export. The widget's public read response does not include them.

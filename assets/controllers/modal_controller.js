@@ -44,6 +44,8 @@ export default class extends Controller {
     }
 
     disconnect() {
+        this.closeRequest = null;
+        this.closingAnimation = null;
         document.removeEventListener(
             'turbo:before-stream-render',
             this.#onBeforeStreamRender,
@@ -66,8 +68,11 @@ export default class extends Controller {
 
     open(event) {
         event?.preventDefault();
+        this.closeRequest = null;
+        this.closingAnimation = null;
         const dialog = this.dialogTarget;
         dialog.showModal();
+        dialog.classList.remove('is-closing');
         dialog.classList.add('is-opening');
         // Cancel any leftover animations and start a fresh one every time.
         // CSS animations cache state per-element and don't reliably restart
@@ -83,7 +88,16 @@ export default class extends Controller {
 
     close(event) {
         event?.preventDefault();
-        this.#animateOutAsync().then(() => this.dialogTarget.close());
+        const dialog = this.dialogTarget;
+        if (!dialog.open) return;
+        const request = {};
+        this.closeRequest = request;
+        this.#animateOutAsync().then(() => {
+            if (this.closeRequest === request && dialog.isConnected) {
+                this.closeRequest = null;
+                dialog.close();
+            }
+        });
     }
 
     // [Claude] turbo:submit-end fires AFTER Turbo has already applied stream mutations. If a stream
@@ -114,6 +128,7 @@ export default class extends Controller {
         dialog.getAnimations().forEach((a) => a.cancel());
 
         if (prefersReducedMotion()) {
+            this.closingAnimation = null;
             dialog.classList.remove('is-closing');
             return Promise.resolve();
         }
@@ -124,14 +139,15 @@ export default class extends Controller {
             easing: 'ease-in',
             fill: 'forwards',
         });
+        this.closingAnimation = anim;
+        const cleanup = () => {
+            if (this.closingAnimation === anim) {
+                this.closingAnimation = null;
+                dialog.classList.remove('is-closing');
+            }
+            anim.cancel();
+        };
 
-        return anim.finished
-            .then(() => {
-                dialog.classList.remove('is-closing');
-                anim.cancel(); // release fill-forwards so the element isn't frozen
-            })
-            .catch(() => {
-                dialog.classList.remove('is-closing');
-            });
+        return anim.finished.then(cleanup, cleanup);
     }
 }
