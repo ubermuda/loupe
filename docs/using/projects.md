@@ -13,6 +13,8 @@ Descriptions appear as plain text on project tiles. Line breaks remain visible.
 The domain and document language remain separate settings.
 Select Add project to create it and open its Workshop.
 
+The header keeps New project reachable on narrow screens and with enlarged text.
+
 Use a tile's Edit control or Project settings to change its description.
 Clear the description and save to remove it.
 An invalid submission keeps the entered text so you can correct it.

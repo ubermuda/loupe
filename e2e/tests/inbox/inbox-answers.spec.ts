@@ -82,17 +82,37 @@ test.afterAll(async ({ request }) => {
 });
 
 for (const workspace of [
-    { route: 'inbox', action: 'View activity', destination: 'activity' },
-    { route: 'site-review', action: 'Widget setup', destination: 'connect' },
-]) {
+    {
+        route: 'inbox',
+        action: 'View activity',
+        role: 'link',
+        destination: 'activity',
+    },
+    {
+        route: 'site-review',
+        action: 'Widget setup',
+        role: 'link',
+        destination: 'connect',
+    },
+    {
+        route: 'projects',
+        action: 'New project',
+        role: 'button',
+        destination: null,
+    },
+] as const) {
     test(`${workspace.route} header keeps its action reachable with enlarged text`, async ({
         page,
         inbox,
     }, testInfo) => {
         const projectPath = inbox.inboxUrl.replace(/\/inbox$/, '');
-        await page.goto(`${projectPath}/${workspace.route}`);
+        await page.goto(
+            workspace.route === 'projects'
+                ? '/projects'
+                : `${projectPath}/${workspace.route}`,
+        );
         const header = page.locator('.lp-page-header');
-        const action = header.getByRole('link', {
+        const action = header.getByRole(workspace.role, {
             name: workspace.action,
             exact: true,
         });
@@ -111,7 +131,8 @@ for (const workspace of [
                 });
                 await expect(action).toBeInViewport({ ratio: 1 });
                 const copyBounds = await header
-                    .locator('.lp-page-header__copy')
+                    .locator('div')
+                    .filter({ has: page.getByRole('heading', { level: 1 }) })
                     .boundingBox();
                 const descriptionBounds = await header
                     .locator('.lp-workspace-desc')
@@ -146,7 +167,19 @@ for (const workspace of [
         await action.focus();
         await expect(action).toBeFocused();
         await action.press('Enter');
-        await expect(page).toHaveURL(`${projectPath}/${workspace.destination}`);
+        if (workspace.destination === null) {
+            await expect(page.locator('#new-project-panel')).toBeVisible();
+            await expect(action).toHaveAttribute('aria-expanded', 'true');
+            await expect(
+                page
+                    .locator('#new-project-panel')
+                    .getByLabel('Project name', { exact: true }),
+            ).toBeFocused();
+        } else {
+            await expect(page).toHaveURL(
+                `${projectPath}/${workspace.destination}`,
+            );
+        }
     });
 }
 

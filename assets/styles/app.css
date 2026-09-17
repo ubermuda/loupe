@@ -660,7 +660,8 @@
         @apply flex flex-wrap max-w-full items-center gap-2;
     }
     .lp-needs-you .lp-page-header,
-    .lp-site-feedback-page .lp-page-header {
+    .lp-site-feedback-page .lp-page-header,
+    .lp-redesign-projects .lp-page-header {
         @apply flex-wrap;
     }
     .lp-section-tabs__item--active {
