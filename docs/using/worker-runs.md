@@ -64,9 +64,10 @@ else the agent chose to say, and the server shows it as plain text.
 
 ## Search and filters
 
-The search box covers the card number, the rule name and the output text. It
-matches whole words, and it accepts quoted phrases and a leading `-` to exclude
-a word.
+The search box covers the card number, the rule name and the output text.
+It matches whole words and accepts quoted phrases and a leading `-` to exclude a word.
+Paste a complete run ID to find that attempt in the current project.
+Run IDs match without regard to letter case, and the outcome and bridge filters still apply.
 
 Two filters narrow the list further:
 

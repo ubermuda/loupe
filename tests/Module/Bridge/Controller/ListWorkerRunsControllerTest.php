@@ -185,6 +185,46 @@ final class ListWorkerRunsControllerTest extends WebTestCase
         }
     }
 
+    public function test_run_id_search_preserves_project_and_filter_scope(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-id-search@example.com');
+        $project = $this->project($em, $owner, 'Run IDs');
+        $other = $this->project($em, $owner, 'Other run IDs');
+        $wanted = $this->seedRun($em, $project, cardNumber: 42);
+        $this->seedRun($em, $project, cardNumber: 43);
+        $foreign = $this->seedRun($em, $other, cardNumber: 99);
+        $runId = (string) $wanted->id;
+        $bridgeId = (string) $wanted->bridgeId;
+        $foreignId = (string) $foreign->id;
+        $projectId = (string) $project->id;
+        $em->clear();
+        $client->loginUser($owner);
+
+        foreach ([$runId, strtoupper($runId)] as $query) {
+            $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs?'.http_build_query([
+                'search' => $query,
+                'outcome' => 'succeeded',
+                'bridge' => $bridgeId,
+            ]));
+            self::assertResponseIsSuccessful();
+            self::assertCount(1, $crawler->filter('[data-worker-run-id]'));
+            self::assertSame($runId, $crawler->filter('[data-worker-run-id]')->attr('data-worker-run-id'));
+        }
+
+        foreach ([
+            ['search' => $foreignId],
+            ['search' => $runId, 'outcome' => 'failed'],
+            ['search' => $runId, 'bridge' => (string) Uuid::v7()],
+            ['search' => (string) Uuid::v7()],
+        ] as $query) {
+            $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs?'.http_build_query($query));
+            self::assertResponseIsSuccessful();
+            self::assertCount(0, $crawler->filter('[data-worker-run-id]'));
+        }
+    }
+
     public function test_the_outcome_filter_separates_the_three_endings(): void
     {
         $client = static::createClient();

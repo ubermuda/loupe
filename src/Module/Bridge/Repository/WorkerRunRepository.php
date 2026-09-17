@@ -111,10 +111,17 @@ class WorkerRunRepository extends ServiceEntityRepository
             // Postgres overloads websearch_to_tsquery as (regconfig, text) and
             // (text), so a bound parameter has no type to resolve against and
             // picks the wrong arity. It comes from the enum, never from input.
-            $qb->andWhere(\sprintf(
+            $match = \sprintf(
                 "TSMATCH(r.searchVector, WEBSEARCH_TO_TSQUERY('%s', :search)) = true",
                 WorkerRunSearchIndexer::LANGUAGE->value,
-            ))->setParameter('search', $search);
+            );
+
+            if (Uuid::isValid($search)) {
+                $match = '('.$match.' OR r.id = :runId)';
+                $qb->setParameter('runId', Uuid::fromString($search), UuidType::NAME);
+            }
+
+            $qb->andWhere($match)->setParameter('search', $search);
         }
 
         if (null !== $outcome) {
