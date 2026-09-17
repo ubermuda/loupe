@@ -7,10 +7,12 @@ namespace App\Module\Review\Command;
 use App\Exception\DomainErrors;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Entity\Verdict;
+use App\Module\Review\Event\ReviewSubmitted;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Repository\ReviewRepository;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 final readonly class SubmitReviewHandler
 {
@@ -18,6 +20,7 @@ final readonly class SubmitReviewHandler
         private EntityManagerInterface $em,
         private DocumentVersionRepository $documentVersions,
         private ReviewRepository $reviews,
+        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -42,6 +45,7 @@ final readonly class SubmitReviewHandler
         $document = $command->document;
 
         $result = $this->em->wrapInTransaction(function () use ($command, $document, $verdict, $note): Review|DomainErrors {
+            $this->em->lock($document->project, LockMode::PESSIMISTIC_WRITE);
             // The version is read under the document's own row lock, as
             // SelectDecisionOptionHandler does: a revision landing between the
             // read and the write would otherwise attach the verdict to a
@@ -53,19 +57,26 @@ final readonly class SubmitReviewHandler
                 return new DomainErrors(['versionNumber' => 'review.document.flash.verdict_stale']);
             }
 
+            $newest = $this->reviews->findNewestByVersion($version);
+            $expectedReviewId = null === $command->expectedReviewId ? null : strtolower($command->expectedReviewId);
+            if ($newest?->id?->toRfc4122() !== $expectedReviewId) {
+                return new DomainErrors(['expectedReviewId' => 'review.document.flash.verdict_changed']);
+            }
+
             // Appended rather than replacing whatever stands: a version may be
             // approved, withdrawn and approved again, and the log keeps all three.
             $review = new Review(
                 version: $version,
                 verdict: $verdict,
                 reviewer: $command->reviewer,
-                sequence: $this->reviews->nextSequenceFor($version),
+                sequence: null === $newest ? 1 : $newest->sequence + 1,
                 note: '' === $note ? null : $note,
             );
 
             $document->status = $verdict->documentStatus();
 
             $this->em->persist($review);
+            $this->events->dispatch(new ReviewSubmitted($review));
             $this->em->flush();
 
             return $review;

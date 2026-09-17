@@ -56,7 +56,8 @@ The account export and `document_get_review` result include the note.
 Open threads and unapproved sections do not prevent approval.
 
 A verdict applies to the version shown when the reviewer opens the page.
-If a revision arrives first, Loupe rejects the verdict and asks the reviewer to check the current version.
+If another verdict or revision arrives first, Loupe rejects the submission and keeps the note visible.
+Reload the page before submitting a fresh verdict.
 
 Select **Undo** beside a saved verdict to withdraw it and reopen review.
 The history retains the original verdict and its withdrawal.
@@ -82,6 +83,13 @@ An empty result shows a message in the margin.
 When the inbox is on, the review page lists the inbox items linked to the
 document above it, and you can answer them there. See
 [On a card page and a document page](inbox.md#on-a-card-page-and-a-document-page).
+
+An inbox Review request names the document to review.
+Submitting its verdict from the inbox or a card records the same document review as **Finish review**.
+A document verdict completes all open Review requests for that document.
+Questions that link the document as context stay open.
+Withdrawing the verdict reopens document review and shows the withdrawal beside each completed request's original answer.
+The completed requests stay closed and do not resume their agents again.
 
 The documents list answers one question per row: does this document wait for
 you? A row reads **1 thread waiting for you**, and counts up from there. A

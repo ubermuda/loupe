@@ -75,7 +75,7 @@ final class ShowDocumentController extends AppController
 
         $submitReviewForm = $this->getInjectedFormView($request, 'submitReviewForm') ?? $this->createForm(
             SubmitReviewFormType::class,
-            new SubmitReviewRequest(versionNumber: $view->version->versionNumber),
+            new SubmitReviewRequest(versionNumber: $view->version->versionNumber, expectedReviewId: $view->latestReviewId),
             ['action' => $this->generateUrl('app_document_review_submit', $routeParameters)],
         )->createView();
 

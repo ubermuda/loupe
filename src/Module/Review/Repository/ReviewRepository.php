@@ -63,6 +63,19 @@ class ReviewRepository extends ServiceEntityRepository
         return null !== $newest && Verdict::Withdrawn !== $newest->verdict ? $newest : null;
     }
 
+    public function findWithdrawalOf(Review $review): ?Review
+    {
+        if (Verdict::Withdrawn === $review->verdict) {
+            return null;
+        }
+
+        return $this->findOneBy([
+            'version' => $review->version,
+            'sequence' => $review->sequence + 1,
+            'verdict' => Verdict::Withdrawn,
+        ]);
+    }
+
     /**
      * The position the next row on this version takes.
      *

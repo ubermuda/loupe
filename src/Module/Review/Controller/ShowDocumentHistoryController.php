@@ -56,7 +56,7 @@ final class ShowDocumentHistoryController extends AppController
             )->createView(),
             'submitReviewForm' => $this->createForm(
                 SubmitReviewFormType::class,
-                new SubmitReviewRequest(versionNumber: $current->version->versionNumber),
+                new SubmitReviewRequest(versionNumber: $current->version->versionNumber, expectedReviewId: $current->latestReviewId),
                 ['action' => $this->generateUrl('app_document_review_submit', $routeParameters)],
             )->createView(),
         ]);

@@ -9,6 +9,8 @@
     {{ form_start(submitReviewForm, {attr: {class: 'lp-form'}}) }}
         <div class="lp-field-errors">{{ form_errors(submitReviewForm) }}{{ form_errors(submitReviewForm.versionNumber) }}</div>
         {{ form_widget(submitReviewForm.versionNumber, {type: 'hidden'}) }}
+        {{ form_widget(submitReviewForm.expectedReviewId) }}
+        <div class="lp-field-errors">{{ form_errors(submitReviewForm.expectedReviewId) }}</div>
         <fieldset class="lp-form-field">
             <legend class="lp-label">{{ submitReviewForm.verdict.vars.label|trans }}</legend>
             {% for choice in submitReviewForm.verdict %}
@@ -25,7 +27,7 @@
             <p class="lp-form-hint">{{ submitReviewForm.note.vars.help|trans }}</p>
             <div class="lp-field-errors">{{ form_errors(submitReviewForm.note) }}</div>
         </div>
-        {% if not submitReviewForm.versionNumber.vars.valid %}
+        {% if not submitReviewForm.versionNumber.vars.valid or not submitReviewForm.expectedReviewId.vars.valid %}
         <a class="lp-btn" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">{{ 'review.document.version.back_to_latest'|trans }}</a>
         {% endif %}
         <div class="lp-review-verdict-actions">

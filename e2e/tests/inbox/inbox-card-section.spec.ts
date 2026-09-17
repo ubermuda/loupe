@@ -191,6 +191,123 @@ test('an inbox card link reveals its matching request in Conversation', async ({
     }
 });
 
+for (const target of ['document', 'pull-request']) {
+    test(`a ${target} review from the drawer shares its result with the inbox`, async ({
+        page,
+    }) => {
+        await suppressToolbar(page);
+        await suppressWidget(page);
+        await setFlag(page.request, 'inbox.enabled', true);
+        await setFlag(page.request, 'board.enabled', true);
+        await registerAndLogin(
+            page,
+            `e2e+inbox+review+${target}+${RUN}@example.com`,
+        );
+        const seededDocument = await page.request.post('/dev/seed/document', {
+            form: {
+                title: 'Shared review design',
+                markdown: '# Review this design',
+            },
+        });
+        expect(seededDocument.status()).toBe(201);
+        const { projectId, documentId } = await seededDocument.json();
+        await page.goto(`/projects/${projectId}/board/cards/new`);
+        await page.getByLabel('Title').fill('Shared review card');
+        await page.getByLabel('Column').selectOption({ label: 'Backlog' });
+        await page
+            .locator('textarea[name="create_card_form[pullRequestUrls]"]')
+            .fill('https://github.com/example/app/pull/72');
+        await page.getByRole('button', { name: 'Create card' }).click();
+        await expect(
+            page.getByRole('heading', { name: 'Shared review card' }),
+        ).toBeVisible();
+        const cardId = new URL(page.url()).pathname.split('/').pop() ?? '';
+        const pullRequest = page.locator('[data-linked-pull-request]').first();
+        await expect(pullRequest).toHaveAttribute(
+            'data-linked-pull-request',
+            /^[0-9a-f-]{36}$/,
+        );
+        const pullRequestId = await pullRequest.getAttribute(
+            'data-linked-pull-request',
+        );
+        const seededReview = await page.request.post('/dev/seed/inbox-review', {
+            form: {
+                cardId,
+                ...(target === 'document'
+                    ? { documentId }
+                    : { pullRequestId: pullRequestId ?? '' }),
+            },
+        });
+        expect(seededReview.status()).toBe(201);
+        const { number } = await seededReview.json();
+        const boardUrl = `/projects/${projectId}/board`;
+        await page.goto(boardUrl);
+        await page.getByRole('link', { name: /Shared review card/ }).click();
+        const drawer = page.getByRole('dialog', { name: 'Card details' });
+        await expect(drawer).toBeVisible();
+        await drawer.getByRole('tab', { name: 'Conversation' }).click();
+        const item = drawer.locator(`#inbox-item-${number}`);
+        const form = item.locator('form').filter({
+            has: page.getByRole('button', {
+                name: 'Submit review',
+                exact: true,
+            }),
+        });
+        await form.getByLabel('Request changes', { exact: true }).check();
+        await form
+            .getByRole('button', { name: 'Submit review', exact: true })
+            .click();
+        await expect(item).toContainText(
+            'Explain the changes you request in a review note.',
+        );
+        await expect(drawer).toBeVisible();
+        await expect(page).toHaveURL(boardUrl);
+        await form
+            .locator('textarea')
+            .fill('Explain retries before implementation.');
+        await form
+            .getByRole('button', { name: 'Submit review', exact: true })
+            .click();
+        await expect(item.locator('[data-inbox-review-verdict]')).toHaveText(
+            'Changes requested',
+        );
+        await expect(item.locator('[data-inbox-response]')).toContainText(
+            'Explain retries before implementation.',
+        );
+        await expect(drawer).toBeVisible();
+        await expect(page).toHaveURL(boardUrl);
+        await page.goto(`/projects/${projectId}/inbox#inbox-item-${number}`);
+        const completed = page.locator(`#inbox-item-${number}`);
+        await expect(
+            completed.locator('[data-inbox-review-verdict]'),
+        ).toHaveText('Changes requested');
+        await expect(completed.locator('[data-inbox-response]')).toContainText(
+            'Explain retries before implementation.',
+        );
+        await expect(
+            completed.getByRole('button', { name: 'Submit review' }),
+        ).toHaveCount(0);
+        if (target === 'document') {
+            await page.goto(
+                `/projects/${projectId}/documents/${documentId}/review`,
+            );
+            await page.locator('.lp-verdict-bar__undo button').click();
+            await expect(page.locator('.lp-flash')).toContainText(
+                'Your verdict has been withdrawn.',
+            );
+            await page.goto(
+                `/projects/${projectId}/inbox#inbox-item-${number}`,
+            );
+            await expect(
+                completed.locator('[data-inbox-review-withdrawal]'),
+            ).toContainText('withdrew this verdict');
+            await expect(
+                completed.locator('[data-inbox-review-verdict]'),
+            ).toHaveText('Changes requested');
+        }
+    });
+}
+
 for (const surface of ['page', 'drawer']) {
     test(`the owner answers a linked question from the card ${surface} and stays there`, async ({
         page,

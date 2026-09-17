@@ -5,12 +5,23 @@ declare(strict_types=1);
 namespace App\Tests\Module\Inbox\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Inbox\Command\ShowInboxHandler;
 use App\Module\Inbox\Entity\InboxItem;
+use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
+use App\Module\Inbox\Entity\InboxReview;
+use App\Module\Inbox\Entity\InboxReviewVerdict;
 use App\Module\Inbox\Form\AnswerInboxItemRequest;
 use App\Module\Inbox\Service\InboxSearchIndexer;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Command\SubmitReviewCommand;
+use App\Module\Review\Command\SubmitReviewHandler;
+use App\Module\Review\Command\UndoVerdictCommand;
+use App\Module\Review\Command\UndoVerdictHandler;
+use App\Module\Review\Entity\Document;
+use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Module\Inbox\InboxScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -22,6 +33,7 @@ use Symfony\Component\HttpFoundation\Request;
 final class InboxItemFormsControllerTest extends WebTestCase
 {
     use InboxScenario;
+    use BoardColumnFixtures;
 
     private KernelBrowser $client;
     private EntityManagerInterface $em;
@@ -38,6 +50,142 @@ final class InboxItemFormsControllerTest extends WebTestCase
         $this->project = $this->inboxProject($em, $this->owner);
         $this->setInboxFlag(true);
         $this->client->loginUser($this->owner);
+    }
+
+    public function test_a_pull_request_review_preserves_validation_and_shows_the_completed_result(): void
+    {
+        $this->seedColumns($this->project);
+        $card = new Card($this->project, $this->column($this->project, 'backlog'), 'Review card', 'Body', number: 1);
+        $target = new CardPullRequest($card, 'https://github.com/example/project/pull/12');
+        $item = new InboxItem($this->project, 1, InboxItemKind::Review, 'Review the pull request', true);
+        $review = new InboxReview($item, $target);
+        foreach ([$card, $target, $item, $review] as $entity) {
+            $this->em->persist($entity);
+        }
+        $this->em->flush();
+        $this->askHolding($this->em, $this->project, [$item]);
+        $name = 'inbox_review_'.$item->id;
+        $crawler = $this->client->request(Request::METHOD_GET, $this->pageUrl());
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('#inbox-item-1', 'It does not post a review to the code host.');
+        $crawler = $this->client->submit($crawler->filter('form[name="'.$name.'"]')->form([
+            $name.'[verdict]' => 'changes-requested',
+            $name.'[note]' => '  ',
+        ]));
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('#inbox-item-1', 'Explain the changes you request in a review note.');
+        self::assertSelectorExists('input[name="'.$name.'[verdict]"][value="changes-requested"]:checked');
+        $this->client->submit($crawler->filter('form[name="'.$name.'"]')->form([$name.'[note]' => 'Add a retry limit.']));
+        self::assertResponseRedirects($this->pageUrl());
+        $this->client->followRedirect();
+        self::assertSelectorTextContains('[data-inbox-review-verdict]', 'Changes requested');
+        self::assertSelectorTextContains('#inbox-item-1', 'Add a retry limit.');
+        self::assertSelectorNotExists('form[name="'.$name.'"]');
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $saved = $em->find(InboxReview::class, $review->id);
+        self::assertInstanceOf(InboxReview::class, $saved);
+        self::assertSame(InboxReviewVerdict::ChangesRequested, $saved->verdict);
+        self::assertSame('Add a retry limit.', $saved->note);
+        self::assertSame(InboxItemState::Done, $saved->item->state);
+    }
+
+    public function test_a_completed_document_review_shows_its_original_answer_and_withdrawal(): void
+    {
+        $document = new Document($this->owner, $this->project, 'Review design');
+        $document->addVersion('# Design', '<h1>Design</h1>');
+        $item = new InboxItem($this->project, 1, InboxItemKind::Review, 'Review the design', true);
+        $review = new InboxReview($item, $document);
+        foreach ([$document, $item, $review] as $entity) {
+            $this->em->persist($entity);
+        }
+        $this->em->flush();
+        $this->askHolding($this->em, $this->project, [$item]);
+        $submit = static::getContainer()->get(SubmitReviewHandler::class);
+        self::assertInstanceOf(SubmitReviewHandler::class, $submit);
+        $verdict = $submit(new SubmitReviewCommand($this->owner, $document, 'approved', 1, 'Keep this original answer.'));
+        $undo = static::getContainer()->get(UndoVerdictHandler::class);
+        self::assertInstanceOf(UndoVerdictHandler::class, $undo);
+        $undo(new UndoVerdictCommand($document, $this->owner, (string) $verdict->id));
+
+        $this->client->request(Request::METHOD_GET, $this->pageUrl());
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('[data-inbox-review-verdict]', 'Approved');
+        self::assertSelectorTextContains('#inbox-item-1', 'Keep this original answer.');
+        self::assertSelectorTextContains('[data-inbox-review-withdrawal]', 'Riley Chen withdrew this verdict');
+        self::assertSelectorTextContains('[data-inbox-review-withdrawal]', 'This request keeps its original answer.');
+        self::assertSelectorExists('#inbox-item-1 a[href="/projects/'.$this->project->id.'/documents/'.$document->id.'/review"]');
+        self::assertSelectorNotExists('#inbox-item-1 form');
+    }
+
+    public function test_an_inline_document_review_rejects_a_stale_version_then_records_the_current_one(): void
+    {
+        $document = new Document($this->owner, $this->project, 'Inline design');
+        $document->addVersion('# First', '<h1>First</h1>');
+        $item = new InboxItem($this->project, 1, InboxItemKind::Review, 'Review the design', true);
+        $review = new InboxReview($item, $document);
+        foreach ([$document, $item, $review] as $entity) {
+            $this->em->persist($entity);
+        }
+        $this->em->flush();
+        $this->askHolding($this->em, $this->project, [$item]);
+        $name = 'inbox_document_review_'.$item->id;
+        $page = $this->client->request(Request::METHOD_GET, $this->pageUrl());
+        self::assertResponseIsSuccessful();
+        $form = $page->filter('form[name="'.$name.'"]')->form([
+            $name.'[verdict]' => 'changes-requested',
+            $name.'[note]' => 'Keep this draft feedback.',
+        ]);
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $current = $em->find(Document::class, $document->id);
+        self::assertInstanceOf(Document::class, $current);
+        $current->addVersion('# Second', '<h1>Second</h1>');
+        $em->flush();
+        $this->client->submit($form);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('#inbox-item-1', 'The document has a newer version.');
+        self::assertSelectorTextContains('textarea[name="'.$name.'[note]"]', 'Keep this draft feedback.');
+
+        $page = $this->client->request(Request::METHOD_GET, $this->pageUrl());
+        $this->client->submit($page->filter('form[name="'.$name.'"]')->form([
+            $name.'[verdict]' => 'changes-requested',
+            $name.'[note]' => 'Clarify the second version.',
+        ]));
+        self::assertResponseRedirects($this->pageUrl());
+        $this->client->followRedirect();
+        self::assertSelectorTextContains('[data-inbox-review-verdict]', 'Changes requested');
+        self::assertSelectorTextContains('#inbox-item-1', 'Version 2');
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $saved = $em->find(InboxReview::class, $review->id);
+        self::assertInstanceOf(InboxReview::class, $saved);
+        self::assertSame('Clarify the second version.', $saved->documentReview?->note);
+        self::assertSame(2, $saved->documentReview->version->versionNumber);
+        self::assertSame(InboxItemState::Done, $saved->item->state);
+        $this->client->submit($form);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('[data-inbox-review-draft]', 'Keep this draft feedback.');
+        self::assertSelectorTextContains('[data-inbox-response]', 'Clarify the second version.');
+        self::assertSelectorNotExists('form[name="'.$name.'"]');
+    }
+
+    public function test_inbox_ownership_does_not_bypass_document_review_permission(): void
+    {
+        $otherOwner = $this->signedUpUser($this->em, 'document-owner');
+        $document = new Document($otherOwner, $this->project, 'Restricted design');
+        $document->addVersion('# Design', '<h1>Design</h1>');
+        $item = new InboxItem($this->project, 1, InboxItemKind::Review, 'Review the design', true);
+        $review = new InboxReview($item, $document);
+        foreach ([$document, $item, $review] as $entity) {
+            $this->em->persist($entity);
+        }
+        $this->em->flush();
+        $this->client->request(Request::METHOD_GET, $this->pageUrl());
+        self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('form[name="inbox_document_review_'.$item->id.'"]');
+        $this->post($item, 'review-document', ['verdict' => 'approved', 'versionNumber' => '1']);
+        self::assertResponseStatusCodeSame(403);
+        self::assertSame(InboxItemState::Open, $this->reload($item)->state);
     }
 
     public function test_the_page_form_answers_a_question(): void
@@ -185,6 +333,8 @@ final class InboxItemFormsControllerTest extends WebTestCase
         yield 'answer' => ['answer', 'inbox_answer_', ['selectedOptions' => '0']];
         yield 'done' => ['done', 'inbox_done_', []];
         yield 'decline' => ['decline', 'inbox_decline_', ['closeNote' => '']];
+        yield 'review-pull-request' => ['review-pull-request', 'inbox_review_', ['verdict' => 'approved', 'expectedUrl' => 'https://github.com/example/project/pull/12']];
+        yield 'review-document' => ['review-document', 'inbox_document_review_', ['verdict' => 'approved', 'versionNumber' => '1']];
     }
 
     /** @param array<string, string> $fields */
@@ -239,7 +389,7 @@ final class InboxItemFormsControllerTest extends WebTestCase
     /** @param array<string, string> $fields */
     private function post(InboxItem $item, string $action, array $fields, ?int $page = null, ?string $query = null): Crawler
     {
-        $prefix = ['answer' => 'inbox_answer_', 'done' => 'inbox_done_', 'decline' => 'inbox_decline_'][$action];
+        $prefix = ['answer' => 'inbox_answer_', 'done' => 'inbox_done_', 'decline' => 'inbox_decline_', 'review-pull-request' => 'inbox_review_', 'review-document' => 'inbox_document_review_'][$action];
         $parameters = array_filter(['page' => $page, 'q' => $query], static fn (int|string|null $value): bool => null !== $value);
         $url = $this->actionUrl($item, $action).([] === $parameters ? '' : '?'.http_build_query($parameters));
 

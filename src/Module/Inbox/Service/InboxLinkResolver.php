@@ -6,6 +6,8 @@ namespace App\Module\Inbox\Service;
 
 use App\Exception\DomainErrors;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Repository\CardPullRequestRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
@@ -23,11 +25,19 @@ final readonly class InboxLinkResolver
 {
     public const string CARD_UNKNOWN = 'inbox.item.error.card_unknown';
     public const string DOCUMENT_UNKNOWN = 'inbox.item.error.document_unknown';
+    public const string PULL_REQUEST_UNKNOWN = 'inbox.item.error.pull_request_unknown';
 
     public function __construct(
         private CardRepository $cards,
         private DocumentRepository $documents,
+        private CardPullRequestRepository $cardPullRequests,
     ) {
+    }
+
+    public function pullRequest(Project $project, string $id, string $field): CardPullRequest
+    {
+        return $this->cardPullRequests->findOneInProject(trim($id), $project)
+            ?? throw new DomainErrors([$field => self::PULL_REQUEST_UNKNOWN]);
     }
 
     /**

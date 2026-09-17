@@ -75,7 +75,7 @@ final readonly class ToolCallErrorMessages
             'review.document.flash.verdict_already_withdrawn' => 'You already withdrew your verdict on this document.',
             'review.document.flash.verdict_invalid' => 'That verdict is not one this document accepts.',
             'review.document.flash.verdict_stale' => 'The document has a newer version. Review it before you submit a verdict.',
-            'review.document.flash.verdict_changed' => 'The review changed. Read the current verdict before withdrawing it.',
+            'review.document.flash.verdict_changed' => 'The review changed. Read the current verdict before changing it.',
             'review.document.flash.note_required' => 'Explain the changes you request in a review note.',
             'review.revise.error.stale_version' => 'The document has a newer version. Compare it with your draft before you save a revision.',
             'comment.error.not_owner' => 'You can only comment on your own documents.',

@@ -6,6 +6,7 @@ namespace App\Module\Review\Command;
 
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Entity\DocumentVersion;
+use App\Module\Review\Entity\Verdict;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Repository\ReviewRepository;
@@ -46,6 +47,7 @@ final readonly class ShowDocumentHandler
         $comments = $this->comments->findByVersion($version);
         $decisions = ($this->decisionSummary)($command->document, $version);
         $headings = $this->headings->extract($version->renderedHtml);
+        $latestReview = $this->reviews->findNewestByVersion($version);
 
         return new ShowDocumentView(
             document: $command->document,
@@ -63,7 +65,8 @@ final readonly class ShowDocumentHandler
             ),
             lastSeenVersionNumber: $this->lastSeenVersion->versionNumberFor($command->document, $command->reader),
             sections: ($this->sectionApprovals)($command->document, $version, $headings, $command->reader),
-            review: $this->reviews->findStandingVerdictByVersion($version),
+            review: Verdict::Withdrawn === $latestReview?->verdict ? null : $latestReview,
+            latestReviewId: $latestReview?->id?->toRfc4122(),
         );
     }
 

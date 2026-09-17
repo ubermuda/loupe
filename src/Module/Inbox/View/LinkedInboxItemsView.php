@@ -6,6 +6,7 @@ namespace App\Module\Inbox\View;
 
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxItem;
+use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Entity\InboxLinkedPage;
 use App\Module\Project\Entity\Project;
@@ -81,6 +82,9 @@ final readonly class LinkedInboxItemsView implements InboxItemsView
     #[\Override]
     public function acceptsResponse(InboxItem $item): bool
     {
+        if (InboxItemKind::Review === $item->kind && InboxItemState::Open !== $item->state) {
+            return false;
+        }
         $heldByClosedAsk = [] !== array_filter(
             $this->asksByItem[(string) $item->id] ?? [],
             static fn (InboxAsk $ask): bool => null !== $ask->closedAt,

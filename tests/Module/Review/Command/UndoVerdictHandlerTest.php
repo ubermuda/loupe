@@ -148,8 +148,8 @@ final class UndoVerdictHandlerTest extends KernelTestCase
         $undo = self::getContainer()->get(UndoVerdictHandler::class);
 
         $approval = $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::Approved->value, 1));
-        $undo(new UndoVerdictCommand(document: $doc, actor: $reviewer, reviewId: (string) $approval->id));
-        $second = $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::ChangesRequested->value, 1, 'Explain the retry behaviour.'));
+        $withdrawal = $undo(new UndoVerdictCommand(document: $doc, actor: $reviewer, reviewId: (string) $approval->id));
+        $second = $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::ChangesRequested->value, 1, 'Explain the retry behaviour.', (string) $withdrawal->id));
 
         self::assertSame(DocumentStatus::ChangesRequested, $doc->status);
         self::assertSame(3, $second->sequence, 'The third row in the log, not a replacement for the first');

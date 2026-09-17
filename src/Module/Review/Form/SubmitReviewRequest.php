@@ -23,6 +23,9 @@ final class SubmitReviewRequest
         #[Assert\Positive]
         public ?int $versionNumber = null,
         public ?string $note = null,
+
+        #[Assert\Uuid]
+        public ?string $expectedReviewId = null,
     ) {
     }
 }

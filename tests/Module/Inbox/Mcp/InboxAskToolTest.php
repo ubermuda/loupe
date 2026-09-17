@@ -7,6 +7,8 @@ namespace App\Tests\Module\Inbox\Mcp;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Mcp\InboxAskTool;
+use App\Module\Inbox\Repository\InboxReviewRepository;
+use App\Module\Review\Entity\Document;
 use App\Tests\Support\McpTokenScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Mcp\Exception\ToolCallException;
@@ -39,6 +41,34 @@ final class InboxAskToolTest extends KernelTestCase
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('The inbox is switched off on this instance.');
         $this->askQuestion('Which column?');
+    }
+
+    public function test_the_tool_creates_an_explicit_document_review(): void
+    {
+        $this->enableInbox();
+        $project = $this->makeProject('inbox-ask-review');
+        $document = new Document($project->owner, $project, 'Review the design');
+        $document->addVersion('# Design', '<h1>Design</h1>');
+        $this->em->persist($document);
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+
+        $result = ($this->tool)(sessionId: (string) Uuid::v4(), items: [[
+            'kind' => 'review',
+            'title' => 'Review the design',
+            'reviewDocumentId' => (string) $document->id,
+        ]]);
+
+        self::assertTrue($result['closed']);
+        self::assertSame('review', $result['items'][0]['kind']);
+        self::assertFalse($result['items'][0]['blocking']);
+        $this->em->clear();
+        $reviews = self::getContainer()->get(InboxReviewRepository::class);
+        self::assertInstanceOf(InboxReviewRepository::class, $reviews);
+        $review = $reviews->findOneBy(['item' => $result['items'][0]['itemId']]);
+        self::assertNotNull($review);
+        self::assertEquals($document->id, $review->document?->id);
+        self::assertNull($review->verdict);
     }
 
     public function test_an_ask_opens_with_numbered_items_and_the_default_blocking_of_each_kind(): void
@@ -243,7 +273,7 @@ final class InboxAskToolTest extends KernelTestCase
         $this->actAsMcpTokenBoundTo($this->makeProject('inbox-ask-kind'));
 
         $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('items[0].kind: unknown kind "task". Use one of: question, todo.');
+        $this->expectExceptionMessage('items[0].kind: unknown kind "task". Use one of: question, todo, review.');
         ($this->tool)(sessionId: (string) Uuid::v4(), items: [['kind' => 'task', 'title' => 'Do it']]);
     }
 

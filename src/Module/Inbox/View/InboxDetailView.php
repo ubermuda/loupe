@@ -7,6 +7,7 @@ namespace App\Module\Inbox\View;
 use App\Module\Bridge\View\BridgeStatus;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxItem;
+use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Project\Entity\Project;
 
@@ -85,6 +86,10 @@ final readonly class InboxDetailView implements InboxItemsView
     #[\Override]
     public function acceptsResponse(InboxItem $item): bool
     {
+        if (InboxItemKind::Review === $item->kind && InboxItemState::Open !== $item->state) {
+            return false;
+        }
+
         return $item->state->acceptsResponse(isset($this->finalItemIds[(string) $item->id]));
     }
 

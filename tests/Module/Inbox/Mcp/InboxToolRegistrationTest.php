@@ -97,7 +97,9 @@ final class InboxToolRegistrationTest extends KernelTestCase
         self::assertSame('array', $schema['properties']['items']['type']);
         self::assertSame('object', $schema['properties']['items']['items']['type']);
         self::assertSame(['kind', 'title'], $schema['properties']['items']['items']['required']);
-        self::assertSame(['question', 'todo'], $schema['properties']['items']['items']['properties']['kind']['enum']);
+        self::assertSame(['question', 'todo', 'review'], $schema['properties']['items']['items']['properties']['kind']['enum']);
+        self::assertSame('string', $schema['properties']['items']['items']['properties']['reviewDocumentId']['type']);
+        self::assertSame('string', $schema['properties']['items']['items']['properties']['reviewPullRequestId']['type']);
         self::assertSame(['type' => 'string'], $schema['properties']['items']['items']['properties']['cardIds']['items']);
     }
 

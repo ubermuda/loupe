@@ -14,7 +14,7 @@ use App\Module\Board\Repository\CardSiteReviewCommentRepository;
  * The one shape every board tool returns a card in, so a card read by card_list
  * and a card read by card_get describe themselves the same way.
  *
- * @phpstan-type CardPullRequestSummary array{url: string, forge: string, repository: ?string, number: ?int}
+ * @phpstan-type CardPullRequestSummary array{pullRequestId: string, url: string, forge: string, repository: ?string, number: ?int}
  * @phpstan-type CardSiteReviewCommentSummary array{commentId: string, body: string, url: string, status: string, createdAt: string}
  * @phpstan-type CardDocumentSummary array{documentId: string, title: string, status: string}
  * @phpstan-type CardSummary array{cardId: string, number: int, title: string, body: string, type: string, priority: string, status: string, reporter: string, position: int, completedAt: ?string, createdAt: string, updatedAt: string, pullRequests: list<CardPullRequestSummary>, documents: list<CardDocumentSummary>, siteReviewComments: list<CardSiteReviewCommentSummary>}
@@ -111,6 +111,7 @@ final readonly class CardPayload
             'updatedAt' => $card->updatedAt->format(\DATE_ATOM),
             'pullRequests' => array_map(
                 static fn (CardPullRequest $link): array => [
+                    'pullRequestId' => (string) $link->id,
                     'url' => $link->url,
                     'forge' => $link->forge->value,
                     'repository' => $link->repository,

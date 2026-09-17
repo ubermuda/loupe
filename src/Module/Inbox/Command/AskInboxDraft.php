@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Inbox\Command;
 
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Review\Entity\Document;
 
@@ -26,6 +27,7 @@ final readonly class AskInboxDraft
         public bool $blocking,
         public array $cards,
         public array $documents,
+        public Document|CardPullRequest|null $reviewTarget,
     ) {
     }
 }

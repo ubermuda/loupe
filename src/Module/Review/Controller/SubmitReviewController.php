@@ -67,6 +67,7 @@ final class SubmitReviewController extends AppController
                     verdict: $data->verdict ?? '',
                     versionNumber: $data->versionNumber,
                     note: $data->note,
+                    expectedReviewId: $data->expectedReviewId,
                 ));
 
                 $this->addFlash('success', $this->translator->trans('review.document.flash.verdict_submitted'));

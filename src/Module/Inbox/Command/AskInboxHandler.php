@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Module\Inbox\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemDocument;
 use App\Module\Inbox\Entity\InboxItemKind;
+use App\Module\Inbox\Entity\InboxReview;
 use App\Module\Inbox\InboxLimits;
 use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\Service\InboxLinkResolver;
@@ -16,6 +18,7 @@ use App\Module\Inbox\Service\InboxOpenCountPublisher;
 use App\Module\Inbox\Service\InboxRefusal;
 use App\Module\Inbox\Service\InboxSearchIndexer;
 use App\Module\Inbox\Service\InboxSessionAsks;
+use App\Module\Review\Entity\Document;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
@@ -43,6 +46,9 @@ final readonly class AskInboxHandler
     public const string TO_DO_WITH_ANSWER = 'inbox.item.error.todo_with_answer';
     public const string QUESTION_WITHOUT_ANSWER = 'inbox.item.error.question_without_answer';
     public const string MULTIPLE_WITHOUT_OPTIONS = 'inbox.item.error.multiple_without_options';
+    public const string REVIEW_TARGET_REQUIRED = 'inbox.review.error.target_required';
+    public const string REVIEW_TARGET_WRONG_KIND = 'inbox.review.error.target_wrong_kind';
+    public const string REVIEW_WITH_ANSWER = 'inbox.review.error.with_answer';
 
     public function __construct(
         private InboxItemRepository $inboxItems,
@@ -110,6 +116,9 @@ final readonly class AskInboxHandler
                         $item->documents->add(new InboxItemDocument($item, $document, $now));
                     }
                     $this->em->persist($item);
+                    if (null !== $draft->reviewTarget) {
+                        $this->em->persist(new InboxReview($item, $draft->reviewTarget));
+                    }
                     $this->sessionAsks->add($sessionAsk->ask, $item);
                     $created[] = $item;
                 }
@@ -210,6 +219,35 @@ final readonly class AskInboxHandler
             throw new DomainErrors([$field('documentIds') => self::TOO_MANY_LINKS]);
         }
 
+        $reviewTarget = null;
+        if (InboxItemKind::Review === $input->kind) {
+            if ((null === $input->reviewDocumentId) === (null === $input->reviewPullRequestId)) {
+                throw new DomainErrors([$field('reviewDocumentId') => self::REVIEW_TARGET_REQUIRED]);
+            }
+            if ([] !== $options || $input->multiple || $input->freeText) {
+                throw new DomainErrors([$field('options') => self::REVIEW_WITH_ANSWER]);
+            }
+            $reviewTarget = null !== $input->reviewDocumentId
+                ? ($this->links->documents($command->project, [$input->reviewDocumentId], $field('reviewDocumentId'))[0]
+                    ?? throw new DomainErrors([$field('reviewDocumentId') => InboxLinkResolver::DOCUMENT_UNKNOWN]))
+                : $this->links->pullRequest($command->project, $input->reviewPullRequestId ?? '', $field('reviewPullRequestId'));
+        } elseif (null !== $input->reviewDocumentId || null !== $input->reviewPullRequestId) {
+            throw new DomainErrors([$field('kind') => self::REVIEW_TARGET_WRONG_KIND]);
+        }
+
+        $cardIds = $input->cardIds;
+        $documentIds = $input->documentIds;
+        if ($reviewTarget instanceof Document) {
+            $documentIds[] = (string) $reviewTarget->id;
+        } elseif ($reviewTarget instanceof CardPullRequest) {
+            $cardIds[] = (string) $reviewTarget->card->id;
+        }
+        $cards = $this->links->cards($command->project, $cardIds, $field('cardIds'));
+        $documents = $this->links->documents($command->project, $documentIds, $field('documentIds'));
+        if (\count($cards) > InboxLimits::MAX_LINKS || \count($documents) > InboxLimits::MAX_LINKS) {
+            throw new DomainErrors([$field('kind') => self::TOO_MANY_LINKS]);
+        }
+
         return new AskInboxDraft(
             kind: $input->kind,
             title: $title,
@@ -218,8 +256,9 @@ final readonly class AskInboxHandler
             multiple: $input->multiple,
             freeText: $input->freeText,
             blocking: $input->blocking ?? InboxItemKind::Question === $input->kind,
-            cards: $this->links->cards($command->project, $input->cardIds, $field('cardIds')),
-            documents: $this->links->documents($command->project, $input->documentIds, $field('documentIds')),
+            cards: $cards,
+            documents: $documents,
+            reviewTarget: $reviewTarget,
         );
     }
 }

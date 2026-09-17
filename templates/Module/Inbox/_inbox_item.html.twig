@@ -1,5 +1,6 @@
 {% set home = inbox.isHome(item, ask) %}
 {% set open = item.state.value == 'open' %}
+{% set review = item.kind.value == 'review' ? inbox_review(item) : null %}
 {% set actionParams = {projectId: item.project.id, itemId: item.id}|merge(inbox.actionQuery) %}
 {% set responseFrame = app.request.headers.get('Turbo-Frame') == 'card-drawer-frame' ? 'card-drawer-frame' : '_top' %}
 <article class="lp-inbox-item"{% if home %} id="inbox-item-{{ item.number }}"{% endif %} data-inbox-item="{{ item.number }}">
@@ -50,6 +51,17 @@
 
     {% if not open %}
     <div class="lp-inbox-item__response" data-inbox-response>
+        {% if review and review.verdict %}
+            <p class="lp-inbox-item__note">{{ review.targetLabel }}</p>
+            <p data-inbox-review-verdict>{{ ('inbox.review.verdict.' ~ review.verdict.value)|trans }}</p>
+            {% if review.note %}<p class="lp-inbox-item__answer-text">{{ review.note }}</p>{% endif %}
+            <p class="lp-inbox-item__note">{{ review.reviewer.fullName }} · {{ review.submittedAt|date('Y-m-d H:i') }}{% if review.reviewedVersionNumber %} · {{ 'inbox.review.version'|trans({'%version%': review.reviewedVersionNumber}) }}{% endif %}</p>
+            {% set withdrawal = inbox_review_withdrawal(review) %}
+            {% if withdrawal %}
+                <p class="lp-inbox-item__note" data-inbox-review-withdrawal>{{ 'inbox.review.withdrawn'|trans({'%name%': withdrawal.reviewer.fullName, '%time%': withdrawal.submittedAt|date('Y-m-d H:i')}) }}</p>
+                {% if review.document %}<a class="lp-inbox-item__jump" href="{{ path('app_document_review', {projectId: item.project.id, documentId: review.document.id}) }}" data-turbo-frame="_top">{{ 'inbox.review.open_document'|trans }}</a>{% endif %}
+            {% endif %}
+        {% endif %}
         {% if item.selectedOptions|length > 0 %}
             <ul class="lp-inbox-item__choices" data-inbox-choices>
                 {% for index in item.selectedOptions %}
@@ -77,6 +89,9 @@
         <div class="lp-inbox-item__refusal" role="alert" data-inbox-refusal>
             {% for message in refusals %}<p>{{ message }}</p>{% endfor %}
         </div>
+        {% if refusedForm.note is defined and refusedForm.note.vars.value|trim is not empty %}
+            <div data-inbox-review-draft><p class="lp-label">{{ 'inbox.review.unsent_note'|trans }}</p><p class="lp-inbox-item__answer-text">{{ refusedForm.note.vars.value }}</p></div>
+        {% endif %}
         {% endif %}
     {% endif %}
 
@@ -123,6 +138,24 @@
                         <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">{{ (open ? 'inbox.answer.submit' : 'inbox.answer.change')|trans }}</button>
                     </div>
                 {{ form_end(answerForm, {render_rest: false}) }}
+            {% elseif item.kind.value == 'review' %}
+                {% if review and review.targetKind.value == 'pull-request' and review.pullRequest and safe_pull_request_url(review.pullRequest.url) %}
+                    {% include '@Inbox/_pull_request_review_form.html.twig' with {review: review, refusedForm: refusedForm, actionParams: actionParams, responseFrame: responseFrame} only %}
+                {% elseif review and review.document %}
+                    {% if is_granted(constant('App\\Module\\Inbox\\Security\\InboxItemVoter::REVIEW_DOCUMENT'), item) %}
+                        {% include '@Inbox/_document_review_form.html.twig' with {review: review, refusedForm: refusedForm, actionParams: actionParams, responseFrame: responseFrame} only %}
+                    {% else %}
+                        <p role="status">{{ 'inbox.review.error.target_unavailable'|trans }}</p>
+                    {% endif %}
+                {% else %}
+                    {% if review %}<p class="lp-inbox-item__note">{{ review.targetLabel }}</p>{% endif %}
+                    <p role="status">{{ 'inbox.review.error.target_unavailable'|trans }}</p>
+                    {% set reviewRefusals = inbox_refusals(item, refusedForm) %}
+                    {% if reviewRefusals|length > 0 %}
+                        <div class="lp-inbox-item__refusal" role="alert">{% for message in reviewRefusals %}<p>{{ message }}</p>{% endfor %}</div>
+                        {% if refusedForm.note is defined %}<p class="lp-inbox-item__answer-text">{{ refusedForm.note.vars.value }}</p>{% endif %}
+                    {% endif %}
+                {% endif %}
             {% elseif open or item.state.value != 'done' %}
                 {% set doneForm = inbox_done_form(item, refusedForm) %}
                 {{ form_start(doneForm, {action: path('app_inbox_item_done', actionParams), attr: {class: 'lp-inbox-done', 'data-turbo-frame': responseFrame}}) }}

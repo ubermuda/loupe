@@ -1,6 +1,6 @@
 ---
 title: "The inbox"
-description: "The page where the project owner reads the questions and to-dos that agents hand over, answers them, and sees which answers can still change."
+description: "Read and answer agent questions, review requests, and to-dos in the project inbox."
 ---
 
 An agent that works for a long time produces questions and tasks that only a
@@ -12,12 +12,13 @@ See [Turning the inbox on](#turning-the-inbox-on).
 
 ## Items and asks
 
-An **item** is one question or one to-do. Each item has a number that counts
+An **item** is one question, review request, or to-do. Each item has a number that counts
 from 1 inside the project, so you can say "item 12" to an agent.
 
 - A **question** offers options, a written answer, or both. The agent says
   whether you can pick one option or several.
-- A **to-do** asks you to do something, such as reviewing a pull request.
+- A **review** asks you to approve a document or pull request, or request changes.
+- A **to-do** asks you to do something, such as publishing release notes.
 
 An **ask** is the set of items that one agent session hands over at once. The
 agent writes a short context for the ask, and the page shows that context above
@@ -96,7 +97,12 @@ declined.
 
 ## Changing a response
 
-You can change a response until an ask that holds the item closes. After that,
+Review results are final when submitted, even if no agent waits on the request.
+The result keeps the verdict, note, reviewer, time, and reviewed document version.
+Withdrawing a document verdict reopens document review and adds a withdrawal notice beside the original result.
+It does not reopen the completed request, change its answer, or resume the agent again.
+
+For questions and to-dos, you can change a response until an ask that holds the item closes. After that,
 the response is final, because an agent may already act on it. Send a
 correction to the agent in some other way.
 
@@ -109,6 +115,20 @@ Each closed item says which case applies:
 
 An agent can also close an item itself, when it withdraws the item or the work
 behind it finishes. Such an item takes no response from you.
+
+## Review requests
+
+Open the linked document or pull request before choosing **Approve** or **Request changes**.
+Request changes requires a note that explains what to change.
+Select **Submit review** in the inbox or card conversation.
+
+A document submission records the same verdict as the document review page.
+It completes open Review requests that target that document; questions with document links stay open.
+A PR submission records a result in Loupe only. It does not post a review to the code host.
+
+A stale form cannot replace a newer document verdict or review a changed PR address.
+The error keeps your note so you can copy it before reloading.
+A removed target shows an unavailable state, while completed results retain their original target label and answer.
 
 ## When an ask closes
 

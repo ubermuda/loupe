@@ -12,6 +12,7 @@ use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Series;
 use App\Module\Review\Entity\Tag;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Uid\Uuid;
@@ -336,5 +337,17 @@ class DocumentRepository extends ServiceEntityRepository
         } catch (\InvalidArgumentException) {
             return null;
         }
+    }
+
+    public function findForUpdate(Document $document, Project $project): ?Document
+    {
+        return $this->createQueryBuilder('document')
+            ->andWhere('document = :document')
+            ->andWhere('document.project = :project')
+            ->setParameter('document', $document)
+            ->setParameter('project', $project)
+            ->getQuery()
+            ->setLockMode(LockMode::PESSIMISTIC_WRITE)
+            ->getOneOrNullResult();
     }
 }

@@ -1449,7 +1449,7 @@
             </trans-unit>
             <trans-unit id="review.document.flash.verdict_changed">
                 <source>review.document.flash.verdict_changed</source>
-                <target>The review changed after this page loaded. Reload the page before withdrawing the current verdict.</target>
+                <target>The review changed after this page loaded. Reload the page before changing the verdict.</target>
             </trans-unit>
             <trans-unit id="review.document.flash.note_required">
                 <source>review.document.flash.note_required</source>
@@ -5927,6 +5927,25 @@
             <trans-unit id="account.api_token.revoke.description"><source>account.api_token.revoke.description</source><target>Connections that use “%label%” lose access immediately. You cannot restore this token.</target></trans-unit>
             <trans-unit id="account.api_token.revoke.cancel"><source>account.api_token.revoke.cancel</source><target>Cancel</target></trans-unit>
             <trans-unit id="account.api_token.revoke.confirm"><source>account.api_token.revoke.confirm</source><target>Revoke token</target></trans-unit>
+            <trans-unit id="inbox.review.error.not_a_review"><source>inbox.review.error.not_a_review</source><target>This request does not accept a review verdict.</target></trans-unit>
+            <trans-unit id="inbox.review.error.not_a_pull_request"><source>inbox.review.error.not_a_pull_request</source><target>This request does not target a pull request.</target></trans-unit>
+            <trans-unit id="inbox.review.error.target_unavailable"><source>inbox.review.error.target_unavailable</source><target>The review target is no longer available.</target></trans-unit>
+            <trans-unit id="inbox.review.error.target_changed"><source>inbox.review.error.target_changed</source><target>The review target changed. Reload the request before submitting your verdict.</target></trans-unit>
+            <trans-unit id="inbox.item.kind.review"><source>inbox.item.kind.review</source><target>Review</target></trans-unit>
+            <trans-unit id="inbox.review.verdict.approved"><source>inbox.review.verdict.approved</source><target>Approved</target></trans-unit>
+            <trans-unit id="inbox.review.verdict.changes-requested"><source>inbox.review.verdict.changes-requested</source><target>Changes requested</target></trans-unit>
+            <trans-unit id="inbox.review.version"><source>inbox.review.version</source><target>Version %version%</target></trans-unit>
+            <trans-unit id="inbox.review.open_document"><source>inbox.review.open_document</source><target>Review document</target></trans-unit>
+            <trans-unit id="inbox.review.local_only"><source>inbox.review.local_only</source><target>This records your review in Loupe. It does not post a review to the code host.</target></trans-unit>
+            <trans-unit id="inbox.review.submit"><source>inbox.review.submit</source><target>Submit review</target></trans-unit>
+            <trans-unit id="inbox.review.submitted"><source>inbox.review.submitted</source><target>Review recorded.</target></trans-unit>
+            <trans-unit id="inbox.form.submit_inbox_pull_request_review_form.verdict.label"><source>inbox.form.submit_inbox_pull_request_review_form.verdict.label</source><target>Your verdict</target></trans-unit>
+            <trans-unit id="inbox.form.submit_inbox_pull_request_review_form.verdict.approve"><source>inbox.form.submit_inbox_pull_request_review_form.verdict.approve</source><target>Approve</target></trans-unit>
+            <trans-unit id="inbox.form.submit_inbox_pull_request_review_form.verdict.changes"><source>inbox.form.submit_inbox_pull_request_review_form.verdict.changes</source><target>Request changes</target></trans-unit>
+            <trans-unit id="inbox.form.submit_inbox_pull_request_review_form.note.label"><source>inbox.form.submit_inbox_pull_request_review_form.note.label</source><target>Review note (required for changes)</target></trans-unit>
+            <trans-unit id="inbox.review.withdrawn"><source>inbox.review.withdrawn</source><target>%name% withdrew this verdict at %time%. This request keeps its original answer.</target></trans-unit>
+            <trans-unit id="inbox.review.error.not_a_document"><source>inbox.review.error.not_a_document</source><target>This request does not target a document.</target></trans-unit>
+            <trans-unit id="inbox.review.unsent_note"><source>inbox.review.unsent_note</source><target>Your unsent review note</target></trans-unit>
         </body>
     </file>
 </xliff>

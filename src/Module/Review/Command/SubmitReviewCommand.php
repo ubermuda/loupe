@@ -17,6 +17,7 @@ final readonly class SubmitReviewCommand
         public string $verdict,
         public int $versionNumber,
         public ?string $note = null,
+        public ?string $expectedReviewId = null,
     ) {
     }
 }

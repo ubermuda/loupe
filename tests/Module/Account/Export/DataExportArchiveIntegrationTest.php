@@ -8,6 +8,9 @@ use App\Module\Account\Entity\ApiToken;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Export\DataExportArchiveBuilder;
+use App\Module\Inbox\Entity\InboxItem;
+use App\Module\Inbox\Entity\InboxItemKind;
+use App\Module\Inbox\Entity\InboxReview;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
@@ -54,6 +57,11 @@ final class DataExportArchiveIntegrationTest extends KernelTestCase
         $review = new Review($version1, Verdict::Approved, $user);
         $em->persist($review);
 
+        $inboxItem = new InboxItem($project, 1, InboxItemKind::Review, 'Review my doc', true);
+        $inboxReview = new InboxReview($inboxItem, $document);
+        $em->persist($inboxItem);
+        $em->persist($inboxReview);
+
         $em->persist(new SiteReviewComment($project, 0, 'Fix this', 'https://example.com/')->addAnchor('.hero h1', 'Hello world'));
 
         [$apiToken] = ApiToken::issue($user, 'My agent', ApiTokenScope::Mcp);
@@ -86,9 +94,19 @@ final class DataExportArchiveIntegrationTest extends KernelTestCase
             }
             sort($names);
             self::assertSame(
-                ['api_tokens.json', 'audit_log.json', 'billing_profile.json', 'bridges.json', 'cards.json', 'comments.json', 'connected_accounts.json', 'documents.json', 'inbox_asks.json', 'inbox_items.json', 'profile.json', 'projects.json', 'reviews.json', 'section_approvals.json', 'site_reviews.json', 'worker_runs.json'],
+                ['api_tokens.json', 'audit_log.json', 'billing_profile.json', 'bridges.json', 'cards.json', 'comments.json', 'connected_accounts.json', 'documents.json', 'inbox_asks.json', 'inbox_items.json', 'inbox_reviews.json', 'profile.json', 'projects.json', 'reviews.json', 'section_approvals.json', 'site_reviews.json', 'worker_runs.json'],
                 $names,
             );
+
+            $rawInboxReviews = $zip->getFromName('inbox_reviews.json');
+            self::assertIsString($rawInboxReviews);
+            $inboxReviews = json_decode($rawInboxReviews, true, flags: \JSON_THROW_ON_ERROR);
+            self::assertCount(1, $inboxReviews);
+            self::assertSame((string) $inboxReview->id, $inboxReviews[0]['id']);
+            self::assertSame((string) $inboxItem->id, $inboxReviews[0]['itemId']);
+            self::assertSame((string) $document->id, $inboxReviews[0]['documentId']);
+            self::assertSame('document', $inboxReviews[0]['targetKind']);
+            self::assertNull($inboxReviews[0]['verdict']);
 
             $rawComments = $zip->getFromName('comments.json');
             self::assertIsString($rawComments);

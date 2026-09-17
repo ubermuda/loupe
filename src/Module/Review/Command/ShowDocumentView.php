@@ -35,6 +35,7 @@ final readonly class ShowDocumentView
         /** Which sections of this version the reader has approved. */
         public SectionApprovalSummary $sections,
         public ?Review $review,
+        public ?string $latestReviewId,
     ) {
     }
 }

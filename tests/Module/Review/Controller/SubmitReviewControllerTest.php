@@ -20,6 +20,43 @@ use Ubermuda\AuditBundle\AuditOutcome;
 
 final class SubmitReviewControllerTest extends WebTestCase
 {
+    public function test_a_same_version_stale_form_keeps_its_note_and_does_not_replace_the_verdict(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$owner, , $projectId, $docId] = $this->seedOwnerAndDocument($em, 'same-version');
+        $client->loginUser($owner);
+        $url = "/projects/$projectId/documents/$docId/review";
+        $firstPage = $client->request(Request::METHOD_GET, $url);
+        $olderForm = $firstPage->selectButton('Submit review')->form([
+            'submit_review_form[verdict]' => 'changes-requested',
+            'submit_review_form[note]' => 'Keep my unfinished feedback.',
+        ]);
+        $newerPage = $client->request(Request::METHOD_GET, $url);
+        $client->submit($newerPage->selectButton('Submit review')->form(['submit_review_form[verdict]' => 'approved']));
+        self::assertResponseRedirects($url);
+
+        $client->submit($olderForm);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('dialog .lp-field-errors li', 'The review changed after this page loaded.');
+        self::assertSelectorTextContains('textarea[name="submit_review_form[note]"]', 'Keep my unfinished feedback.');
+        self::assertSelectorExists('[data-modal-reopen-value="true"]');
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $document = $em->find(Document::class, $docId);
+        self::assertInstanceOf(Document::class, $document);
+        self::assertSame(DocumentStatus::Approved, $document->status);
+        self::assertSame(1, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM reviews WHERE version_id = ?', [(string) $document->currentVersion()->id]));
+
+        $page = $client->request(Request::METHOD_GET, $url);
+        $client->submit($page->filter('.lp-verdict-bar__undo button')->form());
+        self::assertResponseRedirects($url);
+        $page = $client->followRedirect();
+        self::assertNotSame('', $page->filter('input[name="submit_review_form[expectedReviewId]"]')->attr('value'));
+        $client->submit($page->selectButton('Submit review')->form(['submit_review_form[verdict]' => 'approved']));
+        self::assertResponseRedirects($url);
+    }
+
     public function test_requesting_changes_requires_a_note_and_preserves_the_verdict(): void
     {
         $client = static::createClient();

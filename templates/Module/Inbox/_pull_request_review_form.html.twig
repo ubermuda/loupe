@@ -1,0 +1,21 @@
+{% set form = inbox_pull_request_review_form(review, refusedForm) %}
+{{ form_start(form, {action: path('app_inbox_item_review_pull_request', actionParams), attr: {class: 'lp-form', 'data-turbo-frame': responseFrame}}) }}
+    <a class="lp-inbox-item__jump" href="{{ safe_pull_request_url(review.pullRequest.url) }}" target="_blank" rel="noopener noreferrer">{{ review.pullRequest.url }}</a>
+    <p class="lp-form-hint">{{ 'inbox.review.local_only'|trans }}</p>
+    <div class="lp-field-errors">{{ form_errors(form) }}</div>
+    {{ form_widget(form.expectedUrl) }}
+    <div class="lp-field-errors">{{ form_errors(form.expectedUrl) }}</div>
+    <fieldset class="lp-form-field">
+        <legend class="lp-label">{{ form.verdict.vars.label|trans }}</legend>
+        {% for choice in form.verdict %}
+            <label class="lp-review-verdict-choice">{{ form_widget(choice) }}<span>{{ choice.vars.label|trans }}</span></label>
+        {% endfor %}
+        <div class="lp-field-errors">{{ form_errors(form.verdict) }}</div>
+    </fieldset>
+    <div class="lp-form-field">
+        {{ form_label(form.note, null, {label_attr: {class: 'lp-label'}}) }}
+        {{ form_widget(form.note, {attr: {class: 'lp-input', rows: 3}}) }}
+        <div class="lp-field-errors">{{ form_errors(form.note) }}</div>
+    </div>
+    <div class="lp-inbox-item__buttons"><button type="submit" class="lp-btn lp-btn--primary">{{ 'inbox.review.submit'|trans }}</button></div>
+{{ form_end(form) }}
