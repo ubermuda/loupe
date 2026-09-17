@@ -48,7 +48,7 @@ class CreateProjectController extends AppController
             }
 
             try {
-                ($this->createProjectHandler)(new CreateProjectCommand(
+                $project = ($this->createProjectHandler)(new CreateProjectCommand(
                     owner: $user,
                     name: $name,
                     domain: trim($data->domain ?? '') ?: null,
@@ -56,7 +56,7 @@ class CreateProjectController extends AppController
                     description: $data->description,
                 ));
 
-                return $this->redirectToRoute('app_projects');
+                return $this->redirectToRoute('app_project_workshop', ['id' => $project->id]);
             } catch (DomainErrors $e) {
                 $this->applyDomainErrors($form, $e);
             }

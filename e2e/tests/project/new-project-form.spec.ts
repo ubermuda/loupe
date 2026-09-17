@@ -77,6 +77,10 @@ test('project descriptions persist on tiles and can be edited or cleared', async
     await page
         .getByRole('button', { name: 'Add project', exact: true })
         .click();
+    await expect(page.locator('[data-workshop]')).toBeVisible();
+    await expect(page.locator('.lp-sidebar__switcher-name')).toHaveText(name);
+    await expect(page).toHaveURL(/\/projects\/[^/]+$/);
+    await page.goto('/projects');
     const tile = page.locator('[data-project-id]').filter({ hasText: name });
     await expect(tile.locator('.lp-project-row__description')).toHaveText(
         description,

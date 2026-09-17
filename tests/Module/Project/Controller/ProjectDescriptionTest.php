@@ -32,16 +32,18 @@ final class ProjectDescriptionTest extends WebTestCase
             'create_project_form[name]' => 'Described project',
             'create_project_form[description]' => '  '.$description.'  ',
         ]);
-        self::assertResponseRedirects('/projects');
-        $client->followRedirect();
-        self::assertSame($description, $client->getCrawler()->filter('.lp-project-row__description')->text('', false));
-        self::assertSelectorNotExists('.lp-project-row__description script');
         $em = self::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
         $project = self::getContainer()->get(ProjectRepository::class)->findOneBy(['name' => 'Described project']);
         self::assertInstanceOf(Project::class, $project);
         self::assertSame($description, $project->description);
         $id = $project->id;
+        self::assertResponseRedirects('/projects/'.$id);
+        $client->followRedirect();
+        self::assertSelectorExists('[data-workshop]');
+        $client->request(Request::METHOD_GET, '/projects');
+        self::assertSame($description, $client->getCrawler()->filter('.lp-project-row__description')->text('', false));
+        self::assertSelectorNotExists('.lp-project-row__description script');
 
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$id.'/edit');
         self::assertSame($description, $crawler->filter('#create_project_form_description')->text('', false));

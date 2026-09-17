@@ -18,6 +18,11 @@ test('pause keeps the feed fixed while real events arrive and resume reconciles 
         .click();
     await page.getByLabel('Project name').fill(projectName);
     await page.getByRole('button', { name: 'Add project' }).click();
+    await expect(page.locator('[data-workshop]')).toBeVisible();
+    await expect(page.locator('.lp-sidebar__switcher-name')).toHaveText(
+        projectName,
+    );
+    await page.goto('/projects');
     const editLink = page.getByRole('link', { name: `Edit ${projectName}` });
     await expect(editLink).toBeVisible();
     const editUrl = await editLink.getAttribute('href');

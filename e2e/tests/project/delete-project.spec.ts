@@ -19,10 +19,11 @@ test('deleting a project requires typing its exact name', async ({ page }) => {
     await page.getByLabel('Project name').fill(projectName);
     await page.getByRole('button', { name: 'Add project' }).click();
 
-    // The create form redirects back to /projects (same URL) — wait for the
-    // new row's edit link instead of the URL, which would resolve immediately.
-    // The project name itself is not a link (it overlaps the row's "open
-    // documents" link), so the edit link is both the signal and the target.
+    await expect(page.locator('[data-workshop]')).toBeVisible();
+    await expect(page.locator('.lp-sidebar__switcher-name')).toHaveText(
+        projectName,
+    );
+    await page.goto('/projects');
     const editLink = page.getByRole('link', { name: `Edit ${projectName}` });
     await expect(editLink).toBeVisible();
     await editLink.click();

@@ -58,9 +58,10 @@ final class ProjectsPageTest extends WebTestCase
             'create_project_form[searchLanguage]' => 'spanish',
         ]);
 
-        self::assertResponseRedirects('/projects');
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
         $projects = static::getContainer()->get(ProjectRepository::class)->findByOwner($owner);
         self::assertCount(1, $projects);
+        self::assertResponseRedirects('/projects/'.$projects[0]->id);
         self::assertSame(SearchLanguage::Spanish, $projects[0]->searchLanguage);
     }
 
@@ -77,9 +78,10 @@ final class ProjectsPageTest extends WebTestCase
             'create_project_form[name]' => 'left-alone',
         ]);
 
-        self::assertResponseRedirects('/projects');
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
         $projects = static::getContainer()->get(ProjectRepository::class)->findByOwner($owner);
         self::assertCount(1, $projects);
+        self::assertResponseRedirects('/projects/'.$projects[0]->id);
         self::assertSame(SearchLanguage::English, $projects[0]->searchLanguage);
     }
 
@@ -189,12 +191,17 @@ final class ProjectsPageTest extends WebTestCase
             'create_project_form[domain]' => 'my-app.example.com',
         ]);
 
-        self::assertResponseRedirects('/projects');
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
         $project = static::getContainer()->get(ProjectRepository::class)->findOneByOwnerAndName($owner, 'my-app');
         self::assertNotNull($project);
+        self::assertResponseRedirects('/projects/'.$project->id);
         self::assertSame('my-app.example.com', $project->domain);
         self::assertNull($project->widgetToken);
         self::assertNull($project->mcpToken);
+        $client->followRedirect();
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-workshop]');
+        self::assertSelectorTextSame('.lp-sidebar__switcher-name', 'my-app');
     }
 
     public function test_create_project_without_domain_is_allowed(): void
@@ -208,9 +215,10 @@ final class ProjectsPageTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects');
         $client->submitForm('Add project', ['create_project_form[name]' => 'domainless']);
 
-        self::assertResponseRedirects('/projects');
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
         $project = static::getContainer()->get(ProjectRepository::class)->findOneByOwnerAndName($owner, 'domainless');
         self::assertNotNull($project);
+        self::assertResponseRedirects('/projects/'.$project->id);
         self::assertNull($project->domain);
     }
 
@@ -226,8 +234,10 @@ final class ProjectsPageTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects');
         $client->submitForm('Add project', ['create_project_form[name]' => '0']);
 
-        self::assertResponseRedirects('/projects');
-        self::assertNotNull(static::getContainer()->get(ProjectRepository::class)->findOneByOwnerAndName($owner, '0'));
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
+        $project = static::getContainer()->get(ProjectRepository::class)->findOneByOwnerAndName($owner, '0');
+        self::assertNotNull($project);
+        self::assertResponseRedirects('/projects/'.$project->id);
     }
 
     public function test_duplicate_name_for_same_owner_is_rejected(): void
@@ -294,8 +304,10 @@ final class ProjectsPageTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects');
         $client->submitForm('Add project', ['create_project_form[name]' => 'shared-name']);
 
-        self::assertResponseRedirects('/projects');
-        self::assertNotNull(static::getContainer()->get(ProjectRepository::class)->findOneByOwnerAndName($b, 'shared-name'));
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
+        $project = static::getContainer()->get(ProjectRepository::class)->findOneByOwnerAndName($b, 'shared-name');
+        self::assertNotNull($project);
+        self::assertResponseRedirects('/projects/'.$project->id);
     }
 
     /** @param non-empty-string $email */
