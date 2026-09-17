@@ -2172,7 +2172,8 @@
     .lp-review-menu {
         @apply lg:hidden;
     }
-    .lp-review-menu[hidden] {
+    .lp-review-menu[hidden],
+    .lp-review:has(.lp-comment-composer:not([hidden])) .lp-review-menu {
         @apply hidden;
     }
     .lp-review-menu__trigger {

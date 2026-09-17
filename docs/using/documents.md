@@ -56,6 +56,7 @@ Copy the draft before reloading, then select the passage in the current version.
 
 Select Dismiss selection in the selection toolbar to clear the selection without posting an annotation.
 Focus returns to the document. Select a passage again to annotate it.
+On narrow screens, the floating review menu hides while an annotation composer is open so it cannot cover the form controls.
 
 Threads carry a status: pending, addressed, or resolved.
 Select **Finish review** beside the document title to approve the version or request changes.

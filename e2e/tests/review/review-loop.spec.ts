@@ -446,6 +446,91 @@ for (const width of [1440, 390]) {
     });
 }
 
+for (const width of [1440, 390]) {
+    for (const explanation of ['', 'This wording is more precise.']) {
+        test(`Suggest stores replacement and optional explanation at ${width}px: ${explanation || 'no explanation'}`, async ({
+            page,
+            review,
+        }, testInfo) => {
+            await page.setViewportSize({ width, height: 1000 });
+            await selectKnownPhrase(page, KNOWN_PHRASE);
+            await page
+                .locator(TOOLBAR)
+                .getByRole('button', { name: 'Suggest', exact: true })
+                .click();
+            const composer = page.locator(
+                '[data-comment-anchor-target="suggestComposer"]',
+            );
+            const replacement = composer.locator(
+                '[data-comment-anchor-target="suggestReplacement"]',
+            );
+            const reason = composer.locator(
+                '[data-comment-anchor-target="suggestBody"]',
+            );
+            await expect(composer).toBeVisible();
+            await expect(page.locator('.lp-review-menu__trigger')).toBeHidden();
+            await expect(replacement).toBeFocused();
+            await expect(replacement).toHaveValue(KNOWN_PHRASE);
+            await expect(reason).toHaveValue('');
+            await replacement.fill('precise replacement wording');
+            await reason.fill(explanation);
+            const submit = composer.getByRole('button', {
+                name: 'Suggest',
+                exact: true,
+            });
+            await expect(submit).toBeInViewport({ ratio: 1 });
+            await composer.evaluate(async (element) => {
+                await Promise.all(
+                    element
+                        .getAnimations()
+                        .map((animation) => animation.finished),
+                );
+            });
+            expect(
+                await submit.evaluate((element) => {
+                    const bounds = element.getBoundingClientRect();
+                    return [0.15, 0.5, 0.85].map((fraction) =>
+                        element.contains(
+                            document.elementFromPoint(
+                                bounds.left + bounds.width * fraction,
+                                bounds.top + bounds.height / 2,
+                            ),
+                        ),
+                    );
+                }),
+            ).toEqual([true, true, true]);
+            await page.screenshot({
+                path: testInfo.outputPath('suggestion-composer.png'),
+            });
+            await submit.click();
+            await expect(composer).toBeHidden();
+            const thread = page.locator(
+                '[data-comment-anchor-target="thread"]',
+            );
+            await expect
+                .poll(() =>
+                    page.locator('.lp-review-menu__trigger').isVisible(),
+                )
+                .toBe(width < 1024);
+            await expect(thread).toHaveCount(1);
+            await expect(thread).toContainText('precise replacement wording');
+            const response = await page.request.get(
+                `/dev/review/${review.documentId}/state`,
+            );
+            expect(response.status()).toBe(200);
+            const state = await response.json();
+            expect(state.comments).toHaveLength(1);
+            expect(state.comments[0]).toMatchObject({
+                quote: KNOWN_PHRASE,
+                replacement: 'precise replacement wording',
+                body: explanation,
+            });
+            await page.reload();
+            await expect(thread).toContainText('precise replacement wording');
+        });
+    }
+}
+
 test('posting a comment disables the submitter and renders the thread in the sidebar', async ({
     page,
 }) => {
