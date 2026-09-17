@@ -3346,7 +3346,7 @@
         @apply flex flex-col gap-2 mb-4;
     }
     .lp-site-review-title {
-        @apply font-display font-extrabold text-ink m-0 text-5xl tracking-tight leading-none;
+        @apply font-display font-extrabold text-ink m-0 text-3xl tracking-tight leading-none;
     }
     .lp-site-review-meta-line {
         @apply font-mono text-fg-dim m-0 text-xs;
