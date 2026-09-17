@@ -332,7 +332,7 @@
         @apply translate-y-px scale-97;
     }
     .btn.primary {
-        @apply bg-accent border-accent text-white;
+        @apply bg-accent border-accent text-ink;
     }
     .btn.primary:hover {
         @apply bg-accent-hover border-accent-hover;
