@@ -139,6 +139,8 @@ Unsent review notes and verdict selections survive drawer replacement in the sam
 They keep their original document version, previous verdict identifier, or PR address.
 If that review state changes, the restored form shows a warning.
 Inspect the current content and copy your note before selecting **Discard draft** to start a fresh review.
+If the request closes or its target becomes unavailable, the request keeps your unsent note and verdict visible for copying or discarding.
+Discard clears only this tab's draft. It does not change the recorded review.
 A removed target shows an unavailable state, while completed results retain their original target label and answer.
 
 ## Replies

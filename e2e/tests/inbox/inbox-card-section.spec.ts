@@ -308,6 +308,19 @@ for (const target of ['document', 'pull-request']) {
                 .locator('textarea')
                 .fill('Explain retries before implementation.');
         }
+        const draftPage = await page.context().newPage();
+        await draftPage.goto(
+            `/projects/${projectId}/inbox#inbox-item-${number}`,
+        );
+        const draftItem = draftPage.locator(`#inbox-item-${number}`);
+        const draftForm = draftItem.locator('form').filter({
+            has: draftPage.getByRole('button', {
+                name: 'Submit review',
+                exact: true,
+            }),
+        });
+        await draftForm.getByLabel('Approve', { exact: true }).check();
+        await draftForm.locator('textarea').fill('Keep this unsent review.');
         await form
             .getByRole('button', { name: 'Submit review', exact: true })
             .click();
@@ -319,6 +332,27 @@ for (const target of ['document', 'pull-request']) {
         );
         await expect(drawer).toBeVisible();
         await expect(page).toHaveURL(boardUrl);
+        await draftPage
+            .getByRole('link', { name: 'Workshop', exact: true })
+            .click();
+        await expect(draftPage.locator('[data-workshop]')).toBeVisible();
+        await draftPage
+            .locator(`.lp-sidebar__link[href="/projects/${projectId}/inbox"]`)
+            .click();
+        const recovery = draftItem.locator('[data-inbox-draft-kind="review"]');
+        await expect(recovery).toBeVisible();
+        await expect(recovery).toContainText('Keep this unsent review.');
+        await expect(recovery.locator('li')).toHaveText(['Approved']);
+        await expect(
+            draftItem.locator('[data-inbox-review-verdict]'),
+        ).toHaveText('Changes requested');
+        await recovery.getByRole('button', { name: 'Discard draft' }).click();
+        await expect(recovery).toBeHidden();
+        await expect(draftItem.getByRole('heading')).toBeFocused();
+        await expect(draftItem.locator('[data-inbox-response]')).toContainText(
+            'Explain retries before implementation.',
+        );
+        await draftPage.close();
         await page.goto(`/projects/${projectId}/inbox#inbox-item-${number}`);
         const completed = page.locator(`#inbox-item-${number}`);
         await expect(
@@ -350,6 +384,83 @@ for (const target of ['document', 'pull-request']) {
         }
     });
 }
+
+test('an unavailable pull request keeps its unsent review recoverable', async ({
+    page,
+}) => {
+    await suppressToolbar(page);
+    await suppressWidget(page);
+    await setFlag(page.request, 'inbox.enabled', true);
+    await setFlag(page.request, 'board.enabled', true);
+    await registerAndLogin(page, `e2e+inbox+unavailable+${RUN}@example.com`);
+    const seeded = await page.request.post('/dev/seed/document', {
+        form: { title: 'Unavailable review project', markdown: '# Review' },
+    });
+    expect(seeded.status()).toBe(201);
+    const { projectId } = await seeded.json();
+    await page.goto(`/projects/${projectId}/board/cards/new`);
+    await page.getByLabel('Title').fill('Remove this review target');
+    await page.getByLabel('Column').selectOption({ label: 'Backlog' });
+    await page
+        .locator('textarea[name="create_card_form[pullRequestUrls]"]')
+        .fill('https://github.com/example/app/pull/73');
+    await page.getByRole('button', { name: 'Create card' }).click();
+    await expect(
+        page.getByRole('heading', { name: 'Remove this review target' }),
+    ).toBeVisible();
+    const cardUrl = new URL(page.url()).pathname;
+    const cardId = cardUrl.split('/').pop() ?? '';
+    const pullRequestId = await page
+        .locator('[data-linked-pull-request]')
+        .getAttribute('data-linked-pull-request');
+    expect(pullRequestId).toMatch(/^[0-9a-f-]{36}$/);
+    const seededReview = await page.request.post('/dev/seed/inbox-review', {
+        form: { cardId, pullRequestId: pullRequestId! },
+    });
+    expect(seededReview.status()).toBe(201);
+    const { number } = await seededReview.json();
+    await page.goto(`/projects/${projectId}/inbox#inbox-item-${number}`);
+    const item = page.locator(`#inbox-item-${number}`);
+    const form = item.locator('form').filter({
+        has: page.getByRole('button', {
+            name: 'Submit review',
+            exact: true,
+        }),
+    });
+    await form.getByLabel('Request changes', { exact: true }).check();
+    await form.locator('textarea').fill('Keep the removed target feedback.');
+    const editor = await page.context().newPage();
+    await editor.goto(`${cardUrl}/edit`);
+    await editor
+        .locator('textarea[name="create_card_form[pullRequestUrls]"]')
+        .fill('');
+    await editor
+        .getByRole('button', { name: 'Save card', exact: true })
+        .click();
+    await expect(
+        editor.getByRole('heading', { name: 'Remove this review target' }),
+    ).toBeVisible();
+    await expect(editor.locator('[data-linked-pull-request]')).toHaveCount(0);
+    await editor.close();
+    await page.getByRole('link', { name: 'Workshop', exact: true }).click();
+    await expect(page.locator('[data-workshop]')).toBeVisible();
+    await page
+        .locator(`.lp-sidebar__link[href="/projects/${projectId}/inbox"]`)
+        .click();
+    await expect(item).toContainText(
+        'The review target is no longer available.',
+    );
+    const recovery = item.locator('[data-inbox-draft-kind="review"]');
+    await expect(recovery).toBeVisible();
+    await expect(recovery).toContainText('Keep the removed target feedback.');
+    await expect(recovery.locator('li')).toHaveText(['Changes requested']);
+    await expect(
+        item.getByRole('button', { name: 'Submit review' }),
+    ).toHaveCount(0);
+    await recovery.getByRole('button', { name: 'Discard draft' }).click();
+    await expect(recovery).toBeHidden();
+    await expect(item.getByRole('heading')).toBeFocused();
+});
 
 for (const surface of ['page', 'drawer']) {
     test(`the owner answers a linked question from the card ${surface} and stays there`, async ({

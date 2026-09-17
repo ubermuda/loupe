@@ -5984,6 +5984,8 @@
             <trans-unit id="inbox.review.withdrawn"><source>inbox.review.withdrawn</source><target>%name% withdrew this verdict at %time%. This request keeps its original answer.</target></trans-unit>
             <trans-unit id="inbox.review.error.not_a_document"><source>inbox.review.error.not_a_document</source><target>This request does not target a document.</target></trans-unit>
             <trans-unit id="inbox.review.unsent_note"><source>inbox.review.unsent_note</source><target>Your unsent review note</target></trans-unit>
+            <trans-unit id="inbox.review.unsent"><source>inbox.review.unsent</source><target>Your unsent review</target></trans-unit>
+            <trans-unit id="inbox.review.unsent_unavailable"><source>inbox.review.unsent_unavailable</source><target>This request no longer accepts a review here. This draft was not sent.</target></trans-unit>
             <trans-unit id="inbox.review.stale_draft"><source>inbox.review.stale_draft</source><target>This draft belongs to an earlier review state. Inspect the current content before reviewing again. Copy your note before discarding this draft.</target></trans-unit>
             <trans-unit id="inbox.answer.unsent"><source>inbox.answer.unsent</source><target>Your unsent answer</target></trans-unit>
             <trans-unit id="inbox.answer.unsent_closed"><source>inbox.answer.unsent_closed</source><target>This request no longer accepts responses. This draft was not sent.</target></trans-unit>
