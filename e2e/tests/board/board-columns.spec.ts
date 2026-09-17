@@ -131,6 +131,70 @@ test.afterAll(async ({ request }) => {
     await setBoardFlag(request, false);
 });
 
+test('column settings fits long names and enlarged text', async ({
+    page,
+    board,
+}, testInfo) => {
+    const label = 'A'.repeat(100);
+    await page.getByLabel('New column').fill(label);
+    await page.getByRole('button', { name: 'Add column', exact: true }).click();
+    await expect(page.locator(COLUMN)).toHaveCount(5, ROUND_TRIP);
+    await page.goto(`/projects/${board.projectId}/settings/columns`);
+    const settings = page.locator('[data-board-column-settings]');
+    await expect(
+        settings.getByRole('heading', { name: label, exact: true }),
+    ).toBeVisible();
+    for (const fontSize of ['100%', '200%']) {
+        await page.evaluate((size) => {
+            document.documentElement.style.fontSize = size;
+        }, fontSize);
+        for (const width of [1440, 1150, 950, 780, 390]) {
+            await page.setViewportSize({ width, height: 1000 });
+            await expect
+                .poll(() =>
+                    settings.evaluate(
+                        (element) => element.scrollWidth - element.clientWidth,
+                    ),
+                )
+                .toBeLessThanOrEqual(1);
+            await expect
+                .poll(() =>
+                    page.evaluate(
+                        () =>
+                            document.documentElement.scrollWidth -
+                            window.innerWidth,
+                    ),
+                )
+                .toBeLessThanOrEqual(1);
+            await page.screenshot({
+                path: testInfo.outputPath(`columns-${width}-${fontSize}.png`),
+                fullPage: true,
+                animations: 'disabled',
+            });
+            const addColumn = settings.getByRole('button', {
+                name: 'Add a column',
+                exact: true,
+            });
+            await addColumn.scrollIntoViewIfNeeded();
+            await expect(addColumn).toBeInViewport({ ratio: 1 });
+            await expect
+                .poll(() =>
+                    addColumn.locator('svg').evaluate((icon) => {
+                        const bounds = icon.getBoundingClientRect();
+                        return Math.abs(bounds.width - bounds.height);
+                    }),
+                )
+                .toBeLessThanOrEqual(1);
+            await page.screenshot({
+                path: testInfo.outputPath(
+                    `columns-actions-${width}-${fontSize}.png`,
+                ),
+                animations: 'disabled',
+            });
+        }
+    }
+});
+
 test('column settings preserves edits and navigation', async ({
     page,
     board,

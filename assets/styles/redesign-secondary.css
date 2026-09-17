@@ -246,7 +246,7 @@
         @apply flex flex-wrap items-center gap-2 rounded-lg border border-line p-3;
     }
     .lp-settings-column__name {
-        @apply min-w-0 flex-1 break-words;
+        @apply min-w-0 flex-1 basis-32 break-words;
     }
     .lp-settings-column__name h3 {
         @apply m-0 text-sm font-semibold;
@@ -289,6 +289,34 @@
         .lp-redesign-settings .lp-settings-content,
         .lp-account-settings-content {
             grid-column: 2;
+        }
+    }
+    .lp-redesign-settings:has(.lp-settings-layout--columns) {
+        @apply @container;
+    }
+    .lp-redesign-settings .lp-settings-layout--columns {
+        @apply grid-cols-1;
+    }
+    .lp-settings-layout--columns .lp-settings-nav {
+        @apply flex-row;
+    }
+    .lp-redesign-settings .lp-settings-layout--columns .lp-settings-content {
+        @apply col-start-1 col-span-1 p-4;
+    }
+    .lp-settings-layout--columns .lp-btn svg {
+        @apply shrink-0;
+    }
+    @container (min-width: 48rem) {
+        .lp-redesign-settings .lp-settings-layout--columns {
+            grid-template-columns: calc(var(--spacing) * 44) minmax(0, 1fr);
+        }
+        .lp-settings-layout--columns .lp-settings-nav {
+            @apply flex-col;
+        }
+        .lp-redesign-settings
+            .lp-settings-layout--columns
+            .lp-settings-content {
+            @apply col-start-2 p-6;
         }
     }
 }
