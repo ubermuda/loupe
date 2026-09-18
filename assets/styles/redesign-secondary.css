@@ -192,6 +192,9 @@
     .lp-settings-panel-card {
         @apply rounded-xl border border-line bg-white p-6;
     }
+    .lp-danger-zone.lp-settings-panel-card {
+        @apply border-line pt-6;
+    }
     .lp-redesign-settings .lp-danger-zone,
     .lp-redesign-settings .lp-settings-section + .lp-settings-section {
         @apply mt-5;

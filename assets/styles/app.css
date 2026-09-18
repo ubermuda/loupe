@@ -6339,7 +6339,7 @@
         @apply inline-flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-xs font-normal text-fg-mute no-underline whitespace-nowrap transition-colors;
     }
     .lp-settings-nav__item:hover {
-        @apply bg-tint text-ink;
+        @apply bg-tint-strong text-ink;
     }
     .lp-settings-nav__item--active {
         @apply bg-accent-soft text-accent-ink;
