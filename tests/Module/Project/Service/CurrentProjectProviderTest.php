@@ -99,6 +99,35 @@ final class CurrentProjectProviderTest extends KernelTestCase
         self::assertNull($provider->current(), 'only the sidebar falls back; the page itself has no project');
     }
 
+    #[\PHPUnit\Framework\Attributes\TestWith(['X-Sec-Purpose'])]
+    #[\PHPUnit\Framework\Attributes\TestWith(['Sec-Purpose'])]
+    public function test_a_prefetch_does_not_change_the_remembered_project(string $header): void
+    {
+        self::bootKernel();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'provider-prefetch-'.strtolower($header).'@example.com');
+        $visited = new Project($owner, 'visited');
+        $hovered = new Project($owner, 'hovered');
+        $em->persist($visited);
+        $em->persist($hovered);
+        $em->flush();
+
+        $session = new Session(new MockArraySessionStorage());
+        $visit = $this->requestWith('id', (string) $visited->id);
+        $visit->setSession($session);
+        $this->provider($visit, $owner)->current();
+
+        // Turbo prefetches a link on hover; that is not a visit.
+        $prefetch = $this->requestWith('id', (string) $hovered->id);
+        $prefetch->headers->set($header, 'prefetch');
+        $prefetch->setSession($session);
+        self::assertSame($hovered->id, $this->provider($prefetch, $owner)->current()?->id);
+
+        $account = new Request();
+        $account->setSession($session);
+        self::assertSame($visited->id, $this->provider($account, $owner)->currentOrLastVisited()?->id);
+    }
+
     public function test_a_remembered_project_of_another_user_is_ignored(): void
     {
         self::bootKernel();

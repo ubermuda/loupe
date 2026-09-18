@@ -80,7 +80,8 @@ final readonly class CurrentProjectProvider
             $raw = $request->attributes->get($key);
             if (is_string($raw) && '' !== $raw) {
                 $project = $this->findForOwner($raw, $user);
-                if (null !== $project) {
+                // A hover prefetch renders the page without visiting it.
+                if (null !== $project && !$this->isPrefetch($request)) {
                     $session?->set(self::LAST_VISITED_SESSION_KEY, (string) $project->id);
                 }
 
@@ -93,6 +94,12 @@ final readonly class CurrentProjectProvider
         $remembered = $session?->get(self::LAST_VISITED_SESSION_KEY);
 
         return [null, is_string($remembered) ? $this->findForOwner($remembered, $user) : null];
+    }
+
+    private function isPrefetch(Request $request): bool
+    {
+        return 'prefetch' === $request->headers->get('X-Sec-Purpose')
+            || 'prefetch' === $request->headers->get('Sec-Purpose');
     }
 
     private function findForOwner(string $handle, User $user): ?Project
