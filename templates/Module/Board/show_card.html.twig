@@ -47,7 +47,7 @@
                         {% if card.documents|length > 0 or card.pullRequests|length > 0 %}
                         <div class="lp-inbox-linked-table-wrap">
                             <table class="lp-inbox-linked-table">
-                                <caption>{{ 'board.list.linked_work'|trans }}</caption>
+                                <caption>{{ 'board.card.linked_work.title'|trans }}</caption>
                                 <thead><tr><th>{{ 'inbox.linked_items.item'|trans }}</th><th>{{ 'inbox.linked_items.status'|trans }}</th><th><span class="sr-only">{{ 'inbox.linked_items.open'|trans }}</span></th></tr></thead>
                                 <tbody>
                                     {% for link in card.documents %}
@@ -63,7 +63,7 @@
                                 </tbody>
                             </table>
                         </div>
-                        {% else %}<h2 class="lp-card-panel__title">{{ 'board.list.linked_work'|trans }}</h2><p class="lp-card-detail__empty">{{ 'board.card.linked_work.empty'|trans }}</p>{% endif %}
+                        {% else %}<h2 class="lp-card-panel__title">{{ 'board.card.linked_work.title'|trans }}</h2><p class="lp-card-detail__empty">{{ 'board.card.linked_work.empty'|trans }}</p>{% endif %}
                     </section>
                 </div>
                 <aside class="lp-card-overview-grid__facts" aria-label="{{ 'board.card.overview.details'|trans }}">
@@ -71,6 +71,9 @@
                         <div><dt>{{ 'board.card.overview.status'|trans }}</dt><dd>{% include '@Board/_column_tag.html.twig' with {column: card.column} only %}</dd></div>
                         <div><dt>{{ 'board.card.overview.reporter'|trans }}</dt><dd>{{ ('board.card.reporter.' ~ card.reporter.value)|trans }}</dd></div>
                         <div><dt>{{ 'board.card.overview.type'|trans }}</dt><dd>{% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}</dd></div>
+                        <div><dt>{{ 'board.card.overview.created'|trans }}</dt><dd><time datetime="{{ card.createdAt|date('c') }}">{{ card.createdAt|date('M j, Y') }}</time></dd></div>
+                        <div><dt>{{ 'board.card.overview.updated'|trans }}</dt><dd><time datetime="{{ card.updatedAt|date('c') }}">{{ card.updatedAt|relative_time }}</time></dd></div>
+                        {% if card.completedAt %}<div><dt>{{ 'board.card.overview.completed'|trans }}</dt><dd><time datetime="{{ card.completedAt|date('c') }}">{{ card.completedAt|date('M j, Y') }}</time></dd></div>{% endif %}
                     </dl>
                     <section class="lp-card-move">
                         <h2 class="lp-card-panel__title">{{ 'board.card.move.title'|trans }}</h2>

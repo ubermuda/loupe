@@ -5566,6 +5566,9 @@
             <trans-unit id="board.card.overview.status"><source>board.card.overview.status</source><target>Status</target></trans-unit>
             <trans-unit id="board.card.overview.reporter"><source>board.card.overview.reporter</source><target>Reporter</target></trans-unit>
             <trans-unit id="board.card.overview.type"><source>board.card.overview.type</source><target>Type</target></trans-unit>
+            <trans-unit id="board.card.overview.created"><source>board.card.overview.created</source><target>Created</target></trans-unit>
+            <trans-unit id="board.card.overview.updated"><source>board.card.overview.updated</source><target>Updated</target></trans-unit>
+            <trans-unit id="board.card.overview.completed"><source>board.card.overview.completed</source><target>Completed</target></trans-unit>
             <trans-unit id="board.card.conversation.title"><source>board.card.conversation.title</source><target>Conversation</target></trans-unit>
             <trans-unit id="board.card.conversation.description"><source>board.card.conversation.description</source><target>Requests and feedback linked to this card share their original records.</target></trans-unit>
             <trans-unit id="board.card.feedback.description"><source>board.card.feedback.description</source><target>Feedback captured by the site review widget for this card.</target></trans-unit>
@@ -5573,6 +5576,7 @@
             <trans-unit id="board.card.link.status_unavailable"><source>board.card.link.status_unavailable</source><target>Unavailable</target></trans-unit>
             <trans-unit id="board.card.link.pull_request"><source>board.card.link.pull_request</source><target>Pull request</target></trans-unit>
             <trans-unit id="board.card.link.open_pull_request"><source>board.card.link.open_pull_request</source><target>Open pull request</target></trans-unit>
+            <trans-unit id="board.card.linked_work.title"><source>board.card.linked_work.title</source><target>Linked work</target></trans-unit>
             <trans-unit id="board.card.linked_work.empty"><source>board.card.linked_work.empty</source><target>No documents or pull requests are linked to this card.</target></trans-unit>
             <trans-unit id="site_review.source.widget"><source>site_review.source.widget</source><target>Site review widget</target></trans-unit>
             <trans-unit id="site_review.comment.open_source"><source>site_review.comment.open_source</source><target>Open source page</target></trans-unit>

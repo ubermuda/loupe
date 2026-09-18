@@ -443,6 +443,12 @@ final class CardCrudControllerTest extends WebTestCase
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$cardId);
         self::assertResponseIsSuccessful();
+        // The overview names its linked work and shows the card's dates, never a raw key.
+        self::assertSelectorTextContains('.lp-card-docs', 'Linked work');
+        self::assertStringNotContainsString('board.', $crawler->filter('.lp-card-overview-grid')->text());
+        self::assertSame(['Status', 'Reporter', 'Type', 'Created', 'Updated'], $crawler->filter('.lp-card-fact-list dt')->each(static fn (Crawler $term): string => $term->text()));
+        self::assertSame('/projects/'.$project->id.'/board/cards/'.$cardId.'/edit', $crawler->filter('.lp-card-drawer__header-actions a')->first()->attr('href'));
+        self::assertNull($crawler->filter('.lp-card-drawer__header-actions a')->first()->attr('data-turbo-frame'));
 
         $name = 'move_card_'.$cardId;
         // Turbo is off on this form. Its answer is a redirect to the board
