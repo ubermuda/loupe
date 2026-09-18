@@ -426,7 +426,9 @@ for (const width of [1440, 390]) {
 
         await selectKnownPhrase(page, KNOWN_PHRASE);
         await toolbar.getByRole('button', { name: /^Strike/ }).click();
-        await expect(page.locator('.lp-comment-status--strike')).toBeVisible();
+        await expect(
+            page.locator('.lp-comment-thread[data-anchor-kind="strike"]'),
+        ).toBeVisible();
         await expect(page.locator(COMPOSER)).toBeHidden();
         await expect(
             page.locator('[data-comment-anchor-target="suggestComposer"]'),

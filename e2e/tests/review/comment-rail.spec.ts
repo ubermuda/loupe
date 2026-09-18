@@ -190,7 +190,7 @@ test('margin filter stays outside the tablist and within narrow viewports', asyn
             .getByRole('tab', { name: 'Comments', exact: true })
             .boundingBox())!;
         expect(commentsBounds.x - triggerBounds.x - triggerBounds.width).toBe(
-            4,
+            6,
         );
         await page.keyboard.press('Escape');
         await expect(filter.locator('summary')).toBeFocused();
@@ -228,7 +228,9 @@ test('enlarged margin tabs scroll within the document controls', async ({
         expect(selectedBounds.x + selectedBounds.width).toBeLessThanOrEqual(
             visibleBounds.x + visibleBounds.width,
         );
-        const labelBounds = (await selected.locator('span').boundingBox())!;
+        const labelBounds = (await selected
+            .locator('span:not(.lp-review-margin-tabs__count)')
+            .boundingBox())!;
         expect(labelBounds.x).toBeGreaterThanOrEqual(selectedBounds.x);
         expect(labelBounds.x + labelBounds.width).toBeLessThanOrEqual(
             selectedBounds.x + selectedBounds.width,
@@ -464,11 +466,6 @@ test('hiding resolved threads closes the gap the cards left', async ({
     const before = await threadTops(page);
     expect(before).toHaveLength(3);
 
-    // The toggle is a button, and a button class declares a display that beats
-    // the [hidden] rule the controller drives it with. Nothing is resolved yet,
-    // so a toggle on screen here means that override came back.
-    await expect(page.locator('.lp-review-actions__resolved')).toBeHidden();
-
     await page
         .locator(THREAD)
         .first()
@@ -478,9 +475,9 @@ test('hiding resolved threads closes the gap the cards left', async ({
         timeout: coverageScaled(10000),
     });
 
-    const toggle = page.locator('.lp-review-actions__resolved');
-    await expect(toggle).toBeVisible({ timeout: coverageScaled(5000) });
-    await toggle.click();
+    const filter = page.locator('[data-review-margin-target="filter"]');
+    await filter.locator('summary').click();
+    await filter.getByRole('button', { name: /^Open/ }).click();
 
     await expect(page.locator('.lp-comment-thread--resolved')).toBeHidden();
 

@@ -29,7 +29,7 @@
             {% if this.age != '' %}
             <span class="lp-comment-age">{{ this.age }}</span>
             {% endif %}
-            <span class="lp-comment-status lp-comment-status--{{ this.statusLabel }}">{{ ('review.document.status.' ~ this.statusLabel)|trans }}</span>
+            <span class="lp-comment-status lp-comment-status--{{ this.status }}">{{ ('review.document.status.' ~ this.status)|trans }}</span>
         </div>
     </div>
 

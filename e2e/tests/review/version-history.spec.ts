@@ -106,14 +106,13 @@ test('the History tab compares two distant versions', async ({ page }) => {
     // v1 against v4: a pair the per-version compare controls never offer.
     await page.locator('#history-compare-from').selectOption('1');
     await page.locator('#history-compare-to').selectOption('4');
-    await page.getByRole('button', { name: 'Compare these two' }).click();
+    await page.getByRole('button', { name: 'Compare', exact: true }).click();
 
     await expect(page).toHaveURL(
         `/projects/${projectId}/documents/${documentId}/review/diff/1/4`,
     );
-    await expect(page.locator('.lp-doc-meta__compare')).toContainText(
-        'Comparing v1 with v4',
-    );
+    await expect(page.locator('#diff-from')).toHaveValue('1');
+    await expect(page.locator('#diff-to')).toHaveValue('4');
     await expect(
         page.locator('.lp-diff__mark--deleted', { hasText: 'one step' }),
     ).toHaveCount(1);
