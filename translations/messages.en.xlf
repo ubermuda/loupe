@@ -5268,6 +5268,18 @@
             </trans-unit>
             <trans-unit id="board.form.move_card_form.priority.choice.low">
                 <source>board.form.move_card_form.priority.choice.low</source>
+            <trans-unit id="board.form.configure_board_column_form.label.label">
+                <source>board.form.configure_board_column_form.label.label</source>
+                <target>Column name</target>
+            </trans-unit>
+            <trans-unit id="board.form.configure_board_column_form.is_default.label">
+                <source>board.form.configure_board_column_form.is_default.label</source>
+                <target>Default for new cards</target>
+            </trans-unit>
+            <trans-unit id="board.form.configure_board_column_form.terminal.label">
+                <source>board.form.configure_board_column_form.terminal.label</source>
+                <target>A finishing point for completed work</target>
+            </trans-unit>
                 <target>Low</target>
             </trans-unit>
 
@@ -5331,6 +5343,30 @@
             <trans-unit id="board.column.rename.cancel">
                 <source>board.column.rename.cancel</source>
                 <target>Cancel</target>
+            </trans-unit>
+            <trans-unit id="board.column.move.up">
+                <source>board.column.move.up</source>
+                <target>Move up</target>
+            </trans-unit>
+            <trans-unit id="board.column.move.down">
+                <source>board.column.move.down</source>
+                <target>Move down</target>
+            </trans-unit>
+            <trans-unit id="board.column.configure.action">
+                <source>board.column.configure.action</source>
+                <target>Configure %label%</target>
+            </trans-unit>
+            <trans-unit id="board.column.configure.title">
+                <source>board.column.configure.title</source>
+                <target>Configure %label%</target>
+            </trans-unit>
+            <trans-unit id="board.column.configure.submit">
+                <source>board.column.configure.submit</source>
+                <target>Save column</target>
+            </trans-unit>
+            <trans-unit id="board.column.delete.named">
+                <source>board.column.delete.named</source>
+                <target>Delete %label%</target>
             </trans-unit>
             <trans-unit id="board.column.rename.submit">
                 <source>board.column.rename.submit</source>
@@ -5844,6 +5880,10 @@
             </trans-unit>
             <trans-unit id="review.dashboard.table.actions">
                 <source>review.dashboard.table.actions</source>
+            <trans-unit id="board.column.error.terminal_stale">
+                <source>board.column.error.terminal_stale</source>
+                <target>The terminal setting of this column changed after this page opened. Check it before you try again.</target>
+            </trans-unit>
                 <target>Actions</target>
             </trans-unit>
             <trans-unit id="board.column.error.rename_stale">

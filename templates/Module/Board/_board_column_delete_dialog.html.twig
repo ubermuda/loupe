@@ -1,0 +1,28 @@
+{# The delete confirmation for one column. The includer wraps it in a
+   data-controller="modal" element that holds the trigger.
+   Props: board (BoardView), view (BoardColumnView), returnView (board or settings). #}
+{% set column = view.column %}
+{# A terminal column shows a recent slice, so its count on the page is not every card it holds. #}
+{% set cardCount = view.terminalTotal ?? view.count %}
+{% set deleteForm = board_column_delete_form(column, board.columns) %}
+{% set deleteAction = path('app_board_column_delete', {projectId: board.project.id, columnId: column.id}|merge(returnView == 'settings' ? {view: 'settings'} : {})) %}
+<dialog data-modal-target="dialog" class="lp-dialog">
+    <h3 class="lp-dialog-title">{{ 'board.column.delete.title'|trans({'%label%': column.label|trans}) }}</h3>
+    <p class="lp-dialog-desc">{{ 'board.column.delete.cards'|trans({'%count%': cardCount}) }}</p>
+    {% if column.slug in board.watchedColumnSlugs %}
+    <p class="lp-board__rule-warning">{{ 'board.column.delete.bridge_rule_warning'|trans }}</p>
+    {% endif %}
+    {{ form_start(deleteForm, {action: deleteAction, attr: {class: 'lp-form'}}) }}
+        {% if cardCount > 0 %}
+        <div class="lp-form-field">
+            {{ form_label(deleteForm.target, null, {label_attr: {class: 'lp-label'}}) }}
+            {{ form_widget(deleteForm.target, {attr: {class: 'lp-input lp-select', required: 'required'}}) }}
+        </div>
+        {% endif %}
+        {{ form_widget(deleteForm._token) }}
+        <div class="flex items-center justify-end gap-3 pt-2">
+            <button type="button" class="lp-btn" data-action="click->modal#close">{{ 'board.column.delete.cancel'|trans }}</button>
+            <button type="submit" class="lp-btn lp-btn--danger">{{ (cardCount > 0 ? 'board.column.delete.submit' : 'board.column.delete.submit_empty')|trans }}</button>
+        </div>
+    {{ form_end(deleteForm, {render_rest: false}) }}
+</dialog>

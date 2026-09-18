@@ -32,28 +32,90 @@
         <section class="lp-settings-content lp-settings-panel-card" data-board-column-settings>
             <h2 class="lp-section-title">{{ 'board.settings.heading'|trans }}</h2>
             <p class="lp-connect-hint">{{ 'board.settings.description'|trans }}</p>
+            {% set defaultId = (board.columns|filter(other => other.column.isDefault)|first).column.id ~ '' %}
+            {% set terminalCount = board.columns|filter(other => other.column.terminal)|length %}
             <ol class="lp-settings-columns">
             {% for view in board.columns %}
-                <li class="lp-settings-column" data-column-id="{{ view.column.id }}">
+                {% set column = view.column %}
+                {% set label = column.label|trans %}
+                {% set index = loop.index0 %}
+                <li class="lp-settings-column" data-column-id="{{ column.id }}">
                     <div class="lp-settings-column__name">
-                        <h3>{{ view.column.label|trans }}</h3>
-                        <code>{{ view.column.slug }}</code>
+                        <h3>{{ label }}</h3>
+                        <code>{{ column.slug }}</code>
                     </div>
-                    {% if view.column.isDefault %}<span class="lp-board__column-flag">{{ 'board.column.flag.default'|trans }}</span>{% endif %}
-                    {% if view.column.terminal %}<span class="lp-board__column-flag">{{ 'board.column.flag.terminal'|trans }}</span>{% endif %}
+                    {% if column.isDefault %}<span class="lp-board__column-flag">{{ 'board.column.flag.default'|trans }}</span>{% endif %}
+                    {% if column.terminal %}<span class="lp-board__column-flag">{{ 'board.column.flag.terminal'|trans }}</span>{% endif %}
                     {% if canManage %}
-                        {% if not loop.first %}
-                            {% set moveForm = board_columns_reorder_form(board_column_order(board.columns, loop.index0, -1), board_column_order(board.columns, 0, 0)) %}
-                            <form method="post" action="{{ path('app_board_columns_reorder', {id: board.project.id, view: 'settings'}) }}">
-                                {{ form_widget(moveForm._token, {id: 'settings-move-token-' ~ view.column.id}) }}
-                                {{ form_widget(moveForm.expectedOrder, {id: 'settings-move-expected-order-' ~ view.column.id}) }}
-                                {{ form_widget(moveForm.order, {id: 'settings-move-order-' ~ view.column.id}) }}
-                                <button class="lp-btn lp-btn--ghost lp-btn--icon" type="submit" aria-label="{{ 'board.column.move.left'|trans }}">
-                                    <twig:ux:icon name="lucide:arrow-left" />
-                                </button>
-                            </form>
+                        {% for move in [{offset: -1, key: 'board.column.move.up', icon: 'lucide:arrow-up'}, {offset: 1, key: 'board.column.move.down', icon: 'lucide:arrow-down'}] %}
+                            {% if board.columns[index + move.offset] is defined %}
+                                {% set moveForm = board_columns_reorder_form(board_column_order(board.columns, index, move.offset), board_column_order(board.columns, 0, 0)) %}
+                                {% set moveId = 'settings-move-' ~ column.id ~ '-' ~ loop.index %}
+                                <form method="post" action="{{ path('app_board_columns_reorder', {id: board.project.id, view: 'settings'}) }}">
+                                    {{ form_widget(moveForm._token, {id: moveId ~ '-token'}) }}
+                                    {{ form_widget(moveForm.expectedOrder, {id: moveId ~ '-expected-order'}) }}
+                                    {{ form_widget(moveForm.order, {id: moveId ~ '-order'}) }}
+                                    <button class="lp-btn lp-btn--ghost lp-btn--icon" type="submit" aria-label="{{ move.key|trans }}">
+                                        <twig:ux:icon name="{{ move.icon }}" />
+                                    </button>
+                                </form>
+                            {% else %}
+                                <span class="lp-settings-column__slot" aria-hidden="true"></span>
+                            {% endif %}
+                        {% endfor %}
+                        {% set configureForm = board_column_configure_form(column, defaultId, configureColumnForm) %}
+                        <div data-controller="modal"{% if configureForm.vars.submitted %} data-modal-reopen-value="true"{% endif %}>
+                            <button class="lp-btn lp-btn--ghost lp-btn--icon" type="button" aria-label="{{ 'board.column.configure.action'|trans({'%label%': label}) }}" data-action="click->modal#open">
+                                <twig:ux:icon name="lucide:settings" />
+                            </button>
+                            <dialog class="lp-dialog" data-modal-target="dialog" aria-labelledby="configure-column-title-{{ column.id }}">
+                                <h3 class="lp-dialog-title" id="configure-column-title-{{ column.id }}">{{ 'board.column.configure.title'|trans({'%label%': label}) }}</h3>
+                                <p class="lp-dialog-desc">{{ 'board.column.rename.description'|trans }}</p>
+                                {% if column.slug in board.watchedColumnSlugs %}
+                                <p class="lp-board__rule-warning">{{ 'board.column.rename.bridge_rule_warning'|trans }}</p>
+                                {% endif %}
+                                {{ form_start(configureForm, {action: path('app_board_column_configure', {projectId: board.project.id, columnId: column.id}), attr: {
+                                    class: 'lp-form',
+                                    'data-controller': 'board-column-slug',
+                                    'data-board-column-slug-url-value': path('app_board_column_rename_preview', {projectId: board.project.id, columnId: column.id}),
+                                }}) }}
+                                    <div class="lp-form-field">
+                                        {{ form_label(configureForm.label, null, {label_attr: {class: 'lp-label'}}) }}
+                                        {{ form_widget(configureForm.label, {attr: {
+                                            class: 'lp-input',
+                                            maxlength: constant('App\\Module\\Board\\Entity\\BoardColumn::MAX_LABEL_LENGTH'),
+                                            'data-board-column-slug-target': 'input',
+                                            'data-action': 'input->board-column-slug#change',
+                                        }}) }}
+                                        <div class="lp-field-errors" data-field-errors="label">{{ form_errors(configureForm.label) }}</div>
+                                    </div>
+                                    {% include '@Board/_board_column_slug.html.twig' with {column: column, slug: column.slug, refusal: null} only %}
+                                    {% for field in [configureForm.isDefault, configureForm.terminal] %}
+                                    <div class="lp-form-field">
+                                        <div class="lp-settings-column__option">
+                                            {{ form_widget(field) }}
+                                            {{ form_label(field) }}
+                                        </div>
+                                        <div class="lp-field-errors" data-field-errors="{{ field.vars.name }}">{{ form_errors(field) }}</div>
+                                    </div>
+                                    {% endfor %}
+                                    <div class="lp-settings-form-actions">
+                                        <button class="lp-btn" type="button" data-action="click->modal#close">{{ 'board.column.rename.cancel'|trans }}</button>
+                                        <button class="lp-btn lp-btn--primary" type="submit">{{ 'board.column.configure.submit'|trans }}</button>
+                                    </div>
+                                {{ form_end(configureForm) }}
+                            </dialog>
+                        </div>
+                        {% if not column.isDefault and not (column.terminal and terminalCount == 1) %}
+                        <div data-controller="modal">
+                            <button class="lp-btn lp-btn--ghost lp-btn--icon" type="button" aria-label="{{ 'board.column.delete.named'|trans({'%label%': label}) }}" data-action="click->modal#open">
+                                <twig:ux:icon name="lucide:trash-2" />
+                            </button>
+                            {% include '@Board/_board_column_delete_dialog.html.twig' with {board: board, view: view, returnView: 'settings'} only %}
+                        </div>
+                        {% else %}
+                        <span class="lp-settings-column__slot" aria-hidden="true"></span>
                         {% endif %}
-                        {% include '@Board/_board_column_menu.html.twig' with {board: board, view: view, index: loop.index0, renameColumnForm: renameColumnForm, returnView: 'settings'} only %}
                     {% endif %}
                 </li>
             {% endfor %}

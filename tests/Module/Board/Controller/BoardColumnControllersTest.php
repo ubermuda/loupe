@@ -7,6 +7,7 @@ namespace App\Tests\Module\Board\Controller;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Form\ConfigureBoardColumnFormType;
 use App\Module\Board\Form\DeleteBoardColumnFormType;
 use App\Module\Board\Form\RenameBoardColumnFormType;
 use App\Module\Board\Repository\BoardColumnRepository;
@@ -16,6 +17,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\DomCrawler\Field\ChoiceFormField;
+use Symfony\Component\DomCrawler\Form;
 use Symfony\Component\HttpFoundation\Request;
 
 final class BoardColumnControllersTest extends WebTestCase
@@ -56,27 +59,155 @@ final class BoardColumnControllersTest extends WebTestCase
         self::assertSame(['backlog', 'next', 'in-progress', 'done', 'parked'], $this->slugs($project));
     }
 
-    public function test_a_stale_settings_rename_keeps_the_newer_name_and_the_rejected_draft(): void
+    public function test_settings_rows_move_up_and_down_and_open_a_configure_dialog(): void
     {
-        [, $project] = $this->ownedBoard('columns-settings-stale@example.com');
-        $next = $this->column($project, 'next');
-        $name = RenameBoardColumnFormType::nameFor($next);
+        [, $project] = $this->ownedBoard('columns-settings-rows@example.com');
+        $crawler = $this->settings($project);
+
+        $rows = $crawler->filter('[data-board-column-settings] [data-column-id]');
+        self::assertCount(4, $rows);
+        self::assertCount(0, $rows->first()->filter('button[aria-label="Move up"]'));
+        self::assertCount(1, $rows->first()->filter('button[aria-label="Move down"]'));
+        self::assertCount(1, $rows->last()->filter('button[aria-label="Move up"]'));
+        self::assertCount(0, $rows->last()->filter('button[aria-label="Move down"]'));
+        self::assertCount(4, $rows->filter('button[aria-label^="Configure "]'));
+        self::assertCount(0, $rows->filter('.lp-board__column-menu'));
+        // The default and the last terminal column cannot go, as on the board.
+        self::assertCount(2, $rows->filter('button[aria-label^="Delete "]'));
+
+        $this->client->submit($rows->eq(1)->filter('button[aria-label="Move down"]')->form());
+        self::assertResponseRedirects('/projects/'.$project->id.'/settings/columns');
+        self::assertSame(['backlog', 'in-progress', 'next', 'done'], $this->slugs($project));
+    }
+
+    public function test_settings_configures_the_name_the_default_and_the_terminal_flag_in_one_save(): void
+    {
+        [, $project] = $this->ownedBoard('columns-configure@example.com');
         $url = '/projects/'.$project->id.'/settings/columns';
+
+        $this->configure($project, 'in-progress', ['terminal' => true]);
+        self::assertResponseRedirects($url);
+
+        // Done leaves the terminal flag and takes the default in one save, which
+        // neither change could do alone.
+        $this->configure($project, 'done', ['label' => 'Shipped', 'isDefault' => true, 'terminal' => false]);
+        self::assertResponseRedirects($url);
+
+        self::assertSame(['backlog', 'next', 'in-progress', 'shipped'], $this->slugs($project));
+        self::assertTrue($this->column($project, 'shipped')->isDefault);
+        self::assertFalse($this->column($project, 'shipped')->terminal);
+        self::assertSame('Shipped', $this->column($project, 'shipped')->label);
+        self::assertFalse($this->column($project, 'backlog')->isDefault);
+        self::assertTrue($this->column($project, 'in-progress')->terminal);
+        self::assertSame('human', $this->outboxPayload($project, 'board.column_renamed')['actor'] ?? null);
+    }
+
+    public function test_a_configure_save_that_keeps_the_shown_name_keeps_a_seeded_label(): void
+    {
+        [, $project] = $this->ownedBoard('columns-configure-seeded@example.com');
+        $seeded = $this->column($project, 'in-progress')->label;
+
+        $this->configure($project, 'in-progress', ['terminal' => true]);
+
+        self::assertResponseRedirects('/projects/'.$project->id.'/settings/columns');
         $this->em->clear();
-        $crawler = $this->client->request(Request::METHOD_GET, $url);
-        self::assertResponseIsSuccessful();
+        self::assertSame($seeded, $this->column($project, 'in-progress')->label);
+        self::assertTrue($this->column($project, 'in-progress')->terminal);
+    }
+
+    /** @return iterable<string, array{string, array<string, string|bool>, string, string}> */
+    public static function refusedConfigurations(): iterable
+    {
+        yield 'a taken slug' => ['next', ['label' => 'Done'], 'label', 'already has this slug'];
+        yield 'a reserved label' => ['next', ['label' => 'board.column.flag.default'], 'label', 'uses this text internally'];
+        yield 'no default left' => ['backlog', ['isDefault' => false], 'isDefault', 'exactly one default column'];
+        yield 'a terminal default' => ['next', ['isDefault' => true, 'terminal' => true], 'terminal', 'default column cannot be terminal'];
+        yield 'no terminal left' => ['done', ['terminal' => false], 'terminal', 'at least one terminal column'];
+    }
+
+    /** @param array<string, string|bool> $values */
+    #[DataProvider('refusedConfigurations')]
+    public function test_a_refused_configure_reopens_its_dialog_with_the_draft_and_the_error(string $slug, array $values, string $field, string $message): void
+    {
+        [, $project] = $this->ownedBoard('columns-configure-refused-'.$field.'-'.$slug.'@example.com');
+        $column = $this->column($project, $slug);
+        $name = ConfigureBoardColumnFormType::nameFor($column);
+
+        $crawler = $this->configure($project, $slug, $values + ['label' => 'Draft name']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertCount(1, $crawler->filter('[data-board-column-settings]'));
+        $form = $crawler->filter('form[name="'.$name.'"]');
+        self::assertCount(1, $form->ancestors()->filter('[data-modal-reopen-value="true"]'));
+        self::assertSame($values['label'] ?? 'Draft name', $form->filter('input[name="'.$name.'[label]"]')->attr('value'));
+        self::assertStringContainsString($message, $form->filter('[data-field-errors="'.$field.'"]')->text());
+        self::assertSame(['backlog', 'next', 'in-progress', 'done'], $this->slugs($project));
+        self::assertTrue($this->column($project, 'backlog')->isDefault);
+        self::assertSame(['done'], array_values(array_map(
+            static fn (BoardColumn $column): string => $column->slug,
+            array_filter($this->columns($project), static fn (BoardColumn $column): bool => $column->terminal),
+        )));
+    }
+
+    public function test_a_stale_configure_keeps_the_newer_name_and_the_rejected_draft(): void
+    {
+        [, $project] = $this->ownedBoard('columns-configure-stale-name@example.com');
+        $next = $this->column($project, 'next');
+        $name = ConfigureBoardColumnFormType::nameFor($next);
+        $crawler = $this->settings($project);
         $stale = $crawler->filter('form[name="'.$name.'"]')->form([$name.'[label]' => 'My draft']);
         $fresh = $crawler->filter('form[name="'.$name.'"]')->form([$name.'[label]' => 'Newer name']);
         $this->client->submit($fresh);
-        self::assertResponseRedirects($url);
-        self::assertSame(['backlog', 'newer-name', 'in-progress', 'done'], $this->slugs($project));
+        self::assertResponseRedirects('/projects/'.$project->id.'/settings/columns');
 
         $crawler = $this->client->submit($stale);
+
         self::assertResponseStatusCodeSame(422);
         $form = $crawler->filter('form[name="'.$name.'"]');
         self::assertSame('My draft', $form->filter('input[name="'.$name.'[label]"]')->attr('value'));
-        self::assertStringContainsString('changed after you opened', $form->filter('.lp-field-errors')->text());
+        self::assertStringContainsString('changed after you opened', $form->filter('[data-field-errors="label"]')->text());
         self::assertSame(['backlog', 'newer-name', 'in-progress', 'done'], $this->slugs($project));
+    }
+
+    public function test_a_stale_configure_keeps_the_newer_default(): void
+    {
+        [, $project] = $this->ownedBoard('columns-configure-stale-default@example.com');
+        $nextName = ConfigureBoardColumnFormType::nameFor($this->column($project, 'next'));
+        $progressName = ConfigureBoardColumnFormType::nameFor($this->column($project, 'in-progress'));
+        $crawler = $this->settings($project);
+        $stale = $crawler->filter('form[name="'.$progressName.'"]')->form();
+        $this->fill($stale, $progressName.'[isDefault]', true);
+        $fresh = $crawler->filter('form[name="'.$nextName.'"]')->form();
+        $this->fill($fresh, $nextName.'[isDefault]', true);
+        $this->client->submit($fresh);
+        self::assertResponseRedirects('/projects/'.$project->id.'/settings/columns');
+
+        $crawler = $this->client->submit($stale);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringContainsString('The default column changed', $crawler->filter('form[name="'.$progressName.'"] [data-field-errors="isDefault"]')->text());
+        $this->em->clear();
+        self::assertTrue($this->column($project, 'next')->isDefault);
+        self::assertFalse($this->column($project, 'in-progress')->isDefault);
+    }
+
+    public function test_a_stale_configure_does_not_undo_a_newer_terminal_flag(): void
+    {
+        [, $project] = $this->ownedBoard('columns-configure-stale-terminal@example.com');
+        $name = ConfigureBoardColumnFormType::nameFor($this->column($project, 'in-progress'));
+        $crawler = $this->settings($project);
+        $stale = $crawler->filter('form[name="'.$name.'"]')->form();
+        $fresh = $crawler->filter('form[name="'.$name.'"]')->form();
+        $this->fill($fresh, $name.'[terminal]', true);
+        $this->client->submit($fresh);
+        self::assertResponseRedirects('/projects/'.$project->id.'/settings/columns');
+
+        $crawler = $this->client->submit($stale);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertStringContainsString('changed after this page opened', $crawler->filter('form[name="'.$name.'"] [data-field-errors="terminal"]')->text());
+        $this->em->clear();
+        self::assertTrue($this->column($project, 'in-progress')->terminal);
     }
 
     public function test_a_stale_move_preserves_the_order_saved_by_another_editor(): void
@@ -98,31 +229,6 @@ final class BoardColumnControllersTest extends WebTestCase
         self::assertResponseRedirects($url);
         $this->client->followRedirect();
         self::assertSame($saved, $this->slugs($project));
-    }
-
-    public function test_a_stale_default_action_keeps_the_newer_default(): void
-    {
-        [, $project] = $this->ownedBoard('columns-settings-stale-default@example.com');
-        $nextId = (string) $this->column($project, 'next')->id;
-        $progressId = (string) $this->column($project, 'in-progress')->id;
-        $url = '/projects/'.$project->id.'/settings/columns';
-        $this->em->clear();
-        $crawler = $this->client->request(Request::METHOD_GET, $url);
-        self::assertResponseIsSuccessful();
-        $stale = $crawler->filter('form[action$="/'.$progressId.'/default?view=settings"]')->form();
-        $fresh = $crawler->filter('form[action$="/'.$nextId.'/default?view=settings"]')->form();
-        $this->client->submit($fresh);
-        self::assertResponseRedirects($url);
-        $this->em->clear();
-        self::assertTrue($this->column($project, 'next')->isDefault);
-
-        $this->client->submit($stale);
-        self::assertResponseRedirects($url);
-        $crawler = $this->client->followRedirect();
-        self::assertStringContainsString('The default column changed', $crawler->text());
-        $this->em->clear();
-        self::assertTrue($this->column($project, 'next')->isDefault);
-        self::assertFalse($this->column($project, 'in-progress')->isDefault);
     }
 
     public function test_the_owner_sees_the_column_controls(): void
@@ -336,6 +442,7 @@ final class BoardColumnControllersTest extends WebTestCase
         yield 'not terminal' => [Request::METHOD_POST, 'not-terminal'];
         yield 'default' => [Request::METHOD_POST, 'default'];
         yield 'delete' => [Request::METHOD_POST, 'delete'];
+        yield 'configure' => [Request::METHOD_POST, 'configure'];
     }
 
     #[DataProvider('managedRoutes')]
@@ -367,6 +474,7 @@ final class BoardColumnControllersTest extends WebTestCase
         yield 'not terminal' => [Request::METHOD_POST, 'not-terminal'];
         yield 'default' => [Request::METHOD_POST, 'default'];
         yield 'delete' => [Request::METHOD_POST, 'delete'];
+        yield 'configure' => [Request::METHOD_POST, 'configure'];
     }
 
     #[DataProvider('columnRoutes')]
@@ -410,6 +518,58 @@ final class BoardColumnControllersTest extends WebTestCase
         self::assertResponseIsSuccessful();
 
         return $crawler;
+    }
+
+    private function settings(Project $project): Crawler
+    {
+        $this->em->clear();
+        $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/settings/columns');
+        self::assertResponseIsSuccessful();
+
+        return $crawler;
+    }
+
+    /**
+     * Opens settings and submits one column's configure dialog. A boolean
+     * value ticks or unticks its checkbox, and any field left out keeps what
+     * the dialog shows.
+     *
+     * @param array<string, string|bool> $values
+     */
+    private function configure(Project $project, string $slug, array $values): Crawler
+    {
+        $name = ConfigureBoardColumnFormType::nameFor($this->column($project, $slug));
+        $form = $this->settings($project)->filter('form[name="'.$name.'"]')->form();
+        foreach ($values as $field => $value) {
+            $this->fill($form, $name.'['.$field.']', $value);
+        }
+
+        return $this->client->submit($form);
+    }
+
+    /** A boolean ticks or unticks a checkbox, and a string fills a field. */
+    private function fill(Form $form, string $field, string|bool $value): void
+    {
+        if (\is_string($value)) {
+            $form[$field] = $value;
+
+            return;
+        }
+        $checkbox = $form[$field];
+        self::assertInstanceOf(ChoiceFormField::class, $checkbox);
+        $value ? $checkbox->tick() : $checkbox->untick();
+    }
+
+    /** @return list<BoardColumn> */
+    private function columns(Project $project): array
+    {
+        $this->em->clear();
+        $repository = static::getContainer()->get(BoardColumnRepository::class);
+        self::assertInstanceOf(BoardColumnRepository::class, $repository);
+        $fresh = $this->em->find(Project::class, $project->id);
+        self::assertInstanceOf(Project::class, $fresh);
+
+        return $repository->findForProject($fresh);
     }
 
     private function columnUrl(Project $project, BoardColumn $column, string $action): string

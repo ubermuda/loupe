@@ -51,19 +51,23 @@ No MCP tool and no API route writes a column.
 Another reader of the board sees no column controls.
 
 Open **Board settings** to manage columns beside the other project settings.
-The **Board columns** section offers add, rename, move, default, terminal,
-and delete controls. Each action saves separately and returns to this section.
-The board header menus remain available.
+The **Board columns** section lists the columns in order. Each row has
+**Move up** and **Move down** arrows, a gear button, and a delete button. The
+gear opens a dialog with the column name, **Default for new cards**, and
+**A finishing point for completed work**. **Save column** saves the three
+together, so one save can move the default flag to a terminal column and clear
+its terminal flag. Each action returns to this section. The board header menus
+remain available.
 
-Rename, reorder, and default changes check the state shown when the form opens.
+Reorder and configure changes check the state shown when the form opens.
 If another editor changes that state first, Loupe refuses the stale change.
-A refused rename keeps your draft in its dialog. Copy it before you reload.
-Reorder and default refusals show the current configuration with an error message.
+A refused configure keeps your draft in its dialog. Copy it before you reload.
+A refused reorder shows the current order with an error message.
 
-The owner adds a column with the form after the last column. A new column is
-neither terminal nor the default. The owner drags a column header by its grip to
-reorder the columns. The owner also sees a **Default** or **Terminal** badge on
-a flagged column.
+The owner adds a column with **Add a column** in board settings. A new column
+is neither terminal nor the default. The owner drags a column header by its grip
+to reorder the columns. Board settings shows a **Default** or **Terminal** badge
+on a flagged column.
 
 Each column header has a menu for the owner:
 

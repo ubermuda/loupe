@@ -13,6 +13,8 @@ use App\Module\Board\Form\AddBoardColumnFormType;
 use App\Module\Board\Form\AddBoardColumnRequest;
 use App\Module\Board\Form\AttachSiteReviewCommentFormType;
 use App\Module\Board\Form\AttachSiteReviewCommentRequest;
+use App\Module\Board\Form\ConfigureBoardColumnFormType;
+use App\Module\Board\Form\ConfigureBoardColumnRequest;
 use App\Module\Board\Form\DeleteBoardColumnFormType;
 use App\Module\Board\Form\DeleteBoardColumnRequest;
 use App\Module\Board\Form\MoveCardFormType;
@@ -62,6 +64,7 @@ final class BoardExtension extends AbstractExtension
             new TwigFunction('card_move_form', $this->cardMoveForm(...)),
             new TwigFunction('board_column_add_form', $this->boardColumnAddForm(...)),
             new TwigFunction('board_column_rename_form', $this->boardColumnRenameForm(...)),
+            new TwigFunction('board_column_configure_form', $this->boardColumnConfigureForm(...)),
             new TwigFunction('board_column_delete_form', $this->boardColumnDeleteForm(...)),
             new TwigFunction('board_column_default_form', $this->boardColumnDefaultForm(...)),
             new TwigFunction('board_columns_reorder_form', $this->boardColumnsReorderForm(...)),
@@ -161,6 +164,29 @@ final class BoardExtension extends AbstractExtension
 
         return $this->formFactory
             ->createNamed($name, RenameBoardColumnFormType::class, new RenameBoardColumnRequest($this->translator->trans($column->label), $column->label))
+            ->createView();
+    }
+
+    /**
+     * The refused form a failed configure forwarded, when it belongs to this
+     * column, or a fresh one that shows the column as it is now.
+     */
+    public function boardColumnConfigureForm(BoardColumn $column, string $expectedDefaultId, ?FormView $refused = null): FormView
+    {
+        $name = ConfigureBoardColumnFormType::nameFor($column);
+        if (null !== $refused && $refused->vars['name'] === $name) {
+            return $refused;
+        }
+
+        return $this->formFactory
+            ->createNamed($name, ConfigureBoardColumnFormType::class, new ConfigureBoardColumnRequest(
+                label: $this->translator->trans($column->label),
+                expectedLabel: $column->label,
+                isDefault: $column->isDefault,
+                terminal: $column->terminal,
+                expectedDefaultId: $expectedDefaultId,
+                expectedTerminal: $column->terminal ? '1' : '0',
+            ))
             ->createView();
     }
 

@@ -88,6 +88,22 @@ final readonly class BoardColumns
         ));
     }
 
+    /**
+     * All three settings at once, so the answer does not depend on the order
+     * the changes would apply in.
+     *
+     * @param list<BoardColumn> $columns
+     */
+    public function refuseConfigure(array $columns, BoardColumn $configured, string $slug, bool $terminal, bool $isDefault): ?string
+    {
+        return $this->violation(array_map(
+            static fn (BoardColumn $column): BoardColumnShape => $column === $configured
+                ? new BoardColumnShape($slug, $terminal, $isDefault)
+                : new BoardColumnShape($column->slug, $column->terminal, $column->isDefault && !$isDefault),
+            $columns,
+        ));
+    }
+
     /** @param list<BoardColumn> $columns */
     public function refuseDelete(array $columns, BoardColumn $deleted): ?string
     {

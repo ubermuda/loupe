@@ -61,6 +61,6 @@ final class SetDefaultBoardColumnController extends AppController
             $this->addFlash('error', $this->translator->trans($refusal));
         }
 
-        return $this->redirectToRoute('settings' === $request->query->get('view') ? 'app_board_settings' : 'app_project_board', ['id' => (string) $column->project->id]);
+        return $this->redirectToRoute('app_project_board', ['id' => (string) $column->project->id]);
     }
 }

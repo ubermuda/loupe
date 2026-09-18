@@ -1,8 +1,8 @@
 /**
- * Browser coverage for editing a board's columns inline: add a column, rename
- * one with its slug preview, drag a header to reorder, and delete a column
- * whose cards move to a target. Each change is read back after a reload,
- * because the server is what decides.
+ * Browser coverage for editing a board's columns: add a column and configure
+ * one from board settings, rename one with its slug preview, drag a header to
+ * reorder, and delete a column whose cards move to a target. Each change is
+ * read back after a reload, because the server is what decides.
  */
 
 import {
@@ -82,6 +82,26 @@ function slugs(page: Page): Promise<string[]> {
                 (column) => column.getAttribute('data-column-slug') ?? '',
             ),
         );
+}
+
+async function addColumnFromSettings(
+    page: Page,
+    projectId: string,
+    label: string,
+): Promise<void> {
+    await page.goto(`/projects/${projectId}/settings/columns`);
+    const settings = page.locator('[data-board-column-settings]');
+    await settings
+        .getByRole('button', { name: 'Add a column', exact: true })
+        .click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('textbox').fill(label);
+    await dialog
+        .getByRole('button', { name: 'Add column', exact: true })
+        .click();
+    await expect(
+        settings.getByRole('heading', { name: label, exact: true }),
+    ).toBeVisible(ROUND_TRIP);
 }
 
 async function openMenu(page: Page, slug: string): Promise<void> {
@@ -262,14 +282,8 @@ test('column settings fits long names and enlarged text', async ({
     board,
 }, testInfo) => {
     const label = 'A'.repeat(100);
-    await page.getByLabel('New column').fill(label);
-    await page.getByRole('button', { name: 'Add column', exact: true }).click();
-    await expect(page.locator(COLUMN)).toHaveCount(5, ROUND_TRIP);
-    await page.goto(`/projects/${board.projectId}/settings/columns`);
+    await addColumnFromSettings(page, board.projectId, label);
     const settings = page.locator('[data-board-column-settings]');
-    await expect(
-        settings.getByRole('heading', { name: label, exact: true }),
-    ).toBeVisible();
     for (const fontSize of ['100%', '200%']) {
         await page.evaluate((size) => {
             document.documentElement.style.fontSize = size;
@@ -348,9 +362,7 @@ test('column settings preserves edits and navigation', async ({
     const parked = settings.locator('[data-column-id]').filter({
         has: page.getByRole('heading', { name: 'Parked', exact: true }),
     });
-    await parked
-        .getByRole('button', { name: 'Move left', exact: true })
-        .click();
+    await parked.getByRole('button', { name: 'Move up', exact: true }).click();
     await expect(settings.locator('.lp-settings-column__name code')).toHaveText(
         ['backlog', 'next', 'in-progress', 'parked', 'done'],
         ROUND_TRIP,
@@ -360,24 +372,47 @@ test('column settings preserves edits and navigation', async ({
     await expect(settings.locator('.lp-settings-column__name code')).toHaveText(
         ['backlog', 'next', 'in-progress', 'parked', 'done'],
     );
+    await expect(
+        settings
+            .locator('[data-column-id]')
+            .first()
+            .getByRole('button', { name: 'Move up', exact: true }),
+    ).toHaveCount(0);
+    await expect(
+        settings
+            .locator('[data-column-id]')
+            .last()
+            .getByRole('button', { name: 'Move down', exact: true }),
+    ).toHaveCount(0);
 
-    await parked.locator('.lp-board__column-menu-trigger').click();
-    await parked.getByRole('button', { name: 'Rename', exact: true }).click();
-    await dialog.getByLabel('Name', { exact: true }).fill('Done');
-    await dialog
-        .getByRole('button', { name: 'Save name', exact: true })
+    await parked
+        .getByRole('button', { name: 'Configure Parked', exact: true })
         .click();
-    await expect(dialog.locator('.lp-field-errors')).toContainText(
-        'already has this slug',
-        ROUND_TRIP,
-    );
-    await expect(dialog.getByLabel('Name', { exact: true })).toHaveValue(
-        'Done',
-    );
+    const configureParked = page.getByRole('dialog', {
+        name: 'Configure Parked',
+        exact: true,
+    });
+    await configureParked
+        .getByLabel('Column name', { exact: true })
+        .fill('Done');
+    await expect(
+        configureParked.locator('.lp-board__slug-refusal'),
+    ).toContainText('already has this slug');
+    await configureParked
+        .getByRole('button', { name: 'Save column', exact: true })
+        .click();
+    await expect(
+        configureParked.locator('[data-field-errors="label"]'),
+    ).toContainText('already has this slug', ROUND_TRIP);
+    await expect(
+        configureParked.getByLabel('Column name', { exact: true }),
+    ).toHaveValue('Done');
     await expect(settings).toBeVisible();
-    await dialog.getByLabel('Name', { exact: true }).fill('On hold');
-    await dialog
-        .getByRole('button', { name: 'Save name', exact: true })
+    await configureParked
+        .getByLabel('Column name', { exact: true })
+        .fill('On hold');
+    await configureParked
+        .getByRole('button', { name: 'Save column', exact: true })
         .click();
     await expect(
         settings.getByRole('heading', { name: 'On hold', exact: true }),
@@ -387,32 +422,47 @@ test('column settings preserves edits and navigation', async ({
     await expect(settings.locator('.lp-settings-column__name code')).toHaveText(
         ['backlog', 'next', 'in-progress', 'on-hold', 'done'],
     );
+
     const renamed = settings.locator('[data-column-id]').filter({
         has: page.getByRole('heading', { name: 'On hold', exact: true }),
     });
-    await renamed.locator('.lp-board__column-menu-trigger').click();
+    const configureRenamed = page.getByRole('dialog', {
+        name: 'Configure On hold',
+        exact: true,
+    });
     await renamed
-        .getByRole('button', { name: 'Mark as terminal', exact: true })
+        .getByRole('button', { name: 'Configure On hold', exact: true })
+        .click();
+    await configureRenamed
+        .getByRole('checkbox', {
+            name: 'A finishing point for completed work',
+            exact: true,
+        })
+        .check();
+    await configureRenamed
+        .getByRole('button', { name: 'Save column', exact: true })
         .click();
     await expect(renamed.locator('.lp-board__column-flag')).toHaveText(
         'Terminal',
         ROUND_TRIP,
     );
     await expect(page).toHaveURL(settingsUrl);
-    await renamed.locator('.lp-board__column-menu-trigger').click();
+
+    // Leaving the terminal flag and taking the default is one save.
     await renamed
-        .getByRole('button', { name: 'Unmark as terminal', exact: true })
+        .getByRole('button', { name: 'Configure On hold', exact: true })
         .click();
-    await expect(renamed.locator('.lp-board__column-flag')).toHaveCount(
-        0,
-        ROUND_TRIP,
-    );
-    await renamed.locator('.lp-board__column-menu-trigger').click();
-    await renamed
-        .getByRole('button', {
-            name: 'Make the default for new cards',
+    await configureRenamed
+        .getByRole('checkbox', {
+            name: 'A finishing point for completed work',
             exact: true,
         })
+        .uncheck();
+    await configureRenamed
+        .getByRole('checkbox', { name: 'Default for new cards', exact: true })
+        .check();
+    await configureRenamed
+        .getByRole('button', { name: 'Save column', exact: true })
         .click();
     await expect(renamed.locator('.lp-board__column-flag')).toHaveText(
         'Default',
@@ -538,12 +588,7 @@ test('a card opens in a stable drawer and returns focus when closed', async ({
 });
 
 test('an owner adds a column after the last one', async ({ page, board }) => {
-    await page.getByLabel('New column').fill('Parked');
-    await page.getByRole('button', { name: 'Add column' }).click();
-
-    await expect
-        .poll(() => slugs(page), ROUND_TRIP)
-        .toEqual(['backlog', 'next', 'in-progress', 'done', 'parked']);
+    await addColumnFromSettings(page, board.projectId, 'Parked');
 
     await page.goto(board.boardUrl);
     expect(await slugs(page)).toEqual([

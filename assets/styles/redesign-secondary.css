@@ -252,6 +252,17 @@
     .lp-settings-column__name code {
         @apply text-xs text-fg-mute;
     }
+    /* Holds an absent row action's place, so each action keeps its column. */
+    .lp-settings-column__slot {
+        @apply w-9 h-9 shrink-0;
+    }
+    /* A checkbox and its label in a column's configure dialog. */
+    .lp-settings-column__option {
+        @apply flex items-center gap-2 text-sm;
+    }
+    .lp-settings-column__option input {
+        @apply h-4 w-4 shrink-0 cursor-pointer accent-accent;
+    }
     .lp-account-settings-content #profile {
         order: 1;
     }

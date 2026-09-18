@@ -92,7 +92,7 @@
             <h2 class="lp-board__column-title">{{ label }}</h2>
             <span class="lp-board__column-count">{{ view.count }}</span>
             {% if canManage %}
-                {% include '@Board/_board_column_menu.html.twig' with {board: board, view: view, index: loop.index0, renameColumnForm: renameColumnForm, returnView: 'board'} only %}
+                {% include '@Board/_board_column_menu.html.twig' with {board: board, view: view, index: loop.index0, renameColumnForm: renameColumnForm} only %}
             {% endif %}
         </header>
 

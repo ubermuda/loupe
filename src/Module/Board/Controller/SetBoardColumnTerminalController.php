@@ -12,7 +12,6 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Security\BoardColumnVoter;
 use App\Module\Board\Service\BoardAvailability;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Requirement\Requirement;
@@ -46,7 +45,6 @@ final class SetBoardColumnTerminalController extends AppController
     }
 
     public function __invoke(
-        Request $request,
         bool $terminal,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(columnId, projectId)')] BoardColumn $column,
     ): Response {
@@ -58,6 +56,6 @@ final class SetBoardColumnTerminalController extends AppController
             $this->addFlash('error', $this->translator->trans(array_first($e->errors)));
         }
 
-        return $this->redirectToRoute('settings' === $request->query->get('view') ? 'app_board_settings' : 'app_project_board', ['id' => (string) $column->project->id]);
+        return $this->redirectToRoute('app_project_board', ['id' => (string) $column->project->id]);
     }
 }
