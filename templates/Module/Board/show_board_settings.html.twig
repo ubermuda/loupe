@@ -92,10 +92,10 @@
                                     {% include '@Board/_board_column_slug.html.twig' with {column: column, slug: column.slug, refusal: null} only %}
                                     {% for field in [configureForm.isDefault, configureForm.terminal] %}
                                     <div class="lp-form-field">
-                                        <div class="lp-settings-column__option">
+                                        <label class="lp-choice">
                                             {{ form_widget(field) }}
-                                            {{ form_label(field) }}
-                                        </div>
+                                            {{ field.vars.label|trans }}
+                                        </label>
                                         <div class="lp-field-errors" data-field-errors="{{ field.vars.name }}">{{ form_errors(field) }}</div>
                                     </div>
                                     {% endfor %}
