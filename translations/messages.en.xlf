@@ -1447,6 +1447,14 @@
                 <source>review.document.finish.title</source>
                 <target>Finish review</target>
             </trans-unit>
+            <trans-unit id="review.document.finish.hint.approved">
+                <source>review.document.finish.hint.approved</source>
+                <target>This version is ready to move forward.</target>
+            </trans-unit>
+            <trans-unit id="review.document.finish.hint.changes_requested">
+                <source>review.document.finish.hint.changes_requested</source>
+                <target>Send the author a clear next step.</target>
+            </trans-unit>
             <trans-unit id="review.document.finish.context">
                 <source>review.document.finish.context</source>
                 <target>v%version% · %approved%/%total% sections approved · %open% open threads</target>

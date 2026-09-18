@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
+import { coverageScaled } from '../timeouts';
 
 /**
  * A comparison reads as the review page with a different pane, so its chrome is
@@ -14,9 +15,9 @@ test.use({ storageState: { cookies: [], origins: [] } });
 const RUN = Date.now();
 const PASSWORD = 'e2e_password_123';
 
-test('the comparison chrome is a chip and one row of the metadata bar', async ({
-    page,
-}) => {
+test('the comparison chrome is one toolbar row', async ({ page }) => {
+    // About eight full page loads, which overrun 30 seconds on four busy workers.
+    test.slow();
     const email = `e2e-compare-${RUN}@example.com`;
     const register = await page.request.post('/dev/register-and-verify', {
         form: { fullName: 'E2E Compare', email, password: PASSWORD },
@@ -92,7 +93,9 @@ test('the comparison chrome is a chip and one row of the metadata bar', async ({
     await bar.locator('#diff-from').selectOption('2');
     await bar.locator('#diff-to').selectOption('3');
     await bar.getByRole('button', { name: 'Compare' }).click();
-    await expect(page).toHaveURL(`${reviewPath}/diff/2/3?view=source`);
+    await expect(page).toHaveURL(`${reviewPath}/diff/2/3?view=source`, {
+        timeout: coverageScaled(10000),
+    });
     await expect(page.locator('#diff-from')).toHaveValue('2');
     await expect(page.locator('#diff-to')).toHaveValue('3');
 

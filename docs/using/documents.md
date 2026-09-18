@@ -89,9 +89,13 @@ On narrow screens, the margin tabs scroll horizontally. Selecting a tab brings i
 Switching tabs preserves an unfinished reply.
 
 The filter beside Comments shows counts for Open, Resolved, Unanchored and All.
+Select **Open** to hide resolved threads. The filter icon turns purple while it hides threads.
 With the filter closed, Tab moves focus to Comments. Arrow keys select the other margin tabs.
 The selected filter stays active when you resolve or reopen a thread.
 An empty result shows a message in the margin.
+
+Select **Add general comment** in the header to comment on the whole document.
+Its composer opens above the document.
 
 When the inbox is on, the review page lists the inbox items linked to the
 document above it, and you can answer them there. See
@@ -166,23 +170,26 @@ Three views help across versions:
 - `/review/diff/{from}/{to}` — what changed between two versions.
 - `/review/history` — every version, newest first.
 
-Open **History** from the document navigation to see every version, newest first.
-Each version shows its revision note and review log.
+Open **History** from the document navigation to see every version in one table, newest first.
+Each row shows the version, its revision note, its reviews, and **Read** and **Diff** links.
 Each review shows the reviewer, verdict, note and time.
 Withdrawals remain beside the original verdict. Versions without reviews say so.
 History keeps the document header and the Document, Diff and History tabs.
 Use **Revise** or **Finish review** there to act on the current version.
-The history page also has a picker that compares any two
-versions, not only two that follow one another.
+The **From** and **To** picker beside the heading compares any two versions,
+not only two that follow one another.
 
 ### What a comparison looks like
 
 A comparison is the review page with one pane replaced, so the document keeps its
-place on the screen. A green chip in the metadata bar names the pair, and the ×
-on the chip returns you to the latest version. One row under it holds the view
-switch, **Rendered**, **Markdown** and **Side by side**, with the change count
-and the two jump arrows at the right end. `j` and `k` move between changes as
-well.
+place on the screen. One row under the tabs holds the **From** and **To** picker,
+**Compare**, the view switch (**Rendered**, **Markdown** and **Side by side**),
+and the change count with the two jump arrows at the right end. `j` and `k` move
+between changes as well. **Return to document** in the header goes back to the
+latest version.
+
+The margin keeps its Outline and Details tabs, plus Comments when the comparison
+accepts comments.
 
 **Side by side** puts the two versions in two columns, the older one on the
 left. Each block sits opposite the block it became, so a reworded paragraph
@@ -196,7 +203,7 @@ The old side and comparisons of earlier versions remain read-only.
 On a phone the columns stack, older above newer, and each names its version.
 
 **Markdown** compares the two sources line by line, so it shows a change the
-other views cannot mark. Its contents list names every heading line, the removed
+other views cannot mark. Its Outline tab names every heading line, the removed
 ones included, and a row takes you to that line.
 
 The toolbar includes the from/to picker and **Compare** button.
@@ -224,9 +231,9 @@ at a time. A section runs from one heading to the next heading, whatever the two
 levels are.
 
 A round button sits beside each heading in the document. It approves that
-section, and it withdraws the approval again. The **Sections** panel above the
-document lists every section with its state, as an overview; the button beside
-the heading is where you act.
+section, and it withdraws the approval again. The **Outline** tab in the margin
+lists every section with its state, as an overview; the button beside the
+heading is where you act.
 
 Loupe stores each approval against the heading and against a digest of the
 section's own text. A revision keeps an approval only while both still match, so

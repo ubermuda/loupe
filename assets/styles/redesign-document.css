@@ -38,8 +38,8 @@
 .lp-review .lp-review-doc__author {
     @apply inline-flex items-center gap-1.5;
 }
-.lp-review .lp-review-doc__author .lp-comment-avatar {
-    @apply size-5 text-xs;
+.lp-review .lp-review-doc__avatar {
+    @apply inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-tint text-xs font-bold text-fg-mute;
 }
 .lp-review .lp-review-doc__actions {
     @apply ml-0 flex shrink-0 flex-wrap items-center justify-end gap-2;
@@ -432,4 +432,27 @@
     .lp-review .lp-review-doc:not(.lp-review-doc--wide) > .lp-doc-meta-bar {
         width: calc(100% + var(--doc-margin) + var(--doc-margin-gap));
     }
+}
+
+/* ── Finish review dialog ───────────────────────────────────────── */
+.lp-review .lp-review-verdict-choice {
+    @apply items-start gap-3.5 px-4 py-3.5 transition-colors;
+}
+.lp-review .lp-review-verdict-choice + .lp-review-verdict-choice {
+    @apply mt-2.5;
+}
+.lp-review .lp-review-verdict-choice:has(input:checked) {
+    @apply border-accent-border bg-accent-faint;
+}
+.lp-review .lp-review-verdict-choice input {
+    @apply mt-0.5;
+}
+.lp-review .lp-review-verdict-choice__text {
+    @apply flex flex-col gap-0.5;
+}
+.lp-review .lp-review-verdict-choice__label {
+    @apply text-base font-semibold text-ink;
+}
+.lp-review .lp-review-verdict-choice__hint {
+    @apply text-sm text-fg-dim;
 }

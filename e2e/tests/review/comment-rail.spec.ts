@@ -190,7 +190,7 @@ test('margin filter stays outside the tablist and within narrow viewports', asyn
             .getByRole('tab', { name: 'Comments', exact: true })
             .boundingBox())!;
         expect(commentsBounds.x - triggerBounds.x - triggerBounds.width).toBe(
-            4,
+            6,
         );
         await page.keyboard.press('Escape');
         await expect(filter.locator('summary')).toBeFocused();
@@ -228,7 +228,9 @@ test('enlarged margin tabs scroll within the document controls', async ({
         expect(selectedBounds.x + selectedBounds.width).toBeLessThanOrEqual(
             visibleBounds.x + visibleBounds.width,
         );
-        const labelBounds = (await selected.locator('span').boundingBox())!;
+        const labelBounds = (await selected
+            .locator('span:not(.lp-review-margin-tabs__count)')
+            .boundingBox())!;
         expect(labelBounds.x).toBeGreaterThanOrEqual(selectedBounds.x);
         expect(labelBounds.x + labelBounds.width).toBeLessThanOrEqual(
             selectedBounds.x + selectedBounds.width,

@@ -15,7 +15,7 @@
                 <span class="lp-badge lp-badge--{{ document.status.value }}">{{ ('document.status.' ~ document.status.value|replace({'-': '_'}))|trans }}</span>
                 <span class="lp-review-doc__middot" aria-hidden="true">·</span>
                 <span class="lp-review-doc__author">
-                    <span class="lp-comment-avatar" aria-hidden="true">{{ document.owner.fullName|first|upper }}</span>
+                    <span class="lp-review-doc__avatar" aria-hidden="true">{{ document.owner.fullName|first|upper }}</span>
                     {{ document.owner.fullName }}
                 </span>
                 <span class="lp-review-doc__middot" aria-hidden="true">·</span>
