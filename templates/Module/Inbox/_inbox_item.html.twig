@@ -6,7 +6,7 @@
 {% set responseFrame = app.request.headers.get('Turbo-Frame') == 'card-drawer-frame' ? 'card-drawer-frame' : '_top' %}
 <article class="lp-inbox-item"{% if home %} id="inbox-item-{{ item.number }}"{% endif %} data-inbox-item="{{ item.number }}">
     {# A request with one item wears its state on the list row beside it. #}
-    {% if showHead|default(true) %}
+    {% if showHead ?? true %}
     <div class="lp-inbox-item__head">
         <span class="lp-inbox-item__number">{{ 'inbox.item.number'|trans({'%number%': item.number}) }}</span>
         <span class="lp-inbox-item__kind">{{ ('inbox.item.kind.' ~ item.kind.value)|trans }}</span>
@@ -14,12 +14,17 @@
         {% include '@Inbox/_inbox_state_chip.html.twig' with {state: item.state} only %}
     </div>
     {% endif %}
-    <h3 class="lp-inbox-item__title">{{ item.title }}</h3>
+    {# A one-item ask shows the title once, as its own heading. #}
+    {% if showTitle ?? true %}<h3 class="lp-inbox-item__title">{{ item.title }}</h3>{% endif %}
     {% if item.body|trim is not empty %}
         <div class="prose lp-prose lp-inbox-item__body">{{ item.body|inbox_markdown }}</div>
     {% endif %}
 
-    {% if showLinkedItems|default(false) and (item.cards|length > 0 or item.documents|length > 0) %}
+    {# The document or pull request under review is a linked item as well, shown once. #}
+    {% set reviewDocument = review ? review.document : null %}
+    {% set reviewPullRequest = review and review.targetKind.value == 'pull-request' ? review.pullRequest : null %}
+    {% set reviewDocumentLinked = reviewDocument and item.documents|filter(link => link.document.id == reviewDocument.id)|length > 0 %}
+    {% if (showLinkedItems ?? false) and (item.cards|length > 0 or item.documents|length > 0 or reviewDocument or reviewPullRequest) %}
     <div class="lp-inbox-linked-table-wrap">
         <table class="lp-inbox-linked-table">
             <caption>{{ 'inbox.linked_items.title'|trans }}</caption>
@@ -32,14 +37,21 @@
                     <td><a class="lp-btn lp-btn--ghost lp-btn--open" href="{{ path('app_board_card', {projectId: item.project.id, cardId: link.card.id, tab: 'conversation', inboxItem: item.number, _fragment: 'inbox-item-' ~ item.number}) }}" aria-label="{{ 'inbox.linked_items.open_card'|trans({'%title%': link.card.title}) }}"><span class="lp-btn__label">{{ 'inbox.linked_items.open'|trans }}</span><twig:ux:icon name="lucide:chevron-right" class="w-4 h-4" /></a></td>
                 </tr>
                 {% endfor %}
+                {% if reviewDocument and not reviewDocumentLinked %}
+                    {% include '@Inbox/_linked_document_row.html.twig' with {document: reviewDocument, project: item.project, version: inbox_review_version(review)} only %}
+                {% endif %}
                 {% for link in item.documents %}
-                <tr>
-                    <td><span class="lp-inbox-linked-table__type"><twig:ux:icon name="lucide:file-text" class="w-4 h-4" />{{ 'inbox.linked_items.document'|trans }}</span><strong>{{ link.document.title }}</strong></td>
+                <tr{% if reviewDocument and link.document.id == reviewDocument.id %} data-inbox-review-document{% endif %}>
+                    <td><span class="lp-inbox-linked-table__type"><twig:ux:icon name="lucide:file-text" class="w-4 h-4" />{{ 'inbox.linked_items.document'|trans }}</span><strong>{{ link.document.title }}</strong>{% if reviewDocument and link.document.id == reviewDocument.id and inbox_review_version(review) %} <span class="lp-inbox-linked-table__version">{{ 'inbox.review.version'|trans({'%version%': inbox_review_version(review)}) }}</span>{% endif %}</td>
                     <td><span class="lp-tag">{{ link.document.status.translationKey()|trans }}</span></td>
                     <td><a class="lp-btn lp-btn--ghost lp-btn--open" href="{{ path('app_document_review', {projectId: item.project.id, documentId: link.document.id}) }}" aria-label="{{ 'inbox.linked_items.open_document'|trans({'%title%': link.document.title}) }}"><span class="lp-btn__label">{{ 'inbox.linked_items.open'|trans }}</span><twig:ux:icon name="lucide:chevron-right" class="w-4 h-4" /></a></td>
                 </tr>
                 {% endfor %}
                 {% set shownPullRequests = [] %}
+                {% if reviewPullRequest %}
+                    {% include '@Board/_linked_pull_request.html.twig' with {link: reviewPullRequest} only %}
+                    {% set shownPullRequests = [reviewPullRequest.url] %}
+                {% endif %}
                 {% for cardLink in item.cards %}
                     {% for link in cardLink.card.pullRequests %}
                         {% if link.url not in shownPullRequests %}
@@ -181,6 +193,7 @@
             {% set declineForm = inbox_decline_form(item, refusedForm) %}
                 <details class="lp-inbox-decline"{{ refusedForm and refusedForm.vars.name == declineForm.vars.name ? ' open' }}>
                     <summary class="lp-inbox-decline__summary">{{ (item.state.value == 'declined' ? 'inbox.decline.change' : 'inbox.decline.toggle')|trans }}</summary>
+                    <p class="lp-form-hint" data-inbox-decline-hint>{{ 'inbox.decline.hint'|trans }}</p>
                     {{ form_start(declineForm, {action: path('app_inbox_item_decline', actionParams), attr: {class: 'lp-form lp-inbox-decline__form', 'data-controller': 'form-draft', 'data-form-draft-owner-value': app.user.id, 'data-form-draft-key-value': item.id ~ ':decline', 'data-action': 'submit->form-draft#start turbo:before-fetch-response->form-draft#response form-draft:cleared@document->form-draft#cleared', 'data-turbo-frame': responseFrame}}) }}
                         <div class="lp-form-field">
                             {{ form_label(declineForm.closeNote, null, {label_attr: {class: 'lp-label'}}) }}

@@ -54,8 +54,15 @@ page. Its address is `?queue=completed`.
 
 A list row shows the source, the time, the title, the summary and one label,
 which is **Blocking**, the kind of the item, or its state. The request beside
-the list shows the session that asked, the context of the ask, the items, and
-whether the same thread appears on a card.
+the list takes its heading from its first item, as the list row does. The
+agent's note follows, then the items. An ask with one item shows that title
+once. The document or pull request that a review item names is a row of the
+item's linked items, with the version under review. Replies under an item show
+each author's initial, name and time.
+
+The agent's avatar carries a dot for its bridge: green while the bridge sends
+heartbeats, amber when it is quiet, and grey when no bridge started the
+session. Hover over or focus the avatar to read the details and the session id.
 
 An item can show in both queues, for example in a closed ask and as an open
 item outside one. Its forms show once, in the queue that still takes a
@@ -74,9 +81,10 @@ and request layout as the queues. Select **Clear** to go back to the queues.
 
 An agent that a CLI bridge started names that bridge when it asks. The bridge
 can resume the agent after the ask closes. Each open ask from such an agent
-shows when its bridge last sent a heartbeat.
+shows when its bridge last sent a heartbeat, in the tooltip of the agent's
+avatar, on the project inbox and on the account inbox.
 
-The line turns amber when no heartbeat arrived in the last three heartbeat
+The dot turns amber when no heartbeat arrived in the last three heartbeat
 intervals. With the default interval of 60 seconds, that is three minutes. It
 also turns amber when no heartbeat from the bridge ever reached Loupe. A
 running bridge keeps its interval until it reconnects, so the warning never
@@ -86,8 +94,8 @@ bridge is quiet. The machine may be asleep, the bridge may have stopped, or
 the network may be down. The warning reads only the heartbeat, and it does not
 check whether the bridge still follows this project.
 
-An ask from an interactive session names no bridge and shows no line. A closed
-ask shows no line either. The `bridge.heartbeat_interval_seconds` flag sets the
+An ask from an interactive session names no bridge, and its dot stays grey. A
+closed ask shows no dot. The `bridge.heartbeat_interval_seconds` flag sets the
 interval. See [Bridge heartbeat API](../reference/bridge-heartbeat.md).
 
 ## Answering

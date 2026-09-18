@@ -320,8 +320,7 @@
     font-weight: 700;
 }
 
-.lp-core-inbox .lp-inbox-ask__context,
-.lp-core-inbox .lp-inbox-ask__bridge {
+.lp-core-inbox .lp-inbox-ask__context {
     margin: 0;
     padding: 0;
     border: 0;
@@ -414,13 +413,24 @@
     border-top: 1px solid var(--border);
 }
 
-.lp-core-inbox .lp-inbox-item__title {
-    margin-top: 0;
+/* The ask names the request in large type; an item title sits below it, smaller. */
+.lp-core-inbox .lp-inbox-ask__title {
+    margin: calc(var(--spacing) * 2) 0 0;
     font-family: var(--font-display);
     font-size: var(--text-2xl);
     font-weight: 750;
     line-height: 1.35;
     letter-spacing: -0.035em;
+    color: var(--ink);
+}
+
+.lp-core-inbox .lp-inbox-item__title {
+    margin-top: 0;
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: -0.02em;
 }
 
 .lp-core-inbox .lp-inbox-item__body {

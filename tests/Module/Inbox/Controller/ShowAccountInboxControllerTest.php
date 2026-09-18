@@ -169,6 +169,24 @@ final class ShowAccountInboxControllerTest extends WebTestCase
         self::assertCount(1, $page->filter('#'.$fragment.' form[name="inbox_done_'.$leftOpen->id.'"]'));
     }
 
+    public function test_an_ask_shows_its_agent_presence_and_keeps_the_session_in_the_tooltip(): void
+    {
+        $owner = $this->signedUpUser($this->em, 'account-inbox-presence');
+        $project = $this->inboxProject($this->em, $owner);
+        $ask = $this->askHolding($this->em, $project, [$this->question($this->em, $project, 1)]);
+        $this->setInboxFlag(true);
+
+        $this->client->loginUser($owner);
+        $crawler = $this->client->request(Request::METHOD_GET, '/account/inbox');
+
+        $block = $crawler->filter('[data-inbox-ask-id="'.$ask->id.'"]');
+        // No heartbeat from this bridge has reached Loupe, so the dot says quiet.
+        self::assertSame('quiet', $block->filter('.lp-presence')->attr('data-inbox-presence'));
+        self::assertSame('unheard', $block->filter('.lp-presence')->attr('data-inbox-bridge'));
+        self::assertStringContainsString((string) $ask->sessionId, $block->filter('.lp-presence [role="tooltip"]')->text());
+        self::assertCount(0, $block->filter('.lp-inbox-ask__session'));
+    }
+
     public function test_each_ask_links_to_its_block_on_the_project_inbox_page(): void
     {
         $owner = $this->signedUpUser($this->em, 'account-inbox-links');

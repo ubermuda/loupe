@@ -220,6 +220,22 @@ final class ShowInboxControllerTest extends WebTestCase
         self::assertNull(self::subscribedTopics($this->client->getResponse()));
     }
 
+    public function test_a_one_item_ask_names_its_item_once_as_the_heading(): void
+    {
+        $owner = $this->signedUpUser($this->em, 'inbox-one-item');
+        $project = $this->inboxProject($this->em, $owner);
+        $ask = $this->askHolding($this->em, $project, [$this->question($this->em, $project, 3, ['Yes', 'No'], title: 'Ship on Friday?')], context: 'The release notes are ready.');
+        $this->setInboxFlag(true);
+
+        $this->client->loginUser($owner);
+        $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox');
+
+        $block = $crawler->filter('[data-inbox-ask-id="'.$ask->id.'"]');
+        self::assertSame('Ship on Friday?', $block->filter('h2.lp-inbox-ask__title')->text());
+        self::assertCount(0, $block->filter('.lp-inbox-item__title'));
+        self::assertStringContainsString('The release notes are ready.', $block->filter('.lp-inbox-ask__context')->text());
+    }
+
     public function test_an_ask_shows_its_session_its_sanitized_context_and_its_numbered_items(): void
     {
         $owner = $this->signedUpUser($this->em, 'inbox-render');
@@ -235,8 +251,12 @@ final class ShowInboxControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $block = $crawler->filter('[data-inbox-ask-id="'.$ask->id.'"]');
         self::assertCount(1, $block);
-        self::assertStringContainsString((string) $ask->sessionId, $block->filter('.lp-inbox-ask__session')->text());
+        // The ask reads as one request: its heading, then the agent's note, then its items.
+        self::assertSame('Which format?', $block->filter('.lp-inbox-ask__title')->text());
+        self::assertCount(0, $block->filter('.lp-inbox-ask__session'));
+        self::assertStringContainsString((string) $ask->sessionId, $block->filter('.lp-presence [role="tooltip"]')->text());
         self::assertSame('the export', $block->filter('.lp-inbox-ask__context strong')->text());
+        self::assertStringContainsString('without an answer', $block->filter('#inbox-item-12 details.lp-inbox-decline [data-inbox-decline-hint]')->text());
         self::assertCount(0, $block->filter('script'));
         self::assertSame('item 12', $block->filter('#inbox-item-12 .lp-inbox-item__number')->text());
         self::assertSame('item 13', $block->filter('#inbox-item-13 .lp-inbox-item__number')->text());

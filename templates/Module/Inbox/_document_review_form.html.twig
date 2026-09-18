@@ -4,7 +4,6 @@
         <p>{{ 'inbox.review.stale_draft'|trans }}</p>
         <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="form-draft#discard">{{ 'inbox.answer.discard_draft'|trans }}</button>
     </div>
-    <a class="lp-inbox-item__jump" href="{{ path('app_document_review', {projectId: review.item.project.id, documentId: review.document.id}) }}" data-turbo-frame="_top">{{ review.document.title }} · {{ 'inbox.review.version'|trans({'%version%': form.versionNumber.vars.value}) }}</a>
     <div class="lp-field-errors">{{ form_errors(form) }}</div>
     {{ form_widget(form.versionNumber, {type: 'hidden', attr: {'data-form-draft-target': 'guard'}}) }}
     <div class="lp-field-errors">{{ form_errors(form.versionNumber) }}</div>

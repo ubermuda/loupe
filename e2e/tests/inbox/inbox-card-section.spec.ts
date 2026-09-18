@@ -350,7 +350,10 @@ for (const target of ['document', 'pull-request']) {
         ).toHaveText('Changes requested');
         await recovery.getByRole('button', { name: 'Discard draft' }).click();
         await expect(recovery).toBeHidden();
-        await expect(draftItem.getByRole('heading')).toBeFocused();
+        // A one-item ask shows its title once, as the ask's heading.
+        await expect(
+            draftPage.locator(`.lp-inbox-ask:has(#inbox-item-${number}) .lp-inbox-ask__title`),
+        ).toBeFocused();
         await expect(draftItem.locator('[data-inbox-response]')).toContainText(
             'Explain retries before implementation.',
         );
@@ -461,7 +464,10 @@ test('an unavailable pull request keeps its unsent review recoverable', async ({
     ).toHaveCount(0);
     await recovery.getByRole('button', { name: 'Discard draft' }).click();
     await expect(recovery).toBeHidden();
-    await expect(item.getByRole('heading')).toBeFocused();
+    // A one-item ask shows its title once, as the ask's heading.
+    await expect(
+        page.locator(`.lp-inbox-ask:has(#inbox-item-${number}) .lp-inbox-ask__title`),
+    ).toBeFocused();
 });
 
 for (const surface of ['page', 'drawer']) {

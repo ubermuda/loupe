@@ -4655,6 +4655,11 @@
                 <source>inbox.ask.bridge.quiet</source>
                 <target>No resume will come while the bridge stays quiet.</target>
             </trans-unit>
+            <trans-unit id="inbox.presence.no_bridge"><source>inbox.presence.no_bridge</source><target>No bridge started this session, so an answer does not resume the agent.</target></trans-unit>
+            <trans-unit id="inbox.presence.label.live"><source>inbox.presence.label.live</source><target>Agent online</target></trans-unit>
+            <trans-unit id="inbox.presence.label.quiet"><source>inbox.presence.label.quiet</source><target>Agent bridge quiet</target></trans-unit>
+            <trans-unit id="inbox.presence.label.none"><source>inbox.presence.label.none</source><target>Agent without a bridge</target></trans-unit>
+            <trans-unit id="inbox.presence.label.closed"><source>inbox.presence.label.closed</source><target>Agent session</target></trans-unit>
             <trans-unit id="inbox.item.number">
                 <source>inbox.item.number</source>
                 <target>item %number%</target>
@@ -4783,6 +4788,7 @@
                 <source>inbox.decline.toggle</source>
                 <target>Decline</target>
             </trans-unit>
+            <trans-unit id="inbox.decline.hint"><source>inbox.decline.hint</source><target>Decline closes this item without an answer. The agent sees that you declined it, with your note if you add one.</target></trans-unit>
             <trans-unit id="inbox.decline.change">
                 <source>inbox.decline.change</source>
                 <target>Change the decline note</target>

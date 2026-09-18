@@ -62,6 +62,7 @@ final class InboxExtension extends AbstractExtension
             new TwigFunction('inbox_review', $this->review(...)),
             new TwigFunction('inbox_reply_form', $this->replyForm(...)),
             new TwigFunction('inbox_review_withdrawal', $this->reviewWithdrawal(...)),
+            new TwigFunction('inbox_review_version', $this->reviewVersion(...)),
             new TwigFunction('inbox_pull_request_review_form', $this->pullRequestReviewForm(...)),
             new TwigFunction('inbox_document_review_form', $this->documentReviewForm(...)),
             new TwigFunction('inbox_refusals', $this->refusals(...)),
@@ -135,6 +136,16 @@ final class InboxExtension extends AbstractExtension
     public function reviewWithdrawal(InboxReview $review): ?Review
     {
         return null === $review->documentReview ? null : $this->reviews->findWithdrawalOf($review->documentReview);
+    }
+
+    /** The version a document review names: the one reviewed, or the latest until then. */
+    public function reviewVersion(InboxReview $review): ?int
+    {
+        if (null !== $review->reviewedVersionNumber) {
+            return $review->reviewedVersionNumber;
+        }
+
+        return null === $review->document ? null : $this->documentVersions->findLatest($review->document)?->versionNumber;
     }
 
     public function documentReviewForm(InboxReview $review, ?FormView $refused = null): FormView
