@@ -135,9 +135,10 @@ final class ConnectAgentControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
 
-        // Both steps rendered, so what is missing below is the template's choice
+        // Both cards rendered, so what is missing below is the template's choice
         // rather than a page that never got as far as drawing them.
-        self::assertCount(2, $crawler->filter('.lp-connect-step'));
+        self::assertCount(1, $crawler->filter('#agent-connection'));
+        self::assertCount(1, $crawler->filter('#site-review-widget'));
 
         // No MCP token yet → the creation form is present, no revoke form.
         self::assertCount(1, $crawler->filter('form[action$="/mcp-token"]'));
@@ -184,7 +185,7 @@ final class ConnectAgentControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('form[action$="/mcp-token"]'));
 
         // The token's scope is stated on its own meta line.
-        self::assertStringContainsString('project scoped', $crawler->filter('.lp-connect-field__meta')->first()->text());
+        self::assertStringContainsString('project scoped', $crawler->filter('[data-testid="mcp-token-identity"] small')->text());
 
         // The global MCP endpoint path renders somewhere among the fields (the host
         // differs under test, so only the path is matched, and the field's position

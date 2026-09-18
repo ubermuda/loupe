@@ -105,8 +105,8 @@
                     </a>
                     <span class="lp-sidebar__nav-label lp-sidebar__nav-label--spaced">{{ 'bridge.agents.heading'|trans }}</span>
                     <a href="{{ path('app_project_agents', {id: project.id}) }}"
-                       class="lp-sidebar__link{% if route == 'app_project_agents' or route == 'app_project_connect' %} lp-sidebar__link--active{% endif %}"
-                       {% if route == 'app_project_agents' or route == 'app_project_connect' %}aria-current="page"{% endif %}>
+                       class="lp-sidebar__link{% if route == 'app_project_agents' %} lp-sidebar__link--active{% endif %}"
+                       {% if route == 'app_project_agents' %}aria-current="page"{% endif %}>
                         <twig:ux:icon name="lucide:bot" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.agents'|trans }}</span>
                     </a>
@@ -142,8 +142,8 @@
                 <nav class="lp-sidebar__nav lp-sidebar__nav--secondary">
                     {% if project %}
                     <a href="{{ path('app_project_edit', {id: project.id}) }}"
-                       class="lp-sidebar__link{% if route == 'app_project_edit' %} lp-sidebar__link--active{% endif %}"
-                       {% if route == 'app_project_edit' %}aria-current="page"{% endif %}>
+                       class="lp-sidebar__link{% if route in ['app_project_edit', 'app_board_settings', 'app_project_connect'] %} lp-sidebar__link--active{% endif %}"
+                       {% if route in ['app_project_edit', 'app_board_settings', 'app_project_connect'] %}aria-current="page"{% endif %}>
                         <twig:ux:icon name="lucide:settings" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.project_settings'|trans }}</span>
                     </a>

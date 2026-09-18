@@ -13,180 +13,156 @@
 {% block topbar_crumbs %}
     <a class="lp-topbar__crumb" href="{{ path('app_project_documents', {id: project.id}) }}">{{ project.name }}</a>
     <span class="lp-topbar__sep">/</span>
-    <span class="lp-topbar__here">{{ 'project.connect.page.title'|trans }}</span>
+    <span class="lp-topbar__here">{{ 'nav.link.project_settings'|trans }}</span>
 {% endblock %}
 
+{% macro secret(value) %}
+    <div class="lp-connect-secret">
+        <div class="lp-connect-alert">
+            <twig:ux:icon name="lucide:triangle-alert" class="lp-connect-alert__icon w-4 h-4" />
+            <p class="lp-connect-alert__text">{{ 'project.connect.token.one_time_warning'|trans }}</p>
+        </div>
+        <div class="lp-connect-field" data-controller="clipboard" data-clipboard-text-value="{{ value }}"
+             data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
+            <twig:ux:icon name="lucide:key-round" class="lp-connect-field__glyph w-4 h-4" />
+            <code class="lp-connect-field__value">{{ value }}</code>
+            <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+        </div>
+    </div>
+{% endmacro %}
+
+{% macro token_row(token, testid, meta_key, regenerate_route, regenerate_csrf, project) %}
+    <div class="lp-connection-row">
+        <span class="lp-connection-row__icon"><twig:ux:icon name="lucide:key-round" /></span>
+        <span class="lp-connection-row__text" data-testid="{{ testid }}">
+            <strong>
+                {%- if token.tokenTail -%}
+                    {{ 'project.connect.token.mask'|trans({'%tail%': token.tokenTail}) }}
+                {%- else -%}
+                    {{ token.label }}
+                {%- endif -%}
+            </strong>
+            <small>{{ meta_key|trans({'%date%': token.createdAt|date('M j, Y')}) }}</small>
+        </span>
+        <form method="POST" action="{{ path(regenerate_route, {id: project.id}) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token(regenerate_csrf) }}">
+            <button type="submit" class="lp-btn lp-btn--sm">{{ 'project.connect.token.regenerate'|trans }}</button>
+        </form>
+        <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: token.id}) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
+            <input type="hidden" name="returnTo" value="{{ path('app_project_connect', {id: project.id}) }}">
+            <button type="submit" class="lp-btn lp-btn--danger-ghost lp-btn--sm">{{ 'account.api_token.action.revoke'|trans }}</button>
+        </form>
+    </div>
+{% endmacro %}
+
 {% block body %}
-<div class="lp-connect">
-    <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'project.connect.page.title'|trans }}</h1>
-    <p class="lp-workspace-desc">{{ 'project.connect.description'|trans }}</p>
-
-    {# ── Step 1 — connect the agent ── #}
-    <section class="lp-connect-step">
-        <div class="lp-connect-step__header">
-            <span class="lp-connect-step__badge">1</span>
-            <div>
-                <h2 class="lp-connect-step__heading">{{ 'project.connect.step.agent.heading'|trans }}</h2>
-                <p class="lp-connect-step__purpose">{{ 'project.connect.step.agent.purpose'|trans }}</p>
-            </div>
+<div class="lp-workspace lp-redesign-secondary lp-redesign-settings lp-connect-settings">
+    <header class="lp-page-header">
+        <div>
+            <h1 class="lp-workspace-title">{{ 'project.edit.page.title'|trans }}</h1>
+            <p class="lp-workspace-desc">{{ 'project.edit.page.description'|trans }}</p>
         </div>
+    </header>
 
-        {% if project.mcpToken %}
-        <div class="lp-connect-block">
-            <p class="lp-eyebrow">{{ 'project.connect.token.eyebrow'|trans }}</p>
-            {% if mintedMcpToken %}
-            <div class="lp-connect-secret">
-                <div class="lp-connect-alert">
-                    <twig:ux:icon name="lucide:triangle-alert" class="lp-connect-alert__icon w-4 h-4" />
-                    <p class="lp-connect-alert__text">{{ 'project.connect.token.one_time_warning'|trans }}</p>
-                </div>
-                <div class="lp-connect-field" data-controller="clipboard" data-clipboard-text-value="{{ mintedMcpToken }}"
-                     data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
-                    <twig:ux:icon name="lucide:key-round" class="lp-connect-field__glyph w-4 h-4" />
-                    <code class="lp-connect-field__value">{{ mintedMcpToken }}</code>
-                    <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
-                </div>
-            </div>
-            {% endif %}
-            <div class="lp-connect-field">
-                <twig:ux:icon name="lucide:key-round" class="lp-connect-field__glyph w-4 h-4" />
-                <span class="lp-connect-field__value" data-testid="mcp-token-identity">
-                    {%- if project.mcpToken.tokenTail -%}
-                        {{ 'project.connect.token.mask'|trans({'%tail%': project.mcpToken.tokenTail}) }}
-                    {%- else -%}
-                        {{ project.mcpToken.label }}
-                    {%- endif %}
-                    <span class="lp-connect-field__meta">{{ 'project.connect.token.meta'|trans({'%date%': project.mcpToken.createdAt|date('M j, Y')}) }}</span>
-                </span>
-                <form method="POST" action="{{ path('app_project_mcp_token_regenerate', {id: project.id}) }}">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('regenerate-project-mcp-token') }}">
-                    <button type="submit" class="lp-btn lp-btn--sm">{{ 'project.connect.token.regenerate'|trans }}</button>
-                </form>
-                <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: project.mcpToken.id}) }}">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
-                    <input type="hidden" name="returnTo" value="{{ path('app_project_connect', {id: project.id}) }}">
-                    <button type="submit" class="lp-btn lp-btn--danger-ghost lp-btn--sm">{{ 'account.api_token.action.revoke'|trans }}</button>
-                </form>
-            </div>
-        </div>
+    <div class="lp-settings-layout">
+        {% include '@Project/_settings_nav.html.twig' with {project: project, active: 'connections'} only %}
 
-        {% include '@Project/_connect_instructions.html.twig' with {mcpServerName: mcpServerName, mintedMcpToken: mintedMcpToken} only %}
+        <div class="lp-settings-content">
+        <section class="lp-settings-section lp-settings-panel-card" id="agent-connection">
+            <h2 class="lp-section-title">{{ 'project.connect.card.agent.title'|trans }}</h2>
+            <p class="lp-connect-hint">{{ 'project.connect.step.agent.purpose'|trans }}</p>
 
-        <details class="lp-tools-disclosure">
-            <summary class="lp-tools-disclosure__summary">
-                <twig:ux:icon name="lucide:chevron-right" class="lp-tools-disclosure__caret" />
-                {{ 'project.connect.tools.summary'|trans({'%count%': tools|length}) }}
-            </summary>
-            <div class="lp-tools">
-                {% for tool in tools %}
-                <div class="lp-tools__row">
-                    <code class="lp-tools__name">{{ tool.name }}</code>
-                    <p class="lp-tools__desc">{{ tool.descriptionKey|trans }}</p>
-                </div>
-                {% endfor %}
+            {% if project.mcpToken %}
+            {% if mintedMcpToken %}{{ _self.secret(mintedMcpToken) }}{% endif %}
+            {{ _self.token_row(project.mcpToken, 'mcp-token-identity', 'project.connect.token.meta', 'app_project_mcp_token_regenerate', 'regenerate-project-mcp-token', project) }}
+
+            <div data-controller="modal">
+                <button type="button" class="lp-btn lp-btn--primary" data-action="click->modal#open">
+                    <twig:ux:icon name="lucide:link" />{{ 'project.connect.configure'|trans }}
+                </button>
+                <dialog class="lp-dialog lp-dialog--document lp-connect-dialog" data-modal-target="dialog" aria-labelledby="connect-agent-title">
+                    <header class="lp-connect-dialog__header">
+                        <div>
+                            <h2 class="lp-dialog-title" id="connect-agent-title">{{ 'project.connect.step.agent.heading'|trans }}</h2>
+                            <p class="lp-dialog-desc">{{ 'project.connect.step.agent.purpose'|trans }}</p>
+                        </div>
+                        <button type="button" class="lp-btn lp-btn--icon" data-action="modal#close" aria-label="{{ 'project.connect.dialog.close'|trans }}"><twig:ux:icon name="lucide:x" /></button>
+                    </header>
+                    {% include '@Project/_connect_instructions.html.twig' with {mcpServerName: mcpServerName, mintedMcpToken: mintedMcpToken} only %}
+                    <details class="lp-tools-disclosure">
+                        <summary class="lp-tools-disclosure__summary">
+                            <twig:ux:icon name="lucide:chevron-right" class="lp-tools-disclosure__caret" />
+                            {{ 'project.connect.tools.summary'|trans({'%count%': tools|length}) }}
+                        </summary>
+                        <div class="lp-tools">
+                            {% for tool in tools %}
+                            <div class="lp-tools__row">
+                                <code class="lp-tools__name">{{ tool.name }}</code>
+                                <p class="lp-tools__desc">{{ tool.descriptionKey|trans }}</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </details>
+                    <div class="lp-settings-form-actions">
+                        <button type="button" class="lp-btn" data-action="click->modal#close">{{ 'project.connect.dialog.close'|trans }}</button>
+                    </div>
+                </dialog>
             </div>
-        </details>
-        {% else %}
-        <div class="lp-connect-block">
-            <p class="lp-connect-hint">{{ 'project.mcp_token.hint'|trans }}</p>
-            <form method="POST" action="{{ path('app_project_mcp_token_mint', {id: project.id}) }}">
+            {% else %}
+            <form method="POST" action="{{ path('app_project_mcp_token_mint', {id: project.id}) }}" class="lp-connect-mint">
+                <p class="lp-connect-hint">{{ 'project.mcp_token.hint'|trans }}</p>
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('mint-project-mcp-token') }}">
                 <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.mcp_token.mint'|trans }}</button>
             </form>
-        </div>
-        {% endif %}
-    </section>
-
-    {# ── Step 2 — install the review widget ── #}
-    <section class="lp-connect-step">
-        <div class="lp-connect-step__header">
-            <span class="lp-connect-step__badge">2</span>
-            <div>
-                <h2 class="lp-connect-step__heading">{{ 'project.connect.step.widget.heading'|trans }}</h2>
-                <p class="lp-connect-step__purpose">
-                    {%- if project.domain -%}
-                        {{ 'project.connect.step.widget.purpose'|trans({'%domain%': project.domain}) }}
-                    {%- else -%}
-                        {{ 'project.connect.step.widget.purpose_no_domain'|trans }}
-                    {%- endif -%}
-                </p>
-            </div>
-        </div>
-
-        {% if project.widgetToken %}
-        <div class="lp-connect-block">
-            <p class="lp-eyebrow">{{ 'project.connect.token.eyebrow'|trans }}</p>
-            {% if mintedWidgetToken %}
-            <div class="lp-connect-secret">
-                <div class="lp-connect-alert">
-                    <twig:ux:icon name="lucide:triangle-alert" class="lp-connect-alert__icon w-4 h-4" />
-                    <p class="lp-connect-alert__text">{{ 'project.connect.token.one_time_warning'|trans }}</p>
-                </div>
-                <div class="lp-connect-field" data-controller="clipboard" data-clipboard-text-value="{{ mintedWidgetToken }}"
-                     data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
-                    <twig:ux:icon name="lucide:key-round" class="lp-connect-field__glyph w-4 h-4" />
-                    <code class="lp-connect-field__value">{{ mintedWidgetToken }}</code>
-                    <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
-                </div>
-            </div>
             {% endif %}
-            <div class="lp-connect-field">
-                <twig:ux:icon name="lucide:key-round" class="lp-connect-field__glyph w-4 h-4" />
-                <span class="lp-connect-field__value" data-testid="widget-token-identity">
-                    {%- if project.widgetToken.tokenTail -%}
-                        {{ 'project.connect.token.mask'|trans({'%tail%': project.widgetToken.tokenTail}) }}
-                    {%- else -%}
-                        {{ project.widgetToken.label }}
-                    {%- endif %}
-                    <span class="lp-connect-field__meta">{{ 'project.connect.widget_token.meta'|trans({'%date%': project.widgetToken.createdAt|date('M j, Y')}) }}</span>
+        </section>
+
+        <section class="lp-settings-section lp-settings-panel-card" id="site-review-widget">
+            <h2 class="lp-section-title">{{ 'project.connect.card.widget.title'|trans }}</h2>
+            <p class="lp-connect-hint">
+                {%- if project.domain -%}
+                    {{ 'project.connect.step.widget.purpose'|trans({'%domain%': project.domain}) }}
+                {%- else -%}
+                    {{ 'project.connect.step.widget.purpose_no_domain'|trans }}
+                {%- endif -%}
+            </p>
+
+            {% if project.widgetToken %}
+            {% if mintedWidgetToken %}{{ _self.secret(mintedWidgetToken) }}{% endif %}
+            {{ _self.token_row(project.widgetToken, 'widget-token-identity', 'project.connect.widget_token.meta', 'app_project_widget_token_regenerate', 'regenerate-project-widget-token', project) }}
+
+            {% include '@Project/_widget_snippet.html.twig' with {mintedWidgetToken: mintedWidgetToken} only %}
+
+            <div class="lp-connect-toggle">
+                <twig:ux:icon name="lucide:zap" class="lp-connect-toggle__icon w-4 h-4" />
+                <span class="lp-connect-toggle__text">
+                    <span class="lp-connect-toggle__title">{{ 'project.connect.forwarding.label'|trans }}</span>
+                    <span class="lp-connect-toggle__state">
+                        {{ (project.widgetToken.forwardsToAgent
+                            ? 'project.connect.forwarding.state.on'
+                            : 'project.connect.forwarding.state.off')|trans }}
+                    </span>
                 </span>
-                <form method="POST" action="{{ path('app_project_widget_token_regenerate', {id: project.id}) }}">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('regenerate-project-widget-token') }}">
-                    <button type="submit" class="lp-btn lp-btn--sm">{{ 'project.connect.token.regenerate'|trans }}</button>
-                </form>
-                <form method="POST" action="{{ path('app_api_token_revoke', {tokenId: project.widgetToken.id}) }}">
-                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-api-token') }}">
-                    <input type="hidden" name="returnTo" value="{{ path('app_project_connect', {id: project.id}) }}">
-                    <button type="submit" class="lp-btn lp-btn--danger-ghost lp-btn--sm">{{ 'account.api_token.action.revoke'|trans }}</button>
+                <form method="POST" action="{{ path('app_project_widget_forwarding_toggle', {id: project.id}) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('toggle-project-widget-forwarding') }}">
+                    <button type="submit" class="lp-btn lp-btn--sm">
+                        {{ (project.widgetToken.forwardsToAgent
+                            ? 'project.connect.forwarding.disable'
+                            : 'project.connect.forwarding.enable')|trans }}
+                    </button>
                 </form>
             </div>
-        </div>
-
-        {% include '@Project/_widget_snippet.html.twig' with {mintedWidgetToken: mintedWidgetToken} only %}
-
-        <div class="lp-connect-alert">
-            <twig:ux:icon name="lucide:triangle-alert" class="lp-connect-alert__icon w-4 h-4" />
-            <p class="lp-connect-alert__text">{{ 'project.connect.forwarding.warning'|trans }}</p>
-        </div>
-
-        <div class="lp-connect-toggle">
-            <twig:ux:icon name="lucide:zap" class="lp-connect-toggle__icon w-4 h-4" />
-            <span class="lp-connect-toggle__text">
-                <span class="lp-connect-toggle__title">{{ 'project.connect.forwarding.label'|trans }}</span>
-                <span class="lp-connect-toggle__state">
-                    {{ (project.widgetToken.forwardsToAgent
-                        ? 'project.connect.forwarding.state.on'
-                        : 'project.connect.forwarding.state.off')|trans }}
-                </span>
-            </span>
-            <form method="POST" action="{{ path('app_project_widget_forwarding_toggle', {id: project.id}) }}">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token('toggle-project-widget-forwarding') }}">
-                <button type="submit" class="lp-btn lp-btn--sm">
-                    {{ (project.widgetToken.forwardsToAgent
-                        ? 'project.connect.forwarding.disable'
-                        : 'project.connect.forwarding.enable')|trans }}
-                </button>
-            </form>
-        </div>
-        {% else %}
-        <div class="lp-connect-block">
-            <p class="lp-connect-hint">{{ 'account.api_token.scope.site_review_warning'|trans }}</p>
-            <form method="POST" action="{{ path('app_project_widget_token_mint', {id: project.id}) }}">
+            <p class="lp-connect-note"><twig:ux:icon name="lucide:shield" />{{ 'project.connect.forwarding.warning'|trans }}</p>
+            {% else %}
+            <form method="POST" action="{{ path('app_project_widget_token_mint', {id: project.id}) }}" class="lp-connect-mint">
+                <p class="lp-connect-hint">{{ 'account.api_token.scope.site_review_warning'|trans }}</p>
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('mint-project-widget-token') }}">
                 <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.token.mint'|trans }}</button>
             </form>
+            {% endif %}
+        </section>
         </div>
-        {% endif %}
-    </section>
+    </div>
 </div>
 {% endblock %}

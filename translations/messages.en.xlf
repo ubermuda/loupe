@@ -2384,6 +2384,10 @@
             </trans-unit>
 
             <!-- Connect agent (handoff §5) -->
+            <trans-unit id="project.connect.card.agent.title"><source>project.connect.card.agent.title</source><target>Agent connection</target></trans-unit>
+            <trans-unit id="project.connect.card.widget.title"><source>project.connect.card.widget.title</source><target>Site review widget</target></trans-unit>
+            <trans-unit id="project.connect.configure"><source>project.connect.configure</source><target>Configure connection</target></trans-unit>
+            <trans-unit id="project.connect.dialog.close"><source>project.connect.dialog.close</source><target>Close</target></trans-unit>
             <trans-unit id="project.connect.page.title">
                 <source>project.connect.page.title</source>
                 <target>Connect</target>
