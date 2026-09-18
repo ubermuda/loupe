@@ -1082,6 +1082,9 @@
     .lp-choice input {
         @apply w-4 h-4 shrink-0 cursor-pointer accent-accent-ink;
     }
+    .lp-choice:has(input:checked) {
+        @apply bg-accent-soft border-accent-border;
+    }
     .lp-choice:has(input:focus-visible) {
         @apply outline-2 outline-offset-1 outline-accent-ink;
     }
@@ -2044,6 +2047,9 @@
     /* Verdict choices and notes in the Finish review dialog. */
     .lp-review-verdict-choice {
         @apply flex items-center gap-3 rounded-lg border border-line p-3 text-sm text-ink;
+    }
+    .lp-review-verdict-choice:has(input:checked) {
+        @apply bg-accent-soft border-accent-border;
     }
     .lp-review-verdict-choice input {
         @apply size-4 accent-accent;
