@@ -1,5 +1,4 @@
 /* Prototype-aligned composition for the four primary work queues. */
-
 .lp-core-prototype-page .lp-list-filters {
     min-height: calc(var(--spacing) * 10);
     margin: 0 0 calc(var(--spacing) * 5);

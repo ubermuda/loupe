@@ -1054,6 +1054,8 @@
     }
 
     /* ── Form controls (lp- namespace) ──────────────────────────────── */
+    /* The one form layout: labelled fields in a column, 20px apart, each label
+       6px above its control. Every app form uses these classes. */
 
     .lp-form {
         @apply flex flex-col gap-5;
@@ -1276,10 +1278,10 @@
     }
     .lp-wizard-done__body {
         @apply max-w-md text-base text-fg-mute m-0 leading-relaxed;
-    /* The one page frame every workspace uses, so pages line up as you move between them. */
     }
 
     /* ── Workspace / projects index ─────────────────────────────────── */
+    /* The one page frame every workspace uses, so pages line up as you move between them. */
 
     .lp-workspace {
         @apply w-full px-4.5 pt-5 pb-10 md:px-6 md:pt-6 md:pb-14 xl:px-8 xl:pt-8;

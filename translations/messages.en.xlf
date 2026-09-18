@@ -5218,6 +5218,10 @@
                 <source>board.form.move_card_form.column.label</source>
                 <target>Column</target>
             </trans-unit>
+            <trans-unit id="board.form.configure_board_column_form.label.label">
+                <source>board.form.configure_board_column_form.label.label</source>
+                <target>Column name</target>
+            </trans-unit>
             <trans-unit id="board.form.configure_board_column_form.is_default.label">
                 <source>board.form.configure_board_column_form.is_default.label</source>
                 <target>Default for new cards</target>
@@ -5225,8 +5229,6 @@
             <trans-unit id="board.form.configure_board_column_form.terminal.label">
                 <source>board.form.configure_board_column_form.terminal.label</source>
                 <target>A finishing point for completed work</target>
-            </trans-unit>
-                <target>Low</target>
             </trans-unit>
 
             <!-- Board columns -->
