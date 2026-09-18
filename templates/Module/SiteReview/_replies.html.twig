@@ -1,8 +1,8 @@
-<section class="lp-inbox-item__response" aria-label="{{ 'site_review.reply.conversation'|trans }}" data-site-review-replies>
+<section class="lp-feedback-replies" aria-label="{{ 'site_review.reply.conversation'|trans }}" data-site-review-replies>
     {% for reply in replies %}
         <div data-site-review-reply="{{ reply.id }}" data-reply-submission-id="{{ reply.submissionId }}">
-            <p class="lp-inbox-item__note"><strong>{{ reply.author.fullName }}</strong> · <time datetime="{{ reply.createdAt|date('c') }}">{{ reply.createdAt|date('Y-m-d H:i') }}</time></p>
-            <p class="lp-inbox-item__answer-text">{{ reply.body }}</p>
+            <p class="lp-feedback-replies__meta"><strong>{{ reply.author.fullName }}</strong> · <time datetime="{{ reply.createdAt|date('c') }}">{{ reply.createdAt|date('Y-m-d H:i') }}</time></p>
+            <p class="lp-feedback-replies__body">{{ reply.body }}</p>
         </div>
     {% endfor %}
     {% if is_granted(constant('App\\Module\\SiteReview\\Security\\SiteReviewCommentVoter::REPLY'), comment) %}
@@ -12,12 +12,12 @@
             <div class="lp-field-errors">{{ form_errors(form) }}</div>
             {{ form_widget(form.submissionId, {attr: {'data-reply-submission-target': 'submission'}}) }}
             <div class="lp-field-errors">{{ form_errors(form.submissionId) }}</div>
-            <div class="lp-form-field">
-                {{ form_label(form.body, null, {label_attr: {class: 'lp-label'}}) }}
-                {{ form_widget(form.body, {attr: {class: 'lp-input', rows: 2, maxlength: 2000, 'data-reply-submission-target': 'body'}}) }}
-                <div class="lp-field-errors">{{ form_errors(form.body) }}</div>
+            <div class="lp-reply-composer">
+                {{ form_label(form.body, null, {label_attr: {class: 'sr-only'}}) }}
+                {{ form_widget(form.body, {attr: {class: 'lp-input', rows: 1, maxlength: 2000, placeholder: 'site_review.reply.placeholder'|trans, 'data-reply-submission-target': 'body'}}) }}
+                <button type="submit" class="lp-btn lp-btn--icon lp-reply-composer__send" aria-label="{{ 'site_review.reply.submit'|trans }}" title="{{ 'site_review.reply.submit'|trans }}"><twig:ux:icon name="lucide:send" /></button>
             </div>
-            <div class="lp-inbox-item__buttons"><button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">{{ 'site_review.reply.submit'|trans }}</button></div>
+            <div class="lp-field-errors">{{ form_errors(form.body) }}</div>
         {{ form_end(form) }}
     {% endif %}
 </section>

@@ -867,6 +867,32 @@
     .lp-feedback-detail__actions {
         @apply flex items-center justify-end gap-2 pt-5 border-t border-line;
     }
+    .lp-feedback-detail__source {
+        @apply flex items-center gap-2 m-0 mt-4 pb-4 border-b border-line text-xs text-fg-dim;
+    }
+    .lp-feedback-detail__source svg {
+        @apply w-3.5 h-3.5 shrink-0;
+    }
+    /* Replies under a piece of site feedback, then the one-line composer. */
+    .lp-feedback-replies {
+        @apply flex flex-col gap-3 mt-4;
+    }
+    .lp-feedback-replies__meta {
+        @apply m-0 text-xs text-fg-dim;
+    }
+    .lp-feedback-replies__body {
+        @apply m-0 text-sm text-ink whitespace-pre-line;
+    }
+    .lp-reply-composer {
+        @apply flex items-start gap-2;
+    }
+    .lp-reply-composer textarea.lp-input {
+        @apply flex-1 min-h-10 resize-y;
+    }
+    /* Doubled class: .lp-btn--icon is declared later and clears the border. */
+    .lp-reply-composer__send.lp-reply-composer__send {
+        @apply shrink-0 border-line bg-surface-1 text-fg-mute;
+    }
 }
 
 @layer components {
