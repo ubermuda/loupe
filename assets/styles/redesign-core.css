@@ -36,9 +36,10 @@
     margin-bottom: calc(var(--spacing) * 5);
 }
 
+/* The count and the view switch read as one group on the right, so only the
+   count takes the free space. */
 .lp-core-board .lp-board-toolbar__mode {
     order: 2;
-    margin-left: auto;
     border: 1px solid var(--border);
     background: var(--surface-3);
 }

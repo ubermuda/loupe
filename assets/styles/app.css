@@ -555,14 +555,16 @@
         @apply flex flex-wrap items-center gap-2 min-h-9 mb-3;
     }
     .lp-board-toolbar__filters {
-        @apply relative flex flex-1 basis-80 min-w-0 items-center gap-2 overflow-x-auto scroll-p-0.5 p-0.5 -m-0.5;
+        @apply relative flex min-w-0 items-center gap-2 overflow-x-auto scroll-p-0.5 p-0.5 -m-0.5;
         scrollbar-width: none;
     }
     .lp-board-toolbar__filters::-webkit-scrollbar {
         display: none;
     }
+    /* A fixed field rather than one that grows: the design puts the search at
+       its own width and leaves the rest of the row empty. */
     .lp-board-toolbar__search {
-        @apply relative flex flex-1 min-w-24 w-56 items-center;
+        @apply relative flex w-56 shrink-0 items-center;
     }
     .lp-board-toolbar__priority {
         @apply shrink-0;
