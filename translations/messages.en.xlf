@@ -5002,10 +5002,6 @@
                 <source>board.card.pull_requests.not_linkable</source>
                 <target>Not a web address, so it is shown rather than linked.</target>
             </trans-unit>
-            <trans-unit id="board.card.move.title">
-                <source>board.card.move.title</source>
-                <target>Move this card</target>
-            </trans-unit>
             <trans-unit id="board.drag.failed">
                 <source>board.drag.failed</source>
                 <target>The card went back. The move did not reach the server.</target>
@@ -5569,6 +5565,9 @@
             <trans-unit id="board.card.overview.created"><source>board.card.overview.created</source><target>Created</target></trans-unit>
             <trans-unit id="board.card.overview.updated"><source>board.card.overview.updated</source><target>Updated</target></trans-unit>
             <trans-unit id="board.card.overview.completed"><source>board.card.overview.completed</source><target>Completed</target></trans-unit>
+            <trans-unit id="board.card.runs.title"><source>board.card.runs.title</source><target>Agent runs</target></trans-unit>
+            <trans-unit id="board.card.runs.all"><source>board.card.runs.all</source><target>Run history</target></trans-unit>
+            <trans-unit id="board.card.runs.empty"><source>board.card.runs.empty</source><target>No agent has run on this card yet.</target></trans-unit>
             <trans-unit id="board.card.conversation.title"><source>board.card.conversation.title</source><target>Conversation</target></trans-unit>
             <trans-unit id="board.card.conversation.description"><source>board.card.conversation.description</source><target>Requests and feedback linked to this card share their original records.</target></trans-unit>
             <trans-unit id="board.card.feedback.description"><source>board.card.feedback.description</source><target>Feedback captured by the site review widget for this card.</target></trans-unit>

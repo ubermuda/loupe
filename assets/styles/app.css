@@ -968,26 +968,41 @@
     .lp-card-panel__title {
         @apply font-display text-lg font-extrabold tracking-tight text-ink m-0;
     }
-    .lp-card-overview-grid {
-        @apply grid grid-cols-1 lg:grid-cols-3 gap-8;
+    /* The card overview reads top to bottom, like the drawer it sits in:
+       description, the field grid, linked work, then agent runs. */
+    .lp-card-overview {
+        @apply flex flex-col gap-7;
     }
-    .lp-card-overview-grid__main {
-        @apply lg:col-span-2 flex flex-col gap-7;
+    .lp-card-overview__section {
+        @apply flex flex-col gap-3;
     }
-    .lp-card-overview-grid__facts {
-        @apply flex flex-col gap-6 rounded-xl bg-surface-2 p-4;
+    .lp-card-fields {
+        @apply grid grid-cols-2 gap-x-6 gap-y-4 m-0 rounded-xl bg-surface-2 p-4;
     }
-    .lp-card-fact-list {
-        @apply flex flex-col m-0;
+    .lp-card-field {
+        @apply flex flex-col gap-1 min-w-0;
     }
-    .lp-card-fact-list div {
-        @apply flex items-center justify-between gap-4 py-2.5 border-b border-line last:border-0;
+    .lp-card-field--wide {
+        @apply col-span-2;
     }
-    .lp-card-fact-list dt {
-        @apply text-sm font-medium text-fg-mute;
+    .lp-card-field dt {
+        @apply text-xs font-semibold text-fg-mute;
     }
-    .lp-card-fact-list dd {
-        @apply text-sm font-semibold text-ink m-0 text-right;
+    .lp-card-field dd {
+        @apply m-0 text-sm font-semibold text-ink whitespace-nowrap;
+    }
+    /* One agent run on the card: rule, when and how long, outcome. */
+    .lp-card-run {
+        @apply flex items-center gap-3 rounded-lg border border-line px-3 py-2.5 text-sm text-ink no-underline transition-colors hover:bg-surface-2;
+    }
+    .lp-card-run__rule {
+        @apply min-w-0 truncate font-semibold;
+    }
+    .lp-card-run__meta {
+        @apply shrink-0 text-xs text-fg-mute;
+    }
+    .lp-card-run__chevron {
+        @apply size-4 shrink-0 text-fg-dim;
     }
     .lp-card-linked-list,
     .lp-card-feedback-list {
@@ -5515,20 +5530,12 @@
 
     /* The move controls, on the card's own page. The board face carries the
        same form with no controls, because dragging is its one interaction. */
-    .lp-card-move {
-        @apply mt-8;
-    }
-    .lp-card-move__title {
-        @apply font-display font-extrabold text-lg tracking-tight text-ink m-0 mb-3;
-    }
+    /* Status is the move control: a column select and Move. */
     .lp-card-move__form {
-        @apply flex flex-wrap items-end gap-4 rounded-xl bg-surface-2 py-4 px-5;
+        @apply flex flex-wrap items-center gap-2;
     }
-    .lp-card-move__field {
-        @apply flex flex-col gap-1;
-    }
-    .lp-card-move__submit {
-        @apply shrink-0;
+    .lp-card-move__form .lp-card-move__select {
+        @apply w-auto min-w-40;
     }
 
     /* ── Card detail and card form ──────────────────────────────────── */
@@ -5545,9 +5552,6 @@
     }
     /* The documents a card's work is written up in. Read only here: a
        document is written and revised through its own screens. */
-    .lp-card-docs {
-        @apply mt-8;
-    }
     .lp-card-docs__title {
         @apply font-display font-extrabold text-lg tracking-tight text-ink m-0 mb-3;
     }
@@ -5559,9 +5563,6 @@
     }
     .lp-card-docs__link {
         @apply text-sm;
-    }
-    .lp-card-pulls {
-        @apply mt-8;
     }
     .lp-card-pulls__title {
         @apply font-display font-extrabold text-lg tracking-tight text-ink m-0 mb-3;

@@ -96,7 +96,8 @@
         </div>
         {% for item in items %}
         {% set run = item.run %}
-        <article class="lp-worker-run" data-worker-run-id="{{ run.id }}" data-controller="modal" data-modal-drawer-value="true">
+        {# A search by this run's id is a link to it, so its drawer opens on arrival. #}
+        <article class="lp-worker-run" data-worker-run-id="{{ run.id }}" data-controller="modal" data-modal-drawer-value="true"{% if listQuery.search|lower == (run.id ~ '')|lower %} data-modal-reopen-value="true"{% endif %}>
             <div class="lp-worker-run__table-row">
                 <div class="lp-worker-run__work">
                     {% if boardEnabled %}

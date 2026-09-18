@@ -244,8 +244,12 @@ card id is the UUID, not the number.
 
 The page carries the full Markdown body, every pull request link, the review
 feedback pointing at the card, and the times the card was created, last changed
-and completed. It also carries a column control, which moves a card
+and completed. Its Status field is a column control, which moves a card
 with no drag. That is the way to move a card from a keyboard.
+
+The page also lists the card's five latest agent runs, with the rule that
+started each run, when it ran, how long it took and how it ended. A run opens
+its details on the run history page.
 
 When the inbox is on, the page also lists the inbox items linked to the card,
 and you can answer them there. See

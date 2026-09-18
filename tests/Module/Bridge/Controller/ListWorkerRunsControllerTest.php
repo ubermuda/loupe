@@ -191,7 +191,12 @@ final class ListWorkerRunsControllerTest extends WebTestCase
             self::assertResponseIsSuccessful();
             self::assertCount(1, $crawler->filter('[data-worker-run-id]'));
             self::assertSame($runId, $crawler->filter('[data-worker-run-id]')->attr('data-worker-run-id'));
+            // A card's run history links here by run id, so the run's drawer opens on arrival.
+            self::assertSame('true', $crawler->filter('[data-worker-run-id]')->attr('data-modal-reopen-value'));
         }
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
+        self::assertCount(0, $crawler->filter('[data-worker-run-id][data-modal-reopen-value="true"]'));
 
         foreach ([
             ['search' => $foreignId],
