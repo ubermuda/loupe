@@ -1075,7 +1075,7 @@
         @apply text-xs font-bold text-fg-mute;
     }
     .lp-input {
-        @apply w-full min-h-10 font-sans text-sm leading-5 text-ink bg-field border border-line-field px-3 py-2.5 outline-hidden transition-colors placeholder:text-fg-dim focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent-ink;
+        @apply w-full min-h-10 font-sans text-sm leading-5 text-ink bg-field border border-line-field px-3 py-2.5 outline-hidden transition-colors placeholder:text-fg-dim focus:ring-2 focus:ring-accent-ink;
         border-radius: 7px;
     }
     textarea.lp-input {
