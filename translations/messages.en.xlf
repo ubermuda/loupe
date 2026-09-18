@@ -3890,10 +3890,6 @@
                 <target>Free</target>
             </trans-unit>
 
-            <trans-unit id="review.dashboard.meta.shown">
-                <source>review.dashboard.meta.shown</source>
-                <target>%count% shown</target>
-            </trans-unit>
             <trans-unit id="review.dashboard.filter.count">
                 <source>review.dashboard.filter.count</source>
                 <target>%matching% of %total% documents</target>
@@ -5509,10 +5505,6 @@
                 <source>bridge.worker_runs.page.description</source>
                 <target>Every reported attempt, with the context to understand it.</target>
             </trans-unit>
-            <trans-unit id="bridge.worker_runs.unknown_notice">
-                <source>bridge.worker_runs.unknown_notice</source>
-                <target>A missing record means unknown. It never means that the worker did not run. A bridge holds its retry queue in memory, so a bridge that stops between a worker finishing and its report landing loses that outcome. Read this list as what the server was told.</target>
-            </trans-unit>
             <trans-unit id="bridge.worker_runs.meta.shown">
                 <source>bridge.worker_runs.meta.shown</source>
                 <target>%count% shown</target>
@@ -5919,12 +5911,9 @@
             <trans-unit id="bridge.agents.page_heading"><source>bridge.agents.page_heading</source><target>Meet your crew</target></trans-unit>
             <trans-unit id="bridge.agents.description"><source>bridge.agents.description</source><target>See this project's bridge connections and their latest heartbeat.</target></trans-unit>
             <trans-unit id="bridge.agents.connection"><source>bridge.agents.connection</source><target>Connection setup</target></trans-unit>
-            <trans-unit id="bridge.agents.honest_notice"><source>bridge.agents.honest_notice</source><target>Loupe identifies connected bridges. Individual agent profiles are not reported by the current bridge protocol.</target></trans-unit>
             <trans-unit id="bridge.agents.connection_label"><source>bridge.agents.connection_label</source><target>Bridge connection</target></trans-unit>
             <trans-unit id="bridge.agents.status.stale"><source>bridge.agents.status.stale</source><target>Stale</target></trans-unit>
             <trans-unit id="bridge.agents.status.healthy"><source>bridge.agents.status.healthy</source><target>Healthy</target></trans-unit>
-            <trans-unit id="bridge.agents.status.empty"><source>bridge.agents.status.empty</source><target>No connections</target></trans-unit>
-            <trans-unit id="bridge.agents.status.mixed"><source>bridge.agents.status.mixed</source><target>Some connections are stale</target></trans-unit>
             <trans-unit id="bridge.agents.project_connection"><source>bridge.agents.project_connection</source><target>Receives eligible work for %project%.</target></trans-unit>
             <trans-unit id="bridge.agents.runtime"><source>bridge.agents.runtime</source><target>CLI version</target></trans-unit>
             <trans-unit id="bridge.agents.last_seen"><source>bridge.agents.last_seen</source><target>Last heartbeat</target></trans-unit>
@@ -5935,8 +5924,7 @@
             <trans-unit id="board.rules.page.title"><source>board.rules.page.title</source><target>Rules</target></trans-unit>
             <trans-unit id="board.rules.nav"><source>board.rules.nav</source><target>Rules</target></trans-unit>
             <trans-unit id="board.rules.heading"><source>board.rules.heading</source><target>The handoffs</target></trans-unit>
-            <trans-unit id="board.rules.description"><source>board.rules.description</source><target>See which reported events can hand work to a connected bridge.</target></trans-unit>
-            <trans-unit id="board.rules.read_only_notice"><source>board.rules.read_only_notice</source><target>Rules come from bridge configuration. This page reports their health and does not change them.</target></trans-unit>
+            <trans-unit id="board.rules.description"><source>board.rules.description</source><target>See which reported events can hand work to a connected bridge. Rules come from bridge configuration, so this page reports their health and does not change them.</target></trans-unit>
             <trans-unit id="board.rules.live_count"><source>board.rules.live_count</source><target>{0} No live rules|{1} 1 live rule|]1,Inf[ %count% live rules</target></trans-unit>
             <trans-unit id="board.rules.status.live"><source>board.rules.status.live</source><target>Live</target></trans-unit>
             <trans-unit id="board.rules.status.dead"><source>board.rules.status.dead</source><target>Invalid</target></trans-unit>

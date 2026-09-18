@@ -29,12 +29,11 @@
             <h1 class="lp-workspace-title">{{ 'activity.heading'|trans }}</h1>
             <p class="lp-workspace-desc">{{ 'activity.description'|trans }}</p>
         </div>
-        <button type="button" class="lp-btn" data-activity-filter-target="toggle" data-action="activity-filter#toggle" aria-pressed="false" disabled>{{ 'activity.feed.pause'|trans }}</button>
+        <div class="lp-activity-header-actions">
+            <span class="lp-status-chip lp-status-chip--pending" data-activity-filter-target="status" role="status">{{ 'activity.status.recorded'|trans }}</span>
+            <button type="button" class="lp-btn" data-activity-filter-target="toggle" data-action="activity-filter#toggle" aria-pressed="false" disabled>{{ 'activity.feed.pause'|trans }}</button>
+        </div>
     </header>
-    <div class="lp-activity-toolbar">
-        <span><twig:ux:icon name="lucide:activity" />{{ 'activity.description'|trans }}</span>
-        <span class="lp-status-chip lp-status-chip--pending" data-activity-filter-target="status" role="status">{{ 'activity.status.recorded'|trans }}</span>
-    </div>
 
     <div class="lp-list-filters">
         <div class="lp-filter-form">

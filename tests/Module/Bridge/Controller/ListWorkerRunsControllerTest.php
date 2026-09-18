@@ -92,26 +92,6 @@ final class ListWorkerRunsControllerTest extends WebTestCase
     }
 
     /** A list with no caveat reads as a complete history, and it is not one. */
-    public function test_the_page_says_a_missing_record_means_unknown_even_when_empty(): void
-    {
-        $client = static::createClient();
-        $em = $this->em();
-
-        $owner = $this->user($em, 'notice-owner@example.com');
-        $project = $this->project($em, $owner, 'Empty');
-
-        $projectId = (string) $project->id;
-        $em->clear();
-
-        $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
-
-        self::assertResponseIsSuccessful();
-        $notice = $crawler->filter('.lp-page-note')->text();
-        self::assertStringContainsString('means unknown', $notice);
-        self::assertStringContainsString('did not run', $notice);
-    }
-
     public function test_the_list_is_paged(): void
     {
         $client = static::createClient();

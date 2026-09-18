@@ -45,23 +45,8 @@
     .lp-redesign-agents .lp-agent-card footer {
         @apply mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-xs text-fg-dim break-all;
     }
-    .lp-agent-connection-strip {
-        @apply mt-6 flex flex-col flex-wrap sm:flex-row sm:items-center gap-3 rounded-xl border border-line bg-surface-1 px-5 py-4;
-    }
-    .lp-agent-connection-strip > svg {
-        @apply h-5 w-5 shrink-0 text-accent-ink;
-    }
-    .lp-agent-connection-strip > div {
-        @apply min-w-0 flex-1 sm:basis-64;
-    }
     .lp-redesign-agents .lp-btn {
         @apply max-w-full whitespace-normal leading-5;
-    }
-    .lp-agent-connection-strip h2 {
-        @apply m-0 text-sm font-semibold text-ink;
-    }
-    .lp-agent-connection-strip p {
-        @apply m-0 mt-1 text-xs text-fg-mute;
     }
 
     /* Handoff rows use the same event-to-worker visual flow as the prototype. */
@@ -154,14 +139,8 @@
     }
 
     /* Activity uses a compact chronological feed, not a second run table. */
-    .lp-activity-toolbar {
-        @apply mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-line bg-surface-1 px-4 py-3 text-xs text-fg-mute;
-    }
-    .lp-activity-toolbar > span:first-child {
-        @apply flex items-center gap-2;
-    }
-    .lp-activity-toolbar svg {
-        @apply h-4 w-4 shrink-0;
+    .lp-activity-header-actions {
+        @apply flex flex-wrap items-center gap-2;
     }
     .lp-redesign-activity .lp-activity-feed {
         @apply gap-0 overflow-hidden rounded-xl border border-line bg-surface-1;

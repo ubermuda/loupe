@@ -5572,13 +5572,6 @@
 
     /* ── Worker runs ────────────────────────────────────────────────── */
 
-    /* A neutral note above a list, for a caveat the reader must carry into
-       every row. The amber .lp-connect-alert reads as a warning, which this
-       is not. */
-    .lp-page-note {
-        @apply rounded-xl bg-surface-2 text-fg-mute m-0 mb-6 py-3 px-4 text-sm leading-normal;
-    }
-
     .lp-worker-run-list {
         @apply flex flex-col gap-2.5;
     }

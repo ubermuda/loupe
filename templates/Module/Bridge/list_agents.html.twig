@@ -9,7 +9,6 @@
 {% endblock %}
 
 {% block body %}
-{% set staleCount = connections|filter(connection => connection.status.quiet)|length %}
 <div class="lp-workspace lp-orchestration-page lp-redesign-secondary lp-redesign-agents">
     <header class="lp-orchestration-header">
         <div>
@@ -58,26 +57,5 @@
         <a class="lp-btn lp-btn--primary" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'bridge.agents.empty.action'|trans }}</a>
     </div>
     {% endif %}
-
-    <section class="lp-agent-connection-strip">
-        <twig:ux:icon name="lucide:cable" />
-        <div>
-            <h2>{{ connections is empty ? 'bridge.agents.empty.title'|trans : 'bridge.agents.connection'|trans }}</h2>
-            <p>{{ 'bridge.agents.honest_notice'|trans }}</p>
-        </div>
-        <span class="lp-status-chip {{ connections is empty or staleCount > 0 ? 'lp-status-chip--pending' : 'lp-status-chip--ok' }}">
-            <span class="lp-status-chip__dot"></span>
-            {% if connections is empty %}
-                {{ 'bridge.agents.status.empty'|trans }}
-            {% elseif staleCount == connections|length %}
-                {{ 'bridge.agents.status.stale'|trans }}
-            {% elseif staleCount > 0 %}
-                {{ 'bridge.agents.status.mixed'|trans }}
-            {% else %}
-                {{ 'bridge.agents.status.healthy'|trans }}
-            {% endif %}
-        </span>
-        <a class="lp-btn lp-btn--ghost" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'bridge.agents.connection'|trans }}</a>
-    </section>
 </div>
 {% endblock %}

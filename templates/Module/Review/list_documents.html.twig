@@ -8,10 +8,6 @@
     <span class="lp-topbar__here">{{ 'nav.link.documents'|trans }}</span>
 {% endblock %}
 
-{% block topbar_meta %}
-    <span class="lp-topbar__meta">{{ 'review.dashboard.meta.shown'|trans({'%count%': items|length}) }}</span>
-{% endblock %}
-
 {% block body %}
 {# Unfiltered and archive-free, so it can tell "this project has nothing" from
    "the filters matched nothing". Same number the shell's nav pill shows. #}

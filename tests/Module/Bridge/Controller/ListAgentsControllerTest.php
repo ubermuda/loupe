@@ -13,11 +13,11 @@ final class ListAgentsControllerTest extends WebTestCase
 {
     use BridgeScenario;
 
-    #[TestWith([0, 0, 'No connections'])]
-    #[TestWith([1, 0, 'Healthy'])]
-    #[TestWith([0, 1, 'Stale'])]
-    #[TestWith([1, 1, 'Some connections are stale'])]
-    public function test_the_connection_summary_uses_heartbeat_health(int $healthy, int $stale, string $expected): void
+    #[TestWith([1, 0, ['Healthy']])]
+    #[TestWith([0, 1, ['Stale']])]
+    #[TestWith([1, 1, ['Healthy', 'Stale']])]
+    /** @param list<string> $expected */
+    public function test_each_connection_status_uses_heartbeat_health(int $healthy, int $stale, array $expected): void
     {
         $client = static::createClient();
         $em = $this->em();
@@ -28,11 +28,12 @@ final class ListAgentsControllerTest extends WebTestCase
         }
         $em->clear();
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/agents');
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/agents');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextSame('.lp-agent-connection-strip .lp-status-chip', $expected);
-        self::assertSelectorCount($healthy + $stale, '[data-agent-connection-id]');
+        $statuses = $crawler->filter('[data-agent-connection-id] .lp-status-chip')->each(static fn ($chip): string => trim($chip->text()));
+        sort($statuses);
+        self::assertSame($expected, $statuses);
     }
 
     public function test_it_lists_only_connections_that_follow_the_project(): void
