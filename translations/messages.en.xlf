@@ -5715,6 +5715,12 @@
             </trans-unit>
             <trans-unit id="project.workshop.needs_you.title">
                 <source>project.workshop.needs_you.title</source>
+            <trans-unit id="project.workshop.activity.view_all"><source>project.workshop.activity.view_all</source><target>View all</target></trans-unit>
+            <trans-unit id="activity.event_type.board.card_moved"><source>activity.event_type.board.card_moved</source><target>Card moved</target></trans-unit>
+            <trans-unit id="activity.event_type.board.column_renamed"><source>activity.event_type.board.column_renamed</source><target>Column renamed</target></trans-unit>
+            <trans-unit id="activity.event_type.board.column_deleted"><source>activity.event_type.board.column_deleted</source><target>Column deleted</target></trans-unit>
+            <trans-unit id="activity.event_type.inbox.ask_closed"><source>activity.event_type.inbox.ask_closed</source><target>Question closed</target></trans-unit>
+            <trans-unit id="activity.event_type.project.renamed"><source>activity.event_type.project.renamed</source><target>Project renamed</target></trans-unit>
                 <target>Needs you</target>
             </trans-unit>
             <trans-unit id="project.workshop.needs_you.action">

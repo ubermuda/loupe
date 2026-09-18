@@ -1,0 +1,1 @@
+{% set type_key = 'activity.event_type.' ~ type %}{% set type_label = type_key|trans %}{{ type_label == type_key ? type : type_label }}

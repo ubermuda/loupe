@@ -31,7 +31,7 @@
             <span class="lp-workshop-stat__copy"><strong>{{ 'project.workshop.summary.completed'|trans }}</strong>{{ is_feature_enabled('board.enabled') ? 'project.workshop.summary.completed_detail'|trans : 'project.workshop.cards.disabled'|trans }}</span>
         {% if is_feature_enabled('board.enabled') %}</a>{% else %}</div>{% endif %}
         {% if is_feature_enabled('board.enabled') %}
-        <a class="lp-btn lp-btn--outline lp-workshop-summary__action" href="{{ path('app_project_board', {id: workshop.project.id}) }}">
+        <a class="lp-btn lp-workshop-summary__action" href="{{ path('app_project_board', {id: workshop.project.id}) }}">
             <twig:ux:icon name="lucide:square-kanban" />
             {{ 'project.workshop.in_motion.action'|trans }}
         </a>
@@ -71,7 +71,6 @@
                 <a class="lp-workshop-work-card" href="{{ card.url }}" data-workshop-card="{{ card.number }}" data-turbo-frame="card-drawer-frame" data-action="click->card-drawer#prepare">
                     <header><span>#{{ card.number }}</span><span class="lp-workshop-work-card__badge">{{ card.column|trans }}</span></header>
                     <h3>{{ card.title }}</h3>
-                    <footer>{{ ('board.card.priority.' ~ card.priority)|trans }}<twig:ux:icon name="lucide:chevron-right" /></footer>
                 </a>
                 {% else %}
                 <p class="lp-workspace-desc">{{ is_feature_enabled('board.enabled') ? 'project.workshop.cards.empty'|trans : 'project.workshop.cards.disabled'|trans }}</p>
@@ -113,12 +112,12 @@
             <section class="lp-workshop-recent">
                 <div class="lp-section-heading">
                     <h2 class="lp-workshop-section__title">{{ 'nav.link.activity'|trans }}</h2>
-                    <a class="lp-workshop-text-link" href="{{ path('app_project_activity', {id: workshop.project.id}) }}">{{ 'nav.link.activity'|trans }}</a>
+                    <a class="lp-workshop-text-link" href="{{ path('app_project_activity', {id: workshop.project.id}) }}">{{ 'project.workshop.activity.view_all'|trans }}</a>
                 </div>
                 {% for entry in workshop.activity %}
                 <a class="lp-workshop-recent__row" href="{{ entry.link ? entry.link.url : path('app_project_activity', {id: workshop.project.id}) }}" data-workshop-event="{{ entry.event.id }}">
                     <span><twig:ux:icon name="lucide:activity" /></span>
-                    <span><strong>{{ entry.event.type }}</strong><small>{% if entry.link %}{{ entry.link.label }} · {% endif %}<time datetime="{{ entry.event.createdAt|date('c') }}">{{ entry.event.createdAt|relative_time }}</time></small></span>
+                    <span><strong>{% include 'outbox/_event_type_label.html.twig' with {type: entry.event.type} only %}</strong><small>{% if entry.link %}{{ entry.link.label }} · {% endif %}<time datetime="{{ entry.event.createdAt|date('c') }}">{{ entry.event.createdAt|relative_time }}</time></small></span>
                 </a>
                 {% else %}
                 <p class="lp-workspace-desc">{{ 'project.workshop.activity.empty'|trans }}</p>

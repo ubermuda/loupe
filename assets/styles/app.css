@@ -116,6 +116,8 @@
     --color-sunken: var(--bg-sunken);
     --color-tint: var(--bg-hover);
     --color-tint-strong: var(--bg-active);
+    --color-warm: var(--bg-warm);
+    --color-line-warm: var(--border-warm);
     --color-surface-1: var(--surface-1);
     --color-surface-2: var(--surface-2);
     --color-surface-3: var(--surface-3);
@@ -226,6 +228,9 @@
     --bg-sunken: #f0f2eb;
     --bg-hover: #f7f8f3;
     --bg-active: #e9ede3;
+    /* Warm paper for the mascot notes that sit beside the work. */
+    --bg-warm: #f1eee4;
+    --border-warm: #e9e5d8;
 
     /* Chrome — the dark shell the paper is inset into. */
     --chrome: #181d18;
@@ -6093,7 +6098,7 @@
         @apply text-sm font-semibold text-ink;
     }
     .lp-workshop-summary__action {
-        @apply mt-3 border-line-strong bg-transparent text-ink sm:mt-0 sm:ml-auto;
+        @apply mt-3 sm:mt-0 sm:ml-auto;
     }
     .lp-workshop-summary__action:hover {
         @apply border-accent-border bg-accent-soft text-ink;
@@ -6175,19 +6180,11 @@
         @apply bg-surface-3 text-fg-dim;
     }
     .lp-workshop-work-card h3 {
-        @apply mt-3 break-words font-display text-sm font-bold leading-snug text-ink;
+        @apply mt-3 break-words font-display text-base leading-normal font-extrabold text-ink;
     }
-    .lp-workshop-work-card footer {
-        @apply flex items-center gap-2 mt-4 text-xs text-fg-dim;
-    }
-    .lp-workshop-work-card footer > svg {
-        @apply w-3.5 h-3.5 ml-auto;
-    }
-    .lp-workshop-work-card__avatar,
     .lp-workshop-crew__avatar {
         @apply inline-grid place-items-center w-7 h-7 shrink-0 rounded-full bg-accent-soft text-accent-ink;
     }
-    .lp-workshop-work-card__avatar svg,
     .lp-workshop-crew__avatar svg {
         @apply w-3.5 h-3.5;
     }
@@ -6222,7 +6219,7 @@
         @apply ml-auto text-xs font-semibold text-accent-ink;
     }
     .lp-workshop-note {
-        @apply relative flex min-h-44 mt-4 overflow-hidden rounded-xl border border-line bg-surface-3 p-5;
+        @apply relative flex min-h-44 mt-4 overflow-hidden rounded-xl border border-line-warm bg-warm p-5;
     }
     .lp-workshop-note > div {
         @apply relative z-10 max-w-40;

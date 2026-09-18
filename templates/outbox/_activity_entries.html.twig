@@ -18,11 +18,12 @@
             </div>
             <div class="lp-activity-row__body">
                 <div class="lp-activity-row__heading">
-                    <h2>{{ event.type }}</h2>
+                    <h2>{% include 'outbox/_event_type_label.html.twig' with {type: event.type} only %}</h2>
                     <time datetime="{{ event.createdAt|date('c') }}">{{ event.createdAt|date('Y-m-d H:i:s') }}</time>
                 </div>
                 <p>{{ 'activity.event_detail'|trans({'%sequence%': event.sequence ?? '—', '%family%': family}) }}</p>
                 <div class="lp-activity-row__meta">
+                    <span data-activity-event-type>{{ event.type }}</span>
                     {% if entry.link %}
                     <a class="lp-activity-row__work" data-activity-work-link href="{{ entry.link.url }}">{{ entry.link.label }}</a>
                     {% endif %}
