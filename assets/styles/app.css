@@ -1242,7 +1242,7 @@
        Scoped to the application shell: the landing page and the authentication
        interstitials carry their own type scale. */
     .lp-main :is(h1, h2, h3, h4) {
-        @apply font-display;
+        @apply font-display tracking-tight;
     }
     .lp-workspace-title {
         @apply font-display font-extrabold text-ink m-0 text-3xl tracking-tight leading-none;
