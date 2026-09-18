@@ -7,6 +7,12 @@ const test = createTest({
     password: 'e2e_password_123',
 });
 
+// Ten viewport passes, two font sizes by five widths, each opening and closing
+// the attempt drawer and writing a screenshot. It measures 25s on a developer
+// machine against the suite's 30s default, so a loaded CI runner decides it by
+// luck. The budget is the fix rather than dropping a pass.
+test.setTimeout(60_000);
+
 test('completed reports retain outcomes and escaped output at enlarged text sizes', async ({
     page,
 }, testInfo) => {
