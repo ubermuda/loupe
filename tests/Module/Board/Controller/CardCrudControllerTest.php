@@ -231,6 +231,16 @@ final class CardCrudControllerTest extends WebTestCase
         );
         self::assertResponseIsSuccessful();
         self::assertSame('Next', trim($crawler->filter('select[name="create_card_form[column]"] option[selected]')->text()));
+
+        // The board opens the same form in its card drawer, so it renders in that frame.
+        $crawler = $client->request(
+            Request::METHOD_GET,
+            '/projects/'.$project->id.'/board/cards/new?column='.$next->id,
+            server: ['HTTP_TURBO_FRAME' => 'card-drawer-frame'],
+        );
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('turbo-frame#card-drawer-frame form[name="create_card_form"]'));
+        self::assertCount(1, $crawler->filter('turbo-frame#card-drawer-frame a[data-action="card-drawer#close"]:contains("Cancel")'));
     }
 
     public function test_the_owner_creates_a_card_from_feedback_and_attaches_it(): void
@@ -304,6 +314,11 @@ final class CardCrudControllerTest extends WebTestCase
         );
         self::assertResponseIsSuccessful();
         self::assertSame('Before', $crawler->filter('#create_card_form_title')->attr('value'));
+        // Edit swaps the drawer's content in place, and Cancel returns to the card inside it.
+        self::assertCount(1, $crawler->filter('turbo-frame#card-drawer-frame form[name="create_card_form"]'));
+        $cancel = $crawler->filter('turbo-frame#card-drawer-frame a:contains("Cancel")');
+        self::assertSame('/projects/'.$project->id.'/board/cards/'.$cardId, $cancel->attr('href'));
+        self::assertNull($cancel->attr('data-turbo-frame'));
 
         $client->submitForm('Save card', [
             'create_card_form[title]' => 'After',

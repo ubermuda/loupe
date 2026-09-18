@@ -25,7 +25,7 @@
             {% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}
         </div>
         <div class="lp-card-drawer__header-actions">
-            <a class="lp-btn lp-btn--ghost" href="{{ path('app_board_card_edit', {projectId: card.project.id, cardId: card.id}) }}" data-turbo-frame="_top"><twig:ux:icon name="lucide:pencil" class="w-4 h-4" />{{ 'board.card.edit.action'|trans }}</a>
+            <a class="lp-btn lp-btn--ghost" href="{{ path('app_board_card_edit', {projectId: card.project.id, cardId: card.id}) }}"><twig:ux:icon name="lucide:pencil" class="w-4 h-4" />{{ 'board.card.edit.action'|trans }}</a>
             <a class="lp-btn lp-btn--ghost lp-btn--icon" href="{{ path('app_project_board', {id: card.project.id}) }}" aria-label="{{ 'board.card.drawer.close'|trans }}" data-action="card-drawer#close"><twig:ux:icon name="lucide:x" class="w-4 h-4" /></a>
         </div>
     </header>

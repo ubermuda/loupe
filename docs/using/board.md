@@ -203,7 +203,7 @@ hub and the `live_updates.enabled` flag, see
 [Environment variables](../reference/environment.md). If either is missing, a
 board shows the change on its next load.
 
-**New card** opens the create form. Under each terminal column, a link opens the
+**Add card**, in the page header or under a column, opens the create form in the card drawer. A column's Add card preselects that column. After you save, the drawer shows the new card and the board shows it too. Without JavaScript, the same link opens the form as a page. Under each terminal column, a link opens the
 history page at **`/projects/<project>/board/terminal/<column id>`**. That page
 lists every card in the column, newest completion first, 25 to a page. The
 older address **`/projects/<project>/board/done`** still works. It opens the
@@ -251,8 +251,12 @@ When the inbox is on, the page also lists the inbox items linked to the card,
 and you can answer them there. See
 [On a card page and a document page](inbox.md#on-a-card-page-and-a-document-page).
 
+On the board, the Workshop, a document and the Site review page, a card opens
+in a drawer that slides in from the right. The drawer shows the same content as
+the card page.
+
 **Edit** opens the card for a change to its title, body, type, column and
-links. **Delete** asks for a confirmation first, then removes the card and
+links. In the drawer, the form replaces the card, and saving returns to the card. **Delete** asks for a confirmation first, then removes the card and
 its links. A delete cannot be undone, and the number the card held is not
 issued again.
 

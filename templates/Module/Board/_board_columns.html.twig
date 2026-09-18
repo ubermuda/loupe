@@ -102,7 +102,7 @@
             {{ 'board.terminal.history_link'|trans({'%count%': view.terminalTotal}) }}
         </a>
         {% endif %}
-        <a class="lp-board__add-card" href="{{ path('app_board_card_create', {id: board.project.id, column: view.column.id}) }}">
+        <a class="lp-board__add-card" href="{{ path('app_board_card_create', {id: board.project.id, column: view.column.id}) }}" data-turbo-frame="card-drawer-frame" data-action="click->card-drawer#prepare">
             <twig:ux:icon name="lucide:plus" class="w-4 h-4" />
             {{ 'board.column.add_card'|trans }}
         </a>

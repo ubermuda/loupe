@@ -41,7 +41,9 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-priority], [data-card-priority]'));
         self::assertCount(2, $crawler->filter('[data-board-drag-target="card"]'));
         self::assertCount(1, $crawler->filter('dialog[data-card-drawer-target="dialog"] turbo-frame#card-drawer-frame'));
-        self::assertCount(2, $crawler->filter('.lp-board__column a[data-turbo-frame="card-drawer-frame"][data-action="click->card-drawer#prepare"]'));
+        self::assertCount(2, $crawler->filter('.lp-board-card a[data-turbo-frame="card-drawer-frame"][data-action="click->card-drawer#prepare"]'));
+        self::assertCount(4, $crawler->filter('a.lp-board__add-card[data-turbo-frame="card-drawer-frame"][data-action="click->card-drawer#prepare"]'));
+        self::assertCount(1, $crawler->filter('.lp-board-head a[href$="/board/cards/new"][data-turbo-frame="card-drawer-frame"]'));
         self::assertSelectorTextContains('.lp-board-toolbar__count', '2 cards');
         self::assertSelectorTextContains('.lp-board-toolbar__mode-button[aria-pressed="true"]', 'Board');
         self::assertSelectorExists('a[href="/projects/'.$project->id.'/edit"]');

@@ -2,6 +2,10 @@
 
 {% block title %}{{ 'board.card.edit.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
+{% block flash_messages %}
+    {% if app.request.headers.get('Turbo-Frame') != 'card-drawer-frame' %}{{ parent() }}{% endif %}
+{% endblock %}
+
 {% block topbar_crumbs %}
     <a class="lp-topbar__crumb" href="{{ path('app_project_board', {id: card.project.id}) }}">{{ 'nav.link.board'|trans }}</a>
     <span class="lp-topbar__sep">/</span>
@@ -11,15 +15,35 @@
 {% endblock %}
 
 {% block body %}
-<div class="lp-workspace">
-    <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'board.card.edit.page.title'|trans }}</h1>
-    <p class="lp-workspace-desc">{{ 'board.card.edit.page.description'|trans }}</p>
+{# The same frame as the card view, so Edit swaps the drawer's content in place. #}
+<turbo-frame id="card-drawer-frame">
+<div class="lp-card-drawer">
+    {% if app.request.headers.get('Turbo-Frame') == 'card-drawer-frame' %}
+        {% include '_flash_messages.html.twig' with {flashes: app.flashes(['success', 'error', 'warning', 'info'])} only %}
+    {% endif %}
+    <header class="lp-card-drawer__header">
+        <div class="lp-card-drawer__identity">
+            <span class="lp-card-drawer__icon"><twig:ux:icon name="lucide:pencil" class="w-4 h-4" /></span>
+            <span class="lp-card-number">#{{ card.number }}</span>
+            <span>{{ 'board.card.edit.page.title'|trans }}</span>
+        </div>
+        <div class="lp-card-drawer__header-actions">
+            <a class="lp-btn lp-btn--ghost lp-btn--icon" href="{{ path('app_project_board', {id: card.project.id}) }}" aria-label="{{ 'board.card.drawer.close'|trans }}" data-turbo-frame="_top" data-action="card-drawer#close"><twig:ux:icon name="lucide:x" class="w-4 h-4" /></a>
+        </div>
+    </header>
 
-    {% include '@Board/_card_form.html.twig' with {
-        form: form,
-        action: path('app_board_card_edit', {projectId: card.project.id, cardId: card.id}),
-        submitLabel: 'board.card.edit.submit',
-        cancelUrl: path('app_board_card', {projectId: card.project.id, cardId: card.id}),
-    } only %}
+    <div class="lp-card-drawer__body">
+        <h1 class="lp-card-drawer__title">{{ 'board.card.edit.page.title'|trans }}</h1>
+        <p class="lp-workspace-desc">{{ 'board.card.edit.page.description'|trans }}</p>
+
+        {% include '@Board/_card_form.html.twig' with {
+            form: form,
+            action: path('app_board_card_edit', {projectId: card.project.id, cardId: card.id}),
+            submitLabel: 'board.card.edit.submit',
+            cancelUrl: path('app_board_card', {projectId: card.project.id, cardId: card.id}),
+            cancelLeavesFrame: false,
+        } only %}
+    </div>
 </div>
+</turbo-frame>
 {% endblock %}
