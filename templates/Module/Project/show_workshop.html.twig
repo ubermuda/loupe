@@ -88,7 +88,7 @@
                 {% for connection in workshop.connections %}
                 <a class="lp-workshop-crew__row" href="{{ connection.url }}" data-workshop-connection="{{ connection.id }}">
                     <span class="lp-workshop-crew__avatar"><twig:ux:icon name="lucide:bot" /></span>
-                    <span><strong>{{ connection.id|slice(-12) }}</strong><small>{{ connection.cliVersion }}</small></span>
+                    <span><strong>{{ connection.id|slice(-12) }}</strong><small>{{ connection.cliVersion|short_sha }}</small></span>
                     <span class="lp-workshop-crew__status">{{ (connection.quiet ? 'bridge.agents.status.stale' : 'bridge.agents.status.healthy')|trans }}</span>
                 </a>
                 {% else %}
