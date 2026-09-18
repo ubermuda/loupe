@@ -383,7 +383,7 @@ final class LinkedInboxSectionTest extends WebTestCase
         self::assertResponseRedirects($this->cardUrl().'?tab=conversation');
 
         $this->post($fromInbox, 'done', [], ['returnTo' => 'card', 'returnId' => (string) $this->card->id, 'q' => '  export  ']);
-        self::assertResponseRedirects('/projects/'.$this->project->id.'/inbox?q=export');
+        self::assertResponseRedirects('/projects/'.$this->project->id.'/inbox?q=export#inbox-item-3');
     }
 
     /** @return iterable<string, array{array<string, string>}> */
@@ -412,7 +412,7 @@ final class LinkedInboxSectionTest extends WebTestCase
 
         $this->post($item, 'done', [], $query);
 
-        self::assertResponseRedirects('/projects/'.$this->project->id.'/inbox');
+        self::assertResponseRedirects('/projects/'.$this->project->id.'/inbox#inbox-item-2');
     }
 
     private function linkCard(InboxItem $item): void

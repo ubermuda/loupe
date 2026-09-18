@@ -78,7 +78,7 @@ final class InboxItemFormsControllerTest extends WebTestCase
         self::assertSelectorExists('input[name="'.$name.'[verdict]"][value="changes-requested"]:checked');
         $this->client->submit($crawler->filter('form[name="'.$name.'"]')->form([$name.'[note]' => 'Add a retry limit.']));
         // The ask closed with its last blocking item, so the request is completed now.
-        self::assertResponseRedirects($this->completedUrl());
+        self::assertResponseRedirects($this->completedUrl().'#inbox-item-1');
         $this->client->followRedirect();
         self::assertSelectorTextContains('[data-inbox-review-verdict]', 'Changes requested');
         self::assertSelectorTextContains('#inbox-item-1', 'Add a retry limit.');
@@ -154,7 +154,7 @@ final class InboxItemFormsControllerTest extends WebTestCase
             $name.'[verdict]' => 'changes-requested',
             $name.'[note]' => 'Clarify the second version.',
         ]));
-        self::assertResponseRedirects($this->completedUrl());
+        self::assertResponseRedirects($this->completedUrl().'#inbox-item-1');
         $this->client->followRedirect();
         self::assertSelectorTextContains('[data-inbox-review-verdict]', 'Changes requested');
         self::assertSelectorTextContains('#inbox-item-1', 'Version 2');
@@ -200,11 +200,11 @@ final class InboxItemFormsControllerTest extends WebTestCase
         $page = $this->client->request(Request::METHOD_GET, $this->completedUrl());
         $form = $page->filter('form[name="'.$name.'"]')->form([$name.'[body]' => 'One more detail.']);
         $this->client->submit($form);
-        self::assertResponseRedirects($this->completedUrl());
+        self::assertResponseRedirects($this->completedUrl().'#inbox-item-1');
         $this->client->followRedirect();
         self::assertSelectorTextContains('[data-inbox-reply]', 'One more detail.');
         $this->client->submit($form);
-        self::assertResponseRedirects($this->completedUrl());
+        self::assertResponseRedirects($this->completedUrl().'#inbox-item-1');
         $this->client->followRedirect();
         self::assertSelectorCount(1, '[data-inbox-reply]');
 
@@ -235,7 +235,7 @@ final class InboxItemFormsControllerTest extends WebTestCase
             $name.'[answerText]' => 'CSV, because the importer reads it.',
         ]));
 
-        self::assertResponseRedirects($this->pageUrl());
+        self::assertResponseRedirects($this->pageUrl().'#inbox-item-4');
         $stored = $this->reload($item);
         self::assertSame(InboxItemState::Answered, $stored->state);
         self::assertSame([1], $stored->selectedOptions);
@@ -280,6 +280,20 @@ final class InboxItemFormsControllerTest extends WebTestCase
         self::assertSame([0], $this->reload($item)->selectedOptions);
     }
 
+    public function test_a_saved_response_returns_to_the_request_it_changed(): void
+    {
+        $first = $this->question($this->em, $this->project, 1);
+        $second = $this->question($this->em, $this->project, 2);
+        $this->askHolding($this->em, $this->project, [$first]);
+        $this->askHolding($this->em, $this->project, [$second]);
+
+        // The second request is not the one the list selects on its own, so the
+        // redirect has to name it or the page hides the answer just given.
+        $this->post($second, 'answer', ['selectedOptions' => '0']);
+
+        self::assertResponseRedirects($this->completedUrl().'#inbox-item-2');
+    }
+
     public function test_a_refused_form_and_a_saved_one_keep_the_closed_asks_page(): void
     {
         $last = null;
@@ -298,7 +312,7 @@ final class InboxItemFormsControllerTest extends WebTestCase
 
         $this->post($last, 'reply', ['body' => 'One more detail.', 'submissionId' => (string) Uuid::v4()], page: 2, queue: 'completed');
 
-        self::assertResponseRedirects($this->completedUrl().'&page=2');
+        self::assertResponseRedirects($this->completedUrl().'&page=2#inbox-item-'.$last->number);
     }
 
     public function test_a_refused_form_and_a_saved_one_keep_the_search(): void
@@ -315,7 +329,7 @@ final class InboxItemFormsControllerTest extends WebTestCase
 
         $this->post($question, 'answer', ['selectedOptions' => '0'], query: 'export');
 
-        self::assertResponseRedirects($this->pageUrl().'?q=export');
+        self::assertResponseRedirects($this->pageUrl().'?q=export#inbox-item-1');
     }
 
     public function test_marking_a_to_do_done(): void
@@ -324,7 +338,7 @@ final class InboxItemFormsControllerTest extends WebTestCase
 
         $this->post($item, 'done', []);
 
-        self::assertResponseRedirects($this->pageUrl());
+        self::assertResponseRedirects($this->pageUrl().'#inbox-item-2');
         $stored = $this->reload($item);
         self::assertSame(InboxItemState::Done, $stored->state);
         self::assertNotNull($stored->closedAt);
@@ -347,7 +361,7 @@ final class InboxItemFormsControllerTest extends WebTestCase
 
         $this->post($item, 'decline', ['closeNote' => 'Not sure what you mean.']);
 
-        self::assertResponseRedirects($this->pageUrl());
+        self::assertResponseRedirects($this->pageUrl().'#inbox-item-3');
         $stored = $this->reload($item);
         self::assertSame(InboxItemState::Declined, $stored->state);
         self::assertSame('Not sure what you mean.', $stored->closeNote);

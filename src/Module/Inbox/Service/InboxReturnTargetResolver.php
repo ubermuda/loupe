@@ -72,7 +72,12 @@ final readonly class InboxReturnTargetResolver
             ...('' === $search ? [] : ['q' => $search]),
         ];
 
-        return new InboxReturnTarget('app_project_inbox', ['id' => $projectId, ...$pageQuery], ShowInboxController::class, ['id' => $projectId, 'project' => $item->project], $pageQuery);
+        // The fragment names the request, so the page opens it rather than the
+        // first one in the list. A forward carries no fragment and needs none:
+        // it re-renders the page the form was already on.
+        $redirect = ['id' => $projectId, ...$pageQuery, '_fragment' => 'inbox-item-'.$item->number];
+
+        return new InboxReturnTarget('app_project_inbox', $redirect, ShowInboxController::class, ['id' => $projectId, 'project' => $item->project], $pageQuery);
     }
 
     /**
