@@ -60,7 +60,9 @@ final class BoardRefreshSubscriptionTest extends WebTestCase
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board');
         // The refusal forwards to the board, and only a main-request cookie is sent.
-        $crawler = $client->submit($crawler->filter('form[action$="/board/columns"]')->form(['add_board_column_form[label]' => 'Done']));
+        $form = $crawler->filter('form[name^="rename_board_column_"]')->first();
+        $name = $form->attr('name');
+        $crawler = $client->submit($form->form(), [$name.'[label]' => '🚀']);
 
         self::assertResponseStatusCodeSame(422);
         self::assertCount(1, self::subscribedTopics($client->getResponse()) ?? []);

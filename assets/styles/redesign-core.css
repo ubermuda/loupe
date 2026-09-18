@@ -101,8 +101,7 @@
     color: var(--ink);
 }
 
-.lp-core-board .lp-board__column-count,
-.lp-core-board .lp-board__column-flag {
+.lp-core-board .lp-board__column-count {
     border: 0;
     background: var(--border);
     color: var(--text-mute);
@@ -166,13 +165,6 @@
 .lp-core-board .lp-board-card__meta {
     padding-top: calc(var(--spacing) * 2.5);
     border-top: 1px solid var(--border-faint);
-}
-
-.lp-core-board .lp-board__add-column {
-    min-height: calc(var(--spacing) * 52);
-    border: 1px dashed var(--border-strong);
-    border-radius: var(--radius-xl);
-    background: transparent;
 }
 
 .lp-workspace.lp-core-inbox {

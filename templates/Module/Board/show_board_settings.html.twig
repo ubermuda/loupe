@@ -66,7 +66,7 @@
                     </button>
                     <dialog class="lp-dialog" data-modal-target="dialog">
                         <h3 class="lp-dialog-title">{{ 'board.column.add.title'|trans }}</h3>
-                        {{ form_start(addForm, {action: path('app_board_column_add', {id: board.project.id, view: 'settings'}), attr: {class: 'lp-form'}}) }}
+                        {{ form_start(addForm, {action: path('app_board_column_add', {id: board.project.id}), attr: {class: 'lp-form'}}) }}
                             <div class="lp-form-field">
                                 {{ form_label(addForm.label, null, {label_attr: {class: 'lp-label'}}) }}
                                 {{ form_widget(addForm.label, {attr: {class: 'lp-input'}}) }}

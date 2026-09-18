@@ -52,7 +52,7 @@
     {% do mercure_subscribe(boardTopic) %}
     <div data-controller="board-refresh" data-board-refresh-board-value="{{ path('app_project_board', {id: board.project.id}) }}">
         <turbo-frame id="board-frame" target="_top" data-board-refresh-target="frame">
-            {% include '@Board/_board_columns.html.twig' with {board: board, addColumnForm: addColumnForm, renameColumnForm: renameColumnForm} only %}
+            {% include '@Board/_board_columns.html.twig' with {board: board, renameColumnForm: renameColumnForm} only %}
         </turbo-frame>
     </div>
 

@@ -132,31 +132,9 @@ final class BoardColumnControllersTest extends WebTestCase
         $crawler = $this->board($project);
 
         self::assertCount(4, $crawler->filter('.lp-board__column-menu'));
-        self::assertCount(1, $crawler->filter('form[action$="/board/columns"]'));
         self::assertCount(4, $crawler->filter('[data-board-columns-target="column"] [draggable="true"]'));
-    }
-
-    public function test_the_owner_adds_a_column_from_the_board(): void
-    {
-        [, $project] = $this->ownedBoard('columns-add@example.com');
-        $crawler = $this->board($project);
-
-        $this->client->submit($crawler->filter('form[action$="/board/columns"]')->form(['add_board_column_form[label]' => 'Parked']));
-
-        self::assertResponseRedirects('/projects/'.$project->id.'/board');
-        self::assertSame(['backlog', 'next', 'in-progress', 'done', 'parked'], $this->slugs($project));
-    }
-
-    public function test_a_refused_add_renders_the_board_with_the_error(): void
-    {
-        [, $project] = $this->ownedBoard('columns-add-refused@example.com');
-        $crawler = $this->board($project);
-
-        $crawler = $this->client->submit($crawler->filter('form[action$="/board/columns"]')->form(['add_board_column_form[label]' => 'Done']));
-
-        self::assertResponseStatusCodeSame(422);
-        self::assertStringContainsString('already has this slug', $crawler->filter('.lp-board__add-column .lp-field-errors')->text());
-        self::assertSame(['backlog', 'next', 'in-progress', 'done'], $this->slugs($project));
+        // Columns are added from board settings, never from the board itself.
+        self::assertCount(0, $crawler->filter('form[action$="/board/columns"]'));
     }
 
     public function test_the_owner_renames_a_column_through_its_dialog(): void

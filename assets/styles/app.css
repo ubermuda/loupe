@@ -5324,14 +5324,6 @@
     .lp-board__column-menu-note {
         @apply px-2 py-1.5 m-0 text-xs text-fg-dim;
     }
-    /* The add control after the last column. It keeps a column's minimum width,
-       so the new column appears where the control stood. */
-    .lp-board__add-column {
-        @apply flex flex-col shrink-0 min-w-64 rounded-xl border-2 border-dashed border-surface-3 p-3.5;
-    }
-    .lp-board__add-form {
-        @apply flex flex-col gap-2;
-    }
     .lp-board__slug {
         @apply block;
     }

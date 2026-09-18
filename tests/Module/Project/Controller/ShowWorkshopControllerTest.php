@@ -77,7 +77,7 @@ final class ShowWorkshopControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSame(['8', '7', '6', '5', '4', '3'], $crawler->filter('[data-workshop-card]')->extract(['data-workshop-card']));
         self::assertSelectorTextContains('[data-workshop-card="8"]', 'Work 8');
-        self::assertSelectorTextContains('[data-workshop-card="8"]', 'High');
+        self::assertSelectorTextContains('[data-workshop-card="8"]', 'Backlog');
         self::assertSelectorTextSame('[data-workshop-stat="open-cards"] .lp-workshop-stat__value', '8');
         self::assertSelectorTextSame('[data-workshop-stat="completed-cards"] .lp-workshop-stat__value', '1');
         self::assertSame('card-drawer-frame', $crawler->filter('[data-workshop-card="8"]')->attr('data-turbo-frame'));

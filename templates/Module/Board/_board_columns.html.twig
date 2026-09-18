@@ -1,6 +1,6 @@
 {# The board itself. Rendered by the page and again by the move endpoint's
    stream, so the two can never drift apart. Props: board (BoardView),
-   addColumnForm and renameColumnForm (a refused FormView, or null). #}
+   renameColumnForm (a refused FormView, or null). #}
 {% set canManage = is_granted(constant('App\\Module\\Board\\Security\\BoardColumnVoter::MANAGE'), board.project) %}
 <div id="board" class="lp-board" data-controller="board-drag board-filter board-view{{ canManage ? ' board-columns' }}">
     {% set cardCount = 0 %}
@@ -90,12 +90,6 @@
             </span>
             {% endif %}
             <h2 class="lp-board__column-title">{{ label }}</h2>
-            {% if canManage and view.column.isDefault %}
-            <span class="lp-board__column-flag">{{ 'board.column.flag.default'|trans }}</span>
-            {% endif %}
-            {% if canManage and view.column.terminal %}
-            <span class="lp-board__column-flag">{{ 'board.column.flag.terminal'|trans }}</span>
-            {% endif %}
             <span class="lp-board__column-count">{{ view.count }}</span>
             {% if canManage %}
                 {% include '@Board/_board_column_menu.html.twig' with {board: board, view: view, index: loop.index0, renameColumnForm: renameColumnForm, returnView: 'board'} only %}
@@ -130,22 +124,6 @@
         </a>
     </section>
     {% endfor %}
-    {% if canManage %}
-        {% set addForm = board_column_add_form(addColumnForm) %}
-        <section class="lp-board__add-column" aria-label="{{ 'board.column.add.title'|trans }}">
-            {{ form_start(addForm, {action: path('app_board_column_add', {id: board.project.id}), attr: {class: 'lp-board__add-form'}}) }}
-                <div class="lp-form-field">
-                    {{ form_label(addForm.label, null, {label_attr: {class: 'lp-label'}}) }}
-                    {{ form_widget(addForm.label, {attr: {class: 'lp-input', maxlength: constant('App\\Module\\Board\\Entity\\BoardColumn::MAX_LABEL_LENGTH'), placeholder: 'board.form.add_board_column_form.label.placeholder'}}) }}
-                    <div class="lp-field-errors">{{ form_errors(addForm.label) }}</div>
-                </div>
-                <button type="submit" class="lp-btn">
-                    <twig:ux:icon name="lucide:plus" class="w-4 h-4 shrink-0" />
-                    {{ 'board.column.add.submit'|trans }}
-                </button>
-            {{ form_end(addForm) }}
-        </section>
-    {% endif %}
     </div>
     <div class="lp-board-list" data-board-view-target="list" hidden>
         <div class="lp-board-list__header" aria-hidden="true">
