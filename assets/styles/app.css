@@ -3795,13 +3795,12 @@
     .lp-kbd {
         @apply hidden lg:inline-block rounded border border-b-2 border-line bg-app px-1 font-mono text-xs leading-5 text-fg-dim;
     }
-    /* The design carries one primary create action in the top bar. It collapses
-       to its icon where the row runs out of room. */
+    /* The design carries one primary create action in the top bar. Below `lg`
+       it is gone rather than collapsed: every page it appears on already has
+       its own create button, and a second control on that row overflows the
+       page at enlarged text. */
     .lp-topbar__new-work {
-        @apply shrink-0;
-    }
-    .lp-topbar__new-work > span {
-        @apply hidden lg:inline;
+        @apply hidden lg:inline-flex shrink-0;
     }
 
     /* Tailwind's lg variants start at 1024px, but the rail stays in flow above
