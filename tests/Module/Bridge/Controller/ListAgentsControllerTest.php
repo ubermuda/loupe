@@ -13,10 +13,10 @@ final class ListAgentsControllerTest extends WebTestCase
 {
     use BridgeScenario;
 
+    /** @param list<string> $expected */
     #[TestWith([1, 0, ['Healthy']])]
     #[TestWith([0, 1, ['Stale']])]
     #[TestWith([1, 1, ['Healthy', 'Stale']])]
-    /** @param list<string> $expected */
     public function test_each_connection_status_uses_heartbeat_health(int $healthy, int $stale, array $expected): void
     {
         $client = static::createClient();
