@@ -6103,11 +6103,18 @@
     .lp-workshop-text-link svg {
         @apply w-3.5 h-3.5;
     }
-    .lp-workshop-attention {
-        @apply flex items-center gap-3 mt-4 px-5 py-4 rounded-xl border border-line bg-white no-underline transition-colors;
+    /* The queue is one card with divided rows, not a stack of separate cards. */
+    .lp-workshop-attention-list {
+        @apply mt-4 px-4.5 rounded-xl border border-line bg-white;
     }
-    a.lp-workshop-attention:hover {
-        @apply border-accent-border;
+    .lp-workshop-attention {
+        @apply flex items-center gap-3 px-0.5 py-4.5 border-b border-line no-underline transition-colors;
+    }
+    .lp-workshop-attention:last-child {
+        @apply border-b-0;
+    }
+    a.lp-workshop-attention:hover strong {
+        @apply text-accent-ink;
     }
     .lp-workshop-attention__icon {
         @apply inline-grid place-items-center w-8 h-8 shrink-0 rounded-lg bg-accent-soft text-accent-ink;

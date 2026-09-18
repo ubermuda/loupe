@@ -45,16 +45,20 @@
                 <h2 class="lp-workshop-section__title">{{ 'project.workshop.needs_you.title'|trans }}{% if is_feature_enabled('inbox.enabled') %} <span>{{ workshop.stats.openInboxItemCount }}</span>{% endif %}</h2>
                 {% if is_feature_enabled('inbox.enabled') %}<a class="lp-workshop-text-link" href="{{ path('app_project_inbox', {id: workshop.project.id}) }}">{{ 'project.workshop.needs_you.action'|trans }} <twig:ux:icon name="lucide:chevron-right" /></a>{% endif %}
             </div>
-            {% for item in workshop.attention %}
-            <a class="lp-workshop-attention" href="{{ item.url }}" data-workshop-attention>
-                <span class="lp-workshop-attention__icon"><twig:ux:icon name="lucide:inbox" /></span>
-                <span><strong>{{ item.title }}</strong></span>
-                <span class="lp-workshop-attention__badge">{{ ('inbox.item.kind.' ~ item.kind)|trans }}{% if item.blocking %} · {{ 'inbox.item.blocking'|trans }}{% endif %}</span>
-                <twig:ux:icon name="lucide:chevron-right" class="lp-workshop-attention__chevron" />
-            </a>
+            {% if workshop.attention is not empty %}
+            <div class="lp-workshop-attention-list">
+                {% for item in workshop.attention %}
+                <a class="lp-workshop-attention" href="{{ item.url }}" data-workshop-attention>
+                    <span class="lp-workshop-attention__icon"><twig:ux:icon name="lucide:inbox" /></span>
+                    <span><strong>{{ item.title }}</strong></span>
+                    <span class="lp-workshop-attention__badge">{{ ('inbox.item.kind.' ~ item.kind)|trans }}{% if item.blocking %} · {{ 'inbox.item.blocking'|trans }}{% endif %}</span>
+                    <twig:ux:icon name="lucide:chevron-right" class="lp-workshop-attention__chevron" />
+                </a>
+                {% endfor %}
+            </div>
             {% else %}
             <p class="lp-workspace-desc">{{ is_feature_enabled('inbox.enabled') ? 'project.workshop.needs_you.clear'|trans : 'project.workshop.needs_you.disabled'|trans }}</p>
-            {% endfor %}
+            {% endif %}
         </section>
 
         <section class="lp-workshop-section">
