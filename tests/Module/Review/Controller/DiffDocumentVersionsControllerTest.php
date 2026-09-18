@@ -779,12 +779,9 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertCount(1, $source->filter('[data-margin-panel="outline"]'));
         $this->assertContentsRowsResolve($source);
 
-        // The two columns take the width the margin would, so their headings are
-        // listed by the review menu alone.
-        // The columns pair by position, so Gone shares a row with Arrived and
-        // both are on screen there. The order therefore differs from the merged
-        // render's above, and reading only the newer cell of a row would drop
-        // Gone from the list while it is still on the page.
+        // The columns take the margin's width, so the review menu lists their
+        // headings. They pair by position, so Gone shares a row with Arrived,
+        // and reading only the newer cell would drop Gone from the list.
         $columns = $client->request(Request::METHOD_GET, $base.'?view=side-by-side');
         self::assertSame(
             ['First', 'Gone', 'Arrived', 'Renamed', 'Second', 'Second!'],

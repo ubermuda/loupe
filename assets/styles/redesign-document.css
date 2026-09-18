@@ -137,7 +137,10 @@
     }
 }
 .lp-review .lp-review-doc__prose > :first-child,
-.lp-review .lp-review-doc__prose > .lp-section-head:first-child > :is(h1, h2, h3, h4, h5, h6) {
+.lp-review
+    .lp-review-doc__prose
+    > .lp-section-head:first-child
+    > :is(h1, h2, h3, h4, h5, h6) {
     @apply mt-0;
 }
 /* Sections are separated by whitespace, never by a rule. */
@@ -153,7 +156,10 @@
 .lp-review .lp-review-doc__prose :is(p, li) {
     @apply leading-7.5;
 }
-.lp-review .lp-review-doc__prose :is(.lp-section-head, h1, h2, h3, h4, h5, h6) + :is(p, ul, ol) {
+.lp-review
+    .lp-review-doc__prose
+    :is(.lp-section-head, h1, h2, h3, h4, h5, h6)
+    + :is(p, ul, ol) {
     @apply mt-0;
 }
 /* A code block reads as a quiet inset of the paper, not a dark slab. */
@@ -193,7 +199,9 @@
     content: 'Pick one';
     @apply order-2 mb-0 shrink-0 rounded-md bg-surface-1 px-1.75 py-0.75 font-sans text-xs leading-4 font-semibold tracking-normal text-fg-dim normal-case;
 }
-.lp-review .lp-decision[data-decision-type='multiple'] .lp-decision__prompt::before {
+.lp-review
+    .lp-decision[data-decision-type='multiple']
+    .lp-decision__prompt::before {
     content: 'Pick any';
 }
 .lp-review .lp-decision__options {
@@ -312,7 +320,9 @@
 .lp-review .lp-review-context-panel .lp-review-contents__tick--on {
     @apply text-review-resolved-ink;
 }
-.lp-review .lp-review-context-panel :is(.lp-section-approvals__approved, .lp-section-approvals__pending) {
+.lp-review
+    .lp-review-context-panel
+    :is(.lp-section-approvals__approved, .lp-section-approvals__pending) {
     @apply hidden;
 }
 .lp-review .lp-review-context-panel .lp-decision-summary__item {
@@ -324,7 +334,9 @@
 .lp-review .lp-review-context-panel .lp-decision-summary__link {
     @apply text-sm leading-normal font-semibold text-ink;
 }
-.lp-review .lp-review-context-panel :is(.lp-decision-summary__answer, .lp-decision-summary__pending) {
+.lp-review
+    .lp-review-context-panel
+    :is(.lp-decision-summary__answer, .lp-decision-summary__pending) {
     @apply ml-0 text-xs text-fg-dim;
 }
 .lp-review .lp-review-context-panel__hint {

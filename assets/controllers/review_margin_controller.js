@@ -170,7 +170,9 @@ export default class extends Controller {
             );
         for (const empty of this.emptyTargets) {
             empty.hidden = counts[this.activeFilter] !== 0;
-            for (const message of empty.querySelectorAll('[data-empty-filter]')) {
+            for (const message of empty.querySelectorAll(
+                '[data-empty-filter]',
+            )) {
                 message.hidden =
                     (message.dataset.emptyFilter === 'all') !==
                     (this.activeFilter === 'all');
