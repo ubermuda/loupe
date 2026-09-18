@@ -5947,14 +5947,14 @@
             <trans-unit id="activity.recent.failed"><source>activity.recent.failed</source><target>Recent activity is unavailable. Reopen this panel to retry, or open the full Activity page.</target></trans-unit>
             <trans-unit id="activity.recent.open"><source>activity.recent.open</source><target>Open activity</target></trans-unit>
             <trans-unit id="activity.feed.connecting"><source>activity.feed.connecting</source><target>Connecting</target></trans-unit>
-            <trans-unit id="activity.feed.listening"><source>activity.feed.listening</source><target>Live updates every 10 seconds</target></trans-unit>
+            <trans-unit id="activity.feed.listening"><source>activity.feed.listening</source><target>Live</target></trans-unit>
+            <trans-unit id="activity.feed.listening_title"><source>activity.feed.listening_title</source><target>Updates every 10 seconds</target></trans-unit>
             <trans-unit id="activity.feed.paused"><source>activity.feed.paused</source><target>Feed paused; recording continues</target></trans-unit>
             <trans-unit id="activity.feed.stale"><source>activity.feed.stale</source><target>Updates delayed; showing earlier history</target></trans-unit>
             <trans-unit id="activity.feed.failed"><source>activity.feed.failed</source><target>Updates unavailable; retrying</target></trans-unit>
             <trans-unit id="activity.feed.pause"><source>activity.feed.pause</source><target>Pause feed</target></trans-unit>
             <trans-unit id="activity.feed.resume"><source>activity.feed.resume</source><target>Resume feed</target></trans-unit>
             <trans-unit id="activity.feed.gap"><source>activity.feed.gap</source><target>Some events may be missing between earlier rows and the latest %count% events.</target></trans-unit>
-            <trans-unit id="activity.durable_notice"><source>activity.durable_notice</source><target>This feed shows durable delivery records. It does not infer whether an agent completed the resulting work.</target></trans-unit>
             <trans-unit id="activity.event_detail"><source>activity.event_detail</source><target>%family% event · sequence %sequence%</target></trans-unit>
             <trans-unit id="activity.delivery.delivered"><source>activity.delivery.delivered</source><target>Delivered</target></trans-unit>
             <trans-unit id="activity.delivery.failed"><source>activity.delivery.failed</source><target>Delivery failed</target></trans-unit>
