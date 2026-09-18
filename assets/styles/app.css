@@ -1877,7 +1877,7 @@
     }
     /** Recent project events in the topbar's right-hand drawer. */
     .lp-activity-drawer {
-        @apply fixed inset-y-0 right-0 left-auto m-0 ml-auto w-full max-w-lg rounded-none p-0;
+        @apply fixed inset-y-0 right-0 left-auto m-0 ml-auto w-full max-w-142.5 rounded-none border-0 bg-surface-1 p-0;
         height: 100dvh;
         max-height: 100dvh;
     }
@@ -1885,16 +1885,44 @@
         @apply flex flex-col;
     }
     .lp-activity-drawer__header {
-        @apply flex shrink-0 items-center justify-between gap-4 border-b border-line p-5;
+        @apply flex shrink-0 items-center justify-between gap-4 min-h-15.5 border-b border-line px-6;
+    }
+    .lp-activity-drawer__title {
+        @apply m-0 flex items-center gap-2 font-sans text-xs font-bold tracking-normal text-fg-mute;
+    }
+    .lp-activity-drawer__title svg {
+        @apply w-4 h-4 shrink-0;
     }
     .lp-activity-drawer__body {
-        @apply min-h-0 flex-1 overflow-y-auto p-5;
+        @apply min-h-0 flex-1 overflow-y-auto px-6 py-4;
     }
     .lp-activity-drawer__footer {
-        @apply shrink-0 border-t border-line p-5;
+        @apply flex shrink-0 justify-end border-t border-line bg-field px-6 py-4;
     }
-    .lp-activity-drawer .lp-activity-row__heading {
-        @apply flex-col gap-1;
+    /* A compact event list: icon, what happened, the work it touched, and when. */
+    .lp-feed__item {
+        @apply flex items-start gap-3 py-4 border-b border-line-faint;
+    }
+    .lp-feed__icon {
+        @apply grid place-items-center w-7.5 h-7.5 shrink-0 rounded-lg border border-line bg-surface-1 text-fg-mute;
+    }
+    .lp-feed__icon svg {
+        @apply w-3.5 h-3.5;
+    }
+    .lp-feed__body {
+        @apply flex flex-1 flex-col gap-0.5 min-w-0;
+    }
+    .lp-feed__title {
+        @apply text-xs font-semibold text-ink;
+    }
+    .lp-feed__link {
+        @apply text-xs font-semibold text-accent-ink no-underline break-words;
+    }
+    .lp-feed__link:hover {
+        @apply underline;
+    }
+    .lp-feed__time {
+        @apply shrink-0 text-xs text-fg-dim;
     }
     /** Multiline source field inside a document dialog. */
     .lp-document-editor {

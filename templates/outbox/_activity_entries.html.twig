@@ -4,17 +4,7 @@
         {% set family = family == 'review' ? 'document' : family %}
         <article class="lp-activity-row" data-activity-event-id="{{ event.id }}" data-event-family="{{ family }}" data-activity-filter-target="row">
             <div class="lp-activity-row__icon">
-                {% if family == 'board' %}
-                    <twig:ux:icon name="lucide:square-kanban" />
-                {% elseif family == 'document' %}
-                    <twig:ux:icon name="lucide:file-text" />
-                {% elseif family == 'inbox' %}
-                    <twig:ux:icon name="lucide:inbox" />
-                {% elseif family == 'site_review' %}
-                    <twig:ux:icon name="lucide:globe" />
-                {% else %}
-                    <twig:ux:icon name="lucide:activity" />
-                {% endif %}
+                {% include 'outbox/_event_family_icon.html.twig' with {family: family} only %}
             </div>
             <div class="lp-activity-row__body">
                 <div class="lp-activity-row__heading">

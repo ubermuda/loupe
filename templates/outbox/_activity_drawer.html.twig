@@ -4,7 +4,7 @@
     </a>
     <dialog class="lp-dialog lp-activity-drawer lp-redesign-activity" data-modal-target="dialog" data-action="cancel->modal#close" aria-labelledby="recent-activity-title">
         <header class="lp-activity-drawer__header">
-            <h2 class="lp-dialog-title" id="recent-activity-title">{{ 'activity.recent.title'|trans }}</h2>
+            <h2 class="lp-activity-drawer__title" id="recent-activity-title"><twig:ux:icon name="lucide:activity" />{{ 'activity.recent.title'|trans }}</h2>
             <button type="button" class="lp-btn lp-btn--icon" data-action="modal#close" aria-label="{{ 'activity.recent.close'|trans }}" autofocus><twig:ux:icon name="lucide:x" /></button>
         </header>
         <div class="lp-activity-drawer__body">
@@ -13,7 +13,7 @@
             <turbo-frame id="recent-activity-frame" data-activity-drawer-target="frame" data-action="turbo:before-fetch-response->activity-drawer#received turbo:frame-load->activity-drawer#loaded turbo:frame-missing->activity-drawer#failed turbo:fetch-request-error->activity-drawer#failed" target="_top" hidden></turbo-frame>
         </div>
         <footer class="lp-activity-drawer__footer">
-            <a class="lp-btn" href="{{ path('app_project_activity', {id: project.id}) }}">{{ 'activity.recent.open'|trans }}</a>
+            <a class="lp-btn" href="{{ path('app_project_activity', {id: project.id}) }}"><twig:ux:icon name="lucide:activity" />{{ 'activity.recent.open'|trans }}</a>
         </footer>
     </dialog>
 </div>
