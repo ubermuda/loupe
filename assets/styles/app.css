@@ -5443,8 +5443,10 @@
     .lp-board__group {
         @apply flex flex-col gap-2 min-h-12 rounded-lg transition-colors;
     }
-    .lp-board__group:not(:has(.lp-board-card)) {
-        @apply min-h-6;
+    /* An empty group takes no room: the negative margin cancels the column gap
+       above it. The drag controller hit-tests the whole column, so it stays a target. */
+    .lp-board__group:not(:has(.lp-board-card, .lp-board__placeholder)) {
+        @apply min-h-0 -mt-3;
     }
     .lp-board__placeholder {
         @apply rounded-xl border-2 border-dashed border-accent-border bg-accent-faint;

@@ -331,7 +331,9 @@ export default class extends Controller {
     groupUnder(x, y) {
         return (
             this.groupTargets.find((group) => {
-                const rectangle = group.getBoundingClientRect();
+                const rectangle = (
+                    group.closest('.lp-board__column') ?? group
+                ).getBoundingClientRect();
 
                 return (
                     x >= rectangle.left &&
