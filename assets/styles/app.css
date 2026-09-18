@@ -564,7 +564,7 @@
     /* A fixed field rather than one that grows: the design puts the search at
        its own width and leaves the rest of the row empty. */
     .lp-board-toolbar__search {
-        @apply relative flex w-56 shrink-0 items-center;
+        @apply relative flex w-56 min-w-24 items-center;
     }
     .lp-board-toolbar__priority {
         @apply shrink-0;
@@ -1500,7 +1500,7 @@
     }
     /* Primary search and status controls stay together as secondary filters wrap. */
     .lp-filter-primary {
-        @apply flex flex-1 basis-80 min-w-0 items-center gap-2 overflow-x-auto scroll-p-0.5 p-0.5 -m-0.5;
+        @apply flex min-w-0 items-center gap-2 overflow-x-auto scroll-p-0.5 p-0.5 -m-0.5;
         scrollbar-width: none;
     }
     .lp-filter-primary::-webkit-scrollbar {
@@ -1512,8 +1512,10 @@
     .lp-filter-primary .lp-filter-select {
         @apply max-w-full;
     }
+    /* The design gives the search its own width and leaves the rest of the
+       filter row empty, rather than stretching the field across it. */
     .lp-filter-search {
-        @apply relative flex flex-1 min-w-0 max-w-sm items-center;
+        @apply relative flex w-56 min-w-0 items-center;
     }
     .lp-needs-you .lp-filter-search {
         @apply flex-initial w-67.5;
