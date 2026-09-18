@@ -412,7 +412,7 @@ final class LinkedInboxSectionTest extends WebTestCase
 
         $this->post($item, 'done', [], $query);
 
-        self::assertResponseRedirects('/projects/'.$this->project->id.'/inbox#inbox-item-2');
+        self::assertResponseRedirects('/projects/'.$this->project->id.'/inbox');
     }
 
     private function linkCard(InboxItem $item): void

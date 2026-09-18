@@ -235,7 +235,7 @@ final class InboxItemFormsControllerTest extends WebTestCase
             $name.'[answerText]' => 'CSV, because the importer reads it.',
         ]));
 
-        self::assertResponseRedirects($this->pageUrl().'#inbox-item-4');
+        self::assertResponseRedirects($this->pageUrl());
         $stored = $this->reload($item);
         self::assertSame(InboxItemState::Answered, $stored->state);
         self::assertSame([1], $stored->selectedOptions);
@@ -294,6 +294,18 @@ final class InboxItemFormsControllerTest extends WebTestCase
         self::assertResponseRedirects($this->completedUrl().'#inbox-item-2');
     }
 
+    public function test_a_completed_item_outside_every_ask_names_no_request(): void
+    {
+        $item = $this->todo($this->em, $this->project, 5);
+
+        $this->post($item, 'done', []);
+
+        // No ask holds this one, so neither queue shows it once it closes. A
+        // fragment would send the owner hunting for it instead of back to the
+        // work that is left.
+        self::assertResponseRedirects($this->pageUrl());
+    }
+
     public function test_a_refused_form_and_a_saved_one_keep_the_closed_asks_page(): void
     {
         $last = null;
@@ -338,7 +350,7 @@ final class InboxItemFormsControllerTest extends WebTestCase
 
         $this->post($item, 'done', []);
 
-        self::assertResponseRedirects($this->pageUrl().'#inbox-item-2');
+        self::assertResponseRedirects($this->pageUrl());
         $stored = $this->reload($item);
         self::assertSame(InboxItemState::Done, $stored->state);
         self::assertNotNull($stored->closedAt);
@@ -361,7 +373,7 @@ final class InboxItemFormsControllerTest extends WebTestCase
 
         $this->post($item, 'decline', ['closeNote' => 'Not sure what you mean.']);
 
-        self::assertResponseRedirects($this->pageUrl().'#inbox-item-3');
+        self::assertResponseRedirects($this->pageUrl());
         $stored = $this->reload($item);
         self::assertSame(InboxItemState::Declined, $stored->state);
         self::assertSame('Not sure what you mean.', $stored->closeNote);

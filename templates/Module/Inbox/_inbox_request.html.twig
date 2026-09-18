@@ -19,8 +19,7 @@
         <time datetime="{{ asked|date('c') }}">{{ asked|relative_time }}</time>
     </span>
     <span class="lp-inbox-request__title">{{ item.title }}</span>
-    {# The summary of a body written in Markdown, as one run of plain text. #}
-    {% if item.body|trim is not empty %}<span class="lp-inbox-request__body">{{ item.body|inbox_markdown|striptags }}</span>{% endif %}
+    {% if item.body|trim is not empty %}<span class="lp-inbox-request__body">{{ item.body|inbox_plain_text }}</span>{% endif %}
     <span class="lp-inbox-request__badges">
         {%- if blocking|length > 0 -%}
             <span class="lp-inbox-item__blocking">{{ 'inbox.item.blocking'|trans }}</span>

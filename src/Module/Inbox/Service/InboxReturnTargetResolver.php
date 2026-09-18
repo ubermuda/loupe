@@ -66,37 +66,31 @@ final readonly class InboxReturnTargetResolver
 
         // The queue, the page and the search the owner was on, kept on the way back.
         $search = trim($request->query->getString('q'));
+        // Read as objects, so an ask closed in this request counts as closed.
+        $asks = $this->inboxAsks->findHolding($item);
+        $closed = InboxItemState::Open !== $item->state;
+        $completed = 'completed' === $request->query->getString('queue')
+            || ($closed && [] !== $asks && [] === array_filter($asks, static fn (InboxAsk $ask): bool => null === $ask->closedAt));
+
         $pageQuery = [
-            ...('' === $search && $this->completedQueue($request, $item) ? ['queue' => 'completed'] : []),
+            ...('' === $search && $completed ? ['queue' => 'completed'] : []),
             ...($request->query->getInt('page', 1) > 1 ? ['page' => $request->query->getInt('page')] : []),
             ...('' === $search ? [] : ['q' => $search]),
         ];
 
-        // The fragment names the request, so the page opens it rather than the
-        // first one in the list. A forward carries no fragment and needs none:
-        // it re-renders the page the form was already on.
-        $redirect = ['id' => $projectId, ...$pageQuery, '_fragment' => 'inbox-item-'.$item->number];
+        // The fragment opens the request on arrival, so it is named only where
+        // the page shows it. A closed item that no ask holds is on neither
+        // queue, and naming it would send the owner hunting for it instead of
+        // back to the work that is left. A forward needs no fragment at all: it
+        // re-renders the page the form was already on.
+        $shown = '' !== $search || !$closed || [] !== $asks;
+        $redirect = [
+            'id' => $projectId,
+            ...$pageQuery,
+            ...($shown ? ['_fragment' => 'inbox-item-'.$item->number] : []),
+        ];
 
         return new InboxReturnTarget('app_project_inbox', $redirect, ShowInboxController::class, ['id' => $projectId, 'project' => $item->project], $pageQuery);
-    }
-
-    /**
-     * The completed queue holds a closed item that only closed asks hold. The
-     * asks are read as objects, so an ask closed in this request counts.
-     */
-    private function completedQueue(Request $request, InboxItem $item): bool
-    {
-        if ('completed' === $request->query->getString('queue')) {
-            return true;
-        }
-
-        if (InboxItemState::Open === $item->state) {
-            return false;
-        }
-
-        $asks = $this->inboxAsks->findHolding($item);
-
-        return [] !== $asks && [] === array_filter($asks, static fn (InboxAsk $ask): bool => null === $ask->closedAt);
     }
 
     private function linkedDocument(InboxItem $item, Uuid $id): ?Document

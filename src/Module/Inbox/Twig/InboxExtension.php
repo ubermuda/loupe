@@ -76,7 +76,29 @@ final class InboxExtension extends AbstractExtension
         return [
             // No heading ids: an item shows beside a document whose own headings carry them.
             new TwigFilter('inbox_markdown', $this->markdown->renderWithoutHeadingIds(...), ['is_safe' => ['html']]),
+            new TwigFilter('inbox_plain_text', $this->plainText(...)),
         ];
+    }
+
+    /**
+     * One run of plain text from a body written in Markdown, for a list row.
+     *
+     * Not marked safe, so Twig escapes it as the user content it is. The
+     * entities the renderer wrote are decoded first, because Twig escapes
+     * again and an `&` would otherwise reach the page as `&amp;amp;`.
+     */
+    public function plainText(?string $markdown): string
+    {
+        if (null === $markdown || '' === trim($markdown)) {
+            return '';
+        }
+
+        $text = html_entity_decode(
+            strip_tags($this->markdown->renderWithoutHeadingIds($markdown)),
+            ENT_QUOTES | ENT_HTML5,
+        );
+
+        return trim((string) preg_replace('/\s+/u', ' ', $text));
     }
 
     public function answerForm(InboxItem $item, ?FormView $refused = null): FormView

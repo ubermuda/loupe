@@ -291,6 +291,24 @@ final class ShowInboxControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('.lp-inbox-request .lp-status-chip'));
     }
 
+    public function test_a_request_row_previews_a_body_as_plain_text(): void
+    {
+        $owner = $this->signedUpUser($this->em, 'inbox-row-preview');
+        $project = $this->inboxProject($this->em, $owner);
+        $item = $this->question($this->em, $project, 1);
+        $item->body = 'Compare **A & B** for `List<T>`.';
+        $this->em->flush();
+        $this->askHolding($this->em, $project, [$item]);
+        $this->setInboxFlag(true);
+
+        $this->client->loginUser($owner);
+        $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox');
+
+        // Markdown gone, and each character once: the renderer's entities are
+        // decoded before Twig escapes the row.
+        self::assertSame('Compare A & B for List<T>.', $crawler->filter('.lp-inbox-request__body')->text());
+    }
+
     public function test_open_asks_come_oldest_first_then_loose_items_then_closed_asks(): void
     {
         $owner = $this->signedUpUser($this->em, 'inbox-order');
