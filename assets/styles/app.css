@@ -890,15 +890,6 @@
     .lp-card-drawer {
         @apply flex flex-col max-w-5xl min-h-screen mx-auto bg-surface-1 border-x border-line shadow-xl;
     }
-    .lp-card-drawer-overlay {
-        @apply fixed inset-y-0 right-0 left-auto m-0 p-0 w-full max-w-xl h-full max-h-none overflow-hidden border-0 bg-surface-1 shadow-2xl;
-    }
-    .lp-card-drawer-overlay::backdrop {
-        @apply bg-ink/40 backdrop-blur-xs;
-    }
-    .lp-card-drawer-overlay[open] {
-        animation: lp-card-drawer-enter 200ms ease-out both;
-    }
     .lp-card-drawer-overlay > turbo-frame {
         @apply block h-full;
     }
@@ -922,14 +913,6 @@
     }
     .lp-card-drawer-overlay__loading svg {
         @apply animate-spin;
-    }
-    @keyframes lp-card-drawer-enter {
-        from {
-            translate: 100% 0;
-        }
-        to {
-            translate: 0 0;
-        }
     }
     .lp-card-drawer__header,
     .lp-card-drawer__footer {
@@ -1855,14 +1838,19 @@
     .lp-dialog--document {
         @apply max-w-3xl;
     }
-    /** Read-only details for a reported worker attempt. */
-    .lp-dialog.lp-run-drawer {
-        @apply w-full max-w-2xl m-0 ml-auto rounded-none p-0 overflow-hidden;
+    /* The right-hand drawer shell for the card, run and activity drawers.
+       The modal controller slides it; the dialog itself stays still. */
+    .lp-drawer {
+        @apply fixed inset-y-0 right-0 left-auto m-0 p-0 w-full max-w-142.5 overflow-hidden rounded-none border-0 bg-surface-1 shadow-2xl;
         height: 100dvh;
         max-height: 100dvh;
     }
-    .lp-run-drawer[open] {
+    .lp-drawer[open] {
         @apply flex flex-col;
+    }
+    .lp-drawer::backdrop {
+        @apply bg-ink/40 backdrop-blur-xs;
+        animation: lp-dialog-backdrop-in 200ms ease;
     }
     .lp-run-drawer__header {
         @apply flex items-start justify-between gap-3 p-6 border-b border-line shrink-0;
@@ -1935,14 +1923,6 @@
         @apply flex flex-wrap gap-3 py-4;
     }
     /** Recent project events in the topbar's right-hand drawer. */
-    .lp-activity-drawer {
-        @apply fixed inset-y-0 right-0 left-auto m-0 ml-auto w-full max-w-142.5 rounded-none border-0 bg-surface-1 p-0;
-        height: 100dvh;
-        max-height: 100dvh;
-    }
-    .lp-activity-drawer[open] {
-        @apply flex flex-col;
-    }
     .lp-activity-drawer__header {
         @apply flex shrink-0 items-center justify-between gap-4 min-h-15.5 border-b border-line px-6;
     }
@@ -6074,10 +6054,6 @@
     .lp-sidebar--drawer,
     .lp-sidebar--drawer.lp-sidebar--open {
         transition: none;
-    }
-
-    .lp-card-drawer-overlay[open] {
-        animation: none;
     }
 
     @keyframes lp-appear {
