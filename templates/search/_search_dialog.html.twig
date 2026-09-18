@@ -2,6 +2,7 @@
     <a class="lp-topbar__global-action lp-topbar__global-action--search" href="{{ (project ? path('app_project_search', {id: project.id}) : path('app_search_owned_projects')) }}" title="{{ (project ? 'search.title' : 'search.all_title')|trans }}" aria-label="{{ (project ? 'search.title' : 'search.all_title')|trans }}" aria-haspopup="dialog" aria-keyshortcuts="Control+k Meta+k" data-global-search-target="trigger" data-action="click->modal#open click->global-search#open">
         <twig:ux:icon name="lucide:search" />
         <span>{{ (project ? 'search.title' : 'search.all_title')|trans }}</span>
+        <kbd class="lp-kbd" aria-hidden="true">{{ 'search.shortcut'|trans }}</kbd>
     </a>
     <dialog class="lp-dialog lp-dialog--search" data-modal-target="dialog" data-global-search-target="dialog" data-action="cancel->modal#close" aria-labelledby="project-search-title">
         <header class="lp-search-dialog__header">

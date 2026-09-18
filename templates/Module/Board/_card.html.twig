@@ -9,22 +9,26 @@
     <span class="lp-board-card__grip" aria-hidden="true">
         <twig:ux:icon name="lucide:grip-vertical" class="w-4 h-4" />
     </span>
+    {# The identifier and the card's type lead the card face, as the design draws
+       them. The number is the handle a person quotes. Priority stays in the
+       footer: the design puts it top right, which the drag grip occupies here,
+       and a third chip on this row wraps at column width. #}
+    <div class="lp-board-card__identity">
+        <span class="lp-board-card__number">#{{ card.number }}</span>
+        <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>
+    </div>
     {# draggable="false" stops the browser's own link drag taking the gesture. #}
     <a class="lp-board-card__title"
        draggable="false"
        href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}"
        data-turbo-frame="card-drawer-frame"
        data-action="click->card-drawer#prepare">
-        {# The per-project number is the handle a person quotes, so it reads
-           beside the title rather than instead of it. #}
-        <span class="lp-board-card__number">#{{ card.number }}</span>
         {{ card.title }}
     </a>
     {% if card.body|trim is not empty %}
     <p class="lp-board-card__excerpt">{{ card.body|striptags|slice(0, 110) }}{% if card.body|length > 110 %}…{% endif %}</p>
     {% endif %}
     <div class="lp-board-card__meta">
-        <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>
         <span class="lp-tag lp-tag--priority-{{ card.priority.label() }}">{{ ('board.card.priority.' ~ card.priority.label())|trans }}</span>
         {% if pendingComments > 0 %}
         <span class="lp-board-card__reviews" title="{{ 'board.card.site_review.count'|trans({'%count%': pendingComments}) }}">

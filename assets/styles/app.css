@@ -231,7 +231,7 @@
     --chrome: #181d18;
     --chrome-raised: #242a23;
     --chrome-control: #30372e;
-    --chrome-line: #41493e;
+    --chrome-line: #343b30;
     --chrome-fg: #f0f2eb;
     --chrome-mute: #b5bcaf;
     --chrome-dim: #929a8d;
@@ -3789,6 +3789,20 @@
     .lp-topbar__global-action--search > span {
         @apply hidden lg:inline;
     }
+    /* The shortcut the trigger already answers, shown where there is room for
+       it. Hidden from assistive technology: `aria-keyshortcuts` says the same
+       thing on the trigger itself. */
+    .lp-kbd {
+        @apply hidden lg:inline-block rounded border border-b-2 border-line bg-app px-1 font-mono text-xs leading-5 text-fg-dim;
+    }
+    /* The design carries one primary create action in the top bar. It collapses
+       to its icon where the row runs out of room. */
+    .lp-topbar__new-work {
+        @apply shrink-0;
+    }
+    .lp-topbar__new-work > span {
+        @apply hidden lg:inline;
+    }
 
     /* Tailwind's lg variants start at 1024px, but the rail stays in flow above
        780px. Keep page-level responsive rules on their own breakpoints. */
@@ -5397,6 +5411,10 @@
        so the two identifiers read at the same weight across the app. */
     .lp-board-card__number {
         @apply font-mono text-xs font-semibold text-fg-dim;
+    }
+    /* Identifier and classification lead the card face, above the title. */
+    .lp-board-card__identity {
+        @apply flex flex-wrap items-center gap-2 pr-6;
     }
     .lp-card-number {
         @apply font-mono align-middle text-2xl font-semibold text-fg-dim;

@@ -5603,6 +5603,7 @@
             <trans-unit id="board.card.drawer.failed"><source>board.card.drawer.failed</source><target>The card could not load. Try again.</target></trans-unit>
             <trans-unit id="board.card.drawer.retry"><source>board.card.drawer.retry</source><target>Retry</target></trans-unit>
             <trans-unit id="nav.global_actions.label"><source>nav.global_actions.label</source><target>Global tools</target></trans-unit>
+            <trans-unit id="nav.new_work"><source>nav.new_work</source><target>New work</target></trans-unit>
             <trans-unit id="nav.activity.open"><source>nav.activity.open</source><target>Open project activity</target></trans-unit>
             <trans-unit id="board.card.drawer.sections"><source>board.card.drawer.sections</source><target>Card sections</target></trans-unit>
             <trans-unit id="board.card.tab.overview"><source>board.card.tab.overview</source><target>Overview</target></trans-unit>
@@ -5950,6 +5951,7 @@
             <trans-unit id="activity.count"><source>activity.count</source><target>{0} No events|{1} 1 event|]1,Inf[ %count% events</target></trans-unit>
             <trans-unit id="activity.status.recorded"><source>activity.status.recorded</source><target>Recorded history</target></trans-unit>
             <trans-unit id="search.title"><source>search.title</source><target>Search project</target></trans-unit>
+            <trans-unit id="search.shortcut"><source>search.shortcut</source><target>⌘K</target></trans-unit>
             <trans-unit id="search.all_title"><source>search.all_title</source><target>Search all projects</target></trans-unit>
             <trans-unit id="search.all_scope"><source>search.all_scope</source><target>Search all projects you own.</target></trans-unit>
             <trans-unit id="search.close"><source>search.close</source><target>Close search</target></trans-unit>

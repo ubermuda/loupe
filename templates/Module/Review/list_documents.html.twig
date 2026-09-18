@@ -31,7 +31,7 @@
     {% endif %}
             <p class="lp-workspace-desc">{{ descriptionKey|trans }}</p>
         </div>
-        <button type="button" class="lp-btn lp-btn--primary" data-action="click->modal#open">{{ 'review.create.title'|trans }}</button>
+        <button type="button" class="lp-btn lp-btn--primary" data-action="click->modal#open"><twig:ux:icon name="lucide:plus" class="w-4 h-4 shrink-0" />{{ 'review.create.title'|trans }}</button>
     </header>
     {% include '@Review/_create_document.html.twig' with {form: createDocumentForm, projectId: project.id} only %}
 
