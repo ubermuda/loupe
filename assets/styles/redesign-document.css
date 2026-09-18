@@ -1,0 +1,371 @@
+/* Document review, aligned with the approved redesign. Unlayered, because the
+   typography plugin's `prose` rules sit in the utilities layer. Every rule is
+   scoped under .lp-review, so the landing page's review mock keeps its look. */
+
+/* ── Header ─────────────────────────────────────────────────────── */
+.lp-review .lp-review-doc__head {
+    @apply mb-5 gap-0;
+}
+.lp-review .lp-review-doc__heading {
+    @apply mb-4 flex items-center justify-between gap-5;
+}
+/* The back button lines up with the title row, not with the title and the
+   byline together. */
+.lp-review .lp-review-doc__identity {
+    @apply flex min-w-0 items-start gap-3;
+}
+.lp-review .lp-review-doc__back {
+    @apply size-8 rounded-lg;
+}
+.lp-review .lp-review-doc__identity-text {
+    @apply min-w-0;
+}
+.lp-review .lp-review-doc__title-row {
+    @apply min-h-8 gap-2.5;
+}
+.lp-review .lp-review-doc__title {
+    @apply text-2xl leading-snug font-bold tracking-tight break-words;
+}
+.lp-review .lp-review-doc__version {
+    @apply rounded-md bg-surface-3 px-1.75 py-0.75 font-sans text-xs leading-4 font-semibold text-fg-dim;
+}
+.lp-review .lp-review-doc__byline {
+    @apply mt-1.75 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm text-fg-dim;
+}
+.lp-review .lp-review-doc__middot {
+    @apply shrink-0 text-fg-faint;
+}
+.lp-review .lp-review-doc__author {
+    @apply inline-flex items-center gap-1.5;
+}
+.lp-review .lp-review-doc__author .lp-comment-avatar {
+    @apply size-5 text-xs;
+}
+.lp-review .lp-review-doc__actions {
+    @apply ml-0 flex shrink-0 flex-wrap items-center justify-end gap-2;
+}
+.lp-review .lp-review-doc__actions svg {
+    @apply size-4 shrink-0;
+}
+@media (width < 37.5rem) {
+    .lp-review .lp-review-doc__heading {
+        @apply flex-col items-stretch gap-3;
+    }
+    .lp-review .lp-review-doc__actions {
+        @apply ml-11 justify-start;
+    }
+}
+
+/* ── View tabs and margin controls ──────────────────────────────── */
+
+/* One rule under both columns: the view tabs sit over the paper and the
+   margin controls over the comment column. */
+.lp-review .lp-review-workspace-nav {
+    @apply mt-0 gap-0 border-b border-line;
+}
+@media (width > 43.75rem) {
+    .lp-review .lp-review-workspace-nav {
+        @apply items-stretch justify-between;
+        gap: var(--doc-margin-gap, calc(var(--spacing) * 6));
+    }
+}
+.lp-review .lp-review-workspace-nav .lp-review-view-tabs,
+.lp-review .lp-review-view-tabs {
+    @apply mt-0 gap-6 self-stretch border-b-0;
+}
+.lp-review .lp-review-view-tabs__item {
+    @apply -mb-px inline-flex min-h-12 items-center gap-1.75 px-0 py-2.5 font-medium text-fg-dim;
+}
+.lp-review .lp-review-view-tabs__item svg {
+    @apply size-4 shrink-0;
+}
+.lp-review .lp-review-view-tabs__item[aria-current='page'] {
+    @apply border-review-tab font-semibold text-review-tab-ink;
+}
+.lp-review .lp-review-margin-tabs {
+    @apply gap-1.5 py-1.25;
+}
+.lp-review .lp-review-margin-tablist {
+    @apply flex-1 gap-0.75;
+}
+/* Inactive views are named icons; the selected one grows to show its label. */
+.lp-review .lp-review-margin-tabs__item {
+    @apply min-h-9 w-8 flex-none justify-center gap-1.25 rounded-md p-1.75 font-normal text-fg-dim;
+}
+.lp-review .lp-review-margin-tabs__item--active {
+    @apply w-auto flex-auto border-accent-border bg-accent-soft font-semibold text-review-tab-ink;
+}
+.lp-review .lp-review-margin-tabs__count {
+    @apply hidden;
+}
+.lp-review .lp-review-margin-tabs__item--active .lp-review-margin-tabs__count {
+    @apply inline-flex min-w-4.5 items-center justify-center rounded-sm bg-surface-2 px-1 text-xs text-fg-dim;
+}
+.lp-review .lp-review-margin-tabs__item--icon {
+    @apply h-9 w-8 p-1.75;
+}
+.lp-review .lp-review-margin-tabs__item--filtered {
+    @apply bg-review-addressed text-review-addressed-ink;
+}
+.lp-review .lp-review-margin-filter__menu {
+    @apply w-52 rounded-lg p-1.5 shadow-card;
+}
+.lp-review .lp-review-margin-filter__menu button {
+    @apply min-h-9.5 rounded-md px-2.25 py-2 text-fg-mute;
+}
+.lp-review .lp-review-margin-filter__menu [data-filter-count] {
+    @apply text-xs text-fg-dim;
+}
+
+/* ── Paper ──────────────────────────────────────────────────────── */
+.lp-review .lp-review-doc__prose {
+    @apply min-h-0 rounded-lg px-8.5 py-7 leading-7.5 text-fg-mute;
+}
+@media (width >= 93.75rem) {
+    .lp-review .lp-review-doc__prose {
+        @apply px-12 py-8.5;
+    }
+}
+@media (width < 71.875rem) {
+    .lp-review .lp-review-doc__prose {
+        @apply p-6;
+    }
+}
+@media (width < 37.5rem) {
+    .lp-review .lp-review-doc__prose {
+        @apply p-5;
+    }
+}
+.lp-review .lp-review-doc__prose > :first-child,
+.lp-review .lp-review-doc__prose > .lp-section-head:first-child > :is(h1, h2, h3, h4, h5, h6) {
+    @apply mt-0;
+}
+/* Sections are separated by whitespace, never by a rule. */
+.lp-review .lp-review-doc__prose hr {
+    @apply my-10 border-0;
+}
+.lp-review .lp-review-doc__prose :is(h1, h2) {
+    @apply mt-11 mb-2.5 font-display text-lg leading-normal font-bold tracking-tight text-ink;
+}
+.lp-review .lp-review-doc__prose :is(h3, h4, h5, h6) {
+    @apply mt-8 mb-2 font-display text-base leading-normal font-bold text-ink;
+}
+.lp-review .lp-review-doc__prose :is(p, li) {
+    @apply leading-7.5;
+}
+.lp-review .lp-review-doc__prose :is(.lp-section-head, h1, h2, h3, h4, h5, h6) + :is(p, ul, ol) {
+    @apply mt-0;
+}
+/* A code block reads as a quiet inset of the paper, not a dark slab. */
+.lp-review .lp-review-doc__prose pre {
+    @apply rounded-lg border border-line bg-surface-2 px-4 py-3.5 text-sm leading-relaxed text-ink;
+}
+.lp-review .lp-review-doc__prose pre code {
+    @apply bg-transparent p-0 text-ink;
+}
+/* Transparent at rest and when approved: the icon colour carries the state. */
+.lp-review .lp-section-approve__button,
+.lp-review .lp-section-approve__button:hover,
+.lp-review .lp-section-approve__button--approved:hover {
+    @apply bg-transparent;
+}
+.lp-review .lp-section-approve__button {
+    @apply text-fg-faint hover:text-review-tab;
+}
+.lp-review .lp-section-approve__button--approved {
+    @apply text-review-resolved-ink;
+}
+.lp-review .lp-section-approve__icon {
+    @apply size-4.5;
+}
+
+/* ── Decision blocks ────────────────────────────────────────────── */
+.lp-review .lp-decision {
+    @apply mt-6 mb-0 rounded-lg border border-review-decision-line bg-review-decision p-5;
+}
+/* The question leads as a heading, and the kind of answer it takes sits at
+   its right as a quiet chip. Still generated content, so it never joins the
+   text every comment anchor is measured against. */
+.lp-review .lp-decision__prompt {
+    @apply mb-3.5 flex items-start justify-between gap-3 font-display text-base leading-normal font-bold text-ink;
+}
+.lp-review .lp-decision__prompt::before {
+    content: 'Pick one';
+    @apply order-2 mb-0 shrink-0 rounded-md bg-surface-1 px-1.75 py-0.75 font-sans text-xs leading-4 font-semibold tracking-normal text-fg-dim normal-case;
+}
+.lp-review .lp-decision[data-decision-type='multiple'] .lp-decision__prompt::before {
+    content: 'Pick any';
+}
+.lp-review .lp-decision__options {
+    @apply gap-2.5;
+}
+.lp-review .lp-decision__option {
+    @apply rounded-lg border border-line bg-surface-1 px-4 py-3.5 text-base font-normal text-ink;
+}
+.lp-review .lp-decision__option:has(input:checked) {
+    @apply border-accent-border bg-accent-faint;
+}
+.lp-review .lp-decision__option input:checked {
+    @apply border-review-tab bg-review-tab;
+}
+.lp-review .lp-decision__save {
+    @apply mt-4;
+}
+
+/* ── Comment cards ──────────────────────────────────────────────── */
+.lp-review .lp-comment-thread {
+    @apply gap-2.5 rounded-lg p-4;
+}
+.lp-review .lp-comment-thread__header {
+    @apply items-center gap-1.75;
+}
+.lp-review .lp-comment-status {
+    @apply ml-auto rounded-md px-1.75 py-0.75 text-xs leading-4 font-semibold tracking-normal normal-case;
+}
+.lp-review .lp-comment-status--pending {
+    @apply bg-review-open text-review-open-ink;
+}
+.lp-review .lp-comment-status--addressed {
+    @apply bg-review-addressed text-review-addressed-ink;
+}
+.lp-review .lp-comment-status--resolved {
+    @apply bg-review-resolved text-review-resolved-ink;
+}
+.lp-review .lp-comment-body {
+    @apply leading-relaxed text-fg-mute;
+}
+.lp-review .lp-comment-quote {
+    @apply rounded-none border-l-2 border-review-decision-line bg-review-decision px-2.5 py-2 text-sm leading-relaxed text-fg-mute;
+}
+.lp-review .lp-comment-quote--struck {
+    @apply border-review-strike-ink/40 bg-review-strike text-review-strike-ink;
+}
+.lp-review .lp-comment-quote--struck del {
+    @apply decoration-review-strike-ink decoration-1;
+}
+.lp-review .lp-comment-quote--inserted {
+    @apply rounded-md border-l-0 bg-review-resolved p-2.5 text-review-resolved-ink;
+}
+.lp-review .lp-comment-replies {
+    @apply mt-1.5 gap-4;
+}
+.lp-review .lp-comment--reply {
+    @apply gap-2;
+}
+.lp-review .lp-comment-reply__head {
+    @apply items-center gap-1.75;
+}
+/* Delete at left; Reply and Resolve at right, spaced by margin alone. */
+.lp-review .lp-comment-thread__footer {
+    @apply mt-1.5 gap-1.5 border-t-0 pt-0;
+}
+.lp-review .lp-comment-action {
+    @apply min-h-8.5 gap-1 px-1 py-1.5 font-medium;
+}
+.lp-review .lp-comment-reply-form {
+    @apply mt-3.5 items-end border-t border-line-faint pt-3.5;
+}
+.lp-review .lp-comment-reply-form textarea {
+    @apply min-h-16 border border-line bg-surface-1;
+}
+
+/* ── Comment margin states ──────────────────────────────────────── */
+.lp-review .lp-review-margin-empty {
+    @apply text-sm leading-relaxed text-fg-dim;
+}
+.lp-review .lp-review-margin-empty[hidden],
+.lp-review .lp-review-margin-empty [hidden] {
+    @apply hidden;
+}
+.lp-review .lp-review-margin-empty p {
+    @apply m-0 pt-1.25 pb-3;
+}
+
+/* ── Outline, decisions and details ─────────────────────────────── */
+
+/* The selected tab already names the panel, so its heading drops to a quiet
+   label that keeps the live counts the streams update. */
+.lp-review .lp-review-context-panel {
+    @apply gap-0;
+}
+.lp-review .lp-review-context-panel h2 {
+    @apply mb-2 font-sans text-sm font-medium text-fg-dim;
+}
+.lp-review .lp-review-context-panel h2 span {
+    @apply ml-1.5 font-sans;
+}
+.lp-review .lp-review-context-panel .lp-review-contents__item {
+    @apply items-center gap-1.25 border-b border-line-faint py-1.5;
+}
+.lp-review .lp-review-context-panel .lp-review-contents__link {
+    @apply order-1 whitespace-normal px-0 py-1.25 text-sm leading-normal text-fg-mute;
+}
+.lp-review .lp-review-context-panel .lp-review-contents__link:hover {
+    @apply bg-transparent text-ink;
+}
+.lp-review .lp-review-context-panel .lp-review-contents__link--current {
+    @apply bg-transparent font-semibold text-ink;
+}
+.lp-review .lp-review-context-panel .lp-review-contents__tick {
+    @apply order-2 block size-4 text-fg-faint;
+}
+.lp-review .lp-review-context-panel .lp-review-contents__tick--on {
+    @apply text-review-resolved-ink;
+}
+.lp-review .lp-review-context-panel :is(.lp-section-approvals__approved, .lp-section-approvals__pending) {
+    @apply hidden;
+}
+.lp-review .lp-review-context-panel .lp-decision-summary__item {
+    @apply grid grid-cols-1 gap-1 border-b border-line py-3.5;
+}
+.lp-review .lp-review-context-panel .lp-decision-summary__item > svg {
+    @apply hidden;
+}
+.lp-review .lp-review-context-panel .lp-decision-summary__link {
+    @apply text-sm leading-normal font-semibold text-ink;
+}
+.lp-review .lp-review-context-panel :is(.lp-decision-summary__answer, .lp-decision-summary__pending) {
+    @apply ml-0 text-xs text-fg-dim;
+}
+.lp-review .lp-review-context-panel__hint {
+    @apply pt-3 text-sm leading-relaxed text-fg-dim;
+}
+.lp-review .lp-review-details {
+    @apply gap-5 divide-y-0 rounded-none border-0 bg-transparent;
+}
+.lp-review .lp-review-details > div {
+    @apply gap-2 p-0;
+}
+.lp-review .lp-review-details > div > dt {
+    @apply text-sm font-medium tracking-normal text-fg-dim normal-case;
+}
+.lp-review .lp-review-details > div > dd {
+    @apply text-sm text-fg-mute;
+}
+/* The linked card is the board card itself, minus the drag. It opens in the
+   drawer over this page, so the reader keeps their place in the document. */
+.lp-review .lp-board-card--static {
+    @apply gap-2.5 rounded-lg border border-line px-3 py-3.5 cursor-default select-text hover:border-line-strong;
+}
+.lp-review .lp-board-card--static .lp-board-card__identity {
+    @apply pr-0;
+}
+.lp-review .lp-board-card--static .lp-board-card__title {
+    @apply pr-0 text-sm leading-snug font-bold tracking-tight;
+}
+.lp-review .lp-board-card__status {
+    @apply ml-0 self-start border-transparent bg-surface-3 text-fg-mute;
+}
+.lp-review .lp-board-card--static .lp-board-card__meta {
+    @apply border-t border-line-faint pt-2.5;
+}
+.lp-review [data-margin-panel='details'] > h2 {
+    @apply sr-only;
+}
+.lp-review .lp-review-context-panel > .lp-btn,
+.lp-review .lp-review-context-panel [data-controller='review-summary'] {
+    @apply mt-3 self-start;
+}
+.lp-review .lp-review-context-panel > .lp-btn {
+    @apply mt-6;
+}

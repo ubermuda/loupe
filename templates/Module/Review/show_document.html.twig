@@ -90,6 +90,8 @@
                 approvedSections: diffMode ? 0 : sections.approvedCount,
                 totalSections: diffMode ? diffHeadings|length : sections.rows|length,
                 showMarginControls: not diffMode,
+                commentCount: signals.threadCount,
+                canComment: canComment,
             } only %}
 
             {# The way back to a discussion a revision left behind: comments
@@ -466,33 +468,9 @@
             {% endif %}
 
             {% if canComment %}
-            <div class="lp-review-actions">
-                <button type="button" class="lp-btn lp-btn--sm" data-action="comment-anchor#startUntargeted">
-                    {{ 'review.document.comment.untargeted'|trans }}
-                </button>
-                <span class="lp-review-actions__hint">{{ 'review.document.comment.select_hint'|trans }}</span>
-                {# Always rendered, shown by the controller once a resolved thread
-                   exists. Resolving replaces #comment-threads alone, and this row
-                   sits outside it. Both icons ship and CSS picks one: the
-                   controller rewrites the label and would drop a re-rendered
-                   child, which is why the label has a span of its own. #}
-                <button type="button" class="lp-btn lp-btn--sm lp-btn--ghost lp-review-actions__resolved"
-                        data-resolved-toggle
-                        data-resolved-hidden="0"
-                        data-label-hide="{{ 'review.document.threads.hide_resolved'|trans }}"
-                        data-label-show="{{ 'review.document.threads.show_resolved'|trans }}"
-                        data-action="comment-anchor#toggleResolved"
-                        hidden>
-                    <twig:ux:icon name="lucide:eye-off" class="lp-review-actions__resolved-icon lp-review-actions__resolved-icon--hide w-4 h-4 shrink-0" />
-                    <twig:ux:icon name="lucide:eye" class="lp-review-actions__resolved-icon lp-review-actions__resolved-icon--show w-4 h-4 shrink-0" />
-                    <span data-resolved-toggle-label>{{ 'review.document.threads.hide_resolved'|trans }}</span>
-                </button>
-            </div>
-
-            {# Hidden until the reader opts in. It sits next to the button because
-               an untargeted comment opens in the flow here. A targeted one is
-               absolutely positioned at the selection, and .lp-review-doc is the
-               offset parent either way. #}
+            {# Hidden until the reader opts in. An untargeted comment opens in the
+               flow here, above the paper. A targeted one is absolutely positioned
+               at the selection, and .lp-review-doc is the offset parent either way. #}
             {{ form_start(addCommentForm, {attr: {
                 class: 'lp-comment-composer',
                 'data-comment-anchor-target': 'composer',
@@ -568,14 +546,7 @@
                                 {{ 'review.document.margin.linked_card_unavailable'|trans }}
                             {% else %}
                                 {% for link in cardLinks %}
-                                <a class="lp-review-details__card"
-                                   href="{{ path('app_board_card', {projectId: document.project.id, cardId: link.card.id}) }}"
-                                   data-turbo-frame="card-drawer-frame"
-                                   data-action="click->card-drawer#prepare">
-                                    <span>#{{ link.card.number }} {{ link.card.title }}</span>
-                                    <span class="lp-status-chip">{{ link.card.column.label|trans }}</span>
-                                    <twig:ux:icon name="lucide:chevron-right" class="w-4 h-4" />
-                                </a>
+                                {% include '@Board/_card.html.twig' with {card: link.card, pendingComments: 0, static: true} only %}
                                 {% endfor %}
                             {% endif %}
                         </dd>
@@ -618,7 +589,7 @@
                         </dd>
                     </div>
                 </dl>
-                <a class="lp-btn lp-btn--ghost" href="{{ path('app_document_deleted_threads', {projectId: document.project.id, documentId: document.id}) }}">{{ 'review.deleted_threads.title'|trans }}</a>
+                <a class="lp-btn lp-btn--ghost" href="{{ path('app_document_deleted_threads', {projectId: document.project.id, documentId: document.id}) }}"><twig:ux:icon name="lucide:trash-2" class="w-4 h-4" />{{ 'review.deleted_threads.title'|trans }}</a>
                 <div data-controller="review-summary"
                      data-review-summary-header-value="{{ document.title ~ ' · v' ~ version.versionNumber ~ "\n" ~ 'review.document.summary.status'|trans({'%status%': ('document.status.' ~ document.status.value|replace({'-': '_'}))|trans}) }}"
                      data-review-summary-copied-value="{{ 'review.document.summary.copied'|trans }}"

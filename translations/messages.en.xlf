@@ -1391,9 +1391,9 @@
                 <source>review.document.page.title</source>
                 <target>%title%</target>
             </trans-unit>
-            <trans-unit id="review.document.byline">
-                <source>review.document.byline</source>
-                <target>%status% · %author% · updated %updated%</target>
+            <trans-unit id="review.document.byline_updated">
+                <source>review.document.byline_updated</source>
+                <target>updated %updated%</target>
             </trans-unit>
             <trans-unit id="review.document.sections.progress"><source>review.document.sections.progress</source><target>%approved%/%total% sections approved</target></trans-unit>
             <trans-unit id="review.document.margin.label"><source>review.document.margin.label</source><target>Document context</target></trans-unit>
@@ -1559,14 +1559,6 @@
                 <source>review.document.status.pending</source>
                 <target>Open</target>
             </trans-unit>
-            <trans-unit id="review.document.status.general">
-                <source>review.document.status.general</source>
-                <target>General</target>
-            </trans-unit>
-            <trans-unit id="review.document.status.strike">
-                <source>review.document.status.strike</source>
-                <target>Strike</target>
-            </trans-unit>
             <trans-unit id="review.document.status.addressed">
                 <source>review.document.status.addressed</source>
                 <target>Answered</target>
@@ -1729,9 +1721,9 @@
                 <source>review.document.comment.untargeted</source>
                 <target>Add general comment</target>
             </trans-unit>
-            <trans-unit id="review.document.comment.select_hint">
-                <source>review.document.comment.select_hint</source>
-                <target>or select any passage to comment, suggest a rewording, or strike it</target>
+            <trans-unit id="review.document.margin.empty_all">
+                <source>review.document.margin.empty_all</source>
+                <target>No comments yet. Select a passage to comment, suggest a rewording, or strike it.</target>
             </trans-unit>
             <trans-unit id="review.document.comment.orphaned">
                 <source>review.document.comment.orphaned</source>

@@ -1,7 +1,15 @@
 import { Controller } from '@hotwired/stimulus';
 
 export default class extends Controller {
-    static targets = ['tab', 'panel', 'filter', 'thread', 'option', 'empty'];
+    static targets = [
+        'tab',
+        'panel',
+        'filter',
+        'thread',
+        'option',
+        'empty',
+        'count',
+    ];
 
     connect() {
         this.activeFilter = this.element.classList.contains(
@@ -149,8 +157,22 @@ export default class extends Controller {
             option.querySelector('[data-filter-count]').textContent =
                 counts[name];
         }
+        for (const count of this.countTargets) {
+            count.textContent = counts.all;
+        }
+        this.filterTarget
+            .querySelector('summary')
+            .classList.toggle(
+                'lp-review-margin-tabs__item--filtered',
+                this.activeFilter !== 'all',
+            );
         for (const empty of this.emptyTargets) {
             empty.hidden = counts[this.activeFilter] !== 0;
+            for (const message of empty.querySelectorAll('[data-empty-filter]')) {
+                message.hidden =
+                    (message.dataset.emptyFilter === 'all') !==
+                    (this.activeFilter === 'all');
+            }
         }
         for (const group of this.element.querySelectorAll(
             '.lp-general-comments, .lp-orphan-group',

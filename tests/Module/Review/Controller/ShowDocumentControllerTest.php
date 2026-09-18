@@ -148,10 +148,13 @@ final class ShowDocumentControllerTest extends WebTestCase
         );
 
         self::assertResponseIsSuccessful();
-        $link = $crawler->filter('[data-margin-panel="details"] .lp-review-details__card');
-        self::assertCount(1, $link);
-        self::assertStringContainsString('#1 Implement the document', $link->text());
-        self::assertSame('card-drawer-frame', $link->attr('data-turbo-frame'));
+        $card = $crawler->filter('[data-margin-panel="details"] .lp-board-card--static');
+        self::assertCount(1, $card);
+        self::assertStringContainsString('#1', $card->text());
+        self::assertStringContainsString('Ready', $card->filter('.lp-board-card__status')->text());
+        self::assertCount(0, $card->filter('[data-board-drag-target], form'), 'the card does not drag outside the board');
+        self::assertSame('card-drawer-frame', $card->filter('.lp-board-card__title')->attr('data-turbo-frame'));
+        self::assertStringContainsString('Implement the document', $card->filter('.lp-board-card__title')->text());
     }
 
     public function test_review_page_renders_the_document_tags(): void
