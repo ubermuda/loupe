@@ -119,12 +119,16 @@ export default class extends Controller {
             if (this.closeRequest === request && dialog.isConnected) {
                 this.closeRequest = null;
                 dialog.close();
-                if (this.returnFocusTo?.isConnected) {
-                    this.returnFocusTo.focus();
-                }
-                this.returnFocusTo = null;
+                this.restoreFocus();
             }
         });
+    }
+
+    restoreFocus() {
+        if (this.returnFocusTo?.isConnected) {
+            this.returnFocusTo.focus();
+        }
+        this.returnFocusTo = null;
     }
 
     // [Claude] turbo:submit-end fires AFTER Turbo has already applied stream mutations. If a stream

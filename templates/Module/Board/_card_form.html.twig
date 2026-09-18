@@ -1,7 +1,7 @@
 {# The card form, shared by create and edit. Props: form, action, submitLabel,
    cancelUrl, cancelLeavesFrame (Cancel closes the card drawer rather than
    loading cancelUrl inside it). #}
-{{ form_start(form, {action: action, attr: {class: 'lp-form'}}) }}
+{{ form_start(form, {action: action, attr: {class: 'lp-form', 'data-card-drawer-saves-card': ''}}) }}
     <div class="lp-field-errors">{{ form_errors(form) }}</div>
 
     <div class="lp-form-field">

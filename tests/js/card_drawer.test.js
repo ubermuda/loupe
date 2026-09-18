@@ -125,8 +125,9 @@ it('returns focus to the same link when a board reload replaced the invoker', as
     controller.prepare({ currentTarget: invoker });
     const replacement = invoker.cloneNode(true);
     replacement.id = 'replacement';
-    invoker.replaceWith(replacement);
     controller.close();
+    // The board reload lands while the drawer is still sliding out.
+    invoker.replaceWith(replacement);
     completions[1]();
     await settle();
     expect(document.activeElement).toBe(replacement);
@@ -135,8 +136,13 @@ it('returns focus to the same link when a board reload replaced the invoker', as
 it('announces a save in the drawer so the board can reload', () => {
     const saved = vi.fn();
     window.addEventListener('card-drawer:saved', saved);
-    controller.submitted({ detail: { success: true } });
-    controller.submitted({ detail: { success: false } });
+    const cardForm = document.createElement('form');
+    cardForm.dataset.cardDrawerSavesCard = '';
+    const replyForm = controller.frameTarget.querySelector('form');
+    controller.submitted({ target: cardForm, detail: { success: true } });
+    controller.submitted({ target: cardForm, detail: { success: false } });
+    // An answer or a reply changes nothing on the board, so it reloads nothing.
+    controller.submitted({ target: replyForm, detail: { success: true } });
     window.removeEventListener('card-drawer:saved', saved);
     expect(saved).toHaveBeenCalledOnce();
 });

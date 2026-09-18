@@ -82,16 +82,22 @@ export default class extends ModalController {
         this.frameTarget.reload();
     }
 
-    /** The board listens for card-drawer:saved, so a saved card shows on it at once. */
+    /** The board listens for card-drawer:saved, so a created or edited card shows on it at once. */
     submitted(event) {
         if (!event.detail.success) return;
+        if (!event.target.closest?.('[data-card-drawer-saves-card]')) return;
         this.dispatch('saved');
     }
 
     close(event) {
         if (!this.dialogTarget.open) return;
-        this.#repairReturnFocus();
         super.close(event);
+    }
+
+    restoreFocus() {
+        this.#repairReturnFocus();
+        super.restoreFocus();
+        this.invoker = null;
     }
 
     #startLoading() {
@@ -115,7 +121,6 @@ export default class extends ModalController {
         this.errorTarget.hidden = true;
         this.frameTarget.removeAttribute('src');
         this.frameTarget.replaceChildren();
-        this.invoker = null;
     };
 
     #reset() {
@@ -123,5 +128,6 @@ export default class extends ModalController {
             this.dialogTarget.close();
         }
         this.#onClosed();
+        this.invoker = null;
     }
 }
