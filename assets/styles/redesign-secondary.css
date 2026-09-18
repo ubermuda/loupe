@@ -1,12 +1,4 @@
 @layer components {
-    /* Secondary workspace pages mirror the approved prototype's compact paper surfaces. */
-    .lp-workspace.lp-redesign-secondary {
-        max-width: 95.625rem;
-    }
-    .lp-redesign-secondary .lp-workspace-desc {
-        @apply mt-2 mb-0 text-sm;
-    }
-
     /* Crew cards separate bridge health, runtime, and last contact. */
     .lp-redesign-agents .lp-agent-grid {
         @apply gap-5 mt-7;
@@ -193,7 +185,7 @@
     /* Settings pages keep section navigation beside narrow paper panels. */
     .lp-redesign-settings .lp-settings-layout,
     .lp-account-settings-layout {
-        @apply mt-8 grid grid-cols-1 gap-8;
+        @apply grid grid-cols-1 gap-8;
     }
     .lp-redesign-settings .lp-settings-content,
     .lp-account-settings-content {

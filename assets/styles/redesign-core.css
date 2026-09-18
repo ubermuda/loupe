@@ -1,23 +1,4 @@
 /* Prototype-aligned composition for the four primary work queues. */
-.lp-workspace.lp-core-prototype-page {
-    width: 100%;
-    max-width: none;
-    padding: calc(var(--spacing) * 7) calc(var(--spacing) * 6.5);
-}
-
-.lp-core-prototype-page .lp-page-header,
-.lp-core-prototype-page .lp-board-head {
-    align-items: flex-start;
-    margin-bottom: calc(var(--spacing) * 6);
-}
-
-.lp-core-prototype-page .lp-workspace-desc {
-    max-width: none;
-    margin-top: calc(var(--spacing) * 1.5);
-    margin-bottom: 0;
-    color: var(--text-dim);
-    font-size: var(--text-sm);
-}
 
 .lp-core-prototype-page .lp-list-filters {
     min-height: calc(var(--spacing) * 10);
@@ -165,10 +146,6 @@
 .lp-core-board .lp-board-card__meta {
     padding-top: calc(var(--spacing) * 2.5);
     border-top: 1px solid var(--border-faint);
-}
-
-.lp-workspace.lp-core-inbox {
-    max-width: none;
 }
 
 .lp-core-inbox .lp-section-tabs {
@@ -446,10 +423,6 @@
     font-size: var(--text-xs);
 }
 
-.lp-workspace.lp-core-site-review {
-    max-width: none;
-}
-
 .lp-core-site-review .lp-feedback-receipt {
     gap: calc(var(--spacing) * 4);
     margin-bottom: calc(var(--spacing) * 6);
@@ -675,10 +648,6 @@
 }
 
 @media (max-width: 68rem) {
-    .lp-core-prototype-page {
-        padding: calc(var(--spacing) * 6);
-    }
-
     .lp-core-inbox .lp-inbox-ask,
     .lp-core-inbox .lp-inbox-split {
         grid-template-columns: minmax(calc(var(--spacing) * 60), 0.65fr) minmax(
@@ -696,10 +665,6 @@
 }
 
 @media (max-width: 42.5rem) {
-    .lp-core-prototype-page {
-        padding: calc(var(--spacing) * 5) calc(var(--spacing) * 4.5);
-    }
-
     .lp-core-inbox .lp-inbox-ask,
     .lp-core-inbox .lp-inbox-split,
     .lp-core-site-review .lp-feedback-workspace {

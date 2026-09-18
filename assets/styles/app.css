@@ -661,9 +661,6 @@
 }
 
 @layer components {
-    .lp-needs-you {
-        @apply max-w-6xl;
-    }
     .lp-needs-you__summary {
         @apply inline-flex max-w-full items-center rounded-full bg-status-pending-bg px-3 py-1.5 text-sm font-bold text-status-pending-deep;
     }
@@ -767,9 +764,6 @@
 }
 
 @layer components {
-    .lp-site-feedback-page {
-        @apply max-w-6xl;
-    }
     .lp-feedback-receipt {
         @apply flex items-center gap-3 rounded-xl bg-tint px-4 py-3 mb-5;
     }
@@ -1238,12 +1232,13 @@
     }
     .lp-wizard-done__body {
         @apply max-w-md text-base text-fg-mute m-0 leading-relaxed;
+    /* The one page frame every workspace uses, so pages line up as you move between them. */
     }
 
     /* ── Workspace / projects index ─────────────────────────────────── */
 
     .lp-workspace {
-        @apply w-full px-8 pt-8 pb-14;
+        @apply w-full px-4.5 pt-5 pb-10 md:px-6 md:pt-6 md:pb-14 xl:px-8 xl:pt-8;
         max-width: 95.625rem;
     }
     .lp-eyebrow {
@@ -1266,10 +1261,6 @@
     }
     .lp-workspace-desc {
         @apply text-fg-mute m-0 mt-2 mb-8 text-base leading-relaxed;
-    }
-    /* Wide column for the two screens that need one — Connect and the diff. */
-    .lp-workspace--wide {
-        @apply max-w-215;
     }
 
     /* One sunken card per project rather than a hairline list — a project is a
@@ -5261,11 +5252,8 @@
     /* ── Board ──────────────────────────────────────────────────────────
        Four columns side by side. The row scrolls rather than wraps: a column
        that wrapped below its neighbours would stop reading as a column. */
-    .lp-workspace--board {
-        @apply max-w-none pr-12;
-    }
     .lp-board-head {
-        @apply flex items-start justify-between gap-4;
+        @apply flex items-start justify-between gap-4 mb-7;
     }
     .lp-board {
         @apply flex flex-col gap-2;
@@ -6046,10 +6034,12 @@
 @layer components {
     /* Shared heading row for route-level workspaces. */
     .lp-page-header {
-        @apply flex items-start justify-between gap-6 mb-8;
+        @apply flex items-start justify-between gap-6 mb-7;
     }
-    .lp-page-header .lp-workspace-desc {
-        @apply mb-0;
+    .lp-page-header .lp-workspace-desc,
+    .lp-orchestration-header .lp-workspace-desc,
+    .lp-board-head .lp-workspace-desc {
+        @apply max-w-none mt-1.5 mb-0 text-sm leading-normal text-fg-dim;
     }
     .lp-page-header__copy {
         @apply flex-1 basis-80 min-w-0;
@@ -6062,12 +6052,6 @@
     }
 
     /* Workshop overview with the handoff's wide work column and support rail. */
-    .lp-workshop {
-        @apply max-w-screen-2xl px-8 py-8;
-    }
-    .lp-workshop .lp-page-header {
-        @apply mb-7;
-    }
     .lp-workshop-title {
         @apply m-0 font-display text-3xl leading-tight font-extrabold tracking-tight text-ink;
     }
@@ -6293,14 +6277,8 @@
         @apply text-ink border-accent;
     }
 
-    .lp-orchestration-page {
-        @apply max-w-6xl;
-    }
     .lp-orchestration-header {
-        @apply flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6;
-    }
-    .lp-orchestration-header .lp-workspace-desc {
-        @apply mb-0;
+        @apply flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-7;
     }
     .lp-agent-grid {
         @apply grid grid-cols-1 xl:grid-cols-2 gap-4 mt-6;
