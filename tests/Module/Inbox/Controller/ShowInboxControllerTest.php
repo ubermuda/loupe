@@ -270,6 +270,27 @@ final class ShowInboxControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter('[data-panel-tabs-target="panel"][hidden]'));
     }
 
+    public function test_a_request_row_reads_the_state_of_every_item_it_holds(): void
+    {
+        $owner = $this->signedUpUser($this->em, 'inbox-row-state');
+        $project = $this->inboxProject($this->em, $owner);
+        $answered = $this->answered($this->em, $this->question($this->em, $project, 1));
+        $todo = $this->todo($this->em, $project, 2);
+        $todo->blocking = true;
+        $this->em->flush();
+        $this->askHolding($this->em, $project, [$answered, $todo]);
+        $this->setInboxFlag(true);
+
+        $this->client->loginUser($owner);
+        $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox');
+
+        // The ask is still waiting on its to-do, so the row must not read as answered.
+        $badges = $crawler->filter('.lp-inbox-request .lp-inbox-request__badges');
+        self::assertCount(1, $badges);
+        self::assertSame('Blocking', $badges->text());
+        self::assertCount(0, $crawler->filter('.lp-inbox-request .lp-status-chip'));
+    }
+
     public function test_open_asks_come_oldest_first_then_loose_items_then_closed_asks(): void
     {
         $owner = $this->signedUpUser($this->em, 'inbox-order');

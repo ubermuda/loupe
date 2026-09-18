@@ -10,7 +10,7 @@
 
 {% block body %}
 {% set completed = inbox.completed and not inbox.isSearch %}
-<div class="lp-workspace lp-needs-you lp-core-prototype-page lp-core-inbox"{% if not completed and not inbox.isSearch %} data-controller="inbox-anchor" data-inbox-anchor-url-value="{{ path('app_project_inbox', {id: inbox.project.id, queue: 'completed'}) }}"{% endif %}>
+<div class="lp-workspace lp-needs-you lp-core-prototype-page lp-core-inbox"{% if not completed and not inbox.isSearch %} data-controller="inbox-anchor" data-inbox-anchor-queue-value="completed"{% endif %}>
     <header class="lp-page-header">
         <div class="lp-page-header__copy">
             <h1 class="lp-workspace-title">{{ 'inbox.page.title'|trans }}</h1>
