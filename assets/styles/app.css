@@ -514,7 +514,7 @@
         @apply min-w-4xl px-5 py-3 bg-surface-3 text-xs font-bold uppercase tracking-wider text-fg-dim;
     }
     .lp-document-table .lp-document-list {
-        @apply min-w-4xl gap-0;
+        @apply min-w-4xl gap-0 mt-0;
     }
     .lp-document-table .lp-document-row {
         @apply min-w-4xl rounded-none bg-surface-1 px-5 py-4 border-t border-line;
@@ -1044,6 +1044,13 @@
     .lp-label,
     .admin-field-label {
         @apply text-xs font-bold text-fg-mute;
+    }
+    .lp-input:disabled {
+        @apply bg-surface-3 text-fg-mute cursor-not-allowed;
+    }
+    /* A field with one action beside it, such as a read-only value and its Copy button. */
+    .lp-input-with-action {
+        @apply flex items-center gap-2;
     }
     .lp-input {
         @apply w-full min-h-9 font-sans text-sm leading-5 text-ink bg-surface-1 border border-line px-3.25 py-1.75 outline-hidden transition-colors placeholder:text-fg-dim focus:border-accent-ink focus:ring-2 focus:ring-accent-ink;
@@ -3589,7 +3596,7 @@
         @apply relative;
     }
     .lp-switcher__panel {
-        @apply absolute left-0 right-0 z-30 flex flex-col p-1.5 rounded-xl bg-chrome-raised;
+        @apply absolute left-0 right-0 z-30 flex flex-col gap-1 p-1.5 rounded-xl bg-chrome-raised;
         animation: lp-appear 120ms ease-out both;
     }
     .lp-switcher__panel[hidden] {

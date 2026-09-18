@@ -46,11 +46,11 @@
             </div>
             {% if project.slug is not null %}
             <div class="lp-form-field">
-                <span class="lp-label">{{ 'project.edit.slug.label'|trans }}</span>
-                <div class="lp-connect-field" data-controller="clipboard" data-clipboard-text-value="{{ project.slug }}"
+                <label class="lp-label" for="project-slug">{{ 'project.edit.slug.label'|trans }}</label>
+                <div class="lp-input-with-action" data-controller="clipboard" data-clipboard-text-value="{{ project.slug }}"
                      data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
-                    <code class="lp-connect-field__value" data-project-slug>{{ project.slug }}</code>
-                    <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+                    <input type="text" id="project-slug" class="lp-input" value="{{ project.slug }}" disabled data-project-slug>
+                    <button type="button" class="lp-btn" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
                 </div>
                 <p class="lp-form-hint">{{ 'project.edit.slug.hint'|trans }}</p>
             </div>
