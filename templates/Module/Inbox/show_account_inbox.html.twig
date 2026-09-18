@@ -28,7 +28,7 @@
             <section class="lp-inbox-ask" data-inbox-ask-id="{{ ask.id }}">
                 <header class="lp-inbox-ask__head">
                     <span class="lp-inbox-ask__session" title="{{ ask.sessionId }}">{{ 'inbox.ask.session'|trans({'%session%': ask.sessionId}) }}</span>
-                    <span class="lp-inbox-ask__time">{{ 'inbox.ask.asked'|trans({'%time%': ask.createdAt|relative_time}) }}</span>
+                    <span class="lp-inbox-ask__time">{{ ask.createdAt|relative_time }}</span>
                     <a class="lp-inbox-ask__link" href="{{ projectInbox }}#inbox-ask-{{ ask.id }}" data-account-inbox-ask-link>{{ 'inbox.account.ask.open'|trans }}</a>
                 </header>
                 {% if ask.context|trim is not empty %}

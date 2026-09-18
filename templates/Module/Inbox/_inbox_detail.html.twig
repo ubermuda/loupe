@@ -16,7 +16,7 @@
             <span class="lp-source-avatar" aria-hidden="true"><twig:ux:icon name="lucide:bot" class="w-4 h-4" /></span>
             <span class="lp-inbox-ask__source">{{ 'inbox.source.agent'|trans }}</span>
             {% if ask %}<span class="lp-inbox-ask__session" title="{{ ask.sessionId }}">{{ 'inbox.ask.session'|trans({'%session%': ask.sessionId}) }}</span>{% endif %}
-            <span class="lp-inbox-ask__time">{{ 'inbox.ask.asked'|trans({'%time%': asked|relative_time}) }}</span>
+            <span class="lp-inbox-ask__time">{{ asked|relative_time }}</span>
             {% if ask and ask.closedAt %}
                 <span class="lp-status-chip lp-status-chip--resolved">
                     <span class="lp-status-chip__dot"></span>

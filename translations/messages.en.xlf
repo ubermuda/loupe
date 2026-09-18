@@ -4625,7 +4625,7 @@
             </trans-unit>
             <trans-unit id="inbox.search.placeholder">
                 <source>inbox.search.placeholder</source>
-                <target>Search titles and bodies</target>
+                <target>Search requests</target>
             </trans-unit>
             <trans-unit id="inbox.search.clear">
                 <source>inbox.search.clear</source>
@@ -4646,10 +4646,6 @@
             <trans-unit id="inbox.ask.session">
                 <source>inbox.ask.session</source>
                 <target>Session %session%</target>
-            </trans-unit>
-            <trans-unit id="inbox.ask.asked">
-                <source>inbox.ask.asked</source>
-                <target>Asked %time%</target>
             </trans-unit>
             <trans-unit id="inbox.ask.closed">
                 <source>inbox.ask.closed</source>
