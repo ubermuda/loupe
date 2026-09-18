@@ -26,8 +26,8 @@ final class MintApiTokenControllerTest extends WebTestCase
 
         $client->loginUser($user);
         $raw = $this->mint($client, 'Laptop CLI');
-        self::assertSelectorExists('[data-panel-tabs-active-value="api-tokens"]');
-        self::assertSelectorNotExists('[data-testid="api-tokens-section"][hidden]');
+        self::assertSelectorExists('[data-testid="api-tokens-section"]');
+        self::assertSelectorExists('.lp-settings-nav__item--active[href="/account/api-tokens"]');
 
         // A 64-character hex string: the value ApiToken::issue() generates.
         self::assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $raw);
@@ -54,7 +54,7 @@ final class MintApiTokenControllerTest extends WebTestCase
 
         // Guard: the assertion below would also pass on a page that rendered
         // nothing at all, so pin that the row is really there first.
-        $crawler = $client->request(Request::METHOD_GET, '/account');
+        $crawler = $client->request(Request::METHOD_GET, '/account/api-tokens');
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('[data-token-id]'));
 
@@ -217,7 +217,7 @@ final class MintApiTokenControllerTest extends WebTestCase
         $em->persist($token);
         $em->flush();
 
-        $client->request(Request::METHOD_GET, '/account', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
+        $client->request(Request::METHOD_GET, '/account/api-tokens', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
         self::assertResponseRedirects('http://localhost/login');
 
         $client->request(Request::METHOD_POST, '/account/api-tokens', [
@@ -235,10 +235,12 @@ final class MintApiTokenControllerTest extends WebTestCase
         $user = $this->createVerifiedUser($em, 'Blank', 'blank@example.com');
 
         $client->loginUser($user);
-        $client->request(Request::METHOD_GET, '/account');
+        $client->request(Request::METHOD_GET, '/account/api-tokens');
         $client->submitForm('Create token', ['mint_api_token_form[label]' => '   ']);
 
         self::assertResponseStatusCodeSame(422);
+        self::assertSelectorExists('.lp-settings-nav__item--active[href="/account/api-tokens"]');
+        self::assertSelectorNotExists('[data-testid="profile-section"]');
         // The settings page is re-rendered with the bound form, not redirected away,
         // and the failure lands on the field rather than in a lossy flash.
         self::assertSelectorTextContains('[data-testid="mint-api-token-form"]', 'should not be blank');
@@ -251,11 +253,11 @@ final class MintApiTokenControllerTest extends WebTestCase
     /** Submits the mint form and returns the raw token the page shows once. */
     private function mint(KernelBrowser $client, string $label): string
     {
-        $client->request(Request::METHOD_GET, '/account');
+        $client->request(Request::METHOD_GET, '/account/api-tokens');
         self::assertResponseIsSuccessful();
 
         $client->submitForm('Create token', ['mint_api_token_form[label]' => $label]);
-        self::assertResponseRedirects('/account');
+        self::assertResponseRedirects('/account/api-tokens');
 
         $crawler = $client->followRedirect();
         $secret = $crawler->filter('[data-testid="minted-api-token-value"]');

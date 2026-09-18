@@ -27,13 +27,12 @@ test('a user can delete their account end to end via the emailed confirmation li
         DELETE_SUBJECT,
     );
 
-    await page.goto('/account');
-    await page.locator('#account-tab-data').click();
+    await page.goto('/account/data');
     await page
         .locator('[data-testid="delete-account-section"]')
         .getByRole('button', { name: 'Request account deletion' })
         .click();
-    await expect(page).toHaveURL('/account');
+    await expect(page).toHaveURL('/account/data');
     await expect(page.locator('.lp-flash--success')).toBeVisible();
 
     const received = await getEmailWithSubject(

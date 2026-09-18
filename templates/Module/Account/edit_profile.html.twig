@@ -1,31 +1,25 @@
-{% extends 'base.html.twig' %}
+{% extends '@Account/_settings_layout.html.twig' %}
 
-{% block title %}{{ 'account.profile.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+{% block settings_section 'profile' %}
 
-{% block topbar_crumbs %}
-    <a class="lp-topbar__crumb" href="{{ path('app_account_settings') }}">{{ 'nav.link.account'|trans }}</a>
-    <span class="lp-topbar__sep">/</span>
-    <span class="lp-topbar__here">{{ 'account.profile.page.title'|trans }}</span>
-{% endblock %}
-
-{% block body %}
-<div class="lp-connect">
-    <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'account.profile.page.title'|trans }}</h1>
-    <p class="lp-connect-hint">{{ 'account.profile.page.intro'|trans }}</p>
-
-    <section class="max-w-170" data-testid="edit-profile-section">
-        {{ form_start(form, {'attr': {'class': 'lp-form', 'novalidate': 'novalidate'}}) }}
-            <div class="lp-form-field">
-                {{ form_label(form.fullName, null, {'label_attr': {'class': 'lp-label'}}) }}
-                {{ form_widget(form.fullName, {'attr': {'class': 'lp-input'}}) }}
-                <div class="lp-field-errors">{{ form_errors(form.fullName) }}</div>
-            </div>
-
-            <div class="flex items-center justify-end gap-3 pt-2">
-                <a href="{{ path('app_account_settings') }}" class="lp-btn">{{ 'account.profile.cancel_link'|trans }}</a>
-                <button type="submit" class="lp-btn lp-btn--primary">{{ 'account.profile.save_button'|trans }}</button>
-            </div>
-        {{ form_end(form) }}
-    </section>
-</div>
+{% block settings_content %}
+<section class="lp-connect-block lp-settings-section lp-settings-panel-card" data-testid="profile-section">
+    <h2 class="lp-section-title">{{ 'account.settings.profile.heading'|trans }}</h2>
+    <p class="lp-connect-hint">{{ 'account.settings.profile.description'|trans }}</p>
+    {{ form_start(form, {'action': path('app_account_profile'), 'attr': {'class': 'lp-form', 'novalidate': 'novalidate'}}) }}
+        <div class="lp-form-field">
+            {{ form_label(form.fullName, null, {'label_attr': {'class': 'lp-label'}}) }}
+            {{ form_widget(form.fullName, {'attr': {'class': 'lp-input'}}) }}
+            <div class="lp-field-errors">{{ form_errors(form.fullName) }}</div>
+        </div>
+        <div class="lp-form-field">
+            <label class="lp-label" for="account-profile-email">{{ 'account.settings.profile.email_label'|trans }}</label>
+            <input class="lp-input" id="account-profile-email" type="email" value="{{ app.user.email }}" readonly>
+            <p class="lp-form-hint">{{ 'account.settings.profile.email_hint'|trans }}</p>
+        </div>
+        <div class="flex items-center justify-end gap-3 pt-2">
+            <button type="submit" class="lp-btn lp-btn--primary">{{ 'account.profile.save_button'|trans }}</button>
+        </div>
+    {{ form_end(form) }}
+</section>
 {% endblock %}

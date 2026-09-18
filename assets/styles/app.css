@@ -6327,11 +6327,8 @@
         @apply rounded-xl border border-line bg-surface-1 p-6;
     }
     /* Connections: two cards, each a title, a hint, then its rows and actions. */
-    .lp-connect-settings .lp-settings-content {
-        @apply flex flex-col gap-5;
-    }
     .lp-connect-settings .lp-settings-section {
-        @apply m-0 flex flex-col items-start gap-4;
+        @apply flex flex-col items-start gap-4;
     }
     .lp-connect-settings .lp-code-dark__body {
         @apply whitespace-pre-wrap break-all;

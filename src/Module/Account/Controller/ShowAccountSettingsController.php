@@ -5,17 +5,11 @@ declare(strict_types=1);
 namespace App\Module\Account\Controller;
 
 use App\Controller\AppController;
-use App\Module\Account\Command\ShowAccountSettingsCommand;
-use App\Module\Account\Command\ShowAccountSettingsHandler;
-use App\Module\Account\Entity\User;
-use App\Module\Account\Form\MintApiTokenFormType;
-use App\Module\Account\Form\MintApiTokenRequest;
-use App\Module\Account\Form\ProfileFormType;
-use App\Module\Account\Form\ProfileRequest;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
+/** Sends `/account`, and the `?tab=` links of the old one-page layout, to a section. */
 #[Route(
     '/account',
     name: 'app_account_settings',
@@ -23,26 +17,13 @@ use Symfony\Component\Routing\Attribute\Route;
 )]
 class ShowAccountSettingsController extends AppController
 {
-    public function __construct(
-        private readonly ShowAccountSettingsHandler $handler,
-    ) {
-    }
+    private const array SECTION_ROUTES = [
+        'api-tokens' => 'app_account_api_tokens',
+        'data' => 'app_account_data',
+    ];
 
     public function __invoke(Request $request): Response
     {
-        $user = $this->getUser();
-        if (!$user instanceof User) {
-            throw new \LogicException(\sprintf('%s reached without an authenticated User (got %s); this route must stay behind the ROLE_USER catch-all.', self::class, get_debug_type($user)));
-        }
-
-        $view = ($this->handler)(new ShowAccountSettingsCommand($user));
-
-        return $this->render('@Account/show_account_settings.html.twig', [
-            'view' => $view,
-            'mintForm' => $this->getInjectedFormView($request, 'mintForm')
-                ?? $this->createForm(MintApiTokenFormType::class, new MintApiTokenRequest())->createView(),
-            'profileForm' => $this->getInjectedFormView($request, 'profileForm')
-                ?? $this->createForm(ProfileFormType::class, new ProfileRequest(fullName: $user->fullName))->createView(),
-        ]);
+        return $this->redirectToRoute(self::SECTION_ROUTES[$request->query->getString('tab')] ?? 'app_account_profile');
     }
 }

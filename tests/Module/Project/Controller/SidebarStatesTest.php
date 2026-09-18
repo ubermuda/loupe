@@ -33,7 +33,65 @@ final class SidebarStatesTest extends WebTestCase
         // links — the account nav (settings, billing) renders on every page.
         self::assertCount(0, $crawler->filter('.lp-sidebar__switcher'));
         self::assertCount(0, $crawler->filter('.lp-sidebar__link[href*="/documents"]'));
-        self::assertCount(1, $crawler->filter('.lp-sidebar__link[href="/account"]'));
+        self::assertCount(1, $crawler->filter('.lp-sidebar__link[href="/account/profile"]'));
+    }
+
+    public function test_an_account_page_shows_the_last_visited_project(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'sidebar-remember@example.com');
+        $project = new Project($owner, 'remembered');
+        $em->persist($project);
+        $em->flush();
+        $id = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/account/profile');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('.lp-sidebar__switcher');
+
+        $client->request(Request::METHOD_GET, '/projects/'.$id.'/documents');
+        self::assertResponseIsSuccessful();
+
+        $crawler = $client->request(Request::METHOD_GET, '/account/profile');
+        self::assertResponseIsSuccessful();
+        self::assertSame('remembered', trim($crawler->filter('.lp-sidebar__switcher-name')->text()));
+        self::assertSelectorExists('a.lp-sidebar__link[href="/projects/'.$id.'/documents"]');
+        self::assertSelectorNotExists('a.lp-sidebar__link--active[href="/projects/'.$id.'/documents"]');
+        self::assertSelectorExists('a.lp-sidebar__link--active[href="/account/profile"]');
+        // The topbar stays account-wide: search still spans every project.
+        self::assertSelectorExists('a[data-global-search-target="trigger"][href="/search"]');
+    }
+
+    public function test_the_last_visited_project_is_forgotten_once_it_is_gone(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'sidebar-forget@example.com');
+        $project = new Project($owner, 'doomed');
+        $em->persist($project);
+        $em->flush();
+        $id = (string) $project->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$id.'/documents');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('.lp-sidebar__switcher');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $doomed = $em->find(Project::class, $id);
+        self::assertNotNull($doomed);
+        $em->remove($doomed);
+        $em->flush();
+        $em->clear();
+
+        $client->request(Request::METHOD_GET, '/account/profile');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('.lp-sidebar__switcher');
+        self::assertSelectorNotExists('a.lp-sidebar__link[href="/projects/'.$id.'/documents"]');
     }
 
     public function test_project_scoped_page_shows_switcher_and_active_nav(): void

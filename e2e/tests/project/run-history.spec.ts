@@ -22,7 +22,7 @@ test('completed reports retain outcomes and escaped output at enlarged text size
     });
     expect(seed.status()).toBe(201);
     const { projectId } = await seed.json();
-    await page.goto('/account?tab=api-tokens');
+    await page.goto('/account/api-tokens');
     const form = page.getByTestId('mint-api-token-form');
     await form.getByLabel('Name').fill('Run history reports');
     await submitRedirectingForm(

@@ -5,6 +5,8 @@
         {% set project = current_project() %}
         {% set route = app.request.attributes.get('_route') %}
         <div class="lp-app" data-controller="drawer">
+            {# Off a project page the sidebar keeps the last project visited; the topbar does not. #}
+            {% with {project: sidebar_project()} %}
             <aside class="lp-sidebar lp-sidebar--drawer" id="lp-sidebar" data-drawer-target="panel">
                 <button type="button" class="lp-sidebar__close"
                         data-drawer-target="dismiss"
@@ -164,9 +166,10 @@
                         <span class="lp-sidebar__link-label">{{ 'inbox.account.nav'|trans }}</span>
                     </a>
                     {% endif %}
-                    <a href="{{ path('app_account_settings') }}"
-                       class="lp-sidebar__link{% if route == 'app_account_settings' %} lp-sidebar__link--active{% endif %}"
-                       {% if route == 'app_account_settings' %}aria-current="page"{% endif %}>
+                    {% set accountActive = route in ['app_account_profile', 'app_account_api_tokens', 'app_account_data'] %}
+                    <a href="{{ path('app_account_profile') }}"
+                       class="lp-sidebar__link{% if accountActive %} lp-sidebar__link--active{% endif %}"
+                       {% if accountActive %}aria-current="page"{% endif %}>
                         <twig:ux:icon name="lucide:user" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.account'|trans }}</span>
                     </a>
@@ -199,6 +202,7 @@
                     </form>
                 </div>
             </aside>
+            {% endwith %}
             <div class="lp-scrim" data-drawer-target="scrim" data-action="click->drawer#close" hidden></div>
             <div class="lp-shell" data-drawer-target="content">
                 <header class="lp-topbar">

@@ -38,6 +38,6 @@ class RequestAccountDeletionController extends AppController
 
         $this->addFlash('success', $this->translator->trans('account.delete.flash.requested'));
 
-        return $this->redirectToRoute('app_account_settings');
+        return $this->redirectToRoute('app_account_data');
     }
 }

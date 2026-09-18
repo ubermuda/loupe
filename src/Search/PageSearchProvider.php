@@ -34,7 +34,7 @@ final readonly class PageSearchProvider implements SearchProviderInterface
             'app_project_outbox' => 'nav.link.outbox',
             'app_project_edit' => 'nav.link.project_settings',
             'app_projects' => 'nav.switcher.all_projects',
-            'app_account_settings' => 'nav.link.account',
+            'app_account_profile' => 'nav.link.account',
         ];
         if ($this->flags->isEnabled('board.enabled')) {
             $routes['app_project_board'] = 'nav.link.board';
@@ -47,7 +47,7 @@ final readonly class PageSearchProvider implements SearchProviderInterface
         foreach ($routes as $route => $label) {
             $title = $this->translator->trans($label);
             if ('' === $query || false !== mb_stripos($title, $query)) {
-                $parameters = in_array($route, ['app_projects', 'app_account_settings'], true) ? [] : ['id' => (string) $project->id];
+                $parameters = in_array($route, ['app_projects', 'app_account_profile'], true) ? [] : ['id' => (string) $project->id];
                 $items[] = new SearchResult($title, $this->urls->generate($route, $parameters), 'page');
             }
         }

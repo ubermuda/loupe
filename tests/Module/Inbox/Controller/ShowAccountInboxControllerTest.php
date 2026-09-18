@@ -40,7 +40,7 @@ final class ShowAccountInboxControllerTest extends WebTestCase
         $this->client->request(Request::METHOD_GET, '/account/inbox');
         self::assertResponseStatusCodeSame(404);
 
-        $this->client->request(Request::METHOD_GET, '/account');
+        $this->client->request(Request::METHOD_GET, '/account/profile');
         self::assertResponseIsSuccessful();
         self::assertSelectorNotExists('a[href="/account/inbox"]');
     }
@@ -51,7 +51,7 @@ final class ShowAccountInboxControllerTest extends WebTestCase
         $this->setInboxFlag(true);
 
         $this->client->loginUser($owner);
-        $this->client->request(Request::METHOD_GET, '/account');
+        $this->client->request(Request::METHOD_GET, '/account/profile');
 
         self::assertSelectorExists('.lp-sidebar__nav--secondary a[href="/account/inbox"]');
     }

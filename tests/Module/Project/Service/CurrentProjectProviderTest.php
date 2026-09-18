@@ -12,6 +12,8 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
+use Symfony\Component\HttpFoundation\Session\Session;
+use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 
@@ -74,6 +76,66 @@ final class CurrentProjectProviderTest extends KernelTestCase
         $first = $provider->current();
         self::assertSame($first, $provider->current());
         self::assertSame($project->id, $first?->id);
+    }
+
+    public function test_a_page_without_a_project_falls_back_to_the_last_visited_one(): void
+    {
+        self::bootKernel();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'provider-remember@example.com');
+        $project = new Project($owner, 'visited');
+        $em->persist($project);
+        $em->flush();
+
+        $session = new Session(new MockArraySessionStorage());
+        $visit = $this->requestWith('id', (string) $project->id);
+        $visit->setSession($session);
+        self::assertSame($project->id, $this->provider($visit, $owner)->current()?->id);
+
+        $account = new Request();
+        $account->setSession($session);
+        $provider = $this->provider($account, $owner);
+        self::assertSame($project->id, $provider->currentOrLastVisited()?->id);
+        self::assertNull($provider->current(), 'only the sidebar falls back; the page itself has no project');
+    }
+
+    public function test_a_remembered_project_of_another_user_is_ignored(): void
+    {
+        self::bootKernel();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'provider-remember-owner@example.com');
+        $other = $this->user($em, 'provider-remember-other@example.com');
+        $project = new Project($owner, 'not-yours-either');
+        $em->persist($project);
+        $em->flush();
+
+        $session = new Session(new MockArraySessionStorage());
+        $visit = $this->requestWith('id', (string) $project->id);
+        $visit->setSession($session);
+        self::assertNotNull($this->provider($visit, $owner)->current());
+
+        $account = new Request();
+        $account->setSession($session);
+        self::assertNull($this->provider($account, $other)->currentOrLastVisited());
+    }
+
+    public function test_an_unresolvable_route_project_does_not_fall_back(): void
+    {
+        self::bootKernel();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'provider-remember-miss@example.com');
+        $project = new Project($owner, 'remembered-but-not-this-page');
+        $em->persist($project);
+        $em->flush();
+
+        $session = new Session(new MockArraySessionStorage());
+        $visit = $this->requestWith('id', (string) $project->id);
+        $visit->setSession($session);
+        self::assertNotNull($this->provider($visit, $owner)->current());
+
+        $miss = $this->requestWith('id', 'no-such-project');
+        $miss->setSession($session);
+        self::assertNull($this->provider($miss, $owner)->currentOrLastVisited());
     }
 
     private function provider(Request $request, User $user): CurrentProjectProvider

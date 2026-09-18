@@ -29,6 +29,7 @@ final class ProjectNavExtension extends AbstractExtension
     {
         return [
             new TwigFunction('current_project', $this->currentProject(...)),
+            new TwigFunction('sidebar_project', $this->currentProjectProvider->currentOrLastVisited(...)),
             new TwigFunction('switchable_projects', $this->switchableProjects(...)),
         ];
     }
@@ -47,7 +48,7 @@ final class ProjectNavExtension extends AbstractExtension
         }
 
         $projects = $this->projects->findNewestByOwner($user, self::SWITCHER_LIMIT);
-        $current = $this->currentProject();
+        $current = $this->currentProjectProvider->currentOrLastVisited();
         if (null === $current) {
             return $projects;
         }

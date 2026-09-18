@@ -17,7 +17,7 @@ row per run, and it never changes the row afterwards. The project's
 `POST /api/projects/{handle}/worker-runs`
 
 The bridge authenticates with an account-level API token that carries the agent
-scope. Mint one at `/account`. A project's widget token carries a different
+scope. Mint one at `/account/api-tokens`. A project's widget token carries a different
 scope and the firewall refuses it here. The handle is a project id or a project
 slug. A project name does not resolve.
 

@@ -183,46 +183,19 @@
     }
 
     /* Settings pages keep section navigation beside narrow paper panels. */
-    .lp-redesign-settings .lp-settings-layout,
-    .lp-account-settings-layout {
+    .lp-redesign-settings .lp-settings-layout {
         @apply grid grid-cols-1 gap-8;
     }
-    .lp-redesign-settings .lp-settings-content,
-    .lp-account-settings-content {
+    .lp-redesign-settings .lp-settings-content {
         @apply max-w-none;
     }
-    .lp-settings-panel-card,
-    .lp-redesign-account .lp-connect-block,
-    .lp-redesign-account .lp-danger-zone {
+    .lp-settings-panel-card {
         @apply rounded-xl border border-line bg-white p-6;
     }
     .lp-redesign-settings .lp-danger-zone,
-    .lp-redesign-account .lp-connect-block,
-    .lp-redesign-account .lp-danger-zone {
+    .lp-redesign-settings .lp-settings-section + .lp-settings-section {
         @apply mt-5;
     }
-    .lp-redesign-account .lp-section-tabs {
-        @apply mb-0 flex-col border-0;
-    }
-    .lp-redesign-account .lp-section-tabs__item {
-        @apply cursor-pointer rounded-lg border-0 bg-transparent px-3 py-2.5 text-left;
-    }
-    .lp-redesign-account .lp-section-tabs__item:hover {
-        @apply bg-accent-faint text-accent-ink;
-    }
-    .lp-redesign-account .lp-section-tabs__item[aria-selected='true'] {
-        @apply bg-accent-soft text-accent-ink;
-    }
-    .lp-redesign-account .lp-section-tabs__item svg {
-        @apply h-4 w-4 shrink-0;
-    }
-    .lp-account-settings-content {
-        @apply flex flex-col;
-    }
-    .lp-redesign-account .lp-settings-panel {
-        @apply rounded-none bg-transparent p-0;
-    }
-    .lp-redesign-account .lp-btn,
     .lp-redesign-settings .lp-btn {
         @apply max-w-full whitespace-normal leading-5;
     }
@@ -248,40 +221,12 @@
     .lp-settings-column__slot {
         @apply w-9 h-9 shrink-0;
     }
-    .lp-account-settings-content #profile {
-        order: 1;
-    }
-    .lp-account-settings-content #api-tokens {
-        order: 2;
-    }
-    .lp-account-settings-content #data {
-        order: 3;
-    }
-    .lp-account-settings-content > .lp-danger-zone {
-        order: 4;
-    }
-
-    @media (width <= 48.75rem) {
-        .lp-redesign-account .lp-section-tabs {
-            @apply flex-row overflow-x-auto whitespace-nowrap;
-            scrollbar-width: none;
-        }
-        .lp-redesign-account .lp-section-tabs::-webkit-scrollbar {
-            display: none;
-        }
-        .lp-redesign-account .lp-section-tabs__item {
-            @apply shrink-0;
-        }
-    }
-
     @media (width >= 64rem) {
-        .lp-redesign-settings .lp-settings-layout,
-        .lp-account-settings-layout {
+        .lp-redesign-settings .lp-settings-layout {
             grid-template-columns: 11.25rem minmax(0, 46.25rem);
             column-gap: 2.125rem;
         }
-        .lp-redesign-settings .lp-settings-content,
-        .lp-account-settings-content {
+        .lp-redesign-settings .lp-settings-content {
             grid-column: 2;
         }
     }

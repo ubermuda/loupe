@@ -3,7 +3,8 @@ title: "Data exports"
 description: "How a user requests their data, and what the download link guarantees."
 ---
 
-A user requests an export from `/account/exports`. The worker builds an archive
+A user requests an export from the Data section of their account settings, at
+`/account/data`. The worker builds an archive
 asynchronously and emails a download link; the link resolves at
 `/account/exports/{id}/download`.
 

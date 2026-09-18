@@ -53,7 +53,7 @@ final class SearchOwnedProjectsHandlerTest extends KernelTestCase
         self::assertCount(1, array_filter($items, static fn (SearchResult $result): bool => str_starts_with($result->title, 'Second project · ')));
         $account = $search(new SearchOwnedProjectsCommand($owner, 'Account'));
         self::assertCount(1, $account->results->items);
-        self::assertSame('/account', $account->results->items[0]->url);
+        self::assertSame('/account/profile', $account->results->items[0]->url);
         $foreignResult = $search(new SearchOwnedProjectsCommand($outsider, 'quartz'));
         self::assertCount(1, $foreignResult->results->items);
         self::assertStringContainsString('Secret project', $foreignResult->results->items[0]->title);

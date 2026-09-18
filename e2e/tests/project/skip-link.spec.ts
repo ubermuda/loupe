@@ -10,8 +10,8 @@ test('skip link targets the new content after Turbo navigation', async ({
     page,
 }) => {
     await page.goto('/projects');
-    await page.locator('.lp-sidebar a[href="/account"]').click();
-    await expect(page).toHaveURL('/account');
+    await page.locator('.lp-sidebar a[href="/account/profile"]').click();
+    await expect(page).toHaveURL('/account/profile');
     const skip = page.getByRole('link', {
         name: 'Skip to content',
         exact: true,

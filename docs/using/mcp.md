@@ -17,12 +17,12 @@ token can be revoked from `/account/api-tokens/{tokenId}/revoke`.
 
 The first-run wizard mints one for you at `/welcome/connect`.
 
-Your account settings at `/account` mint an account-level token. Give it a name
-and copy the value from the page: Loupe stores only a hash, so the page shows
-the raw token once and never again. The same page lists every token you own and
-revokes any of them.
+The API tokens section of your account settings, at `/account/api-tokens`,
+mints an account-level token. Give it a name and copy the value from the page:
+Loupe stores only a hash, so the page shows the raw token once and never again.
+The same page lists every token you own and revokes any of them.
 
-Open the API tokens tab and select Revoke beside a token.
+Open the API tokens section and select Revoke beside a token.
 Confirm the dialog to revoke it. Cancel or Escape keeps the token active.
 Revocation immediately prevents authentication with that token. It cannot be undone.
 
@@ -39,7 +39,7 @@ tool call.
 
 An account-level token minted before the agent scope existed carries the
 site-review scope, and the CLI endpoints now answer it with
-`403 insufficient_scope`. Mint a replacement at `/account` and revoke the old
+`403 insufficient_scope`. Mint a replacement at `/account/api-tokens` and revoke the old
 one. No upgrade converts the stored scope. A stored site-review token that is
 bound to no project cannot be told apart from a widget token whose binding was
 cleared, and a widget token sits in page HTML that anyone can read, so a

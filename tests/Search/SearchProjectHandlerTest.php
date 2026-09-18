@@ -89,6 +89,6 @@ final class SearchProjectHandlerTest extends KernelTestCase
         self::assertSame([], $search(new SearchProjectCommand($project, 'Rules'))->results->items);
         $account = $search(new SearchProjectCommand($project, 'Account'));
         self::assertCount(1, $account->results->items);
-        self::assertSame('/account', $account->results->items[0]->url);
+        self::assertSame('/account/profile', $account->results->items[0]->url);
     }
 }

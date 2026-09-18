@@ -30,7 +30,7 @@ final class RequestAccountDeletionForgedHostTest extends WebTestCase
 
         $client->loginUser($user);
         // Establishes the origin cookie the stateless CSRF sentinel needs.
-        $client->request(Request::METHOD_GET, '/account');
+        $client->request(Request::METHOD_GET, '/account/profile');
         $client->request(
             Request::METHOD_POST,
             '/account/delete/request',
@@ -39,7 +39,7 @@ final class RequestAccountDeletionForgedHostTest extends WebTestCase
             ['HTTP_X_FORWARDED_HOST' => 'evil.example.com', 'HTTP_ORIGIN' => 'http://evil.example.com'],
         );
 
-        self::assertResponseRedirects('/account');
+        self::assertResponseRedirects('/account/data');
         self::assertQueuedEmailCount(1);
 
         $email = self::getMailerMessage();

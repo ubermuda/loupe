@@ -145,7 +145,9 @@ test('no authenticated page scrolls sideways at 375px', async ({
         `/projects/${projectId}/documents`,
         `/projects/${projectId}/connect`,
         `/projects/${projectId}/edit`,
-        '/account',
+        '/account/profile',
+        '/account/api-tokens',
+        '/account/data',
         '/about',
     ];
 
@@ -174,17 +176,18 @@ test('the sidebar stays in flow above the 780px shell breakpoint', async ({
 test('account panels fit narrow screens and enlarged text', async ({
     page,
 }) => {
-    await page.goto('/account');
     const sections = [
-        { tab: 'profile', panelCount: 1 },
-        { tab: 'api-tokens', panelCount: 1 },
-        { tab: 'data', panelCount: 2 },
+        { path: '/account/profile', panelCount: 1 },
+        { path: '/account/api-tokens', panelCount: 1 },
+        { path: '/account/data', panelCount: 2 },
     ];
+    const panels = page.locator(
+        '.lp-settings-content > section:not([data-testid="billing-section"])',
+    );
     for (const width of [1440, 1150, 950, 780, 390]) {
         await page.setViewportSize({ width, height: 1000 });
-        for (const { tab, panelCount } of sections) {
-            await page.locator(`#account-tab-${tab}`).click();
-            const panels = page.locator('[role="tabpanel"]:visible');
+        for (const { path, panelCount } of sections) {
+            await page.goto(path);
             await expect(panels).toHaveCount(panelCount);
             for (const panel of await panels.all()) {
                 const bounds = (await panel.boundingBox())!;
@@ -196,12 +199,19 @@ test('account panels fit narrow screens and enlarged text', async ({
                     ),
                 ).toBeLessThanOrEqual(1);
             }
+            const navItems = page.locator('.lp-settings-nav__item');
+            await expect(navItems).toHaveCount(3);
+            for (const item of await navItems.all()) {
+                const icon = (await item.locator('svg').boundingBox())!;
+                const label = (await item.boundingBox())!;
+                // One line of text: a label wrapped under its icon doubles the height.
+                expect(label.height).toBeLessThan(icon.height * 3);
+            }
         }
     }
-    await page.addStyleTag({ content: 'html { font-size: 200%; }' });
-    for (const { tab, panelCount } of sections) {
-        await page.locator(`#account-tab-${tab}`).click();
-        const panels = page.locator('[role="tabpanel"]:visible');
+    for (const { path, panelCount } of sections) {
+        await page.goto(path);
+        await page.addStyleTag({ content: 'html { font-size: 200%; }' });
         await expect(panels).toHaveCount(panelCount);
         for (const panel of await panels.all()) {
             const bounds = (await panel.boundingBox())!;

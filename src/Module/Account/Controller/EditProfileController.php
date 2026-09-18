@@ -49,13 +49,7 @@ class EditProfileController extends AppController
 
             $this->addFlash('success', $this->translator->trans('account.profile.flash.updated'));
 
-            return $this->redirectToRoute('app_account_settings');
-        }
-
-        if ($form->isSubmitted()) {
-            return $this->forward(ShowAccountSettingsController::class, [
-                'profileForm' => $form->createView(),
-            ])->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
+            return $this->redirectToRoute('app_account_profile');
         }
 
         return $this->renderFormResponse('@Account/edit_profile.html.twig', $form);

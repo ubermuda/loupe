@@ -26,10 +26,10 @@ final class RequestAccountDeletionControllerTest extends WebTestCase
 
         $client->loginUser($user);
         // Establishes the origin cookie the stateless CSRF sentinel needs.
-        $client->request(Request::METHOD_GET, '/account');
+        $client->request(Request::METHOD_GET, '/account/profile');
         $client->request(Request::METHOD_POST, '/account/delete/request', ['_csrf_token' => 'csrf-token']);
 
-        self::assertResponseRedirects('/account');
+        self::assertResponseRedirects('/account/data');
         self::assertQueuedEmailCount(1);
         $email = self::getMailerMessage();
         self::assertNotNull($email);

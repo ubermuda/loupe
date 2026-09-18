@@ -59,6 +59,23 @@ final class EditProfileControllerTest extends WebTestCase
         self::assertSame('Original Name', $crawler->filter('#profile_form_fullName')->attr('value'));
     }
 
+    public function test_the_profile_section_renders_alone_with_its_nav_item_current(): void
+    {
+        $this->signedInUser('profile-section@e.com', 'Section Person');
+
+        $crawler = $this->client->request(\Symfony\Component\HttpFoundation\Request::METHOD_GET, '/account/profile');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-testid="profile-section"]');
+        self::assertSelectorNotExists('[data-testid="api-tokens-section"]');
+        self::assertSelectorNotExists('[data-testid="export-section"]');
+        self::assertSelectorNotExists('[data-testid="delete-account-section"]');
+        self::assertCount(3, $crawler->filter('.lp-settings-nav a.lp-settings-nav__item'));
+        self::assertSelectorExists('.lp-settings-nav__item--active[aria-current="page"][href="/account/profile"]');
+        self::assertSelectorExists('.lp-settings-nav__item[href="/account/api-tokens"]');
+        self::assertSelectorExists('.lp-settings-nav__item[href="/account/data"]');
+    }
+
     public function test_submitting_a_new_name_persists_it_and_redirects_to_settings(): void
     {
         $user = $this->signedInUser('profile-save@e.com', 'Original Name');
@@ -68,7 +85,7 @@ final class EditProfileControllerTest extends WebTestCase
             'profile_form[fullName]' => 'Renamed Person',
         ]);
 
-        self::assertResponseRedirects('/account');
+        self::assertResponseRedirects('/account/profile');
         // The redirect alone only proves routing; the point of the page is the write.
         self::assertSame('Renamed Person', $this->reload($user)->fullName);
     }
@@ -84,6 +101,8 @@ final class EditProfileControllerTest extends WebTestCase
 
         // renderFormResponse sets 422 on an invalid submit.
         self::assertResponseStatusCodeSame(422);
+        self::assertSelectorExists('[data-testid="profile-section"] .lp-field-errors li');
+        self::assertSelectorExists('.lp-settings-nav__item--active[href="/account/profile"]');
         self::assertSame('Original Name', $this->reload($user)->fullName);
     }
 

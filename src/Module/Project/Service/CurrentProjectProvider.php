@@ -15,8 +15,9 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInt
 /**
  * Resolves the "current project" for the request that drives the app-shell
  * switcher and scoped nav. The active project is taken from the route params
- * ({@see resolve()}) and is always owner-scoped — it never returns another
- * user's project.
+ * ({@see resolve()}); {@see currentOrLastVisited()} also falls back to the last
+ * project page this session visited. Both are owner-scoped — they never return
+ * another user's project.
  *
  * Result is memoized per {@see Request} in a WeakMap: the class stays readonly
  * and a null result is cached (so a no-match request isn't re-computed), while
@@ -24,7 +25,9 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInt
  */
 final readonly class CurrentProjectProvider
 {
-    /** @var \WeakMap<Request, ?Project> */
+    private const string LAST_VISITED_SESSION_KEY = 'project.last_visited_id';
+
+    /** @var \WeakMap<Request, array{?Project, ?Project}> */
     private \WeakMap $cache;
 
     public function __construct(
@@ -37,9 +40,20 @@ final readonly class CurrentProjectProvider
 
     public function current(): ?Project
     {
+        return $this->resolved()[0];
+    }
+
+    public function currentOrLastVisited(): ?Project
+    {
+        return $this->resolved()[1];
+    }
+
+    /** @return array{?Project, ?Project} */
+    private function resolved(): array
+    {
         $request = $this->requestStack->getCurrentRequest();
         if (null === $request) {
-            return null;
+            return [null, null];
         }
 
         if ($this->cache->offsetExists($request)) {
@@ -49,28 +63,44 @@ final readonly class CurrentProjectProvider
         return $this->cache[$request] = $this->resolve($request);
     }
 
-    private function resolve(Request $request): ?Project
+    /** @return array{?Project, ?Project} the route's project, then the same or the last visited one */
+    private function resolve(Request $request): array
     {
         $user = $this->tokenStorage->getToken()?->getUser();
         if (!$user instanceof User) {
-            return null;
+            return [null, null];
         }
 
         // The EntityValueResolver does not write the resolved entity back to
         // request attributes, so the route param is always the raw string. On
         // {id:project} routes the value lands under the alias `project`, not
         // `id` — so probe all three known param names and take the first present.
+        $session = $request->hasSession() ? $request->getSession() : null;
         foreach (['id', 'project', 'projectId'] as $key) {
             $raw = $request->attributes->get($key);
             if (is_string($raw) && '' !== $raw) {
-                try {
-                    return $this->projects->findOneByHandleForOwner($raw, $user);
-                } catch (AmbiguousProjectHandleException) {
-                    return null;
+                $project = $this->findForOwner($raw, $user);
+                if (null !== $project) {
+                    $session?->set(self::LAST_VISITED_SESSION_KEY, (string) $project->id);
                 }
+
+                return [$project, $project];
             }
         }
 
-        return null;
+        // Only a page with no project in its route falls back. The owner-scoped
+        // lookup re-checks access, so a deleted or foreign project falls away.
+        $remembered = $session?->get(self::LAST_VISITED_SESSION_KEY);
+
+        return [null, is_string($remembered) ? $this->findForOwner($remembered, $user) : null];
+    }
+
+    private function findForOwner(string $handle, User $user): ?Project
+    {
+        try {
+            return $this->projects->findOneByHandleForOwner($handle, $user);
+        } catch (AmbiguousProjectHandleException) {
+            return null;
+        }
     }
 }

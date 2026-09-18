@@ -55,12 +55,12 @@ class MintApiTokenController extends AppController
             // notification. It is not stored, so a reload cannot show it again.
             $this->addFlash('minted_api_token', $raw);
 
-            return $this->redirectToRoute('app_account_settings');
+            return $this->redirectToRoute('app_account_api_tokens');
         }
 
         // 422 so Turbo renders the re-bound form and the error lands on the field
         // rather than in a lossy flash.
-        return $this->forward(ShowAccountSettingsController::class, [
+        return $this->forward(ShowAccountApiTokensController::class, [
             'mintForm' => $form->createView(),
         ])->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
     }

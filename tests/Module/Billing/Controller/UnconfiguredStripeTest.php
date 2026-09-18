@@ -53,7 +53,7 @@ final class UnconfiguredStripeTest extends WebTestCase
         $scenario = $this->scenarioWithoutStripeKeys();
 
         $client->loginUser($scenario->verifiedUser('nokeysaccount'));
-        $crawler = $client->request(Request::METHOD_GET, '/account');
+        $crawler = $client->request(Request::METHOD_GET, '/account/data');
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('[data-testid="export-section"]'));

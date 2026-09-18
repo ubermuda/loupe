@@ -68,11 +68,15 @@ final class PaywallRedirectTest extends WebTestCase
 
         $client->loginUser($user);
         $client->request(Request::METHOD_GET, '/account');
-        self::assertResponseIsSuccessful();
+        self::assertResponseRedirects('/account/profile');
+        foreach (['/account/api-tokens', '/account/data', '/account/profile'] as $path) {
+            $client->request(Request::METHOD_GET, $path);
+            self::assertResponseIsSuccessful($path);
+        }
 
         // Establishes the origin cookie the stateless CSRF sentinel needs.
         $client->request(Request::METHOD_POST, '/account/exports', ['_csrf_token' => 'csrf-token']);
-        self::assertResponseRedirects('/account');
+        self::assertResponseRedirects('/account/data');
     }
 
     /**

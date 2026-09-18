@@ -55,7 +55,7 @@ final class SearchOwnedProjectsControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/search', ['query' => str_repeat('x', 201)]);
         self::assertResponseStatusCodeSame(422);
         self::assertSelectorNotExists('[data-search-kind]');
-        $client->request(Request::METHOD_GET, '/account');
+        $client->request(Request::METHOD_GET, '/account/profile');
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('a[data-global-search-target="trigger"][href="/search"]');
         $client->request(Request::METHOD_GET, '/projects');

@@ -897,21 +897,9 @@
                 <source>account.form.profile_form.full_name.placeholder</source>
                 <target>How your name appears on reviews and comments</target>
             </trans-unit>
-            <trans-unit id="account.profile.page.title">
-                <source>account.profile.page.title</source>
-                <target>Your profile</target>
-            </trans-unit>
-            <trans-unit id="account.profile.page.intro">
-                <source>account.profile.page.intro</source>
-                <target>This is the name shown beside your comments and on documents you review.</target>
-            </trans-unit>
             <trans-unit id="account.profile.save_button">
                 <source>account.profile.save_button</source>
                 <target>Save</target>
-            </trans-unit>
-            <trans-unit id="account.profile.cancel_link">
-                <source>account.profile.cancel_link</source>
-                <target>Cancel</target>
             </trans-unit>
             <trans-unit id="account.profile.flash.updated">
                 <source>account.profile.flash.updated</source>

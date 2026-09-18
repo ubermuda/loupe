@@ -90,8 +90,7 @@ final class RevokeApiTokenControllerTest extends WebTestCase
         self::assertResponseRedirects($returnTo);
     }
 
-    #[TestWith(['/account'])]
-    #[TestWith(['/account?tab=api-tokens'])]
+    #[TestWith(['/account/api-tokens'])]
     public function test_revoke_returns_to_the_account_settings_page(string $returnTo): void
     {
         $client = static::createClient();
@@ -105,7 +104,7 @@ final class RevokeApiTokenControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, '/account');
+        $client->request(Request::METHOD_GET, '/account/profile');
 
         $client->request(Request::METHOD_POST, '/account/api-tokens/'.(string) $tokenId.'/revoke', [
             '_csrf_token' => 'csrf-token',
@@ -121,7 +120,8 @@ final class RevokeApiTokenControllerTest extends WebTestCase
     }
 
     #[TestWith(['/account/settings'])]
-    #[TestWith(['/account?tab=profile'])]
+    #[TestWith(['/account/profile'])]
+    #[TestWith(['/account/api-tokens/extra'])]
     #[TestWith(['https://example.com/account'])]
     public function test_revoke_rejects_off_site_return_to_and_falls_back(string $returnTo): void
     {
