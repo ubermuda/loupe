@@ -5,17 +5,17 @@
    idPrefix. #}
 <form class="lp-version-compare" method="GET"
       action="{{ path('app_document_review_compare', {projectId: document.project.id, documentId: document.id}) }}">
-    <label class="sr-only" for="{{ idPrefix }}-from">{{ 'review.document.diff.picker.from_label'|trans }}</label>
-    <select id="{{ idPrefix }}-from" name="from" class="lp-input lp-select lp-filter-select">
+    <label class="lp-version-compare__label" for="{{ idPrefix }}-from">{{ 'review.document.diff.picker.from'|trans }}</label>
+    <select id="{{ idPrefix }}-from" name="from" class="lp-input lp-select lp-filter-select" aria-label="{{ 'review.document.diff.picker.from_label'|trans }}">
         {% for meta in versions|reverse %}
         <option value="{{ meta.versionNumber }}"{{ meta.versionNumber == fromVersionNumber ? ' selected' : '' }}>{{ 'v' ~ meta.versionNumber }}</option>
         {% endfor %}
     </select>
 
-    <span class="lp-form-hint">{{ 'review.document.diff.picker.separator'|trans }}</span>
+    <twig:ux:icon name="lucide:arrow-right" class="lp-version-compare__arrow" aria-hidden="true" />
 
-    <label class="sr-only" for="{{ idPrefix }}-to">{{ 'review.document.diff.picker.to_label'|trans }}</label>
-    <select id="{{ idPrefix }}-to" name="to" class="lp-input lp-select lp-filter-select">
+    <label class="lp-version-compare__label" for="{{ idPrefix }}-to">{{ 'review.document.diff.picker.to'|trans }}</label>
+    <select id="{{ idPrefix }}-to" name="to" class="lp-input lp-select lp-filter-select" aria-label="{{ 'review.document.diff.picker.to_label'|trans }}">
         {% for meta in versions|reverse %}
         <option value="{{ meta.versionNumber }}"{{ meta.versionNumber == toVersionNumber ? ' selected' : '' }}>{{ 'v' ~ meta.versionNumber }}</option>
         {% endfor %}

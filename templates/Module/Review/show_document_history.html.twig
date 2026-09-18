@@ -33,76 +33,100 @@
         showMarginControls: false,
         commentCount: null,
         canComment: false,
+        marginTabs: [],
+        returnToDocument: false,
     } only %}
-    <h2 class="lp-history-title">{{ 'review.document.history.page.title'|trans }}</h2>
+    <div class="lp-history-tools">
+        <h2 class="lp-history-title">{{ 'review.document.history.page.title'|trans }}</h2>
 
-    {# A plain GET form, so the picker works with no JavaScript. The diff route
-       carries its two versions as path segments, which a GET form cannot build,
-       so the action is the redirect route that turns the pair into that path. #}
-    {% if versions|length > 1 %}
-    <section class="lp-history-compare">
-        <form class="lp-filter-form" method="GET" action="{{ path('app_document_review_compare', routeParameters) }}">
-            <label class="sr-only" for="history-compare-from">{{ 'review.document.diff.picker.from_label'|trans }}</label>
-            <select id="history-compare-from" name="from" class="lp-input lp-select lp-filter-select">
-                {% for meta in versions %}
-                <option value="{{ meta.versionNumber }}"{{ meta.versionNumber == latestVersion - 1 ? ' selected' : '' }}>{{ 'v' ~ meta.versionNumber }}</option>
-                {% endfor %}
-            </select>
+        {# A plain GET form, so the picker works with no JavaScript. The diff route
+           carries its two versions as path segments, which a GET form cannot build,
+           so the action is the redirect route that turns the pair into that path. #}
+        {% if versions|length > 1 %}
+        <section class="lp-history-compare">
+            <form class="lp-version-compare" method="GET" action="{{ path('app_document_review_compare', routeParameters) }}">
+                <label class="lp-version-compare__label" for="history-compare-from">{{ 'review.document.diff.picker.from'|trans }}</label>
+                <select id="history-compare-from" name="from" class="lp-input lp-select lp-filter-select" aria-label="{{ 'review.document.diff.picker.from_label'|trans }}">
+                    {% for meta in versions %}
+                    <option value="{{ meta.versionNumber }}"{{ meta.versionNumber == latestVersion - 1 ? ' selected' : '' }}>{{ 'v' ~ meta.versionNumber }}</option>
+                    {% endfor %}
+                </select>
+                <twig:ux:icon name="lucide:arrow-right" class="lp-version-compare__arrow" aria-hidden="true" />
+                <label class="lp-version-compare__label" for="history-compare-to">{{ 'review.document.diff.picker.to'|trans }}</label>
+                <select id="history-compare-to" name="to" class="lp-input lp-select lp-filter-select" aria-label="{{ 'review.document.diff.picker.to_label'|trans }}">
+                    {% for meta in versions %}
+                    <option value="{{ meta.versionNumber }}"{{ meta.versionNumber == latestVersion ? ' selected' : '' }}>{{ 'v' ~ meta.versionNumber }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="lp-btn">{{ 'review.document.diff.picker.submit'|trans }}</button>
+            </form>
+        </section>
+        {% endif %}
+    </div>
 
-            <span class="lp-form-hint">{{ 'review.document.diff.picker.separator'|trans }}</span>
-
-            <label class="sr-only" for="history-compare-to">{{ 'review.document.diff.picker.to_label'|trans }}</label>
-            <select id="history-compare-to" name="to" class="lp-input lp-select lp-filter-select">
-                {% for meta in versions %}
-                <option value="{{ meta.versionNumber }}"{{ meta.versionNumber == latestVersion ? ' selected' : '' }}>{{ 'v' ~ meta.versionNumber }}</option>
-                {% endfor %}
-            </select>
-
-            <button type="submit" class="lp-btn">{{ 'review.document.history.compare.submit'|trans }}</button>
-        </form>
-    </section>
-    {% endif %}
-
-    <ol class="lp-history">
+    <div class="lp-history-surface">
+    <table class="lp-history">
+        <thead>
+            <tr>
+                <th scope="col">{{ 'review.document.history.column.version'|trans }}</th>
+                <th scope="col">{{ 'review.document.history.column.revision'|trans }}</th>
+                <th scope="col">{{ 'review.document.history.reviews'|trans }}</th>
+                <th scope="col">{{ 'review.document.history.column.open'|trans }}</th>
+            </tr>
+        </thead>
+        <tbody>
         {% for meta in versions %}
-        <li class="lp-history__row{{ meta.versionNumber == latestVersion ? ' lp-history__row--current' : '' }}"
+        {% set isLatest = meta.versionNumber == latestVersion %}
+        {% set readPath = isLatest
+            ? path('app_document_review', routeParameters)
+            : path('app_document_review_version', routeParameters|merge({versionNumber: meta.versionNumber})) %}
+        <tr class="lp-history__row{{ isLatest ? ' lp-history__row--current' : '' }}"
             data-version-number="{{ meta.versionNumber }}">
-            <div class="lp-history__head">
-                {% if meta.versionNumber == latestVersion %}
-                <a class="lp-version-pill" href="{{ path('app_document_review', routeParameters) }}">{{ 'v' ~ meta.versionNumber }}</a>
+            <td><span class="lp-history__version">{{ 'v' ~ meta.versionNumber }}</span></td>
+            <td>
+                {% if meta.description %}
+                <strong class="lp-history__note">{{ meta.description }}</strong>
                 {% else %}
-                <a class="lp-version-pill lp-version-pill--link"
-                   href="{{ path('app_document_review_version', routeParameters|merge({versionNumber: meta.versionNumber})) }}"
-                >{{ 'v' ~ meta.versionNumber }}</a>
+                <strong class="lp-history__note lp-history__note--empty">{{ (isLatest ? 'review.document.history.current' : 'review.document.history.no_note')|trans }}</strong>
                 {% endif %}
                 <span class="lp-history__date">{{ meta.createdAt|relative_time }}</span>
-                {# The oldest version has no predecessor, so it carries no control. #}
-                {% if meta.versionNumber > earliestVersion %}
-                <a class="lp-history__compare"
-                   href="{{ path('app_document_review_diff', routeParameters|merge({fromVersionNumber: meta.versionNumber - 1, toVersionNumber: meta.versionNumber})) }}"
-                >{{ 'review.document.history.compare_with'|trans({'%from%': meta.versionNumber - 1}) }}</a>
-                {% endif %}
-            </div>
-            {% if meta.description %}
-            <p class="lp-history__note">{{ meta.description }}</p>
-            {% endif %}
-            <ol class="lp-history__reviews" aria-label="{{ 'review.document.history.reviews'|trans }}">
-                {% for review in meta.reviews %}
-                <li class="lp-history__review" data-review-sequence="{{ review.sequence }}">
-                    <div class="lp-history__head">
-                        <span class="lp-history__verdict">{{ ('review.document.verdict.' ~ review.verdict.value)|trans }}</span>
+            </td>
+            <td>
+                <ol class="lp-history__reviews" aria-label="{{ 'review.document.history.reviews'|trans }}">
+                    {% for review in meta.reviews %}
+                    <li class="lp-history__review" data-review-sequence="{{ review.sequence }}">
+                        <span class="lp-history__verdict lp-history__verdict--{{ review.verdict.value }}">{{ ('review.document.verdict.' ~ review.verdict.value)|trans }}</span>
                         <span>{{ review.reviewer.fullName }}</span>
                         <time class="lp-history__date" datetime="{{ review.submittedAt|date('c') }}" title="{{ review.submittedAt|date('Y-m-d H:i:s T') }}">{{ review.submittedAt|relative_time }}</time>
-                    </div>
-                    {% if review.note %}<p class="lp-history__review-note">{{ review.note }}</p>{% endif %}
-                </li>
-                {% else %}
-                <li class="lp-history__date">{{ 'review.document.history.no_reviews'|trans }}</li>
-                {% endfor %}
-            </ol>
-        </li>
+                        {% if review.note %}<p class="lp-history__review-note">{{ review.note }}</p>{% endif %}
+                    </li>
+                    {% else %}
+                    <li class="lp-history__date">{{ 'review.document.history.no_reviews'|trans }}</li>
+                    {% endfor %}
+                </ol>
+            </td>
+            <td>
+                <div class="lp-history__actions">
+                    <a class="lp-history__action" href="{{ readPath }}">
+                        <twig:ux:icon name="lucide:file-text" />
+                        {{ 'review.document.history.read'|trans }}
+                    </a>
+                    {# The oldest version has no predecessor, so it carries no control. #}
+                    {% if meta.versionNumber > earliestVersion %}
+                    <a class="lp-history__action lp-history__compare"
+                       href="{{ path('app_document_review_diff', routeParameters|merge({fromVersionNumber: meta.versionNumber - 1, toVersionNumber: meta.versionNumber})) }}"
+                       aria-label="{{ 'review.document.history.compare_with'|trans({'%from%': meta.versionNumber - 1}) }}">
+                        <twig:ux:icon name="lucide:git-compare" />
+                        {{ 'review.document.history.diff'|trans }}
+                    </a>
+                    {% endif %}
+                </div>
+            </td>
+        </tr>
         {% endfor %}
-    </ol>
+        </tbody>
+    </table>
+    </div>
 </div>
 {% if finishReviewAvailable %}
 {% include '@Review/_finish_review.html.twig' with {

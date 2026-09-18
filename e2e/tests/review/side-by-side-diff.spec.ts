@@ -304,7 +304,7 @@ test('the two columns pair the blocks and place comments below', async ({
     const widths = await page.evaluate(() => {
         const block = document.querySelector('.lp-review-block')!;
         const bar = document.querySelector('.lp-diff-bar')!;
-        const chip = document.querySelector('.lp-doc-meta__compare')!;
+        const chip = document.querySelector('.lp-version-compare')!;
         return {
             block: Math.round(block.getBoundingClientRect().width),
             barRight: Math.round(bar.getBoundingClientRect().right),

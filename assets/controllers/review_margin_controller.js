@@ -99,8 +99,10 @@ export default class extends Controller {
             panel.hidden = panel.dataset.marginPanel !== name;
         }
 
-        this.filterTarget.hidden = name !== 'comments';
-        this.filterTarget.open = false;
+        if (this.hasFilterTarget) {
+            this.filterTarget.hidden = name !== 'comments';
+            this.filterTarget.open = false;
+        }
         window.dispatchEvent(new Event('resize'));
     }
 

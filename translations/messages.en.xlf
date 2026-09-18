@@ -1535,10 +1535,6 @@
                 <source>review.document.meta.references</source>
                 <target>References</target>
             </trans-unit>
-            <trans-unit id="review.document.rail.label">
-                <source>review.document.rail.label</source>
-                <target>Contents and decisions</target>
-            </trans-unit>
             <trans-unit id="review.document.meta.tags">
                 <source>review.document.meta.tags</source>
                 <target>Tags</target>
@@ -1583,10 +1579,6 @@
                 <source>review.document.version.references_are_current</source>
                 <target>References below reflect the document as it stands today.</target>
             </trans-unit>
-            <trans-unit id="review.document.version.switcher_label">
-                <source>review.document.version.switcher_label</source>
-                <target>Document versions</target>
-            </trans-unit>
             <trans-unit id="review.document.version.see_all">
                 <source>review.document.version.see_all</source>
                 <target>{0}See the version history|{1}See the version history|]1,Inf[See all %count% versions</target>
@@ -1613,9 +1605,33 @@
                 <source>review.document.history.count</source>
                 <target>{0}No versions|{1}1 version|]1,Inf[%count% versions</target>
             </trans-unit>
-            <trans-unit id="review.document.history.compare.submit">
-                <source>review.document.history.compare.submit</source>
-                <target>Compare these two</target>
+            <trans-unit id="review.document.history.column.version">
+                <source>review.document.history.column.version</source>
+                <target>Version</target>
+            </trans-unit>
+            <trans-unit id="review.document.history.column.revision">
+                <source>review.document.history.column.revision</source>
+                <target>Revision</target>
+            </trans-unit>
+            <trans-unit id="review.document.history.column.open">
+                <source>review.document.history.column.open</source>
+                <target>Open</target>
+            </trans-unit>
+            <trans-unit id="review.document.history.read">
+                <source>review.document.history.read</source>
+                <target>Read</target>
+            </trans-unit>
+            <trans-unit id="review.document.history.diff">
+                <source>review.document.history.diff</source>
+                <target>Diff</target>
+            </trans-unit>
+            <trans-unit id="review.document.history.current">
+                <source>review.document.history.current</source>
+                <target>Current version</target>
+            </trans-unit>
+            <trans-unit id="review.document.history.no_note">
+                <source>review.document.history.no_note</source>
+                <target>No revision note</target>
             </trans-unit>
             <trans-unit id="review.document.history.compare_with">
                 <source>review.document.history.compare_with</source>
@@ -1623,13 +1639,9 @@
             </trans-unit>
 
             <!-- Document version diff -->
-            <trans-unit id="review.document.diff.chip">
-                <source>review.document.diff.chip</source>
-                <target>Comparing v%from% with v%to%</target>
-            </trans-unit>
-            <trans-unit id="review.document.diff.stop">
-                <source>review.document.diff.stop</source>
-                <target>Stop comparing</target>
+            <trans-unit id="review.document.diff.return">
+                <source>review.document.diff.return</source>
+                <target>Return to document</target>
             </trans-unit>
             <trans-unit id="review.document.diff.link">
                 <source>review.document.diff.link</source>
@@ -1649,11 +1661,11 @@
             </trans-unit>
             <trans-unit id="review.document.diff.refused.too_large">
                 <source>review.document.diff.refused.too_large</source>
-                <target>This document is too large to compare. Use the version list above to read either version in full.</target>
+                <target>This document is too large to compare. Open History to read either version in full.</target>
             </trans-unit>
             <trans-unit id="review.document.diff.refused.unsupported_characters">
                 <source>review.document.diff.refused.unsupported_characters</source>
-                <target>These versions contain characters this comparison cannot handle, and showing it anyway would misreport what changed. Use the version list above to read either version in full.</target>
+                <target>These versions contain characters this comparison cannot handle, and showing it anyway would misreport what changed. Open History to read either version in full.</target>
             </trans-unit>
             <trans-unit id="review.document.diff.comment.deleted_refused">
                 <source>review.document.diff.comment.deleted_refused</source>
@@ -3934,9 +3946,13 @@
                 <source>review.document.diff.picker.to_label</source>
                 <target>Compare to version</target>
             </trans-unit>
-            <trans-unit id="review.document.diff.picker.separator">
-                <source>review.document.diff.picker.separator</source>
-                <target>to</target>
+            <trans-unit id="review.document.diff.picker.from">
+                <source>review.document.diff.picker.from</source>
+                <target>From</target>
+            </trans-unit>
+            <trans-unit id="review.document.diff.picker.to">
+                <source>review.document.diff.picker.to</source>
+                <target>To</target>
             </trans-unit>
             <trans-unit id="review.document.diff.picker.submit">
                 <source>review.document.diff.picker.submit</source>

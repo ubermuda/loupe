@@ -48,9 +48,9 @@ test('the comparison chrome is a chip and one row of the metadata bar', async ({
 
     await page.goto(`${reviewPath}/diff/1/3`);
 
-    // The chip names the pair, and the banner it replaced is gone.
-    const chip = page.locator('.lp-doc-meta__compare');
-    await expect(chip).toContainText('Comparing v1 with v3');
+    // The pickers name the pair, and no banner stands above the comparison.
+    await expect(page.locator('#diff-from')).toHaveValue('1');
+    await expect(page.locator('#diff-to')).toHaveValue('3');
     await expect(page.locator('.lp-version-banner')).toHaveCount(0);
 
     // Both controls sit on the one row, which is what lets the document start
@@ -93,14 +93,13 @@ test('the comparison chrome is a chip and one row of the metadata bar', async ({
     await bar.locator('#diff-to').selectOption('3');
     await bar.getByRole('button', { name: 'Compare' }).click();
     await expect(page).toHaveURL(`${reviewPath}/diff/2/3?view=source`);
-    await expect(page.locator('.lp-doc-meta__compare')).toContainText(
-        'Comparing v2 with v3',
-    );
+    await expect(page.locator('#diff-from')).toHaveValue('2');
+    await expect(page.locator('#diff-to')).toHaveValue('3');
 
-    // The stop control on the chip is the way back to the latest version.
-    await page.getByRole('link', { name: 'Stop comparing' }).click();
+    // The header's return action is the way back to the latest version.
+    await page.getByRole('link', { name: 'Return to document' }).click();
     await expect(page).toHaveURL(reviewPath);
-    await expect(page.locator('.lp-doc-meta__compare')).toHaveCount(0);
+    await expect(page.locator('.lp-diff-bar')).toHaveCount(0);
     await expect(page.locator('.lp-review-doc__prose')).toContainText(
         'three steps',
     );

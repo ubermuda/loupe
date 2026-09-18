@@ -369,3 +369,67 @@
 .lp-review .lp-review-context-panel > .lp-btn {
     @apply mt-6;
 }
+
+/* ── Diff toolbar ───────────────────────────────────────────────── */
+.lp-review .lp-doc-meta-bar {
+    @apply static;
+}
+.lp-review .lp-diff-bar {
+    @apply gap-x-4 gap-y-3 border-b-0 pt-3.5 pb-0;
+}
+.lp-review .lp-version-compare {
+    @apply w-auto gap-2;
+}
+.lp-review .lp-version-compare__label {
+    @apply text-sm text-fg-dim;
+}
+.lp-review .lp-version-compare__arrow {
+    @apply size-4 shrink-0 text-fg-faint;
+}
+.lp-review .lp-version-compare select {
+    @apply min-h-9 w-auto min-w-18;
+}
+/* The three views read as one segmented control, sized like the buttons
+   beside it. */
+.lp-review .lp-diff-views {
+    @apply gap-1 rounded-lg bg-surface-3 p-0;
+}
+.lp-review .lp-diff-views__link {
+    @apply border-transparent bg-transparent font-semibold text-fg-mute hover:bg-tint hover:text-ink;
+}
+.lp-review .lp-diff-views__link[aria-current] {
+    @apply border-line bg-surface-1 text-ink shadow-xs;
+}
+.lp-review .lp-diff-nav__count {
+    @apply font-sans text-sm tracking-normal text-fg-dim normal-case;
+}
+.lp-review .lp-diff-nav .lp-btn--icon {
+    @apply border-transparent bg-transparent text-fg-mute;
+}
+.lp-review .lp-diff-notes {
+    @apply m-0 mt-2 max-w-none rounded-none border-0 bg-transparent p-0 text-sm text-fg-dim;
+}
+.lp-review .lp-diff-notes__title {
+    @apply min-h-7 font-sans text-sm leading-7 tracking-normal text-fg-dim normal-case;
+}
+.lp-review .lp-diff-notes__entry {
+    @apply my-2 leading-relaxed;
+}
+.lp-review .lp-diff-notes__entry .lp-version-pill {
+    @apply bg-transparent p-0 pr-1 font-semibold text-review-tab-ink;
+}
+.lp-review .lp-diff-notes + .lp-review-doc__prose,
+.lp-review .lp-diff-notes + .lp-diff,
+.lp-review .lp-diff-notes + .lp-diff-columns {
+    @apply mt-4;
+}
+.lp-review .lp-diff-notice {
+    @apply mt-3;
+}
+/* The toolbar spans both columns, like the tabs above it, so the change
+   count and its jumps stay on the row with the pickers. */
+@media (width >= 59.375rem) {
+    .lp-review .lp-review-doc:not(.lp-review-doc--wide) > .lp-doc-meta-bar {
+        width: calc(100% + var(--doc-margin) + var(--doc-margin-gap));
+    }
+}
