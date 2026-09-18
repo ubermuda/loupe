@@ -134,6 +134,11 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter('[data-card-id="'.$linked->id.'"] .lp-board-card__pulls'));
         self::assertCount(0, $crawler->filter('[data-card-id="'.$plain->id.'"] .lp-board-card__pulls'));
         self::assertStringContainsString('Feature', $crawler->filter('[data-card-id="'.$plain->id.'"]')->text());
+
+        self::assertSame(['Work', 'Type', 'Status', 'Agent', 'Feedback'], $crawler->filter('.lp-board-list__header span')->each(static fn ($cell): string => $cell->text()));
+        $row = $crawler->filter('.lp-board-list__row[data-card-title="No links"] > span');
+        self::assertCount(5, $row);
+        self::assertSame('Feature', $row->eq(1)->text());
     }
 
     public function test_the_done_column_shows_only_the_recent_slice_and_links_to_the_history(): void

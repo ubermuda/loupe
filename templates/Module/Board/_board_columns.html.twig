@@ -111,9 +111,9 @@
     <div class="lp-board-list" data-board-view-target="list" hidden>
         <div class="lp-board-list__header" aria-hidden="true">
             <span>{{ 'board.list.work'|trans }}</span>
+            <span>{{ 'board.list.type'|trans }}</span>
             <span>{{ 'board.list.status'|trans }}</span>
             <span>{{ 'board.list.agent'|trans }}</span>
-            <span>{{ 'board.list.linked_work'|trans }}</span>
             <span>{{ 'board.list.feedback'|trans }}</span>
         </div>
         {% for view in board.columns %}
@@ -125,10 +125,10 @@
                    data-action="click->card-drawer#prepare"
                    data-board-filter-target="row"
                    data-card-title="{{ card.title }}">
-                    <span class="lp-board-list__work"><strong>#{{ card.number }} {{ card.title }}</strong><span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span></span>
+                    <span class="lp-board-list__work"><strong>#{{ card.number }} {{ card.title }}</strong></span>
+                    <span><span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span></span>
                     <span>{{ view.column.label|trans }}</span>
                     <span aria-label="{{ 'board.list.agent.unassigned'|trans }}">—</span>
-                    <span>{{ card.pullRequests|length + card.documents|length }}</span>
                     <span>{{ feedbackCount }}</span>
                 </a>
             {% endfor %}
