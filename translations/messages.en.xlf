@@ -5670,7 +5670,9 @@
                 <source>project.workshop.summary.completed</source>
                 <target>Completed cards</target>
             </trans-unit>
-            <trans-unit id="project.workshop.summary.completed_detail"><source>project.workshop.summary.completed_detail</source><target>Cards in terminal columns.</target></trans-unit>
+            <trans-unit id="project.workshop.summary.requests_detail"><source>project.workshop.summary.requests_detail</source><target>Questions and reviews</target></trans-unit>
+            <trans-unit id="project.workshop.summary.cards_detail"><source>project.workshop.summary.cards_detail</source><target>Across this project</target></trans-unit>
+            <trans-unit id="project.workshop.summary.completed_detail"><source>project.workshop.summary.completed_detail</source><target>Looking good</target></trans-unit>
             <trans-unit id="project.workshop.needs_you.eyebrow">
                 <source>project.workshop.needs_you.eyebrow</source>
                 <target>Attention</target>
@@ -5682,10 +5684,6 @@
             <trans-unit id="project.workshop.needs_you.action">
                 <source>project.workshop.needs_you.action</source>
                 <target>Open inbox</target>
-            </trans-unit>
-            <trans-unit id="project.workshop.needs_you.pending">
-                <source>project.workshop.needs_you.pending</source>
-                <target>{0} No request waits for you.|{1} One request waits for you.|]1,Inf[ %count% requests wait for you.</target>
             </trans-unit>
             <trans-unit id="project.workshop.activity.view_all"><source>project.workshop.activity.view_all</source><target>View all</target></trans-unit>
             <trans-unit id="activity.event_type.board.card_moved"><source>activity.event_type.board.card_moved</source><target>Card moved</target></trans-unit>
@@ -5712,10 +5710,6 @@
             <trans-unit id="project.workshop.in_motion.action">
                 <source>project.workshop.in_motion.action</source>
                 <target>Open board</target>
-            </trans-unit>
-            <trans-unit id="project.workshop.in_motion.body">
-                <source>project.workshop.in_motion.body</source>
-                <target>{0} No card is active.|{1} One card is active.|]1,Inf[ %count% cards are active.</target>
             </trans-unit>
             <trans-unit id="project.workshop.connection.eyebrow">
                 <source>project.workshop.connection.eyebrow</source>
