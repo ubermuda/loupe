@@ -124,7 +124,7 @@ test('workspace component styles allow utility overrides', async ({
         workspace.className = 'lp-core-inbox';
         const section = document.createElement('section');
         section.id = 'cascade-probe';
-        section.className = 'lp-inbox-section--open';
+        section.className = 'lp-inbox-section--queue';
         section.textContent = 'Component cascade probe';
         workspace.appendChild(section);
         document.body.appendChild(workspace);

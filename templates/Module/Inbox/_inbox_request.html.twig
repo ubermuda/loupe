@@ -1,0 +1,30 @@
+{# One row of the request list: the source, the time, the leading item and one state badge. #}
+{% set item = entry.item ?? entry.ask.items|first.item %}
+{% set asked = entry.ask ? entry.ask.createdAt : item.createdAt %}
+{% set open = item.state.value == 'open' %}
+<button type="button"
+        class="lp-inbox-request"
+        role="tab"
+        id="inbox-request-{{ entry.key }}"
+        aria-controls="{{ entry.panelId }}"
+        data-panel-tabs-target="tab"
+        data-panel-tab="{{ entry.key }}"
+        data-action="click->panel-tabs#select keydown->panel-tabs#keydown">
+    <span class="lp-inbox-request__byline">
+        <span class="lp-source-avatar" aria-hidden="true"><twig:ux:icon name="lucide:bot" class="w-4 h-4" /></span>
+        <strong>{{ 'inbox.source.agent'|trans }}</strong>
+        <time datetime="{{ asked|date('c') }}">{{ asked|relative_time }}</time>
+    </span>
+    <span class="lp-inbox-request__title">{{ item.title }}</span>
+    {# The summary of a body written in Markdown, as one run of plain text. #}
+    {% if item.body|trim is not empty %}<span class="lp-inbox-request__body">{{ item.body|inbox_markdown|striptags }}</span>{% endif %}
+    <span class="lp-inbox-request__badges">
+        {%- if open and item.blocking -%}
+            <span class="lp-inbox-item__blocking">{{ 'inbox.item.blocking'|trans }}</span>
+        {%- elseif open -%}
+            <span class="lp-inbox-item__kind">{{ ('inbox.item.kind.' ~ item.kind.value)|trans }}</span>
+        {%- else -%}
+            {% include '@Inbox/_inbox_state_chip.html.twig' with {state: item.state} only %}
+        {%- endif -%}
+    </span>
+</button>

@@ -59,7 +59,10 @@ final class SubmitInboxDocumentReviewController extends AppController
                 ($this->submitReview)(new SubmitInboxDocumentReviewCommand($item, $reviewer, $data->verdict ?? '', $data->versionNumber, $data->expectedReviewId, $data->note));
                 $this->addFlash('success', $this->translator->trans('inbox.review.submitted'));
 
-                return $this->redirectToRoute($return->route, $return->routeParameters);
+                // Read again, because a saved response can move the item to the completed queue.
+                $saved = $this->returnTargets->resolve($request, $item);
+
+                return $this->redirectToRoute($saved->route, $saved->routeParameters);
             } catch (DomainErrors $error) {
                 $this->applyDomainErrors($form, $error);
             }

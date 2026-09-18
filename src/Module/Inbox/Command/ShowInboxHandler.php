@@ -76,6 +76,7 @@ final readonly class ShowInboxHandler
             finalItemIds: $this->finalItemIds(array_values($shown)),
             bridgeStatuses: $this->bridgeLiveness->forOwner($project->owner, array_values($bridgeIds)),
             replies: new InboxReplyThreads($this->inboxReplies->findForItems(array_values($shown))),
+            completed: $command->completed,
         );
     }
 

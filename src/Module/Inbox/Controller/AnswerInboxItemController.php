@@ -57,7 +57,10 @@ final class AnswerInboxItemController extends AppController
                 ($this->answerItem)(new AnswerInboxItemCommand($item, $data->selectedOptions ?? '', $data->answerText ?? ''));
                 $this->addFlash('success', $this->translator->trans('inbox.flash.answered', ['%number%' => $item->number]));
 
-                return $this->redirectToRoute($return->route, $return->routeParameters);
+                // Read again, because a saved response can move the item to the completed queue.
+                $saved = $this->returnTargets->resolve($request, $item);
+
+                return $this->redirectToRoute($saved->route, $saved->routeParameters);
             } catch (DomainErrors $e) {
                 $this->applyDomainErrors($form, $e);
             }

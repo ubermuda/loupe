@@ -6,10 +6,13 @@ namespace App\Module\Inbox\Service;
 
 use App\Module\Board\Controller\ShowCardController;
 use App\Module\Inbox\Controller\ShowInboxController;
+use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemDocument;
+use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Entity\InboxLinkedPage;
+use App\Module\Inbox\Repository\InboxAskRepository;
 use App\Module\Inbox\View\InboxReturnTarget;
 use App\Module\Review\Controller\ShowDocumentController;
 use App\Module\Review\Entity\Document;
@@ -29,6 +32,7 @@ final readonly class InboxReturnTargetResolver
 {
     public function __construct(
         private DocumentVersionRepository $documentVersions,
+        private InboxAskRepository $inboxAsks,
     ) {
     }
 
@@ -60,14 +64,34 @@ final readonly class InboxReturnTargetResolver
             return new InboxReturnTarget('app_document_review', $target, ShowDocumentController::class, $target, []);
         }
 
-        // The page and the search the owner was on, kept on the way back.
+        // The queue, the page and the search the owner was on, kept on the way back.
         $search = trim($request->query->getString('q'));
         $pageQuery = [
+            ...('' === $search && $this->completedQueue($request, $item) ? ['queue' => 'completed'] : []),
             ...($request->query->getInt('page', 1) > 1 ? ['page' => $request->query->getInt('page')] : []),
             ...('' === $search ? [] : ['q' => $search]),
         ];
 
         return new InboxReturnTarget('app_project_inbox', ['id' => $projectId, ...$pageQuery], ShowInboxController::class, ['id' => $projectId, 'project' => $item->project], $pageQuery);
+    }
+
+    /**
+     * The completed queue holds a closed item that only closed asks hold. The
+     * asks are read as objects, so an ask closed in this request counts.
+     */
+    private function completedQueue(Request $request, InboxItem $item): bool
+    {
+        if ('completed' === $request->query->getString('queue')) {
+            return true;
+        }
+
+        if (InboxItemState::Open === $item->state) {
+            return false;
+        }
+
+        $asks = $this->inboxAsks->findHolding($item);
+
+        return [] !== $asks && [] === array_filter($asks, static fn (InboxAsk $ask): bool => null === $ask->closedAt);
     }
 
     private function linkedDocument(InboxItem $item, Uuid $id): ?Document

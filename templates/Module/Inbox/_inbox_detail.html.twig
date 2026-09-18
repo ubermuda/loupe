@@ -1,23 +1,30 @@
-<section class="lp-inbox-ask{{ ask.closedAt ? ' lp-inbox-ask--closed' }}" id="inbox-ask-{{ ask.id }}" data-inbox-ask-id="{{ ask.id }}"{% if tabPanel|default(false) %} role="tabpanel" aria-labelledby="inbox-request-{{ ask.id }}" data-panel-tabs-target="panel" data-panel-panel="{{ ask.id }}"{% if hidden|default(false) %} hidden{% endif %}{% endif %}>
+{# The selected request: its source byline, the agent's context, its items and where else the thread appears. #}
+{% set ask = entry.ask %}
+{% set items = ask ? ask.items|map(link => link.item) : [entry.item] %}
+{% set asked = ask ? ask.createdAt : entry.item.createdAt %}
+{% set linked = items|filter(item => item.cards|length > 0)|length > 0 %}
+<section class="lp-inbox-ask{{ ask and ask.closedAt ? ' lp-inbox-ask--closed' }}"
+         id="{{ entry.panelId }}"
+         {% if ask %}data-inbox-ask-id="{{ ask.id }}"{% endif %}
+         role="tabpanel"
+         aria-labelledby="inbox-request-{{ entry.key }}"
+         data-panel-tabs-target="panel"
+         data-panel-panel="{{ entry.key }}"
+         {%- if hidden %} hidden{% endif %}>
     <div class="lp-inbox-ask__summary">
         <header class="lp-inbox-ask__head">
             <span class="lp-source-avatar" aria-hidden="true"><twig:ux:icon name="lucide:bot" class="w-4 h-4" /></span>
             <span class="lp-inbox-ask__source">{{ 'inbox.source.agent'|trans }}</span>
-            <span class="lp-inbox-ask__session" title="{{ ask.sessionId }}">{{ 'inbox.ask.session'|trans({'%session%': ask.sessionId}) }}</span>
-            <span class="lp-inbox-ask__time">{{ 'inbox.ask.asked'|trans({'%time%': ask.createdAt|relative_time}) }}</span>
-            {% if ask.closedAt %}
+            {% if ask %}<span class="lp-inbox-ask__session" title="{{ ask.sessionId }}">{{ 'inbox.ask.session'|trans({'%session%': ask.sessionId}) }}</span>{% endif %}
+            <span class="lp-inbox-ask__time">{{ 'inbox.ask.asked'|trans({'%time%': asked|relative_time}) }}</span>
+            {% if ask and ask.closedAt %}
                 <span class="lp-status-chip lp-status-chip--resolved">
                     <span class="lp-status-chip__dot"></span>
                     {{ 'inbox.ask.closed'|trans({'%time%': ask.closedAt|relative_time}) }}
                 </span>
-            {% else %}
-                <span class="lp-status-chip lp-status-chip--pending">
-                    <span class="lp-status-chip__dot"></span>
-                    {{ 'inbox.ask.open'|trans }}
-                </span>
             {% endif %}
         </header>
-        {% set bridge = inbox.bridgeStatus(ask) %}
+        {% set bridge = ask ? inbox.bridgeStatus(ask) : null %}
         {% if bridge %}
             <p class="lp-inbox-ask__bridge{{ bridge.quiet ? ' lp-inbox-ask__bridge--quiet' }}" data-inbox-bridge="{{ bridge.lastSeenAt is null ? 'unheard' : (bridge.quiet ? 'quiet' : 'heard') }}">
                 {% if bridge.quiet %}
@@ -35,13 +42,18 @@
                 </span>
             </p>
         {% endif %}
-        {% if ask.context|trim is not empty %}
+        {% if ask and ask.context|trim is not empty %}
+            {# Agent Markdown, rendered and sanitized the way a card body is. #}
             <div class="prose lp-prose lp-inbox-ask__context">{{ ask.context|inbox_markdown }}</div>
         {% endif %}
     </div>
     <div class="lp-inbox-ask__items">
-        {% for link in ask.items %}
-            {% include '@Inbox/_inbox_item.html.twig' with {item: link.item, ask: ask, inbox: inbox, refusedForm: refusedForm, showLinkedItems: showLinkedItems|default(false)} only %}
+        {% for item in items %}
+            {% include '@Inbox/_inbox_item.html.twig' with {item: item, ask: ask, inbox: inbox, refusedForm: refusedForm, showLinkedItems: true, showHead: items|length > 1} only %}
         {% endfor %}
+        <p class="lp-inbox-ask__thread-note">
+            <twig:ux:icon name="lucide:link" class="w-4 h-4 shrink-0" />
+            {{ (linked ? 'inbox.detail.in_card' : 'inbox.detail.no_card')|trans }}
+        </p>
     </div>
 </section>

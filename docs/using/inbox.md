@@ -29,8 +29,9 @@ the items. An item that blocks the agent carries a **Blocking** label.
 Open **Inbox** in the project sidebar. An amber count next to the link shows how
 many items are still open. The link is absent while the flag is off.
 
-The header keeps its open-item summary and View activity link visible on narrow
-screens, including with enlarged text. They wrap below the title when needed.
+The header keeps its View activity link visible on narrow screens, including
+with enlarged text. It wraps below the title when needed. The count of what
+waits sits at the end of the search row.
 
 The count changes without a reload when an agent asks, when you or an agent
 close an item, and when a finished card makes an item obsolete. It goes away at
@@ -41,18 +42,24 @@ them, the count is correct each time a page loads. See
 The search field keeps its compact width beside **Clear**.
 After a search, the result count remains visible without covering either control.
 
-The page lists three groups, in this order:
+**Open** and **Completed** are the two queues of the page. Each queue shows its
+requests in a list, and the selected request beside that list.
 
-1. **Open asks**, oldest first. Each ask shows the id of the agent session that
-   asked, when it asked, its context and its items.
-2. **Open items outside an open ask**. No agent waits on these items, but
-   nobody has closed them yet. A to-do from an ask that already closed is the
-   usual case.
-3. **Closed asks**, newest close first, ten to a page.
+The **Open** queue lists the open asks first, oldest first, then the open items
+that no open ask holds. No agent waits on such an item, but nobody has closed
+it yet. A to-do from an ask that already closed is the usual case.
 
-An item can show in more than one place, for example in a closed ask and in the
-second group. Its forms show once, where the page first lists it, and the other
-places link there.
+The **Completed** queue lists the closed asks, newest close first, ten to a
+page. Its address is `?queue=completed`.
+
+A list row shows the source, the time, the title, the summary and one label,
+which is **Blocking**, the kind of the item, or its state. The request beside
+the list shows the session that asked, the context of the ask, the items, and
+whether the same thread appears on a card.
+
+An item can show in both queues, for example in a closed ask and as an open
+item outside one. Its forms show once, in the queue that still takes a
+response, and the other place links there.
 
 ## Searching
 
@@ -60,8 +67,8 @@ Type in the search field above the asks. The page then lists the items whose
 title or body holds your words, best match first, 25 to a page. Closed items
 match too. The search matches whole words in the search language of the
 project, so in English "exports" also finds "export". An item in the results
-shows its forms when it still takes a response. Select **Clear** to go back to
-the asks.
+shows its forms when it still takes a response. The results use the same list
+and request layout as the queues. Select **Clear** to go back to the queues.
 
 ## When a bridge goes quiet
 
@@ -88,9 +95,9 @@ interval. See [Bridge heartbeat API](../reference/bridge-heartbeat.md).
 Every item that takes a response shows its forms under its text.
 
 - **Answer a question.** Pick an option, write an answer, or do both, as the
-  question allows. Then select **Answer**. The page needs JavaScript to send
-  the options you pick.
-- **Mark a to-do done.** Select **Mark done**.
+  question allows. Then select **Send answer**. The page needs JavaScript to
+  send the options you pick.
+- **Mark a to-do done.** Select **Mark complete**.
 - **Decline an item.** Open **Decline**, write an optional note for the agent,
   and select **Decline this item**. Decline any item that you cannot or will not
   answer, including a question whose options do not fit.

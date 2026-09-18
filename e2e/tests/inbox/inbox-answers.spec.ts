@@ -267,7 +267,7 @@ test('the owner answers a question and declines a to-do', async ({
     await expect(question).toContainText(`item ${inbox.questionNumber}`);
     await question.getByText('CSV', { exact: true }).click();
     await question.getByLabel('Your answer').fill('The importer reads CSV.');
-    await question.getByRole('button', { name: 'Answer' }).click();
+    await question.getByRole('button', { name: 'Send answer' }).click();
 
     await expect(page.locator('.lp-flash')).toContainText(
         `Item ${inbox.questionNumber} is answered.`,

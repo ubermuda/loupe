@@ -261,10 +261,10 @@ final class ShowInboxControllerTest extends WebTestCase
         $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox');
 
         self::assertResponseIsSuccessful();
-        self::assertSame(['Open 3', 'Completed 0'], $crawler->filter('.lp-section-tabs__item')->each(static fn ($node): string => $node->text()));
-        self::assertSame('3 need attention', $crawler->filter('.lp-needs-you__summary')->text());
+        self::assertSame(['Open', 'Completed'], $crawler->filter('.lp-section-tabs__item')->each(static fn ($node): string => $node->text()));
+        self::assertSame('3 waiting', $crawler->filter('.lp-filter-count')->text());
         self::assertSame('Agent request', $crawler->filter('[data-inbox-ask-id] .lp-inbox-ask__source')->first()->text());
-        self::assertCount(1, $crawler->filter('[data-inbox-section="open-asks"]#inbox-open'));
+        self::assertCount(1, $crawler->filter('[data-inbox-section="open-asks"]'));
         self::assertCount(2, $crawler->filter('.lp-inbox-request[role="tab"]'));
         self::assertCount(1, $crawler->filter('[data-panel-tabs-target="panel"]:not([hidden])'));
         self::assertCount(1, $crawler->filter('[data-panel-tabs-target="panel"][hidden]'));
@@ -283,19 +283,21 @@ final class ShowInboxControllerTest extends WebTestCase
         $this->client->loginUser($owner);
         $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox');
 
-        self::assertSame(
-            ['open-asks', 'loose-items', 'closed-asks'],
-            $crawler->filter('[data-inbox-section]')->each(static fn ($node): string => (string) $node->attr('data-inbox-section')),
-        );
+        // The open queue holds the open asks, oldest first, then the items outside them.
+        self::assertSame(['open-asks'], $crawler->filter('[data-inbox-section]')->each(static fn ($node): string => (string) $node->attr('data-inbox-section')));
         self::assertSame(
             [(string) $older->id, (string) $newer->id],
             $crawler->filter('[data-inbox-section="open-asks"] [data-inbox-ask-id]')->each(static fn ($node): string => (string) $node->attr('data-inbox-ask-id')),
         );
         // The to-do still open in a closed ask gets its forms once, on its own.
-        self::assertCount(1, $crawler->filter('[data-inbox-section="loose-items"] #inbox-item-3 form[name="inbox_done_'.$leftOpen->id.'"]'));
-        $inClosed = $crawler->filter('[data-inbox-ask-id="'.$closed->id.'"] [data-inbox-item="3"]');
+        self::assertCount(1, $crawler->filter('[data-inbox-section="open-asks"] #inbox-item-3 form[name="inbox_done_'.$leftOpen->id.'"]'));
+
+        $completed = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox?queue=completed');
+
+        self::assertSame(['closed-asks'], $completed->filter('[data-inbox-section]')->each(static fn ($node): string => (string) $node->attr('data-inbox-section')));
+        $inClosed = $completed->filter('[data-inbox-ask-id="'.$closed->id.'"] [data-inbox-item="3"]');
         self::assertCount(0, $inClosed->filter('form'));
-        self::assertCount(1, $inClosed->filter('a[href="#inbox-item-3"]'));
+        self::assertCount(1, $inClosed->filter('a[href="/projects/'.$project->id.'/inbox#inbox-item-3"]'));
     }
 
     public function test_the_page_says_which_answers_are_still_editable(): void
@@ -313,10 +315,13 @@ final class ShowInboxControllerTest extends WebTestCase
 
         self::assertSame('yes', $crawler->filter('#inbox-item-1 [data-inbox-editable]')->attr('data-inbox-editable'));
         self::assertCount(1, $crawler->filter('#inbox-item-1 form[name="inbox_answer_'.$editable->id.'"]'));
-        self::assertSame('no', $crawler->filter('#inbox-item-2 [data-inbox-editable]')->attr('data-inbox-editable'));
-        self::assertStringContainsString('This response is final', $crawler->filter('#inbox-item-2')->text());
-        self::assertCount(0, $crawler->filter('#inbox-item-2 form:not([name^="inbox_reply_"])'));
-        self::assertCount(1, $crawler->filter('#inbox-item-2 form[name^="inbox_reply_"]'));
+
+        $completed = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox?queue=completed');
+
+        self::assertSame('no', $completed->filter('#inbox-item-2 [data-inbox-editable]')->attr('data-inbox-editable'));
+        self::assertStringContainsString('This response is final', $completed->filter('#inbox-item-2')->text());
+        self::assertCount(0, $completed->filter('#inbox-item-2 form:not([name^="inbox_reply_"])'));
+        self::assertCount(1, $completed->filter('#inbox-item-2 form[name^="inbox_reply_"]'));
     }
 
     public function test_an_answer_of_zero_still_shows(): void
@@ -347,11 +352,11 @@ final class ShowInboxControllerTest extends WebTestCase
         $this->setInboxFlag(true);
 
         $this->client->loginUser($owner);
-        $first = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox');
+        $first = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox?queue=completed');
         self::assertCount(ShowInboxHandler::CLOSED_ASKS_PER_PAGE, $first->filter('[data-inbox-section="closed-asks"] [data-inbox-ask-id]'));
         self::assertCount(1, $first->filter('[data-inbox-item="1"]'));
 
-        $second = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox?page=2');
+        $second = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox?queue=completed&page=2');
         self::assertCount(1, $second->filter('[data-inbox-section="closed-asks"] [data-inbox-ask-id]'));
         self::assertCount(1, $second->filter('[data-inbox-item="'.(ShowInboxHandler::CLOSED_ASKS_PER_PAGE + 1).'"]'));
     }

@@ -673,30 +673,23 @@
     .lp-redesign-projects .lp-page-header {
         @apply flex-wrap;
     }
-    .lp-section-tabs__item--active {
-        @apply border-accent text-ink;
-    }
     .lp-section-tabs__item > span {
         @apply inline-flex items-center justify-center min-w-5 rounded-full bg-surface-3 px-1.5 py-0.5 text-xs;
     }
     .lp-inbox-section {
         scroll-margin-top: calc(var(--spacing) * 20);
     }
-    .lp-inbox-section--open,
-    .lp-inbox-section--completed {
+    .lp-inbox-section--queue {
         @apply rounded-2xl bg-surface-2 p-4 sm:p-5;
-    }
-    .lp-inbox-section--completed {
-        @apply mt-8;
     }
     .lp-inbox-ask__head {
         @apply gap-2;
     }
     .lp-inbox-ask__source {
-        @apply text-sm font-bold text-ink mr-auto;
+        @apply text-sm font-bold text-ink;
     }
     .lp-inbox-ask__session {
-        @apply font-mono text-xs text-fg-dim;
+        @apply truncate text-xs text-fg-mute;
     }
     .lp-inbox-item {
         @apply bg-surface-1;
@@ -716,11 +709,12 @@
     .lp-inbox-linked-table {
         @apply w-full min-w-lg border-collapse text-sm;
     }
+    /* The design gives the table a titled header row over a tinted head. */
     .lp-inbox-linked-table caption {
-        @apply px-4 pt-4 pb-2 text-left font-display text-base font-extrabold text-ink;
+        @apply px-4 py-3.5 text-left text-sm font-semibold text-ink;
     }
     .lp-inbox-linked-table th {
-        @apply px-4 py-2 text-left text-xs font-semibold text-fg-dim border-b border-line;
+        @apply px-4 py-2.5 text-left text-xs font-semibold text-fg-dim bg-surface-2 border-y border-line;
     }
     .lp-inbox-linked-table th:nth-child(2) {
         @apply w-48;
@@ -729,7 +723,12 @@
         @apply w-14;
     }
     .lp-inbox-linked-table td {
-        @apply px-4 py-3 border-b border-line last:border-b-0 align-middle;
+        @apply px-4 py-4 border-b border-line align-middle;
+    }
+    /* `last:` on a cell is the last cell of its row, which left every row's
+       Open column without its rule. The last row is what loses the border. */
+    .lp-inbox-linked-table tbody tr:last-child td {
+        @apply border-b-0;
     }
     .lp-inbox-linked-table td:first-child {
         @apply flex flex-col gap-1;
@@ -1054,9 +1053,9 @@
     }
 
     /* ── Form controls (lp- namespace) ──────────────────────────────── */
+
     /* The one form layout: labelled fields in a column, 20px apart, each label
        6px above its control. Every app form uses these classes. */
-
     .lp-form {
         @apply flex flex-col gap-5;
     }
@@ -1278,8 +1277,8 @@
     }
 
     /* ── Workspace / projects index ─────────────────────────────────── */
-    /* The one page frame every workspace uses, so pages line up as you move between them. */
 
+    /* The one page frame every workspace uses, so pages line up as you move between them. */
     .lp-workspace {
         @apply w-full px-4.5 pt-5 pb-10 md:px-6 md:pt-6 md:pb-14 xl:px-8 xl:pt-8;
         max-width: 95.625rem;
@@ -5688,7 +5687,10 @@
         @apply bg-surface-1 border border-line;
     }
     .lp-inbox-ask__head {
-        @apply flex flex-wrap items-center gap-3 font-mono text-xs text-fg-dim;
+        @apply flex flex-wrap items-center gap-3 text-xs text-fg-dim;
+    }
+    .lp-inbox-ask__time {
+        @apply ml-auto;
     }
     /* When an open ask's bridge last sent a heartbeat. The amber variant warns that no resume will come. */
     .lp-inbox-ask__bridge {
@@ -5713,7 +5715,7 @@
         @apply flex flex-wrap items-center gap-2.5;
     }
     .lp-inbox-item__number {
-        @apply font-mono text-sm font-bold text-ink;
+        @apply text-sm font-bold text-ink;
     }
     .lp-inbox-item__kind {
         @apply text-xs font-semibold text-fg-mute;
@@ -5786,6 +5788,16 @@
     .lp-inbox-answer__clear {
         @apply mt-2;
     }
+    /* The reply composer: one field with its send button beside it. */
+    .lp-inbox-composer {
+        @apply flex-row items-end gap-2;
+    }
+    .lp-inbox-composer .lp-input {
+        @apply flex-1;
+    }
+    .lp-inbox-composer__send {
+        @apply shrink-0 px-2.5;
+    }
     .lp-inbox-decline__summary {
         @apply cursor-pointer select-none text-sm font-semibold text-fg-dim hover:text-ink;
     }
@@ -5829,6 +5841,17 @@
     .lp-inbox-linked__subtitle {
         @apply m-0 mt-2 text-sm font-bold uppercase tracking-widest text-fg-mute;
     }
+}
+
+/* Same reason as the rule below: the typography plugin sets the prose colour
+   and size in a later layer, so the inbox states them unlayered. */
+.lp-core-inbox .lp-inbox-item__body {
+    color: var(--text-mute);
+}
+
+.lp-core-inbox .lp-inbox-ask__context {
+    color: var(--text-mute);
+    font-size: var(--text-sm);
 }
 
 /* The typography plugin wraps inline code in literal backticks. Unlayered, not
@@ -6395,6 +6418,10 @@
     .lp-section-tabs__item:hover,
     .lp-section-tabs__item:focus-visible {
         @apply text-ink border-accent;
+    }
+    /* After the base class, or the base border colour wins at equal specificity. */
+    .lp-section-tabs__item--active {
+        @apply border-accent text-ink;
     }
 
     .lp-orchestration-header {

@@ -12,12 +12,14 @@
             <div class="lp-field-errors">{{ form_errors(form) }}</div>
             {{ form_widget(form.submissionId, {attr: {'data-reply-submission-target': 'submission'}}) }}
             <div class="lp-field-errors">{{ form_errors(form.submissionId) }}</div>
-            <div class="lp-form-field">
-                {{ form_label(form.body, null, {label_attr: {class: 'lp-label'}}) }}
-                {{ form_widget(form.body, {attr: {class: 'lp-input', rows: 2, maxlength: 2000, 'data-reply-submission-target': 'body'}}) }}
-                <div class="lp-field-errors">{{ form_errors(form.body) }}</div>
+            <div class="lp-form-field lp-inbox-composer">
+                {{ form_label(form.body, null, {label_attr: {class: 'sr-only'}}) }}
+                {{ form_widget(form.body, {attr: {class: 'lp-input', rows: 2, maxlength: 2000, placeholder: 'inbox.reply.placeholder'|trans, 'data-reply-submission-target': 'body'}}) }}
+                <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm lp-inbox-composer__send" aria-label="{{ 'inbox.reply.submit'|trans }}">
+                    <twig:ux:icon name="lucide:send" class="w-4 h-4" />
+                </button>
             </div>
-            <div class="lp-inbox-item__buttons"><button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">{{ 'inbox.reply.submit'|trans }}</button></div>
+            <div class="lp-field-errors">{{ form_errors(form.body) }}</div>
         {{ form_end(form) }}
     {% endif %}
 </section>

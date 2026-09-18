@@ -5,12 +5,15 @@
 {% set actionParams = {projectId: item.project.id, itemId: item.id}|merge(inbox.actionQuery) %}
 {% set responseFrame = app.request.headers.get('Turbo-Frame') == 'card-drawer-frame' ? 'card-drawer-frame' : '_top' %}
 <article class="lp-inbox-item"{% if home %} id="inbox-item-{{ item.number }}"{% endif %} data-inbox-item="{{ item.number }}">
+    {# A request with one item wears its state on the list row beside it. #}
+    {% if showHead|default(true) %}
     <div class="lp-inbox-item__head">
         <span class="lp-inbox-item__number">{{ 'inbox.item.number'|trans({'%number%': item.number}) }}</span>
         <span class="lp-inbox-item__kind">{{ ('inbox.item.kind.' ~ item.kind.value)|trans }}</span>
         {% if item.blocking %}<span class="lp-inbox-item__blocking">{{ 'inbox.item.blocking'|trans }}</span>{% endif %}
         {% include '@Inbox/_inbox_state_chip.html.twig' with {state: item.state} only %}
     </div>
+    {% endif %}
     <h3 class="lp-inbox-item__title">{{ item.title }}</h3>
     {% if item.body|trim is not empty %}
         <div class="prose lp-prose lp-inbox-item__body">{{ item.body|inbox_markdown }}</div>
@@ -26,14 +29,14 @@
                 <tr>
                     <td><span class="lp-inbox-linked-table__type"><twig:ux:icon name="lucide:layout-list" class="w-4 h-4" />{{ 'inbox.linked_items.card'|trans }}</span><strong>#{{ link.card.number }} {{ link.card.title }}</strong></td>
                     <td><span class="lp-tag">{{ link.card.column.label|trans }}</span></td>
-                    <td><a class="lp-btn lp-btn--ghost lp-btn--open" href="{{ path('app_board_card', {projectId: item.project.id, cardId: link.card.id, tab: 'conversation', inboxItem: item.number, _fragment: 'inbox-item-' ~ item.number}) }}" aria-label="{{ 'inbox.linked_items.open_card'|trans({'%title%': link.card.title}) }}"><twig:ux:icon name="lucide:arrow-up-right" class="w-4 h-4" /><span class="lp-btn__label">{{ 'inbox.linked_items.open'|trans }}</span></a></td>
+                    <td><a class="lp-btn lp-btn--ghost lp-btn--open" href="{{ path('app_board_card', {projectId: item.project.id, cardId: link.card.id, tab: 'conversation', inboxItem: item.number, _fragment: 'inbox-item-' ~ item.number}) }}" aria-label="{{ 'inbox.linked_items.open_card'|trans({'%title%': link.card.title}) }}"><span class="lp-btn__label">{{ 'inbox.linked_items.open'|trans }}</span><twig:ux:icon name="lucide:chevron-right" class="w-4 h-4" /></a></td>
                 </tr>
                 {% endfor %}
                 {% for link in item.documents %}
                 <tr>
                     <td><span class="lp-inbox-linked-table__type"><twig:ux:icon name="lucide:file-text" class="w-4 h-4" />{{ 'inbox.linked_items.document'|trans }}</span><strong>{{ link.document.title }}</strong></td>
                     <td><span class="lp-tag">{{ link.document.status.translationKey()|trans }}</span></td>
-                    <td><a class="lp-btn lp-btn--ghost lp-btn--open" href="{{ path('app_document_review', {projectId: item.project.id, documentId: link.document.id}) }}" aria-label="{{ 'inbox.linked_items.open_document'|trans({'%title%': link.document.title}) }}"><twig:ux:icon name="lucide:arrow-up-right" class="w-4 h-4" /><span class="lp-btn__label">{{ 'inbox.linked_items.open'|trans }}</span></a></td>
+                    <td><a class="lp-btn lp-btn--ghost lp-btn--open" href="{{ path('app_document_review', {projectId: item.project.id, documentId: link.document.id}) }}" aria-label="{{ 'inbox.linked_items.open_document'|trans({'%title%': link.document.title}) }}"><span class="lp-btn__label">{{ 'inbox.linked_items.open'|trans }}</span><twig:ux:icon name="lucide:chevron-right" class="w-4 h-4" /></a></td>
                 </tr>
                 {% endfor %}
                 {% set shownPullRequests = [] %}
@@ -99,7 +102,8 @@
 
     {% if inbox.acceptsResponse(item) %}
         {% if not home %}
-            <a class="lp-inbox-item__jump" href="#inbox-item-{{ item.number }}">{{ 'inbox.item.respond_elsewhere'|trans({'%number%': item.number}) }}</a>
+            {# The item answers in the open queue, which another page or another tab holds. #}
+            <a class="lp-inbox-item__jump" href="{{ path('app_project_inbox', {id: item.project.id, _fragment: 'inbox-item-' ~ item.number}) }}" data-turbo-frame="_top">{{ 'inbox.item.respond_elsewhere'|trans({'%number%': item.number}) }}</a>
         {% else %}
         <div class="lp-inbox-item__actions">
             {% if item.kind.value == 'question' %}
@@ -130,14 +134,17 @@
                     {% if item.freeText %}
                         <div class="lp-form-field">
                             {{ form_label(answerForm.answerText, null, {label_attr: {class: 'lp-label'}}) }}
-                            {{ form_widget(answerForm.answerText, {attr: {class: 'lp-input lp-inbox-answer__text', rows: 3, 'data-form-draft-target': 'text', 'data-action': 'input->form-draft#remember'}}) }}
+                            {{ form_widget(answerForm.answerText, {attr: {class: 'lp-input lp-inbox-answer__text', rows: 3, placeholder: 'inbox.answer.placeholder'|trans, 'data-form-draft-target': 'text', 'data-action': 'input->form-draft#remember'}}) }}
                             <div class="lp-field-errors">{{ form_errors(answerForm.answerText) }}</div>
                         </div>
                     {% endif %}
                     <div class="lp-field-errors">{{ form_errors(answerForm) }}</div>
                     {{ form_widget(answerForm._token) }}
                     <div class="lp-inbox-item__buttons">
-                        <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">{{ (open ? 'inbox.answer.submit' : 'inbox.answer.change')|trans }}</button>
+                        <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">
+                            <twig:ux:icon name="lucide:send" class="w-4 h-4" />
+                            {{ (open ? 'inbox.answer.submit' : 'inbox.answer.change')|trans }}
+                        </button>
                     </div>
                 {{ form_end(answerForm, {render_rest: false}) }}
             {% elseif item.kind.value == 'review' %}
@@ -163,7 +170,10 @@
                 {% set doneForm = inbox_done_form(item, refusedForm) %}
                 {{ form_start(doneForm, {action: path('app_inbox_item_done', actionParams), attr: {class: 'lp-inbox-done', 'data-turbo-frame': responseFrame}}) }}
                     <div class="lp-field-errors">{{ form_errors(doneForm) }}</div>
-                    <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">{{ 'inbox.done.submit'|trans }}</button>
+                    <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">
+                        <twig:ux:icon name="lucide:check" class="w-4 h-4" />
+                        {{ 'inbox.done.submit'|trans }}
+                    </button>
                 {{ form_end(doneForm) }}
             {% endif %}
 

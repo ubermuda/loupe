@@ -339,6 +339,8 @@ for (const target of ['document', 'pull-request']) {
         await draftPage
             .locator(`.lp-sidebar__link[href="/projects/${projectId}/inbox"]`)
             .click();
+        // The review closed its ask, so the request waits in the completed queue.
+        await draftPage.getByRole('link', { name: /^Completed/ }).click();
         const recovery = draftItem.locator('[data-inbox-draft-kind="review"]');
         await expect(recovery).toBeVisible();
         await expect(recovery).toContainText('Keep this unsent review.');
@@ -514,7 +516,7 @@ for (const surface of ['page', 'drawer']) {
             section.locator('[data-inbox-linked-context]'),
         ).toContainText('export');
 
-        await question.getByRole('button', { name: 'Answer' }).click();
+        await question.getByRole('button', { name: 'Send answer' }).click();
         await expect(question).toContainText(
             'Pick an option or write an answer.',
         );
@@ -542,7 +544,7 @@ for (const surface of ['page', 'drawer']) {
                 question.getByLabel('CSV', { exact: true }),
             ).toBeChecked();
         }
-        await question.getByRole('button', { name: 'Answer' }).click();
+        await question.getByRole('button', { name: 'Send answer' }).click();
 
         await expect(page.locator('.lp-flash')).toContainText(
             `Item ${questionNumber} is answered.`,

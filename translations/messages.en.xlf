@@ -4639,21 +4639,9 @@
                 <source>inbox.search.empty</source>
                 <target>No item matches this search.</target>
             </trans-unit>
-            <trans-unit id="inbox.section.open_asks">
-                <source>inbox.section.open_asks</source>
-                <target>Open asks (%count%)</target>
-            </trans-unit>
-            <trans-unit id="inbox.section.loose_items">
-                <source>inbox.section.loose_items</source>
-                <target>Open items outside an open ask (%count%)</target>
-            </trans-unit>
             <trans-unit id="inbox.section.loose_items_note">
                 <source>inbox.section.loose_items_note</source>
                 <target>No agent waits on these, but they are still open.</target>
-            </trans-unit>
-            <trans-unit id="inbox.section.closed_asks">
-                <source>inbox.section.closed_asks</source>
-                <target>Closed asks (%count%)</target>
             </trans-unit>
             <trans-unit id="inbox.ask.session">
                 <source>inbox.ask.session</source>
@@ -4662,10 +4650,6 @@
             <trans-unit id="inbox.ask.asked">
                 <source>inbox.ask.asked</source>
                 <target>Asked %time%</target>
-            </trans-unit>
-            <trans-unit id="inbox.ask.open">
-                <source>inbox.ask.open</source>
-                <target>Open</target>
             </trans-unit>
             <trans-unit id="inbox.ask.closed">
                 <source>inbox.ask.closed</source>
@@ -4761,7 +4745,7 @@
             </trans-unit>
             <trans-unit id="inbox.answer.submit">
                 <source>inbox.answer.submit</source>
-                <target>Answer</target>
+                <target>Send answer</target>
             </trans-unit>
             <trans-unit id="inbox.answer.change">
                 <source>inbox.answer.change</source>
@@ -4789,11 +4773,11 @@
             </trans-unit>
             <trans-unit id="inbox.form.answer_inbox_item_form.answer_text.label">
                 <source>inbox.form.answer_inbox_item_form.answer_text.label</source>
-                <target>Your answer</target>
+                <target>Your answer or additional context</target>
             </trans-unit>
             <trans-unit id="inbox.done.submit">
                 <source>inbox.done.submit</source>
-                <target>Mark done</target>
+                <target>Mark complete</target>
             </trans-unit>
             <trans-unit id="inbox.done.error.not_a_todo">
                 <source>inbox.done.error.not_a_todo</source>
@@ -5218,18 +5202,6 @@
                 <source>board.form.move_card_form.column.label</source>
                 <target>Column</target>
             </trans-unit>
-            <trans-unit id="board.form.configure_board_column_form.label.label">
-                <source>board.form.configure_board_column_form.label.label</source>
-                <target>Column name</target>
-            </trans-unit>
-            <trans-unit id="board.form.configure_board_column_form.is_default.label">
-                <source>board.form.configure_board_column_form.is_default.label</source>
-                <target>Default for new cards</target>
-            </trans-unit>
-            <trans-unit id="board.form.configure_board_column_form.terminal.label">
-                <source>board.form.configure_board_column_form.terminal.label</source>
-                <target>A finishing point for completed work</target>
-            </trans-unit>
 
             <!-- Board columns -->
             <trans-unit id="board.form.add_board_column_form.label.label">
@@ -5243,6 +5215,18 @@
             <trans-unit id="board.form.rename_board_column_form.label.label">
                 <source>board.form.rename_board_column_form.label.label</source>
                 <target>Name</target>
+            </trans-unit>
+            <trans-unit id="board.form.configure_board_column_form.label.label">
+                <source>board.form.configure_board_column_form.label.label</source>
+                <target>Column name</target>
+            </trans-unit>
+            <trans-unit id="board.form.configure_board_column_form.is_default.label">
+                <source>board.form.configure_board_column_form.is_default.label</source>
+                <target>Default for new cards</target>
+            </trans-unit>
+            <trans-unit id="board.form.configure_board_column_form.terminal.label">
+                <source>board.form.configure_board_column_form.terminal.label</source>
+                <target>A finishing point for completed work</target>
             </trans-unit>
             <trans-unit id="board.form.delete_board_column_form.target.label">
                 <source>board.form.delete_board_column_form.target.label</source>
@@ -5292,6 +5276,22 @@
                 <source>board.column.rename.cancel</source>
                 <target>Cancel</target>
             </trans-unit>
+            <trans-unit id="board.column.rename.submit">
+                <source>board.column.rename.submit</source>
+                <target>Save name</target>
+            </trans-unit>
+            <trans-unit id="board.column.rename.bridge_rule_warning">
+                <source>board.column.rename.bridge_rule_warning</source>
+                <target>A bridge rule watches this column. Renaming it changes its slug, and the rule stops matching.</target>
+            </trans-unit>
+            <trans-unit id="board.column.move.left">
+                <source>board.column.move.left</source>
+                <target>Move left</target>
+            </trans-unit>
+            <trans-unit id="board.column.move.right">
+                <source>board.column.move.right</source>
+                <target>Move right</target>
+            </trans-unit>
             <trans-unit id="board.column.move.up">
                 <source>board.column.move.up</source>
                 <target>Move up</target>
@@ -5315,22 +5315,6 @@
             <trans-unit id="board.column.delete.named">
                 <source>board.column.delete.named</source>
                 <target>Delete %label%</target>
-            </trans-unit>
-            <trans-unit id="board.column.rename.submit">
-                <source>board.column.rename.submit</source>
-                <target>Save name</target>
-            </trans-unit>
-            <trans-unit id="board.column.rename.bridge_rule_warning">
-                <source>board.column.rename.bridge_rule_warning</source>
-                <target>A bridge rule watches this column. Renaming it changes its slug, and the rule stops matching.</target>
-            </trans-unit>
-            <trans-unit id="board.column.move.left">
-                <source>board.column.move.left</source>
-                <target>Move left</target>
-            </trans-unit>
-            <trans-unit id="board.column.move.right">
-                <source>board.column.move.right</source>
-                <target>Move right</target>
             </trans-unit>
             <trans-unit id="board.column.terminal.set">
                 <source>board.column.terminal.set</source>
@@ -5633,7 +5617,14 @@
             <trans-unit id="bridge.worker_runs.column.rule"><source>bridge.worker_runs.column.rule</source><target>Rule</target></trans-unit>
             <trans-unit id="bridge.worker_runs.column.duration"><source>bridge.worker_runs.column.duration</source><target>Duration</target></trans-unit>
             <trans-unit id="bridge.worker_runs.column.started"><source>bridge.worker_runs.column.started</source><target>Started</target></trans-unit>
-            <trans-unit id="inbox.page.open_summary"><source>inbox.page.open_summary</source><target>%count% need attention</target></trans-unit>
+            <trans-unit id="inbox.page.waiting_count"><source>inbox.page.waiting_count</source><target>{0}Nothing waiting|{1}1 waiting|]1,Inf[%count% waiting</target></trans-unit>
+            <trans-unit id="inbox.page.completed_count"><source>inbox.page.completed_count</source><target>{0}Nothing completed|{1}1 completed|]1,Inf[%count% completed</target></trans-unit>
+            <trans-unit id="inbox.page.open_empty"><source>inbox.page.open_empty</source><target>Nothing waits for you.</target></trans-unit>
+            <trans-unit id="inbox.page.completed_empty"><source>inbox.page.completed_empty</source><target>No request is completed yet.</target></trans-unit>
+            <trans-unit id="inbox.answer.placeholder"><source>inbox.answer.placeholder</source><target>Add a detail or write a different answer…</target></trans-unit>
+            <trans-unit id="inbox.reply.placeholder"><source>inbox.reply.placeholder</source><target>Reply to this thread…</target></trans-unit>
+            <trans-unit id="inbox.detail.in_card"><source>inbox.detail.in_card</source><target>The same thread appears in the card conversation.</target></trans-unit>
+            <trans-unit id="inbox.detail.no_card"><source>inbox.detail.no_card</source><target>This request is not linked to a card.</target></trans-unit>
             <trans-unit id="inbox.tabs.label"><source>inbox.tabs.label</source><target>Request state</target></trans-unit>
             <trans-unit id="inbox.tabs.open"><source>inbox.tabs.open</source><target>Open</target></trans-unit>
             <trans-unit id="inbox.tabs.completed"><source>inbox.tabs.completed</source><target>Completed</target></trans-unit>
@@ -5690,12 +5681,6 @@
             </trans-unit>
             <trans-unit id="project.workshop.needs_you.title">
                 <source>project.workshop.needs_you.title</source>
-            <trans-unit id="project.workshop.activity.view_all"><source>project.workshop.activity.view_all</source><target>View all</target></trans-unit>
-            <trans-unit id="activity.event_type.board.card_moved"><source>activity.event_type.board.card_moved</source><target>Card moved</target></trans-unit>
-            <trans-unit id="activity.event_type.board.column_renamed"><source>activity.event_type.board.column_renamed</source><target>Column renamed</target></trans-unit>
-            <trans-unit id="activity.event_type.board.column_deleted"><source>activity.event_type.board.column_deleted</source><target>Column deleted</target></trans-unit>
-            <trans-unit id="activity.event_type.inbox.ask_closed"><source>activity.event_type.inbox.ask_closed</source><target>Question closed</target></trans-unit>
-            <trans-unit id="activity.event_type.project.renamed"><source>activity.event_type.project.renamed</source><target>Project renamed</target></trans-unit>
                 <target>Needs you</target>
             </trans-unit>
             <trans-unit id="project.workshop.needs_you.action">
@@ -5706,6 +5691,12 @@
                 <source>project.workshop.needs_you.pending</source>
                 <target>{0} No request waits for you.|{1} One request waits for you.|]1,Inf[ %count% requests wait for you.</target>
             </trans-unit>
+            <trans-unit id="project.workshop.activity.view_all"><source>project.workshop.activity.view_all</source><target>View all</target></trans-unit>
+            <trans-unit id="activity.event_type.board.card_moved"><source>activity.event_type.board.card_moved</source><target>Card moved</target></trans-unit>
+            <trans-unit id="activity.event_type.board.column_renamed"><source>activity.event_type.board.column_renamed</source><target>Column renamed</target></trans-unit>
+            <trans-unit id="activity.event_type.board.column_deleted"><source>activity.event_type.board.column_deleted</source><target>Column deleted</target></trans-unit>
+            <trans-unit id="activity.event_type.inbox.ask_closed"><source>activity.event_type.inbox.ask_closed</source><target>Question closed</target></trans-unit>
+            <trans-unit id="activity.event_type.project.renamed"><source>activity.event_type.project.renamed</source><target>Project renamed</target></trans-unit>
             <trans-unit id="project.workshop.activity.empty"><source>project.workshop.activity.empty</source><target>No recorded activity yet.</target></trans-unit>
             <trans-unit id="project.workshop.cards.empty"><source>project.workshop.cards.empty</source><target>No open cards. Open the board to create work.</target></trans-unit>
             <trans-unit id="project.workshop.cards.disabled"><source>project.workshop.cards.disabled</source><target>The board is disabled on this instance.</target></trans-unit>
@@ -5827,10 +5818,6 @@
             </trans-unit>
             <trans-unit id="review.dashboard.table.actions">
                 <source>review.dashboard.table.actions</source>
-            <trans-unit id="board.column.error.terminal_stale">
-                <source>board.column.error.terminal_stale</source>
-                <target>The terminal setting of this column changed after this page opened. Check it before you try again.</target>
-            </trans-unit>
                 <target>Actions</target>
             </trans-unit>
             <trans-unit id="board.column.error.rename_stale">
@@ -5840,6 +5827,10 @@
             <trans-unit id="board.column.error.default_stale">
                 <source>board.column.error.default_stale</source>
                 <target>The default column changed after this page opened. Check the current default before you try again.</target>
+            </trans-unit>
+            <trans-unit id="board.column.error.terminal_stale">
+                <source>board.column.error.terminal_stale</source>
+                <target>The terminal setting of this column changed after this page opened. Check it before you try again.</target>
             </trans-unit>
             <trans-unit id="board.settings.heading">
                 <source>board.settings.heading</source>

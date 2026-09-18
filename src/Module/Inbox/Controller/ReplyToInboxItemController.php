@@ -58,7 +58,10 @@ final class ReplyToInboxItemController extends AppController
                 ($this->reply)(new ReplyToInboxItemCommand($item, $author, $data->body ?? '', $data->submissionId ?? ''));
                 $this->addFlash('success', $this->translator->trans('inbox.reply.added'));
 
-                return $this->redirectToRoute($return->route, $return->routeParameters);
+                // Read again, because a saved response can move the item to the completed queue.
+                $saved = $this->returnTargets->resolve($request, $item);
+
+                return $this->redirectToRoute($saved->route, $saved->routeParameters);
             } catch (DomainErrors $error) {
                 $this->applyDomainErrors($form, $error);
             }

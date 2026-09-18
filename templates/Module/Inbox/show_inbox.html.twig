@@ -9,16 +9,14 @@
 {% endblock %}
 
 {% block body %}
-<div class="lp-workspace lp-needs-you lp-core-prototype-page lp-core-inbox">
+{% set completed = inbox.completed and not inbox.isSearch %}
+<div class="lp-workspace lp-needs-you lp-core-prototype-page lp-core-inbox"{% if not completed and not inbox.isSearch %} data-controller="inbox-anchor" data-inbox-anchor-url-value="{{ path('app_project_inbox', {id: inbox.project.id, queue: 'completed'}) }}"{% endif %}>
     <header class="lp-page-header">
         <div class="lp-page-header__copy">
             <h1 class="lp-workspace-title">{{ 'inbox.page.title'|trans }}</h1>
             <p class="lp-workspace-desc">{{ 'inbox.page.description'|trans }}</p>
         </div>
         <div class="lp-needs-you__header-actions">
-            {% if not inbox.isSearch %}
-            <span class="lp-needs-you__summary">{{ 'inbox.page.open_summary'|trans({'%count%': inbox.openItemCount}) }}</span>
-            {% endif %}
             <a class="lp-btn" href="{{ path('app_project_activity', {id: inbox.project.id}) }}">
                 <twig:ux:icon name="lucide:activity" class="w-4 h-4" />
                 {{ 'inbox.activity'|trans }}
@@ -28,8 +26,12 @@
 
     {% if not inbox.isEmpty and not inbox.isSearch %}
     <nav class="lp-section-tabs" aria-label="{{ 'inbox.tabs.label'|trans }}">
-        <a class="lp-section-tabs__item{{ inbox.openItemCount > 0 ? ' lp-section-tabs__item--active' }}" href="#inbox-open">{{ 'inbox.tabs.open'|trans }} <span>{{ inbox.openItemCount }}</span></a>
-        <a class="lp-section-tabs__item{{ inbox.openAsks|length == 0 and inbox.looseItems|length == 0 ? ' lp-section-tabs__item--active' }}" href="#inbox-completed">{{ 'inbox.tabs.completed'|trans }} <span>{{ inbox.closedAskTotal }}</span></a>
+        <a class="lp-section-tabs__item{{ completed ? '' : ' lp-section-tabs__item--active' }}"
+           href="{{ path('app_project_inbox', {id: inbox.project.id}) }}"
+           {% if not completed %}aria-current="page"{% endif %}>{{ 'inbox.tabs.open'|trans }}</a>
+        <a class="lp-section-tabs__item{{ completed ? ' lp-section-tabs__item--active' : '' }}"
+           href="{{ path('app_project_inbox', {id: inbox.project.id, queue: 'completed'}) }}"
+           {% if completed %}aria-current="page"{% endif %}>{{ 'inbox.tabs.completed'|trans }}</a>
     </nav>
     {% endif %}
 
@@ -56,92 +58,74 @@
                data-autosearch-target="clearButton"
                class="lp-filter-clear">{{ 'inbox.search.clear'|trans }}</a>
         </form>
-        {% if inbox.isSearch %}
-        <span class="lp-filter-count">{{ 'inbox.search.count'|trans({'%count%': inbox.searchTotal}) }}</span>
-        {% endif %}
+        <span class="lp-filter-count">
+            {%- if inbox.isSearch -%}
+                {{ 'inbox.search.count'|trans({'%count%': inbox.searchTotal}) }}
+            {%- elseif completed -%}
+                {{ 'inbox.page.completed_count'|trans({'%count%': inbox.closedAskTotal}) }}
+            {%- else -%}
+                {{ 'inbox.page.waiting_count'|trans({'%count%': inbox.openItemCount}) }}
+            {%- endif -%}
+        </span>
     </div>
     {% endif %}
 
-    {% if inbox.isSearch %}
-        {% if inbox.searchResults|length > 0 %}
-        <section class="lp-inbox-section" data-inbox-section="search-results">
-            <div class="lp-inbox-ask__items">
-                {% for item in inbox.searchResults %}
-                    {% include '@Inbox/_inbox_item.html.twig' with {item: item, ask: null, inbox: inbox, refusedForm: refusedForm, showLinkedItems: true} only %}
-                {% endfor %}
-            </div>
-            <twig:Pagination route="app_project_inbox" :page="inbox.page" :totalPages="inbox.totalPages" :pageList="inbox.pageList" :routeParams="{id: inbox.project.id, q: inbox.query}" />
-        </section>
-        {% else %}
-        <div class="lp-empty-state" data-inbox-search-empty>
-            <twig:ux:icon name="lucide:search" class="lp-empty-state__icon text-accent w-12 h-12" />
-            <h2 class="lp-empty-state__title">{{ 'inbox.search.empty'|trans }}</h2>
-        </div>
-        {% endif %}
-    {% elseif inbox.isEmpty %}
+    {% if inbox.isEmpty %}
     <div class="lp-empty-state">
         <twig:ux:icon name="lucide:inbox" class="lp-empty-state__icon text-accent w-12 h-12" />
         <h2 class="lp-empty-state__title">{{ 'inbox.page.empty'|trans }}</h2>
     </div>
     {% else %}
-        {% if inbox.openAsks|length > 0 %}
-        <section class="lp-inbox-section lp-inbox-section--open" id="inbox-open" data-inbox-section="open-asks">
-            <h2 class="lp-inbox-section__title">{{ 'inbox.section.open_asks'|trans({'%count%': inbox.openAsks|length}) }}</h2>
-            <div class="lp-inbox-split" data-controller="panel-tabs" data-panel-tabs-active-value="{{ inbox.openAsks|first.id }}">
-                <div class="lp-inbox-request-list" role="tablist" aria-label="{{ 'inbox.section.open_asks'|trans({'%count%': inbox.openAsks|length}) }}">
-                    {% for ask in inbox.openAsks %}
-                        {% set firstItem = ask.items|first.item %}
-                        <button type="button"
-                                class="lp-inbox-request"
-                                role="tab"
-                                id="inbox-request-{{ ask.id }}"
-                                aria-controls="inbox-ask-{{ ask.id }}"
-                                data-panel-tabs-target="tab"
-                                data-panel-tab="{{ ask.id }}"
-                                data-action="click->panel-tabs#select keydown->panel-tabs#keydown">
-                            <span class="lp-inbox-request__byline">
-                                <span class="lp-source-avatar" aria-hidden="true"><twig:ux:icon name="lucide:bot" class="w-4 h-4" /></span>
-                                <strong>{{ 'inbox.source.agent'|trans }}</strong>
-                                <time datetime="{{ ask.createdAt|date('c') }}">{{ ask.createdAt|relative_time }}</time>
-                            </span>
-                            <span class="lp-inbox-request__title">{{ firstItem.title }}</span>
-                            {% if firstItem.body %}<span class="lp-inbox-request__body">{{ firstItem.body }}</span>{% endif %}
-                            <span class="lp-inbox-request__badges">
-                                <span class="lp-inbox-item__kind">{{ ('inbox.item.kind.' ~ firstItem.kind.value)|trans }}</span>
-                                {% if firstItem.blocking %}<span class="lp-inbox-item__blocking">{{ 'inbox.item.blocking'|trans }}</span>{% endif %}
-                            </span>
-                        </button>
+        {# One queue at a time, as a list of requests beside the selected request. #}
+        {% set entries = [] %}
+        {% if inbox.isSearch %}
+            {% for item in inbox.searchResults %}
+                {% set entries = entries|merge([{key: item.id, panelId: 'inbox-panel-' ~ item.id, ask: null, item: item}]) %}
+            {% endfor %}
+        {% elseif completed %}
+            {% for ask in inbox.closedAsks %}
+                {% set entries = entries|merge([{key: ask.id, panelId: 'inbox-ask-' ~ ask.id, ask: ask, item: null}]) %}
+            {% endfor %}
+        {% else %}
+            {% for ask in inbox.openAsks %}
+                {% set entries = entries|merge([{key: ask.id, panelId: 'inbox-ask-' ~ ask.id, ask: ask, item: null}]) %}
+            {% endfor %}
+            {% for item in inbox.looseItems %}
+                {% set entries = entries|merge([{key: item.id, panelId: 'inbox-panel-' ~ item.id, ask: null, item: item}]) %}
+            {% endfor %}
+        {% endif %}
+
+        {% set section = inbox.isSearch ? 'search-results' : (completed ? 'closed-asks' : 'open-asks') %}
+        {% if entries|length > 0 %}
+        <section class="lp-inbox-section lp-inbox-section--queue" data-inbox-section="{{ section }}">
+            <div class="lp-inbox-split" data-controller="panel-tabs" data-panel-tabs-active-value="{{ entries|first.key }}">
+                <div class="lp-inbox-request-list" role="tablist" aria-label="{{ (completed ? 'inbox.tabs.completed' : 'inbox.tabs.open')|trans }}">
+                    {% for entry in entries %}
+                        {% include '@Inbox/_inbox_request.html.twig' with {entry: entry} only %}
                     {% endfor %}
                 </div>
                 <div class="lp-inbox-request-detail">
-                    {% for ask in inbox.openAsks %}
-                        {% include '@Inbox/_inbox_ask.html.twig' with {ask: ask, inbox: inbox, refusedForm: refusedForm, showLinkedItems: true, tabPanel: true, hidden: not loop.first} only %}
+                    {% for entry in entries %}
+                        {% include '@Inbox/_inbox_detail.html.twig' with {entry: entry, inbox: inbox, refusedForm: refusedForm, hidden: not loop.first} only %}
                     {% endfor %}
                 </div>
             </div>
         </section>
+        {# The open queue is whole, so only the completed asks and the search results page. #}
+        {% if completed or inbox.isSearch %}
+            {% set pageParams = {id: inbox.project.id}|merge(inbox.isSearch ? {q: inbox.query} : {queue: 'completed'}) %}
+            <twig:Pagination route="app_project_inbox" :page="inbox.page" :totalPages="inbox.totalPages" :pageList="inbox.pageList" :routeParams="pageParams" />
         {% endif %}
-
-        {% if inbox.looseItems|length > 0 %}
-        <section class="lp-inbox-section lp-inbox-section--open"{% if inbox.openAsks|length == 0 %} id="inbox-open"{% endif %} data-inbox-section="loose-items">
-            <h2 class="lp-inbox-section__title">{{ 'inbox.section.loose_items'|trans({'%count%': inbox.looseItems|length}) }}</h2>
-            <p class="lp-inbox-section__note">{{ 'inbox.section.loose_items_note'|trans }}</p>
-            <div class="lp-inbox-ask__items">
-                {% for item in inbox.looseItems %}
-                    {% include '@Inbox/_inbox_item.html.twig' with {item: item, ask: null, inbox: inbox, refusedForm: refusedForm, showLinkedItems: true} only %}
-                {% endfor %}
-            </div>
-        </section>
-        {% endif %}
-
-        {% if inbox.closedAskTotal > 0 %}
-        <section class="lp-inbox-section lp-inbox-section--completed" id="inbox-completed" data-inbox-section="closed-asks">
-            <h2 class="lp-inbox-section__title">{{ 'inbox.section.closed_asks'|trans({'%count%': inbox.closedAskTotal}) }}</h2>
-            {% for ask in inbox.closedAsks %}
-                {% include '@Inbox/_inbox_ask.html.twig' with {ask: ask, inbox: inbox, refusedForm: refusedForm, showLinkedItems: true} only %}
-            {% endfor %}
-            <twig:Pagination route="app_project_inbox" :page="inbox.page" :totalPages="inbox.totalPages" :pageList="inbox.pageList" :routeParams="{id: inbox.project.id}" />
-        </section>
+        {% elseif inbox.isSearch %}
+        <div class="lp-empty-state" data-inbox-search-empty>
+            <twig:ux:icon name="lucide:search" class="lp-empty-state__icon text-accent w-12 h-12" />
+            <h2 class="lp-empty-state__title">{{ 'inbox.search.empty'|trans }}</h2>
+        </div>
+        {% else %}
+        <div class="lp-empty-state" data-inbox-queue-empty="{{ section }}">
+            <twig:ux:icon name="lucide:inbox" class="lp-empty-state__icon text-accent w-12 h-12" />
+            <h2 class="lp-empty-state__title">{{ (completed ? 'inbox.page.completed_empty' : 'inbox.page.open_empty')|trans }}</h2>
+        </div>
         {% endif %}
     {% endif %}
 </div>

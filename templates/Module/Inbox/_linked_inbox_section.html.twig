@@ -19,7 +19,8 @@
             {% include '@Inbox/_linked_inbox_entry.html.twig' with {item: item, inbox: inbox, refusedForm: refusedForm} only %}
         {% endfor %}
         {% if inbox.hasMoreClosedItems %}
-        <a class="lp-inbox-linked__all" href="{{ path('app_project_inbox', {id: inbox.project.id}) }}" data-inbox-linked-more>{{ 'inbox.linked.closed_more'|trans({'%count%': inbox.closedTotal}) }}</a>
+        {# The completed queue of the inbox page, which is where a closed item lives. #}
+        <a class="lp-inbox-linked__all" href="{{ path('app_project_inbox', {id: inbox.project.id, queue: 'completed'}) }}" data-inbox-linked-more>{{ 'inbox.linked.closed_more'|trans({'%count%': inbox.closedTotal}) }}</a>
         {% endif %}
     </div>
     {% endif %}

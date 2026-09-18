@@ -43,6 +43,7 @@ final readonly class InboxDetailView implements InboxItemsView
         public array $finalItemIds,
         public array $bridgeStatuses,
         public InboxReplyThreads $replies,
+        public bool $completed = false,
         public string $query = '',
         public array $searchResults = [],
         public int $searchTotal = 0,
@@ -94,11 +95,15 @@ final readonly class InboxDetailView implements InboxItemsView
         return $item->state->acceptsResponse(isset($this->finalItemIds[(string) $item->id]));
     }
 
-    /** The page and the search the owner is on, kept on the way back. */
+    /** The queue, the page and the search the owner is on, kept on the way back. */
     #[\Override]
     public function actionQuery(): array
     {
-        return [...($this->page > 1 ? ['page' => $this->page] : []), ...($this->isSearch() ? ['q' => $this->query] : [])];
+        return [
+            ...($this->completed ? ['queue' => 'completed'] : []),
+            ...($this->page > 1 ? ['page' => $this->page] : []),
+            ...($this->isSearch() ? ['q' => $this->query] : []),
+        ];
     }
 
     /** Null for a closed ask, or for an interactive session that no bridge resumes. */

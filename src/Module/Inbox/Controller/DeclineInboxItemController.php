@@ -57,7 +57,10 @@ final class DeclineInboxItemController extends AppController
                 ($this->declineItem)(new DeclineInboxItemCommand($item, $data->closeNote ?? ''));
                 $this->addFlash('success', $this->translator->trans('inbox.flash.declined', ['%number%' => $item->number]));
 
-                return $this->redirectToRoute($return->route, $return->routeParameters);
+                // Read again, because a saved response can move the item to the completed queue.
+                $saved = $this->returnTargets->resolve($request, $item);
+
+                return $this->redirectToRoute($saved->route, $saved->routeParameters);
             } catch (DomainErrors $e) {
                 $this->applyDomainErrors($form, $e);
             }
