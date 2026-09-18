@@ -5912,8 +5912,7 @@
             <trans-unit id="board.rules.reported_at"><source>board.rules.reported_at</source><target>Reported %time%</target></trans-unit>
             <trans-unit id="board.form.search_rules_form.search.label"><source>board.form.search_rules_form.search.label</source><target>Find a rule</target></trans-unit>
             <trans-unit id="board.form.search_rules_form.search.placeholder"><source>board.form.search_rules_form.search.placeholder</source><target>Find a rule…</target></trans-unit>
-            <trans-unit id="board.rules.search.submit"><source>board.rules.search.submit</source><target>Search rules</target></trans-unit>
-            <trans-unit id="board.rules.search.clear"><source>board.rules.search.clear</source><target>Clear search</target></trans-unit>
+            <trans-unit id="board.rules.search.clear"><source>board.rules.search.clear</source><target>Clear</target></trans-unit>
             <trans-unit id="board.rules.search.empty"><source>board.rules.search.empty</source><target>No matching rules</target></trans-unit>
             <trans-unit id="board.rules.search.try_again"><source>board.rules.search.try_again</source><target>Try another rule name or clear the search.</target></trans-unit>
             <trans-unit id="board.rules.empty.title"><source>board.rules.empty.title</source><target>No rules reported</target></trans-unit>

@@ -25,11 +25,12 @@
                 <div class="lp-filter-search">
                     <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
                     {{ form_label(searchForm.search, null, {'label_attr': {'class': 'sr-only'}}) }}
-                    {{ form_widget(searchForm.search, {'attr': {'class': 'lp-input lp-filter-input'}}) }}
+                    {{ form_widget(searchForm.search, {'attr': {'class': 'lp-input lp-filter-input', 'data-autosearch-target': 'field', 'data-action': 'input->autosearch#search'}}) }}
                 </div>
-                <button type="submit" class="lp-btn lp-btn--icon" aria-label="{{ 'board.rules.search.submit'|trans }}"><twig:ux:icon name="lucide:search" /></button>
-                {% if searchForm.search.vars.value is not empty %}<a class="lp-btn lp-btn--icon" href="{{ path('app_project_rules', {id: project.id}) }}" aria-label="{{ 'board.rules.search.clear'|trans }}"><twig:ux:icon name="lucide:x" /></a>{% endif %}
             </div>
+            <a href="{{ path('app_project_rules', {id: project.id}) }}"
+               data-autosearch-target="clearButton"
+               class="lp-filter-clear">{{ 'board.rules.search.clear'|trans }}</a>
             <div class="lp-field-errors">{{ form_errors(searchForm.search) }}{{ form_errors(searchForm) }}</div>
         {{ form_end(searchForm) }}
         <span class="lp-status-chip lp-status-chip--ok" data-rule-live-count><span class="lp-status-chip__dot"></span>{{ 'board.rules.live_count'|trans({'%count%': liveCount}) }}</span>
@@ -48,10 +49,11 @@
                         {{ (rule.state == 'live' ? 'board.rules.status.live' : 'board.rules.status.dead')|trans }}
                     </span>
                 </div>
-                <p>{{ 'board.rules.event_description'|trans({'%event%': rule.event}) }}</p>
+                {% set eventLabel %}{% include 'outbox/_event_type_label.html.twig' with {type: rule.event} only %}{% endset %}
+                <p>{{ 'board.rules.event_description'|trans({'%event%': eventLabel|trim}) }}</p>
                 <div class="lp-rule-flow" aria-label="{{ 'board.rules.flow_label'|trans }}">
-                    <span><twig:ux:icon name="lucide:radio" />{{ rule.event }}</span>
-                    {% if rule.columns is not empty %}<span><twig:ux:icon name="lucide:columns-3" />{{ rule.columns|join(', ') }}</span>{% endif %}
+                    <span data-rule-event="{{ rule.event }}">{% if rule.event starts with 'board.' %}<twig:ux:icon name="lucide:square-kanban" />{% else %}<twig:ux:icon name="lucide:radio" />{% endif %}{{ eventLabel|trim }}</span>
+                    {% if rule.columns is not empty %}<span><twig:ux:icon name="lucide:columns-3" />{% for slug in rule.columns %}{{ (columnLabels[slug] ?? slug)|trans }}{{ not loop.last ? ', ' }}{% endfor %}</span>{% endif %}
                     <twig:ux:icon name="lucide:arrow-right" class="lp-rule-flow__arrow" />
                     <span><twig:ux:icon name="lucide:cable" />{{ rule.bridgeId|slice(-12) }}</span>
                 </div>

@@ -205,8 +205,9 @@ history page of the board's first terminal column.
 
 ### Bridge rule health
 
-Open Rules to read the project's reported handoffs. Search by rule name and submit with the search button or Enter.
-Matching ignores case. Clear search restores the full list; the live-rule count always covers the project's complete report.
+Open Rules to read the project's reported handoffs. Each rule shows its event and its columns by their display names.
+Search by rule name. The list updates as you type, or when you press Enter.
+Matching ignores case. Clear restores the full list; the live-rule count always covers the project's complete report.
 Searches with no matches show a different message from a project with no reported rules.
 On narrow screens or with enlarged text, the search row scrolls to reveal each control as you press Tab or Shift+Tab.
 This page remains read-only. Change rules in the bridge configuration.

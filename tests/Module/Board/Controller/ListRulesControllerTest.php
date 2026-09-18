@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\BridgeRuleReport;
 use App\Module\Project\Entity\Project;
 use App\Tests\Support\AcceptedTerms;
@@ -56,7 +57,7 @@ final class ListRulesControllerTest extends WebTestCase
         self::assertSelectorTextContains('[data-rule-live-count]', '1 live rule');
         self::assertSelectorNotExists('[data-rules-empty]');
 
-        $crawler = $client->click($crawler->filter('a[aria-label="Clear search"]')->link());
+        $crawler = $client->click($crawler->filter('.lp-list-filters a.lp-filter-clear')->link());
         self::assertResponseIsSuccessful();
         self::assertCount(2, $crawler->filter('[data-rule-name]'));
 
@@ -65,6 +66,40 @@ final class ListRulesControllerTest extends WebTestCase
         self::assertSelectorTextContains('.lp-field-errors', '200');
         $client->request(Request::METHOD_GET, $path, ['search_rules_form' => ['search' => ['invalid']]]);
         self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+    }
+
+    public function test_the_handoff_reads_as_labels_rather_than_identifiers(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $owner = new User(fullName: 'Owner', email: 'rules-labels@example.com', password: 'x');
+        $owner->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($owner, static::getContainer());
+        $project = new Project($owner, 'Labels');
+        $em->persist($owner);
+        $em->persist($project);
+        $em->persist(new BoardColumn($project, 'Next up', 'next', 0));
+        $em->persist(new BridgeRuleReport($project, Uuid::v4(), [
+            ['name' => 'Known column', 'on' => 'board.card_moved', 'columns' => ['next'], 'state' => BridgeRuleReport::STATE_LIVE, 'reason' => null],
+            ['name' => 'Lost column', 'on' => 'board.card_moved', 'columns' => ['gone'], 'state' => BridgeRuleReport::STATE_DEAD, 'reason' => null],
+        ]));
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/rules');
+
+        self::assertResponseIsSuccessful();
+        $known = $crawler->filter('[data-rule-name="Known column"] .lp-rule-flow');
+        self::assertStringContainsString('Card moved', $known->text());
+        self::assertStringNotContainsString('board.card_moved', $known->text());
+        self::assertStringContainsString('Next up', $known->text());
+        self::assertStringNotContainsString('next,', $known->text());
+        self::assertCount(1, $crawler->filter('[data-rule-name="Known column"] [data-rule-event="board.card_moved"] svg'));
+        self::assertStringContainsString('gone', $crawler->filter('[data-rule-name="Lost column"] .lp-rule-flow')->text());
+        self::assertCount(0, $crawler->filter('form[name="search_rules_form"] button[type="submit"]'));
+        self::assertCount(1, $crawler->filter('form[name="search_rules_form"] [data-autosearch-target="clearButton"]'));
     }
 
     public function test_it_lists_reported_rule_health_without_edit_controls(): void
