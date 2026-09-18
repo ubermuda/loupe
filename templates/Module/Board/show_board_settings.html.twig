@@ -37,7 +37,7 @@
                     {% if column.isDefault %}<span class="lp-board__column-flag">{{ 'board.column.flag.default'|trans }}</span>{% endif %}
                     {% if column.terminal %}<span class="lp-board__column-flag">{{ 'board.column.flag.terminal'|trans }}</span>{% endif %}
                     {% if canManage %}
-                        {% for move in [{offset: -1, key: 'board.column.move.up', icon: 'lucide:arrow-up'}, {offset: 1, key: 'board.column.move.down', icon: 'lucide:arrow-down'}] %}
+                        {% for move in [{offset: -1, key: 'board.column.move.up'}, {offset: 1, key: 'board.column.move.down'}] %}
                             {% if board.columns[index + move.offset] is defined %}
                                 {% set moveForm = board_columns_reorder_form(board_column_order(board.columns, index, move.offset), board_column_order(board.columns, 0, 0)) %}
                                 {% set moveId = 'settings-move-' ~ column.id ~ '-' ~ loop.index %}
@@ -46,7 +46,7 @@
                                     {{ form_widget(moveForm.expectedOrder, {id: moveId ~ '-expected-order'}) }}
                                     {{ form_widget(moveForm.order, {id: moveId ~ '-order'}) }}
                                     <button class="lp-btn lp-btn--ghost lp-btn--icon" type="submit" aria-label="{{ move.key|trans }}">
-                                        <twig:ux:icon name="{{ move.icon }}" />
+                                        {% if move.offset < 0 %}<twig:ux:icon name="lucide:arrow-up" />{% else %}<twig:ux:icon name="lucide:arrow-down" />{% endif %}
                                     </button>
                                 </form>
                             {% else %}

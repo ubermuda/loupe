@@ -1083,9 +1083,6 @@
     .lp-choice input {
         @apply w-4 h-4 shrink-0 cursor-pointer accent-accent-ink;
     }
-    .lp-choice label {
-        @apply cursor-pointer;
-    }
     .lp-choice:has(input:focus-visible) {
         @apply outline-2 outline-offset-1 outline-accent-ink;
     }
