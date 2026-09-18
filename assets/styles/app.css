@@ -1517,14 +1517,9 @@
     .lp-list-filters {
         @apply flex flex-wrap items-center gap-2 mt-6;
     }
-    .lp-filter-chip {
-        @apply inline-flex items-center gap-1.5 h-8.5 rounded-full bg-surface-3 text-fg-mute no-underline transition-colors text-sm font-semibold px-3.5;
-    }
-    .lp-filter-chip:hover {
-        @apply bg-tint-strong text-ink;
-    }
-    .lp-filter-chip--on {
-        @apply bg-ink text-accent;
+    /* A labelled on/off filter, such as Show archived. */
+    .lp-filter-switch {
+        @apply inline-flex items-center gap-2 h-8.5 px-1 text-sm font-semibold text-fg-mute cursor-pointer;
     }
     /* Borderless "Clear" — an escape hatch, not a filter of its own. */
     .lp-filter-clear {
@@ -4564,20 +4559,25 @@
 
     /* The input stays a real checkbox so form binding and keyboard access are
        untouched; only its box is redrawn as a track and knob. */
-    .admin-switch {
+    .admin-switch,
+    .lp-switch {
         @apply relative shrink-0 w-10 h-6 mt-px appearance-none rounded-full bg-line-strong cursor-pointer transition-colors;
     }
-    .admin-switch::after {
+    .admin-switch::after,
+    .lp-switch::after {
         @apply absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-surface-1 transition-all;
         content: '';
     }
-    .admin-switch:checked {
+    .admin-switch:checked,
+    .lp-switch:checked {
         @apply bg-accent;
     }
-    .admin-switch:checked::after {
+    .admin-switch:checked::after,
+    .lp-switch:checked::after {
         @apply left-4.5;
     }
-    .admin-switch:focus-visible {
+    .admin-switch:focus-visible,
+    .lp-switch:focus-visible {
         @apply outline-2 outline-offset-2 outline-accent-ink;
     }
 

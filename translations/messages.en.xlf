@@ -1107,17 +1107,13 @@
                 <source>review.dashboard.filter.show_archived</source>
                 <target>Show archived</target>
             </trans-unit>
-            <trans-unit id="review.dashboard.filter.hide_archived">
-                <source>review.dashboard.filter.hide_archived</source>
-                <target>Hide archived</target>
-            </trans-unit>
             <trans-unit id="review.dashboard.filter.search_label">
                 <source>review.dashboard.filter.search_label</source>
                 <target>Search documents</target>
             </trans-unit>
             <trans-unit id="review.dashboard.filter.search_placeholder">
                 <source>review.dashboard.filter.search_placeholder</source>
-                <target>Search titles and text…</target>
+                <target>Search documents</target>
             </trans-unit>
             <trans-unit id="review.dashboard.filter.status_label">
                 <source>review.dashboard.filter.status_label</source>
