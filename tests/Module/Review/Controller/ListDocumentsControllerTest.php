@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardDocument;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
@@ -108,6 +111,35 @@ final class ListDocumentsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('body', 'Alice Draft');
         self::assertStringNotContainsString('Bob Secret', (string) $client->getResponse()->getContent());
+    }
+
+    public function test_document_rows_show_their_linked_card_number(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'linked', 'linked@example.com');
+        $project = $this->project($em, $owner);
+        $document = $this->document($em, $owner, $project, 'Linked plan');
+        $column = new BoardColumn($project, 'Ready', 'ready', 0, isDefault: true);
+        $card = new Card($project, $column, 'Build it', 'Details', 42);
+        $em->persist($column);
+        $em->persist($card);
+        $em->persist(new CardDocument($card, $document));
+        $em->flush();
+
+        $projectId = (string) $project->id;
+        $documentId = (string) $document->id;
+        $em->clear();
+
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains(
+            '[data-document-id="'.$documentId.'"] .lp-document-row__linked-card',
+            '#42',
+        );
     }
 
     /**
@@ -274,6 +306,13 @@ final class ListDocumentsControllerTest extends WebTestCase
 
         // Status chip keeps the lp-badge hook and the translated status text.
         self::assertSelectorTextContains($rowSelector.' .lp-badge', 'In review');
+
+        self::assertSelectorTextContains($rowSelector.' .lp-document-row__author', 'Alice3');
+        self::assertSelectorExists('.lp-document-table[role="table"]');
+        self::assertSelectorTextContains('.lp-document-table__head', 'Document');
+        self::assertSelectorTextContains('.lp-document-table__head', 'Status');
+        self::assertSelectorTextContains('.lp-document-table__head', 'Author');
+        self::assertSelectorTextContains('.lp-document-table__head', 'Updated');
 
         // Nothing waits for the reader, so the row carries no indicator at all.
         self::assertSelectorNotExists($rowSelector.' .lp-document-row__waiting');

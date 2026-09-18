@@ -56,7 +56,7 @@ final class WriteOutboxEventOnBoardColumnRenamedTest extends KernelTestCase
     {
         $next = $this->column($this->project, 'next');
 
-        ($this->rename)(new RenameBoardColumnCommand($next, CardReporter::Human, 'Up next'));
+        ($this->rename)(new RenameBoardColumnCommand($next, CardReporter::Human, 'Up next', $next->label));
 
         $row = $this->onlyRow();
         self::assertSame([
@@ -80,7 +80,7 @@ final class WriteOutboxEventOnBoardColumnRenamedTest extends KernelTestCase
         $next = $this->column($this->project, 'next');
         $dispatched = $this->countDispatches();
 
-        ($this->rename)(new RenameBoardColumnCommand($next, CardReporter::Human, 'NEXT!'));
+        ($this->rename)(new RenameBoardColumnCommand($next, CardReporter::Human, 'NEXT!', $next->label));
 
         // Guard: the rename happened and dispatched its event, so the empty
         // outbox below is the listener's choice.
@@ -110,7 +110,7 @@ final class WriteOutboxEventOnBoardColumnRenamedTest extends KernelTestCase
         }, -10);
 
         try {
-            ($this->rename)(new RenameBoardColumnCommand($next, CardReporter::Human, 'Up next'));
+            ($this->rename)(new RenameBoardColumnCommand($next, CardReporter::Human, 'Up next', $next->label));
             self::fail('a failed transaction must propagate');
         } catch (\RuntimeException $e) {
             self::assertSame('the transaction failed after the rename', $e->getMessage());

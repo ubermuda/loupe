@@ -5,6 +5,9 @@
         {% set project = current_project() %}
         {% set route = app.request.attributes.get('_route') %}
         <div class="lp-app" data-controller="drawer">
+            {% if project %}<div hidden data-controller="remember-project" data-remember-project-id-value="{{ project.id }}"></div>{% endif %}
+            {# Off a project page the sidebar keeps the last project visited; the topbar does not. #}
+            {% with {project: sidebar_project()} %}
             <aside class="lp-sidebar lp-sidebar--drawer" id="lp-sidebar" data-drawer-target="panel">
                 <button type="button" class="lp-sidebar__close"
                         data-drawer-target="dismiss"
@@ -12,31 +15,37 @@
                         aria-label="{{ 'nav.drawer.close'|trans }}">
                     <twig:ux:icon name="lucide:x" />
                 </button>
-                <a href="{{ path('app_projects') }}" class="lp-sidebar__brand">{{ 'nav.brand'|trans }}</a>
+                <a href="{{ path('app_projects') }}" class="lp-sidebar__brand">
+                    <span class="lp-sidebar__brand-mark" aria-hidden="true"></span>
+                    <span>{{ 'nav.brand'|trans }}</span>
+                </a>
                 {% if project %}
                 <div class="lp-switcher" data-controller="popover">
                     <button type="button" class="lp-sidebar__switcher"
                             data-popover-target="trigger"
                             data-action="click->popover#toggle"
                             aria-expanded="false"
+                            aria-controls="project-switcher-panel"
                             aria-label="{{ 'nav.switcher.label'|trans }}">
                         <span class="lp-sidebar__switcher-avatar">{{ project.name|slice(0, 1)|upper }}</span>
                         <span class="lp-sidebar__switcher-text">
+                            <span class="lp-sidebar__switcher-label">{{ 'nav.switcher.project_label'|trans }}</span>
                             <span class="lp-sidebar__switcher-name">{{ project.name }}</span>
-                            {% if project.domain %}<span class="lp-sidebar__switcher-domain">{{ project.domain }}</span>{% endif %}
                         </span>
-                        <twig:ux:icon name="lucide:arrow-up-down" class="lp-sidebar__switcher-caret" />
+                        <twig:ux:icon name="lucide:arrow-down" class="lp-sidebar__switcher-caret" />
                     </button>
                     {% set switcherProjects = switchable_projects() %}
                     {% set switcherCounts = project_document_counts(switcherProjects) %}
-                    <div class="lp-switcher__panel" data-popover-target="panel" hidden>
+                    <div class="lp-switcher__panel" id="project-switcher-panel" data-popover-target="panel" hidden>
                         {% for switcherProject in switcherProjects %}
-                        <a href="{{ path('app_project_documents', {id: switcherProject.id}) }}" class="lp-switcher__item">
+                        {% set currentProject = switcherProject.id.equals(project.id) %}
+                        <a href="{{ path('app_project_workshop', {id: switcherProject.id}) }}" class="lp-switcher__item"{% if currentProject %} aria-current="true"{% endif %}>
                             <span class="lp-switcher__item-avatar">{{ switcherProject.name|slice(0, 1)|upper }}</span>
                             <span class="lp-switcher__item-text">
                                 <span class="lp-switcher__item-name">{{ switcherProject.name }}</span>
                                 <span class="lp-switcher__item-count">{{ 'nav.switcher.document_count'|trans({'%count%': switcherCounts[switcherProject.id.toRfc4122()]|default(0)}) }}</span>
                             </span>
+                            {% if currentProject %}<twig:ux:icon name="lucide:check" class="lp-switcher__item-check" />{% endif %}
                         </a>
                         {% endfor %}
                         <a href="{{ path('app_projects') }}" class="lp-switcher__all">
@@ -46,25 +55,13 @@
                     </div>
                 </div>
                 <nav class="lp-sidebar__nav">
-                    {% set documentsActive = route == 'app_project_documents' or route starts with 'app_document' %}
-                    <a href="{{ path('app_project_documents', {id: project.id}) }}"
-                       class="lp-sidebar__link{% if documentsActive %} lp-sidebar__link--active{% endif %}"
-                       {% if documentsActive %}aria-current="page"{% endif %}>
-                        <twig:ux:icon name="lucide:file-text" />
-                        <span class="lp-sidebar__link-label">{{ 'nav.link.documents'|trans }}</span>
-                        <span class="lp-sidebar__pill">{{ project_document_count(project) }}</span>
+                    <span class="lp-sidebar__nav-label">{{ 'nav.group.workspace'|trans }}</span>
+                    <a href="{{ path('app_project_workshop', {id: project.id}) }}"
+                       class="lp-sidebar__link{% if route == 'app_project_workshop' %} lp-sidebar__link--active{% endif %}"
+                       {% if route == 'app_project_workshop' %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:layout-dashboard" />
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.workshop'|trans }}</span>
                     </a>
-                    {# Opt-in: the flag ships off, so an instance nobody has told
-                       otherwise shows no link to a page that answers 404. #}
-                    {% if is_feature_enabled('board.enabled') %}
-                    {% set boardActive = route starts with 'app_project_board' or route starts with 'app_board_card' %}
-                    <a href="{{ path('app_project_board', {id: project.id}) }}"
-                       class="lp-sidebar__link{% if boardActive %} lp-sidebar__link--active{% endif %}"
-                       {% if boardActive %}aria-current="page"{% endif %}>
-                        <twig:ux:icon name="lucide:square-kanban" />
-                        <span class="lp-sidebar__link-label">{{ 'nav.link.board'|trans }}</span>
-                    </a>
-                    {% endif %}
                     {% if is_feature_enabled('inbox.enabled') %}
                     {% do mercure_subscribe(inbox_topic(app.user)) %}
                     <a href="{{ path('app_project_inbox', {id: project.id}) }}"
@@ -79,6 +76,25 @@
                         {% include '@Inbox/_open_count.html.twig' with {project: project, openCount: project_inbox_open_count(project)} only %}
                     </a>
                     {% endif %}
+                    {# Opt-in: the flag ships off, so an instance nobody has told
+                       otherwise shows no link to a page that answers 404. #}
+                    {% if is_feature_enabled('board.enabled') %}
+                    {% set boardActive = route starts with 'app_project_board' or route starts with 'app_board_card' %}
+                    <a href="{{ path('app_project_board', {id: project.id}) }}"
+                       class="lp-sidebar__link{% if boardActive %} lp-sidebar__link--active{% endif %}"
+                       {% if boardActive %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:square-kanban" />
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.board'|trans }}</span>
+                    </a>
+                    {% endif %}
+                    {% set documentsActive = route == 'app_project_documents' or route starts with 'app_document' %}
+                    <a href="{{ path('app_project_documents', {id: project.id}) }}"
+                       class="lp-sidebar__link{% if documentsActive %} lp-sidebar__link--active{% endif %}"
+                       {% if documentsActive %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:file-text" />
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.documents'|trans }}</span>
+                        <span class="lp-sidebar__pill">{{ project_document_count(project) }}</span>
+                    </a>
                     <a href="{{ path('app_project_site_review', {id: project.id}) }}"
                        class="lp-sidebar__link{% if route == 'app_project_site_review' %} lp-sidebar__link--active{% endif %}"
                        {% if route == 'app_project_site_review' %}aria-current="page"{% endif %}>
@@ -90,17 +106,32 @@
                         {% set reviewCounts = project_site_review_counts(project) %}
                         <span class="lp-sidebar__pill{% if reviewCounts.pending > 0 %} lp-sidebar__pill--amber{% endif %}">{{ reviewCounts.total }}</span>
                     </a>
-                    <a href="{{ path('app_project_connect', {id: project.id}) }}"
-                       class="lp-sidebar__link{% if route == 'app_project_connect' %} lp-sidebar__link--active{% endif %}"
-                       {% if route == 'app_project_connect' %}aria-current="page"{% endif %}>
-                        <twig:ux:icon name="lucide:code-xml" />
-                        <span class="lp-sidebar__link-label">{{ 'nav.link.connect'|trans }}</span>
+                    <span class="lp-sidebar__nav-label lp-sidebar__nav-label--spaced">{{ 'bridge.agents.heading'|trans }}</span>
+                    <a href="{{ path('app_project_agents', {id: project.id}) }}"
+                       class="lp-sidebar__link{% if route == 'app_project_agents' %} lp-sidebar__link--active{% endif %}"
+                       {% if route == 'app_project_agents' %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:bot" />
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.agents'|trans }}</span>
                     </a>
+                    {% if is_feature_enabled('board.enabled') %}
+                    <a href="{{ path('app_project_rules', {id: project.id}) }}"
+                       class="lp-sidebar__link{% if route == 'app_project_rules' %} lp-sidebar__link--active{% endif %}"
+                       {% if route == 'app_project_rules' %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:zap" />
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.rules'|trans }}</span>
+                    </a>
+                    {% endif %}
                     <a href="{{ path('app_project_worker_runs', {id: project.id}) }}"
                        class="lp-sidebar__link{% if route == 'app_project_worker_runs' %} lp-sidebar__link--active{% endif %}"
                        {% if route == 'app_project_worker_runs' %}aria-current="page"{% endif %}>
-                        <twig:ux:icon name="lucide:bot" />
+                        <twig:ux:icon name="lucide:history" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.worker_runs'|trans }}</span>
+                    </a>
+                    <a href="{{ path('app_project_activity', {id: project.id}) }}"
+                       class="lp-sidebar__link{% if route == 'app_project_activity' %} lp-sidebar__link--active{% endif %}"
+                       {% if route == 'app_project_activity' %}aria-current="page"{% endif %}>
+                        <twig:ux:icon name="lucide:activity" />
+                        <span class="lp-sidebar__link-label">{{ 'nav.link.activity'|trans }}</span>
                     </a>
                     <a href="{{ path('app_project_outbox', {id: project.id}) }}"
                        class="lp-sidebar__link{% if route == 'app_project_outbox' %} lp-sidebar__link--active{% endif %}"
@@ -114,8 +145,8 @@
                 <nav class="lp-sidebar__nav lp-sidebar__nav--secondary">
                     {% if project %}
                     <a href="{{ path('app_project_edit', {id: project.id}) }}"
-                       class="lp-sidebar__link{% if route == 'app_project_edit' %} lp-sidebar__link--active{% endif %}"
-                       {% if route == 'app_project_edit' %}aria-current="page"{% endif %}>
+                       class="lp-sidebar__link{% if route in ['app_project_edit', 'app_board_settings', 'app_project_connect'] %} lp-sidebar__link--active{% endif %}"
+                       {% if route in ['app_project_edit', 'app_board_settings', 'app_project_connect'] %}aria-current="page"{% endif %}>
                         <twig:ux:icon name="lucide:settings" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.project_settings'|trans }}</span>
                     </a>
@@ -136,9 +167,10 @@
                         <span class="lp-sidebar__link-label">{{ 'inbox.account.nav'|trans }}</span>
                     </a>
                     {% endif %}
-                    <a href="{{ path('app_account_settings') }}"
-                       class="lp-sidebar__link{% if route == 'app_account_settings' %} lp-sidebar__link--active{% endif %}"
-                       {% if route == 'app_account_settings' %}aria-current="page"{% endif %}>
+                    {% set accountActive = route in ['app_account_profile', 'app_account_api_tokens', 'app_account_data'] %}
+                    <a href="{{ path('app_account_profile') }}"
+                       class="lp-sidebar__link{% if accountActive %} lp-sidebar__link--active{% endif %}"
+                       {% if accountActive %}aria-current="page"{% endif %}>
                         <twig:ux:icon name="lucide:user" />
                         <span class="lp-sidebar__link-label">{{ 'nav.link.account'|trans }}</span>
                     </a>
@@ -171,6 +203,7 @@
                     </form>
                 </div>
             </aside>
+            {% endwith %}
             <div class="lp-scrim" data-drawer-target="scrim" data-action="click->drawer#close" hidden></div>
             <div class="lp-shell" data-drawer-target="content">
                 <header class="lp-topbar">
@@ -192,38 +225,33 @@
                             <nav class="lp-topbar__trail">{% block topbar_crumbs %}{% endblock %}</nav>
                             {% block topbar_meta %}{% endblock %}
                         </div>
+                        <div class="lp-topbar__global-actions" aria-label="{{ 'nav.global_actions.label'|trans }}">
+                            {% include 'search/_search_dialog.html.twig' with {project: project} only %}
+                            {% if project %}
+                            {% include 'outbox/_activity_drawer.html.twig' with {project: project} only %}
+                            {% endif %}
+                            {% if project and is_feature_enabled('board.enabled') %}
+                            <a class="lp-btn lp-btn--primary lp-topbar__new-work" href="{{ path('app_board_card_create', {id: project.id}) }}" aria-label="{{ 'nav.new_work'|trans }}">
+                                <twig:ux:icon name="lucide:plus" class="w-4 h-4 shrink-0" />
+                                <span>{{ 'nav.new_work'|trans }}</span>
+                            </a>
+                            {% endif %}
+                        </div>
                         {% block topbar_actions %}{% endblock %}
                     {% endblock %}
                 </header>
-                <main class="lp-main">
-                    {# Rendered once, here, rather than per page: reading app.flashes
-                       consumes them, so a page-level loop below this point would
-                       always find the bag empty.
-
-                       Whitelisted, and failing closed on anything else, because
-                       the flash bag is not only used for messages: the Connect
-                       page passes a freshly created token through it, and that
-                       value must never be printed as a notification. A new flash
-                       type has to be added here to appear, which is the safe way
-                       round. #}
-                    {% for label, messages in app.flashes(['success', 'error', 'warning', 'info']) %}
-                        {% for message in messages %}
-                        <div class="lp-flash lp-flash--{{ label }}" data-controller="flash">
-                            <span class="lp-flash__dot"></span>
-                            <span class="lp-flash__message">{{ message }}</span>
-                            <button type="button" class="lp-flash__dismiss"
-                                    data-action="click->flash#dismiss">{{ 'flash.dismiss'|trans }}</button>
-                        </div>
-                        {% endfor %}
-                    {% endfor %}
+                <main id="main-content" class="lp-main" tabindex="-1">
+                    {% block flash_messages %}
+                        {# Read notification types only; other flash values can contain credentials. #}
+                        {% include '_flash_messages.html.twig' with {flashes: app.flashes(['success', 'error', 'warning', 'info'])} only %}
+                    {% endblock %}
                     {% block body %}{% endblock %}
                 </main>
             </div>
         </div>
         {% else %}
-        {# The shell above has its own <main>; this branch skips the shell, so
-           without one here an unauthenticated page offers no main landmark. #}
-        <main>{% block body_unauthenticated %}{{ block('body') }}{% endblock %}</main>
+        {# Overrides must place main#main-content with tabindex="-1" after navigation. #}
+        {% block body_unauthenticated %}<main id="main-content" tabindex="-1">{{ block('body') }}</main>{% endblock %}
         {% endif %}
         {# After the body, so every mercure_subscribe() call has run. assets/lib/mercure.js reads it. #}
         {% set mercureTopics = mercure_allowed_topics() %}

@@ -919,6 +919,7 @@
         // { type:'general' } | { type:'element', anchors: [{ el, selector, text, label }] }
         composeTarget: null,
         draft: '',
+        deliveryId: null,
         addAnchor: false, // the add-another-element modifier is held down
         modCancelled: false, // another key went down during this hold, so it adds nothing
         editId: null, // server id of the comment being edited in place, or null for a new one
@@ -2235,6 +2236,9 @@
     // promotes them to the fatal state. A 404 is its own case: the comment stopped being
     // editable because the agent picked it up, so retrying would fail the same way.
     const errorText = (error) => {
+        if (error && error.code === 'delivery_conflict') {
+            return 'The earlier submission is saved with different content. Copy your draft, then reload to review it.';
+        }
         if (error && error.status === 404) {
             return 'Your agent has already picked that comment up, so it can’t be changed now.';
         }
@@ -3270,6 +3274,7 @@
     $('lp-picker-detach').addEventListener('click', () => setContext('', null));
 
     const cancelCompose = () => {
+        state.deliveryId = null;
         state.composing = false;
         state.composeTarget = null;
         state.editId = null;
@@ -3280,6 +3285,15 @@
         textareaNode.value = '';
         setDrawing(false);
         sync();
+    };
+    const newDeliveryId = () => {
+        const bytes = crypto.getRandomValues(new Uint8Array(16));
+        bytes[6] = (bytes[6] & 15) | 64;
+        bytes[8] = (bytes[8] & 63) | 128;
+        const hex = Array.from(bytes, (byte) =>
+            byte.toString(16).padStart(2, '0'),
+        ).join('');
+        return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
     };
     const saveComment = async () => {
         const body = state.draft.trim();
@@ -3329,6 +3343,7 @@
                 // every comment as an unanchored note. The current API prefers anchors[].
                 const first = anchors[0];
                 const comment = {
+                    deliveryId: (state.deliveryId ??= newDeliveryId()),
                     body,
                     url: location.href,
                     anchors,
@@ -3344,6 +3359,7 @@
                 );
                 comments.push({ id: commentId, ...comment });
             }
+            state.deliveryId = null;
             state.composing = false;
             state.composeTarget = null;
             state.editId = null;

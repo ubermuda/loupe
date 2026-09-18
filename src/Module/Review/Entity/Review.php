@@ -44,6 +44,9 @@ class Review
 
         #[ORM\Column]
         public readonly \DateTimeImmutable $submittedAt = new \DateTimeImmutable(),
+
+        #[ORM\Column(type: 'text', nullable: true)]
+        public readonly ?string $note = null,
     ) {
     }
 }

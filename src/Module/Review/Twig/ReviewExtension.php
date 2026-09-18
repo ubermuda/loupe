@@ -7,6 +7,8 @@ namespace App\Module\Review\Twig;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Form\ArchiveDocumentFormType;
+use App\Module\Review\Form\CommentRecoveryFormType;
+use App\Module\Review\Form\CommentRecoveryRequest;
 use App\Module\Review\Form\ReplyFormType;
 use App\Module\Review\Form\ReplyRequest;
 use Symfony\Component\Form\FormFactoryInterface;
@@ -36,6 +38,7 @@ final class ReviewExtension extends AbstractExtension
         return [
             new TwigFunction('comment_reply_form', $this->commentReplyForm(...)),
             new TwigFunction('document_archive_form', $this->documentArchiveForm(...)),
+            new TwigFunction('comment_recovery_form', $this->commentRecoveryForm(...)),
         ];
     }
 
@@ -90,6 +93,26 @@ final class ReviewExtension extends AbstractExtension
     public static function replyFormName(Comment $comment): string
     {
         return 'reply_'.$comment->id?->toBase32();
+    }
+
+    /** @param 'restore'|'purge' $action */
+    public function commentRecoveryForm(Comment $comment, string $action): FormView
+    {
+        return $this->formFactory->createNamed(
+            self::recoveryFormName($comment, $action),
+            CommentRecoveryFormType::class,
+            new CommentRecoveryRequest($comment->deletionSequence),
+            [
+                'action' => $this->urlGenerator->generate('app_comment_'.$action, ['id' => (string) $comment->id]),
+                'method' => 'POST',
+            ],
+        )->createView();
+    }
+
+    /** @param 'restore'|'purge' $action */
+    public static function recoveryFormName(Comment $comment, string $action): string
+    {
+        return $action.'_comment_'.$comment->id?->toBase32();
     }
 
     /**

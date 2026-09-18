@@ -18,8 +18,8 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: CardRepository::class)]
-// The board reads one column at a time, then sorts by priority and position.
-#[ORM\Index(name: 'idx_board_cards_column_order', columns: ['column_id', 'priority', 'position'])]
+// The board reads one column at a time, then sorts by position.
+#[ORM\Index(name: 'idx_board_cards_column_position', columns: ['column_id', 'position'])]
 // No access method: DBAL's Postgres platform ignores index flags, and the
 // migration creates it USING gin. flags: ['gin'] would make the comparator emit
 // a DROP plus a plain CREATE INDEX, downgrading it to a B-tree that @@ never uses.
@@ -111,14 +111,11 @@ class Card implements ProjectScopedSubject
         #[ORM\Column(length: 20, enumType: CardType::class)]
         public CardType $type = CardType::Feature,
 
-        #[ORM\Column(type: Types::INTEGER, enumType: CardPriority::class)]
-        public CardPriority $priority = CardPriority::Medium,
-
         /** The column release 2 drops. Every write sets it, so an older image still reads the row. */
         #[ORM\Column(length: 20, enumType: CardReporter::class)]
         public readonly CardReporter $origin = CardReporter::Agent,
 
-        /** Rank inside the card's (column, priority) group, counting from 0. A terminal column ignores it. */
+        /** Rank inside the card's column, counting from 0. A terminal column ignores it. */
         #[ORM\Column]
         public int $position = 0,
 

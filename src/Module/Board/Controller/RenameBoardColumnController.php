@@ -53,7 +53,7 @@ final class RenameBoardColumnController extends AppController
 
         if ($form->isSubmitted() && $form->isValid()) {
             try {
-                ($this->renameColumn)(new RenameBoardColumnCommand($column, CardReporter::Human, $data->label ?? ''));
+                ($this->renameColumn)(new RenameBoardColumnCommand($column, CardReporter::Human, $data->label ?? '', $data->expectedLabel ?? ''));
 
                 return $this->redirectToRoute('app_project_board', ['id' => (string) $project->id]);
             } catch (DomainErrors $e) {

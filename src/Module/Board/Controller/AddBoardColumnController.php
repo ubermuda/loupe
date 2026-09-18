@@ -44,18 +44,19 @@ final class AddBoardColumnController extends AppController
             try {
                 ($this->addColumn)(new AddBoardColumnCommand($project, $data->label ?? ''));
 
-                return $this->redirectToRoute('app_project_board', ['id' => (string) $project->id]);
+                return $this->redirectToRoute('app_board_settings', ['id' => (string) $project->id]);
             } catch (DomainErrors $e) {
                 $this->applyDomainErrors($form, $e);
             }
         }
 
-        // The board renders the refused form with its errors. The id travels
+        // Board settings renders the refused form with its errors. The id travels
         // beside the entity, because the layout resolves the project from it.
         return $this->forward(ShowBoardController::class, [
             'id' => (string) $project->id,
             'project' => $project,
             'addColumnForm' => $form->createView(),
+            'boardSettings' => true,
         ])->setStatusCode(Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 }

@@ -55,15 +55,12 @@ class RevokeApiTokenController extends AppController
 
         $this->addFlash('success', $this->translator->trans('account.api_token.flash.revoked', ['%label%' => $label]));
 
-        // returnTo must be a same-origin local path and one of the two pages that
-        // carry a revoke button. The local-path and allow-list checks cover
-        // different attack shapes (protocol-relative/backslash-host targets vs.
-        // an off-site same-slash-prefixed path). '/account' is matched exactly,
-        // because a prefix would also admit every other /account/… route.
+        // The local-path check rejects off-site hosts; the allow-list restricts local destinations.
+        // An exact account URL excludes deeper account routes.
         $returnTo = $request->request->get('returnTo');
         if (is_string($returnTo)
             && SafeRedirect::isLocalPath($returnTo)
-            && (str_starts_with($returnTo, '/projects/') || '/account' === $returnTo)
+            && (str_starts_with($returnTo, '/projects/') || $returnTo === $this->generateUrl('app_account_api_tokens'))
         ) {
             return $this->redirect($returnTo);
         }

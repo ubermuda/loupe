@@ -21,6 +21,31 @@ use Symfony\Component\Uid\Uuid;
 
 final class SubmitReviewHandlerTest extends KernelTestCase
 {
+    public function test_an_older_same_version_form_cannot_replace_a_newer_verdict(): void
+    {
+        self::bootKernel();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        [$reviewer, $document] = $this->createUserAndDocument($em, 'stale-same-version');
+        $handler = self::getContainer()->get(SubmitReviewHandler::class);
+        self::assertInstanceOf(SubmitReviewHandler::class, $handler);
+        $first = $handler(new SubmitReviewCommand($reviewer, $document, 'approved', 1));
+
+        try {
+            $handler(new SubmitReviewCommand($reviewer, $document, 'changes-requested', 1, 'An older draft.'));
+            self::fail('A stale verdict must be refused.');
+        } catch (DomainErrors $error) {
+            self::assertSame(['expectedReviewId' => 'review.document.flash.verdict_changed'], $error->errors);
+        }
+        self::assertTrue($em->isOpen());
+        self::assertSame(1, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM reviews WHERE version_id = ?', [(string) $first->version->id]));
+        self::assertSame('approved', $em->getConnection()->fetchOne('SELECT status FROM documents WHERE id = ?', [(string) $document->id]));
+
+        $second = $handler(new SubmitReviewCommand($reviewer, $document, 'changes-requested', 1, 'A current decision.', (string) $first->id));
+        self::assertSame(2, $second->sequence);
+        self::assertSame(Verdict::ChangesRequested, $second->verdict);
+    }
+
     /** @return array{User, Document} */
     private function createUserAndDocument(EntityManagerInterface $em, string $suffix): array
     {
@@ -59,6 +84,8 @@ final class SubmitReviewHandlerTest extends KernelTestCase
             reviewer: $reviewer,
             document: $doc,
             verdict: Verdict::ChangesRequested->value,
+            versionNumber: 1,
+            note: '  Explain the retry behaviour.  ',
         ));
 
         self::assertInstanceOf(Review::class, $review);
@@ -77,6 +104,7 @@ final class SubmitReviewHandlerTest extends KernelTestCase
         $savedReview = $reviewRepo->findOneBy(['version' => $currentVersion]);
         self::assertInstanceOf(Review::class, $savedReview);
         self::assertSame(Verdict::ChangesRequested, $savedReview->verdict);
+        self::assertSame('Explain the retry behaviour.', $savedReview->note);
     }
 
     public function test_approved_creates_review_and_transitions_status(): void
@@ -97,6 +125,7 @@ final class SubmitReviewHandlerTest extends KernelTestCase
             reviewer: $reviewer,
             document: $doc,
             verdict: Verdict::Approved->value,
+            versionNumber: 1,
         ));
 
         self::assertInstanceOf(Review::class, $review);
@@ -126,7 +155,7 @@ final class SubmitReviewHandlerTest extends KernelTestCase
         $handler = self::getContainer()->get(SubmitReviewHandler::class);
 
         try {
-            $handler(new SubmitReviewCommand($reviewer, $doc, Verdict::Withdrawn->value));
+            $handler(new SubmitReviewCommand($reviewer, $doc, Verdict::Withdrawn->value, 1));
             self::fail('Withdrawn is written by undo, never submitted');
         } catch (DomainErrors $e) {
             self::assertContains('review.document.flash.verdict_invalid', $e->errors);
@@ -153,6 +182,7 @@ final class SubmitReviewHandlerTest extends KernelTestCase
             reviewer: $reviewer,
             document: $doc,
             verdict: 'not-a-real-verdict',
+            versionNumber: 1,
         ));
     }
 }

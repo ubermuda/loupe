@@ -1,8 +1,46 @@
 {# The board itself. Rendered by the page and again by the move endpoint's
    stream, so the two can never drift apart. Props: board (BoardView),
-   addColumnForm and renameColumnForm (a refused FormView, or null). #}
+   renameColumnForm (a refused FormView, or null). #}
 {% set canManage = is_granted(constant('App\\Module\\Board\\Security\\BoardColumnVoter::MANAGE'), board.project) %}
-<div id="board" class="lp-board" data-controller="board-drag{{ canManage ? ' board-columns' }}">
+<div id="board" class="lp-board" data-controller="board-drag board-filter board-view{{ canManage ? ' board-columns' }}">
+    {% set cardCount = 0 %}
+    {% for view in board.columns %}{% set cardCount = cardCount + view.count %}{% endfor %}
+    <div class="lp-board-toolbar">
+        <div class="lp-board-toolbar__filters" data-action="focusin->board-filter#revealField">
+            <label class="lp-board-toolbar__search">
+                <span class="sr-only">{{ 'board.filter.search.label'|trans }}</span>
+                <twig:ux:icon name="lucide:search" class="lp-board-toolbar__search-icon" />
+                <input type="search"
+                       class="lp-board-toolbar__input"
+                       placeholder="{{ 'board.filter.search.placeholder'|trans }}"
+                       data-board-filter-target="query"
+                       data-action="input->board-filter#filter">
+            </label>
+        </div>
+        <span class="lp-board-toolbar__count"
+              data-board-filter-target="count"
+              data-one="{{ 'board.card.count'|trans({'%count%': 1}) }}"
+              data-many="{{ 'board.card.count'|trans({'%count%': 2})|replace({'2': '%count%'}) }}">{{ 'board.card.count'|trans({'%count%': cardCount}) }}</span>
+        <div class="lp-board-toolbar__mode" aria-label="{{ 'board.view.label'|trans }}">
+            <button type="button"
+                    class="lp-board-toolbar__mode-button"
+                    aria-pressed="true"
+                    data-board-view-target="boardButton"
+                    data-action="board-view#showBoard">
+                <twig:ux:icon name="lucide:square-kanban" class="w-4 h-4 shrink-0" />
+                {{ 'board.view.board'|trans }}
+            </button>
+            <button type="button"
+                    class="lp-board-toolbar__mode-button"
+                    aria-pressed="false"
+                    data-board-view-target="listButton"
+                    data-action="board-view#showList">
+                <twig:ux:icon name="lucide:list" class="w-4 h-4 shrink-0" />
+                {{ 'board.view.list'|trans }}
+            </button>
+        </div>
+    </div>
+    <p class="lp-board-filter-empty" data-board-filter-target="empty" hidden>{{ 'board.filter.empty'|trans }}</p>
     {# A drop moves the card at once. This says so when the server refuses. #}
     <p class="lp-board__message"
        data-board-drag-target="message"
@@ -11,16 +49,19 @@
        aria-live="polite"></p>
     {% if canManage %}
     {# A header drop fills this form with the new order and submits it. #}
-    {% set reorderForm = board_columns_reorder_form() %}
+    {% set reorderForm = board_columns_reorder_form('', board_column_order(board.columns, 0, 0)) %}
     <form hidden
           method="post"
           action="{{ path('app_board_columns_reorder', {id: board.project.id}) }}"
           data-board-columns-target="form">
         {{ form_widget(reorderForm._token) }}
+        {{ form_widget(reorderForm.expectedOrder) }}
         {{ form_widget(reorderForm.order, {attr: {'data-board-columns-target': 'order'}}) }}
     </form>
     {% endif %}
-    <div class="lp-board__columns"{% if canManage %} data-action="dragover->board-columns#over drop->board-columns#drop"{% endif %}>
+    <div class="lp-board__columns"
+         data-board-view-target="board"
+         {% if canManage %}data-action="dragover->board-columns#over drop->board-columns#drop"{% endif %}>
     {% for view in board.columns %}
     {% set label = view.column.label|trans %}
     <section class="lp-board__column"
@@ -38,33 +79,21 @@
             </span>
             {% endif %}
             <h2 class="lp-board__column-title">{{ label }}</h2>
-            {% if canManage and view.column.isDefault %}
-            <span class="lp-board__column-flag">{{ 'board.column.flag.default'|trans }}</span>
-            {% endif %}
-            {% if canManage and view.column.terminal %}
-            <span class="lp-board__column-flag">{{ 'board.column.flag.terminal'|trans }}</span>
-            {% endif %}
             <span class="lp-board__column-count">{{ view.count }}</span>
             {% if canManage %}
                 {% include '@Board/_board_column_menu.html.twig' with {board: board, view: view, index: loop.index0, renameColumnForm: renameColumnForm} only %}
             {% endif %}
         </header>
 
-        {% for group in view.groups %}
         <div class="lp-board__group"
              data-board-drag-target="group"
              data-column="{{ view.column.id }}"
-             data-priority="{{ group.priority ? group.priority.value : '' }}"
              data-rankable="{{ view.column.terminal ? '0' : '1' }}">
-            {% if group.priority %}
-            <h3 class="lp-board__group-title">{{ ('board.card.priority.' ~ group.priority.label())|trans }}</h3>
-            {% endif %}
-            {% for card in group.cards %}
+            {% for card in view.cards %}
                 {# `~ ''` casts the Uuid, which cannot itself be an array key. #}
                 {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0)} only %}
             {% endfor %}
         </div>
-        {% endfor %}
 
         {% if view.column.terminal %}
         <p class="lp-board__column-note">{{ 'board.terminal.window'|trans({'%days%': board.terminalWindowDays}) }}</p>
@@ -72,23 +101,37 @@
             {{ 'board.terminal.history_link'|trans({'%count%': view.terminalTotal}) }}
         </a>
         {% endif %}
+        <a class="lp-board__add-card" href="{{ path('app_board_card_create', {id: board.project.id, column: view.column.id}) }}">
+            <twig:ux:icon name="lucide:plus" class="w-4 h-4" />
+            {{ 'board.column.add_card'|trans }}
+        </a>
     </section>
     {% endfor %}
-    {% if canManage %}
-        {% set addForm = board_column_add_form(addColumnForm) %}
-        <section class="lp-board__add-column" aria-label="{{ 'board.column.add.title'|trans }}">
-            {{ form_start(addForm, {action: path('app_board_column_add', {id: board.project.id}), attr: {class: 'lp-board__add-form'}}) }}
-                <div class="lp-form-field">
-                    {{ form_label(addForm.label, null, {label_attr: {class: 'lp-label'}}) }}
-                    {{ form_widget(addForm.label, {attr: {class: 'lp-input', maxlength: constant('App\\Module\\Board\\Entity\\BoardColumn::MAX_LABEL_LENGTH'), placeholder: 'board.form.add_board_column_form.label.placeholder'}}) }}
-                    <div class="lp-field-errors">{{ form_errors(addForm.label) }}</div>
-                </div>
-                <button type="submit" class="lp-btn">
-                    <twig:ux:icon name="lucide:plus" class="w-4 h-4 shrink-0" />
-                    {{ 'board.column.add.submit'|trans }}
-                </button>
-            {{ form_end(addForm) }}
-        </section>
-    {% endif %}
+    </div>
+    <div class="lp-board-list" data-board-view-target="list" hidden>
+        <div class="lp-board-list__header" aria-hidden="true">
+            <span>{{ 'board.list.work'|trans }}</span>
+            <span>{{ 'board.list.status'|trans }}</span>
+            <span>{{ 'board.list.agent'|trans }}</span>
+            <span>{{ 'board.list.linked_work'|trans }}</span>
+            <span>{{ 'board.list.feedback'|trans }}</span>
+        </div>
+        {% for view in board.columns %}
+            {% for card in view.cards %}
+                {% set feedbackCount = board.pendingComments[card.id ~ '']|default(0) %}
+                <a class="lp-board-list__row"
+                   href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}"
+                   data-turbo-frame="card-drawer-frame"
+                   data-action="click->card-drawer#prepare"
+                   data-board-filter-target="row"
+                   data-card-title="{{ card.title }}">
+                    <span class="lp-board-list__work"><strong>#{{ card.number }} {{ card.title }}</strong><span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span></span>
+                    <span>{{ view.column.label|trans }}</span>
+                    <span aria-label="{{ 'board.list.agent.unassigned'|trans }}">—</span>
+                    <span>{{ card.pullRequests|length + card.documents|length }}</span>
+                    <span>{{ feedbackCount }}</span>
+                </a>
+            {% endfor %}
+        {% endfor %}
     </div>
 </div>

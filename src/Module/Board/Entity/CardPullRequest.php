@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Entity;
 
+use App\Module\Board\Repository\CardPullRequestRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
@@ -15,7 +16,7 @@ use Symfony\Component\Uid\Uuid;
  * belongs on the card: the link is kept as given, and only the parts a parser
  * could read are stored beside it.
  */
-#[ORM\Entity]
+#[ORM\Entity(repositoryClass: CardPullRequestRepository::class)]
 #[ORM\Table(name: 'board_card_pull_requests')]
 class CardPullRequest
 {

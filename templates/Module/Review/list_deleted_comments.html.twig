@@ -1,0 +1,59 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'review.deleted_threads.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <a class="lp-topbar__crumb" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">{{ document.title }}</a>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'review.deleted_threads.title'|trans }}</span>
+{% endblock %}
+
+{% block body %}
+<div class="lp-deleted-threads">
+    {% set justDeletedIds = app.flashes('deleted_thread') %}
+    <h1 class="lp-history-title">{{ 'review.deleted_threads.title'|trans }}</h1>
+    <p class="lp-form-hint">{{ 'review.deleted_threads.description'|trans }}</p>
+    <a class="lp-btn lp-btn--ghost" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">{{ 'review.deleted_threads.back'|trans }}</a>
+    {% set roots = comments|filter(comment => comment.parent is null) %}
+    {% if recoveryForm and roots|filter(comment => comment.id ~ '' == failedCommentId) is empty %}
+    <div class="lp-field-errors" role="alert">{{ form_errors(recoveryForm) }}{{ form_errors(recoveryForm.deletionSequence) }}</div>
+    {% endif %}
+    {% for comment in roots %}
+    {% set commentId = comment.id ~ '' %}
+    <article class="lp-deleted-threads__thread" data-deleted-thread="{{ commentId }}">
+        <div class="lp-deleted-threads__meta">
+            <a class="lp-version-pill lp-version-pill--link" href="{{ path('app_document_review_version', {projectId: document.project.id, documentId: document.id, versionNumber: comment.version.versionNumber}) }}">{{ 'v' ~ comment.version.versionNumber }}</a>
+            <span>{{ 'review.deleted_threads.deleted_at'|trans({'%date%': comment.deletedAt|date('Y-m-d H:i T')}) }}</span>
+        </div>
+        <twig:CommentThread :comment="comment" :replies="comments|filter(reply => reply.parent is not null and reply.parent.id ~ '' == commentId)" :readOnly="true" />
+        <div class="lp-deleted-threads__actions">
+            {% set restoreForm = failedAction == 'restore' and failedCommentId == commentId ? recoveryForm : comment_recovery_form(comment, 'restore') %}
+            {{ form_start(restoreForm) }}
+                <div class="lp-field-errors" role="alert">{{ form_errors(restoreForm) }}{{ form_errors(restoreForm.deletionSequence) }}</div>
+                {{ form_widget(restoreForm.deletionSequence, {type: 'hidden'}) }}
+                {% if commentId in justDeletedIds %}<p>{{ 'review.deleted_threads.deleted'|trans }}</p>{% endif %}
+                <button type="submit" class="lp-btn">{{ (commentId in justDeletedIds ? 'review.deleted_threads.undo' : 'review.deleted_threads.restore')|trans }}</button>
+            {{ form_end(restoreForm) }}
+            <div data-controller="modal" data-modal-reopen-value="{{ failedAction == 'purge' and failedCommentId == commentId ? 'true' : 'false' }}">
+                <button type="button" class="lp-btn lp-btn--danger-ghost" data-action="click->modal#open">{{ 'review.deleted_threads.purge'|trans }}</button>
+                <dialog class="lp-dialog" data-modal-target="dialog" aria-labelledby="purge-title-{{ commentId }}" data-action="cancel->modal#close">
+                    <h2 class="lp-dialog-title" id="purge-title-{{ commentId }}">{{ 'review.deleted_threads.purge_title'|trans }}</h2>
+                    <p class="lp-dialog-desc">{{ 'review.deleted_threads.purge_description'|trans }}</p>
+                    {% set purgeForm = failedAction == 'purge' and failedCommentId == commentId ? recoveryForm : comment_recovery_form(comment, 'purge') %}
+                    {{ form_start(purgeForm, {attr: {class: 'lp-form'}}) }}
+                        <div class="lp-field-errors" role="alert">{{ form_errors(purgeForm) }}{{ form_errors(purgeForm.deletionSequence) }}</div>
+                        {{ form_widget(purgeForm.deletionSequence, {type: 'hidden'}) }}
+                        <div class="lp-review-verdict-actions">
+                            <button type="button" class="lp-btn lp-btn--ghost" data-action="click->modal#close">{{ 'review.deleted_threads.cancel'|trans }}</button>
+                            <button type="submit" class="lp-btn lp-btn--danger">{{ 'review.deleted_threads.purge'|trans }}</button>
+                        </div>
+                    {{ form_end(purgeForm) }}
+                </dialog>
+            </div>
+        </div>
+    </article>
+    {% else %}
+    <p class="lp-form-hint">{{ 'review.deleted_threads.empty'|trans }}</p>
+    {% endfor %}
+</div>
+{% endblock %}

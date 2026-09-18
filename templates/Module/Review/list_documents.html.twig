@@ -8,16 +8,14 @@
     <span class="lp-topbar__here">{{ 'nav.link.documents'|trans }}</span>
 {% endblock %}
 
-{% block topbar_meta %}
-    <span class="lp-topbar__meta">{{ 'review.dashboard.meta.shown'|trans({'%count%': items|length}) }}</span>
-{% endblock %}
-
 {% block body %}
 {# Unfiltered and archive-free, so it can tell "this project has nothing" from
    "the filters matched nothing". Same number the shell's nav pill shows. #}
 {% set totalDocuments = project_document_count(project) %}
-<div class="lp-workspace">
-    <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'review.dashboard.page.title'|trans }}</h1>
+<div class="lp-workspace lp-core-prototype-page lp-core-documents" data-controller="modal" data-modal-reopen-value="{{ createDocumentForm.vars.submitted ? 'true' : 'false' }}">
+    <header class="lp-page-header">
+        <div class="lp-page-header__copy">
+            <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'review.dashboard.page.title'|trans }}</h1>
     {# The default line promises newest-first, which a ranked search and a series
        both make untrue. The series wins, because its order wins in the query. #}
     {% if listQuery.seriesName %}
@@ -27,7 +25,11 @@
     {% else %}
         {% set descriptionKey = 'review.dashboard.description' %}
     {% endif %}
-    <p class="lp-workspace-desc">{{ descriptionKey|trans }}</p>
+            <p class="lp-workspace-desc">{{ descriptionKey|trans }}</p>
+        </div>
+        <button type="button" class="lp-btn lp-btn--primary" data-action="click->modal#open"><twig:ux:icon name="lucide:plus" class="w-4 h-4 shrink-0" />{{ 'review.create.title'|trans }}</button>
+    </header>
+    {% include '@Review/_create_document.html.twig' with {form: createDocumentForm, projectId: project.id} only %}
 
     {# Six controls in front of a project that has nothing to filter are six dead
        controls, so the bar waits for a first document — but it stays once a
@@ -46,33 +48,35 @@
                 <input type="hidden" name="archived" value="1">
             {% endif %}
 
-            <div class="lp-filter-search">
-                <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
-                <label class="sr-only" for="document-search">{{ 'review.dashboard.filter.search_label'|trans }}</label>
-                {# The field target lets the controller restore focus and caret
-                   after a debounced submit: this is a full Turbo visit, so the
-                   field being typed into is replaced mid-word. A full visit rather
-                   than a frame, so the query lands in the address bar. #}
-                <input type="search"
-                       id="document-search"
-                       name="search"
-                       class="lp-input lp-filter-input"
-                       value="{{ listQuery.search }}"
-                       placeholder="{{ 'review.dashboard.filter.search_placeholder'|trans }}"
-                       data-autosearch-target="field"
-                       data-action="input->autosearch#search">
-            </div>
+            <div class="lp-filter-primary" data-action="focusin->autosearch#revealField">
+                <div class="lp-filter-search">
+                    <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
+                    <label class="sr-only" for="document-search">{{ 'review.dashboard.filter.search_label'|trans }}</label>
+                    {# The field target lets the controller restore focus and caret
+                       after a debounced submit: this is a full Turbo visit, so the
+                       field being typed into is replaced mid-word. A full visit rather
+                       than a frame, so the query lands in the address bar. #}
+                    <input type="search"
+                           id="document-search"
+                           name="search"
+                           class="lp-input lp-filter-input"
+                           value="{{ listQuery.search }}"
+                           placeholder="{{ 'review.dashboard.filter.search_placeholder'|trans }}"
+                           data-autosearch-target="field"
+                           data-action="input->autosearch#search">
+                </div>
 
-            <label class="sr-only" for="document-status">{{ 'review.dashboard.filter.status_label'|trans }}</label>
-            <select id="document-status"
-                    name="status"
-                    class="lp-input lp-select lp-filter-select"
-                    data-action="change->autosearch#search">
-                <option value="">{{ 'review.dashboard.filter.all_statuses'|trans }}</option>
-                {% for status in statuses %}
-                    <option value="{{ status.value }}"{{ listQuery.status == status ? ' selected' : '' }}>{{ status.translationKey()|trans }}</option>
-                {% endfor %}
-            </select>
+                <label class="sr-only" for="document-status">{{ 'review.dashboard.filter.status_label'|trans }}</label>
+                <select id="document-status"
+                        name="status"
+                        class="lp-input lp-select lp-filter-select"
+                        data-action="change->autosearch#search">
+                    <option value="">{{ 'review.dashboard.filter.all_statuses'|trans }}</option>
+                    {% for status in statuses %}
+                        <option value="{{ status.value }}"{{ listQuery.status == status ? ' selected' : '' }}>{{ status.translationKey()|trans }}</option>
+                    {% endfor %}
+                </select>
+            </div>
 
             {% if projectTags|length > 0 %}
                 <label class="sr-only" for="document-tag">{{ 'review.dashboard.filter.tag_label'|trans }}</label>
@@ -136,19 +140,32 @@
     {% endif %}
 
     {% if items|length > 0 %}
-    <div class="lp-document-list">
+    {% set cardLinkMap = document_card_link_map(items) %}
+    <div class="lp-document-table" role="table" aria-label="{{ 'review.dashboard.table.label'|trans }}">
+        <div class="lp-document-table__head" role="row">
+            <span role="columnheader">{{ 'review.dashboard.table.document'|trans }}</span>
+            <span role="columnheader">{{ 'review.dashboard.table.status'|trans }}</span>
+            <span role="columnheader">{{ 'review.dashboard.table.author'|trans }}</span>
+            <span role="columnheader">{{ 'review.dashboard.table.linked_card'|trans }}</span>
+            <span role="columnheader">{{ 'review.dashboard.table.updated'|trans }}</span>
+            <span class="sr-only" role="columnheader">{{ 'review.dashboard.table.actions'|trans }}</span>
+        </div>
+        <div class="lp-document-list" role="rowgroup">
         {% for item in items %}
         {% set document = item.document %}
         {% set archived = document.archivedAt is not null %}
-        <div class="lp-document-row{% if archived %} lp-document-row--archived{% endif %}" data-document-id="{{ document.id }}">
+        {% set cardLinks = cardLinkMap[document.id ~ '']|default([]) %}
+        <div class="lp-document-row{% if archived %} lp-document-row--archived{% endif %}" data-document-id="{{ document.id }}" role="row">
             <a href="{{ path('app_document_review', {projectId: project.id, documentId: document.id}) }}"
                class="lp-document-row__link" aria-label="{{ document.title }}"></a>
-            <div class="lp-document-row__head">
-                <span class="lp-document-row__title">{{ document.title }}</span>
-            </div>
-            <div class="lp-document-row__meta">
-                <span class="lp-document-row__version">{{ 'v' ~ item.versionNumber }}</span>
-                <span>{{ 'review.dashboard.meta.updated'|trans({'%time%': item.updatedAt|relative_time}) }}</span>
+            <div class="lp-document-row__main" role="cell">
+                <div class="lp-document-row__head">
+                    <twig:ux:icon name="lucide:file-text" class="lp-document-row__icon w-4 h-4 shrink-0" />
+                    <span class="lp-document-row__title">{{ document.title }}</span>
+                    <span class="lp-document-row__version">{{ 'v' ~ item.versionNumber }}</span>
+                </div>
+                {% if item.description %}<p class="lp-document-row__description">{{ item.description }}</p>{% endif %}
+                <div class="lp-document-row__meta">
                 {% if document.series is not null %}
                 <span class="lp-series">{{ 'review.dashboard.series.item'|trans({
                     '%series%': document.series.name,
@@ -175,10 +192,23 @@
                 {% if item.signals.hasWaitingThreads %}
                 <span class="lp-document-row__waiting">{{ 'review.dashboard.meta.waiting_count'|trans({'%count%': item.signals.waitingThreadCount}) }}</span>
                 {% endif %}
+                </div>
+            </div>
+            <div class="lp-document-row__status" role="cell">
                 <span class="lp-badge lp-badge--{{ document.status.value }}">
                     {{ document.status.translationKey()|trans }}
                 </span>
-                <div class="lp-document-row__actions">
+            </div>
+            <span class="lp-document-row__author" role="cell">{{ document.owner.fullName }}</span>
+            <span class="lp-document-row__linked-card" role="cell">
+                {% if cardLinks|length > 0 %}
+                    #{{ cardLinks|first.card.number }}{% if cardLinks|length > 1 %} +{{ cardLinks|length - 1 }}{% endif %}
+                {% else %}
+                    <span aria-label="{{ 'review.dashboard.table.no_linked_card'|trans }}">—</span>
+                {% endif %}
+            </span>
+            <time class="lp-document-row__updated" datetime="{{ item.updatedAt|date('c') }}" role="cell">{{ item.updatedAt|relative_time }}</time>
+            <div class="lp-document-row__actions" role="cell">
                 <a href="{{ path('app_document_rename', {projectId: project.id, documentId: document.id}|merge(listQuery.routeParams)) }}"
                    class="lp-document-row__action"
                    aria-label="{{ 'review.dashboard.rename'|trans({'%title%': document.title}) }}">
@@ -199,7 +229,6 @@
                         {% endif %}
                     </button>
                 {{ form_end(archiveForm) }}
-                </div>
             </div>
             {# Only the MCP tool requires a reason, so most archived rows have
                none — which is the ordinary case, not a gap. Nothing is
@@ -210,6 +239,7 @@
             {% endif %}
         </div>
         {% endfor %}
+        </div>
     </div>
 
     <twig:Pagination route="app_project_documents" :page="page" :totalPages="totalPages" :pageList="pageList" :routeParams="{id: project.id}|merge(listQuery.routeParams)" />
@@ -229,6 +259,7 @@
     <div class="lp-empty-state">
         <twig:ux:icon name="lucide:file-text" class="lp-empty-state__icon w-12 h-12" />
         <h2 class="lp-empty-state__title">{{ 'review.dashboard.empty.title'|trans }}</h2>
+        <p class="lp-empty-state__body">{{ 'review.create.empty'|trans }}</p>
         {% if project.mcpToken %}
         <p class="lp-empty-state__body">{{ 'review.dashboard.empty.connected_body'|trans }}</p>
         <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'review.dashboard.empty.tools'|trans }}</a>

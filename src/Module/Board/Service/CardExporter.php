@@ -45,9 +45,6 @@ final readonly class CardExporter implements UserDataExporterInterface
                 'body' => $card->body,
                 'status' => $card->column->slug,
                 'column' => $this->translator->trans($card->column->label),
-                // The name, matching the board tools: the backing integer only
-                // orders the board and means nothing to a reader.
-                'priority' => $card->priority->label(),
                 'type' => $card->type->value,
                 'reporter' => $card->reporter->value,
                 'position' => $card->position,

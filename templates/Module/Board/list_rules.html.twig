@@ -1,0 +1,80 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'board.rules.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <a class="lp-topbar__crumb" href="{{ path('app_project_board', {id: project.id}) }}">{{ project.name }}</a>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'board.rules.nav'|trans }}</span>
+{% endblock %}
+
+{% block topbar_meta %}<span class="lp-topbar__meta">{{ 'board.rules.live_count'|trans({'%count%': liveCount}) }}</span>{% endblock %}
+
+{% block body %}
+<div class="lp-workspace lp-orchestration-page lp-redesign-secondary lp-redesign-rules">
+    <header class="lp-orchestration-header">
+        <div>
+            <h1 class="lp-workspace-title">{{ 'board.rules.heading'|trans }}</h1>
+            <p class="lp-workspace-desc">{{ 'board.rules.description'|trans }}</p>
+        </div>
+    </header>
+
+    <div class="lp-list-filters">
+        {{ form_start(searchForm, {'action': path('app_project_rules', {id: project.id}), 'attr': {'class': 'lp-filter-form', 'data-controller': 'autosearch'}}) }}
+            <div class="lp-filter-primary" data-action="focusin->autosearch#revealField">
+                <div class="lp-filter-search">
+                    <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
+                    {{ form_label(searchForm.search, null, {'label_attr': {'class': 'sr-only'}}) }}
+                    {{ form_widget(searchForm.search, {'attr': {'class': 'lp-input lp-filter-input'}}) }}
+                </div>
+                <button type="submit" class="lp-btn lp-btn--icon" aria-label="{{ 'board.rules.search.submit'|trans }}"><twig:ux:icon name="lucide:search" /></button>
+                {% if searchForm.search.vars.value is not empty %}<a class="lp-btn lp-btn--icon" href="{{ path('app_project_rules', {id: project.id}) }}" aria-label="{{ 'board.rules.search.clear'|trans }}"><twig:ux:icon name="lucide:x" /></a>{% endif %}
+            </div>
+            <div class="lp-field-errors">{{ form_errors(searchForm.search) }}{{ form_errors(searchForm) }}</div>
+        {{ form_end(searchForm) }}
+        <span class="lp-status-chip lp-status-chip--ok" data-rule-live-count><span class="lp-status-chip__dot"></span>{{ 'board.rules.live_count'|trans({'%count%': liveCount}) }}</span>
+    </div>
+
+    {% if rules is not empty %}
+    <div class="lp-rule-list">
+        {% for rule in rules %}
+        <article class="lp-rule-row" data-rule-name="{{ rule.name }}">
+            <twig:ux:icon name="lucide:zap" class="lp-rule-row__glyph" />
+            <div class="lp-rule-row__main">
+                <div class="lp-rule-row__heading">
+                    <h2>{{ rule.name }}</h2>
+                    <span class="lp-status-chip {{ rule.state == 'live' ? 'lp-status-chip--ok' : 'lp-status-chip--failed' }}">
+                        <span class="lp-status-chip__dot"></span>
+                        {{ (rule.state == 'live' ? 'board.rules.status.live' : 'board.rules.status.dead')|trans }}
+                    </span>
+                </div>
+                <p>{{ 'board.rules.event_description'|trans({'%event%': rule.event}) }}</p>
+                <div class="lp-rule-flow" aria-label="{{ 'board.rules.flow_label'|trans }}">
+                    <span><twig:ux:icon name="lucide:radio" />{{ rule.event }}</span>
+                    {% if rule.columns is not empty %}<span><twig:ux:icon name="lucide:columns-3" />{{ rule.columns|join(', ') }}</span>{% endif %}
+                    <twig:ux:icon name="lucide:arrow-right" class="lp-rule-flow__arrow" />
+                    <span><twig:ux:icon name="lucide:cable" />{{ rule.bridgeId|slice(-12) }}</span>
+                </div>
+                {% if rule.reason %}<p class="lp-rule-row__reason">{{ rule.reason }}</p>{% endif %}
+            </div>
+            <div class="lp-rule-row__report">
+                <time datetime="{{ rule.reportedAt|date('c') }}">{{ 'board.rules.reported_at'|trans({'%time%': rule.reportedAt|date('M j, H:i')}) }}</time>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
+    {% elseif search is not empty %}
+    <div class="lp-empty-state" data-rules-no-match>
+        <twig:ux:icon name="lucide:search" class="lp-empty-state__icon w-12 h-12" />
+        <h2 class="lp-empty-state__title">{{ 'board.rules.search.empty'|trans }}</h2>
+        <p>{{ 'board.rules.search.try_again'|trans }}</p>
+    </div>
+    {% else %}
+    <div class="lp-empty-state" data-rules-empty>
+        <twig:ux:icon name="lucide:workflow" class="lp-empty-state__icon w-12 h-12" />
+        <h2 class="lp-empty-state__title">{{ 'board.rules.empty.title'|trans }}</h2>
+        <p>{{ 'board.rules.empty.description'|trans }}</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

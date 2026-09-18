@@ -1,0 +1,23 @@
+<section class="lp-feedback-replies" aria-label="{{ 'site_review.reply.conversation'|trans }}" data-site-review-replies>
+    {% for reply in replies %}
+        <div data-site-review-reply="{{ reply.id }}" data-reply-submission-id="{{ reply.submissionId }}">
+            <p class="lp-feedback-replies__meta"><strong>{{ reply.author.fullName }}</strong> · <time datetime="{{ reply.createdAt|date('c') }}">{{ reply.createdAt|date('Y-m-d H:i') }}</time></p>
+            <p class="lp-feedback-replies__body">{{ reply.body }}</p>
+        </div>
+    {% endfor %}
+    {% if is_granted(constant('App\\Module\\SiteReview\\Security\\SiteReviewCommentVoter::REPLY'), comment) %}
+        {% set form = site_review_reply_form(comment, surface, refusedForm) %}
+        {{ form_start(form, {action: action, attr: {class: 'lp-form', 'data-turbo-frame': responseFrame, 'data-controller': 'reply-submission', 'data-reply-submission-owner-value': app.user.id, 'data-reply-submission-key-value': 'feedback:' ~ comment.id ~ ':' ~ surface, 'data-action': 'input->reply-submission#remember turbo:submit-start->reply-submission#start turbo:fetch-request-error->reply-submission#failed turbo:before-fetch-response->reply-submission#response'}}) }}
+            <p class="lp-field-errors" role="alert" data-reply-submission-target="error" hidden>{{ 'site_review.reply.failed'|trans }}</p>
+            <div class="lp-field-errors">{{ form_errors(form) }}</div>
+            {{ form_widget(form.submissionId, {attr: {'data-reply-submission-target': 'submission'}}) }}
+            <div class="lp-field-errors">{{ form_errors(form.submissionId) }}</div>
+            <div class="lp-reply-composer">
+                {{ form_label(form.body, null, {label_attr: {class: 'sr-only'}}) }}
+                {{ form_widget(form.body, {attr: {class: 'lp-input', rows: 1, maxlength: 2000, placeholder: 'site_review.reply.placeholder'|trans, 'data-reply-submission-target': 'body'}}) }}
+                <button type="submit" class="lp-btn lp-btn--icon lp-reply-composer__send" aria-label="{{ 'site_review.reply.submit'|trans }}" title="{{ 'site_review.reply.submit'|trans }}"><twig:ux:icon name="lucide:send" /></button>
+            </div>
+            <div class="lp-field-errors">{{ form_errors(form.body) }}</div>
+        {{ form_end(form) }}
+    {% endif %}
+</section>

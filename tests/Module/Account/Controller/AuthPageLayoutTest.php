@@ -55,7 +55,7 @@ final class AuthPageLayoutTest extends WebTestCase
         $admin = InstalledInstance::ensure(static::getContainer());
 
         $client->loginUser($admin);
-        $crawler = $client->request(Request::METHOD_GET, '/account');
+        $crawler = $client->request(Request::METHOD_GET, '/account/profile');
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('.lp-sidebar'));

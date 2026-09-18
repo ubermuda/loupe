@@ -10,6 +10,8 @@ use App\Module\Project\Security\ProjectVoter;
 use App\Module\Review\Command\ListDocumentsCommand;
 use App\Module\Review\Command\ListDocumentsHandler;
 use App\Module\Review\Entity\DocumentStatus;
+use App\Module\Review\Form\CreateDocumentFormType;
+use App\Module\Review\Form\CreateDocumentRequest;
 use App\Module\Review\View\DocumentListQuery;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -49,7 +51,14 @@ class ListDocumentsController extends AppController
             ]);
         }
 
+        $createDocumentForm = $this->getInjectedFormView($request, 'createDocumentForm') ?? $this->createForm(
+            CreateDocumentFormType::class,
+            new CreateDocumentRequest(),
+            ['action' => $this->generateUrl('app_document_create', ['id' => (string) $project->id]), 'project' => $project],
+        )->createView();
+
         return $this->render('@Review/list_documents.html.twig', [
+            'createDocumentForm' => $createDocumentForm,
             'project' => $project,
             'items' => $view->items,
             'filteredTotal' => $view->filteredTotal,

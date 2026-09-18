@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Module\Review\Controller;
 
 use App\Module\Account\Entity\User;
+use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Entity\Card;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\ReviseDocumentCommand;
 use App\Module\Review\Command\ReviseDocumentHandler;
@@ -80,6 +82,76 @@ final class ShowDocumentControllerTest extends WebTestCase
         // margin the comment cards are positioned in beside it.
         self::assertSelectorExists('.lp-review-doc');
         self::assertSelectorExists('.lp-review-margin');
+        self::assertSelectorExists('.lp-review-doc__back[aria-label="Back to documents"]');
+        self::assertSelectorTextContains('.lp-review-view-tabs', 'Document');
+        self::assertSelectorTextContains('.lp-review-view-tabs', 'History');
+        self::assertSelectorExists('.lp-review-view-tabs__item[aria-current="page"]');
+    }
+
+    public function test_review_summary_keeps_thread_content_and_escapes_markup(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->createUser($em, 'summary', 'summary@example.com');
+        $project = $this->project($em, $owner);
+        $document = new Document(owner: $owner, project: $project, title: 'Summary & review');
+        $version = $document->addVersion('# Content', '<h1>Content</h1>');
+        $em->persist($document);
+        $root = new Comment($version, $owner, '<img src=x> Keep & compare.', new Anchor('Content', '', '', 0));
+        $root->status = CommentStatus::Resolved;
+        $root->orphaned = true;
+        $em->persist($root);
+        $em->persist(new Comment($version, $owner, 'Reply <script>alert(1)</script>', $root->anchor, parent: $root));
+        $em->persist(new Comment($version, $owner, 'Plainer wording.', $root->anchor, replacement: 'Replacement & text'));
+        $em->persist(new Comment($version, $owner, '', $root->anchor, replacement: ''));
+        $em->flush();
+        $url = '/projects/'.$project->id.'/documents/'.$document->id.'/review';
+        $em->clear();
+        $client->loginUser($owner);
+        $client->request(Request::METHOD_GET, $url);
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('#review-summary-comments', '[Resolved] Comment · Summary');
+        self::assertSelectorTextContains('#review-summary-comments', 'Unanchored');
+        self::assertSelectorTextContains('#review-summary-comments', '> Content');
+        self::assertSelectorTextContains('#review-summary-comments', '<img src=x> Keep & compare.');
+        self::assertSelectorTextContains('#review-summary-comments', 'Summary: Reply <script>alert(1)</script>');
+        self::assertSelectorTextContains('#review-summary-comments', 'Suggested: Replacement & text');
+        self::assertSelectorTextContains('#review-summary-comments', 'Strike · Summary');
+        self::assertSelectorNotExists('#review-summary-comments img');
+        self::assertSelectorNotExists('#review-summary-comments script');
+        self::assertSelectorExists('[data-review-summary-header-value^="Summary & review · v1"]');
+    }
+
+    public function test_details_show_the_card_linked_to_the_document(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+
+        $owner = $this->createUser($em, 'linked-card-owner', 'linked-card-owner@example.com');
+        $project = $this->project($em, $owner);
+        $document = new Document(owner: $owner, project: $project, title: 'Linked document');
+        $document->addVersion('# Linked', '<h1>Linked</h1>');
+        $column = new BoardColumn($project, 'Ready', 'ready', 0, isDefault: true);
+        $card = new Card($project, $column, 'Implement the document', '', 1);
+        $em->persist($document);
+        $em->persist($column);
+        $em->persist($card);
+        $em->flush();
+        $card->syncDocuments($document);
+        $em->flush();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(
+            Request::METHOD_GET,
+            '/projects/'.$project->id.'/documents/'.$document->id.'/review',
+        );
+
+        self::assertResponseIsSuccessful();
+        $link = $crawler->filter('[data-margin-panel="details"] .lp-review-details__card');
+        self::assertCount(1, $link);
+        self::assertStringContainsString('#1 Implement the document', $link->text());
+        self::assertSame('card-drawer-frame', $link->attr('data-turbo-frame'));
     }
 
     public function test_review_page_renders_the_document_tags(): void
@@ -158,12 +230,13 @@ final class ShowDocumentControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        // Byline names the reviewer (the author side is the literal "Claude").
-        self::assertSelectorTextContains('.lp-review-doc__byline', 'reviewed by');
-        // While the document is still in review both verdict buttons are offered;
-        // the bar that reports a verdict only replaces them once there is one.
-        self::assertSelectorExists('button[name="submit_review_form[verdict]"][value="approved"]');
-        self::assertSelectorExists('button[name="submit_review_form[verdict]"][value="changes-requested"]');
+        self::assertSelectorTextContains('.lp-review-doc__byline', 'Ribbonowner');
+        self::assertSelectorTextContains('.lp-review-doc__byline', '0/0 sections approved');
+        self::assertSelectorCount(4, '.lp-review-margin-tabs [role="tab"]');
+        self::assertSelectorTextContains('.lp-review-margin-tabs', 'Comments');
+        self::assertSelectorExists('[data-margin-panel="details"]');
+        self::assertSelectorExists('input[name="submit_review_form[verdict]"][value="approved"]');
+        self::assertSelectorExists('input[name="submit_review_form[verdict]"][value="changes-requested"]');
         self::assertSelectorNotExists('.lp-verdict-bar');
     }
 
@@ -441,12 +514,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('.lp-verdict-bar__undo'));
 
-        $client->request(
-            Request::METHOD_POST,
-            '/projects/'.$projectId.'/documents/'.$documentId.'/review/undo',
-            ['_csrf_token' => 'csrf-token'],
-            server: ['HTTP_REFERER' => 'http://localhost/projects/'.$projectId.'/documents/'.$documentId.'/review'],
-        );
+        $client->submit($crawler->filter('.lp-verdict-bar__undo button')->form());
 
         self::assertResponseRedirects('/projects/'.$projectId.'/documents/'.$documentId.'/review');
 
@@ -467,8 +535,8 @@ final class ShowDocumentControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$documentId.'/review');
         self::assertSelectorNotExists('.lp-verdict-bar');
         // The top bar carries the pair above lg and the review menu below it.
-        self::assertCount(2, $crawler->filter('.lp-topbar__actions button[name="submit_review_form[verdict]"]'));
-        self::assertCount(2, $crawler->filter('.lp-review-menu button[name="submit_review_form[verdict]"]'));
+        self::assertCount(2, $crawler->filter('dialog input[name="submit_review_form[verdict]"]'));
+        self::assertCount(1, $crawler->filter('.lp-review-menu__verdict'));
     }
 
     public function test_a_comment_card_shows_its_age_and_an_undated_one_shows_none(): void
@@ -529,7 +597,8 @@ final class ShowDocumentControllerTest extends WebTestCase
         // Once a verdict exists it replaces the buttons that produced it.
         self::assertSelectorExists('.lp-verdict-bar--approved');
         self::assertSelectorTextContains('.lp-verdict-bar__title', 'Approved');
-        self::assertSelectorNotExists('button[name="submit_review_form[verdict]"]');
+        self::assertSelectorNotExists('input[name="undo_verdict_form[reviewId]"]');
+        self::assertSelectorNotExists('input[name="submit_review_form[verdict]"]');
     }
 
     public function test_non_owner_gets_403(): void
@@ -618,7 +687,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         // The history page is the way back — a route with no entry point would
         // leave the discussion exactly as unreachable as before.
         $historyUrl = '/projects/'.$projectId.'/documents/'.$id.'/review/history';
-        self::assertCount(1, $latest->filter('.lp-version-switcher a[href="'.$historyUrl.'"]'));
+        self::assertCount(1, $latest->filter('.lp-review-view-tabs a[href="'.$historyUrl.'"]'));
 
         $versionUrl = '/projects/'.$projectId.'/documents/'.$id.'/review/versions/1';
         $history = $client->request(Request::METHOD_GET, $historyUrl);
@@ -658,7 +727,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertCount(0, $earlier->filter('.lp-comment-composer'), 'the composer posts onto the current version');
         self::assertCount(0, $earlier->filter('.lp-anchor-toolbar'));
         self::assertCount(0, $earlier->filter('form[name="strike_passage_form"]'), 'a strike would land on the wrong version');
-        self::assertCount(0, $earlier->filter('button[name="submit_review_form[verdict]"]'), 'the verdict applies to the document as it stands');
+        self::assertCount(0, $earlier->filter('input[name="submit_review_form[verdict]"]'), 'the verdict applies to the document as it stands');
         self::assertCount(0, $earlier->filter('.lp-comment-thread form'), 'reply, resolve and delete all act on the live discussion');
 
         // Same page on the current version, to prove the assertions above are not
@@ -667,9 +736,12 @@ final class ShowDocumentControllerTest extends WebTestCase
         // Two composers: one for a comment, one for a rewording.
         self::assertCount(2, $latest->filter('.lp-comment-composer'));
         self::assertCount(1, $latest->filter('form[name="strike_passage_form"]'));
-        self::assertCount(2, $latest->filter('.lp-topbar__actions button[name="submit_review_form[verdict]"]'));
-        self::assertCount(2, $latest->filter('.lp-review-menu button[name="submit_review_form[verdict]"]'));
+        self::assertCount(2, $latest->filter('dialog input[name="submit_review_form[verdict]"]'));
+        self::assertCount(1, $latest->filter('.lp-review-menu__verdict'));
         self::assertGreaterThan(0, $latest->filter('.lp-comment-thread form')->count());
+        self::assertCount(1, $latest->filter('.lp-comment-thread__footer .lp-comment-action--delete'));
+        self::assertCount(1, $latest->filter('.lp-comment-thread__footer [data-comment-reply-target="form"][hidden]'));
+        self::assertCount(1, $latest->filter('.lp-comment-thread__footer .lp-comment-action--resolve'));
     }
 
     public function test_an_unknown_version_number_is_not_found(): void
@@ -721,7 +793,7 @@ final class ShowDocumentControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
 
-        $panelNotes = $crawler->filter('.lp-version-entry__description')->each(
+        $panelNotes = $crawler->filter('[data-version-note]')->each(
             static fn (\Symfony\Component\DomCrawler\Crawler $node): string => trim($node->text()),
         );
 
@@ -764,7 +836,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('.lp-version-entry__description', 'The original brief.');
+        self::assertSelectorTextContains('[data-version-note]', 'The original brief.');
     }
 
     /**
@@ -797,12 +869,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('.lp-version-switcher'));
     }
 
-    /**
-     * A description on any version earns the list even when only one version has
-     * one — otherwise the descriptions on a multi-version document would be the
-     * only ones ever shown.
-     */
-    public function test_several_versions_without_descriptions_still_render_the_switcher(): void
+    public function test_several_versions_without_descriptions_still_link_to_history(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -824,8 +891,8 @@ final class ShowDocumentControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('.lp-version-switcher'));
-        self::assertCount(0, $crawler->filter('.lp-version-entry__description'));
+        self::assertCount(1, $crawler->filter('.lp-review-view-tabs a[href="/projects/'.$projectId.'/documents/'.$id.'/review/history"]'));
+        self::assertCount(0, $crawler->filter('[data-version-note]'));
     }
 
     public function test_the_table_of_contents_links_to_headings_from_outside_the_anchoring_target(): void
@@ -923,7 +990,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         // One section was too few for a table of contents. The panel now also
         // reports approval state, which is worth seeing for a single section.
-        self::assertCount(1, $crawler->filter('.lp-review-contents'));
+        self::assertCount(1, $crawler->filter('#review-margin-panel-outline'));
         self::assertCount(1, $crawler->filter('[data-panel="contents"] .lp-review-contents__link'));
         self::assertStringContainsString('0/1', $crawler->filter('#section-summary-count')->text());
     }
@@ -1071,7 +1138,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('.lp-doc-references'));
     }
 
-    public function test_the_version_panel_links_to_the_current_version_s_diff(): void
+    public function test_the_diff_tab_links_to_the_current_version_s_diff(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -1097,10 +1164,10 @@ final class ShowDocumentControllerTest extends WebTestCase
         $base = '/projects/'.$projectId.'/documents/'.$id.'/review/diff/';
         self::assertSame(
             [$base.'2/3'],
-            $crawler->filter('.lp-version-entry__diff')->each(
+            $crawler->filter('.lp-review-view-tabs a[href="'.$base.'2/3"]')->each(
                 static fn (\Symfony\Component\DomCrawler\Crawler $node): string => (string) $node->attr('href'),
             ),
-            'the panel carries the current version alone, so it offers one comparison',
+            'the Diff tab compares the current version with its predecessor',
         );
     }
 

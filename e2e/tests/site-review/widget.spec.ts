@@ -346,6 +346,69 @@ test('a keep=1 reload rehydrates the live comments into pins and list', async ({
     expect(Math.abs(pinBox!.y - (targetBox!.y - 12))).toBeLessThan(4);
 });
 
+for (const changeDraft of [false, true]) {
+    test(`a committed save with a lost response ${changeDraft ? 'refuses changed content' : 'retries without duplication'}`, async ({
+        page,
+    }) => {
+        await openHarness(page);
+        await page.getByRole('button', { name: 'Review' }).click();
+        await page
+            .locator('#lp-panel')
+            .getByRole('button', { name: 'Add note' })
+            .click();
+        const textarea = page.getByPlaceholder(/Describe the issue/);
+        await textarea.fill('Persisted before the connection drops');
+        const deliveryIds: string[] = [];
+        await page.route('**/api/site-review/comments', async (route) => {
+            deliveryIds.push(route.request().postDataJSON().deliveryId);
+            if (deliveryIds.length === 1) {
+                const response = await route.fetch();
+                expect(response.status()).toBe(201);
+                await route.abort('failed');
+            } else {
+                await route.continue();
+            }
+        });
+
+        await page.getByRole('button', { name: 'Save' }).click();
+        await expect(
+            page
+                .locator('#lp-panel')
+                .getByText('Failed to fetch', { exact: true }),
+        ).toBeVisible();
+        await expect(textarea).toHaveValue(
+            'Persisted before the connection drops',
+        );
+        expect(await fetchReviewComments(page)).toHaveLength(1);
+        if (changeDraft) await textarea.fill('A changed draft stays available');
+        await clickSave(page);
+        expect(deliveryIds).toHaveLength(2);
+        expect(deliveryIds[0]).toMatch(/^[0-9a-f-]{36}$/);
+        expect(deliveryIds[1]).toBe(deliveryIds[0]);
+        const comments = await fetchReviewComments(page);
+        expect(comments).toHaveLength(1);
+        expect(comments[0].body).toBe('Persisted before the connection drops');
+
+        if (changeDraft) {
+            await expect(
+                page
+                    .locator('#lp-panel')
+                    .getByText(
+                        /earlier submission is saved with different content/,
+                    ),
+            ).toBeVisible();
+            await expect(textarea).toHaveValue(
+                'A changed draft stays available',
+            );
+        } else {
+            await expect(page.locator('#lp-head-count')).toHaveText('1');
+            await addGeneralNote(page, 'A separate submission', '2');
+            expect(deliveryIds[2]).not.toBe(deliveryIds[0]);
+            expect(await fetchReviewComments(page)).toHaveLength(2);
+        }
+    });
+}
+
 test('a failed save keeps the text in the composer so it can be retried', async ({
     page,
 }) => {

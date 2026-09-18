@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\BridgeRuleReport;
-use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\BridgeRuleReportRepository;
 use App\Module\Board\Repository\CardRepository;
@@ -42,25 +40,13 @@ final readonly class ShowBoardHandler
                     new \DateTimeImmutable(\sprintf('-%d days', self::TERMINAL_WINDOW_DAYS)),
                 );
 
-                $columns[] = new BoardColumnView($column, [new BoardGroupView(null, $recent)], \count($recent), $this->cards->countInColumn($column));
+                $columns[] = new BoardColumnView($column, $recent, \count($recent), $this->cards->countInColumn($column));
 
                 continue;
             }
 
-            // One query per column rather than one per priority group: the read
-            // already comes back ordered by priority then position, so the
-            // grouping below only has to split a list that is in board order.
             $cards = $this->cards->findForBoard([$column]);
-
-            $groups = [];
-            foreach (CardPriority::cases() as $priority) {
-                $groups[] = new BoardGroupView($priority, array_values(array_filter(
-                    $cards,
-                    static fn (Card $card): bool => $card->priority === $priority,
-                )));
-            }
-
-            $columns[] = new BoardColumnView($column, $groups, \count($cards));
+            $columns[] = new BoardColumnView($column, $cards, \count($cards));
         }
 
         $deadRules = [];

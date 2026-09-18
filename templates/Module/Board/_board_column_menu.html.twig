@@ -4,8 +4,6 @@
 {% set column = view.column %}
 {% set label = column.label|trans %}
 {% set terminalCount = board.columns|filter(other => other.column.terminal)|length %}
-{# A terminal column shows a recent slice, so its count on the page is not every card it holds. #}
-{% set cardCount = view.terminalTotal ?? view.count %}
 {% set renameForm = board_column_rename_form(column, renameColumnForm) %}
 {% set watched = column.slug in board.watchedColumnSlugs %}
 {# A refused rename reopens its dialog, and a dialog inside a hidden panel does not show. #}
@@ -56,10 +54,11 @@
 
         {% for move in [{offset: -1, key: 'board.column.move.left'}, {offset: 1, key: 'board.column.move.right'}] %}
             {% if board.columns[index + move.offset] is defined %}
-            {% set moveForm = board_columns_reorder_form(board_column_order(board.columns, index, move.offset)) %}
+            {% set moveForm = board_columns_reorder_form(board_column_order(board.columns, index, move.offset), board_column_order(board.columns, 0, 0)) %}
             {% set moveId = 'board-column-move-' ~ column.id ~ '-' ~ loop.index %}
             <form method="post" action="{{ path('app_board_columns_reorder', {id: board.project.id}) }}">
                 {{ form_widget(moveForm._token, {id: moveId ~ '-token'}) }}
+                {{ form_widget(moveForm.expectedOrder, {id: moveId ~ '-expected-order'}) }}
                 {{ form_widget(moveForm.order, {id: moveId ~ '-order'}) }}
                 <button type="submit" class="lp-board__column-menu-item">{{ move.key|trans }}</button>
             </form>
@@ -79,10 +78,11 @@
         {% endif %}
 
         {% if not column.terminal and not column.isDefault %}
-        <form method="post" action="{{ path('app_board_column_default', {projectId: board.project.id, columnId: column.id}) }}">
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token('board-column-default') }}">
+        {% set defaultForm = board_column_default_form(column, (board.columns|filter(other => other.column.isDefault)|first).column.id ~ '') %}
+        {{ form_start(defaultForm, {action: path('app_board_column_default', {projectId: board.project.id, columnId: column.id})}) }}
+            {{ form_widget(defaultForm.expectedDefaultId) }}
             <button type="submit" class="lp-board__column-menu-item">{{ 'board.column.default.set'|trans }}</button>
-        </form>
+        {{ form_end(defaultForm) }}
         {% endif %}
 
         {% if column.isDefault or (column.terminal and terminalCount == 1) %}
@@ -90,32 +90,11 @@
             {{ (column.isDefault ? 'board.column.delete.blocked_default' : 'board.column.delete.blocked_terminal')|trans }}
         </p>
         {% else %}
-        {% set deleteForm = board_column_delete_form(column, board.columns) %}
-        {% set deleteAction = path('app_board_column_delete', {projectId: board.project.id, columnId: column.id}) %}
             <div data-controller="modal">
                 <button type="button" class="lp-board__column-menu-item lp-board__column-menu-item--danger" data-action="click->modal#open">
                     {{ 'board.column.delete.action'|trans }}
                 </button>
-                <dialog data-modal-target="dialog" class="lp-dialog">
-                    <h3 class="lp-dialog-title">{{ 'board.column.delete.title'|trans({'%label%': label}) }}</h3>
-                    <p class="lp-dialog-desc">{{ 'board.column.delete.cards'|trans({'%count%': cardCount}) }}</p>
-                    {% if watched %}
-                    <p class="lp-board__rule-warning">{{ 'board.column.delete.bridge_rule_warning'|trans }}</p>
-                    {% endif %}
-                    {{ form_start(deleteForm, {action: deleteAction, attr: {class: 'lp-form'}}) }}
-                        {% if cardCount > 0 %}
-                        <div class="lp-form-field">
-                            {{ form_label(deleteForm.target, null, {label_attr: {class: 'lp-label'}}) }}
-                            {{ form_widget(deleteForm.target, {attr: {class: 'lp-input lp-select', required: 'required'}}) }}
-                        </div>
-                        {% endif %}
-                        {{ form_widget(deleteForm._token) }}
-                        <div class="flex items-center justify-end gap-3 pt-2">
-                            <button type="button" class="lp-btn" data-action="click->modal#close">{{ 'board.column.delete.cancel'|trans }}</button>
-                            <button type="submit" class="lp-btn lp-btn--danger">{{ (cardCount > 0 ? 'board.column.delete.submit' : 'board.column.delete.submit_empty')|trans }}</button>
-                        </div>
-                    {{ form_end(deleteForm, {render_rest: false}) }}
-                </dialog>
+                {% include '@Board/_board_column_delete_dialog.html.twig' with {board: board, view: view, returnView: 'board'} only %}
             </div>
         {% endif %}
     </div>

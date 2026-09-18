@@ -1,5 +1,7 @@
 import { expect } from '@playwright/test';
 import { createTest } from '../fixtures';
+import { submitRedirectingForm } from '../helpers';
+import { coverageScaled } from '../timeouts';
 
 // This email matches ADMIN_EMAIL in compose.yaml. The login the worker fixture
 // performs is what triggers PromoteAdminUserListener — nothing in this spec
@@ -29,10 +31,31 @@ test('a verified ADMIN_EMAIL user is promoted and sees the dashboard', async ({
     ).toBeVisible();
 });
 
-test('the admin layout actually loads the stylesheet', async ({ page }) => {
+test('the admin layout loads its stylesheet and disables cached previews', async ({
+    page,
+}) => {
     await page.goto('/admin');
 
     await expect(page.locator('body')).toHaveCSS('display', 'flex');
+    await expect(
+        page.locator('meta[name="turbo-cache-control"]'),
+    ).toHaveAttribute('content', 'no-preview');
+});
+
+test('admin user filters show a dark focus ring in normal colors', async ({
+    page,
+}) => {
+    await page.goto('/admin/users');
+    const fields = page.locator('.admin-field-input');
+    await expect(fields).toHaveCount(4);
+    for (const field of await fields.all()) {
+        await field.focus();
+        await expect(field).toBeFocused();
+        await expect(field).toHaveCSS(
+            'box-shadow',
+            /rgb\(89, 99, 19\) 0px 0px 0px 2px/,
+        );
+    }
 });
 
 test('a bool flag can be created, toggled and deleted', async ({ page }) => {
@@ -53,7 +76,18 @@ test('a bool flag can be created, toggled and deleted', async ({ page }) => {
 
     // The toggle must visibly flip the state, not merely leave the row on
     // screen: the badge swaps from the neutral "Disabled" pill to the "on" one.
-    await row.getByRole('button', { name: 'Enable', exact: true }).click();
+    await page.route('**/admin/feature-flags/*/toggle', async (route) => {
+        const response = await route.fetch({ maxRedirects: 0 });
+        await new Promise((resolve) =>
+            setTimeout(resolve, coverageScaled(6000)),
+        );
+        await route.fulfill({ response });
+    });
+    const enable = row.getByRole('button', { name: 'Enable', exact: true });
+    const action = await enable.evaluate(
+        (button: HTMLButtonElement) => button.form!.action,
+    );
+    await submitRedirectingForm(page, enable, action);
     await expect(row.locator('.admin-badge-on')).toHaveText('Enabled');
 
     // exact: true keeps this off the dialog's "Delete flag" button, which is

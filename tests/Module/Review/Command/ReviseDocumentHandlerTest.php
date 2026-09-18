@@ -32,6 +32,44 @@ use Ubermuda\AuditBundle\AuditOutcome;
 
 final class ReviseDocumentHandlerTest extends KernelTestCase
 {
+    public function test_deleted_threads_stay_on_the_original_version_without_carrying_forward(): void
+    {
+        [$em, , $document] = $this->seedForSeries('revise-retained-thread');
+        $version = $document->currentVersion();
+        $visible = new Comment($version, $document->owner, 'Visible', Anchor::unanchored());
+        $deleted = new Comment($version, $document->owner, 'Retained root', Anchor::unanchored());
+        $deleted->deletedAt = new \DateTimeImmutable();
+        $deleted->status = CommentStatus::Addressed;
+        $reply = new Comment($version, $document->owner, 'Retained reply', Anchor::unanchored(), $deleted);
+        foreach ([$visible, $deleted, $reply] as $comment) {
+            $em->persist($comment);
+        }
+        $em->flush();
+        $documentId = $document->id;
+        $deletedId = $deleted->id;
+        $replyId = $reply->id;
+
+        $summary = $this->reviseHandler()(new ReviseDocumentCommand($document, '# Five revised', 'Updated the heading'));
+        self::assertSame(1, $summary['carried']);
+        self::assertSame(0, $summary['orphaned']);
+        $em->clear();
+
+        $fresh = $em->find(Document::class, $documentId);
+        self::assertInstanceOf(Document::class, $fresh);
+        self::assertSame(2, $fresh->currentVersion()->versionNumber);
+        $comments = self::getContainer()->get(CommentRepository::class);
+        $current = $comments->findByVersion($fresh->currentVersion());
+        self::assertCount(1, $current);
+        self::assertSame('Visible', $current[0]->body);
+        $retained = $comments->findDeletedByDocument($fresh);
+        self::assertCount(2, $retained);
+        self::assertEqualsCanonicalizing([$deletedId, $replyId], array_map(static fn (Comment $comment): ?Uuid => $comment->id, $retained));
+        foreach ($retained as $comment) {
+            self::assertSame(1, $comment->version->versionNumber);
+            self::assertSame(CommentStatus::Addressed, $comment->threadStatus);
+        }
+    }
+
     public function test_revise_adds_version_reanchors_comments_and_sets_status_in_review(): void
     {
         self::bootKernel();
@@ -750,6 +788,7 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
             'titleChanged' => true,
             'referencesReplaced' => false,
             'seriesChanged' => false,
+            'workLinkCount' => null,
             'commentsCarried' => 1,
             'commentsOrphaned' => 0,
             'sectionsCarried' => 0,

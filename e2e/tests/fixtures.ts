@@ -6,6 +6,7 @@ import {
 } from '@playwright/test';
 import { request as playwrightRequest } from '@playwright/test';
 import { Page } from '@playwright/test';
+import { coverageScaled } from './timeouts';
 import {
     Credentials,
     extractLink,
@@ -90,12 +91,30 @@ export async function signedInPage(
     await page.getByRole('button', { name: 'Sign in' }).click();
     // The first sign-in lands on /welcome, and a later one on the last project.
     // A cold worktree takes more than the default 5 seconds to answer the first one.
-    await expect(page).not.toHaveURL(/\/login$/, { timeout: 15_000 });
+    await expect(page).not.toHaveURL(/\/login$/, {
+        timeout: coverageScaled(15_000),
+    });
 
     return page;
 }
 
 type StorageState = Awaited<ReturnType<BrowserContext['storageState']>>;
+
+export const testWithVerifiedAccount = base.extend<{
+    verifiedAccount: Credentials;
+}>({
+    verifiedAccount: [
+        async ({ page, request }, use) => {
+            const credentials = {
+                email: `e2e-account-${crypto.randomUUID()}@example.com`,
+                password: 'E2eAccountPassword1!',
+            };
+            await registerAndVerify(page, request, credentials);
+            await use(credentials);
+        },
+        { timeout: coverageScaled(30_000) },
+    ],
+});
 
 /**
  * Factory that creates a test object with a worker-scoped login for the given credentials.
@@ -136,7 +155,7 @@ export function createTest(credentials: Credentials) {
                                 name: 'Resend verification email',
                             }),
                         ),
-                ).toBeVisible();
+                ).toBeVisible({ timeout: coverageScaled(15000) });
 
                 if (await page.locator('.auth-error').isVisible()) {
                     const requestContext = await playwrightRequest.newContext();
@@ -180,7 +199,9 @@ export function createTest(credentials: Credentials) {
 
                 // Wait for the session to be established before snapshotting
                 // cookies, or the storage state races the login POST.
-                await expect(page).toHaveURL('/projects');
+                await expect(
+                    page.locator('form[action="/logout"]'),
+                ).toBeVisible();
 
                 const storageState = await ctx.storageState();
                 await ctx.close();

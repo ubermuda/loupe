@@ -12,14 +12,21 @@ use App\Module\Review\Command\ShowDocumentHandler;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Form\AddCommentFormType;
 use App\Module\Review\Form\AddCommentRequest;
-use App\Module\Review\Form\SelectDecisionOptionFormType;
-use App\Module\Review\Form\SelectDecisionOptionRequest;
+use App\Module\Review\Form\ReviseDocumentFormType;
+use App\Module\Review\Form\ReviseDocumentRequest;
+use App\Module\Review\Form\SaveDecisionFormType;
+use App\Module\Review\Form\SaveDecisionRequest;
 use App\Module\Review\Form\StrikePassageFormType;
 use App\Module\Review\Form\StrikePassageRequest;
+use App\Module\Review\Form\SubmitReviewFormType;
+use App\Module\Review\Form\SubmitReviewRequest;
 use App\Module\Review\Form\SuggestRewordingFormType;
 use App\Module\Review\Form\SuggestRewordingRequest;
+use App\Module\Review\Form\UndoVerdictFormType;
+use App\Module\Review\Form\UndoVerdictRequest;
 use App\Module\Review\Security\DocumentVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -49,6 +56,7 @@ final class ShowDocumentController extends AppController
     }
 
     public function __invoke(
+        Request $request,
         #[MapEntity(mapping: ['projectId' => 'id'])] Project $project,
         #[MapEntity(expr: 'repository.findOneByIdAndProjectId(documentId, projectId)')] Document $document,
         ?int $versionNumber = null,
@@ -65,17 +73,35 @@ final class ShowDocumentController extends AppController
             'documentId' => (string) $document->id,
         ];
 
-        $addCommentForm = $this->createForm(AddCommentFormType::class, new AddCommentRequest(), [
+        $submitReviewForm = $this->getInjectedFormView($request, 'submitReviewForm') ?? $this->createForm(
+            SubmitReviewFormType::class,
+            new SubmitReviewRequest(versionNumber: $view->version->versionNumber, expectedReviewId: $view->latestReviewId),
+            ['action' => $this->generateUrl('app_document_review_submit', $routeParameters)],
+        )->createView();
+
+        $reviseDocumentForm = $this->getInjectedFormView($request, 'reviseDocumentForm') ?? $this->createForm(
+            ReviseDocumentFormType::class,
+            ReviseDocumentRequest::fromVersion($view->version),
+            ['action' => $this->generateUrl('app_document_revise', $routeParameters), 'project' => $project, 'document' => $document],
+        )->createView();
+
+        $undoVerdictForm = $this->getInjectedFormView($request, 'undoVerdictForm') ?? $this->createForm(
+            UndoVerdictFormType::class,
+            new UndoVerdictRequest(reviewId: $view->review?->id?->toRfc4122()),
+            ['action' => $this->generateUrl('app_document_review_undo', $routeParameters)],
+        )->createView();
+
+        $addCommentForm = $this->createForm(AddCommentFormType::class, new AddCommentRequest(versionNumber: $view->version->versionNumber), [
             'action' => $this->generateUrl('app_comment_add', $routeParameters),
             'method' => 'POST',
         ]);
 
-        $suggestRewordingForm = $this->createForm(SuggestRewordingFormType::class, new SuggestRewordingRequest(), [
+        $suggestRewordingForm = $this->createForm(SuggestRewordingFormType::class, new SuggestRewordingRequest(versionNumber: $view->version->versionNumber), [
             'action' => $this->generateUrl('app_comment_suggest', $routeParameters),
             'method' => 'POST',
         ]);
 
-        $strikePassageForm = $this->createForm(StrikePassageFormType::class, new StrikePassageRequest(), [
+        $strikePassageForm = $this->createForm(StrikePassageFormType::class, new StrikePassageRequest(versionNumber: $view->version->versionNumber), [
             'action' => $this->generateUrl('app_comment_strike', $routeParameters),
             'method' => 'POST',
         ]);
@@ -83,13 +109,17 @@ final class ShowDocumentController extends AppController
         // Stamped with the version whose options are being rendered, so a
         // submission that arrives after a revision can be told apart from one
         // that describes the current list.
-        $selectDecisionForm = $this->createForm(SelectDecisionOptionFormType::class, new SelectDecisionOptionRequest(versionNumber: $view->version->versionNumber), [
-            'action' => $this->generateUrl('app_document_decision_select', $routeParameters),
+        $selectDecisionForm = $this->createForm(SaveDecisionFormType::class, new SaveDecisionRequest(versionNumber: $view->version->versionNumber), [
+            'action' => $this->generateUrl('app_document_decision_save', $routeParameters),
             'method' => 'POST',
         ]);
 
         return $this->render('@Review/show_document.html.twig', [
             'document' => $view->document,
+            'review' => $view->review,
+            'submitReviewForm' => $submitReviewForm,
+            'undoVerdictForm' => $undoVerdictForm,
+            'reviseDocumentForm' => $reviseDocumentForm,
             'version' => $view->version,
             'versions' => $view->versions,
             // The shared page shell reads these to decide whether it is showing a

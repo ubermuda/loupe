@@ -1,0 +1,24 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ (project ? 'search.title' : 'search.all_title')|trans }} — {{ 'app.name'|trans }}{% endblock %}
+{% block topbar_crumbs %}<span class="lp-topbar__here">{{ (project ? 'search.title' : 'search.all_title')|trans }}</span>{% endblock %}
+
+{% block body %}
+<div class="lp-workspace">
+    <header class="lp-page-header">
+        <h1 class="lp-workspace-title">{{ (project ? 'search.title' : 'search.all_title')|trans }}</h1>
+        <p class="lp-workspace-desc">{{ (project ? 'search.scope'|trans({'%project%': project.name}) : 'search.all_scope'|trans) }}</p>
+    </header>
+    {{ form_start(form, {action: (project ? path('app_project_search', {id: project.id}) : path('app_search_owned_projects')), attr: {class: 'lp-form'}}) }}
+        <div class="lp-form-field">
+            {{ form_label(form.query, null, {label_attr: {class: 'lp-label'}}) }}
+            {{ form_widget(form.query, {attr: {class: 'lp-input', maxlength: 200, autofocus: true}}) }}
+            <div class="lp-field-errors">{{ form_errors(form.query) }}{{ form_errors(form.page) }}{{ form_errors(form) }}</div>
+        </div>
+        <button type="submit" class="lp-btn lp-btn--primary">{{ 'search.submit'|trans }}</button>
+    {{ form_end(form, {render_rest: false}) }}
+    {% if view %}
+    {% include 'search/_search_results.html.twig' with {project: project, view: view} only %}
+    {% endif %}
+</div>
+{% endblock %}

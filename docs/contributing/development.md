@@ -28,6 +28,17 @@ Tailwind rebuilds automatically in the dev container. Do not run
 `tailwind:build` by hand after editing templates — wait a second and re-check.
 The same goes for `cache:clear`.
 
+AssetMapper can retain old CSS when its cache and the watcher output change within the same second.
+Its freshness check compares whole-second modification times.
+Compare the served stylesheet with `var/tailwind/app.built.css` inside the container before attributing a visual failure to source code.
+If the generated CSS is current but the served CSS is stale, update only the generated file's timestamp:
+
+```sh
+just exec touch var/tailwind/app.built.css
+```
+
+Confirm that a fresh page response uses a new stylesheet hash before rerunning the browser check.
+
 Run one unit test with `just phpunit --filter TestClassName`, one JavaScript
 test with `just js-test tests/js/<name>.test.js`, one e2e spec with
 `just e2e tests/<area>/<spec>.spec.ts`.

@@ -34,9 +34,25 @@ The bridge holds its retry queue in memory. A bridge that stops between a worker
 finishing and its report landing loses that outcome for good. So read this page
 as what the server was told, not as a complete history of every worker.
 
-The page carries this caveat above the list, on every project.
+The page carries this caveat below the list, on every project.
+
+## Bridge health
+
+Open **Agents** in the project sidebar to inspect bridge heartbeats.
+The page lists only bridges that follow the current project.
+Its summary distinguishes no connections, healthy connections, stale connections, and a mix of healthy and stale connections.
+Heartbeat health does not show whether an individual worker is running or available for work.
 
 ## The output
+
+Select **View attempt** to open a read-only drawer without leaving the list.
+It shows the attempt ID, card, rule, bridge, session, duration, and reported timestamps.
+Agent identity and the triggering event remain unreported rather than inferred.
+Press Escape or select **Close** to return focus to the opening button.
+
+Select **Copy output** to copy the original output text.
+If the browser refuses clipboard access, the drawer keeps the text available for manual copying.
+The drawer has no live state, Stop, or Retry controls.
 
 Every row shows the worker's output in full, collapsed. Open **Output** to read
 it. A run that succeeded shows its output the same way a run that failed does,
@@ -48,9 +64,10 @@ else the agent chose to say, and the server shows it as plain text.
 
 ## Search and filters
 
-The search box covers the card number, the rule name and the output text. It
-matches whole words, and it accepts quoted phrases and a leading `-` to exclude
-a word.
+The search box covers the card number, the rule name and the output text.
+It matches whole words and accepts quoted phrases and a leading `-` to exclude a word.
+Paste a complete run ID to find that attempt in the current project.
+Run IDs match without regard to letter case, and the outcome and bridge filters still apply.
 
 Two filters narrow the list further:
 
@@ -59,6 +76,11 @@ Two filters narrow the list further:
 
 Every control lands in the URL, so a filtered view is a link you can share.
 Select **Clear** to go back to the whole list.
+Search and Outcome stay on one row on narrow screens.
+With enlarged text, the row scrolls horizontally when needed. Keyboard focus brings each control into view.
+The Bridge filter remains available below them when space is limited.
+It stays within the form width at enlarged text sizes.
+Long rule names wrap within their column, while outcome badges keep their compact height.
 
 ## A card that no longer exists
 

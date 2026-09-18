@@ -25,14 +25,13 @@ final readonly class MoveCardHandler
 
     public function __invoke(MoveCardCommand $command): Card
     {
-        // A null rank means the end of the target group here, and "leave the
+        // A null rank means the end of the target column here, and "leave the
         // rank alone" in an update, so it becomes an explicit rank.
         return ($this->updateCard)(new UpdateCardCommand(
             card: $command->card,
             actor: $command->actor,
-            priority: $command->priority,
             column: $command->column,
-            position: $command->position ?? CardMover::END_OF_GROUP,
+            position: $command->position ?? CardMover::END_OF_COLUMN,
         ));
     }
 }

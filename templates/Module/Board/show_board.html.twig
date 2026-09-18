@@ -9,17 +9,23 @@
 {% endblock %}
 
 {% block body %}
-<div class="lp-workspace lp-workspace--board">
-    <div class="lp-board-head">
+<div class="lp-workspace lp-core-prototype-page lp-core-board" data-controller="card-drawer">
+    <header class="lp-board-head">
         <div>
             <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'board.page.title'|trans }}</h1>
             <p class="lp-workspace-desc">{{ 'board.page.description'|trans }}</p>
         </div>
-        <a class="lp-btn lp-btn--primary" href="{{ path('app_board_card_create', {id: board.project.id}) }}">
-            <twig:ux:icon name="lucide:plus" class="w-4 h-4 shrink-0" />
-            {{ 'board.card.create.action'|trans }}
-        </a>
-    </div>
+        <div class="lp-board-head__actions">
+            <a class="lp-btn" href="{{ path('app_board_settings', {id: board.project.id}) }}">
+                <twig:ux:icon name="lucide:settings" class="w-4 h-4 shrink-0" />
+                {{ 'board.settings.action'|trans }}
+            </a>
+            <a class="lp-btn lp-btn--primary" href="{{ path('app_board_card_create', {id: board.project.id}) }}">
+                <twig:ux:icon name="lucide:plus" class="w-4 h-4 shrink-0" />
+                {{ 'board.card.create.action'|trans }}
+            </a>
+        </div>
+    </header>
 
     {% if board.deadBridgeRules is not empty and is_granted(constant('App\\Module\\Project\\Security\\ProjectVoter::MANAGE'), board.project) %}
     <section class="lp-board-rules" role="status" data-testid="bridge-rules-banner">
@@ -46,8 +52,10 @@
     {% do mercure_subscribe(boardTopic) %}
     <div data-controller="board-refresh" data-board-refresh-board-value="{{ path('app_project_board', {id: board.project.id}) }}">
         <turbo-frame id="board-frame" target="_top" data-board-refresh-target="frame">
-            {% include '@Board/_board_columns.html.twig' with {board: board, addColumnForm: addColumnForm, renameColumnForm: renameColumnForm} only %}
+            {% include '@Board/_board_columns.html.twig' with {board: board, renameColumnForm: renameColumnForm} only %}
         </turbo-frame>
     </div>
+
+    {% include '@Board/_card_drawer.html.twig' with {} only %}
 </div>
 {% endblock %}

@@ -45,6 +45,9 @@ final readonly class ReorderBoardColumnsHandler
             }
 
             $wanted = array_unique($ids);
+            if ($command->expectedOrder !== implode(',', array_keys($byId))) {
+                return null;
+            }
             if (\count($wanted) !== \count($ids) || \count($ids) !== \count($byId) || [] !== array_diff($ids, array_keys($byId))) {
                 return null;
             }

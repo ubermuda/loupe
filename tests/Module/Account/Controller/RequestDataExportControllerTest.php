@@ -37,12 +37,12 @@ final class RequestDataExportControllerTest extends WebTestCase
         $user = $this->createVerifiedUser($em, 'alice', 'alice@example.com');
 
         $client->loginUser($user);
-        $client->request(Request::METHOD_GET, '/account');
+        $client->request(Request::METHOD_GET, '/account/profile');
 
         $client->request(Request::METHOD_POST, '/account/exports', [
             '_csrf_token' => 'csrf-token',
         ]);
-        self::assertResponseRedirects('/account');
+        self::assertResponseRedirects('/account/data');
 
         $em->clear();
         /** @var DataExportRepository $repo */
@@ -59,11 +59,11 @@ final class RequestDataExportControllerTest extends WebTestCase
         $user = $this->createVerifiedUser($em, 'alice', 'alice@example.com');
 
         $client->loginUser($user);
-        $client->request(Request::METHOD_GET, '/account');
+        $client->request(Request::METHOD_GET, '/account/profile');
 
         $client->request(Request::METHOD_POST, '/account/exports', ['_csrf_token' => 'csrf-token']);
         $client->request(Request::METHOD_POST, '/account/exports', ['_csrf_token' => 'csrf-token']);
-        self::assertResponseRedirects('/account');
+        self::assertResponseRedirects('/account/data');
 
         $client->followRedirect();
         self::assertSelectorTextContains('.lp-flash--error', 'already being prepared');

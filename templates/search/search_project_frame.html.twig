@@ -1,0 +1,7 @@
+<turbo-frame id="project-search-results">
+    {% if view %}
+        {% include 'search/_search_results.html.twig' with {project: project, view: view} only %}
+    {% else %}
+        <div class="lp-field-errors">{{ form_errors(form.query) }}{{ form_errors(form.page) }}{{ form_errors(form) }}</div>
+    {% endif %}
+</turbo-frame>

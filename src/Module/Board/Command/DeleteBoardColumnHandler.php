@@ -22,7 +22,7 @@ use Ubermuda\AuditBundle\AuditSubject;
  * in bulk, with the completion rules a drag follows.
  *
  * The bulk move reads and writes database rows under the project lock, so it
- * needs no CardRepository::refreshGroup(). A moved card loaded before the call
+ * needs no CardRepository::refreshColumn(). A moved card loaded before the call
  * is re-read afterwards.
  *
  * The move dispatches no CardMoved: the outbox must not see one event per card
@@ -97,10 +97,8 @@ final readonly class DeleteBoardColumnHandler
                         'projectId' => $deleted->projectId,
                         'fromStatus' => $deleted->slug,
                         'fromColumnId' => $deleted->columnId,
-                        'fromPriority' => $row['priority'],
                         'toStatus' => $target->slug,
                         'toColumnId' => (string) $target->id,
-                        'toPriority' => $row['priority'],
                         'position' => $positions[$row['id']] ?? 0,
                     ];
                 }

@@ -10,7 +10,6 @@ use App\Module\Project\Stats\ProjectStats;
 use App\Module\Project\Stats\ProjectStatsProviderInterface;
 use Ubermuda\FeatureFlagsBundle\FeatureFlagService;
 
-/** Board's contribution to the projects list: how many cards each project still has open. */
 final readonly class CardProjectStatsProvider implements ProjectStatsProviderInterface
 {
     public function __construct(
@@ -30,8 +29,8 @@ final readonly class CardProjectStatsProvider implements ProjectStatsProviderInt
         }
 
         return array_map(
-            static fn (int $count): ProjectStats => new ProjectStats(openCardCount: $count),
-            $this->cards->countOpenByProjects($projects),
+            static fn (array $counts): ProjectStats => new ProjectStats(openCardCount: $counts['open'], completedCardCount: $counts['completed']),
+            $this->cards->countByProjects($projects),
         );
     }
 }

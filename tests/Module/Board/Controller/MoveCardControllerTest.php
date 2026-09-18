@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Form\MoveCardFormType;
 use App\Tests\Module\Board\CardMovedOutbox;
@@ -19,7 +18,7 @@ final class MoveCardControllerTest extends WebTestCase
 {
     use BoardScenario;
 
-    public function test_a_move_inside_a_priority_group_reorders_it(): void
+    public function test_a_move_inside_a_column_reorders_it(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -27,14 +26,14 @@ final class MoveCardControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'move-rank@example.com');
         $project = $this->project($em, $owner);
-        $first = $this->card($em, $project, 'First', 'backlog', CardPriority::High, 0);
-        $second = $this->card($em, $project, 'Second', 'backlog', CardPriority::High, 1);
-        $third = $this->card($em, $project, 'Third', 'backlog', CardPriority::High, 2);
+        $first = $this->card($em, $project, 'First', 'backlog', 0);
+        $second = $this->card($em, $project, 'Second', 'backlog', 1);
+        $third = $this->card($em, $project, 'Third', 'backlog', 2);
         $ids = [$first->id, $second->id, $third->id];
         $em->clear();
 
         $client->loginUser($owner);
-        $this->move($client, $third, 'backlog', CardPriority::High, 0);
+        $this->move($client, $third, 'backlog', 0);
 
         self::assertResponseRedirects();
         $em->clear();
@@ -49,28 +48,28 @@ final class MoveCardControllerTest extends WebTestCase
         self::assertSame([1, 2, 0], $positions);
     }
 
-    public function test_a_move_across_priority_groups_regrades_and_lands_at_the_end(): void
+    public function test_a_move_to_another_column_lands_at_the_end(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $this->enableBoard();
 
-        $owner = $this->user($em, 'move-regrade@example.com');
+        $owner = $this->user($em, 'move-across@example.com');
         $project = $this->project($em, $owner);
-        $this->card($em, $project, 'Low first', 'backlog', CardPriority::Low, 0);
-        $this->card($em, $project, 'Low second', 'backlog', CardPriority::Low, 1);
-        $climber = $this->card($em, $project, 'Climber', 'backlog', CardPriority::High, 0);
-        $climberId = $climber->id;
+        $this->card($em, $project, 'Next first', 'next', 0);
+        $this->card($em, $project, 'Next second', 'next', 1);
+        $mover = $this->card($em, $project, 'Mover', 'backlog', 0);
+        $moverId = $mover->id;
         $em->clear();
 
         $client->loginUser($owner);
-        // A rank is offered and ignored: a re-grade always lands at the end.
-        $this->move($client, $climber, 'backlog', CardPriority::Low, 0);
+        // A rank is offered and ignored: a move to another column always lands at the end.
+        $this->move($client, $mover, 'next', 0);
 
         $em->clear();
-        $moved = $em->find(Card::class, $climberId);
+        $moved = $em->find(Card::class, $moverId);
         self::assertInstanceOf(Card::class, $moved);
-        self::assertSame(CardPriority::Low, $moved->priority);
+        self::assertSame('next', $moved->column->slug);
         self::assertSame(2, $moved->position);
     }
 
@@ -82,12 +81,12 @@ final class MoveCardControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'move-done@example.com');
         $project = $this->project($em, $owner);
-        $card = $this->card($em, $project, 'Finishing', 'in-progress', CardPriority::Medium, 0);
+        $card = $this->card($em, $project, 'Finishing', 'in-progress', 0);
         $cardId = $card->id;
         $em->clear();
 
         $client->loginUser($owner);
-        $this->move($client, $card, 'done', CardPriority::Medium, null, stream: true);
+        $this->move($client, $card, 'done', null, stream: true);
 
         self::assertResponseIsSuccessful();
         self::assertStringContainsString(
@@ -110,11 +109,11 @@ final class MoveCardControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'move-actor@example.com');
         $project = $this->project($em, $owner);
-        $card = $this->card($em, $project, 'Dragged', 'backlog', CardPriority::Medium, 0);
+        $card = $this->card($em, $project, 'Dragged', 'backlog', 0);
         $em->clear();
 
         $client->loginUser($owner);
-        $this->move($client, $card, 'next', CardPriority::Medium, null);
+        $this->move($client, $card, 'next', null);
 
         self::assertResponseRedirects();
         $payload = CardMovedOutbox::onlyPayload(static::getContainer(), $project);
@@ -134,7 +133,7 @@ final class MoveCardControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($stranger);
-        $this->move($client, $card, 'done', CardPriority::High, null);
+        $this->move($client, $card, 'done', null);
 
         self::assertResponseStatusCodeSame(403);
     }
@@ -150,7 +149,7 @@ final class MoveCardControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $this->move($client, $card, 'next', CardPriority::High, null);
+        $this->move($client, $card, 'next', null);
 
         self::assertResponseStatusCodeSame(404);
     }
@@ -170,7 +169,7 @@ final class MoveCardControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        $this->move($client, $card, 'next', CardPriority::Medium, null, columnId: $foreign);
+        $this->move($client, $card, 'next', null, columnId: $foreign);
 
         self::assertResponseRedirects('/projects/'.$project->id.'/board');
         $em->clear();
@@ -183,7 +182,6 @@ final class MoveCardControllerTest extends WebTestCase
         KernelBrowser $client,
         Card $card,
         string $column,
-        CardPriority $priority,
         ?int $position,
         bool $stream = false,
         ?string $columnId = null,
@@ -204,7 +202,6 @@ final class MoveCardControllerTest extends WebTestCase
             $url,
             [$name => [
                 'column' => $columnId ?? (string) $this->column($card->project, $column)->id,
-                'priority' => (string) $priority->value,
                 'position' => null === $position ? '' : (string) $position,
                 '_token' => 'csrf-token',
             ]],

@@ -49,7 +49,7 @@ class EditProfileController extends AppController
 
             $this->addFlash('success', $this->translator->trans('account.profile.flash.updated'));
 
-            return $this->redirectToRoute('app_account_settings');
+            return $this->redirectToRoute('app_account_profile');
         }
 
         return $this->renderFormResponse('@Account/edit_profile.html.twig', $form);

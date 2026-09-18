@@ -10,7 +10,6 @@ use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\SearchBoardCommand;
 use App\Module\Board\Command\SearchBoardHandler;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use App\Tests\Module\Board\BoardColumnFixtures;
@@ -109,7 +108,6 @@ final class SearchBoardHandlerTest extends KernelTestCase
             title: $title,
             body: $body,
             type: CardType::Feature,
-            priority: CardPriority::Medium,
         ));
     }
 }

@@ -17,6 +17,7 @@ final readonly class ProjectStats
         public int $openCommentCount = 0,
         public int $openCardCount = 0,
         public int $openInboxItemCount = 0,
+        public int $completedCardCount = 0,
     ) {
     }
 
@@ -28,6 +29,7 @@ final readonly class ProjectStats
             $this->openCommentCount + $other->openCommentCount,
             $this->openCardCount + $other->openCardCount,
             $this->openInboxItemCount + $other->openInboxItemCount,
+            $this->completedCardCount + $other->completedCardCount,
         );
     }
 }

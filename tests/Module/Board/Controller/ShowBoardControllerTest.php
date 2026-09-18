@@ -6,7 +6,6 @@ namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\Forge;
 use App\Module\Project\Entity\Project;
@@ -21,7 +20,7 @@ final class ShowBoardControllerTest extends WebTestCase
 {
     use BoardScenario;
 
-    public function test_the_board_shows_four_columns_with_their_priority_groups(): void
+    public function test_the_board_shows_four_columns_with_one_drop_target_each(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -29,8 +28,8 @@ final class ShowBoardControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'board-columns@example.com');
         $project = $this->project($em, $owner);
-        $this->card($em, $project, 'Backlog high', 'backlog', CardPriority::High);
-        $this->card($em, $project, 'Next low', 'next', CardPriority::Low);
+        $this->card($em, $project, 'Backlog card', 'backlog');
+        $this->card($em, $project, 'Next card', 'next');
         $em->clear();
 
         $client->loginUser($owner);
@@ -38,9 +37,14 @@ final class ShowBoardControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(4, $crawler->filter('.lp-board__column'));
-        // Three priority groups per rankable column, and one flat group in Done.
-        self::assertCount(10, $crawler->filter('[data-board-drag-target="group"]'));
+        self::assertCount(4, $crawler->filter('[data-board-drag-target="group"]'));
+        self::assertCount(0, $crawler->filter('[data-priority], [data-card-priority]'));
         self::assertCount(2, $crawler->filter('[data-board-drag-target="card"]'));
+        self::assertCount(1, $crawler->filter('dialog[data-card-drawer-target="dialog"] turbo-frame#card-drawer-frame'));
+        self::assertCount(2, $crawler->filter('.lp-board__column a[data-turbo-frame="card-drawer-frame"][data-action="click->card-drawer#prepare"]'));
+        self::assertSelectorTextContains('.lp-board-toolbar__count', '2 cards');
+        self::assertSelectorTextContains('.lp-board-toolbar__mode-button[aria-pressed="true"]', 'Board');
+        self::assertSelectorExists('a[href="/projects/'.$project->id.'/edit"]');
 
         $counts = $crawler->filter('.lp-board__column-count')->each(
             static fn (Crawler $node): string => trim($node->text()),
@@ -112,7 +116,7 @@ final class ShowBoardControllerTest extends WebTestCase
         $owner = $this->user($em, 'board-indicator@example.com');
         $project = $this->project($em, $owner);
         $plain = $this->card($em, $project, 'No links');
-        $linked = $this->card($em, $project, 'Has links', 'backlog', CardPriority::High);
+        $linked = $this->card($em, $project, 'Has links');
         $linked->replacePullRequests(new CardPullRequest(
             card: $linked,
             url: 'https://github.com/loupe/loupe/pull/7',

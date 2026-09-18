@@ -98,6 +98,12 @@ class OutboxEventRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /** @return list<OutboxEvent> */
+    public function findRecentForProject(Project $project, int $limit = 100): array
+    {
+        return $this->findBy(['project' => $project], ['createdAt' => 'DESC', 'sequence' => 'DESC'], $limit);
+    }
+
     /** @return Paginator<OutboxEvent> */
     public function findUnsentPaginated(?Project $project, int $page, int $perPage, string $sort, string $dir): Paginator
     {

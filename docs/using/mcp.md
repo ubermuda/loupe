@@ -17,10 +17,14 @@ token can be revoked from `/account/api-tokens/{tokenId}/revoke`.
 
 The first-run wizard mints one for you at `/welcome/connect`.
 
-Your account settings at `/account` mint an account-level token. Give it a name
-and copy the value from the page: Loupe stores only a hash, so the page shows
-the raw token once and never again. The same page lists every token you own and
-revokes any of them.
+The API tokens section of your account settings, at `/account/api-tokens`,
+mints an account-level token. Give it a name and copy the value from the page:
+Loupe stores only a hash, so the page shows the raw token once and never again.
+The same page lists every token you own and revokes any of them.
+
+Open the API tokens section and select Revoke beside a token.
+Confirm the dialog to revoke it. Cancel or Escape keeps the token active.
+Revocation immediately prevents authentication with that token. It cannot be undone.
 
 An account-level token always gets the agent scope, which is what the Loupe CLI
 needs. That scope reaches `/api/projects`, `/api/events` and
@@ -35,7 +39,7 @@ tool call.
 
 An account-level token minted before the agent scope existed carries the
 site-review scope, and the CLI endpoints now answer it with
-`403 insufficient_scope`. Mint a replacement at `/account` and revoke the old
+`403 insufficient_scope`. Mint a replacement at `/account/api-tokens` and revoke the old
 one. No upgrade converts the stored scope. A stored site-review token that is
 bound to no project cannot be told apart from a widget token whose binding was
 cleared, and a widget token sits in page HTML that anyone can read, so a
@@ -149,10 +153,10 @@ Roughly in the order an agent uses them:
 | `tag_list` | The project's existing tag vocabulary |
 | `series_list` | The project's series, each with its document count and highest position |
 | `series_rename` | Rename a series; every document in it keeps its position |
-| `site_review_get` | Comments submitted through the widget, each with the `context` its page carried |
+| `site_review_get` | Widget comments, their page context, and replies written in Loupe |
 | `site_review_mark_comment_addressed` | Mark a widget comment acted on, so the next `site_review_get` skips it |
 | `card_create` | Put a card on the project board (off by default — see below) |
-| `card_list` | Read a page of the board, filtered by status, type or priority, with the board's columns |
+| `card_list` | Read a page of the board, filtered by status, type or reporter, with the board's columns |
 | `board_columns` | List the board's columns, each with its slug, label, terminal flag and default flag |
 | `card_search` | Search every card's title and body by words, finished ones included |
 | `card_get` | Read one card, with the pull requests linked to it |
@@ -175,8 +179,8 @@ Four arguments narrow the list:
 - `search` matches full-text terms against every document's title and current
   content. Quotes and `OR` work as they do in a web search box. The rows come
   back by relevance instead of by recency.
-- `status` keeps one state: `in-review`, `approved` or `changes-requested`. An
-  unknown value is refused, and the error names the three.
+- `status` keeps one state: `draft`, `in-review`, `approved` or `changes-requested`. An
+  unknown value is refused, and the error names the accepted values.
 - `tag` keeps the documents that carry one tag. The match ignores case and
   surrounding spaces. Read `tag_list` for the project's vocabulary.
 - `series` keeps the documents in one series and orders them by their position
@@ -345,12 +349,12 @@ The `inbox_*` tools are behind the `inbox.enabled` feature flag, seeded
 the tools are absent from `tools/list` and from the Connect page, and a client
 that calls one anyway gets a plain refusal.
 
-An item is one question or one to-do for the project owner. An ask is the set of
+An item is one question, review request, or to-do for the project owner. An ask is the set of
 items that one agent session hands over at once. `inbox_ask` and `inbox_join`
 take a required `sessionId`, which a Claude Code session reads from
 `$CLAUDE_CODE_SESSION_ID`. One session holds at most one open ask, so a second
 `inbox_ask` from the same session adds its items to that ask. A question blocks
-by default and a to-do does not. An ask with no blocking item closes at once,
+by default; a to-do or review requires `blocking: true` to block. An ask with no blocking item closes at once,
 and its items stay open in the inbox.
 
 `inbox_list` and `inbox_get` take an optional `readerSessionId`. Pass your own
@@ -365,8 +369,22 @@ id there. The `sessionId` argument of `inbox_list` is a filter and never records
 a read, so filtering by another session's id leaves its answers unread.
 
 With `readerSessionId`, each `inbox_list` row also carries the response:
-`options`, `selectedOptions`, `answerText` and `closeNote`. Without it, a row is
+`options`, `selectedOptions`, `answerText`, `closeNote`, and `review`. Without it, a row is
 the short summary, and `inbox_get` reads the answer.
+
+Create a Review item with `kind: "review"` and exactly one `reviewDocumentId` or `reviewPullRequestId`.
+Read `pullRequestId` from `card_get`; it identifies a stored card link, not a code-host number.
+Review items take no question options, `multiple`, or `freeText`.
+The target document or PR card is linked automatically, alongside any context links you supply.
+
+`review` carries the target, verdict, note, reviewer, submission time, and reviewed document version.
+It is null for other item kinds. An unanswered review has a null verdict.
+`review.withdrawal` separately records a document verdict withdrawal without changing the completed answer.
+PR results stay in Loupe and do not submit a code-host review.
+
+`inbox_get` also returns `replies`, ordered from oldest to newest.
+Each reply contains `replyId`, `authorId`, `authorName`, `body`, and `createdAt`.
+Replies add context without changing the recorded answer or triggering another resume.
 
 Every card id and document id an item links to must belong to the token's
 project, or the call is refused. An item closes as `obsolete` when every card it

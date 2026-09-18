@@ -119,7 +119,7 @@ final class CompareDocumentVersionsControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
     }
 
-    public function test_one_version_against_itself_returns_to_the_history(): void
+    public function test_one_version_against_itself_shows_an_unchanged_comparison(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -130,7 +130,10 @@ final class CompareDocumentVersionsControllerTest extends WebTestCase
         $client->loginUser($owner);
         $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review/compare?from=2&to=2');
 
-        self::assertResponseRedirects('/projects/'.$projectId.'/documents/'.$id.'/review/history');
+        self::assertResponseRedirects('/projects/'.$projectId.'/documents/'.$id.'/review/diff/2/2');
+        $client->followRedirect();
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.lp-empty', 'identical');
     }
 
     /**

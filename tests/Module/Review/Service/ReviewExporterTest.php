@@ -22,7 +22,7 @@ final class ReviewExporterTest extends TestCase
         $project = new Project($reviewer, 'My project');
         $document = new Document($reviewer, $project, 'My doc');
         $version = $document->addVersion('# v1', '<h1>v1</h1>');
-        $review = new Review($version, Verdict::Approved, $reviewer);
+        $review = new Review($version, Verdict::Approved, $reviewer, note: 'Ready for implementation.');
 
         /** @var ReviewRepository&Stub $repo */
         $repo = $this->createStub(ReviewRepository::class);
@@ -34,6 +34,7 @@ final class ReviewExporterTest extends TestCase
         self::assertSame('My doc', $rows[0]['document']);
         self::assertSame(1, $rows[0]['versionNumber']);
         self::assertSame('approved', $rows[0]['verdict']);
+        self::assertSame('Ready for implementation.', $rows[0]['note']);
         self::assertArrayHasKey('submittedAt', $rows[0]);
         self::assertSame('reviews.json', new ReviewExporter($repo)->filename());
     }

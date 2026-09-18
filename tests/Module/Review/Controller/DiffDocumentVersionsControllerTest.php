@@ -385,13 +385,13 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         $rendered = $client->request(Request::METHOD_GET, $base);
         self::assertCount(3, $rendered->filter('.lp-diff-views__link'));
         self::assertSame(
-            'Document',
+            'Rendered',
             $rendered->filter('.lp-diff-views__link[aria-current]')->text(),
         );
         // Document, Markdown, Side by side. Markdown reads the same document and
         // sits next to it; the columns rebuild the page and go last.
         self::assertSame(
-            ['Document', 'Markdown', 'Side by side'],
+            ['Rendered', 'Markdown', 'Side by side'],
             $rendered->filter('.lp-diff-views__link')->each(
                 static fn (Crawler $link): string => $link->text(),
             ),
@@ -507,8 +507,8 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertCount(1, $latest->filter('[data-controller~="comment-anchor"]'));
         self::assertCount(1, $latest->filter('[data-comment-anchor-target="doc"]'));
         self::assertCount(1, $latest->filter('#comment-threads'));
-        self::assertCount(2, $latest->filter('.lp-topbar__actions button[name="submit_review_form[verdict]"]'));
-        self::assertCount(2, $latest->filter('.lp-review-menu button[name="submit_review_form[verdict]"]'));
+        self::assertCount(2, $latest->filter('dialog input[name="submit_review_form[verdict]"]'));
+        self::assertCount(1, $latest->filter('.lp-review-menu__verdict'));
         // Not an exact count: how many composers the review page offers is the
         // business of whatever review actions exist, and it has already grown from
         // one to two. What this control has to establish is that the selector
@@ -553,7 +553,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertGreaterThan(0, $diff->filter('.lp-comment-composer')->count());
 
         // Still a comparison: nothing that reports on a single version is offered.
-        self::assertCount(0, $diff->filter('button[name="submit_review_form[verdict]"]'));
+        self::assertCount(0, $diff->filter('input[name="submit_review_form[verdict]"]'));
 
         // Inserted text carries an offset. Deleted text carries none, which is
         // what lets the browser refuse a selection that touches it.
@@ -707,7 +707,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(0, $crawler->filter('.lp-diff-doc'));
-        self::assertCount(0, $crawler->filter('[data-controller~="diff-navigation"]'));
+        self::assertCount(1, $crawler->filter('[data-controller~="diff-navigation"]'));
         self::assertSelectorTextContains('.lp-empty', 'identical');
     }
 
@@ -813,8 +813,8 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         // The review page for the same document still reports approval state, so
         // the assertions above cannot pass by the panel having lost it outright.
         $latest = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
-        self::assertCount(1, $latest->filter('.lp-review-contents'));
-        self::assertCount(3, $latest->filter('.lp-review-contents .lp-review-contents__tick'));
+        self::assertCount(1, $latest->filter('[data-margin-panel="outline"]'));
+        self::assertCount(3, $latest->filter('[data-margin-panel="outline"] .lp-review-contents__tick'));
     }
 
     /**
@@ -947,7 +947,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         }
     }
 
-    public function test_a_diff_that_does_not_run_forwards_is_not_found(): void
+    public function test_backwards_and_missing_versions_are_refused_but_equal_versions_are_valid(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -972,7 +972,8 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(404);
 
         $client->request(Request::METHOD_GET, $base.'1/1');
-        self::assertResponseStatusCodeSame(404);
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.lp-empty', 'identical');
 
         $client->request(Request::METHOD_GET, $base.'1/9');
         self::assertResponseStatusCodeSame(404);
@@ -1074,7 +1075,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertSame('1', $spanning->filter('#diff-from option[selected]')->attr('value'));
     }
 
-    public function test_the_side_by_side_view_pairs_the_blocks_and_takes_no_comment(): void
+    public function test_the_side_by_side_view_pairs_blocks_and_accepts_current_version_comments(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -1109,9 +1110,10 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertSame(0, $cells->count() % 2);
         self::assertGreaterThan(0, $columns->filter('.lp-diff-columns__cell--void')->count());
 
-        // The rail is off and the page says so, and the block takes the width
-        // the rail leaves behind.
-        self::assertCount(0, $columns->filter('.lp-review-margin'));
+        self::assertCount(1, $columns->filter('.lp-review-margin'));
+        self::assertCount(1, $columns->filter('[data-comment-anchor-target="doc"]'));
+        self::assertCount(1, $columns->filter('[data-comment-anchor-diff-value="true"]'));
+        self::assertCount(0, $columns->filter('[data-diff-side="old"] [data-diff-offset]'));
         self::assertCount(1, $columns->filter('#diff-columns-notice'));
         self::assertCount(1, $columns->filter('.lp-review-block--wide'));
         self::assertCount(1, $columns->filter('.lp-review-doc--wide'));

@@ -3,7 +3,8 @@ title: "Data exports"
 description: "How a user requests their data, and what the download link guarantees."
 ---
 
-A user requests an export from `/account/exports`. The worker builds an archive
+A user requests an export from the Data section of their account settings, at
+`/account/data`. The worker builds an archive
 asynchronously and emails a download link; the link resolves at
 `/account/exports/{id}/download`.
 
@@ -24,6 +25,11 @@ archives and their rows. Like everything else on the schedule, it runs only if a
 worker is consuming.
 
 ## What the archive contains
+
+`comments.json` includes the user's comments and replies, including retained
+deleted threads. Each row carries `deletedAt`, which is the thread's deletion
+time or `null` for an active thread. Replies use their parent thread's deletion
+time. The export preserves comment text, anchors, and review status.
 
 The archive holds one file per kind of data. `audit_log.json` is one of them. It
 holds the audit records the user is the actor of, and the records that name the

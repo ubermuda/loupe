@@ -30,10 +30,10 @@ final class DataExportDispatchTest extends WebTestCase
         $em->flush();
 
         $client->loginUser($user);
-        $client->request(Request::METHOD_GET, '/account');
+        $client->request(Request::METHOD_GET, '/account/profile');
 
         $client->request(Request::METHOD_POST, '/account/exports', ['_csrf_token' => 'csrf-token']);
-        self::assertResponseRedirects('/account');
+        self::assertResponseRedirects('/account/data');
 
         /** @var InMemoryTransport $transport */
         $transport = static::getContainer()->get('messenger.transport.async');

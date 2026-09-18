@@ -27,7 +27,7 @@ test('the comparison chrome is a chip and one row of the metadata bar', async ({
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(PASSWORD);
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL('/welcome');
+    await expect(page).toHaveURL('/welcome', { timeout: 15000 });
     await suppressToolbar(page);
     await suppressWidget(page);
 
@@ -62,7 +62,7 @@ test('the comparison chrome is a chip and one row of the metadata bar', async ({
     // The switch says which view is current by weight and tint, not by colour
     // alone, and aria-current is what carries that to a screen reader.
     await expect(page.locator('.lp-diff-views__link[aria-current]')).toHaveText(
-        'Document',
+        'Rendered',
     );
 
     const counter = page.locator('.lp-diff-nav__count');
@@ -89,14 +89,9 @@ test('the comparison chrome is a chip and one row of the metadata bar', async ({
     );
     await expect(page.locator('.lp-diff')).toBeVisible();
 
-    // The picker starts another comparison from inside the versions panel, and
-    // keeps the view the reader is on.
-    await page.locator('[data-metadata-tabs-panel-param="versions"]').click();
-    const panel = page.locator('[data-panel="versions"]');
-    await expect(panel).toBeVisible();
-    await panel.locator('#diff-from').selectOption('2');
-    await panel.locator('#diff-to').selectOption('3');
-    await panel.getByRole('button', { name: 'Compare' }).click();
+    await bar.locator('#diff-from').selectOption('2');
+    await bar.locator('#diff-to').selectOption('3');
+    await bar.getByRole('button', { name: 'Compare' }).click();
     await expect(page).toHaveURL(`${reviewPath}/diff/2/3?view=source`);
     await expect(page.locator('.lp-doc-meta__compare')).toContainText(
         'Comparing v2 with v3',

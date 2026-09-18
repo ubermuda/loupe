@@ -114,8 +114,8 @@ final class CardSearchToolTest extends KernelTestCase
     public function test_a_title_match_outranks_a_body_match(): void
     {
         $this->boardWith('card-search-rank');
-        ($this->createTool)('Named in the body only', 'The gannet is mentioned here.', 'docs', 'low');
-        ($this->createTool)('Gannet tooling', 'Unrelated text.', 'tooling', 'low');
+        ($this->createTool)('Named in the body only', 'The gannet is mentioned here.', 'docs');
+        ($this->createTool)('Gannet tooling', 'Unrelated text.', 'tooling');
 
         $titles = array_column(($this->tool)('gannet')['cards'], 'title');
 
@@ -125,7 +125,7 @@ final class CardSearchToolTest extends KernelTestCase
     public function test_an_edited_body_is_reindexed(): void
     {
         $this->boardWith('card-search-reindex');
-        $card = ($this->createTool)('Nothing special', 'The body says albatross.', 'feature', 'low');
+        $card = ($this->createTool)('Nothing special', 'The body says albatross.', 'feature');
         // Guard: without this the assertions below also pass on a card that was
         // never indexed at all.
         self::assertSame(1, ($this->tool)('albatross')['total']);
@@ -139,7 +139,7 @@ final class CardSearchToolTest extends KernelTestCase
     public function test_an_edited_title_is_reindexed(): void
     {
         $this->boardWith('card-search-retitle');
-        $card = ($this->createTool)('Wombat handling', 'Body.', 'feature', 'low');
+        $card = ($this->createTool)('Wombat handling', 'Body.', 'feature');
         self::assertSame(1, ($this->tool)('wombat')['total']);
 
         ($this->updateTool)($card['cardId'], title: 'Capybara handling');
@@ -163,7 +163,7 @@ final class CardSearchToolTest extends KernelTestCase
         $row = ($this->tool)('mailpit')['cards'][0];
 
         self::assertSame(
-            ['cardId', 'number', 'title', 'type', 'priority', 'status', 'reporter', 'updatedAt'],
+            ['cardId', 'number', 'title', 'type', 'status', 'reporter', 'updatedAt'],
             array_keys($row),
         );
     }
@@ -171,9 +171,9 @@ final class CardSearchToolTest extends KernelTestCase
     public function test_a_page_is_cut_from_the_matches_and_total_counts_them_all(): void
     {
         $this->boardWith('card-search-paging');
-        ($this->createTool)('Otter one', 'Body.', 'feature', 'low');
-        ($this->createTool)('Otter two', 'Body.', 'feature', 'low');
-        ($this->createTool)('Otter three', 'Body.', 'feature', 'low');
+        ($this->createTool)('Otter one', 'Body.', 'feature');
+        ($this->createTool)('Otter two', 'Body.', 'feature');
+        ($this->createTool)('Otter three', 'Body.', 'feature');
 
         $first = ($this->tool)('otter', perPage: 2);
         $second = ($this->tool)('otter', page: 2, perPage: 2);
@@ -230,7 +230,7 @@ final class CardSearchToolTest extends KernelTestCase
         $this->em->flush();
         $this->actAsMcpTokenBoundTo($project);
 
-        $created = ($this->createTool)('Les cartes du tableau', 'Le corps parle de goeland.', 'feature', 'low');
+        $created = ($this->createTool)('Les cartes du tableau', 'Le corps parle de goeland.', 'feature');
 
         $cards = self::getContainer()->get(CardRepository::class);
         self::assertInstanceOf(CardRepository::class, $cards);
@@ -250,9 +250,9 @@ final class CardSearchToolTest extends KernelTestCase
         $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject($label));
 
-        ($this->createTool)('Give each worktree its own Mailpit', 'Two runs read one inbox.', 'tooling', 'high');
-        ($this->createTool)('Rotate the signing key', 'The kestrel host holds it.', 'security', 'high');
-        ($this->createTool)('Paginate the board', 'One page at a time.', 'feature', 'medium');
-        ($this->createTool)('Footer was fixed once already', 'A hedgehog sat on it.', 'bug', 'low', status: 'done');
+        ($this->createTool)('Give each worktree its own Mailpit', 'Two runs read one inbox.', 'tooling');
+        ($this->createTool)('Rotate the signing key', 'The kestrel host holds it.', 'security');
+        ($this->createTool)('Paginate the board', 'One page at a time.', 'feature');
+        ($this->createTool)('Footer was fixed once already', 'A hedgehog sat on it.', 'bug', status: 'done');
     }
 }

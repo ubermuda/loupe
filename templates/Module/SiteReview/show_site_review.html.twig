@@ -10,139 +10,135 @@
 
 {% block body %}
 {% set pendingCount = comments|filter(comment => comment.status.value == 'pending')|length %}
-<div class="lp-site-review-page">
-    <header class="lp-site-review-header">
-        <h1 class="lp-site-review-title">{{ 'site_review.page.title'|trans }}</h1>
-        <p class="lp-site-review-description">{{ 'site_review.page.description'|trans }}</p>
-        <p class="lp-site-review-meta-line">
-            {% if project.domain %}{{ project.domain }} · {% endif %}{{ 'site_review.page.comment_count'|trans({'%count%': comments|length}) }} · {{ 'site_review.page.pending_count'|trans({'%count%': pendingCount}) }}
-        </p>
+{% set cardLinks = is_feature_enabled('board.enabled') ? card_site_review_links(project) : [] %}
+{% set unlinkedCount = comments|filter(comment => cardLinks[comment.id ~ ''] is not defined)|length %}
+<div class="lp-workspace lp-site-feedback-page lp-core-prototype-page lp-core-site-review" data-controller="site-review-filter">
+    <header class="lp-page-header">
+        <div class="lp-page-header__copy"><h1 class="lp-workspace-title">{{ 'site_review.page.title'|trans }}</h1><p class="lp-workspace-desc">{{ 'site_review.page.description'|trans }}</p></div>
+        <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}"><twig:ux:icon name="lucide:code-xml" class="w-4 h-4" />{{ 'site_review.widget.setup'|trans }}</a>
     </header>
 
     {% if comments|length > 0 %}
-    <div class="lp-site-review-list">
-        {% for comment in comments %}
-            {% set isPending = comment.status.value == 'pending' %}
-            <article class="lp-site-review-item" data-comment-id="{{ comment.id }}" data-comment-status="{{ comment.status.value }}">
-                <span class="lp-site-review-index lp-site-review-index--{{ isPending ? 'pending' : 'ok' }}">{{ '%02d'|format(loop.index) }}</span>
-                <div class="lp-site-review-main">
-                    <div class="lp-site-review-title-row">
-                        {% set anchors = comment.anchors|filter(anchor => anchor.selector is not empty) %}
-                        {% set anchorCount = anchors|length %}
-                        <p class="lp-site-review-quote">
-                            {%- if anchorCount > 1 -%}
-                                {{ 'site_review.comment.element_count'|trans({'%count%': anchorCount}) }}
-                            {%- elseif anchorCount == 1 and anchors|first.text is not empty -%}
-                                &ldquo;{{ anchors|first.text }}&rdquo;
-                            {%- else -%}
-                                {{ 'site_review.comment.general_page'|trans }}
-                            {%- endif -%}
-                        </p>
-                        <span class="lp-status-chip lp-status-chip--{{ comment.status.value }} shrink-0">
-                            <span class="lp-status-chip__dot"></span>
-                            {{ ('site_review.comment.status.' ~ comment.status.value)|trans }}
-                        </span>
+    <section class="lp-feedback-receipt" aria-label="{{ 'site_review.receipt.title'|trans }}">
+        <span class="lp-source-avatar"><twig:ux:icon name="lucide:globe-2" class="w-4 h-4" /></span>
+        <div><h2>{{ 'site_review.receipt.title'|trans }}</h2><p>{{ 'site_review.receipt.description'|trans }}</p></div>
+        <span class="lp-status-chip lp-status-chip--pending">{{ 'site_review.page.pending_count'|trans({'%count%': pendingCount}) }}</span>
+    </section>
+
+    <div class="lp-site-review-scope" aria-label="{{ 'site_review.filter.scope_label'|trans }}">
+        <button type="button" class="lp-site-review-scope__item" aria-pressed="true" data-site-review-filter-target="scope" data-site-review-filter-scope-param="all" data-action="site-review-filter#setScope">
+            {{ 'site_review.filter.all'|trans }} <span>{{ comments|length }}</span>
+        </button>
+        <button type="button" class="lp-site-review-scope__item" aria-pressed="false" data-site-review-filter-target="scope" data-site-review-filter-scope-param="unlinked" data-action="site-review-filter#setScope">
+            {{ 'site_review.filter.needs_card'|trans }} <span>{{ unlinkedCount }}</span>
+        </button>
+    </div>
+    <div class="lp-site-review-toolbar">
+        <label class="lp-site-review-search">
+            <twig:ux:icon name="lucide:search" />
+            <span class="sr-only">{{ 'site_review.filter.search_label'|trans }}</span>
+            <input type="search" placeholder="{{ 'site_review.filter.search_placeholder'|trans }}" data-site-review-filter-target="query" data-action="input->site-review-filter#filter">
+        </label>
+        <label class="sr-only" for="site-review-status">{{ 'site_review.filter.status_label'|trans }}</label>
+        <select id="site-review-status" class="lp-input lp-select lp-site-review-status" data-site-review-filter-target="status" data-action="change->site-review-filter#filter">
+            <option value="all">{{ 'site_review.filter.status_all'|trans }}</option>
+            <option value="pending">{{ 'site_review.comment.status.pending'|trans }}</option>
+            <option value="addressed">{{ 'site_review.comment.status.addressed'|trans }}</option>
+            <option value="resolved">{{ 'site_review.comment.status.resolved'|trans }}</option>
+        </select>
+        <span class="lp-site-review-toolbar__summary">{{ 'site_review.filter.summary'|trans({'%pending%': pendingCount, '%total%': comments|length}) }}</span>
+    </div>
+
+    <div class="lp-feedback-workspace" data-controller="master-detail" data-master-detail-selected-value="{{ selectedFeedback }}">
+        <div class="lp-feedback-list" aria-label="{{ 'site_review.feedback.list'|trans }}">
+            <div class="lp-feedback-list__head"><span>{{ 'site_review.page.comment_count'|trans({'%count%': comments|length}) }}</span>{% if project.domain %}<span>{{ project.domain }}</span>{% endif %}</div>
+            {% for comment in comments %}
+            {% set anchors = comment.anchors|filter(anchor => anchor.selector is not empty) %}
+            <button type="button" class="lp-feedback-list__item" data-master-detail-target="trigger" data-master-detail-id="feedback-{{ comment.id }}" data-site-review-filter-target="row" data-status="{{ comment.status.value }}" data-linked="{{ cardLinks[comment.id ~ ''] is defined ? 'true' : 'false' }}" data-action="master-detail#select">
+                <span class="lp-feedback-list__meta">
+                    <span class="lp-site-review-index lp-site-review-index--{{ comment.status.value == 'pending' ? 'pending' : 'ok' }}">#{{ loop.index }}</span>
+                    <span class="lp-status-chip lp-status-chip--{{ comment.status.value }}">{{ ('site_review.comment.status.' ~ comment.status.value)|trans }}</span>
+                </span>
+                <span class="lp-feedback-list__copy">
+                    <strong>{{ anchors|length > 1 ? ('site_review.comment.element_count'|trans({'%count%': anchors|length})) : (anchors|length == 1 and anchors|first.text is not empty ? anchors|first.text : ('site_review.comment.general_page'|trans)) }}</strong>
+                    <span>{{ comment.body }}</span>
+                    <time datetime="{{ comment.createdAt|date('c') }}">{{ comment.createdAt|relative_time }}</time>
+                </span>
+            </button>
+            {% endfor %}
+        </div>
+
+        <div class="lp-feedback-detail">
+            {% for comment in comments %}
+            {% set anchors = comment.anchors|filter(anchor => anchor.selector is not empty) %}
+            <article class="lp-feedback-detail__panel" id="feedback-{{ comment.id }}" data-comment-id="{{ comment.id }}" data-comment-status="{{ comment.status.value }}" data-master-detail-target="panel" data-master-detail-id="feedback-{{ comment.id }}" data-site-review-filter-target="panel" hidden>
+                <header class="lp-feedback-detail__header"><div><p class="lp-feedback-detail__eyebrow">{{ 'site_review.source.widget'|trans }} · #{{ loop.index }}</p><h2>{{ 'site_review.feedback.original_message'|trans }}</h2></div><span class="lp-status-chip lp-status-chip--{{ comment.status.value }}">{{ ('site_review.comment.status.' ~ comment.status.value)|trans }}</span></header>
+                <p class="lp-site-review-quote">{{ anchors|length > 1 ? ('site_review.comment.element_count'|trans({'%count%': anchors|length})) : (anchors|length == 1 and anchors|first.text is not empty ? '“' ~ anchors|first.text ~ '”' : ('site_review.comment.general_page'|trans)) }}</p>
+                <blockquote class="lp-feedback-detail__message">{{ comment.body }}</blockquote>
+
+                <section class="lp-feedback-detail__section lp-site-review-selector">
+                    <h3>{{ 'site_review.feedback.source_page'|trans }}</h3>
+                    {% if comment.url starts with 'http://' or comment.url starts with 'https://' %}<a class="lp-site-review-context__url" href="{{ comment.url }}" target="_blank" rel="noopener noreferrer nofollow"><twig:ux:icon name="lucide:external-link" class="w-4 h-4" />{{ comment.url }}</a>{% else %}<code>{{ comment.url }}</code>{% endif %}
+                </section>
+
+                {% if cardLinks[comment.id ~ ''] is defined %}
+                {% set cardLink = cardLinks[comment.id ~ ''] %}
+                <section class="lp-feedback-detail__section">
+                    <h3>{{ 'site_review.feedback.linked_work'|trans }}</h3>
+                    <a class="lp-site-review-card-link" href="{{ path('app_board_card', {projectId: project.id, cardId: cardLink.card.id, tab: 'feedback'}) }}">
+                        <twig:ux:icon name="lucide:square-kanban" />
+                        <span>#{{ cardLink.card.number }} {{ cardLink.card.title }}</span>
+                        <twig:ux:icon name="lucide:chevron-right" />
+                    </a>
+                </section>
+                {% elseif is_feature_enabled('board.enabled') %}
+                {% set attachForm = site_review_attach_form(comment) %}
+                <section class="lp-feedback-detail__section">
+                    <h3>{{ 'site_review.attach.title'|trans }}</h3>
+                    {{ form_start(attachForm, {action: path('app_site_review_comment_attach', {projectId: project.id, commentId: comment.id}), attr: {class: 'lp-site-review-attach'}}) }}
+                        {{ form_label(attachForm.card, null, {label_attr: {class: 'sr-only'}}) }}
+                        {{ form_widget(attachForm.card, {attr: {class: 'lp-input lp-select'}}) }}
+                        <button type="submit" class="lp-btn">
+                            <twig:ux:icon name="lucide:link" class="w-4 h-4" />
+                            {{ 'site_review.attach.submit'|trans }}
+                        </button>
+                    {{ form_end(attachForm) }}
+                    <a class="lp-btn lp-btn--ghost" href="{{ path('app_board_card_create', {id: project.id, feedback: comment.id}) }}">
+                        <twig:ux:icon name="lucide:plus" class="w-4 h-4" />
+                        {{ 'site_review.create_card.submit'|trans }}
+                    </a>
+                </section>
+                {% endif %}
+
+                <section class="lp-feedback-detail__section">
+                    <h3>{{ 'site_review.feedback.captured_elements'|trans }}</h3>
+                    {% if anchors|length > 0 %}
+                    <div class="lp-feedback-anchors">
+                        {% for anchor in anchors %}<details class="lp-site-review-selector"><summary>{{ anchor.text is not empty ? anchor.text : ('site_review.comment.selector_numbered'|trans({'%number%': loop.index})) }}</summary><code>{{ anchor.selector }}</code></details>{% endfor %}
                     </div>
+                    {% else %}<p>{{ 'site_review.comment.general_page'|trans }}</p>{% endif %}
+                </section>
 
-
-                    <p class="lp-site-review-body">{{ comment.body }}</p>
-
-                    <div class="lp-site-review-context">
-                        {#
-                          The URL is as long as the selector and wanted just as
-                          rarely, so it collapses the same way rather than setting
-                          the width of every row.
-                        #}
-                        <details class="lp-site-review-selector" data-controller="disclosure">
-                            <summary class="lp-site-review-selector__summary" data-action="click->disclosure#toggle">
-                                <twig:ux:icon name="lucide:external-link" class="w-3.5 h-3.5 shrink-0" />
-                                <span>{{ 'site_review.comment.url'|trans }}</span>
-                            </summary>
-                            <div class="lp-site-review-selector__content" data-disclosure-target="content">
-                                {% if comment.url starts with 'http://' or comment.url starts with 'https://' %}
-                                <a class="lp-site-review-context__url" href="{{ comment.url }}" target="_blank" rel="noopener noreferrer">{{ comment.url }}</a>
-                                {% else %}
-                                <code>{{ comment.url }}</code>
-                                {% endif %}
-                            </div>
-                        </details>
-                        {#
-                          A CSS selector is long enough to dominate the row and is
-                          only of interest when someone goes looking for it, so it
-                          stays collapsed behind its icon.
-                        #}
-                        {% for anchor in anchors %}
-                        <details class="lp-site-review-selector" data-controller="disclosure">
-                            <summary class="lp-site-review-selector__summary" data-action="click->disclosure#toggle">
-                                <twig:ux:icon name="lucide:code-xml" class="w-3.5 h-3.5 shrink-0" />
-                                <span>
-                                    {%- if anchorCount > 1 -%}
-                                        {{ 'site_review.comment.selector_numbered'|trans({'%number%': loop.index}) }}
-                                    {%- else -%}
-                                        {{ 'site_review.comment.selector'|trans }}
-                                    {%- endif -%}
-                                </span>
-                            </summary>
-                            <div class="lp-site-review-selector__content" data-disclosure-target="content">
-                                {% if anchor.text is not empty %}<p>&ldquo;{{ anchor.text }}&rdquo;</p>{% endif %}
-                                <code>{{ anchor.selector }}</code>
-                            </div>
-                        </details>
-                        {% endfor %}
-                    </div>
-
-                    {#
-                      Agent replies would render here. SiteReviewComment has no reply
-                      field, and addressing only flips the status, so there is
-                      nothing to show.
-                    #}
-
-                    <div class="lp-site-review-actions">
-                        {% if comment.status.value != 'resolved' %}
-                        <form method="POST" action="{{ path('app_site_review_comment_resolve', {id: comment.id}) }}">
-                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}">
-                            <button type="submit" class="lp-btn lp-btn--inverse lp-btn--sm">{{ 'site_review.comment.action.resolve'|trans }}</button>
-                        </form>
-                        {% endif %}
-                        {% if comment.status.value != 'pending' %}
-                        <form method="POST" action="{{ path('app_site_review_comment_reopen', {id: comment.id}) }}">
-                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}">
-                            <button type="submit" class="lp-btn lp-btn--ghost lp-btn--sm">{{ 'site_review.comment.action.reopen'|trans }}</button>
-                        </form>
-                        {% endif %}
-                    </div>
-                </div>
+                <footer class="lp-feedback-detail__actions">
+                    {% if cardLinks[comment.id ~ ''] is defined %}
+                    <a class="lp-btn" href="{{ path('app_board_card', {projectId: project.id, cardId: cardLinks[comment.id ~ ''].card.id, tab: 'feedback'}) }}"><twig:ux:icon name="lucide:square-kanban" />{{ 'site_review.feedback.open_card'|trans({'%number%': cardLinks[comment.id ~ ''].card.number}) }}</a>
+                    {% endif %}
+                    {% if comment.status.value != 'resolved' %}<form method="POST" action="{{ path('app_site_review_comment_resolve', {id: comment.id}) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}"><button type="submit" class="lp-btn lp-btn--primary"><twig:ux:icon name="lucide:check" />{{ 'site_review.comment.action.resolve'|trans }}</button></form>{% endif %}
+                    {% if comment.status.value != 'pending' %}<form method="POST" action="{{ path('app_site_review_comment_reopen', {id: comment.id}) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}"><button type="submit" class="lp-btn lp-btn--ghost">{{ 'site_review.comment.action.reopen'|trans }}</button></form>{% endif %}
+                </footer>
+                <p class="lp-feedback-detail__source"><twig:ux:icon name="lucide:link-2" />{{ 'site_review.feedback.received'|trans }}</p>
+                {% include '@SiteReview/_replies.html.twig' with {comment: comment, replies: replies.forComment(comment), surface: 'site', refusedForm: refusedReply, action: path('app_site_review_comment_reply', {id: comment.id}), responseFrame: '_top'} only %}
             </article>
-        {% endfor %}
+            {% endfor %}
+            <div class="lp-site-review-no-results" data-site-review-filter-target="empty" hidden>{{ 'site_review.filter.empty'|trans }}</div>
+        </div>
     </div>
     {% elseif project.widgetToken is null %}
-    <div class="lp-empty-state">
-        <twig:ux:icon name="lucide:code-xml" class="lp-empty-state__icon w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ 'site_review.site.reviews.setup_title'|trans }}</h2>
-        <p class="lp-empty-state__body">{{ 'site_review.site.reviews.setup_body'|trans }}</p>
-        <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'site_review.site.reviews.setup_action'|trans }}</a>
-    </div>
+    <div class="lp-empty-state"><twig:ux:icon name="lucide:code-xml" class="lp-empty-state__icon w-12 h-12" /><h2 class="lp-empty-state__title">{{ 'site_review.site.reviews.setup_title'|trans }}</h2><p class="lp-empty-state__body">{{ 'site_review.site.reviews.setup_body'|trans }}</p><a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'site_review.site.reviews.setup_action'|trans }}</a></div>
     {% elseif project.widgetToken.lastUsedAt is null %}
-    {# The widget calls the review endpoint as it boots, and that call stamps the
-       token, so an unstamped token means the snippet has never run anywhere. #}
-    <div class="lp-empty-state">
-        <twig:ux:icon name="lucide:globe" class="lp-empty-state__icon w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ 'site_review.site.reviews.not_loaded_title'|trans }}</h2>
-        <p class="lp-empty-state__body">
-            {%- if project.domain -%}
-                {{ 'site_review.site.reviews.not_loaded_body'|trans({'%domain%': project.domain}) }}
-            {%- else -%}
-                {{ 'site_review.site.reviews.not_loaded_body_no_domain'|trans }}
-            {%- endif -%}
-        </p>
-        <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'site_review.site.reviews.not_loaded_action'|trans }}</a>
-    </div>
+    <div class="lp-empty-state"><twig:ux:icon name="lucide:globe" class="lp-empty-state__icon w-12 h-12" /><h2 class="lp-empty-state__title">{{ 'site_review.site.reviews.not_loaded_title'|trans }}</h2><p class="lp-empty-state__body">{{ project.domain ? ('site_review.site.reviews.not_loaded_body'|trans({'%domain%': project.domain})) : ('site_review.site.reviews.not_loaded_body_no_domain'|trans) }}</p><a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}">{{ 'site_review.site.reviews.not_loaded_action'|trans }}</a></div>
     {% else %}
-    <div class="lp-empty-state">
-        <twig:ux:icon name="lucide:message-square" class="lp-empty-state__icon w-12 h-12" />
-        <h2 class="lp-empty-state__title">{{ 'site_review.site.reviews.empty_title'|trans }}</h2>
-        <p class="lp-empty-state__body">{{ 'site_review.site.reviews.empty_body'|trans }}</p>
-    </div>
+    <div class="lp-empty-state"><twig:ux:icon name="lucide:message-square" class="lp-empty-state__icon w-12 h-12" /><h2 class="lp-empty-state__title">{{ 'site_review.site.reviews.empty_title'|trans }}</h2><p class="lp-empty-state__body">{{ 'site_review.site.reviews.empty_body'|trans }}</p></div>
     {% endif %}
 </div>
 {% endblock %}

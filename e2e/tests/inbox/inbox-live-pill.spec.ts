@@ -65,7 +65,7 @@ test('an answer in one browser lowers the pill in another without a reload', asy
     await editor.goto(`/projects/${projectId}/inbox`);
     const question = editor.locator(`#inbox-item-${questionNumber}`);
     await question.getByText('CSV', { exact: true }).click();
-    await question.getByRole('button', { name: 'Answer' }).click();
+    await question.getByRole('button', { name: 'Send answer' }).click();
     await expect(editor.locator('.lp-flash')).toContainText(
         `Item ${questionNumber} is answered.`,
     );
@@ -90,7 +90,7 @@ test('an answer in one browser lowers the pill in another without a reload', asy
     );
 
     const todo = editor.locator(`#inbox-item-${todoNumber}`);
-    await todo.getByRole('button', { name: 'Mark done' }).click();
+    await todo.getByRole('button', { name: 'Mark complete' }).click();
     // The editor's own pill reloads on the answer, and requests of one session
     // wait on its session lock, so this submit can queue behind that reload.
     await expect(editor.locator('.lp-flash')).toContainText(

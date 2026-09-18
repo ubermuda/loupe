@@ -13,7 +13,6 @@ use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\CardMoved;
@@ -76,9 +75,9 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
      */
     public function test_a_move_writes_the_payload_the_reader_decodes(): void
     {
-        $card = $this->card('Draggable', 'backlog', CardPriority::Low);
+        $card = $this->card('Draggable', 'backlog');
 
-        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'next'), CardPriority::Low, 0));
+        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'next'), 0));
 
         $row = $this->onlyRow();
         self::assertSame([
@@ -94,9 +93,9 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
 
     public function test_the_row_carries_the_type_and_the_topic(): void
     {
-        $card = $this->card('Routable', 'backlog', CardPriority::Low);
+        $card = $this->card('Routable', 'backlog');
 
-        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'in-progress'), CardPriority::Low));
+        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'in-progress')));
 
         $topics = self::getContainer()->get(ProjectTopicBuilder::class);
         self::assertInstanceOf(ProjectTopicBuilder::class, $topics);
@@ -111,7 +110,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
     /** The MCP tool builds this command, and it must write the same one row. */
     public function test_an_update_that_moves_the_card_writes_one_row(): void
     {
-        $card = $this->card('Promotable', 'backlog', CardPriority::Low);
+        $card = $this->card('Promotable', 'backlog');
 
         ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Agent, title: 'Promoted', column: $this->column($this->project, 'done')));
 
@@ -130,7 +129,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
     #[DataProvider('actors')]
     public function test_the_payload_names_the_actor_the_command_carries(CardReporter $actor): void
     {
-        $card = $this->card('Attributed', 'backlog', CardPriority::Low);
+        $card = $this->card('Attributed', 'backlog');
 
         ($this->updateCard)(new UpdateCardCommand(card: $card, actor: $actor, column: $this->column($this->project, 'next')));
 
@@ -147,9 +146,9 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
 
     public function test_a_move_back_to_the_backlog_is_published_like_any_other(): void
     {
-        $card = $this->card('Returnable', 'next', CardPriority::Low);
+        $card = $this->card('Returnable', 'next');
 
-        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'backlog'), CardPriority::Low));
+        ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'backlog')));
 
         self::assertSame('backlog', $this->decode($this->onlyRow())['toStatus']);
     }
@@ -167,12 +166,12 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
      */
     public function test_a_reorder_inside_one_column_is_published_with_both_ends_equal(): void
     {
-        $first = $this->card('Already first', 'next', CardPriority::Low);
-        $second = $this->card('Reorderable', 'next', CardPriority::Low);
+        $first = $this->card('Already first', 'next');
+        $second = $this->card('Reorderable', 'next');
         self::assertSame(0, $first->position);
         self::assertSame(1, $second->position);
 
-        ($this->moveCard)(new MoveCardCommand($second, CardReporter::Human, $this->column($this->project, 'next'), CardPriority::Low, 0));
+        ($this->moveCard)(new MoveCardCommand($second, CardReporter::Human, $this->column($this->project, 'next'), 0));
 
         self::assertSame(0, $second->position, 'the rank must really change, or this test proves nothing');
 
@@ -184,7 +183,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
 
     public function test_an_update_that_moves_nothing_writes_no_row(): void
     {
-        $card = $this->card('Editable', 'next', CardPriority::Low);
+        $card = $this->card('Editable', 'next');
 
         ($this->updateCard)(new UpdateCardCommand(card: $card, actor: CardReporter::Human, title: 'Renamed'));
 
@@ -198,7 +197,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
      */
     public function test_a_rolled_back_transaction_leaves_no_row(): void
     {
-        $card = $this->card('Doomed', 'backlog', CardPriority::Low);
+        $card = $this->card('Doomed', 'backlog');
         $cardId = (string) $card->id;
 
         $pending = null;
@@ -216,7 +215,7 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
         }, -10);
 
         try {
-            ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'next'), CardPriority::Low, 0));
+            ($this->moveCard)(new MoveCardCommand($card, CardReporter::Human, $this->column($this->project, 'next'), 0));
             self::fail('a failed transaction must propagate');
         } catch (\RuntimeException $e) {
             self::assertSame('the transaction failed after the move', $e->getMessage());
@@ -236,14 +235,13 @@ final class WriteOutboxEventOnCardMovedTest extends KernelTestCase
         self::assertSame('backlog', $connection->fetchOne('SELECT k.slug FROM board_cards c JOIN board_columns k ON k.id = c.column_id WHERE c.id = :id', ['id' => $cardId]));
     }
 
-    private function card(string $title, string $column, CardPriority $priority): Card
+    private function card(string $title, string $column): Card
     {
         return ($this->createCard)(new CreateCardCommand(
             project: $this->project,
             title: $title,
             body: 'Body',
             type: CardType::Bug,
-            priority: $priority,
             column: $this->column($this->project, $column),
             reporter: CardReporter::Agent,
         ));

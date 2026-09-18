@@ -58,12 +58,12 @@ final class UndoVerdictHandlerTest extends KernelTestCase
 
         /** @var SubmitReviewHandler $submit */
         $submit = self::getContainer()->get(SubmitReviewHandler::class);
-        $approval = $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::Approved->value));
+        $approval = $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::Approved->value, 1));
         self::assertSame(DocumentStatus::Approved, $doc->status);
 
         /** @var UndoVerdictHandler $undo */
         $undo = self::getContainer()->get(UndoVerdictHandler::class);
-        $withdrawal = $undo(new UndoVerdictCommand(document: $doc, actor: $reviewer));
+        $withdrawal = $undo(new UndoVerdictCommand(document: $doc, actor: $reviewer, reviewId: (string) $approval->id));
 
         self::assertSame(Verdict::Withdrawn, $withdrawal->verdict);
         self::assertSame($reviewer, $withdrawal->reviewer, 'The log records who withdrew it');
@@ -147,9 +147,9 @@ final class UndoVerdictHandlerTest extends KernelTestCase
         /** @var UndoVerdictHandler $undo */
         $undo = self::getContainer()->get(UndoVerdictHandler::class);
 
-        $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::Approved->value));
-        $undo(new UndoVerdictCommand(document: $doc, actor: $reviewer));
-        $second = $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::ChangesRequested->value));
+        $approval = $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::Approved->value, 1));
+        $withdrawal = $undo(new UndoVerdictCommand(document: $doc, actor: $reviewer, reviewId: (string) $approval->id));
+        $second = $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::ChangesRequested->value, 1, 'Explain the retry behaviour.', (string) $withdrawal->id));
 
         self::assertSame(DocumentStatus::ChangesRequested, $doc->status);
         self::assertSame(3, $second->sequence, 'The third row in the log, not a replacement for the first');
@@ -172,14 +172,14 @@ final class UndoVerdictHandlerTest extends KernelTestCase
 
         /** @var SubmitReviewHandler $submit */
         $submit = self::getContainer()->get(SubmitReviewHandler::class);
-        $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::Approved->value));
+        $approval = $submit(new SubmitReviewCommand($reviewer, $doc, Verdict::Approved->value, 1));
 
         /** @var UndoVerdictHandler $undo */
         $undo = self::getContainer()->get(UndoVerdictHandler::class);
-        $undo(new UndoVerdictCommand(document: $doc, actor: $reviewer));
+        $undo(new UndoVerdictCommand(document: $doc, actor: $reviewer, reviewId: (string) $approval->id));
 
         try {
-            $undo(new UndoVerdictCommand(document: $doc, actor: $reviewer));
+            $undo(new UndoVerdictCommand(document: $doc, actor: $reviewer, reviewId: (string) $approval->id));
             self::fail('There is nothing to withdraw once the verdict already is');
         } catch (DomainErrors $e) {
             self::assertContains('review.document.flash.verdict_already_withdrawn', $e->errors);
@@ -199,7 +199,7 @@ final class UndoVerdictHandlerTest extends KernelTestCase
         $undo = self::getContainer()->get(UndoVerdictHandler::class);
 
         try {
-            $undo(new UndoVerdictCommand(document: $doc, actor: $reviewer));
+            $undo(new UndoVerdictCommand(document: $doc, actor: $reviewer, reviewId: Uuid::v7()->toRfc4122()));
             self::fail('Undoing a verdict that was never given must be rejected');
         } catch (DomainErrors $e) {
             self::assertContains('review.document.flash.verdict_none', $e->errors);

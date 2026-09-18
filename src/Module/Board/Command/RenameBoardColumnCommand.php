@@ -13,6 +13,7 @@ final readonly class RenameBoardColumnCommand
         public BoardColumn $column,
         public CardReporter $actor,
         public string $label,
+        public string $expectedLabel,
     ) {
     }
 }

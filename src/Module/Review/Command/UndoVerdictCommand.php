@@ -14,6 +14,7 @@ final readonly class UndoVerdictCommand
         // Who withdrew it. The withdrawal is a row in the verdict log like any
         // other, and a log entry with no author answers half the question.
         public User $actor,
+        public string $reviewId,
     ) {
     }
 }

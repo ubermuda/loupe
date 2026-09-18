@@ -34,6 +34,16 @@ final class SideBySideDiffBuilderTest extends TestCase
         self::assertStringContainsString('The rollout takes one step.', (string) $rows[0]->oldHtml);
     }
 
+    public function test_only_the_new_side_keeps_current_version_offsets(): void
+    {
+        $rows = $this->pair('<p><span data-diff-offset="0">Keep this text.</span></p>');
+
+        self::assertCount(1, $rows);
+        self::assertStringNotContainsString('data-diff-offset', (string) $rows[0]->oldHtml);
+        self::assertStringContainsString('data-diff-offset="0"', (string) $rows[0]->newHtml);
+        self::assertSame(strip_tags((string) $rows[0]->oldHtml), strip_tags((string) $rows[0]->newHtml));
+    }
+
     public function test_a_removed_block_leaves_the_new_side_empty(): void
     {
         $rows = $this->pair(\sprintf('<del class="%s"><p>The risk section.</p></del>', self::DELETED));

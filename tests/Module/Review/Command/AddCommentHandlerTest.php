@@ -11,6 +11,8 @@ use App\Module\Review\Command\AddCommentCommand;
 use App\Module\Review\Command\AddCommentHandler;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
+use App\Module\Review\Command\ReviseDocumentCommand;
+use App\Module\Review\Command\ReviseDocumentHandler;
 use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Entity\Document;
@@ -26,6 +28,33 @@ use Ubermuda\AuditBundle\AuditOutcome;
 
 final class AddCommentHandlerTest extends KernelTestCase
 {
+    public function test_stale_annotations_are_rejected_even_when_the_quote_survives(): void
+    {
+        $document = $this->seedDocument('stale-annotations', "# Title\n\nUnchanged passage.");
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $revise = self::getContainer()->get(ReviseDocumentHandler::class);
+        self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
+        $revise(new ReviseDocumentCommand($document, "# Title\n\nUnchanged passage.\n\nAdded paragraph.", 'Added context'));
+        $handler = self::getContainer()->get(AddCommentHandler::class);
+        self::assertInstanceOf(AddCommentHandler::class, $handler);
+
+        foreach ([[null, null], ['Unchanged passage.', null], ['Unchanged passage.', ''], ['Unchanged passage.', 'New wording.']] as [$quote, $replacement]) {
+            try {
+                $handler(new AddCommentCommand($document->owner, $document, 1, $quote, '', '', 'Draft', $replacement));
+                self::fail('A stale annotation must not move to the latest version.');
+            } catch (DomainErrors $error) {
+                self::assertSame(['versionNumber' => 'review.document.comment.error.stale_version'], $error->errors);
+            }
+            self::assertTrue($em->isOpen());
+        }
+
+        self::assertSame(0, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM comments'));
+        $comment = $handler(new AddCommentCommand($document->owner, $document, 2, 'Unchanged passage.', '', '', 'Current draft'));
+        self::assertSame(2, $comment->version->versionNumber);
+        self::assertFalse($comment->orphaned);
+    }
+
     public function test_creates_comment_on_current_version_with_resolved_anchor(): void
     {
         self::bootKernel();
@@ -49,7 +78,7 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         /** @var AddCommentHandler $handler */
         $handler = self::getContainer()->get(AddCommentHandler::class);
-        $comment = $handler(new AddCommentCommand($owner, $doc, $quote, '', '', 'Great point!'));
+        $comment = $handler(new AddCommentCommand($owner, $doc, 1, $quote, '', '', 'Great point!'));
 
         self::assertInstanceOf(Comment::class, $comment);
         self::assertSame($version, $comment->version);
@@ -95,7 +124,7 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         /** @var AddCommentHandler $handler */
         $handler = self::getContainer()->get(AddCommentHandler::class);
-        $comment = $handler(new AddCommentCommand($owner, $doc, 'JWTs', '', '', 'Why JWTs?'));
+        $comment = $handler(new AddCommentCommand($owner, $doc, 1, 'JWTs', '', '', 'Why JWTs?'));
 
         // The stored anchor quote must be exactly the selected phrase, not a slice of raw HTML
         self::assertSame('JWTs', $comment->anchor->quote, 'Anchor quote must match the plain-text selection, not a raw-HTML slice');
@@ -118,7 +147,7 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         /** @var AddCommentHandler $handler */
         $handler = self::getContainer()->get(AddCommentHandler::class);
-        $comment = $handler(new AddCommentCommand($owner, $doc, null, null, null, 'A general note'));
+        $comment = $handler(new AddCommentCommand($owner, $doc, 1, null, null, null, 'A general note'));
 
         self::assertSame('', $comment->anchor->quote, 'unanchored comment has no quote');
         self::assertSame('', $comment->anchor->prefix);
@@ -146,7 +175,7 @@ final class AddCommentHandlerTest extends KernelTestCase
         // another tab between selection and submit).
         /** @var AddCommentHandler $handler */
         $handler = self::getContainer()->get(AddCommentHandler::class);
-        $comment = $handler(new AddCommentCommand($owner, $doc, 'this text does not exist anywhere', 'before ', ' after', 'Stale selection'));
+        $comment = $handler(new AddCommentCommand($owner, $doc, 1, 'this text does not exist anywhere', 'before ', ' after', 'Stale selection'));
 
         self::assertTrue($comment->orphaned, 'a comment whose quote cannot be located must be marked orphaned, not anchored at offset 0');
         self::assertSame('this text does not exist anywhere', $comment->anchor->quote);
@@ -173,7 +202,7 @@ final class AddCommentHandlerTest extends KernelTestCase
         $handler = self::getContainer()->get(AddCommentHandler::class);
 
         $this->expectException(DomainErrors::class);
-        $handler(new AddCommentCommand($nonOwner, $doc, 'Confidential', '', '', 'I should not comment here'));
+        $handler(new AddCommentCommand($nonOwner, $doc, 1, 'Confidential', '', '', 'I should not comment here'));
     }
 
     public function test_boundary_whitespace_survives_the_form_into_the_stored_anchor(): void
@@ -210,7 +239,7 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         /** @var AddCommentHandler $handler */
         $handler = self::getContainer()->get(AddCommentHandler::class);
-        $comment = $handler(new AddCommentCommand($owner, $doc, $captured->quote, $captured->prefix, $captured->suffix, $captured->body ?? ''));
+        $comment = $handler(new AddCommentCommand($owner, $doc, 1, $captured->quote, $captured->prefix, $captured->suffix, $captured->body ?? ''));
 
         self::assertSame($captured->prefix, $comment->anchor->prefix);
         self::assertSame($captured->suffix, $comment->anchor->suffix);
@@ -249,7 +278,7 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         /** @var AddCommentHandler $handler */
         $handler = self::getContainer()->get(AddCommentHandler::class);
-        $comment = $handler(new AddCommentCommand($owner, $doc, $captured->quote, $captured->prefix, $captured->suffix, $captured->body ?? ''));
+        $comment = $handler(new AddCommentCommand($owner, $doc, 1, $captured->quote, $captured->prefix, $captured->suffix, $captured->body ?? ''));
 
         self::assertFalse($comment->orphaned);
         self::assertSame($second, $comment->anchor->offsetHint, 'the captured context must win over earliest-position');
@@ -261,7 +290,7 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         /** @var AddCommentHandler $handler */
         $handler = self::getContainer()->get(AddCommentHandler::class);
-        $comment = $handler(new AddCommentCommand($doc->owner, $doc, 'should go away', '', '', '', ''));
+        $comment = $handler(new AddCommentCommand($doc->owner, $doc, 1, 'should go away', '', '', '', ''));
 
         self::assertSame('', $comment->replacement);
         self::assertTrue($comment->isStrike);
@@ -275,7 +304,7 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         /** @var AddCommentHandler $handler */
         $handler = self::getContainer()->get(AddCommentHandler::class);
-        $comment = $handler(new AddCommentCommand($doc->owner, $doc, 'utilise', '', '', 'Plainer word.', 'use'));
+        $comment = $handler(new AddCommentCommand($doc->owner, $doc, 1, 'utilise', '', '', 'Plainer word.', 'use'));
 
         self::assertSame('use', $comment->replacement);
         self::assertTrue($comment->isSuggestion);
@@ -288,7 +317,7 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         /** @var AddCommentHandler $handler */
         $handler = self::getContainer()->get(AddCommentHandler::class);
-        $comment = $handler(new AddCommentCommand($doc->owner, $doc, 'worth discussing', '', '', 'Is it?'));
+        $comment = $handler(new AddCommentCommand($doc->owner, $doc, 1, 'worth discussing', '', '', 'Is it?'));
 
         self::assertNull($comment->replacement);
         self::assertFalse($comment->isSuggestion);
@@ -303,7 +332,7 @@ final class AddCommentHandlerTest extends KernelTestCase
         $handler = self::getContainer()->get(AddCommentHandler::class);
 
         $this->expectException(DomainErrors::class);
-        $handler(new AddCommentCommand($doc->owner, $doc, null, null, null, '', ''));
+        $handler(new AddCommentCommand($doc->owner, $doc, 1, null, null, null, '', ''));
     }
 
     private function seedDocument(string $username, string $markdown): Document
@@ -335,7 +364,7 @@ final class AddCommentHandlerTest extends KernelTestCase
         self::assertInstanceOf(FormFactoryInterface::class, $formFactory);
 
         $form = $formFactory->create(AddCommentFormType::class, new AddCommentRequest(), ['csrf_protection' => false]);
-        $form->submit($fields);
+        $form->submit(['versionNumber' => '1', ...$fields]);
         self::assertTrue($form->isValid(), 'the captured anchor must pass validation');
 
         $data = $form->getData();
@@ -353,7 +382,7 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         $handler = self::getContainer()->get(AddCommentHandler::class);
         self::assertInstanceOf(AddCommentHandler::class, $handler);
-        $comment = $handler(new AddCommentCommand($owner, $document, 'body text here', '', '', 'Great point!'));
+        $comment = $handler(new AddCommentCommand($owner, $document, 1, 'body text here', '', '', 'Great point!'));
 
         $record = $audit->record('review.comment_added');
         self::assertSame(AuditOutcome::Success, $record->outcome);
@@ -383,7 +412,7 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         $handler = self::getContainer()->get(AddCommentHandler::class);
         self::assertInstanceOf(AddCommentHandler::class, $handler);
-        $handler(new AddCommentCommand($owner, $document, 'body text here', '', '', 'Ask Dana about this', 'Dana Okafor'));
+        $handler(new AddCommentCommand($owner, $document, 1, 'body text here', '', '', 'Ask Dana about this', 'Dana Okafor'));
 
         $context = $audit->record('review.comment_added')->context;
         self::assertTrue($context['suggested']);
@@ -402,7 +431,7 @@ final class AddCommentHandlerTest extends KernelTestCase
 
         $handler = self::getContainer()->get(AddCommentHandler::class);
         self::assertInstanceOf(AddCommentHandler::class, $handler);
-        $handler(new AddCommentCommand($owner, $document, 'nowhere in this document', '', '', 'stale'));
+        $handler(new AddCommentCommand($owner, $document, 1, 'nowhere in this document', '', '', 'stale'));
 
         self::assertTrue($audit->record('review.comment_added')->context['orphaned']);
     }
@@ -424,7 +453,7 @@ final class AddCommentHandlerTest extends KernelTestCase
         self::assertInstanceOf(AddCommentHandler::class, $handler);
 
         try {
-            $handler(new AddCommentCommand($stranger, $document, null, null, null, 'not mine'));
+            $handler(new AddCommentCommand($stranger, $document, 1, null, null, null, 'not mine'));
             self::fail('a non-owner must be rejected');
         } catch (DomainErrors) {
         }

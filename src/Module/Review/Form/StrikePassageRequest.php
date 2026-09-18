@@ -13,6 +13,10 @@ use Symfony\Component\Validator\Constraints as Assert;
 class StrikePassageRequest
 {
     public function __construct(
+        #[Assert\NotNull]
+        #[Assert\Positive]
+        public ?int $versionNumber = null,
+
         // Length caps mirror AddCommentRequest: prefix/suffix are VARCHAR(255)
         // columns on the Anchor value object, so an oversized hand-crafted POST
         // must fail validation rather than 500 on a driver exception.

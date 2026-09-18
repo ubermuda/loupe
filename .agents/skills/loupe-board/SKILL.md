@@ -6,7 +6,7 @@ description: "Use when working a project board in the Loupe app through the loup
 # Working a Loupe board
 
 Each project in Loupe has one board, and each board has its own columns. A card
-carries a title, a Markdown body, a type, a priority, a status and a reporter.
+carries a title, a Markdown body, a type, a status and a reporter.
 The status is the slug of the column the card sits in.
 
 The tools act on the project your token is bound to. An instance can switch the
@@ -54,10 +54,10 @@ When no column fits a role, leave the card where it is and tell the owner.
 |---|---|
 | `board_columns` | Read the columns of the board, in board order. |
 | `card_create` | Put a new card on the board. It lands in the default column unless you pass `status`. |
-| `card_list` | Read one page of the board, with its columns. Filter by `status`, `type` or `priority`. A terminal column reads newest completion first, and every other column reads highest priority first. |
+| `card_list` | Read one page of the board, with its columns. Filter by `status`, `type` or `reporter`. A terminal column reads newest completion first, and every other column reads in rank order. |
 | `card_search` | Ask whether a card about something already exists. It reads the title and the body of every card, done ones included. |
 | `card_get` | Read one card, with its full Markdown body, its pull request links, its linked documents and the site-review comments pointing at it. |
-| `card_update` | Change a card. A field you leave out keeps the value it has. A new status or priority puts the card at the end of the column it arrives in. |
+| `card_update` | Change a card. A field you leave out keeps the value it has. A new status puts the card at the end of the column it arrives in. |
 
 `card_get` and `card_update` take a `cardId`, which you read from `card_list`,
 `card_search` or `card_create`.
@@ -78,7 +78,7 @@ The search covers done cards. "Yes, and it is already done" is a true answer to
 "is there a card about this?", and it is the one a list of open cards hides.
 
 It pages the way `card_list` does, with `page`, `perPage`, `total` and
-`hasMore`, and `perPage` holds 25 rows by default. A row is the same eight-field
+`hasMore`, and `perPage` holds 25 rows by default. A row is the same seven-field
 summary, best match first, so call `card_get` for a body.
 
 ## `card_list` pages, and its rows are summaries
@@ -91,8 +91,8 @@ The answer carries `page`, `perPage`, `total` and `hasMore`. `total` counts
 every card the filters match, not the cards on the page. Keep reading while
 `hasMore` is true.
 
-A row carries eight fields: `cardId`, `number`, `title`, `type`, `priority`,
-`status`, `reporter` and `updatedAt`. It carries no body and no links.
+A row carries seven fields: `cardId`, `number`, `title`, `type`, `status`,
+`reporter` and `updatedAt`. It carries no body and no links.
 
 Pass `full` to get the whole card on every row, with its Markdown body, its pull
 request links, its documents and its site-review comments. A full page is much
@@ -122,9 +122,6 @@ takes the same `commentId`, rather than by editing the card.
 - `tooling`: the development environment, the gates, the scripts, the build
 - `docs`: documentation-only work
 - `idea`: long-horizon thinking, with no commitment yet
-
-They also take a `priority` of `high`, `medium` or `low`. Write the name, never
-a number.
 
 There is no delete tool. You finish a card by moving it to a terminal column,
 which stamps its completion time. A move between two terminal columns keeps the
@@ -255,8 +252,8 @@ column the card enters.
 
 - An event that no rule matches starts nothing. No bridge running means no
   worker starts.
-- A move that keeps the card in its column, such as a new rank or a new
-  priority, starts nothing.
+- A move that keeps the card in its column, such as a new rank, starts
+  nothing.
 - A card that `card_create` puts in a column writes no move event, so it starts
   nothing.
 - Your own move starts a worker when a rule watches the column you move the

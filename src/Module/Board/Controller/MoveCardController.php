@@ -79,7 +79,6 @@ final class MoveCardController extends AppController
                 card: $card,
                 actor: CardReporter::Human,
                 column: $data->column ?? throw new \LogicException('column required after validation'),
-                priority: $data->priority ?? throw new \LogicException('priority required after validation'),
                 position: $data->position,
             ));
         } catch (DomainErrors $e) {

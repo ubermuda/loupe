@@ -25,5 +25,5 @@
        send them back to the rendered one. #}
     {% if viewValue is not null and viewValue != 'rendered' %}<input type="hidden" name="view" value="{{ viewValue }}">{% endif %}
 
-    <button type="submit" class="lp-btn lp-btn--sm">{{ 'review.document.diff.picker.submit'|trans }}</button>
+    <button type="submit" class="lp-btn">{{ 'review.document.diff.picker.submit'|trans }}</button>
 </form>

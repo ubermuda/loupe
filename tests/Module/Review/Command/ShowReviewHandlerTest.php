@@ -111,7 +111,7 @@ final class ShowReviewHandlerTest extends KernelTestCase
             parent: $rootComment,
         );
 
-        $review = new Review($version, Verdict::ChangesRequested, $this->owner);
+        $review = new Review($version, Verdict::ChangesRequested, $this->owner, note: 'Explain the retry behaviour.');
 
         $this->em->persist($doc);
         $this->em->persist($rootComment);
@@ -123,6 +123,7 @@ final class ShowReviewHandlerTest extends KernelTestCase
 
         self::assertSame('in-review', $result['status']);
         self::assertSame('changes-requested', $result['verdict']);
+        self::assertSame('Explain the retry behaviour.', $result['note']);
         self::assertSame(1, $result['version']);
 
         $comments = $result['comments'];
@@ -473,7 +474,7 @@ final class ShowReviewHandlerTest extends KernelTestCase
         $select = self::getContainer()->get(SelectDecisionOptionHandler::class);
         self::assertInstanceOf(SelectDecisionOptionHandler::class, $select);
         $select(new SelectDecisionOptionCommand($doc, 'ship-with', 0, displayedVersionNumber: 1));
-        $select(new SelectDecisionOptionCommand($doc, 'ship-with', 2, displayedVersionNumber: 1));
+        $select(new SelectDecisionOptionCommand($doc, 'ship-with', 2, displayedVersionNumber: 1, expectedOptionIndexes: [0]));
 
         $decision = ($this->getReview)(new ShowReviewCommand($doc))['decisions'][0];
 
@@ -506,7 +507,7 @@ final class ShowReviewHandlerTest extends KernelTestCase
         $select = self::getContainer()->get(SelectDecisionOptionHandler::class);
         self::assertInstanceOf(SelectDecisionOptionHandler::class, $select);
         $select(new SelectDecisionOptionCommand($doc, 'ship-with', 0, displayedVersionNumber: 1));
-        $select(new SelectDecisionOptionCommand($doc, 'ship-with', 1, displayedVersionNumber: 1));
+        $select(new SelectDecisionOptionCommand($doc, 'ship-with', 1, displayedVersionNumber: 1, expectedOptionIndexes: [0]));
 
         $revise = self::getContainer()->get(ReviseDocumentHandler::class);
         self::assertInstanceOf(ReviseDocumentHandler::class, $revise);

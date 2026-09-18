@@ -22,6 +22,12 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
     name: 'app_project_board',
     methods: ['GET'],
 )]
+#[Route(
+    '/projects/{id:project}/settings/columns',
+    name: 'app_board_settings',
+    defaults: ['boardSettings' => true],
+    methods: ['GET'],
+)]
 final class ShowBoardController extends AppController
 {
     public function __construct(
@@ -35,10 +41,11 @@ final class ShowBoardController extends AppController
     {
         $this->board->requireEnabled();
 
-        return $this->render('@Board/show_board.html.twig', [
+        return $this->render($request->attributes->getBoolean('boardSettings') ? '@Board/show_board_settings.html.twig' : '@Board/show_board.html.twig', [
             'board' => ($this->showBoard)(new ShowBoardCommand($project)),
             'addColumnForm' => $this->getInjectedFormView($request, 'addColumnForm'),
             'renameColumnForm' => $this->getInjectedFormView($request, 'renameColumnForm'),
+            'configureColumnForm' => $this->getInjectedFormView($request, 'configureColumnForm'),
             'boardTopic' => $this->topics->forBoard($project->id ?? throw new \LogicException('Project has no id.')),
         ]);
     }

@@ -8,6 +8,7 @@ use App\Module\Review\Entity\Document;
 
 final readonly class SelectDecisionOptionCommand
 {
+    /** @param list<int> $expectedOptionIndexes */
     public function __construct(
         public Document $document,
         public string $decisionId,
@@ -19,6 +20,7 @@ final readonly class SelectDecisionOptionCommand
          * it, because a radio is always chosen by the click that posts it.
          */
         public bool $chosen = true,
+        public array $expectedOptionIndexes = [],
     ) {
     }
 }

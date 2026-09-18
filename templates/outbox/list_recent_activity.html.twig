@@ -1,0 +1,20 @@
+<turbo-frame id="recent-activity-frame" target="_top">
+    {% if entries is empty %}
+    <p class="lp-dialog-desc">{{ 'activity.empty.title'|trans }}</p>
+    {% else %}
+    <div class="lp-feed">
+        {% for entry in entries %}
+        {% set event = entry.event %}
+        {% set family = event.type|split('.')|first %}
+        <article class="lp-feed__item" data-activity-event-id="{{ event.id }}">
+            <span class="lp-feed__icon">{% include 'outbox/_event_family_icon.html.twig' with {family: family == 'review' ? 'document' : family} only %}</span>
+            <div class="lp-feed__body">
+                <strong class="lp-feed__title">{% include 'outbox/_event_type_label.html.twig' with {type: event.type} only %}</strong>
+                {% if entry.link %}<a class="lp-feed__link" href="{{ entry.link.url }}">{{ entry.link.label }}</a>{% endif %}
+            </div>
+            <time class="lp-feed__time" datetime="{{ event.createdAt|date('c') }}">{{ event.createdAt|relative_time }}</time>
+        </article>
+        {% endfor %}
+    </div>
+    {% endif %}
+</turbo-frame>

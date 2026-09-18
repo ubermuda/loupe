@@ -34,14 +34,14 @@ test('requesting a data export emails a working download link', async ({
         EXPORT_SUBJECT,
     );
 
-    await page.goto('/account');
+    await page.goto('/account/data');
     await expect(page.locator('[data-testid="export-section"]')).toBeVisible();
 
     await page
         .locator('[data-testid="export-section"]')
         .getByRole('button', { name: 'Request export' })
         .click();
-    await expect(page).toHaveURL('/account');
+    await expect(page).toHaveURL('/account/data');
     await expect(page.locator('.lp-flash--success')).toBeVisible();
 
     // The fixture's own registration step already sent a "Confirm your

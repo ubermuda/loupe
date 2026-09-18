@@ -1,0 +1,18 @@
+<turbo-stream action="replace" target="comment-threads">
+    <template>
+        {% include '@Review/_comment_threads.html.twig' with {comments: comments} only %}
+    </template>
+</turbo-stream>
+<turbo-stream action="update" target="comment-recovery">
+    <template>
+        {% set recoveryForm = comment_recovery_form(deletedComment, 'restore') %}
+        <div class="lp-thread-recovery">
+            <p>{{ 'review.deleted_threads.deleted'|trans }}</p>
+            {{ form_start(recoveryForm) }}
+                {{ form_widget(recoveryForm.deletionSequence, {type: 'hidden'}) }}
+                <button type="submit" class="lp-btn">{{ 'review.deleted_threads.undo'|trans }}</button>
+            {{ form_end(recoveryForm) }}
+            <a class="lp-btn lp-btn--ghost" href="{{ path('app_document_deleted_threads', {projectId: deletedComment.version.document.project.id, documentId: deletedComment.version.document.id}) }}">{{ 'review.deleted_threads.title'|trans }}</a>
+        </div>
+    </template>
+</turbo-stream>

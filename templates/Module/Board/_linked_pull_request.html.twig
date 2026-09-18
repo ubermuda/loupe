@@ -1,0 +1,10 @@
+{% set href = safe_pull_request_url(link.url) %}
+<tr class="lp-card-pulls__item" data-linked-pull-request="{{ link.id }}">
+    <td>
+        <span class="lp-inbox-linked-table__type"><twig:ux:icon name="lucide:git-pull-request" class="w-4 h-4" />{{ 'board.card.link.pull_request'|trans }}</span>
+        <strong>{{ link.repository ? link.repository ~ ' #' ~ link.number : link.url }}</strong>
+        {% if not href %}<p class="lp-inbox-linked-table__note">{{ 'board.card.pull_requests.not_linkable'|trans }}</p>{% endif %}
+    </td>
+    <td><span class="lp-tag">{{ (href ? 'board.card.link.status_not_reported' : 'board.card.link.status_unavailable')|trans }}</span></td>
+    <td>{% if href %}<a class="lp-btn lp-btn--ghost lp-btn--open" href="{{ href }}" rel="noopener noreferrer" target="_blank" aria-label="{{ 'board.card.link.open_pull_request'|trans }}"><span class="lp-btn__label">{{ 'inbox.linked_items.open'|trans }}</span><twig:ux:icon name="lucide:chevron-right" class="w-4 h-4" /></a>{% endif %}</td>
+</tr>

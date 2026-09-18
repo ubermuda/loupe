@@ -2,23 +2,32 @@
    Props: card (Card), pendingComments (int). #}
 <article class="lp-board-card"
          data-board-drag-target="card"
+         data-board-filter-target="card"
          data-action="pointerdown->board-drag#press"
          data-card-id="{{ card.id }}"
          data-card-title="{{ card.title }}">
     <span class="lp-board-card__grip" aria-hidden="true">
         <twig:ux:icon name="lucide:grip-vertical" class="w-4 h-4" />
     </span>
+    {# The identifier and the card's type lead the card face, as the design draws
+       them. The number is the handle a person quotes. #}
+    <div class="lp-board-card__identity">
+        <span class="lp-board-card__number">#{{ card.number }}</span>
+        <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>
+    </div>
     {# draggable="false" stops the browser's own link drag taking the gesture. #}
     <a class="lp-board-card__title"
        draggable="false"
-       href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}">
-        {# The per-project number is the handle a person quotes, so it reads
-           beside the title rather than instead of it. #}
-        <span class="lp-board-card__number">#{{ card.number }}</span>
+       href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}"
+       data-turbo-frame="card-drawer-frame"
+       data-action="click->card-drawer#prepare">
         {{ card.title }}
     </a>
+    {% if card.body|trim is not empty %}
+    <p class="lp-board-card__excerpt">{{ card.body|striptags|slice(0, 110) }}{% if card.body|length > 110 %}…{% endif %}</p>
+    {% endif %}
+    {% if pendingComments > 0 or card.pullRequests|length > 0 or card.documents|length > 0 %}
     <div class="lp-board-card__meta">
-        <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>
         {% if pendingComments > 0 %}
         <span class="lp-board-card__reviews" title="{{ 'board.card.site_review.count'|trans({'%count%': pendingComments}) }}">
             <twig:ux:icon name="lucide:message-square" class="w-3.5 h-3.5 shrink-0" />
@@ -31,7 +40,14 @@
             {{ card.pullRequests|length }}
         </span>
         {% endif %}
+        {% if card.documents|length > 0 %}
+        <span class="lp-board-card__documents" title="{{ 'board.card.documents.count'|trans({'%count%': card.documents|length}) }}">
+            <twig:ux:icon name="lucide:file-text" class="w-3.5 h-3.5 shrink-0" />
+            {{ card.documents|length }}
+        </span>
+        {% endif %}
     </div>
+    {% endif %}
     {# Dragging is the only interaction a card face offers. These fields carry
        no controls: the drag controller fills them and submits, which keeps
        Turbo and the CSRF controller in the path. The same form is on the card
@@ -43,7 +59,6 @@
           data-board-drag-target="moveForm">
         {{ form_widget(moveForm._token) }}
         {{ form_widget(moveForm.column) }}
-        {{ form_widget(moveForm.priority) }}
         {{ form_widget(moveForm.position) }}
     </form>
 </article>

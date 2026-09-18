@@ -43,6 +43,8 @@ final class CommentExporterTest extends TestCase
         self::assertSame(1, $rows[1]['versionNumber']);
         self::assertSame('reply body', $rows[1]['body']);
         self::assertSame('resolved', $rows[0]['status']);
+        self::assertNull($rows[0]['deletedAt']);
+        self::assertNull($rows[1]['deletedAt']);
         self::assertSame('resolved', $rows[1]['status'], 'A reply row reports the status of its thread');
         self::assertFalse($rows[1]['orphaned']);
         self::assertSame([
@@ -52,6 +54,15 @@ final class CommentExporterTest extends TestCase
             'offsetHint' => 4,
         ], $rows[1]['anchor']);
         self::assertSame('comments.json', new CommentExporter($repo)->filename());
+
+        $parent->deletedAt = new \DateTimeImmutable('2026-09-16T20:00:00+00:00');
+        $retainedRows = iterator_to_array(new CommentExporter($repo)->export($author));
+
+        self::assertSame('2026-09-16T20:00:00+00:00', $retainedRows[0]['deletedAt']);
+        self::assertSame($retainedRows[0]['deletedAt'], $retainedRows[1]['deletedAt']);
+        self::assertSame('parent body', $retainedRows[0]['body']);
+        self::assertSame('reply body', $retainedRows[1]['body']);
+        self::assertSame('resolved', $retainedRows[1]['status']);
     }
 
     public function test_export_keeps_a_strike_distinguishable_from_a_plain_comment(): void

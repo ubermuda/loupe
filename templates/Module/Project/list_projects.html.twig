@@ -9,21 +9,33 @@
 {% endblock %}
 
 {% block body %}
-<div class="lp-workspace">
-    <h1 class="lp-workspace-title">{{ 'project.list.page.title'|trans }}</h1>
+<div class="lp-workspace lp-redesign-secondary lp-redesign-projects" data-controller="disclosure">
+    <header class="lp-page-header">
+        <div class="lp-page-header__copy">
+            <h1 class="lp-workspace-title">{{ 'project.list.page.title'|trans }}</h1>
+            <p class="lp-workspace-desc">{{ 'project.list.page.description'|trans }}</p>
+        </div>
+        <button type="button" class="lp-btn lp-btn--primary" data-action="disclosure#toggle"
+                data-disclosure-target="trigger" aria-controls="new-project-panel"
+                aria-expanded="{{ form.vars.submitted and not form.vars.valid ? 'true' : 'false' }}">
+            <twig:ux:icon name="lucide:plus" class="w-4 h-4" />
+            {{ 'project.list.new'|trans }}
+        </button>
+    </header>
 
-    <div class="lp-project-list">
+    <div class="lp-project-list lp-project-tile-grid">
         {% for item in items %}
         {% set project = item.project %}
-        <div class="lp-project-row" data-project-id="{{ project.id }}">
-            <a href="{{ path('app_project_documents', {id: project.id}) }}"
+        <article class="lp-project-row lp-project-tile" data-project-id="{{ project.id }}">
+            <a href="{{ path('app_project_workshop', {id: project.id}) }}"
                class="lp-project-row__link" aria-label="{{ project.name }}"></a>
-            <span class="avatar site lp-project-row__avatar">{{ project.name|slice(0, 1)|upper }}</span>
+            <span class="lp-project-row__avatar">{{ project.name|slice(0, 1)|upper }}</span>
             <div class="lp-project-row__main">
                 <div class="lp-project-row__head">
                     <span class="lp-project-row__name">{{ project.name }}</span>
                     {% if project.domain %}<span class="lp-project-row__domain">{{ project.domain }}</span>{% endif %}
                 </div>
+                {% if project.description is not null %}<p class="lp-project-row__description">{{ project.description }}</p>{% endif %}
                 <div class="lp-project-row__meta">
                     <span>{{ 'project.list.meta.documents'|trans({'%count%': item.documentCount}) }}</span>
                     <span class="lp-project-row__sep">·</span>
@@ -45,22 +57,30 @@
                aria-label="{{ 'project.list.edit'|trans({'%name%': project.name}) }}">
                 <twig:ux:icon name="lucide:pencil" class="w-4 h-4" />
             </a>
-        </div>
+            <twig:ux:icon name="lucide:chevron-right" class="lp-project-tile__arrow" />
+        </article>
         {% endfor %}
 
         <div class="lp-project-new{% if form.vars.submitted and not form.vars.valid %} disclosure-open{% endif %}"
-             data-controller="disclosure">
-            <button type="button" class="lp-project-new__toggle" data-action="disclosure#toggle">
+             data-disclosure-target="container">
+            <button type="button" class="lp-project-new__toggle" data-action="disclosure#toggle"
+                    data-disclosure-target="trigger" aria-controls="new-project-panel"
+                    aria-expanded="{{ form.vars.submitted and not form.vars.valid ? 'true' : 'false' }}">
                 <span class="lp-project-new__plus"><twig:ux:icon name="lucide:plus" /></span>
                 <span class="lp-project-new__label">{{ 'project.list.new'|trans }}</span>
             </button>
             <div class="lp-project-new__panel{% if form.vars.submitted and not form.vars.valid %} open{% endif %}"
-                 data-disclosure-target="content">
+                 id="new-project-panel" data-disclosure-target="content">
                 {{ form_start(form, {'action': path('app_project_create', {page: page}), 'method': 'POST', 'attr': {'class': 'lp-form'}}) }}
                     <div class="lp-form-field">
                         {{ form_label(form.name, null, {'label_attr': {'class': 'lp-label'}}) }}
                         {{ form_widget(form.name, {'attr': {'class': 'lp-input', 'data-disclosure-target': 'autofocus'}}) }}
                         <div class="lp-field-errors">{{ form_errors(form.name) }}</div>
+                    </div>
+                    <div class="lp-form-field">
+                        {{ form_label(form.description, null, {'label_attr': {'class': 'lp-label'}}) }}
+                        {{ form_widget(form.description, {'attr': {'class': 'lp-input'}}) }}
+                        <div class="lp-field-errors">{{ form_errors(form.description) }}</div>
                     </div>
                     <div class="lp-form-field">
                         {{ form_label(form.domain, null, {'label_attr': {'class': 'lp-label'}}) }}

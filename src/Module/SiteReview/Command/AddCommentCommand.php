@@ -20,6 +20,7 @@ final readonly class AddCommentCommand
         public array $anchors = [],
         public array $strokes = [],
         public ?string $context = null,
+        public ?string $deliveryId = null,
     ) {
     }
 }

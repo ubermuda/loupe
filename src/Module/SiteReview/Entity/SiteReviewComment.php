@@ -16,6 +16,7 @@ use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: SiteReviewCommentRepository::class)]
 #[ORM\Table(name: 'site_review_comments')]
+#[ORM\UniqueConstraint(columns: ['project_id', 'delivery_id'])]
 class SiteReviewComment implements ProjectScopedSubject
 {
     #[ORM\Column(type: UuidType::NAME, unique: true)]
@@ -84,6 +85,12 @@ class SiteReviewComment implements ProjectScopedSubject
 
         #[ORM\Column]
         public readonly \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
+
+        #[ORM\Column(type: UuidType::NAME, nullable: true)]
+        public readonly ?Uuid $deliveryId = null,
+
+        #[ORM\Column(length: 64, nullable: true)]
+        public readonly ?string $deliveryHash = null,
     ) {
         $this->anchors = new ArrayCollection();
     }

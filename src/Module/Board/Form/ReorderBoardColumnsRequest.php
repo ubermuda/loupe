@@ -12,6 +12,7 @@ class ReorderBoardColumnsRequest
         /** Every column id of the board, comma-separated, in the new order. */
         #[Assert\NotBlank]
         public ?string $order = null,
+        public ?string $expectedOrder = null,
     ) {
     }
 }

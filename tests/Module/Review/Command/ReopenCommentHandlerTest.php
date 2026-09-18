@@ -49,7 +49,7 @@ final class ReopenCommentHandlerTest extends KernelTestCase
         /** @var AddCommentHandler $addHandler */
         $addHandler = self::getContainer()->get(AddCommentHandler::class);
 
-        return $addHandler(new AddCommentCommand($owner, $doc, 'will be resolved', '', '', 'This needs resolving'));
+        return $addHandler(new AddCommentCommand($owner, $doc, 1, 'will be resolved', '', '', 'This needs resolving'));
     }
 
     public function test_a_resolved_thread_goes_back_to_pending(): void
@@ -206,7 +206,7 @@ final class ReopenCommentHandlerTest extends KernelTestCase
 
         $add = self::getContainer()->get(AddCommentHandler::class);
         self::assertInstanceOf(AddCommentHandler::class, $add);
-        $comment = $add(new AddCommentCommand($owner, $document, 'content to comment', '', '', 'Root comment'));
+        $comment = $add(new AddCommentCommand($owner, $document, 1, 'content to comment', '', '', 'Root comment'));
 
         return [$owner, $document, $comment];
     }

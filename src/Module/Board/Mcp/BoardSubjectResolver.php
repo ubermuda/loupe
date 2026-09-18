@@ -7,7 +7,6 @@ namespace App\Module\Board\Mcp;
 use App\Mcp\ResolvesBoundProject;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
@@ -107,18 +106,6 @@ final readonly class BoardSubjectResolver
     public function optionalType(?string $type): ?CardType
     {
         return null === $type ? null : $this->requireType($type);
-    }
-
-    /** Named rather than numbered: the backing integers exist for the board's ORDER BY. */
-    public function requirePriority(string $priority): CardPriority
-    {
-        return CardPriority::fromName($priority)
-            ?? throw new ToolCallException(\sprintf('Unknown priority "%s". Use one of: %s.', $priority, implode(', ', CardPriority::names())));
-    }
-
-    public function optionalPriority(?string $priority): ?CardPriority
-    {
-        return null === $priority ? null : $this->requirePriority($priority);
     }
 
     /** Reads every value, so a filter reaches the reviewer cards the widget wrote. */

@@ -70,19 +70,10 @@
             {% endif %}
             {% if showVerdict %}
             <hr class="lp-review-menu__rule">
-            <form method="POST" action="{{ path('app_document_review_submit', {projectId: document.project.id, documentId: document.id}) }}">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token('submit-review') }}">
-                <button type="submit" name="submit_review_form[verdict]" value="changes-requested"
-                        class="lp-btn lp-btn--outline lp-review-menu__verdict"
-                        data-action="click->review-menu#close">
-                    {{ 'review.document.verdict.request_changes'|trans }}
-                </button>
-                <button type="submit" name="submit_review_form[verdict]" value="approved"
-                        class="lp-btn lp-btn--primary lp-review-menu__verdict"
-                        data-action="click->review-menu#close">
-                    {{ 'review.document.verdict.approve'|trans }}
-                </button>
-            </form>
+            <button type="button" class="lp-btn lp-btn--primary lp-review-menu__verdict"
+                    data-action="click->review-menu#close click->modal#open">
+                {{ 'review.document.finish.title'|trans }}
+            </button>
             {% endif %}
         </div>
 

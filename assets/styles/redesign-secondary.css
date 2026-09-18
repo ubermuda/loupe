@@ -1,0 +1,261 @@
+@layer components {
+    /* Crew cards separate bridge health, runtime, and last contact. */
+    .lp-redesign-agents .lp-agent-grid {
+        @apply gap-5 mt-7;
+        grid-template-columns: repeat(
+            auto-fill,
+            minmax(min(100%, var(--container-xs)), 1fr)
+        );
+    }
+    .lp-redesign-agents .lp-agent-card {
+        @apply block overflow-hidden rounded-xl border border-line bg-surface-1 p-0;
+    }
+    .lp-agent-card__art {
+        @apply relative flex h-48 items-end justify-center bg-accent-faint text-accent-ink;
+    }
+    .lp-agent-card__art > svg {
+        @apply h-28 w-28 mb-6 stroke-1;
+    }
+    .lp-agent-card__art .lp-status-chip {
+        @apply absolute left-4 top-4 bg-white;
+    }
+    .lp-redesign-agents .lp-agent-card__body {
+        @apply p-5;
+    }
+    .lp-redesign-agents .lp-agent-card__name {
+        @apply text-xl break-all;
+    }
+    .lp-redesign-agents .lp-agent-card__purpose {
+        @apply min-h-11 my-2 mb-4 text-sm;
+    }
+    .lp-agent-card__current {
+        @apply grid gap-1 rounded-lg bg-surface-2 p-3 text-xs text-fg-mute;
+    }
+    .lp-agent-card__current strong {
+        @apply text-sm font-semibold text-accent-ink;
+    }
+    .lp-redesign-agents .lp-agent-card footer {
+        @apply mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-xs text-fg-dim break-all;
+    }
+    .lp-redesign-agents .lp-btn {
+        @apply max-w-full whitespace-normal leading-5;
+    }
+
+    /* Handoff rows use the same event-to-worker visual flow as the prototype. */
+    .lp-redesign-rules .lp-rule-list {
+        @apply gap-3 mt-7;
+    }
+    .lp-redesign-rules .lp-filter-primary .lp-btn--icon {
+        @apply shrink-0;
+    }
+    .lp-redesign-rules .lp-rule-row {
+        @apply flex-col lg:flex-row items-stretch lg:items-center gap-5 rounded-xl bg-surface-1 px-5 py-4;
+    }
+    .lp-redesign-rules .lp-rule-row__main {
+        @apply w-full min-w-0 break-words;
+    }
+    .lp-redesign-rules .lp-rule-row__heading {
+        @apply flex-wrap gap-2;
+    }
+    .lp-rule-row__glyph {
+        @apply h-5 w-5 shrink-0 text-accent-ink;
+    }
+    .lp-redesign-rules .lp-rule-row__heading h2 {
+        @apply min-w-0 text-sm font-bold break-all;
+    }
+    .lp-redesign-rules .lp-rule-row__main > p {
+        @apply text-xs;
+    }
+    .lp-redesign-rules .lp-rule-flow {
+        @apply mt-3;
+    }
+    .lp-redesign-rules .lp-rule-flow span {
+        @apply min-w-0 max-w-full rounded-md border border-line bg-app px-2.5 py-2 text-xs break-all;
+    }
+    .lp-redesign-rules .lp-rule-flow svg {
+        @apply shrink-0;
+    }
+    .lp-rule-row__report {
+        @apply flex w-full lg:w-auto shrink-0 items-center justify-end gap-3 text-xs text-fg-dim;
+    }
+    .lp-rule-explanation {
+        @apply mt-5 flex items-start gap-2 text-xs leading-relaxed text-fg-mute;
+    }
+    .lp-rule-explanation svg {
+        @apply mt-0.5 h-4 w-4 shrink-0;
+    }
+
+    /* Run history reads as a dense table while preserving expandable output. */
+    .lp-redesign-runs .lp-list-filters {
+        @apply mt-6 rounded-t-xl border border-b-0 border-line bg-surface-1 px-4 py-3;
+    }
+    .lp-redesign-runs .lp-filter-form > .lp-filter-select {
+        @apply max-w-full;
+    }
+    .lp-redesign-runs .lp-worker-run-list {
+        @apply gap-0 overflow-x-auto rounded-xl border border-line bg-surface-1;
+    }
+    .lp-redesign-runs .lp-list-filters + .lp-worker-run-list {
+        @apply rounded-t-none;
+    }
+    .lp-redesign-runs .lp-worker-run-list__header {
+        @apply grid min-w-4xl grid-cols-5 gap-4 border-b border-line bg-app px-5 py-3 text-xs font-semibold uppercase tracking-wider text-fg-dim;
+    }
+    .lp-redesign-runs .lp-worker-run {
+        @apply min-w-4xl rounded-none border-b border-line bg-white px-5 py-4 last:border-b-0;
+    }
+    .lp-redesign-runs .lp-worker-run__table-row {
+        @apply grid grid-cols-5 gap-4;
+    }
+    .lp-redesign-runs .lp-worker-run__table-row .lp-status-chip {
+        @apply self-start justify-self-start;
+    }
+    .lp-redesign-runs .lp-worker-run__work {
+        @apply flex min-w-0 flex-col gap-1;
+    }
+    .lp-redesign-runs .lp-worker-run__rule {
+        @apply min-w-0 break-all text-xs;
+    }
+    .lp-redesign-runs .lp-worker-run__bridge {
+        @apply m-0 text-xs text-fg-dim;
+    }
+    .lp-redesign-runs .lp-worker-run__duration,
+    .lp-redesign-runs .lp-worker-run__table-row time {
+        @apply text-xs text-fg-dim;
+    }
+    .lp-redesign-runs .lp-worker-run__duration small {
+        @apply mt-1 block;
+    }
+    .lp-redesign-runs .lp-worker-run__output-disclosure {
+        @apply mt-1;
+    }
+
+    /* Activity uses a compact chronological feed, not a second run table. */
+    .lp-activity-header-actions {
+        @apply flex flex-wrap items-center gap-2;
+    }
+    .lp-redesign-activity .lp-activity-feed {
+        @apply gap-0 overflow-hidden rounded-xl border border-line bg-surface-1;
+    }
+    .lp-redesign-activity .lp-activity-row {
+        @apply rounded-none border-0 border-b border-line bg-white px-5 py-4 last:border-b-0;
+    }
+    .lp-redesign-activity .lp-activity-row__icon {
+        @apply h-9 w-9 rounded-lg bg-accent-faint text-accent-ink;
+    }
+    .lp-redesign-activity .lp-activity-row__heading h2 {
+        @apply max-w-full break-words;
+    }
+
+    /* Project choices use the prototype's three-column destination tiles. */
+    .lp-project-list.lp-project-tile-grid {
+        @apply grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5;
+    }
+    .lp-project-tile-grid .lp-project-tile {
+        @apply min-h-64 flex-col items-start rounded-xl border border-line bg-white p-6;
+    }
+    .lp-project-tile-grid .lp-project-row__avatar {
+        @apply h-11 w-11 rounded-lg mb-4 text-lg;
+    }
+    .lp-project-tile-grid .lp-project-row__main {
+        @apply w-full;
+    }
+    .lp-project-tile-grid .lp-project-row__head {
+        @apply flex-col items-start gap-1;
+    }
+    .lp-project-tile-grid .lp-project-row__name {
+        @apply max-w-full break-words whitespace-normal text-xl;
+    }
+    .lp-project-tile-grid .lp-project-row__meta {
+        @apply mt-5 flex-wrap border-t border-line pt-4 text-xs;
+    }
+    .lp-project-tile-grid .lp-project-row__edit {
+        @apply absolute right-4 top-4;
+    }
+    .lp-project-tile__arrow {
+        @apply absolute bottom-5 right-5 h-4 w-4 text-fg-dim;
+    }
+    .lp-project-tile-grid .lp-project-new {
+        @apply min-h-64 justify-center rounded-xl border border-dashed border-line-strong bg-accent-faint p-6;
+    }
+    .lp-project-tile-grid .lp-project-new__toggle {
+        @apply flex-col self-center p-0;
+    }
+
+    /* Settings pages keep section navigation beside narrow paper panels. */
+    .lp-redesign-settings .lp-settings-layout {
+        @apply grid grid-cols-1 gap-8;
+    }
+    .lp-redesign-settings .lp-settings-content {
+        @apply max-w-none;
+    }
+    .lp-settings-panel-card {
+        @apply rounded-xl border border-line bg-white p-6;
+    }
+    .lp-redesign-settings .lp-danger-zone,
+    .lp-redesign-settings .lp-settings-section + .lp-settings-section {
+        @apply mt-5;
+    }
+    .lp-redesign-settings .lp-btn {
+        @apply max-w-full whitespace-normal leading-5;
+    }
+    .lp-settings-form-actions {
+        @apply flex flex-wrap items-center justify-end gap-3 pt-2;
+    }
+    .lp-settings-columns {
+        @apply my-6 flex list-none flex-col gap-2 p-0;
+    }
+    .lp-settings-column {
+        @apply flex flex-wrap items-center gap-2 rounded-lg border border-line p-3;
+    }
+    .lp-settings-column__name {
+        @apply min-w-0 flex-1 basis-32 break-words;
+    }
+    .lp-settings-column__name h3 {
+        @apply m-0 font-sans text-xs font-semibold tracking-normal;
+    }
+    .lp-settings-column__name code {
+        @apply text-xs text-fg-mute;
+    }
+    /* Holds an absent row action's place, so each action keeps its column. */
+    .lp-settings-column__slot {
+        @apply w-9 h-9 shrink-0;
+    }
+    @media (width >= 64rem) {
+        .lp-redesign-settings .lp-settings-layout {
+            grid-template-columns: 11.25rem minmax(0, 46.25rem);
+            column-gap: 2.125rem;
+        }
+        .lp-redesign-settings .lp-settings-content {
+            grid-column: 2;
+        }
+    }
+    .lp-redesign-settings:has(.lp-settings-layout--columns) {
+        @apply @container;
+    }
+    .lp-redesign-settings .lp-settings-layout--columns {
+        @apply grid-cols-1;
+    }
+    .lp-settings-layout--columns .lp-settings-nav {
+        @apply flex-row;
+    }
+    .lp-redesign-settings .lp-settings-layout--columns .lp-settings-content {
+        @apply col-start-1 col-span-1 p-4;
+    }
+    .lp-settings-layout--columns .lp-btn svg {
+        @apply shrink-0;
+    }
+    @container (min-width: 48rem) {
+        .lp-redesign-settings .lp-settings-layout--columns {
+            grid-template-columns: calc(var(--spacing) * 44) minmax(0, 1fr);
+        }
+        .lp-settings-layout--columns .lp-settings-nav {
+            @apply flex-col;
+        }
+        .lp-redesign-settings
+            .lp-settings-layout--columns
+            .lp-settings-content {
+            @apply col-start-2 p-6;
+        }
+    }
+}

@@ -7,6 +7,8 @@
    single Tailwind pass. The primitive classes it deliberately leaves to the
    consuming app are defined near the bottom of this file. */
 @import '../../vendor/ubermuda/admin-bundle/assets/admin.css';
+@import './redesign-core.css' layer(components);
+@import './redesign-secondary.css';
 
 /* ── Content sources for Tailwind v4 ──────────────────────────────── */
 
@@ -74,10 +76,9 @@
 }
 
 @font-face {
-    font-family: 'Bricolage Grotesque';
-    src: url('../fonts/BricolageGrotesque-latin.woff2') format('woff2');
+    font-family: 'Manrope';
+    src: url('../fonts/Manrope-latin.woff2') format('woff2');
     font-weight: 200 800;
-    font-stretch: 100%;
     font-style: normal;
     font-display: swap;
     unicode-range:
@@ -87,10 +88,9 @@
 }
 
 @font-face {
-    font-family: 'Bricolage Grotesque';
-    src: url('../fonts/BricolageGrotesque-latin-ext.woff2') format('woff2');
+    font-family: 'Manrope';
+    src: url('../fonts/Manrope-latin-ext.woff2') format('woff2');
     font-weight: 200 800;
-    font-stretch: 100%;
     font-style: normal;
     font-display: swap;
     unicode-range:
@@ -106,7 +106,7 @@
     --font-sans:
         'DM Sans', ui-sans-serif, -apple-system, BlinkMacSystemFont, system-ui,
         sans-serif;
-    --font-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'Manrope', ui-sans-serif, system-ui, sans-serif;
     --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
     /* Colors — semantic palette */
@@ -116,6 +116,11 @@
     --color-sunken: var(--bg-sunken);
     --color-tint: var(--bg-hover);
     --color-tint-strong: var(--bg-active);
+    --color-warm: var(--bg-warm);
+    --color-field: var(--field);
+    --color-line-field: var(--border-field);
+    --color-label: var(--label);
+    --color-line-warm: var(--border-warm);
     --color-surface-1: var(--surface-1);
     --color-surface-2: var(--surface-2);
     --color-surface-3: var(--surface-3);
@@ -148,9 +153,6 @@
     --color-chrome-dim: var(--chrome-dim);
     --color-switcher-hover: var(--switcher-hover-border);
 
-    /* Long-form document prose — faintly cool where the rest of the ink is
-       warm, which is what keeps a 640px column of body text from reading as
-       brown. */
     --color-prose: var(--prose);
 
     /* Status ladder — pending (amber) / ok (green) trios */
@@ -178,18 +180,15 @@
 
     --color-danger: var(--status-danger);
 
-    /* Shadows — the only three the design allows: selection toolbar (dark
-       floating pill), floating composer, and the active-card focus ring.
-       The fourth is the landing page's comic balloon, which is a hard offset
-       rather than a blur and belongs to nothing else. */
+    /* Shadows — reserved for surfaces that float above the page: the selection
+       toolbar, the floating composer, and menus and overlays (`--shadow-card`).
+       `--shadow-focus` is the halo for a selected surface. The comic balloon is
+       a hard offset rather than a blur and belongs to the landing page alone. */
     --shadow-comic: 6px 6px 0 var(--accent);
     --shadow-toolbar: 0 6px 20px rgba(15, 15, 13, 0.25);
     --shadow-composer: 0 10px 34px rgba(15, 15, 13, 0.22);
     --shadow-card: 0 8px 26px rgba(15, 15, 13, 0.18);
     --shadow-focus: 0 0 0 3px var(--accent-faint);
-
-    /* Animations */
-    --animate-spin-fast: spin 0.7s linear infinite;
 }
 
 /* ── Design tokens ──────────────────────────────────────────────────── */
@@ -198,51 +197,56 @@
     /* Accent (chartreuse). Deliberately not lime-400: the handoff maps it there
        only to honour its own named-Tailwind-token rule, and says the prototype
        wins wherever the two disagree. lime-400 is visibly greener. */
-    --accent: #c4d600;
-    --accent-hover: #b0c000;
+    --accent: #d4e94c;
+    --accent-hover: #c4dc32;
     /* Highlight — the open-comment anchor, open-thread chip, trial chip. */
-    --accent-soft: #e8f24d;
-    --accent-faint: #f3f7c4;
-    --accent-faint-2: #f9fbe6;
-    --accent-border: #dfe97a;
+    --accent-soft: #edf2ce;
+    --accent-faint: #f5f8df;
+    --accent-faint-2: #fafbf1;
+    --accent-border: #dce69b;
     /* Accent dark enough to read as text on paper — links, active counts. */
-    --accent-ink: #5c6600;
+    --accent-ink: #596313;
     --switcher-hover-border: #3a3a34;
 
     /* Text ladder */
-    --ink: #0f0f0d;
-    --text: #14140f;
-    --text-mute: #4a4a44;
-    /* The lightest grey clearing 4.5:1 on every light surface, sunken included.
-       Nothing lighter can carry text; --faint is for hairlines, not words. */
-    --text-dim: #6e6e63;
-    --faint: #c9c9c0;
+    --ink: #20241f;
+    --text: #20241f;
+    --text-mute: #555b52;
+    --text-dim: #656b60;
+    --faint: #bec3b7;
     --prose: #22262b;
 
     /* Borders / hairlines */
-    --border: #f0f0ec;
-    --border-strong: #e2e2dc;
-    --border-faint: #f6f6f2;
+    --border: #e1e5da;
+    --border-strong: #cdd3c6;
+    --border-faint: #edf0e8;
 
     /* Surfaces — "paper": the white panel the content sits on. */
-    --bg: #ffffff;
-    --sidebar: #0f0f0d;
+    --bg: #f7f8f3;
+    --sidebar: #181d18;
     --surface-1: #ffffff;
-    --surface-2: #f9f9f6;
-    --surface-3: #f4f4f0;
+    --surface-2: #f7f8f3;
+    --surface-3: #f0f2eb;
     --bg-elev: #ffffff;
-    --bg-sunken: #f4f4f0;
-    --bg-hover: #f9f9f6;
-    --bg-active: #f0f0ec;
+    --bg-sunken: #f0f2eb;
+    --bg-hover: #f7f8f3;
+    --bg-active: #e9ede3;
+    /* Warm paper for the mascot notes that sit beside the work. */
+    --bg-warm: #f1eee4;
+    --border-warm: #e9e5d8;
+    /* Form fields: a barely tinted fill and border, and a green-grey label. */
+    --field: #fcfdf9;
+    --border-field: #dce4d2;
+    --label: #5f724d;
 
     /* Chrome — the dark shell the paper is inset into. */
-    --chrome: #0f0f0d;
-    --chrome-raised: #1c1c18;
-    --chrome-control: #26261f;
-    --chrome-line: #3a3a34;
-    --chrome-fg: #e8e8e2;
-    --chrome-mute: #a8a89e;
-    --chrome-dim: #8f8f84;
+    --chrome: #181d18;
+    --chrome-raised: #242a23;
+    --chrome-control: #30372e;
+    --chrome-line: #343b30;
+    --chrome-fg: #f0f2eb;
+    --chrome-mute: #b5bcaf;
+    --chrome-dim: #929a8d;
 
     /* Status ladder — pending (amber) / addressed·resolved (green) / removed (red) */
     --status-pending: #9a6a1c;
@@ -316,6 +320,14 @@
 /* ── Component classes ──────────────────────────────────────────────── */
 
 @layer components {
+    /* Keyboard bypass for navigation in the app, auth, and public layouts. */
+    .lp-skip-link {
+        @apply sr-only;
+    }
+    .lp-skip-link:focus {
+        @apply not-sr-only fixed top-2 left-2 z-100 max-w-full rounded-lg border border-line bg-surface-1 px-4 py-2 text-base font-semibold text-ink outline-2 outline-offset-2 outline-accent;
+    }
+
     /* Buttons */
     .btn {
         @apply inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-line bg-surface-1 text-fg text-base font-medium cursor-pointer whitespace-nowrap transition;
@@ -327,7 +339,7 @@
         @apply translate-y-px scale-97;
     }
     .btn.primary {
-        @apply bg-accent border-accent text-white;
+        @apply bg-accent border-accent text-ink;
     }
     .btn.primary:hover {
         @apply bg-accent-hover border-accent-hover;
@@ -441,7 +453,7 @@
 
     /* Auth form primary submit button */
     .auth-submit {
-        @apply inline-flex items-center justify-center gap-2 w-full px-3.5 py-2.5 rounded-md border border-accent bg-accent text-white font-sans text-base font-medium cursor-pointer transition-colors hover:bg-accent-hover hover:enabled:border-accent-hover disabled:opacity-60 disabled:cursor-not-allowed;
+        @apply inline-flex items-center justify-center gap-2 w-full px-3.5 py-2.5 rounded-md border border-accent bg-accent text-ink font-sans text-base font-medium cursor-pointer transition-colors hover:bg-accent-hover hover:enabled:border-accent-hover disabled:opacity-60 disabled:cursor-not-allowed;
     }
 
     /* Auth page social sign-in button — secondary counterpart to .auth-submit */
@@ -473,6 +485,10 @@
     .auth-forgot {
         @apply self-center text-xs text-fg-mute;
     }
+    /* Accent links on the light authentication surfaces. */
+    .auth-link {
+        @apply text-accent-ink hover:underline;
+    }
     .auth-forgot:hover {
         @apply text-fg underline;
     }
@@ -481,6 +497,541 @@
     }
     .auth-icon-badge {
         @apply w-12 h-12 rounded-full bg-accent-soft text-accent inline-flex items-center justify-center;
+    }
+}
+
+@layer components {
+    /* Dense document table for scanning current versions and review state. */
+    .lp-document-table {
+        @apply min-w-0 overflow-x-auto rounded-2xl border border-line;
+    }
+    .lp-document-table__head,
+    .lp-document-row {
+        @apply grid items-center gap-4;
+        grid-template-columns:
+            minmax(0, 2fr) minmax(calc(var(--spacing) * 34), 0.75fr)
+            minmax(calc(var(--spacing) * 32), 0.7fr)
+            minmax(calc(var(--spacing) * 28), 0.6fr) minmax(
+                calc(var(--spacing) * 28),
+                0.6fr
+            )
+            calc(var(--spacing) * 20);
+    }
+    .lp-document-table__head {
+        @apply min-w-4xl px-5 py-3 bg-surface-3 text-xs font-bold uppercase tracking-wider text-fg-dim;
+    }
+    .lp-document-table .lp-document-list {
+        @apply min-w-4xl gap-0 mt-0;
+    }
+    .lp-document-table .lp-document-row {
+        @apply min-w-4xl rounded-none bg-surface-1 px-5 py-4 border-t border-line;
+    }
+    .lp-document-table .lp-document-row:hover {
+        @apply bg-surface-2;
+    }
+    .lp-document-row__main {
+        @apply min-w-0 flex flex-col gap-1.5;
+    }
+    .lp-document-table .lp-document-row__head {
+        @apply flex items-center gap-2 min-w-0;
+    }
+    .lp-document-row__description {
+        @apply m-0 text-sm text-fg-dim truncate;
+    }
+    .lp-document-table .lp-document-row__meta {
+        @apply flex flex-wrap items-center gap-1.5;
+    }
+    .lp-document-row__status {
+        @apply flex items-center;
+    }
+    .lp-document-row__author,
+    .lp-document-row__linked-card,
+    .lp-document-row__updated {
+        @apply text-sm text-fg-mute;
+    }
+    .lp-document-table .lp-document-row__actions {
+        @apply relative z-10 flex items-center justify-end;
+    }
+    .lp-document-table .lp-document-row__archive-reason {
+        @apply col-span-full;
+    }
+
+    /* Board controls and column framing for the supported kanban view. */
+    .lp-board-head__actions {
+        @apply flex flex-wrap items-center gap-2 max-w-full;
+    }
+    .lp-board-head__actions .lp-btn {
+        @apply min-w-0 h-auto min-h-9 whitespace-normal py-1.5;
+    }
+    .lp-board-toolbar {
+        @apply flex flex-wrap items-center gap-2 min-h-9 mb-3;
+    }
+    .lp-board-toolbar__filters {
+        @apply relative flex min-w-0 items-center gap-2 overflow-x-auto scroll-p-0.5 p-0.5 -m-0.5;
+        scrollbar-width: none;
+    }
+    .lp-board-toolbar__filters::-webkit-scrollbar {
+        display: none;
+    }
+    /* A fixed field rather than one that grows: the design puts the search at
+       its own width and leaves the rest of the row empty. */
+    .lp-board-toolbar__search {
+        @apply relative flex w-56 min-w-24 items-center;
+    }
+    .lp-board-toolbar__search-icon {
+        @apply pointer-events-none absolute left-3 h-4 w-4 text-fg-dim;
+    }
+    .lp-board-toolbar__input {
+        @apply h-9 rounded-lg border border-line bg-surface-1 text-sm text-ink outline-hidden forced-colors:outline-offset-0 focus:border-accent-ink focus:ring-2 focus:ring-accent-ink;
+    }
+    .lp-board-toolbar__input {
+        @apply min-w-0 w-full py-2 pr-3 pl-9;
+    }
+    .lp-board-toolbar__mode {
+        @apply inline-flex max-w-full items-center rounded-lg bg-surface-3 p-1;
+    }
+    .lp-board-toolbar__mode-button {
+        @apply inline-flex min-w-0 min-h-7 items-center gap-2 rounded-md border-0 bg-transparent px-1.5 py-1 text-sm font-semibold text-fg-dim cursor-pointer;
+    }
+    .lp-board-toolbar__mode-button[aria-pressed='true'] {
+        @apply bg-surface-1 font-bold text-ink;
+    }
+    .lp-board-toolbar__count {
+        @apply ml-auto text-sm font-semibold text-fg-dim;
+    }
+    .lp-board-filter-empty {
+        @apply m-0 rounded-lg bg-surface-2 px-4 py-3 text-sm text-fg-mute;
+    }
+    .lp-board-filter-empty[hidden] {
+        @apply hidden;
+    }
+    .lp-board-list {
+        @apply overflow-x-auto rounded-xl border border-line bg-surface-1;
+    }
+    .lp-board-list[hidden] {
+        @apply hidden;
+    }
+    .lp-board-list__header,
+    .lp-board-list__row {
+        display: grid;
+        grid-template-columns: minmax(18rem, 2fr) repeat(4, minmax(7rem, 1fr));
+        min-width: 62rem;
+    }
+    .lp-board-list__header {
+        @apply border-b border-line bg-surface-2 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-fg-mute;
+    }
+    .lp-board-list__row {
+        @apply items-center border-b border-line px-4 py-3 text-sm text-fg no-underline last:border-b-0 hover:bg-surface-2;
+    }
+    .lp-board-list__row[hidden] {
+        @apply hidden;
+    }
+    .lp-board-list__work {
+        @apply flex min-w-0 items-center gap-2 pr-4;
+    }
+    .lp-board-list__work strong {
+        @apply truncate text-ink;
+    }
+    .lp-board__columns {
+        @apply relative;
+        scroll-padding-inline: calc(var(--spacing) * 3);
+        scrollbar-width: thin;
+    }
+    .lp-board__column-head {
+        @apply min-h-8;
+    }
+
+    @media (width < 40rem) {
+        .lp-board-head {
+            @apply flex-col;
+        }
+        .lp-board-head__actions {
+            @apply w-full;
+        }
+        .lp-board-head__actions .lp-btn {
+            @apply flex-1 basis-40;
+        }
+        .lp-board-toolbar__search {
+            @apply flex-1;
+        }
+        .lp-board-toolbar__count {
+            @apply order-3 ml-0 w-full;
+        }
+    }
+}
+
+@layer components {
+    .lp-needs-you__summary {
+        @apply inline-flex max-w-full items-center rounded-full bg-status-pending-bg px-3 py-1.5 text-sm font-bold text-status-pending-deep;
+    }
+    .lp-needs-you__header-actions {
+        @apply flex flex-wrap max-w-full items-center gap-2;
+    }
+    .lp-needs-you .lp-page-header,
+    .lp-site-feedback-page .lp-page-header,
+    .lp-core-documents .lp-page-header,
+    .lp-redesign-projects .lp-page-header {
+        @apply flex-wrap;
+    }
+    .lp-section-tabs__item > span {
+        @apply inline-flex items-center justify-center min-w-5 rounded-full bg-surface-3 px-1.5 py-0.5 text-xs;
+    }
+    .lp-inbox-section {
+        scroll-margin-top: calc(var(--spacing) * 20);
+    }
+    .lp-inbox-section--queue {
+        @apply rounded-2xl bg-surface-2 p-4 sm:p-5;
+    }
+    .lp-inbox-ask__head {
+        @apply gap-2;
+    }
+    .lp-inbox-ask__source {
+        @apply text-sm font-bold text-ink;
+    }
+    .lp-inbox-ask__session {
+        @apply truncate text-xs text-fg-mute;
+    }
+    .lp-inbox-item {
+        @apply bg-surface-1;
+    }
+    .lp-inbox-item__head {
+        @apply items-center;
+    }
+    .lp-inbox-item__kind {
+        @apply inline-flex items-center rounded-full bg-tint px-2 py-1 text-xs font-semibold text-accent-ink;
+    }
+    .lp-inbox-item__blocking {
+        @apply inline-flex items-center rounded-full bg-status-pending-bg px-2 py-1 text-xs font-semibold text-status-pending-deep;
+    }
+    .lp-inbox-linked-table-wrap {
+        @apply overflow-x-auto mt-5 rounded-xl border border-line;
+    }
+    .lp-inbox-linked-table {
+        @apply w-full min-w-lg border-collapse text-sm;
+    }
+    /* The design gives the table a titled header row over a tinted head. */
+    .lp-inbox-linked-table caption {
+        @apply px-4 py-3.5 text-left text-sm font-semibold text-ink;
+    }
+    .lp-inbox-linked-table th {
+        @apply px-4 py-2.5 text-left text-xs font-semibold text-fg-dim bg-surface-2 border-y border-line;
+    }
+    .lp-inbox-linked-table th:nth-child(2) {
+        @apply w-48;
+    }
+    .lp-inbox-linked-table th:last-child {
+        @apply w-14;
+    }
+    .lp-inbox-linked-table td {
+        @apply px-4 py-4 border-b border-line align-middle;
+    }
+    /* `last:` on a cell is the last cell of its row, which left every row's
+       Open column without its rule. The last row is what loses the border. */
+    .lp-inbox-linked-table tbody tr:last-child td {
+        @apply border-b-0;
+    }
+    .lp-inbox-linked-table td:first-child {
+        @apply flex flex-col gap-1;
+    }
+    .lp-inbox-linked-table__type {
+        @apply inline-flex items-center gap-1.5 text-xs font-medium text-fg-dim;
+    }
+    .lp-inbox-linked-table strong {
+        @apply font-semibold text-ink break-words;
+    }
+    .lp-inbox-linked-table .lp-tag {
+        @apply whitespace-nowrap;
+    }
+    /* An unavailable artifact keeps its explanation beside the artifact name. */
+    .lp-inbox-linked-table__note {
+        @apply m-0 text-xs text-fg-mute;
+    }
+    @media (width < 40rem) {
+        .lp-needs-you .lp-page-header {
+            @apply gap-3;
+        }
+        .lp-needs-you__summary {
+            @apply self-start;
+        }
+        .lp-needs-you__header-actions {
+            @apply w-full justify-between;
+        }
+        .lp-inbox-ask__session {
+            @apply hidden;
+        }
+    }
+}
+
+@layer components {
+    .lp-feedback-receipt {
+        @apply flex items-center gap-3 rounded-xl bg-tint px-4 py-3 mb-5;
+    }
+    .lp-feedback-receipt div {
+        @apply min-w-0 mr-auto;
+    }
+    .lp-feedback-receipt h2 {
+        @apply text-sm font-bold text-ink m-0;
+    }
+    .lp-feedback-receipt p {
+        @apply text-sm text-fg-mute m-0 mt-0.5;
+    }
+    .lp-feedback-workspace {
+        @apply grid grid-cols-1 min-h-96 rounded-2xl border border-line bg-surface-1 overflow-hidden;
+    }
+    .lp-feedback-list {
+        @apply border-b border-line bg-surface-2;
+    }
+    /* The list sits beside the detail from 680px up, and above it below. */
+    @media (width > 42.5rem) {
+        .lp-feedback-workspace {
+            @apply grid-cols-5;
+        }
+        .lp-feedback-list {
+            @apply col-span-2 border-b-0 border-r;
+        }
+        .lp-feedback-detail {
+            @apply col-span-3;
+        }
+    }
+    .lp-feedback-list__head {
+        @apply flex items-center justify-between gap-3 px-4 py-3 border-b border-line text-xs font-semibold text-fg-dim;
+    }
+    .lp-feedback-list__item {
+        @apply flex items-start gap-3 w-full px-4 py-4 border-b border-line text-left transition-colors hover:bg-surface-1;
+    }
+    .lp-feedback-list__item[aria-current='true'] {
+        @apply bg-surface-1;
+    }
+    .lp-feedback-list__copy {
+        @apply flex flex-col flex-1 min-w-0;
+    }
+    .lp-feedback-list__copy strong {
+        @apply text-sm text-ink;
+    }
+    .lp-feedback-list__copy > span {
+        @apply text-sm text-fg-mute truncate;
+    }
+    .lp-feedback-list__copy time {
+        @apply text-xs text-fg-dim mt-1;
+    }
+    .lp-feedback-detail {
+        @apply min-w-0;
+    }
+    .lp-feedback-detail__panel {
+        @apply p-6;
+    }
+    .lp-feedback-detail__panel[hidden] {
+        @apply hidden;
+    }
+    .lp-feedback-detail__header {
+        @apply flex items-start justify-between gap-4 mb-5;
+    }
+    .lp-feedback-detail__eyebrow {
+        @apply text-xs font-semibold text-accent-ink m-0 mb-1;
+    }
+    .lp-feedback-detail__header h2 {
+        @apply font-display text-2xl font-extrabold tracking-tight text-ink m-0;
+    }
+    .lp-feedback-detail__message {
+        @apply rounded-xl bg-surface-2 px-4 py-4 text-base leading-relaxed text-ink m-0 mb-6;
+    }
+    .lp-feedback-detail__section {
+        @apply py-4 border-t border-line;
+    }
+    .lp-feedback-detail__section h3 {
+        @apply text-sm font-bold text-ink m-0 mb-2;
+    }
+    .lp-feedback-detail__section a {
+        @apply inline-flex items-center gap-2 text-sm text-accent-ink break-all;
+    }
+    .lp-feedback-anchors {
+        @apply flex flex-col gap-2;
+    }
+    .lp-feedback-anchors details {
+        @apply rounded-lg bg-surface-2 px-3 py-2;
+    }
+    .lp-feedback-anchors summary {
+        @apply cursor-pointer text-sm font-medium text-ink;
+    }
+    .lp-feedback-anchors code {
+        @apply block mt-2 text-xs text-fg-mute break-all;
+    }
+    .lp-feedback-detail__actions {
+        @apply flex items-center justify-end gap-2 pt-5 border-t border-line;
+    }
+    .lp-feedback-detail__source {
+        @apply flex items-center gap-2 m-0 mt-4 pb-4 border-b border-line text-xs text-fg-dim;
+    }
+    .lp-feedback-detail__source svg {
+        @apply w-3.5 h-3.5 shrink-0;
+    }
+    /* Replies under a piece of site feedback, then the one-line composer. */
+    .lp-feedback-replies {
+        @apply flex flex-col gap-3 mt-4;
+    }
+    .lp-feedback-replies__meta {
+        @apply m-0 text-xs text-fg-dim;
+    }
+    .lp-feedback-replies__body {
+        @apply m-0 text-sm text-ink whitespace-pre-line;
+    }
+    .lp-reply-composer {
+        @apply flex items-start gap-2;
+    }
+    .lp-reply-composer textarea.lp-input {
+        @apply flex-1 min-h-10 resize-y;
+    }
+    /* Doubled class: .lp-btn--icon is declared later and clears the border. */
+    .lp-reply-composer__send.lp-reply-composer__send {
+        @apply shrink-0 border-line bg-surface-1 text-fg-mute;
+    }
+}
+
+@layer components {
+    .lp-card-drawer {
+        @apply flex flex-col max-w-5xl min-h-screen mx-auto bg-surface-1 border-x border-line shadow-xl;
+    }
+    .lp-card-drawer-overlay {
+        @apply fixed inset-y-0 right-0 left-auto m-0 p-0 w-full max-w-xl h-full max-h-none overflow-hidden border-0 bg-surface-1 shadow-2xl;
+    }
+    .lp-card-drawer-overlay::backdrop {
+        @apply bg-ink/40 backdrop-blur-xs;
+    }
+    .lp-card-drawer-overlay[open] {
+        animation: lp-card-drawer-enter 200ms ease-out both;
+    }
+    .lp-card-drawer-overlay > turbo-frame {
+        @apply block h-full;
+    }
+    .lp-card-drawer-overlay .lp-card-drawer {
+        @apply h-full min-h-0 max-w-none mx-0 border-0 shadow-none;
+    }
+    .lp-card-drawer-overlay .lp-card-drawer__body {
+        @apply flex-1 min-h-0 overflow-y-auto;
+    }
+    .lp-card-drawer-overlay__loading {
+        @apply absolute inset-0 z-10 flex items-center justify-center gap-2 bg-surface-1 text-sm font-semibold text-fg-mute;
+    }
+    .lp-card-drawer-overlay__loading[hidden],
+    .lp-card-drawer-overlay__error[hidden],
+    .lp-card-drawer-overlay > turbo-frame[hidden] {
+        @apply hidden;
+    }
+    /** Recovery controls for failed card drawer navigation. */
+    .lp-card-drawer-overlay__error {
+        @apply p-6;
+    }
+    .lp-card-drawer-overlay__loading svg {
+        @apply animate-spin;
+    }
+    @keyframes lp-card-drawer-enter {
+        from {
+            translate: 100% 0;
+        }
+        to {
+            translate: 0 0;
+        }
+    }
+    .lp-card-drawer__header,
+    .lp-card-drawer__footer {
+        @apply flex items-center justify-between gap-4 px-6 border-b border-line bg-surface-1;
+    }
+    .lp-card-drawer__header {
+        @apply py-3;
+    }
+    .lp-card-drawer__footer {
+        @apply mt-auto py-2 border-t border-b-0;
+    }
+    .lp-card-drawer__identity,
+    .lp-card-drawer__header-actions {
+        @apply flex items-center gap-2;
+    }
+    .lp-card-drawer__icon,
+    .lp-source-avatar {
+        @apply inline-flex items-center justify-center w-8 h-8 shrink-0 rounded-lg bg-tint text-accent-ink;
+    }
+    .lp-card-drawer__body {
+        @apply px-6 py-2.5;
+    }
+    .lp-card-drawer__title {
+        @apply font-display text-3xl font-extrabold tracking-tight text-ink m-0 mb-4;
+    }
+    .lp-card-tabs {
+        @apply flex items-center gap-1 overflow-x-auto border-b border-line mb-6;
+        scrollbar-width: none;
+    }
+    .lp-card-tabs::-webkit-scrollbar {
+        display: none;
+    }
+    .lp-card-tabs__tab {
+        @apply px-3 py-2.5 border-b-2 border-transparent text-sm font-semibold text-fg-mute whitespace-nowrap transition-colors;
+    }
+    .lp-card-tabs__tab:hover,
+    .lp-card-tabs__tab:focus-visible {
+        @apply text-ink;
+    }
+    .lp-card-tabs__tab[aria-selected='true'] {
+        @apply border-accent text-ink;
+    }
+    .lp-card-panel[hidden] {
+        @apply hidden;
+    }
+    .lp-card-panel__title {
+        @apply font-display text-lg font-extrabold tracking-tight text-ink m-0;
+    }
+    .lp-card-overview-grid {
+        @apply grid grid-cols-1 lg:grid-cols-3 gap-8;
+    }
+    .lp-card-overview-grid__main {
+        @apply lg:col-span-2 flex flex-col gap-7;
+    }
+    .lp-card-overview-grid__facts {
+        @apply flex flex-col gap-6 rounded-xl bg-surface-2 p-4;
+    }
+    .lp-card-fact-list {
+        @apply flex flex-col m-0;
+    }
+    .lp-card-fact-list div {
+        @apply flex items-center justify-between gap-4 py-2.5 border-b border-line last:border-0;
+    }
+    .lp-card-fact-list dt {
+        @apply text-sm font-medium text-fg-mute;
+    }
+    .lp-card-fact-list dd {
+        @apply text-sm font-semibold text-ink m-0 text-right;
+    }
+    .lp-card-linked-list,
+    .lp-card-feedback-list {
+        @apply flex flex-col gap-2 list-none p-0 m-0 mt-3;
+    }
+    .lp-card-linked-list li {
+        @apply flex items-center justify-between gap-4 rounded-lg border border-line px-3 py-2.5 text-sm;
+    }
+    .lp-card-conversation-intro,
+    .lp-conversation-entry {
+        @apply flex items-start gap-3;
+    }
+    .lp-card-conversation-intro {
+        @apply pb-5 border-b border-line mb-5;
+    }
+    .lp-card-conversation-intro p,
+    .lp-conversation-entry p {
+        @apply text-sm text-fg-mute m-0 mt-1;
+    }
+    .lp-conversation-entry {
+        @apply py-4 border-b border-line;
+    }
+    .lp-conversation-entry__source {
+        @apply font-semibold text-ink;
+    }
+    .lp-card-feedback-list li {
+        @apply rounded-xl border border-line p-4;
+    }
+    .lp-card-feedback-list__head {
+        @apply flex items-center justify-between gap-3 mb-2 text-sm font-semibold text-ink;
+    }
+    .lp-card-feedback-list p {
+        @apply text-sm text-fg-mute mb-2;
     }
 }
 
@@ -503,21 +1054,46 @@
 
     /* ── Form controls (lp- namespace) ──────────────────────────────── */
 
+    /* The one form layout: labelled fields in a column, 20px apart, each label
+       6px above its control. Every app form uses these classes. */
     .lp-form {
-        @apply flex flex-col gap-4;
+        @apply flex flex-col gap-5;
     }
     .lp-form-field {
         @apply flex flex-col gap-1.5;
     }
-    .lp-label,
+    .lp-label {
+        @apply text-xs font-medium text-label;
+    }
     .admin-field-label {
         @apply text-xs font-bold text-fg-mute;
     }
-    /* Borderless: the fill is the field. A border plus a fill reads as two
-       edges on a screen that otherwise has almost none. */
-    .lp-input,
+    .lp-input {
+        @apply w-full min-h-10 font-sans text-sm leading-5 text-ink bg-field border border-line-field px-3 py-2.5 outline-hidden transition-colors placeholder:text-fg-dim focus:ring-2 focus:ring-accent-ink;
+        border-radius: 7px;
+    }
+    textarea.lp-input {
+        @apply min-h-22;
+    }
+    /* A checkbox or radio with its label, framed like a field so the whole row is the target. */
+    .lp-choice {
+        @apply flex items-center gap-3 min-h-10 rounded-lg border border-line-field bg-field px-3 py-2.5 text-sm text-ink cursor-pointer;
+    }
+    .lp-choice input {
+        @apply w-4 h-4 shrink-0 cursor-pointer accent-accent-ink;
+    }
+    .lp-choice:has(input:focus-visible) {
+        @apply outline-2 outline-offset-1 outline-accent-ink;
+    }
+    .lp-input:disabled {
+        @apply bg-surface-3 text-fg-mute cursor-not-allowed;
+    }
+    /* A field with one action beside it, such as a read-only value and its Copy button. */
+    .lp-input-with-action {
+        @apply flex items-center gap-2;
+    }
     .admin-field-input {
-        @apply w-full font-sans text-base text-ink bg-surface-3 border-0 rounded-xl px-4 py-3 outline-hidden transition-colors placeholder:text-fg-dim focus:bg-tint-strong;
+        @apply w-full font-sans text-base text-ink bg-surface-3 border-0 rounded-xl px-4 py-3 outline-hidden transition-colors placeholder:text-fg-dim focus:bg-tint-strong focus:ring-2 focus:ring-accent-ink;
     }
     /* Native <select>: hide the OS arrow and draw a design-system chevron.
        Defined after .lp-input so it can layer the chevron on top. */
@@ -547,9 +1123,10 @@
        the resting state of every document, so colouring it would leave a list of
        untouched documents looking like a list of alerts. */
     .lp-badge {
-        @apply inline-flex items-center py-1 px-3 rounded-full text-sm font-bold whitespace-nowrap;
+        @apply inline-flex items-center py-0.75 px-1.75 rounded-md text-xs leading-4 font-semibold whitespace-nowrap;
     }
-    .lp-badge--in-review {
+    .lp-badge--in-review,
+    .lp-badge--draft {
         @apply bg-surface-3 text-ink-soft;
     }
     .lp-badge--approved {
@@ -563,7 +1140,7 @@
        What a document's comment threads say about it. Sized like .lp-badge, so
        the two sit level beside each other on a list row and in the topbar. */
     .lp-signal {
-        @apply inline-flex items-center shrink-0 py-1 px-3 rounded-full text-sm font-bold whitespace-nowrap;
+        @apply inline-flex items-center shrink-0 py-1 px-3 rounded-md text-sm font-bold whitespace-nowrap;
     }
     .lp-signal--addressed {
         @apply bg-status-pending-bg text-status-pending-deep;
@@ -583,7 +1160,7 @@
         @apply flex items-start gap-2.5;
     }
     .status-check-badge {
-        @apply inline-flex items-center gap-1 shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium;
+        @apply inline-flex items-center gap-1 shrink-0 rounded-md border px-2 py-0.5 text-xs font-medium;
     }
     .status-check-badge-ok {
         @apply bg-status-ok-bg text-status-ok-deep border-status-ok-border;
@@ -626,7 +1203,7 @@
     /* ── Tag chip ───────────────────────────────────────────────────── */
 
     .lp-tag {
-        @apply inline-flex items-center py-1 px-2.5 rounded-full text-xs font-semibold bg-surface-3 text-fg-mute;
+        @apply inline-flex items-center py-1 px-2.5 rounded-md text-xs font-semibold bg-surface-3 text-fg-mute;
     }
 
     /* A series chip carries a position, so it reads in the accent ink to
@@ -650,13 +1227,13 @@
         @apply inline-flex items-center justify-center shrink-0 rounded-full border font-mono font-medium w-5.5 h-5.5 text-xs;
     }
     .lp-ribbon__circle--current {
-        @apply bg-accent text-white border-accent;
+        @apply bg-accent text-ink border-accent;
     }
     .lp-ribbon__circle--completed {
-        @apply bg-accent-soft text-accent-hover border-accent-border;
+        @apply bg-accent-soft text-accent-ink border-accent-border;
     }
     .lp-ribbon__circle--upcoming {
-        @apply bg-elev text-fg-faint border-line-strong;
+        @apply bg-elev text-fg-dim border-line-strong;
     }
     .lp-ribbon__label {
         @apply text-sm;
@@ -666,7 +1243,7 @@
         @apply text-ink font-semibold;
     }
     .lp-ribbon__label--completed {
-        @apply text-accent-hover;
+        @apply text-accent-ink;
     }
     .lp-ribbon__label--upcoming {
         @apply text-fg-dim;
@@ -701,29 +1278,31 @@
 
     /* ── Workspace / projects index ─────────────────────────────────── */
 
-    /* Left-aligned page container. Its top/side padding matches the document
-       and site-review screens so the breadcrumb sits at the same height on
-       every screen of the app. */
+    /* The one page frame every workspace uses, so pages line up as you move between them. */
     .lp-workspace {
-        @apply max-w-225 pt-10 px-12 pb-14;
+        @apply w-full px-4.5 pt-5 pb-10 md:px-6 md:pt-6 md:pb-14 xl:px-8 xl:pt-8;
+        max-width: 95.625rem;
     }
     .lp-eyebrow {
         @apply uppercase text-fg-dim m-0 text-xs font-bold tracking-widest;
     }
+    /* The design system puts the display face on every heading rather than on
+       each heading class, so a class that forgets the token still reads right.
+       Scoped to the application shell: the landing page and the authentication
+       interstitials carry their own type scale. */
+    .lp-main :is(h1, h2, h3, h4) {
+        @apply font-display tracking-tight;
+    }
     .lp-workspace-title {
-        @apply font-display font-extrabold text-ink m-0 text-5xl tracking-tight leading-none;
+        @apply font-display font-extrabold text-ink m-0 text-3xl tracking-tight leading-10;
     }
     /* Documents/Connect page H1 — same tier as the base class. Kept separate
        because templates apply it and it records which screens use this tier. */
     .lp-workspace-title--doc {
-        @apply text-5xl tracking-tight;
+        @apply text-3xl tracking-tight;
     }
     .lp-workspace-desc {
         @apply text-fg-mute m-0 mt-2 mb-8 text-base leading-relaxed;
-    }
-    /* Wide column for the two screens that need one — Connect and the diff. */
-    .lp-workspace--wide {
-        @apply max-w-215;
     }
 
     /* One sunken card per project rather than a hairline list — a project is a
@@ -754,6 +1333,10 @@
     }
     .lp-project-row__name {
         @apply font-display font-semibold text-ink shrink-0 text-2xl tracking-tight;
+    }
+    /** Optional project purpose shown on project tiles. */
+    .lp-project-row__description {
+        @apply m-0 whitespace-pre-line break-words text-sm leading-relaxed text-fg-mute;
     }
     .lp-project-row__domain {
         @apply font-mono text-fg-dim truncate text-xs;
@@ -932,7 +1515,7 @@
     /* Filter bar above a list. Lives outside the list's empty-state branch so a
        filter that matches nothing can still be turned off. */
     .lp-list-filters {
-        @apply flex flex-wrap items-center gap-2.5 mt-6;
+        @apply flex flex-wrap items-center gap-2 mt-6;
     }
     .lp-filter-chip {
         @apply inline-flex items-center gap-1.5 h-8.5 rounded-full bg-surface-3 text-fg-mute no-underline transition-colors text-sm font-semibold px-3.5;
@@ -958,19 +1541,43 @@
     /* The bar's GET form. Its controls sit on .lp-input / .lp-select and are
        resized here, so they must be declared after those base classes. */
     .lp-filter-form {
-        @apply flex flex-wrap items-center gap-2.5;
+        @apply flex flex-1 basis-full sm:basis-auto min-w-0 flex-wrap items-center gap-2;
     }
+    /* Primary search and status controls stay together as secondary filters wrap. */
+    .lp-filter-primary {
+        @apply flex min-w-0 items-center gap-2 overflow-x-auto scroll-p-0.5 p-0.5 -m-0.5;
+        scrollbar-width: none;
+    }
+    .lp-filter-primary::-webkit-scrollbar {
+        display: none;
+    }
+    .lp-filter-primary .lp-filter-search {
+        @apply min-w-24;
+    }
+    .lp-filter-primary .lp-filter-select {
+        @apply max-w-full;
+    }
+    /* The design gives the search its own width and leaves the rest of the
+       filter row empty, rather than stretching the field across it. */
     .lp-filter-search {
-        @apply relative flex items-center;
+        @apply relative flex w-56 min-w-0 items-center;
     }
+    .lp-needs-you .lp-filter-search {
+        @apply flex-initial w-67.5;
+    }
+    /* Filter controls are the compact white variant of .lp-input, 36px tall. */
     .lp-filter-search__icon {
-        @apply absolute left-4 w-4 h-4 text-fg-dim pointer-events-none;
+        @apply absolute left-2.5 w-4 h-4 text-fg-dim pointer-events-none;
+    }
+    .lp-filter-input,
+    .lp-filter-select {
+        @apply min-h-9 h-9 py-0 bg-surface-1 border-line text-sm leading-5;
     }
     .lp-filter-input {
-        @apply w-67.5 h-10 rounded-full py-0 pl-10 text-sm;
+        @apply w-full min-w-0 pl-8.5 pr-2.5;
     }
     .lp-filter-select {
-        @apply w-auto h-10 rounded-full py-0 text-sm;
+        @apply w-auto shrink-0 pl-2.5 text-fg-mute;
     }
 
     /* ── Flash messages ─────────────────────────────────────────────── */
@@ -1032,7 +1639,7 @@
         @apply inline-flex items-center rounded-full bg-tint-strong px-2.5 py-1 text-xs font-bold text-fg-mute m-0;
     }
     .lp-about-card__note--outdated {
-        @apply bg-accent-soft text-accent-hover;
+        @apply bg-accent-soft text-accent-ink;
     }
 
     /* Error pages. Centred in the viewport because they render without the
@@ -1065,7 +1672,7 @@
         @apply text-line-strong;
     }
     .lp-empty-state__title {
-        @apply font-display font-extrabold text-2xl tracking-tight text-ink m-0;
+        @apply font-display font-bold text-lg tracking-tight text-ink m-0;
     }
     .lp-empty-state__body {
         @apply max-w-md text-sm text-fg-mute m-0 leading-relaxed;
@@ -1078,19 +1685,21 @@
 
     /* ── Buttons (lp- namespace) ────────────────────────────────────── */
 
-    /* Every button in this design is fully rounded. There are no square buttons
-       anywhere — a rectangular one will look like it belongs to another app. */
     .lp-btn {
-        @apply inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-full border-0 bg-surface-3 text-ink text-sm font-semibold cursor-pointer whitespace-nowrap transition;
+        @apply inline-flex items-center justify-center gap-1.5 border border-line bg-surface-1 text-ink text-sm font-semibold cursor-pointer whitespace-nowrap transition;
+        min-height: 36px;
+        padding: 7px 13px;
+        border-radius: 7px;
+        line-height: 20px;
     }
     .lp-btn:hover {
-        @apply bg-tint-strong;
+        @apply bg-surface-2;
     }
     .lp-btn:active {
         @apply translate-y-px scale-97;
     }
     .lp-btn--primary {
-        @apply bg-accent px-5 text-ink font-bold;
+        @apply border-accent-border bg-accent text-ink font-semibold;
     }
     .lp-btn--primary:hover {
         @apply bg-accent-hover;
@@ -1099,7 +1708,7 @@
        the other way round, so it reads as the decisive action on a light card
        without a second accent fill competing with the primary button. */
     .lp-btn--inverse {
-        @apply bg-ink text-accent font-bold;
+        @apply border-ink bg-ink text-accent font-bold;
     }
     .lp-btn--inverse:hover {
         @apply bg-chrome-raised;
@@ -1126,33 +1735,43 @@
     }
     /* Filled destructive — irreversible, and the only red fill on the screen. */
     .lp-btn--danger {
-        @apply h-10.5 bg-status-danger-bg px-4.5 text-danger font-bold;
+        @apply bg-status-danger-bg text-danger font-bold;
     }
     .lp-btn--danger:hover {
         @apply bg-status-danger-border;
     }
     .lp-btn--ghost {
-        @apply bg-transparent text-fg-mute shadow-none;
+        @apply border-transparent bg-transparent text-fg-mute shadow-none;
     }
     .lp-btn--ghost:hover {
         @apply bg-tint-strong text-ink;
     }
     /* Text-only destructive — recoverable (Delete a comment, Revoke a token). */
     .lp-btn--danger-ghost {
-        @apply h-8.5 bg-transparent px-3 text-danger shadow-none;
+        @apply border-transparent bg-transparent px-3 text-danger shadow-none;
     }
     .lp-btn--danger-ghost:hover {
         @apply bg-status-danger-bg;
     }
     .lp-btn--sm {
-        @apply h-8.5 px-3.5 text-sm;
+        @apply px-3.5 text-sm;
     }
-    /* Square-footprint icon button — still a circle, just without a label. */
     .lp-btn--icon {
-        @apply w-8.5 h-8.5 p-0 bg-transparent text-fg-mute;
+        @apply w-9 h-9 p-0 border-transparent bg-transparent text-fg-mute;
     }
     .lp-btn--icon:hover {
         @apply bg-tint-strong text-ink;
+    }
+    /* Open control on a linked-work row: labelled where the table has room,
+       and a named icon button below `sm`, where the word costs a column. */
+    .lp-btn--open {
+        @apply w-9 p-0 sm:w-auto sm:px-3.5 border-transparent bg-transparent text-fg-mute;
+    }
+    .lp-btn--open:hover {
+        @apply bg-tint-strong text-ink;
+    }
+    .lp-btn__label {
+        @apply hidden sm:inline;
     }
 
     /* ── Pagination (shared `<twig:Pagination>` component) ─────────────── */
@@ -1177,7 +1796,6 @@
        Animated via WAAPI in modal_controller.js; only ::backdrop gets a CSS
        animation, because WAAPI cannot target it. The height cap keeps a tall
        modal on screen at the 33vh offset instead of running off the bottom. */
-    .lp-dialog,
     .admin-dialog-box {
         margin-inline: auto;
         margin-block: 33vh auto;
@@ -1186,10 +1804,166 @@
     }
 
     .lp-dialog {
-        @apply w-full max-w-md rounded-2xl border-0 bg-surface-1 p-6 shadow-composer;
+        width: calc(100% - calc(var(--spacing) * 7));
+        margin: auto;
+        max-height: 90vh;
+        @apply max-w-xl overflow-y-auto rounded-xl border-0 bg-surface-1 p-6 shadow-composer;
+    }
+    /** Wide dialog for editing document Markdown. */
+    .lp-dialog--document {
+        @apply max-w-3xl;
+    }
+    /** Read-only details for a reported worker attempt. */
+    .lp-dialog.lp-run-drawer {
+        @apply w-full max-w-2xl m-0 ml-auto rounded-none p-0 overflow-hidden;
+        height: 100dvh;
+        max-height: 100dvh;
+    }
+    .lp-run-drawer[open] {
+        @apply flex flex-col;
+    }
+    .lp-run-drawer__header {
+        @apply flex items-start justify-between gap-3 p-6 border-b border-line shrink-0;
+    }
+    .lp-run-drawer__header > div {
+        @apply min-w-0;
+    }
+    .lp-run-drawer .lp-btn {
+        @apply max-w-full whitespace-normal shrink-0;
+    }
+    .lp-run-drawer__identifier {
+        @apply block break-all text-xs text-fg-dim my-2;
+    }
+    .lp-run-drawer__body {
+        @apply min-h-0 flex-1 overflow-y-auto p-6;
+    }
+    .lp-run-drawer__metadata {
+        @apply grid grid-cols-1 sm:grid-cols-2 gap-4 m-0;
+    }
+    .lp-run-drawer__metadata dt {
+        @apply text-xs text-fg-dim;
+    }
+    .lp-run-drawer__metadata dd {
+        @apply m-0 mt-1 text-sm break-all;
+    }
+    .lp-run-drawer__metadata a {
+        @apply text-accent-ink underline;
+    }
+    .lp-run-drawer__heading {
+        @apply text-base font-semibold mt-6 mb-2;
+    }
+    .lp-run-drawer__timeline {
+        @apply list-none p-0 m-0 grid gap-3 text-sm;
+    }
+    .lp-run-drawer__timeline time {
+        @apply block text-xs text-fg-dim;
+    }
+    .lp-run-drawer__footer {
+        @apply flex flex-wrap items-center justify-end gap-3 p-4 border-t border-line shrink-0;
+    }
+    .lp-run-drawer__footer p {
+        @apply m-0 mr-auto text-sm;
+    }
+    /** Project search dialog, results, and paging controls. */
+    .lp-dialog--search {
+        @apply max-w-2xl;
+    }
+    .lp-search-dialog__header {
+        @apply flex items-center justify-between gap-3 mb-4;
+    }
+    .lp-search-dialog__form {
+        @apply flex flex-wrap items-center gap-2 mb-4;
+    }
+    .lp-search-dialog__form .lp-input {
+        @apply min-w-0 flex-1 basis-48;
+    }
+    .lp-search-dialog__label {
+        @apply sr-only;
+    }
+    .lp-search-result {
+        @apply flex flex-wrap items-center justify-between gap-3 border-b border-line py-3 text-ink no-underline;
+    }
+    .lp-search-result > :first-child {
+        @apply min-w-0 flex-1 basis-48 break-words;
+    }
+    .lp-search-result:hover {
+        @apply bg-surface-2;
+    }
+    .lp-search-pagination {
+        @apply flex flex-wrap gap-3 py-4;
+    }
+    /** Recent project events in the topbar's right-hand drawer. */
+    .lp-activity-drawer {
+        @apply fixed inset-y-0 right-0 left-auto m-0 ml-auto w-full max-w-142.5 rounded-none border-0 bg-surface-1 p-0;
+        height: 100dvh;
+        max-height: 100dvh;
+    }
+    .lp-activity-drawer[open] {
+        @apply flex flex-col;
+    }
+    .lp-activity-drawer__header {
+        @apply flex shrink-0 items-center justify-between gap-4 min-h-15.5 border-b border-line px-6;
+    }
+    .lp-activity-drawer__title {
+        @apply m-0 flex items-center gap-2 font-sans text-xs font-bold tracking-normal text-fg-mute;
+    }
+    .lp-activity-drawer__title svg {
+        @apply w-4 h-4 shrink-0;
+    }
+    .lp-activity-drawer__body {
+        @apply min-h-0 flex-1 overflow-y-auto px-6 py-4;
+    }
+    .lp-activity-drawer__footer {
+        @apply flex shrink-0 justify-end border-t border-line bg-field px-6 py-4;
+    }
+    /* A compact event list: icon, what happened, the work it touched, and when. */
+    .lp-feed__item {
+        @apply flex items-start gap-3 py-4 border-b border-line-faint;
+    }
+    .lp-feed__icon {
+        @apply grid place-items-center w-7.5 h-7.5 shrink-0 rounded-lg border border-line bg-surface-1 text-fg-mute;
+    }
+    .lp-feed__icon svg {
+        @apply w-3.5 h-3.5;
+    }
+    .lp-feed__body {
+        @apply flex flex-1 flex-col gap-0.5 min-w-0;
+    }
+    .lp-feed__title {
+        @apply text-xs font-semibold text-ink;
+    }
+    .lp-feed__link {
+        @apply text-xs font-semibold text-accent-ink no-underline break-words;
+    }
+    .lp-feed__link:hover {
+        @apply underline;
+    }
+    .lp-feed__time {
+        @apply shrink-0 text-xs text-fg-dim;
+    }
+    /** Multiline source field inside a document dialog. */
+    .lp-document-editor {
+        @apply min-h-64 font-mono;
+    }
+    /** Explicit save control for an embedded decision. */
+    .lp-decision__save {
+        @apply block ml-auto mt-4;
+    }
+    /** Scrollable card choices in the document dialogs. */
+    .lp-document-work-links {
+        @apply max-h-40 overflow-y-auto flex flex-col gap-2;
+    }
+    .lp-document-work-links .lp-review-verdict-choice {
+        @apply min-w-0;
+    }
+    .lp-document-work-links .lp-review-verdict-choice span {
+        @apply min-w-0 break-words;
+    }
+    .lp-document-work-links input {
+        @apply shrink-0;
     }
     .lp-dialog::backdrop {
-        @apply bg-ink/55;
+        @apply bg-ink/40 backdrop-blur-xs;
         animation: lp-dialog-backdrop-in 220ms ease-out;
     }
     .lp-dialog-title {
@@ -1197,6 +1971,10 @@
     }
     .lp-dialog-desc {
         @apply text-sm text-fg-mute mt-2 mb-4 leading-relaxed;
+    }
+    /** Action row for a confirmation dialog. */
+    .lp-dialog-actions {
+        @apply flex items-center justify-end gap-3 pt-2;
     }
 
     /* ── Danger zone ──────────────────────────────────────────────────── */
@@ -1208,7 +1986,7 @@
         @apply mt-12 pt-8 flex flex-col items-start gap-2 border-t border-line-strong;
     }
     .lp-danger-zone-title {
-        @apply font-display font-extrabold text-2xl tracking-tight text-danger m-0;
+        @apply font-display font-bold text-lg tracking-tight text-danger m-0;
     }
     .lp-danger-zone-desc {
         @apply text-sm text-fg-mute m-0 mb-2 leading-relaxed;
@@ -1221,26 +1999,92 @@
         @apply min-w-0;
     }
 
-    /* The 972px review block: a 640px reading column, a 36px gutter, and a
-       296px comment column. It starts at the same left edge as .lp-workspace.
-       The left offset must be a margin, never padding: this is the offset
-       parent of the comment stack and the floating panels, and padding moves
-       the padding box they are placed against. */
+    /* Document-scoped recovery list, outside the anchored review margin. */
+    .lp-deleted-threads {
+        @apply mx-auto flex w-full max-w-3xl flex-col gap-4 px-5 py-6;
+    }
+    .lp-deleted-threads__thread {
+        @apply flex min-w-0 flex-col gap-3 border-t border-line pt-5;
+    }
+    .lp-deleted-threads__meta {
+        @apply flex flex-wrap items-center gap-3 text-sm text-fg-mute;
+    }
+    .lp-deleted-threads__actions {
+        @apply flex flex-wrap items-start justify-between gap-3;
+    }
+    .lp-deleted-threads .lp-comment-thread {
+        @apply static;
+    }
+    .lp-thread-recovery {
+        @apply mb-4 flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface-2 p-3 text-sm;
+    }
+
     .lp-review-block {
-        @apply relative w-full max-w-243 px-5 pt-6 pb-19 lg:ml-12 lg:w-auto lg:px-0 lg:pt-13 lg:pb-30;
+        @apply relative w-full px-5 pt-6 pb-19;
+        max-width: 73rem;
+    }
+    @media (width >= 59.375rem) {
+        .lp-review-block {
+            @apply mx-7 w-auto px-0 pt-7 pb-30;
+        }
     }
 
     /* ── Document pane ──────────────────────────────────────────────────
        The reading column. position:relative so the composer and toolbar
        position against it. Plain prose — no card, no line numbers. */
     .lp-review-doc {
-        @apply relative w-full max-w-160;
+        @apply relative w-full;
     }
     .lp-review-doc__head {
-        @apply flex flex-col gap-2.5 mb-9;
+        @apply flex flex-col gap-2 mb-6;
+    }
+    /* Compact title row for the document back action and title. */
+    .lp-review-doc__title-row {
+        @apply flex flex-wrap items-center gap-3;
+    }
+    /* Actions stay beside the title and wrap on narrow screens. */
+    .lp-review-doc__actions {
+        @apply ml-auto flex items-center gap-2;
+    }
+    /* Verdict choices and notes in the Finish review dialog. */
+    .lp-review-verdict-choice {
+        @apply flex items-center gap-3 rounded-lg border border-line p-3 text-sm text-ink;
+    }
+    .lp-review-verdict-choice input {
+        @apply size-4 accent-accent;
+    }
+    .lp-review-verdict-actions {
+        @apply flex items-center justify-end gap-3 pt-2;
+    }
+    .lp-review-verdict-note {
+        @apply whitespace-pre-wrap text-sm text-ink;
+    }
+    .lp-review-doc__back {
+        @apply inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-line bg-surface-1 text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
+    }
+    .lp-review-doc__back svg {
+        @apply size-4;
     }
     .lp-review-doc__title {
-        @apply font-display font-extrabold text-ink m-0 text-4xl tracking-tight leading-tight;
+        @apply font-display font-extrabold text-ink m-0 text-2xl tracking-tight leading-tight;
+    }
+    /* Version shown beside the document title at every screen width. */
+    .lp-review-doc__version {
+        @apply shrink-0 font-mono text-sm text-fg-dim;
+    }
+    /* Primary document workspace views. */
+    .lp-review-view-tabs {
+        @apply mt-3 flex items-center gap-1 overflow-x-auto border-b border-line;
+        scrollbar-width: none;
+    }
+    .lp-review-view-tabs::-webkit-scrollbar {
+        display: none;
+    }
+    .lp-review-view-tabs__item {
+        @apply whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-sm font-semibold text-fg-mute no-underline transition-colors hover:text-ink;
+    }
+    .lp-review-view-tabs__item[aria-current='page'] {
+        @apply border-accent text-ink;
     }
 
     /* The side-by-side comparison, which renders no comment rail and takes the
@@ -1328,38 +2172,30 @@
         @apply hidden;
     }
 
-    /* The comment column, from lg up. Absolutely positioned, and every card
-       inside it is too: a paragraph carrying five comments has to be exactly as
-       tall as one carrying none, which it cannot be if the cards are in flow.
-       Below lg there is no gutter to hold it, so comment_anchor_controller moves
-       each card into the prose and only unplaceable ones stay here. */
+    /* Comment cards share the margin on wide screens and stack below on phones. */
     .lp-review-margin {
-        @apply flex flex-col gap-3 w-full lg:block lg:absolute lg:left-169 lg:top-0 lg:w-74;
+        @apply flex flex-col gap-3.5 w-full;
     }
-    /* Clears the prose below it while it holds a card. */
     .lp-review-margin:has(.lp-comment-thread) {
-        @apply mb-9 lg:mb-0;
+        @apply mb-9;
     }
-
-    /* Holds the cards for one paragraph below lg, in normal flow right after it.
-       The type reset undoes .lp-review-doc__prose, which the slot sits inside;
-       the typography plugin's own `not-prose` rides beside this class. */
-    .lp-review-inline-threads {
-        @apply flex flex-col gap-3 my-6 text-sm leading-normal text-fg;
+    @media (width >= 59.375rem) {
+        .lp-review-margin {
+            @apply block absolute top-0;
+        }
+        .lp-review-margin:has(.lp-comment-thread) {
+            @apply mb-0;
+        }
     }
-
-    /* A hidden card is still a card to :has and to a slot's own box, so both
-       take their space back when hiding resolved threads leaves them with
-       nothing on screen. */
     .lp-review-block--hide-resolved
-        :is(.lp-review-margin, .lp-review-inline-threads):not(
+        .lp-review-margin:not(
             :has(.lp-comment-thread:not(.lp-comment-thread--resolved))
         ) {
         @apply my-0;
     }
 
     .lp-version-pill {
-        @apply inline-flex items-center rounded-full font-bold bg-accent text-ink text-xs py-0.5 px-2.5;
+        @apply inline-flex items-center rounded-md font-bold bg-accent text-ink text-xs py-0.5 px-2.5;
     }
     /* One entry in the version switcher pointing at a version other than the one
        on screen. Muted so the accent-coloured pill still reads as "you are here". */
@@ -1428,7 +2264,12 @@
     /* Chips in the bar itself below lg, where the tab that holds them is
        display:none and the review menu carries no tags row. */
     .lp-doc-meta__tags {
-        @apply flex items-center gap-1.5 ml-auto lg:hidden;
+        @apply flex items-center gap-1.5 ml-auto;
+    }
+    @media (width >= 59.375rem) {
+        .lp-doc-meta__tags {
+            @apply hidden;
+        }
     }
     .lp-doc-tags__list {
         @apply flex flex-wrap items-center gap-1.5;
@@ -1451,7 +2292,7 @@
     /* Below lg the four tabs are rows of the review menu instead. A display
        utility outside this query would outrank the UA [hidden] rule above and
        hold every panel open on desktop. */
-    @media (width < 64rem) {
+    @media (width < 59.375rem) {
         .lp-doc-meta__tab,
         .lp-doc-meta__panel {
             @apply hidden;
@@ -1467,6 +2308,26 @@
         }
     }
 
+    /** Side-by-side annotations keep both columns visible and place threads below. */
+    .lp-review-doc.lp-review-doc--wide {
+        @apply flex max-w-none flex-col;
+    }
+    .lp-review-doc.lp-review-doc--wide > .lp-review-doc__head {
+        @apply w-full;
+    }
+    .lp-review-doc--wide > .lp-diff-columns {
+        @apply order-20;
+    }
+    .lp-review-doc--wide > [data-margin-panel='comments'] {
+        @apply order-30 mt-5;
+    }
+    .lp-review-doc--wide .lp-review-margin {
+        @apply static flex w-full flex-col gap-3.5;
+    }
+    .lp-review-doc--wide .lp-comment-thread {
+        @apply static;
+    }
+
     /* ── Review action row ──────────────────────────────────────────────
        "Add general comment" plus the hint that select-to-comment exists, with
        the resolved toggle pushed out over the comment column. */
@@ -1480,7 +2341,7 @@
        rather than on the prose. It carries no display: this is a .lp-btn, and
        the two rules that hide it are unlayered, below the coarse-pointer block. */
     .lp-review-actions__resolved {
-        @apply absolute left-169 whitespace-nowrap;
+        @apply absolute whitespace-nowrap;
     }
     /* One icon of the pair at a time, chosen by the state the controller writes
        onto the button. Specificity, not source order, does the picking. */
@@ -1506,9 +2367,15 @@
        from one round button in the bottom right where a thumb rests. The panel
        opens upward from the button and drills down in place. */
     .lp-review-menu {
-        @apply lg:hidden;
+        @apply block;
     }
-    .lp-review-menu[hidden] {
+    @media (width >= 59.375rem) {
+        .lp-review-menu {
+            @apply hidden;
+        }
+    }
+    .lp-review-menu[hidden],
+    .lp-review:has(.lp-comment-composer:not([hidden])) .lp-review-menu {
         @apply hidden;
     }
     .lp-review-menu__trigger {
@@ -1649,14 +2516,12 @@
     .lp-version-entry__diff[aria-current] {
         @apply text-accent;
     }
-    /* Starts another comparison from inside the versions panel and the review
-       menu. Its selects are shorter than the filter bar's, because the panel is
-       the width of the reading column. */
+    /** Version selection shared by the diff toolbar, history and review menu. */
     .lp-version-compare {
         @apply flex flex-wrap items-center gap-2 w-full;
     }
-    .lp-version-compare .lp-filter-select {
-        @apply h-8.5;
+    .lp-diff-bar .lp-version-compare {
+        @apply w-auto;
     }
     /* Way out of the panel and into the full history. */
     .lp-version-switcher__all {
@@ -1712,8 +2577,22 @@
     .lp-history__note {
         @apply text-fg-mute m-0 max-w-prose text-sm;
     }
-    .lp-history-back {
-        @apply inline-flex items-center gap-1.5 text-fg-mute no-underline transition-colors text-sm hover:text-accent;
+    /** The version list heading sits below the shared document navigation. */
+    .lp-history-title {
+        @apply m-0 font-display text-lg font-bold text-ink;
+    }
+    /** Verdict entries stay with the version that received them. */
+    .lp-history__reviews {
+        @apply list-none flex flex-col gap-3 m-0 mt-2 p-0;
+    }
+    .lp-history__review {
+        @apply flex flex-col gap-1 text-sm text-fg-mute;
+    }
+    .lp-history__verdict {
+        @apply font-medium text-fg;
+    }
+    .lp-history__review-note {
+        @apply m-0 max-w-prose whitespace-pre-wrap break-words;
     }
     .lp-history-compare {
         @apply flex flex-col gap-2 mt-8;
@@ -1778,6 +2657,9 @@
     }
     .lp-diff-columns__cell {
         @apply min-w-0;
+    }
+    .lp-diff-columns__cell > .lp-diff-doc {
+        @apply min-h-0;
     }
     /* A block one version does not hold. The dashed box keeps the pair level and
        shows the side is empty; .lp-diff-columns__note says the same in words. */
@@ -1850,21 +2732,17 @@
         @apply block rounded-lg;
     }
 
-    /* One row of the document metadata bar, which is what makes it sticky: two
-       bars pinned to the same edge would overlap. The view switch leads and the
-       count and its jumps ride the right end as one group. It wraps rather than
-       overflows: at a 375px reading column the group is about 12px too wide,
-       and the bar has overflow:visible, so it would escape its own box. */
+    /** Comparison controls wrap within the reading column on narrow screens. */
     .lp-diff-bar {
-        @apply flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5 border-b border-line;
+        @apply flex flex-wrap items-center gap-3 py-3 border-b border-line;
     }
     /* The two views of one comparison, as links rather than a control: each is
        addressable, and switching is a plain navigation. */
     .lp-diff-views {
-        @apply inline-flex items-center gap-0.5 shrink-0 rounded-full bg-surface-2 p-0.5;
+        @apply inline-flex items-center gap-0.5 shrink-0 rounded-lg bg-surface-2 p-0.5;
     }
     .lp-diff-views__link {
-        @apply rounded-full no-underline text-fg-dim text-xs py-1 px-3 transition-colors hover:text-fg;
+        @apply rounded-md no-underline text-fg-dim hover:text-fg;
     }
     /* Weight and tint together, so the current view is not colour alone. */
     .lp-diff-views__link[aria-current] {
@@ -1905,13 +2783,13 @@
     /* The same gap the action row takes below the bar, so the note does not sit
        against the controls above it. */
     .lp-diff-notes {
-        @apply max-w-2xl flex flex-col gap-1.5 mt-5.5 mb-6 p-4 rounded-lg border bg-surface-2 border-line;
+        @apply max-w-2xl mt-4 mb-4 p-4 rounded-lg border bg-surface-2 border-line;
     }
     .lp-diff-notes__title {
-        @apply font-mono text-fg-dim m-0 text-xs uppercase tracking-widest;
+        @apply font-mono text-fg-dim m-0 text-xs uppercase tracking-widest cursor-pointer;
     }
     .lp-diff-notes__entry {
-        @apply flex items-start gap-2 m-0 text-sm text-fg-mute;
+        @apply flex items-start gap-2 mt-3 mb-0 text-sm text-fg-mute;
     }
 
     .lp-doc-references {
@@ -1952,23 +2830,175 @@
     .lp-review-doc__byline {
         @apply text-fg-dim m-0 text-sm;
     }
-    /* Long-form reading type: 18px on a 32px line, in the faintly cool prose ink
-       rather than the warm UI ink. The measure is fixed by .lp-review-doc. */
+
+    .lp-review-workspace-nav {
+        @apply mt-3 flex w-full flex-col items-stretch gap-3;
+    }
+    /* Above 700px the view tabs and the margin controls share one row. */
+    @media (width > 43.75rem) {
+        .lp-review-workspace-nav {
+            @apply flex-row items-end gap-9;
+        }
+    }
+    .lp-review-workspace-nav .lp-review-view-tabs {
+        @apply mt-0 min-w-0 flex-1;
+    }
+    .lp-review-margin-tabs {
+        @apply flex min-w-0 max-w-full shrink-0 scroll-mb-24 items-center justify-start gap-1;
+    }
+    @media (width > 43.75rem) {
+        .lp-review-margin-tabs {
+            @apply scroll-mb-0 justify-end;
+        }
+    }
+    .lp-review-margin-tablist {
+        @apply flex min-w-0 items-center gap-1 overflow-x-auto scroll-px-4 whitespace-nowrap;
+        scrollbar-width: none;
+    }
+    .lp-review-margin-tablist::-webkit-scrollbar {
+        display: none;
+    }
+    .lp-review-margin-tablist .lp-review-margin-tabs__item:focus-visible {
+        @apply -outline-offset-2;
+    }
+    .lp-review-margin-tabs__item {
+        @apply inline-flex min-h-9 max-w-full shrink-0 items-center gap-1.5 rounded-lg border border-transparent bg-transparent px-2.5 py-1.5 text-sm font-semibold text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
+    }
+    .lp-review-margin-tabs__item svg {
+        @apply size-4 shrink-0;
+    }
+    .lp-review-margin-tabs__item span {
+        @apply hidden;
+    }
+    .lp-review-margin-tabs__item--active {
+        @apply border-accent-border bg-accent-soft text-accent-ink;
+    }
+    .lp-review-margin-tabs__item--active span {
+        @apply inline;
+    }
+    .lp-review-margin-tabs__item--icon {
+        @apply size-9 justify-center p-0;
+    }
+    .lp-review-margin-tabs__item--icon::-webkit-details-marker {
+        display: none;
+    }
+    .lp-review-margin-filter {
+        @apply relative;
+    }
+    .lp-review-margin-filter[hidden] {
+        @apply hidden;
+    }
+    .lp-review-margin-filter__menu {
+        max-width: calc(100vw - var(--spacing) * 10);
+        @apply absolute left-0 top-11 z-20 flex w-44 flex-col rounded-xl border border-line bg-elev p-1.5 shadow-card lg:left-auto lg:right-0;
+    }
+    .lp-review-margin-filter__menu button {
+        @apply flex items-center justify-between gap-2 rounded-lg border-0 bg-transparent px-3 py-2 text-left text-sm text-fg-mute hover:bg-tint hover:text-ink;
+    }
+    .lp-review-margin-filter__menu button[aria-pressed='true'] {
+        @apply bg-accent-soft text-accent-ink;
+    }
+    .lp-review-context-panel {
+        @apply mt-5 flex flex-col gap-3;
+    }
+    @media (width >= 59.375rem) {
+        .lp-review-context-panel {
+            @apply absolute top-43 mt-0;
+        }
+    }
+    /* The margin runs three widths, so a narrow laptop keeps a readable
+       column and a wide window spends the room on both. */
+    .lp-review-block {
+        --doc-margin: 17.1875rem;
+        --doc-margin-gap: 1.0625rem;
+    }
+    @media (width > 71.875rem) {
+        .lp-review-block {
+            --doc-margin: 19.125rem;
+            --doc-margin-gap: 1.5rem;
+        }
+    }
+    @media (width >= 93.75rem) {
+        .lp-review-block {
+            --doc-margin: 20.625rem;
+            --doc-margin-gap: 1.875rem;
+        }
+    }
+    @media (width >= 59.375rem) {
+        .lp-review-doc {
+            max-width: calc(100% - (var(--doc-margin) + var(--doc-margin-gap)));
+        }
+        .lp-review-doc > .lp-review-doc__head {
+            width: calc(100% + var(--doc-margin) + var(--doc-margin-gap));
+        }
+        .lp-review-margin,
+        .lp-review-actions__resolved,
+        .lp-review-context-panel {
+            left: calc(100% + var(--doc-margin-gap));
+            width: var(--doc-margin);
+        }
+        .lp-review-margin-tabs {
+            width: var(--doc-margin);
+        }
+    }
+    .lp-review-context-panel[hidden] {
+        @apply hidden;
+    }
+    .lp-review-context-panel h2 {
+        @apply m-0 font-display text-lg font-bold text-ink;
+    }
+    .lp-review-context-panel h2 span {
+        @apply ml-2 font-mono text-xs font-normal text-fg-dim;
+    }
+    .lp-review-context-panel .lp-review-contents__link--current {
+        @apply bg-surface-3 text-ink font-semibold;
+    }
+    .lp-review-context-panel__hint {
+        @apply m-0 text-xs text-fg-mute;
+    }
+    .lp-review-details {
+        @apply m-0 flex flex-col divide-y divide-line rounded-xl border border-line bg-surface-2;
+    }
+    .lp-review-details div {
+        @apply flex flex-col gap-1 px-3.5 py-3;
+    }
+    .lp-review-details dt {
+        @apply text-xs font-semibold uppercase tracking-wide text-fg-dim;
+    }
+    .lp-review-details dd {
+        @apply m-0 text-sm text-fg;
+    }
+    .lp-review-details__card {
+        @apply flex items-center gap-2 rounded-lg border border-line bg-surface-1 px-3 py-2 text-sm font-semibold text-ink no-underline hover:bg-tint;
+    }
+    .lp-review-details__card + .lp-review-details__card {
+        @apply mt-2;
+    }
+    .lp-review-details__card > :first-child {
+        @apply min-w-0 flex-1;
+    }
     .lp-review-doc__prose {
-        @apply mt-0 max-w-none text-lg leading-8 text-prose break-words;
+        @apply mt-0 min-h-96 rounded-xl border border-line bg-surface-1 px-8.5 py-7 text-base leading-7 text-prose break-words;
+        box-shadow: 0 1px 3px rgba(15, 15, 13, 0.06);
+    }
+    @media (width >= 93.75rem) {
+        .lp-review-doc__prose {
+            @apply px-12 py-8.5;
+        }
     }
     /* The paper scrolls, not this pane, so a jump from the contents or decisions
        panel would otherwise land its target under the sticky metadata bar. */
     .lp-review-doc__prose :is(h1, h2, h3, h4, h5, h6) {
         @apply scroll-mt-16;
     }
-    .lp-review-doc__prose :is(h2, h3, h4) {
-        @apply font-display font-extrabold text-ink text-2xl tracking-tight;
-    }
-    /* A short all-caps label rather than another size of heading: the document's
-       own H2s are already the sub-heading tier. */
     .lp-review-doc__prose h1 {
-        @apply uppercase text-ink text-xs font-bold tracking-widest;
+        @apply font-display text-xl font-extrabold tracking-tight text-ink;
+    }
+    .lp-review-doc__prose h2 {
+        @apply font-display text-lg font-bold tracking-tight text-ink;
+    }
+    .lp-review-doc__prose :is(h3, h4, h5, h6) {
+        @apply font-display text-base font-bold text-ink;
     }
     .lp-review-doc__prose code {
         @apply font-mono bg-surface-3 rounded-md text-ink py-0.5 px-1.5;
@@ -1979,6 +3009,20 @@
        scrollbar stays, because it is the only thing that says it scrolls. */
     .lp-review-doc__prose table {
         @apply block max-w-full overflow-x-auto lg:table;
+    }
+
+    @media (width < 59.375rem) {
+        .lp-review-doc {
+            @apply flex flex-col;
+        }
+        .lp-review-doc__prose {
+            order: 20;
+        }
+        .lp-review-doc > [data-margin-panel='comments'],
+        .lp-review-context-panel {
+            @apply mt-5;
+            order: 30;
+        }
     }
 
     /* ── Table of contents ──────────────────────────────────────────────
@@ -2094,7 +3138,8 @@
         animation: lp-appear 120ms ease-out both;
     }
     .lp-anchor-toolbar__btn {
-        @apply inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-transparent text-white text-sm font-semibold cursor-pointer border-0 transition-colors;
+        @apply inline-flex items-center gap-1.5 h-8.5 px-3 bg-transparent text-white text-sm font-semibold cursor-pointer border-0 transition-colors;
+        border-radius: 7px;
     }
     .lp-anchor-toolbar__btn:hover {
         @apply bg-chrome-control;
@@ -2191,11 +3236,19 @@
        lg it is in normal flow, inside the slot the controller opens after that
        passage's block. Cards never move on hover — only the ring appears. */
     .lp-comment-thread {
-        @apply static lg:absolute left-0 right-0 flex flex-col gap-3 rounded-xl bg-surface-3 py-3.5 px-4 transition-shadow;
+        @apply static left-0 right-0 flex flex-col gap-3 rounded-xl border border-line bg-surface-1 py-3.5 px-4 transition-shadow;
+    }
+    @media (width >= 59.375rem) {
+        .lp-comment-thread {
+            @apply absolute;
+        }
+    }
+    .lp-comment-thread[hidden] {
+        @apply hidden;
     }
     .lp-comment-thread:hover,
     .lp-comment-thread--active {
-        @apply outline-2 -outline-offset-1 outline-accent shadow-card z-3;
+        @apply outline-2 -outline-offset-1 outline-accent shadow-focus z-3;
     }
     .lp-comment-thread--resolved {
         @apply bg-surface-2 py-3;
@@ -2205,8 +3258,6 @@
     .lp-comment-thread--general {
         @apply static;
     }
-    /* The one row a card shows in both states, so the author line sits at the
-       same offset whether the thread is collapsed or open. */
     .lp-comment-thread__top {
         @apply flex items-center gap-2;
     }
@@ -2220,64 +3271,12 @@
         @apply flex flex-col gap-3;
     }
 
-    /* ── Comment rail ──────────────────────────────────────────────────
-       One 32px marker per thread, one open at a time. Two gates: the
-       .lp-comment-rail class, which the landing mock and the demo do not carry,
-       and lg, below which a thread is a whole card wherever it sits — including
-       one #inlineThreads cannot place and leaves in the margin. */
-    .lp-comment-marker {
-        @apply hidden w-full items-center gap-2 h-8 p-0 bg-transparent border-0 text-left cursor-pointer;
-    }
-    .lp-comment-rail .lp-comment-marker {
-        @apply lg:flex lg:w-auto lg:flex-1 lg:min-w-0;
-    }
-    .lp-comment-marker:focus-visible {
-        @apply rounded-lg outline-2 -outline-offset-2 outline-accent;
-    }
-    .lp-comment-marker__dot {
-        @apply inline-block shrink-0 rounded-full w-2 h-2 bg-accent;
-    }
-    .lp-comment-marker__dot--ok {
-        @apply bg-status-ok;
-    }
-    .lp-comment-marker__dot--strike {
-        @apply bg-strike;
-    }
-    .lp-comment-marker__author {
-        @apply min-w-0 truncate text-ink font-bold text-sm;
-    }
-    .lp-comment-marker__count {
-        @apply ml-auto shrink-0 text-fg-mute font-bold text-xs;
-    }
-    /* Expanded, the replies are on screen, so the tally has nothing to say. */
-    .lp-comment-thread--expanded .lp-comment-marker__count {
+    .lp-review-block
+        .lp-comment-thread[data-anchor-kind='comment']:not(
+            .lp-comment-thread--orphaned
+        )
+        .lp-comment-quote {
         @apply hidden;
-    }
-    /* Only the detail collapses. The card keeps its box and its padding, so the
-       marker row does not jump when a thread opens, and hiding it any other way
-       would make offsetParent null, which is how a resolved card stops
-       advancing the floor in #positionThreads. */
-    .lp-comment-rail
-        .lp-comment-thread:not(.lp-comment-thread--expanded)
-        .lp-comment-thread__detail {
-        @apply lg:hidden;
-    }
-    /* The marker names the author, so the header beside it keeps the age and the
-       status alone, and yields the row's free space to the marker. */
-    .lp-comment-rail .lp-comment-thread__header > .lp-comment-author {
-        @apply lg:hidden;
-    }
-    .lp-comment-rail .lp-comment-thread__top > .lp-comment-thread__header {
-        @apply lg:flex-none;
-    }
-    /* The passage is highlighted in the prose level with the card, so quoting it
-       here repeats what the reader can already see. An orphaned thread keeps its
-       quote, because that passage is gone from this version; a suggestion keeps
-       the replacement, which is proposed wording rather than the passage. */
-    .lp-comment-rail
-        .lp-comment-thread:not(.lp-comment-thread--orphaned)
-        .lp-comment-quote:not(.lp-comment-quote--inserted) {
-        @apply lg:hidden;
     }
     /* Status as a plain label rather than a chip: on a card this small, six
        pills stacked down the margin read as the loudest thing on the page. */
@@ -2298,7 +3297,7 @@
 
     /* Status chip (thread header + ladder), pill with a colored dot. */
     .lp-status-chip {
-        @apply inline-flex items-center gap-1.5 ml-auto rounded-full font-medium border text-xs py-0.5 px-2;
+        @apply inline-flex items-center gap-1.5 ml-auto rounded-md font-medium border text-xs py-0.5 px-2;
     }
     .lp-status-chip__dot {
         @apply inline-block rounded-full shrink-0 w-1.5 h-1.5;
@@ -2360,6 +3359,10 @@
     .lp-comment-author {
         @apply text-ink font-bold text-sm;
     }
+    /* Equal identity container for people and agents in document threads. */
+    .lp-comment-avatar {
+        @apply inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-tint text-xs font-bold text-fg-mute;
+    }
     /* How long ago the comment was written, beside its author. Quiet enough that
        a thread's ages read as a timeline rather than as competing labels. */
     .lp-comment-age {
@@ -2380,14 +3383,30 @@
     .lp-comment-reply__head {
         @apply flex items-baseline gap-2;
     }
-    .lp-comment-actions {
-        @apply flex items-center gap-2;
+    /* Final thread footer keeps Delete left and resolution actions right. */
+    .lp-comment-thread__footer {
+        @apply flex flex-wrap items-center gap-1 border-t border-line pt-3;
     }
-    .lp-comment-actions__delete {
-        @apply ml-auto;
+    .lp-comment-action {
+        @apply inline-flex min-h-9 cursor-pointer list-none items-center gap-1 rounded-lg border border-transparent bg-transparent px-1 py-1.5 text-sm font-semibold text-fg-mute transition-colors hover:bg-tint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
+    }
+    .lp-comment-action::-webkit-details-marker {
+        display: none;
+    }
+    .lp-comment-action svg {
+        @apply size-4 shrink-0;
+    }
+    .lp-comment-action--delete {
+        @apply mr-auto text-danger hover:bg-status-danger-bg hover:text-danger;
+    }
+    .lp-comment-action--resolve {
+        @apply text-status-ok-deep hover:bg-status-ok-bg hover:text-status-ok-deep;
     }
     .lp-comment-reply-form {
-        @apply flex flex-col gap-2;
+        @apply order-last basis-full flex flex-col gap-2;
+    }
+    .lp-comment-reply-form[hidden] {
+        @apply hidden;
     }
     .lp-comment-reply-form textarea {
         @apply w-full text-sm bg-app border-0 rounded-lg px-3 py-2 text-ink placeholder:text-fg-dim resize-none outline-hidden transition-colors min-h-16;
@@ -2421,7 +3440,7 @@
         @apply flex flex-col gap-2 mb-4;
     }
     .lp-site-review-title {
-        @apply font-display font-extrabold text-ink m-0 text-5xl tracking-tight leading-none;
+        @apply font-display font-extrabold text-ink m-0 text-3xl tracking-tight leading-none;
     }
     .lp-site-review-meta-line {
         @apply font-mono text-fg-dim m-0 text-xs;
@@ -2536,17 +3555,22 @@
        the sidebar is out of flow, so nothing balances it on the left and it
        reads as a stray black strip. */
     .lp-shell {
-        @apply flex flex-1 flex-col min-w-0 lg:pr-2.5 lg:pb-2.5;
+        @apply flex flex-1 flex-col min-w-0 bg-app;
     }
     /* overflow-x is auto, not hidden: from lg up the review block is 972px, and
        a window narrower than that must be able to scroll to the comment column
        rather than have it clipped away where nothing can reach it. */
     .lp-main {
-        @apply flex-1 min-h-0 bg-app rounded-t-lg overflow-x-auto overflow-y-auto lg:rounded-lg;
+        @apply flex-1 min-h-0 bg-app overflow-x-auto overflow-y-auto;
     }
 
     .lp-sidebar {
-        @apply flex flex-col gap-1 w-59 shrink-0 pt-5 px-3.5 pb-3.5;
+        @apply flex flex-col w-54 shrink-0 pt-7 px-3.5 pb-3.5;
+    }
+    @media (width > 48.75rem) and (width <= 75rem) {
+        .lp-sidebar {
+            width: 12.1875rem;
+        }
     }
 
     /* Below lg the sidebar slides in over the paper. Only the app shell opts
@@ -2595,26 +3619,36 @@
         @apply fixed inset-0 z-40 bg-ink/60 lg:hidden;
     }
 
-    /* Wordmark. There is no logo mark by design — do not add one back. */
+    /* Compact brand lockup used by the application rail. */
     .lp-sidebar__brand {
-        @apply block px-2 pb-3.5 font-display font-extrabold text-2xl tracking-tight lowercase text-accent no-underline;
+        @apply flex items-center gap-2.5 px-2 pb-7 font-display font-extrabold text-2xl tracking-tight text-white no-underline;
+    }
+    .lp-sidebar__brand-mark {
+        @apply relative grid place-items-center w-7 h-7 shrink-0 rounded-lg bg-accent -rotate-6;
+    }
+    .lp-sidebar__brand-mark::after {
+        @apply block w-2.5 h-2.5 rounded-full border-3 border-sidebar;
+        content: '';
     }
 
     /* Current-project switcher: a button that opens the project list beneath it. */
     .lp-sidebar__switcher {
-        @apply flex items-center gap-2.5 w-full px-2.5 py-2 mb-1 rounded-xl bg-chrome-raised border border-transparent cursor-pointer text-left transition-colors;
+        @apply flex items-center gap-2.5 w-full px-2.5 py-2.5 mb-1 rounded-xl bg-chrome-raised border border-chrome-line cursor-pointer text-left transition-colors;
     }
     .lp-sidebar__switcher:hover {
         @apply border-switcher-hover;
     }
     .lp-sidebar__switcher-avatar {
-        @apply w-6.5 h-6.5 bg-chrome shrink-0 inline-flex items-center justify-center text-accent text-xs font-bold rounded-lg;
+        @apply w-8 h-8 bg-status-danger shrink-0 inline-flex items-center justify-center text-white text-xs font-bold rounded-lg;
     }
     .lp-sidebar__switcher-text {
         @apply flex flex-col leading-tight min-w-0 mr-auto;
     }
     .lp-sidebar__switcher-name {
         @apply font-bold text-white truncate text-sm;
+    }
+    .lp-sidebar__switcher-label {
+        @apply text-xs text-chrome-dim;
     }
     .lp-sidebar__switcher-domain {
         @apply font-mono text-chrome-mute truncate text-xs;
@@ -2628,7 +3662,7 @@
         @apply relative;
     }
     .lp-switcher__panel {
-        @apply absolute left-0 right-0 z-30 flex flex-col p-1.5 rounded-xl bg-chrome-raised;
+        @apply absolute left-0 right-0 z-30 flex flex-col gap-1 p-1.5 rounded-xl bg-chrome-raised;
         animation: lp-appear 120ms ease-out both;
     }
     .lp-switcher__panel[hidden] {
@@ -2637,8 +3671,13 @@
     .lp-switcher__item {
         @apply flex items-center gap-2.5 px-2 py-1.5 rounded-lg no-underline transition-colors;
     }
-    .lp-switcher__item:hover {
+    .lp-switcher__item:hover,
+    .lp-switcher__item[aria-current='true'] {
         @apply bg-chrome-control;
+    }
+    /* Current-project indicator in the workspace picker. */
+    .lp-switcher__item-check {
+        @apply ml-auto w-4 h-4 shrink-0 text-accent;
     }
     .lp-switcher__item-avatar {
         @apply w-6 h-6 bg-chrome shrink-0 inline-flex items-center justify-center text-accent text-xs font-bold rounded-lg;
@@ -2668,35 +3707,44 @@
     }
 
     .lp-sidebar__nav {
-        @apply flex flex-col gap-0.5;
+        @apply flex flex-col gap-0.5 mt-5;
+    }
+    .lp-sidebar__nav-label {
+        @apply px-3 pb-1.5 text-xs font-bold uppercase tracking-widest text-chrome-dim;
+    }
+    .lp-sidebar__nav-label--spaced {
+        @apply mt-4;
     }
     .lp-sidebar__link {
-        @apply flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-chrome-mute no-underline transition-colors text-sm;
+        @apply flex items-center gap-2.5 h-9.5 px-3 rounded-lg font-medium text-chrome-mute no-underline transition-colors text-sm;
     }
     .lp-sidebar__link:hover {
         @apply bg-chrome-raised text-chrome-fg;
     }
     .lp-sidebar__link--active {
-        @apply bg-accent text-ink font-bold;
+        @apply bg-chrome-control text-chrome-fg font-semibold;
     }
     /* Needed because `.lp-sidebar__link:hover` outranks `--active` on
        specificity: without it, hovering the selected item drops it to the dark
        raised fill, which reads as deselecting it. */
     .lp-sidebar__link--active:hover {
-        @apply bg-accent-soft text-ink;
+        @apply bg-chrome-control text-white;
     }
     .lp-sidebar__link svg {
-        @apply w-4.5 h-4.5 shrink-0;
+        @apply w-4.5 h-4.5 shrink-0 text-chrome-mute;
+    }
+    .lp-sidebar__link--active svg {
+        @apply text-accent;
     }
     .lp-sidebar__link-label {
         @apply truncate;
     }
-    /* Secondary nav sits a rung quieter than the primary one — but not when it is
-       the current page. Without the :not() this rule wins on source order and
-       paints the selected item's label grey on the accent fill. */
     .lp-sidebar__nav--secondary
         .lp-sidebar__link:not(.lp-sidebar__link--active) {
         @apply text-chrome-dim;
+    }
+    .lp-sidebar__nav--secondary {
+        @apply mt-0;
     }
     .lp-sidebar__nav--secondary .lp-sidebar__link svg {
         @apply w-4 h-4;
@@ -2714,7 +3762,7 @@
         @apply contents;
     }
     .lp-sidebar__link--active .lp-sidebar__pill {
-        @apply text-ink;
+        @apply text-chrome-fg;
     }
 
     .lp-sidebar__spacer {
@@ -2753,14 +3801,14 @@
        One row at every width: below lg the lead stacks its two lines and
        everything else leaves the bar. */
     .lp-topbar {
-        @apply flex items-center gap-3.5 h-16 px-3.5 shrink-0 lg:px-12;
+        @apply flex items-center gap-3.5 h-16 px-3.5 shrink-0 border-b border-line bg-white/90 backdrop-blur-xl lg:px-7.5;
     }
     /* Opens the sidebar drawer. Present only where the sidebar is off-canvas. */
     .lp-topbar__menu {
-        @apply inline-flex items-center justify-center shrink-0 w-9 h-9 rounded-lg text-chrome-mute cursor-pointer transition-colors lg:hidden;
+        @apply inline-flex items-center justify-center shrink-0 w-9 h-9 rounded-lg text-fg-dim cursor-pointer transition-colors lg:hidden;
     }
     .lp-topbar__menu:hover {
-        @apply bg-chrome-raised text-chrome-fg;
+        @apply bg-surface-3 text-ink;
     }
     .lp-topbar__menu svg {
         @apply w-5 h-5 shrink-0;
@@ -2783,23 +3831,97 @@
         @apply hidden lg:inline-flex;
     }
     .lp-topbar__crumb {
-        @apply text-sm text-chrome-mute no-underline transition-colors;
+        @apply text-sm text-fg-dim no-underline transition-colors;
     }
     .lp-topbar__crumb:hover {
-        @apply text-chrome-fg;
+        @apply text-ink;
     }
     .lp-topbar__sep {
-        @apply text-sm text-chrome-dim;
+        @apply text-sm text-fg-dim;
     }
     .lp-topbar__here {
-        @apply text-base font-medium text-white min-w-0 truncate;
+        @apply text-sm font-medium text-ink min-w-0 truncate;
     }
     .lp-topbar__meta {
-        @apply text-chrome-dim truncate text-xs lg:text-sm lg:whitespace-nowrap;
+        @apply text-fg-dim truncate text-xs lg:text-sm lg:whitespace-nowrap;
     }
     /* Below lg the verdict actions move into the review menu. */
     .lp-topbar__actions {
         @apply hidden items-center gap-2.5 ml-auto lg:flex lg:flex-wrap;
+    }
+    .lp-topbar__global-actions {
+        @apply flex items-center gap-2 ml-auto;
+    }
+    .lp-topbar__global-action {
+        @apply inline-flex items-center justify-center w-9 h-9 rounded-lg text-fg-dim no-underline transition-colors;
+    }
+    .lp-topbar__global-action:hover {
+        @apply bg-surface-3 text-ink;
+    }
+    .lp-topbar__global-action svg {
+        @apply w-4 h-4;
+    }
+    .lp-topbar__global-action--search {
+        @apply gap-2 text-sm lg:w-auto lg:px-2.5;
+    }
+    .lp-topbar__global-action--search > span {
+        @apply hidden lg:inline;
+    }
+    /* The shortcut the trigger already answers, shown where there is room for
+       it. Hidden from assistive technology: `aria-keyshortcuts` says the same
+       thing on the trigger itself. */
+    .lp-kbd {
+        @apply hidden lg:inline-block rounded border border-b-2 border-line bg-app px-1 font-mono text-xs leading-5 text-fg-dim;
+    }
+    /* The design carries one primary create action in the top bar. Below `lg`
+       it is gone rather than collapsed: every page it appears on already has
+       its own create button, and a second control on that row overflows the
+       page at enlarged text. */
+    .lp-topbar__new-work {
+        @apply hidden lg:inline-flex shrink-0;
+    }
+
+    /* Tailwind's lg variants start at 1024px, but the rail stays in flow above
+       780px. Keep page-level responsive rules on their own breakpoints. */
+    @media (width > 48.75rem) and (width < 64rem) {
+        .lp-sidebar--drawer,
+        .lp-sidebar--drawer.lp-sidebar--open {
+            @apply static visible translate-x-0 overflow-visible;
+            transition: none;
+        }
+        .lp-sidebar__close,
+        .lp-scrim,
+        .lp-topbar__menu {
+            @apply hidden;
+        }
+        .lp-topbar {
+            @apply px-7.5;
+        }
+        .lp-topbar__lead {
+            @apply flex-row flex-wrap items-baseline justify-start gap-x-3.5 gap-y-1;
+        }
+        .lp-topbar__crumb,
+        .lp-topbar__sep,
+        .lp-topbar__trail .lp-version-pill,
+        .lp-topbar__lead .lp-signal {
+            @apply inline-flex;
+        }
+        .lp-topbar__meta {
+            @apply text-sm whitespace-nowrap;
+        }
+        .lp-topbar__actions,
+        .lp-topbar__global-actions {
+            @apply flex;
+        }
+        .lp-topbar__actions {
+            @apply flex-wrap;
+        }
+        .lp-topbar__global-action--search {
+            @apply w-auto px-2.5;
+        }
+        .lp-topbar__global-action--search > span {
+            @apply inline;
+        }
     }
 
     /* ── Code / pre blocks ──────────────────────────────────────────────── */
@@ -2935,7 +4057,7 @@
         @apply flex flex-col gap-0.5 mr-auto min-w-0;
     }
     .lp-connect-toggle__title {
-        @apply text-sm font-semibold text-ink;
+        @apply font-display text-sm font-semibold text-ink;
     }
     .lp-connect-toggle__state {
         @apply text-xs text-fg-mute;
@@ -3016,7 +4138,7 @@
         @apply flex flex-col gap-0.5 mr-auto min-w-0;
     }
     .lp-install__title {
-        @apply text-sm font-semibold text-ink;
+        @apply font-display text-sm font-semibold text-ink;
     }
     .lp-install__sub {
         @apply text-xs text-fg-mute;
@@ -3127,36 +4249,6 @@
         position: static !important;
         @apply rounded-xl;
         outline: 1px solid var(--color-status-pending-border);
-    }
-    /* Open, not collapsed to a marker: a marker names the author and points at a
-       passage, and this card has none to point at. Both selectors carry the
-       rail's own prefix, which is what the collapse rules use, or those would
-       out-rank these however late they come. */
-    .lp-comment-rail .lp-orphan-group .lp-comment-marker {
-        @apply hidden;
-    }
-    /* flex, not block: the detail is a flex column whose `gap` is the whole of
-       its vertical rhythm, and `display: block` drops every one of those gaps. */
-    .lp-comment-rail
-        .lp-orphan-group
-        .lp-comment-thread
-        .lp-comment-thread__detail {
-        @apply flex flex-col gap-3;
-    }
-    /* The marker is what names the author in the rail, and it is hidden here. */
-    .lp-comment-rail
-        .lp-orphan-group
-        .lp-comment-thread__header
-        > .lp-comment-author {
-        @apply inline;
-    }
-    /* The header has the row to itself here, so it takes the width back from
-       the hidden marker and the status keeps its flush-right place. */
-    .lp-comment-rail
-        .lp-orphan-group
-        .lp-comment-thread__top
-        > .lp-comment-thread__header {
-        @apply lg:flex-1;
     }
     /* The group's heading says this right above the card. The pill is for a card
        that stands on its own, which one in this group never does. */
@@ -4235,11 +5327,8 @@
     /* ── Board ──────────────────────────────────────────────────────────
        Four columns side by side. The row scrolls rather than wraps: a column
        that wrapped below its neighbours would stop reading as a column. */
-    .lp-workspace--board {
-        @apply max-w-none pr-12;
-    }
     .lp-board-head {
-        @apply flex items-start justify-between gap-4;
+        @apply flex items-start justify-between gap-4 mb-7;
     }
     .lp-board {
         @apply flex flex-col gap-2;
@@ -4305,14 +5394,6 @@
     .lp-board__column-menu-note {
         @apply px-2 py-1.5 m-0 text-xs text-fg-dim;
     }
-    /* The add control after the last column. It keeps a column's minimum width,
-       so the new column appears where the control stood. */
-    .lp-board__add-column {
-        @apply flex flex-col shrink-0 min-w-64 rounded-xl border-2 border-dashed border-surface-3 p-3.5;
-    }
-    .lp-board__add-form {
-        @apply flex flex-col gap-2;
-    }
     .lp-board__slug {
         @apply block;
     }
@@ -4352,12 +5433,12 @@
         @apply text-xs text-status-pending-deep m-0;
     }
     /* A group is a drop target, so it keeps a minimum height even when empty:
-       an empty grade with no area under it cannot be dropped into. */
+       an empty column with no area under it cannot be dropped into. */
     .lp-board__group {
         @apply flex flex-col gap-2 min-h-12 rounded-lg transition-colors;
     }
-    .lp-board__group-title {
-        @apply uppercase text-fg-dim m-0 text-xs font-bold tracking-widest;
+    .lp-board__group:not(:has(.lp-board-card)) {
+        @apply min-h-6;
     }
     .lp-board__placeholder {
         @apply rounded-xl border-2 border-dashed border-accent-border bg-accent-faint;
@@ -4387,21 +5468,29 @@
         @apply cursor-grabbing;
     }
     .lp-board-card__title {
-        @apply pr-6 text-sm font-semibold text-ink no-underline hover:text-accent-ink;
+        @apply pr-6 font-display text-sm font-semibold text-ink no-underline hover:text-accent-ink;
     }
     /* A card's per-project number, sized like the documents list's version chip
        so the two identifiers read at the same weight across the app. */
     .lp-board-card__number {
         @apply font-mono text-xs font-semibold text-fg-dim;
     }
+    /* Identifier and classification lead the card face, above the title. */
+    .lp-board-card__identity {
+        @apply flex flex-wrap items-center gap-2 pr-6;
+    }
     .lp-card-number {
         @apply font-mono align-middle text-2xl font-semibold text-fg-dim;
+    }
+    .lp-board-card__excerpt {
+        @apply m-0 line-clamp-3 text-sm leading-relaxed text-fg-mute;
     }
     .lp-board-card__meta {
         @apply flex flex-wrap items-center gap-2;
     }
     .lp-board-card__pulls,
-    .lp-board-card__reviews {
+    .lp-board-card__reviews,
+    .lp-board-card__documents {
         @apply inline-flex items-center gap-1 text-xs font-semibold text-fg-mute;
     }
 
@@ -4518,7 +5607,7 @@
         @apply flex items-center gap-3 mt-8;
     }
     .lp-card-form-row {
-        @apply grid gap-4 sm:grid-cols-3;
+        @apply grid gap-4 sm:grid-cols-2;
     }
     .lp-card-form-textarea {
         @apply font-mono text-sm leading-relaxed;
@@ -4540,13 +5629,6 @@
     }
 
     /* ── Worker runs ────────────────────────────────────────────────── */
-
-    /* A neutral note above a list, for a caveat the reader must carry into
-       every row. The amber .lp-connect-alert reads as a warning, which this
-       is not. */
-    .lp-page-note {
-        @apply rounded-xl bg-surface-2 text-fg-mute m-0 mb-6 py-3 px-4 text-sm leading-normal;
-    }
 
     .lp-worker-run-list {
         @apply flex flex-col gap-2.5;
@@ -4605,7 +5687,10 @@
         @apply bg-surface-1 border border-line;
     }
     .lp-inbox-ask__head {
-        @apply flex flex-wrap items-center gap-3 font-mono text-xs text-fg-dim;
+        @apply flex flex-wrap items-center gap-3 text-xs text-fg-dim;
+    }
+    .lp-inbox-ask__time {
+        @apply ml-auto;
     }
     /* When an open ask's bridge last sent a heartbeat. The amber variant warns that no resume will come. */
     .lp-inbox-ask__bridge {
@@ -4630,7 +5715,7 @@
         @apply flex flex-wrap items-center gap-2.5;
     }
     .lp-inbox-item__number {
-        @apply font-mono text-sm font-bold text-ink;
+        @apply text-sm font-bold text-ink;
     }
     .lp-inbox-item__kind {
         @apply text-xs font-semibold text-fg-mute;
@@ -4703,6 +5788,16 @@
     .lp-inbox-answer__clear {
         @apply mt-2;
     }
+    /* The reply composer: one field with its send button beside it. */
+    .lp-inbox-composer {
+        @apply flex-row items-end gap-2;
+    }
+    .lp-inbox-composer .lp-input {
+        @apply flex-1;
+    }
+    .lp-inbox-composer__send {
+        @apply shrink-0 px-2.5;
+    }
     .lp-inbox-decline__summary {
         @apply cursor-pointer select-none text-sm font-semibold text-fg-dim hover:text-ink;
     }
@@ -4748,9 +5843,24 @@
     }
 }
 
+/* Same reason as the rule below: the typography plugin sets the prose colour
+   and size in a later layer, so the inbox states them unlayered. */
+.lp-core-inbox .lp-inbox-item__body {
+    color: var(--text-mute);
+}
+
+.lp-core-inbox .lp-inbox-ask__context {
+    color: var(--text-mute);
+    font-size: var(--text-sm);
+}
+
 /* The typography plugin wraps inline code in literal backticks. Unlayered, not
    in @layer components: the plugin's own rule is layered, and an unlayered
    declaration outranks it without a specificity fight. */
+.lp-review-doc__prose {
+    max-width: none;
+}
+
 .lp-review-doc__prose code::before,
 .lp-review-doc__prose code::after {
     content: none;
@@ -4927,6 +6037,10 @@
         transition: none;
     }
 
+    .lp-card-drawer-overlay[open] {
+        animation: none;
+    }
+
     @keyframes lp-appear {
         from {
             opacity: 0;
@@ -4935,9 +6049,15 @@
             opacity: 1;
         }
     }
+
+    /* A spinner is the only sign that work is in flight, so it slows down
+       rather than stopping. */
+    .lp-card-drawer-overlay__loading svg {
+        animation-duration: 3s;
+    }
 }
 
-/* Touch pointers cannot hit a 34px control accurately. Desktop density is
+/* Touch pointers cannot hit a 36px control accurately. Desktop density is
    deliberately unchanged, so this is scoped to coarse pointers only. */
 @media (pointer: coarse) {
     .lp-btn,
@@ -4948,6 +6068,10 @@
     .auth-footer__link,
     .lp-landing-footer__link {
         @apply inline-flex items-center justify-center min-h-11 min-w-11;
+    }
+
+    .lp-input {
+        @apply min-h-11;
     }
 
     /* Size only. Both are `lg:hidden`, and a `display` here comes later in the
@@ -4988,8 +6112,429 @@
     display: none;
 }
 
-@media (width < 64rem) {
+@media (width < 59.375rem) {
     .lp-review-actions__resolved {
         display: none;
+    }
+}
+
+@layer components {
+    /* Shared heading row for route-level workspaces. */
+    .lp-page-header {
+        @apply flex items-start justify-between gap-6 mb-7;
+    }
+    .lp-page-header .lp-workspace-desc,
+    .lp-orchestration-header .lp-workspace-desc,
+    .lp-board-head .lp-workspace-desc {
+        @apply max-w-none mt-1.5 mb-0 text-sm leading-normal text-fg-dim;
+    }
+    .lp-page-header__copy {
+        @apply flex-1 basis-80 min-w-0;
+    }
+    .lp-section-title {
+        @apply font-display text-lg font-bold tracking-tight text-ink m-0 mt-1;
+    }
+    .lp-section-heading {
+        @apply flex items-start justify-between gap-4;
+    }
+
+    /* Workshop overview with the handoff's wide work column and support rail. */
+    .lp-workshop-title {
+        @apply m-0 font-display text-3xl leading-tight font-extrabold tracking-tight text-ink;
+    }
+    .lp-workshop-summary {
+        @apply flex flex-col items-stretch gap-0 p-5 mb-7 rounded-xl border border-accent-border bg-accent-faint sm:flex-row sm:items-center sm:gap-7;
+    }
+    .lp-workshop-stat {
+        @apply flex items-center gap-3 min-w-0 py-2 text-ink no-underline transition-colors;
+    }
+    a.lp-workshop-stat:hover {
+        @apply text-accent-ink;
+    }
+    .lp-workshop-stat__value {
+        @apply font-display text-3xl leading-none font-bold text-ink;
+    }
+    .lp-workshop-stat__copy {
+        @apply flex flex-col text-xs leading-snug text-fg-dim;
+    }
+    .lp-workshop-stat__copy strong {
+        @apply text-xs font-medium text-ink;
+    }
+    .lp-workshop-summary__action {
+        @apply mt-3 sm:mt-0 sm:ml-auto;
+    }
+    .lp-workshop-summary__action:hover {
+        @apply border-accent-border bg-accent-soft text-ink;
+    }
+    .lp-workshop-layout {
+        @apply grid grid-cols-1 gap-7 xl:grid-cols-3;
+    }
+    .lp-workshop-primary {
+        @apply min-w-0 xl:col-span-2;
+    }
+    .lp-workshop-section {
+        @apply mb-7;
+    }
+    .lp-workshop-section__title {
+        @apply m-0 font-display text-base font-bold tracking-tight text-ink;
+    }
+    .lp-workshop-section__title > span {
+        @apply inline-grid place-items-center min-w-5 h-5 ml-1 rounded-md bg-surface-3 text-xs text-fg-dim;
+    }
+    .lp-workshop-text-link {
+        @apply inline-flex items-center gap-1.5 text-xs font-semibold text-accent-ink no-underline;
+    }
+    .lp-workshop-text-link:hover {
+        @apply text-ink;
+    }
+    .lp-workshop-text-link svg {
+        @apply w-3.5 h-3.5;
+    }
+    /* The queue is one card with divided rows, not a stack of separate cards. */
+    .lp-workshop-attention-list {
+        @apply mt-4 px-4.5 rounded-xl border border-line bg-white;
+    }
+    .lp-workshop-attention {
+        @apply flex items-center gap-3 px-0.5 py-4.5 border-b border-line no-underline transition-colors;
+    }
+    .lp-workshop-attention:last-child {
+        @apply border-b-0;
+    }
+    a.lp-workshop-attention:hover strong {
+        @apply text-accent-ink;
+    }
+    .lp-workshop-attention__icon {
+        @apply inline-grid place-items-center w-8 h-8 shrink-0 rounded-lg bg-accent-soft text-accent-ink;
+    }
+    .lp-workshop-attention__icon svg {
+        @apply w-4 h-4;
+    }
+    .lp-workshop-attention > span:nth-child(2) {
+        @apply flex flex-col min-w-0;
+    }
+    .lp-workshop-attention strong {
+        @apply text-sm font-semibold text-ink;
+    }
+    .lp-workshop-attention small {
+        @apply text-xs text-fg-dim;
+    }
+    .lp-workshop-attention__badge {
+        @apply ml-auto rounded-md bg-status-pending-bg px-2 py-1 text-xs font-semibold text-status-pending-deep;
+    }
+    .lp-workshop-attention__chevron {
+        @apply w-4 h-4 shrink-0 text-fg-dim;
+    }
+    .lp-workshop-work-grid {
+        @apply grid grid-cols-1 gap-3 mt-4 sm:grid-cols-2;
+    }
+    .lp-workshop-work-card {
+        @apply block min-w-0 rounded-xl border border-line bg-white p-4 no-underline transition-colors;
+    }
+    .lp-workshop-work-card:hover {
+        @apply border-accent-border;
+    }
+    .lp-workshop-work-card header {
+        @apply flex flex-wrap items-center justify-between gap-3 text-xs text-fg-dim;
+    }
+    .lp-workshop-work-card__badge {
+        @apply min-w-0 max-w-full break-words rounded-md bg-accent-soft px-2 py-1 font-semibold text-accent-ink;
+    }
+    .lp-workshop-work-card__badge--quiet {
+        @apply bg-surface-3 text-fg-dim;
+    }
+    .lp-workshop-work-card h3 {
+        @apply mt-3 break-words font-display text-base leading-normal font-bold text-ink;
+    }
+    .lp-workshop-crew__avatar {
+        @apply inline-grid place-items-center w-7 h-7 shrink-0 rounded-full bg-accent-soft text-accent-ink;
+    }
+    .lp-workshop-crew__avatar svg {
+        @apply w-3.5 h-3.5;
+    }
+    .lp-workshop-supporting {
+        @apply min-w-0;
+    }
+    .lp-workshop-crew {
+        @apply rounded-xl border border-line bg-white p-5;
+    }
+    .lp-workshop-icon-link {
+        @apply inline-grid place-items-center w-8 h-8 rounded-lg text-fg-dim no-underline;
+    }
+    .lp-workshop-icon-link:hover {
+        @apply bg-surface-3 text-ink;
+    }
+    .lp-workshop-icon-link svg {
+        @apply w-4 h-4;
+    }
+    .lp-workshop-crew__row {
+        @apply flex flex-wrap items-center gap-2.5 pt-4 mt-1 border-t border-line-faint no-underline;
+    }
+    .lp-workshop-crew__row > span:nth-child(2) {
+        @apply flex flex-1 flex-col min-w-0 wrap-anywhere;
+    }
+    .lp-workshop-crew__row strong {
+        @apply text-xs font-semibold text-ink;
+    }
+    .lp-workshop-crew__row small {
+        @apply text-xs text-fg-dim;
+    }
+    .lp-workshop-crew__status {
+        @apply ml-auto text-xs font-semibold text-accent-ink;
+    }
+    .lp-workshop-note {
+        @apply relative flex min-h-44 mt-4 overflow-hidden rounded-xl border border-line-warm bg-warm p-5;
+    }
+    .lp-workshop-note > div {
+        @apply relative z-10 max-w-40;
+    }
+    .lp-workshop-note h2 {
+        @apply m-0 font-display text-base font-bold tracking-tight text-ink;
+    }
+    .lp-workshop-note p {
+        @apply my-2 text-xs leading-relaxed text-fg-dim;
+    }
+    .lp-workshop-note__mascot {
+        @apply absolute -right-4 -bottom-2 h-36 w-36 -rotate-6 object-contain;
+    }
+    .lp-workshop-recent {
+        @apply mt-6;
+    }
+    .lp-workshop-recent__row {
+        @apply flex items-start gap-3 mt-3 py-3 border-b border-line no-underline;
+    }
+    .lp-workshop-recent__row > span:first-child {
+        @apply grid place-items-center w-8 h-8 shrink-0 rounded-lg border border-line bg-white text-fg-dim;
+    }
+    .lp-workshop-recent__row svg {
+        @apply w-4 h-4;
+    }
+    .lp-workshop-recent__row > span:last-child {
+        @apply flex flex-col min-w-0;
+    }
+    .lp-workshop-recent__row strong {
+        @apply text-xs font-semibold text-ink;
+    }
+    .lp-workshop-recent__row small {
+        @apply text-xs text-fg-dim;
+    }
+
+    /* Responsive section navigation for project and account settings. */
+    .lp-settings-layout {
+        @apply grid grid-cols-1 lg:grid-cols-4 gap-8;
+    }
+    .lp-settings-nav {
+        @apply flex lg:flex-col gap-1 overflow-x-auto;
+        scrollbar-width: none;
+    }
+    .lp-settings-nav::-webkit-scrollbar,
+    .lp-section-tabs::-webkit-scrollbar {
+        display: none;
+    }
+    .lp-settings-nav__item {
+        @apply inline-flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-xs font-normal text-fg-mute no-underline whitespace-nowrap transition-colors;
+    }
+    .lp-settings-nav__item:hover {
+        @apply bg-tint text-ink;
+    }
+    .lp-settings-nav__item--active {
+        @apply bg-accent-soft text-accent-ink;
+    }
+    .lp-settings-nav__item svg {
+        @apply w-4 h-4 shrink-0;
+    }
+    .lp-settings-content {
+        @apply lg:col-span-3 max-w-2xl;
+    }
+    .lp-settings-section {
+        @apply rounded-xl border border-line bg-surface-1 p-6;
+    }
+    /* Connections: two cards, each a title, a hint, then its rows and actions. */
+    .lp-connect-settings .lp-settings-section {
+        @apply flex flex-col items-start gap-4;
+    }
+    .lp-connect-settings .lp-code-dark__body {
+        @apply whitespace-pre-wrap break-all;
+    }
+    .lp-connect-settings .lp-settings-section > * {
+        @apply w-full;
+    }
+    .lp-connect-settings .lp-settings-section > .lp-section-title {
+        @apply mt-0;
+    }
+    .lp-connect-settings .lp-settings-section > .lp-connect-hint {
+        @apply -mt-3 text-xs;
+    }
+    .lp-connect-settings [data-controller='modal'] {
+        @apply w-auto;
+    }
+    /* A connected credential: icon, name and date, then its actions. */
+    .lp-connection-row {
+        @apply flex flex-wrap items-center gap-3 py-3 border-b border-line;
+    }
+    .lp-connection-row__icon {
+        @apply grid place-items-center w-8 h-8 shrink-0 rounded-lg border border-line bg-surface-1 text-fg-mute;
+    }
+    .lp-connection-row__icon svg {
+        @apply w-4 h-4;
+    }
+    .lp-connection-row__text {
+        @apply flex flex-1 flex-col min-w-0;
+    }
+    .lp-connection-row__text strong {
+        @apply font-mono text-xs font-semibold text-ink truncate;
+    }
+    .lp-connection-row__text small {
+        @apply text-xs text-fg-dim;
+    }
+    .lp-connect-note {
+        @apply flex items-start gap-2 m-0 text-xs text-fg-dim;
+    }
+    .lp-connect-note svg {
+        @apply w-3.5 h-3.5 mt-0.5 shrink-0;
+    }
+    .lp-connect-mint {
+        @apply flex flex-col items-start gap-3;
+    }
+    .lp-connect-dialog {
+        @apply flex-col gap-5;
+    }
+    .lp-connect-dialog[open] {
+        @apply flex;
+    }
+    .lp-connect-dialog__header {
+        @apply flex items-start justify-between gap-4;
+    }
+    .lp-settings-section .lp-form {
+        @apply mt-6;
+    }
+
+    .lp-section-tabs {
+        @apply flex gap-1 overflow-x-auto mb-8 border-b border-line;
+        scrollbar-width: none;
+    }
+    .lp-section-tabs__item {
+        @apply px-3 py-3 text-sm font-semibold text-fg-mute no-underline whitespace-nowrap border-b-2 border-transparent transition-colors;
+    }
+    .lp-section-tabs__item:hover,
+    .lp-section-tabs__item:focus-visible {
+        @apply text-ink border-accent;
+    }
+    /* After the base class, or the base border colour wins at equal specificity. */
+    .lp-section-tabs__item--active {
+        @apply border-accent text-ink;
+    }
+
+    .lp-orchestration-header {
+        @apply flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-7;
+    }
+    .lp-agent-grid {
+        @apply grid grid-cols-1 xl:grid-cols-2 gap-4 mt-6;
+    }
+    .lp-agent-card {
+        @apply flex gap-5 rounded-2xl border border-line bg-surface-2 p-5;
+    }
+    .lp-agent-card__avatar {
+        @apply flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-ink text-accent;
+    }
+    .lp-agent-card__avatar svg {
+        @apply h-7 w-7;
+    }
+    .lp-agent-card__body {
+        @apply min-w-0 flex-1;
+    }
+    .lp-agent-card__heading,
+    .lp-rule-row__heading,
+    .lp-activity-row__heading {
+        @apply flex items-start justify-between gap-4;
+    }
+    .lp-agent-card__eyebrow {
+        @apply m-0 text-xs font-bold uppercase tracking-wider text-fg-mute;
+    }
+    .lp-agent-card__name {
+        @apply m-0 mt-1 font-display text-xl font-extrabold text-ink;
+    }
+    .lp-agent-card__purpose {
+        @apply my-4 text-sm leading-relaxed text-fg-mute;
+    }
+    .lp-agent-card__facts {
+        @apply grid grid-cols-1 sm:grid-cols-2 gap-3 m-0;
+    }
+    .lp-agent-card__facts div {
+        @apply rounded-xl bg-surface-1 px-3 py-2;
+    }
+    .lp-agent-card__facts dt {
+        @apply text-xs font-semibold text-fg-mute;
+    }
+    .lp-agent-card__facts dd {
+        @apply m-0 mt-1 text-sm font-medium text-ink;
+    }
+    .lp-rule-list,
+    .lp-activity-feed {
+        @apply flex flex-col gap-3 mt-6;
+    }
+    .lp-rule-row {
+        @apply flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 rounded-2xl border border-line bg-surface-2 p-5;
+    }
+    .lp-rule-row__main {
+        @apply min-w-0 flex-1;
+    }
+    .lp-rule-row__heading h2,
+    .lp-activity-row__heading h2 {
+        @apply m-0 font-sans text-xs font-semibold tracking-normal text-ink;
+    }
+    .lp-rule-row__main > p {
+        @apply mt-1 mb-0 text-sm text-fg-mute;
+    }
+    .lp-rule-flow {
+        @apply flex flex-wrap items-center gap-2 mt-4;
+    }
+    .lp-rule-flow span {
+        @apply inline-flex items-center gap-2 rounded-lg bg-surface-1 px-3 py-2 text-sm font-semibold text-ink;
+    }
+    .lp-rule-flow svg {
+        @apply h-4 w-4;
+    }
+    .lp-rule-flow__arrow {
+        @apply text-fg-mute;
+    }
+    .lp-rule-row__reason,
+    .lp-activity-row__error {
+        @apply mt-3 rounded-lg bg-status-danger-bg px-3 py-2 text-sm text-danger;
+    }
+    .lp-rule-row > time {
+        @apply shrink-0 text-xs text-fg-mute;
+    }
+    .lp-activity-row {
+        @apply flex flex-wrap gap-4 rounded-2xl border border-line bg-surface-2 p-5;
+    }
+    .lp-activity-row__icon {
+        @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ink text-accent;
+    }
+    .lp-activity-row__icon svg {
+        @apply h-5 w-5;
+    }
+    .lp-activity-row__body {
+        @apply min-w-0 flex-1 basis-48;
+    }
+    .lp-activity-row__heading time {
+        @apply shrink-0 text-xs text-fg-mute;
+    }
+    .lp-activity-row__body > p {
+        @apply mt-1 mb-0 text-sm text-fg-mute;
+    }
+    .lp-activity-row__meta {
+        @apply flex flex-wrap items-center gap-3 mt-3 text-xs text-fg-mute;
+    }
+    /* Related-work links within the compact event metadata row. */
+    .lp-activity-row__work {
+        @apply min-w-0 break-words text-accent-ink underline underline-offset-2 hover:text-ink;
+    }
+    @media (width < 40rem) {
+        .lp-activity-row {
+            @apply gap-3 p-4;
+        }
+        .lp-activity-row__heading {
+            @apply flex-col gap-1;
+        }
     }
 }

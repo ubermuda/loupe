@@ -4,85 +4,35 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Account\Controller;
 
-use App\Module\Account\Entity\DataExport;
 use App\Module\Account\Entity\User;
 use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 final class ShowAccountSettingsControllerTest extends WebTestCase
 {
-    /** @param non-empty-string $email */
-    private function createVerifiedUser(EntityManagerInterface $em, string $username, string $email): User
+    #[TestWith(['/account', '/account/profile'])]
+    #[TestWith(['/account?tab=profile', '/account/profile'])]
+    #[TestWith(['/account?tab=api-tokens', '/account/api-tokens'])]
+    #[TestWith(['/account?tab=data', '/account/data'])]
+    #[TestWith(['/account?tab=unknown', '/account/profile'])]
+    public function test_the_account_root_and_legacy_tab_links_redirect_to_a_section(string $from, string $to): void
     {
-        $user = new User(
-            fullName: ucfirst($username),
-            email: $email,
-            password: 'hashed-password-placeholder',
-        );
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $user = new User(fullName: 'Alice', email: 'alice@example.com', password: 'hashed-password-placeholder');
         AcceptedTerms::stamp($user, static::getContainer());
         $user->emailVerifiedAt = new \DateTimeImmutable();
         $em->persist($user);
         $em->flush();
 
-        return $user;
-    }
-
-    public function test_logged_in_user_sees_the_export_section(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $user = $this->createVerifiedUser($em, 'alice', 'alice@example.com');
-
         $client->loginUser($user);
-        $client->request(Request::METHOD_GET, '/account');
+        $client->request(Request::METHOD_GET, $from);
 
-        self::assertResponseIsSuccessful();
-        self::assertSelectorExists('[data-testid="export-section"]');
-    }
-
-    public function test_a_user_with_no_tokens_sees_the_empty_state_and_the_mint_form(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $user = $this->createVerifiedUser($em, 'tokenless', 'tokenless@example.com');
-
-        $client->loginUser($user);
-        $crawler = $client->request(Request::METHOD_GET, '/account');
-
-        self::assertResponseIsSuccessful();
-        self::assertSelectorExists('[data-testid="api-tokens-empty"]');
-        self::assertSelectorExists('[data-testid="mint-api-token-form"]');
-        self::assertCount(0, $crawler->filter('[data-token-id]'));
-    }
-
-    public function test_a_ready_export_offers_a_download_link_and_a_pending_one_does_not(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $user = $this->createVerifiedUser($em, 'alice', 'alice@example.com');
-
-        $pending = new DataExport($user);
-        $em->persist($pending);
-        $em->flush();
-
-        $client->loginUser($user);
-        $crawler = $client->request(Request::METHOD_GET, '/account');
-
-        self::assertResponseIsSuccessful();
-        $pendingId = $pending->id;
-        self::assertNotNull($pendingId);
-        self::assertCount(0, $crawler->filter(sprintf('a[href*="/account/exports/%s/download"]', $pendingId)));
-
-        $pending->complete();
-        $em->flush();
-        $em->clear();
-
-        $crawler = $client->request(Request::METHOD_GET, '/account');
-
-        self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter(sprintf('a[href*="/account/exports/%s/download"]', $pendingId)));
+        self::assertResponseStatusCodeSame(302);
+        self::assertResponseRedirects($to);
     }
 
     public function test_anonymous_user_is_redirected_to_login(): void

@@ -1,7 +1,7 @@
 {# Billing section of the account settings page. Draws nothing at all while the
    billing flag is off, so the page is unchanged for a free deployment. #}
 {% if view and view.billingEnabled %}
-<section class="lp-connect-block" data-testid="billing-section">
+<section class="lp-connect-block lp-settings-section lp-settings-panel-card" data-testid="billing-section">
     <p class="lp-eyebrow">{{ 'account.settings.billing.heading'|trans }}</p>
 
     <div class="lp-card flex items-start gap-3">

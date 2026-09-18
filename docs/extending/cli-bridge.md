@@ -33,7 +33,7 @@ mapped project is deleted or stops being yours, the bridge logs `project_gone`
 once, with the rules that stop working.
 
 The bridge authenticates with an account-level API token that carries the agent
-scope. Mint one at `/account`. It reaches `GET /api/projects`, `GET /api/events`,
+scope. Mint one at `/account/api-tokens`. It reaches `GET /api/projects`, `GET /api/events`,
 `GET /api/projects/{handle}/board/columns`,
 `POST /api/projects/{handle}/worker-runs`,
 `GET /api/projects/{handle}/inbox/asks/{askId}`,

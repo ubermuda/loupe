@@ -1,7 +1,7 @@
 /**
  * The authenticated shell at a 375px phone viewport with a touch pointer.
  *
- * The sidebar is off-canvas below the lg breakpoint and the topbar carries the
+ * The sidebar is off-canvas at 780px and below, and the topbar carries the
  * hamburger that slides it in. Every test drives its own user and document
  * through the dev-only endpoints (/dev/register-and-verify, /dev/seed/document),
  * so nothing here touches Mailpit.
@@ -9,6 +9,7 @@
 
 import { test as base, expect, type Page } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
+import { expectFilterFocusRingVisible } from '../helpers';
 
 const RUN = Date.now();
 const PASSWORD = 'E2eMobileShell1!';
@@ -113,6 +114,27 @@ test.use({
     hasTouch: true,
 });
 
+test('workspace component styles allow utility overrides', async ({
+    page,
+    seeded,
+}) => {
+    await page.goto(`/projects/${seeded.projectId}/documents`);
+    await page.evaluate(() => {
+        const workspace = document.createElement('div');
+        workspace.className = 'lp-core-inbox';
+        const section = document.createElement('section');
+        section.id = 'cascade-probe';
+        section.className = 'lp-inbox-section--queue';
+        section.textContent = 'Component cascade probe';
+        workspace.appendChild(section);
+        document.body.appendChild(workspace);
+    });
+    const section = page.locator('#cascade-probe');
+    await expect(section).toHaveCSS('display', 'flex');
+    await section.evaluate((element) => element.classList.add('hidden'));
+    await expect(section).toBeHidden();
+});
+
 test('no authenticated page scrolls sideways at 375px', async ({
     page,
     seeded,
@@ -123,7 +145,9 @@ test('no authenticated page scrolls sideways at 375px', async ({
         `/projects/${projectId}/documents`,
         `/projects/${projectId}/connect`,
         `/projects/${projectId}/edit`,
-        '/account',
+        '/account/profile',
+        '/account/api-tokens',
+        '/account/data',
         '/about',
     ];
 
@@ -134,6 +158,116 @@ test('no authenticated page scrolls sideways at 375px', async ({
             await horizontalOverflow(page),
             `${path} overflows the viewport`,
         ).toBeLessThanOrEqual(0);
+    }
+});
+
+test('the sidebar stays in flow above the 780px shell breakpoint', async ({
+    page,
+    seeded,
+}) => {
+    await page.setViewportSize({ width: 950, height: 900 });
+    await page.goto(`/projects/${seeded.projectId}/documents`);
+
+    await expect(page.locator(SIDEBAR)).toBeVisible();
+    await expect(page.locator('.lp-topbar__menu')).toBeHidden();
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+});
+
+test('account panels fit narrow screens and enlarged text', async ({
+    page,
+}) => {
+    const sections = [
+        { path: '/account/profile', panelCount: 1 },
+        { path: '/account/api-tokens', panelCount: 1 },
+        { path: '/account/data', panelCount: 2 },
+    ];
+    const panels = page.locator(
+        '.lp-settings-content > section:not([data-testid="billing-section"])',
+    );
+    for (const width of [1440, 1150, 950, 780, 390]) {
+        await page.setViewportSize({ width, height: 1000 });
+        for (const { path, panelCount } of sections) {
+            await page.goto(path);
+            await expect(panels).toHaveCount(panelCount);
+            for (const panel of await panels.all()) {
+                const bounds = (await panel.boundingBox())!;
+                expect(bounds.x).toBeGreaterThanOrEqual(0);
+                expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+                expect(
+                    await panel.evaluate(
+                        (element) => element.scrollWidth - element.clientWidth,
+                    ),
+                ).toBeLessThanOrEqual(1);
+            }
+            const navItems = page.locator('.lp-settings-nav__item');
+            await expect(navItems).toHaveCount(3);
+            for (const item of await navItems.all()) {
+                const icon = (await item.locator('svg').boundingBox())!;
+                const label = (await item.boundingBox())!;
+                // One line of text: a label wrapped under its icon doubles the height.
+                expect(label.height).toBeLessThan(icon.height * 3);
+            }
+        }
+    }
+    for (const { path, panelCount } of sections) {
+        await page.goto(path);
+        await page.addStyleTag({ content: 'html { font-size: 200%; }' });
+        await expect(panels).toHaveCount(panelCount);
+        for (const panel of await panels.all()) {
+            const bounds = (await panel.boundingBox())!;
+            expect(bounds.x).toBeGreaterThanOrEqual(0);
+            expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
+            expect(
+                await panel.evaluate(
+                    (element) => element.scrollWidth - element.clientWidth,
+                ),
+            ).toBeLessThanOrEqual(1);
+            for (const button of await panel.getByRole('button').all()) {
+                await button.scrollIntoViewIfNeeded();
+                await expect(button).toBeInViewport({ ratio: 1 });
+                expect(
+                    await button.evaluate(
+                        (element) => element.scrollWidth - element.clientWidth,
+                    ),
+                ).toBeLessThanOrEqual(1);
+            }
+        }
+    }
+    await expect(page.getByTestId('export-section')).not.toContainText(
+        'The download link was sent to your email.',
+    );
+});
+
+test('project settings fit narrow screens and enlarged text', async ({
+    page,
+    seeded,
+}) => {
+    await page.goto(`/projects/${seeded.projectId}/edit`);
+    const panels = page.locator('.lp-settings-panel-card');
+    await expect(panels).toHaveCount(2);
+    for (const width of [1440, 1150, 950, 780, 390]) {
+        await page.setViewportSize({ width, height: 1000 });
+        for (const panel of await panels.all()) {
+            const bounds = (await panel.boundingBox())!;
+            expect(bounds.x).toBeGreaterThanOrEqual(0);
+            expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+            expect(
+                await panel.evaluate(
+                    (element) => element.scrollWidth - element.clientWidth,
+                ),
+            ).toBeLessThanOrEqual(1);
+        }
+    }
+    await page.addStyleTag({ content: 'html { font-size: 200%; }' });
+    for (const panel of await panels.all()) {
+        const bounds = (await panel.boundingBox())!;
+        expect(bounds.x).toBeGreaterThanOrEqual(0);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
+        expect(
+            await panel.evaluate(
+                (element) => element.scrollWidth - element.clientWidth,
+            ),
+        ).toBeLessThanOrEqual(1);
     }
 });
 
@@ -262,7 +396,9 @@ test('growing the window past lg releases the drawer', async ({
     // The scrim and both close controls are display:none at lg, so an inert
     // shell would leave the desktop page unclickable with nothing to fix it.
     await expect(page.locator('.lp-shell')).not.toHaveAttribute('inert', '');
-    await expect(page.getByRole('link', { name: 'Connect' })).toBeVisible();
+    await expect(
+        page.getByRole('heading', { name: 'Documents' }),
+    ).toBeVisible();
 });
 
 test('tapping the scrim closes the drawer', async ({ page, seeded }) => {
@@ -288,14 +424,102 @@ test('the drawer closes on the page a nav link goes to', async ({
     const sidebar = page.locator(SIDEBAR);
     await expect(sidebar).toBeVisible();
 
-    await sidebar.getByRole('link', { name: 'Connect' }).tap();
+    await sidebar.getByRole('link', { name: 'Agents' }).tap();
 
-    await expect(page).toHaveURL(`/projects/${projectId}/connect`);
-    await expect(page.locator('.lp-connect')).toBeVisible();
+    await expect(page).toHaveURL(`/projects/${projectId}/agents`);
+    await expect(
+        page.getByRole('heading', { name: 'Your crew' }),
+    ).toBeVisible();
     await expect(sidebar).toBeHidden();
     await expect(
         page.getByRole('button', { name: 'Open navigation' }),
     ).toHaveAttribute('aria-expanded', 'false');
+});
+
+test('search and status stay aligned across workspace widths', async ({
+    page,
+    seeded,
+}) => {
+    for (const path of ['documents', 'worker-runs?search=missing']) {
+        await page.goto(`/projects/${seeded.projectId}/${path}`);
+        const search = page.locator('.lp-filter-input');
+        const status = page.locator('.lp-filter-select').first();
+        for (const width of [1440, 1150, 950, 780, 390]) {
+            await page.setViewportSize({ width, height: 900 });
+            await expect(search).toBeVisible();
+            await expect(status).toBeVisible();
+            const searchBox = await search.boundingBox();
+            const statusBox = await status.boundingBox();
+            expect(searchBox).not.toBeNull();
+            expect(statusBox).not.toBeNull();
+            expect(statusBox!.y).toBe(searchBox!.y);
+            expect(statusBox!.height).toBe(searchBox!.height);
+            expect(statusBox!.x - searchBox!.x - searchBox!.width).toBe(8);
+            expect(statusBox!.x + statusBox!.width).toBeLessThanOrEqual(width);
+            expect(searchBox!.width).toBeGreaterThan(80);
+        }
+        await search.fill('no matching work');
+        await expect(page).toHaveURL(/search=no\+matching\+work/);
+        await expect(search).toHaveValue('no matching work');
+        await expect(status).toBeVisible();
+    }
+});
+
+test('enlarged document creation action remains reachable', async ({
+    page,
+    seeded,
+}) => {
+    await page.goto(`/projects/${seeded.projectId}/documents`);
+    await page.evaluate(() => {
+        document.documentElement.style.fontSize = '200%';
+    });
+    for (const width of [1440, 1150, 950, 780, 390]) {
+        await page.setViewportSize({ width, height: 1000 });
+        await expect(
+            page.getByRole('button', {
+                name: 'New document',
+                exact: true,
+            }),
+        ).toBeInViewport({ ratio: 1 });
+    }
+});
+
+test('enlarged workspace filters remain reachable', async ({
+    page,
+    seeded,
+}) => {
+    for (const path of ['documents', 'worker-runs?search=missing']) {
+        await page.goto(`/projects/${seeded.projectId}/${path}`);
+        await page.evaluate(() => {
+            document.documentElement.style.fontSize = '200%';
+        });
+        const search = page.locator('.lp-filter-input');
+        const status = page.locator('.lp-filter-select').first();
+        const filters = page.locator('.lp-filter-primary');
+        for (const width of [1440, 1150, 950, 780, 390]) {
+            await page.setViewportSize({ width, height: 1000 });
+            const searchBounds = await search.boundingBox();
+            const statusBounds = await status.boundingBox();
+            expect(searchBounds).not.toBeNull();
+            expect(statusBounds).not.toBeNull();
+            expect(statusBounds!.y).toBe(searchBounds!.y);
+            expect(statusBounds!.height).toBe(searchBounds!.height);
+            expect(
+                statusBounds!.x - searchBounds!.x - searchBounds!.width,
+            ).toBe(16);
+            await search.focus();
+            await expect(search).toBeInViewport({ ratio: 1 });
+            await expectFilterFocusRingVisible(search, filters);
+            await search.press('Tab');
+            await expect(status).toBeFocused();
+            await expect(status).toBeInViewport({ ratio: 1 });
+            await expectFilterFocusRingVisible(status, filters);
+            await status.press('Shift+Tab');
+            await expect(search).toBeFocused();
+            await expect(search).toBeInViewport({ ratio: 1 });
+            await expectFilterFocusRingVisible(search, filters);
+        }
+    }
 });
 
 test('no touch control renders below the 16px iOS zoom threshold', async ({
@@ -307,6 +531,7 @@ test('no touch control renders below the 16px iOS zoom threshold', async ({
     for (const selector of ['.lp-filter-input', '.lp-filter-select']) {
         const control = page.locator(selector).first();
         await expect(control).toBeVisible();
+        await expect(control).toHaveCSS('height', '44px');
         expect(
             await control.evaluate((element) =>
                 parseFloat(getComputedStyle(element).fontSize),

@@ -49,6 +49,24 @@ final class DocumentMarkCommentAddressedToolTest extends KernelTestCase
         self::assertSame(CommentStatus::Addressed, $comment->status);
     }
 
+    public function test_a_deleted_thread_is_skipped_without_changing_its_status(): void
+    {
+        $owner = $this->user('mark-deleted@example.com');
+        $comment = $this->rootComment($owner);
+        $this->actAsMcpTokenBoundTo($comment->version->document->project);
+        $this->em->getConnection()->executeStatement(
+            'UPDATE comments SET deleted_at = CURRENT_TIMESTAMP, deletion_sequence = 1 WHERE id = :id',
+            ['id' => (string) $comment->id],
+        );
+
+        $result = ($this->tool)([(string) $comment->id]);
+
+        self::assertSame([], $result['addressed']);
+        self::assertSame([['id' => (string) $comment->id, 'reason' => 'deleted']], $result['skipped']);
+        self::assertSame(CommentStatus::Pending, $comment->status);
+        self::assertTrue($comment->isDeleted);
+    }
+
     public function test_a_resolve_the_identity_map_has_not_seen_is_not_overwritten(): void
     {
         $owner = $this->user('mark-race@example.com');

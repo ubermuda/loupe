@@ -1,0 +1,39 @@
+<dialog class="lp-dialog" data-modal-target="dialog" aria-labelledby="finish-review-title" data-action="cancel->modal#close">
+    <h2 class="lp-dialog-title" id="finish-review-title">{{ 'review.document.finish.title'|trans }}</h2>
+    <p class="lp-dialog-desc">{{ 'review.document.finish.context'|trans({
+        '%version%': submitReviewForm.versionNumber.vars.value,
+        '%approved%': sections.approvedCount,
+        '%total%': sections.rows|length,
+        '%open%': signals.openThreadCount,
+    }) }}</p>
+    {{ form_start(submitReviewForm, {attr: {class: 'lp-form', 'data-controller': 'form-draft', 'data-form-draft-owner-value': app.user.id, 'data-form-draft-key-value': 'document:review:' ~ document.id, 'data-action': 'input->form-draft#remember change->form-draft#remember submit->form-draft#start turbo:before-fetch-response->form-draft#response form-draft:cleared@document->form-draft#cleared'}}) }}
+        {% include '@Review/_draft_notice.html.twig' with {} only %}
+        <div class="lp-field-errors">{{ form_errors(submitReviewForm) }}{{ form_errors(submitReviewForm.versionNumber) }}</div>
+        {{ form_widget(submitReviewForm.versionNumber, {type: 'hidden', attr: {'data-form-draft-target': 'guard'}}) }}
+        {{ form_widget(submitReviewForm.expectedReviewId, {attr: {'data-form-draft-target': 'guard'}}) }}
+        <div class="lp-field-errors">{{ form_errors(submitReviewForm.expectedReviewId) }}</div>
+        <fieldset class="lp-form-field">
+            <legend class="lp-label">{{ submitReviewForm.verdict.vars.label|trans }}</legend>
+            {% for choice in submitReviewForm.verdict %}
+            <label class="lp-review-verdict-choice">
+                {{ form_widget(choice, {attr: {'data-form-draft-target': 'option'}}) }}
+                <span>{{ choice.vars.label|trans }}</span>
+            </label>
+            {% endfor %}
+            <div class="lp-field-errors">{{ form_errors(submitReviewForm.verdict) }}</div>
+        </fieldset>
+        <div class="lp-form-field">
+            {{ form_label(submitReviewForm.note, null, {label_attr: {class: 'lp-label'}}) }}
+            {{ form_widget(submitReviewForm.note, {attr: {class: 'lp-input', rows: 4, 'data-form-draft-target': 'text'}}) }}
+            <p class="lp-form-hint">{{ submitReviewForm.note.vars.help|trans }}</p>
+            <div class="lp-field-errors">{{ form_errors(submitReviewForm.note) }}</div>
+        </div>
+        {% if not submitReviewForm.versionNumber.vars.valid or not submitReviewForm.expectedReviewId.vars.valid %}
+        <a class="lp-btn" href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}">{{ 'review.document.version.back_to_latest'|trans }}</a>
+        {% endif %}
+        <div class="lp-review-verdict-actions">
+            <button type="button" class="lp-btn lp-btn--ghost" data-action="click->modal#close">{{ 'review.document.finish.cancel'|trans }}</button>
+            <button type="submit" class="lp-btn lp-btn--primary">{{ 'review.document.finish.submit'|trans }}</button>
+        </div>
+    {{ form_end(submitReviewForm) }}
+</dialog>

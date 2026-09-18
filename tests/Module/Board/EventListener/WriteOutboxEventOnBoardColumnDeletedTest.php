@@ -11,7 +11,6 @@ use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\DeleteBoardColumnCommand;
 use App\Module\Board\Command\DeleteBoardColumnHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Event\BoardColumnDeleted;
@@ -95,8 +94,8 @@ final class WriteOutboxEventOnBoardColumnDeletedTest extends KernelTestCase
 
     public function test_a_column_with_cards_writes_one_row_that_names_the_target_and_every_moved_card(): void
     {
-        $first = (string) $this->card('First', CardPriority::High)->id;
-        $second = (string) $this->card('Second', CardPriority::Low)->id;
+        $first = (string) $this->card('First')->id;
+        $second = (string) $this->card('Second')->id;
         $next = $this->column($this->project, 'next');
         $nextId = (string) $next->id;
 
@@ -115,7 +114,7 @@ final class WriteOutboxEventOnBoardColumnDeletedTest extends KernelTestCase
 
     public function test_a_rolled_back_delete_leaves_no_row(): void
     {
-        $this->card('Stays put', CardPriority::Medium);
+        $this->card('Stays put');
         $next = $this->column($this->project, 'next');
         $nextId = (string) $next->id;
 
@@ -151,7 +150,7 @@ final class WriteOutboxEventOnBoardColumnDeletedTest extends KernelTestCase
         self::assertSame(1, (int) $connection->fetchOne('SELECT count(*) FROM board_cards WHERE column_id = :id', ['id' => $nextId]));
     }
 
-    private function card(string $title, CardPriority $priority): Card
+    private function card(string $title): Card
     {
         $create = self::getContainer()->get(CreateCardHandler::class);
         self::assertInstanceOf(CreateCardHandler::class, $create);
@@ -161,7 +160,6 @@ final class WriteOutboxEventOnBoardColumnDeletedTest extends KernelTestCase
             title: $title,
             body: 'Body',
             type: CardType::Bug,
-            priority: $priority,
             column: $this->column($this->project, 'next'),
             reporter: CardReporter::Agent,
         ));

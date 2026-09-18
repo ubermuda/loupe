@@ -10,16 +10,20 @@ use Symfony\Component\Security\Core\Authorization\Voter\Vote;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 
 /**
- * @extends Voter<'site_review_comment.resolve'|'site_review_comment.reopen', SiteReviewComment>
+ * @extends Voter<'site_review_comment.resolve'|'site_review_comment.reopen'|'site_review_comment.attach'|'site_review_comment.reply', SiteReviewComment>
  */
 final class SiteReviewCommentVoter extends Voter
 {
     public const string RESOLVE = 'site_review_comment.resolve';
     public const string REOPEN = 'site_review_comment.reopen';
+    public const string ATTACH = 'site_review_comment.attach';
+    public const string REPLY = 'site_review_comment.reply';
 
     private const array SUPPORTED_ATTRIBUTES = [
         self::RESOLVE,
         self::REOPEN,
+        self::ATTACH,
+        self::REPLY,
     ];
 
     #[\Override]

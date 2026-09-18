@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace App\Module\Inbox\Service;
 
 use App\Module\Board\Controller\ShowCardController;
+use App\Module\Inbox\Command\ShowInboxHandler;
 use App\Module\Inbox\Controller\ShowInboxController;
+use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemDocument;
+use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\Entity\InboxLinkedPage;
+use App\Module\Inbox\Repository\InboxAskRepository;
 use App\Module\Inbox\View\InboxReturnTarget;
 use App\Module\Review\Controller\ShowDocumentController;
 use App\Module\Review\Entity\Document;
@@ -29,6 +33,7 @@ final readonly class InboxReturnTargetResolver
 {
     public function __construct(
         private DocumentVersionRepository $documentVersions,
+        private InboxAskRepository $inboxAsks,
     ) {
     }
 
@@ -42,7 +47,7 @@ final readonly class InboxReturnTargetResolver
         if (InboxLinkedPage::Card === $page && null !== $id && $item->cards->exists(static fn (int $key, InboxItemCard $link): bool => (bool) $link->card->id?->equals($id))) {
             $target = ['projectId' => $projectId, 'cardId' => $id->toRfc4122()];
 
-            return new InboxReturnTarget('app_board_card', $target, ShowCardController::class, $target, []);
+            return new InboxReturnTarget('app_board_card', [...$target, 'tab' => 'conversation'], ShowCardController::class, $target, ['tab' => 'conversation']);
         }
 
         $document = InboxLinkedPage::Document === $page && null !== $id ? $this->linkedDocument($item, $id) : null;
@@ -60,14 +65,53 @@ final readonly class InboxReturnTargetResolver
             return new InboxReturnTarget('app_document_review', $target, ShowDocumentController::class, $target, []);
         }
 
-        // The page and the search the owner was on, kept on the way back.
+        // The queue, the page and the search the owner was on, kept on the way back.
         $search = trim($request->query->getString('q'));
+        // Read as objects, so an ask closed in this request counts as closed.
+        $asks = $this->inboxAsks->findHolding($item);
+        $closed = InboxItemState::Open !== $item->state;
+        $completed = 'completed' === $request->query->getString('queue')
+            || ($closed && [] !== $asks && [] === array_filter($asks, static fn (InboxAsk $ask): bool => null === $ask->closedAt));
+
+        // A queue switch leaves the page behind, because the page the owner was
+        // on numbers the other queue. The closed ask that shows first decides
+        // which completed page holds this item.
+        $switching = $completed && 'completed' !== $request->query->getString('queue');
+        $page = $switching
+            ? $this->inboxAsks->closedPageOf($this->firstClosed($asks), ShowInboxHandler::CLOSED_ASKS_PER_PAGE)
+            : $request->query->getInt('page', 1);
+
         $pageQuery = [
-            ...($request->query->getInt('page', 1) > 1 ? ['page' => $request->query->getInt('page')] : []),
+            ...('' === $search && $completed ? ['queue' => 'completed'] : []),
+            ...($page > 1 ? ['page' => $page] : []),
             ...('' === $search ? [] : ['q' => $search]),
         ];
 
-        return new InboxReturnTarget('app_project_inbox', ['id' => $projectId, ...$pageQuery], ShowInboxController::class, ['id' => $projectId, 'project' => $item->project], $pageQuery);
+        // The fragment opens the request on arrival, so it is named only where
+        // the page shows it. A closed item that no ask holds is on neither
+        // queue, and naming it would send the owner hunting for it instead of
+        // back to the work that is left. A forward needs no fragment at all: it
+        // re-renders the page the form was already on.
+        $shown = '' !== $search || !$closed || [] !== $asks;
+        $redirect = [
+            'id' => $projectId,
+            ...$pageQuery,
+            ...($shown ? ['_fragment' => 'inbox-item-'.$item->number] : []),
+        ];
+
+        return new InboxReturnTarget('app_project_inbox', $redirect, ShowInboxController::class, ['id' => $projectId, 'project' => $item->project], $pageQuery);
+    }
+
+    /**
+     * The ask the completed queue lists first, which is the newest close.
+     *
+     * @param list<InboxAsk> $asks all closed, because the caller switches queues
+     */
+    private function firstClosed(array $asks): InboxAsk
+    {
+        usort($asks, static fn (InboxAsk $a, InboxAsk $b): int => ($b->closedAt <=> $a->closedAt) ?: ((string) $a->id <=> (string) $b->id));
+
+        return $asks[0] ?? throw new \LogicException('A completed queue switch needs the closed ask that holds the item.');
     }
 
     private function linkedDocument(InboxItem $item, Uuid $id): ?Document

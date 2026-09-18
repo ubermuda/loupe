@@ -7,8 +7,14 @@ namespace App\Module\Board\Twig;
 use App\Module\Board\Command\BoardColumnView;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\CardDocument;
+use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Form\AddBoardColumnFormType;
 use App\Module\Board\Form\AddBoardColumnRequest;
+use App\Module\Board\Form\AttachSiteReviewCommentFormType;
+use App\Module\Board\Form\AttachSiteReviewCommentRequest;
+use App\Module\Board\Form\ConfigureBoardColumnFormType;
+use App\Module\Board\Form\ConfigureBoardColumnRequest;
 use App\Module\Board\Form\DeleteBoardColumnFormType;
 use App\Module\Board\Form\DeleteBoardColumnRequest;
 use App\Module\Board\Form\MoveCardFormType;
@@ -17,7 +23,16 @@ use App\Module\Board\Form\RenameBoardColumnFormType;
 use App\Module\Board\Form\RenameBoardColumnRequest;
 use App\Module\Board\Form\ReorderBoardColumnsFormType;
 use App\Module\Board\Form\ReorderBoardColumnsRequest;
+use App\Module\Board\Form\SetDefaultBoardColumnFormType;
+use App\Module\Board\Form\SetDefaultBoardColumnRequest;
+use App\Module\Board\Repository\CardDocumentRepository;
+use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Repository\CardSiteReviewCommentRepository;
+use App\Module\Project\Entity\Project;
+use App\Module\Review\Entity\Document;
 use App\Module\Review\Service\MarkdownRenderer;
+use App\Module\Review\View\DocumentListItem;
+use App\Module\SiteReview\Entity\SiteReviewComment;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\Form\FormView;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -36,6 +51,9 @@ final class BoardExtension extends AbstractExtension
         private readonly FormFactoryInterface $formFactory,
         private readonly MarkdownRenderer $markdown,
         private readonly TranslatorInterface $translator,
+        private readonly CardSiteReviewCommentRepository $cardSiteReviewComments,
+        private readonly CardRepository $cards,
+        private readonly CardDocumentRepository $cardDocuments,
     ) {
     }
 
@@ -46,10 +64,16 @@ final class BoardExtension extends AbstractExtension
             new TwigFunction('card_move_form', $this->cardMoveForm(...)),
             new TwigFunction('board_column_add_form', $this->boardColumnAddForm(...)),
             new TwigFunction('board_column_rename_form', $this->boardColumnRenameForm(...)),
+            new TwigFunction('board_column_configure_form', $this->boardColumnConfigureForm(...)),
             new TwigFunction('board_column_delete_form', $this->boardColumnDeleteForm(...)),
+            new TwigFunction('board_column_default_form', $this->boardColumnDefaultForm(...)),
             new TwigFunction('board_columns_reorder_form', $this->boardColumnsReorderForm(...)),
             new TwigFunction('board_column_order', $this->boardColumnOrder(...)),
             new TwigFunction('safe_pull_request_url', $this->safePullRequestUrl(...)),
+            new TwigFunction('card_site_review_links', $this->cardSiteReviewLinks(...)),
+            new TwigFunction('site_review_attach_form', $this->siteReviewAttachForm(...)),
+            new TwigFunction('document_card_links', $this->documentCardLinks(...)),
+            new TwigFunction('document_card_link_map', $this->documentCardLinkMap(...)),
         ];
     }
 
@@ -67,10 +91,57 @@ final class BoardExtension extends AbstractExtension
             ->createNamed(
                 MoveCardFormType::nameFor($card),
                 MoveCardFormType::class,
-                new MoveCardRequest($card->column, $card->priority),
+                new MoveCardRequest($card->column),
                 ['project' => $card->project],
             )
             ->createView();
+    }
+
+    /** @return array<string, CardSiteReviewComment> */
+    public function cardSiteReviewLinks(Project $project): array
+    {
+        $links = [];
+        foreach ($this->cardSiteReviewComments->findForProject($project) as $link) {
+            $links[(string) $link->comment->id] = $link;
+        }
+
+        return $links;
+    }
+
+    public function siteReviewAttachForm(SiteReviewComment $comment): FormView
+    {
+        return $this->formFactory
+            ->createNamed(
+                AttachSiteReviewCommentFormType::nameFor($comment),
+                AttachSiteReviewCommentFormType::class,
+                new AttachSiteReviewCommentRequest(),
+                ['cards' => $this->cards->searchOpenForProject($comment->project, '', 100)],
+            )
+            ->createView();
+    }
+
+    /** @return list<CardDocument> */
+    public function documentCardLinks(Document $document): array
+    {
+        return $this->cardDocuments->findForDocument($document);
+    }
+
+    /**
+     * @param list<DocumentListItem> $items
+     *
+     * @return array<string, list<CardDocument>>
+     */
+    public function documentCardLinkMap(array $items): array
+    {
+        $linksByDocument = [];
+        foreach ($this->cardDocuments->findForDocuments(array_map(
+            static fn (DocumentListItem $item): Document => $item->document,
+            $items,
+        )) as $link) {
+            $linksByDocument[(string) $link->document->id][] = $link;
+        }
+
+        return $linksByDocument;
     }
 
     /** The refused form a failed add forwarded, or a fresh one. */
@@ -92,7 +163,30 @@ final class BoardExtension extends AbstractExtension
         }
 
         return $this->formFactory
-            ->createNamed($name, RenameBoardColumnFormType::class, new RenameBoardColumnRequest($this->translator->trans($column->label)))
+            ->createNamed($name, RenameBoardColumnFormType::class, new RenameBoardColumnRequest($this->translator->trans($column->label), $column->label))
+            ->createView();
+    }
+
+    /**
+     * The refused form a failed configure forwarded, when it belongs to this
+     * column, or a fresh one that shows the column as it is now.
+     */
+    public function boardColumnConfigureForm(BoardColumn $column, string $expectedDefaultId, ?FormView $refused = null): FormView
+    {
+        $name = ConfigureBoardColumnFormType::nameFor($column);
+        if (null !== $refused && $refused->vars['name'] === $name) {
+            return $refused;
+        }
+
+        return $this->formFactory
+            ->createNamed($name, ConfigureBoardColumnFormType::class, new ConfigureBoardColumnRequest(
+                label: $this->translator->trans($column->label),
+                expectedLabel: $column->label,
+                isDefault: $column->isDefault,
+                terminal: $column->terminal,
+                expectedDefaultId: $expectedDefaultId,
+                expectedTerminal: $column->terminal ? '1' : '0',
+            ))
             ->createView();
     }
 
@@ -112,10 +206,17 @@ final class BoardExtension extends AbstractExtension
             ->createView();
     }
 
-    public function boardColumnsReorderForm(string $order = ''): FormView
+    public function boardColumnDefaultForm(BoardColumn $column, string $expectedDefaultId): FormView
     {
         return $this->formFactory
-            ->create(ReorderBoardColumnsFormType::class, new ReorderBoardColumnsRequest($order))
+            ->createNamed(SetDefaultBoardColumnFormType::nameFor($column), SetDefaultBoardColumnFormType::class, new SetDefaultBoardColumnRequest($expectedDefaultId))
+            ->createView();
+    }
+
+    public function boardColumnsReorderForm(string $order, string $expectedOrder): FormView
+    {
+        return $this->formFactory
+            ->create(ReorderBoardColumnsFormType::class, new ReorderBoardColumnsRequest($order, $expectedOrder))
             ->createView();
     }
 

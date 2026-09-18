@@ -6,6 +6,7 @@ namespace App\Module\Inbox\Service;
 
 use App\Exception\DomainErrors;
 use App\Module\Inbox\Entity\InboxItem;
+use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Inbox\InboxEventType;
 use App\Module\Inbox\Repository\InboxAskRepository;
@@ -100,13 +101,11 @@ final readonly class InboxItemCloser
     }
 
     /**
-     * Closes an open item on an agent's behalf. The caller holds the project
-     * lock and the transaction, and flushes, so a listener inside a card move
-     * can call it. It returns false and changes nothing when the item is
-     * already closed, so that write never aborts. The asks it closes close as
-     * the agent's.
+     * The caller holds the project lock and transaction, and flushes afterward.
+     *
+     * @param InboxEventType::ACTOR_* $actor
      */
-    public function close(InboxItem $item, InboxItemState $state, ?string $note, \DateTimeImmutable $now): bool
+    public function close(InboxItem $item, InboxItemState $state, ?string $note, \DateTimeImmutable $now, string $actor = InboxEventType::ACTOR_AGENT): bool
     {
         self::assertClosed($state);
         if (InboxItemState::Open !== $item->state) {
@@ -117,7 +116,7 @@ final readonly class InboxItemCloser
         $item->closeNote = $note;
         $item->closedAt = $now;
         $item->updatedAt = $now;
-        $this->askCloser->closeAsksHolding($item, InboxEventType::ACTOR_AGENT, $now);
+        $this->askCloser->closeAsksHolding($item, $actor, $now);
 
         return true;
     }
@@ -132,6 +131,10 @@ final readonly class InboxItemCloser
     /** Why the item takes no response now, or null when it does. */
     private function refusal(InboxItem $item): ?string
     {
+        if (InboxItemKind::Review === $item->kind && InboxItemState::Open !== $item->state) {
+            return self::ERROR_FINAL;
+        }
+
         // The two calls that ignore the asks settle an open item and an agent's
         // close with no query. Only a response the owner gave needs the asks.
         if ($item->state->acceptsResponse(heldByClosedAsk: true)) {

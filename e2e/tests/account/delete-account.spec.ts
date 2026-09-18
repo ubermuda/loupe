@@ -1,31 +1,22 @@
-import { test, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { testWithVerifiedAccount as test } from '../fixtures';
 import {
-    registerAndVerify,
     getEmailWithSubject,
     latestEmailIdWithSubject,
     extractLink,
+    submitRedirectingForm,
 } from '../helpers';
 
 // Guest by default — make the unauthenticated starting state explicit.
 test.use({ storageState: { cookies: [], origins: [] } });
 
-const RUN = Date.now();
 const DELETE_SUBJECT = 'Confirm your account deletion';
 
 test('a user can delete their account end to end via the emailed confirmation link', async ({
     page,
     request,
+    verifiedAccount: { email, password },
 }) => {
-    const email = `e2e-delete-${RUN}@example.com`;
-    const password = 'e2e_password_123!';
-
-    // Throwaway user: this flow destroys the account, so it must never be the
-    // shared worker user another spec file in this worker relies on.
-    await registerAndVerify(page, request, {
-        email,
-        password,
-    });
-
     // Mailpit is shared by every worktree and never cleared, so this address
     // could already hold deletion mail from an earlier run of this same spec
     // — mark the inbox before acting so we can tell "this run's email" apart
@@ -36,12 +27,12 @@ test('a user can delete their account end to end via the emailed confirmation li
         DELETE_SUBJECT,
     );
 
-    await page.goto('/account');
+    await page.goto('/account/data');
     await page
         .locator('[data-testid="delete-account-section"]')
         .getByRole('button', { name: 'Request account deletion' })
         .click();
-    await expect(page).toHaveURL('/account');
+    await expect(page).toHaveURL('/account/data');
     await expect(page.locator('.lp-flash--success')).toBeVisible();
 
     const received = await getEmailWithSubject(
@@ -75,6 +66,10 @@ test('a user can delete their account end to end via the emailed confirmation li
     // The credentials no longer resolve to anything.
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(password);
-    await page.getByRole('button', { name: 'Sign in' }).click();
+    await submitRedirectingForm(
+        page,
+        page.getByRole('button', { name: 'Sign in' }),
+        '/login',
+    );
     await expect(page.locator('.auth-error')).toBeVisible();
 });

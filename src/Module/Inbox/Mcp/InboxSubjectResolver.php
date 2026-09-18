@@ -108,6 +108,8 @@ final readonly class InboxSubjectResolver
                 blocking: $this->bool($item, 'blocking', $index),
                 cardIds: $this->strings($item, 'cardIds', $index),
                 documentIds: $this->strings($item, 'documentIds', $index),
+                reviewDocumentId: null === ($item['reviewDocumentId'] ?? null) ? null : $this->string($item, 'reviewDocumentId', $index),
+                reviewPullRequestId: null === ($item['reviewPullRequestId'] ?? null) ? null : $this->string($item, 'reviewPullRequestId', $index),
             );
         }
 

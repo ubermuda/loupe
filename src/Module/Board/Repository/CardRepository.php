@@ -8,7 +8,6 @@ use App\Doctrine\SearchLanguage;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
@@ -45,6 +44,7 @@ class CardRepository extends ServiceEntityRepository
     {
         $qb = $this->createQueryBuilder('c')
             ->join('c.column', 'k')
+            ->addSelect('k')
             ->where('c.project = :project')
             ->andWhere('k.terminal = false')
             ->setParameter('project', $project)
@@ -147,20 +147,20 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /**
-     * The cards of one (column, priority) group, in board order.
+     * The cards of one column, in rank order.
      *
      * @return list<Card>
      */
-    public function findGroup(BoardColumn $column, CardPriority $priority): array
+    public function findRanked(BoardColumn $column): array
     {
         return $this->findBy(
-            ['column' => $column, 'priority' => $priority],
-            ['position' => 'ASC', 'createdAt' => 'ASC'],
+            ['column' => $column],
+            ['position' => 'ASC', 'createdAt' => 'ASC', 'id' => 'ASC'],
         );
     }
 
     /**
-     * Reads onto the card the two fields that say which group it is in.
+     * Reads onto the card the column it is in.
      *
      * A board write locks the project row, and lock() leaves a card loaded
      * before that lock exactly as the request read it. EntityManager::refresh()
@@ -169,10 +169,10 @@ class CardRepository extends ServiceEntityRepository
      * no longer holds is left alone, which is what the flush already does with
      * it.
      */
-    public function refreshGroup(Card $card): void
+    public function refreshColumn(Card $card): void
     {
         $row = $this->getEntityManager()->getConnection()->fetchAssociative(
-            'SELECT column_id, priority FROM board_cards WHERE id = :id',
+            'SELECT column_id FROM board_cards WHERE id = :id',
             ['id' => (string) $card->id],
         );
 
@@ -182,7 +182,6 @@ class CardRepository extends ServiceEntityRepository
 
         $card->column = $this->getEntityManager()->find(BoardColumn::class, Uuid::fromString((string) $row['column_id']))
             ?? throw new \LogicException('Card row points at a missing column.');
-        $card->priority = CardPriority::from((int) $row['priority']);
     }
 
     /** The number the project's next card takes. The first card of a project is 1. */
@@ -196,6 +195,18 @@ class CardRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
 
         return null === $highest ? 1 : ((int) $highest) + 1;
+    }
+
+    public function isInOpenColumn(Card $card): bool
+    {
+        return 0 < (int) $this->createQueryBuilder('card')
+            ->select('COUNT(card.id)')
+            ->join('card.column', 'column')
+            ->where('card.id = :id')
+            ->andWhere('column.terminal = false')
+            ->setParameter('id', $card->id)
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 
     /**
@@ -269,21 +280,21 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /**
-     * The id, number and priority of every card in one column, in the order
-     * the board shows them, without loading the cards.
+     * The id and number of every card in one column, in the order the board
+     * shows them, without loading the cards.
      *
-     * @return list<array{id: string, number: int, priority: int}>
+     * @return list<array{id: string, number: int}>
      */
     public function findRowsInColumn(BoardColumn $column): array
     {
         $rows = $this->getEntityManager()->getConnection()->fetchAllAssociative(
-            'SELECT id, number, priority FROM board_cards WHERE column_id = :column
-             ORDER BY priority, position, completed_at, created_at, number',
+            'SELECT id, number FROM board_cards WHERE column_id = :column
+             ORDER BY position, completed_at, created_at, number',
             ['column' => (string) $column->id],
         );
 
         return array_map(
-            static fn (array $row): array => ['id' => (string) $row['id'], 'number' => (int) $row['number'], 'priority' => (int) $row['priority']],
+            static fn (array $row): array => ['id' => (string) $row['id'], 'number' => (int) $row['number']],
             $rows,
         );
     }
@@ -305,8 +316,8 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /**
-     * Moves every card of one column to another in one statement. Each card
-     * joins the end of its priority group in the target, in the order the
+     * Moves every card of one column to another in one statement. The cards
+     * join the end of the target, in the order the
      * source showed them. A terminal target keeps no rank and stamps a card
      * that was not finished, and any other target clears the completion.
      *
@@ -321,8 +332,8 @@ class CardRepository extends ServiceEntityRepository
                  SET column_id = :to, updated_at = :now, completed_at = %s, position = %s
                  FROM (
                      SELECT s.id,
-                            row_number() OVER (PARTITION BY s.priority ORDER BY s.position, s.completed_at, s.created_at, s.number) - 1 AS rank,
-                            (SELECT COALESCE(MAX(t.position) + 1, 0) FROM board_cards t WHERE t.column_id = :to AND t.priority = s.priority) AS tail
+                            row_number() OVER (ORDER BY s.position, s.completed_at, s.created_at, s.number) - 1 AS rank,
+                            (SELECT COALESCE(MAX(t.position) + 1, 0) FROM board_cards t WHERE t.column_id = :to) AS tail
                      FROM board_cards s
                      WHERE s.column_id = :from
                  ) ranked
@@ -341,7 +352,7 @@ class CardRepository extends ServiceEntityRepository
      * neither meets a deleted column nor writes a stale rank back. A proxy
      * nobody loaded costs no query.
      *
-     * EntityManager::refresh() cannot do this, for the reason in refreshGroup().
+     * EntityManager::refresh() cannot do this, for the reason in refreshColumn().
      */
     public function refreshLoadedFrom(BoardColumn $from): void
     {
@@ -370,8 +381,7 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /**
-     * Numbers every priority group of a column from 0 with no gaps, in the
-     * order each group already has. Only a card whose rank changes is written.
+     * Numbers a column from 0 with no gaps, in the order it already has. Only a card whose rank changes is written.
      */
     public function renumberColumn(BoardColumn $column, \DateTimeImmutable $now): void
     {
@@ -380,7 +390,7 @@ class CardRepository extends ServiceEntityRepository
              SET position = ranked.rank, updated_at = :now
              FROM (
                  SELECT id,
-                        row_number() OVER (PARTITION BY priority ORDER BY position, completed_at, created_at, number) - 1 AS rank
+                        row_number() OVER (ORDER BY position, completed_at, created_at, number) - 1 AS rank
                  FROM board_cards
                  WHERE column_id = :column
              ) ranked
@@ -421,15 +431,13 @@ class CardRepository extends ServiceEntityRepository
             ->execute();
     }
 
-    /** The rank a card appended to the end of that group takes. */
-    public function nextPosition(BoardColumn $column, CardPriority $priority): int
+    /** The rank a card appended to the end of that column takes. */
+    public function nextPosition(BoardColumn $column): int
     {
         $highest = $this->createQueryBuilder('c')
             ->select('MAX(c.position)')
             ->andWhere('c.column = :column')
-            ->andWhere('c.priority = :priority')
             ->setParameter('column', $column)
-            ->setParameter('priority', $priority)
             ->getQuery()
             ->getSingleScalarResult();
 
@@ -441,47 +449,39 @@ class CardRepository extends ServiceEntityRepository
      *
      * A column is read on its own even when the caller asks for the whole
      * board, because a terminal column sorts by completion while every other
-     * column sorts by priority then position. One query with both orderings in
-     * it would have to rank finished rows by a priority they no longer use. The
-     * cost is one query per column for an unfiltered read, each on the
-     * composite index.
+     * column sorts by position. The cost is one query per column for an
+     * unfiltered read, each on the composite index.
      *
      * @param list<BoardColumn> $columns in board order, which is the order the cards come back in
      *
      * @return list<Card>
      */
-    public function findForBoard(array $columns, ?CardType $type = null, ?CardPriority $priority = null, ?CardReporter $reporter = null): array
+    public function findForBoard(array $columns, ?CardType $type = null, ?CardReporter $reporter = null): array
     {
         $cards = [];
         foreach ($columns as $column) {
-            $cards = [...$cards, ...$this->findColumn($column, $type, $priority, $reporter)];
+            $cards = [...$cards, ...$this->findColumn($column, $type, $reporter)];
         }
 
         return $cards;
     }
 
     /**
-     * How many cards each project still has open, for the projects list.
-     *
-     * Open is every column that is not terminal, so a board whose work is
-     * finished counts zero rather than counting its history.
-     *
      * @param list<Project> $projects
      *
-     * @return array<string, int> project id => count, projects with none omitted
+     * @return array<string, array{open: int, completed: int}>
      */
-    public function countOpenByProjects(array $projects): array
+    public function countByProjects(array $projects): array
     {
         if ([] === $projects) {
             return [];
         }
 
-        /** @var list<array{id: mixed, total: mixed}> $rows */
+        /** @var list<array{id: mixed, open: mixed, completed: mixed}> $rows */
         $rows = $this->createQueryBuilder('c')
-            ->select('IDENTITY(c.project) AS id, COUNT(c.id) AS total')
+            ->select('IDENTITY(c.project) AS id, SUM(CASE WHEN k.terminal = false THEN 1 ELSE 0 END) AS open, SUM(CASE WHEN k.terminal = true THEN 1 ELSE 0 END) AS completed')
             ->join('c.column', 'k')
             ->andWhere('c.project IN (:projects)')
-            ->andWhere('k.terminal = false')
             ->setParameter('projects', $projects)
             ->groupBy('c.project')
             ->getQuery()
@@ -489,7 +489,7 @@ class CardRepository extends ServiceEntityRepository
 
         $counts = [];
         foreach ($rows as $row) {
-            $counts[(string) $row['id']] = (int) $row['total'];
+            $counts[(string) $row['id']] = ['open' => (int) $row['open'], 'completed' => (int) $row['completed']];
         }
 
         return $counts;
@@ -521,7 +521,7 @@ class CardRepository extends ServiceEntityRepository
     }
 
     /** @return list<Card> */
-    private function findColumn(BoardColumn $column, ?CardType $type, ?CardPriority $priority, ?CardReporter $reporter): array
+    private function findColumn(BoardColumn $column, ?CardType $type, ?CardReporter $reporter): array
     {
         $qb = $this->createQueryBuilder('c')
             ->andWhere('c.column = :column')
@@ -529,9 +529,6 @@ class CardRepository extends ServiceEntityRepository
 
         if (null !== $type) {
             $qb->andWhere('c.type = :type')->setParameter('type', $type);
-        }
-        if (null !== $priority) {
-            $qb->andWhere('c.priority = :priority')->setParameter('priority', $priority);
         }
         if (null !== $reporter) {
             // COALESCE, not c.reporter: a row an older image wrote after this
@@ -549,8 +546,7 @@ class CardRepository extends ServiceEntityRepository
                 ->addOrderBy('c.createdAt', 'DESC')
                 ->addOrderBy('c.id', 'DESC');
         } else {
-            $qb->orderBy('c.priority', 'ASC')
-                ->addOrderBy('c.position', 'ASC')
+            $qb->orderBy('c.position', 'ASC')
                 ->addOrderBy('c.createdAt', 'ASC')
                 ->addOrderBy('c.id', 'ASC');
         }

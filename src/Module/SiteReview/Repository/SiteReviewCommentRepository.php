@@ -22,6 +22,18 @@ class SiteReviewCommentRepository extends ServiceEntityRepository
         parent::__construct($registry, SiteReviewComment::class);
     }
 
+    public function findOneByIdAndProjectId(string $commentId, string $projectId): ?SiteReviewComment
+    {
+        return $this->createQueryBuilder('comment')
+            ->join('comment.project', 'project')
+            ->where('comment.id = :commentId')
+            ->andWhere('project.id = :projectId')
+            ->setParameter('commentId', Uuid::fromString($commentId))
+            ->setParameter('projectId', Uuid::fromString($projectId))
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /**
      * Pending comments for the project, oldest first. One list serves two
      * readers: the agent's queue, and the widget's own list of the comments its

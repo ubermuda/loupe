@@ -1,54 +1,42 @@
-import {
-    test,
-    expect,
-    type Page,
-    type APIRequestContext,
-} from '@playwright/test';
-import { logout, registerAndVerify } from '../helpers';
+import { expect } from '@playwright/test';
+import { testWithVerifiedAccount as test } from '../fixtures';
+import { logout, submitRedirectingForm } from '../helpers';
 
 // Guest by default — make the unauthenticated starting state explicit.
 test.use({ storageState: { cookies: [], origins: [] } });
 
 const RUN = Date.now();
 
-/**
- * Register a user and click the verification link so they end up fully verified.
- * Returns with the browser on the home page (logged in).
- */
-async function createVerifiedUser(
-    page: Page,
-    request: APIRequestContext,
-    email: string,
-    password: string,
-): Promise<void> {
-    await registerAndVerify(page, request, { email, password });
-}
-
 test('valid credentials log in and redirect to home', async ({
     page,
-    request,
+    verifiedAccount: { email, password },
 }) => {
-    const email = `test+login+${RUN}@example.com`;
-    await createVerifiedUser(page, request, email, 'SecurePassword1!');
-
     await logout(page);
     await page.goto('/login');
     await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill('SecurePassword1!');
-    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.getByLabel('Password').fill(password);
+    await submitRedirectingForm(
+        page,
+        page.getByRole('button', { name: 'Sign in' }),
+        '/login',
+    );
 
     await expect(page).toHaveURL('/projects');
 });
 
-test('wrong password shows auth-error', async ({ page, request }) => {
-    const email = `test+badpw+${RUN}@example.com`;
-    await createVerifiedUser(page, request, email, 'SecurePassword1!');
-
+test('wrong password shows auth-error', async ({
+    page,
+    verifiedAccount: { email },
+}) => {
     await logout(page);
     await page.goto('/login');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('WrongPassword!');
-    await page.getByRole('button', { name: 'Sign in' }).click();
+    await submitRedirectingForm(
+        page,
+        page.getByRole('button', { name: 'Sign in' }),
+        '/login',
+    );
 
     await expect(page).toHaveURL('/login');
     await expect(page.locator('.auth-error')).toBeVisible();
@@ -57,17 +45,18 @@ test('wrong password shows auth-error', async ({ page, request }) => {
 test('remember-me cookie survives browser restart', async ({
     page,
     context,
-    request,
+    verifiedAccount: { email, password },
 }) => {
-    const email = `test+remember+${RUN}@example.com`;
-    await createVerifiedUser(page, request, email, 'SecurePassword1!');
-
     await logout(page);
     await page.goto('/login');
     await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill('SecurePassword1!');
+    await page.getByLabel('Password').fill(password);
     await page.getByLabel('Stay signed in on this device').check();
-    await page.getByRole('button', { name: 'Sign in' }).click();
+    await submitRedirectingForm(
+        page,
+        page.getByRole('button', { name: 'Sign in' }),
+        '/login',
+    );
     await expect(page).toHaveURL('/projects');
 
     // Grab cookies from the current context
@@ -96,16 +85,22 @@ test('unverified user after login is redirected to check-email', async ({
     await page.getByLabel('Display name').fill('Riley Chen');
     await page.getByLabel('Password').fill('SecurePassword1!');
     await page.getByLabel('I agree to').check();
-    await page.getByRole('button', { name: 'Create account' }).click();
-    // Wait for registration to complete before navigating away — clicking the
-    // button fires a Turbo XHR; going to /login immediately can abort it.
+    await submitRedirectingForm(
+        page,
+        page.getByRole('button', { name: 'Create account' }),
+        '/register',
+    );
     await expect(page).toHaveURL('/register/check-email');
     // Do NOT click the verification link — skip straight to login
 
     await page.goto('/login');
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill('SecurePassword1!');
-    await page.getByRole('button', { name: 'Sign in' }).click();
+    await submitRedirectingForm(
+        page,
+        page.getByRole('button', { name: 'Sign in' }),
+        '/login',
+    );
 
     // EmailVerificationSubscriber redirects unverified users to check-email
     await expect(page).toHaveURL('/register/check-email');

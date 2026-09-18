@@ -7,6 +7,8 @@ namespace App\Module\Inbox\View;
 use App\Module\Bridge\View\BridgeStatus;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxItem;
+use App\Module\Inbox\Entity\InboxItemKind;
+use App\Module\Inbox\Entity\InboxItemState;
 use App\Module\Project\Entity\Project;
 
 /** The project inbox page: open asks, open items outside them, and one page of closed asks, or one page of search results. */
@@ -17,6 +19,8 @@ final readonly class InboxDetailView implements InboxItemsView
 
     /** @var array<string, string> item id to the place its forms render */
     private array $homes;
+
+    public int $openItemCount;
 
     /**
      * @param list<InboxAsk>              $openAsks       oldest first
@@ -38,6 +42,8 @@ final readonly class InboxDetailView implements InboxItemsView
         public array $pageList,
         public array $finalItemIds,
         public array $bridgeStatuses,
+        public InboxReplyThreads $replies,
+        public bool $completed = false,
         public string $query = '',
         public array $searchResults = [],
         public int $searchTotal = 0,
@@ -45,14 +51,26 @@ final readonly class InboxDetailView implements InboxItemsView
         // An item can sit in several asks, and a to-do in a closed ask also shows
         // on its own. Its forms render once, at the first place the page shows it.
         $homes = [];
+        $openItems = [];
         foreach ($openAsks as $ask) {
             foreach ($ask->items as $link) {
                 $homes[(string) $link->item->id] ??= (string) $ask->id;
+                if (InboxItemState::Open === $link->item->state) {
+                    $openItems[(string) $link->item->id] = true;
+                }
             }
         }
-        foreach ([...$looseItems, ...$searchResults] as $item) {
+        foreach ($looseItems as $item) {
+            $homes[(string) $item->id] ??= self::LOOSE;
+            $openItems[(string) $item->id] = true;
+        }
+
+        $this->openItemCount = count($openItems);
+
+        foreach ($searchResults as $item) {
             $homes[(string) $item->id] ??= self::LOOSE;
         }
+
         foreach ($closedAsks as $ask) {
             foreach ($ask->items as $link) {
                 $homes[(string) $link->item->id] ??= (string) $ask->id;
@@ -70,14 +88,22 @@ final readonly class InboxDetailView implements InboxItemsView
     #[\Override]
     public function acceptsResponse(InboxItem $item): bool
     {
+        if (InboxItemKind::Review === $item->kind && InboxItemState::Open !== $item->state) {
+            return false;
+        }
+
         return $item->state->acceptsResponse(isset($this->finalItemIds[(string) $item->id]));
     }
 
-    /** The page and the search the owner is on, kept on the way back. */
+    /** The queue, the page and the search the owner is on, kept on the way back. */
     #[\Override]
     public function actionQuery(): array
     {
-        return [...($this->page > 1 ? ['page' => $this->page] : []), ...($this->isSearch() ? ['q' => $this->query] : [])];
+        return [
+            ...($this->completed ? ['queue' => 'completed'] : []),
+            ...($this->page > 1 ? ['page' => $this->page] : []),
+            ...($this->isSearch() ? ['q' => $this->query] : []),
+        ];
     }
 
     /** Null for a closed ask, or for an interactive session that no bridge resumes. */

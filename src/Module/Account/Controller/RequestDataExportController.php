@@ -44,6 +44,6 @@ class RequestDataExportController extends AppController
             }
         }
 
-        return $this->redirectToRoute('app_account_settings');
+        return $this->redirectToRoute('app_account_data');
     }
 }

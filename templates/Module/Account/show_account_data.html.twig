@@ -1,0 +1,48 @@
+{% extends '@Account/_settings_layout.html.twig' %}
+
+{% block settings_section 'data' %}
+
+{% block settings_content %}
+<section class="lp-connect-block lp-settings-section lp-settings-panel-card" data-testid="export-section">
+    <h2 class="lp-section-title">{{ 'account.settings.export.heading'|trans }}</h2>
+    <p class="lp-connect-hint">{{ 'account.settings.export.intro'|trans }}</p>
+
+    {% for export in view.exports %}
+    <div class="lp-identity-row">
+        <twig:ux:icon name="lucide:package" class="lp-identity-row__glyph w-4 h-4" />
+        <span class="lp-identity-row__text">
+            <span class="lp-identity-row__name lp-identity-row__name--mono">{{ export.requestedAt|date('Y-m-d H:i') }}</span>
+            <span class="lp-identity-row__meta lp-identity-row__meta--plain">
+                {% if export.isExpired %}
+                    {{ 'account.settings.export.status.expired'|trans }}
+                {% else %}
+                    {{ ('account.settings.export.status.' ~ export.status.value)|trans }}
+                {% endif %}
+            </span>
+        </span>
+        {# Same gate the controller applies, so a rendered link never 404s.
+           Turbo off: the response is a streamed ZIP, and a prefetch on hover
+           would pull the whole archive down. #}
+        {% if export.isDownloadable %}
+        <a href="{{ path('app_account_export_download', {id: export.id}) }}"
+           class="lp-btn lp-btn--ghost"
+           data-turbo="false" data-turbo-prefetch="false">{{ 'account.settings.export.download_link'|trans }}</a>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <form method="post" action="{{ path('app_account_export_request') }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('request-data-export') }}">
+        <button type="submit" class="lp-btn lp-btn--primary">{{ 'account.settings.export.request_button'|trans }}</button>
+    </form>
+</section>
+
+<section class="lp-danger-zone" data-testid="delete-account-section">
+    <h2 class="lp-danger-zone-title">{{ 'account.delete.danger.heading'|trans }}</h2>
+    <p class="lp-danger-zone-desc">{{ 'account.delete.danger.body'|trans }}</p>
+    <form method="post" action="{{ path('app_account_delete_request') }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('request-account-deletion') }}">
+        <button type="submit" class="lp-btn lp-btn--danger">{{ 'account.delete.danger.cta'|trans }}</button>
+    </form>
+</section>
+{% endblock %}

@@ -56,7 +56,10 @@ final class MarkInboxItemDoneController extends AppController
                 ($this->markDone)(new MarkInboxItemDoneCommand($item));
                 $this->addFlash('success', $this->translator->trans('inbox.flash.done', ['%number%' => $item->number]));
 
-                return $this->redirectToRoute($return->route, $return->routeParameters);
+                // Read again, because a saved response can move the item to the completed queue.
+                $saved = $this->returnTargets->resolve($request, $item);
+
+                return $this->redirectToRoute($saved->route, $saved->routeParameters);
             } catch (DomainErrors $e) {
                 // The form has no field, so every refusal belongs to the form itself.
                 foreach ($e->errors as $translationKey) {

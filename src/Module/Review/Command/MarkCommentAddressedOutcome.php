@@ -13,4 +13,5 @@ enum MarkCommentAddressedOutcome
     case AlreadyAddressed;
     case AlreadyResolved;
     case NotFound;
+    case Deleted;
 }

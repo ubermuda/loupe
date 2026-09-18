@@ -29,6 +29,8 @@ final readonly class PaywallExemptions
         'app_waitlist_join',
         'app_account_settings',
         'app_account_profile',
+        'app_account_api_tokens',
+        'app_account_data',
         // The paywall runs above the terms gate, so dropping either of these
         // traps a user with a lapsed subscription and stale terms in a loop
         // between the subscribe page and the acceptance interstitial.

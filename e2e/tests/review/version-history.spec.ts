@@ -1,25 +1,15 @@
+import { randomUUID } from 'node:crypto';
 import { test, expect } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
 
-/**
- * The route from the review page's Versions tab to the history page, and from
- * the history page's picker to the diff of two versions that do not follow one
- * another.
- *
- * The tab bar is display:none below lg and the panel opens through a Stimulus
- * controller, so neither the link nor the picker is reachable from PHPUnit.
- */
 // Guest by default, and self-registering through the dev endpoints — the same
 // shape as the other review specs, which seed their own document.
 test.use({ storageState: { cookies: [], origins: [] } });
 
-const RUN = Date.now();
 const PASSWORD = 'e2e_password_123';
 
-test('the versions tab leads to the history, which compares two distant versions', async ({
-    page,
-}) => {
-    const email = `e2e-history-${RUN}@example.com`;
+test('the History tab compares two distant versions', async ({ page }) => {
+    const email = `e2e-history-${randomUUID()}@example.com`;
     const register = await page.request.post('/dev/register-and-verify', {
         form: { fullName: 'E2E History', email, password: PASSWORD },
     });
@@ -48,21 +38,49 @@ test('the versions tab leads to the history, which compares two distant versions
     const { projectId, documentId } = await seeded.json();
 
     await page.goto(`/projects/${projectId}/documents/${documentId}/review`);
+    await page.getByRole('link', { name: 'History', exact: true }).click();
+    await expect(
+        page.locator('.lp-review-view-tabs__item[aria-current="page"]'),
+    ).toHaveText('History');
+    await expect(
+        page.getByRole('heading', { name: 'Versioned Plan', exact: true }),
+    ).toBeVisible();
+    await expect(page.locator('.lp-review-doc__version')).toHaveText('v4');
+    await expect(page.locator('.lp-review-margin-tabs')).toHaveCount(0);
 
-    // The panel is hidden until the tab opens it, so the link inside it is not
-    // in the accessibility tree before the click.
-    await page.locator('[data-metadata-tabs-panel-param="versions"]').click();
-    const panel = page.locator('[data-panel="versions"]');
-    await expect(panel).toBeVisible();
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    const reviewDialog = page.getByRole('dialog', { name: 'Finish review' });
+    await reviewDialog
+        .getByRole('radio', { name: 'Approve', exact: true })
+        .check();
+    await reviewDialog
+        .getByLabel('Review note', { exact: true })
+        .fill('Ready for the rollout.');
+    await page.keyboard.press('Escape');
+    await expect(reviewDialog).toBeHidden();
+    await expect(
+        page.getByRole('button', { name: 'Finish review', exact: true }),
+    ).toBeFocused();
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    await expect(
+        reviewDialog.getByLabel('Review note', { exact: true }),
+    ).toHaveValue('Ready for the rollout.');
+    await expect(
+        reviewDialog.getByRole('radio', { name: 'Approve', exact: true }),
+    ).toBeChecked();
+    await reviewDialog.getByRole('button', { name: 'Submit review' }).click();
+    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
+    await page
+        .locator('.lp-verdict-bar')
+        .getByRole('button', { name: 'Undo', exact: true })
+        .click();
+    await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
 
-    // The trimmed panel: the version on screen, and nothing else.
-    await expect(panel.locator('.lp-version-entry')).toHaveCount(1);
-    await expect(panel.locator('.lp-version-entry')).toHaveAttribute(
-        'data-version-number',
-        '4',
-    );
-
-    await panel.getByRole('link', { name: 'See all 4 versions' }).click();
+    await page.getByRole('link', { name: 'History', exact: true }).click();
     await expect(page).toHaveURL(
         `/projects/${projectId}/documents/${documentId}/review/history`,
     );
@@ -70,10 +88,24 @@ test('the versions tab leads to the history, which compares two distant versions
         page.getByRole('heading', { name: 'Version history' }),
     ).toBeVisible();
     await expect(page.locator('.lp-history__row')).toHaveCount(4);
+    const currentVersion = page.locator(
+        '.lp-history__row[data-version-number="4"]',
+    );
+    await expect(currentVersion.locator('.lp-history__verdict')).toHaveText([
+        'Approved',
+        'Verdict withdrawn',
+    ]);
+    await expect(currentVersion).toContainText('Ready for the rollout.');
+    await expect(currentVersion).toContainText('E2E History');
+    await expect(
+        page.locator('.lp-history__row[data-version-number="3"]'),
+    ).toContainText('No reviews for this version.');
+    await page.reload();
+    await expect(currentVersion.locator('.lp-history__review')).toHaveCount(2);
 
     // v1 against v4: a pair the per-version compare controls never offer.
-    await page.selectOption('#history-compare-from', '1');
-    await page.selectOption('#history-compare-to', '4');
+    await page.locator('#history-compare-from').selectOption('1');
+    await page.locator('#history-compare-to').selectOption('4');
     await page.getByRole('button', { name: 'Compare these two' }).click();
 
     await expect(page).toHaveURL(
@@ -90,4 +122,64 @@ test('the versions tab leads to the history, which compares two distant versions
             hasText: 'four careful steps',
         }),
     ).toHaveCount(1);
+
+    await page.evaluate(() => {
+        performance.clearMarks('review-preview-render');
+        document.addEventListener('turbo:render', () => {
+            if (document.documentElement.hasAttribute('data-turbo-preview')) {
+                performance.mark('review-preview-render');
+            }
+        });
+    });
+    await page.route(
+        `**/documents/${documentId}/review/history`,
+        async (route) => {
+            const response = await route.fetch();
+            await new Promise((resolve) => setTimeout(resolve, 500));
+            await route.fulfill({ response });
+        },
+    );
+    await page.getByRole('link', { name: 'History', exact: true }).click();
+    await expect(
+        page.getByRole('heading', { name: 'Version history' }),
+    ).toBeVisible();
+    await expect(page.locator('html')).not.toHaveAttribute(
+        'data-turbo-preview',
+    );
+    await expect(page.locator('html')).not.toHaveAttribute('aria-busy', 'true');
+    expect(
+        await page.evaluate(
+            () => performance.getEntriesByName('review-preview-render').length,
+        ),
+    ).toBe(0);
+    await page.getByRole('button', { name: 'Revise', exact: true }).click();
+    const reviseDialog = page.getByRole('dialog', { name: 'Revise document' });
+    await expect(reviseDialog.getByLabel('Title', { exact: true })).toHaveValue(
+        'Versioned Plan',
+    );
+    await reviseDialog
+        .getByLabel('Markdown', { exact: true })
+        .fill('# Plan\n\nThe rollout takes five verified steps.');
+    await reviseDialog
+        .getByLabel('Revision note', { exact: true })
+        .fill('Add the verification step.');
+    await page.keyboard.press('Escape');
+    await expect(reviseDialog).toBeHidden();
+    await expect(
+        page.getByRole('button', { name: 'Revise', exact: true }),
+    ).toBeFocused();
+    await page.getByRole('button', { name: 'Revise', exact: true }).click();
+    await expect(
+        reviseDialog.getByLabel('Markdown', { exact: true }),
+    ).toHaveValue('# Plan\n\nThe rollout takes five verified steps.');
+    await expect(
+        reviseDialog.getByLabel('Revision note', { exact: true }),
+    ).toHaveValue('Add the verification step.');
+    await reviseDialog
+        .getByRole('button', { name: 'Save new version', exact: true })
+        .click();
+    await expect(page.locator('.lp-review-doc__version')).toHaveText('v5');
+    await page.getByRole('link', { name: 'History', exact: true }).click();
+    await expect(page.locator('.lp-history__row')).toHaveCount(5);
+    await expect(currentVersion.locator('.lp-history__review')).toHaveCount(2);
 });

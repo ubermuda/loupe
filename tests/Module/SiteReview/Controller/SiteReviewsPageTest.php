@@ -97,6 +97,67 @@ final class SiteReviewsPageTest extends WebTestCase
         self::assertCount(1, $crawler->filter('[data-comment-id="'.$commentId.'"]'));
     }
 
+    public function test_a_reply_is_shared_persistent_and_idempotent_without_changing_feedback(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$project, $comments] = $this->projectWithPendingComments($em, 'site-reply-page@example.com', 'Replies');
+        $comment = $comments[1];
+        $comment->status = SiteReviewCommentStatus::Resolved;
+        $em->flush();
+        $em->clear();
+        $client->loginUser($project->owner);
+        $pageUrl = '/projects/'.$project->id.'/site-review';
+        $crawler = $client->request(Request::METHOD_GET, $pageUrl);
+        self::assertResponseIsSuccessful();
+        $name = 'site_reply_site_'.$comment->id;
+        $form = $crawler->filter('form[name="'.$name.'"]')->form([$name.'[body]' => 'Keep the original capture.']);
+        $client->submit($form);
+        self::assertResponseRedirects($pageUrl.'#feedback-'.$comment->id);
+        $client->followRedirect();
+        self::assertSelectorTextContains('[data-comment-id="'.$comment->id.'"] [data-site-review-reply]', 'Keep the original capture.');
+        $client->submit($form);
+        self::assertResponseRedirects($pageUrl.'#feedback-'.$comment->id);
+        $client->followRedirect();
+        self::assertSelectorCount(1, '[data-site-review-reply]');
+        $form[$name.'[body]'] = 'Keep this changed draft.';
+        $client->submit($form);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('textarea[name="'.$name.'[body]"]', 'Keep this changed draft.');
+        self::assertSelectorTextContains('form[name="'.$name.'"]', 'This reply form is no longer current.');
+        self::assertSelectorExists('[data-master-detail-selected-value="feedback-'.$comment->id.'"]');
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $stored = $em->find(SiteReviewComment::class, $comment->id);
+        self::assertInstanceOf(SiteReviewComment::class, $stored);
+        self::assertSame(SiteReviewCommentStatus::Resolved, $stored->status);
+        self::assertSame('Second comment', $stored->body);
+        self::assertSame(1, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM site_review_replies WHERE comment_id = ?', [(string) $comment->id]));
+    }
+
+    public function test_a_reply_refuses_another_owner_and_a_forged_csrf_token(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        [$project, $comments] = $this->projectWithPendingComments($em, 'site-reply-owner@example.com', 'Private feedback');
+        $stranger = $this->user($em, 'site-reply-stranger@example.com');
+        $em->flush();
+        $comment = $comments[0];
+        $em->clear();
+        $url = '/site-review/comments/'.$comment->id.'/reply';
+        $name = 'site_reply_site_'.$comment->id;
+        $fields = [$name => ['body' => 'Forged reply.', 'submissionId' => '01995498-93aa-7000-8000-000000000001', '_token' => 'forged']];
+        $client->loginUser($stranger);
+        $client->request(Request::METHOD_POST, $url, $fields);
+        self::assertResponseStatusCodeSame(403);
+        $client->loginUser($project->owner);
+        $client->request(Request::METHOD_POST, $url, $fields);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('textarea[name="'.$name.'[body]"]', 'Forged reply.');
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertSame(0, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM site_review_replies'));
+    }
+
     public function test_resolve_marks_comment_resolved(): void
     {
         $client = static::createClient();

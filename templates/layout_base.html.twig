@@ -3,6 +3,7 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        {% if app.user %}<meta name="turbo-cache-control" content="no-preview">{% endif %}
         <title>{% block title %}{{ 'app.name'|trans }}{% endblock %}</title>
         {% block meta_description %}{% endblock %}
         {# A plain <link>, not an `import` in app.js: AssetMapper turns a CSS
@@ -24,7 +25,8 @@
         <script src="https://cdn.jsdelivr.net/npm/frankenphp-hot-reload/+esm" type="module"></script>
         {% endif %}
     </head>
-    <body class="{% block body_class %}{% endblock %}">
+    <body class="{% block body_class %}{% endblock %}" data-reply-draft-owner="{{ app.user ? app.user.id : '' }}">
+        <a class="lp-skip-link" href="#main-content" data-turbo="false">{{ 'nav.skip_to_content'|trans }}</a>
         {# The page's outermost chrome, and the only thing that decides whether
            the application shell is present. `base.html.twig` fills it with the
            sidebar shell; `@Account/auth_base.html.twig` fills it with a bare

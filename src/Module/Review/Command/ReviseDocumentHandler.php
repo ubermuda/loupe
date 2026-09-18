@@ -15,6 +15,7 @@ use App\Module\Review\Repository\SectionApprovalRepository;
 use App\Module\Review\Service\DocumentReferenceValidator;
 use App\Module\Review\Service\DocumentSearchIndexer;
 use App\Module\Review\Service\DocumentSeriesApplier;
+use App\Module\Review\Service\DocumentWorkLinksInterface;
 use App\Module\Review\Service\HeadingExtractor;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\Service\ReanchoringService;
@@ -46,6 +47,7 @@ final readonly class ReviseDocumentHandler
         private DocumentSearchIndexer $searchIndexer,
         private SeriesConflictErrors $conflicts,
         private Auditor $auditor,
+        private DocumentWorkLinksInterface $workLinks,
     ) {
     }
 
@@ -94,7 +96,10 @@ final readonly class ReviseDocumentHandler
 
         $newVersionNumber = 0;
 
-        $summary = $this->em->wrapInTransaction(function () use ($document, $command, $description, $title, $references, $placesInSeries, &$newVersionNumber): array {
+        $summary = $this->em->wrapInTransaction(function () use ($document, $command, $description, $title, $references, $placesInSeries, &$newVersionNumber): array|DomainErrors {
+            // Card edits lock the project first. Revisions use the same order,
+            // including agent revisions that can write project-scoped series.
+            $this->em->lock($document->project, LockMode::PESSIMISTIC_WRITE);
             // Locks the documents row before the number below is read, so two
             // concurrent revisions serialize here rather than both deriving the
             // same next version number.
@@ -105,6 +110,16 @@ final readonly class ReviseDocumentHandler
             // helper calls count() and add() on ->versions, and the association is
             // not EXTRA_LAZY, so either one loads every version of the document.
             $previousVersion = $this->documentVersions->findLatest($document);
+            if (null !== $command->versionNumber && $previousVersion->versionNumber !== $command->versionNumber) {
+                return new DomainErrors(['versionNumber' => 'review.revise.error.stale_version']);
+            }
+            if (null !== $command->workLinkIds) {
+                try {
+                    $this->workLinks->synchronize($document, $command->workLinkIds);
+                } catch (DomainErrors $errors) {
+                    return $errors;
+                }
+            }
 
             $newVersion = new DocumentVersion(
                 $document,
@@ -174,6 +189,10 @@ final readonly class ReviseDocumentHandler
             ];
         });
 
+        if ($summary instanceof DomainErrors) {
+            throw $summary;
+        }
+
         // After the commit, never inside it: the sink drains at kernel.terminate,
         // so a record written in the closure outlives a rollback.
         $this->auditor->record(
@@ -186,6 +205,7 @@ final readonly class ReviseDocumentHandler
                 'titleChanged' => null !== $title,
                 'referencesReplaced' => null !== $references,
                 'seriesChanged' => $placesInSeries,
+                'workLinkCount' => null === $command->workLinkIds ? null : \count($command->workLinkIds),
                 'commentsCarried' => $summary['carried'],
                 'commentsOrphaned' => $summary['orphaned'],
                 'sectionsCarried' => $summary['sectionsCarried'],

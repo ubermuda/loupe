@@ -16,6 +16,10 @@ use Symfony\Component\Validator\Constraints as Assert;
 class SuggestRewordingRequest
 {
     public function __construct(
+        #[Assert\NotNull]
+        #[Assert\Positive]
+        public ?int $versionNumber = null,
+
         #[Assert\Length(max: 2000)]
         #[Assert\NotBlank]
         public ?string $quote = null,

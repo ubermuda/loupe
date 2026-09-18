@@ -15,6 +15,9 @@ covered by any release promise, and the pieces around it — the hub, the
 
 ## Embedding it
 
+The Site review header links to Widget setup. The action moves below the title
+when a narrow screen or enlarged text needs more space.
+
 Mint a widget token from the project (`/projects/{id}/widget-token`, and
 `/regenerate` to roll it), then paste the snippet the project page gives you:
 
@@ -32,6 +35,23 @@ project, not only the ones its holder wrote. Keeping the widget off public pages
 bounds who that is. Use a dedicated site-review-scoped token, never an MCP token
 or a production credential.
 
+## Retrying a save
+
+A failed save keeps the draft open. Press **Save** again to retry it.
+The widget retains the submission ID until you save successfully or cancel the draft.
+If the server saves the comment but its response is lost, an unchanged retry returns the same comment.
+It does not repeat card attachment or create another comment.
+
+If you change the content after the server accepts it, the retry reports a conflict and keeps your draft.
+Copy the draft before you reload, then review the saved comment.
+Reloading or cancelling starts a new submission; it does not undo a comment that already reached the server.
+
+The comment API accepts an optional UUID in `deliveryId`.
+Clients must reuse it with unchanged content when retrying a POST to `/api/site-review/comments`.
+Its scope is one project, and its lifetime is the stored comment's lifetime.
+Reusing it with different content returns HTTP 409 with `delivery_conflict`.
+Older clients without this field remain supported, but their repeated requests create separate comments.
+
 ## Resolving a comment
 
 Press the tick on a comment, either in the widget's list or on the card that
@@ -41,6 +61,25 @@ comments that are still open.
 Resolving keeps the comment. It moves to **Resolved** on the project's
 site-review page, where you can read it again and reopen it. Deleting is the
 control that removes a comment, and it asks you to confirm first.
+
+## Discussing feedback in Loupe
+
+Use **Reply to this feedback** on the Site review page or a linked card.
+The card's Conversation and Feedback tabs show the same replies as Site review.
+Each reply keeps its author and time. Replies remain available after the feedback is addressed or resolved.
+Adding a reply does not change the original capture or its status.
+
+Use **Resolve** or **Reopen** on either card tab to change the shared feedback status.
+The linked card opens on its Feedback tab from Site review.
+The form accepts up to 2,000 characters and keeps the draft when a submission fails.
+Retrying an unchanged submission does not add a duplicate.
+Unsent replies stay in this browser tab across drawer closure, tab changes, and in-app navigation.
+Conversation and Feedback keep separate drafts. The browser asks before a reload or tab closure discards them.
+Signing out clears the drafts.
+Text you type while a reply is being saved remains an unsent draft after confirmation.
+
+Your agent reads these replies through `site_review_get`.
+Replies are included in your account export. The widget's public read response does not include them.
 
 ## Quoting a passage of text
 

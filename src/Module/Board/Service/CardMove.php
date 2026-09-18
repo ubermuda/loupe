@@ -6,7 +6,6 @@ namespace App\Module\Board\Service;
 
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 
 /**
  * Where a move started from. The card itself carries where it arrived.
@@ -18,7 +17,6 @@ final readonly class CardMove
 {
     public function __construct(
         public BoardColumn $fromColumn,
-        public CardPriority $fromPriority,
     ) {
     }
 
@@ -36,10 +34,8 @@ final readonly class CardMove
             'projectId' => (string) $card->project->id,
             'fromStatus' => $this->fromColumn->slug,
             'fromColumnId' => (string) $this->fromColumn->id,
-            'fromPriority' => $this->fromPriority->value,
             'toStatus' => $card->column->slug,
             'toColumnId' => (string) $card->column->id,
-            'toPriority' => $card->priority->value,
             'position' => $card->position,
         ];
     }

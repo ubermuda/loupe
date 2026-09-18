@@ -13,7 +13,6 @@ use App\Module\Board\Command\MoveCardCommand;
 use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
@@ -133,7 +132,6 @@ final class CardColumnWriteTest extends KernelTestCase
             title: 'Ship the columns',
             body: 'Body',
             type: CardType::Feature,
-            priority: CardPriority::Medium,
             column: $column,
         ));
     }
@@ -143,7 +141,7 @@ final class CardColumnWriteTest extends KernelTestCase
         $handler = self::getContainer()->get(MoveCardHandler::class);
         self::assertInstanceOf(MoveCardHandler::class, $handler);
 
-        $handler(new MoveCardCommand($card, CardReporter::Human, $this->column($board ?? $this->project, $slug), CardPriority::Medium));
+        $handler(new MoveCardCommand($card, CardReporter::Human, $this->column($board ?? $this->project, $slug)));
     }
 
     /** The slug of the column on the raw row, so the identity map cannot answer with what the handler assigned. */

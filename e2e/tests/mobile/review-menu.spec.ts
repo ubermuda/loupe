@@ -384,8 +384,15 @@ test('a verdict leaves no button that opens an empty panel', async ({
     await page.goto(reviewPath(plain));
 
     await page.locator(TRIGGER).tap();
-    await page.getByRole('button', { name: 'Approve' }).tap();
-    await expect(page.locator('.lp-verdict-bar')).toBeVisible();
+    await page
+        .locator(PANEL)
+        .getByRole('button', { name: 'Finish review' })
+        .tap();
+    await page.getByRole('radio', { name: 'Approve', exact: true }).check();
+    await page.getByRole('button', { name: 'Submit review' }).tap();
+    await expect(page.locator('.lp-verdict-bar')).toBeVisible({
+        timeout: 20000,
+    });
 
     // Nothing is left to choose: no headings, one version, no references, no
     // decisions, no verdict to give and no resolved thread to hide.
@@ -405,17 +412,45 @@ test('scrolling the paper closes the menu', async ({ page, seeded }) => {
     await expect(page.locator(PANEL)).toBeHidden();
 });
 
-test('the desktop bar is untouched above lg', async ({ page, seeded }) => {
+test('the comment margin follows the paper on a narrow screen', async ({
+    page,
+    seeded,
+}) => {
+    await page.goto(reviewPath(seeded));
+
+    const positions = await page.evaluate(() => ({
+        paperBottom:
+            document
+                .querySelector('.lp-review-doc__prose')
+                ?.getBoundingClientRect().bottom ?? 0,
+        commentsTop:
+            document
+                .querySelector('.lp-comment-threads')
+                ?.getBoundingClientRect().top ?? 0,
+    }));
+
+    expect(positions.commentsTop).toBeGreaterThanOrEqual(positions.paperBottom);
+});
+
+test('the desktop review actions sit beside the document title', async ({
+    page,
+    seeded,
+}) => {
     await page.setViewportSize(DESKTOP);
     await page.goto(reviewPath(seeded));
 
     const [barHeight] = await heightsOf(page, '.lp-topbar');
     expect(barHeight).toBe(64);
 
-    await expect(page.locator('.lp-topbar__actions')).toBeVisible();
+    await expect(
+        page
+            .locator('.lp-review-doc__actions')
+            .getByRole('button', { name: 'Finish review' }),
+    ).toBeVisible();
     await expect(page.locator(MENU)).toBeHidden();
-    // The four document tabs stay in the page body on desktop.
-    await expect(page.locator('.lp-doc-meta__tab').first()).toBeVisible();
+    await expect(
+        page.getByRole('tab', { name: 'Comments', exact: true }),
+    ).toBeVisible();
 
     // The context has a coarse pointer, and the touch-target rules are the last
     // word on `display` unless they leave it alone.

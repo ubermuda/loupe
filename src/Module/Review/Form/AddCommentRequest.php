@@ -9,6 +9,10 @@ use Symfony\Component\Validator\Constraints as Assert;
 class AddCommentRequest
 {
     public function __construct(
+        #[Assert\NotNull]
+        #[Assert\Positive]
+        public ?int $versionNumber = null,
+
         // Captured client-side from the document's textContent, and empty for an
         // untargeted comment — so none are required. The lengths guard a
         // hand-crafted POST: prefix/suffix are VARCHAR(255), which would

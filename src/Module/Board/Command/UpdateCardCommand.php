@@ -6,7 +6,6 @@ namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 
@@ -26,9 +25,9 @@ final readonly class UpdateCardCommand
     /**
      * @param list<string>|null $pullRequestUrls
      * @param list<string>|null $documentIds
-     * @param ?int              $position        the rank the card takes inside its group, counting
+     * @param ?int              $position        the rank the card takes inside its column, counting
      *                                           from 0; null leaves the rank alone, and a rank past
-     *                                           the end of the group is clamped to it
+     *                                           the end of the column is clamped to it
      */
     public function __construct(
         public Card $card,
@@ -36,7 +35,6 @@ final readonly class UpdateCardCommand
         public ?string $title = null,
         public ?string $body = null,
         public ?CardType $type = null,
-        public ?CardPriority $priority = null,
         public ?BoardColumn $column = null,
         public ?array $pullRequestUrls = null,
         public ?array $documentIds = null,

@@ -1,20 +1,71 @@
 {% set home = inbox.isHome(item, ask) %}
 {% set open = item.state.value == 'open' %}
+{% set review = item.kind.value == 'review' ? inbox_review(item) : null %}
+{% set reviewFormShown = false %}
 {% set actionParams = {projectId: item.project.id, itemId: item.id}|merge(inbox.actionQuery) %}
+{% set responseFrame = app.request.headers.get('Turbo-Frame') == 'card-drawer-frame' ? 'card-drawer-frame' : '_top' %}
 <article class="lp-inbox-item"{% if home %} id="inbox-item-{{ item.number }}"{% endif %} data-inbox-item="{{ item.number }}">
+    {# A request with one item wears its state on the list row beside it. #}
+    {% if showHead|default(true) %}
     <div class="lp-inbox-item__head">
         <span class="lp-inbox-item__number">{{ 'inbox.item.number'|trans({'%number%': item.number}) }}</span>
         <span class="lp-inbox-item__kind">{{ ('inbox.item.kind.' ~ item.kind.value)|trans }}</span>
         {% if item.blocking %}<span class="lp-inbox-item__blocking">{{ 'inbox.item.blocking'|trans }}</span>{% endif %}
         {% include '@Inbox/_inbox_state_chip.html.twig' with {state: item.state} only %}
     </div>
+    {% endif %}
     <h3 class="lp-inbox-item__title">{{ item.title }}</h3>
     {% if item.body|trim is not empty %}
         <div class="prose lp-prose lp-inbox-item__body">{{ item.body|inbox_markdown }}</div>
     {% endif %}
 
+    {% if showLinkedItems|default(false) and (item.cards|length > 0 or item.documents|length > 0) %}
+    <div class="lp-inbox-linked-table-wrap">
+        <table class="lp-inbox-linked-table">
+            <caption>{{ 'inbox.linked_items.title'|trans }}</caption>
+            <thead><tr><th>{{ 'inbox.linked_items.item'|trans }}</th><th>{{ 'inbox.linked_items.status'|trans }}</th><th><span class="sr-only">{{ 'inbox.linked_items.open'|trans }}</span></th></tr></thead>
+            <tbody>
+                {% for link in item.cards %}
+                <tr>
+                    <td><span class="lp-inbox-linked-table__type"><twig:ux:icon name="lucide:layout-list" class="w-4 h-4" />{{ 'inbox.linked_items.card'|trans }}</span><strong>#{{ link.card.number }} {{ link.card.title }}</strong></td>
+                    <td><span class="lp-tag">{{ link.card.column.label|trans }}</span></td>
+                    <td><a class="lp-btn lp-btn--ghost lp-btn--open" href="{{ path('app_board_card', {projectId: item.project.id, cardId: link.card.id, tab: 'conversation', inboxItem: item.number, _fragment: 'inbox-item-' ~ item.number}) }}" aria-label="{{ 'inbox.linked_items.open_card'|trans({'%title%': link.card.title}) }}"><span class="lp-btn__label">{{ 'inbox.linked_items.open'|trans }}</span><twig:ux:icon name="lucide:chevron-right" class="w-4 h-4" /></a></td>
+                </tr>
+                {% endfor %}
+                {% for link in item.documents %}
+                <tr>
+                    <td><span class="lp-inbox-linked-table__type"><twig:ux:icon name="lucide:file-text" class="w-4 h-4" />{{ 'inbox.linked_items.document'|trans }}</span><strong>{{ link.document.title }}</strong></td>
+                    <td><span class="lp-tag">{{ link.document.status.translationKey()|trans }}</span></td>
+                    <td><a class="lp-btn lp-btn--ghost lp-btn--open" href="{{ path('app_document_review', {projectId: item.project.id, documentId: link.document.id}) }}" aria-label="{{ 'inbox.linked_items.open_document'|trans({'%title%': link.document.title}) }}"><span class="lp-btn__label">{{ 'inbox.linked_items.open'|trans }}</span><twig:ux:icon name="lucide:chevron-right" class="w-4 h-4" /></a></td>
+                </tr>
+                {% endfor %}
+                {% set shownPullRequests = [] %}
+                {% for cardLink in item.cards %}
+                    {% for link in cardLink.card.pullRequests %}
+                        {% if link.url not in shownPullRequests %}
+                            {% include '@Board/_linked_pull_request.html.twig' with {link: link} only %}
+                            {% set shownPullRequests = shownPullRequests|merge([link.url]) %}
+                        {% endif %}
+                    {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
     {% if not open %}
     <div class="lp-inbox-item__response" data-inbox-response>
+        {% if review and review.verdict %}
+            <p class="lp-inbox-item__note">{{ review.targetLabel }}</p>
+            <p data-inbox-review-verdict>{{ ('inbox.review.verdict.' ~ review.verdict.value)|trans }}</p>
+            {% if review.note %}<p class="lp-inbox-item__answer-text">{{ review.note }}</p>{% endif %}
+            <p class="lp-inbox-item__note">{{ review.reviewer.fullName }} · {{ review.submittedAt|date('Y-m-d H:i') }}{% if review.reviewedVersionNumber %} · {{ 'inbox.review.version'|trans({'%version%': review.reviewedVersionNumber}) }}{% endif %}</p>
+            {% set withdrawal = inbox_review_withdrawal(review) %}
+            {% if withdrawal %}
+                <p class="lp-inbox-item__note" data-inbox-review-withdrawal>{{ 'inbox.review.withdrawn'|trans({'%name%': withdrawal.reviewer.fullName, '%time%': withdrawal.submittedAt|date('Y-m-d H:i')}) }}</p>
+                {% if review.document %}<a class="lp-inbox-item__jump" href="{{ path('app_document_review', {projectId: item.project.id, documentId: review.document.id}) }}" data-turbo-frame="_top">{{ 'inbox.review.open_document'|trans }}</a>{% endif %}
+            {% endif %}
+        {% endif %}
         {% if item.selectedOptions|length > 0 %}
             <ul class="lp-inbox-item__choices" data-inbox-choices>
                 {% for index in item.selectedOptions %}
@@ -37,6 +88,10 @@
     {% endif %}
 
     {% if home and not inbox.acceptsResponse(item) %}
+        {% if item.kind.value == 'question' %}
+            {% include '@Inbox/_response_draft.html.twig' with {kind: 'answer', key: item.id, options: item.options, title: 'inbox.answer.unsent'} only %}
+        {% endif %}
+        {% include '@Inbox/_response_draft.html.twig' with {kind: 'decline', key: item.id ~ ':decline', options: [], title: 'inbox.decline.unsent'} only %}
         {% set refusals = inbox_refusals(item, refusedForm) %}
         {% if refusals|length > 0 %}
         <div class="lp-inbox-item__refusal" role="alert" data-inbox-refusal>
@@ -45,31 +100,33 @@
         {% endif %}
     {% endif %}
 
-    {% if inbox.acceptsResponse(item) %}
-        {% if not home %}
-            <a class="lp-inbox-item__jump" href="#inbox-item-{{ item.number }}">{{ 'inbox.item.respond_elsewhere'|trans({'%number%': item.number}) }}</a>
-        {% else %}
+    {# The forms and the replies of an item live at one place, which another
+       page or another queue can hold. A copy shows the way there, whether or
+       not the item still takes a response. #}
+    {% if not home %}
+        <a class="lp-inbox-item__jump" href="{{ path('app_project_inbox', {id: item.project.id, _fragment: 'inbox-item-' ~ item.number}) }}" data-turbo-frame="_top">{{ (inbox.acceptsResponse(item) ? 'inbox.item.respond_elsewhere' : 'inbox.item.thread_elsewhere')|trans({'%number%': item.number}) }}</a>
+    {% elseif inbox.acceptsResponse(item) %}
         <div class="lp-inbox-item__actions">
             {% if item.kind.value == 'question' %}
                 {% set answerForm = inbox_answer_form(item, refusedForm) %}
                 {% set selectedErrorsId = answerForm.selectedOptions.vars.id ~ '_errors' %}
-                {{ form_start(answerForm, {action: path('app_inbox_item_answer', actionParams), attr: {class: 'lp-form lp-inbox-answer', 'data-controller': 'inbox-answer'}}) }}
+                {{ form_start(answerForm, {action: path('app_inbox_item_answer', actionParams), attr: {class: 'lp-form lp-inbox-answer', 'data-controller': 'form-draft', 'data-form-draft-owner-value': app.user.id, 'data-form-draft-key-value': item.id, 'data-action': 'submit->form-draft#start turbo:before-fetch-response->form-draft#response form-draft:cleared@document->form-draft#cleared', 'data-turbo-frame': responseFrame}}) }}
                     {% if item.options|length > 0 %}
                         {% set selected = (answerForm.selectedOptions.vars.value ?? '')|split(',') %}
                         {# The controls post under a name outside the form, so the form reads the ticked indexes from selectedOptions, which the controller fills. #}
-                        <fieldset class="lp-decision lp-decision--inbox" data-decision-type="{{ item.multiple ? 'multiple' : 'single' }}" data-action="change->inbox-answer#select"{% if answerForm.selectedOptions.vars.errors|length > 0 %} aria-describedby="{{ selectedErrorsId }}"{% endif %}>
+                        <fieldset class="lp-decision lp-decision--inbox" data-decision-type="{{ item.multiple ? 'multiple' : 'single' }}" data-action="change->form-draft#select"{% if answerForm.selectedOptions.vars.errors|length > 0 %} aria-describedby="{{ selectedErrorsId }}"{% endif %}>
                             <legend class="lp-decision__prompt">{{ (item.multiple ? 'inbox.answer.pick_any' : 'inbox.answer.pick_one')|trans }}</legend>
                             <div class="lp-decision__options">
                                 {% for option in item.options %}
                                     {% set optionId = 'inbox_option_' ~ item.id ~ '_' ~ loop.index0 %}
                                     <div class="lp-decision__option">
-                                        <input type="{{ item.multiple ? 'checkbox' : 'radio' }}" name="lp-inbox-{{ item.id }}" value="{{ loop.index0 }}" id="{{ optionId }}" data-inbox-answer-target="option"{{ (loop.index0 ~ '') in selected ? ' checked' }}>
+                                        <input type="{{ item.multiple ? 'checkbox' : 'radio' }}" name="lp-inbox-{{ item.id }}" value="{{ loop.index0 }}" id="{{ optionId }}" data-form-draft-target="option"{{ (loop.index0 ~ '') in selected ? ' checked' }}>
                                         <label for="{{ optionId }}">{{ option }}</label>
                                     </div>
                                 {% endfor %}
                             </div>
                             {% if not item.multiple and item.freeText %}
-                                <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm lp-inbox-answer__clear" data-action="inbox-answer#clear">{{ 'inbox.answer.clear'|trans }}</button>
+                                <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm lp-inbox-answer__clear" data-action="form-draft#clear">{{ 'inbox.answer.clear'|trans }}</button>
                             {% endif %}
                         </fieldset>
                     {% endif %}
@@ -78,31 +135,56 @@
                     {% if item.freeText %}
                         <div class="lp-form-field">
                             {{ form_label(answerForm.answerText, null, {label_attr: {class: 'lp-label'}}) }}
-                            {{ form_widget(answerForm.answerText, {attr: {class: 'lp-input lp-inbox-answer__text', rows: 3}}) }}
+                            {{ form_widget(answerForm.answerText, {attr: {class: 'lp-input lp-inbox-answer__text', rows: 3, placeholder: 'inbox.answer.placeholder'|trans, 'data-form-draft-target': 'text', 'data-action': 'input->form-draft#remember'}}) }}
                             <div class="lp-field-errors">{{ form_errors(answerForm.answerText) }}</div>
                         </div>
                     {% endif %}
                     <div class="lp-field-errors">{{ form_errors(answerForm) }}</div>
                     {{ form_widget(answerForm._token) }}
                     <div class="lp-inbox-item__buttons">
-                        <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">{{ (open ? 'inbox.answer.submit' : 'inbox.answer.change')|trans }}</button>
+                        <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">
+                            <twig:ux:icon name="lucide:send" class="w-4 h-4" />
+                            {{ (open ? 'inbox.answer.submit' : 'inbox.answer.change')|trans }}
+                        </button>
                     </div>
                 {{ form_end(answerForm, {render_rest: false}) }}
+            {% elseif item.kind.value == 'review' %}
+                {% if review and review.targetKind.value == 'pull-request' and review.pullRequest and safe_pull_request_url(review.pullRequest.url) %}
+                    {% set reviewFormShown = true %}
+                    {% include '@Inbox/_pull_request_review_form.html.twig' with {review: review, refusedForm: refusedForm, actionParams: actionParams, responseFrame: responseFrame} only %}
+                {% elseif review and review.document %}
+                    {% if is_granted(constant('App\\Module\\Inbox\\Security\\InboxItemVoter::REVIEW_DOCUMENT'), item) %}
+                        {% set reviewFormShown = true %}
+                        {% include '@Inbox/_document_review_form.html.twig' with {review: review, refusedForm: refusedForm, actionParams: actionParams, responseFrame: responseFrame} only %}
+                    {% else %}
+                        <p role="status">{{ 'inbox.review.error.target_unavailable'|trans }}</p>
+                    {% endif %}
+                {% else %}
+                    {% if review %}<p class="lp-inbox-item__note">{{ review.targetLabel }}</p>{% endif %}
+                    <p role="status">{{ 'inbox.review.error.target_unavailable'|trans }}</p>
+                    {% set reviewRefusals = inbox_refusals(item, refusedForm) %}
+                    {% if reviewRefusals|length > 0 %}
+                        <div class="lp-inbox-item__refusal" role="alert">{% for message in reviewRefusals %}<p>{{ message }}</p>{% endfor %}</div>
+                    {% endif %}
+                {% endif %}
             {% elseif open or item.state.value != 'done' %}
                 {% set doneForm = inbox_done_form(item, refusedForm) %}
-                {{ form_start(doneForm, {action: path('app_inbox_item_done', actionParams), attr: {class: 'lp-inbox-done'}}) }}
+                {{ form_start(doneForm, {action: path('app_inbox_item_done', actionParams), attr: {class: 'lp-inbox-done', 'data-turbo-frame': responseFrame}}) }}
                     <div class="lp-field-errors">{{ form_errors(doneForm) }}</div>
-                    <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">{{ 'inbox.done.submit'|trans }}</button>
+                    <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">
+                        <twig:ux:icon name="lucide:check" class="w-4 h-4" />
+                        {{ 'inbox.done.submit'|trans }}
+                    </button>
                 {{ form_end(doneForm) }}
             {% endif %}
 
             {% set declineForm = inbox_decline_form(item, refusedForm) %}
                 <details class="lp-inbox-decline"{{ refusedForm and refusedForm.vars.name == declineForm.vars.name ? ' open' }}>
                     <summary class="lp-inbox-decline__summary">{{ (item.state.value == 'declined' ? 'inbox.decline.change' : 'inbox.decline.toggle')|trans }}</summary>
-                    {{ form_start(declineForm, {action: path('app_inbox_item_decline', actionParams), attr: {class: 'lp-form lp-inbox-decline__form'}}) }}
+                    {{ form_start(declineForm, {action: path('app_inbox_item_decline', actionParams), attr: {class: 'lp-form lp-inbox-decline__form', 'data-controller': 'form-draft', 'data-form-draft-owner-value': app.user.id, 'data-form-draft-key-value': item.id ~ ':decline', 'data-action': 'submit->form-draft#start turbo:before-fetch-response->form-draft#response form-draft:cleared@document->form-draft#cleared', 'data-turbo-frame': responseFrame}}) }}
                         <div class="lp-form-field">
                             {{ form_label(declineForm.closeNote, null, {label_attr: {class: 'lp-label'}}) }}
-                            {{ form_widget(declineForm.closeNote, {attr: {class: 'lp-input', rows: 2}}) }}
+                            {{ form_widget(declineForm.closeNote, {attr: {class: 'lp-input', rows: 2, 'data-form-draft-target': 'text', 'data-action': 'input->form-draft#remember'}}) }}
                             <div class="lp-field-errors">{{ form_errors(declineForm.closeNote) }}</div>
                         </div>
                         <div class="lp-field-errors">{{ form_errors(declineForm) }}</div>
@@ -112,6 +194,15 @@
                     {{ form_end(declineForm) }}
                 </details>
         </div>
+    {% endif %}
+    {% if home %}
+        {% if item.kind.value == 'review' and not reviewFormShown %}
+            {% include '@Inbox/_response_draft.html.twig' with {
+                kind: 'review', key: item.id ~ ':review', options: [], title: 'inbox.review.unsent', hint: 'inbox.review.unsent_unavailable',
+                labels: {approved: 'inbox.review.verdict.approved'|trans, 'changes-requested': 'inbox.review.verdict.changes-requested'|trans},
+                fallbackNote: refusedForm.note is defined and inbox_refusals(item, refusedForm)|length > 0 ? refusedForm.note.vars.value : ''
+            } only %}
         {% endif %}
+        {% include '@Inbox/_replies.html.twig' with {item: item, replies: inbox.replies.forItem(item), refusedForm: refusedForm, actionParams: actionParams, responseFrame: responseFrame} only %}
     {% endif %}
 </article>

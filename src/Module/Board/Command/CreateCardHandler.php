@@ -8,8 +8,10 @@ use App\Exception\DomainErrors;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardPullRequest;
+use App\Module\Board\Entity\CardSiteReviewComment;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
+use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Service\CardSearchIndexer;
 use App\Module\Board\Service\DocumentLinkResolver;
 use App\Module\Board\Service\PullRequestUrlResolver;
@@ -23,6 +25,7 @@ final readonly class CreateCardHandler
 {
     public function __construct(
         private CardRepository $cards,
+        private CardSiteReviewCommentRepository $cardSiteReviewComments,
         private BoardColumnRepository $boardColumns,
         private PullRequestUrlResolver $pullRequests,
         private DocumentLinkResolver $documentLinks,
@@ -40,6 +43,14 @@ final readonly class CreateCardHandler
         }
         if (mb_strlen($title) > Card::MAX_TITLE_LENGTH) {
             throw new DomainErrors(['title' => 'board.card.error.title_too_long']);
+        }
+        if (null !== $command->siteReviewComment) {
+            if ($command->siteReviewComment->project !== $command->project) {
+                throw new DomainErrors(['siteReviewComment' => 'site_review.attach.error.foreign_card']);
+            }
+            if (null !== $this->cardSiteReviewComments->findOneBy(['comment' => $command->siteReviewComment])) {
+                throw new DomainErrors(['siteReviewComment' => 'site_review.attach.error.already_linked']);
+            }
         }
 
         foreach ($command->pullRequestUrls as $url) {
@@ -80,11 +91,10 @@ final readonly class CreateCardHandler
                 body: $command->body,
                 number: $this->cards->nextNumber($command->project),
                 type: $command->type,
-                priority: $command->priority,
                 origin: $command->reporter,
                 position: $column->terminal
                     ? 0
-                    : $this->cards->nextPosition($column, $command->priority),
+                    : $this->cards->nextPosition($column),
                 // Read once, here: the card then carries its own language, so
                 // changing the project's leaves the cards already written alone.
                 searchLanguage: $command->project->searchLanguage,
@@ -100,6 +110,9 @@ final readonly class CreateCardHandler
             $card->syncDocuments(...$documents);
 
             $this->em->persist($card);
+            if (null !== $command->siteReviewComment) {
+                $this->em->persist(new CardSiteReviewComment($card, $command->siteReviewComment));
+            }
             $this->em->flush();
 
             // After the flush, so the row the UPDATE reads its title and body
@@ -126,7 +139,6 @@ final readonly class CreateCardHandler
                 'cardNumber' => $card->number,
                 'projectId' => (string) $command->project->id,
                 'type' => $card->type->value,
-                'priority' => $card->priority->value,
                 'status' => $card->column->slug,
                 'columnId' => (string) $card->column->id,
                 'reporter' => $card->reporter->value,
@@ -135,6 +147,19 @@ final readonly class CreateCardHandler
             ],
             new AuditSubject('card', (string) $card->id),
         );
+
+        if (null !== $command->siteReviewComment) {
+            $this->auditor->record(
+                'board.site_review_attached',
+                AuditOutcome::Success,
+                [
+                    'cardId' => (string) $card->id,
+                    'commentId' => (string) $command->siteReviewComment->id,
+                    'projectId' => (string) $command->project->id,
+                ],
+                new AuditSubject('card', (string) $card->id),
+            );
+        }
 
         return $card;
     }

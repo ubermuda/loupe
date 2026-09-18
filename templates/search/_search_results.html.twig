@@ -1,0 +1,14 @@
+<section aria-label="{{ 'search.results'|trans }}" data-search-query="{{ view.query }}">
+    {% for result in view.results.items %}
+    <a class="lp-search-result" href="{{ result.url }}" data-search-kind="{{ result.kind }}" data-turbo-frame="_top">
+        <span>{{ result.title }}</span>
+        <span class="lp-status-chip">{{ ('search.kind.' ~ result.kind)|trans }}</span>
+    </a>
+    {% else %}
+    <p class="lp-workspace-desc" role="status">{{ 'search.empty'|trans }}</p>
+    {% endfor %}
+    <nav class="lp-search-pagination" aria-label="{{ 'search.pagination'|trans }}">
+        {% if view.page > 1 %}<a class="lp-btn" href="{{ (project ? path('app_project_search', {id: project.id, query: view.query, page: view.page - 1}) : path('app_search_owned_projects', {query: view.query, page: view.page - 1})) }}">{{ 'search.previous'|trans }}</a>{% endif %}
+        {% if view.results.hasMore %}<a class="lp-btn" href="{{ (project ? path('app_project_search', {id: project.id, query: view.query, page: view.page + 1}) : path('app_search_owned_projects', {query: view.query, page: view.page + 1})) }}">{{ 'search.next'|trans }}</a>{% endif %}
+    </nav>
+</section>

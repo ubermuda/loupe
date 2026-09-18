@@ -39,7 +39,7 @@ final class CardCreateToolTest extends KernelTestCase
 
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('The board is switched off on this instance.');
-        ($this->tool)('Ship it', 'Body', 'feature', 'high');
+        ($this->tool)('Ship it', 'Body', 'feature');
     }
 
     public function test_a_card_is_created_in_the_backlog_with_an_agent_reporter(): void
@@ -47,13 +47,13 @@ final class CardCreateToolTest extends KernelTestCase
         $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create'));
 
-        $card = ($this->tool)('Ship the board', '## Why', 'feature', 'high');
+        $card = ($this->tool)('Ship the board', '## Why', 'feature');
 
         self::assertSame(1, $card['number']);
         self::assertSame('Ship the board', $card['title']);
         self::assertSame('## Why', $card['body']);
         self::assertSame('feature', $card['type']);
-        self::assertSame('high', $card['priority']);
+        self::assertArrayNotHasKey('priority', $card);
         self::assertSame('backlog', $card['status']);
         self::assertSame(CardReporter::Agent->value, $card['reporter']);
         self::assertNull($card['completedAt']);
@@ -65,7 +65,7 @@ final class CardCreateToolTest extends KernelTestCase
         $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-human'));
 
-        $card = ($this->tool)('Dictated', 'Body', 'idea', 'low', reporter: 'human');
+        $card = ($this->tool)('Dictated', 'Body', 'idea', reporter: 'human');
 
         self::assertSame(CardReporter::Human->value, $card['reporter']);
     }
@@ -76,7 +76,7 @@ final class CardCreateToolTest extends KernelTestCase
         $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-origin-alias'));
 
-        $card = ($this->tool)('Old caller', 'Body', 'idea', 'low', origin: 'human');
+        $card = ($this->tool)('Old caller', 'Body', 'idea', origin: 'human');
 
         self::assertSame(CardReporter::Human->value, $card['reporter']);
     }
@@ -86,7 +86,7 @@ final class CardCreateToolTest extends KernelTestCase
         $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-both-names'));
 
-        $card = ($this->tool)('Both', 'Body', 'idea', 'low', reporter: 'human', origin: 'agent');
+        $card = ($this->tool)('Both', 'Body', 'idea', reporter: 'human', origin: 'agent');
 
         self::assertSame(CardReporter::Human->value, $card['reporter']);
     }
@@ -99,7 +99,7 @@ final class CardCreateToolTest extends KernelTestCase
 
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('Unknown reporter "reviewer". Use one of: human, agent.');
-        ($this->tool)('Forged', 'Body', 'idea', 'low', reporter: 'reviewer');
+        ($this->tool)('Forged', 'Body', 'idea', reporter: 'reviewer');
     }
 
     public function test_pull_request_urls_are_resolved_and_an_unknown_forge_is_kept(): void
@@ -107,7 +107,7 @@ final class CardCreateToolTest extends KernelTestCase
         $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-create-links'));
 
-        $card = ($this->tool)('Linked', 'Body', 'bug', 'medium', pullRequestUrls: [
+        $card = ($this->tool)('Linked', 'Body', 'bug', pullRequestUrls: [
             'https://github.com/ubermuda/loupe/pull/362',
             'https://code.example.org/team/app/pulls/12',
         ]);
@@ -128,17 +128,7 @@ final class CardCreateToolTest extends KernelTestCase
 
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('title: A card title must not be blank.');
-        ($this->tool)('   ', 'Body', 'feature', 'high');
-    }
-
-    public function test_an_unknown_priority_names_the_ones_that_work(): void
-    {
-        $this->enableBoard();
-        $this->actAsMcpTokenBoundTo($this->makeProject('card-create-priority'));
-
-        $this->expectException(ToolCallException::class);
-        $this->expectExceptionMessage('Unknown priority "urgent". Use one of: high, medium, low.');
-        ($this->tool)('Ship it', 'Body', 'feature', 'urgent');
+        ($this->tool)('   ', 'Body', 'feature');
     }
 
     public function test_an_unknown_status_names_the_columns_of_the_board(): void
@@ -148,7 +138,7 @@ final class CardCreateToolTest extends KernelTestCase
 
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('Unknown status "shipped". Use one of: backlog, next, in-progress, done.');
-        ($this->tool)('Ship it', 'Body', 'feature', 'high', status: 'shipped');
+        ($this->tool)('Ship it', 'Body', 'feature', status: 'shipped');
     }
 
     public function test_an_unbound_mcp_token_is_rejected(): void
@@ -159,6 +149,6 @@ final class CardCreateToolTest extends KernelTestCase
 
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('MCP token is not bound to a project. Mint a project token from the Connect page.');
-        ($this->tool)('Ship it', 'Body', 'feature', 'high');
+        ($this->tool)('Ship it', 'Body', 'feature');
     }
 }

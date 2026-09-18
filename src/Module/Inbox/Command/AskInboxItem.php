@@ -21,10 +21,12 @@ final readonly class AskInboxItem
         public array $options = [],
         public bool $multiple = false,
         public bool $freeText = false,
-        /** Null takes the default of the kind: a question blocks, a to-do does not. */
+        /** Null defaults to blocking for questions only. */
         public ?bool $blocking = null,
         public array $cardIds = [],
         public array $documentIds = [],
+        public ?string $reviewDocumentId = null,
+        public ?string $reviewPullRequestId = null,
     ) {
     }
 }

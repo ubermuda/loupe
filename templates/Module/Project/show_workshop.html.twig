@@ -1,0 +1,130 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ 'project.workshop.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block topbar_crumbs %}
+    <span class="lp-topbar__crumb">{{ workshop.project.name }}</span>
+    <span class="lp-topbar__sep">/</span>
+    <span class="lp-topbar__here">{{ 'project.workshop.page.title'|trans }}</span>
+{% endblock %}
+
+{% block body %}
+<div class="lp-workspace lp-workshop" data-workshop data-controller="card-drawer">
+    <header class="lp-page-header">
+        <div>
+            <h1 class="lp-workshop-title">{{ 'project.workshop.page.heading'|trans }}</h1>
+            <p class="lp-workspace-desc">{{ 'project.workshop.page.description'|trans({'%project%': workshop.project.name}) }}</p>
+        </div>
+    </header>
+
+    <div class="lp-workshop-summary" aria-label="{{ 'project.workshop.summary.label'|trans }}">
+        {% if is_feature_enabled('inbox.enabled') %}<a class="lp-workshop-stat" data-workshop-stat="requests" href="{{ path('app_project_inbox', {id: workshop.project.id}) }}">{% else %}<div class="lp-workshop-stat" data-workshop-stat="requests">{% endif %}
+            {% if is_feature_enabled('inbox.enabled') %}<span class="lp-workshop-stat__value">{{ workshop.stats.openInboxItemCount }}</span>{% endif %}
+            <span class="lp-workshop-stat__copy"><strong>{{ 'project.workshop.summary.requests'|trans }}</strong>{{ is_feature_enabled('inbox.enabled') ? 'project.workshop.needs_you.pending'|trans({'%count%': workshop.stats.openInboxItemCount}) : 'project.workshop.needs_you.disabled'|trans }}</span>
+        {% if is_feature_enabled('inbox.enabled') %}</a>{% else %}</div>{% endif %}
+        {% if is_feature_enabled('board.enabled') %}<a class="lp-workshop-stat" data-workshop-stat="open-cards" href="{{ path('app_project_board', {id: workshop.project.id}) }}">{% else %}<div class="lp-workshop-stat" data-workshop-stat="open-cards">{% endif %}
+            {% if is_feature_enabled('board.enabled') %}<span class="lp-workshop-stat__value">{{ workshop.stats.openCardCount }}</span>{% endif %}
+            <span class="lp-workshop-stat__copy"><strong>{{ 'project.workshop.summary.cards'|trans }}</strong>{{ is_feature_enabled('board.enabled') ? 'project.workshop.in_motion.body'|trans({'%count%': workshop.stats.openCardCount}) : 'project.workshop.cards.disabled'|trans }}</span>
+        {% if is_feature_enabled('board.enabled') %}</a>{% else %}</div>{% endif %}
+        {% if is_feature_enabled('board.enabled') %}<a class="lp-workshop-stat" data-workshop-stat="completed-cards" href="{{ path('app_project_board', {id: workshop.project.id}) }}">{% else %}<div class="lp-workshop-stat" data-workshop-stat="completed-cards">{% endif %}
+            {% if is_feature_enabled('board.enabled') %}<span class="lp-workshop-stat__value">{{ workshop.stats.completedCardCount }}</span>{% endif %}
+            <span class="lp-workshop-stat__copy"><strong>{{ 'project.workshop.summary.completed'|trans }}</strong>{{ is_feature_enabled('board.enabled') ? 'project.workshop.summary.completed_detail'|trans : 'project.workshop.cards.disabled'|trans }}</span>
+        {% if is_feature_enabled('board.enabled') %}</a>{% else %}</div>{% endif %}
+        {% if is_feature_enabled('board.enabled') %}
+        <a class="lp-btn lp-workshop-summary__action" href="{{ path('app_project_board', {id: workshop.project.id}) }}">
+            <twig:ux:icon name="lucide:square-kanban" />
+            {{ 'project.workshop.in_motion.action'|trans }}
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="lp-workshop-layout">
+        <div class="lp-workshop-primary">
+        <section class="lp-workshop-section">
+            <div class="lp-section-heading">
+                <h2 class="lp-workshop-section__title">{{ 'project.workshop.needs_you.title'|trans }}{% if is_feature_enabled('inbox.enabled') %} <span>{{ workshop.stats.openInboxItemCount }}</span>{% endif %}</h2>
+                {% if is_feature_enabled('inbox.enabled') %}<a class="lp-workshop-text-link" href="{{ path('app_project_inbox', {id: workshop.project.id}) }}">{{ 'project.workshop.needs_you.action'|trans }} <twig:ux:icon name="lucide:chevron-right" /></a>{% endif %}
+            </div>
+            {% if workshop.attention is not empty %}
+            <div class="lp-workshop-attention-list">
+                {% for item in workshop.attention %}
+                <a class="lp-workshop-attention" href="{{ item.url }}" data-workshop-attention>
+                    <span class="lp-workshop-attention__icon"><twig:ux:icon name="lucide:inbox" /></span>
+                    <span><strong>{{ item.title }}</strong></span>
+                    <span class="lp-workshop-attention__badge">{{ ('inbox.item.kind.' ~ item.kind)|trans }}{% if item.blocking %} · {{ 'inbox.item.blocking'|trans }}{% endif %}</span>
+                    <twig:ux:icon name="lucide:chevron-right" class="lp-workshop-attention__chevron" />
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="lp-workspace-desc">{{ is_feature_enabled('inbox.enabled') ? 'project.workshop.needs_you.clear'|trans : 'project.workshop.needs_you.disabled'|trans }}</p>
+            {% endif %}
+        </section>
+
+        <section class="lp-workshop-section">
+            <div class="lp-section-heading">
+                <h2 class="lp-workshop-section__title">{{ 'project.workshop.in_motion.title'|trans }}</h2>
+                {% if is_feature_enabled('board.enabled') %}<a class="lp-workshop-text-link" href="{{ path('app_project_board', {id: workshop.project.id}) }}">{{ 'project.workshop.in_motion.action'|trans }} <twig:ux:icon name="lucide:chevron-right" /></a>{% endif %}
+            </div>
+            <div class="lp-workshop-work-grid">
+                {% for card in workshop.cards %}
+                <a class="lp-workshop-work-card" href="{{ card.url }}" data-workshop-card="{{ card.number }}" data-turbo-frame="card-drawer-frame" data-action="click->card-drawer#prepare">
+                    <header><span>#{{ card.number }}</span><span class="lp-workshop-work-card__badge">{{ card.column|trans }}</span></header>
+                    <h3>{{ card.title }}</h3>
+                </a>
+                {% else %}
+                <p class="lp-workspace-desc">{{ is_feature_enabled('board.enabled') ? 'project.workshop.cards.empty'|trans : 'project.workshop.cards.disabled'|trans }}</p>
+                {% endfor %}
+            </div>
+        </section>
+        </div>
+
+        <aside class="lp-workshop-supporting">
+            <section class="lp-workshop-crew">
+                <div class="lp-section-heading">
+                    <h2 class="lp-workshop-section__title">{{ 'bridge.agents.heading'|trans }}</h2>
+                    <a class="lp-workshop-icon-link" href="{{ path('app_project_agents', {id: workshop.project.id}) }}" aria-label="{{ 'nav.link.agents'|trans }}"><twig:ux:icon name="lucide:chevron-right" /></a>
+                </div>
+                {% for connection in workshop.connections %}
+                <a class="lp-workshop-crew__row" href="{{ connection.url }}" data-workshop-connection="{{ connection.id }}">
+                    <span class="lp-workshop-crew__avatar"><twig:ux:icon name="lucide:bot" /></span>
+                    <span><strong>{{ connection.id|slice(-12) }}</strong><small>{{ connection.cliVersion }}</small></span>
+                    <span class="lp-workshop-crew__status">{{ (connection.quiet ? 'bridge.agents.status.stale' : 'bridge.agents.status.healthy')|trans }}</span>
+                </a>
+                {% else %}
+                <a class="lp-workshop-crew__row" href="{{ path('app_project_connect', {id: workshop.project.id}) }}" data-workshop-crew-empty>
+                    <span class="lp-workshop-crew__avatar"><twig:ux:icon name="lucide:bot" /></span>
+                    <span><strong>{{ 'project.workshop.connection.title'|trans }}</strong><small>{{ 'project.workshop.connection.eyebrow'|trans }}</small></span>
+                    <span class="lp-workshop-crew__status">{{ 'project.workshop.connection.action'|trans }}</span>
+                </a>
+                {% endfor %}
+            </section>
+
+            <section class="lp-workshop-note">
+                <div>
+                    <h2>{{ 'project.workshop.connection.title'|trans }}</h2>
+                    <p>{{ 'project.workshop.connection.body'|trans }}</p>
+                    <a class="lp-workshop-text-link" href="{{ path('app_project_connect', {id: workshop.project.id}) }}">{{ 'project.workshop.connection.action'|trans }} <twig:ux:icon name="lucide:chevron-right" /></a>
+                </div>
+                <img class="lp-workshop-note__mascot" src="{{ asset('images/mascots/planner.png') }}" alt="">
+            </section>
+
+            <section class="lp-workshop-recent">
+                <div class="lp-section-heading">
+                    <h2 class="lp-workshop-section__title">{{ 'nav.link.activity'|trans }}</h2>
+                    <a class="lp-workshop-text-link" href="{{ path('app_project_activity', {id: workshop.project.id}) }}">{{ 'project.workshop.activity.view_all'|trans }}</a>
+                </div>
+                {% for entry in workshop.activity %}
+                <a class="lp-workshop-recent__row" href="{{ entry.link ? entry.link.url : path('app_project_activity', {id: workshop.project.id}) }}" data-workshop-event="{{ entry.event.id }}">
+                    <span><twig:ux:icon name="lucide:activity" /></span>
+                    <span><strong>{% include 'outbox/_event_type_label.html.twig' with {type: entry.event.type} only %}</strong><small>{% if entry.link %}{{ entry.link.label }} · {% endif %}<time datetime="{{ entry.event.createdAt|date('c') }}">{{ entry.event.createdAt|relative_time }}</time></small></span>
+                </a>
+                {% else %}
+                <p class="lp-workspace-desc">{{ 'project.workshop.activity.empty'|trans }}</p>
+                {% endfor %}
+            </section>
+        </aside>
+    </div>
+    {% include '@Board/_card_drawer.html.twig' with {} only %}
+</div>
+{% endblock %}

@@ -73,6 +73,67 @@ const VOID_CELL = '.lp-diff-columns__cell--void';
 const MARGIN = '.lp-review-margin';
 const VIEWS = '.lp-diff-views';
 
+test('comparison controls share the standard desktop metrics', async ({
+    page,
+}) => {
+    await signIn(page, `e2e-sbs-controls-${RUN}@example.com`);
+    const reviewPath = await seedComparison(page);
+    await page.goto(`${reviewPath}/diff/1/2`);
+    const controls = page.locator(
+        '.lp-diff-bar .lp-version-compare select, .lp-diff-bar .lp-version-compare button, .lp-diff-views__link',
+    );
+    await expect(controls).toHaveCount(6);
+    for (const control of await controls.all()) {
+        await expect(control).toBeVisible();
+        await expect(control).toHaveCSS('height', '36px');
+        await expect(control).toHaveCSS('font-size', '14px');
+        await expect(control).toHaveCSS('line-height', '20px');
+    }
+    await page.goto(`${reviewPath.split('/documents/')[0]}/documents`);
+    for (const selector of ['.lp-filter-input', '.lp-filter-select']) {
+        const control = page.locator(selector).first();
+        await expect(control).toBeVisible();
+        await expect(control).toHaveCSS('height', '36px');
+    }
+});
+
+test('the visible picker compares equal versions and keeps the view', async ({
+    page,
+}) => {
+    await signIn(page, `e2e-sbs-equal-${RUN}@example.com`);
+    const reviewPath = await seedComparison(page);
+    await page.goto(`${reviewPath}/diff/1/2?view=source`);
+    const toolbar = page.locator('.lp-diff-bar');
+    await expect(
+        toolbar.getByLabel('Compare from version', { exact: true }),
+    ).toBeVisible();
+    await toolbar
+        .getByLabel('Compare from version', { exact: true })
+        .selectOption('2');
+    await toolbar.getByRole('button', { name: 'Compare', exact: true }).click();
+    await expect(page).toHaveURL(`${reviewPath}/diff/2/2?view=source`);
+    await expect(page.locator('.lp-empty')).toContainText('identical');
+    await expect(
+        toolbar.getByRole('button', { name: 'Next change', exact: true }),
+    ).toBeDisabled();
+    await expect(
+        toolbar.getByRole('button', { name: 'Previous change', exact: true }),
+    ).toBeDisabled();
+    await expect(
+        toolbar.getByLabel('Compare from version', { exact: true }),
+    ).toBeVisible();
+    await toolbar
+        .getByLabel('Compare from version', { exact: true })
+        .selectOption('1');
+    await toolbar.getByRole('button', { name: 'Compare', exact: true }).click();
+    await expect(page).toHaveURL(`${reviewPath}/diff/1/2?view=source`);
+    const notes = page.locator('.lp-diff-notes');
+    await expect(notes).not.toHaveAttribute('open');
+    await notes.locator('summary').click();
+    await expect(notes).toHaveAttribute('open');
+    await expect(notes.locator('.lp-diff-notes__entry')).toBeVisible();
+});
+
 async function signIn(page: Page, email: string): Promise<void> {
     const registered = await page.request.post('/dev/register-and-verify', {
         form: { fullName: 'E2E Side By Side', email, password: PASSWORD },
@@ -149,7 +210,7 @@ async function contentEscapingItsBox(page: Page): Promise<string[]> {
     });
 }
 
-test('the two columns pair the blocks and drop the comment rail', async ({
+test('the two columns pair the blocks and place comments below', async ({
     page,
 }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -229,14 +290,13 @@ test('the two columns pair the blocks and drop the comment rail', async ({
     expect(rewritten[0].isVoid).toBe(false);
     expect(rewritten[1].isVoid).toBe(false);
 
-    // Commenting is off, and the page says so rather than leaving the reader to
-    // notice a missing column.
-    await expect(page.locator(MARGIN)).toHaveCount(0);
+    await expect(page.locator(MARGIN)).toHaveCount(1);
+    await expect(page.locator(MARGIN)).toHaveCSS('position', 'static');
     await expect(
         page.getByRole('button', { name: 'Add general comment' }),
-    ).toHaveCount(0);
+    ).toBeVisible();
     await expect(page.locator('#diff-columns-notice')).toContainText(
-        'Comments are hidden in this view',
+        'Comments appear below the comparison',
     );
 
     // The block widens for the second reading measure, and the chrome above it
@@ -261,7 +321,7 @@ test('the two columns pair the blocks and drop the comment rail', async ({
     // Scoped: the sidebar and the crumbs both carry a Documents link.
     await page
         .locator(VIEWS)
-        .getByRole('link', { name: 'Document', exact: true })
+        .getByRole('link', { name: 'Rendered', exact: true })
         .click();
     await expect(page).toHaveURL(`${reviewPath}/diff/1/2?view=rendered`);
     await expect(page.locator(MARGIN)).toHaveCount(1);

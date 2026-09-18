@@ -43,7 +43,7 @@ final class ResolveCommentHandlerTest extends KernelTestCase
 
         /** @var AddCommentHandler $addHandler */
         $addHandler = self::getContainer()->get(AddCommentHandler::class);
-        $comment = $addHandler(new AddCommentCommand($owner, $doc, 'will be resolved', '', '', 'This needs resolving'));
+        $comment = $addHandler(new AddCommentCommand($owner, $doc, 1, 'will be resolved', '', '', 'This needs resolving'));
 
         self::assertSame(CommentStatus::Pending, $comment->status, 'Comment must start pending');
 
@@ -71,7 +71,7 @@ final class ResolveCommentHandlerTest extends KernelTestCase
 
         /** @var AddCommentHandler $addHandler */
         $addHandler = self::getContainer()->get(AddCommentHandler::class);
-        $root = $addHandler(new AddCommentCommand($owner, $doc, 'will be resolved', '', '', 'Root comment'));
+        $root = $addHandler(new AddCommentCommand($owner, $doc, 1, 'will be resolved', '', '', 'Root comment'));
 
         /** @var ReplyToCommentHandler $replyHandler */
         $replyHandler = self::getContainer()->get(ReplyToCommentHandler::class);
@@ -105,7 +105,7 @@ final class ResolveCommentHandlerTest extends KernelTestCase
 
         /** @var AddCommentHandler $addHandler */
         $addHandler = self::getContainer()->get(AddCommentHandler::class);
-        $root = $addHandler(new AddCommentCommand($owner, $doc, 'will be resolved', '', '', 'Root comment'));
+        $root = $addHandler(new AddCommentCommand($owner, $doc, 1, 'will be resolved', '', '', 'Root comment'));
 
         /** @var ReplyToCommentHandler $replyHandler */
         $replyHandler = self::getContainer()->get(ReplyToCommentHandler::class);
@@ -196,7 +196,7 @@ final class ResolveCommentHandlerTest extends KernelTestCase
 
         $add = self::getContainer()->get(AddCommentHandler::class);
         self::assertInstanceOf(AddCommentHandler::class, $add);
-        $comment = $add(new AddCommentCommand($owner, $document, 'content to comment', '', '', 'Root comment'));
+        $comment = $add(new AddCommentCommand($owner, $document, 1, 'content to comment', '', '', 'Root comment'));
 
         return [$owner, $document, $comment];
     }

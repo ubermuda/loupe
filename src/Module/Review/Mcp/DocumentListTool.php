@@ -43,7 +43,7 @@ final readonly class DocumentListTool
      * @param int         $perPage         How many documents to return per page
      * @param bool        $includeArchived Include archived documents, which are omitted by default
      * @param string|null $search          Full-text terms matched against every document's title and current content, stemmed in the language each document is stored in. Quotes and OR work as in a web search box. Matching rows come back by relevance rather than by recency.
-     * @param string|null $status          Keep only documents in this state: in-review, approved or changes-requested
+     * @param string|null $status          Keep only documents in this state: in-review, approved, changes-requested or draft
      * @param string|null $tag             Keep only documents carrying this tag; matched ignoring case and surrounding spaces. Read tag_list for the project's vocabulary.
      * @param string|null $series          Keep only documents in this series, matched ignoring case, and order them by their position in it. Read series_list for the project's names.
      *

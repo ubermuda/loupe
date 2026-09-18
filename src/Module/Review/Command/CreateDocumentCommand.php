@@ -11,13 +11,14 @@ use App\Module\Review\Entity\Document;
 final readonly class CreateDocumentCommand
 {
     /**
-     * @param string[]            $tagNames   raw names as typed; normalisation and
-     *                                        implicit creation are
-     *                                        SetDocumentTagsHandler's job
-     * @param list<Document>      $references documents the new one points at
-     * @param ?string             $seriesName raw name as typed; the series is created
-     *                                        if the project does not have it yet
-     * @param SearchLanguage|null $language   null means "take the project's default"
+     * @param string[]            $tagNames    raw names as typed; normalisation and
+     *                                         implicit creation are
+     *                                         SetDocumentTagsHandler's job
+     * @param list<Document>      $references  documents the new one points at
+     * @param ?string             $seriesName  raw name as typed; the series is created
+     *                                         if the project does not have it yet
+     * @param SearchLanguage|null $language    null means "take the project's default"
+     * @param list<string>|null   $workLinkIds
      */
     public function __construct(
         public Project $project,
@@ -29,6 +30,8 @@ final readonly class CreateDocumentCommand
         public ?string $seriesName = null,
         public ?int $seriesOrdinal = null,
         public ?SearchLanguage $language = null,
+        public bool $draft = false,
+        public ?array $workLinkIds = null,
     ) {
     }
 }

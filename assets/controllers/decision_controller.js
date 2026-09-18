@@ -1,39 +1,88 @@
 import { Controller } from '@hotwired/stimulus';
 
-/**
- * Posts a reviewer's answer to a decision block.
- *
- * The radios and checkboxes live in the document's stored HTML, which no form
- * theme rendered and no CSRF token can be baked into, so they are grouping-only
- * inputs that post nothing themselves — clicking one copies its decision id and
- * option index into this form's hidden fields, exactly as the comment composer
- * fills its anchor fields, and Turbo submits it. A checkbox posts the option it
- * carries whether it was ticked or unticked, alongside which of the two it now
- * is, so a second tab holding an older view cannot undo what the first one did.
- */
 export default class extends Controller {
-    static targets = ['form', 'decisionId', 'optionIndex', 'chosen'];
+    static targets = ['form', 'decisionId', 'options', 'expectedOptions'];
+    static values = { saveLabel: String };
+
+    connect() {
+        if (!this.hasFormTarget) return;
+        this.blocks = [...this.element.querySelectorAll('[data-decision-id]')];
+        for (const block of this.blocks) {
+            block.dataset.savedDecisionIndexes ??= JSON.stringify(
+                this.indexes(block),
+            );
+            block.querySelector('[data-decision-save]')?.remove();
+            // An input's value adds no text nodes to the document's annotation offsets.
+            const button = document.createElement('input');
+            button.type = 'button';
+            button.value = this.saveLabelValue;
+            button.className = 'lp-btn lp-btn--primary lp-decision__save';
+            button.dataset.decisionSave = '';
+            button.addEventListener('click', () => this.save(block));
+            block.append(button);
+            this.updateButton(block);
+        }
+    }
+
+    indexes(block) {
+        return [
+            ...block.querySelectorAll('input[data-decision-option]:checked'),
+        ].map((input) => Number(input.value));
+    }
 
     select(event) {
-        const control = event.target;
-        if (!control.matches('input[data-decision-option]')) {
-            return;
-        }
+        const block = event.target.closest('[data-decision-id]');
+        if (block && this.hasFormTarget) this.updateButton(block);
+    }
 
-        const block = control.closest('[data-decision-id]');
-        if (!block || !this.hasFormTarget) {
-            return;
-        }
+    updateButton(block) {
+        block.querySelector('[data-decision-save]').disabled =
+            Boolean(this.pending) ||
+            JSON.stringify(this.indexes(block)) ===
+                block.dataset.savedDecisionIndexes;
+    }
 
+    fill(target, indexes) {
+        target.replaceChildren(
+            ...indexes.map((value, index) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = target.dataset.fieldName + '[' + index + ']';
+                input.value = value;
+                return input;
+            }),
+        );
+    }
+
+    save(block) {
+        if (this.pending) return;
+        const indexes = this.indexes(block);
+        this.pending = { block, indexes };
         this.decisionIdTarget.value = block.dataset.decisionId;
-        this.optionIndexTarget.value = control.value;
-        // Unguarded like the two above: a missing widget would otherwise submit
-        // nothing for it, and every checkbox click would read as an untick.
-        this.chosenTarget.checked = control.checked;
-        // requestSubmit(), never submit(): submit() fires no submit event, so
-        // csrf_protection_controller.js's document-level listener never runs the
-        // double-submit and every password-login session gets a 403 — while the
-        // tests, which have no JS, stay green.
+        this.fill(this.optionsTarget, indexes);
+        this.fill(
+            this.expectedOptionsTarget,
+            JSON.parse(block.dataset.savedDecisionIndexes),
+        );
+        for (const candidate of this.blocks) {
+            for (const input of candidate.querySelectorAll('input'))
+                input.disabled = true;
+        }
         this.formTarget.requestSubmit();
+    }
+
+    saved(event) {
+        if (!this.pending) return;
+        if (event.detail.success) {
+            this.pending.block.dataset.savedDecisionIndexes = JSON.stringify(
+                this.pending.indexes,
+            );
+        }
+        this.pending = null;
+        for (const block of this.blocks) {
+            for (const input of block.querySelectorAll('input'))
+                input.disabled = false;
+            this.updateButton(block);
+        }
     }
 }

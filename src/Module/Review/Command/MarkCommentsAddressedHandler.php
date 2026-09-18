@@ -8,6 +8,7 @@ use App\Module\Review\Entity\Comment;
 use App\Module\Review\Entity\CommentStatus;
 use App\Module\Review\Repository\CommentRepository;
 use App\Module\Review\Repository\DocumentVersionRepository;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -45,6 +46,15 @@ final readonly class MarkCommentsAddressedHandler
         // decided, so without this a failure partway through would leave the
         // earlier ones addressed while the call reports an error.
         $this->em->wrapInTransaction(function () use ($command, &$currentVersionIds, &$decided, &$outcomes): void {
+            $documents = [];
+            foreach ($command->comments as $comment) {
+                $document = $comment->version->document;
+                $documents[(string) $document->id] = $document;
+            }
+            ksort($documents);
+            foreach ($documents as $document) {
+                $this->em->lock($document, LockMode::PESSIMISTIC_WRITE);
+            }
             foreach ($command->comments as $comment) {
                 $commentId = (string) $comment->id;
 
@@ -60,10 +70,7 @@ final readonly class MarkCommentsAddressedHandler
             }
         });
 
-        // One record per comment, not one per call and not one per id given.
-        // The batch produces six different per-comment outcomes, which a single
-        // summary record cannot carry. Written after the transaction commits,
-        // so a rolled-back batch records nothing at all.
+        // Record after commit so a rolled-back batch leaves no audit events.
         foreach ($decided as [$comment, $outcome]) {
             $this->auditor->record(
                 'review.comment_addressed',
@@ -74,6 +81,7 @@ final readonly class MarkCommentsAddressedHandler
                     MarkCommentAddressedOutcome::AlreadyAddressed,
                     MarkCommentAddressedOutcome::AlreadyResolved => AuditOutcome::Unchanged,
                     MarkCommentAddressedOutcome::Superseded,
+                    MarkCommentAddressedOutcome::Deleted,
                     MarkCommentAddressedOutcome::IsReply => AuditOutcome::Refused,
                     // The row was gone by the time the write ran, so the
                     // operation neither moved a state nor met a policy.
@@ -115,6 +123,12 @@ final readonly class MarkCommentsAddressedHandler
             return MarkCommentAddressedOutcome::IsReply;
         }
 
+        if (!$this->comments->refreshState($comment)) {
+            return MarkCommentAddressedOutcome::NotFound;
+        }
+        if ($comment->isDeleted) {
+            return MarkCommentAddressedOutcome::Deleted;
+        }
         if (CommentStatus::Pending !== $comment->status) {
             // No default arm: a status added later must be an unhandled
             // match here rather than be silently reported as resolved.
@@ -124,10 +138,11 @@ final readonly class MarkCommentsAddressedHandler
             };
         }
 
-        // The status check above is advisory: it produces the precise outcome,
-        // but a human can click Resolve between it and the write. Only the
-        // conditional UPDATE decides.
         if (!$this->comments->markAddressedIfPending($comment)) {
+            if ($this->comments->refreshState($comment) && $comment->isDeleted) {
+                return MarkCommentAddressedOutcome::Deleted;
+            }
+
             return match ($this->comments->currentStatus($comment)) {
                 CommentStatus::Addressed => MarkCommentAddressedOutcome::AlreadyAddressed,
                 CommentStatus::Resolved => MarkCommentAddressedOutcome::AlreadyResolved,

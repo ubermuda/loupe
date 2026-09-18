@@ -1,0 +1,32 @@
+{# One row of the request list: the source, the time, the leading item and one state badge. #}
+{% set items = entry.ask ? entry.ask.items|map(link => link.item) : [entry.item] %}
+{% set item = items|first %}
+{% set asked = entry.ask ? entry.ask.createdAt : item.createdAt %}
+{# An ask waits on any open item it holds, not only on the one the row names. #}
+{% set openItems = items|filter(held => held.state.value == 'open') %}
+{% set blocking = openItems|filter(held => held.blocking) %}
+<button type="button"
+        class="lp-inbox-request"
+        role="tab"
+        id="inbox-request-{{ entry.key }}"
+        aria-controls="{{ entry.panelId }}"
+        data-panel-tabs-target="tab"
+        data-panel-tab="{{ entry.key }}"
+        data-action="click->panel-tabs#select keydown->panel-tabs#keydown">
+    <span class="lp-inbox-request__byline">
+        <span class="lp-source-avatar" aria-hidden="true"><twig:ux:icon name="lucide:bot" class="w-4 h-4" /></span>
+        <strong>{{ 'inbox.source.agent'|trans }}</strong>
+        <time datetime="{{ asked|date('c') }}">{{ asked|relative_time }}</time>
+    </span>
+    <span class="lp-inbox-request__title">{{ item.title }}</span>
+    {% if item.body|trim is not empty %}<span class="lp-inbox-request__body">{{ item.body|inbox_plain_text }}</span>{% endif %}
+    <span class="lp-inbox-request__badges">
+        {%- if blocking|length > 0 -%}
+            <span class="lp-inbox-item__blocking">{{ 'inbox.item.blocking'|trans }}</span>
+        {%- elseif openItems|length > 0 -%}
+            <span class="lp-inbox-item__kind">{{ ('inbox.item.kind.' ~ openItems|first.kind.value)|trans }}</span>
+        {%- else -%}
+            {% include '@Inbox/_inbox_state_chip.html.twig' with {state: item.state} only %}
+        {%- endif -%}
+    </span>
+</button>

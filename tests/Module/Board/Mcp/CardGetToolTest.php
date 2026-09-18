@@ -50,7 +50,7 @@ final class CardGetToolTest extends KernelTestCase
     {
         $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-get'));
-        $created = ($this->createTool)('Ship it', '## Body', 'tooling', 'low', pullRequestUrls: [
+        $created = ($this->createTool)('Ship it', '## Body', 'tooling', pullRequestUrls: [
             'https://github.com/ubermuda/loupe/pull/7',
         ]);
 
@@ -62,7 +62,6 @@ final class CardGetToolTest extends KernelTestCase
         self::assertSame('Ship it', $card['title']);
         self::assertSame('## Body', $card['body']);
         self::assertSame('tooling', $card['type']);
-        self::assertSame('low', $card['priority']);
         self::assertCount(1, $card['pullRequests']);
         self::assertSame('ubermuda/loupe', $card['pullRequests'][0]['repository']);
         self::assertSame(7, $card['pullRequests'][0]['number']);
@@ -72,7 +71,7 @@ final class CardGetToolTest extends KernelTestCase
     {
         $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject('card-get-theirs'));
-        $theirs = ($this->createTool)('Not yours', 'Body', 'feature', 'high');
+        $theirs = ($this->createTool)('Not yours', 'Body', 'feature');
 
         $this->actAsMcpTokenBoundTo($this->makeProject('card-get-mine'));
 

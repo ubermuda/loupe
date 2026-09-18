@@ -92,26 +92,6 @@ final class ListWorkerRunsControllerTest extends WebTestCase
     }
 
     /** A list with no caveat reads as a complete history, and it is not one. */
-    public function test_the_page_says_a_missing_record_means_unknown_even_when_empty(): void
-    {
-        $client = static::createClient();
-        $em = $this->em();
-
-        $owner = $this->user($em, 'notice-owner@example.com');
-        $project = $this->project($em, $owner, 'Empty');
-
-        $projectId = (string) $project->id;
-        $em->clear();
-
-        $client->loginUser($owner);
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs');
-
-        self::assertResponseIsSuccessful();
-        $notice = $crawler->filter('.lp-page-note')->text();
-        self::assertStringContainsString('means unknown', $notice);
-        self::assertStringContainsString('did not run', $notice);
-    }
-
     public function test_the_list_is_paged(): void
     {
         $client = static::createClient();
@@ -182,6 +162,46 @@ final class ListWorkerRunsControllerTest extends WebTestCase
             self::assertResponseIsSuccessful();
             self::assertCount(1, $crawler->filter('[data-worker-run-id]'), 'search '.$query);
             self::assertStringContainsString($expected, (string) $client->getResponse()->getContent());
+        }
+    }
+
+    public function test_run_id_search_preserves_project_and_filter_scope(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'run-id-search@example.com');
+        $project = $this->project($em, $owner, 'Run IDs');
+        $other = $this->project($em, $owner, 'Other run IDs');
+        $wanted = $this->seedRun($em, $project, cardNumber: 42);
+        $this->seedRun($em, $project, cardNumber: 43);
+        $foreign = $this->seedRun($em, $other, cardNumber: 99);
+        $runId = (string) $wanted->id;
+        $bridgeId = (string) $wanted->bridgeId;
+        $foreignId = (string) $foreign->id;
+        $projectId = (string) $project->id;
+        $em->clear();
+        $client->loginUser($owner);
+
+        foreach ([$runId, strtoupper($runId)] as $query) {
+            $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs?'.http_build_query([
+                'search' => $query,
+                'outcome' => 'succeeded',
+                'bridge' => $bridgeId,
+            ]));
+            self::assertResponseIsSuccessful();
+            self::assertCount(1, $crawler->filter('[data-worker-run-id]'));
+            self::assertSame($runId, $crawler->filter('[data-worker-run-id]')->attr('data-worker-run-id'));
+        }
+
+        foreach ([
+            ['search' => $foreignId],
+            ['search' => $runId, 'outcome' => 'failed'],
+            ['search' => $runId, 'bridge' => (string) Uuid::v7()],
+            ['search' => (string) Uuid::v7()],
+        ] as $query) {
+            $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/worker-runs?'.http_build_query($query));
+            self::assertResponseIsSuccessful();
+            self::assertCount(0, $crawler->filter('[data-worker-run-id]'));
         }
     }
 

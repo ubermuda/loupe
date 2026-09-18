@@ -14,15 +14,17 @@
 
 {% block body %}
 {% set boardEnabled = is_feature_enabled('board.enabled') %}
-<div class="lp-workspace">
-    <h1 class="lp-workspace-title">{{ 'bridge.worker_runs.page.title'|trans }}</h1>
-    <p class="lp-workspace-desc">{{ 'bridge.worker_runs.page.description'|trans }}</p>
+<div class="lp-workspace lp-redesign-secondary lp-redesign-runs">
+    <header class="lp-page-header">
+        <div>
+            <h1 class="lp-workspace-title">{{ 'bridge.worker_runs.page.title'|trans }}</h1>
+            <p class="lp-workspace-desc">{{ 'bridge.worker_runs.page.description'|trans }}</p>
+        </div>
+    </header>
 
     {# Required on every render, empty list included: without it the page reads
        as a complete history, and a report lost with its bridge would read as a
        worker that never ran. #}
-    <p class="lp-page-note">{{ 'bridge.worker_runs.unknown_notice'|trans }}</p>
-
     {% if items|length > 0 or listQuery.isNarrowed %}
     <div class="lp-list-filters">
         {# A GET form, so every control lands in the URL and the view stays
@@ -31,29 +33,31 @@
               action="{{ path('app_project_worker_runs', {id: project.id}) }}"
               data-controller="autosearch"
               class="lp-filter-form">
-            <div class="lp-filter-search">
-                <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
-                <label class="sr-only" for="worker-run-search">{{ 'bridge.worker_runs.filter.search_label'|trans }}</label>
-                <input type="search"
-                       id="worker-run-search"
-                       name="search"
-                       class="lp-input lp-filter-input"
-                       value="{{ listQuery.search }}"
-                       placeholder="{{ 'bridge.worker_runs.filter.search_placeholder'|trans }}"
-                       data-autosearch-target="field"
-                       data-action="input->autosearch#search">
-            </div>
+            <div class="lp-filter-primary" data-action="focusin->autosearch#revealField">
+                <div class="lp-filter-search">
+                    <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
+                    <label class="sr-only" for="worker-run-search">{{ 'bridge.worker_runs.filter.search_label'|trans }}</label>
+                    <input type="search"
+                           id="worker-run-search"
+                           name="search"
+                           class="lp-input lp-filter-input"
+                           value="{{ listQuery.search }}"
+                           placeholder="{{ 'bridge.worker_runs.filter.search_placeholder'|trans }}"
+                           data-autosearch-target="field"
+                           data-action="input->autosearch#search">
+                </div>
 
-            <label class="sr-only" for="worker-run-outcome">{{ 'bridge.worker_runs.filter.outcome_label'|trans }}</label>
-            <select id="worker-run-outcome"
-                    name="outcome"
-                    class="lp-input lp-select lp-filter-select"
-                    data-action="change->autosearch#search">
-                <option value="">{{ 'bridge.worker_runs.filter.all_outcomes'|trans }}</option>
-                {% for outcome in outcomes %}
-                    <option value="{{ outcome.value }}"{{ listQuery.outcome == outcome ? ' selected' : '' }}>{{ outcome.translationKey()|trans }}</option>
-                {% endfor %}
-            </select>
+                <label class="sr-only" for="worker-run-outcome">{{ 'bridge.worker_runs.filter.outcome_label'|trans }}</label>
+                <select id="worker-run-outcome"
+                        name="outcome"
+                        class="lp-input lp-select lp-filter-select"
+                        data-action="change->autosearch#search">
+                    <option value="">{{ 'bridge.worker_runs.filter.all_outcomes'|trans }}</option>
+                    {% for outcome in outcomes %}
+                        <option value="{{ outcome.value }}"{{ listQuery.outcome == outcome ? ' selected' : '' }}>{{ outcome.translationKey()|trans }}</option>
+                    {% endfor %}
+                </select>
+            </div>
 
             {# One bridge reports many runs, so the control waits until a second
                bridge makes it a choice rather than a label. #}
@@ -83,32 +87,37 @@
 
     {% if items|length > 0 %}
     <div class="lp-worker-run-list">
+        <div class="lp-worker-run-list__header" aria-hidden="true">
+            <span>{{ 'bridge.worker_runs.column.work'|trans }}</span>
+            <span>{{ 'bridge.worker_runs.column.outcome'|trans }}</span>
+            <span>{{ 'bridge.worker_runs.column.rule'|trans }}</span>
+            <span>{{ 'bridge.worker_runs.column.duration'|trans }}</span>
+            <span>{{ 'bridge.worker_runs.column.started'|trans }}</span>
+        </div>
         {% for item in items %}
         {% set run = item.run %}
-        <article class="lp-worker-run" data-worker-run-id="{{ run.id }}">
-            <div class="lp-worker-run__head">
-                {% if boardEnabled %}
-                    {# The card id is a plain value on the run row, so the card may
-                       be gone. The link then answers 404 and the row still reads. #}
+        <article class="lp-worker-run" data-worker-run-id="{{ run.id }}" data-controller="modal" data-modal-drawer-value="true">
+            <div class="lp-worker-run__table-row">
+                <div class="lp-worker-run__work">
+                    {% if boardEnabled %}
                     <a class="lp-worker-run__card"
                        href="{{ path('app_board_card', {projectId: project.id, cardId: run.cardId}) }}">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</a>
-                {% else %}
-                    <span class="lp-worker-run__card">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</span>
-                {% endif %}
-                <span class="lp-worker-run__rule">{{ run.ruleName }}</span>
-                <span class="lp-status-chip lp-status-chip--{{ item.outcome.chipModifier() }} shrink-0">
+                    {% else %}
+                        <span class="lp-worker-run__card">{{ 'bridge.worker_runs.card_number'|trans({'%number%': run.cardNumber}) }}</span>
+                    {% endif %}
+                    <span class="lp-worker-run__bridge" title="{{ run.bridgeId }}">{{ 'bridge.worker_runs.bridge'|trans({'%bridge%': run.bridgeId|slice(-12)}) }}</span>
+                    <button type="button" class="lp-btn lp-btn--ghost" data-action="modal#open">{{ 'bridge.worker_runs.details.open'|trans }}</button>
+                </div>
+                <span class="lp-status-chip lp-status-chip--{{ item.outcome.chipModifier() }}">
                     <span class="lp-status-chip__dot"></span>
                     {{ item.outcome.translationKey()|trans }}
                 </span>
-            </div>
-
-            <div class="lp-worker-run__meta">
-                <span>{{ 'bridge.worker_runs.started'|trans({'%time%': run.startedAt|date('Y-m-d H:i:s')}) }}</span>
-                <span>{{ 'bridge.worker_runs.duration'|trans({'%duration%': item.duration()}) }}</span>
-                {% if run.exitCode is not null %}
-                    <span>{{ 'bridge.worker_runs.exit_code'|trans({'%code%': run.exitCode}) }}</span>
-                {% endif %}
-                <span class="lp-worker-run__bridge" title="{{ run.bridgeId }}">{{ 'bridge.worker_runs.bridge'|trans({'%bridge%': run.bridgeId|slice(-12)}) }}</span>
+                <span class="lp-worker-run__rule">{{ run.ruleName }}</span>
+                <span class="lp-worker-run__duration">
+                    {{ item.duration() }}
+                    {% if run.exitCode is not null %}<small>{{ 'bridge.worker_runs.exit_code'|trans({'%code%': run.exitCode}) }}</small>{% endif %}
+                </span>
+                <time datetime="{{ run.startedAt|date('c') }}">{{ run.startedAt|date('M j, H:i') }}</time>
             </div>
 
             {% if run.failureReason %}
@@ -119,7 +128,7 @@
                the output of a run that succeeded answers as many questions as
                the output of one that failed. #}
             <details class="lp-worker-run__output-disclosure">
-                <summary class="lp-worker-run__output-summary">{{ 'bridge.worker_runs.output.toggle'|trans }}</summary>
+                <summary class="lp-worker-run__output-summary"><twig:ux:icon name="lucide:terminal" class="w-4 h-4" />{{ 'bridge.worker_runs.output.toggle'|trans }}</summary>
                 {% if run.output is empty %}
                     <p class="lp-worker-run__output-empty">{{ 'bridge.worker_runs.output.empty'|trans }}</p>
                 {% else %}
@@ -128,6 +137,7 @@
                     <pre class="lp-worker-run__output">{{ run.output }}</pre>
                 {% endif %}
             </details>
+            {% include '@Bridge/_worker_run_drawer.html.twig' with {item: item, project: project, boardEnabled: boardEnabled} only %}
         </article>
         {% endfor %}
     </div>

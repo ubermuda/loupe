@@ -7,8 +7,8 @@ namespace App\Module\Board\Command;
 use App\Exception\DomainErrors;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
-use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Service\BoardColumns;
+use App\Module\Board\Service\TerminalColumnCards;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -16,17 +16,12 @@ use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\AuditSubject;
 
-/**
- * Sets or clears a column's terminal flag, and brings the cards already in it
- * along. A terminal column shows its cards by completion and a column that is
- * not terminal shows them by rank, so a card left without the field its column
- * reads would drop off the board.
- */
+/** Sets or clears a column's terminal flag, and brings the cards already in it along. */
 final readonly class SetBoardColumnTerminalHandler
 {
     public function __construct(
         private BoardColumnRepository $boardColumns,
-        private CardRepository $cards,
+        private TerminalColumnCards $terminalCards,
         private BoardColumns $rules,
         private EntityManagerInterface $em,
         private Auditor $auditor,
@@ -56,17 +51,7 @@ final readonly class SetBoardColumnTerminalHandler
 
             $column->terminal = $command->terminal;
             $this->em->flush();
-
-            $now = new \DateTimeImmutable();
-            if ($command->terminal) {
-                $this->cards->stampCompletion($column, $now);
-            } else {
-                // Every card of a terminal column sits at rank 0, so the
-                // renumber ranks each group by completion, and it must run
-                // before the completion is cleared.
-                $this->cards->renumberColumn($column, $now);
-                $this->cards->clearCompletion($column, $now);
-            }
+            $this->terminalCards->follow($column, new \DateTimeImmutable());
 
             return true;
         });

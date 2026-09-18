@@ -6,7 +6,7 @@
 {% if registration_open %}
 <span class="text-sm text-fg-mute">
     {{ 'account.login.topbar.prompt'|trans }}
-    <a href="{{ path('app_register') }}" class="ml-1.5 text-xs text-accent hover:underline">{{ 'account.login.topbar.link'|trans }}</a>
+    <a href="{{ path('app_register') }}" class="auth-link ml-1.5 text-xs">{{ 'account.login.topbar.link'|trans }}</a>
 </span>
 {% endif %}
 {% endblock %}
@@ -70,7 +70,7 @@
 {% if registration_open %}
 <div class="text-center text-sm text-fg-mute">
     {{ 'account.login.footer.prompt'|trans }}
-    <a href="{{ path('app_register') }}" class="pl-1 text-accent font-medium hover:underline">{{ 'account.login.footer.link'|trans }}</a>
+    <a href="{{ path('app_register') }}" class="auth-link pl-1 font-medium">{{ 'account.login.footer.link'|trans }}</a>
 </div>
 {% endif %}
 {% endblock %}

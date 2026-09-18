@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Board\Form;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Project\Entity\Project;
 use Symfony\Component\Form\AbstractType;
-use Symfony\Component\Form\Extension\Core\Type\EnumType;
 use Symfony\Component\Form\Extension\Core\Type\IntegerType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -16,9 +14,9 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 /**
  * The board's move form. One per card, so it is created under a per-card name.
  *
- * The two selects are what a keyboard reaches, and they are also the fields the
+ * The column select is what a keyboard reaches, and it is also the field the
  * drag controller writes before it submits the form. The rank is hidden,
- * because a reader picks a column and a grade rather than a number.
+ * because a reader picks a column rather than a number.
  *
  * @extends AbstractType<MoveCardRequest>
  */
@@ -37,11 +35,6 @@ final class MoveCardFormType extends AbstractType
             ->add('column', BoardColumnChoiceType::class, [
                 'label' => 'board.form.move_card_form.column.label',
                 'project' => $options['project'],
-            ])
-            ->add('priority', EnumType::class, [
-                'class' => CardPriority::class,
-                'label' => 'board.form.move_card_form.priority.label',
-                'choice_label' => static fn (CardPriority $priority): string => 'board.form.move_card_form.priority.choice.'.$priority->label(),
             ])
             // An integer field rather than a hidden one: the property is ?int,
             // and HiddenType would hand the property mapper a string.

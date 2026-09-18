@@ -6,14 +6,17 @@ namespace App\Module\Review\Command;
 
 use App\Exception\DomainErrors;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\DocumentStatus;
 use App\Module\Review\Entity\Tag;
 use App\Module\Review\Service\DocumentReferenceValidator;
 use App\Module\Review\Service\DocumentSearchIndexer;
 use App\Module\Review\Service\DocumentSeriesApplier;
 use App\Module\Review\Service\DocumentTagApplier;
+use App\Module\Review\Service\DocumentWorkLinksInterface;
 use App\Module\Review\Service\MarkdownRenderer;
 use App\Module\Review\Service\SeriesConflictErrors;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -30,6 +33,7 @@ final readonly class CreateDocumentHandler
         private DocumentSearchIndexer $searchIndexer,
         private SeriesConflictErrors $conflicts,
         private Auditor $auditor,
+        private DocumentWorkLinksInterface $workLinks,
     ) {
     }
 
@@ -59,6 +63,7 @@ final readonly class CreateDocumentHandler
             searchLanguage: $command->language ?? $command->project->searchLanguage,
         );
         $document->addVersion($command->markdown, $this->renderer->render($command->markdown), $command->description);
+        $document->status = $command->draft ? DocumentStatus::Draft : DocumentStatus::InReview;
 
         // Also before persist(), for the same reason: this rejects a reference
         // the project may not point at.
@@ -69,17 +74,30 @@ final readonly class CreateDocumentHandler
 
         // Also before persist(), for the same reason: this rejects a placement
         // whose ordinal another document in the series already holds.
-        $this->seriesApplier->apply($document, $command->seriesName, $command->seriesOrdinal);
-
-        // One flush, so the document, its tags, its series and its references
-        // are written together or not at all.
-        $this->em->persist($document);
-        $this->tagApplier->apply($document, $command->tagNames);
-
         try {
-            $this->em->flush();
+            $error = $this->em->wrapInTransaction(function () use ($document, $command): ?DomainErrors {
+                try {
+                    if (null !== $command->workLinkIds) {
+                        $this->em->lock($document->project, LockMode::PESSIMISTIC_WRITE);
+                        $this->workLinks->validate($document, $command->workLinkIds);
+                    }
+                    $this->seriesApplier->apply($document, $command->seriesName, $command->seriesOrdinal);
+                } catch (DomainErrors $errors) {
+                    return $errors;
+                }
+                if (null !== $command->workLinkIds) {
+                    $this->workLinks->synchronize($document, $command->workLinkIds);
+                }
+                $this->em->persist($document);
+                $this->tagApplier->apply($document, $command->tagNames);
+
+                return null;
+            });
         } catch (UniqueConstraintViolationException $e) {
             throw $this->conflicts->forViolation($e) ?? $e;
+        }
+        if ($error instanceof DomainErrors) {
+            throw $error;
         }
 
         // Between the flush and the index. Before the flush the document has no
@@ -96,6 +114,7 @@ final readonly class CreateDocumentHandler
                 // named twice, which is one link rather than two.
                 'referenceCount' => \count($references),
                 'inSeries' => null !== $document->series,
+                'workLinkCount' => null === $command->workLinkIds ? null : \count($command->workLinkIds),
             ],
             new AuditSubject('document', (string) $document->id),
         );

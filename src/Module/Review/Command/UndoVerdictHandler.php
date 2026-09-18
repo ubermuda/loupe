@@ -25,7 +25,7 @@ final readonly class UndoVerdictHandler
     {
         $document = $command->document;
 
-        return $this->em->wrapInTransaction(function () use ($command, $document): Review {
+        $result = $this->em->wrapInTransaction(function () use ($command, $document): Review|DomainErrors {
             // Same lock SubmitReviewHandler takes, and needed for the same two
             // reasons: a revision must not land between reading the version and
             // writing to it, and the next sequence number must be read and used
@@ -33,11 +33,17 @@ final readonly class UndoVerdictHandler
             $this->em->lock($document, LockMode::PESSIMISTIC_WRITE);
 
             $version = $this->documentVersions->findLatest($document);
-            $newest = $this->reviews->findNewestByVersion($version)
-                ?? throw new DomainErrors(['verdict' => 'review.document.flash.verdict_none']);
+            $newest = $this->reviews->findNewestByVersion($version);
+            if (null === $newest) {
+                return new DomainErrors(['reviewId' => 'review.document.flash.verdict_none']);
+            }
 
             if (Verdict::Withdrawn === $newest->verdict) {
-                throw new DomainErrors(['verdict' => 'review.document.flash.verdict_already_withdrawn']);
+                return new DomainErrors(['reviewId' => 'review.document.flash.verdict_already_withdrawn']);
+            }
+
+            if ($newest->id?->toRfc4122() !== strtolower($command->reviewId)) {
+                return new DomainErrors(['reviewId' => 'review.document.flash.verdict_changed']);
             }
 
             // A withdrawal is appended, never a deletion or an edit of the verdict it
@@ -57,5 +63,11 @@ final readonly class UndoVerdictHandler
 
             return $withdrawal;
         });
+
+        if ($result instanceof DomainErrors) {
+            throw $result;
+        }
+
+        return $result;
     }
 }

@@ -14,7 +14,6 @@ use App\Module\Board\Command\MoveCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\CardRepository;
@@ -99,7 +98,7 @@ final class CardPostLockStateTest extends KernelTestCase
         $behind = $this->card('Behind the mover', 'next');
         $this->putInTheMiddleOfNext($mover, $behind);
 
-        ($this->moveCard)(new MoveCardCommand($mover, CardReporter::Human, $this->column($this->project, 'in-progress'), CardPriority::Medium));
+        ($this->moveCard)(new MoveCardCommand($mover, CardReporter::Human, $this->column($this->project, 'in-progress')));
 
         self::assertSame('next', $this->audit->record('board.card_moved')->context['fromStatus']);
         self::assertSame([0, 1], [$this->storedPosition($next), $this->storedPosition($behind)]);
@@ -222,7 +221,6 @@ final class CardPostLockStateTest extends KernelTestCase
             title: $title,
             body: 'Body of '.$title,
             type: CardType::Feature,
-            priority: CardPriority::Medium,
             column: $this->column($this->project, $column),
         ));
 

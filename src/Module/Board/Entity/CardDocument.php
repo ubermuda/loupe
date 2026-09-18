@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Entity;
 
+use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Review\Entity\Document;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -20,7 +21,7 @@ use Symfony\Component\Uid\Uuid;
  * Both sides cascade on delete, so neither module has to know the link is
  * there when it removes its own row.
  */
-#[ORM\Entity]
+#[ORM\Entity(repositoryClass: CardDocumentRepository::class)]
 #[ORM\Table(name: 'board_card_documents')]
 #[ORM\UniqueConstraint(name: 'uniq_board_card_document', columns: ['card_id', 'document_id'])]
 class CardDocument

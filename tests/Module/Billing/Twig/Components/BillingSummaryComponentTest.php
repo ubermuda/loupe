@@ -21,7 +21,7 @@ final class BillingSummaryComponentTest extends WebTestCase
         $scenario = new BillingScenario(static::getContainer());
 
         $client->loginUser($scenario->verifiedUser('nobilling'));
-        $crawler = $client->request(Request::METHOD_GET, '/account');
+        $crawler = $client->request(Request::METHOD_GET, '/account/data');
 
         self::assertResponseIsSuccessful();
         self::assertCount(0, $crawler->filter('[data-testid="billing-section"]'));
@@ -37,7 +37,7 @@ final class BillingSummaryComponentTest extends WebTestCase
         $scenario->profile($user, new \DateTimeImmutable('+3 days'));
 
         $client->loginUser($user);
-        $crawler = $client->request(Request::METHOD_GET, '/account');
+        $crawler = $client->request(Request::METHOD_GET, '/account/data');
 
         self::assertResponseIsSuccessful();
         $section = $crawler->filter('[data-testid="billing-section"]');
@@ -56,7 +56,7 @@ final class BillingSummaryComponentTest extends WebTestCase
         $scenario->grant(BillingGrants::stripe($profile, BillingStatus::Active, new \DateTimeImmutable('+30 days'), 'sub_account'));
 
         $client->loginUser($user);
-        $crawler = $client->request(Request::METHOD_GET, '/account');
+        $crawler = $client->request(Request::METHOD_GET, '/account/data');
 
         self::assertResponseIsSuccessful();
         $section = $crawler->filter('[data-testid="billing-section"]');

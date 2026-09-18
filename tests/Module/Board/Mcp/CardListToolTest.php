@@ -7,7 +7,6 @@ namespace App\Tests\Module\Board\Mcp;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\ListCardsHandler;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Mcp\CardCreateTool;
@@ -53,17 +52,18 @@ final class CardListToolTest extends KernelTestCase
         ($this->tool)();
     }
 
-    public function test_the_board_reads_by_priority_then_position(): void
+    public function test_an_open_column_reads_in_rank_order(): void
     {
-        $this->boardWith('card-list-order');
+        $project = $this->boardWith('card-list-order');
+        $this->em->getConnection()->executeStatement(
+            "UPDATE board_cards SET position = CASE title WHEN 'Third' THEN 0 WHEN 'First' THEN 1 ELSE 2 END WHERE project_id = :project",
+            ['project' => (string) $project->id],
+        );
 
         $result = ($this->tool)('backlog');
 
         self::assertSame(3, $result['total']);
-        self::assertSame(
-            ['High one', 'Medium one', 'Medium two'],
-            array_column($result['cards'], 'title'),
-        );
+        self::assertSame(['Third', 'First', 'Second'], array_column($result['cards'], 'title'));
         // The creation order, not the board order, so the number is plainly not
         // the rank the column reads in.
         self::assertSame([3, 1, 2], array_column($result['cards'], 'number'));
@@ -75,22 +75,13 @@ final class CardListToolTest extends KernelTestCase
 
         $result = ($this->tool)(type: 'bug');
 
-        self::assertSame(['High one'], array_column($result['cards'], 'title'));
-    }
-
-    public function test_a_priority_filter_takes_a_name(): void
-    {
-        $this->boardWith('card-list-priority');
-
-        $result = ($this->tool)(priority: 'medium');
-
-        self::assertSame(['Medium one', 'Medium two'], array_column($result['cards'], 'title'));
+        self::assertSame(['Third'], array_column($result['cards'], 'title'));
     }
 
     public function test_a_reporter_filter_narrows_the_board(): void
     {
         $this->boardWith('card-list-reporter');
-        ($this->createTool)('Dictated', 'Body', 'feature', 'low', reporter: 'human');
+        ($this->createTool)('Dictated', 'Body', 'feature', reporter: 'human');
         // Without this the assertion below also passes on a board that stored
         // no human card at all.
         self::assertSame(4, ($this->tool)()['total']);
@@ -122,7 +113,7 @@ final class CardListToolTest extends KernelTestCase
     public function test_a_row_with_no_reporter_still_reads_and_filters_by_its_origin(): void
     {
         $this->boardWith('card-list-legacy-row');
-        $legacy = ($this->createTool)('Written by an older image', 'Body', 'bug', 'low', reporter: 'human');
+        $legacy = ($this->createTool)('Written by an older image', 'Body', 'bug', reporter: 'human');
         $this->clearStoredReporter($legacy['cardId']);
 
         $result = ($this->tool)(reporter: 'human');
@@ -176,7 +167,7 @@ final class CardListToolTest extends KernelTestCase
     public function test_done_cards_are_returned_with_no_time_window(): void
     {
         $this->boardWith('card-list-done');
-        ($this->createTool)('Finished long ago', 'Body', 'docs', 'low', status: 'done');
+        ($this->createTool)('Finished long ago', 'Body', 'docs', status: 'done');
         // Without this the assertions below also pass on a board that holds
         // nothing at all.
         self::assertSame(4, ($this->tool)()['total']);
@@ -191,13 +182,13 @@ final class CardListToolTest extends KernelTestCase
     public function test_an_unfiltered_read_returns_the_columns_in_board_order(): void
     {
         $this->boardWith('card-list-columns');
-        ($this->createTool)('Waiting', 'Body', 'feature', 'high', status: 'next');
-        ($this->createTool)('Finished', 'Body', 'docs', 'high', status: 'done');
+        ($this->createTool)('Waiting', 'Body', 'feature', status: 'next');
+        ($this->createTool)('Finished', 'Body', 'docs', status: 'done');
 
         $result = ($this->tool)();
 
         self::assertSame(
-            ['High one', 'Medium one', 'Medium two', 'Waiting', 'Finished'],
+            ['First', 'Second', 'Third', 'Waiting', 'Finished'],
             array_column($result['cards'], 'title'),
         );
     }
@@ -205,10 +196,8 @@ final class CardListToolTest extends KernelTestCase
     public function test_an_unfiltered_read_still_sorts_done_by_completion(): void
     {
         $this->boardWith('card-list-done-order');
-        // The earlier completion carries the higher priority, so a read that
-        // ranked Done by priority would put them the other way round.
-        $first = ($this->createTool)('Finished first', 'Body', 'docs', 'high', status: 'done');
-        ($this->createTool)('Finished second', 'Body', 'docs', 'low', status: 'done');
+        $first = ($this->createTool)('Finished first', 'Body', 'docs', status: 'done');
+        ($this->createTool)('Finished second', 'Body', 'docs', status: 'done');
         // Two cards created in the same second share a completion instant, which
         // would make the order below arbitrary.
         $this->em->getConnection()->executeStatement(
@@ -243,7 +232,7 @@ final class CardListToolTest extends KernelTestCase
         $row = ($this->tool)()['cards'][0];
 
         self::assertSame(
-            ['cardId', 'number', 'title', 'type', 'priority', 'status', 'reporter', 'updatedAt'],
+            ['cardId', 'number', 'title', 'type', 'status', 'reporter', 'updatedAt'],
             array_keys($row),
         );
     }
@@ -267,11 +256,11 @@ final class CardListToolTest extends KernelTestCase
         $first = ($this->tool)(perPage: 2);
         $second = ($this->tool)(page: 2, perPage: 2);
 
-        self::assertSame(['High one', 'Medium one'], array_column($first['cards'], 'title'));
+        self::assertSame(['First', 'Second'], array_column($first['cards'], 'title'));
         self::assertSame(3, $first['total']);
         self::assertTrue($first['hasMore']);
 
-        self::assertSame(['Medium two'], array_column($second['cards'], 'title'));
+        self::assertSame(['Third'], array_column($second['cards'], 'title'));
         self::assertSame(3, $second['total']);
         self::assertFalse($second['hasMore']);
     }
@@ -313,9 +302,9 @@ final class CardListToolTest extends KernelTestCase
         $project = $this->makeProject($label);
         $this->actAsMcpTokenBoundTo($project);
 
-        ($this->createTool)('Medium one', 'Body', 'feature', 'medium');
-        ($this->createTool)('Medium two', 'Body', 'feature', 'medium');
-        ($this->createTool)('High one', 'Body', 'bug', 'high');
+        ($this->createTool)('First', 'Body', 'feature');
+        ($this->createTool)('Second', 'Body', 'feature');
+        ($this->createTool)('Third', 'Body', 'bug');
 
         return $project;
     }
@@ -341,7 +330,6 @@ final class CardListToolTest extends KernelTestCase
             title: $title,
             body: 'Body',
             type: CardType::Idea,
-            priority: CardPriority::Low,
             reporter: CardReporter::Reviewer,
         ));
     }

@@ -27,7 +27,6 @@ const DOC = '[data-comment-anchor-target="doc"]';
 const TOOLBAR = '[data-comment-anchor-target="toolbar"]';
 const COMPOSER = '[data-comment-anchor-target="composer"]';
 const COMPOSER_BODY = '[data-comment-anchor-target="composerBody"]';
-const MARKER = '.lp-comment-marker';
 
 /** Register a user via the dev endpoint and immediately mark them as verified. */
 async function devRegisterAndVerify(
@@ -127,6 +126,157 @@ const test = base.extend<{ review: SeededReview }>({
 // Guest by default — make the unauthenticated starting state explicit.
 test.use({ storageState: { cookies: [], origins: [] } });
 
+test('New document creates a draft that can be reviewed', async ({
+    page,
+    review,
+}) => {
+    await page.goto(review.dashboardUrl);
+    await page
+        .getByRole('button', { name: 'New document', exact: true })
+        .click();
+    const dialog = page.getByRole('dialog', {
+        name: 'New document',
+        exact: true,
+    });
+    await dialog.getByLabel('Title', { exact: true }).fill('A human draft');
+    await dialog
+        .getByLabel('Markdown', { exact: true })
+        .fill('# Draft scope\n\nA new document from the browser.');
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await page.getByRole('link', { name: 'Workshop', exact: true }).click();
+    await expect(page).not.toHaveURL(review.dashboardUrl);
+    await page.getByRole('link', { name: /^Documents \d+$/ }).click();
+    await expect(page).toHaveURL(review.dashboardUrl);
+    await page
+        .getByRole('button', { name: 'New document', exact: true })
+        .click();
+    await expect(dialog.getByLabel('Title', { exact: true })).toHaveValue(
+        'A human draft',
+    );
+    await dialog
+        .getByRole('button', { name: 'Create document', exact: true })
+        .click();
+    await expect(
+        page.getByRole('heading', { name: 'A human draft', exact: true }),
+    ).toBeVisible({ timeout: 20000 });
+    const draftUrl = page.url();
+    await expect(page.locator('.lp-review-doc__byline')).toContainText('Draft');
+    await expect(page.locator(DOC)).toContainText(
+        'A new document from the browser.',
+    );
+    await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
+    await page.goto(`${review.dashboardUrl}?status=draft`);
+    await expect(page.locator('[data-document-id]')).toHaveCount(1);
+    await expect(page.locator('[data-document-id]')).toContainText(
+        'A human draft',
+    );
+    await expect(page.locator('[data-document-id]')).toContainText('Draft');
+    await page.goto(draftUrl);
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    const finishDialog = page.getByRole('dialog', { name: 'Finish review' });
+    await finishDialog
+        .getByRole('radio', { name: 'Approve', exact: true })
+        .check();
+    await finishDialog.getByRole('button', { name: 'Submit review' }).click();
+    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible({
+        timeout: 20000,
+    });
+});
+
+test('Revise saves a new version and preserves the previous text', async ({
+    page,
+    review,
+}) => {
+    await page.getByRole('button', { name: 'Revise', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Revise document' });
+    await expect(dialog.getByLabel('Markdown', { exact: true })).toHaveValue(
+        DOCUMENT_MARKDOWN,
+    );
+    await dialog
+        .getByLabel('Title', { exact: true })
+        .fill('Revised review document');
+    await dialog
+        .getByLabel('Markdown', { exact: true })
+        .fill('# Revised content');
+    await dialog
+        .getByLabel('Revision note', { exact: true })
+        .fill('Clarify the document.');
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await page.getByRole('link', { name: 'History', exact: true }).click();
+    await expect(page).toHaveURL(`${review.reviewUrl}/history`);
+    await page.getByRole('link', { name: 'Document', exact: true }).click();
+    await expect(page).toHaveURL(review.reviewUrl);
+    await page.getByRole('button', { name: 'Revise', exact: true }).click();
+    await expect(dialog.getByLabel('Title', { exact: true })).toHaveValue(
+        'Revised review document',
+    );
+    await expect(dialog.getByLabel('Markdown', { exact: true })).toHaveValue(
+        '# Revised content',
+    );
+    await expect(
+        dialog.getByLabel('Revision note', { exact: true }),
+    ).toHaveValue('Clarify the document.');
+    await dialog.getByRole('button', { name: 'Save new version' }).click();
+    await expect(page.locator('.lp-review-doc__version')).toHaveText('v2', {
+        timeout: 20000,
+    });
+    await expect(page.locator(DOC)).toContainText('Revised content');
+    await expect(
+        page.getByRole('heading', {
+            name: 'Revised review document',
+            exact: true,
+        }),
+    ).toBeVisible();
+    await page.goto(`${review.reviewUrl}/versions/1`);
+    await expect(page.locator(DOC)).toContainText(KNOWN_PHRASE);
+    await expect(
+        page.getByRole('button', { name: 'Revise', exact: true }),
+    ).toHaveCount(0);
+});
+
+test('Revise retains a stale draft and offers the current version', async ({
+    page,
+    review,
+}) => {
+    await page.getByRole('button', { name: 'Revise', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Revise document' });
+    await dialog
+        .getByLabel('Markdown', { exact: true })
+        .fill('# Unsaved draft');
+    await dialog
+        .getByLabel('Revision note', { exact: true })
+        .fill('Keep this note.');
+    const revised = await page.request.post(
+        `/dev/review/${review.documentId}/revise`,
+        {
+            form: {
+                markdown: '# Concurrent revision',
+                description: 'Another revision.',
+            },
+        },
+    );
+    expect(revised.status()).toBe(200);
+    await dialog.getByRole('button', { name: 'Save new version' }).click();
+    await expect(dialog).toContainText('The document has a newer version.', {
+        timeout: 20000,
+    });
+    await expect(dialog.getByLabel('Markdown', { exact: true })).toHaveValue(
+        '# Unsaved draft',
+    );
+    await expect(
+        dialog.getByLabel('Revision note', { exact: true }),
+    ).toHaveValue('Keep this note.');
+    await dialog
+        .getByRole('link', { name: 'Go to the current version' })
+        .click();
+    await expect(page.locator(DOC)).toContainText('Concurrent revision');
+    await expect(page.locator('.lp-review-doc__version')).toHaveText('v2');
+});
+
 /**
  * Drive text selection inside [data-comment-anchor-target="doc"] by
  * programmatically setting a DOM Range over KNOWN_PHRASE, then dispatching
@@ -210,23 +360,175 @@ async function postComment(page: Page): Promise<void> {
     await expect(page.locator(COMPOSER)).toBeHidden({
         timeout: coverageScaled(10000),
     });
-    await expect(page.locator(MARKER).first()).toBeVisible({
+    await expect(
+        page.locator('.lp-comment-thread__detail').first(),
+    ).toBeVisible({
         timeout: coverageScaled(10000),
     });
 }
 
-/**
- * Open a thread. Above the lg breakpoint the margin is a rail, so a thread is a
- * marker until it is clicked; its body, reply box and buttons are behind that
- * disclosure.
- */
-async function expandThread(page: Page, index = 0): Promise<void> {
-    const marker = page.locator(MARKER).nth(index);
-    await expect(marker).toBeVisible({ timeout: coverageScaled(10000) });
-    if ((await marker.getAttribute('aria-expanded')) !== 'true') {
-        await marker.click();
+async function expectThreadVisible(page: Page, index = 0): Promise<void> {
+    await expect(
+        page.locator('.lp-comment-thread__detail').nth(index),
+    ).toBeVisible({ timeout: coverageScaled(10000) });
+}
+
+for (const width of [1440, 390]) {
+    test(`Dismiss clears the selection and disarms Strike at ${width}px`, async ({
+        page,
+        review,
+    }, testInfo) => {
+        await page.setViewportSize({ width, height: 1000 });
+        const posts: string[] = [];
+        page.on('request', (request) => {
+            if (
+                request.method() === 'POST' &&
+                request.url().endsWith('/strikes')
+            ) {
+                posts.push(request.url());
+            }
+        });
+        await selectKnownPhrase(page, KNOWN_PHRASE);
+        const toolbar = page.locator(TOOLBAR);
+        const dismiss = toolbar.getByRole('button', {
+            name: 'Dismiss selection',
+            exact: true,
+        });
+        const comment = toolbar.getByRole('button', {
+            name: 'Comment',
+            exact: true,
+        });
+        await expect(dismiss).toBeVisible();
+        await expect(dismiss).toBeInViewport({ ratio: 1 });
+        expect((await dismiss.boundingBox())!.height).toBe(
+            (await comment.boundingBox())!.height,
+        );
+        await dismiss.hover();
+        const hoverColor = await dismiss.evaluate(async (element) => {
+            await Promise.all(
+                element.getAnimations().map((animation) => animation.finished),
+            );
+            return getComputedStyle(element).backgroundColor;
+        });
+        await comment.hover();
+        await expect(comment).toHaveCSS('background-color', hoverColor);
+        await page.screenshot({
+            path: testInfo.outputPath(`selection-toolbar-${width}.png`),
+        });
+        await dismiss.focus();
+        await dismiss.press('Enter');
+        await expect(toolbar).toBeHidden();
+        await expect(page.locator(DOC)).toBeFocused();
+        expect(
+            await page.evaluate(() => window.getSelection()?.toString()),
+        ).toBe('');
+        await page.keyboard.press('s');
+
+        await selectKnownPhrase(page, KNOWN_PHRASE);
+        await toolbar.getByRole('button', { name: /^Strike/ }).click();
+        await expect(page.locator('.lp-comment-status--strike')).toBeVisible();
+        await expect(page.locator(COMPOSER)).toBeHidden();
+        await expect(
+            page.locator('[data-comment-anchor-target="suggestComposer"]'),
+        ).toBeHidden();
+        expect(posts).toHaveLength(1);
+        const response = await page.request.get(
+            `/dev/review/${review.documentId}/state`,
+        );
+        expect(response.status()).toBe(200);
+        const state = await response.json();
+        expect(state.comments).toHaveLength(1);
+        expect(state.comments[0]).toMatchObject({
+            quote: KNOWN_PHRASE,
+            replacement: '',
+            body: '',
+        });
+    });
+}
+
+for (const width of [1440, 390]) {
+    for (const explanation of ['', 'This wording is more precise.']) {
+        test(`Suggest stores replacement and optional explanation at ${width}px: ${explanation || 'no explanation'}`, async ({
+            page,
+            review,
+        }, testInfo) => {
+            await page.setViewportSize({ width, height: 1000 });
+            await selectKnownPhrase(page, KNOWN_PHRASE);
+            await page
+                .locator(TOOLBAR)
+                .getByRole('button', { name: 'Suggest', exact: true })
+                .click();
+            const composer = page.locator(
+                '[data-comment-anchor-target="suggestComposer"]',
+            );
+            const replacement = composer.locator(
+                '[data-comment-anchor-target="suggestReplacement"]',
+            );
+            const reason = composer.locator(
+                '[data-comment-anchor-target="suggestBody"]',
+            );
+            await expect(composer).toBeVisible();
+            await expect(page.locator('.lp-review-menu__trigger')).toBeHidden();
+            await expect(replacement).toBeFocused();
+            await expect(replacement).toHaveValue(KNOWN_PHRASE);
+            await expect(reason).toHaveValue('');
+            await replacement.fill('precise replacement wording');
+            await reason.fill(explanation);
+            const submit = composer.getByRole('button', {
+                name: 'Suggest',
+                exact: true,
+            });
+            await expect(submit).toBeInViewport({ ratio: 1 });
+            await composer.evaluate(async (element) => {
+                await Promise.all(
+                    element
+                        .getAnimations()
+                        .map((animation) => animation.finished),
+                );
+            });
+            expect(
+                await submit.evaluate((element) => {
+                    const bounds = element.getBoundingClientRect();
+                    return [0.15, 0.5, 0.85].map((fraction) =>
+                        element.contains(
+                            document.elementFromPoint(
+                                bounds.left + bounds.width * fraction,
+                                bounds.top + bounds.height / 2,
+                            ),
+                        ),
+                    );
+                }),
+            ).toEqual([true, true, true]);
+            await page.screenshot({
+                path: testInfo.outputPath('suggestion-composer.png'),
+            });
+            await submit.click();
+            await expect(composer).toBeHidden();
+            const thread = page.locator(
+                '[data-comment-anchor-target="thread"]',
+            );
+            await expect
+                .poll(() =>
+                    page.locator('.lp-review-menu__trigger').isVisible(),
+                )
+                .toBe(width < 1024);
+            await expect(thread).toHaveCount(1);
+            await expect(thread).toContainText('precise replacement wording');
+            const response = await page.request.get(
+                `/dev/review/${review.documentId}/state`,
+            );
+            expect(response.status()).toBe(200);
+            const state = await response.json();
+            expect(state.comments).toHaveLength(1);
+            expect(state.comments[0]).toMatchObject({
+                quote: KNOWN_PHRASE,
+                replacement: 'precise replacement wording',
+                body: explanation,
+            });
+            await page.reload();
+            await expect(thread).toContainText('precise replacement wording');
+        });
     }
-    await expect(marker).toHaveAttribute('aria-expanded', 'true');
 }
 
 test('posting a comment disables the submitter and renders the thread in the sidebar', async ({
@@ -260,7 +562,7 @@ test('posting a comment disables the submitter and renders the thread in the sid
         timeout: coverageScaled(10000),
     });
 
-    await expandThread(page);
+    await expectThreadVisible(page);
     const commentBody = page.locator('.lp-comment-body').first();
     await expect(commentBody).toBeVisible({ timeout: coverageScaled(10000) });
     await expect(commentBody).toContainText(COMMENT_BODY);
@@ -314,7 +616,9 @@ test('the stored anchor keeps the quote and the whitespace around it', async ({
 
 test('replying to a thread and resolving it re-render it in place', async ({
     page,
+    context,
 }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await postComment(page);
 
     // Asserting both status and content type guards the whole path: CSRF, the
@@ -323,12 +627,16 @@ test('replying to a thread and resolving it re-render it in place', async ({
     const replyResponsePromise = page.waitForResponse(
         (r) => r.url().includes('/reply') && r.request().method() === 'POST',
     );
-    await expandThread(page);
+    await expectThreadVisible(page);
+    await page.locator('[data-comment-reply-target=toggle]').first().click();
     await page
         .locator('.lp-comment-reply-form textarea')
         .first()
         .fill(REPLY_BODY);
-    await page.getByRole('button', { name: 'Reply' }).click();
+    await page
+        .locator('.lp-comment-reply-form')
+        .getByRole('button', { name: 'Reply', exact: true })
+        .click();
     const replyResponse = await replyResponsePromise;
     expect(replyResponse.status()).toBe(200);
     expect(replyResponse.headers()['content-type']).toContain('turbo-stream');
@@ -351,6 +659,229 @@ test('replying to a thread and resolving it re-render it in place', async ({
     await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
         timeout: coverageScaled(10000),
     });
+    await page.getByRole('tab', { name: 'Details', exact: true }).click();
+    await page.getByRole('button', { name: 'Copy review summary' }).click();
+    await expect(
+        page.locator('[data-review-summary-target="status"]'),
+    ).toHaveText('Review summary copied.');
+    const summary = await page.evaluate(() => navigator.clipboard.readText());
+    expect(summary).toContain('E2E Review Test Document · v1');
+    expect(summary).toContain('[Resolved] Comment · E2E Reviewer');
+    expect(summary).toContain(KNOWN_PHRASE);
+    expect(summary).toContain(COMMENT_BODY);
+    expect(summary).toContain(REPLY_BODY);
+});
+
+test('copying an empty review reports clipboard success and failure', async ({
+    page,
+    context,
+}) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.getByRole('tab', { name: 'Details', exact: true }).click();
+    await page.getByRole('button', { name: 'Copy review summary' }).click();
+    await expect(
+        page.locator('[data-review-summary-target="status"]'),
+    ).toHaveText('Review summary copied.');
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
+        'No comment threads.',
+    );
+    await page.evaluate(() => {
+        navigator.clipboard.writeText = async () => {
+            throw new DOMException('Clipboard denied', 'NotAllowedError');
+        };
+    });
+    await page.getByRole('button', { name: 'Copy review summary' }).click();
+    await expect(
+        page.locator('[data-review-summary-target="status"]'),
+    ).toContainText('The browser could not copy the summary.');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.reload();
+    await page.getByRole('tab', { name: 'Details', exact: true }).click();
+    await page.getByRole('button', { name: 'Copy review summary' }).click();
+    await expect(
+        page.locator('[data-review-summary-target="status"]'),
+    ).toHaveText('Review summary copied.');
+    await page
+        .getByRole('button', { name: 'Copy review summary' })
+        .scrollIntoViewIfNeeded();
+    await page.screenshot({
+        path: '/tmp/loupe-review-summary-mobile.png',
+        fullPage: true,
+    });
+});
+
+test('a completed review leaves another tabs unsent review recoverable', async ({
+    page,
+    context,
+    review,
+}) => {
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    const dialog = page.getByRole('dialog', { name: 'Finish review' });
+    await dialog
+        .getByRole('radio', { name: 'Request changes', exact: true })
+        .check();
+    await dialog
+        .getByRole('textbox', { name: 'Review note' })
+        .fill('Keep my unsent review.');
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    const other = await context.newPage();
+    await other.goto(review.reviewUrl);
+    await other
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    await other.getByRole('radio', { name: 'Approve', exact: true }).check();
+    await other.getByRole('button', { name: 'Submit review' }).click();
+    await expect(other.locator('.lp-verdict-bar--approved')).toBeVisible();
+    await page.getByRole('link', { name: 'History', exact: true }).click();
+    await expect(page).toHaveURL(`${review.reviewUrl}/history`);
+    await page.getByRole('link', { name: 'Document', exact: true }).click();
+    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
+    const recovery = page.locator(
+        '[data-form-draft-recovery-key-value="document:review:' +
+            review.documentId +
+            '"]',
+    );
+    await expect(recovery).toBeVisible();
+    await expect(recovery).toContainText('Keep my unsent review.');
+    await expect(recovery).toContainText('Changes requested');
+    await expect(
+        page.getByRole('button', { name: 'Submit review' }),
+    ).toHaveCount(0);
+    await recovery.getByRole('button', { name: 'Discard draft' }).click();
+    await expect(recovery).toBeHidden();
+    await expect(page.locator('#review-document-title')).toBeFocused();
+    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
+    await other.close();
+});
+
+test('a stale review page cannot approve a newer version', async ({
+    page,
+    review,
+}) => {
+    const revised = await page.request.post(
+        `/dev/review/${review.documentId}/revise`,
+        {
+            form: {
+                markdown:
+                    '# Revised document\n\nThis version needs its own review.',
+            },
+        },
+    );
+    expect(revised.status()).toBe(200);
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    await page.getByRole('radio', { name: 'Approve', exact: true }).check();
+    await page
+        .getByRole('textbox', { name: 'Review note' })
+        .fill('Keep this draft.');
+    await page.getByRole('button', { name: 'Submit review' }).click();
+    await expect(
+        page
+            .getByRole('dialog', { name: 'Finish review' })
+            .locator('.lp-field-errors')
+            .filter({ hasText: 'The document has a newer version.' }),
+    ).toContainText('The document has a newer version.');
+    await expect(
+        page.getByRole('textbox', { name: 'Review note' }),
+    ).toHaveValue('Keep this draft.');
+    await page.getByRole('link', { name: 'Go to the current version' }).click();
+    await expect(page.locator('.lp-review-doc__version')).toHaveText('v2');
+    await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    const restored = page.getByRole('dialog', { name: 'Finish review' });
+    await expect(
+        restored.getByRole('textbox', { name: 'Review note' }),
+    ).toHaveValue('Keep this draft.');
+    await expect(
+        restored.locator('[data-form-draft-target="guard"]').first(),
+    ).toHaveValue('1');
+    await expect(
+        restored.locator('[data-form-draft-target="stale"]'),
+    ).toBeVisible();
+    await restored.getByRole('button', { name: 'Discard draft' }).click();
+    await expect(
+        restored.getByRole('textbox', { name: 'Review note' }),
+    ).toHaveValue('');
+    await expect(
+        restored.locator('[data-form-draft-target="guard"]').first(),
+    ).toHaveValue('2');
+    await restored.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.goto(review.dashboardUrl);
+    await expect(
+        page.locator(`[data-document-id="${review.documentId}"] .lp-badge`),
+    ).toHaveText('In review');
+});
+
+test('a stale withdrawal preserves the verdict from another tab', async ({
+    page,
+    context,
+    review,
+}) => {
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    await page.getByRole('radio', { name: 'Approve', exact: true }).check();
+    await page.getByRole('button', { name: 'Submit review' }).click();
+    await expect(page.locator('.lp-verdict-bar--approved')).toBeVisible();
+
+    const current = await context.newPage();
+    await suppressToolbar(current);
+    await suppressWidget(current);
+    await current.goto(review.reviewUrl);
+    await current
+        .locator('.lp-verdict-bar__undo')
+        .getByRole('button', { name: 'Undo', exact: true })
+        .click();
+    await expect(current.locator('.lp-flash--success')).toContainText(
+        'Your verdict has been withdrawn.',
+    );
+    await current
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    await current
+        .getByRole('radio', { name: 'Request changes', exact: true })
+        .check();
+    await current
+        .getByRole('textbox', { name: 'Review note' })
+        .fill('Clarify the retry policy.');
+    await current.getByRole('button', { name: 'Submit review' }).click();
+    await expect(
+        current.locator('.lp-verdict-bar--changes-requested'),
+    ).toContainText('Clarify the retry policy.');
+
+    await page
+        .locator('.lp-verdict-bar__undo')
+        .getByRole('button', { name: 'Undo', exact: true })
+        .click();
+    await expect(page.locator('[data-review-withdrawal-errors]')).toContainText(
+        'The review changed after this page loaded.',
+    );
+    await expect(
+        page.locator('.lp-verdict-bar--changes-requested'),
+    ).toContainText('Clarify the retry policy.');
+    await page.reload();
+    await expect(
+        page.locator('.lp-verdict-bar--changes-requested'),
+    ).toContainText('Clarify the retry policy.');
+    await page
+        .locator('.lp-verdict-bar__undo')
+        .getByRole('button', { name: 'Undo', exact: true })
+        .click();
+    await expect(page.locator('.lp-flash--success')).toContainText(
+        'Your verdict has been withdrawn.',
+    );
+    await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
+    await page.reload();
+    await expect(page.locator('.lp-review-doc__byline')).toContainText(
+        'In review',
+    );
+    await expect(page.locator('.lp-verdict-bar')).toHaveCount(0);
 });
 
 test('requesting changes shows the verdict on the project dashboard', async ({
@@ -360,13 +891,34 @@ test('requesting changes shows the verdict on the project dashboard', async ({
     // A verdict is reached on a document that has been commented on, so the
     // thread is part of the state under test, not incidental setup.
     await postComment(page);
-    await expandThread(page);
+    await expectThreadVisible(page);
     await page.getByRole('button', { name: 'Resolve' }).click();
     await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
         timeout: coverageScaled(10000),
     });
 
-    await page.getByRole('button', { name: 'Request changes' }).click();
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    await page.getByRole('radio', { name: 'Request changes' }).check();
+    await page.getByRole('button', { name: 'Submit review' }).click();
+    await expect(
+        page.getByRole('dialog', { name: 'Finish review' }),
+    ).toContainText('Explain the changes you request in a review note.');
+    await page
+        .getByRole('textbox', { name: 'Review note' })
+        .fill('Explain the retry behaviour.');
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(
+        page.getByRole('dialog', { name: 'Finish review' }),
+    ).toBeHidden();
+    await page
+        .getByRole('button', { name: 'Finish review', exact: true })
+        .click();
+    await expect(
+        page.getByRole('textbox', { name: 'Review note' }),
+    ).toHaveValue('Explain the retry behaviour.');
+    await page.getByRole('button', { name: 'Submit review' }).click();
 
     // The form POSTs (Turbo Drive) and redirects back to the *same* review URL,
     // so "doc is visible" proves nothing (it never went away). Wait for the
@@ -387,44 +939,102 @@ test('requesting changes shows the verdict on the project dashboard', async ({
     // Leave and come back: the verdict is stored, not a property of the response
     // that happened to follow the POST.
     await page.goto(review.reviewUrl);
+    await expect(page.locator('.lp-review-verdict-note')).toHaveText(
+        'Explain the retry behaviour.',
+    );
     await page.goto(review.dashboardUrl);
     await expect(badge).toHaveText('Changes requested');
 });
 
-test('a resolved comment survives a reload and can then be deleted for good', async ({
-    page,
-    review,
-}) => {
-    await postComment(page);
+for (const width of [1440, 390]) {
+    test(`a resolved thread supports Undo, later restore, and explicit purge at ${width}px`, async ({
+        page,
+        review,
+    }) => {
+        await page.setViewportSize({ width, height: 900 });
+        await postComment(page);
 
-    await expandThread(page);
-    await page.getByRole('button', { name: 'Resolve' }).click();
-    await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
-        timeout: coverageScaled(10000),
+        await expectThreadVisible(page);
+        await page.getByRole('button', { name: 'Resolve' }).click();
+        await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
+            timeout: coverageScaled(10000),
+        });
+
+        await page.goto(review.reviewUrl);
+        await expect(page.locator(DOC)).toBeVisible();
+        await expectThreadVisible(page);
+        const persistedCommentBody = page.locator('.lp-comment-body').first();
+        await expect(persistedCommentBody).toBeVisible({
+            timeout: coverageScaled(5000),
+        });
+        await expect(persistedCommentBody).toContainText(COMMENT_BODY);
+        await expect(page.locator('.lp-comment-thread')).toHaveCount(1);
+        const threadId = await page
+            .locator('.lp-comment-thread')
+            .getAttribute('id');
+
+        // Delete is a fieldless form guarded by a data-turbo-confirm dialog; accept
+        // it, then the Turbo Stream re-renders the thread list without the comment.
+        page.on('dialog', (dialog) => dialog.accept());
+        await page.getByRole('button', { name: 'Delete' }).click();
+        await expect(page.locator('.lp-comment-thread')).toHaveCount(0, {
+            timeout: coverageScaled(10000),
+        });
+        await page.getByRole('button', { name: 'Undo', exact: true }).click();
+        await expect(
+            page.locator('.lp-comment-thread--resolved'),
+        ).toHaveAttribute('id', threadId!);
+        await page.getByRole('button', { name: 'Delete', exact: true }).click();
+        await expect(page.locator('.lp-comment-thread')).toHaveCount(0);
+
+        await page.goto(review.reviewUrl);
+        await expect(page.locator(DOC)).toBeVisible();
+        await expect(page.locator('.lp-comment-thread')).toHaveCount(0);
+        await page.getByRole('tab', { name: 'Details', exact: true }).click();
+        await page
+            .getByRole('link', { name: 'Deleted threads', exact: true })
+            .click();
+        await expect(page.locator('[data-deleted-thread]')).toContainText(
+            COMMENT_BODY,
+        );
+        await page
+            .getByRole('button', { name: 'Restore thread', exact: true })
+            .click();
+        await expect(
+            page.locator('.lp-comment-thread--resolved'),
+        ).toHaveAttribute('id', threadId!);
+
+        await page.getByRole('button', { name: 'Delete', exact: true }).click();
+        await expect(page.locator('.lp-comment-thread')).toHaveCount(0);
+        await page
+            .locator('#comment-recovery')
+            .getByRole('link', { name: 'Deleted threads' })
+            .click();
+        await page
+            .getByRole('button', { name: 'Purge permanently', exact: true })
+            .click();
+        const purgeDialog = page.getByRole('dialog', {
+            name: 'Purge this thread permanently?',
+        });
+        await expect(purgeDialog).toBeVisible();
+        await purgeDialog
+            .getByRole('button', { name: 'Cancel', exact: true })
+            .click();
+        await expect(purgeDialog).toBeHidden();
+        await expect(page.locator('[data-deleted-thread]')).toHaveCount(1);
+        await page
+            .getByRole('button', { name: 'Purge permanently', exact: true })
+            .click();
+        await purgeDialog
+            .getByRole('button', { name: 'Purge permanently', exact: true })
+            .click();
+        await expect(
+            page.getByText('No deleted threads.', { exact: true }),
+        ).toBeVisible();
+        await page.reload();
+        await expect(page.locator('[data-deleted-thread]')).toHaveCount(0);
     });
-
-    await page.goto(review.reviewUrl);
-    await expect(page.locator(DOC)).toBeVisible();
-    await expandThread(page);
-    const persistedCommentBody = page.locator('.lp-comment-body').first();
-    await expect(persistedCommentBody).toBeVisible({
-        timeout: coverageScaled(5000),
-    });
-    await expect(persistedCommentBody).toContainText(COMMENT_BODY);
-    await expect(page.locator('.lp-comment-thread')).toHaveCount(1);
-
-    // Delete is a fieldless form guarded by a data-turbo-confirm dialog; accept
-    // it, then the Turbo Stream re-renders the thread list without the comment.
-    page.on('dialog', (dialog) => dialog.accept());
-    await page.getByRole('button', { name: 'Delete' }).click();
-    await expect(page.locator('.lp-comment-thread')).toHaveCount(0, {
-        timeout: coverageScaled(10000),
-    });
-
-    await page.goto(review.reviewUrl);
-    await expect(page.locator(DOC)).toBeVisible();
-    await expect(page.locator('.lp-comment-thread')).toHaveCount(0);
-});
+}
 
 /**
  * The composer's hint promises "⌘⏎ to submit", so the shortcut is part of the
@@ -448,7 +1058,7 @@ test('the composer submits on Ctrl/Cmd+Enter', async ({ page, review }) => {
     await expect(page.locator(COMPOSER)).toBeHidden({
         timeout: coverageScaled(10000),
     });
-    await expandThread(page);
+    await expectThreadVisible(page);
     const commentBody = page.locator('.lp-comment-body').first();
     await expect(commentBody).toBeVisible({ timeout: coverageScaled(10000) });
     await expect(commentBody).toContainText(COMMENT_BODY);

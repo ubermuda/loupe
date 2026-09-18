@@ -7,17 +7,29 @@ namespace App\Module\Inbox\Twig;
 use App\Mercure\UserTopicBuilder;
 use App\Module\Account\Entity\User;
 use App\Module\Inbox\Entity\InboxItem;
+use App\Module\Inbox\Entity\InboxReview;
 use App\Module\Inbox\Form\AnswerInboxItemFormType;
 use App\Module\Inbox\Form\AnswerInboxItemRequest;
 use App\Module\Inbox\Form\DeclineInboxItemFormType;
 use App\Module\Inbox\Form\DeclineInboxItemRequest;
 use App\Module\Inbox\Form\MarkInboxItemDoneFormType;
+use App\Module\Inbox\Form\ReplyToInboxItemFormType;
+use App\Module\Inbox\Form\ReplyToInboxItemRequest;
+use App\Module\Inbox\Form\SubmitInboxDocumentReviewFormType;
+use App\Module\Inbox\Form\SubmitInboxPullRequestReviewFormType;
+use App\Module\Inbox\Form\SubmitInboxPullRequestReviewRequest;
 use App\Module\Inbox\Repository\InboxItemRepository;
+use App\Module\Inbox\Repository\InboxReviewRepository;
 use App\Module\Project\Entity\Project;
+use App\Module\Review\Entity\Review;
+use App\Module\Review\Form\SubmitReviewRequest;
+use App\Module\Review\Repository\DocumentVersionRepository;
+use App\Module\Review\Repository\ReviewRepository;
 use App\Module\Review\Service\MarkdownRenderer;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\Form\FormView;
+use Symfony\Component\Uid\Uuid;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFilter;
 use Twig\TwigFunction;
@@ -34,6 +46,9 @@ final class InboxExtension extends AbstractExtension
         private readonly MarkdownRenderer $markdown,
         private readonly InboxItemRepository $inboxItems,
         private readonly UserTopicBuilder $topics,
+        private readonly InboxReviewRepository $inboxReviews,
+        private readonly ReviewRepository $reviews,
+        private readonly DocumentVersionRepository $documentVersions,
     ) {
     }
 
@@ -44,6 +59,11 @@ final class InboxExtension extends AbstractExtension
             new TwigFunction('inbox_answer_form', $this->answerForm(...)),
             new TwigFunction('inbox_done_form', $this->doneForm(...)),
             new TwigFunction('inbox_decline_form', $this->declineForm(...)),
+            new TwigFunction('inbox_review', $this->review(...)),
+            new TwigFunction('inbox_reply_form', $this->replyForm(...)),
+            new TwigFunction('inbox_review_withdrawal', $this->reviewWithdrawal(...)),
+            new TwigFunction('inbox_pull_request_review_form', $this->pullRequestReviewForm(...)),
+            new TwigFunction('inbox_document_review_form', $this->documentReviewForm(...)),
             new TwigFunction('inbox_refusals', $this->refusals(...)),
             new TwigFunction('project_inbox_open_count', $this->openCount(...)),
             new TwigFunction('inbox_topic', $this->topic(...)),
@@ -56,7 +76,29 @@ final class InboxExtension extends AbstractExtension
         return [
             // No heading ids: an item shows beside a document whose own headings carry them.
             new TwigFilter('inbox_markdown', $this->markdown->renderWithoutHeadingIds(...), ['is_safe' => ['html']]),
+            new TwigFilter('inbox_plain_text', $this->plainText(...)),
         ];
+    }
+
+    /**
+     * One run of plain text from a body written in Markdown, for a list row.
+     *
+     * Not marked safe, so Twig escapes it as the user content it is. The
+     * entities the renderer wrote are decoded first, because Twig escapes
+     * again and an `&` would otherwise reach the page as `&amp;amp;`.
+     */
+    public function plainText(?string $markdown): string
+    {
+        if (null === $markdown || '' === trim($markdown)) {
+            return '';
+        }
+
+        $text = html_entity_decode(
+            strip_tags($this->markdown->renderWithoutHeadingIds($markdown)),
+            ENT_QUOTES | ENT_HTML5,
+        );
+
+        return trim((string) preg_replace('/\s+/u', ' ', $text));
     }
 
     public function answerForm(InboxItem $item, ?FormView $refused = null): FormView
@@ -71,6 +113,54 @@ final class InboxExtension extends AbstractExtension
         return $this->formFactory
             ->createNamed($name, AnswerInboxItemFormType::class, new AnswerInboxItemRequest($selected, $item->answerText))
             ->createView();
+    }
+
+    public function review(InboxItem $item): ?InboxReview
+    {
+        return $this->inboxReviews->findOneBy(['item' => $item]);
+    }
+
+    public function replyForm(InboxItem $item, ?FormView $refused = null): FormView
+    {
+        $name = ReplyToInboxItemFormType::nameFor($item);
+        if (null !== $refused && $refused->vars['name'] === $name) {
+            return $refused;
+        }
+
+        return $this->formFactory->createNamed($name, ReplyToInboxItemFormType::class,
+            new ReplyToInboxItemRequest(submissionId: (string) Uuid::v4()),
+        )->createView();
+    }
+
+    public function reviewWithdrawal(InboxReview $review): ?Review
+    {
+        return null === $review->documentReview ? null : $this->reviews->findWithdrawalOf($review->documentReview);
+    }
+
+    public function documentReviewForm(InboxReview $review, ?FormView $refused = null): FormView
+    {
+        $name = SubmitInboxDocumentReviewFormType::nameFor($review->item);
+        if (null !== $refused && $refused->vars['name'] === $name) {
+            return $refused;
+        }
+        $version = null === $review->document ? null : $this->documentVersions->findLatest($review->document);
+        $latestReview = null === $version ? null : $this->reviews->findNewestByVersion($version);
+
+        return $this->formFactory->createNamed($name, SubmitInboxDocumentReviewFormType::class,
+            new SubmitReviewRequest(versionNumber: $version?->versionNumber, expectedReviewId: $latestReview?->id?->toRfc4122()),
+        )->createView();
+    }
+
+    public function pullRequestReviewForm(InboxReview $review, ?FormView $refused = null): FormView
+    {
+        $name = SubmitInboxPullRequestReviewFormType::nameFor($review->item);
+        if (null !== $refused && $refused->vars['name'] === $name) {
+            return $refused;
+        }
+
+        return $this->formFactory->createNamed($name, SubmitInboxPullRequestReviewFormType::class,
+            new SubmitInboxPullRequestReviewRequest(expectedUrl: $review->pullRequest?->url),
+        )->createView();
     }
 
     public function doneForm(InboxItem $item, ?FormView $refused = null): FormView
@@ -105,7 +195,7 @@ final class InboxExtension extends AbstractExtension
      */
     public function refusals(InboxItem $item, ?FormView $refused = null): array
     {
-        $names = [AnswerInboxItemFormType::nameFor($item), MarkInboxItemDoneFormType::nameFor($item), DeclineInboxItemFormType::nameFor($item)];
+        $names = [AnswerInboxItemFormType::nameFor($item), MarkInboxItemDoneFormType::nameFor($item), DeclineInboxItemFormType::nameFor($item), SubmitInboxPullRequestReviewFormType::nameFor($item), SubmitInboxDocumentReviewFormType::nameFor($item)];
         if (null === $refused || !\in_array($refused->vars['name'], $names, true)) {
             return [];
         }

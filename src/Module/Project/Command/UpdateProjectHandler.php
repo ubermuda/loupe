@@ -58,6 +58,8 @@ final readonly class UpdateProjectHandler
         $project->name = $command->name;
         $project->slug = $slug;
         $project->domain = $command->domain;
+        $description = trim($command->description ?? '');
+        $project->description = '' === $description ? null : $description;
         // Documents keep the language they were written with, so this only
         // changes what a document created after it inherits.
         $project->searchLanguage = $command->searchLanguage;

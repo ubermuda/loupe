@@ -8,8 +8,9 @@ use App\Controller\AppController;
 use App\Exception\DomainErrors;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
+use App\Module\Board\Command\FindBoardColumnCommand;
+use App\Module\Board\Command\FindBoardColumnHandler;
 use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Form\CreateCardFormType;
@@ -17,11 +18,16 @@ use App\Module\Board\Form\CreateCardRequest;
 use App\Module\Board\Service\BoardAvailability;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\ProjectVoter;
+use App\Module\SiteReview\Command\FindSiteReviewCommentCommand;
+use App\Module\SiteReview\Command\FindSiteReviewCommentHandler;
+use App\Module\SiteReview\Entity\SiteReviewComment;
+use App\Module\SiteReview\Security\SiteReviewCommentVoter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Uid\Uuid;
 
 #[IsGranted(ProjectVoter::MANAGE, subject: 'project')]
 #[Route(
@@ -33,7 +39,9 @@ final class CreateCardController extends AppController
 {
     public function __construct(
         private readonly CreateCardHandler $createCard,
+        private readonly FindBoardColumnHandler $findBoardColumn,
         private readonly BoardAvailability $board,
+        private readonly FindSiteReviewCommentHandler $findSiteReviewComment,
     ) {
     }
 
@@ -45,7 +53,11 @@ final class CreateCardController extends AppController
     ): Response {
         $this->board->requireEnabled();
 
-        $data = new CreateCardRequest(column: $defaultColumn);
+        $feedbackId = $request->query->getString('feedback');
+        $feedback = $this->feedback($feedbackId, $project);
+        $column = $this->column($request->query->getString('column'), $project, $defaultColumn);
+
+        $data = new CreateCardRequest(column: $column);
         $form = $this->createForm(CreateCardFormType::class, $data, ['project' => $project]);
         $form->handleRequest($request);
 
@@ -63,11 +75,11 @@ final class CreateCardController extends AppController
                     title: $title,
                     body: $data->body ?? '',
                     type: $data->type ?? CardType::Feature,
-                    priority: $data->priority ?? CardPriority::Medium,
                     column: $data->column,
                     // A person filled this form in, whatever an agent may later do to the card.
                     reporter: CardReporter::Human,
                     pullRequestUrls: CreateCardRequest::toUrlList($data->pullRequestUrls),
+                    siteReviewComment: $feedback,
                 ));
 
                 return $this->redirectToRoute('app_board_card', [
@@ -79,6 +91,35 @@ final class CreateCardController extends AppController
             }
         }
 
-        return $this->renderFormResponse('@Board/create_card.html.twig', $form);
+        return $this->renderFormResponse('@Board/create_card.html.twig', $form, ['feedback' => $feedback]);
+    }
+
+    private function feedback(string $id, Project $project): ?SiteReviewComment
+    {
+        if ('' === $id) {
+            return null;
+        }
+        if (!Uuid::isValid($id)) {
+            throw $this->createNotFoundException();
+        }
+
+        $comment = ($this->findSiteReviewComment)(new FindSiteReviewCommentCommand($id, $project))
+            ?? throw $this->createNotFoundException();
+        $this->denyAccessUnlessGranted(SiteReviewCommentVoter::ATTACH, $comment);
+
+        return $comment;
+    }
+
+    private function column(string $id, Project $project, BoardColumn $defaultColumn): BoardColumn
+    {
+        if ('' === $id) {
+            return $defaultColumn;
+        }
+        if (!Uuid::isValid($id)) {
+            throw $this->createNotFoundException();
+        }
+
+        return ($this->findBoardColumn)(new FindBoardColumnCommand($id, $project))
+            ?? throw $this->createNotFoundException();
     }
 }

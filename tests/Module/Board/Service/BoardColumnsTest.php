@@ -72,6 +72,22 @@ final class BoardColumnsTest extends TestCase
         self::assertSame(BoardColumns::SLUG_EMPTY, $this->rules->refuseRename($this->columns(), $this->board['next'], ''));
     }
 
+    public function test_a_configure_judges_the_three_settings_together(): void
+    {
+        $this->board['next']->terminal = true;
+
+        // Leaving the terminal flag and taking the default is one valid change.
+        self::assertNull($this->rules->refuseConfigure($this->columns(), $this->board['done'], 'shipped', false, true));
+        self::assertSame(BoardColumns::DEFAULT_TERMINAL, $this->rules->refuseConfigure($this->columns(), $this->board['done'], 'done', true, true));
+        self::assertSame(BoardColumns::NO_SINGLE_DEFAULT, $this->rules->refuseConfigure($this->columns(), $this->board['backlog'], 'backlog', false, false));
+        self::assertSame(BoardColumns::SLUG_TAKEN, $this->rules->refuseConfigure($this->columns(), $this->board['backlog'], 'next', false, true));
+    }
+
+    public function test_a_configure_cannot_clear_the_last_terminal_column(): void
+    {
+        self::assertSame(BoardColumns::NO_TERMINAL, $this->rules->refuseConfigure($this->columns(), $this->board['done'], 'done', false, false));
+    }
+
     public function test_the_last_terminal_column_cannot_lose_its_flag(): void
     {
         self::assertSame(BoardColumns::NO_TERMINAL, $this->rules->refuseTerminal($this->columns(), $this->board['done'], false));

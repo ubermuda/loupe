@@ -13,6 +13,9 @@
 <turbo-stream action="update" target="section-summary-count">
     <template>{{ 'review.document.sections.count_compact'|trans({'%approved%': approvedCount, '%total%': rows|length}) }}</template>
 </turbo-stream>
+<turbo-stream action="update" target="section-byline-count">
+    <template>{{ 'review.document.sections.progress'|trans({'%approved%': approvedCount, '%total%': rows|length}) }}</template>
+</turbo-stream>
 <turbo-stream action="update" target="section-summary-list">
     <template>{% include '@Review/_contents_rows.html.twig' with {rows: rows} only %}</template>
 </turbo-stream>

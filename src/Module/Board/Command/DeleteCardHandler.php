@@ -34,25 +34,25 @@ final readonly class DeleteCardHandler
         $projectId = (string) $card->project->id;
 
         $this->em->wrapInTransaction(function () use ($card): void {
-            // The renumbering below reads the group first, so it takes the same
+            // The renumbering below reads the column first, so it takes the same
             // project lock a create or a move does.
             $this->em->lock($card->project, LockMode::PESSIMISTIC_WRITE);
             // lock() takes the project row and leaves the loaded card as the
             // request read it, which may be before the caller ahead of us in
             // the queue committed. Without the re-read, the gap is closed in
-            // the group the card was in then rather than the one it is in now.
-            $this->cards->refreshGroup($card);
+            // the column the card was in then rather than the one it is in now.
+            $this->cards->refreshColumn($card);
 
             // Before the remove, so the delete and the renumbering it causes
             // reach the database in one flush.
-            $this->groupOrder->compact($card->column, $card->priority, $card);
+            $this->groupOrder->compact($card->column, $card);
 
             $this->em->remove($card);
             $this->em->flush();
         });
 
         // After the commit, never inside it: the sink drains at kernel.terminate,
-        // so a record written in the closure outlives a rollback. The group is
+        // so a record written in the closure outlives a rollback. The column is
         // read here rather than above, because the re-read decides it.
         $this->auditor->record(
             'board.card_deleted',
@@ -63,7 +63,6 @@ final readonly class DeleteCardHandler
                 'projectId' => $projectId,
                 'status' => $card->column->slug,
                 'columnId' => (string) $card->column->id,
-                'priority' => $card->priority->value,
             ],
             new AuditSubject('card', $cardId),
         );

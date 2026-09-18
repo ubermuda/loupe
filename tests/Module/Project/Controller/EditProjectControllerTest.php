@@ -144,7 +144,8 @@ final class EditProjectControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/edit');
 
         self::assertResponseIsSuccessful();
-        self::assertSame('shown-slug', trim($crawler->filter('[data-project-slug]')->text()));
+        self::assertSame('shown-slug', $crawler->filter('[data-project-slug]')->attr('value'));
+        self::assertNotNull($crawler->filter('[data-project-slug]')->attr('disabled'));
     }
 
     public function test_the_edit_screen_shows_no_slug_field_for_a_row_without_one(): void

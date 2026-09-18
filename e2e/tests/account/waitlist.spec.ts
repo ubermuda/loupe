@@ -25,7 +25,11 @@
 import { expect, type Page } from '@playwright/test';
 import { ADMIN, setRegistrationCap } from '../admin-helpers';
 import { createTest } from '../fixtures';
-import { extractLink, getEmailWithSubject } from '../helpers';
+import {
+    extractLink,
+    getEmailWithSubject,
+    submitRedirectingForm,
+} from '../helpers';
 import { coverageScaled } from '../timeouts';
 
 const test = createTest(ADMIN);
@@ -208,7 +212,11 @@ test.describe.serial('registration cap and waitlist', () => {
         await guest.getByLabel('Display name').fill('Riley Chen');
         await guest.getByLabel('Password').fill('e2e_password_123');
         await guest.getByLabel('I agree to').check();
-        await guest.getByRole('button', { name: 'Create account' }).click();
+        await submitRedirectingForm(
+            guest,
+            guest.getByRole('button', { name: 'Create account' }),
+            '/register',
+        );
         await expect(guest).toHaveURL('/register/check-email');
 
         // Subject-matched: email is async, so the newest message for this

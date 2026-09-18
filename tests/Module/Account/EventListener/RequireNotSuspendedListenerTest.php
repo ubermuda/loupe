@@ -22,7 +22,7 @@ final class RequireNotSuspendedListenerTest extends WebTestCase
         $client = static::createClient();
         $client->loginUser($this->seedUser('pinned@suspended-gate.example.com', suspended: true));
 
-        $client->request(Request::METHOD_GET, '/account');
+        $client->request(Request::METHOD_GET, '/account/profile');
 
         $this->assertResponseRedirects(self::SUSPENDED_PATH);
     }
@@ -78,7 +78,7 @@ final class RequireNotSuspendedListenerTest extends WebTestCase
         $client = static::createClient();
         $client->loginUser($this->seedUser('active@suspended-gate.example.com', suspended: false));
 
-        $client->request(Request::METHOD_GET, '/account');
+        $client->request(Request::METHOD_GET, '/account/profile');
 
         $this->assertResponseIsSuccessful();
     }

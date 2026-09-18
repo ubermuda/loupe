@@ -44,8 +44,26 @@ test('a saved comment is live and resolvable on the site page', async ({
         .locator('#lp-panel')
         .getByRole('button', { name: 'Add note' })
         .click();
+    await expect
+        .poll(() =>
+            page
+                .locator('#lp-panel')
+                .evaluate((panel) =>
+                    panel
+                        .getAnimations({ subtree: true })
+                        .some((animation) => animation.playState === 'running'),
+                ),
+        )
+        .toBe(false);
     await page.getByPlaceholder(/Describe the issue/).fill(COMMENT_BODY);
-    await page.getByRole('button', { name: 'Save' }).click();
+    await Promise.all([
+        page.waitForResponse(
+            (response) =>
+                response.url().endsWith('/api/site-review/comments') &&
+                response.request().method() === 'POST',
+        ),
+        page.getByRole('button', { name: 'Save' }).click(),
+    ]);
     // The save is the whole transaction — nothing else is clicked from here on.
     await expect(page.locator('#lp-head-count')).toHaveText('1');
 
@@ -71,6 +89,17 @@ test('a saved comment is live and resolvable on the site page', async ({
     });
     await expect(comment).toHaveAttribute('data-comment-status', 'pending');
     await expect(comment.getByText('Pending')).toBeVisible();
+
+    await expect(
+        page.getByRole('button', { name: /Needs a card 1/ }),
+    ).toBeVisible();
+    const search = page.getByPlaceholder('Find feedback or a page…');
+    await search.fill('does not match');
+    await expect(
+        page.getByText('No feedback matches these filters.'),
+    ).toBeVisible();
+    await search.fill('header');
+    await expect(comment).toBeVisible();
 
     // Resolve flips the status. The form POST redirects back to this same
     // page, so the attribute change is the post-submit signal to wait on.

@@ -31,7 +31,7 @@ Alpha body stays exactly as it is.
 
 Beta body reads completely differently now.`;
 
-const SECTIONS_PANEL = '[data-panel="contents"]';
+const SECTIONS_PANEL = '#review-margin-panel-outline';
 const HEADING_CONTROL =
     '[data-comment-anchor-target="doc"] [data-section-approve]';
 
@@ -106,13 +106,8 @@ test.use({ storageState: { cookies: [], origins: [] } });
 // every other worktree, which overruns the 30-second default.
 test.describe.configure({ timeout: 90000 });
 
-/**
- * Open the contents panel, which carries the section states. A press streams
- * its result rather than reloading, so the panel can already be open and a
- * second click would close it.
- */
 async function openSections(page: Page): Promise<void> {
-    if ('true' !== (await sectionsTab(page).getAttribute('aria-expanded'))) {
+    if ('true' !== (await sectionsTab(page).getAttribute('aria-selected'))) {
         await sectionsTab(page).click();
     }
     await expect(page.locator(SECTIONS_PANEL)).toBeVisible();
@@ -125,21 +120,17 @@ function sectionRow(page: Page, label: string) {
         .filter({ has: page.getByRole('link', { name: label, exact: true }) });
 }
 
-/** The tab, which carries the running count and stays visible on every render. */
 function sectionsTab(page: Page) {
-    return page.getByRole('button', { name: 'Contents' });
+    return page.getByRole('tab', { name: 'Outline', exact: true });
 }
 
-/**
- * Waits for the running count the tab carries.
- *
- * A press streams its result back to the page it came from, so the URL cannot
- * say the write landed and the count is the signal. The timeout is generous
- * because the whole round trip was measured at just over six seconds against a
- * php-fpm shared with every other worktree.
- */
 async function expectSectionCount(page: Page, count: string): Promise<void> {
-    await expect(sectionsTab(page)).toContainText(count, { timeout: 20000 });
+    await expect(page.locator('#section-summary-count')).toHaveText(count, {
+        timeout: 20000,
+    });
+    await expect(page.locator('#section-byline-count')).toHaveText(
+        `${count} sections approved`,
+    );
 }
 
 /**
@@ -225,8 +216,10 @@ test.describe('per-section approval', () => {
         await expectSectionCount(page, '1/2');
 
         await page
-            .getByRole('button', { name: 'Approve', exact: true })
+            .getByRole('button', { name: 'Finish review', exact: true })
             .click();
+        await page.getByRole('radio', { name: 'Approve', exact: true }).check();
+        await page.getByRole('button', { name: 'Submit review' }).click();
         // Same generous wait as the count above: the verdict still redirects
         // and re-renders on the shared container.
         await expect(page.locator('.lp-verdict-bar')).toBeVisible({

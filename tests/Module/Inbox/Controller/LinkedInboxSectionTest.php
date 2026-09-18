@@ -17,6 +17,7 @@ use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Module\Inbox\InboxScenario;
 use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
@@ -61,7 +62,9 @@ final class LinkedInboxSectionTest extends WebTestCase
         $this->client->loginUser($this->owner);
     }
 
-    public function test_the_card_page_lists_open_items_first_with_their_ask_context(): void
+    #[TestWith([null])]
+    #[TestWith(['card-drawer-frame'])]
+    public function test_the_card_page_lists_open_items_first_with_their_ask_context(?string $frame): void
     {
         $closed = $this->answered($this->em, $this->question($this->em, $this->project, 1, title: 'Which column?'));
         $open = $this->todo($this->em, $this->project, 2, title: 'Review pull request 482');
@@ -69,9 +72,10 @@ final class LinkedInboxSectionTest extends WebTestCase
         $this->linkCard($closed);
         $this->linkCard($open);
 
-        $crawler = $this->client->request(Request::METHOD_GET, $this->cardUrl());
+        $crawler = $this->client->request(Request::METHOD_GET, $this->cardUrl(), server: null === $frame ? [] : ['HTTP_TURBO_FRAME' => $frame]);
 
         self::assertResponseIsSuccessful();
+        self::assertContains('Turbo-Frame', $this->client->getResponse()->getVary());
         $section = $crawler->filter('[data-inbox-linked="card"]');
         self::assertCount(1, $section);
         self::assertSame(['2', '1'], $section->filter('[data-inbox-item]')->each(static fn (Crawler $node): string => (string) $node->attr('data-inbox-item')));
@@ -82,6 +86,7 @@ final class LinkedInboxSectionTest extends WebTestCase
         $action = (string) $section->filter('form[name="inbox_done_'.$open->id.'"]')->attr('action');
         self::assertStringContainsString('returnTo=card', $action);
         self::assertStringContainsString('returnId='.$this->card->id, $action);
+        self::assertSame($frame ?? '_top', $section->filter('form[name="inbox_done_'.$open->id.'"]')->attr('data-turbo-frame'));
     }
 
     public function test_the_document_page_lists_its_linked_items(): void
@@ -133,7 +138,13 @@ final class LinkedInboxSectionTest extends WebTestCase
         self::assertCount(1, $crawler->filter('.lp-review-doc [id="heading-export"]'));
     }
 
-    public function test_the_section_shows_ten_closed_items_newest_first_and_links_to_the_rest(): void
+    #[TestWith([null, '3'])]
+    #[TestWith([1, '1'])]
+    #[TestWith([12, '3'])]
+    #[TestWith([13, '3'])]
+    #[TestWith([14, '3'])]
+    #[TestWith([99, '3'])]
+    public function test_the_section_shows_ten_closed_items_including_the_link_target(?int $focusedNumber, string $lastNumber): void
     {
         $items = [];
         for ($number = 1; $number <= 12; ++$number) {
@@ -145,12 +156,15 @@ final class LinkedInboxSectionTest extends WebTestCase
         }
         // Every item enters the inbox through an ask, which is how the inbox page reaches it.
         $this->askHolding($this->em, $this->project, $items, closedAt: new \DateTimeImmutable('-1 minute'));
+        $this->answered($this->em, $this->question($this->em, $this->project, 13, title: 'Unlinked question'));
+        $other = $this->inboxProject($this->em, $this->owner);
+        $this->linkCard($this->answered($this->em, $this->question($this->em, $other, 14, title: 'Foreign question')));
 
-        $crawler = $this->client->request(Request::METHOD_GET, $this->cardUrl());
+        $crawler = $this->client->request(Request::METHOD_GET, $this->cardUrl(), null === $focusedNumber ? [] : ['inboxItem' => $focusedNumber]);
 
         self::assertResponseIsSuccessful();
         $shown = $crawler->filter('[data-inbox-linked-closed] [data-inbox-item]')->each(static fn (Crawler $node): string => (string) $node->attr('data-inbox-item'));
-        self::assertSame(['12', '11', '10', '9', '8', '7', '6', '5', '4', '3'], $shown);
+        self::assertSame(['12', '11', '10', '9', '8', '7', '6', '5', '4', $lastNumber], $shown);
         $more = $crawler->filter('[data-inbox-linked-more]');
         self::assertCount(1, $more);
 
@@ -159,6 +173,13 @@ final class LinkedInboxSectionTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(1, $inbox->filter('[data-inbox-item="1"]'));
         self::assertCount(1, $inbox->filter('[data-inbox-item="2"]'));
+
+        $link = $inbox->filter('#inbox-item-1 a[aria-label="Open Ship the export conversation"]');
+        self::assertCount(1, $link);
+        self::assertSame($this->cardUrl().'?tab=conversation&inboxItem=1#inbox-item-1', $link->attr('href'));
+        $destination = $this->client->click($link->link());
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $destination->filter('[data-inbox-linked-closed] #inbox-item-1'));
     }
 
     public function test_the_section_links_to_no_more_closed_items_when_all_of_them_show(): void
@@ -231,7 +252,8 @@ final class LinkedInboxSectionTest extends WebTestCase
                 static fn (array $query): bool => str_starts_with((string) $query['sql'], 'SELECT') && str_contains((string) $query['sql'], 'inbox_'),
             ),
         ));
-        self::assertCount(2, $inboxReads, implode("\n", $inboxReads));
+        self::assertCount(3, $inboxReads, implode("\n", $inboxReads));
+        self::assertCount(1, array_filter($inboxReads, static fn (string $sql): bool => str_contains($sql, 'FROM inbox_replies')));
         self::assertCount(1, array_filter($inboxReads, static fn (string $sql): bool => str_contains($sql, 'COUNT(')));
     }
 
@@ -242,7 +264,7 @@ final class LinkedInboxSectionTest extends WebTestCase
 
         $this->post($item, 'answer', ['selectedOptions' => '1'], $this->cardQuery());
 
-        self::assertResponseRedirects($this->cardUrl());
+        self::assertResponseRedirects($this->cardUrl().'?tab=conversation');
         self::assertSame(InboxItemState::Answered, $this->reload($item)->state);
         $this->client->followRedirect();
         self::assertSelectorTextContains('.lp-flash', 'Item 4 is answered.');
@@ -274,7 +296,8 @@ final class LinkedInboxSectionTest extends WebTestCase
         self::assertSelectorTextContains('#inbox-item-1', 'This question takes one option only.');
         $otherItem = $crawler->filter('#inbox-item-2');
         self::assertCount(1, $otherItem->filter('form[name="inbox_answer_'.$other->id.'"]'));
-        self::assertSame('', trim(implode('', $otherItem->filter('.lp-field-errors')->each(static fn (Crawler $node): string => $node->text()))));
+        self::assertSame('', trim(implode('', $otherItem->filter('.lp-field-errors:not([hidden])')->each(static fn (Crawler $node): string => $node->text()))));
+        self::assertCount(1, $otherItem->filter('[data-reply-submission-target="error"][hidden]'));
         self::assertCount(0, $otherItem->filter('[data-inbox-refusal]'));
         self::assertSame('', (string) $otherItem->filter('input[name="inbox_answer_'.$other->id.'[selectedOptions]"]')->attr('value'));
     }
@@ -357,10 +380,10 @@ final class LinkedInboxSectionTest extends WebTestCase
         $fromInbox = $this->todo($this->em, $this->project, 3);
 
         $this->post($fromCard, 'done', [], [...$this->cardQuery(), 'q' => 'export']);
-        self::assertResponseRedirects($this->cardUrl());
+        self::assertResponseRedirects($this->cardUrl().'?tab=conversation');
 
         $this->post($fromInbox, 'done', [], ['returnTo' => 'card', 'returnId' => (string) $this->card->id, 'q' => '  export  ']);
-        self::assertResponseRedirects('/projects/'.$this->project->id.'/inbox?q=export');
+        self::assertResponseRedirects('/projects/'.$this->project->id.'/inbox?q=export#inbox-item-3');
     }
 
     /** @return iterable<string, array{array<string, string>}> */

@@ -14,6 +14,7 @@ final readonly class ReorderBoardColumnsCommand
     public function __construct(
         public Project $project,
         public string $order,
+        public string $expectedOrder,
     ) {
     }
 }

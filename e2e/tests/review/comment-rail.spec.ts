@@ -1,12 +1,3 @@
-/**
- * Browser coverage for the comment rail: the margin column above the lg
- * breakpoint, where every thread is one marker row and one thread at a time
- * opens in place.
- *
- * Three passages in one short paragraph, so the three markers compete for the
- * same vertical space — which is the case the rail exists for.
- */
-
 import { test as base, expect, type Page } from '@playwright/test';
 import { suppressToolbar, suppressWidget } from '../fixtures';
 import { coverageScaled } from '../timeouts';
@@ -26,9 +17,7 @@ const DOC = '[data-comment-anchor-target="doc"]';
 const TOOLBAR = '[data-comment-anchor-target="toolbar"]';
 const COMPOSER = '[data-comment-anchor-target="composer"]';
 const COMPOSER_BODY = '[data-comment-anchor-target="composerBody"]';
-const MARKER = '.lp-comment-marker';
 const THREAD = '.lp-comment-thread';
-const EXPANDED = '.lp-comment-thread.lp-comment-thread--expanded';
 
 async function devRegisterAndVerify(
     page: Page,
@@ -140,8 +129,217 @@ async function commentOn(
     });
 }
 
-/** Every visible marker's `top`, in DOM order. */
-async function markerTops(page: Page): Promise<number[]> {
+test('margin tabs support keyboard navigation and preserve a reply draft', async ({
+    page,
+}) => {
+    await commentOn(page, FIRST, 'Keep this discussion mounted.');
+    const thread = page
+        .locator(THREAD)
+        .filter({ hasText: 'Keep this discussion mounted.' });
+    await thread.locator('[data-comment-reply-target=toggle]').click();
+    const reply = thread.getByRole('textbox');
+    await reply.fill('An unfinished reply');
+
+    const comments = page.getByRole('tab', { name: 'Comments', exact: true });
+    const outline = page.getByRole('tab', { name: 'Outline', exact: true });
+    const details = page.getByRole('tab', { name: 'Details', exact: true });
+    const filter = page.locator('[data-review-margin-target="filter"]');
+    await filter.locator('summary').click();
+    await comments.focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(outline).toBeFocused();
+    await expect(outline).toHaveAttribute('aria-selected', 'true');
+    await expect(comments).toHaveAttribute('tabindex', '-1');
+    await expect(
+        page.getByRole('tabpanel', { name: 'Outline', exact: true }),
+    ).toBeVisible();
+    await expect(filter).toBeHidden();
+
+    await page.keyboard.press('End');
+    await expect(details).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(comments).toBeFocused();
+    await expect(reply).toHaveValue('An unfinished reply');
+    await expect(filter).toBeVisible();
+    await expect(filter).not.toHaveAttribute('open');
+
+    await page.keyboard.press('ArrowLeft');
+    await expect(details).toBeFocused();
+    await page.keyboard.press('Home');
+    await expect(comments).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(outline).not.toBeFocused();
+    await expect(details).not.toBeFocused();
+});
+
+test('margin filter stays outside the tablist and within narrow viewports', async ({
+    page,
+}) => {
+    const filter = page.locator('[data-review-margin-target="filter"]');
+    for (const width of [1440, 1150, 950, 780, 390]) {
+        await page.setViewportSize({ width, height: 900 });
+        await filter.locator('summary').click();
+        const menu = filter.locator('.lp-review-margin-filter__menu');
+        await expect(menu).toBeVisible();
+        const bounds = await menu.boundingBox();
+        expect(bounds).not.toBeNull();
+        expect(bounds!.x).toBeGreaterThanOrEqual(0);
+        expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+        const triggerBounds = (await filter.locator('summary').boundingBox())!;
+        const commentsBounds = (await page
+            .getByRole('tab', { name: 'Comments', exact: true })
+            .boundingBox())!;
+        expect(commentsBounds.x - triggerBounds.x - triggerBounds.width).toBe(
+            4,
+        );
+        await page.keyboard.press('Escape');
+        await expect(filter.locator('summary')).toBeFocused();
+    }
+    await expect(page.getByRole('tablist').locator('details')).toHaveCount(0);
+    await expect(page.getByRole('tablist').getByRole('tab')).toHaveCount(4);
+    await page.addStyleTag({ content: 'html { font-size: 200%; }' });
+    await filter.locator('summary').click();
+    const enlargedBounds = (await filter
+        .locator('.lp-review-margin-filter__menu')
+        .boundingBox())!;
+    expect(enlargedBounds.x).toBeGreaterThanOrEqual(0);
+    expect(enlargedBounds.x + enlargedBounds.width).toBeLessThanOrEqual(390);
+});
+
+test('enlarged margin tabs scroll within the document controls', async ({
+    page,
+}) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await page.addStyleTag({ content: 'html { font-size: 200%; }' });
+    const tablist = page.getByRole('tablist');
+    const bounds = (await tablist.boundingBox())!;
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(390);
+    const controls = page.locator('.lp-review-margin-tabs');
+    const controlsLeft = (await controls.boundingBox())!.x;
+    const expectSelectedVisible = async () => {
+        const selected = tablist.locator('[aria-selected="true"]');
+        await expect(selected).toBeFocused();
+        const selectedBounds = (await selected.boundingBox())!;
+        expect(selectedBounds.y).toBeGreaterThanOrEqual(0);
+        const visibleBounds = (await tablist.boundingBox())!;
+        expect((await controls.boundingBox())!.x).toBe(controlsLeft);
+        expect(selectedBounds.x).toBeGreaterThanOrEqual(visibleBounds.x);
+        expect(selectedBounds.x + selectedBounds.width).toBeLessThanOrEqual(
+            visibleBounds.x + visibleBounds.width,
+        );
+        const labelBounds = (await selected.locator('span').boundingBox())!;
+        expect(labelBounds.x).toBeGreaterThanOrEqual(selectedBounds.x);
+        expect(labelBounds.x + labelBounds.width).toBeLessThanOrEqual(
+            selectedBounds.x + selectedBounds.width,
+        );
+        const launcherBounds = (await page
+            .locator('.lp-review-menu__trigger')
+            .boundingBox())!;
+        expect(selectedBounds.y + selectedBounds.height).toBeLessThanOrEqual(
+            launcherBounds.y,
+        );
+    };
+    await page.getByRole('tab', { name: 'Comments', exact: true }).focus();
+    for (const key of [
+        'End',
+        'Home',
+        'ArrowRight',
+        'ArrowRight',
+        'ArrowRight',
+    ]) {
+        await page.keyboard.press(key);
+        await expectSelectedVisible();
+    }
+    for (const name of ['Comments', 'Details', 'Comments']) {
+        await page.getByRole('tab', { name, exact: true }).click();
+        await expectSelectedVisible();
+    }
+});
+
+test('general comments expose their initial and toggled disclosure state', async ({
+    page,
+}) => {
+    await page
+        .locator('[data-action="comment-anchor#startUntargeted"]')
+        .click();
+    await page.locator(COMPOSER_BODY).fill('A general review comment.');
+    await page.getByRole('button', { name: 'Post', exact: true }).click();
+    const toggle = page.locator('.lp-general-comments__toggle');
+    const panel = page.locator('#general-comments-list');
+    await expect(panel).toContainText('A general review comment.');
+    await expect(panel).toBeVisible();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(toggle).toHaveAttribute(
+        'aria-controls',
+        'general-comments-list',
+    );
+    await toggle.click();
+    await expect(panel).toBeHidden();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await toggle.click();
+    await expect(panel).toBeVisible();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+});
+
+test('margin filters keep counts and visibility after thread updates', async ({
+    page,
+}) => {
+    await commentOn(page, FIRST, 'A discussion to filter.');
+    const thread = page
+        .locator(THREAD)
+        .filter({ hasText: 'A discussion to filter.' });
+    const filter = page.locator('[data-review-margin-target="filter"]');
+    const trigger = filter.locator('summary');
+    const empty = page.getByText('No comments match this filter.', {
+        exact: true,
+    });
+
+    await trigger.click();
+    await expect(
+        filter.getByRole('button', { name: 'Open 1', exact: true }),
+    ).toBeVisible();
+    await filter.getByRole('button', { name: 'Open 1', exact: true }).click();
+    await thread.getByRole('button', { name: 'Resolve', exact: true }).click();
+    await expect(thread).toHaveAttribute('data-anchor-status', 'resolved');
+    await expect(thread).toBeHidden();
+    await expect(empty).toBeVisible();
+
+    await trigger.click();
+    await expect(
+        filter.getByRole('button', { name: 'Open 0', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    await filter
+        .getByRole('button', { name: 'Resolved 1', exact: true })
+        .click();
+    await expect(trigger).toBeFocused();
+    await expect(thread).toBeVisible();
+    await expect(empty).toBeHidden();
+    await thread.getByRole('button', { name: 'Reopen', exact: true }).click();
+    await expect(thread).toHaveAttribute('data-anchor-status', 'pending');
+    await expect(thread).toBeHidden();
+    await expect(empty).toBeVisible();
+
+    await trigger.click();
+    await expect(
+        filter.getByRole('button', { name: 'Resolved 0', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    await filter.getByRole('button', { name: 'All 1', exact: true }).click();
+    await expect(thread).toBeVisible();
+    await trigger.click();
+    await filter
+        .getByRole('button', { name: 'Unanchored 0', exact: true })
+        .click();
+    await expect(thread).toBeHidden();
+    await expect(empty).toBeVisible();
+    await trigger.click();
+    await page.keyboard.press('Escape');
+    await expect(filter).not.toHaveAttribute('open');
+    await expect(trigger).toBeFocused();
+});
+
+/** Every visible thread's `top`, in DOM order. */
+async function threadTops(page: Page): Promise<number[]> {
     return page.evaluate(() =>
         [...document.querySelectorAll('.lp-comment-thread')]
             .filter((thread) => (thread as HTMLElement).offsetParent !== null)
@@ -165,85 +363,70 @@ async function seedThreeThreads(page: Page): Promise<void> {
     });
 }
 
-test('threads anchored close together render as markers, not cards', async ({
+test('thread placement follows text order and reflows around reply drafts', async ({
     page,
 }) => {
-    await seedThreeThreads(page);
+    await commentOn(page, THIRD, 'Last passage');
+    await commentOn(page, FIRST, 'First passage');
+    await commentOn(page, SECOND, 'Middle passage');
 
-    const markers = page.locator(MARKER);
-    await expect(markers).toHaveCount(3);
-    for (let index = 0; index < 3; index += 1) {
-        await expect(markers.nth(index)).toBeVisible();
-        await expect(markers.nth(index)).toHaveAttribute(
-            'aria-expanded',
-            'false',
-        );
-    }
+    const first = page.locator(THREAD).filter({ hasText: 'First passage' });
+    const middle = page.locator(THREAD).filter({ hasText: 'Middle passage' });
+    const last = page.locator(THREAD).filter({ hasText: 'Last passage' });
+    await expect
+        .poll(async () => {
+            const firstBox = await first.boundingBox();
+            const middleBox = await middle.boundingBox();
+            const lastBox = await last.boundingBox();
+            return (
+                !!firstBox &&
+                !!middleBox &&
+                !!lastBox &&
+                middleBox.y >= firstBox.y + firstBox.height + 14 &&
+                lastBox.y >= middleBox.y + middleBox.height + 14
+            );
+        })
+        .toBe(true);
 
-    // Nothing is open, so no body, no quote and no reply box is on screen.
-    await expect(page.locator('.lp-comment-body:visible')).toHaveCount(0);
-    await expect(page.locator(`${THREAD} textarea:visible`)).toHaveCount(0);
+    const disclosure = middle.locator('[data-controller=comment-reply]');
+    await disclosure.locator('[data-comment-reply-target=toggle]').click();
+    await disclosure
+        .getByRole('textbox')
+        .fill('Keep this draft while the rail reflows.');
+    await expect
+        .poll(async () => {
+            const middleBox = await middle.boundingBox();
+            const lastBox = await last.boundingBox();
+            return middleBox && lastBox
+                ? lastBox.y - middleBox.y - middleBox.height
+                : -1;
+        })
+        .toBeGreaterThanOrEqual(14);
+    const expandedTop = (await last.boundingBox())!.y;
 
-    // Each marker is its own row rather than a card stacked on its neighbour:
-    // one 32px marker row inside the padding every card keeps in both states.
-    const heights = await page.evaluate(() =>
-        [...document.querySelectorAll('.lp-comment-thread')].map(
-            (thread) => (thread as HTMLElement).offsetHeight,
-        ),
+    await disclosure.locator('[data-comment-reply-target=toggle]').click();
+    await expect
+        .poll(async () => (await last.boundingBox())!.y)
+        .toBeLessThan(expandedTop);
+    await disclosure.locator('[data-comment-reply-target=toggle]').click();
+    await expect(disclosure.getByRole('textbox')).toHaveValue(
+        'Keep this draft while the rail reflows.',
     );
-    expect(heights).toEqual([60, 60, 60]);
-
-    const tops = await markerTops(page);
-    expect(tops[1]).toBeGreaterThan(tops[0]);
-    expect(tops[2]).toBeGreaterThan(tops[1]);
 });
 
-test('one marker expands on click and a second collapses the first', async ({
+test('nearby threads show their bodies and collapsed reply forms', async ({
     page,
 }) => {
     await seedThreeThreads(page);
-
-    const markers = page.locator(MARKER);
-    await markers.nth(0).click();
-    await expect(page.locator(EXPANDED)).toHaveCount(1);
-    await expect(markers.nth(0)).toHaveAttribute('aria-expanded', 'true');
-    await expect(
-        page.locator(EXPANDED).locator('.lp-comment-body'),
-    ).toContainText('The first passage needs a number.');
-    // The passage is highlighted level with the card, so the card does not
-    // repeat it.
-    await expect(
-        page.locator(EXPANDED).locator('.lp-comment-quote'),
-    ).toBeHidden();
-    // The reply box is reachable while the card is open.
-    await expect(page.locator(EXPANDED).locator('textarea')).toBeVisible();
-
-    await markers.nth(2).click();
-    await expect(page.locator(EXPANDED)).toHaveCount(1);
-    await expect(markers.nth(0)).toHaveAttribute('aria-expanded', 'false');
-    await expect(markers.nth(2)).toHaveAttribute('aria-expanded', 'true');
-
-    // Clicking the open thread's own marker closes it again.
-    await markers.nth(2).click();
-    await expect(page.locator(EXPANDED)).toHaveCount(0);
+    await expect(page.locator('.lp-comment-body:visible')).toHaveCount(3);
+    await expect(page.locator('.lp-comment-avatar:visible')).toHaveCount(3);
+    await expect(page.locator('.lp-comment-quote:visible')).toHaveCount(0);
+    await expect(page.locator(THREAD).locator('textarea:visible')).toHaveCount(
+        0,
+    );
 });
 
-test('Escape closes the open thread and returns focus to its marker', async ({
-    page,
-}) => {
-    await seedThreeThreads(page);
-
-    const marker = page.locator(MARKER).nth(1);
-    await marker.click();
-    await expect(page.locator(EXPANDED)).toHaveCount(1);
-
-    await page.locator(`${EXPANDED} textarea`).focus();
-    await page.keyboard.press('Escape');
-    await expect(page.locator(EXPANDED)).toHaveCount(0);
-    await expect(marker).toBeFocused();
-});
-
-test('hovering a marker highlights the passage it points at', async ({
+test('hovering a thread highlights the passage it points at', async ({
     page,
 }) => {
     await seedThreeThreads(page);
@@ -251,7 +434,7 @@ test('hovering a marker highlights the passage it points at', async ({
     const thread = page.locator(THREAD).nth(1);
     await expect(thread).not.toHaveClass(/lp-comment-thread--active/);
 
-    await page.locator(MARKER).nth(1).hover();
+    await thread.hover();
     await expect(thread).toHaveClass(/lp-comment-thread--active/, {
         timeout: coverageScaled(5000),
     });
@@ -266,23 +449,19 @@ test('below the rail breakpoint every thread is a whole card again', async ({
     page,
 }) => {
     await seedThreeThreads(page);
-    await expect(page.locator(MARKER).first()).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });
 
-    // The rail is a margin idea. A thread the inline pass cannot place stays in
-    // the margin, so the breakpoint has to gate the presentation as well.
-    await expect(page.locator(`${MARKER}:visible`)).toHaveCount(0);
     await expect(page.locator('.lp-comment-body').first()).toBeVisible();
-    await expect(page.locator('.lp-comment-quote').first()).toBeVisible();
+    await expect(page.locator('.lp-comment-quote').first()).toBeHidden();
 });
 
-test('hiding resolved threads closes the gap the markers left', async ({
+test('hiding resolved threads closes the gap the cards left', async ({
     page,
 }) => {
     await seedThreeThreads(page);
 
-    const before = await markerTops(page);
+    const before = await threadTops(page);
     expect(before).toHaveLength(3);
 
     // The toggle is a button, and a button class declares a display that beats
@@ -290,8 +469,11 @@ test('hiding resolved threads closes the gap the markers left', async ({
     // so a toggle on screen here means that override came back.
     await expect(page.locator('.lp-review-actions__resolved')).toBeHidden();
 
-    await page.locator(MARKER).nth(0).click();
-    await page.getByRole('button', { name: 'Resolve', exact: true }).click();
+    await page
+        .locator(THREAD)
+        .first()
+        .getByRole('button', { name: 'Resolve', exact: true })
+        .click();
     await expect(page.locator('.lp-comment-thread--resolved')).toHaveCount(1, {
         timeout: coverageScaled(10000),
     });
@@ -306,11 +488,11 @@ test('hiding resolved threads closes the gap the markers left', async ({
     // animation frame, so a single read can still catch the old rows. Poll
     // both reads, the way the orphan-group test below does.
     await expect
-        .poll(() => markerTops(page), { timeout: coverageScaled(5000) })
+        .poll(() => threadTops(page), { timeout: coverageScaled(5000) })
         .toHaveLength(2);
-    // The two survivors move up into the row the resolved marker held.
+    // The two survivors move up into the space the resolved card held.
     await expect
-        .poll(async () => (await markerTops(page))[0], {
+        .poll(async () => (await threadTops(page))[0], {
             timeout: coverageScaled(5000),
         })
         .toBeLessThan(before[1]);
@@ -330,8 +512,6 @@ function groupHeight(page: Page): Promise<number> {
 function cardGapBelowOrphans(page: Page): Promise<number | null> {
     return page.evaluate(() => {
         const orphans = document.querySelector('.lp-orphan-group');
-        // The group holds a marker of its own, hidden, and a hidden element
-        // measures as a zero box at the origin.
         const card = [...document.querySelectorAll('.lp-comment-thread')].find(
             (thread) => null === thread.closest('.lp-orphan-group'),
         );
@@ -374,11 +554,16 @@ test('expanding the orphan group pushes the anchored cards below it', async ({
     await page.goto(reviewUrl);
     const group = page.locator('.lp-orphan-group');
     await expect(group).toBeVisible({ timeout: coverageScaled(10000) });
-    await expect(page.locator(`${MARKER}:visible`)).toHaveCount(1);
+    const toggle = group.getByRole('button', { expanded: false });
+    await expect(toggle).toHaveAttribute('aria-controls', 'orphaned-threads');
+    await expect(
+        page.locator('.lp-comment-thread__detail:visible'),
+    ).toHaveCount(1);
     const collapsed = await groupHeight(page);
 
     await page.locator('.lp-orphan-group__title').click();
     await expect(group).toHaveClass(/disclosure-open/);
+    await expect(group.getByRole('button', { expanded: true })).toBeVisible();
     // The disclosure sets `height: auto` when its tween finishes, and the gap
     // below is still clear while the group is halfway open.
     await expect(page.locator('.lp-orphan-group__list')).toHaveAttribute(

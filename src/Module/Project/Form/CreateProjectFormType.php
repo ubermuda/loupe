@@ -7,6 +7,7 @@ namespace App\Module\Project\Form;
 use App\Doctrine\SearchLanguage;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
+use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -21,6 +22,11 @@ class CreateProjectFormType extends AbstractType
             ->add('name', TextType::class, [
                 'label' => 'project.form.create_project_form.name.label',
                 'attr' => ['placeholder' => 'project.form.create_project_form.name.placeholder'],
+            ])
+            ->add('description', TextareaType::class, [
+                'required' => false,
+                'label' => 'project.form.create_project_form.description.label',
+                'attr' => ['rows' => 3, 'maxlength' => 500],
             ])
             ->add('domain', TextType::class, [
                 'required' => false,

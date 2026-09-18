@@ -34,6 +34,14 @@ export default class extends Controller {
         clearTimeout(this.timeout);
     }
 
+    revealField(event) {
+        event.target.scrollIntoView({
+            block: 'nearest',
+            inline: 'nearest',
+            behavior: 'instant',
+        });
+    }
+
     search() {
         clearTimeout(this.timeout);
         this.timeout = setTimeout(() => {

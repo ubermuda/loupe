@@ -9,6 +9,7 @@ use App\Module\Review\Entity\Comment;
 use App\Module\Review\Repository\DocumentVersionRepository;
 use App\Module\Review\Service\AnchorService;
 use App\Module\Review\ValueObject\Anchor;
+use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
@@ -38,38 +39,46 @@ final readonly class AddCommentHandler
             throw new DomainErrors(['quote' => 'review.document.suggestion.error.no_anchor']);
         }
 
-        $version = $this->documentVersions->findLatest($command->document);
-        $text = $version->plainText();
-
-        $prefix = $command->prefix ?? '';
-        $suffix = $command->suffix ?? '';
-        $orphaned = false;
-
-        if (null === $quote || '' === $quote) {
-            $anchor = Anchor::unanchored();
-        } else {
-            $anchor = $this->anchorService->fromSelection($text, $quote, $prefix, $suffix);
-            if (null === $anchor) {
-                // Quote not found in the current text — revised in another tab,
-                // say. Keep it and mark the comment orphaned rather than claim a
-                // location that isn't real. offsetHint stays 0, so the flag and
-                // not the offset is what a consumer must check.
-                $anchor = new Anchor($quote, $prefix, $suffix, 0);
-                $orphaned = true;
+        $comment = $this->em->wrapInTransaction(function () use ($command, $quote): Comment|DomainErrors {
+            $this->em->lock($command->document, LockMode::PESSIMISTIC_WRITE);
+            $version = $this->documentVersions->findLatest($command->document);
+            if ($version->versionNumber !== $command->displayedVersionNumber) {
+                return new DomainErrors(['versionNumber' => 'review.document.comment.error.stale_version']);
             }
+            $text = $version->plainText();
+
+            $prefix = $command->prefix ?? '';
+            $suffix = $command->suffix ?? '';
+            $orphaned = false;
+
+            if (null === $quote || '' === $quote) {
+                $anchor = Anchor::unanchored();
+            } else {
+                $anchor = $this->anchorService->fromSelection($text, $quote, $prefix, $suffix);
+                if (null === $anchor) {
+                    $anchor = new Anchor($quote, $prefix, $suffix, 0);
+                    $orphaned = true;
+                }
+            }
+
+            $comment = new Comment(
+                version: $version,
+                author: $command->actor,
+                body: $command->body,
+                anchor: $anchor,
+                replacement: $command->replacement,
+            );
+            $comment->orphaned = $orphaned;
+
+            $this->em->persist($comment);
+            $this->em->flush();
+
+            return $comment;
+        });
+
+        if ($comment instanceof DomainErrors) {
+            throw $comment;
         }
-
-        $comment = new Comment(
-            version: $version,
-            author: $command->actor,
-            body: $command->body,
-            anchor: $anchor,
-            replacement: $command->replacement,
-        );
-        $comment->orphaned = $orphaned;
-
-        $this->em->persist($comment);
-        $this->em->flush();
 
         // No body, no quote and no replacement: all three are text a person
         // wrote. `suggested` says whether the comment carries a replacement.
@@ -79,8 +88,8 @@ final readonly class AddCommentHandler
             [
                 'commentId' => (string) $comment->id,
                 'documentId' => (string) $command->document->id,
-                'versionId' => (string) $version->id,
-                'orphaned' => $orphaned,
+                'versionId' => (string) $comment->version->id,
+                'orphaned' => $comment->orphaned,
                 'suggested' => null !== $command->replacement,
             ],
             new AuditSubject('comment', (string) $comment->id),

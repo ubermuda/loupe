@@ -8,6 +8,40 @@ description, tags, an optional place in a series, and links to other documents;
 each submission mints a new **version**, and the review UI keeps every one of
 them.
 
+Search and the status filter stay on one row, including on narrow screens.
+With enlarged text, the row scrolls horizontally when needed. Keyboard focus brings each control into view.
+Tag and series filters remain available when the project uses them.
+
+## Creating
+
+Open Documents in a project, then select **New document**.
+Enter a title and Markdown.
+When Board is enabled, select the cards to link.
+Select **Create document**.
+Loupe opens the first version with Draft status.
+You can review a draft with **Finish review**, or edit it with **Revise**.
+
+New document, Revise, and Finish review keep unsent drafts during in-app navigation in the same tab.
+Closing a dialog keeps its draft. Select **Discard draft** to remove it.
+Reloading or closing the browser tab discards these local drafts; copy important text first.
+If another tab completes the review, the document shows your unsent review separately so you can copy or discard it.
+Restored review and revision drafts retain their original version checks. They cannot silently apply to a newer version.
+Documents submitted through the agent tools start with In review status.
+
+## Revising
+
+Select **Revise** beside the document title to edit its title and Markdown.
+Enter a revision note, then select **Save new version**.
+Loupe creates a version and keeps the previous version unchanged.
+Unchanged sections keep their approvals.
+The Linked cards field keeps the current selection until you change it.
+Clear a checkbox to remove that card link.
+The picker offers open cards and keeps linked cards available after they finish.
+The document returns to Needs review.
+
+If another revision arrives while you edit, Loupe keeps your draft and refuses the submission.
+Compare your draft with the current version before you submit a new revision.
+
 ## Reviewing
 
 `/projects/{projectId}/documents/{documentId}/review` renders the current
@@ -17,13 +51,58 @@ reviewer wants that passage to become — which the author applies by rewriting
 the Markdown and submitting a new version. Loupe never edits the document
 itself.
 
-Threads carry a status: pending, addressed, or resolved. The verdict on a
-version is either an approval or a request for changes, submitted at
-`/review/submit`.
+Comments, suggestions and strikes apply to the version shown on the page.
+If a newer version arrives, Loupe rejects the submission and keeps the draft open.
+Copy the draft before reloading, then select the passage in the current version.
+
+Select Dismiss selection in the selection toolbar to clear the selection without posting an annotation.
+Focus returns to the document. Select a passage again to annotate it.
+On narrow screens, the floating review menu hides while an annotation composer is open so it cannot cover the form controls.
+
+Threads carry a status: pending, addressed, or resolved.
+Select **Finish review** beside the document title to approve the version or request changes.
+A request for changes requires a review note. An approval can include a note.
+The saved verdict shows the reviewer, version, time and note.
+The account export and `document_get_review` result include the note.
+Open threads and unapproved sections do not prevent approval.
+
+A verdict applies to the version shown when the reviewer opens the page.
+If another verdict or revision arrives first, Loupe rejects the submission and keeps the note visible.
+Reload the page before submitting a fresh verdict.
+
+Select **Undo** beside a saved verdict to withdraw it and reopen review.
+The history retains the original verdict and its withdrawal.
+If another verdict or revision arrives first, Loupe rejects the old Undo form.
+Reload the page before withdrawing the current verdict.
+
+The margin has Comments, Outline, Decisions and Details tabs.
+Outline and Decisions show current progress and link to passages in the document.
+Details shows linked cards, outgoing and incoming references, tags, series and version notes.
+In Details, select **Copy review summary** to copy this version’s threads, including resolved threads and replies.
+The summary includes quoted passages, replacement text and unanchored markers.
+The History tab opens the full version list.
+
+Use Left and Right Arrow to select the adjacent tab.
+Use Home or End to select the first or last tab.
+Tab moves focus out of the tab list.
+On narrow screens, the margin tabs scroll horizontally. Selecting a tab brings its label into view.
+Switching tabs preserves an unfinished reply.
+
+The filter beside Comments shows counts for Open, Resolved, Unanchored and All.
+With the filter closed, Tab moves focus to Comments. Arrow keys select the other margin tabs.
+The selected filter stays active when you resolve or reopen a thread.
+An empty result shows a message in the margin.
 
 When the inbox is on, the review page lists the inbox items linked to the
 document above it, and you can answer them there. See
 [On a card page and a document page](inbox.md#on-a-card-page-and-a-document-page).
+
+An inbox Review request names the document to review.
+Submitting its verdict from the inbox or a card records the same document review as **Finish review**.
+A document verdict completes all open Review requests for that document.
+Questions that link the document as context stay open.
+Withdrawing the verdict reopens document review and shows the withdrawal beside each completed request's original answer.
+The completed requests stay closed and do not resume their agents again.
 
 The documents list answers one question per row: does this document wait for
 you? A row reads **1 thread waiting for you**, and counts up from there. A
@@ -38,28 +117,43 @@ and resolved counts, a chip that counts the addressed threads, and **All
 answered** when no thread is pending. The banner above the document counts the
 orphaned threads. Every count is a thread count, so a reply never adds to one.
 
+The General comments and orphaned-thread buttons expand or collapse their groups.
+Each button reports its expanded state to assistive technology.
+You can reverse a panel transition with another click. Panels, dialogs, and flash
+messages skip their movement when your system requests reduced motion.
+
+### Deleted threads
+
+Delete hides a thread and its replies from the review without changing their status.
+Select **Undo** in the deletion notice to restore the thread immediately.
+Deleted threads have no expiry date.
+In Details, select **Deleted threads** to find retained threads from every document version.
+Select **Restore thread** to return a thread to its original version.
+A restored thread on an older version stays read-only.
+
+Select **Purge permanently**, then confirm, to remove a thread and all its replies.
+Purge cannot be undone.
+The audit log records one thread deletion with its reply count and deletion sequence.
+Permanent purge records the root and every reply.
+Deleting the project or account also removes its retained threads.
+
 ### On a narrow screen
 
-On a narrow screen the bar keeps the document title and the two counts, and a
-round button in the bottom corner carries the rest. The button opens the
-contents, the versions, the references, the decisions, the resolved-thread
-toggle and the two verdict buttons. Each list opens inside the same panel, and
-the button becomes the way back out of it.
+On narrow screens, the workspace tabs and context tabs use separate rows.
+The context panels appear below the document.
+The corner menu also provides section navigation, version links, references and review actions.
 
-A wide window puts the comment threads in a rail beside the document, each one
-level with the passage it points at. A thread is one row there: a coloured dot
-for its state, its author, how many replies it carries, its age and its status.
-Click the row and the thread opens in place, with its body, its replies, the
-reply box and the buttons. That row stays where it is as the thread opens.
-Only one thread is open at a time, so opening a second closes the first,
-and a click on an open row closes it. Press Escape to close it from the keyboard.
+A wide window puts comment cards beside the document, aligned with their passages.
+Each card shows its author, status, body, replies and actions.
+Cards move down when necessary to prevent overlap.
+Reply opens an inline form and preserves its draft when closed.
 
-An open thread does not repeat the passage it points at, because that passage is
-highlighted in the document level with the row. A thread whose passage is gone
-from this version still quotes it, because there is nothing left to highlight.
+A comment does not repeat its highlighted passage.
+Suggestions and strikes retain the quoted text.
+A thread whose passage is absent from this version also retains its quote.
 
-A narrow window has no room for the rail, so each thread moves into the document
-instead, directly after the paragraph it points at, and shows in full.
+On narrow screens, comment cards stack below the document in passage order.
+Resizing the window preserves open reply forms and their drafts.
 
 Touch works the same way as a mouse. Select a passage and the comment toolbar
 appears. A highlighted passage has no hover, so a tap on one takes its place: the
@@ -72,10 +166,13 @@ Three views help across versions:
 - `/review/diff/{from}/{to}` — what changed between two versions.
 - `/review/history` — every version, newest first.
 
-The Versions tab on the review page carries the version you are reading: its
-number, its date, its note and the way into its comparison with the version
-before it. A link at the end of the tab opens the history page, which lists every
-version the same way. The history page also has a picker that compares any two
+Open **History** from the document navigation to see every version, newest first.
+Each version shows its revision note and review log.
+Each review shows the reviewer, verdict, note and time.
+Withdrawals remain beside the original verdict. Versions without reviews say so.
+History keeps the document header and the Document, Diff and History tabs.
+Use **Revise** or **Finish review** there to act on the current version.
+The history page also has a picker that compares any two
 versions, not only two that follow one another.
 
 ### What a comparison looks like
@@ -83,7 +180,7 @@ versions, not only two that follow one another.
 A comparison is the review page with one pane replaced, so the document keeps its
 place on the screen. A green chip in the metadata bar names the pair, and the ×
 on the chip returns you to the latest version. One row under it holds the view
-switch, **Document**, **Side by side** and **Markdown**, with the change count
+switch, **Rendered**, **Markdown** and **Side by side**, with the change count
 and the two jump arrows at the right end. `j` and `k` move between changes as
 well.
 
@@ -93,17 +190,21 @@ reads whole on both sides. Where one version has nothing, that side shows an
 empty slot and the pair stays level. The change count and the jump arrows work
 here too, and a jump can land in either column.
 
-The comment column is hidden in this view, because the second column takes its
-width. The page says so above the two columns, and the **Document** view brings
-the comments back. On a phone the two columns stack, older above newer, and each
-one names its version.
+Comments appear below the comparison so both columns keep their reading width.
+Select text on the new side to annotate the current version.
+The old side and comparisons of earlier versions remain read-only.
+On a phone the columns stack, older above newer, and each names its version.
 
 **Markdown** compares the two sources line by line, so it shows a change the
 other views cannot mark. Its contents list names every heading line, the removed
 ones included, and a row takes you to that line.
 
-While you compare, the Versions tab also holds a from/to picker, so any other
-pair is two clicks away. It keeps the view you are on.
+The toolbar includes the from/to picker and **Compare** button.
+Version selectors, Compare, and diff-view buttons use the same control height.
+Touch screens retain larger targets.
+Comparing another pair keeps the selected view.
+Equal versions show no changes and disable change navigation.
+Expand **Revision notes** to read the notes for the compared revisions.
 
 ### Commenting on a diff
 
@@ -152,6 +253,10 @@ addressed *before* submitting the new version, or re-read the review afterwards
 and use the fresh ids. Both operations reject a stale id rather than silently
 writing into a row nobody reads.
 
+Deleted threads reject replies and status changes. The
+`document_mark_comment_addressed` tool skips a deleted thread with the reason
+`deleted`. Historical threads remain read-only for Reply, Resolve, and Reopen.
+
 ## Decision blocks
 
 A document can ask the reviewer a question they answer by clicking rather than
@@ -170,8 +275,11 @@ Which host should an emailed reset link be built from?
 <!-- /decision -->
 ```
 
-The status line under the document title confirms each click. It names the option
-you chose and the version it is recorded against.
+Select your choices, then select **Save decision**.
+Choices remain unsaved until you select that button.
+The status line confirms the saved version.
+If another answer changes before you save, reload and compare your choices.
+Older per-option forms also reject changes based on an outdated answer.
 
 The identifier is permanent. The answer is stored against the id rather than
 against the words, so options can be reworded freely in a later version —

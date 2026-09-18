@@ -72,7 +72,7 @@ final class MarkCommentsAddressedHandlerTest extends KernelTestCase
     {
         $add = self::getContainer()->get(AddCommentHandler::class);
         self::assertInstanceOf(AddCommentHandler::class, $add);
-        $comment = $add(new AddCommentCommand($this->owner, $this->document, $quote, '', '', 'Please fix'));
+        $comment = $add(new AddCommentCommand($this->owner, $this->document, 1, $quote, '', '', 'Please fix'));
         $this->audit->forget();
 
         return $comment;

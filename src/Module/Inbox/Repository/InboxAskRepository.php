@@ -146,6 +146,33 @@ class InboxAskRepository extends ServiceEntityRepository
             ->getResult());
     }
 
+    /**
+     * The page of the completed queue that holds a closed ask, counting from 1.
+     *
+     * The queue lists the closed asks newest close first, so the rank of an ask
+     * is the number of asks that close after it, ties broken the way
+     * findClosedPageForProject() breaks them.
+     */
+    public function closedPageOf(InboxAsk $ask, int $perPage): int
+    {
+        if (null === $ask->closedAt) {
+            return 1;
+        }
+
+        $ahead = (int) $this->createQueryBuilder('a')
+            ->select('COUNT(a.id)')
+            ->andWhere('a.project = :project')
+            ->andWhere('a.closedAt IS NOT NULL')
+            ->andWhere('a.closedAt > :closedAt OR (a.closedAt = :closedAt AND a.id < :id)')
+            ->setParameter('project', $ask->project)
+            ->setParameter('closedAt', $ask->closedAt)
+            ->setParameter('id', $ask->id)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return intdiv($ahead, $perPage) + 1;
+    }
+
     public function countClosedForProject(Project $project): int
     {
         return (int) $this->createQueryBuilder('a')

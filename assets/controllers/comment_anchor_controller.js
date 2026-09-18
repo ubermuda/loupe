@@ -25,8 +25,7 @@ import {
  * Custom Highlight API — no DOM mutation, so `textContent` stays intact) and the
  * thread card is positioned vertically near its anchor. Positioning degrades to
  * normal document flow on any failure. Where the stylesheet gives the page no
- * comment column, the cards move into the prose instead, into slots the text
- * passes skip so the anchor basis is unchanged.
+ * comment column, the cards stack below the prose in passage order.
  *
  * Three actions share that one captured selection. Comment and Suggest open a
  * composer; Strike submits a hidden form outright, which is what lets it also be
@@ -117,7 +116,7 @@ export default class extends Controller {
 
     // Clearance between one comment card and the next when a passage carries
     // more comments than the space beside it can hold.
-    static CARD_GAP = 12;
+    static CARD_GAP = 14;
 
     // Strike is the only action that completes without a form, so it is the only
     // one worth a keystroke — one for Comment or Suggest would still leave a
@@ -148,11 +147,6 @@ export default class extends Controller {
     // follows them across documents.
     static HIDE_RESOLVED_KEY = 'loupe:review:hide-resolved';
 
-    // Wraps the cards for one paragraph where the margin column is not
-    // available. The class is also what the text passes skip, so a card's own
-    // words never enter the anchor basis.
-    static INLINE_SLOT_CLASS = 'lp-review-inline-threads';
-
     // A touch selection settles over several selectionchange events as the
     // handles are dragged, so the toolbar waits for the last of them.
     static SELECTION_SETTLE_MS = 250;
@@ -163,7 +157,6 @@ export default class extends Controller {
             : new ServerTransport(this);
         this.pendingSelection = null;
         this.strikeInFlight = false;
-        this.expandedThreadId = this.#expandedFromHash();
         this.hoveredThread = null;
         this.hoverProbeFrame = null;
         this.docTextCache = null;
@@ -215,19 +208,19 @@ export default class extends Controller {
         document.addEventListener('pointercancel', this.onPointerUp, true);
         document.addEventListener('selectionchange', this.onSelectionChange);
 
-        // A stream replaces #comment-threads, which no longer holds the cards
-        // moved into the prose. Returning them first is what stops the swap
-        // leaving a stale copy of every one of them behind.
-        this.onBeforeStreamRender = () => this.#collectInlineThreads();
-        document.addEventListener(
-            'turbo:before-stream-render',
-            this.onBeforeStreamRender,
-        );
-
         // Re-measure once layout settles (connect() fires before layout during
         // Turbo navigation, when getBoundingClientRect would read zeros).
         this.resizeObserver = new ResizeObserver(() => this.#scheduleLayout());
         this.resizeObserver.observe(this.docTarget);
+        const documentHeader = this.element.querySelector(
+            '.lp-review-doc__head',
+        );
+        if (documentHeader) {
+            this.resizeObserver.observe(documentHeader);
+        }
+        for (const thread of this.threadTargets) {
+            this.resizeObserver.observe(thread);
+        }
         this.observedOrphans = null;
 
         // Turbo Streams swap the thread list (add/delete/resolve replace the
@@ -243,6 +236,14 @@ export default class extends Controller {
         });
     }
 
+    threadTargetConnected(thread) {
+        this.resizeObserver?.observe(thread);
+    }
+
+    threadTargetDisconnected(thread) {
+        this.resizeObserver?.unobserve(thread);
+    }
+
     disconnect() {
         window.removeEventListener('resize', this.onResize);
         document.removeEventListener('keydown', this.onKeydown);
@@ -250,10 +251,6 @@ export default class extends Controller {
         document.removeEventListener('pointerup', this.onPointerUp, true);
         document.removeEventListener('pointercancel', this.onPointerUp, true);
         document.removeEventListener('selectionchange', this.onSelectionChange);
-        document.removeEventListener(
-            'turbo:before-stream-render',
-            this.onBeforeStreamRender,
-        );
         if (this.selectionSettle !== null) {
             clearTimeout(this.selectionSettle);
         }
@@ -432,6 +429,14 @@ export default class extends Controller {
         this.#hideToolbar();
     }
 
+    dismissSelection(event) {
+        event?.preventDefault();
+        this.#clearPendingSelection();
+        this.#clearActiveHighlight();
+        window.getSelection()?.removeAllRanges();
+        this.docTarget.focus({ preventScroll: true });
+    }
+
     /** Toolbar action: open the comment composer for the captured selection. */
     startComment(event) {
         event?.preventDefault();
@@ -455,6 +460,7 @@ export default class extends Controller {
         this.composerErrorTarget.textContent = '';
         this.composerBodyTarget.value = '';
         this.composerBodyTarget.focus();
+        this.#revealComposer(this.composerTarget);
     }
 
     /**
@@ -484,6 +490,7 @@ export default class extends Controller {
         this.suggestReplacementTarget.value = this.pendingSelection.quote;
         this.suggestReplacementTarget.focus();
         this.suggestReplacementTarget.select();
+        this.#revealComposer(this.suggestComposerTarget);
     }
 
     /**
@@ -739,15 +746,6 @@ export default class extends Controller {
     #extractAnchor(range) {
         if (this.diffValue) {
             return this.#extractDiffAnchor(range);
-        }
-
-        // A drag that ends on an inlined card has no offset in the document
-        // text, and the walkers below would give it the end of the document.
-        if (
-            this.#insideInlineSlot(range.startContainer) ||
-            this.#insideInlineSlot(range.endContainer)
-        ) {
-            return null;
         }
 
         const start = this.#textOffset(range.startContainer, range.startOffset);
@@ -1034,14 +1032,7 @@ export default class extends Controller {
         if (targetNode.nodeType === Node.ELEMENT_NODE) {
             const childrenBefore = [...targetNode.childNodes]
                 .slice(0, offsetInNode)
-                .reduce(
-                    (total, child) =>
-                        total +
-                        (this.#isInlineSlot(child)
-                            ? 0
-                            : child.textContent.length),
-                    0,
-                );
+                .reduce((total, child) => total + child.textContent.length, 0);
 
             return this.#elementStartOffset(targetNode) + childrenBefore;
         }
@@ -1079,35 +1070,8 @@ export default class extends Controller {
         return offset;
     }
 
-    #isInlineSlot(node) {
-        return (
-            node.nodeType === Node.ELEMENT_NODE &&
-            node.classList.contains(this.constructor.INLINE_SLOT_CLASS)
-        );
-    }
-
-    #insideInlineSlot(node) {
-        const element =
-            node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-
-        return (
-            element !== null &&
-            element.closest(`.${this.constructor.INLINE_SLOT_CLASS}`) !== null
-        );
-    }
-
-    /**
-     * Every text node of the document pane, skipping the cards moved into it.
-     * The anchor basis has to stay identical to the server's plain text, which
-     * knows nothing about a comment card sitting between two paragraphs.
-     */
     #textWalker() {
-        return document.createTreeWalker(this.docTarget, NodeFilter.SHOW_TEXT, {
-            acceptNode: (node) =>
-                this.#insideInlineSlot(node)
-                    ? NodeFilter.FILTER_REJECT
-                    : NodeFilter.FILTER_ACCEPT,
-        });
+        return document.createTreeWalker(this.docTarget, NodeFilter.SHOW_TEXT);
     }
 
     /** The pane's text on that same basis. Rebuilt once per layout pass. */
@@ -1238,63 +1202,6 @@ export default class extends Controller {
             this.constructor.HOVER_HIGHLIGHT,
             this.hoverHighlight,
         );
-    }
-
-    /**
-     * Marker action: open this thread and close whichever one was open.
-     *
-     * The open thread is held as a DOM id rather than as an element, so a Turbo
-     * Stream that replaces the card — every reply does — leaves it open. A card
-     * with no id, which is the demo prototype, cannot be opened; its marker is
-     * display:none there, so nothing reaches this.
-     */
-    toggleThread(event) {
-        event.preventDefault();
-        const thread = event.currentTarget.closest('.lp-comment-thread');
-        if (thread === null || thread.id === '') {
-            return;
-        }
-        this.expandedThreadId =
-            this.expandedThreadId === thread.id ? null : thread.id;
-        this.#applyExpansion();
-        this.#scheduleLayout();
-    }
-
-    /** Card action: Escape closes the open card and returns focus to its marker. */
-    threadKeydown(event) {
-        if (event.key !== 'Escape') {
-            return;
-        }
-        const thread = event.currentTarget;
-        if (!thread.classList.contains('lp-comment-thread--expanded')) {
-            return;
-        }
-        // The document-level handler would otherwise also drop a pending
-        // selection the reader still wants.
-        event.stopPropagation();
-        this.expandedThreadId = null;
-        this.#applyExpansion();
-        this.#scheduleLayout();
-        thread.querySelector('.lp-comment-marker')?.focus();
-    }
-
-    #applyExpansion() {
-        for (const thread of this.threadTargets) {
-            const expanded =
-                thread.id !== '' && thread.id === this.expandedThreadId;
-            thread.classList.toggle('lp-comment-thread--expanded', expanded);
-            thread
-                .querySelector('.lp-comment-marker')
-                ?.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-        }
-    }
-
-    /** A #comment-thread-… fragment opens that thread, which is what the
-     *  review screen's own deep links point at. */
-    #expandedFromHash() {
-        const id = window.location.hash.slice(1);
-
-        return id.startsWith('comment-thread-') ? id : null;
     }
 
     /**
@@ -1484,15 +1391,11 @@ export default class extends Controller {
         } catch {
             this.agentHighlight?.clear();
         }
-        // Before the placement pass: it measures offsetHeight, and a marker is a
-        // different height from the card it opens into.
-        this.#applyExpansion();
         try {
             if (this.#threadsInMargin()) {
-                this.#collectInlineThreads();
                 this.#positionThreads();
             } else {
-                this.#inlineThreads();
+                this.#stackThreads();
             }
         } catch {
             this.#releaseThreads();
@@ -1518,122 +1421,40 @@ export default class extends Controller {
         return getComputedStyle(this.marginTarget).position === 'absolute';
     }
 
-    /**
-     * Places each card in normal flow, in a slot opened after the block its
-     * passage starts in. This is the layout below the margin's breakpoint, where
-     * there is no gutter beside the prose to hold a column of cards.
-     *
-     * Every move is conditional. The thread observer watches the controller root
-     * for childList changes, so a pass that re-appended a card already in place
-     * would schedule the next layout and never settle.
-     */
-    #inlineThreads() {
+    #stackThreads() {
         if (!this.hasMarginTarget) {
             return;
         }
         if (this.hasBlockTarget) {
             this.blockTarget.style.minHeight = '';
         }
+        this.marginTarget.style.top = '';
 
-        const grouped = new Map();
-        for (const thread of this.threadTargets) {
-            if (thread.dataset.commentGeneral === 'true') {
-                continue;
+        const threads = this.threadTargets.filter(
+            (thread) => thread.parentElement === this.marginTarget,
+        );
+        threads.sort((first, second) => {
+            const firstRange = this.anchorRanges.get(first);
+            const secondRange = this.anchorRanges.get(second);
+            if (!firstRange || !secondRange) {
+                return 0;
             }
-            const range = this.anchorRanges.get(thread);
-            if (range === undefined) {
-                continue;
-            }
-            const host = this.#inlineHost(range);
-            if (host === null) {
-                continue;
-            }
+
+            return firstRange.compareBoundaryPoints(
+                Range.START_TO_START,
+                secondRange,
+            );
+        });
+
+        let previous = null;
+        for (const thread of threads) {
             thread.style.top = '';
             thread.style.position = '';
-            const group = grouped.get(host);
-            if (group === undefined) {
-                grouped.set(host, [thread]);
-            } else {
-                group.push(thread);
+            if (previous !== null && previous.nextElementSibling !== thread) {
+                previous.after(thread);
             }
+            previous = thread;
         }
-
-        for (const [host, threads] of grouped) {
-            const slot = this.#inlineSlotAfter(host);
-            let previous = null;
-            for (const thread of threads) {
-                const wanted =
-                    previous === null ? slot.firstChild : previous.nextSibling;
-                if (wanted !== thread) {
-                    slot.insertBefore(thread, wanted);
-                }
-                previous = thread;
-            }
-        }
-
-        this.#pruneInlineSlots();
-    }
-
-    /** The block element the passage starts in, or null when it is not one. */
-    #inlineHost(range) {
-        let node = range.startContainer;
-        if (node.nodeType !== Node.ELEMENT_NODE) {
-            node = node.parentElement;
-        }
-        while (
-            node !== null &&
-            node !== this.docTarget &&
-            node.parentElement !== this.docTarget
-        ) {
-            node = node.parentElement;
-        }
-
-        return node === null || node === this.docTarget ? null : node;
-    }
-
-    #inlineSlotAfter(host) {
-        const next = host.nextElementSibling;
-        if (
-            next !== null &&
-            next.classList.contains(this.constructor.INLINE_SLOT_CLASS)
-        ) {
-            return next;
-        }
-
-        const slot = document.createElement('div');
-        // not-prose is the typography plugin's own opt-out, and the slot needs
-        // it because it sits inside the rendered prose.
-        slot.className = `${this.constructor.INLINE_SLOT_CLASS} not-prose`;
-        host.after(slot);
-
-        return slot;
-    }
-
-    #pruneInlineSlots() {
-        for (const slot of this.#inlineSlots()) {
-            if (slot.querySelector('.lp-comment-thread') === null) {
-                slot.remove();
-            }
-        }
-    }
-
-    /** Returns every inlined card to the margin and closes the slots. */
-    #collectInlineThreads() {
-        if (!this.hasMarginTarget) {
-            return;
-        }
-        for (const slot of this.#inlineSlots()) {
-            for (const thread of [...slot.children]) {
-                this.marginTarget.append(thread);
-            }
-            slot.remove();
-        }
-    }
-
-    #inlineSlots() {
-        return this.element.querySelectorAll(
-            `.${this.constructor.INLINE_SLOT_CLASS}`,
-        );
     }
 
     /**
@@ -1654,6 +1475,13 @@ export default class extends Controller {
             return;
         }
 
+        const content = this.blockTarget.querySelector('[data-rail-align]');
+        if (content) {
+            const contentTop = content.getBoundingClientRect().top;
+            const blockTop = this.blockTarget.getBoundingClientRect().top;
+            this.marginTarget.style.top = `${Math.max(0, Math.round(contentTop - blockTop))}px`;
+        }
+
         const anchored = this.threadTargets.filter(
             (thread) =>
                 thread.dataset.commentGeneral !== 'true' &&
@@ -1672,6 +1500,19 @@ export default class extends Controller {
 
             return;
         }
+
+        anchored.sort((first, second) => {
+            const firstRange = this.anchorRanges.get(first);
+            const secondRange = this.anchorRanges.get(second);
+            if (!firstRange || !secondRange) {
+                return 0;
+            }
+
+            return firstRange.compareBoundaryPoints(
+                Range.START_TO_START,
+                secondRange,
+            );
+        });
 
         const marginTop = this.marginTarget.getBoundingClientRect().top;
         // The orphan group leads the column in flow, so the positioned cards
@@ -1722,6 +1563,19 @@ export default class extends Controller {
         event?.preventDefault();
         this.hideResolvedValue = !this.hideResolvedValue;
         this.#applyHideResolved();
+        this.dispatch('resolved-filter', {
+            detail: { hidden: this.hideResolvedValue },
+        });
+        this.#rememberHideResolved();
+    }
+
+    filterThreads(event) {
+        this.hideResolvedValue = event.detail.filter === 'open';
+        this.#applyHideResolved();
+        this.#rememberHideResolved();
+    }
+
+    #rememberHideResolved() {
         try {
             window.localStorage.setItem(
                 this.constructor.HIDE_RESOLVED_KEY,
@@ -1819,6 +1673,12 @@ export default class extends Controller {
         this.suggestionHighlight?.clear();
         for (const thread of this.threadTargets) {
             const status = thread.dataset.anchorStatus ?? 'pending';
+            if (
+                thread.hidden ||
+                (this.hideResolvedValue && status === 'resolved')
+            ) {
+                continue;
+            }
             const highlight =
                 this.statusHighlights[status] ?? this.statusHighlights.pending;
             const range = this.anchorRanges.get(thread);
@@ -1849,8 +1709,7 @@ export default class extends Controller {
      * The marks are carried by empty elements outside the doc pane rather than by
      * wrapping the passages themselves: the pane's text has to stay
      * byte-identical to the server's plain-text basis, and any element inserted
-     * into it would shift every anchor offset after it. The inline thread slots
-     * are the one exception, and #textWalker skips them for that reason.
+     * into it would shift every anchor offset after it.
      */
     #highlightAgentMarks() {
         if (!this.agentHighlight) {
@@ -1944,6 +1803,17 @@ export default class extends Controller {
         const maxLeft = Math.max(0, host.clientWidth - panel.offsetWidth);
         panel.style.top = `${base.top}px`;
         panel.style.left = `${Math.min(base.left, maxLeft)}px`;
+    }
+
+    /**
+     * Focusing a field scrolls that field into view, which can leave the panel's
+     * own buttons below the fold on a phone. Reveal the whole panel instead.
+     */
+    #revealComposer(panel) {
+        if (panel.getBoundingClientRect().bottom <= window.innerHeight) {
+            return;
+        }
+        panel.scrollIntoView({ block: 'nearest', behavior: 'auto' });
     }
 
     #showComposerUntargeted() {

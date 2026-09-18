@@ -4,7 +4,16 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Inbox\Mcp;
 
+use App\Module\Inbox\Command\ReplyToInboxItemCommand;
+use App\Module\Inbox\Command\ReplyToInboxItemHandler;
+use App\Module\Inbox\Entity\InboxItem;
+use App\Module\Inbox\Mcp\InboxAskTool;
 use App\Module\Inbox\Mcp\InboxGetTool;
+use App\Module\Inbox\Mcp\InboxListTool;
+use App\Module\Review\Command\SubmitReviewCommand;
+use App\Module\Review\Command\SubmitReviewHandler;
+use App\Module\Review\Command\UndoVerdictCommand;
+use App\Module\Review\Command\UndoVerdictHandler;
 use App\Security\McpBoundProjectVoter;
 use App\Tests\Support\McpTokenScenario;
 use App\Tests\Support\RecordingAuditor;
@@ -44,6 +53,79 @@ final class InboxGetToolTest extends KernelTestCase
         $this->expectException(ToolCallException::class);
         $this->expectExceptionMessage('The inbox is switched off on this instance.');
         ($this->tool)((string) Uuid::v4());
+    }
+
+    public function test_get_and_reader_list_return_the_original_review_result_after_withdrawal(): void
+    {
+        $this->enableInbox();
+        $project = $this->makeProject('read-review-result');
+        $document = $this->document($this->em, $project);
+        $document->addVersion('# Design', '<h1>Design</h1>');
+        $this->em->flush();
+        $this->actAsMcpTokenBoundTo($project);
+        $ask = self::getContainer()->get(InboxAskTool::class);
+        self::assertInstanceOf(InboxAskTool::class, $ask);
+        $sessionId = (string) Uuid::v4();
+        $asked = $ask($sessionId, [[
+            'kind' => 'review',
+            'title' => 'Review the design',
+            'blocking' => true,
+            'reviewDocumentId' => (string) $document->id,
+        ]]);
+        $itemId = $asked['items'][0]['itemId'];
+        $item = $this->em->find(InboxItem::class, $itemId);
+        self::assertInstanceOf(InboxItem::class, $item);
+        $reply = self::getContainer()->get(ReplyToInboxItemHandler::class);
+        $posted = $reply(new ReplyToInboxItemCommand($item, $project->owner, 'Read this additional context.', (string) Uuid::v4()));
+        $open = ($this->tool)($itemId);
+        self::assertSame([[
+            'replyId' => (string) $posted->id,
+            'authorId' => (string) $project->owner->id,
+            'authorName' => $project->owner->fullName,
+            'body' => 'Read this additional context.',
+            'createdAt' => $posted->createdAt->format(\DATE_ATOM),
+        ]], $open['replies']);
+        self::assertNotNull($open['review']);
+        self::assertSame('document', $open['review']['targetKind']);
+        self::assertSame((string) $document->id, $open['review']['documentId']);
+        self::assertNull($open['review']['verdict']);
+        $submit = self::getContainer()->get(SubmitReviewHandler::class);
+        self::assertInstanceOf(SubmitReviewHandler::class, $submit);
+        $result = $submit(new SubmitReviewCommand($project->owner, $document, 'approved', 1, 'Ready to build.'));
+        $undo = self::getContainer()->get(UndoVerdictHandler::class);
+        self::assertInstanceOf(UndoVerdictHandler::class, $undo);
+        $withdrawal = $undo(new UndoVerdictCommand($document, $project->owner, (string) $result->id));
+        $expected = [
+            'targetKind' => 'document',
+            'targetLabel' => 'The design',
+            'documentId' => (string) $document->id,
+            'pullRequestId' => null,
+            'verdict' => 'approved',
+            'note' => 'Ready to build.',
+            'reviewerId' => (string) $project->owner->id,
+            'reviewerName' => $project->owner->fullName,
+            'submittedAt' => $result->submittedAt->format(\DATE_ATOM),
+            'reviewedVersionNumber' => 1,
+            'documentReviewId' => (string) $result->id,
+            'withdrawal' => [
+                'reviewId' => (string) $withdrawal->id,
+                'reviewerId' => (string) $project->owner->id,
+                'reviewerName' => $project->owner->fullName,
+                'submittedAt' => $withdrawal->submittedAt->format(\DATE_ATOM),
+            ],
+        ];
+        $this->em->clear();
+
+        $closed = ($this->tool)($itemId, $sessionId);
+        self::assertSame('done', $closed['state']);
+        self::assertSame($expected, $closed['review']);
+        $list = self::getContainer()->get(InboxListTool::class);
+        self::assertInstanceOf(InboxListTool::class, $list);
+        $rows = $list(askId: $asked['askId'], readerSessionId: $sessionId);
+        self::assertCount(1, $rows['items']);
+        $row = $rows['items'][0];
+        self::assertArrayHasKey('review', $row);
+        self::assertSame($expected, $row['review'] ?? null);
     }
 
     public function test_an_item_reads_back_in_full_with_its_links_and_its_asks(): void

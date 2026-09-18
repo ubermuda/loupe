@@ -6,13 +6,12 @@ namespace App\Module\Board\Service;
 
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Repository\CardRepository;
 
 /**
- * Keeps a (column, priority) group numbered from 0 with no gaps.
+ * Keeps an open column numbered from 0 with no gaps.
  *
- * Every write that adds a card to a group, takes one out, or deletes one goes
+ * Every write that adds a card to a column, takes one out, or deletes one goes
  * through here, so the rank the board reads and the MCP payload reports is the
  * card's real place in its column rather than a number with holes in it.
  *
@@ -26,10 +25,10 @@ final readonly class CardGroupOrder
     ) {
     }
 
-    /** Puts the card at the wanted rank in its own group, then renumbers the group from 0. */
+    /** Puts the card at the wanted rank in its own column, then renumbers the column from 0. */
     public function place(Card $card, int $position): void
     {
-        $members = $this->groupWithout($card->column, $card->priority, $card);
+        $members = $this->columnWithout($card->column, $card);
 
         $target = max(0, min($position, \count($members)));
         array_splice($members, $target, 0, [$card]);
@@ -38,19 +37,19 @@ final readonly class CardGroupOrder
     }
 
     /**
-     * Closes the gap a card leaves in a group. A terminal column keeps no
-     * position, so a group in one is left alone.
+     * Closes the gap a card leaves in a column. A terminal column keeps no
+     * position, so it is left alone.
      *
-     * $leaving is still in the group in the database, because it has not been
+     * $leaving is still in the column in the database, because it has not been
      * flushed out of it yet, so it is dropped by identity.
      */
-    public function compact(BoardColumn $column, CardPriority $priority, Card $leaving): void
+    public function compact(BoardColumn $column, Card $leaving): void
     {
         if ($column->terminal) {
             return;
         }
 
-        $this->renumber($this->groupWithout($column, $priority, $leaving));
+        $this->renumber($this->columnWithout($column, $leaving));
     }
 
     /**
@@ -64,10 +63,10 @@ final readonly class CardGroupOrder
     }
 
     /** @return list<Card> */
-    private function groupWithout(BoardColumn $column, CardPriority $priority, Card $excluded): array
+    private function columnWithout(BoardColumn $column, Card $excluded): array
     {
         return array_values(array_filter(
-            $this->cards->findGroup($column, $priority),
+            $this->cards->findRanked($column),
             static fn (Card $member): bool => $member !== $excluded,
         ));
     }

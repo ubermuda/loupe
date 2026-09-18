@@ -13,6 +13,7 @@ use App\Module\Review\Command\ReviseDocumentCommand;
 use App\Module\Review\Command\ReviseDocumentHandler;
 use App\Module\Review\Command\SelectDecisionOptionCommand;
 use App\Module\Review\Command\SelectDecisionOptionHandler;
+use App\Module\Review\Entity\DecisionSelection;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Repository\DecisionSelectionRepository;
 use App\Tests\Support\DirectLogging;
@@ -110,12 +111,31 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
         $document = $this->createDocument(self::MARKDOWN);
 
         ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 0, displayedVersionNumber: 1));
-        $second = ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1, displayedVersionNumber: 1))->selection;
+        $second = ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'deploy-target', 1, displayedVersionNumber: 1, expectedOptionIndexes: [0]))->selection;
 
         self::assertCount(1, $this->selections->findBy(['document' => $document]));
         self::assertNotNull($second);
         self::assertSame(1, $second->optionIndex);
         self::assertSame('Ship straight to production', $second->optionLabel);
+    }
+
+    public function test_a_stale_multi_choice_write_keeps_the_current_answer(): void
+    {
+        $document = $this->createDocument(self::MULTIPLE_MARKDOWN);
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 2, displayedVersionNumber: 1, expectedOptionIndexes: [0]));
+
+        try {
+            ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1, chosen: false, expectedOptionIndexes: [0]));
+            self::fail('A stale answer must not remove an option.');
+        } catch (DomainErrors $error) {
+            self::assertSame(['optionIndex' => 'review.decision.error.changed_answer'], $error->errors);
+        }
+
+        $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
+        self::assertSame([0, 2], array_map(static fn (DecisionSelection $selection): int => $selection->optionIndex, $stored));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 2, displayedVersionNumber: 1));
+        self::assertCount(2, $this->selections->findByDocumentAndDecisionId($document, 'ship-with'));
     }
 
     /**
@@ -127,7 +147,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
         $document = $this->createDocument(self::MULTIPLE_MARKDOWN);
 
         ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1));
-        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 2, displayedVersionNumber: 1));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 2, displayedVersionNumber: 1, expectedOptionIndexes: [0]));
 
         $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
         self::assertSame([0, 2], array_map(static fn (object $row): int => $row->optionIndex, $stored));
@@ -139,9 +159,9 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
     {
         $document = $this->createDocument(self::MULTIPLE_MARKDOWN);
         ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1));
-        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 1, displayedVersionNumber: 1));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 1, displayedVersionNumber: 1, expectedOptionIndexes: [0]));
 
-        $result = ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1, chosen: false));
+        $result = ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1, chosen: false, expectedOptionIndexes: [0, 1]));
 
         self::assertNull($result->selection);
         $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
@@ -163,8 +183,8 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
         $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
         self::assertSame([0], array_map(static fn (object $row): int => $row->optionIndex, $stored));
 
-        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1, chosen: false));
-        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1, chosen: false));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1, chosen: false, expectedOptionIndexes: [0]));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1, chosen: false, expectedOptionIndexes: [0]));
 
         self::assertSame([], $this->selections->findByDocumentAndDecisionId($document, 'ship-with'));
     }
@@ -188,7 +208,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
         ));
 
         // 'The importer' now sits at index 2, and index 0 is a different option.
-        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 2));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 2, expectedOptionIndexes: [2]));
 
         $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
         self::assertSame(
@@ -196,7 +216,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
             array_map(static fn (object $row): array => [$row->optionIndex, $row->optionLabel], $stored),
         );
 
-        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 2, displayedVersionNumber: 2, chosen: false));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 2, displayedVersionNumber: 2, chosen: false, expectedOptionIndexes: [0, 2]));
 
         $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
         self::assertSame(
@@ -214,7 +234,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
     {
         $document = $this->createDocument(self::MULTIPLE_MARKDOWN);
         ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1));
-        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 1, displayedVersionNumber: 1));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 1, displayedVersionNumber: 1, expectedOptionIndexes: [0]));
 
         $revise = self::getContainer()->get(ReviseDocumentHandler::class);
         self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
@@ -224,7 +244,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
             'Swapped the first two options.',
         ));
 
-        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 2, displayedVersionNumber: 2));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 2, displayedVersionNumber: 2, expectedOptionIndexes: [0, 1]));
 
         $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
         self::assertSame(
@@ -242,7 +262,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
     {
         $document = $this->createDocument(self::MULTIPLE_MARKDOWN);
         ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1));
-        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 1, displayedVersionNumber: 1));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 1, displayedVersionNumber: 1, expectedOptionIndexes: [0]));
 
         $revise = self::getContainer()->get(ReviseDocumentHandler::class);
         self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
@@ -253,7 +273,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
         ));
 
         // 'The exporter' is index 0 now, and the reviewer unticks it.
-        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 2, chosen: false));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 2, chosen: false, expectedOptionIndexes: [0]));
 
         $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
         self::assertSame(['The importer'], array_map(static fn (object $row): string => $row->optionLabel, $stored));
@@ -270,7 +290,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
             "Pick what ships.\n\n<!-- decision: ship-with -->\n\n- [ ] Ship it\n- [ ] Ship it\n- [ ] Wait\n\n<!-- /decision -->\n",
         );
         ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1));
-        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 1, displayedVersionNumber: 1));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 1, displayedVersionNumber: 1, expectedOptionIndexes: [0]));
 
         $revise = self::getContainer()->get(ReviseDocumentHandler::class);
         self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
@@ -280,7 +300,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
             'Added a first option.',
         ));
 
-        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 3, displayedVersionNumber: 2));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 3, displayedVersionNumber: 2, expectedOptionIndexes: [1, 2]));
 
         $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
         self::assertSame(
@@ -298,7 +318,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
     {
         $document = $this->createDocument(self::MULTIPLE_MARKDOWN);
         ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 0, displayedVersionNumber: 1));
-        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 1, displayedVersionNumber: 1));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 1, displayedVersionNumber: 1, expectedOptionIndexes: [0]));
 
         $revise = self::getContainer()->get(ReviseDocumentHandler::class);
         self::assertInstanceOf(ReviseDocumentHandler::class, $revise);
@@ -308,7 +328,7 @@ final class SelectDecisionOptionHandlerTest extends KernelTestCase
             'Made the block take one answer.',
         ));
 
-        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 2, displayedVersionNumber: 2));
+        ($this->selectDecisionOption)(new SelectDecisionOptionCommand($document, 'ship-with', 2, displayedVersionNumber: 2, expectedOptionIndexes: [0, 1]));
 
         $stored = $this->selections->findByDocumentAndDecisionId($document, 'ship-with');
         self::assertCount(1, $stored);

@@ -7,7 +7,6 @@ namespace App\Tests\Module\Board\Mcp;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Mcp\CardPayload;
@@ -26,11 +25,10 @@ final class CardPayloadTest extends TestCase
 
         self::assertCount(1, $rows);
         self::assertSame(
-            ['cardId', 'number', 'title', 'type', 'priority', 'status', 'reporter', 'updatedAt'],
+            ['cardId', 'number', 'title', 'type', 'status', 'reporter', 'updatedAt'],
             array_keys($rows[0]),
         );
         self::assertSame('Drag ordering', $rows[0]['title']);
-        self::assertSame('high', $rows[0]['priority']);
     }
 
     public function test_the_full_shape_does_query_the_site_review_comments(): void
@@ -59,7 +57,6 @@ final class CardPayloadTest extends TestCase
             body: 'Body',
             number: 7,
             type: CardType::Feature,
-            priority: CardPriority::High,
             origin: CardReporter::Agent,
         );
     }

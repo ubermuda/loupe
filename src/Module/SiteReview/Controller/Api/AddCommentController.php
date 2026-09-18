@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\SiteReview\Controller\Api;
 
 use App\Controller\AppController;
+use App\Exception\DomainErrors;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\Command\AddCommentCommand;
 use App\Module\SiteReview\Command\AddCommentHandler;
@@ -60,14 +61,23 @@ final class AddCommentController extends AppController
             return $this->json(['error' => 'anchor_stroke_without_anchor'], JsonResponse::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $comment = ($this->handler)(new AddCommentCommand(
-            project: $project,
-            body: $body,
-            url: trim($payload->url ?? ''),
-            anchors: $anchors,
-            strokes: $strokes,
-            context: $payload->context(),
-        ));
+        try {
+            $comment = ($this->handler)(new AddCommentCommand(
+                project: $project,
+                body: $body,
+                url: trim($payload->url ?? ''),
+                anchors: $anchors,
+                strokes: $strokes,
+                context: $payload->context(),
+                deliveryId: $payload->deliveryId,
+            ));
+        } catch (DomainErrors $error) {
+            if (!isset($error->errors['deliveryId'])) {
+                throw $error;
+            }
+
+            return $this->json(['error' => $error->errors['deliveryId']], JsonResponse::HTTP_CONFLICT);
+        }
 
         return $this->json(['commentId' => (string) $comment->id], JsonResponse::HTTP_CREATED);
     }

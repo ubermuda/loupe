@@ -166,8 +166,10 @@ final class InboxQuietBridgeControllerTest extends WebTestCase
         $page = $this->page();
 
         self::assertSame('quiet', $this->bridgeStatusOf($page, $open)->attr('data-inbox-bridge'));
-        self::assertCount(1, $this->block($page, $closed));
-        self::assertCount(0, $this->block($page, $closed)->filter('[data-inbox-bridge]'));
+        // A closed ask keeps to the completed queue, and says nothing about its bridge.
+        $completed = $this->page('?queue=completed');
+        self::assertCount(1, $this->block($completed, $closed));
+        self::assertCount(0, $this->block($completed, $closed)->filter('[data-inbox-bridge]'));
     }
 
     public function test_one_query_reads_every_bridge_on_the_page(): void
@@ -245,10 +247,10 @@ final class InboxQuietBridgeControllerTest extends WebTestCase
         $this->em->flush();
     }
 
-    private function page(): Crawler
+    private function page(string $query = ''): Crawler
     {
         $this->client->loginUser($this->owner);
-        $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$this->project->id.'/inbox');
+        $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$this->project->id.'/inbox'.$query);
         self::assertResponseIsSuccessful();
 
         return $crawler;

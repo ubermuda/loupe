@@ -18,6 +18,7 @@ final class ReorderBoardColumnsFormType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder->add('order', HiddenType::class);
+        $builder->add('expectedOrder', HiddenType::class);
     }
 
     #[\Override]

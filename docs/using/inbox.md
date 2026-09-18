@@ -1,6 +1,6 @@
 ---
 title: "The inbox"
-description: "The page where the project owner reads the questions and to-dos that agents hand over, answers them, and sees which answers can still change."
+description: "Read and answer agent questions, review requests, and to-dos in the project inbox."
 ---
 
 An agent that works for a long time produces questions and tasks that only a
@@ -12,12 +12,13 @@ See [Turning the inbox on](#turning-the-inbox-on).
 
 ## Items and asks
 
-An **item** is one question or one to-do. Each item has a number that counts
+An **item** is one question, review request, or to-do. Each item has a number that counts
 from 1 inside the project, so you can say "item 12" to an agent.
 
 - A **question** offers options, a written answer, or both. The agent says
   whether you can pick one option or several.
-- A **to-do** asks you to do something, such as reviewing a pull request.
+- A **review** asks you to approve a document or pull request, or request changes.
+- A **to-do** asks you to do something, such as publishing release notes.
 
 An **ask** is the set of items that one agent session hands over at once. The
 agent writes a short context for the ask, and the page shows that context above
@@ -28,24 +29,37 @@ the items. An item that blocks the agent carries a **Blocking** label.
 Open **Inbox** in the project sidebar. An amber count next to the link shows how
 many items are still open. The link is absent while the flag is off.
 
+The header keeps its View activity link visible on narrow screens, including
+with enlarged text. It wraps below the title when needed. The count of what
+waits sits at the end of the search row.
+
 The count changes without a reload when an agent asks, when you or an agent
 close an item, and when a finished card makes an item obsolete. It goes away at
 zero. This needs a Mercure hub and the `live_updates.enabled` flag. Without
 them, the count is correct each time a page loads. See
 [Mercure hub](../extending/mercure.md).
 
-The page lists three groups, in this order:
+The search field keeps its compact width beside **Clear**.
+After a search, the result count remains visible without covering either control.
 
-1. **Open asks**, oldest first. Each ask shows the id of the agent session that
-   asked, when it asked, its context and its items.
-2. **Open items outside an open ask**. No agent waits on these items, but
-   nobody has closed them yet. A to-do from an ask that already closed is the
-   usual case.
-3. **Closed asks**, newest close first, ten to a page.
+**Open** and **Completed** are the two queues of the page. Each queue shows its
+requests in a list, and the selected request beside that list.
 
-An item can show in more than one place, for example in a closed ask and in the
-second group. Its forms show once, where the page first lists it, and the other
-places link there.
+The **Open** queue lists the open asks first, oldest first, then the open items
+that no open ask holds. No agent waits on such an item, but nobody has closed
+it yet. A to-do from an ask that already closed is the usual case.
+
+The **Completed** queue lists the closed asks, newest close first, ten to a
+page. Its address is `?queue=completed`.
+
+A list row shows the source, the time, the title, the summary and one label,
+which is **Blocking**, the kind of the item, or its state. The request beside
+the list shows the session that asked, the context of the ask, the items, and
+whether the same thread appears on a card.
+
+An item can show in both queues, for example in a closed ask and as an open
+item outside one. Its forms show once, in the queue that still takes a
+response, and the other place links there.
 
 ## Searching
 
@@ -53,8 +67,8 @@ Type in the search field above the asks. The page then lists the items whose
 title or body holds your words, best match first, 25 to a page. Closed items
 match too. The search matches whole words in the search language of the
 project, so in English "exports" also finds "export". An item in the results
-shows its forms when it still takes a response. Select **Clear** to go back to
-the asks.
+shows its forms when it still takes a response. The results use the same list
+and request layout as the queues. Select **Clear** to go back to the queues.
 
 ## When a bridge goes quiet
 
@@ -81,9 +95,9 @@ interval. See [Bridge heartbeat API](../reference/bridge-heartbeat.md).
 Every item that takes a response shows its forms under its text.
 
 - **Answer a question.** Pick an option, write an answer, or do both, as the
-  question allows. Then select **Answer**. The page needs JavaScript to send
-  the options you pick.
-- **Mark a to-do done.** Select **Mark done**.
+  question allows. Then select **Send answer**. The page needs JavaScript to
+  send the options you pick.
+- **Mark a to-do done.** Select **Mark complete**.
 - **Decline an item.** Open **Decline**, write an optional note for the agent,
   and select **Decline this item**. Decline any item that you cannot or will not
   answer, including a question whose options do not fit.
@@ -91,9 +105,21 @@ Every item that takes a response shows its forms under its text.
 The item then shows your response and its new state: answered, done or
 declined.
 
+Unsent question answers keep their text and selected options when you close and reopen a card drawer in the same browser tab.
+Decline notes also survive drawer replacement. A restored note opens its Decline section so you can find it.
+A successful submission clears that draft. A rejected submission keeps it for correction.
+Drafts stay in memory and do not survive a reload or a closed tab.
+If the request closes before you respond, its page shows your unsent answer or decline note separately from the recorded response.
+Copy that draft if needed, or select **Discard draft** to clear it from this tab.
+
 ## Changing a response
 
-You can change a response until an ask that holds the item closes. After that,
+Review results are final when submitted, even if no agent waits on the request.
+The result keeps the verdict, note, reviewer, time, and reviewed document version.
+Withdrawing a document verdict reopens document review and adds a withdrawal notice beside the original result.
+It does not reopen the completed request, change its answer, or resume the agent again.
+
+For questions and to-dos, you can change a response until an ask that holds the item closes. After that,
 the response is final, because an agent may already act on it. Send a
 correction to the agent in some other way.
 
@@ -106,6 +132,36 @@ Each closed item says which case applies:
 
 An agent can also close an item itself, when it withdraws the item or the work
 behind it finishes. Such an item takes no response from you.
+
+## Review requests
+
+Open the linked document or pull request before choosing **Approve** or **Request changes**.
+Request changes requires a note that explains what to change.
+Select **Submit review** in the inbox or card conversation.
+
+A document submission records the same verdict as the document review page.
+It completes open Review requests that target that document; questions with document links stay open.
+A PR submission records a result in Loupe only. It does not post a review to the code host.
+
+A stale form cannot replace a newer document verdict or review a changed PR address.
+The error keeps your note so you can copy it before reloading.
+Unsent review notes and verdict selections survive drawer replacement in the same browser tab.
+They keep their original document version, previous verdict identifier, or PR address.
+If that review state changes, the restored form shows a warning.
+Inspect the current content and copy your note before selecting **Discard draft** to start a fresh review.
+If the request closes or its target becomes unavailable, the request keeps your unsent note and verdict visible for copying or discarding.
+Discard clears only this tab's draft. It does not change the recorded review.
+A removed target shows an unavailable state, while completed results retain their original target label and answer.
+
+## Replies
+
+Use **Reply to this thread** to add context without changing an answer.
+Replies show their author and time in both the inbox and the card conversation.
+You can reply to completed requests. A reply does not reopen the request or resume an agent.
+The form accepts up to 2,000 characters and keeps an invalid draft for correction.
+Unsent replies stay in this browser tab when you close a card drawer or follow an in-app link.
+The browser asks before a reload or tab closure discards them. Signing out clears them.
+Text you type while a reply is being saved remains an unsent draft after confirmation.
 
 ## When an ask closes
 
@@ -152,6 +208,15 @@ An agent can link an item to cards and documents of the project. The page of
 each linked card and each linked document then shows an **Inbox items** section
 with those items. The section is absent while the flag is off, and on a page
 that no item links to. On a document page it sits above the document.
+
+The project inbox lists linked cards, documents, and the pull requests attached to those cards.
+Each pull request URL appears once per item, even when several linked cards share it.
+Web links open on the code host. Their status reads **Not reported** because Loupe does not fetch code-host status.
+Other stored addresses read **Unavailable**, with an explanation and no open action.
+
+A card link opens **Conversation** at the matching inbox item.
+If that item falls outside the ten newest closed items, it replaces the oldest item in that list.
+The section still shows ten closed items, in closing order.
 
 The section is hidden on a version comparison. It shows on an older version of
 a document, and a response from there returns to that version.

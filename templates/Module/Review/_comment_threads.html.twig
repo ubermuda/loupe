@@ -7,8 +7,7 @@
   General comments — no anchor — lead the reading column, because there is no
   passage for them to be level with. Anchored comments go in the margin, where
   comment_anchor_controller measures each one's passage and sets its `top`. Below
-  the margin's breakpoint the controller moves them into the prose instead, after
-  the block each one points at.
+  the margin's breakpoint the cards stack below the document in passage order.
 
   There is deliberately no status grouping any more: a card's position now says
   which passage it belongs to, and sorting the column by status would break that
@@ -33,12 +32,13 @@
 {% set anchoredComments = rootComments|filter(c => c.anchor.quote != '' and not c.orphaned)|map(c => c) %}
 {% set resolvedCount = rootComments|filter(c => c.threadStatus.value == 'resolved')|length %}
 <div id="comment-threads" class="lp-comment-threads" data-resolved-count="{{ resolvedCount }}">
+    {% include '@Review/_review_summary.html.twig' with {comments: comments} only %}
     {% if generalComments|length > 0 %}
     {# Open by default: the disclosure controller reads that starting state off
        the .disclosure-open class, because a <section> has no native `open`. #}
     <section class="lp-general-comments disclosure-open" data-controller="disclosure">
         <button type="button" class="lp-general-comments__toggle"
-                aria-controls="general-comments-list"
+                aria-controls="general-comments-list" aria-expanded="true" data-disclosure-target="trigger"
                 data-action="click->disclosure#toggle">
             <twig:ux:icon name="lucide:chevron-right" class="lp-general-comments__caret" />
             {{ 'review.document.group.general'|trans }} · {{ generalComments|length }}
@@ -52,16 +52,15 @@
     </section>
     {% endif %}
 
-    {# lp-comment-rail is what turns the cards into markers. The landing hero mock
-       reuses lp-review-margin, so the rail cannot key on that class. #}
     <div class="lp-review-margin lp-comment-rail" data-comment-anchor-target="margin">
+        <p class="lp-empty" data-review-margin-target="empty" role="status" hidden>{{ 'review.document.margin.filter_empty'|trans }}</p>
         {# Closed on arrival: these threads point at text this version does not
            hold, so they are a thing to come back to rather than the first thing
            to read. The heading still says how many there are. #}
         {% if orphanedComments|length > 0 %}
         <div class="lp-orphan-group" data-controller="disclosure">
             <button type="button" class="lp-orphan-group__title"
-                    aria-controls="orphaned-threads"
+                    aria-controls="orphaned-threads" aria-expanded="false" data-disclosure-target="trigger"
                     data-action="click->disclosure#toggle">
                 <twig:ux:icon name="lucide:chevron-right" class="lp-orphan-group__caret" />
                 <twig:ux:icon name="lucide:bell-off" class="lp-orphan-group__icon" />

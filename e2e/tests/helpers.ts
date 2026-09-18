@@ -1,5 +1,44 @@
-import { APIRequestContext, expect, Page } from '@playwright/test';
+import {
+    APIRequestContext,
+    expect,
+    Page,
+    type Locator,
+} from '@playwright/test';
 import { coverageScaled } from './timeouts';
+
+export async function expectFilterFocusRingVisible(
+    field: Locator,
+    group: Locator,
+): Promise<void> {
+    await expect(field).toBeFocused();
+    await expect(field).toHaveCSS('box-shadow', /0px 0px 0px 2px/);
+    expect(
+        await group.evaluate((element) => {
+            const style = getComputedStyle(element);
+            return {
+                scrollbarWidth: style.scrollbarWidth,
+                borders: ['top', 'right', 'bottom', 'left'].map((side) =>
+                    style.getPropertyValue(`border-${side}-width`),
+                ),
+            };
+        }),
+    ).toEqual({
+        scrollbarWidth: 'none',
+        borders: ['0px', '0px', '0px', '0px'],
+    });
+    const outer = await group.boundingBox();
+    const inner = await field.boundingBox();
+    expect(outer).not.toBeNull();
+    expect(inner).not.toBeNull();
+    expect(
+        Math.min(
+            inner!.x - outer!.x,
+            outer!.x + outer!.width - inner!.x - inner!.width,
+            inner!.y - outer!.y,
+            outer!.y + outer!.height - inner!.y - inner!.height,
+        ),
+    ).toBeGreaterThanOrEqual(2);
+}
 
 const mailpitUrl =
     process.env['MAILPIT_URL'] ?? 'https://mailpit.loupe.dev.localhost';
@@ -213,7 +252,11 @@ export function extractLink(body: string, pattern: RegExp): string {
  */
 export async function logout(page: Page): Promise<void> {
     await page.goto('/projects');
-    await page.getByRole('button', { name: 'Log out' }).click();
+    await submitRedirectingForm(
+        page,
+        page.getByRole('button', { name: 'Log out' }),
+        '/logout',
+    );
     await expect(page).toHaveURL('/login');
 }
 
@@ -231,6 +274,44 @@ export interface Credentials {
  * authenticated fixture registers through this same form.
  */
 export const DEFAULT_DISPLAY_NAME = 'E2E User';
+
+export async function submitRedirectingForm(
+    page: Page,
+    button: Locator,
+    path: string,
+): Promise<void> {
+    const url = new URL(path, page.url()).href;
+    const [response, destination] = await Promise.all([
+        page.waitForResponse(
+            (response) =>
+                response.url() === url &&
+                response.request().method() === 'POST',
+        ),
+        page.waitForResponse((response) => {
+            const request = response.request();
+            if (request.url() === url && request.method() === 'POST') {
+                return response.status() !== 302;
+            }
+            if (response.status() >= 300 && response.status() < 400) {
+                return false;
+            }
+            for (
+                let previous = request.redirectedFrom();
+                previous;
+                previous = previous.redirectedFrom()
+            ) {
+                if (previous.url() === url && previous.method() === 'POST') {
+                    return true;
+                }
+            }
+            return false;
+        }),
+        button.click(),
+    ]);
+    expect(response.status()).toBe(302);
+    expect(destination.ok()).toBe(true);
+    expect(await destination.finished()).toBeNull();
+}
 
 /**
  * Fill the registration form, poll Mailpit for the verification link, and
@@ -261,7 +342,11 @@ export async function registerFreshUser(
         .fill(credentials.fullName ?? DEFAULT_DISPLAY_NAME);
     await page.getByLabel('Password').fill(credentials.password);
     await page.getByLabel('I agree to').check();
-    await page.getByRole('button', { name: 'Create account' }).click();
+    await submitRedirectingForm(
+        page,
+        page.getByRole('button', { name: 'Create account' }),
+        '/register',
+    );
     await expect(page).toHaveURL('/register/check-email');
 
     const received = await getEmailWithSubject(
@@ -294,7 +379,11 @@ export async function registerAndVerify(
     await registerFreshUser(page, request, credentials);
 
     if (page.url().includes('/welcome')) {
-        await page.getByRole('button', { name: 'Skip setup' }).click();
+        await submitRedirectingForm(
+            page,
+            page.getByRole('button', { name: 'Skip setup' }),
+            '/welcome/skip',
+        );
         await expect(page).toHaveURL('/projects');
     }
 }
