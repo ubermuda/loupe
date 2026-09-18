@@ -25,12 +25,12 @@
         <span class="lp-status-chip lp-status-chip--pending">{{ 'site_review.page.pending_count'|trans({'%count%': pendingCount}) }}</span>
     </section>
 
-    <div class="lp-site-review-scope" aria-label="{{ 'site_review.filter.scope_label'|trans }}">
-        <button type="button" class="lp-site-review-scope__item" aria-pressed="true" data-site-review-filter-target="scope" data-site-review-filter-scope-param="all" data-action="site-review-filter#setScope">
-            {{ 'site_review.filter.all'|trans }} <span>{{ comments|length }}</span>
+    <div class="lp-tabs" aria-label="{{ 'site_review.filter.scope_label'|trans }}">
+        <button type="button" class="lp-tabs__tab" aria-pressed="true" data-site-review-filter-target="scope" data-site-review-filter-scope-param="all" data-action="site-review-filter#setScope">
+            {{ 'site_review.filter.all'|trans }} <span class="lp-tabs__count">{{ comments|length }}</span>
         </button>
-        <button type="button" class="lp-site-review-scope__item" aria-pressed="false" data-site-review-filter-target="scope" data-site-review-filter-scope-param="unlinked" data-action="site-review-filter#setScope">
-            {{ 'site_review.filter.needs_card'|trans }} <span>{{ unlinkedCount }}</span>
+        <button type="button" class="lp-tabs__tab" aria-pressed="false" data-site-review-filter-target="scope" data-site-review-filter-scope-param="unlinked" data-action="site-review-filter#setScope">
+            {{ 'site_review.filter.needs_card'|trans }} <span class="lp-tabs__count">{{ unlinkedCount }}</span>
         </button>
     </div>
     <div class="lp-site-review-toolbar">

@@ -261,7 +261,7 @@ final class ShowInboxControllerTest extends WebTestCase
         $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox');
 
         self::assertResponseIsSuccessful();
-        self::assertSame(['Open', 'Completed'], $crawler->filter('.lp-section-tabs__item')->each(static fn ($node): string => $node->text()));
+        self::assertSame(['Open', 'Completed'], $crawler->filter('.lp-tabs__tab')->each(static fn ($node): string => $node->text()));
         self::assertSame('3 waiting', $crawler->filter('.lp-filter-count')->text());
         self::assertSame('Agent request', $crawler->filter('[data-inbox-ask-id] .lp-inbox-ask__source')->first()->text());
         self::assertCount(1, $crawler->filter('[data-inbox-section="open-asks"]'));

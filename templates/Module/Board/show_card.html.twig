@@ -32,9 +32,9 @@
 
     <div class="lp-card-drawer__body">
         <h1 class="lp-card-drawer__title">{{ card.title }}</h1>
-        <div class="lp-card-tabs" role="tablist" aria-label="{{ 'board.card.drawer.sections'|trans }}">
+        <div class="lp-tabs" role="tablist" aria-label="{{ 'board.card.drawer.sections'|trans }}">
             {% for tab in ['overview', 'conversation', 'feedback'] %}
-            <button type="button" class="lp-card-tabs__tab" role="tab" id="card-tab-{{ tab }}" aria-controls="card-panel-{{ tab }}" data-panel-tabs-target="tab" data-panel-tab="{{ tab }}" data-action="click->panel-tabs#select keydown->panel-tabs#keydown">{{ ('board.card.tab.' ~ tab)|trans }}</button>
+            <button type="button" class="lp-tabs__tab" role="tab" id="card-tab-{{ tab }}" aria-controls="card-panel-{{ tab }}" data-panel-tabs-target="tab" data-panel-tab="{{ tab }}" data-action="click->panel-tabs#select keydown->panel-tabs#keydown">{{ ('board.card.tab.' ~ tab)|trans }}</button>
             {% endfor %}
         </div>
 

@@ -678,9 +678,6 @@
     .lp-redesign-projects .lp-page-header {
         @apply flex-wrap;
     }
-    .lp-section-tabs__item > span {
-        @apply inline-flex items-center justify-center min-w-5 rounded-full bg-surface-3 px-1.5 py-0.5 text-xs;
-    }
     .lp-inbox-section {
         scroll-margin-top: calc(var(--spacing) * 20);
     }
@@ -958,22 +955,29 @@
     .lp-card-drawer__title {
         @apply font-display text-3xl font-extrabold tracking-tight text-ink m-0 mb-4;
     }
-    .lp-card-tabs {
+    /* The one tab strip: role="tab" buttons (aria-selected), page links
+       (aria-current) or view toggles (aria-pressed) share the underline. */
+    .lp-tabs {
         @apply flex items-center gap-1 overflow-x-auto border-b border-line mb-6;
         scrollbar-width: none;
     }
-    .lp-card-tabs::-webkit-scrollbar {
+    .lp-tabs::-webkit-scrollbar {
         display: none;
     }
-    .lp-card-tabs__tab {
-        @apply px-3 py-2.5 border-b-2 border-transparent text-sm font-semibold text-fg-mute whitespace-nowrap transition-colors;
+    .lp-tabs__tab {
+        @apply inline-flex items-center gap-2 px-3 py-2.5 border-b-2 border-transparent text-sm font-semibold text-fg-mute no-underline whitespace-nowrap cursor-pointer transition-colors;
     }
-    .lp-card-tabs__tab:hover,
-    .lp-card-tabs__tab:focus-visible {
+    .lp-tabs__tab:hover,
+    .lp-tabs__tab:focus-visible {
         @apply text-ink;
     }
-    .lp-card-tabs__tab[aria-selected='true'] {
+    .lp-tabs__tab[aria-selected='true'],
+    .lp-tabs__tab[aria-current='page'],
+    .lp-tabs__tab[aria-pressed='true'] {
         @apply border-accent text-ink;
+    }
+    .lp-tabs__count {
+        @apply inline-flex items-center justify-center min-w-5 rounded-md bg-surface-3 px-1.5 py-0.5 text-xs text-fg-dim;
     }
     .lp-card-panel[hidden] {
         @apply hidden;
@@ -2114,19 +2118,6 @@
         @apply shrink-0 font-mono text-sm text-fg-dim;
     }
     /* Primary document workspace views. */
-    .lp-review-view-tabs {
-        @apply mt-3 flex items-center gap-1 overflow-x-auto border-b border-line;
-        scrollbar-width: none;
-    }
-    .lp-review-view-tabs::-webkit-scrollbar {
-        display: none;
-    }
-    .lp-review-view-tabs__item {
-        @apply whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-sm font-semibold text-fg-mute no-underline transition-colors hover:text-ink;
-    }
-    .lp-review-view-tabs__item[aria-current='page'] {
-        @apply border-accent text-ink;
-    }
 
     /* The side-by-side comparison, which renders no comment rail and takes the
        gutter and the comment column back for its second reading measure. Both
@@ -2881,8 +2872,8 @@
             @apply flex-row items-end gap-9;
         }
     }
-    .lp-review-workspace-nav .lp-review-view-tabs {
-        @apply mt-0 min-w-0 flex-1;
+    .lp-review-workspace-nav .lp-tabs {
+        @apply mb-0 min-w-0 flex-1;
     }
     .lp-review-margin-tabs {
         @apply flex min-w-0 max-w-full shrink-0 scroll-mb-24 items-center justify-start gap-1;
@@ -6371,8 +6362,7 @@
         @apply flex lg:flex-col gap-1 overflow-x-auto;
         scrollbar-width: none;
     }
-    .lp-settings-nav::-webkit-scrollbar,
-    .lp-section-tabs::-webkit-scrollbar {
+    .lp-settings-nav::-webkit-scrollbar {
         display: none;
     }
     .lp-settings-nav__item {
@@ -6451,22 +6441,6 @@
     }
     .lp-settings-section .lp-form {
         @apply mt-6;
-    }
-
-    .lp-section-tabs {
-        @apply flex gap-1 overflow-x-auto mb-8 border-b border-line;
-        scrollbar-width: none;
-    }
-    .lp-section-tabs__item {
-        @apply px-3 py-3 text-sm font-semibold text-fg-mute no-underline whitespace-nowrap border-b-2 border-transparent transition-colors;
-    }
-    .lp-section-tabs__item:hover,
-    .lp-section-tabs__item:focus-visible {
-        @apply text-ink border-accent;
-    }
-    /* After the base class, or the base border colour wins at equal specificity. */
-    .lp-section-tabs__item--active {
-        @apply border-accent text-ink;
     }
 
     .lp-orchestration-header {
