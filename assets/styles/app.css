@@ -3134,12 +3134,6 @@
     .lp-comment-status {
         @apply ml-auto uppercase text-xs font-bold tracking-wide text-fg-mute;
     }
-    .lp-comment-status--strike {
-        @apply text-danger;
-    }
-    .lp-comment-status--answered {
-        @apply text-status-ok-deep;
-    }
     /* The quoted text is gone from the current version, so there is no anchor to
        ring and the card has to say so itself. */
     .lp-comment-orphan-pill {

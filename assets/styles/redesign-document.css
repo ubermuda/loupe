@@ -150,6 +150,9 @@
 .lp-review .lp-review-doc__prose :is(h1, h2) {
     @apply mt-11 mb-2.5 font-display text-lg leading-normal font-bold tracking-tight text-ink;
 }
+.lp-review .lp-review-doc__prose h1 {
+    @apply text-xl;
+}
 .lp-review .lp-review-doc__prose :is(h3, h4, h5, h6) {
     @apply mt-8 mb-2 font-display text-base leading-normal font-bold text-ink;
 }
@@ -467,4 +470,21 @@
 }
 .lp-review .lp-review-verdict-choice__hint {
     @apply text-sm text-fg-dim;
+}
+
+/* ── Composers ──────────────────────────────────────────────────── */
+.lp-review .lp-comment-composer {
+    @apply rounded-lg bg-surface-1;
+}
+.lp-review .lp-comment-composer--untargeted {
+    @apply mb-5 border-line;
+}
+.lp-review .lp-composer-general {
+    @apply text-sm font-medium tracking-normal text-fg-dim normal-case;
+}
+.lp-review .lp-comment-composer textarea {
+    @apply border border-line bg-surface-1;
+}
+.lp-review .lp-composer-hint {
+    @apply font-sans;
 }
