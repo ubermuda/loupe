@@ -13,7 +13,7 @@
        them. The number is the handle a person quotes. #}
     <div class="lp-board-card__identity">
         <span class="lp-board-card__number">#{{ card.number }}</span>
-        <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>
+        {% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}
     </div>
     {# draggable="false" stops the browser's own link drag taking the gesture. #}
     <a class="lp-board-card__title"

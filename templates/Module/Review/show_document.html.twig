@@ -573,7 +573,7 @@
                                    data-turbo-frame="card-drawer-frame"
                                    data-action="click->card-drawer#prepare">
                                     <span>#{{ link.card.number }} {{ link.card.title }}</span>
-                                    <span class="lp-status-chip">{{ link.card.column.label|trans }}</span>
+                                    {% include '@Board/_column_tag.html.twig' with {column: link.card.column} only %}
                                     <twig:ux:icon name="lucide:chevron-right" class="w-4 h-4" />
                                 </a>
                                 {% endfor %}

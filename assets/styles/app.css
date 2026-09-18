@@ -170,6 +170,8 @@
     --color-status-danger-border: var(--status-danger-border);
     --color-status-ok-ink: var(--status-ok-ink);
     --color-status-danger-chip: var(--status-danger-chip);
+    --color-status-active: var(--status-active);
+    --color-status-active-bg: var(--status-active-bg);
     --color-strike: var(--strike);
     --color-strike-on-chrome: var(--strike-on-chrome);
 
@@ -261,6 +263,9 @@
     --status-danger-deep: #8c1e14;
     --status-danger-bg: #fbe9e7;
     --status-danger-border: #f8d7d2;
+    /* Purple rung: running and in-progress work, and card or column labels. */
+    --status-active: #984482;
+    --status-active-bg: #f3e8f1;
 
     /* Ink dark enough to sit on the -border rung, which the design uses as a
        solid chip fill (Approved, Changes requested) as well as a hairline. The
@@ -1204,6 +1209,44 @@
 
     .lp-tag {
         @apply inline-flex items-center py-1 px-2.5 rounded-md text-xs font-semibold bg-surface-3 text-fg-mute;
+    }
+    /* Label tones for card types and board columns; LabelTone names each one. */
+    .lp-tag--neutral {
+        @apply bg-surface-3 text-fg-mute;
+    }
+    .lp-tag--lime {
+        @apply bg-accent-soft text-accent-ink;
+    }
+    .lp-tag--purple {
+        @apply bg-status-active-bg text-status-active;
+    }
+    .lp-tag--green {
+        @apply bg-status-ok-bg text-status-ok-deep;
+    }
+    .lp-tag--amber {
+        @apply bg-status-pending-bg text-status-pending-deep;
+    }
+    .lp-tag--red {
+        @apply bg-status-danger-bg text-status-danger-deep;
+    }
+    /* The column header's colour mark, in the same tone as its labels. */
+    .lp-tone-dot {
+        @apply inline-block size-2 shrink-0 rounded-full bg-fg-faint;
+    }
+    .lp-tone-dot--lime {
+        @apply bg-accent-ink;
+    }
+    .lp-tone-dot--purple {
+        @apply bg-status-active;
+    }
+    .lp-tone-dot--green {
+        @apply bg-status-ok;
+    }
+    .lp-tone-dot--amber {
+        @apply bg-status-pending;
+    }
+    .lp-tone-dot--red {
+        @apply bg-status-danger;
     }
 
     /* A series chip carries a position, so it reads in the accent ink to
@@ -6242,10 +6285,7 @@
         @apply flex flex-wrap items-center justify-between gap-3 text-xs text-fg-dim;
     }
     .lp-workshop-work-card__badge {
-        @apply min-w-0 max-w-full break-words rounded-md bg-accent-soft px-2 py-1 font-semibold text-accent-ink;
-    }
-    .lp-workshop-work-card__badge--quiet {
-        @apply bg-surface-3 text-fg-dim;
+        @apply min-w-0 max-w-full break-words;
     }
     .lp-workshop-work-card h3 {
         @apply mt-3 break-words font-display text-base leading-normal font-bold text-ink;

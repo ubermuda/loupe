@@ -174,6 +174,12 @@ to it. The columns read side by side, in board order. Each card shows its
 number, its title, its type, how many pull requests it links to, and how many
 review comments still wait on it.
 
+Each card type and each column has a colour, and every page that names one uses
+the same colour. A column takes its colour from its role and its place. The
+default column is grey, a terminal column is green, and the columns between
+them take lime, purple and amber in board order. Reordering the columns
+therefore changes the colours of the columns in the middle.
+
 Board settings and Add card stack when their labels need more space.
 
 Drag a card to move it. The whole card is the handle, and the grip on its left

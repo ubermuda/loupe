@@ -139,6 +139,13 @@ final class ShowBoardControllerTest extends WebTestCase
         $row = $crawler->filter('.lp-board-list__row[data-card-title="No links"] > span');
         self::assertCount(5, $row);
         self::assertSame('Feature', $row->eq(1)->text());
+
+        self::assertSame('lime', $crawler->filter('[data-card-id="'.$plain->id.'"] .lp-tag')->attr('data-tone'));
+        self::assertSame('lime', $row->eq(1)->filter('.lp-tag')->attr('data-tone'));
+        $column = $row->eq(2)->filter('.lp-tag');
+        self::assertCount(1, $column);
+        self::assertContains($column->attr('data-tone'), ['neutral', 'lime', 'purple', 'amber', 'green']);
+        self::assertCount(1, $crawler->filter('.lp-board__column-head .lp-tone-dot--green'));
     }
 
     public function test_the_done_column_shows_only_the_recent_slice_and_links_to_the_history(): void

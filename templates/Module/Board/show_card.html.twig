@@ -22,7 +22,7 @@
         <div class="lp-card-drawer__identity">
             <span class="lp-card-drawer__icon"><twig:ux:icon name="lucide:layout-list" class="w-4 h-4" /></span>
             <span class="lp-card-number">#{{ card.number }}</span>
-            <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>
+            {% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}
         </div>
         <div class="lp-card-drawer__header-actions">
             <a class="lp-btn lp-btn--ghost" href="{{ path('app_board_card_edit', {projectId: card.project.id, cardId: card.id}) }}" data-turbo-frame="_top"><twig:ux:icon name="lucide:pencil" class="w-4 h-4" />{{ 'board.card.edit.action'|trans }}</a>
@@ -68,9 +68,9 @@
                 </div>
                 <aside class="lp-card-overview-grid__facts" aria-label="{{ 'board.card.overview.details'|trans }}">
                     <dl class="lp-card-fact-list">
-                        <div><dt>{{ 'board.card.overview.status'|trans }}</dt><dd>{{ card.column.label|trans }}</dd></div>
+                        <div><dt>{{ 'board.card.overview.status'|trans }}</dt><dd>{% include '@Board/_column_tag.html.twig' with {column: card.column} only %}</dd></div>
                         <div><dt>{{ 'board.card.overview.reporter'|trans }}</dt><dd>{{ ('board.card.reporter.' ~ card.reporter.value)|trans }}</dd></div>
-                        <div><dt>{{ 'board.card.overview.type'|trans }}</dt><dd>{{ ('board.card.type.' ~ card.type.value)|trans }}</dd></div>
+                        <div><dt>{{ 'board.card.overview.type'|trans }}</dt><dd>{% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}</dd></div>
                     </dl>
                     <section class="lp-card-move">
                         <h2 class="lp-card-panel__title">{{ 'board.card.move.title'|trans }}</h2>

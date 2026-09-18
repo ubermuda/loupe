@@ -11,6 +11,8 @@ final readonly class WorkshopCard
         public string $title,
         public string $url,
         public string $column,
+        /** The column's label colour, one of the .lp-tag tone modifiers. */
+        public string $columnTone,
     ) {
     }
 }

@@ -53,4 +53,20 @@ class BoardColumn
         public bool $isDefault = false,
     ) {
     }
+
+    /**
+     * A column stores no colour, so it takes one from its role and its place:
+     * reordering the board recolours the middle columns.
+     */
+    public function tone(): LabelTone
+    {
+        if ($this->terminal) {
+            return LabelTone::Green;
+        }
+        if ($this->isDefault) {
+            return LabelTone::Neutral;
+        }
+
+        return [LabelTone::Lime, LabelTone::Purple, LabelTone::Amber][(($this->position - 1) % 3 + 3) % 3];
+    }
 }

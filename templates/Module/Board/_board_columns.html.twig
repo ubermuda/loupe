@@ -78,6 +78,7 @@
                 <twig:ux:icon name="lucide:grip-vertical" class="w-4 h-4" />
             </span>
             {% endif %}
+            <span class="lp-tone-dot lp-tone-dot--{{ view.column.tone.value }}" aria-hidden="true"></span>
             <h2 class="lp-board__column-title">{{ label }}</h2>
             <span class="lp-board__column-count">{{ view.count }}</span>
             {% if canManage %}
@@ -126,8 +127,8 @@
                    data-board-filter-target="row"
                    data-card-title="{{ card.title }}">
                     <span class="lp-board-list__work"><strong>#{{ card.number }} {{ card.title }}</strong></span>
-                    <span><span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span></span>
-                    <span>{{ view.column.label|trans }}</span>
+                    <span>{% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}</span>
+                    <span>{% include '@Board/_column_tag.html.twig' with {column: view.column} only %}</span>
                     <span aria-label="{{ 'board.list.agent.unassigned'|trans }}">—</span>
                     <span>{{ feedbackCount }}</span>
                 </a>
