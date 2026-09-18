@@ -598,6 +598,11 @@
     font-size: var(--text-xs);
 }
 
+.lp-site-review-scope__item[aria-pressed='true'] span {
+    background: var(--chrome-control);
+    color: var(--chrome-fg);
+}
+
 .lp-site-review-toolbar {
     display: flex;
     align-items: center;
@@ -635,8 +640,9 @@
     font-size: var(--text-sm);
 }
 
-.lp-site-review-status {
-    width: calc(var(--spacing) * 34);
+/* Two classes: .lp-input sets w-full later in the components layer. */
+.lp-site-review-toolbar .lp-site-review-status {
+    width: auto;
     min-width: calc(var(--spacing) * 34);
     height: 36px;
     padding-block: 0;

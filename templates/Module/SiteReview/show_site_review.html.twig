@@ -51,7 +51,6 @@
 
     <div class="lp-feedback-workspace" data-controller="master-detail" data-master-detail-selected-value="{{ selectedFeedback }}">
         <div class="lp-feedback-list" aria-label="{{ 'site_review.feedback.list'|trans }}">
-            <div class="lp-feedback-list__head"><span>{{ 'site_review.page.comment_count'|trans({'%count%': comments|length}) }}</span>{% if project.domain %}<span>{{ project.domain }}</span>{% endif %}</div>
             {% for comment in comments %}
             {% set anchors = comment.anchors|filter(anchor => anchor.selector is not empty) %}
             <button type="button" class="lp-feedback-list__item" data-master-detail-target="trigger" data-master-detail-id="feedback-{{ comment.id }}" data-site-review-filter-target="row" data-status="{{ comment.status.value }}" data-linked="{{ cardLinks[comment.id ~ ''] is defined ? 'true' : 'false' }}" data-action="master-detail#select">

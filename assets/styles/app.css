@@ -793,9 +793,6 @@
             @apply col-span-3;
         }
     }
-    .lp-feedback-list__head {
-        @apply flex items-center justify-between gap-3 px-4 py-3 border-b border-line text-xs font-semibold text-fg-dim;
-    }
     .lp-feedback-list__item {
         @apply flex items-start gap-3 w-full px-4 py-4 border-b border-line text-left transition-colors hover:bg-surface-1;
     }
