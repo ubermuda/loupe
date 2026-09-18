@@ -8,8 +8,7 @@ use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardRepository;
 
 /**
- * Reads one page of a project's board, filtered by column, type, priority and
- * reporter.
+ * Reads one page of a project's board, filtered by column, type and reporter.
  *
  * It owns the whole rule, so every entry point gets the same answer: the paging
  * is clamped into range and the repository is read once.
@@ -40,7 +39,6 @@ final readonly class ListCardsHandler
         $cards = $this->cards->findForBoard(
             null === $command->column ? $this->boardColumns->findForProject($command->project) : [$command->column],
             $command->type,
-            $command->priority,
             $command->reporter,
         );
 

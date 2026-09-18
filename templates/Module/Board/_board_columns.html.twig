@@ -16,17 +16,6 @@
                        data-board-filter-target="query"
                        data-action="input->board-filter#filter">
             </label>
-            <label class="lp-board-toolbar__priority">
-                <span class="sr-only">{{ 'board.filter.priority.label'|trans }}</span>
-                <select class="lp-board-toolbar__select"
-                        data-board-filter-target="priority"
-                        data-action="change->board-filter#filter">
-                    <option value="">{{ 'board.filter.priority.all'|trans }}</option>
-                    {% for priority in enum_cases('App\\Module\\Board\\Entity\\CardPriority') %}
-                        <option value="{{ priority.value }}">{{ ('board.card.priority.' ~ priority.label())|trans }}</option>
-                    {% endfor %}
-                </select>
-            </label>
         </div>
         <span class="lp-board-toolbar__count"
               data-board-filter-target="count"
@@ -96,21 +85,15 @@
             {% endif %}
         </header>
 
-        {% for group in view.groups %}
         <div class="lp-board__group"
              data-board-drag-target="group"
              data-column="{{ view.column.id }}"
-             data-priority="{{ group.priority ? group.priority.value : '' }}"
              data-rankable="{{ view.column.terminal ? '0' : '1' }}">
-            {% if group.priority %}
-            <h3 class="lp-board__group-title sr-only">{{ ('board.card.priority.' ~ group.priority.label())|trans }}</h3>
-            {% endif %}
-            {% for card in group.cards %}
+            {% for card in view.cards %}
                 {# `~ ''` casts the Uuid, which cannot itself be an array key. #}
                 {% include '@Board/_card.html.twig' with {card: card, pendingComments: board.pendingComments[card.id ~ '']|default(0)} only %}
             {% endfor %}
         </div>
-        {% endfor %}
 
         {% if view.column.terminal %}
         <p class="lp-board__column-note">{{ 'board.terminal.window'|trans({'%days%': board.terminalWindowDays}) }}</p>
@@ -129,30 +112,25 @@
         <div class="lp-board-list__header" aria-hidden="true">
             <span>{{ 'board.list.work'|trans }}</span>
             <span>{{ 'board.list.status'|trans }}</span>
-            <span>{{ 'board.list.priority'|trans }}</span>
             <span>{{ 'board.list.agent'|trans }}</span>
             <span>{{ 'board.list.linked_work'|trans }}</span>
             <span>{{ 'board.list.feedback'|trans }}</span>
         </div>
         {% for view in board.columns %}
-            {% for group in view.groups %}
-                {% for card in group.cards %}
-                    {% set feedbackCount = board.pendingComments[card.id ~ '']|default(0) %}
-                    <a class="lp-board-list__row"
-                       href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}"
-                       data-turbo-frame="card-drawer-frame"
-                       data-action="click->card-drawer#prepare"
-                       data-board-filter-target="row"
-                       data-card-title="{{ card.title }}"
-                       data-card-priority="{{ card.priority.value }}">
-                        <span class="lp-board-list__work"><strong>#{{ card.number }} {{ card.title }}</strong><span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span></span>
-                        <span>{{ view.column.label|trans }}</span>
-                        <span>{{ ('board.card.priority.' ~ card.priority.label())|trans }}</span>
-                        <span aria-label="{{ 'board.list.agent.unassigned'|trans }}">—</span>
-                        <span>{{ card.pullRequests|length + card.documents|length }}</span>
-                        <span>{{ feedbackCount }}</span>
-                    </a>
-                {% endfor %}
+            {% for card in view.cards %}
+                {% set feedbackCount = board.pendingComments[card.id ~ '']|default(0) %}
+                <a class="lp-board-list__row"
+                   href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}"
+                   data-turbo-frame="card-drawer-frame"
+                   data-action="click->card-drawer#prepare"
+                   data-board-filter-target="row"
+                   data-card-title="{{ card.title }}">
+                    <span class="lp-board-list__work"><strong>#{{ card.number }} {{ card.title }}</strong><span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span></span>
+                    <span>{{ view.column.label|trans }}</span>
+                    <span aria-label="{{ 'board.list.agent.unassigned'|trans }}">—</span>
+                    <span>{{ card.pullRequests|length + card.documents|length }}</span>
+                    <span>{{ feedbackCount }}</span>
+                </a>
             {% endfor %}
         {% endfor %}
     </div>

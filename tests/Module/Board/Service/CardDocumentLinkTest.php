@@ -10,7 +10,6 @@ use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
@@ -175,7 +174,6 @@ final class CardDocumentLinkTest extends KernelTestCase
             title: 'Write the design up',
             body: 'body',
             type: CardType::Feature,
-            priority: CardPriority::Medium,
             documentIds: $documentIds,
         );
     }

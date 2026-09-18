@@ -59,10 +59,9 @@ final class CardUpdateToolTest extends KernelTestCase
     {
         $created = $this->card('card-update');
 
-        $card = ($this->tool)($created['cardId'], title: 'Renamed', priority: 'low');
+        $card = ($this->tool)($created['cardId'], title: 'Renamed');
 
         self::assertSame('Renamed', $card['title']);
-        self::assertSame('low', $card['priority']);
         self::assertSame($created['body'], $card['body']);
         self::assertSame($created['type'], $card['type']);
         self::assertSame($created['status'], $card['status']);
@@ -131,7 +130,7 @@ final class CardUpdateToolTest extends KernelTestCase
         $this->enableBoard();
         $project = $this->makeProject('card-update-actor');
         $this->actAsMcpTokenBoundTo($project);
-        $created = ($this->createTool)('Ship it', 'Body', 'feature', 'high');
+        $created = ($this->createTool)('Ship it', 'Body', 'feature');
 
         ($this->tool)($created['cardId'], status: 'next');
 
@@ -158,7 +157,7 @@ final class CardUpdateToolTest extends KernelTestCase
         $this->em->persist(new BoardColumn(project: $elsewhere, label: 'Parked', slug: 'parked', position: 4));
         $this->em->flush();
         $this->actAsMcpTokenBoundTo($project);
-        $created = ($this->createTool)('Ship it', 'Body', 'feature', 'high');
+        $created = ($this->createTool)('Ship it', 'Body', 'feature');
 
         $dropped = ($this->tool)($created['cardId'], status: 'wont-do');
         self::assertSame('wont-do', $dropped['status']);
@@ -188,6 +187,6 @@ final class CardUpdateToolTest extends KernelTestCase
         $this->enableBoard();
         $this->actAsMcpTokenBoundTo($this->makeProject($label));
 
-        return ($this->createTool)('Ship it', 'Body', 'feature', 'high', pullRequestUrls: [self::PULL_REQUEST]);
+        return ($this->createTool)('Ship it', 'Body', 'feature', pullRequestUrls: [self::PULL_REQUEST]);
     }
 }

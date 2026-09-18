@@ -7,7 +7,6 @@ namespace App\Tests\Module\Project\Controller;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardType;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemKind;
@@ -66,11 +65,11 @@ final class ShowWorkshopControllerTest extends WebTestCase
         $em->flush();
         $create = self::getContainer()->get(CreateCardHandler::class);
         for ($number = 1; $number <= 8; ++$number) {
-            $create(new CreateCardCommand($project, 'Work '.$number, '', CardType::Feature, CardPriority::High));
+            $create(new CreateCardCommand($project, 'Work '.$number, '', CardType::Feature));
         }
-        $create(new CreateCardCommand($project, 'Completed work', '', CardType::Feature, CardPriority::Low, column: $this->column($project, 'done')));
-        $create(new CreateCardCommand($foreign, 'Foreign work', '', CardType::Feature, CardPriority::High));
-        $create(new CreateCardCommand($foreign, 'Foreign completed work', '', CardType::Feature, CardPriority::Low, column: $this->column($foreign, 'done')));
+        $create(new CreateCardCommand($project, 'Completed work', '', CardType::Feature, column: $this->column($project, 'done')));
+        $create(new CreateCardCommand($foreign, 'Foreign work', '', CardType::Feature));
+        $create(new CreateCardCommand($foreign, 'Foreign completed work', '', CardType::Feature, column: $this->column($foreign, 'done')));
         $em->clear();
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id);

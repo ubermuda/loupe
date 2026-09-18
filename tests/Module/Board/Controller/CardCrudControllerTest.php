@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Module\Board\Controller;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardSiteReviewComment;
@@ -194,7 +193,6 @@ final class CardCrudControllerTest extends WebTestCase
             'create_card_form[title]' => 'Ship the board',
             'create_card_form[body]' => "It needs **columns**.\n",
             'create_card_form[type]' => CardType::Tooling->value,
-            'create_card_form[priority]' => (string) CardPriority::High->value,
             'create_card_form[column]' => (string) $this->column($project, 'next')->id,
             'create_card_form[pullRequestUrls]' => "https://github.com/loupe/loupe/pull/12\n\nnot-a-known-forge\n",
         ]);
@@ -205,7 +203,6 @@ final class CardCrudControllerTest extends WebTestCase
         $created = $cards->findOneBy(['title' => 'Ship the board']);
         self::assertInstanceOf(Card::class, $created);
         self::assertSame('next', $created->column->slug);
-        self::assertSame(CardPriority::High, $created->priority);
         self::assertSame(CardType::Tooling, $created->type);
         // A form is a person writing the card down, whatever an agent does later.
         self::assertSame(CardReporter::Human, $created->reporter);
@@ -296,7 +293,7 @@ final class CardCrudControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'card-edit@example.com');
         $project = $this->project($em, $owner);
-        $card = $this->card($em, $project, 'Before', 'backlog', CardPriority::Low);
+        $card = $this->card($em, $project, 'Before');
         $cardId = $card->id;
         $em->clear();
 
@@ -312,7 +309,6 @@ final class CardCrudControllerTest extends WebTestCase
             'create_card_form[title]' => 'After',
             'create_card_form[body]' => 'Rewritten.',
             'create_card_form[type]' => CardType::Bug->value,
-            'create_card_form[priority]' => (string) CardPriority::High->value,
             'create_card_form[column]' => (string) $this->column($project, 'in-progress')->id,
             'create_card_form[pullRequestUrls]' => 'https://github.com/loupe/loupe/pull/99',
         ]);
@@ -323,7 +319,6 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertInstanceOf(Card::class, $fresh);
         self::assertSame('After', $fresh->title);
         self::assertSame('in-progress', $fresh->column->slug);
-        self::assertSame(CardPriority::High, $fresh->priority);
         self::assertCount(1, $fresh->pullRequests);
         $link = $fresh->pullRequests->first();
         self::assertInstanceOf(CardPullRequest::class, $link);
@@ -426,7 +421,7 @@ final class CardCrudControllerTest extends WebTestCase
 
         $owner = $this->user($em, 'card-move-page@example.com');
         $project = $this->project($em, $owner);
-        $card = $this->card($em, $project, 'Reachable by keyboard', 'backlog', CardPriority::Low);
+        $card = $this->card($em, $project, 'Reachable by keyboard');
         $cardId = $card->id;
         $em->clear();
 
@@ -441,7 +436,6 @@ final class CardCrudControllerTest extends WebTestCase
 
         $client->submitForm('Move card', [
             $name.'[column]' => (string) $this->column($project, 'in-progress')->id,
-            $name.'[priority]' => (string) CardPriority::High->value,
         ]);
 
         self::assertResponseRedirects('/projects/'.$project->id.'/board');
@@ -449,7 +443,6 @@ final class CardCrudControllerTest extends WebTestCase
         $moved = static::getContainer()->get(CardRepository::class)->find($cardId);
         self::assertInstanceOf(Card::class, $moved);
         self::assertSame('in-progress', $moved->column->slug);
-        self::assertSame(CardPriority::High, $moved->priority);
     }
 
     public function test_a_stranger_cannot_reach_a_card(): void

@@ -91,11 +91,10 @@ final readonly class CreateCardHandler
                 body: $command->body,
                 number: $this->cards->nextNumber($command->project),
                 type: $command->type,
-                priority: $command->priority,
                 origin: $command->reporter,
                 position: $column->terminal
                     ? 0
-                    : $this->cards->nextPosition($column, $command->priority),
+                    : $this->cards->nextPosition($column),
                 // Read once, here: the card then carries its own language, so
                 // changing the project's leaves the cards already written alone.
                 searchLanguage: $command->project->searchLanguage,
@@ -140,7 +139,6 @@ final readonly class CreateCardHandler
                 'cardNumber' => $card->number,
                 'projectId' => (string) $command->project->id,
                 'type' => $card->type->value,
-                'priority' => $card->priority->value,
                 'status' => $card->column->slug,
                 'columnId' => (string) $card->column->id,
                 'reporter' => $card->reporter->value,

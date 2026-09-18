@@ -65,9 +65,9 @@ final readonly class UpdateCardHandler
             ? null
             : $this->documentLinks->resolve($card->project, array_values($command->documentIds));
 
-        // One write for the whole update, and one lock. A column or priority
-        // change is a move, which renumbers a group and decides the completion
-        // timestamp, so this handler owns the transaction the move runs in.
+        // One write for the whole update, and one lock. A column change is a
+        // move, which renumbers a column and decides the completion timestamp,
+        // so this handler owns the transaction the move runs in.
         // Flushing the fields first would commit half an update whose move
         // then failed.
         $outcome = $this->em->wrapInTransaction(function () use ($command, $card, $title, $documents): UpdateCardOutcome|string {
@@ -75,8 +75,8 @@ final readonly class UpdateCardHandler
             // lock() takes the project row and leaves the loaded card as the
             // request read it, which may be before the caller ahead of us in
             // the queue committed. Both the decision below and the move it
-            // makes read the group, so both need the group as it is now.
-            $this->cards->refreshGroup($card);
+            // makes read the column, so both need the column as it is now.
+            $this->cards->refreshColumn($card);
             // The columns too: one deleted or given another terminal flag since
             // the request loaded it decides where the card may go and whether
             // the move stamps it.
@@ -89,11 +89,10 @@ final readonly class UpdateCardHandler
             if (!\in_array($column, $columns, true)) {
                 return self::COLUMN_GONE;
             }
-            $priority = $command->priority ?? $card->priority;
             // A rank is a move of its own: a card dropped elsewhere in the
-            // column it already sits in changes neither column nor priority.
-            $move = $column !== $card->column || $priority !== $card->priority || null !== $command->position
-                ? $this->mover->move($card, $column, $priority, $command->position)
+            // column it already sits in does not change its column.
+            $move = $column !== $card->column || null !== $command->position
+                ? $this->mover->move($card, $column, $command->position)
                 : null;
 
             // After the move, which must read the card as the database holds
@@ -171,7 +170,7 @@ final readonly class UpdateCardHandler
         }
 
         // `moved` names the paired board.card_moved record, which holds the
-        // column and priority this one does not.
+        // column this one does not.
         $this->auditor->record(
             'board.card_updated',
             AuditOutcome::Success,

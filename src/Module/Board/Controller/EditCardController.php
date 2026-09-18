@@ -61,7 +61,6 @@ final class EditCardController extends AppController
                     title: $title,
                     body: $data->body ?? '',
                     type: $data->type,
-                    priority: $data->priority,
                     column: $data->column,
                     // Replace semantics: an emptied textarea clears every link.
                     pullRequestUrls: UpdateCardRequest::toUrlList($data->pullRequestUrls),

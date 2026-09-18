@@ -69,7 +69,6 @@
                 <aside class="lp-card-overview-grid__facts" aria-label="{{ 'board.card.overview.details'|trans }}">
                     <dl class="lp-card-fact-list">
                         <div><dt>{{ 'board.card.overview.status'|trans }}</dt><dd>{{ card.column.label|trans }}</dd></div>
-                        <div><dt>{{ 'board.card.overview.priority'|trans }}</dt><dd>{{ ('board.card.priority.' ~ card.priority.label())|trans }}</dd></div>
                         <div><dt>{{ 'board.card.overview.reporter'|trans }}</dt><dd>{{ ('board.card.reporter.' ~ card.reporter.value)|trans }}</dd></div>
                         <div><dt>{{ 'board.card.overview.type'|trans }}</dt><dd>{{ ('board.card.type.' ~ card.type.value)|trans }}</dd></div>
                     </dl>
@@ -79,7 +78,6 @@
                         <form method="post" data-turbo="false" action="{{ path('app_board_card_move', {projectId: card.project.id, cardId: card.id}) }}" class="lp-card-move__form">
                             {{ form_widget(moveForm._token) }}
                             <div class="lp-form-field">{{ form_label(moveForm.column, null, {label_attr: {class: 'lp-label'}}) }}{{ form_widget(moveForm.column, {attr: {class: 'lp-input lp-select'}}) }}</div>
-                            <div class="lp-form-field">{{ form_label(moveForm.priority, null, {label_attr: {class: 'lp-label'}}) }}{{ form_widget(moveForm.priority, {attr: {class: 'lp-input lp-select'}}) }}</div>
                             {{ form_widget(moveForm.position, {attr: {hidden: 'hidden'}}) }}
                             <button type="submit" class="lp-btn lp-btn--primary">{{ 'board.card.move.submit'|trans }}</button>
                         </form>

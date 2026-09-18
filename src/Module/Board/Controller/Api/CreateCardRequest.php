@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Module\Board\Controller\Api;
 
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardType;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -29,9 +28,6 @@ final class CreateCardRequest
 
         #[Assert\NotNull]
         public ?CardType $type = CardType::Feature,
-
-        #[Assert\NotNull]
-        public ?CardPriority $priority = CardPriority::Medium,
     ) {
     }
 }

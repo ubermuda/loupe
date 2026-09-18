@@ -11,7 +11,6 @@ use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
@@ -146,7 +145,6 @@ final class CardPullRequestUrlLengthTest extends KernelTestCase
             title: 'A card',
             body: 'Body',
             type: CardType::Feature,
-            priority: CardPriority::Medium,
             pullRequestUrls: $pullRequestUrls,
         ));
     }

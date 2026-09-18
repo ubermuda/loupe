@@ -6,27 +6,25 @@ namespace App\Module\Board\Service;
 
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Repository\CardRepository;
 
 /**
  * Puts a card in its new place on the board, and renumbers what that disturbs.
  *
- * Ranks are plain integers renumbered per group rather than fractional, so a
- * group's order is readable in the table and an ORDER BY needs no tie-break.
- * A group holds the cards of one (column, priority) pair, and every
- * group a move touches comes out numbered from 0 with no gaps.
+ * Ranks are plain integers renumbered per column rather than fractional, so a
+ * column's order is readable in the table and an ORDER BY needs no tie-break.
+ * Every open column a move touches comes out numbered from 0 with no gaps.
  *
  * The caller owns the transaction, the project lock and the flush. A move reads
- * the group the card sits in and renumbers the one it leaves, so the caller must
- * call CardRepository::refreshGroup() under its lock first. Nothing here writes
- * to the database, so a move and the renumbering it causes land together or not
- * at all.
+ * the column the card sits in and renumbers the one it leaves, so the caller
+ * must call CardRepository::refreshColumn() under its lock first. Nothing here
+ * writes to the database, so a move and the renumbering it causes land together
+ * or not at all.
  */
 final readonly class CardMover
 {
-    /** A rank past the end of a group, which place() clamps to the end. */
-    public const int END_OF_GROUP = \PHP_INT_MAX;
+    /** A rank past the end of a column, which place() clamps to the end. */
+    public const int END_OF_COLUMN = \PHP_INT_MAX;
 
     public function __construct(
         private CardRepository $cards,
@@ -34,17 +32,16 @@ final readonly class CardMover
     ) {
     }
 
-    public function move(Card $card, BoardColumn $column, CardPriority $priority, ?int $position = null): CardMove
+    public function move(Card $card, BoardColumn $column, ?int $position = null): CardMove
     {
         if ($column->project !== $card->project) {
             throw new \LogicException('A card moves only to a column of its own board.');
         }
 
-        $move = new CardMove($card->column, $card->priority);
-        $staysInGroup = $move->fromColumn === $column && $move->fromPriority === $priority;
+        $move = new CardMove($card->column);
+        $staysInColumn = $move->fromColumn === $column;
 
         $card->column = $column;
-        $card->priority = $priority;
 
         if ($column->terminal) {
             // A terminal column sorts by completion and maintains no position,
@@ -55,18 +52,18 @@ final readonly class CardMover
         } else {
             $card->completedAt = null;
 
-            if ($staysInGroup) {
-                // No target rank means the end of the group, which place()
+            if ($staysInColumn) {
+                // No target rank means the end of the column, which place()
                 // clamps to. Going through it rather than through
                 // nextPosition() is what stops the old rank becoming a gap.
-                $this->groupOrder->place($card, $position ?? self::END_OF_GROUP);
+                $this->groupOrder->place($card, $position ?? self::END_OF_COLUMN);
             } else {
-                $card->position = $this->cards->nextPosition($column, $priority);
+                $card->position = $this->cards->nextPosition($column);
             }
         }
 
-        if (!$staysInGroup) {
-            $this->groupOrder->compact($move->fromColumn, $move->fromPriority, $card);
+        if (!$staysInColumn) {
+            $this->groupOrder->compact($move->fromColumn, $card);
         }
 
         $card->updatedAt = new \DateTimeImmutable();

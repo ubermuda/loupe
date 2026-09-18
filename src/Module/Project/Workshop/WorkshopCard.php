@@ -11,7 +11,6 @@ final readonly class WorkshopCard
         public string $title,
         public string $url,
         public string $column,
-        public string $priority,
     ) {
     }
 }

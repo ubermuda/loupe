@@ -154,10 +154,10 @@ export default class extends Controller {
     /**
      * Puts the drop marker where a release at this point would land the card.
      *
-     * A card that leaves its group takes the end of the one it joins, whatever
-     * the pointer is over: the handler re-grades or re-columns it and appends.
-     * Marking an insertion point it will not honour would promise an order the
-     * answer then contradicts.
+     * A card that leaves its column takes the end of the one it joins, whatever
+     * the pointer is over: the handler appends it there. Marking an insertion
+     * point it will not honour would promise an order the answer then
+     * contradicts.
      */
     markPlaceIn(group, clientY) {
         if (group !== this.originGroup) {
@@ -244,26 +244,19 @@ export default class extends Controller {
         }
 
         const column = form.querySelector('select[name$="[column]"]');
-        const priority = form.querySelector('select[name$="[priority]"]');
         const rank = form.querySelector('input[name$="[position]"]');
-        if (column === null || priority === null || rank === null) {
+        if (column === null || rank === null) {
             return;
         }
 
-        const wantedPriority = group.dataset.priority;
         const rankable = '1' === group.dataset.rankable;
-        const staysInGroup = group === origin.group;
+        const staysInColumn = group === origin.group;
 
         column.value = group.dataset.column;
-        // A column that keeps no rank grades nothing either, so the card holds
-        // the grade it already had rather than taking an empty one.
-        if ('' !== wantedPriority) {
-            priority.value = wantedPriority;
-        }
-        // A rank is only sent for a move inside one group. The handler appends
+        // A rank is only sent for a move inside one column. The handler appends
         // on every other move, so sending one would be a number it discards.
         rank.value =
-            staysInGroup && rankable && position >= 0 ? String(position) : '';
+            staysInColumn && rankable && position >= 0 ? String(position) : '';
 
         const finished = (event) => {
             form.removeEventListener('turbo:submit-end', finished);

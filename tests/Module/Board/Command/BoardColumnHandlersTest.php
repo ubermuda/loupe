@@ -26,7 +26,6 @@ use App\Module\Board\Command\UpdateCardCommand;
 use App\Module\Board\Command\UpdateCardHandler;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Repository\BoardColumnRepository;
@@ -211,8 +210,8 @@ final class BoardColumnHandlersTest extends KernelTestCase
 
     public function test_a_column_that_stops_being_terminal_ranks_its_cards_and_clears_their_completion(): void
     {
-        $first = $this->card('Finished first', 'done', CardPriority::High);
-        $second = $this->card('Finished second', 'done', CardPriority::High);
+        $first = $this->card('Finished first', 'done');
+        $second = $this->card('Finished second', 'done');
         $ids = [$first->id, $second->id];
         $handler = $this->handler(SetBoardColumnTerminalHandler::class);
         $handler(new SetBoardColumnTerminalCommand($this->column($this->project, 'next'), true));
@@ -292,11 +291,11 @@ final class BoardColumnHandlersTest extends KernelTestCase
 
     public function test_a_delete_moves_every_card_to_the_target_with_one_audit_record_each_and_one_outbox_row(): void
     {
-        $this->card('Already there', 'in-progress', CardPriority::High);
-        $first = $this->card('First', 'next', CardPriority::High);
-        $second = $this->card('Second', 'next', CardPriority::High);
-        $low = $this->card('Low', 'next', CardPriority::Low);
-        $ids = [(string) $first->id, (string) $second->id, (string) $low->id];
+        $this->card('Already there', 'in-progress');
+        $first = $this->card('First', 'next');
+        $second = $this->card('Second', 'next');
+        $third = $this->card('Third', 'next');
+        $ids = [(string) $first->id, (string) $second->id, (string) $third->id];
         $next = $this->column($this->project, 'next');
         $nextId = (string) $next->id;
         $target = $this->column($this->project, 'in-progress');
@@ -314,10 +313,10 @@ final class BoardColumnHandlersTest extends KernelTestCase
             $card = $this->em->find(Card::class, $id);
             self::assertInstanceOf(Card::class, $card);
             self::assertSame('in-progress', $card->column->slug);
-            $placed[] = [$card->priority, $card->position];
+            $placed[] = $card->position;
         }
         // Appended after the card the target held, in the order the column showed them.
-        self::assertSame([[CardPriority::High, 1], [CardPriority::High, 2], [CardPriority::Low, 0]], $placed);
+        self::assertSame([1, 2, 3], $placed);
 
         $moves = $this->audit->records('board.card_moved');
         self::assertSame($ids, array_map(static fn ($record): string => (string) $record->context['cardId'], $moves));
@@ -422,14 +421,13 @@ final class BoardColumnHandlersTest extends KernelTestCase
         }
     }
 
-    private function card(string $title, string $column, CardPriority $priority = CardPriority::Medium): Card
+    private function card(string $title, string $column): Card
     {
         return $this->handler(CreateCardHandler::class)(new CreateCardCommand(
             project: $this->project,
             title: $title,
             body: '',
             type: CardType::Feature,
-            priority: $priority,
             column: $this->column($this->project, $column),
             reporter: CardReporter::Human,
         ));

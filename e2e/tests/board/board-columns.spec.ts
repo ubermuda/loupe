@@ -154,18 +154,13 @@ test.afterAll(async ({ request }) => {
 
 test('board filters retain an outline in forced colors', async ({ page }) => {
     await page.emulateMedia({ forcedColors: 'active' });
-    for (const selector of [
-        '.lp-board-toolbar__input',
-        '.lp-board-toolbar__select',
-    ]) {
-        const field = page.locator(selector);
-        await field.focus();
-        await expect(field).toBeFocused();
-        await expect(field).toHaveCSS('outline-style', 'solid');
-        await expect(field).toHaveCSS('outline-width', '2px');
-        await expect(field).toHaveCSS('outline-offset', '0px');
-        await expect(field).not.toHaveCSS('outline-color', 'rgba(0, 0, 0, 0)');
-    }
+    const field = page.locator('.lp-board-toolbar__input');
+    await field.focus();
+    await expect(field).toBeFocused();
+    await expect(field).toHaveCSS('outline-style', 'solid');
+    await expect(field).toHaveCSS('outline-width', '2px');
+    await expect(field).toHaveCSS('outline-offset', '0px');
+    await expect(field).not.toHaveCSS('outline-color', 'rgba(0, 0, 0, 0)');
 });
 
 test('board controls remain usable at enlarged text sizes without page overflow', async ({
@@ -211,38 +206,14 @@ test('board controls remain usable at enlarged text sizes without page overflow'
                 name: 'Search cards',
                 exact: true,
             });
-            const priority = page.getByRole('combobox', {
-                name: 'Priority',
-                exact: true,
-            });
-            const queryBounds = await query.boundingBox();
-            const priorityBounds = await priority.boundingBox();
-            expect(queryBounds).not.toBeNull();
-            expect(priorityBounds).not.toBeNull();
-            expect(queryBounds!.x + queryBounds!.width).toBeLessThanOrEqual(
-                priorityBounds!.x,
-            );
-            expect(queryBounds!.y).toBe(priorityBounds!.y);
             await query.focus();
             await expect(query).toBeInViewport({ ratio: 1 });
             const filters = page.locator('.lp-board-toolbar__filters');
-            await expectFilterFocusRingVisible(query, filters);
-            await query.press('Tab');
-            await expect(priority).toBeFocused();
-            await expect(priority).toBeInViewport({ ratio: 1 });
-            await expectFilterFocusRingVisible(priority, filters);
-            await priority.press('Shift+Tab');
-            await expect(query).toBeFocused();
-            await expect(query).toBeInViewport({ ratio: 1 });
             await expectFilterFocusRingVisible(query, filters);
         }
     }
     const query = page.getByRole('searchbox', {
         name: 'Search cards',
-        exact: true,
-    });
-    const priority = page.getByRole('combobox', {
-        name: 'Priority',
         exact: true,
     });
     await query.fill('No matching card');
@@ -253,14 +224,6 @@ test('board controls remain usable at enlarged text sizes without page overflow'
     await expect(
         page.locator('[data-board-filter-target="empty"]'),
     ).toBeHidden();
-    await query.press('Tab');
-    await expect(priority).toBeFocused();
-    await expect(priority).toBeInViewport({ ratio: 1 });
-    await priority.selectOption({ label: 'High' });
-    await expect(
-        page.locator('[data-board-filter-target="empty"]'),
-    ).toBeVisible();
-    await priority.selectOption('');
     await page.getByRole('button', { name: 'List', exact: true }).click();
     await expect(page.locator('.lp-board-list')).toBeVisible();
     await expect(page.locator('.lp-board-list__row:not([hidden])')).toHaveCount(

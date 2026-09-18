@@ -19,7 +19,6 @@ class UpdateCardRequest extends CreateCardRequest
             title: $card->title,
             body: $card->body,
             type: $card->type,
-            priority: $card->priority,
             column: $card->column,
             pullRequestUrls: implode("\n", array_map(
                 static fn (CardPullRequest $link): string => $link->url,

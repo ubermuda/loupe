@@ -13,7 +13,7 @@ Select a request to open its question, to-do, or review in the inbox.
 The row shows the item kind and whether it blocks an agent.
 When the inbox is disabled, Workshop says so instead of claiming that no requests need attention.
 
-In motion shows the six newest open cards. Each tile shows its number, title, column, and priority.
+In motion shows the six newest open cards. Each tile shows its number, title, and column.
 Select a tile to open the card drawer without leaving Workshop.
 Escape closes the drawer and returns focus to the tile.
 If a card fails to load, Retry loads it again. Close card returns to Workshop.

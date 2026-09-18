@@ -7,7 +7,6 @@ namespace App\Tests\Module\Board\Controller;
 use App\Mercure\LiveUpdates;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
@@ -84,7 +83,6 @@ trait BoardScenario
         Project $project,
         string $title,
         string $column = 'backlog',
-        CardPriority $priority = CardPriority::Medium,
         int $position = 0,
         string $body = '',
     ): Card {
@@ -100,7 +98,6 @@ trait BoardScenario
             body: $body,
             number: $number,
             type: CardType::Feature,
-            priority: $priority,
             position: $position,
         );
 

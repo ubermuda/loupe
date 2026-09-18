@@ -7,7 +7,6 @@ namespace App\Tests\Search;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Install\BoardInstallFlags;
 use App\Module\Project\Entity\Project;
@@ -44,12 +43,12 @@ final class SearchProjectHandlerTest extends KernelTestCase
         $cards = self::getContainer()->get(CreateCardHandler::class);
         $documents = self::getContainer()->get(CreateDocumentHandler::class);
         for ($index = 0; $index < 11; ++$index) {
-            ($cards)(new CreateCardCommand($project, 'Search card '.$index, 'quartz', CardType::Feature, CardPriority::Medium, column: $this->column($project, 'done')));
+            ($cards)(new CreateCardCommand($project, 'Search card '.$index, 'quartz', CardType::Feature, column: $this->column($project, 'done')));
             $document = ($documents)(new CreateDocumentCommand($project, 'Search document '.$index, 'quartz'));
             $document->archivedAt = new \DateTimeImmutable();
         }
         $em->flush();
-        ($cards)(new CreateCardCommand($foreign, 'Foreign card', 'quartz', CardType::Feature, CardPriority::Medium));
+        ($cards)(new CreateCardCommand($foreign, 'Foreign card', 'quartz', CardType::Feature));
         ($documents)(new CreateDocumentCommand($foreign, 'Foreign document', 'quartz'));
         $search = self::getContainer()->get(SearchProjectHandler::class);
         $first = $search(new SearchProjectCommand($project, '  quartz  '));

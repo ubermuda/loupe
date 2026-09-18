@@ -84,8 +84,8 @@ The menu of the default column, and of the last terminal column, shows a note
 instead of **Delete column**. Give another column that flag first.
 
 A column that becomes terminal gives a completion time to each card in it that
-has none. A column that stops being terminal ranks its cards by completion time
-inside each priority group, then clears their completion times.
+has none. A column that stops being terminal ranks its cards by completion time,
+then clears their completion times.
 
 ### Labels and slugs
 
@@ -124,10 +124,9 @@ old slug and the new slug. A rename that keeps the slug writes no event.
 confirmation only.
 
 The dialog for a column that holds cards shows the count and asks for a target
-column. Every card moves to the target and keeps its priority. A card that
-enters a terminal column gets a completion time if it has none. A card that
-enters another column loses its completion time, and joins the end of its
-priority group.
+column. Every card moves to the target. A card that enters a terminal column
+gets a completion time if it has none. A card that enters another column loses
+its completion time, and joins the end of that column.
 
 Each moved card gets its own `board.card_moved` audit record. The outbox gets
 one `board.column_deleted` event, which names the moved cards. A bulk move
@@ -135,25 +134,24 @@ writes no `board.card_moved` event, so no bridge rule on card moves fires.
 
 ## How cards are ordered
 
-Cards group by priority inside a column. High reads first, then medium, then
-low. Inside one priority group each card holds a rank, counting from 0. A column
-therefore reads as three ranked lists, one for each priority.
+Each card in a column holds a rank, counting from 0. A column reads as one
+ranked list.
 
-The rank is a plain integer, and Loupe renumbers a group from 0 after every
-change. A group carries no gaps, so the rank a tool reports is the card's real
+The rank is a plain integer, and Loupe renumbers a column from 0 after every
+change. A column carries no gaps, so the rank a tool reports is the card's real
 place in its list.
 
-A move inside one group takes a target rank and puts the card there. A move that
-changes the column or the priority behaves differently. It appends the card to
-the end of the group it arrives in, and it renumbers the group the card left so
-no gap remains. A delete renumbers the group the card leaves in the same way.
+A move inside one column takes a target rank and puts the card there. A move to
+another column appends the card to the end of that column, and it renumbers the
+column the card left so no gap remains. A delete renumbers the column the card
+leaves in the same way.
 
 The MCP tools carry no rank argument. `card_create` appends a new card to its
-group, and `card_update` appends a card whose column or priority changed. An
-agent cannot re-rank a group.
+column, and `card_update` appends a card whose column changed. An agent cannot
+re-rank a column.
 
-Two cards that tie on priority and rank read oldest first, and then by id, so a
-column comes back in the same order on every read.
+Two cards that tie on rank read oldest first, and then by id, so a column comes
+back in the same order on every read.
 
 ## Terminal columns behave differently
 
@@ -174,24 +172,18 @@ is on the board it pages through, however old it is.
 The board is at **`/projects/<project>/board`**, and the project sidebar links
 to it. The columns read side by side, in board order. Each card shows its
 number, its title, its type, how many pull requests it links to, and how many
-review comments still wait on it. The priority is the group the card sits in,
-so the card face does not repeat it.
+review comments still wait on it.
 
-Search and priority filters share one row. With enlarged text on a narrow
-screen, that row scrolls horizontally. Tab brings the priority filter into
-view. Board settings and Add card stack when their labels need more space.
+Board settings and Add card stack when their labels need more space.
 
 Drag a card to move it. The whole card is the handle, and the grip on its left
 says so. Where you drop the card decides what the move does.
 
-- Drop it inside its own priority group to change its rank in that group.
-- Drop it in another priority group in the same column to re-grade it. The card
-  takes the end of the group it joins.
-- Drop it in another column to change its column. The card takes the end of the
-  group it joins there.
+- Drop it inside its own column to change its rank in that column.
+- Drop it in another column to change its column. The card takes the end of
+  that column.
 
-A terminal column takes a drop like any other column. It keeps no rank, and a
-card dropped in a terminal column keeps the priority it had.
+A terminal column takes a drop like any other column. It keeps no rank.
 
 The card follows the pointer as you drag, and a gap opens where a release would
 put it. The server answers a drop with the whole board. A move the server
@@ -245,15 +237,15 @@ card id is the UUID, not the number.
 
 The page carries the full Markdown body, every pull request link, the review
 feedback pointing at the card, and the times the card was created, last changed
-and completed. It also carries column and priority controls, which move a card
+and completed. It also carries a column control, which moves a card
 with no drag. That is the way to move a card from a keyboard.
 
 When the inbox is on, the page also lists the inbox items linked to the card,
 and you can answer them there. See
 [On a card page and a document page](inbox.md#on-a-card-page-and-a-document-page).
 
-**Edit** opens the card for a change to its title, body, type, priority, column
-and links. **Delete** asks for a confirmation first, then removes the card and
+**Edit** opens the card for a change to its title, body, type, column and
+links. **Delete** asks for a confirmation first, then removes the card and
 its links. A delete cannot be undone, and the number the card held is not
 issued again.
 
@@ -265,7 +257,6 @@ issued again.
 | Title | Plain text, up to 255 characters. Loupe trims it and refuses a blank one. |
 | Body | Markdown. It says what the card asks for. |
 | Type | One of `feature`, `bug`, `security`, `tooling`, `docs`, `idea`. |
-| Priority | One of `high`, `medium`, `low`. |
 | Status | The column the card sits in. The tools report the column's slug. |
 | Reporter | `human`, `agent` or `reviewer`. It records who raised the card. |
 | Pull requests | Any number of links. See below. |
@@ -345,11 +336,11 @@ An agent drives the board through the MCP endpoint. See
 | Tool | Arguments |
 |---|---|
 | `board_columns` | None. |
-| `card_create` | `title`, `body`, `type` and `priority` are required. `status`, `reporter` and `pullRequestUrls` are optional. `origin` is the old name for `reporter` and is deprecated. |
-| `card_list` | `status`, `type`, `priority` and `reporter`, each optional, each a filter. `page`, `perPage` and `full` are optional as well. |
+| `card_create` | `title`, `body` and `type` are required. `status`, `reporter` and `pullRequestUrls` are optional. `origin` is the old name for `reporter` and is deprecated. |
+| `card_list` | `status`, `type` and `reporter`, each optional, each a filter. `page`, `perPage` and `full` are optional as well. |
 | `card_search` | `query` is required. `page` and `perPage` are optional. |
 | `card_get` | `cardId`. |
-| `card_update` | `cardId` is required. `title`, `body`, `type`, `priority`, `status` and `pullRequestUrls` are optional. |
+| `card_update` | `cardId` is required. `title`, `body`, `type`, `status` and `pullRequestUrls` are optional. |
 
 `board_columns` lists the columns of the board in board order. Each entry
 carries `slug`, `label`, `terminal` and `default`. `card_list` returns the same
@@ -366,8 +357,8 @@ says "That column no longer exists on this board. Name another column."
 finishes a card by moving it to a terminal column.
 
 `card_list` reads the whole board when you give it no filter. A column that is
-not terminal reads in board order, highest priority first and then by rank. A
-terminal column reads newest completion first.
+not terminal reads in board order, by rank. A terminal column reads newest
+completion first.
 
 It answers one page at a time. `perPage` holds 50 cards by default and 100 at
 most, and `page` counts from 1. Both are clamped into range rather than refused,
@@ -375,8 +366,8 @@ so a page past the end reads as an empty list. The answer carries `page`,
 `perPage`, `total` and `hasMore`. `total` counts every card the filters match,
 not the cards on the page, so keep reading while `hasMore` is true.
 
-Each row is a summary: `cardId`, `number`, `title`, `type`, `priority`,
-`status`, `reporter` and `updatedAt`. Pass `full` to get the Markdown body and the
+Each row is a summary: `cardId`, `number`, `title`, `type`, `status`,
+`reporter` and `updatedAt`. Pass `full` to get the Markdown body and the
 pull request, document and site-review links as well. A full page is much larger,
 so read the board as summaries and call `card_get` for the card you want.
 

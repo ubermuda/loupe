@@ -40,7 +40,7 @@
 
 .lp-core-board .lp-board__column {
     min-width: calc(var(--spacing) * 52);
-    min-height: calc(var(--spacing) * 130);
+    min-height: calc(var(--spacing) * 40);
     padding: calc(var(--spacing) * 2.5);
     border: 0;
     border-radius: var(--radius-xl);
@@ -56,7 +56,7 @@
 
 .lp-core-board .lp-board__column-title {
     color: var(--ink);
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     font-weight: 700;
     letter-spacing: -0.01em;
 }
@@ -85,13 +85,6 @@
 
 .lp-core-board .lp-board__group {
     gap: calc(var(--spacing) * 2.5);
-}
-
-.lp-core-board .lp-board__group-title {
-    margin: calc(var(--spacing) * 1.5) calc(var(--spacing) * 1) 0;
-    color: var(--text-dim);
-    font-size: var(--text-xs);
-    font-weight: 600;
 }
 
 .lp-core-board .lp-board-card__excerpt {

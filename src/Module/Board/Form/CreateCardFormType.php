@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Form;
 
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardType;
 use App\Module\Project\Entity\Project;
 use Symfony\Component\Form\AbstractType;
@@ -36,11 +35,6 @@ class CreateCardFormType extends AbstractType
                 'class' => CardType::class,
                 'label' => 'board.form.create_card_form.type.label',
                 'choice_label' => static fn (CardType $type): string => 'board.form.create_card_form.type.choice.'.$type->value,
-            ])
-            ->add('priority', EnumType::class, [
-                'class' => CardPriority::class,
-                'label' => 'board.form.create_card_form.priority.label',
-                'choice_label' => static fn (CardPriority $priority): string => 'board.form.create_card_form.priority.choice.'.$priority->label(),
             ])
             ->add('column', BoardColumnChoiceType::class, [
                 'label' => 'board.form.create_card_form.column.label',

@@ -6,7 +6,6 @@ namespace App\Module\Board\Form;
 
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardType;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -21,9 +20,6 @@ class CreateCardRequest
         /** Nullable so a submit that omits the select fails validation rather than throwing out of the property mapper. */
         #[Assert\NotNull]
         public ?CardType $type = CardType::Feature,
-
-        #[Assert\NotNull]
-        public ?CardPriority $priority = CardPriority::Medium,
 
         /** The controller passes the board's default column. */
         #[Assert\NotNull]

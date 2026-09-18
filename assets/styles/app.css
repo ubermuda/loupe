@@ -578,21 +578,14 @@
     .lp-board-toolbar__search {
         @apply relative flex w-56 min-w-24 items-center;
     }
-    .lp-board-toolbar__priority {
-        @apply shrink-0;
-    }
     .lp-board-toolbar__search-icon {
         @apply pointer-events-none absolute left-3 h-4 w-4 text-fg-dim;
     }
-    .lp-board-toolbar__input,
-    .lp-board-toolbar__select {
+    .lp-board-toolbar__input {
         @apply h-9 rounded-lg border border-line bg-surface-1 text-sm text-ink outline-hidden forced-colors:outline-offset-0 focus:border-accent-ink focus:ring-2 focus:ring-accent-ink;
     }
     .lp-board-toolbar__input {
         @apply min-w-0 w-full py-2 pr-3 pl-9;
-    }
-    .lp-board-toolbar__select {
-        @apply w-28 px-3 py-1.5;
     }
     .lp-board-toolbar__mode {
         @apply inline-flex max-w-full items-center rounded-lg bg-surface-3 p-1;
@@ -621,7 +614,7 @@
     .lp-board-list__header,
     .lp-board-list__row {
         display: grid;
-        grid-template-columns: minmax(18rem, 2fr) repeat(5, minmax(7rem, 1fr));
+        grid-template-columns: minmax(18rem, 2fr) repeat(4, minmax(7rem, 1fr));
         min-width: 62rem;
     }
     .lp-board-list__header {
@@ -5442,12 +5435,9 @@
         @apply text-xs text-status-pending-deep m-0;
     }
     /* A group is a drop target, so it keeps a minimum height even when empty:
-       an empty grade with no area under it cannot be dropped into. */
+       an empty column with no area under it cannot be dropped into. */
     .lp-board__group {
         @apply flex flex-col gap-2 min-h-12 rounded-lg transition-colors;
-    }
-    .lp-board__group-title {
-        @apply uppercase text-fg-dim m-0 text-xs font-bold tracking-widest;
     }
     .lp-board__group:not(:has(.lp-board-card)) {
         @apply min-h-6;
@@ -5504,15 +5494,6 @@
     .lp-board-card__reviews,
     .lp-board-card__documents {
         @apply inline-flex items-center gap-1 text-xs font-semibold text-fg-mute;
-    }
-    .lp-tag--priority-high {
-        @apply bg-status-danger-bg text-status-danger-deep;
-    }
-    .lp-tag--priority-medium {
-        @apply bg-status-pending-bg text-status-pending-deep;
-    }
-    .lp-tag--priority-low {
-        @apply bg-surface-3 text-fg-dim;
     }
 
     /* The move controls, on the card's own page. The board face carries the
@@ -5628,7 +5609,7 @@
         @apply flex items-center gap-3 mt-8;
     }
     .lp-card-form-row {
-        @apply grid gap-4 sm:grid-cols-3;
+        @apply grid gap-4 sm:grid-cols-2;
     }
     .lp-card-form-textarea {
         @apply font-mono text-sm leading-relaxed;

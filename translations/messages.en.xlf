@@ -2566,11 +2566,11 @@
             </trans-unit>
             <trans-unit id="project.connect.tool.card_create">
                 <source>project.connect.tool.card_create</source>
-                <target>Add a card to the project board, with a type, a priority, a reporter and the pull requests that carry the work.</target>
+                <target>Add a card to the project board, with a type, a reporter and the pull requests that carry the work.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.card_list">
                 <source>project.connect.tool.card_list</source>
-                <target>List the cards on the project board, in board order, filtered by status, type, priority or reporter. One page of summary rows at a time, or whole cards on request, with the columns of the board.</target>
+                <target>List the cards on the project board, in board order, filtered by status, type or reporter. One page of summary rows at a time, or whole cards on request, with the columns of the board.</target>
             </trans-unit>
             <trans-unit id="project.connect.tool.board_columns">
                 <source>project.connect.tool.board_columns</source>
@@ -4932,18 +4932,6 @@
                 <source>board.card.status.done</source>
                 <target>Done</target>
             </trans-unit>
-            <trans-unit id="board.card.priority.high">
-                <source>board.card.priority.high</source>
-                <target>High</target>
-            </trans-unit>
-            <trans-unit id="board.card.priority.medium">
-                <source>board.card.priority.medium</source>
-                <target>Medium</target>
-            </trans-unit>
-            <trans-unit id="board.card.priority.low">
-                <source>board.card.priority.low</source>
-                <target>Low</target>
-            </trans-unit>
             <trans-unit id="board.card.type.feature">
                 <source>board.card.type.feature</source>
                 <target>Feature</target>
@@ -5118,7 +5106,7 @@
             </trans-unit>
             <trans-unit id="board.card.create.page.description">
                 <source>board.card.create.page.description</source>
-                <target>A card describes one piece of work. Give it a grade and a column.</target>
+                <target>A card describes one piece of work. Give it a type and a column.</target>
             </trans-unit>
             <trans-unit id="board.card.create.submit">
                 <source>board.card.create.submit</source>
@@ -5220,22 +5208,6 @@
                 <source>board.form.create_card_form.type.choice.idea</source>
                 <target>Idea</target>
             </trans-unit>
-            <trans-unit id="board.form.create_card_form.priority.label">
-                <source>board.form.create_card_form.priority.label</source>
-                <target>Priority</target>
-            </trans-unit>
-            <trans-unit id="board.form.create_card_form.priority.choice.high">
-                <source>board.form.create_card_form.priority.choice.high</source>
-                <target>High</target>
-            </trans-unit>
-            <trans-unit id="board.form.create_card_form.priority.choice.medium">
-                <source>board.form.create_card_form.priority.choice.medium</source>
-                <target>Medium</target>
-            </trans-unit>
-            <trans-unit id="board.form.create_card_form.priority.choice.low">
-                <source>board.form.create_card_form.priority.choice.low</source>
-                <target>Low</target>
-            </trans-unit>
             <trans-unit id="board.form.create_card_form.column.label">
                 <source>board.form.create_card_form.column.label</source>
                 <target>Column</target>
@@ -5257,24 +5229,6 @@
             <trans-unit id="board.form.move_card_form.column.label">
                 <source>board.form.move_card_form.column.label</source>
                 <target>Column</target>
-            </trans-unit>
-            <trans-unit id="board.form.move_card_form.priority.label">
-                <source>board.form.move_card_form.priority.label</source>
-                <target>Priority</target>
-            </trans-unit>
-            <trans-unit id="board.form.move_card_form.priority.choice.high">
-                <source>board.form.move_card_form.priority.choice.high</source>
-                <target>High</target>
-            </trans-unit>
-            <trans-unit id="board.form.move_card_form.priority.choice.medium">
-                <source>board.form.move_card_form.priority.choice.medium</source>
-                <target>Medium</target>
-            </trans-unit>
-            <trans-unit id="board.form.move_card_form.priority.choice.low">
-                <source>board.form.move_card_form.priority.choice.low</source>
-            <trans-unit id="board.form.configure_board_column_form.label.label">
-                <source>board.form.configure_board_column_form.label.label</source>
-                <target>Column name</target>
             </trans-unit>
             <trans-unit id="board.form.configure_board_column_form.is_default.label">
                 <source>board.form.configure_board_column_form.is_default.label</source>
@@ -5644,7 +5598,6 @@
             <trans-unit id="board.card.overview.description"><source>board.card.overview.description</source><target>Description</target></trans-unit>
             <trans-unit id="board.card.overview.details"><source>board.card.overview.details</source><target>Card details</target></trans-unit>
             <trans-unit id="board.card.overview.status"><source>board.card.overview.status</source><target>Status</target></trans-unit>
-            <trans-unit id="board.card.overview.priority"><source>board.card.overview.priority</source><target>Priority</target></trans-unit>
             <trans-unit id="board.card.overview.reporter"><source>board.card.overview.reporter</source><target>Reporter</target></trans-unit>
             <trans-unit id="board.card.overview.type"><source>board.card.overview.type</source><target>Type</target></trans-unit>
             <trans-unit id="board.card.conversation.title"><source>board.card.conversation.title</source><target>Conversation</target></trans-unit>
@@ -5931,7 +5884,6 @@
             <trans-unit id="site_review.create_card.context_title"><source>site_review.create_card.context_title</source><target>This card will include the selected feedback.</target></trans-unit>
             <trans-unit id="board.list.work"><source>board.list.work</source><target>Work</target></trans-unit>
             <trans-unit id="board.list.status"><source>board.list.status</source><target>Status</target></trans-unit>
-            <trans-unit id="board.list.priority"><source>board.list.priority</source><target>Priority</target></trans-unit>
             <trans-unit id="board.list.agent"><source>board.list.agent</source><target>Agent</target></trans-unit>
             <trans-unit id="board.list.agent.unassigned"><source>board.list.agent.unassigned</source><target>No agent assigned</target></trans-unit>
             <trans-unit id="board.list.linked_work"><source>board.list.linked_work</source><target>Linked work</target></trans-unit>
@@ -5944,8 +5896,6 @@
             </trans-unit>
             <trans-unit id="board.filter.search.label"><source>board.filter.search.label</source><target>Search cards</target></trans-unit>
             <trans-unit id="board.filter.search.placeholder"><source>board.filter.search.placeholder</source><target>Find a card…</target></trans-unit>
-            <trans-unit id="board.filter.priority.label"><source>board.filter.priority.label</source><target>Priority</target></trans-unit>
-            <trans-unit id="board.filter.priority.all"><source>board.filter.priority.all</source><target>All priorities</target></trans-unit>
             <trans-unit id="board.filter.empty"><source>board.filter.empty</source><target>No cards match these filters.</target></trans-unit>
             <trans-unit id="nav.link.agents"><source>nav.link.agents</source><target>Agents</target></trans-unit>
             <trans-unit id="nav.link.rules"><source>nav.link.rules</source><target>Rules</target></trans-unit>

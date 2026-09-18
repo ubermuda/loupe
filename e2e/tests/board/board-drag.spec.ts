@@ -1,7 +1,7 @@
 /**
  * Browser coverage for dragging a card on the board.
  *
- * A drag inside one priority group reorders it, and a drag into another column
+ * A drag inside one column reorders it, and a drag into another column
  * changes the card's column. Both assert the order again after a reload,
  * because a drop moves the card in the page before the server has answered, and
  * a reload is what shows whether the server agreed.
@@ -24,7 +24,6 @@ const PASSWORD = 'E2eBoardDrag1!';
 
 const BACKLOG = 0;
 const NEXT = 1;
-const HIGH = 0;
 
 const CARD = '[data-board-drag-target="card"]';
 const GROUP = '[data-board-drag-target="group"]';
@@ -86,26 +85,21 @@ async function createCard(
 ): Promise<void> {
     await page.goto(`/projects/${projectId}/board/cards/new`);
     await page.getByLabel('Title').fill(title);
-    await page.getByLabel('Priority').selectOption('10');
     await page.getByLabel('Column').selectOption({ label: 'Backlog' });
     await page.getByRole('button', { name: 'Create card' }).click();
     await expect(page.getByRole('heading', { name: title })).toBeVisible();
 }
 
-function group(page: Page, column: number, priority: number) {
-    return page
-        .locator('.lp-board__column')
-        .nth(column)
-        .locator(GROUP)
-        .nth(priority);
+function group(page: Page, column: number) {
+    return page.locator('.lp-board__column').nth(column).locator(GROUP);
 }
 
 /**
- * The card titles in one group. The link also carries the card's per-project
+ * The card titles in one column. The link also carries the card's per-project
  * number, so each title is read from the card's own data attribute instead.
  */
-function titlesIn(page: Page, column: number, priority: number) {
-    return group(page, column, priority)
+function titlesIn(page: Page, column: number) {
+    return group(page, column)
         .locator('[data-board-drag-target="card"]')
         .evaluateAll((cards) =>
             cards.map((card) => card.getAttribute('data-card-title') ?? ''),
@@ -168,9 +162,8 @@ async function topEdgeOf(
 async function centreOfGroup(
     page: Page,
     column: number,
-    priority: number,
 ): Promise<{ x: number; y: number }> {
-    const box = await group(page, column, priority).boundingBox();
+    const box = await group(page, column).boundingBox();
     expect(box).not.toBeNull();
     if (box === null) {
         throw new Error('no box for group');
@@ -275,23 +268,23 @@ test('the list view uses the same cards and opens the stable drawer', async ({
     await expect(page.getByRole('heading', { name: 'Bravo' })).toBeVisible();
 });
 
-test('a drag inside a priority group reorders it, and the order survives a reload', async ({
+test('a drag inside a column reorders it, and the order survives a reload', async ({
     page,
     board,
 }) => {
-    expect(await titlesIn(page, BACKLOG, HIGH)).toEqual(['Alpha', 'Bravo']);
+    expect(await titlesIn(page, BACKLOG)).toEqual(['Alpha', 'Bravo']);
 
     const written = movePosted(page);
     await dragCardTo(page, 'Bravo', await topEdgeOf(page, 'Alpha'));
     await written;
 
     await expect
-        .poll(() => titlesIn(page, BACKLOG, HIGH))
+        .poll(() => titlesIn(page, BACKLOG))
         .toEqual(['Bravo', 'Alpha']);
 
     await page.goto(board.boardUrl);
     await waitForDragReady(page);
-    expect(await titlesIn(page, BACKLOG, HIGH)).toEqual(['Bravo', 'Alpha']);
+    expect(await titlesIn(page, BACKLOG)).toEqual(['Bravo', 'Alpha']);
 });
 
 test('a drag into another column moves the card there, and it survives a reload', async ({
@@ -299,35 +292,35 @@ test('a drag into another column moves the card there, and it survives a reload'
     board,
 }) => {
     const written = movePosted(page);
-    await dragCardTo(page, 'Alpha', await centreOfGroup(page, NEXT, HIGH));
+    await dragCardTo(page, 'Alpha', await centreOfGroup(page, NEXT));
     await written;
 
-    await expect.poll(() => titlesIn(page, NEXT, HIGH)).toEqual(['Alpha']);
-    expect(await titlesIn(page, BACKLOG, HIGH)).toEqual(['Bravo']);
+    await expect.poll(() => titlesIn(page, NEXT)).toEqual(['Alpha']);
+    expect(await titlesIn(page, BACKLOG)).toEqual(['Bravo']);
 
     await page.goto(board.boardUrl);
-    expect(await titlesIn(page, NEXT, HIGH)).toEqual(['Alpha']);
-    expect(await titlesIn(page, BACKLOG, HIGH)).toEqual(['Bravo']);
+    expect(await titlesIn(page, NEXT)).toEqual(['Alpha']);
+    expect(await titlesIn(page, BACKLOG)).toEqual(['Bravo']);
 });
 
 test('a move the server never receives puts the card back and says so', async ({
     page,
     board,
 }) => {
-    expect(await titlesIn(page, BACKLOG, HIGH)).toEqual(['Alpha', 'Bravo']);
+    expect(await titlesIn(page, BACKLOG)).toEqual(['Alpha', 'Bravo']);
 
     await page.route('**/board/cards/*/move', (route) => route.abort());
-    await dragCardTo(page, 'Alpha', await centreOfGroup(page, NEXT, HIGH));
+    await dragCardTo(page, 'Alpha', await centreOfGroup(page, NEXT));
 
     const message = page.locator('.lp-board__message');
     await expect(message).toHaveText(/./);
-    expect(await titlesIn(page, BACKLOG, HIGH)).toEqual(['Alpha', 'Bravo']);
-    expect(await titlesIn(page, NEXT, HIGH)).toEqual([]);
+    expect(await titlesIn(page, BACKLOG)).toEqual(['Alpha', 'Bravo']);
+    expect(await titlesIn(page, NEXT)).toEqual([]);
 
     await page.unroute('**/board/cards/*/move');
     await page.goto(board.boardUrl);
     await waitForDragReady(page);
-    expect(await titlesIn(page, BACKLOG, HIGH)).toEqual(['Alpha', 'Bravo']);
+    expect(await titlesIn(page, BACKLOG)).toEqual(['Alpha', 'Bravo']);
 });
 
 test("the card's own page moves it without a pointer", async ({
@@ -347,8 +340,8 @@ test("the card's own page moves it without a pointer", async ({
 
     await expect(page).toHaveURL(board.boardUrl);
     await waitForDragReady(page);
-    expect(await titlesIn(page, NEXT, HIGH)).toEqual(['Bravo']);
+    expect(await titlesIn(page, NEXT)).toEqual(['Bravo']);
 
     await page.goto(board.boardUrl);
-    expect(await titlesIn(page, NEXT, HIGH)).toEqual(['Bravo']);
+    expect(await titlesIn(page, NEXT)).toEqual(['Bravo']);
 });

@@ -156,7 +156,7 @@ Roughly in the order an agent uses them:
 | `site_review_get` | Widget comments, their page context, and replies written in Loupe |
 | `site_review_mark_comment_addressed` | Mark a widget comment acted on, so the next `site_review_get` skips it |
 | `card_create` | Put a card on the project board (off by default — see below) |
-| `card_list` | Read a page of the board, filtered by status, type or priority, with the board's columns |
+| `card_list` | Read a page of the board, filtered by status, type or reporter, with the board's columns |
 | `board_columns` | List the board's columns, each with its slug, label, terminal flag and default flag |
 | `card_search` | Search every card's title and body by words, finished ones included |
 | `card_get` | Read one card, with the pull requests linked to it |

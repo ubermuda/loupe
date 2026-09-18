@@ -11,7 +11,6 @@ use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\FindBoardColumnCommand;
 use App\Module\Board\Command\FindBoardColumnHandler;
 use App\Module\Board\Entity\BoardColumn;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
 use App\Module\Board\Form\CreateCardFormType;
@@ -76,7 +75,6 @@ final class CreateCardController extends AppController
                     title: $title,
                     body: $data->body ?? '',
                     type: $data->type ?? CardType::Feature,
-                    priority: $data->priority ?? CardPriority::Medium,
                     column: $data->column,
                     // A person filled this form in, whatever an agent may later do to the card.
                     reporter: CardReporter::Human,

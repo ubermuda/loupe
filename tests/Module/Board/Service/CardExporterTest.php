@@ -6,7 +6,6 @@ namespace App\Tests\Module\Board\Service;
 
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\Card;
-use App\Module\Board\Entity\CardPriority;
 use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
@@ -64,7 +63,6 @@ final class CardExporterTest extends KernelTestCase
             body: 'The key is a year old.',
             number: 1,
             type: CardType::Bug,
-            priority: CardPriority::High,
             origin: CardReporter::Human,
             position: 7,
             createdAt: $createdAt,
@@ -88,7 +86,6 @@ final class CardExporterTest extends KernelTestCase
             'status' => 'done',
             // The label a reader sees on the board, translated.
             'column' => 'Done',
-            'priority' => 'high',
             'type' => 'bug',
             'reporter' => 'human',
             'position' => 7,
