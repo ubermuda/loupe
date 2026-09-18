@@ -231,6 +231,8 @@ final class CardCrudControllerTest extends WebTestCase
         );
         self::assertResponseIsSuccessful();
         self::assertSame('Next', trim($crawler->filter('select[name="create_card_form[column]"] option[selected]')->text()));
+        // As a full page, the frame hands its navigation to the page, so the URL follows the redirect.
+        self::assertSame('_top', $crawler->filter('turbo-frame#card-drawer-frame')->attr('target'));
 
         // The board opens the same form in its card drawer, so it renders in that frame.
         $crawler = $client->request(
@@ -241,6 +243,7 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('turbo-frame#card-drawer-frame form[name="create_card_form"]'));
         self::assertCount(1, $crawler->filter('turbo-frame#card-drawer-frame a[data-action="card-drawer#close"]:contains("Cancel")'));
+        self::assertNull($crawler->filter('turbo-frame#card-drawer-frame')->attr('target'));
     }
 
     public function test_the_owner_creates_a_card_from_feedback_and_attaches_it(): void

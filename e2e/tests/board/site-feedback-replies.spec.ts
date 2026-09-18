@@ -293,7 +293,8 @@ for (const surface of ['page', 'drawer']) {
             await expect(conversation.locator('.lp-status-chip')).toHaveText(
                 'Pending',
             );
-            await page.goto(siteUrl + '#feedback-' + commentId);
+            // The card opened in a drawer over this page, so reload to read the saved status.
+            await page.reload();
             await expect(capture).toHaveAttribute(
                 'data-comment-status',
                 'pending',
