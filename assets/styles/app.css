@@ -3962,7 +3962,7 @@
         @apply flex flex-col gap-0.5 mr-auto min-w-0;
     }
     .lp-connect-toggle__title {
-        @apply text-sm font-semibold text-ink;
+        @apply font-display text-sm font-semibold text-ink;
     }
     .lp-connect-toggle__state {
         @apply text-xs text-fg-mute;
@@ -4043,7 +4043,7 @@
         @apply flex flex-col gap-0.5 mr-auto min-w-0;
     }
     .lp-install__title {
-        @apply text-sm font-semibold text-ink;
+        @apply font-display text-sm font-semibold text-ink;
     }
     .lp-install__sub {
         @apply text-xs text-fg-mute;
@@ -5387,7 +5387,7 @@
         @apply cursor-grabbing;
     }
     .lp-board-card__title {
-        @apply pr-6 text-sm font-semibold text-ink no-underline hover:text-accent-ink;
+        @apply pr-6 font-display text-sm font-semibold text-ink no-underline hover:text-accent-ink;
     }
     /* A card's per-project number, sized like the documents list's version chip
        so the two identifiers read at the same weight across the app. */

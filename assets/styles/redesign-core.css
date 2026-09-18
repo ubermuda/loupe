@@ -148,6 +148,7 @@
     display: block;
     padding-right: calc(var(--spacing) * 5);
     color: var(--ink);
+    font-family: var(--font-display);
     font-size: var(--text-sm);
     font-weight: 700;
     line-height: 1.45;
@@ -277,6 +278,7 @@
 
 .lp-core-inbox .lp-inbox-request__title {
     color: var(--text);
+    font-family: var(--font-display);
     font-size: var(--text-sm);
     font-weight: 700;
 }
