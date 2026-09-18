@@ -309,6 +309,25 @@ final class ShowInboxControllerTest extends WebTestCase
         self::assertSame('Compare A & B for List<T>.', $crawler->filter('.lp-inbox-request__body')->text());
     }
 
+    public function test_a_final_item_in_a_closed_ask_links_to_the_request_that_holds_its_thread(): void
+    {
+        $owner = $this->signedUpUser($this->em, 'inbox-two-asks');
+        $project = $this->inboxProject($this->em, $owner);
+        $item = $this->answered($this->em, $this->question($this->em, $project, 1));
+        // The same item in two asks: its forms and replies live with the open
+        // one, and the closed one is what the completed queue renders.
+        $this->askHolding($this->em, $project, [$item]);
+        $this->askHolding($this->em, $project, [$item], closedAt: new \DateTimeImmutable('-1 hour'));
+        $this->setInboxFlag(true);
+
+        $this->client->loginUser($owner);
+        $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox?queue=completed');
+
+        $link = $crawler->filter('[data-inbox-item="1"] .lp-inbox-item__jump');
+        self::assertCount(1, $link);
+        self::assertSame('/projects/'.$project->id.'/inbox#inbox-item-1', $link->attr('href'));
+    }
+
     public function test_open_asks_come_oldest_first_then_loose_items_then_closed_asks(): void
     {
         $owner = $this->signedUpUser($this->em, 'inbox-order');

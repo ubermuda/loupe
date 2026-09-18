@@ -100,11 +100,12 @@
         {% endif %}
     {% endif %}
 
-    {% if inbox.acceptsResponse(item) %}
-        {% if not home %}
-            {# The item answers in the open queue, which another page or another tab holds. #}
-            <a class="lp-inbox-item__jump" href="{{ path('app_project_inbox', {id: item.project.id, _fragment: 'inbox-item-' ~ item.number}) }}" data-turbo-frame="_top">{{ 'inbox.item.respond_elsewhere'|trans({'%number%': item.number}) }}</a>
-        {% else %}
+    {# The forms and the replies of an item live at one place, which another
+       page or another queue can hold. A copy shows the way there, whether or
+       not the item still takes a response. #}
+    {% if not home %}
+        <a class="lp-inbox-item__jump" href="{{ path('app_project_inbox', {id: item.project.id, _fragment: 'inbox-item-' ~ item.number}) }}" data-turbo-frame="_top">{{ (inbox.acceptsResponse(item) ? 'inbox.item.respond_elsewhere' : 'inbox.item.thread_elsewhere')|trans({'%number%': item.number}) }}</a>
+    {% elseif inbox.acceptsResponse(item) %}
         <div class="lp-inbox-item__actions">
             {% if item.kind.value == 'question' %}
                 {% set answerForm = inbox_answer_form(item, refusedForm) %}
@@ -193,7 +194,6 @@
                     {{ form_end(declineForm) }}
                 </details>
         </div>
-        {% endif %}
     {% endif %}
     {% if home %}
         {% if item.kind.value == 'review' and not reviewFormShown %}

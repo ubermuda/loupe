@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Inbox\Service;
 
 use App\Module\Board\Controller\ShowCardController;
+use App\Module\Inbox\Command\ShowInboxHandler;
 use App\Module\Inbox\Controller\ShowInboxController;
 use App\Module\Inbox\Entity\InboxAsk;
 use App\Module\Inbox\Entity\InboxItem;
@@ -72,9 +73,17 @@ final readonly class InboxReturnTargetResolver
         $completed = 'completed' === $request->query->getString('queue')
             || ($closed && [] !== $asks && [] === array_filter($asks, static fn (InboxAsk $ask): bool => null === $ask->closedAt));
 
+        // A queue switch leaves the page behind, because the page the owner was
+        // on numbers the other queue. The closed ask that shows first decides
+        // which completed page holds this item.
+        $switching = $completed && 'completed' !== $request->query->getString('queue');
+        $page = $switching
+            ? $this->inboxAsks->closedPageOf($this->firstClosed($asks), ShowInboxHandler::CLOSED_ASKS_PER_PAGE)
+            : $request->query->getInt('page', 1);
+
         $pageQuery = [
             ...('' === $search && $completed ? ['queue' => 'completed'] : []),
-            ...($request->query->getInt('page', 1) > 1 ? ['page' => $request->query->getInt('page')] : []),
+            ...($page > 1 ? ['page' => $page] : []),
             ...('' === $search ? [] : ['q' => $search]),
         ];
 
@@ -91,6 +100,18 @@ final readonly class InboxReturnTargetResolver
         ];
 
         return new InboxReturnTarget('app_project_inbox', $redirect, ShowInboxController::class, ['id' => $projectId, 'project' => $item->project], $pageQuery);
+    }
+
+    /**
+     * The ask the completed queue lists first, which is the newest close.
+     *
+     * @param list<InboxAsk> $asks all closed, because the caller switches queues
+     */
+    private function firstClosed(array $asks): InboxAsk
+    {
+        usort($asks, static fn (InboxAsk $a, InboxAsk $b): int => ($b->closedAt <=> $a->closedAt) ?: ((string) $a->id <=> (string) $b->id));
+
+        return $asks[0] ?? throw new \LogicException('A completed queue switch needs the closed ask that holds the item.');
     }
 
     private function linkedDocument(InboxItem $item, Uuid $id): ?Document

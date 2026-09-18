@@ -4721,7 +4721,11 @@
             </trans-unit>
             <trans-unit id="inbox.item.respond_elsewhere">
                 <source>inbox.item.respond_elsewhere</source>
-                <target>Respond to item %number% where it first shows on this page</target>
+                <target>Respond to item %number% at the request that holds it</target>
+            </trans-unit>
+            <trans-unit id="inbox.item.thread_elsewhere">
+                <source>inbox.item.thread_elsewhere</source>
+                <target>Read item %number% and its replies at the request that holds it</target>
             </trans-unit>
             <trans-unit id="inbox.item.error.final">
                 <source>inbox.item.error.final</source>

@@ -306,6 +306,25 @@ final class InboxItemFormsControllerTest extends WebTestCase
         self::assertResponseRedirects($this->pageUrl());
     }
 
+    public function test_switching_queues_lands_on_the_page_that_holds_the_request(): void
+    {
+        // The oldest ask closed first, so it sits past the first completed page.
+        $todo = $this->todo($this->em, $this->project, 1);
+        $this->askHolding($this->em, $this->project, [$todo], closedAt: new \DateTimeImmutable('-1 year'));
+        for ($number = 2; $number <= ShowInboxHandler::CLOSED_ASKS_PER_PAGE + 1; ++$number) {
+            $this->askHolding(
+                $this->em,
+                $this->project,
+                [$this->answered($this->em, $this->question($this->em, $this->project, $number))],
+                closedAt: new \DateTimeImmutable('-'.$number.' minutes'),
+            );
+        }
+
+        $this->post($todo, 'done', []);
+
+        self::assertResponseRedirects($this->completedUrl().'&page=2#inbox-item-1');
+    }
+
     public function test_a_refused_form_and_a_saved_one_keep_the_closed_asks_page(): void
     {
         $last = null;
