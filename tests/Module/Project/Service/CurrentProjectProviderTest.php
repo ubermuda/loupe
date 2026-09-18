@@ -128,6 +128,34 @@ final class CurrentProjectProviderTest extends KernelTestCase
         self::assertSame($visited->id, $this->provider($account, $owner)->currentOrLastVisited()?->id);
     }
 
+    public function test_the_rendered_page_cookie_wins_over_the_session_and_is_access_checked(): void
+    {
+        self::bootKernel();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $owner = $this->user($em, 'provider-cookie@example.com');
+        $stranger = $this->user($em, 'provider-cookie-stranger@example.com');
+        $fetched = new Project($owner, 'fetched');
+        $clicked = new Project($owner, 'clicked from the prefetch cache');
+        $foreign = new Project($stranger, 'foreign');
+        foreach ([$fetched, $clicked, $foreign] as $project) {
+            $em->persist($project);
+        }
+        $em->flush();
+
+        $session = new Session(new MockArraySessionStorage());
+        $visit = $this->requestWith('id', (string) $fetched->id);
+        $visit->setSession($session);
+        $this->provider($visit, $owner)->current();
+
+        $account = new Request(cookies: [CurrentProjectProvider::LAST_VISITED_COOKIE => (string) $clicked->id]);
+        $account->setSession($session);
+        self::assertSame($clicked->id, $this->provider($account, $owner)->currentOrLastVisited()?->id);
+
+        $tampered = new Request(cookies: [CurrentProjectProvider::LAST_VISITED_COOKIE => (string) $foreign->id]);
+        $tampered->setSession($session);
+        self::assertSame($fetched->id, $this->provider($tampered, $owner)->currentOrLastVisited()?->id);
+    }
+
     public function test_a_remembered_project_of_another_user_is_ignored(): void
     {
         self::bootKernel();

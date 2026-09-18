@@ -26,6 +26,8 @@ use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInt
 final readonly class CurrentProjectProvider
 {
     private const string LAST_VISITED_SESSION_KEY = 'project.last_visited_id';
+    /** Set by remember_project_controller.js when a project page renders. */
+    public const string LAST_VISITED_COOKIE = 'loupe_project';
 
     /** @var \WeakMap<Request, array{?Project, ?Project}> */
     private \WeakMap $cache;
@@ -91,9 +93,16 @@ final readonly class CurrentProjectProvider
 
         // Only a page with no project in its route falls back. The owner-scoped
         // lookup re-checks access, so a deleted or foreign project falls away.
-        $remembered = $session?->get(self::LAST_VISITED_SESSION_KEY);
+        // The cookie comes first: a click served from Turbo's prefetch cache
+        // reaches no server code, so only the rendered page can record it.
+        foreach ([$request->cookies->get(self::LAST_VISITED_COOKIE), $session?->get(self::LAST_VISITED_SESSION_KEY)] as $remembered) {
+            $project = is_string($remembered) && '' !== $remembered ? $this->findForOwner($remembered, $user) : null;
+            if (null !== $project) {
+                return [null, $project];
+            }
+        }
 
-        return [null, is_string($remembered) ? $this->findForOwner($remembered, $user) : null];
+        return [null, null];
     }
 
     private function isPrefetch(Request $request): bool

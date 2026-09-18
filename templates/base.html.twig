@@ -5,6 +5,7 @@
         {% set project = current_project() %}
         {% set route = app.request.attributes.get('_route') %}
         <div class="lp-app" data-controller="drawer">
+            {% if project %}<div hidden data-controller="remember-project" data-remember-project-id-value="{{ project.id }}"></div>{% endif %}
             {# Off a project page the sidebar keeps the last project visited; the topbar does not. #}
             {% with {project: sidebar_project()} %}
             <aside class="lp-sidebar lp-sidebar--drawer" id="lp-sidebar" data-drawer-target="panel">
