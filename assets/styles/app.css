@@ -1235,6 +1235,13 @@
     .lp-eyebrow {
         @apply uppercase text-fg-dim m-0 text-xs font-bold tracking-widest;
     }
+    /* The design system puts the display face on every heading rather than on
+       each heading class, so a class that forgets the token still reads right.
+       Scoped to the application shell: the landing page and the authentication
+       interstitials carry their own type scale. */
+    .lp-main :is(h1, h2, h3, h4) {
+        @apply font-display;
+    }
     .lp-workspace-title {
         @apply font-display font-extrabold text-ink m-0 text-3xl tracking-tight leading-none;
     }
@@ -6044,7 +6051,7 @@
         @apply mb-7;
     }
     .lp-workshop-title {
-        @apply m-0 font-sans text-3xl leading-tight font-extrabold tracking-tight text-ink;
+        @apply m-0 font-display text-3xl leading-tight font-extrabold tracking-tight text-ink;
     }
     .lp-workshop-summary {
         @apply flex flex-col items-stretch gap-0 p-5 mb-7 rounded-xl border border-accent-border bg-accent-faint sm:flex-row sm:items-center sm:gap-7;
@@ -6056,7 +6063,7 @@
         @apply text-accent-ink;
     }
     .lp-workshop-stat__value {
-        @apply font-sans text-3xl leading-none font-extrabold text-ink;
+        @apply font-display text-3xl leading-none font-extrabold text-ink;
     }
     .lp-workshop-stat__copy {
         @apply flex flex-col text-xs leading-snug text-fg-dim;
@@ -6080,7 +6087,7 @@
         @apply mb-7;
     }
     .lp-workshop-section__title {
-        @apply m-0 font-sans text-lg font-bold tracking-tight text-ink;
+        @apply m-0 font-display text-lg font-bold tracking-tight text-ink;
     }
     .lp-workshop-section__title > span {
         @apply inline-grid place-items-center min-w-5 h-5 ml-1 rounded-md bg-surface-3 text-xs text-fg-dim;
@@ -6140,7 +6147,7 @@
         @apply bg-surface-3 text-fg-dim;
     }
     .lp-workshop-work-card h3 {
-        @apply mt-3 break-words font-sans text-sm font-bold leading-snug text-ink;
+        @apply mt-3 break-words font-display text-sm font-bold leading-snug text-ink;
     }
     .lp-workshop-work-card footer {
         @apply flex items-center gap-2 mt-4 text-xs text-fg-dim;
@@ -6193,7 +6200,7 @@
         @apply relative z-10 max-w-40;
     }
     .lp-workshop-note h2 {
-        @apply m-0 font-sans text-lg font-bold tracking-tight text-ink;
+        @apply m-0 font-display text-lg font-bold tracking-tight text-ink;
     }
     .lp-workshop-note p {
         @apply my-2 text-xs leading-relaxed text-fg-dim;
