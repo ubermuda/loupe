@@ -39,8 +39,12 @@ it('connects, and the Needs a card scope keeps only unlinked feedback', () => {
     const [linked, loose] = controller.rowTargets;
     expect(linked.hidden).toBe(true);
     expect(loose.hidden).toBe(false);
-    expect(controller.scopeTargets[1].getAttribute('aria-pressed')).toBe('true');
-    expect(controller.scopeTargets[0].getAttribute('aria-pressed')).toBe('false');
+    expect(controller.scopeTargets[1].getAttribute('aria-pressed')).toBe(
+        'true',
+    );
+    expect(controller.scopeTargets[0].getAttribute('aria-pressed')).toBe(
+        'false',
+    );
 });
 
 it('filters by status and says so when nothing matches', () => {

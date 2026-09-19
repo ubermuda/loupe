@@ -167,7 +167,8 @@ final class ShowWorkshopControllerTest extends WebTestCase
         self::assertSame(array_map(static fn (int $number): string => '/projects/'.$project->id.'/inbox#inbox-item-'.$number, [8, 7, 6, 5, 4, 3]), $links);
         $client->click($crawler->filter('[data-workshop-attention]')->first()->link());
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('#inbox-item-8', 'Request 8');
+        // A one-item ask shows its title once, as the ask's heading.
+        self::assertSelectorTextContains('.lp-inbox-ask:has(#inbox-item-8) .lp-inbox-ask__title', 'Request 8');
 
         $flags = self::getContainer()->get(FeatureFlagRepository::class);
         $flags->findAllIndexed()['inbox.enabled']->value = false;

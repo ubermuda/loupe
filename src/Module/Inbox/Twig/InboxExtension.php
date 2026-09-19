@@ -145,7 +145,7 @@ final class InboxExtension extends AbstractExtension
             return $review->reviewedVersionNumber;
         }
 
-        return null === $review->document ? null : $this->documentVersions->findLatest($review->document)?->versionNumber;
+        return null === $review->document ? null : $this->documentVersions->findLatest($review->document)->versionNumber;
     }
 
     public function documentReviewForm(InboxReview $review, ?FormView $refused = null): FormView

@@ -352,7 +352,9 @@ for (const target of ['document', 'pull-request']) {
         await expect(recovery).toBeHidden();
         // A one-item ask shows its title once, as the ask's heading.
         await expect(
-            draftPage.locator(`.lp-inbox-ask:has(#inbox-item-${number}) .lp-inbox-ask__title`),
+            draftPage.locator(
+                `.lp-inbox-ask:has(#inbox-item-${number}) .lp-inbox-ask__title`,
+            ),
         ).toBeFocused();
         await expect(draftItem.locator('[data-inbox-response]')).toContainText(
             'Explain retries before implementation.',
@@ -466,7 +468,9 @@ test('an unavailable pull request keeps its unsent review recoverable', async ({
     await expect(recovery).toBeHidden();
     // A one-item ask shows its title once, as the ask's heading.
     await expect(
-        page.locator(`.lp-inbox-ask:has(#inbox-item-${number}) .lp-inbox-ask__title`),
+        page.locator(
+            `.lp-inbox-ask:has(#inbox-item-${number}) .lp-inbox-ask__title`,
+        ),
     ).toBeFocused();
 });
 

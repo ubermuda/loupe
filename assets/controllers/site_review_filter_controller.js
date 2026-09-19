@@ -14,7 +14,8 @@ export default class extends Controller {
 
         for (const row of this.rowTargets) {
             const visible =
-                (this.selectedScope === 'all' || row.dataset.linked === 'false') &&
+                (this.selectedScope === 'all' ||
+                    row.dataset.linked === 'false') &&
                 (status === 'all' || row.dataset.status === status) &&
                 (query === '' ||
                     row.textContent.toLocaleLowerCase().includes(query));
@@ -37,7 +38,8 @@ export default class extends Controller {
             control.setAttribute(
                 'aria-pressed',
                 String(
-                    control.dataset.siteReviewFilterScopeParam === this.selectedScope,
+                    control.dataset.siteReviewFilterScopeParam ===
+                        this.selectedScope,
                 ),
             );
         }

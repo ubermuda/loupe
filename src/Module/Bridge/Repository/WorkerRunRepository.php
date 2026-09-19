@@ -80,16 +80,6 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getResult());
     }
 
-    /**
-     * One page of a project's runs, newest report first.
-     *
-     * The order matches idx_bridge_worker_runs_project_received, and it stays the
-     * same under a search: a reader of a run list is debugging, so the newest
-     * report outranks the best match. The id breaks a tie on the second, without
-     * which an offset page can repeat or skip a run.
-     *
-     * @return Paginator<WorkerRun>
-     */
     /** @return list<WorkerRun> the card's latest runs, newest first */
     public function findRecentForCard(Project $project, Uuid $cardId, int $limit): array
     {
@@ -105,6 +95,16 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * One page of a project's runs, newest report first.
+     *
+     * The order matches idx_bridge_worker_runs_project_received, and it stays the
+     * same under a search: a reader of a run list is debugging, so the newest
+     * report outranks the best match. The id breaks a tie on the second, without
+     * which an offset page can repeat or skip a run.
+     *
+     * @return Paginator<WorkerRun>
+     */
     public function findPaginatedByProject(
         Project $project,
         int $page,
