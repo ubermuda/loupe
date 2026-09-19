@@ -34,7 +34,7 @@
     <div class="lp-card-drawer__body">
         <h1 class="lp-card-drawer__title">{{ card.title }}</h1>
         <div class="lp-tabs" role="tablist" aria-label="{{ 'board.card.drawer.sections'|trans }}">
-            {% for tab in ['overview', 'conversation', 'feedback'] %}
+            {% for tab in ['overview', 'details', 'conversation', 'feedback'] %}
             <button type="button" class="lp-tabs__tab" role="tab" id="card-tab-{{ tab }}" aria-controls="card-panel-{{ tab }}" data-panel-tabs-target="tab" data-panel-tab="{{ tab }}" data-action="click->panel-tabs#select keydown->panel-tabs#keydown">{{ ('board.card.tab.' ~ tab)|trans }}</button>
             {% endfor %}
         </div>
@@ -45,27 +45,6 @@
                     <h2 class="lp-card-panel__title">{{ 'board.card.overview.description'|trans }}</h2>
                     {% if card.body|trim is not empty %}<div class="prose lp-prose lp-card-detail__body">{{ card.body|card_body }}</div>{% else %}<p class="lp-card-detail__empty">{{ 'board.card.body.empty'|trans }}</p>{% endif %}
                 </section>
-                <dl class="lp-card-fields" aria-label="{{ 'board.card.overview.details'|trans }}">
-                    <div class="lp-card-field lp-card-field--wide">
-                        <dt>{{ 'board.card.overview.status'|trans }}</dt>
-                        <dd>
-                            {% set moveForm = card_move_form(card) %}
-                            {# Turbo is off: the move answers with a redirect to the board. #}
-                            <form method="post" data-turbo="false" action="{{ path('app_board_card_move', {projectId: card.project.id, cardId: card.id}) }}" class="lp-card-move__form">
-                                {{ form_widget(moveForm._token) }}
-                                {{ form_label(moveForm.column, null, {label_attr: {class: 'sr-only'}}) }}
-                                {{ form_widget(moveForm.column, {attr: {class: 'lp-input lp-select lp-card-move__select'}}) }}
-                                {{ form_widget(moveForm.position, {attr: {hidden: 'hidden'}}) }}
-                                <button type="submit" class="lp-btn">{{ 'board.card.move.submit'|trans }}</button>
-                            </form>
-                        </dd>
-                    </div>
-                    <div class="lp-card-field"><dt>{{ 'board.card.overview.type'|trans }}</dt><dd>{% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}</dd></div>
-                    <div class="lp-card-field"><dt>{{ 'board.card.overview.reporter'|trans }}</dt><dd>{{ ('board.card.reporter.' ~ card.reporter.value)|trans }}</dd></div>
-                    <div class="lp-card-field"><dt>{{ 'board.card.overview.created'|trans }}</dt><dd><time datetime="{{ card.createdAt|date('c') }}">{{ card.createdAt|date('M j, Y') }}</time></dd></div>
-                    <div class="lp-card-field"><dt>{{ 'board.card.overview.updated'|trans }}</dt><dd><time datetime="{{ card.updatedAt|date('c') }}">{{ card.updatedAt|relative_time }}</time></dd></div>
-                    {% if card.completedAt %}<div class="lp-card-field"><dt>{{ 'board.card.overview.completed'|trans }}</dt><dd><time datetime="{{ card.completedAt|date('c') }}">{{ card.completedAt|date('M j, Y') }}</time></dd></div>{% endif %}
-                </dl>
                 <section class="lp-card-docs lp-card-pulls lp-card-overview__section">
                     {% if card.documents|length > 0 or card.pullRequests|length > 0 %}
                     <div class="lp-inbox-linked-table-wrap">
@@ -107,6 +86,30 @@
                 </section>
             </div>
         </section>
+        <section class="lp-card-panel" id="card-panel-details" role="tabpanel" aria-labelledby="card-tab-details" data-panel-tabs-target="panel" data-panel-panel="details" hidden>
+            <dl class="lp-card-fields" aria-label="{{ 'board.card.tab.details'|trans }}">
+                <div class="lp-card-field lp-card-field--wide">
+                    <dt>{{ 'board.card.overview.status'|trans }}</dt>
+                    <dd>
+                        {% set moveForm = card_move_form(card) %}
+                        {# Turbo is off: the move answers with a redirect to the board. #}
+                        <form method="post" data-turbo="false" action="{{ path('app_board_card_move', {projectId: card.project.id, cardId: card.id}) }}" class="lp-card-move__form" data-controller="submit-on-change">
+                            {{ form_widget(moveForm._token) }}
+                            {{ form_label(moveForm.column, null, {label_attr: {class: 'sr-only'}}) }}
+                            {{ form_widget(moveForm.column, {attr: {class: 'lp-input lp-select lp-card-move__select', 'data-action': 'change->submit-on-change#submit'}}) }}
+                            {{ form_widget(moveForm.position, {attr: {hidden: 'hidden'}}) }}
+                            <noscript><button type="submit" class="lp-btn">{{ 'board.card.move.submit'|trans }}</button></noscript>
+                        </form>
+                    </dd>
+                </div>
+                <div class="lp-card-field"><dt>{{ 'board.card.overview.type'|trans }}</dt><dd>{% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}</dd></div>
+                <div class="lp-card-field"><dt>{{ 'board.card.overview.reporter'|trans }}</dt><dd>{{ ('board.card.reporter.' ~ card.reporter.value)|trans }}</dd></div>
+                <div class="lp-card-field"><dt>{{ 'board.card.overview.created'|trans }}</dt><dd><time datetime="{{ card.createdAt|date('c') }}">{{ card.createdAt|date('M j, Y') }}</time></dd></div>
+                <div class="lp-card-field"><dt>{{ 'board.card.overview.updated'|trans }}</dt><dd><time datetime="{{ card.updatedAt|date('c') }}">{{ card.updatedAt|relative_time }}</time></dd></div>
+                {% if card.completedAt %}<div class="lp-card-field"><dt>{{ 'board.card.overview.completed'|trans }}</dt><dd><time datetime="{{ card.completedAt|date('c') }}">{{ card.completedAt|date('M j, Y') }}</time></dd></div>{% endif %}
+            </dl>
+        </section>
+
         <section class="lp-card-panel" id="card-panel-conversation" role="tabpanel" aria-labelledby="card-tab-conversation" data-panel-tabs-target="panel" data-panel-panel="conversation" hidden>
             <div class="lp-card-conversation-intro"><span class="lp-source-avatar"><twig:ux:icon name="lucide:messages-square" class="w-4 h-4" /></span><div><h2 class="lp-card-panel__title">{{ 'board.card.conversation.title'|trans }}</h2><p>{{ 'board.card.conversation.description'|trans }}</p></div></div>
             {{ inbox_card_section(card) }}

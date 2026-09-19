@@ -399,7 +399,8 @@ final class CardCrudControllerTest extends WebTestCase
         );
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('turbo-frame#card-drawer-frame .lp-card-drawer'));
-        self::assertCount(3, $crawler->filter('[role="tab"]'));
+        // Overview, Details, Conversation and Feedback.
+        self::assertCount(4, $crawler->filter('[role="tab"]'));
         self::assertCount(1, $crawler->filter('a[data-action="card-drawer#close"]'));
 
         $client->submit($crawler->filter('form[action$="/delete"]')->form());
