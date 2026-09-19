@@ -11,15 +11,20 @@ use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Inbox\Command\ShowInboxHandler;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemCard;
+use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
+use App\Module\Inbox\Entity\InboxReview;
 use App\Module\Inbox\Service\InboxSearchIndexer;
+use App\Module\Review\Entity\Document;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Module\Inbox\InboxScenario;
 use App\Tests\Support\MercureCookies;
+use Doctrine\Bundle\DoctrineBundle\DataCollector\DoctrineDataCollector;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Profiler\Profile;
 use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class ShowInboxControllerTest extends WebTestCase
@@ -220,6 +225,22 @@ final class ShowInboxControllerTest extends WebTestCase
         self::assertNull(self::subscribedTopics($this->client->getResponse()));
     }
 
+    public function test_a_one_item_ask_names_its_item_once_as_the_heading(): void
+    {
+        $owner = $this->signedUpUser($this->em, 'inbox-one-item');
+        $project = $this->inboxProject($this->em, $owner);
+        $ask = $this->askHolding($this->em, $project, [$this->question($this->em, $project, 3, ['Yes', 'No'], title: 'Ship on Friday?')], context: 'The release notes are ready.');
+        $this->setInboxFlag(true);
+
+        $this->client->loginUser($owner);
+        $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox');
+
+        $block = $crawler->filter('[data-inbox-ask-id="'.$ask->id.'"]');
+        self::assertSame('Ship on Friday?', $block->filter('h2.lp-inbox-ask__title')->text());
+        self::assertCount(0, $block->filter('.lp-inbox-item__title'));
+        self::assertStringContainsString('The release notes are ready.', $block->filter('.lp-inbox-ask__context')->text());
+    }
+
     public function test_an_ask_shows_its_session_its_sanitized_context_and_its_numbered_items(): void
     {
         $owner = $this->signedUpUser($this->em, 'inbox-render');
@@ -235,8 +256,12 @@ final class ShowInboxControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $block = $crawler->filter('[data-inbox-ask-id="'.$ask->id.'"]');
         self::assertCount(1, $block);
-        self::assertStringContainsString((string) $ask->sessionId, $block->filter('.lp-inbox-ask__session')->text());
+        // The ask reads as one request: its heading, then the agent's note, then its items.
+        self::assertSame('Which format?', $block->filter('.lp-inbox-ask__title')->text());
+        self::assertCount(0, $block->filter('.lp-inbox-ask__session'));
+        self::assertStringContainsString((string) $ask->sessionId, $block->filter('.lp-presence [role="tooltip"]')->text());
         self::assertSame('the export', $block->filter('.lp-inbox-ask__context strong')->text());
+        self::assertStringContainsString('without an answer', $block->filter('#inbox-item-12 details.lp-inbox-decline [data-inbox-decline-hint]')->text());
         self::assertCount(0, $block->filter('script'));
         self::assertSame('item 12', $block->filter('#inbox-item-12 .lp-inbox-item__number')->text());
         self::assertSame('item 13', $block->filter('#inbox-item-13 .lp-inbox-item__number')->text());
@@ -261,7 +286,7 @@ final class ShowInboxControllerTest extends WebTestCase
         $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox');
 
         self::assertResponseIsSuccessful();
-        self::assertSame(['Open', 'Completed'], $crawler->filter('.lp-section-tabs__item')->each(static fn ($node): string => $node->text()));
+        self::assertSame(['Open', 'Completed'], $crawler->filter('.lp-tabs__tab')->each(static fn ($node): string => $node->text()));
         self::assertSame('3 waiting', $crawler->filter('.lp-filter-count')->text());
         self::assertSame('Agent request', $crawler->filter('[data-inbox-ask-id] .lp-inbox-ask__source')->first()->text());
         self::assertCount(1, $crawler->filter('[data-inbox-section="open-asks"]'));
@@ -488,6 +513,50 @@ final class ShowInboxControllerTest extends WebTestCase
         self::assertCount(1, $pastTheEnd->filter('[data-inbox-section="search-results"] [data-inbox-item]'));
         self::assertSelectorTextSame('.lp-pagination [aria-current="page"]', '2');
         self::assertSelectorNotExists('[data-inbox-search-empty]');
+    }
+
+    public function test_the_page_reads_every_review_in_one_query(): void
+    {
+        $owner = $this->signedUpUser($this->em, 'inbox-review-queries');
+        $project = $this->inboxProject($this->em, $owner);
+        $items = [];
+        for ($number = 1; $number <= 4; ++$number) {
+            $document = new Document($owner, $project, 'Design '.$number);
+            $document->addVersion('# Design', '<h1>Design</h1>');
+            $item = new InboxItem($project, $number, InboxItemKind::Review, 'Review design '.$number, false);
+            $this->em->persist($document);
+            $this->em->persist($item);
+            $this->em->persist(new InboxReview($item, $document));
+            $items[] = $item;
+        }
+        $this->em->flush();
+        $this->askHolding($this->em, $project, array_slice($items, 0, 2));
+        $this->setInboxFlag(true);
+        $this->em->clear();
+
+        $this->client->loginUser($owner);
+        $this->client->enableProfiler();
+        $crawler = $this->client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox');
+        self::assertResponseIsSuccessful();
+        // Guard: every item renders its review, so the count below is over real reads.
+        self::assertCount(3, $crawler->filter('.lp-inbox-request [data-subject="document"]'));
+        self::assertCount(4, $crawler->filter('[data-inbox-review-document]'));
+
+        $profile = $this->client->getProfile();
+        self::assertInstanceOf(Profile::class, $profile);
+        $collector = $profile->getCollector('db');
+        self::assertInstanceOf(DoctrineDataCollector::class, $collector);
+        $reviewReads = 0;
+        foreach ($collector->getQueries() as $queries) {
+            foreach ($queries as $query) {
+                $sql = (string) $query['sql'];
+                if (str_starts_with($sql, 'SELECT') && preg_match('/FROM inbox_reviews \w+/', $sql)) {
+                    ++$reviewReads;
+                }
+            }
+        }
+
+        self::assertSame(1, $reviewReads);
     }
 
     private function indexed(InboxItem $item): InboxItem

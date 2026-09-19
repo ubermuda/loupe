@@ -1,0 +1,6 @@
+{#- The document a review names, as a row of the linked items. Props: document, project, version (or null). -#}
+<tr data-inbox-review-document>
+    <td><span class="lp-inbox-linked-table__type"><twig:ux:icon name="lucide:file-text" class="w-4 h-4" />{{ 'inbox.linked_items.document'|trans }}</span><strong>{{ document.title }}</strong>{% if version %} <span class="lp-inbox-linked-table__version">{{ 'inbox.review.version'|trans({'%version%': version}) }}</span>{% endif %}</td>
+    <td><span class="lp-tag">{{ document.status.translationKey()|trans }}</span></td>
+    <td><a class="lp-btn lp-btn--ghost lp-btn--open" href="{{ path('app_document_review', {projectId: project.id, documentId: document.id}) }}" data-turbo-frame="_top" aria-label="{{ 'inbox.linked_items.open_document'|trans({'%title%': document.title}) }}"><span class="lp-btn__label">{{ 'inbox.linked_items.open'|trans }}</span><twig:ux:icon name="lucide:chevron-right" class="w-4 h-4" /></a></td>
+</tr>

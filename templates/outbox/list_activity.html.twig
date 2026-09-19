@@ -18,6 +18,7 @@
     data-activity-filter-labels-value="{{ {
         connecting: 'activity.feed.connecting'|trans,
         listening: 'activity.feed.listening'|trans,
+        listeningTitle: 'activity.feed.listening_title'|trans,
         paused: 'activity.feed.paused'|trans,
         stale: 'activity.feed.stale'|trans,
         failed: 'activity.feed.failed'|trans,
@@ -35,7 +36,7 @@
         </div>
     </header>
 
-    <div class="lp-list-filters">
+    <div class="lp-list-filters" data-activity-filter-target="filters" {% if entries is empty %}hidden{% endif %}>
         <div class="lp-filter-form">
             <div class="lp-filter-search">
                 <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
@@ -65,6 +66,5 @@
         <h2 class="lp-empty-state__title">{{ 'activity.empty.title'|trans }}</h2>
         <p>{{ 'activity.empty.description'|trans }}</p>
     </div>
-    <p class="lp-rule-explanation"><twig:ux:icon name="lucide:shield" />{{ 'activity.durable_notice'|trans }}</p>
 </div>
 {% endblock %}

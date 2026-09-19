@@ -42,7 +42,7 @@ final class AddBoardColumnController extends AppController
 
         if ($form->isSubmitted() && $form->isValid()) {
             try {
-                ($this->addColumn)(new AddBoardColumnCommand($project, $data->label ?? ''));
+                ($this->addColumn)(new AddBoardColumnCommand($project, $data->label ?? '', $data->tone));
 
                 return $this->redirectToRoute('app_board_settings', ['id' => (string) $project->id]);
             } catch (DomainErrors $e) {

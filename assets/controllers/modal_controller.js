@@ -31,6 +31,9 @@ const CLOSE_KEYFRAMES_DRAWER = [
     { transform: 'translateX(100%)' },
 ];
 
+// A drawer slides for 200ms on the ease curve, in and out.
+const DRAWER_TIMING = { duration: 200, easing: 'ease' };
+
 const isMobile = () => window.innerWidth < 640;
 
 export default class extends Controller {
@@ -79,6 +82,9 @@ export default class extends Controller {
         this.closeRequest = null;
         this.closingAnimation = null;
         const dialog = this.dialogTarget;
+        if (!dialog.open) {
+            this.returnFocusTo = document.activeElement;
+        }
         dialog.showModal();
         dialog.classList.remove('is-closing');
         dialog.classList.add('is-opening');
@@ -95,7 +101,12 @@ export default class extends Controller {
             : isMobile()
               ? OPEN_KEYFRAMES_MOBILE
               : OPEN_KEYFRAMES;
-        dialog.animate(keyframes, { duration: 220, easing: 'ease-out' });
+        dialog.animate(
+            keyframes,
+            this.drawerValue
+                ? DRAWER_TIMING
+                : { duration: 220, easing: 'ease-out' },
+        );
     }
 
     close(event) {
@@ -108,8 +119,16 @@ export default class extends Controller {
             if (this.closeRequest === request && dialog.isConnected) {
                 this.closeRequest = null;
                 dialog.close();
+                this.restoreFocus();
             }
         });
+    }
+
+    restoreFocus() {
+        if (this.returnFocusTo?.isConnected) {
+            this.returnFocusTo.focus();
+        }
+        this.returnFocusTo = null;
     }
 
     // [Claude] turbo:submit-end fires AFTER Turbo has already applied stream mutations. If a stream
@@ -151,8 +170,9 @@ export default class extends Controller {
               ? CLOSE_KEYFRAMES_MOBILE
               : CLOSE_KEYFRAMES;
         const anim = dialog.animate(keyframes, {
-            duration: 180,
-            easing: 'ease-in',
+            ...(this.drawerValue
+                ? DRAWER_TIMING
+                : { duration: 180, easing: 'ease-in' }),
             fill: 'forwards',
         });
         this.closingAnimation = anim;

@@ -40,6 +40,9 @@ final class ConfigureBoardColumnFormType extends AbstractType
             'label' => 'board.form.configure_board_column_form.terminal.label',
             'required' => false,
         ]);
+        $builder->add('tone', BoardColumnToneType::class, [
+            'label' => 'board.form.configure_board_column_form.tone.label',
+        ]);
         $builder->add('expectedLabel', HiddenType::class);
         $builder->add('expectedDefaultId', HiddenType::class);
         $builder->add('expectedTerminal', HiddenType::class);

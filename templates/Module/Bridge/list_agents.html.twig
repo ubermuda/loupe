@@ -44,7 +44,7 @@
                     <span>{{ 'bridge.agents.last_seen'|trans }}</span>
                     <strong>{{ connection.status.lastSeenAt ? connection.status.lastSeenAt|date('M j, H:i') : 'bridge.agents.never'|trans }}</strong>
                 </div>
-                <footer><span>{{ connection.bridge.cliVersion }}</span><span>{{ 'bridge.agents.runtime'|trans }}</span></footer>
+                <footer><span>{{ connection.bridge.cliVersion|short_sha }}</span><span>{{ 'bridge.agents.runtime'|trans }}</span></footer>
             </div>
         </article>
         {% endfor %}

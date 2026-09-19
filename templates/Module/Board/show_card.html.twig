@@ -13,7 +13,7 @@
 {% endblock %}
 
 {% block body %}
-<turbo-frame id="card-drawer-frame">
+<turbo-frame id="card-drawer-frame"{% if app.request.headers.get('Turbo-Frame') != 'card-drawer-frame' %} target="_top"{% endif %}>
 <div class="lp-card-drawer" data-controller="panel-tabs" data-panel-tabs-active-value="{{ app.request.query.get('tab', 'overview') }}">
     {% if app.request.headers.get('Turbo-Frame') == 'card-drawer-frame' %}
         {% include '_flash_messages.html.twig' with {flashes: app.flashes(['success', 'error', 'warning', 'info'])} only %}
@@ -22,70 +22,91 @@
         <div class="lp-card-drawer__identity">
             <span class="lp-card-drawer__icon"><twig:ux:icon name="lucide:layout-list" class="w-4 h-4" /></span>
             <span class="lp-card-number">#{{ card.number }}</span>
-            <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>
+            {% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}
+            {% include '@Board/_column_tag.html.twig' with {column: card.column} only %}
         </div>
         <div class="lp-card-drawer__header-actions">
-            <a class="lp-btn lp-btn--ghost" href="{{ path('app_board_card_edit', {projectId: card.project.id, cardId: card.id}) }}" data-turbo-frame="_top"><twig:ux:icon name="lucide:pencil" class="w-4 h-4" />{{ 'board.card.edit.action'|trans }}</a>
+            <a class="lp-btn lp-btn--ghost" href="{{ path('app_board_card_edit', {projectId: card.project.id, cardId: card.id}) }}"><twig:ux:icon name="lucide:pencil" class="w-4 h-4" />{{ 'board.card.edit.action'|trans }}</a>
             <a class="lp-btn lp-btn--ghost lp-btn--icon" href="{{ path('app_project_board', {id: card.project.id}) }}" aria-label="{{ 'board.card.drawer.close'|trans }}" data-action="card-drawer#close"><twig:ux:icon name="lucide:x" class="w-4 h-4" /></a>
         </div>
     </header>
 
     <div class="lp-card-drawer__body">
         <h1 class="lp-card-drawer__title">{{ card.title }}</h1>
-        <div class="lp-card-tabs" role="tablist" aria-label="{{ 'board.card.drawer.sections'|trans }}">
+        <div class="lp-tabs" role="tablist" aria-label="{{ 'board.card.drawer.sections'|trans }}">
             {% for tab in ['overview', 'conversation', 'feedback'] %}
-            <button type="button" class="lp-card-tabs__tab" role="tab" id="card-tab-{{ tab }}" aria-controls="card-panel-{{ tab }}" data-panel-tabs-target="tab" data-panel-tab="{{ tab }}" data-action="click->panel-tabs#select keydown->panel-tabs#keydown">{{ ('board.card.tab.' ~ tab)|trans }}</button>
+            <button type="button" class="lp-tabs__tab" role="tab" id="card-tab-{{ tab }}" aria-controls="card-panel-{{ tab }}" data-panel-tabs-target="tab" data-panel-tab="{{ tab }}" data-action="click->panel-tabs#select keydown->panel-tabs#keydown">{{ ('board.card.tab.' ~ tab)|trans }}</button>
             {% endfor %}
         </div>
 
         <section class="lp-card-panel" id="card-panel-overview" role="tabpanel" aria-labelledby="card-tab-overview" data-panel-tabs-target="panel" data-panel-panel="overview">
-            <div class="lp-card-overview-grid">
-                <div class="lp-card-overview-grid__main">
+            <div class="lp-card-overview">
+                <section class="lp-card-overview__section">
                     <h2 class="lp-card-panel__title">{{ 'board.card.overview.description'|trans }}</h2>
                     {% if card.body|trim is not empty %}<div class="prose lp-prose lp-card-detail__body">{{ card.body|card_body }}</div>{% else %}<p class="lp-card-detail__empty">{{ 'board.card.body.empty'|trans }}</p>{% endif %}
-                    <section class="lp-card-docs lp-card-pulls">
-                        {% if card.documents|length > 0 or card.pullRequests|length > 0 %}
-                        <div class="lp-inbox-linked-table-wrap">
-                            <table class="lp-inbox-linked-table">
-                                <caption>{{ 'board.list.linked_work'|trans }}</caption>
-                                <thead><tr><th>{{ 'inbox.linked_items.item'|trans }}</th><th>{{ 'inbox.linked_items.status'|trans }}</th><th><span class="sr-only">{{ 'inbox.linked_items.open'|trans }}</span></th></tr></thead>
-                                <tbody>
-                                    {% for link in card.documents %}
-                                    <tr>
-                                        <td><span class="lp-inbox-linked-table__type"><twig:ux:icon name="lucide:file-text" class="w-4 h-4" />{{ 'inbox.linked_items.document'|trans }}</span><strong>{{ link.document.title }}</strong></td>
-                                        <td><span class="lp-tag">{{ link.document.status.translationKey()|trans }}</span></td>
-                                        <td><a class="lp-btn lp-btn--ghost lp-btn--open" href="{{ path('app_document_review', {projectId: card.project.id, documentId: link.document.id}) }}" data-turbo-frame="_top" aria-label="{{ 'inbox.linked_items.open_document'|trans({'%title%': link.document.title}) }}"><twig:ux:icon name="lucide:arrow-up-right" class="w-4 h-4" /><span class="lp-btn__label">{{ 'inbox.linked_items.open'|trans }}</span></a></td>
-                                    </tr>
-                                    {% endfor %}
-                                    {% for link in card.pullRequests %}
-                                        {% include '@Board/_linked_pull_request.html.twig' with {link: link} only %}
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                        {% else %}<h2 class="lp-card-panel__title">{{ 'board.list.linked_work'|trans }}</h2><p class="lp-card-detail__empty">{{ 'board.card.linked_work.empty'|trans }}</p>{% endif %}
-                    </section>
-                </div>
-                <aside class="lp-card-overview-grid__facts" aria-label="{{ 'board.card.overview.details'|trans }}">
-                    <dl class="lp-card-fact-list">
-                        <div><dt>{{ 'board.card.overview.status'|trans }}</dt><dd>{{ card.column.label|trans }}</dd></div>
-                        <div><dt>{{ 'board.card.overview.reporter'|trans }}</dt><dd>{{ ('board.card.reporter.' ~ card.reporter.value)|trans }}</dd></div>
-                        <div><dt>{{ 'board.card.overview.type'|trans }}</dt><dd>{{ ('board.card.type.' ~ card.type.value)|trans }}</dd></div>
-                    </dl>
-                    <section class="lp-card-move">
-                        <h2 class="lp-card-panel__title">{{ 'board.card.move.title'|trans }}</h2>
-                        {% set moveForm = card_move_form(card) %}
-                        <form method="post" data-turbo="false" action="{{ path('app_board_card_move', {projectId: card.project.id, cardId: card.id}) }}" class="lp-card-move__form">
-                            {{ form_widget(moveForm._token) }}
-                            <div class="lp-form-field">{{ form_label(moveForm.column, null, {label_attr: {class: 'lp-label'}}) }}{{ form_widget(moveForm.column, {attr: {class: 'lp-input lp-select'}}) }}</div>
-                            {{ form_widget(moveForm.position, {attr: {hidden: 'hidden'}}) }}
-                            <button type="submit" class="lp-btn lp-btn--primary">{{ 'board.card.move.submit'|trans }}</button>
-                        </form>
-                    </section>
-                </aside>
+                </section>
+                <dl class="lp-card-fields" aria-label="{{ 'board.card.overview.details'|trans }}">
+                    <div class="lp-card-field lp-card-field--wide">
+                        <dt>{{ 'board.card.overview.status'|trans }}</dt>
+                        <dd>
+                            {% set moveForm = card_move_form(card) %}
+                            {# Turbo is off: the move answers with a redirect to the board. #}
+                            <form method="post" data-turbo="false" action="{{ path('app_board_card_move', {projectId: card.project.id, cardId: card.id}) }}" class="lp-card-move__form">
+                                {{ form_widget(moveForm._token) }}
+                                {{ form_label(moveForm.column, null, {label_attr: {class: 'sr-only'}}) }}
+                                {{ form_widget(moveForm.column, {attr: {class: 'lp-input lp-select lp-card-move__select'}}) }}
+                                {{ form_widget(moveForm.position, {attr: {hidden: 'hidden'}}) }}
+                                <button type="submit" class="lp-btn">{{ 'board.card.move.submit'|trans }}</button>
+                            </form>
+                        </dd>
+                    </div>
+                    <div class="lp-card-field"><dt>{{ 'board.card.overview.type'|trans }}</dt><dd>{% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}</dd></div>
+                    <div class="lp-card-field"><dt>{{ 'board.card.overview.reporter'|trans }}</dt><dd>{{ ('board.card.reporter.' ~ card.reporter.value)|trans }}</dd></div>
+                    <div class="lp-card-field"><dt>{{ 'board.card.overview.created'|trans }}</dt><dd><time datetime="{{ card.createdAt|date('c') }}">{{ card.createdAt|date('M j, Y') }}</time></dd></div>
+                    <div class="lp-card-field"><dt>{{ 'board.card.overview.updated'|trans }}</dt><dd><time datetime="{{ card.updatedAt|date('c') }}">{{ card.updatedAt|relative_time }}</time></dd></div>
+                    {% if card.completedAt %}<div class="lp-card-field"><dt>{{ 'board.card.overview.completed'|trans }}</dt><dd><time datetime="{{ card.completedAt|date('c') }}">{{ card.completedAt|date('M j, Y') }}</time></dd></div>{% endif %}
+                </dl>
+                <section class="lp-card-docs lp-card-pulls lp-card-overview__section">
+                    {% if card.documents|length > 0 or card.pullRequests|length > 0 %}
+                    <div class="lp-inbox-linked-table-wrap">
+                        <table class="lp-inbox-linked-table">
+                            <caption>{{ 'board.card.linked_work.title'|trans }}</caption>
+                            <thead><tr><th>{{ 'inbox.linked_items.item'|trans }}</th><th>{{ 'inbox.linked_items.status'|trans }}</th><th><span class="sr-only">{{ 'inbox.linked_items.open'|trans }}</span></th></tr></thead>
+                            <tbody>
+                                {% for link in card.documents %}
+                                <tr>
+                                    <td><span class="lp-inbox-linked-table__type"><twig:ux:icon name="lucide:file-text" class="w-4 h-4" />{{ 'inbox.linked_items.document'|trans }}</span><strong>{{ link.document.title }}</strong></td>
+                                    <td><span class="lp-tag">{{ link.document.status.translationKey()|trans }}</span></td>
+                                    <td><a class="lp-btn lp-btn--ghost lp-btn--open" href="{{ path('app_document_review', {projectId: card.project.id, documentId: link.document.id}) }}" data-turbo-frame="_top" aria-label="{{ 'inbox.linked_items.open_document'|trans({'%title%': link.document.title}) }}"><twig:ux:icon name="lucide:arrow-up-right" class="w-4 h-4" /><span class="lp-btn__label">{{ 'inbox.linked_items.open'|trans }}</span></a></td>
+                                </tr>
+                                {% endfor %}
+                                {% for link in card.pullRequests %}
+                                    {% include '@Board/_linked_pull_request.html.twig' with {link: link} only %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}<h2 class="lp-card-panel__title">{{ 'board.card.linked_work.title'|trans }}</h2><p class="lp-card-detail__empty">{{ 'board.card.linked_work.empty'|trans }}</p>{% endif %}
+                </section>
+                {% set runs = card_worker_runs(card.project, card.id ~ '') %}
+                <section class="lp-card-overview__section" data-card-runs>
+                    <div class="lp-section-heading">
+                        <h2 class="lp-card-panel__title">{{ 'board.card.runs.title'|trans }}</h2>
+                        {% if runs is not empty %}<a class="lp-workshop-text-link" href="{{ path('app_project_worker_runs', {id: card.project.id}) }}" data-turbo-frame="_top">{{ 'board.card.runs.all'|trans }}</a>{% endif %}
+                    </div>
+                    {% for item in runs %}
+                    <a class="lp-card-run" href="{{ path('app_project_worker_runs', {id: card.project.id, search: item.run.id}) }}" data-turbo-frame="_top" data-card-run="{{ item.run.id }}">
+                        <span class="lp-card-run__rule">{{ item.run.ruleName }}</span>
+                        <span class="lp-card-run__meta"><time datetime="{{ item.run.startedAt|date('c') }}">{{ item.run.startedAt|relative_time }}</time> · {{ item.duration() }}</span>
+                        <span class="lp-status-chip lp-status-chip--{{ item.outcome.chipModifier() }}">{{ item.outcome.translationKey()|trans }}</span>
+                        <twig:ux:icon name="lucide:chevron-right" class="lp-card-run__chevron" />
+                    </a>
+                    {% else %}
+                    <p class="lp-card-detail__empty">{{ 'board.card.runs.empty'|trans }}</p>
+                    {% endfor %}
+                </section>
             </div>
         </section>
-
         <section class="lp-card-panel" id="card-panel-conversation" role="tabpanel" aria-labelledby="card-tab-conversation" data-panel-tabs-target="panel" data-panel-panel="conversation" hidden>
             <div class="lp-card-conversation-intro"><span class="lp-source-avatar"><twig:ux:icon name="lucide:messages-square" class="w-4 h-4" /></span><div><h2 class="lp-card-panel__title">{{ 'board.card.conversation.title'|trans }}</h2><p>{{ 'board.card.conversation.description'|trans }}</p></div></div>
             {{ inbox_card_section(card) }}

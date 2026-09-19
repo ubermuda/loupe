@@ -2,6 +2,10 @@
 
 {% block title %}{{ 'board.card.create.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
+{% block flash_messages %}
+    {% if app.request.headers.get('Turbo-Frame') != 'card-drawer-frame' %}{{ parent() }}{% endif %}
+{% endblock %}
+
 {% block topbar_crumbs %}
     <a class="lp-topbar__crumb" href="{{ path('app_project_board', {id: project.id}) }}">{{ 'nav.link.board'|trans }}</a>
     <span class="lp-topbar__sep">/</span>
@@ -9,22 +13,41 @@
 {% endblock %}
 
 {% block body %}
-<div class="lp-workspace">
-    <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'board.card.create.page.title'|trans }}</h1>
-    <p class="lp-workspace-desc">{{ 'board.card.create.page.description'|trans }}</p>
-
-    {% if feedback %}
-    <div class="lp-callout lp-callout--info lp-card-feedback-context">
-        <twig:ux:icon name="lucide:message-square" class="w-4 h-4" />
-        <div><strong>{{ 'site_review.create_card.context_title'|trans }}</strong><p>{{ feedback.body }}</p></div>
-    </div>
+{# The same frame as the card view, so the board opens this form in its drawer. #}
+<turbo-frame id="card-drawer-frame"{% if app.request.headers.get('Turbo-Frame') != 'card-drawer-frame' %} target="_top"{% endif %}>
+<div class="lp-card-drawer">
+    {% if app.request.headers.get('Turbo-Frame') == 'card-drawer-frame' %}
+        {% include '_flash_messages.html.twig' with {flashes: app.flashes(['success', 'error', 'warning', 'info'])} only %}
     {% endif %}
+    <header class="lp-card-drawer__header">
+        <div class="lp-card-drawer__identity">
+            <span class="lp-card-drawer__icon"><twig:ux:icon name="lucide:plus" class="w-4 h-4" /></span>
+            <span>{{ 'board.card.create.page.title'|trans }}</span>
+        </div>
+        <div class="lp-card-drawer__header-actions">
+            <a class="lp-btn lp-btn--ghost lp-btn--icon" href="{{ path('app_project_board', {id: project.id}) }}" aria-label="{{ 'board.card.drawer.close'|trans }}" data-turbo-frame="_top" data-action="card-drawer#close"><twig:ux:icon name="lucide:x" class="w-4 h-4" /></a>
+        </div>
+    </header>
 
-    {% include '@Board/_card_form.html.twig' with {
-        form: form,
-        action: path('app_board_card_create', {id: project.id, feedback: feedback ? feedback.id : null, column: form.vars.data.column.id}),
-        submitLabel: 'board.card.create.submit',
-        cancelUrl: path('app_project_board', {id: project.id}),
-    } only %}
+    <div class="lp-card-drawer__body">
+        <h1 class="lp-card-drawer__title">{{ 'board.card.create.page.title'|trans }}</h1>
+        <p class="lp-workspace-desc">{{ 'board.card.create.page.description'|trans }}</p>
+
+        {% if feedback %}
+        <div class="lp-callout lp-callout--info lp-card-feedback-context">
+            <twig:ux:icon name="lucide:message-square" class="w-4 h-4" />
+            <div><strong>{{ 'site_review.create_card.context_title'|trans }}</strong><p>{{ feedback.body }}</p></div>
+        </div>
+        {% endif %}
+
+        {% include '@Board/_card_form.html.twig' with {
+            form: form,
+            action: path('app_board_card_create', {id: project.id, feedback: feedback ? feedback.id : null, column: form.vars.data.column.id}),
+            submitLabel: 'board.card.create.submit',
+            cancelUrl: path('app_project_board', {id: project.id}),
+            cancelLeavesFrame: true,
+        } only %}
+    </div>
 </div>
+</turbo-frame>
 {% endblock %}

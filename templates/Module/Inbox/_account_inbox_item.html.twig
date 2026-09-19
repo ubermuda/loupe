@@ -1,12 +1,11 @@
-<article class="lp-inbox-item" data-inbox-item="{{ item.number }}">
-    <div class="lp-inbox-item__head">
-        <span class="lp-inbox-item__number">{{ 'inbox.item.number'|trans({'%number%': item.number}) }}</span>
-        <span class="lp-inbox-item__kind">{{ ('inbox.item.kind.' ~ item.kind.value)|trans }}</span>
-        {% if item.blocking %}<span class="lp-inbox-item__blocking">{{ 'inbox.item.blocking'|trans }}</span>{% endif %}
-        {% include '@Inbox/_inbox_state_chip.html.twig' with {state: item.state} only %}
-    </div>
-    <h3 class="lp-inbox-item__title">{{ item.title }}</h3>
+{#- One open item on the account inbox. Props: item, href (link to it, or null), showTitle (bool: an ask's heading already names a lone item). -#}
+<li class="lp-account-item" data-inbox-item="{{ item.number }}">
+    <span class="lp-account-item__number">{{ 'inbox.item.number'|trans({'%number%': item.number}) }}</span>
+    <span class="lp-inbox-item__kind">{{ ('inbox.item.kind.' ~ item.kind.value)|trans }}</span>
+    {% if showTitle %}<span class="lp-account-item__title">{{ item.title }}</span>{% endif %}
+    {% if item.blocking %}<span class="lp-inbox-item__blocking">{{ 'inbox.item.blocking'|trans }}</span>{% endif %}
+    {% if item.state.value != 'open' %}{% include '@Inbox/_inbox_state_chip.html.twig' with {state: item.state} only %}{% endif %}
     {% if href %}
-        <a class="lp-inbox-item__jump" href="{{ href }}" data-account-inbox-item-link>{{ 'inbox.account.item.open'|trans }}</a>
+        <a class="lp-text-link lp-account-item__link" href="{{ href }}" data-account-inbox-item-link>{{ 'inbox.account.item.open'|trans }}<twig:ux:icon name="lucide:arrow-right" /></a>
     {% endif %}
-</article>
+</li>

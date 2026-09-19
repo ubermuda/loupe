@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Inbox\Security;
 
 use App\Module\Inbox\Entity\InboxItem;
-use App\Module\Inbox\Repository\InboxReviewRepository;
+use App\Module\Inbox\Service\InboxReviewLookup;
 use App\Module\Review\Security\DocumentVoter;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
@@ -23,7 +23,7 @@ final class InboxItemVoter extends Voter
     public const string REPLY = 'inbox_item.reply';
 
     public function __construct(
-        private readonly InboxReviewRepository $inboxReviews,
+        private readonly InboxReviewLookup $inboxReviews,
         private readonly AuthorizationCheckerInterface $authorization,
     ) {
     }
@@ -43,7 +43,7 @@ final class InboxItemVoter extends Voter
         if (self::REVIEW_DOCUMENT !== $attribute) {
             return true;
         }
-        $document = $this->inboxReviews->findOneBy(['item' => $subject])?->document;
+        $document = $this->inboxReviews->forItem($subject)?->document;
 
         return null === $document || $this->authorization->isGranted(DocumentVoter::CONTRIBUTE, $document);
     }

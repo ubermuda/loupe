@@ -69,9 +69,10 @@ final class SiteReviewsPageTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         $article = $crawler->filter('[data-comment-id="'.$commentId.'"]');
-        // One Page disclosure plus one per anchor.
-        self::assertCount(3, $article->filter('.lp-site-review-selector'));
-        self::assertStringContainsString('2 elements', $article->filter('.lp-site-review-quote')->text());
+        // One captured element per anchor, each with its selector behind a disclosure.
+        self::assertCount(2, $article->filter('.lp-feedback-anchor'));
+        self::assertCount(2, $article->filter('.lp-feedback-anchor__selector'));
+        self::assertStringContainsString('Element 2', $article->text());
         self::assertStringContainsString('.card', $article->text());
         self::assertStringContainsString('.panel', $article->text());
     }
@@ -90,9 +91,9 @@ final class SiteReviewsPageTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
 
         self::assertResponseIsSuccessful();
-        // Flat comment list: both comments rendered with a status-colored index.
+        // Flat comment list: both comments rendered with their number.
         self::assertCount(2, $crawler->filter('[data-comment-id]'));
-        self::assertCount(2, $crawler->filter('.lp-site-review-index'));
+        self::assertCount(2, $crawler->filter('.lp-feedback-list__number'));
         self::assertGreaterThanOrEqual(1, $crawler->filter('[data-comment-status="pending"]')->count());
         self::assertCount(1, $crawler->filter('[data-comment-id="'.$commentId.'"]'));
     }

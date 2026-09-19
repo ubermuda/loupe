@@ -217,6 +217,9 @@ for (const surface of ['page', 'drawer']) {
                 conversation.getByLabel('Reply to this feedback'),
             ).toHaveValue('A new draft during confirmation.');
             await conversation.getByLabel('Reply to this feedback').fill('');
+            await expect(
+                conversation.getByLabel('Reply to this feedback'),
+            ).toHaveValue('');
             if (surface === 'drawer') {
                 await page.keyboard.press('Escape');
                 await page
@@ -273,7 +276,7 @@ for (const surface of ['page', 'drawer']) {
                 'data-comment-status',
                 'resolved',
             );
-            await capture.locator('.lp-site-review-card-link').click();
+            await capture.locator('[data-linked-card] a').click();
             await expect(
                 page.getByRole('tab', { name: 'Feedback', exact: true }),
             ).toHaveAttribute('aria-selected', 'true');
@@ -293,7 +296,8 @@ for (const surface of ['page', 'drawer']) {
             await expect(conversation.locator('.lp-status-chip')).toHaveText(
                 'Pending',
             );
-            await page.goto(siteUrl + '#feedback-' + commentId);
+            // The card opened in a drawer over this page, so reload to read the saved status.
+            await page.reload();
             await expect(capture).toHaveAttribute(
                 'data-comment-status',
                 'pending',

@@ -13,6 +13,7 @@ use App\Module\Board\Form\AttachSiteReviewCommentFormType;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
 use App\Module\Board\Security\CardFeedbackVoter;
+use App\Module\Bridge\Entity\WorkerRun;
 use App\Module\SiteReview\Entity\SiteReviewComment;
 use App\Tests\Module\Board\CardMovedOutbox;
 use Doctrine\ORM\EntityManagerInterface;
@@ -22,6 +23,7 @@ use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 use Symfony\Component\Security\Core\Authorization\Voter\VoterInterface;
+use Symfony\Component\Uid\Uuid;
 
 final class CardCrudControllerTest extends WebTestCase
 {
@@ -231,6 +233,19 @@ final class CardCrudControllerTest extends WebTestCase
         );
         self::assertResponseIsSuccessful();
         self::assertSame('Next', trim($crawler->filter('select[name="create_card_form[column]"] option[selected]')->text()));
+        // As a full page, the frame hands its navigation to the page, so the URL follows the redirect.
+        self::assertSame('_top', $crawler->filter('turbo-frame#card-drawer-frame')->attr('target'));
+
+        // The board opens the same form in its card drawer, so it renders in that frame.
+        $crawler = $client->request(
+            Request::METHOD_GET,
+            '/projects/'.$project->id.'/board/cards/new?column='.$next->id,
+            server: ['HTTP_TURBO_FRAME' => 'card-drawer-frame'],
+        );
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('turbo-frame#card-drawer-frame form[name="create_card_form"]'));
+        self::assertCount(1, $crawler->filter('turbo-frame#card-drawer-frame a[data-action="card-drawer#close"]:contains("Cancel")'));
+        self::assertNull($crawler->filter('turbo-frame#card-drawer-frame')->attr('target'));
     }
 
     public function test_the_owner_creates_a_card_from_feedback_and_attaches_it(): void
@@ -304,6 +319,11 @@ final class CardCrudControllerTest extends WebTestCase
         );
         self::assertResponseIsSuccessful();
         self::assertSame('Before', $crawler->filter('#create_card_form_title')->attr('value'));
+        // Edit swaps the drawer's content in place, and Cancel returns to the card inside it.
+        self::assertCount(1, $crawler->filter('turbo-frame#card-drawer-frame form[name="create_card_form"]'));
+        $cancel = $crawler->filter('turbo-frame#card-drawer-frame a:contains("Cancel")');
+        self::assertSame('/projects/'.$project->id.'/board/cards/'.$cardId, $cancel->attr('href'));
+        self::assertNull($cancel->attr('data-turbo-frame'));
 
         $client->submitForm('Save card', [
             'create_card_form[title]' => 'After',
@@ -422,12 +442,38 @@ final class CardCrudControllerTest extends WebTestCase
         $owner = $this->user($em, 'card-move-page@example.com');
         $project = $this->project($em, $owner);
         $card = $this->card($em, $project, 'Reachable by keyboard');
+        $quiet = $this->card($em, $project, 'No runs yet');
         $cardId = $card->id;
+        $run = new WorkerRun(
+            project: $project,
+            bridgeId: Uuid::v7(),
+            sessionId: Uuid::v4(),
+            cardId: $card->id ?? throw new \LogicException('card id after flush'),
+            cardNumber: $card->number,
+            ruleName: 'plan the card',
+            startedAt: new \DateTimeImmutable('-2 hours'),
+            endedAt: new \DateTimeImmutable('-2 hours +3 minutes'),
+            exitCode: 1,
+        );
+        $em->persist($run);
+        $em->flush();
+        $runId = (string) $run->id;
         $em->clear();
 
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$cardId);
         self::assertResponseIsSuccessful();
+        // The overview names its linked work and shows the card's dates, never a raw key.
+        self::assertSelectorTextContains('.lp-card-docs', 'Linked work');
+        self::assertStringNotContainsString('board.', $crawler->filter('.lp-card-overview')->text());
+        self::assertSame(['Status', 'Type', 'Reporter', 'Created', 'Updated'], $crawler->filter('.lp-card-fields dt')->each(static fn (Crawler $term): string => $term->text()));
+        // Each agent run links to its own drawer on the run history page.
+        $row = $crawler->filter('[data-card-runs] [data-card-run="'.$runId.'"]');
+        self::assertSame('/projects/'.$project->id.'/worker-runs?search='.$runId, $row->attr('href'));
+        self::assertStringContainsString('plan the card', $row->text());
+        self::assertStringContainsString('Failed', $row->filter('.lp-status-chip')->text());
+        self::assertSame('/projects/'.$project->id.'/board/cards/'.$cardId.'/edit', $crawler->filter('.lp-card-drawer__header-actions a')->first()->attr('href'));
+        self::assertNull($crawler->filter('.lp-card-drawer__header-actions a')->first()->attr('data-turbo-frame'));
 
         $name = 'move_card_'.$cardId;
         // Turbo is off on this form. Its answer is a redirect to the board
@@ -443,6 +489,10 @@ final class CardCrudControllerTest extends WebTestCase
         $moved = static::getContainer()->get(CardRepository::class)->find($cardId);
         self::assertInstanceOf(Card::class, $moved);
         self::assertSame('in-progress', $moved->column->slug);
+
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/'.$quiet->id);
+        self::assertCount(0, $crawler->filter('[data-card-runs] [data-card-run]'));
+        self::assertSelectorTextContains('[data-card-runs]', 'No agent has run on this card yet.');
     }
 
     public function test_a_stranger_cannot_reach_a_card(): void

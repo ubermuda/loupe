@@ -1,0 +1,31 @@
+{#- The agent's avatar with a presence dot, and a tooltip that names the bridge's
+    state and the session. Props: ask (InboxAsk or null), bridge (BridgeStatus or null). -#}
+{% if ask is null %}
+    <span class="lp-source-avatar" aria-hidden="true"><twig:ux:icon name="lucide:bot" class="w-4 h-4" /></span>
+{% else %}
+    {% set state = ask.closedAt ? 'closed' : (bridge is null ? 'none' : (bridge.quiet ? 'quiet' : 'live')) %}
+    <span class="lp-presence lp-presence--{{ state }}"
+          tabindex="0"
+          aria-label="{{ ('inbox.presence.label.' ~ state)|trans }}"
+          aria-describedby="presence-{{ ask.id }}"
+          data-inbox-presence="{{ state }}"
+          {%- if bridge %} data-inbox-bridge="{{ bridge.lastSeenAt is null ? 'unheard' : (bridge.quiet ? 'quiet' : 'heard') }}"{% endif %}>
+        <span class="lp-source-avatar" aria-hidden="true"><twig:ux:icon name="lucide:bot" class="w-4 h-4" /></span>
+        {% if state != 'closed' %}<span class="lp-presence__dot" aria-hidden="true"></span>{% endif %}
+        <span class="lp-tooltip" role="tooltip" id="presence-{{ ask.id }}">
+            {% if bridge %}
+                <span class="lp-tooltip__line">
+                    {% if bridge.lastSeenAt is null %}
+                        {{ 'inbox.ask.bridge.unheard'|trans }}
+                    {% else %}
+                        <time datetime="{{ bridge.lastSeenAt|date('c') }}">{{ 'inbox.ask.bridge.last_heard'|trans({'%time%': bridge.lastSeenAt|relative_time(bridge.checkedAt)}) }}</time>
+                    {% endif %}
+                    {% if bridge.quiet %}{{ 'inbox.ask.bridge.quiet'|trans }}{% endif %}
+                </span>
+            {% elseif state == 'none' %}
+                <span class="lp-tooltip__line">{{ 'inbox.presence.no_bridge'|trans }}</span>
+            {% endif %}
+            <span class="lp-tooltip__line lp-tooltip__line--quiet">{{ 'inbox.ask.session'|trans({'%session%': ask.sessionId}) }}</span>
+        </span>
+    </span>
+{% endif %}

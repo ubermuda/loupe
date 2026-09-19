@@ -8,6 +8,8 @@ use App\Exception\DomainErrors;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Command\AddBoardColumnCommand;
 use App\Module\Board\Command\AddBoardColumnHandler;
+use App\Module\Board\Command\ConfigureBoardColumnCommand;
+use App\Module\Board\Command\ConfigureBoardColumnHandler;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
 use App\Module\Board\Command\DeleteBoardColumnCommand;
@@ -28,6 +30,7 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardReporter;
 use App\Module\Board\Entity\CardType;
+use App\Module\Board\Entity\LabelTone;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Service\BoardColumns;
 use App\Module\Project\Entity\Project;
@@ -76,9 +79,53 @@ final class BoardColumnHandlersTest extends KernelTestCase
         self::assertSame(['backlog', 'next', 'in-progress', 'done', 'won-t-do'], $this->slugs());
 
         self::assertSame(
-            ['columnId' => (string) $column->id, 'projectId' => (string) $this->project->id, 'slug' => 'won-t-do'],
+            ['columnId' => (string) $column->id, 'projectId' => (string) $this->project->id, 'slug' => 'won-t-do', 'tone' => $column->tone->value],
             $this->audit->record('board.column_added')->context,
         );
+    }
+
+    public function test_an_added_column_with_no_colour_takes_one_no_other_column_uses(): void
+    {
+        $column = $this->handler(AddBoardColumnHandler::class)(new AddBoardColumnCommand($this->project, 'Parked'));
+
+        self::assertNotContains($column->tone, [LabelTone::Neutral, LabelTone::Lime, LabelTone::Purple, LabelTone::Green]);
+    }
+
+    public function test_an_added_column_keeps_the_colour_it_was_given(): void
+    {
+        $column = $this->handler(AddBoardColumnHandler::class)(new AddBoardColumnCommand($this->project, 'Parked', LabelTone::Lime));
+
+        $this->em->clear();
+        $stored = $this->em->find(BoardColumn::class, $column->id);
+        self::assertInstanceOf(BoardColumn::class, $stored);
+        self::assertSame(LabelTone::Lime, $stored->tone);
+    }
+
+    public function test_a_configure_save_sets_the_colour_and_records_it(): void
+    {
+        $parked = $this->handler(AddBoardColumnHandler::class)(new AddBoardColumnCommand($this->project, 'Parked', LabelTone::Lime));
+        $defaultId = (string) $this->column($this->project, 'backlog')->id;
+
+        $this->handler(ConfigureBoardColumnHandler::class)(new ConfigureBoardColumnCommand($parked, CardReporter::Human, 'Parked', false, false, 'Parked', $defaultId, false, LabelTone::Indigo));
+
+        $this->em->clear();
+        $stored = $this->em->find(BoardColumn::class, $parked->id);
+        self::assertInstanceOf(BoardColumn::class, $stored);
+        self::assertSame(LabelTone::Indigo, $stored->tone);
+        self::assertSame('indigo', $this->audit->record('board.column_tone_set')->context['tone'] ?? null);
+    }
+
+    public function test_a_configure_save_with_no_colour_keeps_the_stored_one(): void
+    {
+        $parked = $this->handler(AddBoardColumnHandler::class)(new AddBoardColumnCommand($this->project, 'Parked', LabelTone::Lime));
+        $defaultId = (string) $this->column($this->project, 'backlog')->id;
+
+        $this->handler(ConfigureBoardColumnHandler::class)(new ConfigureBoardColumnCommand($parked, CardReporter::Human, 'Parked', false, false, 'Parked', $defaultId, false));
+
+        $this->em->clear();
+        $stored = $this->em->find(BoardColumn::class, $parked->id);
+        self::assertInstanceOf(BoardColumn::class, $stored);
+        self::assertSame(LabelTone::Lime, $stored->tone);
     }
 
     public function test_an_added_column_whose_label_has_no_slug_is_refused(): void

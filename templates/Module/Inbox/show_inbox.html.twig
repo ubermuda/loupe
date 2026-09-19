@@ -25,11 +25,11 @@
     </header>
 
     {% if not inbox.isEmpty and not inbox.isSearch %}
-    <nav class="lp-section-tabs" aria-label="{{ 'inbox.tabs.label'|trans }}">
-        <a class="lp-section-tabs__item{{ completed ? '' : ' lp-section-tabs__item--active' }}"
+    <nav class="lp-tabs" aria-label="{{ 'inbox.tabs.label'|trans }}">
+        <a class="lp-tabs__tab"
            href="{{ path('app_project_inbox', {id: inbox.project.id}) }}"
            {% if not completed %}aria-current="page"{% endif %}>{{ 'inbox.tabs.open'|trans }}</a>
-        <a class="lp-section-tabs__item{{ completed ? ' lp-section-tabs__item--active' : '' }}"
+        <a class="lp-tabs__tab"
            href="{{ path('app_project_inbox', {id: inbox.project.id, queue: 'completed'}) }}"
            {% if completed %}aria-current="page"{% endif %}>{{ 'inbox.tabs.completed'|trans }}</a>
     </nav>

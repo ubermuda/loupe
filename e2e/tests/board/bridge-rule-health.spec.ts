@@ -230,9 +230,6 @@ test('a dead rule shows a banner and a watched column warns before a rename or a
     await page
         .getByRole('searchbox', { name: 'Find a rule', exact: true })
         .fill('REVIEW');
-    await page
-        .getByRole('button', { name: 'Search rules', exact: true })
-        .click();
     await expect(rows).toHaveCount(1);
     await expect(rows).toHaveAttribute('data-rule-name', 'review');
     await page.reload();
@@ -240,9 +237,6 @@ test('a dead rule shows a banner and a watched column warns before a rename or a
     await page
         .getByRole('searchbox', { name: 'Find a rule', exact: true })
         .fill('missing');
-    await page
-        .getByRole('button', { name: 'Search rules', exact: true })
-        .click();
     await expect(
         page.getByRole('heading', { name: 'No matching rules', exact: true }),
     ).toBeVisible();
@@ -250,7 +244,7 @@ test('a dead rule shows a banner and a watched column warns before a rename or a
     await expect(page.locator('[data-rule-live-count]')).toHaveText(
         '2 live rules',
     );
-    await page.getByRole('link', { name: 'Clear search', exact: true }).click();
+    await page.getByRole('link', { name: 'Clear', exact: true }).click();
     await expect(rows).toHaveCount(3);
     for (const fontSize of ['100%', '200%']) {
         await page.evaluate((size) => {
@@ -293,28 +287,8 @@ test('a dead rule shows a banner and a watched column warns before a rename or a
                 name: 'Find a rule',
                 exact: true,
             });
-            const submit = page.getByRole('button', {
-                name: 'Search rules',
-                exact: true,
-            });
-            const inputBounds = await input.boundingBox();
-            const submitBounds = await submit.boundingBox();
-            expect(inputBounds).not.toBeNull();
-            expect(submitBounds).not.toBeNull();
-            expect(submitBounds!.height).toBe(inputBounds!.height);
-            expect(
-                Math.abs(submitBounds!.y - inputBounds!.y),
-            ).toBeLessThanOrEqual(1);
-            expect(inputBounds!.x + inputBounds!.width).toBeLessThanOrEqual(
-                submitBounds!.x,
-            );
+            // The search submits as the reader types, so it has no button.
             await input.focus();
-            await expect(input).toBeInViewport({ ratio: 1 });
-            await input.press('Tab');
-            await expect(submit).toBeFocused();
-            await expect(submit).toBeInViewport({ ratio: 1 });
-            await submit.press('Shift+Tab');
-            await expect(input).toBeFocused();
             await expect(input).toBeInViewport({ ratio: 1 });
             await page.screenshot({
                 path: testInfo.outputPath(`rules-${width}-${fontSize}.png`),

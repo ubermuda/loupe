@@ -4,7 +4,6 @@
         <p>{{ 'inbox.review.stale_draft'|trans }}</p>
         <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="form-draft#discard">{{ 'inbox.answer.discard_draft'|trans }}</button>
     </div>
-    <a class="lp-inbox-item__jump" href="{{ safe_pull_request_url(review.pullRequest.url) }}" target="_blank" rel="noopener noreferrer">{{ review.pullRequest.url }}</a>
     <p class="lp-form-hint">{{ 'inbox.review.local_only'|trans }}</p>
     <div class="lp-field-errors">{{ form_errors(form) }}</div>
     {{ form_widget(form.expectedUrl, {attr: {'data-form-draft-target': 'guard'}}) }}

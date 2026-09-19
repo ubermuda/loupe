@@ -6,6 +6,7 @@ namespace App\Module\Inbox\Command;
 
 use App\Module\Inbox\Repository\InboxItemRepository;
 use App\Module\Inbox\Repository\InboxReplyRepository;
+use App\Module\Inbox\Service\InboxReviewLookup;
 use App\Module\Inbox\View\InboxReplyThreads;
 use App\Module\Inbox\View\LinkedInboxItemsView;
 
@@ -14,6 +15,7 @@ final readonly class ShowLinkedInboxItemsHandler
     public function __construct(
         private InboxItemRepository $inboxItems,
         private InboxReplyRepository $inboxReplies,
+        private InboxReviewLookup $inboxReviews,
     ) {
     }
 
@@ -25,6 +27,8 @@ final readonly class ShowLinkedInboxItemsHandler
         foreach ($linked['memberships'] as $membership) {
             $asksByItem[(string) $membership->item->id][] = $membership->ask;
         }
+
+        $this->inboxReviews->preload($linked['items']);
 
         return new LinkedInboxItemsView(
             project: $command->project,

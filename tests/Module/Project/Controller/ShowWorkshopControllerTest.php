@@ -7,12 +7,15 @@ namespace App\Tests\Module\Project\Controller;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Command\CreateCardCommand;
 use App\Module\Board\Command\CreateCardHandler;
+use App\Module\Board\Entity\CardPullRequest;
 use App\Module\Board\Entity\CardType;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
+use App\Module\Inbox\Entity\InboxReview;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
+use App\Module\Review\Entity\DocumentVersion;
 use App\Outbox\Entity\OutboxEvent;
 use App\Tests\Module\Board\BoardColumnFixtures;
 use App\Tests\Support\AcceptedTerms;
@@ -79,6 +82,7 @@ final class ShowWorkshopControllerTest extends WebTestCase
         self::assertSelectorTextContains('[data-workshop-card="8"]', 'Backlog');
         self::assertSelectorTextSame('[data-workshop-stat="open-cards"] .lp-workshop-stat__value', '8');
         self::assertSelectorTextSame('[data-workshop-stat="completed-cards"] .lp-workshop-stat__value', '1');
+        self::assertSelectorTextSame('[data-workshop-stat="open-cards"] .lp-workshop-stat__copy', 'Open cardsAcross this project');
         self::assertSame('card-drawer-frame', $crawler->filter('[data-workshop-card="8"]')->attr('data-turbo-frame'));
         self::assertCount(1, $crawler->filter('#card-drawer-frame'));
         $client->click($crawler->filter('[data-workshop-card="8"]')->link());
@@ -134,6 +138,47 @@ final class ShowWorkshopControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
+    public function test_a_review_row_shows_the_document_or_pull_request_it_reviews(): void
+    {
+        $client = self::createClient();
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $flags = self::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed();
+        $flags['inbox.enabled']->value = true;
+        $flags['board.enabled']->value = true;
+        $owner = $this->user($em, 'workshop-attention-subject@example.com');
+        $project = new Project($owner, 'Subject project');
+        $em->persist($project);
+        $this->seedColumns($project);
+        $document = new Document($owner, $project, 'Spec');
+        $em->persist($document);
+        $em->persist(new DocumentVersion(document: $document, versionNumber: 1, markdownSource: '# Spec', renderedHtml: '<h1>Spec</h1>'));
+        $em->flush();
+        $card = self::getContainer()->get(CreateCardHandler::class)(new CreateCardCommand($project, 'Checkout', '', CardType::Feature));
+        $pullRequest = new CardPullRequest($card, 'https://github.com/example/app/pull/7', repository: 'example/app', number: 7);
+        $em->persist($pullRequest);
+        $question = new InboxItem($project, 1, InboxItemKind::Question, 'Question', false);
+        $documentReview = new InboxItem($project, 2, InboxItemKind::Review, 'Read the spec', false);
+        $pullRequestReview = new InboxItem($project, 3, InboxItemKind::Review, 'Review the change', false);
+        foreach ([$question, $documentReview, $pullRequestReview] as $item) {
+            $em->persist($item);
+        }
+        $em->persist(new InboxReview($documentReview, $document));
+        $em->persist(new InboxReview($pullRequestReview, $pullRequest));
+        $em->flush();
+        $em->clear();
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id);
+
+        self::assertResponseIsSuccessful();
+        // Newest first.
+        self::assertSame(['pull-request', 'document', 'agent'], $crawler->filter('[data-workshop-attention] .lp-workshop-attention__icon')->extract(['data-subject']));
+
+        $inbox = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/inbox');
+        self::assertResponseIsSuccessful();
+        // The inbox lists items outside an ask by number.
+        self::assertSame(['agent', 'document', 'pull-request'], $inbox->filter('.lp-inbox-request [data-subject]')->extract(['data-subject']));
+    }
+
     public function test_attention_links_the_latest_open_items_in_this_project(): void
     {
         $client = self::createClient();
@@ -162,11 +207,14 @@ final class ShowWorkshopControllerTest extends WebTestCase
         self::assertSame('8', trim($crawler->filter('.lp-workshop-stat__value')->first()->text()));
         self::assertSelectorTextContains('[data-workshop-attention]', 'Request 8');
         self::assertSelectorTextContains('[data-workshop-attention] .lp-workshop-attention__badge', 'Blocking');
+        // A question or a to-do shows the agent that asked it.
+        self::assertSame(array_fill(0, 6, 'agent'), $crawler->filter('[data-workshop-attention] .lp-workshop-attention__icon')->extract(['data-subject']));
         $links = $crawler->filter('[data-workshop-attention]')->extract(['href']);
         self::assertSame(array_map(static fn (int $number): string => '/projects/'.$project->id.'/inbox#inbox-item-'.$number, [8, 7, 6, 5, 4, 3]), $links);
         $client->click($crawler->filter('[data-workshop-attention]')->first()->link());
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('#inbox-item-8', 'Request 8');
+        // A one-item ask shows its title once, as the ask's heading.
+        self::assertSelectorTextContains('.lp-inbox-ask:has(#inbox-item-8) .lp-inbox-ask__title', 'Request 8');
 
         $flags = self::getContainer()->get(FeatureFlagRepository::class);
         $flags->findAllIndexed()['inbox.enabled']->value = false;

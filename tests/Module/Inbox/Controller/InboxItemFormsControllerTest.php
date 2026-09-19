@@ -69,6 +69,9 @@ final class InboxItemFormsControllerTest extends WebTestCase
         $crawler = $this->client->request(Request::METHOD_GET, $this->pageUrl());
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('#inbox-item-1', 'It does not post a review to the code host.');
+        // The pull request under review is a row of the linked items, not a loose link above the form.
+        self::assertCount(1, $crawler->filter('#inbox-item-1 .lp-inbox-linked-table [data-linked-pull-request]'));
+        self::assertCount(0, $crawler->filter('form[name="'.$name.'"] .lp-inbox-item__jump'));
         $crawler = $this->client->submit($crawler->filter('form[name="'.$name.'"]')->form([
             $name.'[verdict]' => 'changes-requested',
             $name.'[note]' => '  ',
@@ -135,6 +138,12 @@ final class InboxItemFormsControllerTest extends WebTestCase
         $name = 'inbox_document_review_'.$item->id;
         $page = $this->client->request(Request::METHOD_GET, $this->pageUrl());
         self::assertResponseIsSuccessful();
+        // The document under review is a row of the linked items, with the version the form reviews.
+        $row = $page->filter('#inbox-item-1 .lp-inbox-linked-table [data-inbox-review-document]');
+        self::assertCount(1, $row);
+        self::assertStringContainsString('Inline design', $row->text());
+        self::assertStringContainsString('Version 1', $row->text());
+        self::assertCount(0, $page->filter('form[name="'.$name.'"] .lp-inbox-item__jump'));
         $form = $page->filter('form[name="'.$name.'"]')->form([
             $name.'[verdict]' => 'changes-requested',
             $name.'[note]' => 'Keep this draft feedback.',

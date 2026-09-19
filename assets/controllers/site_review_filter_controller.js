@@ -4,7 +4,7 @@ export default class extends Controller {
     static targets = ['row', 'panel', 'query', 'status', 'scope', 'empty'];
 
     connect() {
-        this.scope = 'all';
+        this.selectedScope = 'all';
     }
 
     filter() {
@@ -14,7 +14,8 @@ export default class extends Controller {
 
         for (const row of this.rowTargets) {
             const visible =
-                (this.scope === 'all' || row.dataset.linked === 'false') &&
+                (this.selectedScope === 'all' ||
+                    row.dataset.linked === 'false') &&
                 (status === 'all' || row.dataset.status === status) &&
                 (query === '' ||
                     row.textContent.toLocaleLowerCase().includes(query));
@@ -32,12 +33,13 @@ export default class extends Controller {
     }
 
     setScope(event) {
-        this.scope = event.params.scope;
+        this.selectedScope = event.params.scope;
         for (const control of this.scopeTargets) {
             control.setAttribute(
                 'aria-pressed',
                 String(
-                    control.dataset.siteReviewFilterScopeParam === this.scope,
+                    control.dataset.siteReviewFilterScopeParam ===
+                        this.selectedScope,
                 ),
             );
         }
