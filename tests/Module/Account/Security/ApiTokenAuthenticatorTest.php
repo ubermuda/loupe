@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\Account\Security;
 
+use App\Module\Account\Entity\ApiToken;
+use App\Module\Account\Entity\ApiTokenScope;
+use App\Module\Account\Entity\User;
 use App\Module\Account\Repository\ApiTokenRepository;
 use App\Module\Account\Security\ApiTokenAuthenticator;
+use App\Security\AuthenticatedCredential;
 use App\Tests\Support\RecordingAuditor;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\MockObject\Stub;
@@ -14,6 +18,7 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
+use Symfony\Component\Uid\Uuid;
 use Ubermuda\AuditBundle\Auditor;
 use Ubermuda\AuditBundle\AuditOutcome;
 use Ubermuda\AuditBundle\NullAuditActorProvider;
@@ -142,6 +147,28 @@ final class ApiTokenAuthenticatorTest extends TestCase
         self::assertSame('203.0.113.9', $context['ip'] ?? null);
         self::assertSame('Invalid API token.', $context['reason'] ?? null);
         self::assertSame([], $this->audit->record('account.api_token_authentication_failed')->context);
+    }
+
+    public function test_the_security_token_carries_the_credential_of_the_api_token(): void
+    {
+        $owner = new User(fullName: 'U', email: 'credential-owner@example.com', password: 'x');
+        [$token] = ApiToken::issue($owner, 'Widget', ApiTokenScope::SiteReview);
+        $tokenId = Uuid::v7();
+        new \ReflectionProperty(ApiToken::class, 'id')->setValue($token, $tokenId);
+        $token->lastUsedAt = new \DateTimeImmutable();
+        $this->apiTokens->method('findOneByRawToken')->willReturn($token);
+        $this->logger->expects($this->never())->method('warning');
+
+        $passport = $this->authenticator->authenticate($this->bearerRequest('/api/site-review/comments'));
+        $securityToken = $this->authenticator->createToken($passport, 'api');
+
+        $credential = AuthenticatedCredential::of($securityToken);
+        self::assertNotNull($credential);
+        self::assertSame((string) $tokenId, $credential->id);
+        self::assertSame('ROLE_API_SITE_REVIEW', $credential->scopeRole);
+        self::assertNull($credential->projectId, 'a static token names no project; the project binds the token');
+        self::assertContains('ROLE_API_SITE_REVIEW', $securityToken->getRoleNames());
+        self::assertSame((string) $tokenId, $securityToken->getAttribute(ApiTokenAuthenticator::API_TOKEN_ID_ATTR));
     }
 
     private function bearerRequest(string $path): Request
