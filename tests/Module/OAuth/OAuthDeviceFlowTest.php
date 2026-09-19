@@ -97,6 +97,46 @@ final class OAuthDeviceFlowTest extends WebTestCase
         self::assertSelectorTextContains('[data-testid="oauth-device-consent"]', 'Loupe CLI');
     }
 
+    /**
+     * A session that has double-submitted once must double-submit on every later
+     * stateless form. A click before the CSRF script loads sends none, so these
+     * forms must not use a stateless token.
+     */
+    public function test_both_forms_work_before_the_csrf_script_has_loaded(): void
+    {
+        $start = $this->startDeviceFlow();
+
+        $this->browser->loginUser($this->user);
+        $crawler = $this->browser->request(Request::METHOD_GET, '/oauth/device');
+        $this->markSessionAsDoubleSubmitting();
+        $this->browser->submit($crawler->selectButton('device_code_entry_form_submit')->form([
+            'device_code_entry_form[userCode]' => $start['user_code'],
+        ]));
+        self::assertResponseRedirects('/oauth/device?user_code='.$start['user_code']);
+
+        $crawler = $this->browser->followRedirect();
+        $this->markSessionAsDoubleSubmitting();
+        $this->browser->submit($crawler->selectButton('device_consent_form_approve')->form());
+        self::assertSelectorExists('[data-testid="oauth-device-approved"]');
+    }
+
+    public function test_the_consent_refuses_a_forged_csrf_token(): void
+    {
+        $start = $this->startDeviceFlow();
+
+        $this->browser->loginUser($this->user);
+        $crawler = $this->browser->request(Request::METHOD_GET, $this->verificationPath($start['verification_uri_complete']));
+        $form = $crawler->selectButton('device_consent_form_approve')->form();
+        $values = $form->getPhpValues();
+        $values['device_consent_form']['_token'] = str_repeat('a', 43);
+        $this->browser->request(Request::METHOD_POST, $form->getUri(), $values);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorNotExists('[data-testid="oauth-device-approved"]');
+        $this->browser->restart();
+        self::assertSame('authorization_pending', $this->poll($start['device_code'])['error']);
+    }
+
     public function test_deny_makes_the_poll_answer_access_denied(): void
     {
         $start = $this->startDeviceFlow();
@@ -222,6 +262,14 @@ final class OAuthDeviceFlowTest extends WebTestCase
             'interval' => $start['interval'],
             'expires_in' => $start['expires_in'],
         ];
+    }
+
+    /** The flag SameOriginCsrfTokenManager keeps once a session has double-submitted. */
+    private function markSessionAsDoubleSubmitting(): void
+    {
+        $session = $this->browser->getRequest()->getSession();
+        $session->set('csrf-token', 2 | (2 << 8));
+        $session->save();
     }
 
     /** @return array<string, mixed> */

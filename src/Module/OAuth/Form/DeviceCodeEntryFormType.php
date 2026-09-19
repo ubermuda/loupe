@@ -27,6 +27,8 @@ class DeviceCodeEntryFormType extends AbstractType
     #[\Override]
     public function configureOptions(OptionsResolver $resolver): void
     {
-        $resolver->setDefaults(['data_class' => DeviceCodeEntryRequest::class]);
+        // A session-stored token, not the stateless 'submit' one: that one needs
+        // csrf_protection_controller.js, and a click before it loads got a 422.
+        $resolver->setDefaults(['data_class' => DeviceCodeEntryRequest::class, 'csrf_token_id' => 'oauth-device-code-entry']);
     }
 }
