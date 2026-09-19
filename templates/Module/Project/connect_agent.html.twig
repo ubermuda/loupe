@@ -139,7 +139,7 @@
                 <span class="lp-connect-toggle__text">
                     <span class="lp-connect-toggle__title">{{ 'project.connect.forwarding.label'|trans }}</span>
                     <span class="lp-connect-toggle__state">
-                        {{ (project.widgetToken.forwardsToAgent
+                        {{ (project.forwardsToAgent
                             ? 'project.connect.forwarding.state.on'
                             : 'project.connect.forwarding.state.off')|trans }}
                     </span>
@@ -147,7 +147,7 @@
                 <form method="POST" action="{{ path('app_project_widget_forwarding_toggle', {id: project.id}) }}">
                     <input type="hidden" name="_csrf_token" value="{{ csrf_token('toggle-project-widget-forwarding') }}">
                     <button type="submit" class="lp-btn lp-btn--sm">
-                        {{ (project.widgetToken.forwardsToAgent
+                        {{ (project.forwardsToAgent
                             ? 'project.connect.forwarding.disable'
                             : 'project.connect.forwarding.enable')|trans }}
                     </button>

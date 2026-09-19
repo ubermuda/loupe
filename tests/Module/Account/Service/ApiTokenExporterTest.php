@@ -29,6 +29,7 @@ final class ApiTokenExporterTest extends TestCase
         self::assertSame('My agent', $rows[0]['label']);
         self::assertSame('mcp', $rows[0]['scope']);
         self::assertArrayNotHasKey('tokenHash', $rows[0]);
+        self::assertArrayNotHasKey('forwardsToAgent', $rows[0], 'forwarding is a project setting, exported in projects.json');
         $encoded = json_encode($rows, \JSON_THROW_ON_ERROR);
         self::assertStringNotContainsString($token->tokenHash, $encoded);
     }

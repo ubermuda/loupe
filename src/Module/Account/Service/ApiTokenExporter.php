@@ -28,7 +28,6 @@ final readonly class ApiTokenExporter implements UserDataExporterInterface
             yield [
                 'label' => $token->label,
                 'scope' => $token->scope->value,
-                'forwardsToAgent' => $token->forwardsToAgent,
                 'createdAt' => $token->createdAt->format(\DateTimeInterface::ATOM),
                 'lastUsedAt' => $token->lastUsedAt?->format(\DateTimeInterface::ATOM),
                 'revokedAt' => $token->revokedAt?->format(\DateTimeInterface::ATOM),

@@ -27,7 +27,6 @@ final class ToggleProjectWidgetForwardingControllerTest extends WebTestCase
         $em->persist($project);
         $em->flush();
         $projectId = $project->id;
-        $tokenId = $token->id;
         $em->clear();
 
         $client->loginUser($owner);
@@ -36,7 +35,7 @@ final class ToggleProjectWidgetForwardingControllerTest extends WebTestCase
 
         self::assertResponseRedirects('/projects/'.$projectId.'/connect');
         $em->clear();
-        $fresh = $em->find(ApiToken::class, $tokenId);
+        $fresh = $em->find(Project::class, $projectId);
         self::assertNotNull($fresh);
         self::assertTrue($fresh->forwardsToAgent);
     }
@@ -54,7 +53,6 @@ final class ToggleProjectWidgetForwardingControllerTest extends WebTestCase
         $em->persist($project);
         $em->flush();
         $projectId = $project->id;
-        $tokenId = $token->id;
 
         $client->loginUser($other);
         $client->request(Request::METHOD_GET, '/projects');
@@ -62,7 +60,7 @@ final class ToggleProjectWidgetForwardingControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(403);
         $em->clear();
-        $fresh = $em->find(ApiToken::class, $tokenId);
+        $fresh = $em->find(Project::class, $projectId);
         self::assertNotNull($fresh);
         self::assertFalse($fresh->forwardsToAgent, 'a stranger must not be able to point the owner\'s agent at their own reviews');
     }

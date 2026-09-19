@@ -54,20 +54,6 @@ class ApiToken implements AuditCredentialInterface
     public ?\DateTimeImmutable $lastUsedAt = null;
 
     /**
-     * Whether a review submitted with this token may be forwarded to the owner's
-     * agent. Off by default and only ever meaningful for a site-review widget
-     * token, whose raw value is embedded in the page markup of the site it is
-     * installed on — so anyone who can view that page holds the credential, and
-     * opting in is a deliberate act by the owner rather than the default. The
-     * widget is meant for staging and preview environments only, never a public
-     * site, which is what bounds who that is. A collect-only token still accepts
-     * comments and submits; only the Mercure nudge that reaches the agent is
-     * withheld (see SubmitReviewHandler).
-     */
-    #[ORM\Column(options: ['default' => false])]
-    public bool $forwardsToAgent = false;
-
-    /**
      * Set when the owner revokes this token. The row is kept (not deleted) so the
      * revocation log entry keeps resolving to a real token — a revoked token must
      * simply never authenticate again (see ApiTokenRepository::findOneByRawToken).
