@@ -43,9 +43,6 @@ test('a reviewer signs in through the popup and saves a comment', async ({
         new URL(page.url()).origin,
     );
 
-    // The consent form's CSRF token is set by a script. This session has used
-    // it before, so a submit that beats the script is refused with a 422.
-    await popup.waitForLoadState('load');
     const exchange = page.waitForResponse(
         (response) =>
             response.url().endsWith('/oauth/token') &&
