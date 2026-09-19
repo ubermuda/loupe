@@ -163,6 +163,8 @@ final class ShowWorkshopControllerTest extends WebTestCase
         self::assertSame('8', trim($crawler->filter('.lp-workshop-stat__value')->first()->text()));
         self::assertSelectorTextContains('[data-workshop-attention]', 'Request 8');
         self::assertSelectorTextContains('[data-workshop-attention] .lp-workshop-attention__badge', 'Blocking');
+        // Every inbox item is an agent's ask, so each row shows where it came from.
+        self::assertSame(array_fill(0, 6, 'agent'), $crawler->filter('[data-workshop-attention] .lp-workshop-attention__icon')->extract(['data-origin']));
         $links = $crawler->filter('[data-workshop-attention]')->extract(['href']);
         self::assertSame(array_map(static fn (int $number): string => '/projects/'.$project->id.'/inbox#inbox-item-'.$number, [8, 7, 6, 5, 4, 3]), $links);
         $client->click($crawler->filter('[data-workshop-attention]')->first()->link());

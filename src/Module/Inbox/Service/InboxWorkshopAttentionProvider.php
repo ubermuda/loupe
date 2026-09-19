@@ -36,6 +36,8 @@ final readonly class InboxWorkshopAttentionProvider implements WorkshopAttention
                 $this->urls->generate('app_project_inbox', ['id' => (string) $project->id, '_fragment' => 'inbox-item-'.$item->number]),
                 $item->kind->value,
                 $item->blocking,
+                // Every inbox item is an ask an agent sent through the MCP.
+                'agent',
             );
         }
 

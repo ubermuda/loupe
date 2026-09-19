@@ -49,7 +49,7 @@
             <div class="lp-workshop-attention-list">
                 {% for item in workshop.attention %}
                 <a class="lp-workshop-attention" href="{{ item.url }}" data-workshop-attention>
-                    <span class="lp-workshop-attention__icon"><twig:ux:icon name="lucide:inbox" /></span>
+                    <span class="lp-workshop-attention__icon" data-origin="{{ item.origin }}">{% if item.origin == 'agent' %}<twig:ux:icon name="lucide:bot" />{% else %}<twig:ux:icon name="lucide:inbox" />{% endif %}</span>
                     <span><strong>{{ item.title }}</strong></span>
                     <span class="lp-workshop-attention__badge">{{ ('inbox.item.kind.' ~ item.kind)|trans }}{% if item.blocking %} · {{ 'inbox.item.blocking'|trans }}{% endif %}</span>
                     <twig:ux:icon name="lucide:chevron-right" class="lp-workshop-attention__chevron" />
