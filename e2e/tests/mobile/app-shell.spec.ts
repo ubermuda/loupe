@@ -177,6 +177,8 @@ test('the sidebar stays in flow above the 780px shell breakpoint', async ({
 test('account panels fit narrow screens and enlarged text', async ({
     page,
 }) => {
+    // Twenty-four page loads, where the default budget suits a handful.
+    test.slow();
     const sections = [
         { path: '/account/profile', panelCount: 1 },
         { path: '/account/api-tokens', panelCount: 1 },
