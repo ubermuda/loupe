@@ -164,8 +164,12 @@
     min-height: calc(var(--spacing) * 112);
 }
 
+/* The list scrolls inside the card, as the site review list does. Unbounded, a
+   long queue set the row height and left the detail's own column empty below
+   its content. */
 .lp-core-inbox .lp-inbox-request-list {
     min-height: 0;
+    max-height: calc(var(--spacing) * 195);
     overflow-y: auto;
     border-right: 1px solid var(--border);
     background: var(--surface-2);

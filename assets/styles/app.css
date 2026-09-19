@@ -3764,7 +3764,11 @@
        which a viewport media query would pin to the window. The closed panel is
        `visibility: hidden`, so it is untabbable and untappable off-canvas. */
     .lp-sidebar--drawer {
-        @apply fixed inset-y-0 left-0 z-50 overflow-y-auto bg-sidebar invisible -translate-x-full lg:static lg:visible lg:translate-x-0 lg:overflow-visible;
+        @apply fixed inset-y-0 left-0 z-50 min-h-0 overflow-y-auto bg-sidebar invisible -translate-x-full lg:static lg:visible lg:translate-x-0;
+        /* The shell is exactly one viewport tall, so a rail with more entries
+           than fit scrolls itself. Letting it overflow grew the document past
+           the shell, and the dark rail then stopped above the page's end. */
+        scrollbar-width: none;
         /* `translate`, not `transform`: that is the property -translate-x-full
            writes. Hiding waits out the slide, so the panel does not vanish
            mid-motion. */
@@ -3775,6 +3779,9 @@
     /* No delay on the way in, so the panel is focusable in the same tick the
        drawer opens. An interpolated `visibility` still reads `hidden` there and
        makes focus() a silent no-op. */
+    .lp-sidebar--drawer::-webkit-scrollbar {
+        display: none;
+    }
     .lp-sidebar--drawer.lp-sidebar--open {
         @apply visible translate-x-0;
         transition:
