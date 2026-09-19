@@ -217,6 +217,9 @@ for (const surface of ['page', 'drawer']) {
                 conversation.getByLabel('Reply to this feedback'),
             ).toHaveValue('A new draft during confirmation.');
             await conversation.getByLabel('Reply to this feedback').fill('');
+            await expect(
+                conversation.getByLabel('Reply to this feedback'),
+            ).toHaveValue('');
             if (surface === 'drawer') {
                 await page.keyboard.press('Escape');
                 await page

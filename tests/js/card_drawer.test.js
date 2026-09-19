@@ -146,3 +146,14 @@ it('announces a save in the drawer so the board can reload', () => {
     window.removeEventListener('card-drawer:saved', saved);
     expect(saved).toHaveBeenCalledOnce();
 });
+
+it('keeps the focus of a reader already typing in the loaded content', () => {
+    controller.frameTarget.insertAdjacentHTML(
+        'beforeend',
+        '<button type="button">Post reply</button>',
+    );
+    const textarea = controller.frameTarget.querySelector('textarea');
+    textarea.focus();
+    controller.loaded({ target: controller.frameTarget });
+    expect(document.activeElement).toBe(textarea);
+});

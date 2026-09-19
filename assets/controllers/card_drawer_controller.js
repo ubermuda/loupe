@@ -54,6 +54,8 @@ export default class extends ModalController {
                 easing: 'ease',
             });
         }
+        // A reader who already works in the new content keeps their focus.
+        if (this.frameTarget.contains(document.activeElement)) return;
         const focusTarget = this.frameTarget.querySelector(
             'form input:not([type="hidden"]), [data-panel-tabs-target="tab"][aria-selected="true"], a, button',
         );
