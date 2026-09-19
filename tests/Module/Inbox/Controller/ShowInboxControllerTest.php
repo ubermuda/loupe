@@ -261,7 +261,10 @@ final class ShowInboxControllerTest extends WebTestCase
         self::assertCount(0, $block->filter('.lp-inbox-ask__session'));
         self::assertStringContainsString((string) $ask->sessionId, $block->filter('.lp-presence [role="tooltip"]')->text());
         self::assertSame('the export', $block->filter('.lp-inbox-ask__context strong')->text());
-        self::assertStringContainsString('without an answer', $block->filter('#inbox-item-12 details.lp-inbox-decline [data-inbox-decline-hint]')->text());
+        self::assertStringContainsString('without an answer', $block->filter('#inbox-item-12 [data-inbox-decline-hint]')->text());
+        // Decline sits in the response row, and carries the note field's text.
+        self::assertCount(1, $block->filter('#inbox-item-12 .lp-inbox-item__buttons button[form="inbox_decline_'.$question->id.'"]'));
+        self::assertCount(1, $block->filter('#inbox-item-12 input[type="hidden"][name="inbox_decline_'.$question->id.'[closeNote]"]'));
         self::assertCount(0, $block->filter('script'));
         self::assertSame('item 12', $block->filter('#inbox-item-12 .lp-inbox-item__number')->text());
         self::assertSame('item 13', $block->filter('#inbox-item-13 .lp-inbox-item__number')->text());
@@ -339,7 +342,7 @@ final class ShowInboxControllerTest extends WebTestCase
         $owner = $this->signedUpUser($this->em, 'inbox-two-asks');
         $project = $this->inboxProject($this->em, $owner);
         $item = $this->answered($this->em, $this->question($this->em, $project, 1));
-        // The same item in two asks: its forms and replies live with the open
+        // The same item in two asks: its forms live with the open
         // one, and the closed one is what the completed queue renders.
         $this->askHolding($this->em, $project, [$item]);
         $this->askHolding($this->em, $project, [$item], closedAt: new \DateTimeImmutable('-1 hour'));
@@ -403,8 +406,7 @@ final class ShowInboxControllerTest extends WebTestCase
 
         self::assertSame('no', $completed->filter('#inbox-item-2 [data-inbox-editable]')->attr('data-inbox-editable'));
         self::assertStringContainsString('This response is final', $completed->filter('#inbox-item-2')->text());
-        self::assertCount(0, $completed->filter('#inbox-item-2 form:not([name^="inbox_reply_"])'));
-        self::assertCount(1, $completed->filter('#inbox-item-2 form[name^="inbox_reply_"]'));
+        self::assertCount(0, $completed->filter('#inbox-item-2 form'));
     }
 
     public function test_an_answer_of_zero_still_shows(): void
@@ -463,8 +465,7 @@ final class ShowInboxControllerTest extends WebTestCase
         self::assertCount(1, $results);
         self::assertCount(2, $results->filter('[data-inbox-item]'));
         self::assertGreaterThan(0, $results->filter('[data-inbox-item="'.$open->number.'"] form')->count());
-        self::assertCount(0, $results->filter('[data-inbox-item="'.$closed->number.'"] form:not([name^="inbox_reply_"])'));
-        self::assertCount(1, $results->filter('[data-inbox-item="'.$closed->number.'"] form[name^="inbox_reply_"]'));
+        self::assertCount(0, $results->filter('[data-inbox-item="'.$closed->number.'"] form'));
         self::assertSame('no', $results->filter('[data-inbox-item="'.$closed->number.'"] [data-inbox-editable]')->attr('data-inbox-editable'));
         self::assertCount(0, $crawler->filter('[data-inbox-item="3"]'));
         self::assertCount(0, $crawler->filter('[data-inbox-section="open-asks"], [data-inbox-section="closed-asks"]'));

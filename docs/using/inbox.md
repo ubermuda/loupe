@@ -145,7 +145,7 @@ behind it finishes. Such an item takes no response from you.
 
 Open the linked document or pull request before choosing **Approve** or **Request changes**.
 Request changes requires a note that explains what to change.
-Select **Submit review** in the inbox or card conversation.
+Select **Submit review** in the inbox, or on the card that links the request.
 
 A document submission records the same verdict as the document review page.
 It completes open Review requests that target that document; questions with document links stay open.
@@ -160,16 +160,6 @@ Inspect the current content and copy your note before selecting **Discard draft*
 If the request closes or its target becomes unavailable, the request keeps your unsent note and verdict visible for copying or discarding.
 Discard clears only this tab's draft. It does not change the recorded review.
 A removed target shows an unavailable state, while completed results retain their original target label and answer.
-
-## Replies
-
-Use **Reply to this thread** to add context without changing an answer.
-Replies show their author and time in both the inbox and the card conversation.
-You can reply to completed requests. A reply does not reopen the request or resume an agent.
-The form accepts up to 2,000 characters and keeps an invalid draft for correction.
-Unsent replies stay in this browser tab when you close a card drawer or follow an in-app link.
-The browser asks before a reload or tab closure discards them. Signing out clears them.
-Text you type while a reply is being saved remains an unsent draft after confirmation.
 
 ## When an ask closes
 

@@ -382,10 +382,6 @@ It is null for other item kinds. An unanswered review has a null verdict.
 `review.withdrawal` separately records a document verdict withdrawal without changing the completed answer.
 PR results stay in Loupe and do not submit a code-host review.
 
-`inbox_get` also returns `replies`, ordered from oldest to newest.
-Each reply contains `replyId`, `authorId`, `authorName`, `body`, and `createdAt`.
-Replies add context without changing the recorded answer or triggering another resume.
-
 Every card id and document id an item links to must belong to the token's
 project, or the call is refused. An item closes as `obsolete` when every card it
 links to is moved into a terminal column, by a move or by a column delete. A

@@ -4768,10 +4768,6 @@
                 <source>inbox.done.error.already_done</source>
                 <target>This to-do is already done.</target>
             </trans-unit>
-            <trans-unit id="inbox.decline.toggle">
-                <source>inbox.decline.toggle</source>
-                <target>Decline</target>
-            </trans-unit>
             <trans-unit id="inbox.decline.hint"><source>inbox.decline.hint</source><target>Decline closes this item without an answer. The agent sees that you declined it, with your note if you add one.</target></trans-unit>
             <trans-unit id="inbox.decline.change">
                 <source>inbox.decline.change</source>
@@ -4780,10 +4776,6 @@
             <trans-unit id="inbox.decline.submit">
                 <source>inbox.decline.submit</source>
                 <target>Decline this item</target>
-            </trans-unit>
-            <trans-unit id="inbox.form.decline_inbox_item_form.close_note.label">
-                <source>inbox.form.decline_inbox_item_form.close_note.label</source>
-                <target>A note for the agent (optional)</target>
             </trans-unit>
             <trans-unit id="inbox.flash.answered">
                 <source>inbox.flash.answered</source>
@@ -4811,7 +4803,7 @@
             </trans-unit>
             <trans-unit id="inbox.account.page.description">
                 <source>inbox.account.page.description</source>
-                <target>The open asks and open items in every project you own. Answer them in the project inbox.</target>
+                <target>Every project you own with open requests. Answer them in the project inbox.</target>
             </trans-unit>
             <trans-unit id="inbox.account.page.empty">
                 <source>inbox.account.page.empty</source>
@@ -5604,7 +5596,6 @@
             <trans-unit id="board.card.tab.conversation"><source>board.card.tab.conversation</source><target>Conversation</target></trans-unit>
             <trans-unit id="board.card.tab.feedback"><source>board.card.tab.feedback</source><target>Feedback</target></trans-unit>
             <trans-unit id="board.card.overview.description"><source>board.card.overview.description</source><target>Description</target></trans-unit>
-            <trans-unit id="board.card.overview.details"><source>board.card.overview.details</source><target>Card details</target></trans-unit>
             <trans-unit id="board.card.overview.status"><source>board.card.overview.status</source><target>Status</target></trans-unit>
             <trans-unit id="board.card.overview.reporter"><source>board.card.overview.reporter</source><target>Reporter</target></trans-unit>
             <trans-unit id="board.card.overview.type"><source>board.card.overview.type</source><target>Type</target></trans-unit>
@@ -5662,7 +5653,6 @@
             <trans-unit id="inbox.page.open_empty"><source>inbox.page.open_empty</source><target>Nothing waits for you.</target></trans-unit>
             <trans-unit id="inbox.page.completed_empty"><source>inbox.page.completed_empty</source><target>No request is completed yet.</target></trans-unit>
             <trans-unit id="inbox.answer.placeholder"><source>inbox.answer.placeholder</source><target>Add a detail or write a different answer…</target></trans-unit>
-            <trans-unit id="inbox.reply.placeholder"><source>inbox.reply.placeholder</source><target>Reply to this thread…</target></trans-unit>
             <trans-unit id="inbox.detail.in_card"><source>inbox.detail.in_card</source><target>The same thread appears in the card conversation.</target></trans-unit>
             <trans-unit id="inbox.detail.no_card"><source>inbox.detail.no_card</source><target>This request is not linked to a card.</target></trans-unit>
             <trans-unit id="inbox.tabs.label"><source>inbox.tabs.label</source><target>Request state</target></trans-unit>
@@ -6037,14 +6027,7 @@
             <trans-unit id="inbox.review.stale_draft"><source>inbox.review.stale_draft</source><target>This draft belongs to an earlier review state. Inspect the current content before reviewing again. Copy your note before discarding this draft.</target></trans-unit>
             <trans-unit id="inbox.answer.unsent"><source>inbox.answer.unsent</source><target>Your unsent answer</target></trans-unit>
             <trans-unit id="inbox.answer.unsent_closed"><source>inbox.answer.unsent_closed</source><target>This request no longer accepts responses. This draft was not sent.</target></trans-unit>
-            <trans-unit id="inbox.decline.unsent"><source>inbox.decline.unsent</source><target>Your unsent decline note</target></trans-unit>
             <trans-unit id="inbox.answer.discard_draft"><source>inbox.answer.discard_draft</source><target>Discard draft</target></trans-unit>
-            <trans-unit id="inbox.reply.error.body"><source>inbox.reply.error.body</source><target>Write a reply of up to 2,000 characters.</target></trans-unit>
-            <trans-unit id="inbox.reply.error.submission"><source>inbox.reply.error.submission</source><target>This reply form is no longer current. Copy your draft, reload the request, and try again.</target></trans-unit>
-            <trans-unit id="inbox.reply.added"><source>inbox.reply.added</source><target>Reply added.</target></trans-unit>
-            <trans-unit id="inbox.reply.failed"><source>inbox.reply.failed</source><target>Your reply could not be confirmed. Your draft is still here. Try again.</target></trans-unit>
-            <trans-unit id="inbox.reply.submit"><source>inbox.reply.submit</source><target>Post reply</target></trans-unit>
-            <trans-unit id="inbox.reply.conversation"><source>inbox.reply.conversation</source><target>Replies</target></trans-unit>
             <trans-unit id="site_review.reply.error.body"><source>site_review.reply.error.body</source><target>Write a reply of up to 2,000 characters.</target></trans-unit>
             <trans-unit id="site_review.reply.error.submission"><source>site_review.reply.error.submission</source><target>This reply form is no longer current. Copy your draft, reload the feedback, and try again.</target></trans-unit>
             <trans-unit id="site_review.reply.added"><source>site_review.reply.added</source><target>Reply added.</target></trans-unit>
@@ -6055,7 +6038,6 @@
             <trans-unit id="site_review.reply.submit"><source>site_review.reply.submit</source><target>Post reply</target></trans-unit>
             <trans-unit id="site_review.reply.conversation"><source>site_review.reply.conversation</source><target>Replies</target></trans-unit>
             <trans-unit id="sitereview.form.reply_to_site_review_comment_form.body.label"><source>sitereview.form.reply_to_site_review_comment_form.body.label</source><target>Reply to this feedback</target></trans-unit>
-            <trans-unit id="inbox.form.reply_to_inbox_item_form.body.label"><source>inbox.form.reply_to_inbox_item_form.body.label</source><target>Reply to this thread</target></trans-unit>
             <trans-unit id="site_review.receipt.needs_card"><source>site_review.receipt.needs_card</source><target>{0}No feedback needs a card|{1}1 needs a card|]1,Inf[%count% need a card</target></trans-unit>
             <trans-unit id="site_review.receipt.organized"><source>site_review.receipt.organized</source><target>All feedback organized</target></trans-unit>
             <trans-unit id="site_review.filter.empty_title"><source>site_review.filter.empty_title</source><target>No matching feedback</target></trans-unit>
@@ -6071,6 +6053,9 @@
             <trans-unit id="board.rules.explanation"><source>board.rules.explanation</source><target>Rules come from bridge configuration. This page reports their health and does not change them.</target></trans-unit>
             <trans-unit id="inbox.account.project.open"><source>inbox.account.project.open</source><target>Open inbox</target></trans-unit>
             <trans-unit id="about.hero.licence"><source>about.hero.licence</source><target>Free software, AGPL-3.0</target></trans-unit>
+            <trans-unit id="board.card.tab.details"><source>board.card.tab.details</source><target>Details</target></trans-unit>
+            <trans-unit id="inbox.account.project.oldest"><source>inbox.account.project.oldest</source><target>Oldest waiting %time%</target></trans-unit>
+            <trans-unit id="site_review.attach.title"><source>site_review.attach.title</source><target>Link this feedback to work</target></trans-unit>
         </body>
     </file>
 </xliff>

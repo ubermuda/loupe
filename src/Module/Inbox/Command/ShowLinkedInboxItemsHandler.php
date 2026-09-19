@@ -5,16 +5,13 @@ declare(strict_types=1);
 namespace App\Module\Inbox\Command;
 
 use App\Module\Inbox\Repository\InboxItemRepository;
-use App\Module\Inbox\Repository\InboxReplyRepository;
 use App\Module\Inbox\Service\InboxReviewLookup;
-use App\Module\Inbox\View\InboxReplyThreads;
 use App\Module\Inbox\View\LinkedInboxItemsView;
 
 final readonly class ShowLinkedInboxItemsHandler
 {
     public function __construct(
         private InboxItemRepository $inboxItems,
-        private InboxReplyRepository $inboxReplies,
         private InboxReviewLookup $inboxReviews,
     ) {
     }
@@ -36,7 +33,6 @@ final readonly class ShowLinkedInboxItemsHandler
             targetId: $command->targetId,
             items: $linked['items'],
             asksByItem: $asksByItem,
-            replies: new InboxReplyThreads($this->inboxReplies->findForItems($linked['items'])),
             versionNumber: $command->versionNumber,
             focusedItemNumber: $command->focusedItemNumber,
         );
