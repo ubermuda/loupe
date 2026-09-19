@@ -34,10 +34,10 @@ security:
                 - App\Module\Account\Security\ApiTokenAuthenticator
                 - App\Module\OAuth\Security\OAuthAccessTokenAuthenticator
             access_denied_handler: App\Module\Account\Security\ApiAccessDeniedHandler
-        # The OAuth token endpoint and the discovery documents serve machine
-        # clients. No session, remember-me or HTML redirect listener may touch them.
+        # The OAuth token and device authorization endpoints and the discovery
+        # documents serve machine clients. No session, remember-me or HTML redirect listener may touch them.
         oauth_public:
-            pattern: ^/(oauth/token$|\.well-known/)
+            pattern: ^/(oauth/token$|oauth/device-authorization$|\.well-known/)
             stateless: true
         main:
             lazy: true
@@ -122,6 +122,8 @@ security:
         # user. It must stay above the social-login rule below.
         - { path: ^/oauth/authorize$, roles: ROLE_USER }
         - { path: ^/oauth/token$,     roles: PUBLIC_ACCESS }
+        - { path: ^/oauth/device-authorization$, roles: PUBLIC_ACCESS }
+        - { path: ^/oauth/device$,    roles: ROLE_USER }
         - { path: ^/\.well-known/,    roles: PUBLIC_ACCESS }
         - { path: ^/oauth,           roles: PUBLIC_ACCESS }
         - { path: ^/login,           roles: PUBLIC_ACCESS }
