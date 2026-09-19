@@ -19,7 +19,7 @@ use App\Module\Inbox\Form\SubmitInboxDocumentReviewFormType;
 use App\Module\Inbox\Form\SubmitInboxPullRequestReviewFormType;
 use App\Module\Inbox\Form\SubmitInboxPullRequestReviewRequest;
 use App\Module\Inbox\Repository\InboxItemRepository;
-use App\Module\Inbox\Repository\InboxReviewRepository;
+use App\Module\Inbox\Service\InboxReviewLookup;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Form\SubmitReviewRequest;
@@ -46,7 +46,7 @@ final class InboxExtension extends AbstractExtension
         private readonly MarkdownRenderer $markdown,
         private readonly InboxItemRepository $inboxItems,
         private readonly UserTopicBuilder $topics,
-        private readonly InboxReviewRepository $inboxReviews,
+        private readonly InboxReviewLookup $inboxReviews,
         private readonly ReviewRepository $reviews,
         private readonly DocumentVersionRepository $documentVersions,
     ) {
@@ -118,7 +118,7 @@ final class InboxExtension extends AbstractExtension
 
     public function review(InboxItem $item): ?InboxReview
     {
-        return $this->inboxReviews->findOneBy(['item' => $item]);
+        return $this->inboxReviews->forItem($item);
     }
 
     public function replyForm(InboxItem $item, ?FormView $refused = null): FormView
