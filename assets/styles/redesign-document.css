@@ -513,6 +513,11 @@
     @apply absolute inset-0;
     content: '';
 }
+/* Above that cover, so a click or a test that targets the control itself
+   reaches the control rather than the label over it. */
+.lp-review .lp-decision__option input {
+    @apply relative z-1;
+}
 
 /* ── Margin panel scrolling ─────────────────────────────────────── */
 

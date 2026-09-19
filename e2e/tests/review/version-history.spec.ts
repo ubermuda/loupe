@@ -91,17 +91,20 @@ test('the History tab compares two distant versions', async ({ page }) => {
     const currentVersion = page.locator(
         '.lp-history__row[data-version-number="4"]',
     );
-    await expect(currentVersion.locator('.lp-history__verdict')).toHaveText([
+    // Verdicts read as one log under the table, so the row itself reports its
+    // discussion instead.
+    const log = page.locator('.lp-history-log');
+    await expect(log.locator('.lp-history__verdict')).toHaveText([
         'Approved',
         'Verdict withdrawn',
     ]);
-    await expect(currentVersion).toContainText('Ready for the rollout.');
-    await expect(currentVersion).toContainText('E2E History');
+    await expect(log).toContainText('Ready for the rollout.');
+    await expect(log).toContainText('E2E History');
     await expect(
         page.locator('.lp-history__row[data-version-number="3"]'),
-    ).toContainText('No reviews for this version.');
+    ).toContainText('No threads');
     await page.reload();
-    await expect(currentVersion.locator('.lp-history__review')).toHaveCount(2);
+    await expect(log.locator('.lp-history__review')).toHaveCount(2);
 
     // v1 against v4: a pair the per-version compare controls never offer.
     await page.locator('#history-compare-from').selectOption('1');
@@ -180,5 +183,8 @@ test('the History tab compares two distant versions', async ({ page }) => {
     await expect(page.locator('.lp-review-doc__version')).toHaveText('v5');
     await page.getByRole('link', { name: 'History', exact: true }).click();
     await expect(page.locator('.lp-history__row')).toHaveCount(5);
-    await expect(currentVersion.locator('.lp-history__review')).toHaveCount(2);
+    // A new version leaves the verdicts where they were, on v4.
+    await expect(
+        page.locator('.lp-history-log').locator('.lp-history__review'),
+    ).toHaveCount(2);
 });

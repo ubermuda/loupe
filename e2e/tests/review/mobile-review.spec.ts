@@ -366,8 +366,10 @@ test('phone readers can open document details from the margin tabs', async ({
     await detailsTab.click();
     const details = page.locator('#review-margin-panel-details');
     await expect(details).toBeVisible();
-    await expect(details).toContainText('No linked board card is available');
-    await expect(details).toContainText('Tags');
+    // The panel lists only what the document has, and this one has nothing.
+    await expect(details).toContainText(
+        'Nothing is linked to this document yet.',
+    );
     await expect(
         page.getByLabel('Filter comments', { exact: true }),
     ).toBeHidden();
