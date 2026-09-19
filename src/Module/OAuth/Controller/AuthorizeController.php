@@ -8,12 +8,16 @@ use App\Controller\AppController;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
+use App\Module\OAuth\Command\PrepareWidgetAuthorizationCommand;
+use App\Module\OAuth\Command\PrepareWidgetAuthorizationHandler;
 use App\Module\OAuth\Command\ResolveAuthorizationCommand;
 use App\Module\OAuth\Command\ResolveAuthorizationHandler;
 use App\Module\OAuth\Command\ShowConsentCommand;
 use App\Module\OAuth\Command\ShowConsentHandler;
 use App\Module\OAuth\Form\ConsentFormType;
 use App\Module\OAuth\Form\ConsentRequest;
+use App\Module\OAuth\Widget\WidgetAuthorizationRefused;
+use App\Module\OAuth\Widget\WidgetClient;
 use League\OAuth2\Server\AuthorizationServer;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface;
@@ -56,6 +60,7 @@ final class AuthorizeController extends AppController
         private readonly ResponseFactoryInterface $psrResponses,
         private readonly ShowConsentHandler $showConsent,
         private readonly ResolveAuthorizationHandler $resolveAuthorization,
+        private readonly PrepareWidgetAuthorizationHandler $prepareWidget,
         private readonly TranslatorInterface $translator,
 
         #[Autowire(param: 'app.url')]
@@ -77,13 +82,16 @@ final class AuthorizeController extends AppController
 
         try {
             $authorizationRequest = $this->server->validateAuthorizationRequest($this->psrRequests->createRequest($request));
+            $widget = WidgetClient::ID === $authorizationRequest->getClient()->getIdentifier()
+                ? ($this->prepareWidget)(new PrepareWidgetAuthorizationCommand($authorizationRequest, $user, $request->query->getString('project'), $request->query->getString('origin')))
+                : null;
             $scope = $this->requestedScope($authorizationRequest);
 
             $view = ($this->showConsent)(new ShowConsentCommand($authorizationRequest, $scope, $user));
             $form = $this->createForm(ConsentFormType::class, new ConsentRequest(), [
                 'action' => $request->getRequestUri(),
                 'projects' => $view->projects,
-                'needs_project' => $view->needsProject,
+                'needs_project' => $view->needsProject && null === $widget,
             ]);
             $form->handleRequest($request);
 
@@ -97,17 +105,19 @@ final class AuthorizeController extends AppController
                             scope: $scope,
                             user: $user,
                             approved: !$denied,
-                            projectId: $form->getData()?->project,
+                            projectId: $widget?->project->id?->toRfc4122() ?? $form->getData()?->project,
                         )));
                     } catch (DomainErrors $e) {
                         foreach ($e->errors as $field => $translationKey) {
-                            $form->get($field)->addError(new FormError($this->translator->trans($translationKey)));
+                            ($form->has($field) ? $form->get($field) : $form)->addError(new FormError($this->translator->trans($translationKey)));
                         }
                     }
                 }
             }
 
-            return $this->renderFormResponse('@OAuth/authorize.html.twig', $form, ['view' => $view]);
+            return $this->renderFormResponse('@OAuth/authorize.html.twig', $form, ['view' => $view, 'widget' => $widget]);
+        } catch (WidgetAuthorizationRefused $e) {
+            return $this->render('@OAuth/authorize.html.twig', ['refusal' => $e->reasonKey], new Response(status: $e->status));
         } catch (OAuthServerException $e) {
             if ($e->hasRedirect()) {
                 $e->setPayload([...$e->getPayload(), 'iss' => $this->issuer()]);

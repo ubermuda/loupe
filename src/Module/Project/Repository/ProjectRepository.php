@@ -28,6 +28,15 @@ class ProjectRepository extends ServiceEntityRepository
         return $this->findBy(['owner' => $owner], ['createdAt' => 'DESC']);
     }
 
+    /** Whether any project lists this origin among the sites its sign-in widget may run on. */
+    public function anyAllowsOrigin(string $origin): bool
+    {
+        return false !== $this->getEntityManager()->getConnection()->fetchOne(
+            'SELECT 1 FROM projects WHERE allowed_origins @> CAST(:origins AS jsonb) LIMIT 1',
+            ['origins' => json_encode([$origin], \JSON_THROW_ON_ERROR)],
+        );
+    }
+
     /**
      * The owner's newest projects, for a picker that offers a way to see them all.
      *
