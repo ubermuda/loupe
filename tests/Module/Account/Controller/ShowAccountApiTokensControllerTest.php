@@ -25,7 +25,7 @@ final class ShowAccountApiTokensControllerTest extends WebTestCase
         self::assertSelectorNotExists('[data-testid="profile-section"]');
         self::assertSelectorNotExists('[data-testid="export-section"]');
         self::assertSelectorNotExists('[data-testid="delete-account-section"]');
-        self::assertCount(3, $crawler->filter('.lp-settings-nav a.lp-settings-nav__item'));
+        self::assertCount(4, $crawler->filter('.lp-settings-nav a.lp-settings-nav__item'));
         self::assertSelectorExists('.lp-settings-nav__item--active[aria-current="page"][href="/account/api-tokens"]');
         self::assertSelectorCount(1, '.lp-settings-nav__item[aria-current="page"]');
     }

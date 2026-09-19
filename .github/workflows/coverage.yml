@@ -93,6 +93,7 @@ jobs:
       - name: Prepare the application
         run: |
           docker compose exec -T php-fpm bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+          docker compose exec -T php-fpm bin/console league:oauth2-server:generate-keypair --skip-if-exists
           docker compose exec -T php-fpm bin/console app:dev:seed
 
       # CoverageSubscriber writes .cov files into var/ as www-data, and the

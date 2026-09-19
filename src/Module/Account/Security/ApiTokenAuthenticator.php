@@ -6,6 +6,7 @@ namespace App\Module\Account\Security;
 
 use App\Module\Account\Repository\ApiTokenRepository;
 use App\Security\AuthenticatedCredential;
+use App\Security\BearerToken;
 use Monolog\Attribute\WithMonologChannel;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -39,20 +40,22 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
     ) {
     }
 
+    /** A JWT bearer belongs to OAuthAccessTokenAuthenticator. */
     public function supports(Request $request): bool
     {
-        return self::carriesBearerToken($request);
+        $bearer = BearerToken::of($request);
+
+        return null !== $bearer && !BearerToken::isJwt($bearer);
     }
 
     /**
      * Shared with RateLimitApiAuthentication, which throttles exactly the
-     * requests that can reach authenticate() and record a failure there. Two
-     * copies of the same condition would drift apart without either side
-     * failing.
+     * requests that can reach this authenticator or the OAuth one and record a
+     * failure there.
      */
     public static function carriesBearerToken(Request $request): bool
     {
-        return str_starts_with((string) $request->headers->get('Authorization', ''), 'Bearer ');
+        return null !== BearerToken::of($request);
     }
 
     public function authenticate(Request $request): Passport

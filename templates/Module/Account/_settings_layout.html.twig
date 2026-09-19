@@ -31,6 +31,10 @@
                 <twig:ux:icon name="lucide:key-round" />
                 {{ 'account.settings.nav.tokens'|trans }}
             </a>
+            <a class="lp-settings-nav__item{% if section == 'connected-apps' %} lp-settings-nav__item--active{% endif %}" href="{{ path('app_account_connected_apps') }}"{% if section == 'connected-apps' %} aria-current="page"{% endif %}>
+                <twig:ux:icon name="lucide:plug" />
+                {{ 'account.settings.nav.connected_apps'|trans }}
+            </a>
             <a class="lp-settings-nav__item{% if section == 'data' %} lp-settings-nav__item--active{% endif %}" href="{{ path('app_account_data') }}"{% if section == 'data' %} aria-current="page"{% endif %}>
                 <twig:ux:icon name="lucide:archive" />
                 {{ 'account.settings.nav.data'|trans }}
