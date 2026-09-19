@@ -1,6 +1,14 @@
 /** @vitest-environment jsdom */
 import { createHash } from 'node:crypto';
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+    afterEach,
+    beforeAll,
+    beforeEach,
+    describe,
+    expect,
+    it,
+    vi,
+} from 'vitest';
 import {
     BACKEND,
     bootWidget,
@@ -57,6 +65,15 @@ const signInShown = () =>
     panelRoot().getElementById('lp-fatal').style.display !== 'none' &&
     signInButton() !== null;
 
+/**
+ * Presses Sign in and waits until the popup is sent to the authorize page.
+ * The PKCE digest is async, so a fixed number of ticks is not enough.
+ */
+const signInAndWaitForPopup = async () => {
+    signInButton().click();
+    await vi.waitFor(() => expect(popup.location.href).not.toBe(''));
+};
+
 const authorizeParameters = () => new URL(popup.location.href).searchParams;
 
 const post = (data, origin = BACKEND) =>
@@ -109,8 +126,7 @@ describe('an embed with a project and no token', () => {
         await settle();
         openPanel();
 
-        signInButton().click();
-        await settle();
+        await signInAndWaitForPopup();
 
         const url = new URL(popup.location.href);
         expect(url.origin + url.pathname).toBe(`${BACKEND}/oauth/authorize`);
@@ -138,8 +154,7 @@ describe('an embed with a project and no token', () => {
         });
         await settle();
         openPanel();
-        signInButton().click();
-        await settle();
+        await signInAndWaitForPopup();
 
         post(answer());
         await settle();
@@ -179,8 +194,7 @@ describe('an embed with a project and no token', () => {
         });
         await settle();
         openPanel();
-        signInButton().click();
-        await settle();
+        await signInAndWaitForPopup();
 
         post(answer(), 'https://evil.example');
         await settle();
@@ -197,8 +211,7 @@ describe('an embed with a project and no token', () => {
         });
         await settle();
         openPanel();
-        signInButton().click();
-        await settle();
+        await signInAndWaitForPopup();
 
         post(answer({ state: 'somebody-elses-state' }));
         await settle();
@@ -214,8 +227,7 @@ describe('an embed with a project and no token', () => {
         });
         await settle();
         openPanel();
-        signInButton().click();
-        await settle();
+        await signInAndWaitForPopup();
 
         post(answer({ iss: 'https://evil.example' }));
         await settle();
@@ -230,8 +242,7 @@ describe('an embed with a project and no token', () => {
         bootWidget({ token: null, project: PROJECT, respond: router({}) });
         await settle();
         openPanel();
-        signInButton().click();
-        await settle();
+        await signInAndWaitForPopup();
 
         post(answer({ code: undefined, error: 'access_denied' }));
         await settle();
