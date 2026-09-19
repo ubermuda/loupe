@@ -70,7 +70,7 @@ final readonly class FetchedClientMetadata
     private static function isAllowedRedirectUri(string $uri): bool
     {
         $parts = parse_url($uri);
-        if (false === $parts || !isset($parts['host']) || isset($parts['user']) || isset($parts['pass']) || isset($parts['fragment']) || 1 !== preg_match('/^[\x21-\x7e]+$/', $uri) || str_contains($uri, '#')) {
+        if (false === $parts || !isset($parts['host']) || false === filter_var($uri, \FILTER_VALIDATE_URL) || isset($parts['user']) || isset($parts['pass']) || isset($parts['fragment']) || 1 !== preg_match('/^[\x21-\x7e]+$/', $uri) || str_contains($uri, '#')) {
             return false;
         }
 

@@ -92,6 +92,7 @@ final class ClientMetadataFetcherTest extends TestCase
         yield 'empty redirect uris' => [self::json([...self::document(), 'redirect_uris' => []])];
         yield 'plain http redirect' => [self::json([...self::document(), 'redirect_uris' => ['http://client.example/cb']])];
         yield 'custom scheme redirect' => [self::json([...self::document(), 'redirect_uris' => ['javascript:alert(1)']])];
+        yield 'redirect the bundle cannot store' => [self::json([...self::document(), 'redirect_uris' => ['https://under_score.example/cb']])];
         yield 'redirect with fragment' => [self::json([...self::document(), 'redirect_uris' => ['https://client.example/cb#x']])];
         yield 'no code grant' => [self::json([...self::document(), 'grant_types' => ['client_credentials']])];
     }

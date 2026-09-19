@@ -52,7 +52,7 @@ final readonly class RegisterClientMetadataDocumentHandler
     public function __invoke(RegisterClientMetadataDocumentCommand $command): void
     {
         $url = ClientIdUrl::parse($command->clientId) ?? throw self::invalidClient('The client_id is not a usable client metadata document URL.');
-        if (true === $this->clientMetadataDocuments->find($url->identifier)?->isFresh($this->clock->now())) {
+        if (true === $this->clientMetadataDocuments->find($url->identifier)?->isFresh($this->clock->now()) && null !== $this->clients->find($url->identifier)) {
             return;
         }
 
@@ -79,6 +79,7 @@ final readonly class RegisterClientMetadataDocumentHandler
 
     private function saveClient(ClientIdUrl $url, FetchedClientMetadata $fetched): void
     {
+        // A new client starts active; a refetch keeps an operator's deactivation.
         $client = $this->clients->find($url->identifier);
         if (!$client instanceof AbstractClient) {
             $client = new Client($fetched->clientName, $url->identifier, null);
@@ -88,7 +89,6 @@ final readonly class RegisterClientMetadataDocumentHandler
         $client->setRedirectUris(...array_map(static fn (string $uri): RedirectUri => new RedirectUri($uri), $fetched->redirectUris));
         $client->setGrants(new Grant('authorization_code'), new Grant('refresh_token'));
         $client->setScopes(new Scope(ApiTokenScope::Mcp->value));
-        $client->setActive(true);
         $this->clients->save($client);
     }
 

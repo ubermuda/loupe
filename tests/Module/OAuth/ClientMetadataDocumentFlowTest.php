@@ -134,6 +134,36 @@ final class ClientMetadataDocumentFlowTest extends WebTestCase
         self::assertSame('invalid_scope', $query['error'] ?? null);
     }
 
+    public function test_a_refetch_keeps_an_operator_deactivation(): void
+    {
+        $this->browser->loginUser($this->user);
+        $this->browser->request(Request::METHOD_GET, $this->authorizeUrl());
+        $identifier = ClientIdUrl::parse(self::CLIENT_ID)->identifier ?? '';
+        $connection = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        $connection->executeStatement('UPDATE oauth2_client SET active = false WHERE identifier = ?', [$identifier]);
+        $connection->executeStatement("UPDATE oauth_client_metadata_document SET expires_at = NOW() - INTERVAL '1 minute'");
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
+
+        $this->browser->request(Request::METHOD_GET, $this->authorizeUrl());
+
+        self::assertSame(2, $this->fetches);
+        self::assertFalse((bool) $connection->fetchOne('SELECT active FROM oauth2_client WHERE identifier = ?', [$identifier]));
+    }
+
+    public function test_a_fresh_document_without_its_client_row_is_fetched_again(): void
+    {
+        $this->browser->loginUser($this->user);
+        $this->browser->request(Request::METHOD_GET, $this->authorizeUrl());
+        $connection = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        $connection->executeStatement('DELETE FROM oauth2_client');
+        static::getContainer()->get(EntityManagerInterface::class)->clear();
+
+        $this->browser->request(Request::METHOD_GET, $this->authorizeUrl());
+
+        self::assertResponseIsSuccessful();
+        self::assertSame(2, $this->fetches);
+    }
+
     public function test_fetches_are_rate_limited_per_user(): void
     {
         static::getContainer()->set('limiter.oauth_client_metadata_fetch', new RateLimiterFactory(
