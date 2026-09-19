@@ -5981,67 +5981,28 @@
     .lp-inbox-item__jump {
         @apply self-start text-sm font-semibold text-accent-ink no-underline hover:underline;
     }
-    /* The account inbox: one card per project, its asks as rows in the
-       request-list style, each with its items and a link to answer it. */
-    .lp-account-inbox-project {
-        @apply mt-8 first-of-type:mt-2;
+    /* The account inbox points at the project inboxes and answers nothing
+       itself, so a row carries only what chooses between them. */
+    .lp-account-inbox__grid {
+        @apply flex flex-col gap-3 mt-2;
     }
-    .lp-account-inbox-project__head {
-        @apply flex flex-wrap items-center gap-3 mb-3;
+    .lp-account-inbox-card {
+        @apply flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface-1 px-5 py-4 no-underline transition-colors hover:border-accent-border hover:bg-accent-faint;
     }
-    .lp-account-inbox-project__avatar {
+    .lp-account-inbox-card__avatar {
         @apply inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-status-danger text-xs font-bold text-white;
     }
-    .lp-account-inbox-project__title {
-        @apply m-0 text-lg font-bold text-ink;
+    .lp-account-inbox-card__name {
+        @apply font-display text-base font-extrabold tracking-tight text-ink;
     }
-    .lp-account-inbox-project__link {
-        @apply text-ink no-underline hover:underline;
+    .lp-account-inbox-card__count {
+        @apply text-sm font-semibold text-accent-ink;
     }
-    .lp-account-inbox-project__open {
-        @apply ml-auto;
+    .lp-account-inbox-card__wait {
+        @apply text-sm text-fg-dim;
     }
-    .lp-account-inbox-project__list {
-        @apply overflow-hidden rounded-xl border border-line bg-surface-1;
-    }
-    .lp-account-ask {
-        @apply flex flex-col gap-2 px-5 py-5 border-b border-line last:border-b-0;
-    }
-    .lp-account-ask__byline {
-        @apply flex flex-wrap items-center gap-2 text-xs text-fg-dim;
-    }
-    .lp-account-ask__byline strong {
-        @apply font-semibold text-ink;
-    }
-    .lp-account-ask__title {
-        @apply m-0 font-display text-base font-extrabold tracking-tight text-ink;
-    }
-    .lp-account-ask__context {
-        @apply m-0 max-w-3xl text-sm leading-relaxed text-fg-mute line-clamp-2;
-    }
-    .lp-account-ask__items {
-        @apply flex flex-col gap-1.5 m-0 p-0 list-none;
-    }
-    .lp-account-ask__link {
-        @apply self-start mt-1;
-    }
-    .lp-account-item {
-        @apply flex flex-wrap items-center gap-2 text-sm;
-    }
-    .lp-account-item__number {
-        @apply text-xs font-semibold text-fg-dim;
-    }
-    .lp-account-item__title {
-        @apply min-w-0 font-medium text-ink break-words;
-    }
-    .lp-account-item__link {
-        @apply ml-auto;
-    }
-    .lp-account-inbox-project__loose {
-        @apply flex flex-col gap-2.5 px-5 py-5 bg-surface-2;
-    }
-    .lp-account-inbox-project__note {
-        @apply m-0 text-xs text-fg-dim;
+    .lp-account-inbox-card__go {
+        @apply ml-auto size-4 shrink-0 text-fg-dim;
     }
     .lp-inbox-item__actions {
         @apply flex flex-col gap-3;
