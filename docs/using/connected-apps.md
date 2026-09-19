@@ -34,6 +34,23 @@ An app asks for exactly one kind of access:
 The user can pick only a project that they own. An app cannot choose the
 project itself.
 
+## Signing in the CLI with a code
+
+`loupe login` with no token uses the device flow (RFC 8628), because the CLI has
+no browser of its own. It prints a link to `/oauth/device` and a code of eight
+letters, such as `BCDF-GHJK`. Open the link in a browser where you are signed in
+to Loupe. The page shows the app, the access and the code. Choose **Allow** only
+if you started `loupe login` yourself and the code is the code in your
+terminal. The CLI then gets its tokens and stores them.
+
+The page also takes a code that you type at `/oauth/device`. Case, spaces and
+dashes do not matter. A code expires after ten minutes, and it takes one answer
+only. Each account can try 20 codes in 15 minutes.
+
+Every instance registers the CLI as the public client `loupe-cli`, with the
+`agent` scope only. A migration adds it, and it leaves an existing `loupe-cli`
+row as it is. The CLI appears on the *Connected apps* page as *Loupe CLI*.
+
 ## Connected apps in account settings
 
 The *Connected apps* section of the account settings, at
@@ -59,6 +76,9 @@ The discovery document is at `/.well-known/oauth-authorization-server`
 
 - The authorization code grant with PKCE. Only the `S256` method is accepted,
   and a public client must send a code challenge.
+- The device authorization grant (RFC 8628), at `/oauth/device-authorization`.
+  Only a client that lists this grant can start a device flow, and it can ask
+  only for a scope that needs no project.
 - The refresh token grant. Each refresh returns a new refresh token, and the
   old one stops working.
 - The `iss` parameter on every redirect back to the app (RFC 9207).

@@ -35,7 +35,8 @@ security:
                 - App\Module\OAuth\Security\OAuthAccessTokenAuthenticator
             access_denied_handler: App\Module\Account\Security\ApiAccessDeniedHandler
         # The OAuth token and device authorization endpoints and the discovery
-        # documents serve machine clients. No session, remember-me or HTML redirect listener may touch them.
+        # documents serve machine clients. No session, remember-me or HTML
+        # redirect listener may touch them.
         oauth_public:
             pattern: ^/(oauth/token$|oauth/device-authorization$|\.well-known/)
             stateless: true
