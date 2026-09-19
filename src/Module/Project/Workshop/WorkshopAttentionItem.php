@@ -11,8 +11,8 @@ final readonly class WorkshopAttentionItem
         public string $url,
         public string $kind,
         public bool $blocking,
-        /** Who raised the item, such as "agent". The row shows it as an icon. */
-        public string $origin,
+        /** What the item is about: "document", "pull-request", or "agent" for a question or to-do. The row shows it as an icon. */
+        public string $subject,
     ) {
     }
 }
