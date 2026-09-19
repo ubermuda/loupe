@@ -41,30 +41,29 @@
         {% for rule in rules %}
         <article class="lp-rule-row" data-rule-name="{{ rule.name }}">
             <twig:ux:icon name="lucide:zap" class="lp-rule-row__glyph" />
-            <div class="lp-rule-row__main">
-                <div class="lp-rule-row__heading">
-                    <h2>{{ rule.name }}</h2>
-                    <span class="lp-status-chip {{ rule.state == 'live' ? 'lp-status-chip--ok' : 'lp-status-chip--failed' }}">
-                        <span class="lp-status-chip__dot"></span>
-                        {{ (rule.state == 'live' ? 'board.rules.status.live' : 'board.rules.status.dead')|trans }}
-                    </span>
-                </div>
-                {% set eventLabel %}{% include 'outbox/_event_type_label.html.twig' with {type: rule.event} only %}{% endset %}
+            {% set eventLabel %}{% include 'outbox/_event_type_label.html.twig' with {type: rule.event} only %}{% endset %}
+            <div class="lp-rule-row__title">
+                <h2>{{ rule.name }}</h2>
                 <p>{{ 'board.rules.event_description'|trans({'%event%': eventLabel|trim}) }}</p>
-                <div class="lp-rule-flow" aria-label="{{ 'board.rules.flow_label'|trans }}">
-                    <span data-rule-event="{{ rule.event }}">{% if rule.event starts with 'board.' %}<twig:ux:icon name="lucide:square-kanban" />{% else %}<twig:ux:icon name="lucide:radio" />{% endif %}{{ eventLabel|trim }}</span>
-                    {% if rule.columns is not empty %}<span><twig:ux:icon name="lucide:columns-3" />{% for slug in rule.columns %}{{ (columnLabels[slug] ?? slug)|trans }}{{ not loop.last ? ', ' }}{% endfor %}</span>{% endif %}
-                    <twig:ux:icon name="lucide:arrow-right" class="lp-rule-flow__arrow" />
-                    <span><twig:ux:icon name="lucide:cable" />{{ rule.bridgeId|slice(-12) }}</span>
-                </div>
-                {% if rule.reason %}<p class="lp-rule-row__reason">{{ rule.reason }}</p>{% endif %}
             </div>
-            <div class="lp-rule-row__report">
-                <time datetime="{{ rule.reportedAt|date('c') }}">{{ 'board.rules.reported_at'|trans({'%time%': rule.reportedAt|date('M j, H:i')}) }}</time>
+            <div class="lp-rule-flow" aria-label="{{ 'board.rules.flow_label'|trans }}">
+                <span data-rule-event="{{ rule.event }}">
+                    {%- if rule.event starts with 'board.' %}<twig:ux:icon name="lucide:square-kanban" />{% else %}<twig:ux:icon name="lucide:radio" />{% endif -%}
+                    {%- if rule.columns is not empty %}{% for slug in rule.columns %}{{ (columnLabels[slug] ?? slug)|trans }}{{ not loop.last ? ', ' }}{% endfor %}{% else %}{{ eventLabel|trim }}{% endif -%}
+                </span>
+                <twig:ux:icon name="lucide:chevron-right" class="lp-rule-flow__arrow" />
+                <span title="{{ rule.bridgeId }}"><twig:ux:icon name="lucide:cable" />{{ rule.bridgeId|slice(-12) }}</span>
             </div>
+            <span class="lp-status-chip lp-rule-row__state {{ rule.state == 'live' ? 'lp-status-chip--ok' : 'lp-status-chip--failed' }}">
+                <span class="lp-status-chip__dot"></span>
+                {{ (rule.state == 'live' ? 'board.rules.status.live' : 'board.rules.status.dead')|trans }}
+            </span>
+            <time class="lp-rule-row__report" datetime="{{ rule.reportedAt|date('c') }}">{{ 'board.rules.reported_at'|trans({'%time%': rule.reportedAt|date('M j, H:i')}) }}</time>
+            {% if rule.reason %}<p class="lp-rule-row__reason">{{ rule.reason }}</p>{% endif %}
         </article>
         {% endfor %}
     </div>
+    <p class="lp-rule-explanation"><twig:ux:icon name="lucide:shield" />{{ 'board.rules.explanation'|trans }}</p>
     {% elseif search is not empty %}
     <div class="lp-empty-state" data-rules-no-match>
         <twig:ux:icon name="lucide:search" class="lp-empty-state__icon w-12 h-12" />

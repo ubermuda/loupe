@@ -41,7 +41,8 @@
         @apply max-w-full whitespace-normal leading-5;
     }
 
-    /* Handoff rows use the same event-to-worker visual flow as the prototype. */
+    /* One handoff per row: name and trigger, the column-to-bridge flow, then
+       the reported state where an enable switch would sit. */
     .lp-redesign-rules .lp-rule-list {
         @apply gap-3 mt-7;
     }
@@ -49,34 +50,37 @@
         @apply shrink-0;
     }
     .lp-redesign-rules .lp-rule-row {
-        @apply flex-col lg:flex-row items-stretch lg:items-center gap-5 rounded-xl bg-surface-1 px-5 py-4;
-    }
-    .lp-redesign-rules .lp-rule-row__main {
-        @apply w-full min-w-0 break-words;
-    }
-    .lp-redesign-rules .lp-rule-row__heading {
-        @apply flex-wrap gap-2;
+        @apply flex-row flex-wrap items-center gap-x-5 gap-y-3 rounded-xl border border-line bg-surface-1 px-5.5 py-5;
     }
     .lp-rule-row__glyph {
         @apply h-5 w-5 shrink-0 text-accent-ink;
     }
-    .lp-redesign-rules .lp-rule-row__heading h2 {
-        @apply min-w-0 text-sm font-bold break-all;
+    .lp-rule-row__title {
+        @apply min-w-0 flex-1 lg:flex-none lg:w-60 break-words;
     }
-    .lp-redesign-rules .lp-rule-row__main > p {
-        @apply text-xs;
+    .lp-rule-row__title h2 {
+        @apply m-0 mb-1 text-sm font-bold text-ink;
+    }
+    .lp-rule-row__title p {
+        @apply m-0 text-xs text-fg-mute;
     }
     .lp-redesign-rules .lp-rule-flow {
-        @apply mt-3;
+        @apply order-last basis-full lg:order-none lg:basis-auto lg:flex-1 mt-0 gap-2.5 text-xs text-fg-mute;
     }
     .lp-redesign-rules .lp-rule-flow span {
-        @apply min-w-0 max-w-full rounded-md border border-line bg-app px-2.5 py-2 text-xs break-all;
+        @apply min-w-0 max-w-full gap-1.5 rounded-md border border-line bg-surface-2 px-2.5 py-2 text-xs font-medium text-ink break-all;
     }
     .lp-redesign-rules .lp-rule-flow svg {
-        @apply shrink-0;
+        @apply size-3.5 shrink-0;
+    }
+    .lp-redesign-rules .lp-rule-row__state {
+        @apply ml-auto shrink-0;
     }
     .lp-rule-row__report {
-        @apply flex w-full lg:w-auto shrink-0 items-center justify-end gap-3 text-xs text-fg-dim;
+        @apply shrink-0 text-xs text-fg-dim;
+    }
+    .lp-redesign-rules .lp-rule-row__reason {
+        @apply order-last basis-full mt-0;
     }
     .lp-rule-explanation {
         @apply mt-5 flex items-start gap-2 text-xs leading-relaxed text-fg-mute;

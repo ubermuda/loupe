@@ -91,9 +91,11 @@ final class ListRulesControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/rules');
 
         self::assertResponseIsSuccessful();
+        // The trigger reads under the name, and the flow runs from the column to the bridge.
+        $trigger = $crawler->filter('[data-rule-name="Known column"] .lp-rule-row__title');
+        self::assertStringContainsString('Card moved', $trigger->text());
+        self::assertStringNotContainsString('board.card_moved', $trigger->text());
         $known = $crawler->filter('[data-rule-name="Known column"] .lp-rule-flow');
-        self::assertStringContainsString('Card moved', $known->text());
-        self::assertStringNotContainsString('board.card_moved', $known->text());
         self::assertStringContainsString('Next up', $known->text());
         self::assertStringNotContainsString('next,', $known->text());
         self::assertCount(1, $crawler->filter('[data-rule-name="Known column"] [data-rule-event="board.card_moved"] svg'));
