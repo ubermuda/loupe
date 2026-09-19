@@ -4189,7 +4189,7 @@
             </trans-unit>
             <trans-unit id="landing.tech.tools.text">
                 <source>landing.tech.tools.text</source>
-                <target>%count% tools. Your agent submits a document, reads the verdict and the open threads back, and revises — without you copying anything between windows.</target>
+                <target>%count% tools. Add the server URL to Claude or Claude Code and sign in, with no token to copy. Your agent then submits a document, reads the verdict and the open threads back, and revises.</target>
             </trans-unit>
             <trans-unit id="landing.tech.markdown.title">
                 <source>landing.tech.markdown.title</source>
