@@ -6028,6 +6028,35 @@
             <trans-unit id="site_review.reply.conversation"><source>site_review.reply.conversation</source><target>Replies</target></trans-unit>
             <trans-unit id="sitereview.form.reply_to_site_review_comment_form.body.label"><source>sitereview.form.reply_to_site_review_comment_form.body.label</source><target>Reply to this feedback</target></trans-unit>
             <trans-unit id="inbox.form.reply_to_inbox_item_form.body.label"><source>inbox.form.reply_to_inbox_item_form.body.label</source><target>Reply to this thread</target></trans-unit>
+            <trans-unit id="account.settings.nav.connected_apps"><source>account.settings.nav.connected_apps</source><target>Connected apps</target></trans-unit>
+            <trans-unit id="oauth.consent.page.title"><source>oauth.consent.page.title</source><target>Connect an app</target></trans-unit>
+            <trans-unit id="oauth.consent.heading"><source>oauth.consent.heading</source><target>%client% wants to use your Loupe account</target></trans-unit>
+            <trans-unit id="oauth.consent.signed_in_as"><source>oauth.consent.signed_in_as</source><target>You are signed in as %email%.</target></trans-unit>
+            <trans-unit id="oauth.consent.scope.label"><source>oauth.consent.scope.label</source><target>Access</target></trans-unit>
+            <trans-unit id="oauth.consent.scope.mcp"><source>oauth.consent.scope.mcp</source><target>Read and change the documents and site reviews of one project, through MCP.</target></trans-unit>
+            <trans-unit id="oauth.consent.scope.site_review"><source>oauth.consent.scope.site_review</source><target>Read and post site-review comments on one project.</target></trans-unit>
+            <trans-unit id="oauth.consent.scope.agent"><source>oauth.consent.scope.agent</source><target>Act as your Loupe agent: read your projects and boards, and report bridge runs.</target></trans-unit>
+            <trans-unit id="oauth.consent.redirect.label"><source>oauth.consent.redirect.label</source><target>After you answer, Loupe sends you to</target></trans-unit>
+            <trans-unit id="oauth.consent.loopback_warning"><source>oauth.consent.loopback_warning</source><target>This app receives the answer on your own computer, so Loupe cannot check which app it is. Continue only if you started this connection yourself.</target></trans-unit>
+            <trans-unit id="oauth.consent.no_projects"><source>oauth.consent.no_projects</source><target>You own no project yet. Create a project first, then connect the app again.</target></trans-unit>
+            <trans-unit id="oauth.consent.error.project_required"><source>oauth.consent.error.project_required</source><target>Choose a project.</target></trans-unit>
+            <trans-unit id="oauth.consent.error.project_not_owned"><source>oauth.consent.error.project_not_owned</source><target>You can connect only a project that you own.</target></trans-unit>
+            <trans-unit id="oauth.form.consent_form.project.label"><source>oauth.form.consent_form.project.label</source><target>Project</target></trans-unit>
+            <trans-unit id="oauth.form.consent_form.project.placeholder"><source>oauth.form.consent_form.project.placeholder</source><target>Choose a project</target></trans-unit>
+            <trans-unit id="oauth.form.consent_form.approve.label"><source>oauth.form.consent_form.approve.label</source><target>Allow</target></trans-unit>
+            <trans-unit id="oauth.form.consent_form.deny.label"><source>oauth.form.consent_form.deny.label</source><target>Deny</target></trans-unit>
+            <trans-unit id="oauth.connected_apps.heading"><source>oauth.connected_apps.heading</source><target>Connected apps</target></trans-unit>
+            <trans-unit id="oauth.connected_apps.intro"><source>oauth.connected_apps.intro</source><target>These apps can use your Loupe account. Revoke an app to remove its access at once.</target></trans-unit>
+            <trans-unit id="oauth.connected_apps.empty"><source>oauth.connected_apps.empty</source><target>No app is connected to your account.</target></trans-unit>
+            <trans-unit id="oauth.connected_apps.action.revoke"><source>oauth.connected_apps.action.revoke</source><target>Revoke</target></trans-unit>
+            <trans-unit id="oauth.connected_apps.revoke.title"><source>oauth.connected_apps.revoke.title</source><target>Revoke this app?</target></trans-unit>
+            <trans-unit id="oauth.connected_apps.revoke.description"><source>oauth.connected_apps.revoke.description</source><target>%client% loses its access at once. To connect again, the app must ask you again.</target></trans-unit>
+            <trans-unit id="oauth.connected_apps.revoke.cancel"><source>oauth.connected_apps.revoke.cancel</source><target>Cancel</target></trans-unit>
+            <trans-unit id="oauth.connected_apps.revoke.confirm"><source>oauth.connected_apps.revoke.confirm</source><target>Revoke</target></trans-unit>
+            <trans-unit id="oauth.connected_apps.flash.revoked"><source>oauth.connected_apps.flash.revoked</source><target>The app no longer has access to your account.</target></trans-unit>
+            <trans-unit id="check.oauth_keys.label"><source>check.oauth_keys.label</source><target>OAuth keys</target></trans-unit>
+            <trans-unit id="oauth.system_status.keys.ok"><source>oauth.system_status.keys.ok</source><target>The OAuth signing key pair and the encryption key are set and readable.</target></trans-unit>
+            <trans-unit id="oauth.system_status.keys.missing"><source>oauth.system_status.keys.missing</source><target>The OAuth keys are missing or unreadable, so no app can connect. Set OAUTH_PRIVATE_KEY, OAUTH_PUBLIC_KEY and OAUTH_ENCRYPTION_KEY.</target></trans-unit>
         </body>
     </file>
 </xliff>

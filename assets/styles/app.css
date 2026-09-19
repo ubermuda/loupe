@@ -498,6 +498,38 @@
     .auth-icon-badge {
         @apply w-12 h-12 rounded-full bg-accent-soft text-accent inline-flex items-center justify-center;
     }
+
+    /* OAuth consent card: who asks, for what, and where the answer goes. */
+    .lp-consent {
+        @apply flex flex-col items-center gap-4 py-2 text-center;
+    }
+    .lp-consent__title {
+        @apply text-xl font-semibold tracking-tight text-fg;
+    }
+    .lp-consent__lead {
+        @apply text-fg-mute text-sm mt-1.5 leading-normal;
+    }
+    .lp-consent__facts {
+        @apply w-full flex flex-col gap-3 rounded-xl bg-app py-3.5 px-4 text-left m-0;
+    }
+    .lp-consent__fact {
+        @apply flex flex-col gap-1;
+    }
+    .lp-consent__value {
+        @apply text-sm text-fg m-0 break-words;
+    }
+    .lp-consent__value--mono {
+        @apply font-mono;
+    }
+    .lp-consent__alert {
+        @apply w-full text-left;
+    }
+    .lp-consent__form {
+        @apply w-full text-left;
+    }
+    .lp-consent__actions {
+        @apply flex items-center justify-end gap-3 pt-2;
+    }
 }
 
 @layer components {

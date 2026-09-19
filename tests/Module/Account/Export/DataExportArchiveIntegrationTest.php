@@ -101,7 +101,7 @@ final class DataExportArchiveIntegrationTest extends KernelTestCase
             }
             sort($names);
             self::assertSame(
-                ['api_tokens.json', 'audit_log.json', 'billing_profile.json', 'bridges.json', 'cards.json', 'comments.json', 'connected_accounts.json', 'documents.json', 'inbox_asks.json', 'inbox_items.json', 'inbox_replies.json', 'inbox_reviews.json', 'profile.json', 'projects.json', 'reviews.json', 'section_approvals.json', 'site_review_replies.json', 'site_reviews.json', 'worker_runs.json'],
+                ['api_tokens.json', 'audit_log.json', 'billing_profile.json', 'bridges.json', 'cards.json', 'comments.json', 'connected_accounts.json', 'connected_apps.json', 'documents.json', 'inbox_asks.json', 'inbox_items.json', 'inbox_replies.json', 'inbox_reviews.json', 'profile.json', 'projects.json', 'reviews.json', 'section_approvals.json', 'site_review_replies.json', 'site_reviews.json', 'worker_runs.json'],
                 $names,
             );
 

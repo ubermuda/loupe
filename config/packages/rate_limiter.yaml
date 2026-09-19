@@ -56,6 +56,13 @@ framework:
             limit: 300
             interval: '1 minute'
 
+        # Bounds the public OAuth token endpoint: code exchanges and refreshes.
+        # Keyed per client address, because the client id is caller-chosen.
+        oauth_token:
+            policy: 'sliding_window'
+            limit: 60
+            interval: '1 minute'
+
         # Bounds subscriber-cookie renewals from open pages. A page renews once
         # before each reconnect, with backoff, so a real page stays far below
         # this. Keyed per signed-in user, because the route requires one.
@@ -78,6 +85,10 @@ when@dev:
                 policy: 'sliding_window'
                 limit: 100000
                 interval: '1 minute'
+            oauth_token:
+                policy: 'sliding_window'
+                limit: 100000
+                interval: '1 minute'
 
 when@test:
     framework:
@@ -87,6 +98,10 @@ when@test:
                 limit: 100000
                 interval: '1 minute'
             mercure_authorize:
+                policy: 'sliding_window'
+                limit: 100000
+                interval: '1 minute'
+            oauth_token:
                 policy: 'sliding_window'
                 limit: 100000
                 interval: '1 minute'
