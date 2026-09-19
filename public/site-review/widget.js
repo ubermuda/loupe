@@ -2879,7 +2879,9 @@
             challenge = await pkceChallenge(verifier);
         } catch {
             popup.close();
-            showSignedOut('This page cannot sign in securely. Open it over https.');
+            showSignedOut(
+                'This page cannot sign in securely. Open it over https.',
+            );
             return;
         }
         pendingSignIn = { verifier, state: oauthState };
@@ -2913,7 +2915,9 @@
             return;
         pendingSignIn = null;
         if (data.iss !== BACKEND) {
-            showSignedOut('The sign-in answer came from an unexpected server. Try again.');
+            showSignedOut(
+                'The sign-in answer came from an unexpected server. Try again.',
+            );
             return;
         }
         if (typeof data.code !== 'string' || data.error) {

@@ -40,7 +40,7 @@ final class WidgetClientRepositoryTest extends KernelTestCase
 
     public function test_another_client_keeps_its_own_redirect_uris(): void
     {
-        (new OAuthScenario(static::getContainer()))->createClient();
+        new OAuthScenario(static::getContainer())->createClient();
         $clients = static::getContainer()->get('league.oauth2_server.repository.client');
         self::assertInstanceOf(ClientRepositoryInterface::class, $clients);
 

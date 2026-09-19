@@ -73,8 +73,6 @@ test('a reviewer signs in through the popup and saves a comment', async ({
     await page.getByRole('button', { name: 'Save' }).click();
     const response = await saved;
     expect(response.status()).toBe(201);
-    expect(response.request().headers()['authorization']).toMatch(
-        /^Bearer ey/,
-    );
+    expect(response.request().headers()['authorization']).toMatch(/^Bearer ey/);
     await expect(page.locator('#lp-head-count')).toHaveText('1');
 });

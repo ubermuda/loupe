@@ -57,8 +57,7 @@ const signInShown = () =>
     panelRoot().getElementById('lp-fatal').style.display !== 'none' &&
     signInButton() !== null;
 
-const authorizeParameters = () =>
-    new URL(popup.location.href).searchParams;
+const authorizeParameters = () => new URL(popup.location.href).searchParams;
 
 const post = (data, origin = BACKEND) =>
     window.dispatchEvent(new MessageEvent('message', { data, origin }));
@@ -166,9 +165,9 @@ describe('an embed with a project and no token', () => {
         expect(bearerOf(fetchMock, '/api/site-review/review')).toEqual([
             'Bearer access-1',
         ]);
-        expect(JSON.parse(window.sessionStorage.getItem(STORAGE_KEY))).toMatchObject(
-            { accessToken: 'access-1', refreshToken: 'refresh-1' },
-        );
+        expect(
+            JSON.parse(window.sessionStorage.getItem(STORAGE_KEY)),
+        ).toMatchObject({ accessToken: 'access-1', refreshToken: 'refresh-1' });
         expect(signInShown()).toBe(false);
     });
 
@@ -222,9 +221,9 @@ describe('an embed with a project and no token', () => {
         await settle();
 
         expect(fetchMock).not.toHaveBeenCalled();
-        expect(
-            panelRoot().getElementById('lp-fatal').textContent,
-        ).toContain('unexpected server');
+        expect(panelRoot().getElementById('lp-fatal').textContent).toContain(
+            'unexpected server',
+        );
     });
 
     it('says so when the reviewer denies the sign-in', async () => {
