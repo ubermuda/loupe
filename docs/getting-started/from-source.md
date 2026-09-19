@@ -17,6 +17,7 @@ just up                # start nginx, php-fpm, postgres
 just composer install  # runs inside the php-fpm container
 just migrate-run       # set up the database
 just exec bin/console app:dev:seed   # dev@loupe.test or admin@loupe.test / password
+just exec bin/console league:oauth2-server:generate-keypair --skip-if-exists   # OAuth keys in var/oauth/
 ```
 
 `just --list` shows every recipe. `just mercure-up` additionally starts the

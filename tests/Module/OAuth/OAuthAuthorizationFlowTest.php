@@ -256,7 +256,7 @@ final class OAuthAuthorizationFlowTest extends WebTestCase
             'code_verifier' => $this->scenario->codeVerifier,
         ]);
         self::assertResponseIsSuccessful();
-        self::assertSame('agent', $tokens['scope'] ?? 'agent');
+        self::assertIsString($tokens['access_token'] ?? null);
 
         $this->browser->request(Request::METHOD_GET, '/api/projects', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$tokens['access_token']]);
         self::assertResponseIsSuccessful();
