@@ -9,6 +9,7 @@ use App\Module\Account\Entity\User;
 use App\Module\Account\Security\ApiTokenAuthenticator;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
+use App\Security\AuthenticatedCredential;
 use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -136,8 +137,9 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
         self::assertNotNull($fresh->mcpToken);
 
         // Simulate a request authenticated by that token: the authenticator stores the
-        // ApiToken id as a security-token attribute, which the resolver reads back.
+        // credential and the ApiToken id as security-token attributes, which the resolver reads back.
         $securityToken = new PostAuthenticationToken($fresh->owner, 'api', $fresh->owner->getRoles());
+        $securityToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential((string) $fresh->mcpToken->id, $fresh->mcpToken->scope->role()));
         $securityToken->setAttribute(ApiTokenAuthenticator::API_TOKEN_ID_ATTR, (string) $fresh->mcpToken->id);
         $tokenStorage = static::getContainer()->get(TokenStorageInterface::class);
         self::assertInstanceOf(TokenStorageInterface::class, $tokenStorage);

@@ -30,6 +30,7 @@ final readonly class ClearProjectTokenOnApiTokenRevoked
         $widgetProject = $this->projects->findOneByWidgetToken($event->token);
         if (null !== $widgetProject) {
             $widgetProject->widgetToken = null;
+            $widgetProject->forwardsToAgent = false;
 
             return;
         }

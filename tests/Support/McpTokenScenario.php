@@ -9,13 +9,14 @@ use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
 use App\Module\Account\Security\ApiTokenAuthenticator;
 use App\Module\Project\Entity\Project;
+use App\Security\AuthenticatedCredential;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Http\Authenticator\Token\PostAuthenticationToken;
 
 /**
  * KernelTestCase helper: simulate a request authenticated by an MCP-scope
- * ApiToken, the way ApiTokenAuthenticator would (the ApiToken id travels as a
- * security-token attribute that AuthenticatedProjectResolver reads back).
+ * ApiToken, the way ApiTokenAuthenticator would: the credential and the ApiToken
+ * id travel as security-token attributes that AuthenticatedProjectResolver reads back.
  *
  * Requires an `$em` EntityManagerInterface property on the using class.
  */
@@ -45,6 +46,7 @@ trait McpTokenScenario
     private function setSecurityTokenForApiToken(User $user, ApiToken $apiToken): void
     {
         $securityToken = new PostAuthenticationToken($user, 'api', $user->getRoles());
+        $securityToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential((string) $apiToken->id, $apiToken->scope->role()));
         $securityToken->setAttribute(ApiTokenAuthenticator::API_TOKEN_ID_ATTR, (string) $apiToken->id);
         $tokenStorage = self::getContainer()->get('security.token_storage');
         self::assertInstanceOf(TokenStorageInterface::class, $tokenStorage);

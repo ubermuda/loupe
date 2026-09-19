@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\SiteReview\EventListener;
 
-use App\Module\Account\Security\ApiTokenAuthenticator;
 use App\Module\SiteReview\WidgetApiPaths;
+use App\Security\AuthenticatedCredential;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\Request;
@@ -63,13 +63,9 @@ final readonly class RateLimitSiteReviewWrites
     private function key(Request $request): string
     {
         $ip = 'ip:'.((string) $request->getClientIp());
-        $securityToken = $this->tokenStorage->getToken();
-
-        if (null !== $securityToken && $securityToken->hasAttribute(ApiTokenAuthenticator::API_TOKEN_ID_ATTR)) {
-            $apiTokenId = $securityToken->getAttribute(ApiTokenAuthenticator::API_TOKEN_ID_ATTR);
-            if (is_string($apiTokenId)) {
-                return 'token:'.$apiTokenId.'|'.$ip;
-            }
+        $credential = AuthenticatedCredential::of($this->tokenStorage->getToken());
+        if (null !== $credential) {
+            return 'token:'.$credential->id.'|'.$ip;
         }
 
         return $ip;

@@ -71,6 +71,7 @@ final class RevokeApiTokenHandlerTest extends KernelTestCase
         $project = new Project($owner, 'revoke-widget-project');
         [$token] = ApiToken::issue($owner, 'Widget: revoke-widget-project', ApiTokenScope::SiteReview);
         $project->widgetToken = $token;
+        $project->forwardsToAgent = true;
         $this->em->persist($project);
         $this->em->persist($token);
         $this->em->flush();
@@ -83,6 +84,7 @@ final class RevokeApiTokenHandlerTest extends KernelTestCase
         $freshProject = $this->projects->find($projectId);
         self::assertInstanceOf(Project::class, $freshProject);
         self::assertNull($freshProject->widgetToken, 'a revoked token must not remain bound to the project');
+        self::assertFalse($freshProject->forwardsToAgent, 'forwarding belongs to the revoked token and goes with it');
     }
 
     /**
