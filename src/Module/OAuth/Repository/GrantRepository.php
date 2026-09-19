@@ -53,7 +53,7 @@ final readonly class GrantRepository
         ], $rows);
     }
 
-    /** Revokes every access token, refresh token and code the client holds for the user. */
+    /** Revokes every access token, refresh token, code and device code the client holds for the user. */
     public function revokeForUserAndClient(Uuid $userId, string $clientId): int
     {
         $parameters = ['userId' => $userId->toRfc4122(), 'clientId' => $clientId];
@@ -66,6 +66,10 @@ final readonly class GrantRepository
             );
             $connection->executeStatement(
                 'UPDATE oauth2_authorization_code SET revoked = true WHERE revoked = false AND user_identifier = :userId AND client = :clientId',
+                $parameters,
+            );
+            $connection->executeStatement(
+                'UPDATE oauth2_device_code SET revoked = true WHERE revoked = false AND user_identifier = :userId AND client = :clientId',
                 $parameters,
             );
 
@@ -85,7 +89,8 @@ final readonly class GrantRepository
     {
         return $this->connection->transactional(static fn (Connection $connection): int => (int) $connection->executeStatement('DELETE FROM oauth2_refresh_token WHERE expiry < NOW()')
             + (int) $connection->executeStatement('DELETE FROM oauth2_access_token a WHERE a.expiry < NOW() AND NOT EXISTS (SELECT 1 FROM oauth2_refresh_token r WHERE r.access_token = a.identifier)')
-            + (int) $connection->executeStatement('DELETE FROM oauth2_authorization_code WHERE expiry < NOW()'));
+            + (int) $connection->executeStatement('DELETE FROM oauth2_authorization_code WHERE expiry < NOW()')
+            + (int) $connection->executeStatement('DELETE FROM oauth2_device_code WHERE expiry < NOW()'));
     }
 
     public function deleteForUser(Uuid $userId): void
@@ -108,6 +113,7 @@ final readonly class GrantRepository
             );
             $connection->executeStatement('DELETE FROM oauth2_access_token WHERE '.$condition, ['value' => $value]);
             $connection->executeStatement('DELETE FROM oauth2_authorization_code WHERE '.$condition, ['value' => $value]);
+            $connection->executeStatement('DELETE FROM oauth2_device_code WHERE '.$condition, ['value' => $value]);
         });
     }
 }

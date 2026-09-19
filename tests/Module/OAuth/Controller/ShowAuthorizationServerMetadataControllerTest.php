@@ -25,7 +25,8 @@ final class ShowAuthorizationServerMetadataControllerTest extends WebTestCase
         self::assertSame($issuer.'/oauth/token', $metadata['token_endpoint']);
         self::assertSame(['mcp', 'site-review', 'agent'], $metadata['scopes_supported']);
         self::assertSame(['code'], $metadata['response_types_supported']);
-        self::assertSame(['authorization_code', 'refresh_token'], $metadata['grant_types_supported']);
+        self::assertSame(['authorization_code', 'refresh_token', 'urn:ietf:params:oauth:grant-type:device_code'], $metadata['grant_types_supported']);
+        self::assertSame($issuer.'/oauth/device-authorization', $metadata['device_authorization_endpoint']);
         self::assertSame(['S256'], $metadata['code_challenge_methods_supported']);
         self::assertContains('none', $metadata['token_endpoint_auth_methods_supported']);
         self::assertTrue($metadata['authorization_response_iss_parameter_supported']);

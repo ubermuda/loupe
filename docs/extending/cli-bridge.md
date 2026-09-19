@@ -32,8 +32,13 @@ bridge ignores that project until you map it and restart. When a
 mapped project is deleted or stops being yours, the bridge logs `project_gone`
 once, with the rules that stop working.
 
-The bridge authenticates with an account-level API token that carries the agent
-scope. Mint one at `/account/api-tokens`. It reaches `GET /api/projects`, `GET /api/events`,
+The bridge authenticates with a token that carries the agent scope. `loupe
+login` with no token gets one through the OAuth device flow: it prints a link
+and a code, and you choose **Allow** on that page. The CLI then refreshes the
+access token by itself. For CI and scripts, `loupe login --token <token>` or
+`LOUPE_TOKEN` stores an account-level API token instead. Mint one at
+`/account/api-tokens`. See [Connected apps](../using/connected-apps.md) for the
+device flow. The token reaches `GET /api/projects`, `GET /api/events`,
 `GET /api/projects/{handle}/board/columns`,
 `POST /api/projects/{handle}/worker-runs`,
 `GET /api/projects/{handle}/inbox/asks/{askId}`,

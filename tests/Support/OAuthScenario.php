@@ -18,8 +18,8 @@ use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Builds the pieces of an OAuth authorization code flow: a public client, a
- * verified user with a project, and a PKCE pair. Clients are seeded here, never
- * by a migration.
+ * verified user with a project, and a PKCE pair. Test clients are seeded here.
+ * The one migration-registered client is loupe-cli.
  */
 final readonly class OAuthScenario
 {

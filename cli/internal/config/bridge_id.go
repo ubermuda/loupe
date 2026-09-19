@@ -5,16 +5,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"os"
+	"path/filepath"
 	"regexp"
-	"sync"
 )
-
-// configMu serialises every read-modify-write of config.json, so two goroutines
-// in one process cannot write two different ids, and a login cannot land
-// between another goroutine's read and its write. Two first runs in two
-// processes still race, and the last write wins. Every call after that reads
-// the winner, so the machine settles on one id.
-var configMu sync.Mutex
 
 // EnsureBridgeID returns the id that names this machine's bridge to the server.
 // The first call generates one and stores it in config.json. An id that is
@@ -28,32 +21,42 @@ var configMu sync.Mutex
 // The id identifies a bridge and grants nothing, so it is not a secret and the
 // keychain does not hold it.
 func EnsureBridgeID() (string, error) {
-	configMu.Lock()
-	defer configMu.Unlock()
-
 	d, err := Dir()
 	if err != nil {
 		return "", err
 	}
-	c, err := readStoredConfig(d)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return "", ErrNotLoggedIn
+	// Checked before the lock, because taking it creates the lock file, and a
+	// machine that never logged in must keep an empty config directory.
+	if _, err := os.Stat(filepath.Join(d, configFileName)); errors.Is(err, os.ErrNotExist) {
+		return "", ErrNotLoggedIn
+	}
+
+	var id string
+	err = withConfigLock(d, func() error {
+		c, err := readStoredConfig(d)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return ErrNotLoggedIn
+			}
+
+			return err
+		}
+		if isUUID(c.BridgeID) {
+			id = c.BridgeID
+
+			return nil
 		}
 
-		return "", err
-	}
-	if isUUID(c.BridgeID) {
-		return c.BridgeID, nil
-	}
+		c.BridgeID = NewUUID()
+		if err := writeConfig(d, c); err != nil {
+			return err
+		}
+		id = c.BridgeID
 
-	id := NewUUID()
-	c.BridgeID = id
-	if err := writeConfig(d, c); err != nil {
-		return "", err
-	}
+		return nil
+	})
 
-	return id, nil
+	return id, err
 }
 
 // NewUUID returns a version 4 UUID in the canonical 8-4-4-4-12 form. It names
