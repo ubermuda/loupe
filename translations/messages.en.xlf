@@ -6050,6 +6050,16 @@
             <trans-unit id="oauth.consent.no_projects"><source>oauth.consent.no_projects</source><target>You own no project yet. Create a project first, then connect the app again.</target></trans-unit>
             <trans-unit id="oauth.consent.error.project_required"><source>oauth.consent.error.project_required</source><target>Choose a project.</target></trans-unit>
             <trans-unit id="oauth.consent.error.project_not_owned"><source>oauth.consent.error.project_not_owned</source><target>You can connect only a project that you own.</target></trans-unit>
+            <trans-unit id="oauth.widget.consent.project.label"><source>oauth.widget.consent.project.label</source><target>Project</target></trans-unit>
+            <trans-unit id="oauth.widget.consent.site.label"><source>oauth.widget.consent.site.label</source><target>Site that asks</target></trans-unit>
+            <trans-unit id="oauth.widget.refused.title"><source>oauth.widget.refused.title</source><target>You cannot sign in here</target></trans-unit>
+            <trans-unit id="oauth.widget.refused.bad_request"><source>oauth.widget.refused.bad_request</source><target>The review widget sent an incomplete sign-in request. Reload the page and try again.</target></trans-unit>
+            <trans-unit id="oauth.widget.refused.unknown_project"><source>oauth.widget.refused.unknown_project</source><target>The review widget names a project that does not exist on this Loupe instance. Check the embed snippet.</target></trans-unit>
+            <trans-unit id="oauth.widget.refused.not_owner"><source>oauth.widget.refused.not_owner</source><target>Only the owner of this project can review with the widget. Sign in with the owner's account.</target></trans-unit>
+            <trans-unit id="oauth.widget.refused.origin_not_allowed"><source>oauth.widget.refused.origin_not_allowed</source><target>This site is not on the allowed sites of the project. Add it on the Connections page of the project, then try again.</target></trans-unit>
+            <trans-unit id="oauth.widget.callback.page.title"><source>oauth.widget.callback.page.title</source><target>Signing in</target></trans-unit>
+            <trans-unit id="oauth.widget.callback.done"><source>oauth.widget.callback.done</source><target>You are signed in. Go back to the page to review it.</target></trans-unit>
+            <trans-unit id="oauth.widget.callback.lost"><source>oauth.widget.callback.lost</source><target>This window cannot reach the review widget. Close it, then sign in again from the page.</target></trans-unit>
             <trans-unit id="oauth.form.consent_form.project.label"><source>oauth.form.consent_form.project.label</source><target>Project</target></trans-unit>
             <trans-unit id="oauth.form.consent_form.project.placeholder"><source>oauth.form.consent_form.project.placeholder</source><target>Choose a project</target></trans-unit>
             <trans-unit id="oauth.form.consent_form.approve.label"><source>oauth.form.consent_form.approve.label</source><target>Allow</target></trans-unit>
