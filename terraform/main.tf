@@ -171,5 +171,10 @@ module "app" {
     var.oauth_google_secret == "" ? {} : { OAUTH_GOOGLE_SECRET = { value = var.oauth_google_secret, type = "SECRET" } },
     var.oauth_github_id == "" ? {} : { OAUTH_GITHUB_ID = { value = var.oauth_github_id } },
     var.oauth_github_secret == "" ? {} : { OAUTH_GITHUB_SECRET = { value = var.oauth_github_secret, type = "SECRET" } },
+
+    var.oauth_private_key == "" ? {} : { OAUTH_PRIVATE_KEY = { value = var.oauth_private_key, type = "SECRET" } },
+    var.oauth_private_key_passphrase == "" ? {} : { OAUTH_PRIVATE_KEY_PASSPHRASE = { value = var.oauth_private_key_passphrase, type = "SECRET" } },
+    var.oauth_public_key == "" ? {} : { OAUTH_PUBLIC_KEY = { value = var.oauth_public_key } },
+    var.oauth_encryption_key == "" ? {} : { OAUTH_ENCRYPTION_KEY = { value = var.oauth_encryption_key, type = "SECRET" } },
   )
 }

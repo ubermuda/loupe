@@ -71,6 +71,19 @@ rule applies there. The Content-Security-Policy allows `MERCURE_PUBLIC_URL` in
 | `INSTALL_TOKEN` | Gates `/install`. **Set this before the first deploy** — see [First run](../operating/first-run.md). | No |
 | `ADMIN_EMAIL` | Promotes that user to `ROLE_ADMIN` at login. Only works on an already-verified account, so it cannot rescue a locked-out install; `app:user:promote` can. | No |
 
+## OAuth authorization server
+
+Loupe issues OAuth tokens to the apps a user connects. The server is always on. When a key is missing, only OAuth fails: the consent page and the token endpoint return errors, and the *OAuth keys* row on `/admin/status` fails. [Secrets](#secrets) has the commands that generate these values.
+
+| Variable | Purpose | Add by hand? |
+|---|---|---|
+| `OAUTH_PRIVATE_KEY` | The RSA private key that signs access tokens. Give the PEM text, or the path of a PEM file in the container. | No |
+| `OAUTH_PRIVATE_KEY_PASSPHRASE` | The passphrase of `OAUTH_PRIVATE_KEY`. Empty when the key is not encrypted. | No |
+| `OAUTH_PUBLIC_KEY` | The public half of the key pair, as PEM text or a path. The API checks each access token against it. | No |
+| `OAUTH_ENCRYPTION_KEY` | Encrypts authorization codes and refresh tokens. **A new value makes every refresh token unusable**, so each connected app must connect again. | No |
+
+A new key pair makes every issued access token invalid. The apps then refresh, so users do not see it.
+
 ## Optional features
 
 | Variable | Purpose | Add by hand? |
@@ -148,7 +161,16 @@ php -r 'echo base64_encode(sodium_crypto_secretbox_keygen()), PHP_EOL;'
 
 # MERCURE_JWT_SECRET and INSTALL_TOKEN — any long random string
 openssl rand -base64 32
+
+# OAUTH_PRIVATE_KEY and OAUTH_PUBLIC_KEY — an RSA key pair, no passphrase
+openssl genrsa -out oauth-private.pem 2048
+openssl rsa -in oauth-private.pem -pubout -out oauth-public.pem
+
+# OAUTH_ENCRYPTION_KEY
+openssl rand -hex 32
 ```
+
+In development and in a worktree, `league:oauth2-server:generate-keypair --skip-if-exists` writes a key pair into `var/oauth/`. Worktree provisioning and `just e2e-up` run it for you. The test suite uses the key pair in `tests/Support/oauth/`, which is for tests only.
 
 **Losing `APP_ENCRYPTION_KEY` makes existing encrypted columns unreadable.**
 There is no recovery.

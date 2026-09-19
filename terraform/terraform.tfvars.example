@@ -184,3 +184,18 @@ export_bucket_region = "tor1"
 # oauth_google_secret = "..."
 # oauth_github_id     = "..."
 # oauth_github_secret = "..."
+
+# The OAuth authorization server. Generate the key pair and the encryption key
+# once; docs/reference/environment.md has the commands. Pass the PEM text itself.
+# oauth_private_key            = <<-EOT
+#   -----BEGIN PRIVATE KEY-----
+#   ...
+#   -----END PRIVATE KEY-----
+# EOT
+# oauth_private_key_passphrase = ""
+# oauth_public_key             = <<-EOT
+#   -----BEGIN PUBLIC KEY-----
+#   ...
+#   -----END PUBLIC KEY-----
+# EOT
+# oauth_encryption_key         = "GENERATED_HEX_64"
