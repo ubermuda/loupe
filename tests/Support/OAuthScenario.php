@@ -108,6 +108,51 @@ final readonly class OAuthScenario
     }
 
     /**
+     * Runs consent and the code exchange for a project-bound scope.
+     *
+     * @param array<string, string> $authorizeOverrides
+     * @param array<string, string> $tokenParameters
+     *
+     * @return array{access_token: string, refresh_token: string}
+     */
+    public function grantTokens(KernelBrowser $browser, User $user, Project $project, array $authorizeOverrides = [], array $tokenParameters = []): array
+    {
+        $browser->loginUser($user);
+        $crawler = $browser->request(Request::METHOD_GET, $this->authorizeUrl('mcp', $authorizeOverrides));
+        $browser->submit($crawler->selectButton('consent_form_approve')->form([
+            'consent_form[project]' => (string) $project->id,
+        ]));
+        $query = self::redirectQuery((string) $browser->getResponse()->headers->get('Location'));
+        $browser->restart();
+        $tokens = self::postToken($browser, [
+            'grant_type' => 'authorization_code',
+            'client_id' => $authorizeOverrides['client_id'] ?? self::CLIENT_ID,
+            'redirect_uri' => $authorizeOverrides['redirect_uri'] ?? self::REDIRECT_URI,
+            'code' => $query['code'] ?? '',
+            'code_verifier' => $this->codeVerifier,
+            ...$tokenParameters,
+        ]);
+        if (!\is_string($tokens['access_token'] ?? null) || !\is_string($tokens['refresh_token'] ?? null)) {
+            throw new \LogicException('the token endpoint issued no tokens: '.json_encode($tokens));
+        }
+
+        return ['access_token' => $tokens['access_token'], 'refresh_token' => $tokens['refresh_token']];
+    }
+
+    /**
+     * The claims of a JWT, read without a signature check.
+     *
+     * @return array<string, mixed>
+     */
+    public static function claimsOf(string $jwt): array
+    {
+        $payload = explode('.', $jwt)[1] ?? '';
+        $decoded = json_decode(base64_decode(strtr($payload, '-_', '+/'), true) ?: '', true);
+
+        return \is_array($decoded) ? $decoded : [];
+    }
+
+    /**
      * @param array<string, string> $parameters
      *
      * @return array<string, mixed>

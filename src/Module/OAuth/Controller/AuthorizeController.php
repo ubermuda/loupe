@@ -14,6 +14,8 @@ use App\Module\OAuth\Command\ShowConsentCommand;
 use App\Module\OAuth\Command\ShowConsentHandler;
 use App\Module\OAuth\Form\ConsentFormType;
 use App\Module\OAuth\Form\ConsentRequest;
+use App\Module\OAuth\Service\McpResource;
+use App\Module\OAuth\Service\ResourceParameter;
 use League\OAuth2\Server\AuthorizationServer;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface;
@@ -57,6 +59,7 @@ final class AuthorizeController extends AppController
         private readonly ShowConsentHandler $showConsent,
         private readonly ResolveAuthorizationHandler $resolveAuthorization,
         private readonly TranslatorInterface $translator,
+        private readonly McpResource $mcpResource,
 
         #[Autowire(param: 'app.url')]
         private readonly string $issuer,
@@ -78,6 +81,9 @@ final class AuthorizeController extends AppController
         try {
             $authorizationRequest = $this->server->validateAuthorizationRequest($this->psrRequests->createRequest($request));
             $scope = $this->requestedScope($authorizationRequest);
+            if (!$this->mcpResource->accepts(ResourceParameter::values((string) $request->server->get('QUERY_STRING')), ApiTokenScope::Mcp === $scope)) {
+                throw new OAuthServerException('The resource is not one this server protects for the requested scope.', 0, 'invalid_target', 400, null, $this->errorRedirect($authorizationRequest));
+            }
 
             $view = ($this->showConsent)(new ShowConsentCommand($authorizationRequest, $scope, $user));
             $form = $this->createForm(ConsentFormType::class, new ConsentRequest(), [

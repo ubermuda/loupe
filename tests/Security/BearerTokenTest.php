@@ -11,6 +11,8 @@ use App\Module\Account\Repository\ApiTokenRepository;
 use App\Module\Account\Repository\UserRepository;
 use App\Module\Account\Security\ApiTokenAuthenticator;
 use App\Module\OAuth\Security\OAuthAccessTokenAuthenticator;
+use App\Module\OAuth\Service\McpResource;
+use League\Bundle\OAuth2ServerBundle\Manager\AccessTokenManagerInterface;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Security\BearerToken;
 use App\Tests\Support\SilentAuditor;
@@ -89,6 +91,8 @@ final class BearerTokenTest extends TestCase
             $this->createStub(HttpMessageFactoryInterface::class),
             $this->createStub(UserRepository::class),
             $this->createStub(ProjectRepository::class),
+            $this->createStub(AccessTokenManagerInterface::class),
+            new McpResource('https://loupe.example'),
             new NullLogger(),
             SilentAuditor::create(),
         );
