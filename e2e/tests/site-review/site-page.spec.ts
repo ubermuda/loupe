@@ -96,7 +96,7 @@ test('a saved comment is live and resolvable on the site page', async ({
     const search = page.getByPlaceholder('Find feedback or a page…');
     await search.fill('does not match');
     await expect(
-        page.getByText('No feedback matches these filters.'),
+        page.getByText('Try another status or search term.'),
     ).toBeVisible();
     await search.fill('header');
     await expect(comment).toBeVisible();

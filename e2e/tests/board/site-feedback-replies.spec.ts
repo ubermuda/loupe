@@ -273,7 +273,7 @@ for (const surface of ['page', 'drawer']) {
                 'data-comment-status',
                 'resolved',
             );
-            await capture.locator('.lp-site-review-card-link').click();
+            await capture.locator('[data-linked-card] a').click();
             await expect(
                 page.getByRole('tab', { name: 'Feedback', exact: true }),
             ).toHaveAttribute('aria-selected', 'true');
