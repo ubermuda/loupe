@@ -26,6 +26,11 @@ final class LoopbackRedirectUri
         return null !== $key && array_any($registered, static fn (mixed $uri): bool => \is_string($uri) && self::loopbackKey($uri) === $key);
     }
 
+    public static function isLoopback(string $uri): bool
+    {
+        return null !== self::loopbackKey($uri);
+    }
+
     /** The URI without its port, or null when it is not a plain http loopback URI. */
     private static function loopbackKey(string $uri): ?string
     {

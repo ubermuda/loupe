@@ -30,7 +30,7 @@ final class ShowAuthorizationServerMetadataControllerTest extends WebTestCase
         self::assertContains('none', $metadata['token_endpoint_auth_methods_supported']);
         self::assertTrue($metadata['authorization_response_iss_parameter_supported']);
         self::assertArrayNotHasKey('registration_endpoint', $metadata);
-        self::assertArrayNotHasKey('client_id_metadata_document_supported', $metadata);
+        self::assertTrue($metadata['client_id_metadata_document_supported']);
     }
 
     public function test_the_token_endpoint_is_public_and_answers_rfc_6749_errors(): void
