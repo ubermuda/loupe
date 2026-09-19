@@ -59,11 +59,10 @@ final class DeleteCommentController extends AppController
         }
 
         if (TurboBundle::STREAM_FORMAT !== $request->getPreferredFormat()) {
-            $this->addFlash('deleted_thread', (string) $comment->id);
-
-            return $this->redirectToRoute('app_document_deleted_threads', [
+            return $this->redirectToRoute('app_document_review_version', [
                 'projectId' => (string) $document->project->id,
                 'documentId' => (string) $document->id,
+                'versionNumber' => $version->versionNumber,
             ]);
         }
 

@@ -1401,17 +1401,11 @@
             <trans-unit id="review.document.margin.comments"><source>review.document.margin.comments</source><target>Comments</target></trans-unit>
             <trans-unit id="review.document.margin.outline"><source>review.document.margin.outline</source><target>Outline</target></trans-unit>
             <trans-unit id="review.document.margin.decisions"><source>review.document.margin.decisions</source><target>Decisions</target></trans-unit>
-            <trans-unit id="review.document.summary.copy"><source>review.document.summary.copy</source><target>Copy review summary</target></trans-unit>
-            <trans-unit id="review.document.summary.copied"><source>review.document.summary.copied</source><target>Review summary copied.</target></trans-unit>
-            <trans-unit id="review.document.summary.failed"><source>review.document.summary.failed</source><target>The browser could not copy the summary. Allow clipboard access. Try again.</target></trans-unit>
-            <trans-unit id="review.document.summary.status"><source>review.document.summary.status</source><target>Document status: %status%</target></trans-unit>
-            <trans-unit id="review.document.summary.comment"><source>review.document.summary.comment</source><target>Comment</target></trans-unit>
-            <trans-unit id="review.document.summary.suggestion"><source>review.document.summary.suggestion</source><target>Suggestion</target></trans-unit>
-            <trans-unit id="review.document.summary.strike"><source>review.document.summary.strike</source><target>Strike</target></trans-unit>
-            <trans-unit id="review.document.summary.replacement"><source>review.document.summary.replacement</source><target>Suggested: %replacement%</target></trans-unit>
-            <trans-unit id="review.document.summary.unanchored"><source>review.document.summary.unanchored</source><target>Unanchored</target></trans-unit>
-            <trans-unit id="review.document.summary.empty"><source>review.document.summary.empty</source><target>No comment threads.</target></trans-unit>
             <trans-unit id="review.document.margin.details"><source>review.document.margin.details</source><target>Details</target></trans-unit>
+            <trans-unit id="review.document.margin.details_empty">
+                <source>review.document.margin.details_empty</source>
+                <target>Nothing is linked to this document yet.</target>
+            </trans-unit>
             <trans-unit id="review.document.margin.filter_open"><source>review.document.margin.filter_open</source><target>Open</target></trans-unit>
             <trans-unit id="review.document.margin.filter_resolved"><source>review.document.margin.filter_resolved</source><target>Resolved</target></trans-unit>
             <trans-unit id="review.document.margin.filter_unanchored"><source>review.document.margin.filter_unanchored</source><target>Unanchored</target></trans-unit>
@@ -1601,9 +1595,17 @@
                 <source>review.document.history.reviews</source>
                 <target>Review history</target>
             </trans-unit>
-            <trans-unit id="review.document.history.no_reviews">
-                <source>review.document.history.no_reviews</source>
-                <target>No reviews for this version.</target>
+            <trans-unit id="review.document.history.column.discussion">
+                <source>review.document.history.column.discussion</source>
+                <target>Discussion</target>
+            </trans-unit>
+            <trans-unit id="review.document.history.threads">
+                <source>review.document.history.threads</source>
+                <target>{0}No threads|{1}1 thread|]1,Inf[%count% threads</target>
+            </trans-unit>
+            <trans-unit id="review.document.history.no_verdicts">
+                <source>review.document.history.no_verdicts</source>
+                <target>No review verdicts recorded yet.</target>
             </trans-unit>
             <trans-unit id="review.document.verdict.withdrawn">
                 <source>review.document.verdict.withdrawn</source>
@@ -1979,11 +1981,7 @@
             </trans-unit>
             <trans-unit id="comment.error.stale_deletion">
                 <source>comment.error.stale_deletion</source>
-                <target>The deletion state has changed. Reload Deleted threads and try again.</target>
-            </trans-unit>
-            <trans-unit id="comment.error.not_deleted">
-                <source>comment.error.not_deleted</source>
-                <target>This thread is active. Delete it before permanently purging it.</target>
+                <target>The deletion state has changed. Reload the page and try again.</target>
             </trans-unit>
             <trans-unit id="comment.error.reopen_not_resolved">
                 <source>comment.error.reopen_not_resolved</source>
@@ -5979,19 +5977,8 @@
             <trans-unit id="activity.attempts"><source>activity.attempts</source><target>{0} No failed attempts|{1} 1 failed attempt|]1,Inf[ %count% failed attempts</target></trans-unit>
             <trans-unit id="activity.empty.title"><source>activity.empty.title</source><target>No recorded activity</target></trans-unit>
             <trans-unit id="activity.empty.description"><source>activity.empty.description</source><target>Project events will appear here after Loupe records them.</target></trans-unit>
-            <trans-unit id="review.deleted_threads.title"><source>review.deleted_threads.title</source><target>Deleted threads</target></trans-unit>
-            <trans-unit id="review.deleted_threads.description"><source>review.deleted_threads.description</source><target>Deleted threads stay here until you purge them. Restore returns each thread to its original version.</target></trans-unit>
-            <trans-unit id="review.deleted_threads.back"><source>review.deleted_threads.back</source><target>Back to document</target></trans-unit>
-            <trans-unit id="review.deleted_threads.deleted_at"><source>review.deleted_threads.deleted_at</source><target>Deleted %date%</target></trans-unit>
-            <trans-unit id="review.deleted_threads.restore"><source>review.deleted_threads.restore</source><target>Restore thread</target></trans-unit>
-            <trans-unit id="review.deleted_threads.purge"><source>review.deleted_threads.purge</source><target>Purge permanently</target></trans-unit>
-            <trans-unit id="review.deleted_threads.purge_title"><source>review.deleted_threads.purge_title</source><target>Purge this thread permanently?</target></trans-unit>
-            <trans-unit id="review.deleted_threads.purge_description"><source>review.deleted_threads.purge_description</source><target>This removes the thread and all its replies. You cannot undo a purge.</target></trans-unit>
-            <trans-unit id="review.deleted_threads.cancel"><source>review.deleted_threads.cancel</source><target>Cancel</target></trans-unit>
-            <trans-unit id="review.deleted_threads.empty"><source>review.deleted_threads.empty</source><target>No deleted threads.</target></trans-unit>
             <trans-unit id="review.deleted_threads.flash.restored"><source>review.deleted_threads.flash.restored</source><target>Thread restored.</target></trans-unit>
-            <trans-unit id="review.deleted_threads.flash.purged"><source>review.deleted_threads.flash.purged</source><target>Thread permanently purged.</target></trans-unit>
-            <trans-unit id="review.deleted_threads.deleted"><source>review.deleted_threads.deleted</source><target>Thread deleted. You can restore it until you purge it.</target></trans-unit>
+            <trans-unit id="review.deleted_threads.deleted"><source>review.deleted_threads.deleted</source><target>Thread deleted. Select Undo to restore it.</target></trans-unit>
             <trans-unit id="review.deleted_threads.undo"><source>review.deleted_threads.undo</source><target>Undo</target></trans-unit>
             <trans-unit id="account.api_token.revoke.title"><source>account.api_token.revoke.title</source><target>Revoke this token?</target></trans-unit>
             <trans-unit id="account.api_token.revoke.description"><source>account.api_token.revoke.description</source><target>Connections that use “%label%” lose access immediately. You cannot restore this token.</target></trans-unit>

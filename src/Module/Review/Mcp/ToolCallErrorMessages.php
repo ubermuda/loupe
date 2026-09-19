@@ -83,7 +83,6 @@ final readonly class ToolCallErrorMessages
             'comment.error.deleted' => 'This thread is deleted. The owner must restore it before you can make changes.',
             'comment.error.thread_required' => 'Use the top-level comment of the thread instead of a reply.',
             'comment.error.stale_deletion' => 'The deletion state has changed. Read the deleted thread again before retrying.',
-            'comment.error.not_deleted' => 'This thread is active and cannot be purged.',
             'comment.error.reply_empty' => 'A reply must not be blank.',
             'comment.error.reply_too_long' => \sprintf('A reply must be at most %d bytes.', ReplyToCommentHandler::MAX_BODY_BYTES),
             'comment.error.reply_to_reply' => 'A reply can only be added to the top-level comment of a thread.',

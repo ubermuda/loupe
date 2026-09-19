@@ -81,7 +81,7 @@
             </summary>
             <div class="lp-review-margin-filter__menu">
                 {% for filterName in ['open', 'resolved', 'unanchored', 'all'] %}
-                <button type="button" data-review-margin-target="option" data-review-margin-filter-param="{{ filterName }}" data-action="review-margin#filter" aria-pressed="{{ filterName == 'all' ? 'true' : 'false' }}">{{ ('review.document.margin.filter_' ~ filterName)|trans }} <span data-filter-count>0</span></button>
+                <button type="button" data-review-margin-target="option" data-review-margin-filter-param="{{ filterName }}" data-action="review-margin#filter" aria-pressed="{{ filterName == 'open' ? 'true' : 'false' }}">{{ ('review.document.margin.filter_' ~ filterName)|trans }} <span data-filter-count>0</span></button>
                 {% endfor %}
             </div>
         </details>

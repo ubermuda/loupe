@@ -88,41 +88,6 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertSelectorExists('.lp-review-view-tabs__item[aria-current="page"]');
     }
 
-    public function test_review_summary_keeps_thread_content_and_escapes_markup(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $owner = $this->createUser($em, 'summary', 'summary@example.com');
-        $project = $this->project($em, $owner);
-        $document = new Document(owner: $owner, project: $project, title: 'Summary & review');
-        $version = $document->addVersion('# Content', '<h1>Content</h1>');
-        $em->persist($document);
-        $root = new Comment($version, $owner, '<img src=x> Keep & compare.', new Anchor('Content', '', '', 0));
-        $root->status = CommentStatus::Resolved;
-        $root->orphaned = true;
-        $em->persist($root);
-        $em->persist(new Comment($version, $owner, 'Reply <script>alert(1)</script>', $root->anchor, parent: $root));
-        $em->persist(new Comment($version, $owner, 'Plainer wording.', $root->anchor, replacement: 'Replacement & text'));
-        $em->persist(new Comment($version, $owner, '', $root->anchor, replacement: ''));
-        $em->flush();
-        $url = '/projects/'.$project->id.'/documents/'.$document->id.'/review';
-        $em->clear();
-        $client->loginUser($owner);
-        $client->request(Request::METHOD_GET, $url);
-
-        self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('#review-summary-comments', '[Resolved] Comment · Summary');
-        self::assertSelectorTextContains('#review-summary-comments', 'Unanchored');
-        self::assertSelectorTextContains('#review-summary-comments', '> Content');
-        self::assertSelectorTextContains('#review-summary-comments', '<img src=x> Keep & compare.');
-        self::assertSelectorTextContains('#review-summary-comments', 'Summary: Reply <script>alert(1)</script>');
-        self::assertSelectorTextContains('#review-summary-comments', 'Suggested: Replacement & text');
-        self::assertSelectorTextContains('#review-summary-comments', 'Strike · Summary');
-        self::assertSelectorNotExists('#review-summary-comments img');
-        self::assertSelectorNotExists('#review-summary-comments script');
-        self::assertSelectorExists('[data-review-summary-header-value^="Summary & review · v1"]');
-    }
-
     public function test_details_show_the_card_linked_to_the_document(): void
     {
         $client = static::createClient();

@@ -10,7 +10,7 @@ use Symfony\Component\Security\Core\Authorization\Voter\Vote;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 
 /**
- * @extends Voter<'comment.delete'|'comment.resolve'|'comment.reopen'|'comment.reply'|'comment.restore'|'comment.purge', Comment>
+ * @extends Voter<'comment.delete'|'comment.resolve'|'comment.reopen'|'comment.reply'|'comment.restore', Comment>
  */
 final class CommentVoter extends Voter
 {
@@ -19,7 +19,6 @@ final class CommentVoter extends Voter
     public const string REOPEN = 'comment.reopen';
     public const string REPLY = 'comment.reply';
     public const string RESTORE = 'comment.restore';
-    public const string PURGE = 'comment.purge';
 
     private const array SUPPORTED_ATTRIBUTES = [
         self::DELETE,
@@ -27,7 +26,6 @@ final class CommentVoter extends Voter
         self::REOPEN,
         self::REPLY,
         self::RESTORE,
-        self::PURGE,
     ];
 
     #[\Override]

@@ -618,9 +618,7 @@ test('the stored anchor keeps the quote and the whitespace around it', async ({
 
 test('replying to a thread and resolving it re-render it in place', async ({
     page,
-    context,
 }) => {
-    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await postComment(page);
 
     // Asserting both status and content type guards the whole path: CSRF, the
@@ -658,57 +656,8 @@ test('replying to a thread and resolving it re-render it in place', async ({
     expect(resolveResponse.status()).toBe(200);
     expect(resolveResponse.headers()['content-type']).toContain('turbo-stream');
 
-    await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
+    await expect(page.locator('.lp-comment-thread--resolved')).toHaveCount(1, {
         timeout: coverageScaled(10000),
-    });
-    await page.getByRole('tab', { name: 'Details', exact: true }).click();
-    await page.getByRole('button', { name: 'Copy review summary' }).click();
-    await expect(
-        page.locator('[data-review-summary-target="status"]'),
-    ).toHaveText('Review summary copied.');
-    const summary = await page.evaluate(() => navigator.clipboard.readText());
-    expect(summary).toContain('E2E Review Test Document · v1');
-    expect(summary).toContain('[Resolved] Comment · E2E Reviewer');
-    expect(summary).toContain(KNOWN_PHRASE);
-    expect(summary).toContain(COMMENT_BODY);
-    expect(summary).toContain(REPLY_BODY);
-});
-
-test('copying an empty review reports clipboard success and failure', async ({
-    page,
-    context,
-}) => {
-    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
-    await page.getByRole('tab', { name: 'Details', exact: true }).click();
-    await page.getByRole('button', { name: 'Copy review summary' }).click();
-    await expect(
-        page.locator('[data-review-summary-target="status"]'),
-    ).toHaveText('Review summary copied.');
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(
-        'No comment threads.',
-    );
-    await page.evaluate(() => {
-        navigator.clipboard.writeText = async () => {
-            throw new DOMException('Clipboard denied', 'NotAllowedError');
-        };
-    });
-    await page.getByRole('button', { name: 'Copy review summary' }).click();
-    await expect(
-        page.locator('[data-review-summary-target="status"]'),
-    ).toContainText('The browser could not copy the summary.');
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.reload();
-    await page.getByRole('tab', { name: 'Details', exact: true }).click();
-    await page.getByRole('button', { name: 'Copy review summary' }).click();
-    await expect(
-        page.locator('[data-review-summary-target="status"]'),
-    ).toHaveText('Review summary copied.');
-    await page
-        .getByRole('button', { name: 'Copy review summary' })
-        .scrollIntoViewIfNeeded();
-    await page.screenshot({
-        path: '/tmp/loupe-review-summary-mobile.png',
-        fullPage: true,
     });
 });
 
@@ -895,7 +844,7 @@ test('requesting changes shows the verdict on the project dashboard', async ({
     await postComment(page);
     await expectThreadVisible(page);
     await page.getByRole('button', { name: 'Resolve' }).click();
-    await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
+    await expect(page.locator('.lp-comment-thread--resolved')).toHaveCount(1, {
         timeout: coverageScaled(10000),
     });
 
@@ -949,18 +898,13 @@ test('requesting changes shows the verdict on the project dashboard', async ({
 });
 
 for (const width of [1440, 390]) {
-    test(`a resolved thread supports Undo, later restore, and explicit purge at ${width}px`, async ({
+    test(`a thread can be deleted and undone at ${width}px`, async ({
         page,
         review,
     }) => {
         await page.setViewportSize({ width, height: 900 });
         await postComment(page);
-
         await expectThreadVisible(page);
-        await page.getByRole('button', { name: 'Resolve' }).click();
-        await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
-            timeout: coverageScaled(10000),
-        });
 
         await page.goto(review.reviewUrl);
         await expect(page.locator(DOC)).toBeVisible();
@@ -982,59 +926,29 @@ for (const width of [1440, 390]) {
         await expect(page.locator('.lp-comment-thread')).toHaveCount(0, {
             timeout: coverageScaled(10000),
         });
+        await expect(page.locator('#comment-recovery')).toContainText(
+            'Thread deleted.',
+        );
         await page.getByRole('button', { name: 'Undo', exact: true }).click();
-        await expect(
-            page.locator('.lp-comment-thread--resolved'),
-        ).toHaveAttribute('id', threadId!);
+        await expect(page.locator('.lp-comment-thread')).toHaveAttribute(
+            'id',
+            threadId!,
+        );
+        await expect(page.locator('.lp-comment-body').first()).toContainText(
+            COMMENT_BODY,
+        );
+
+        // The undo notice is the only recovery surface, so a second delete that
+        // the reader walks away from leaves the thread gone for good.
         await page.getByRole('button', { name: 'Delete', exact: true }).click();
         await expect(page.locator('.lp-comment-thread')).toHaveCount(0);
-
         await page.goto(review.reviewUrl);
         await expect(page.locator(DOC)).toBeVisible();
         await expect(page.locator('.lp-comment-thread')).toHaveCount(0);
         await page.getByRole('tab', { name: 'Details', exact: true }).click();
-        await page
-            .getByRole('link', { name: 'Deleted threads', exact: true })
-            .click();
-        await expect(page.locator('[data-deleted-thread]')).toContainText(
-            COMMENT_BODY,
-        );
-        await page
-            .getByRole('button', { name: 'Restore thread', exact: true })
-            .click();
         await expect(
-            page.locator('.lp-comment-thread--resolved'),
-        ).toHaveAttribute('id', threadId!);
-
-        await page.getByRole('button', { name: 'Delete', exact: true }).click();
-        await expect(page.locator('.lp-comment-thread')).toHaveCount(0);
-        await page
-            .locator('#comment-recovery')
-            .getByRole('link', { name: 'Deleted threads' })
-            .click();
-        await page
-            .getByRole('button', { name: 'Purge permanently', exact: true })
-            .click();
-        const purgeDialog = page.getByRole('dialog', {
-            name: 'Purge this thread permanently?',
-        });
-        await expect(purgeDialog).toBeVisible();
-        await purgeDialog
-            .getByRole('button', { name: 'Cancel', exact: true })
-            .click();
-        await expect(purgeDialog).toBeHidden();
-        await expect(page.locator('[data-deleted-thread]')).toHaveCount(1);
-        await page
-            .getByRole('button', { name: 'Purge permanently', exact: true })
-            .click();
-        await purgeDialog
-            .getByRole('button', { name: 'Purge permanently', exact: true })
-            .click();
-        await expect(
-            page.getByText('No deleted threads.', { exact: true }),
-        ).toBeVisible();
-        await page.reload();
-        await expect(page.locator('[data-deleted-thread]')).toHaveCount(0);
+            page.getByRole('link', { name: 'Deleted threads' }),
+        ).toHaveCount(0);
     });
 }
 

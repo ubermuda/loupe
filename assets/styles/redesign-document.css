@@ -352,10 +352,10 @@
     @apply gap-2 p-0;
 }
 .lp-review .lp-review-details > div > dt {
-    @apply text-sm font-medium tracking-normal text-fg-dim normal-case;
+    @apply text-xs font-semibold uppercase tracking-wide text-fg-dim;
 }
 .lp-review .lp-review-details > div > dd {
-    @apply text-sm text-fg-mute;
+    @apply text-sm text-ink;
 }
 /* The linked card is the board card itself, minus the drag. It opens in the
    drawer over this page, so the reader keeps their place in the document. */
@@ -386,9 +386,6 @@
 }
 
 /* ── Diff toolbar ───────────────────────────────────────────────── */
-.lp-review .lp-doc-meta-bar {
-    @apply static;
-}
 .lp-review .lp-diff-bar {
     @apply gap-x-4 gap-y-3 border-b-0 pt-3.5 pb-0;
 }
@@ -407,7 +404,7 @@
 /* The three views read as one segmented control, sized like the buttons
    beside it. */
 .lp-review .lp-diff-views {
-    @apply gap-1 rounded-lg bg-surface-3 p-0;
+    @apply gap-1 rounded-lg bg-surface-3 p-1;
 }
 .lp-review .lp-diff-views__link {
     @apply border-transparent bg-transparent font-semibold text-fg-mute hover:bg-tint hover:text-ink;
@@ -487,4 +484,117 @@
 }
 .lp-review .lp-composer-hint {
     @apply font-sans;
+}
+
+/* ── Pointers ───────────────────────────────────────────────────── */
+
+/* Preflight gives a button the default arrow, so every control the reader can
+   press says so. */
+.lp-review
+    :is(
+        .lp-review-margin-tabs__item,
+        .lp-review-margin-filter__menu button,
+        .lp-section-approve__button,
+        .lp-comment-action,
+        .lp-decision__option,
+        .lp-decision__option input,
+        .lp-review-verdict-choice,
+        .lp-history__action,
+        .lp-diff-views__link
+    ) {
+    @apply cursor-pointer;
+}
+/* The whole option row answers a click, not the words alone. The label covers
+   the row through a pseudo-element, so the native input still does the work. */
+.lp-review .lp-decision__option {
+    @apply relative;
+}
+.lp-review .lp-decision__option label::after {
+    @apply absolute inset-0;
+    content: '';
+}
+
+/* ── Margin panel scrolling ─────────────────────────────────────── */
+
+/* The panel is placed level with the paper, and its contents stay on screen
+   while the document scrolls under them. */
+/* The panel spans the rest of the column, which is the room its contents need
+   to stay put while the document scrolls under them. */
+@media (width >= 59.375rem) {
+    .lp-review .lp-review-context-panel {
+        bottom: 0;
+    }
+}
+.lp-review .lp-review-context-panel__inner {
+    @apply flex flex-col gap-0 overflow-y-auto;
+    position: sticky;
+    top: calc(var(--spacing) * 4);
+    max-height: calc(100dvh - var(--spacing) * 24);
+    scrollbar-width: thin;
+}
+@media (width < 59.375rem) {
+    /* The panel spans the rest of the column, which is the room its contents need
+   to stay put while the document scrolls under them. */
+    @media (width >= 59.375rem) {
+        .lp-review .lp-review-context-panel {
+            bottom: 0;
+        }
+    }
+    .lp-review .lp-review-context-panel__inner {
+        position: static;
+        max-height: none;
+    }
+}
+/* The list ends with its last row, not with a rule under it. */
+.lp-review .lp-review-context-panel .lp-review-contents__item:last-child,
+.lp-review .lp-review-context-panel .lp-decision-summary__item:last-child {
+    @apply border-b-0;
+}
+
+/* ── Diff pane ──────────────────────────────────────────────────── */
+
+/* The comparison is one changed block after another, so it reads tighter than
+   a document a person is reading through. */
+.lp-review .lp-diff-doc :is(h1, h2) {
+    @apply mt-7;
+}
+.lp-review .lp-diff-doc :is(h3, h4, h5, h6) {
+    @apply mt-5;
+}
+.lp-review .lp-diff-doc :is(p, ul, ol, pre) {
+    @apply my-3;
+}
+.lp-review .lp-diff-doc .lp-decision {
+    @apply mt-4;
+}
+/* A changed block carries its own tint, so it needs less air around it than a
+   paragraph of prose. */
+.lp-review .lp-diff-doc > :is(ins, del) {
+    @apply my-2;
+}
+
+.lp-review .lp-comment-reply-form__actions {
+    @apply flex items-center justify-end gap-2;
+}
+
+/* The general composer opens under the header control that asked for it. */
+.lp-review .lp-comment-composer--anchored {
+    @apply absolute z-20 mb-0 border-0 shadow-composer;
+}
+
+/* ── Review log, under the version table ────────────────────────── */
+.lp-review .lp-history-title--log {
+    @apply mt-9 mb-4.5;
+}
+.lp-review .lp-history-log {
+    @apply flex flex-col gap-4 px-4.5 py-4;
+}
+.lp-review .lp-history-log .lp-history__review + .lp-history__review {
+    @apply border-t border-line-faint pt-4;
+}
+.lp-review .lp-history__version {
+    @apply font-mono text-xs text-fg-dim;
+}
+.lp-review .lp-history__empty {
+    @apply m-0 text-sm text-fg-dim;
 }

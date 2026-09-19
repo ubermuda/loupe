@@ -166,16 +166,18 @@ export default class extends Controller {
             .querySelector('summary')
             .classList.toggle(
                 'lp-review-margin-tabs__item--filtered',
-                this.activeFilter !== 'all',
+                this.activeFilter !== 'open',
             );
         for (const empty of this.emptyTargets) {
             empty.hidden = counts[this.activeFilter] !== 0;
             for (const message of empty.querySelectorAll(
                 '[data-empty-filter]',
             )) {
+                // Either the document holds no comments at all, or a filter
+                // is hiding the ones it holds.
                 message.hidden =
                     (message.dataset.emptyFilter === 'all') !==
-                    (this.activeFilter === 'all');
+                    (counts.all === 0);
             }
         }
         for (const group of this.element.querySelectorAll(

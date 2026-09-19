@@ -78,8 +78,7 @@ Reload the page before withdrawing the current verdict.
 The margin has Comments, Outline, Decisions and Details tabs.
 Outline and Decisions show current progress and link to passages in the document.
 Details shows linked cards, outgoing and incoming references, tags, series and version notes.
-In Details, select **Copy review summary** to copy this version’s threads, including resolved threads and replies.
-The summary includes quoted passages, replacement text and unanchored markers.
+It lists only what the document has, and says so when it has none of them.
 The History tab opens the full version list.
 
 Use Left and Right Arrow to select the adjacent tab.
@@ -89,7 +88,8 @@ On narrow screens, the margin tabs scroll horizontally. Selecting a tab brings i
 Switching tabs preserves an unfinished reply.
 
 The filter beside Comments shows counts for Open, Resolved, Unanchored and All.
-Select **Open** to hide resolved threads. The filter icon turns purple while it hides threads.
+**Open** is the default view, so a resolved thread leaves the margin as you resolve it.
+Select **All** to bring it back. The filter icon turns purple while it hides threads.
 With the filter closed, Tab moves focus to Comments. Arrow keys select the other margin tabs.
 The selected filter stays active when you resolve or reopen a thread.
 An empty result shows a message in the margin.
@@ -129,17 +129,14 @@ messages skip their movement when your system requests reduced motion.
 ### Deleted threads
 
 Delete hides a thread and its replies from the review without changing their status.
-Select **Undo** in the deletion notice to restore the thread immediately.
-Deleted threads have no expiry date.
-In Details, select **Deleted threads** to find retained threads from every document version.
-Select **Restore thread** to return a thread to its original version.
-A restored thread on an older version stays read-only.
+Confirm the deletion, then a notice replaces the thread in the margin.
+Select **Undo** in that notice to restore the thread and its replies.
+A thread restored on an older version stays read-only.
 
-Select **Purge permanently**, then confirm, to remove a thread and all its replies.
-Purge cannot be undone.
+The notice is the only way back. Once you leave the page, the thread stays hidden.
+There is no page that lists deleted threads, and there is no way to remove one for good.
 The audit log records one thread deletion with its reply count and deletion sequence.
-Permanent purge records the root and every reply.
-Deleting the project or account also removes its retained threads.
+Deleting the project or account also removes its hidden threads.
 
 ### On a narrow screen
 
@@ -150,7 +147,8 @@ The corner menu also provides section navigation, version links, references and 
 A wide window puts comment cards beside the document, aligned with their passages.
 Each card shows its author, status, body, replies and actions.
 Cards move down when necessary to prevent overlap.
-Reply opens an inline form and preserves its draft when closed.
+Reply opens an inline form, puts the caret in it, and preserves its draft when closed.
+Select **Cancel** in that form to close it again.
 
 A comment does not repeat its highlighted passage.
 Suggestions and strikes retain the quoted text.

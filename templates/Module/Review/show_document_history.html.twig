@@ -70,7 +70,7 @@
             <tr>
                 <th scope="col">{{ 'review.document.history.column.version'|trans }}</th>
                 <th scope="col">{{ 'review.document.history.column.revision'|trans }}</th>
-                <th scope="col">{{ 'review.document.history.reviews'|trans }}</th>
+                <th scope="col">{{ 'review.document.history.column.discussion'|trans }}</th>
                 <th scope="col">{{ 'review.document.history.column.open'|trans }}</th>
             </tr>
         </thead>
@@ -91,20 +91,7 @@
                 {% endif %}
                 <span class="lp-history__date">{{ meta.createdAt|relative_time }}</span>
             </td>
-            <td>
-                <ol class="lp-history__reviews" aria-label="{{ 'review.document.history.reviews'|trans }}">
-                    {% for review in meta.reviews %}
-                    <li class="lp-history__review" data-review-sequence="{{ review.sequence }}">
-                        <span class="lp-history__verdict lp-history__verdict--{{ review.verdict.value }}">{{ ('review.document.verdict.' ~ review.verdict.value)|trans }}</span>
-                        <span>{{ review.reviewer.fullName }}</span>
-                        <time class="lp-history__date" datetime="{{ review.submittedAt|date('c') }}" title="{{ review.submittedAt|date('Y-m-d H:i:s T') }}">{{ review.submittedAt|relative_time }}</time>
-                        {% if review.note %}<p class="lp-history__review-note">{{ review.note }}</p>{% endif %}
-                    </li>
-                    {% else %}
-                    <li class="lp-history__date">{{ 'review.document.history.no_reviews'|trans }}</li>
-                    {% endfor %}
-                </ol>
-            </td>
+            <td>{{ 'review.document.history.threads'|trans({'%count%': meta.threadCount}) }}</td>
             <td>
                 <div class="lp-history__actions">
                     <a class="lp-history__action" href="{{ readPath }}">
@@ -126,6 +113,22 @@
         {% endfor %}
         </tbody>
     </table>
+    </div>
+
+    <h2 class="lp-history-title lp-history-title--log">{{ 'review.document.history.reviews'|trans }}</h2>
+    <div class="lp-history-surface lp-history-log">
+        {% set verdicts = versions|reduce((carry, meta) => carry|merge(meta.reviews|map(review => {review: review, versionNumber: meta.versionNumber})), []) %}
+        {% for entry in verdicts %}
+        <div class="lp-history__review" data-review-sequence="{{ entry.review.sequence }}">
+            <span class="lp-history__verdict lp-history__verdict--{{ entry.review.verdict.value }}">{{ ('review.document.verdict.' ~ entry.review.verdict.value)|trans }}</span>
+            <span>{{ entry.review.reviewer.fullName }}</span>
+            <span class="lp-history__version">{{ 'v' ~ entry.versionNumber }}</span>
+            <time class="lp-history__date" datetime="{{ entry.review.submittedAt|date('c') }}" title="{{ entry.review.submittedAt|date('Y-m-d H:i:s T') }}">{{ entry.review.submittedAt|relative_time }}</time>
+            {% if entry.review.note %}<p class="lp-history__review-note">{{ entry.review.note }}</p>{% endif %}
+        </div>
+        {% else %}
+        <p class="lp-history__empty">{{ 'review.document.history.no_verdicts'|trans }}</p>
+        {% endfor %}
     </div>
 </div>
 {% if finishReviewAvailable %}

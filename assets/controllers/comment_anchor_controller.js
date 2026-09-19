@@ -681,6 +681,7 @@ export default class extends Controller {
     /** Sidebar action: open the composer for a comment with no anchor. */
     startUntargeted(event) {
         event?.preventDefault();
+        this.untargetedTrigger = event?.currentTarget ?? null;
 
         this.pendingSelection = null;
         this.quoteTarget.value = '';
@@ -1590,12 +1591,14 @@ export default class extends Controller {
 
     #restoreHideResolved() {
         try {
+            // Open is the margin's default view, so a reader who has never
+            // chosen sees the threads that still ask for something.
             this.hideResolvedValue =
                 window.localStorage.getItem(
                     this.constructor.HIDE_RESOLVED_KEY,
-                ) === '1';
+                ) !== '0';
         } catch {
-            this.hideResolvedValue = false;
+            this.hideResolvedValue = true;
         }
         this.#applyHideResolved();
     }
@@ -1825,11 +1828,36 @@ export default class extends Controller {
         this.composerTarget.style.top = '';
         this.composerTarget.style.left = '';
         this.composerTarget.hidden = false;
+        this.#anchorUntargetedComposer();
         this.composerBodyTarget.value = '';
         if (this.hasComposerErrorTarget) {
             this.composerErrorTarget.textContent = '';
         }
         this.composerBodyTarget.focus();
+    }
+
+    /**
+     * Opens the general composer under the control that asked for it, so the
+     * form appears where the reader pressed rather than at the other end of
+     * the page. Below the margin breakpoint it stays in flow, where the header
+     * and the paper are already stacked.
+     */
+    #anchorUntargetedComposer() {
+        const trigger = this.untargetedTrigger;
+        const host = this.hasBlockTarget ? this.blockTarget : null;
+        if (!trigger || !host || !this.#threadsInMargin()) {
+            return;
+        }
+        const panel = this.composerTarget;
+        const hostBox = host.getBoundingClientRect();
+        const triggerBox = trigger.getBoundingClientRect();
+        const gap = 8;
+        panel.classList.add('lp-comment-composer--anchored');
+        panel.style.top = `${Math.round(triggerBox.bottom - hostBox.top + gap)}px`;
+        // Right edges aligned: the control sits at the end of the header row,
+        // so the card opens back towards the document rather than off it.
+        const left = triggerBox.right - hostBox.left - panel.offsetWidth;
+        panel.style.left = `${Math.round(Math.max(0, left))}px`;
     }
 
     #hideComposer() {
@@ -1842,6 +1870,7 @@ export default class extends Controller {
             }
             panel.hidden = true;
             panel.classList.remove('lp-comment-composer--untargeted');
+            panel.classList.remove('lp-comment-composer--anchored');
         }
     }
 }

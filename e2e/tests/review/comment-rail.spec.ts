@@ -466,6 +466,8 @@ test('hiding resolved threads closes the gap the cards left', async ({
     const before = await threadTops(page);
     expect(before).toHaveLength(3);
 
+    // Open is the margin's default view, so resolving a thread takes its card
+    // out of the column there and then.
     await page
         .locator(THREAD)
         .first()
@@ -474,8 +476,13 @@ test('hiding resolved threads closes the gap the cards left', async ({
     await expect(page.locator('.lp-comment-thread--resolved')).toHaveCount(1, {
         timeout: coverageScaled(10000),
     });
+    await expect(page.locator('.lp-comment-thread--resolved')).toBeHidden();
 
+    // All brings it back, and Open hides it again.
     const filter = page.locator('[data-review-margin-target="filter"]');
+    await filter.locator('summary').click();
+    await filter.getByRole('button', { name: /^All/ }).click();
+    await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible();
     await filter.locator('summary').click();
     await filter.getByRole('button', { name: /^Open/ }).click();
 

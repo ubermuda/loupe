@@ -596,15 +596,19 @@ test('hiding resolved cards leaves the document text unchanged', async ({
     await postComment(page);
     await expectThreadVisible(page);
     await page.getByRole('button', { name: 'Resolve' }).click();
-    await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible({
+    await expect(page.locator('.lp-comment-thread--resolved')).toHaveCount(1, {
         timeout: coverageScaled(10000),
     });
     await givePhoneWidthReadingArea(page);
     await expect(page.locator(MARGIN)).toBeVisible();
     const proseBefore = await page.locator(DOC).textContent();
 
-    // Below lg the review menu carries the resolved toggle. The row is
-    // revealed once a thread resolves, and it closes the menu as it fires.
+    // Below lg the review menu carries the resolved toggle. Open is the
+    // default view, so the row offers to show the resolved card, and hiding it
+    // again must leave the prose exactly as it was.
+    await page.locator(MENU_TRIGGER).click();
+    await page.locator(MENU_ROW, { hasText: 'Show resolved' }).click();
+    await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible();
     await page.locator(MENU_TRIGGER).click();
     await page.locator(MENU_ROW, { hasText: 'Hide resolved' }).click();
 
@@ -621,17 +625,19 @@ test('the margin filter still hides resolved threads above lg', async ({
     await expectThreadVisible(page);
     await page.getByRole('button', { name: 'Resolve' }).click();
     const resolved = page.locator('.lp-comment-thread--resolved');
-    await expect(resolved).toBeVisible({ timeout: coverageScaled(10000) });
+    await expect(resolved).toHaveCount(1, { timeout: coverageScaled(10000) });
 
     // The review menu is the phone copy of this control, so the desktop one
-    // has to keep working on its own.
+    // has to keep working on its own. Open is the default, so the card is
+    // already out of the column.
     await expect(page.locator(MENU_TRIGGER)).toBeHidden();
-    const filter = page.locator('[data-review-margin-target="filter"]');
-    await filter.locator('summary').click();
-    await filter.getByRole('button', { name: /^Open/ }).click();
     await expect(resolved).toBeHidden();
-
+    const filter = page.locator('[data-review-margin-target="filter"]');
     await filter.locator('summary').click();
     await filter.getByRole('button', { name: /^All/ }).click();
     await expect(resolved).toBeVisible();
+
+    await filter.locator('summary').click();
+    await filter.getByRole('button', { name: /^Open/ }).click();
+    await expect(resolved).toBeHidden();
 });
