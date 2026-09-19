@@ -5553,6 +5553,15 @@
     .lp-board__placeholder {
         @apply rounded-xl border-2 border-dashed border-accent-border bg-accent-faint;
     }
+    /* The dragged card's own slot, shown as a faded copy. A drop marker next to
+       it would mark the same place twice, so the marker hides there. */
+    .lp-board__ghost {
+        @apply opacity-40 pointer-events-none;
+    }
+    .lp-board__ghost + .lp-board__placeholder,
+    .lp-board__placeholder:has(+ .lp-board-card--dragging + .lp-board__ghost) {
+        @apply hidden;
+    }
     /* Text selection during a drag would highlight every card the pointer
        crosses, so it is suppressed for the length of the gesture only. */
     .lp-board--dragging {

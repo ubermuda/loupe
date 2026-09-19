@@ -31,6 +31,7 @@ export default class extends Controller {
         this.pressedCard = null;
         this.draggedCard = null;
         this.placeholder = null;
+        this.ghost = null;
         this.originGroup = null;
         this.originNextCard = null;
         this.originIndex = -1;
@@ -116,6 +117,8 @@ export default class extends Controller {
         this.placeholder.className = 'lp-board__placeholder';
         this.placeholder.style.height = `${rectangle.height}px`;
         card.after(this.placeholder);
+        this.ghost = this.ghostOf(card);
+        card.after(this.ghost);
 
         card.classList.add('lp-board-card--dragging');
         card.style.width = `${rectangle.width}px`;
@@ -319,13 +322,40 @@ export default class extends Controller {
         if (this.placeholder !== null) {
             this.placeholder.remove();
         }
+        if (this.ghost !== null) {
+            this.ghost.remove();
+        }
         this.element.classList.remove('lp-board--dragging');
 
         this.pointerId = null;
         this.pressedCard = null;
         this.draggedCard = null;
         this.placeholder = null;
+        this.ghost = null;
         this.originNextCard = null;
+    }
+
+    /**
+     * A faded, inert copy of the card that holds its slot for the length of the
+     * drag. It carries no id, data attribute or form, so no controller, rank
+     * count or query mistakes it for the card.
+     */
+    ghostOf(card) {
+        const ghost = card.cloneNode(true);
+        ghost.classList.remove('lp-board-card--dragging');
+        ghost.classList.add('lp-board__ghost');
+        ghost.inert = true;
+        ghost.setAttribute('aria-hidden', 'true');
+        ghost.querySelectorAll('form').forEach((form) => form.remove());
+        for (const element of [ghost, ...ghost.querySelectorAll('*')]) {
+            for (const { name } of Array.from(element.attributes)) {
+                if (name === 'id' || name.startsWith('data-')) {
+                    element.removeAttribute(name);
+                }
+            }
+        }
+
+        return ghost;
     }
 
     groupUnder(x, y) {

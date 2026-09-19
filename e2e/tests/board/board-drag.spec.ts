@@ -303,6 +303,71 @@ test('a drag into another column moves the card there, and it survives a reload'
     expect(await titlesIn(page, BACKLOG)).toEqual(['Bravo']);
 });
 
+test('the dragged card stays under the pointer on a scrolled board, and a ghost holds its slot', async ({
+    page,
+}) => {
+    // Narrow and short, so the main pane scrolls down and the columns scroll
+    // sideways. The dragged card is fixed to the viewport, so both offsets
+    // must drop out of its position.
+    await page.setViewportSize({ width: 700, height: 300 });
+    // Below lg the sidebar turns into a drawer, which stays over the board
+    // until its slide-out ends.
+    await expect(page.locator('.lp-sidebar')).toBeHidden();
+    const offsets = await page.evaluate(() => {
+        const main = document.querySelector('.lp-main');
+        const columns = document.querySelector('.lp-board__columns');
+        main?.scrollBy({ top: 150, behavior: 'instant' });
+        columns?.scrollBy({ left: 20, behavior: 'instant' });
+
+        return { down: main?.scrollTop ?? 0, across: columns?.scrollLeft ?? 0 };
+    });
+    expect(offsets.down).toBeGreaterThan(0);
+    expect(offsets.across).toBeGreaterThan(0);
+
+    const card = page.locator(`${CARD}[data-card-title="Alpha"]`);
+    const origin = await card.boundingBox();
+    expect(origin).not.toBeNull();
+    if (origin === null) {
+        return;
+    }
+    const grab = { x: 40, y: 12 };
+    await page.mouse.move(origin.x + grab.x, origin.y + grab.y);
+    await page.mouse.down();
+
+    for (const pointer of [
+        { x: origin.x + 90, y: origin.y + 70 },
+        { x: origin.x + 260, y: origin.y + 30 },
+        { x: origin.x + 20, y: origin.y + 100 },
+    ]) {
+        await page.mouse.move(pointer.x, pointer.y, { steps: 8 });
+        const dragged = await page
+            .locator('.lp-board-card--dragging')
+            .boundingBox();
+        expect(dragged).not.toBeNull();
+        if (dragged === null) {
+            return;
+        }
+        expect(Math.abs(dragged.x + grab.x - pointer.x)).toBeLessThan(2);
+        expect(Math.abs(dragged.y + grab.y - pointer.y)).toBeLessThan(2);
+
+        const ghost = group(page, BACKLOG).locator('.lp-board__ghost');
+        await expect(ghost).toHaveCount(1);
+        const ghostBox = await ghost.boundingBox();
+        expect(ghostBox).not.toBeNull();
+        expect(Math.abs((ghostBox?.x ?? 0) - origin.x)).toBeLessThan(2);
+        expect(Math.abs((ghostBox?.y ?? 0) - origin.y)).toBeLessThan(2);
+        expect(Math.abs((ghostBox?.width ?? 0) - origin.width)).toBeLessThan(2);
+        expect(Math.abs((ghostBox?.height ?? 0) - origin.height)).toBeLessThan(
+            2,
+        );
+    }
+
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(page.locator('.lp-board__ghost')).toHaveCount(0);
+    expect(await titlesIn(page, BACKLOG)).toEqual(['Alpha', 'Bravo']);
+});
+
 test('a move the server never receives puts the card back and says so', async ({
     page,
     board,

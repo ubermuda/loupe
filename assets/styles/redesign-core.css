@@ -98,7 +98,6 @@
 }
 
 .lp-core-board .lp-board-card {
-    position: relative;
     gap: calc(var(--spacing) * 2.5);
     padding: calc(var(--spacing) * 3.5) calc(var(--spacing) * 3);
     border: 1px solid var(--border);
