@@ -7,9 +7,13 @@
 {% endblock %}
 
 {% block body %}
-<div class="lp-workspace">
-    <h1 class="lp-workspace-title">{{ 'inbox.account.page.title'|trans }}</h1>
-    <p class="lp-workspace-desc">{{ 'inbox.account.page.description'|trans }}</p>
+<div class="lp-workspace lp-account-inbox">
+    <header class="lp-page-header">
+        <div class="lp-page-header__copy">
+            <h1 class="lp-workspace-title">{{ 'inbox.account.page.title'|trans }}</h1>
+            <p class="lp-workspace-desc">{{ 'inbox.account.page.description'|trans }}</p>
+        </div>
+    </header>
 
     {% if inbox.isEmpty %}
     <div class="lp-empty-state">
@@ -19,39 +23,49 @@
     {% else %}
         {% for group in inbox.groups %}
         {% set projectInbox = path('app_project_inbox', {id: group.project.id}) %}
-        <section class="lp-inbox-section" data-account-inbox-project="{{ group.project.id }}">
+        <section class="lp-account-inbox-project" data-account-inbox-project="{{ group.project.id }}" aria-labelledby="account-inbox-project-{{ group.project.id }}">
             <header class="lp-account-inbox-project__head">
-                <h2 class="lp-account-inbox-project__title"><a class="lp-account-inbox-project__link" href="{{ projectInbox }}">{{ group.project.name }}</a></h2>
-                <span class="lp-account-inbox-project__count" data-account-inbox-open-count>{{ 'inbox.account.project.open_items'|trans({'%count%': group.openItemCount}) }}</span>
+                <span class="lp-account-inbox-project__avatar" aria-hidden="true">{{ group.project.name|slice(0, 1)|upper }}</span>
+                <h2 class="lp-account-inbox-project__title" id="account-inbox-project-{{ group.project.id }}"><a class="lp-account-inbox-project__link" href="{{ projectInbox }}">{{ group.project.name }}</a></h2>
+                <span class="lp-tabs__count" data-account-inbox-open-count>{{ 'inbox.account.project.open_items'|trans({'%count%': group.openItemCount}) }}</span>
+                <a class="lp-btn lp-btn--sm lp-account-inbox-project__open" href="{{ projectInbox }}">{{ 'inbox.account.project.open'|trans }}<twig:ux:icon name="lucide:arrow-right" class="w-4 h-4" /></a>
             </header>
-            {% for ask in group.openAsks %}
-            <section class="lp-inbox-ask" data-inbox-ask-id="{{ ask.id }}">
-                <header class="lp-inbox-ask__head">
-                    {% include '@Inbox/_agent_presence.html.twig' with {ask: ask, bridge: inbox.bridgeStatus(ask)} only %}
-                    <span class="lp-inbox-ask__source">{{ 'inbox.source.agent'|trans }}</span>
-                    <span class="lp-inbox-ask__time">{{ ask.createdAt|relative_time }}</span>
-                    <a class="lp-inbox-ask__link" href="{{ projectInbox }}#inbox-ask-{{ ask.id }}" data-account-inbox-ask-link>{{ 'inbox.account.ask.open'|trans }}</a>
-                </header>
-                {% if ask.context|trim is not empty %}
-                    {# Agent Markdown, rendered and sanitized the way a card body is. #}
-                    <div class="prose lp-prose lp-inbox-ask__context">{{ ask.context|inbox_markdown }}</div>
-                {% endif %}
-                <div class="lp-inbox-ask__items">
-                    {% for link in ask.items %}
-                        {% include '@Inbox/_account_inbox_item.html.twig' with {item: link.item, href: null} only %}
-                    {% endfor %}
-                </div>
-            </section>
-            {% endfor %}
-            {% if group.looseItems|length > 0 %}
-            <div class="lp-inbox-ask__items" data-account-inbox-loose>
-                <p class="lp-inbox-section__note">{{ 'inbox.section.loose_items_note'|trans }}</p>
-                {# The project page gives an item its own anchor only outside every open ask, which holds for these. #}
-                {% for item in group.looseItems %}
-                    {% include '@Inbox/_account_inbox_item.html.twig' with {item: item, href: projectInbox ~ '#inbox-item-' ~ item.number} only %}
+            <div class="lp-account-inbox-project__list">
+                {% for ask in group.openAsks %}
+                {% set items = ask.items|map(link => link.item) %}
+                {% set openItems = items|filter(item => item.state.value == 'open') %}
+                <article class="lp-account-ask" data-inbox-ask-id="{{ ask.id }}" aria-labelledby="account-ask-{{ ask.id }}">
+                    <header class="lp-account-ask__byline">
+                        {% include '@Inbox/_agent_presence.html.twig' with {ask: ask, bridge: inbox.bridgeStatus(ask)} only %}
+                        <strong>{{ 'inbox.source.agent'|trans }}</strong>
+                        <time datetime="{{ ask.createdAt|date('c') }}">{{ ask.createdAt|relative_time }}</time>
+                        {% if openItems|filter(item => item.blocking)|length > 0 %}<span class="lp-inbox-item__blocking">{{ 'inbox.item.blocking'|trans }}</span>{% endif %}
+                    </header>
+                    {# An ask stores no title. Its first item names it, as the project inbox does. #}
+                    <h3 class="lp-account-ask__title" id="account-ask-{{ ask.id }}">{{ (items|first).title }}</h3>
+                    {% if ask.context|trim is not empty %}
+                        <p class="lp-account-ask__context">{{ ask.context|inbox_plain_text }}</p>
+                    {% endif %}
+                    <ul class="lp-account-ask__items">
+                        {% for item in items %}
+                            {% include '@Inbox/_account_inbox_item.html.twig' with {item: item, href: null, showTitle: items|length > 1} only %}
+                        {% endfor %}
+                    </ul>
+                    <a class="lp-text-link lp-account-ask__link" href="{{ projectInbox }}#inbox-ask-{{ ask.id }}" data-account-inbox-ask-link>{{ 'inbox.account.ask.open'|trans }}<twig:ux:icon name="lucide:arrow-right" /></a>
+                </article>
                 {% endfor %}
+                {% if group.looseItems|length > 0 %}
+                <div class="lp-account-inbox-project__loose" data-account-inbox-loose>
+                    <p class="lp-account-inbox-project__note">{{ 'inbox.section.loose_items_note'|trans }}</p>
+                    {# The project page gives an item its own anchor only outside every open ask, which holds for these. #}
+                    <ul class="lp-account-ask__items">
+                        {% for item in group.looseItems %}
+                            {% include '@Inbox/_account_inbox_item.html.twig' with {item: item, href: projectInbox ~ '#inbox-item-' ~ item.number, showTitle: true} only %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
             </div>
-            {% endif %}
         </section>
         {% endfor %}
     {% endif %}
