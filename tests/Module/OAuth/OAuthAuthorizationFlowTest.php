@@ -112,6 +112,41 @@ final class OAuthAuthorizationFlowTest extends WebTestCase
         self::assertSame('invalid_grant', $afterRevoke['error']);
     }
 
+    /**
+     * A session that has double-submitted once must double-submit on every later
+     * stateless form. An Allow click that lands before the CSRF script loads
+     * sends no double-submit, so the consent form must not use a stateless token.
+     */
+    public function test_consent_works_before_the_csrf_script_has_loaded(): void
+    {
+        $this->browser->loginUser($this->user);
+        $crawler = $this->browser->request(Request::METHOD_GET, $this->scenario->authorizeUrl());
+        $session = $this->browser->getRequest()->getSession();
+        $session->set('csrf-token', 2 | (2 << 8));
+        $session->save();
+
+        $this->browser->submit($crawler->selectButton('consent_form_approve')->form([
+            'consent_form[project]' => (string) $this->project->id,
+        ]));
+
+        self::assertResponseRedirects();
+        self::assertNotEmpty(OAuthScenario::redirectQuery((string) $this->browser->getResponse()->headers->get('Location'))['code'] ?? null);
+    }
+
+    public function test_consent_refuses_a_forged_csrf_token(): void
+    {
+        $this->browser->loginUser($this->user);
+        $crawler = $this->browser->request(Request::METHOD_GET, $this->scenario->authorizeUrl());
+        $form = $crawler->selectButton('consent_form_approve')->form();
+        $values = $form->getPhpValues();
+        $values['consent_form']['project'] = (string) $this->project->id;
+        $values['consent_form']['_token'] = str_repeat('a', 43);
+        $this->browser->request(Request::METHOD_POST, $form->getUri(), $values);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(0, $this->countRows('oauth2_authorization_code'));
+    }
+
     public function test_a_static_token_still_authenticates_beside_oauth(): void
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);

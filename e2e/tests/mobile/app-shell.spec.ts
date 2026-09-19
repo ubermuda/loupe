@@ -177,8 +177,6 @@ test('the sidebar stays in flow above the 780px shell breakpoint', async ({
 test('account panels fit narrow screens and enlarged text', async ({
     page,
 }) => {
-    // 24 page loads: five widths and 200% text across four sections.
-    test.slow();
     const sections = [
         { path: '/account/profile', panelCount: 1 },
         { path: '/account/api-tokens', panelCount: 1 },
@@ -188,10 +186,11 @@ test('account panels fit narrow screens and enlarged text', async ({
     const panels = page.locator(
         '.lp-settings-content > section:not([data-testid="billing-section"])',
     );
-    for (const width of [1440, 1150, 950, 780, 390]) {
-        await page.setViewportSize({ width, height: 1000 });
-        for (const { path, panelCount } of sections) {
-            await page.goto(path);
+    // One load per page: a resize reflows the layout without a reload.
+    for (const { path, panelCount } of sections) {
+        await page.goto(path);
+        for (const width of [1440, 1150, 950, 780, 390]) {
+            await page.setViewportSize({ width, height: 1000 });
             await expect(panels).toHaveCount(panelCount);
             for (const panel of await panels.all()) {
                 const bounds = (await panel.boundingBox())!;
