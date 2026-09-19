@@ -8,11 +8,22 @@
         <twig:UX:Icon name="lucide:plug" class="w-5 h-5" aria-hidden="true" />
     </div>
     <div>
-        <h1 class="lp-consent__title">{{ 'oauth.consent.heading'|trans({'%client%': view.clientName}) }}</h1>
+        <h1 class="lp-consent__title">{{ 'oauth.consent.heading'|trans({'%client%': view.clientHost ?? view.clientName}) }}</h1>
         <p class="lp-consent__lead">{{ 'oauth.consent.signed_in_as'|trans({'%email%': app.user.userIdentifier}) }}</p>
     </div>
 
     <dl class="lp-consent__facts">
+        {% if view.clientHost is not null %}
+        <div class="lp-consent__fact">
+            <dt class="lp-eyebrow">{{ 'oauth.consent.client_host.label'|trans }}</dt>
+            <dd class="lp-consent__value lp-consent__value--mono" data-testid="oauth-consent-client-host">{{ view.clientHost }}</dd>
+        </div>
+        <div class="lp-consent__fact">
+            <dt class="lp-eyebrow">{{ 'oauth.consent.client_name.label'|trans }}</dt>
+            <dd class="lp-consent__value" data-testid="oauth-consent-client-name">{{ view.clientName }}</dd>
+            <dd class="lp-connect-hint">{{ 'oauth.consent.client_name.unverified'|trans }}</dd>
+        </div>
+        {% endif %}
         <div class="lp-consent__fact">
             <dt class="lp-eyebrow">{{ 'oauth.consent.scope.label'|trans }}</dt>
             <dd class="lp-consent__value" data-testid="oauth-consent-scope">{{ ('oauth.consent.scope.' ~ view.scope.value|replace({'-': '_'}))|trans }}</dd>

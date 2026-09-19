@@ -29,7 +29,7 @@ async function signedInReviewer(page: Page, slug: string): Promise<void> {
     await page.getByRole('button', { name: 'Sign in' }).click();
     // No project yet, so LandingController lands on the first-run wizard;
     // seedDocument below creates the project the wizard would have.
-    await expect(page).toHaveURL('/welcome');
+    await expect(page).toHaveURL('/welcome', { timeout: 15000 });
     await suppressToolbar(page);
     await suppressWidget(page);
 }

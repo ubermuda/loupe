@@ -26,6 +26,7 @@ security:
             custom_authenticators:
                 - App\Module\Account\Security\ApiTokenAuthenticator
                 - App\Module\OAuth\Security\OAuthAccessTokenAuthenticator
+            access_denied_handler: App\Module\OAuth\Security\McpAccessDeniedHandler
         api:
             pattern: ^/api
             stateless: true

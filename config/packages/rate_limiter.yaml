@@ -63,6 +63,14 @@ framework:
             limit: 60
             interval: '1 minute'
 
+        # Bounds Client ID Metadata Document fetches, each an outbound request
+        # made inline in the authorize request. Keyed per signed-in user; a
+        # cached document costs nothing.
+        oauth_client_metadata_fetch:
+            policy: 'sliding_window'
+            limit: 20
+            interval: '10 minutes'
+
         # Bounds subscriber-cookie renewals from open pages. A page renews once
         # before each reconnect, with backoff, so a real page stays far below
         # this. Keyed per signed-in user, because the route requires one.
@@ -89,6 +97,10 @@ when@dev:
                 policy: 'sliding_window'
                 limit: 100000
                 interval: '1 minute'
+            oauth_client_metadata_fetch:
+                policy: 'sliding_window'
+                limit: 100000
+                interval: '1 minute'
 
 when@test:
     framework:
@@ -102,6 +114,10 @@ when@test:
                 limit: 100000
                 interval: '1 minute'
             oauth_token:
+                policy: 'sliding_window'
+                limit: 100000
+                interval: '1 minute'
+            oauth_client_metadata_fetch:
                 policy: 'sliding_window'
                 limit: 100000
                 interval: '1 minute'

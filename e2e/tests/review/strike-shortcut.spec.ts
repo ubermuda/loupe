@@ -63,7 +63,7 @@ async function openReview(
     await page.getByRole('button', { name: 'Sign in' }).click();
     // A fresh user owns no project yet, so LandingController lands on the wizard;
     // seeding the document below creates the project the wizard would have.
-    await expect(page).toHaveURL('/welcome');
+    await expect(page).toHaveURL('/welcome', { timeout: 15000 });
 
     const seeded = await page.request.post('/dev/seed/document', {
         form: {

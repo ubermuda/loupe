@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\OAuth\Command;
 
+use App\Module\OAuth\ClientMetadata\ClientIdUrl;
+use App\Module\OAuth\Repository\ClientMetadataDocumentRepository;
 use App\Module\OAuth\Scope\GrantedScope;
 use App\Module\OAuth\Service\RedirectUris;
 use App\Module\Project\Repository\ProjectRepository;
@@ -12,6 +14,7 @@ final readonly class ShowConsentHandler
 {
     public function __construct(
         private ProjectRepository $projects,
+        private ClientMetadataDocumentRepository $clientMetadataDocuments,
     ) {
     }
 
@@ -21,8 +24,11 @@ final readonly class ShowConsentHandler
         $registered = (array) $client->getRedirectUri();
         $redirectUri = $command->authorizationRequest->getRedirectUri() ?? (string) ($registered[0] ?? '');
 
+        $document = $this->clientMetadataDocuments->find($client->getIdentifier());
+
         return new ConsentView(
             clientName: $client->getName(),
+            clientHost: null === $document ? null : ClientIdUrl::parse($document->url)?->host,
             scope: $command->scope,
             needsProject: GrantedScope::needsProject($command->scope),
             redirectOrigin: RedirectUris::origin($redirectUri),
