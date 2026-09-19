@@ -587,21 +587,19 @@ for (const surface of ['page', 'drawer']) {
         await expect(question.getByLabel('Reply to this thread')).toHaveCount(
             0,
         );
-        await question.locator('.lp-inbox-decline__summary').click();
+        // Decline carries whatever stands in the item's own answer field.
         await question
-            .getByLabel('A note for the agent (optional)')
+            .getByLabel('Your answer')
             .fill('Wait for the new importer.');
         if (surface === 'drawer') {
             await drawer.getByRole('link', { name: 'Close card' }).click();
             await expect(drawer).toBeHidden();
             await page.getByRole('link', { name: /Ship the export/ }).click();
             await drawer.getByRole('tab', { name: 'Conversation' }).click();
-            await expect(
-                question.getByLabel('A note for the agent (optional)'),
-            ).toBeVisible();
-            await expect(
-                question.getByLabel('A note for the agent (optional)'),
-            ).toHaveValue('Wait for the new importer.');
+            await expect(question.getByLabel('Your answer')).toBeVisible();
+            await expect(question.getByLabel('Your answer')).toHaveValue(
+                'Wait for the new importer.',
+            );
         }
         await question
             .getByRole('button', { name: 'Decline this item' })

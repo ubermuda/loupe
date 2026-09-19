@@ -1,7 +1,7 @@
 /**
  * Browser coverage for the project inbox: the owner answers a question by
  * picking an option, which the answer controller copies into the hidden field,
- * and declines a to-do with a note. Both are read back after the redirect.
+ * and declines a to-do. Both are read back after the redirect.
  */
 
 import {
@@ -293,23 +293,13 @@ test('the owner answers a question and declines a to-do', async ({
 
     await question.getByText('CSV', { exact: true }).click();
     await question.getByLabel('Your answer').fill('An unsent correction.');
-    await question.locator('.lp-inbox-decline__summary').click();
-    await question
-        .getByLabel('A note for the agent (optional)')
-        .fill('An unsent decline note.');
 
+    // A to-do takes no prose, so its decline carries no note.
     const todo = page.locator(`#inbox-item-${inbox.todoNumber}`);
-    await todo.getByText('Decline', { exact: true }).click();
-    await todo
-        .getByLabel('A note for the agent (optional)')
-        .fill('Someone else reviews this one.');
     await todo.getByRole('button', { name: 'Decline this item' }).click();
 
     await expect(page.locator('.lp-flash')).toContainText(
         `Item ${inbox.todoNumber} is declined.`,
-    );
-    await expect(todo.locator('[data-inbox-response]')).toContainText(
-        'Someone else reviews this one.',
     );
     await expect(todo).toContainText('Declined');
     await expect(sidebarPill).toHaveCount(0);
@@ -323,16 +313,6 @@ test('the owner answers a question and declines a to-do', async ({
     );
     await recovery.getByRole('button', { name: 'Discard draft' }).click();
     await expect(recovery).toBeHidden();
-    await expect(question.getByRole('heading')).toBeFocused();
-    const declineRecovery = question.locator(
-        '[data-inbox-draft-kind="decline"]',
-    );
-    await expect(declineRecovery).toBeVisible();
-    await expect(declineRecovery).toContainText('An unsent decline note.');
-    await declineRecovery
-        .getByRole('button', { name: 'Discard draft' })
-        .click();
-    await expect(declineRecovery).toBeHidden();
     await expect(question.getByRole('heading')).toBeFocused();
 
     await page.reload();

@@ -264,6 +264,8 @@ final class ShowInboxControllerTest extends WebTestCase
         self::assertStringContainsString('without an answer', $block->filter('#inbox-item-12 [data-inbox-decline-hint]')->text());
         // Decline sits in the response row, and carries the note field's text.
         self::assertCount(1, $block->filter('#inbox-item-12 .lp-inbox-item__buttons button[form="inbox_decline_'.$question->id.'"]'));
+        // The button names the form by id, so the form must carry that id.
+        self::assertCount(1, $block->filter('form#inbox_decline_'.$question->id.'[action$="/decline"]'));
         self::assertCount(1, $block->filter('#inbox-item-12 input[type="hidden"][name="inbox_decline_'.$question->id.'[closeNote]"]'));
         self::assertCount(0, $block->filter('script'));
         self::assertSame('item 12', $block->filter('#inbox-item-12 .lp-inbox-item__number')->text());
