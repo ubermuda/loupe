@@ -172,6 +172,18 @@
     --color-status-danger-chip: var(--status-danger-chip);
     --color-status-active: var(--status-active);
     --color-status-active-bg: var(--status-active-bg);
+    --color-tone-teal: var(--tone-teal);
+    --color-tone-teal-bg: var(--tone-teal-bg);
+    --color-tone-sky: var(--tone-sky);
+    --color-tone-sky-bg: var(--tone-sky-bg);
+    --color-tone-blue: var(--tone-blue);
+    --color-tone-blue-bg: var(--tone-blue-bg);
+    --color-tone-indigo: var(--tone-indigo);
+    --color-tone-indigo-bg: var(--tone-indigo-bg);
+    --color-tone-pink: var(--tone-pink);
+    --color-tone-pink-bg: var(--tone-pink-bg);
+    --color-tone-orange: var(--tone-orange);
+    --color-tone-orange-bg: var(--tone-orange-bg);
     --color-strike: var(--strike);
     --color-strike-on-chrome: var(--strike-on-chrome);
 
@@ -266,6 +278,19 @@
     /* Purple rung: running and in-progress work, and card or column labels. */
     --status-active: #984482;
     --status-active-bg: #f3e8f1;
+    /* More label hues for board columns: a pale fill with an ink at WCAG AA or better. */
+    --tone-teal: #1f6f65;
+    --tone-teal-bg: #e3f4f1;
+    --tone-sky: #1d6a8f;
+    --tone-sky-bg: #e4f2fa;
+    --tone-blue: #2f58b0;
+    --tone-blue-bg: #e8eefb;
+    --tone-indigo: #4a45a8;
+    --tone-indigo-bg: #ecebfa;
+    --tone-pink: #a8325f;
+    --tone-pink-bg: #fbe8ef;
+    --tone-orange: #a14a14;
+    --tone-orange-bg: #fdede2;
 
     /* Ink dark enough to sit on the -border rung, which the design uses as a
        solid chip fill (Approved, Changes requested) as well as a hairline. The
@@ -1239,6 +1264,24 @@
     .lp-tag--red {
         @apply bg-status-danger-bg text-status-danger-deep;
     }
+    .lp-tag--teal {
+        @apply bg-tone-teal-bg text-tone-teal;
+    }
+    .lp-tag--sky {
+        @apply bg-tone-sky-bg text-tone-sky;
+    }
+    .lp-tag--blue {
+        @apply bg-tone-blue-bg text-tone-blue;
+    }
+    .lp-tag--indigo {
+        @apply bg-tone-indigo-bg text-tone-indigo;
+    }
+    .lp-tag--pink {
+        @apply bg-tone-pink-bg text-tone-pink;
+    }
+    .lp-tag--orange {
+        @apply bg-tone-orange-bg text-tone-orange;
+    }
     /* The column header's colour mark, in the same tone as its labels. */
     .lp-tone-dot {
         @apply inline-block size-2 shrink-0 rounded-full bg-fg-faint;
@@ -1257,6 +1300,31 @@
     }
     .lp-tone-dot--red {
         @apply bg-status-danger;
+    }
+    .lp-tone-dot--teal {
+        @apply bg-tone-teal;
+    }
+    .lp-tone-dot--sky {
+        @apply bg-tone-sky;
+    }
+    .lp-tone-dot--blue {
+        @apply bg-tone-blue;
+    }
+    .lp-tone-dot--indigo {
+        @apply bg-tone-indigo;
+    }
+    .lp-tone-dot--pink {
+        @apply bg-tone-pink;
+    }
+    .lp-tone-dot--orange {
+        @apply bg-tone-orange;
+    }
+    /* The colour picker: each choice shows its tone's dot beside its name. */
+    .lp-tone-picker {
+        @apply grid grid-cols-2 gap-2 sm:grid-cols-3;
+    }
+    .lp-tone-picker .lp-tone-dot {
+        @apply size-3;
     }
 
     /* A series chip carries a position, so it reads in the accent ink to

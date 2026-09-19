@@ -51,22 +51,10 @@ class BoardColumn
         /** The column a card created with no column lands in. */
         #[ORM\Column]
         public bool $isDefault = false,
+
+        /** The column's label colour. The database default lets older migrations insert rows without it. */
+        #[ORM\Column(length: 20, enumType: LabelTone::class, options: ['default' => 'neutral'])]
+        public LabelTone $tone = LabelTone::Neutral,
     ) {
-    }
-
-    /**
-     * A column stores no colour, so it takes one from its role and its place:
-     * reordering the board recolours the middle columns.
-     */
-    public function tone(): LabelTone
-    {
-        if ($this->terminal) {
-            return LabelTone::Green;
-        }
-        if ($this->isDefault) {
-            return LabelTone::Neutral;
-        }
-
-        return [LabelTone::Lime, LabelTone::Purple, LabelTone::Amber][(($this->position - 1) % 3 + 3) % 3];
     }
 }

@@ -53,9 +53,9 @@ Another reader of the board sees no column controls.
 Open **Board settings** to manage columns beside the other project settings.
 The **Board columns** section lists the columns in order. Each row has
 **Move up** and **Move down** arrows, a gear button, and a delete button. The
-gear opens a dialog with the column name, **Default for new cards**, and
-**A finishing point for completed work**. **Save column** saves the three
-together, so one save can move the default flag to a terminal column and clear
+gear opens a dialog with the column name, **Default for new cards**,
+**A finishing point for completed work**, and **Colour**. **Save column** saves
+them together, so one save can move the default flag to a terminal column and clear
 its terminal flag. Each action returns to this section. The board header menus
 remain available.
 
@@ -65,7 +65,9 @@ A refused configure keeps your draft in its dialog. Copy it before you reload.
 A refused reorder shows the current order with an error message.
 
 The owner adds a column with **Add a column** in board settings. A new column
-is neither terminal nor the default. The owner drags a column header by its grip
+is neither terminal nor the default. The dialog preselects a colour that no
+other column on the board uses, and the owner can pick another before saving.
+When every colour is in use, Loupe picks one at random. The owner drags a column header by its grip
 to reorder the columns. Board settings shows a **Default** or **Terminal** badge
 on a flagged column.
 
@@ -175,10 +177,8 @@ number, its title, its type, how many pull requests it links to, and how many
 review comments still wait on it.
 
 Each card type and each column has a colour, and every page that names one uses
-the same colour. A column takes its colour from its role and its place. The
-default column is grey, a terminal column is green, and the columns between
-them take lime, purple and amber in board order. Reordering the columns
-therefore changes the colours of the columns in the middle.
+the same colour. The owner picks a column's colour from twelve in its
+**Colour** setting. The colour stays with the column when the columns move.
 
 Board settings and Add card stack when their labels need more space.
 

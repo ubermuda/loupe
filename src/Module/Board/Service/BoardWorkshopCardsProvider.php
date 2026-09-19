@@ -34,7 +34,7 @@ final readonly class BoardWorkshopCardsProvider implements WorkshopCardsProvider
                 $card->title,
                 $this->urls->generate('app_board_card', ['projectId' => (string) $project->id, 'cardId' => (string) $card->id]),
                 $card->column->label,
-                $card->column->tone()->value,
+                $card->column->tone->value,
             );
         }
 

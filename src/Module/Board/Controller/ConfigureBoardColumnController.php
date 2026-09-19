@@ -62,6 +62,7 @@ final class ConfigureBoardColumnController extends AppController
                     expectedLabel: $data->expectedLabel ?? '',
                     expectedDefaultId: $data->expectedDefaultId ?? '',
                     expectedTerminal: '1' === $data->expectedTerminal,
+                    tone: $data->tone,
                 ));
 
                 return $this->redirectToRoute('app_board_settings', ['id' => (string) $project->id]);

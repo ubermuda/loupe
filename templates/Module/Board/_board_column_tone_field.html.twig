@@ -1,0 +1,13 @@
+<fieldset class="lp-form-field">
+    <legend class="lp-label">{{ field.vars.label|trans }}</legend>
+    <div class="lp-tone-picker">
+        {% for choice in field %}
+        <label class="lp-choice">
+            {{ form_widget(choice) }}
+            <span class="lp-tone-dot lp-tone-dot--{{ choice.vars.value }}" aria-hidden="true"></span>
+            {{ choice.vars.label|trans }}
+        </label>
+        {% endfor %}
+    </div>
+    <div class="lp-field-errors" data-field-errors="tone">{{ form_errors(field) }}</div>
+</fieldset>

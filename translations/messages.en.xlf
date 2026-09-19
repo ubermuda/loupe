@@ -5222,6 +5222,62 @@
                 <source>board.form.configure_board_column_form.terminal.label</source>
                 <target>A finishing point for completed work</target>
             </trans-unit>
+            <trans-unit id="board.form.configure_board_column_form.tone.label">
+                <source>board.form.configure_board_column_form.tone.label</source>
+                <target>Colour</target>
+            </trans-unit>
+            <trans-unit id="board.form.add_board_column_form.tone.label">
+                <source>board.form.add_board_column_form.tone.label</source>
+                <target>Colour</target>
+            </trans-unit>
+            <trans-unit id="board.form.board_column_tone.choice.neutral">
+                <source>board.form.board_column_tone.choice.neutral</source>
+                <target>Grey</target>
+            </trans-unit>
+            <trans-unit id="board.form.board_column_tone.choice.lime">
+                <source>board.form.board_column_tone.choice.lime</source>
+                <target>Lime</target>
+            </trans-unit>
+            <trans-unit id="board.form.board_column_tone.choice.purple">
+                <source>board.form.board_column_tone.choice.purple</source>
+                <target>Purple</target>
+            </trans-unit>
+            <trans-unit id="board.form.board_column_tone.choice.green">
+                <source>board.form.board_column_tone.choice.green</source>
+                <target>Green</target>
+            </trans-unit>
+            <trans-unit id="board.form.board_column_tone.choice.amber">
+                <source>board.form.board_column_tone.choice.amber</source>
+                <target>Amber</target>
+            </trans-unit>
+            <trans-unit id="board.form.board_column_tone.choice.red">
+                <source>board.form.board_column_tone.choice.red</source>
+                <target>Red</target>
+            </trans-unit>
+            <trans-unit id="board.form.board_column_tone.choice.teal">
+                <source>board.form.board_column_tone.choice.teal</source>
+                <target>Teal</target>
+            </trans-unit>
+            <trans-unit id="board.form.board_column_tone.choice.sky">
+                <source>board.form.board_column_tone.choice.sky</source>
+                <target>Sky</target>
+            </trans-unit>
+            <trans-unit id="board.form.board_column_tone.choice.blue">
+                <source>board.form.board_column_tone.choice.blue</source>
+                <target>Blue</target>
+            </trans-unit>
+            <trans-unit id="board.form.board_column_tone.choice.indigo">
+                <source>board.form.board_column_tone.choice.indigo</source>
+                <target>Indigo</target>
+            </trans-unit>
+            <trans-unit id="board.form.board_column_tone.choice.pink">
+                <source>board.form.board_column_tone.choice.pink</source>
+                <target>Pink</target>
+            </trans-unit>
+            <trans-unit id="board.form.board_column_tone.choice.orange">
+                <source>board.form.board_column_tone.choice.orange</source>
+                <target>Orange</target>
+            </trans-unit>
             <trans-unit id="board.form.delete_board_column_form.target.label">
                 <source>board.form.delete_board_column_form.target.label</source>
                 <target>Move the cards to</target>

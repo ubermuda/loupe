@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Module\Board\Form;
 
+use App\Module\Board\Entity\LabelTone;
+
 final class ConfigureBoardColumnRequest extends RenameBoardColumnRequest
 {
     public function __construct(
@@ -13,7 +15,9 @@ final class ConfigureBoardColumnRequest extends RenameBoardColumnRequest
         public bool $terminal = false,
         public ?string $expectedDefaultId = null,
         public ?string $expectedTerminal = null,
+        ?LabelTone $tone = null,
     ) {
         parent::__construct($label, $expectedLabel);
+        $this->tone = $tone;
     }
 }

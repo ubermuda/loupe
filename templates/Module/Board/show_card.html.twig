@@ -23,6 +23,7 @@
             <span class="lp-card-drawer__icon"><twig:ux:icon name="lucide:layout-list" class="w-4 h-4" /></span>
             <span class="lp-card-number">#{{ card.number }}</span>
             {% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}
+            {% include '@Board/_column_tag.html.twig' with {column: card.column} only %}
         </div>
         <div class="lp-card-drawer__header-actions">
             <a class="lp-btn lp-btn--ghost" href="{{ path('app_board_card_edit', {projectId: card.project.id, cardId: card.id}) }}"><twig:ux:icon name="lucide:pencil" class="w-4 h-4" />{{ 'board.card.edit.action'|trans }}</a>
