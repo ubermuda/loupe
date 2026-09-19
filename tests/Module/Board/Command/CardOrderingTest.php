@@ -169,6 +169,20 @@ final class CardOrderingTest extends KernelTestCase
         self::assertSame(1, $mover->position);
     }
 
+    public function test_a_card_from_another_column_lands_at_the_rank_the_drop_chose(): void
+    {
+        $first = $this->card('Already first', 'next');
+        $second = $this->card('Already second', 'next');
+        $mover = $this->card('Moving on');
+
+        ($this->moveCard)(new MoveCardCommand($mover, CardReporter::Human, $this->column($this->project, 'next'), 1));
+
+        self::assertSame('next', $mover->column->slug);
+        self::assertSame(0, $first->position);
+        self::assertSame(1, $mover->position);
+        self::assertSame(2, $second->position);
+    }
+
     public function test_a_move_out_of_a_column_closes_the_gap_it_leaves(): void
     {
         $first = $this->card('First');

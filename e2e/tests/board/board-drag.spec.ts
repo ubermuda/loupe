@@ -303,6 +303,26 @@ test('a drag into another column moves the card there, and it survives a reload'
     expect(await titlesIn(page, BACKLOG)).toEqual(['Bravo']);
 });
 
+test('a drag into another column lands where the marker stood', async ({
+    page,
+    board,
+}) => {
+    // Bravo goes to Next first, so Alpha has somewhere to land above it.
+    let written = movePosted(page);
+    await dragCardTo(page, 'Bravo', await centreOfGroup(page, NEXT));
+    await written;
+    await expect.poll(() => titlesIn(page, NEXT)).toEqual(['Bravo']);
+
+    written = movePosted(page);
+    await dragCardTo(page, 'Alpha', await topEdgeOf(page, 'Bravo'));
+    await written;
+
+    await expect.poll(() => titlesIn(page, NEXT)).toEqual(['Alpha', 'Bravo']);
+    await page.goto(board.boardUrl);
+    await waitForDragReady(page);
+    expect(await titlesIn(page, NEXT)).toEqual(['Alpha', 'Bravo']);
+});
+
 test('the dragged card stays under the pointer on a scrolled board, and a ghost holds its slot', async ({
     page,
 }) => {
@@ -393,15 +413,15 @@ test("the card's own page moves it without a pointer", async ({
     board,
 }) => {
     // The board face offers dragging and nothing else, so the keyboard path to
-    // the same endpoint is the form on the card page.
+    // the same endpoint is the column select on the card's Details tab. It
+    // moves the card as soon as the value changes.
     await page.locator(CARD + '[data-card-title="Bravo"] a').click();
-    await expect(page.getByRole('button', { name: 'Move card' })).toBeVisible();
-
+    await page.getByRole('tab', { name: 'Details', exact: true }).click();
     const moveForm = page.locator('.lp-card-move__form');
+    await expect(moveForm).toBeVisible();
     await moveForm.locator('select[name$="[column]"]').selectOption({
         label: 'Next',
     });
-    await moveForm.getByRole('button', { name: 'Move card' }).click();
 
     await expect(page).toHaveURL(board.boardUrl);
     await waitForDragReady(page);

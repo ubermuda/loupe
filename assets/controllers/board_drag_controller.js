@@ -157,13 +157,12 @@ export default class extends Controller {
     /**
      * Puts the drop marker where a release at this point would land the card.
      *
-     * A card that leaves its column takes the end of the one it joins, whatever
-     * the pointer is over: the handler appends it there. Marking an insertion
-     * point it will not honour would promise an order the answer then
-     * contradicts.
+     * A terminal column sorts by completion and keeps no rank, so a card
+     * dropped there takes the end whatever the pointer is over. Every other
+     * column honours the marker, in its own column and across columns alike.
      */
     markPlaceIn(group, clientY) {
-        if (group !== this.originGroup) {
+        if ('1' !== group.dataset.rankable) {
             group.append(this.placeholder);
 
             return;
@@ -253,13 +252,11 @@ export default class extends Controller {
         }
 
         const rankable = '1' === group.dataset.rankable;
-        const staysInColumn = group === origin.group;
 
         column.value = group.dataset.column;
-        // A rank is only sent for a move inside one column. The handler appends
-        // on every other move, so sending one would be a number it discards.
-        rank.value =
-            staysInColumn && rankable && position >= 0 ? String(position) : '';
+        // A terminal column keeps no rank, so it takes none. Every other column
+        // lands the card where the marker stood.
+        rank.value = rankable && position >= 0 ? String(position) : '';
 
         const finished = (event) => {
             form.removeEventListener('turbo:submit-end', finished);

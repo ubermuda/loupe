@@ -52,10 +52,11 @@ final readonly class CardMover
         } else {
             $card->completedAt = null;
 
-            if ($staysInColumn) {
+            if ($staysInColumn || null !== $position) {
                 // No target rank means the end of the column, which place()
                 // clamps to. Going through it rather than through
-                // nextPosition() is what stops the old rank becoming a gap.
+                // nextPosition() is what stops the old rank becoming a gap,
+                // and it ranks a card that arrives from another column.
                 $this->groupOrder->place($card, $position ?? self::END_OF_COLUMN);
             } else {
                 $card->position = $this->cards->nextPosition($column);
