@@ -4,7 +4,7 @@
 {% set reviewFormShown = false %}
 {% set actionParams = {projectId: item.project.id, itemId: item.id}|merge(inbox.actionQuery) %}
 {% set responseFrame = app.request.headers.get('Turbo-Frame') == 'card-drawer-frame' ? 'card-drawer-frame' : '_top' %}
-<article class="lp-inbox-item"{% if home %} id="inbox-item-{{ item.number }}"{% endif %} data-inbox-item="{{ item.number }}">
+<article data-controller="inbox-decline" class="lp-inbox-item"{% if home %} id="inbox-item-{{ item.number }}"{% endif %} data-inbox-item="{{ item.number }}">
     {# A request with one item wears its state on the list row beside it. #}
     {% if showHead ?? true %}
     <div class="lp-inbox-item__head">
@@ -99,7 +99,6 @@
         {% if item.kind.value == 'question' %}
             {% include '@Inbox/_response_draft.html.twig' with {kind: 'answer', key: item.id, options: item.options, title: 'inbox.answer.unsent'} only %}
         {% endif %}
-        {% include '@Inbox/_response_draft.html.twig' with {kind: 'decline', key: item.id ~ ':decline', options: [], title: 'inbox.decline.unsent'} only %}
         {% set refusals = inbox_refusals(item, refusedForm) %}
         {% if refusals|length > 0 %}
         <div class="lp-inbox-item__refusal" role="alert" data-inbox-refusal>
@@ -108,12 +107,14 @@
         {% endif %}
     {% endif %}
 
-    {# The forms and the replies of an item live at one place, which another
-       page or another queue can hold. A copy shows the way there, whether or
-       not the item still takes a response. #}
+    {# The forms of an item live at one place, which another page or another
+       queue can hold. A copy shows the way there, whether or not the item
+       still takes a response. #}
     {% if not home %}
         <a class="lp-inbox-item__jump" href="{{ path('app_project_inbox', {id: item.project.id, _fragment: 'inbox-item-' ~ item.number}) }}" data-turbo-frame="_top">{{ (inbox.acceptsResponse(item) ? 'inbox.item.respond_elsewhere' : 'inbox.item.thread_elsewhere')|trans({'%number%': item.number}) }}</a>
     {% elseif inbox.acceptsResponse(item) %}
+        {% set declineForm = inbox_decline_form(item, refusedForm) %}
+        {% set declineLabel = item.state.value == 'declined' ? 'inbox.decline.change' : 'inbox.decline.submit' %}
         <div class="lp-inbox-item__actions">
             {% if item.kind.value == 'question' %}
                 {% set answerForm = inbox_answer_form(item, refusedForm) %}
@@ -143,13 +144,14 @@
                     {% if item.freeText %}
                         <div class="lp-form-field">
                             {{ form_label(answerForm.answerText, null, {label_attr: {class: 'lp-label'}}) }}
-                            {{ form_widget(answerForm.answerText, {attr: {class: 'lp-input lp-inbox-answer__text', rows: 3, placeholder: 'inbox.answer.placeholder'|trans, 'data-form-draft-target': 'text', 'data-action': 'input->form-draft#remember'}}) }}
+                            {{ form_widget(answerForm.answerText, {attr: {class: 'lp-input lp-inbox-answer__text', rows: 3, placeholder: 'inbox.answer.placeholder'|trans, 'data-form-draft-target': 'text', 'data-inbox-decline-target': 'note', 'data-action': 'input->form-draft#remember'}}) }}
                             <div class="lp-field-errors">{{ form_errors(answerForm.answerText) }}</div>
                         </div>
                     {% endif %}
                     <div class="lp-field-errors">{{ form_errors(answerForm) }}</div>
                     {{ form_widget(answerForm._token) }}
                     <div class="lp-inbox-item__buttons">
+                        {% include '@Inbox/_decline_button.html.twig' with {formId: declineForm.vars.id, label: declineLabel} only %}
                         <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">
                             <twig:ux:icon name="lucide:send" class="w-4 h-4" />
                             {{ (open ? 'inbox.answer.submit' : 'inbox.answer.change')|trans }}
@@ -159,11 +161,11 @@
             {% elseif item.kind.value == 'review' %}
                 {% if review and review.targetKind.value == 'pull-request' and review.pullRequest and safe_pull_request_url(review.pullRequest.url) %}
                     {% set reviewFormShown = true %}
-                    {% include '@Inbox/_pull_request_review_form.html.twig' with {review: review, refusedForm: refusedForm, actionParams: actionParams, responseFrame: responseFrame} only %}
+                    {% include '@Inbox/_pull_request_review_form.html.twig' with {review: review, refusedForm: refusedForm, actionParams: actionParams, responseFrame: responseFrame, declineFormId: declineForm.vars.id, declineLabel: declineLabel} only %}
                 {% elseif review and review.document %}
                     {% if is_granted(constant('App\\Module\\Inbox\\Security\\InboxItemVoter::REVIEW_DOCUMENT'), item) %}
                         {% set reviewFormShown = true %}
-                        {% include '@Inbox/_document_review_form.html.twig' with {review: review, refusedForm: refusedForm, actionParams: actionParams, responseFrame: responseFrame} only %}
+                        {% include '@Inbox/_document_review_form.html.twig' with {review: review, refusedForm: refusedForm, actionParams: actionParams, responseFrame: responseFrame, declineFormId: declineForm.vars.id, declineLabel: declineLabel} only %}
                     {% else %}
                         <p role="status">{{ 'inbox.review.error.target_unavailable'|trans }}</p>
                     {% endif %}
@@ -179,29 +181,23 @@
                 {% set doneForm = inbox_done_form(item, refusedForm) %}
                 {{ form_start(doneForm, {action: path('app_inbox_item_done', actionParams), attr: {class: 'lp-inbox-done', 'data-turbo-frame': responseFrame}}) }}
                     <div class="lp-field-errors">{{ form_errors(doneForm) }}</div>
-                    <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">
-                        <twig:ux:icon name="lucide:check" class="w-4 h-4" />
-                        {{ 'inbox.done.submit'|trans }}
-                    </button>
+                    <div class="lp-inbox-item__buttons">
+                        {% include '@Inbox/_decline_button.html.twig' with {formId: declineForm.vars.id, label: declineLabel} only %}
+                        <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">
+                            <twig:ux:icon name="lucide:check" class="w-4 h-4" />
+                            {{ 'inbox.done.submit'|trans }}
+                        </button>
+                    </div>
                 {{ form_end(doneForm) }}
             {% endif %}
 
-            {% set declineForm = inbox_decline_form(item, refusedForm) %}
-                <details class="lp-inbox-decline"{{ refusedForm and refusedForm.vars.name == declineForm.vars.name ? ' open' }}>
-                    <summary class="lp-inbox-decline__summary">{{ (item.state.value == 'declined' ? 'inbox.decline.change' : 'inbox.decline.toggle')|trans }}</summary>
-                    <p class="lp-form-hint" data-inbox-decline-hint>{{ 'inbox.decline.hint'|trans }}</p>
-                    {{ form_start(declineForm, {action: path('app_inbox_item_decline', actionParams), attr: {class: 'lp-form lp-inbox-decline__form', 'data-controller': 'form-draft', 'data-form-draft-owner-value': app.user.id, 'data-form-draft-key-value': item.id ~ ':decline', 'data-action': 'submit->form-draft#start turbo:before-fetch-response->form-draft#response form-draft:cleared@document->form-draft#cleared', 'data-turbo-frame': responseFrame}}) }}
-                        <div class="lp-form-field">
-                            {{ form_label(declineForm.closeNote, null, {label_attr: {class: 'lp-label'}}) }}
-                            {{ form_widget(declineForm.closeNote, {attr: {class: 'lp-input', rows: 2, 'data-form-draft-target': 'text', 'data-action': 'input->form-draft#remember'}}) }}
-                            <div class="lp-field-errors">{{ form_errors(declineForm.closeNote) }}</div>
-                        </div>
-                        <div class="lp-field-errors">{{ form_errors(declineForm) }}</div>
-                        <div class="lp-inbox-item__buttons">
-                            <button type="submit" class="lp-btn lp-btn--outline lp-btn--sm">{{ 'inbox.decline.submit'|trans }}</button>
-                        </div>
-                    {{ form_end(declineForm) }}
-                </details>
+            {# The decline form carries the hidden note only. Its button sits in
+               the response row above, through the form attribute. #}
+            {{ form_start(declineForm, {action: path('app_inbox_item_decline', actionParams), attr: {class: 'lp-inbox-decline__form', 'data-turbo-frame': responseFrame}}) }}
+                {{ form_widget(declineForm.closeNote, {attr: {'data-inbox-decline-target': 'value'}}) }}
+                <div class="lp-field-errors">{{ form_errors(declineForm) }}{{ form_errors(declineForm.closeNote) }}</div>
+            {{ form_end(declineForm) }}
+            <p class="lp-form-hint" data-inbox-decline-hint>{{ 'inbox.decline.hint'|trans }}</p>
         </div>
     {% endif %}
     {% if home %}
@@ -212,6 +208,5 @@
                 fallbackNote: refusedForm.note is defined and inbox_refusals(item, refusedForm)|length > 0 ? refusedForm.note.vars.value : ''
             } only %}
         {% endif %}
-        {% include '@Inbox/_replies.html.twig' with {item: item, replies: inbox.replies.forItem(item), refusedForm: refusedForm, actionParams: actionParams, responseFrame: responseFrame} only %}
     {% endif %}
 </article>

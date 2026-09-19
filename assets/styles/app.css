@@ -6039,13 +6039,6 @@
     .lp-inbox-answer__clear {
         @apply mt-2;
     }
-    /* The reply composer: one field with its send button beside it. */
-    .lp-inbox-decline__summary {
-        @apply cursor-pointer select-none text-sm font-semibold text-fg-dim hover:text-ink;
-    }
-    .lp-inbox-decline__form {
-        @apply mt-2;
-    }
 
     /* ── Inbox section of a card or document page ───────────────────────
        The items linked to the page, open ones first. */

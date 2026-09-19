@@ -18,8 +18,8 @@
     </fieldset>
     <div class="lp-form-field">
         {{ form_label(form.note, null, {label_attr: {class: 'lp-label'}}) }}
-        {{ form_widget(form.note, {attr: {class: 'lp-input', rows: 3, 'data-form-draft-target': 'text', 'data-action': 'input->form-draft#remember'}}) }}
+        {{ form_widget(form.note, {attr: {class: 'lp-input', rows: 3, 'data-form-draft-target': 'text', 'data-inbox-decline-target': 'note', 'data-action': 'input->form-draft#remember'}}) }}
         <div class="lp-field-errors">{{ form_errors(form.note) }}</div>
     </div>
-    <div class="lp-inbox-item__buttons"><button type="submit" class="lp-btn lp-btn--primary">{{ 'inbox.review.submit'|trans }}</button></div>
+    <div class="lp-inbox-item__buttons">{% include '@Inbox/_decline_button.html.twig' with {formId: declineFormId, label: declineLabel} only %}<button type="submit" class="lp-btn lp-btn--primary">{{ 'inbox.review.submit'|trans }}</button></div>
 {{ form_end(form) }}
