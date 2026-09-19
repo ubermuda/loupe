@@ -18,6 +18,7 @@ final class ProjectExporterTest extends TestCase
         $user = new User('Alice A', 'alice@example.com', 'x');
         $project = new Project($user, 'My project', 'example.com', description: 'Review the customer portal.');
         $project->forwardsToAgent = true;
+        $project->allowedOrigins = ['https://staging.example.com'];
 
         /** @var ProjectRepository&Stub $repo */
         $repo = $this->createStub(ProjectRepository::class);
@@ -31,6 +32,7 @@ final class ProjectExporterTest extends TestCase
         self::assertSame('example.com', $rows[0]['domain']);
         self::assertSame('english', $rows[0]['searchLanguage']);
         self::assertTrue($rows[0]['forwardsToAgent']);
+        self::assertSame(['https://staging.example.com'], $rows[0]['allowedOrigins']);
         self::assertArrayHasKey('createdAt', $rows[0]);
         self::assertSame('projects.json', new ProjectExporter($repo)->filename());
     }
