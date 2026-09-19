@@ -891,6 +891,23 @@
     .lp-feedback-detail__section .lp-inbox-linked-table-wrap {
         @apply mt-0;
     }
+    /* Unlinked feedback leads with the two ways to give it a home, so neither
+       hides among the sections below. */
+    .lp-feedback-attach {
+        @apply flex flex-wrap items-center gap-3 mt-5 rounded-xl border border-accent-border bg-accent-soft px-5 py-4;
+    }
+    .lp-feedback-attach h3 {
+        @apply basis-full m-0 text-base font-bold text-ink;
+    }
+    .lp-feedback-attach p {
+        @apply basis-full m-0 -mt-2 text-sm text-fg-mute;
+    }
+    .lp-feedback-attach .lp-site-review-attach {
+        @apply flex flex-1 flex-wrap items-center gap-2 min-w-0;
+    }
+    .lp-feedback-attach__create {
+        @apply bg-surface-1;
+    }
     /* One captured element: what it said, then its selector behind a disclosure. */
     .lp-feedback-anchor {
         @apply mt-3 first-of-type:mt-0 rounded-lg border border-line bg-surface-2 p-4;

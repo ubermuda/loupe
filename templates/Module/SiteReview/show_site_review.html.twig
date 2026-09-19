@@ -122,25 +122,27 @@
                 </section>
                 {% elseif is_feature_enabled('board.enabled') %}
                 {% set attachForm = site_review_attach_form(comment) %}
-                <section class="lp-feedback-detail__section">
-                    <h3>{{ 'site_review.feedback.linked_work'|trans }}</h3>
-                    <p class="lp-feedback-detail__muted">{{ 'site_review.feedback.attach_hint'|trans }}</p>
+                <section class="lp-feedback-attach">
+                    <h3>{{ 'site_review.attach.title'|trans }}</h3>
+                    <p>{{ 'site_review.feedback.attach_hint'|trans }}</p>
                     {{ form_start(attachForm, {action: path('app_site_review_comment_attach', {projectId: project.id, commentId: comment.id}), attr: {class: 'lp-site-review-attach'}}) }}
                         {{ form_label(attachForm.card, null, {label_attr: {class: 'sr-only'}}) }}
                         {{ form_widget(attachForm.card, {attr: {class: 'lp-input lp-select'}}) }}
-                        <button type="submit" class="lp-btn">
+                        <button type="submit" class="lp-btn lp-btn--primary">
                             <twig:ux:icon name="lucide:link" class="w-4 h-4" />
                             {{ 'site_review.attach.submit'|trans }}
                         </button>
                     {{ form_end(attachForm) }}
+                    <a class="lp-btn lp-btn--sm lp-feedback-attach__create" href="{{ path('app_board_card_create', {id: project.id, feedback: comment.id}) }}">
+                        <twig:ux:icon name="lucide:plus" class="w-4 h-4" />
+                        {{ 'site_review.create_card.submit'|trans }}
+                    </a>
                 </section>
                 {% endif %}
 
                 <footer class="lp-feedback-detail__actions">
                     {% if cardLink %}
                     <a class="lp-btn" href="{{ path('app_board_card', {projectId: project.id, cardId: cardLink.card.id, tab: 'feedback'}) }}" data-turbo-frame="card-drawer-frame" data-action="click->card-drawer#prepare"><twig:ux:icon name="lucide:square-kanban" />{{ 'site_review.feedback.open_card'|trans({'%number%': cardLink.card.number}) }}</a>
-                    {% elseif is_feature_enabled('board.enabled') %}
-                    <a class="lp-btn lp-btn--ghost" href="{{ path('app_board_card_create', {id: project.id, feedback: comment.id}) }}"><twig:ux:icon name="lucide:plus" />{{ 'site_review.create_card.submit'|trans }}</a>
                     {% endif %}
                     {% if comment.status.value != 'pending' %}<form method="POST" action="{{ path('app_site_review_comment_reopen', {id: comment.id}) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}"><button type="submit" class="lp-btn lp-btn--ghost"><twig:ux:icon name="lucide:rotate-cw" />{{ 'site_review.comment.action.reopen'|trans }}</button></form>{% endif %}
                     {% if comment.status.value != 'resolved' %}<form method="POST" action="{{ path('app_site_review_comment_resolve', {id: comment.id}) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}"><button type="submit" class="lp-btn lp-btn--primary"><twig:ux:icon name="lucide:check" />{{ 'site_review.comment.action.resolve'|trans }}</button></form>{% endif %}
