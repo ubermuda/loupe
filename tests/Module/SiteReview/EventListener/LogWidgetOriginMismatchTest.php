@@ -12,6 +12,7 @@ use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
 use App\Module\Project\Security\AuthenticatedProjectResolver;
 use App\Module\SiteReview\EventListener\LogWidgetOriginMismatch;
+use App\Security\AuthenticatedCredential;
 use PHPUnit\Framework\TestCase;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Log\AbstractLogger;
@@ -97,9 +98,14 @@ final class LogWidgetOriginMismatchTest extends TestCase
         $apiTokens = $this->createStub(ApiTokenRepository::class);
         $apiTokens->method('find')->willReturn($this->createStub(ApiToken::class));
 
+        $apiTokenId = (string) Uuid::v7();
         $securityToken = $this->createStub(TokenInterface::class);
         $securityToken->method('hasAttribute')->willReturn(true);
-        $securityToken->method('getAttribute')->willReturn((string) Uuid::v7());
+        $securityToken->method('getAttribute')->willReturnCallback(
+            static fn (string $name): AuthenticatedCredential|string => AuthenticatedCredential::ATTRIBUTE === $name
+                ? new AuthenticatedCredential($apiTokenId, 'ROLE_API_SITE_REVIEW')
+                : $apiTokenId,
+        );
 
         $tokenStorage = new TokenStorage();
         $tokenStorage->setToken($securityToken);
@@ -116,7 +122,7 @@ final class LogWidgetOriginMismatchTest extends TestCase
         };
 
         $listener = new LogWidgetOriginMismatch(
-            new AuthenticatedProjectResolver(new AuthenticatedApiTokenResolver($tokenStorage, $apiTokens), $projects),
+            new AuthenticatedProjectResolver($tokenStorage, new AuthenticatedApiTokenResolver($tokenStorage, $apiTokens), $projects),
             $seen ?? new ArrayAdapter(),
             $logger,
         );

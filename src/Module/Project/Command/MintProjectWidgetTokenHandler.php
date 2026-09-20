@@ -56,6 +56,7 @@ final readonly class MintProjectWidgetTokenHandler
                 // ApiToken.label is a 100-char column while Project.name allows 100 — truncate to fit.
                 [$token, $raw] = ApiToken::issue($project->owner, 'Widget: '.mb_substr($project->name, 0, 92), ApiTokenScope::SiteReview);
                 $project->widgetToken = $token;
+                $project->forwardsToAgent = false;
                 $this->em->persist($token);
                 $this->em->flush();
 
