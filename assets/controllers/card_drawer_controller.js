@@ -14,6 +14,7 @@ export default class extends ModalController {
     connect() {
         super.connect();
         this.invoker = null;
+        this.focusFrameOnLoad = false;
         this.onBeforeCache = () => this.#reset();
         document.addEventListener('turbo:before-cache', this.onBeforeCache);
     }
@@ -58,6 +59,12 @@ export default class extends ModalController {
         }
         // A reader who already works in the new content keeps their focus.
         if (this.frameTarget.contains(document.activeElement)) return;
+        const opening = this.focusFrameOnLoad;
+        this.focusFrameOnLoad = false;
+        // A form in the frame re-renders it too, and the drawer is modeless, so
+        // work outside it is real work. Take only focus the render dropped.
+        const active = document.activeElement;
+        if (!opening && active && active !== document.body) return;
         const focusTarget = this.frameTarget.querySelector(
             'form input:not([type="hidden"]), [data-panel-tabs-target="tab"][aria-selected="true"], a, button',
         );
@@ -107,6 +114,7 @@ export default class extends ModalController {
     }
 
     #startLoading() {
+        this.focusFrameOnLoad = true;
         this.loadingTarget.hidden = false;
         this.errorTarget.hidden = true;
         this.frameTarget.hidden = true;
@@ -123,6 +131,7 @@ export default class extends ModalController {
     }
 
     #onClosed = () => {
+        this.focusFrameOnLoad = false;
         this.loadingTarget.hidden = false;
         this.errorTarget.hidden = true;
         this.frameTarget.removeAttribute('src');

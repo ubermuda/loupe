@@ -35,6 +35,47 @@ project, not only the ones its holder wrote. Keeping the widget off public pages
 bounds who that is. Use a dedicated site-review-scoped token, never an MCP token
 or a production credential.
 
+### Signing in instead of a token
+
+An embed can name the project instead of carrying a token. The reviewer then
+signs in with a Loupe account, and no credential is in the page source:
+
+```html
+<script src="https://your-instance/site-review/widget.js" data-project="PROJECT-ID"></script>
+```
+
+The project's Connections page shows this snippet with the project ID filled in.
+The ID is the project's UUID, the same one that is in the project's URLs.
+
+1. On the Connections page, add each site that embeds the widget to **Allowed sites**.
+   Write one origin on each line, such as `https://staging.example.com`, with no path.
+   Use `https`. Plain `http` works for `localhost` only, because the widget needs a secure page to sign in.
+   The first label can be a `*`, which covers one level of subdomain: `https://*.example.com` covers
+   `https://staging.example.com`, and it covers neither `https://a.staging.example.com` nor `https://example.com`.
+   The scheme and the port must still be the same. Loupe refuses a bare `*` and a wildcard over a whole
+   registry, such as `*.com` or `*.co.uk`, because one entry would then cover every site under it.
+   A wildcard is what a preview environment needs, where each branch gets its own host.
+2. Paste the snippet into the site.
+3. The reviewer opens the widget and presses **Sign in with Loupe**. A pop-up window opens on your Loupe instance.
+4. The reviewer signs in, checks the project and the site on the consent page, and presses **Allow**.
+
+The pop-up sends the answer back only to a site on the allowed list, so a copied
+snippet does not work on another site. Only the owner of the project can sign in
+for now. Loupe refuses any other account on the consent page.
+
+The widget keeps its tokens in the tab's session storage, so a new tab signs in
+again. It renews its access in the background. When the renewal fails, for example
+after you revoke **Loupe site-review widget** under **Connected apps**, the widget
+shows the sign-in button again. Removing a site from the list stops new sign-ins
+from that site. Revoke the app to end a sign-in that already exists.
+
+A pop-up blocker must allow pop-ups for the site. Sign in to Loupe with a password
+in the pop-up: a social sign-in provider can cut the link between the pop-up and
+the page, and the widget then gets no answer.
+
+A token in the snippet always wins. An embed with both `data-token` and
+`data-project` uses the token.
+
 ## Retrying a save
 
 A failed save keeps the draft open. Press **Save** again to retry it.

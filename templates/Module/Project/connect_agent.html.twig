@@ -161,6 +161,31 @@
                 <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.token.mint'|trans }}</button>
             </form>
             {% endif %}
+
+            {%- set oauthSnippet = '<script src="' ~ absolute_url('/site-review/widget.js') ~ '" data-project="' ~ project.id ~ '"></script>' -%}
+            <div class="lp-connect-block" id="widget-sign-in">
+                <p class="lp-eyebrow">{{ 'project.connect.widget_oauth.eyebrow'|trans }}</p>
+                <p class="lp-connect-hint">{{ 'project.connect.widget_oauth.purpose'|trans }}</p>
+                <div class="lp-code-dark" data-controller="clipboard" data-clipboard-text-value="{{ oauthSnippet }}"
+                     data-clipboard-copied-label-value="{{ 'project.connect.copied'|trans }}">
+                    <div class="lp-code-dark__header">
+                        <span class="lp-code-dark__label">{{ 'project.token.snippet_heading'|trans }}</span>
+                        <button type="button" class="lp-code-dark__copy" data-clipboard-target="button" data-action="clipboard#copy">{{ 'project.connect.copy'|trans }}</button>
+                    </div>
+                    <pre class="lp-code-dark__body"><code data-testid="widget-oauth-snippet">{{ oauthSnippet }}</code></pre>
+                </div>
+                {{ form_start(allowedOriginsForm, {'attr': {'class': 'lp-form', 'data-testid': 'allowed-origins-form'}}) }}
+                    <div class="lp-form-field">
+                        {{ form_label(allowedOriginsForm.origins, null, {'label_attr': {'class': 'lp-label'}}) }}
+                        {{ form_widget(allowedOriginsForm.origins, {'attr': {'class': 'lp-input'}}) }}
+                        {{ form_help(allowedOriginsForm.origins, {'help_attr': {'class': 'lp-form-hint'}}) }}
+                        <div class="lp-field-errors">{{ form_errors(allowedOriginsForm.origins) }}</div>
+                    </div>
+                    <div class="lp-settings-form-actions">
+                        <button type="submit" class="lp-btn lp-btn--primary">{{ 'project.allowed_origins.save'|trans }}</button>
+                    </div>
+                {{ form_end(allowedOriginsForm) }}
+            </div>
         </section>
         </div>
     </div>

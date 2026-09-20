@@ -336,7 +336,7 @@ test('the versions list keeps the way in to a diff', async ({ page }) => {
     const diff = page.getByRole('link', { name: 'What changed since v1' });
     await expect(diff).toBeVisible();
     await diff.tap();
-    await expect(page.locator('.lp-doc-meta__compare')).toBeVisible();
+    await expect(page.locator('.lp-diff-bar')).toBeVisible();
 });
 
 test('the diff bar names the document, not the comparison', async ({
@@ -364,12 +364,10 @@ test('the diff bar names the document, not the comparison', async ({
     });
     expect(widths.here).toBeGreaterThan(widths.lead * 0.8);
 
-    // The bar drops the version pill below lg, so the chip is what says which
-    // two versions the page compares. The tabs beside it are display:none here
-    // and the chip is not.
-    await expect(page.locator('.lp-doc-meta__compare')).toContainText(
-        'Comparing v1 with v2',
-    );
+    // The bar drops the version pill below lg, so the diff toolbar's pickers
+    // are what say which two versions the page compares.
+    await expect(page.locator('#diff-from')).toHaveValue('1');
+    await expect(page.locator('#diff-to')).toHaveValue('2');
 });
 
 test('a verdict leaves no button that opens an empty panel', async ({

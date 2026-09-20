@@ -74,7 +74,10 @@
             }}) }}
                 {{ form_widget(replyForm.body) }}
                 <div class="lp-comment-error">{{ form_errors(replyForm.body) }}</div>
-                <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">{{ 'review.document.comment.reply'|trans }}</button>
+                <div class="lp-comment-reply-form__actions">
+                    <button type="button" class="lp-btn lp-btn--ghost lp-btn--sm" data-action="comment-reply#toggle">{{ 'review.document.comment.cancel'|trans }}</button>
+                    <button type="submit" class="lp-btn lp-btn--primary lp-btn--sm">{{ 'review.document.comment.reply'|trans }}</button>
+                </div>
             {{ form_end(replyForm) }}
         </div>
     </div>

@@ -9,6 +9,7 @@
 @import '../../vendor/ubermuda/admin-bundle/assets/admin.css';
 @import './redesign-core.css' layer(components);
 @import './redesign-secondary.css';
+@import './redesign-document.css';
 
 /* ── Content sources for Tailwind v4 ──────────────────────────────── */
 
@@ -194,6 +195,22 @@
     --color-code-dark-text: var(--code-dark-text);
 
     --color-danger: var(--status-danger);
+    --color-review-anchor: var(--review-anchor);
+    --color-review-anchor-strong: var(--review-anchor-strong);
+    --color-review-anchor-line: var(--review-anchor-line);
+    --color-review-suggestion: var(--review-suggestion);
+    --color-review-strike: var(--review-strike);
+    --color-review-strike-ink: var(--review-strike-ink);
+    --color-review-tab: var(--review-tab);
+    --color-review-tab-ink: var(--review-tab-ink);
+    --color-review-decision: var(--review-decision);
+    --color-review-decision-line: var(--review-decision-line);
+    --color-review-open: var(--review-open);
+    --color-review-open-ink: var(--review-open-ink);
+    --color-review-addressed: var(--review-addressed);
+    --color-review-addressed-ink: var(--review-addressed-ink);
+    --color-review-resolved: var(--review-resolved);
+    --color-review-resolved-ink: var(--review-resolved-ink);
 
     /* Shadows — reserved for surfaces that float above the page: the selection
        toolbar, the floating composer, and menus and overlays (`--shadow-card`).
@@ -324,6 +341,27 @@
     --code-dark-header: #0f0f0d;
     --code-dark-bg: #0f0f0d;
     --code-dark-text: #e8e8e2;
+
+    /* Document review tones from the approved redesign. The anchor rungs are
+       warmer than the status ladder so a highlighted passage never reads as a
+       status chip. */
+    --review-anchor: #faf0bd;
+    --review-anchor-strong: #f2df88;
+    --review-anchor-line: #c3a344;
+    --review-suggestion: #f1e3f0;
+    --review-suggestion-line: #b881ad;
+    --review-strike: #fbe9e4;
+    --review-strike-ink: #a24738;
+    --review-tab: #789344;
+    --review-tab-ink: #334925;
+    --review-decision: #f7faef;
+    --review-decision-line: #dfe8ca;
+    --review-open: #fbf0d8;
+    --review-open-ink: #986a1e;
+    --review-addressed: #f3e8f1;
+    --review-addressed-ink: #984482;
+    --review-resolved: #e7f3eb;
+    --review-resolved-ink: #367858;
 }
 
 /* ── Global resets ──────────────────────────────────────────────────── */
@@ -2357,22 +2395,7 @@
         @apply min-w-0;
     }
 
-    /* Document-scoped recovery list, outside the anchored review margin. */
-    .lp-deleted-threads {
-        @apply mx-auto flex w-full max-w-3xl flex-col gap-4 px-5 py-6;
-    }
-    .lp-deleted-threads__thread {
-        @apply flex min-w-0 flex-col gap-3 border-t border-line pt-5;
-    }
-    .lp-deleted-threads__meta {
-        @apply flex flex-wrap items-center gap-3 text-sm text-fg-mute;
-    }
-    .lp-deleted-threads__actions {
-        @apply flex flex-wrap items-start justify-between gap-3;
-    }
-    .lp-deleted-threads .lp-comment-thread {
-        @apply static;
-    }
+    /* The undo notice that replaces a thread the moment it is deleted. */
     .lp-thread-recovery {
         @apply mb-4 flex flex-wrap items-center gap-3 rounded-md border border-line bg-surface-2 p-3 text-sm;
     }
@@ -2433,92 +2456,8 @@
     .lp-review-doc__version {
         @apply shrink-0 font-mono text-sm text-fg-dim;
     }
-    /* Primary document workspace views. */
-
-    /* The side-by-side comparison, which renders no comment rail and takes the
-       gutter and the comment column back for its second reading measure. Both
-       modifiers come after their base class, or the base would win. */
-    .lp-review-block--wide {
-        @apply max-w-280;
-    }
-    .lp-review-doc--wide {
-        @apply max-w-280;
-    }
-
-    /* ── Contents and decisions rail ────────────────────────────────────
-       Left of the reading column on a wide window. 236px wide with a 40px
-       gutter, which is the 276px the block's extra left margin opens.
-       Absolute, like the comment column: the reading column is exactly as wide
-       with a rail as without one. */
-    .lp-review-rail {
-        @apply hidden absolute -left-69 top-0 bottom-0 w-59;
-    }
-    /* 100rem, not the 2xl token: the rail costs 276px and the block is 972px
-       wide, so the row needs 1296px of pane. A 1536px window leaves 1290 and
-       overflows by six. */
-    @media (width >= 100rem) {
-        .lp-review-rail {
-            @apply block;
-        }
-        /* Only a block that holds a rail. A diff page renders none, and a wide
-           side-by-side diff shifted by 324px overflows its own pane. */
-        .lp-review-block:has(.lp-review-rail) {
-            @apply ml-81;
-        }
-    }
-    /* The wrapper spans the block, so the list inside it can stick. It clears
-       the metadata bar, which is sticky at the same edge. */
-    .lp-review-rail__inner {
-        @apply sticky top-13 flex flex-col gap-0.5 overflow-y-auto;
-        max-height: calc(100dvh - 8rem);
-    }
-    .lp-review-rail__title {
-        @apply flex items-baseline gap-2 m-0 mb-1.5 uppercase font-mono text-fg-dim text-xs tracking-wider;
-    }
-    .lp-review-rail__title:not(:first-child) {
-        @apply mt-5.5;
-    }
-    .lp-review-rail__count {
-        @apply font-mono text-fg-dim text-xs normal-case tracking-normal;
-    }
-    /* A row in the rail is a tick and a heading, and the tick carries the
-       state: a "not approved" line under every heading is the state of most of
-       the list, so it reads as noise and buries the rows that did change. A
-       236px column also has no room for a label and its state side by side, and
-       a heading truncated to three words names nothing. */
-    .lp-review-rail .lp-review-contents__item,
-    .lp-review-rail .lp-decision-summary__item {
-        @apply items-start gap-2 py-0;
-    }
-    /* self-start, against the base class's self-center: a two-line heading must
-       keep its tick level with the first line, not with the middle of the row. */
-    .lp-review-rail .lp-review-contents__tick {
-        @apply block self-start mt-1.5;
-    }
-    .lp-review-rail .lp-review-contents__link,
-    .lp-review-rail .lp-decision-summary__link {
-        @apply block flex-1 min-w-0 whitespace-normal overflow-visible rounded-lg no-underline py-1 px-2 transition-colors;
-        text-overflow: clip;
-    }
-    /* A decision reads as a heading here, not as the bolder thing the panel
-       makes of it. */
-    .lp-review-rail .lp-decision-summary__link {
-        @apply font-normal text-fg-mute;
-    }
-    .lp-review-rail .lp-review-contents__link:hover,
-    .lp-review-rail .lp-decision-summary__link:hover {
-        @apply bg-tint text-fg no-underline;
-    }
-    /* The section the reader is in, marked by contents_rail_controller. */
-    .lp-review-rail .lp-review-contents__link--current {
-        @apply bg-surface-3 text-ink font-semibold;
-    }
-    .lp-review-rail .lp-section-approvals__approved,
-    .lp-review-rail .lp-section-approvals__pending,
-    .lp-review-rail .lp-decision-summary__answer,
-    .lp-review-rail .lp-decision-summary__pending {
-        @apply hidden;
-    }
+    /* Primary document workspace views. Side by side keeps the block's own
+       width, so its toolbar holds the same columns as the other views. */
 
     /* Comment cards share the margin on wide screens and stack below on phones. */
     .lp-review-margin {
@@ -2581,33 +2520,10 @@
     .lp-doc-meta__count {
         @apply font-mono text-fg-dim text-xs;
     }
-    .lp-doc-meta__caret {
-        @apply w-3.5 h-3.5 shrink-0 text-fg-dim transition-transform duration-100;
-    }
-    .lp-doc-meta__tab[aria-expanded='true'] .lp-doc-meta__caret {
-        @apply rotate-90;
-    }
-    /* The rail stands both lists open, so their tabs would open a second copy
-       of what is already on screen. Only a block that has a rail: a diff page
-       renders none, and the tab is the one way to its contents there. */
-    @media (width >= 100rem) {
-        .lp-review-block:has(.lp-review-rail) .lp-doc-meta__tab--railed {
-            @apply hidden;
-        }
-    }
-    /* Names the pair the pane holds, on the green status tint: comparing is a
-       state the reader turned on, not a failure. The stop control rides the chip
-       rather than the row, so the row stays the view switch and the jumps. */
-    .lp-doc-meta__compare {
-        @apply inline-flex items-center gap-1.5 shrink-0 rounded-full bg-status-ok-bg text-status-ok-deep font-semibold text-xs py-1 pl-2.5 pr-1;
-    }
     /* Reads as an invitation rather than as a tab: the reader has not asked for
        the comparison, and the row beside it is what the page already holds. */
     .lp-doc-meta__unread {
         @apply inline-flex items-center gap-2 shrink-0 h-7 px-2.75 rounded-full no-underline bg-accent-faint-2 border border-accent-border text-accent-ink text-xs font-semibold transition-colors hover:bg-accent-faint;
-    }
-    .lp-doc-meta__compare-stop {
-        @apply inline-flex items-center justify-center shrink-0 w-5 h-5 rounded-full text-status-ok-deep no-underline transition-colors hover:bg-status-ok-border;
     }
     /* Chips in the bar itself below lg, where the tab that holds them is
        display:none and the review menu carries no tags row. */
@@ -2622,36 +2538,12 @@
     .lp-doc-tags__list {
         @apply flex flex-wrap items-center gap-1.5;
     }
-    .lp-doc-meta__series {
-        @apply flex items-center gap-1.5 ml-auto;
-    }
-    /* Flex splits the free space between two auto margins, which would strand
-       the series mid-bar. The series leads the group and takes the one margin. */
-    .lp-doc-meta__series + .lp-doc-meta__tags {
-        @apply ml-0;
-    }
-    .lp-doc-meta__panel {
-        @apply rounded-xl bg-surface-2 p-3.5 mt-2.5;
-        animation: lp-appear 120ms ease-out both;
-    }
-    .lp-doc-meta__panel[hidden] {
-        @apply hidden;
-    }
-    /* Below lg the four tabs are rows of the review menu instead. A display
-       utility outside this query would outrank the UA [hidden] rule above and
-       hold every panel open on desktop. */
+    /* Below lg the tabs are rows of the review menu instead. */
     @media (width < 59.375rem) {
-        .lp-doc-meta__tab,
-        .lp-doc-meta__panel {
+        .lp-doc-meta__tab {
             @apply hidden;
         }
-        .lp-doc-meta:not(
-            :has(
-                .lp-doc-meta__series,
-                .lp-doc-meta__tags,
-                .lp-doc-meta__compare
-            )
-        ) {
+        .lp-doc-meta:not(:has(.lp-doc-meta__tags)) {
             @apply hidden;
         }
     }
@@ -2676,34 +2568,6 @@
         @apply static;
     }
 
-    /* ── Review action row ──────────────────────────────────────────────
-       "Add general comment" plus the hint that select-to-comment exists, with
-       the resolved toggle pushed out over the comment column. */
-    .lp-review-actions {
-        @apply flex flex-wrap items-center gap-x-3 gap-y-2 mt-5.5 mb-5.5;
-    }
-    .lp-review-actions__hint {
-        @apply text-sm text-fg-mute;
-    }
-    /* Sits above the comment column, so it reads as a control on the comments
-       rather than on the prose. It carries no display: this is a .lp-btn, and
-       the two rules that hide it are unlayered, below the coarse-pointer block. */
-    .lp-review-actions__resolved {
-        @apply absolute whitespace-nowrap;
-    }
-    /* One icon of the pair at a time, chosen by the state the controller writes
-       onto the button. Specificity, not source order, does the picking. */
-    .lp-review-actions__resolved-icon--show {
-        @apply hidden;
-    }
-    .lp-review-actions__resolved[data-resolved-hidden='1']
-        .lp-review-actions__resolved-icon--hide {
-        @apply hidden;
-    }
-    .lp-review-actions__resolved[data-resolved-hidden='1']
-        .lp-review-actions__resolved-icon--show {
-        @apply block;
-    }
     /* Resolved threads are hidden rather than removed, so the toggle is instant
        and costs no round trip. */
     .lp-review-block--hide-resolved .lp-comment-thread--resolved {
@@ -2838,32 +2702,6 @@
     .lp-general-comments__list.open {
         @apply flex;
     }
-    /* One row per version so each entry can carry its description beneath the
-       pill, rather than a single wrapping line of pills. */
-    .lp-version-switcher {
-        @apply flex flex-col items-start gap-1.5 mt-2;
-    }
-    .lp-version-entry {
-        @apply flex flex-col items-start gap-1;
-    }
-    /* Pill, date and compare link on one line. The compare link used to sit
-       under the note, where it reads as the heading of the entry below it. */
-    .lp-version-entry__row {
-        @apply flex flex-wrap items-center gap-2.5;
-    }
-    .lp-version-entry__date {
-        @apply text-fg-dim text-xs;
-    }
-    .lp-version-entry__description {
-        @apply text-fg-dim m-0 text-xs;
-    }
-    /* Way into the diff between a version and the one before it. */
-    .lp-version-entry__diff {
-        @apply font-mono text-fg-dim no-underline transition-colors text-xs hover:text-accent;
-    }
-    .lp-version-entry__diff[aria-current] {
-        @apply text-accent;
-    }
     /** Version selection shared by the diff toolbar, history and review menu. */
     .lp-version-compare {
         @apply flex flex-wrap items-center gap-2 w-full;
@@ -2871,79 +2709,78 @@
     .lp-diff-bar .lp-version-compare {
         @apply w-auto;
     }
-    /* Way out of the panel and into the full history. */
-    .lp-version-switcher__all {
-        @apply inline-flex items-center gap-1.5 text-fg-mute no-underline transition-colors text-xs hover:text-accent;
-    }
 
     /* ── Version history page ───────────────────────────────────────────
-       Every version on a page of its own, newest first. A vertical rule with
-       one marker per row carries the order; the marker is filled for the
-       current version. */
-    .lp-history {
-        @apply list-none flex flex-col m-0 mt-8 p-0;
+       Every version in one table, newest first, with the reviews it received
+       and the ways to read it or compare it with the one before. */
+    .lp-history-tools {
+        @apply flex flex-wrap items-center justify-between gap-4 mt-7 mb-4.5;
     }
-    /* The rule joins one node to the next, so it starts at the first node's
-       centre and stops at the last one's. A border would run the whole height of
-       every row, overshooting above the first node and stopping a row short of
-       the last. The offset is the node's own: 8px down, half of a 10px dot. */
-    .lp-history__row {
-        @apply relative flex flex-col gap-1.5 pl-6 pb-6;
-        background-image: linear-gradient(var(--color-line), var(--color-line));
-        background-repeat: no-repeat;
-        background-position: left top;
-        background-size: 1px 100%;
-    }
-    .lp-history__row:first-child {
-        background-position: left calc(var(--spacing) * 3.25);
-        background-size: 1px calc(100% - var(--spacing) * 3.25);
-    }
-    .lp-history__row:last-child {
-        @apply pb-0;
-        background-size: 1px calc(var(--spacing) * 3.25);
-    }
-    .lp-history__row::before {
-        content: '';
-        @apply absolute left-0 top-2 w-2.5 h-2.5 -translate-x-1/2 rounded-full border border-line bg-surface-3;
-    }
-    .lp-history__row--current::before {
-        @apply border-accent bg-accent;
-    }
-    .lp-history__head {
-        @apply flex flex-wrap items-center gap-3;
-    }
-    .lp-history a.lp-version-pill {
-        @apply no-underline;
-    }
-    .lp-history__date {
-        @apply text-fg-dim text-xs;
-    }
-    /* Pushed to the right end of its own row rather than under the note. */
-    .lp-history__compare {
-        @apply ml-auto font-mono text-fg-dim no-underline transition-colors text-xs hover:text-accent;
-    }
-    .lp-history__note {
-        @apply text-fg-mute m-0 max-w-prose text-sm;
-    }
-    /** The version list heading sits below the shared document navigation. */
     .lp-history-title {
         @apply m-0 font-display text-lg font-bold text-ink;
     }
-    /** Verdict entries stay with the version that received them. */
+    .lp-history-surface {
+        @apply overflow-x-auto rounded-xl border border-line bg-surface-1;
+    }
+    .lp-history {
+        @apply w-full border-collapse text-left;
+    }
+    .lp-history th {
+        @apply bg-surface-2 px-4.5 py-3.25 text-xs font-semibold text-fg-dim;
+    }
+    .lp-history td {
+        @apply border-t border-line px-4.5 py-4.5 align-middle text-sm text-fg-mute;
+    }
+    .lp-history td:last-child {
+        @apply whitespace-nowrap;
+    }
+    .lp-history__version {
+        @apply inline-flex rounded-md bg-surface-3 px-1.75 py-0.75 text-xs leading-4 font-semibold text-fg-dim;
+    }
+    .lp-history__row--current .lp-history__version {
+        @apply bg-accent-soft text-accent-ink;
+    }
+    .lp-history__note {
+        @apply block text-sm leading-relaxed font-semibold text-ink;
+    }
+    .lp-history__note--empty {
+        @apply font-medium text-fg-mute;
+    }
+    .lp-history__date {
+        @apply text-xs text-fg-dim;
+    }
     .lp-history__reviews {
-        @apply list-none flex flex-col gap-3 m-0 mt-2 p-0;
+        @apply m-0 flex list-none flex-col gap-3 p-0;
     }
     .lp-history__review {
-        @apply flex flex-col gap-1 text-sm text-fg-mute;
+        @apply flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-fg-mute;
     }
     .lp-history__verdict {
-        @apply font-medium text-fg;
+        @apply font-semibold text-fg;
+    }
+    .lp-history__verdict--approved {
+        @apply text-status-ok-deep;
+    }
+    .lp-history__verdict--changes-requested {
+        @apply text-status-danger-deep;
     }
     .lp-history__review-note {
-        @apply m-0 max-w-prose whitespace-pre-wrap break-words;
+        @apply m-0 basis-full max-w-prose whitespace-pre-wrap break-words;
     }
-    .lp-history-compare {
-        @apply flex flex-col gap-2 mt-8;
+    .lp-history__actions {
+        @apply flex items-center gap-4;
+    }
+    .lp-history__action {
+        @apply inline-flex items-center gap-1.5 text-sm font-semibold text-fg-mute no-underline transition-colors hover:text-ink;
+    }
+    .lp-history__action svg {
+        @apply size-4 shrink-0;
+    }
+    @media (width < 43.75rem) {
+        .lp-history th,
+        .lp-history td {
+            @apply px-3.5;
+        }
     }
 
     /* ── Version diff ───────────────────────────────────────────────────
@@ -3280,7 +3117,6 @@
             width: calc(100% + var(--doc-margin) + var(--doc-margin-gap));
         }
         .lp-review-margin,
-        .lp-review-actions__resolved,
         .lp-review-context-panel {
             left: calc(100% + var(--doc-margin-gap));
             width: var(--doc-margin);
@@ -3307,23 +3143,14 @@
     .lp-review-details {
         @apply m-0 flex flex-col divide-y divide-line rounded-xl border border-line bg-surface-2;
     }
-    .lp-review-details div {
+    .lp-review-details > div {
         @apply flex flex-col gap-1 px-3.5 py-3;
     }
-    .lp-review-details dt {
+    .lp-review-details > div > dt {
         @apply text-xs font-semibold uppercase tracking-wide text-fg-dim;
     }
-    .lp-review-details dd {
+    .lp-review-details > div > dd {
         @apply m-0 text-sm text-fg;
-    }
-    .lp-review-details__card {
-        @apply flex items-center gap-2 rounded-lg border border-line bg-surface-1 px-3 py-2 text-sm font-semibold text-ink no-underline hover:bg-tint;
-    }
-    .lp-review-details__card + .lp-review-details__card {
-        @apply mt-2;
-    }
-    .lp-review-details__card > :first-child {
-        @apply min-w-0 flex-1;
     }
     .lp-review-doc__prose {
         @apply mt-0 min-h-96 rounded-xl border border-line bg-surface-1 px-8.5 py-7 text-base leading-7 text-prose break-words;
@@ -3630,12 +3457,6 @@
        pills stacked down the margin read as the loudest thing on the page. */
     .lp-comment-status {
         @apply ml-auto uppercase text-xs font-bold tracking-wide text-fg-mute;
-    }
-    .lp-comment-status--strike {
-        @apply text-danger;
-    }
-    .lp-comment-status--answered {
-        @apply text-status-ok-deep;
     }
     /* The quoted text is gone from the current version, so there is no anchor to
        ring and the card has to say so itself. */
@@ -6241,53 +6062,53 @@
    must be text-decoration and never box-shadow. */
 
 ::highlight(lp-anchor) {
-    background-color: var(--status-pending-bg);
+    background-color: var(--review-anchor);
 }
 ::highlight(lp-anchor-active) {
-    background-color: var(--accent-soft);
+    background-color: var(--review-anchor-strong);
     text-decoration-line: underline;
-    text-decoration-color: var(--accent);
+    text-decoration-color: var(--review-anchor-line);
     @apply decoration-2;
 }
-/* An open comment is the loud one — it is the only anchor state that is asking
-   the reader for something. */
+/* Open and addressed threads share the warm tint, because both still ask the
+   reader for something. The underline tells them apart, in the colour of the
+   card's status badge. */
 ::highlight(lp-anchor-pending) {
-    background-color: var(--accent-soft);
+    background-color: var(--review-anchor);
+    text-decoration-line: underline;
+    text-decoration-color: var(--review-anchor-line);
 }
 ::highlight(lp-anchor-addressed) {
-    background-color: var(--status-ok-bg);
+    background-color: var(--review-anchor);
     text-decoration-line: underline;
-    text-decoration-color: var(--status-ok);
+    text-decoration-color: var(--review-addressed-ink);
     @apply decoration-2;
 }
-/* A resolved thread gets no treatment at all: the conversation is over, and
-   leaving a mark on the passage would keep drawing the eye back to it. The rung
-   stays registered so resolving is a change of state rather than a change of
-   code path. */
+/* Shown only when the filter lets resolved threads back into the margin, so a
+   quiet grey is enough to pair the passage with its card. */
 ::highlight(lp-anchor-resolved) {
-    background-color: transparent;
+    background-color: var(--surface-3);
 }
-/* A rewording. Declares only its own tint, so a struck or hovered passage still
-   layers its decoration on top. */
+/* A rewording is a different kind of mark, so it takes its own hue. */
 ::highlight(lp-anchor-suggestion) {
-    background-color: var(--status-ok-bg);
+    background-color: var(--review-suggestion);
+    text-decoration-line: underline;
+    text-decoration-color: var(--review-suggestion-line);
 }
-/* Struck passages, painted on top of whichever status highlight already covers
-   them: highlights overlay rather than replace each other, so the status tint
-   survives and this adds only the line-through. */
 /* A struck passage carries this rung INSTEAD of its status rung — see
    #highlightAnchors, which routes it here and skips the status highlight. */
 ::highlight(lp-anchor-struck) {
-    color: var(--text-mute);
+    background-color: var(--review-strike);
+    color: var(--review-strike-ink);
     text-decoration-line: line-through;
-    text-decoration-color: var(--strike);
-    text-decoration-thickness: 3px;
+    text-decoration-color: var(--review-strike-ink);
+    @apply decoration-2;
 }
 /* The passage whose card the pointer is on (or the reverse). Deliberately a
    stronger fill rather than a ring: ::highlight() honours neither outline nor
    box-shadow, so the card carries the ring and the passage carries this. */
 ::highlight(lp-anchor-hover) {
-    background-color: var(--accent);
+    background-color: var(--review-anchor-strong);
 }
 
 /* The agent's own marks. The wavy underline carries the rung: under tritanopia
@@ -6465,21 +6286,6 @@
        display would reveal it below sm: and min-width never applies to inline. */
     .lp-landing-nav__link {
         @apply px-2 py-3;
-    }
-}
-
-/* The resolved-threads toggle is a .lp-btn, so the block above gives it a
-   display, and an unlayered rule beats @layer components at any specificity.
-   Both rules therefore live here, after it. The attribute is how the controller
-   reveals the button once a thread resolves; below lg the review menu carries
-   the only copy of the control. */
-.lp-review-actions__resolved[hidden] {
-    display: none;
-}
-
-@media (width < 59.375rem) {
-    .lp-review-actions__resolved {
-        display: none;
     }
 }
 

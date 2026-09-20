@@ -138,7 +138,7 @@ final class ShowDocumentSectionControlTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $body = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('<turbo-stream action="replace" target="section-approve-heading-alpha">', $body);
-        foreach (['section-summary-count', 'section-summary-list', 'review-rail-sections-count', 'review-rail-sections-list', 'review-menu-sections-count', 'review-menu-sections-head-count', 'review-menu-sections-list'] as $target) {
+        foreach (['section-summary-count', 'section-summary-list', 'review-menu-sections-count', 'review-menu-sections-head-count', 'review-menu-sections-list'] as $target) {
             self::assertStringContainsString('<turbo-stream action="update" target="'.$target.'">', $body);
         }
         self::assertMatchesRegularExpression('~target="section-summary-count">\s*<template>1/3</template>~', $body);

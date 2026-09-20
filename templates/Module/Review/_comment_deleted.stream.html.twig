@@ -12,7 +12,6 @@
                 {{ form_widget(recoveryForm.deletionSequence, {type: 'hidden'}) }}
                 <button type="submit" class="lp-btn">{{ 'review.deleted_threads.undo'|trans }}</button>
             {{ form_end(recoveryForm) }}
-            <a class="lp-btn lp-btn--ghost" href="{{ path('app_document_deleted_threads', {projectId: deletedComment.version.document.project.id, documentId: deletedComment.version.document.id}) }}">{{ 'review.deleted_threads.title'|trans }}</a>
         </div>
     </template>
 </turbo-stream>
