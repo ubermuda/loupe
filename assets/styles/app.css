@@ -488,10 +488,10 @@
     .auth-forgot {
         @apply self-center text-xs text-fg-mute;
     }
-    /* An auth page that draws its own card, such as the OAuth consent page.
-       Wider than the form pages, and with no card treatment of its own. */
-    .auth-shell--bare {
-        @apply w-full max-w-md flex flex-col gap-5;
+    /* The auth card, widened for a page whose content needs more than a form
+       column: max-w-lg less the 32px padding gives a 448px content column. */
+    .auth-shell--wide {
+        @apply w-full max-w-lg bg-surface-1 border border-line rounded-xl shadow-md px-8 pt-8 pb-7 flex flex-col gap-5;
     }
     /* Accent links on the light authentication surfaces. */
     .auth-link {
@@ -552,8 +552,9 @@
     .lp-consent__question {
         @apply font-display text-2xl font-bold tracking-tight text-fg m-0 leading-tight;
     }
+    /* A plain list inside the auth card: the card is the only frame here. */
     .lp-consent__rows {
-        @apply w-full flex flex-col rounded-xl border border-line bg-surface-1 px-6 py-1 shadow-sm;
+        @apply w-full flex flex-col;
     }
     .lp-consent__row {
         @apply flex items-start gap-4 py-4.5 border-b border-line-faint;

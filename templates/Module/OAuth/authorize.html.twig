@@ -2,8 +2,8 @@
 
 {% block title %}{{ 'oauth.consent.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
-{# One frame only: the rows panel is the card, so this page's shell draws none. #}
-{% block auth_shell_class 'auth-shell--bare' %}
+{# One frame only: the shell's card holds the rows, which draw no frame. #}
+{% block auth_shell_class 'auth-shell--wide' %}
 
 {% block auth_body %}
 <div class="lp-consent lp-consent--rows" data-testid="oauth-consent">
