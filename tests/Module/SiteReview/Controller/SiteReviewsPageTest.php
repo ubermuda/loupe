@@ -96,6 +96,8 @@ final class SiteReviewsPageTest extends WebTestCase
         self::assertCount(2, $crawler->filter('.lp-feedback-list__number'));
         self::assertGreaterThanOrEqual(1, $crawler->filter('[data-comment-status="pending"]')->count());
         self::assertCount(1, $crawler->filter('[data-comment-id="'.$commentId.'"]'));
+        // A missing translation renders its key, and the gate does not fail on that.
+        self::assertDoesNotMatchRegularExpression('/\\bsite_review\\.[a-z_]+\\.[a-z_.]+/', $crawler->filter('main')->text());
     }
 
     public function test_a_reply_is_shared_persistent_and_idempotent_without_changing_feedback(): void

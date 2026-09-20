@@ -108,6 +108,8 @@ final class ShowAccountInboxControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSame([(string) $alpha->id, (string) $zulu->id], $this->projectIds($crawler));
+        // A missing translation renders its key, and the gate does not fail on that.
+        self::assertDoesNotMatchRegularExpression('/\\binbox\\.[a-z_]+\\.[a-z_.]+/', $crawler->filter('main')->text());
         self::assertSelectorTextSame('[data-account-inbox-project="'.$alpha->id.'"] [data-account-inbox-open-count]', '3 open items');
         // The oldest of the project's open asks and loose items, not the newest.
         self::assertStringContainsString('2h ago', $crawler->filter('[data-account-inbox-project="'.$alpha->id.'"] .lp-account-inbox-card__wait')->text());
