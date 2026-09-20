@@ -5617,10 +5617,14 @@
     .lp-core-board .lp-split-region > * {
         @apply flex-1 min-h-0 h-full;
     }
+    /* Everything above the strip keeps its height, whatever the strip needs. */
+    .lp-board > *:not(.lp-board__columns) {
+        @apply shrink-0;
+    }
     /* The strip fills what the page leaves and scrolls sideways. Each column
        holds its own head and Add card still, and scrolls its cards. */
     .lp-board__columns {
-        @apply flex flex-1 items-stretch gap-4 min-h-0 overflow-x-auto pb-4;
+        @apply flex flex-1 items-stretch gap-4 min-h-72 overflow-x-auto pb-4;
     }
     .lp-board__message {
         @apply text-sm font-semibold text-danger m-0 empty:hidden;
