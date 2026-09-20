@@ -49,7 +49,7 @@ repository, so a human confirms the CLI is what changed before it ships.
   instead. That token is embedded in page HTML and public by design, so the
   firewall refuses it on every endpoint the bridge needs.
 - A rule file, `rules.yaml`, beside `config.json`. See
-  [The rule file](#the-rule-file).
+  [The rule file](#the-rule-file). `loupe mcp` needs no rule file.
 - The Loupe MCP server configured for `claude` in each project's `dir`. A prompt
   carries identifiers only, so the agent reads the card through the MCP.
 
@@ -103,6 +103,105 @@ Upgrading from a version that kept the token in `config.json` needs no action:
 the next command that reads it moves the token into the keychain and rewrites
 the file without it. On a host with no keychain, nothing changes and the file
 stays authoritative.
+
+## `loupe init`
+
+Writes `.loupe.yaml`, the file that names the Loupe project a repository
+belongs to.
+
+```bash
+loupe init                       # choose from the projects your login covers
+loupe init --project <uuid>      # name the project yourself
+loupe init --force               # replace an existing file
+```
+
+With no `--project` it lists the projects your login covers and asks which one.
+A login that covers exactly one project needs no answer. It refuses to replace
+an existing file unless you pass `--force`.
+
+The file holds one key:
+
+```yaml
+project: 0192f3c4-5d6e-7f80-9123-456789abcdef
+```
+
+`loupe mcp` reads it from the directory it runs in, and walks no parent
+directories. Commit it, so everyone working in the repository reaches the same
+project.
+
+The reader ignores keys it does not know, so a later version can add a
+`projects:` key or a path map without breaking a file written today. A file it
+cannot read stops `loupe mcp` before it connects, and the message names the
+file.
+
+## `loupe mcp`
+
+Serves Loupe's MCP tools to an agent on this machine.
+
+```bash
+loupe mcp                        # project from .loupe.yaml
+loupe mcp --project <uuid>       # project from the command line
+```
+
+The agent starts `loupe mcp` as a local MCP server and speaks stdio to it. The
+command forwards every message to `/mcp` on your Loupe instance over HTTPS, and
+adds the bearer token from your own `loupe login` plus the project. So no tool
+and no configuration file holds a credential.
+
+It defines no tools of its own. It copies JSON-RPC messages and reads no method
+name except the two the handshake needs, so a tool Loupe adds reaches your agent
+with no new release of this CLI.
+
+Point an agent at it the way you point it at any stdio MCP server. For Claude
+Code, `.mcp.json` in the repository:
+
+```json
+{
+  "mcpServers": {
+    "loupe": { "command": "loupe", "args": ["mcp"] }
+  }
+}
+```
+
+Every message goes to stdout, because stdout is the protocol. Every diagnostic
+goes to stderr, which an agent shows as this server's log.
+
+### When Loupe ends the session
+
+Loupe keeps each MCP session in a file store that expires after an hour and
+lives in one web container's cache directory. A session therefore ends when the
+agent sits idle, when Loupe is deployed, and when a request reaches another
+container. The server then answers `404`, and an agent cannot recover: its Loupe
+tools are gone for the rest of its run.
+
+So `loupe mcp` opens a new session, replays the agent's handshake onto it, and
+sends the message again. The agent sees an answer rather than a dead server. One
+line on stderr records it:
+
+```
+loupe mcp: Loupe ended session <old>, opened <new> and carried on
+```
+
+State the server held for the old session is gone, which no tool depends on
+today. A new session that is also refused is a real failure and stops the
+command.
+
+### Credentials and refusals
+
+The bearer token comes from the token source the rest of the CLI uses, asked per
+request, so a refresh another `loupe` process performed is picked up. A `401`
+refreshes the token once and sends the message again.
+
+A refusal stops the command with a message rather than a status code. A `403`
+names the project the file chose, because a login that does not cover it is the
+usual cause.
+
+### What it needs from the server
+
+The project travels in an `X-Loupe-Project` header. The server reads it once
+step S1 of the post-OAuth credentials work lands. Until then a login must be
+bound to one project, and `loupe login` asks for the agent scope alone, so
+`loupe mcp` reaches `/mcp` with a project-bound credential only.
 
 ## `loupe bridge run`
 

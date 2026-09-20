@@ -46,6 +46,45 @@ cleared, and a widget token sits in page HTML that anyone can read, so a
 conversion could hand a page visitor your project list and your event streams.
 No widget token is affected, and no widget deployment changes.
 
+## Connecting through the CLI
+
+`loupe mcp` connects an agent to this endpoint with no token in any file. The
+CLI already holds a login, so the command signs each request with it. This is
+the way to connect when you work across several projects, because the project
+comes from the repository rather than from the credential.
+
+Install the CLI, sign in once, and name the project in each repository:
+
+```bash
+loupe login                  # a browser sign-in, once per machine
+cd ~/code/my-project
+loupe init                   # writes .loupe.yaml, choosing from your projects
+```
+
+Then point the agent at the command. For Claude Code, a committed `.mcp.json`
+in the repository:
+
+```json
+{
+  "mcpServers": {
+    "loupe": { "command": "loupe", "args": ["mcp"] }
+  }
+}
+```
+
+The file holds no credential, so committing it is safe. `.loupe.yaml` holds the
+project id, which is not a secret either.
+
+The command adds one thing a direct HTTP connection cannot. Loupe keeps each MCP
+session for an hour in one web container's cache directory, so a session ends on
+an idle agent, on a deploy, and on a request that reaches another container.
+`loupe mcp` then opens a new session and carries on, where a direct connection
+loses its Loupe tools for the rest of the agent's run.
+
+`loupe mcp` needs a login that reaches `/mcp`. `loupe login` asks for the agent
+scope, which does not, so until the credentials work lands the command needs a
+project-bound credential. See the CLI's own README for the state of that.
+
 ## The Claude Code plugin
 
 **Use this for the skills, not for the endpoint.** A plugin holds one set of
