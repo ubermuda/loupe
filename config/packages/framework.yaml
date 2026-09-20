@@ -40,6 +40,14 @@ framework:
                 headers:
                     Accept: 'application/vnd.github+json'
 
+            # Client ID Metadata Document fetches, inline in the authorize
+            # request. ClientMetadataFetcher sets the SSRF options per request.
+            oauth.client_metadata_client:
+                scope: '^https://'
+                timeout: 3
+                max_duration: 5
+                max_redirects: 0
+
     rate_limiter:
         # The `*_address` buckets below are keyed on a hash of the target email
         # address rather than the client address, and are consumed alongside the

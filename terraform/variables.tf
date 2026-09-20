@@ -251,6 +251,12 @@ variable "mcp_allowed_hosts" {
   description = "MCP_ALLOWED_HOSTS: comma-separated DNS-rebinding allowlist for /mcp. Must include the app's real hostname or every MCP call is rejected."
 }
 
+variable "oauth_trusted_client_ids" {
+  type        = string
+  default     = ""
+  description = "OAUTH_TRUSTED_CLIENT_IDS: comma-separated client ids the consent page presents as vouched for, each a full client_id URL or a single-tenant origin. Empty falls back to the shipped default."
+}
+
 variable "trusted_proxies" {
   type        = string
   default     = ""

@@ -246,6 +246,25 @@ final class OAuthAuthorizationFlowTest extends WebTestCase
         self::assertFalse($this->browser->getResponse()->headers->has('Location'));
     }
 
+    public function test_a_loopback_redirect_matches_on_any_port_through_the_code_exchange(): void
+    {
+        $this->scenario->createClient('native-client', ['http://localhost/callback']);
+        $redirectUri = 'http://localhost:53712/callback';
+
+        $tokens = $this->scenario->grantTokens($this->browser, $this->user, $this->project, ['client_id' => 'native-client', 'redirect_uri' => $redirectUri]);
+
+        self::assertSame(200, $this->callMcp($tokens['access_token']));
+    }
+
+    public function test_a_public_redirect_on_another_port_gets_no_redirect(): void
+    {
+        $this->browser->loginUser($this->user);
+        $this->browser->request(Request::METHOD_GET, $this->scenario->authorizeUrl('mcp', ['redirect_uri' => 'https://client.example:444/callback']));
+
+        self::assertResponseStatusCodeSame(401);
+        self::assertFalse($this->browser->getResponse()->headers->has('Location'));
+    }
+
     public function test_deny_redirects_with_access_denied(): void
     {
         $this->browser->loginUser($this->user);

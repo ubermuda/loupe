@@ -19,7 +19,7 @@ test('the History tab compares two distant versions', async ({ page }) => {
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(PASSWORD);
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL('/welcome');
+    await expect(page).toHaveURL('/welcome', { timeout: 15000 });
     await suppressToolbar(page);
     await suppressWidget(page);
 

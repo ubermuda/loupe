@@ -132,6 +132,7 @@
     --color-ink-soft: var(--ink-soft);
     --color-fg: var(--text);
     --color-fg-mute: var(--text-mute);
+    --color-fg-label: var(--text-label);
     --color-fg-dim: var(--text-dim);
     --color-fg-faint: var(--faint);
     --color-accent: var(--accent);
@@ -243,6 +244,8 @@
     --ink: #20241f;
     --text: #20241f;
     --text-mute: #555b52;
+    /* Labels that name a value: darker than mute, 7.76:1 on the app background. */
+    --text-label: #4a5049;
     --text-dim: #656b60;
     --faint: #bec3b7;
     --prose: #22262b;
@@ -553,6 +556,11 @@
     .auth-forgot {
         @apply self-center text-xs text-fg-mute;
     }
+    /* The auth card, widened for a page whose content needs more than a form
+       column: max-w-lg less the 32px padding and the border leaves 446px. */
+    .auth-shell--wide {
+        @apply w-full max-w-lg bg-surface-1 border border-line rounded-xl shadow-md px-8 pt-8 pb-7 flex flex-col gap-5;
+    }
     /* Accent links on the light authentication surfaces. */
     .auth-link {
         @apply text-accent-ink hover:underline;
@@ -578,20 +586,82 @@
         @apply text-fg-mute text-sm mt-1.5 leading-normal;
     }
     .lp-consent__facts {
-        @apply w-full flex flex-col gap-3 rounded-xl bg-app py-3.5 px-4 text-left m-0;
+        @apply w-full flex flex-col gap-2.5 rounded-xl bg-app py-3 px-4 text-left m-0;
     }
     .lp-consent__fact {
-        @apply flex flex-col gap-1;
+        @apply flex flex-col gap-0.5;
     }
-    /* Darker and less spaced than .lp-eyebrow: this card carries the decision. */
+    /* Sentence case, not the uppercase .lp-eyebrow: a label here can be a
+       whole phrase, and caps at 12px read badly. The value stays dominant. */
     .lp-consent__label {
-        @apply uppercase text-fg-mute m-0 text-xs font-bold tracking-wide;
+        @apply text-fg-label m-0 text-sm font-medium;
     }
     .lp-consent__value {
-        @apply text-sm text-fg m-0 break-words;
+        @apply text-base text-fg m-0 break-words;
+    }
+    /* A caveat about the value above it, marked as an aside rather than a fact. */
+    .lp-consent__note {
+        @apply text-sm text-fg-label m-0 italic;
     }
     .lp-consent__value--mono {
         @apply font-mono;
+    }
+    .lp-consent__host {
+        @apply flex items-center gap-2;
+    }
+    /* Fixed box, so a slow or missing icon never moves the text beside it. */
+    .lp-consent__icon {
+        @apply w-4 h-4 shrink-0 object-contain;
+    }
+    /* The answered-questions consent card: a question, then one row per fact. */
+    .lp-consent--rows {
+        @apply items-stretch text-left gap-5;
+    }
+    .lp-consent__question {
+        @apply font-display text-2xl font-bold tracking-tight text-fg m-0 leading-tight;
+    }
+    /* A plain list inside the auth card: the card is the only frame here. */
+    .lp-consent__rows {
+        @apply w-full flex flex-col;
+    }
+    .lp-consent__row {
+        @apply flex items-start gap-4 py-4.5 border-b border-line-faint;
+    }
+    .lp-consent__row:last-child {
+        @apply border-b-0;
+    }
+    /* The same 20px slot as a row glyph, so every row's text starts at one x. */
+    .lp-consent__badge {
+        @apply w-5 h-5 shrink-0 mt-0.5 rounded-sm border border-line bg-app inline-flex items-center justify-center overflow-hidden;
+    }
+    .lp-consent__row-icon {
+        @apply w-5 h-5 shrink-0 text-fg-mute mt-0.5;
+    }
+    .lp-consent__row-body {
+        @apply flex flex-col gap-1 min-w-0;
+    }
+    .lp-consent__row-primary {
+        @apply text-base text-fg m-0 leading-snug break-words;
+    }
+    .lp-consent__row-strong {
+        @apply font-semibold;
+    }
+    /* The rest of an unvouched client id, beside its emphasised host. */
+    .lp-consent__row-muted {
+        @apply text-fg-label break-all;
+    }
+    .lp-consent__row-mono {
+        @apply font-mono break-all;
+    }
+    .lp-consent__row-second {
+        @apply text-sm text-fg-label m-0 leading-normal break-words;
+    }
+
+    .lp-consent__picker-label {
+        @apply block text-base font-medium text-fg mb-1.5;
+    }
+    .lp-consent__footnote {
+        @apply text-sm text-fg-label m-0 leading-normal;
     }
     .lp-consent__alert {
         @apply w-full text-left;
@@ -601,6 +671,9 @@
     }
     .lp-consent__actions {
         @apply flex items-center justify-end gap-3 pt-2;
+    }
+    .lp-consent--rows .lp-consent__actions .lp-btn {
+        @apply min-h-11;
     }
     .lp-consent__actions .lp-btn:disabled {
         @apply opacity-60 cursor-not-allowed;

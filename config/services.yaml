@@ -7,6 +7,11 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
+    # Client ids Loupe vouches for on the consent page. A full client_id URL,
+    # or an origin that serves one tenant. Never a bare host: a document on a
+    # shared host would borrow the trust of every other document there.
+    app.oauth.trusted_client_ids: '%env(csv:OAUTH_TRUSTED_CLIENT_IDS)%'
+
     # CSP is static configuration, so an unset external origin needs to resolve
     # to a valid token rather than an empty one. Repeating 'self' is a no-op.
     app.default_csp_origin: "'self'"

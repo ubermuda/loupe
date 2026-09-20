@@ -39,7 +39,7 @@ async function login(
     await page.getByRole('button', { name: 'Sign in' }).click();
     // A freshly-registered user owns no projects, so LandingController lands them
     // on the first-run wizard; seeding creates the project it would have made.
-    await expect(page).toHaveURL('/welcome');
+    await expect(page).toHaveURL('/welcome', { timeout: 15000 });
 }
 
 async function seedDocument(

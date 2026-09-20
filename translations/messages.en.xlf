@@ -4186,7 +4186,7 @@
             </trans-unit>
             <trans-unit id="landing.tech.tools.text">
                 <source>landing.tech.tools.text</source>
-                <target>%count% tools. Your agent submits a document, reads the verdict and the open threads back, and revises — without you copying anything between windows.</target>
+                <target>%count% tools. Add the server URL to Claude or Claude Code and sign in, with no token to copy. Your agent then submits a document, reads the verdict and the open threads back, and revises.</target>
             </trans-unit>
             <trans-unit id="landing.tech.markdown.title">
                 <source>landing.tech.markdown.title</source>
@@ -6063,11 +6063,31 @@
             <trans-unit id="oauth.consent.scope.mcp"><source>oauth.consent.scope.mcp</source><target>Read and change the documents and site reviews of one project, through MCP.</target></trans-unit>
             <trans-unit id="oauth.consent.scope.site_review"><source>oauth.consent.scope.site_review</source><target>Read and post site-review comments on one project.</target></trans-unit>
             <trans-unit id="oauth.consent.scope.agent"><source>oauth.consent.scope.agent</source><target>Act as your Loupe agent: read your projects and boards, and report bridge runs.</target></trans-unit>
+            <trans-unit id="oauth.consent.client_host.label"><source>oauth.consent.client_host.label</source><target>App published by</target></trans-unit>
+            <trans-unit id="oauth.consent.client_name.label"><source>oauth.consent.client_name.label</source><target>Name the app gives itself</target></trans-unit>
+            <trans-unit id="oauth.consent.client_name.unverified"><source>oauth.consent.client_name.unverified</source><target>Loupe cannot check this name. Trust the address above.</target></trans-unit>
+            <trans-unit id="oauth.consent.question"><source>oauth.consent.question</source><target>Give %client% access to Loupe?</target></trans-unit>
+            <trans-unit id="oauth.consent.row.publisher"><source>oauth.consent.row.publisher</source><target>Published by %host%</target></trans-unit>
+            <trans-unit id="oauth.consent.row.publisher_name"><source>oauth.consent.row.publisher_name</source><target>It calls itself %client%.</target></trans-unit>
+            <trans-unit id="oauth.consent.row.publisher_unverified"><source>oauth.consent.row.publisher_unverified</source><target>It calls itself %client%. Loupe cannot check that name.</target></trans-unit>
+            <trans-unit id="oauth.consent.row.publisher_registered"><source>oauth.consent.row.publisher_registered</source><target>%client%</target></trans-unit>
+            <trans-unit id="oauth.consent.row.publisher_registered_hint"><source>oauth.consent.row.publisher_registered_hint</source><target>An operator of this Loupe registered this app.</target></trans-unit>
+            <trans-unit id="oauth.consent.row.scope.mcp"><source>oauth.consent.row.scope.mcp</source><target>It can read and write the documents, site reviews and board of one project</target></trans-unit>
+            <trans-unit id="oauth.consent.row.scope.site_review"><source>oauth.consent.row.scope.site_review</source><target>It can read and post site-review comments, and add cards to the board</target></trans-unit>
+            <trans-unit id="oauth.consent.row.scope.agent"><source>oauth.consent.row.scope.agent</source><target>It can list your projects, read their boards, and report what your agents do</target></trans-unit>
+            <trans-unit id="oauth.consent.row.scope_bounds.mcp"><source>oauth.consent.row.scope_bounds.mcp</source><target>In one project only, acting as you. It cannot reach your account or your billing.</target></trans-unit>
+            <trans-unit id="oauth.consent.row.scope_bounds.site_review"><source>oauth.consent.row.scope_bounds.site_review</source><target>In one project only, acting as you. It cannot reach your account or your billing.</target></trans-unit>
+            <trans-unit id="oauth.consent.row.scope_bounds.agent"><source>oauth.consent.row.scope_bounds.agent</source><target>Across your projects, acting as you. It cannot reach your account or your billing.</target></trans-unit>
+            <trans-unit id="oauth.consent.row.return"><source>oauth.consent.row.return</source><target>You return to %origin%</target></trans-unit>
+            <trans-unit id="oauth.consent.row.return_remote"><source>oauth.consent.row.return_remote</source><target>That is the address the app gave Loupe for your answer.</target></trans-unit>
+            <trans-unit id="oauth.consent.footnote"><source>oauth.consent.footnote</source><target>You are signed in as %email%. You can remove this app later under</target></trans-unit>
+            <trans-unit id="oauth.consent.footnote_link"><source>oauth.consent.footnote_link</source><target>Connected apps</target></trans-unit>
             <trans-unit id="oauth.consent.redirect.label"><source>oauth.consent.redirect.label</source><target>Sends you to</target></trans-unit>
-            <trans-unit id="oauth.consent.loopback_warning"><source>oauth.consent.loopback_warning</source><target>This app receives the answer on your own computer, so Loupe cannot check which app it is. Continue only if you started this connection yourself.</target></trans-unit>
+            <trans-unit id="oauth.consent.loopback_warning"><source>oauth.consent.loopback_warning</source><target>That is a program on this computer, not a website. Loupe cannot check which program it is, so continue only if you started this connection yourself.</target></trans-unit>
             <trans-unit id="oauth.consent.no_projects"><source>oauth.consent.no_projects</source><target>You own no project yet. Create a project first, then connect the app again.</target></trans-unit>
             <trans-unit id="oauth.consent.error.project_required"><source>oauth.consent.error.project_required</source><target>Choose a project.</target></trans-unit>
             <trans-unit id="oauth.consent.error.project_not_owned"><source>oauth.consent.error.project_not_owned</source><target>You can connect only a project that you own.</target></trans-unit>
+            <trans-unit id="oauth.form.consent_form.project.label"><source>oauth.form.consent_form.project.label</source><target>Project it may use</target></trans-unit>
             <trans-unit id="oauth.widget.consent.project.label"><source>oauth.widget.consent.project.label</source><target>Project</target></trans-unit>
             <trans-unit id="oauth.widget.consent.site.label"><source>oauth.widget.consent.site.label</source><target>Site that asks</target></trans-unit>
             <trans-unit id="oauth.widget.refused.title"><source>oauth.widget.refused.title</source><target>You cannot sign in here</target></trans-unit>
@@ -6078,7 +6098,10 @@
             <trans-unit id="oauth.widget.callback.page.title"><source>oauth.widget.callback.page.title</source><target>Signing in</target></trans-unit>
             <trans-unit id="oauth.widget.callback.done"><source>oauth.widget.callback.done</source><target>You are signed in. Go back to the page to review it.</target></trans-unit>
             <trans-unit id="oauth.widget.callback.lost"><source>oauth.widget.callback.lost</source><target>This window cannot reach the review widget. Close it, then sign in again from the page.</target></trans-unit>
-            <trans-unit id="oauth.form.consent_form.project.label"><source>oauth.form.consent_form.project.label</source><target>Project</target></trans-unit>
+            <trans-unit id="oauth.consent.row.widget_project"><source>oauth.consent.row.widget_project</source><target>It reviews %project%</target></trans-unit>
+            <trans-unit id="oauth.consent.row.widget_project_hint"><source>oauth.consent.row.widget_project_hint</source><target>The widget on this page names this project, and you own it.</target></trans-unit>
+            <trans-unit id="oauth.consent.row.widget_site"><source>oauth.consent.row.widget_site</source><target>It runs on %origin%</target></trans-unit>
+            <trans-unit id="oauth.consent.row.widget_site_hint"><source>oauth.consent.row.widget_site_hint</source><target>This address is on the allowed sites of the project.</target></trans-unit>
             <trans-unit id="oauth.form.consent_form.project.placeholder"><source>oauth.form.consent_form.project.placeholder</source><target>Choose a project</target></trans-unit>
             <trans-unit id="oauth.form.consent_form.approve.label"><source>oauth.form.consent_form.approve.label</source><target>Allow</target></trans-unit>
             <trans-unit id="oauth.form.consent_form.deny.label"><source>oauth.form.consent_form.deny.label</source><target>Deny</target></trans-unit>

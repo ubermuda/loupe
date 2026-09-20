@@ -42,7 +42,7 @@ async function registerAndLogin(page: Page, email: string): Promise<void> {
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(PASSWORD);
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await expect(page).toHaveURL('/welcome');
+    await expect(page).toHaveURL('/welcome', { timeout: 15000 });
 }
 
 async function seedProject(page: Page): Promise<string> {

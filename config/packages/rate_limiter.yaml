@@ -63,6 +63,14 @@ framework:
             limit: 60
             interval: '1 minute'
 
+        # Bounds Client ID Metadata Document fetches, each an outbound request
+        # made inline in the authorize request. Keyed per signed-in user; a
+        # cached document costs nothing.
+        oauth_client_metadata_fetch:
+            policy: 'sliding_window'
+            limit: 20
+            interval: '10 minutes'
+
         # Bounds the public device authorization endpoint. Each request writes a
         # device code row. Keyed per client address, like oauth_token.
         oauth_device_authorization:
@@ -77,6 +85,14 @@ framework:
             policy: 'sliding_window'
             limit: 20
             interval: '15 minutes'
+
+        # Bounds Client ID Metadata Document fetches across every user. DNS has
+        # no timeout in PHP, so a slow host holds a worker for the fetch's
+        # duration, and open signup makes the per-user bucket cheap to widen.
+        oauth_client_metadata_fetch_global:
+            policy: 'sliding_window'
+            limit: 120
+            interval: '10 minutes'
 
         # Bounds subscriber-cookie renewals from open pages. A page renews once
         # before each reconnect, with backoff, so a real page stays far below
@@ -104,6 +120,14 @@ when@dev:
                 policy: 'sliding_window'
                 limit: 100000
                 interval: '1 minute'
+            oauth_client_metadata_fetch:
+                policy: 'sliding_window'
+                limit: 100000
+                interval: '1 minute'
+            oauth_client_metadata_fetch_global:
+                policy: 'sliding_window'
+                limit: 100000
+                interval: '1 minute'
             oauth_device_authorization:
                 policy: 'sliding_window'
                 limit: 100000
@@ -125,6 +149,14 @@ when@test:
                 limit: 100000
                 interval: '1 minute'
             oauth_token:
+                policy: 'sliding_window'
+                limit: 100000
+                interval: '1 minute'
+            oauth_client_metadata_fetch:
+                policy: 'sliding_window'
+                limit: 100000
+                interval: '1 minute'
+            oauth_client_metadata_fetch_global:
                 policy: 'sliding_window'
                 limit: 100000
                 interval: '1 minute'
