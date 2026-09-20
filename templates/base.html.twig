@@ -167,7 +167,7 @@
                         <span class="lp-sidebar__link-label">{{ 'inbox.account.nav'|trans }}</span>
                     </a>
                     {% endif %}
-                    {% set accountActive = route in ['app_account_profile', 'app_account_api_tokens', 'app_account_data'] %}
+                    {% set accountActive = route in ['app_account_profile', 'app_account_api_tokens', 'app_account_connected_apps', 'app_account_data'] %}
                     <a href="{{ path('app_account_profile') }}"
                        class="lp-sidebar__link{% if accountActive %} lp-sidebar__link--active{% endif %}"
                        {% if accountActive %}aria-current="page"{% endif %}>

@@ -90,20 +90,82 @@ func decodeBody(body io.Reader, v any) error {
 	return json.Unmarshal(data, v)
 }
 
-// Client is a Loupe API client bound to one base URL and token.
+// TokenSource gives the bearer token for each request.
+type TokenSource interface {
+	// Token gives a token to send now.
+	Token(ctx context.Context) (string, error)
+	// Refresh gives a new token after the server rejected the token rejected.
+	// A source that cannot refresh returns ErrNoRefresh.
+	Refresh(ctx context.Context, rejected string) (string, error)
+}
+
+// ErrNoRefresh is the answer of a source with nothing to refresh.
+var ErrNoRefresh = errors.New("this token cannot be refreshed")
+
+// StaticToken is an API token that never changes.
+type StaticToken string
+
+// Token gives the token itself.
+func (t StaticToken) Token(context.Context) (string, error) { return string(t), nil }
+
+// Refresh always returns ErrNoRefresh.
+func (t StaticToken) Refresh(context.Context, string) (string, error) { return "", ErrNoRefresh }
+
+// Client is a Loupe API client bound to one base URL and token source.
 type Client struct {
 	baseURL string
-	token   string
+	tokens  TokenSource
 	http    *http.Client
 }
 
-// New builds a Client. A nil http.Client falls back to http.DefaultClient.
+// New builds a Client for a static API token. A nil http.Client falls back to
+// http.DefaultClient.
 func New(baseURL, token string, hc *http.Client) *Client {
+	return NewWithSource(baseURL, StaticToken(token), hc)
+}
+
+// NewWithSource builds a Client whose token can change, such as a device login
+// that refreshes.
+func NewWithSource(baseURL string, tokens TokenSource, hc *http.Client) *Client {
 	if hc == nil {
 		hc = http.DefaultClient
 	}
 
-	return &Client{baseURL: strings.TrimRight(baseURL, "/"), token: token, http: hc}
+	return &Client{baseURL: strings.TrimRight(baseURL, "/"), tokens: tokens, http: hc}
+}
+
+// do sends req with the current token. On a 401 it asks the source for a new
+// token and sends req once more, so a token that expired or rotated in another
+// process costs one extra request, never a failed call.
+func (c *Client) do(req *http.Request) (*http.Response, error) {
+	token, err := c.tokens.Token(req.Context())
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := c.http.Do(req)
+	if err != nil || resp.StatusCode != http.StatusUnauthorized {
+		return resp, err
+	}
+
+	fresh, err := c.tokens.Refresh(req.Context(), token)
+	if errors.Is(err, ErrNoRefresh) {
+		return resp, nil
+	}
+	resp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	retry := req.Clone(req.Context())
+	if req.GetBody != nil {
+		if retry.Body, err = req.GetBody(); err != nil {
+			return nil, err
+		}
+	}
+	retry.Header.Set("Authorization", "Bearer "+fresh)
+
+	return c.http.Do(retry)
 }
 
 // Events fetches the hub, the caller's topic, a subscriber JWT for it, and the
@@ -114,10 +176,9 @@ func (c *Client) Events(ctx context.Context) (Events, error) {
 	if err != nil {
 		return out, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := c.http.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return out, fmt.Errorf("request events: %w", err)
 	}
@@ -203,10 +264,9 @@ func (c *Client) Columns(ctx context.Context, handle string) (ProjectColumns, er
 	if err != nil {
 		return out, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := c.http.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return out, fmt.Errorf("request columns of %s: %w", handle, err)
 	}
@@ -307,11 +367,10 @@ func (c *Client) ReportRules(ctx context.Context, handle, bridgeID string, rules
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.http.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return fmt.Errorf("report rules of %s: %w", handle, err)
 	}
@@ -348,10 +407,9 @@ func (c *Client) Sites(ctx context.Context) ([]Site, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := c.http.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request sites: %w", err)
 	}
@@ -435,11 +493,10 @@ func (c *Client) ReportWorkerRun(ctx context.Context, handle string, run WorkerR
 	if err != nil {
 		return false, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.http.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return false, fmt.Errorf("report the worker run: %w", err)
 	}
@@ -493,11 +550,10 @@ func (c *Client) Heartbeat(ctx context.Context, bridgeID string, hb Heartbeat) e
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.http.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return fmt.Errorf("send the heartbeat: %w", err)
 	}
@@ -533,10 +589,9 @@ func (c *Client) CheckAsk(ctx context.Context, handle, askID string) (AskState, 
 	if err != nil {
 		return out, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := c.http.Do(req)
+	resp, err := c.do(req)
 	if err != nil {
 		return out, fmt.Errorf("check ask %s: %w", askID, err)
 	}

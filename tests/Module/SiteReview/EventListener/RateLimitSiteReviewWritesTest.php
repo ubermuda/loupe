@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Module\SiteReview\EventListener;
 
-use App\Module\Account\Security\ApiTokenAuthenticator;
 use App\Module\SiteReview\EventListener\RateLimitSiteReviewWrites;
+use App\Security\AuthenticatedCredential;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
@@ -60,7 +60,7 @@ final class RateLimitSiteReviewWritesTest extends TestCase
         $securityToken = $this->createStub(TokenInterface::class);
         $securityToken->method('hasAttribute')->willReturn(true);
         $securityToken->method('getAttribute')->willReturnCallback(
-            static fn (string $name): ?string => ApiTokenAuthenticator::API_TOKEN_ID_ATTR === $name ? $apiTokenId : null,
+            static fn (string $name): ?AuthenticatedCredential => AuthenticatedCredential::ATTRIBUTE === $name ? new AuthenticatedCredential($apiTokenId, 'ROLE_API_SITE_REVIEW') : null,
         );
         $tokenStorage = new TokenStorage();
         $tokenStorage->setToken($securityToken);

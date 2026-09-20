@@ -147,6 +147,7 @@ test('no authenticated page scrolls sideways at 375px', async ({
         `/projects/${projectId}/edit`,
         '/account/profile',
         '/account/api-tokens',
+        '/account/connected-apps',
         '/account/data',
         '/about',
     ];
@@ -182,15 +183,17 @@ test('account panels fit narrow screens and enlarged text', async ({
     const sections = [
         { path: '/account/profile', panelCount: 1 },
         { path: '/account/api-tokens', panelCount: 1 },
+        { path: '/account/connected-apps', panelCount: 1 },
         { path: '/account/data', panelCount: 2 },
     ];
     const panels = page.locator(
         '.lp-settings-content > section:not([data-testid="billing-section"])',
     );
-    for (const width of [1440, 1150, 950, 780, 390]) {
-        await page.setViewportSize({ width, height: 1000 });
-        for (const { path, panelCount } of sections) {
-            await page.goto(path);
+    // One load per page: a resize reflows the layout without a reload.
+    for (const { path, panelCount } of sections) {
+        await page.goto(path);
+        for (const width of [1440, 1150, 950, 780, 390]) {
+            await page.setViewportSize({ width, height: 1000 });
             await expect(panels).toHaveCount(panelCount);
             for (const panel of await panels.all()) {
                 const bounds = (await panel.boundingBox())!;
@@ -203,7 +206,7 @@ test('account panels fit narrow screens and enlarged text', async ({
                 ).toBeLessThanOrEqual(1);
             }
             const navItems = page.locator('.lp-settings-nav__item');
-            await expect(navItems).toHaveCount(3);
+            await expect(navItems).toHaveCount(4);
             for (const item of await navItems.all()) {
                 const icon = (await item.locator('svg').boundingBox())!;
                 const label = (await item.boundingBox())!;

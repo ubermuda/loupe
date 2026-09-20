@@ -24,7 +24,7 @@ final class ShowAccountDataControllerTest extends WebTestCase
         self::assertSelectorExists('[data-testid="delete-account-section"]');
         self::assertSelectorNotExists('[data-testid="profile-section"]');
         self::assertSelectorNotExists('[data-testid="api-tokens-section"]');
-        self::assertCount(3, $crawler->filter('.lp-settings-nav a.lp-settings-nav__item'));
+        self::assertCount(4, $crawler->filter('.lp-settings-nav a.lp-settings-nav__item'));
         self::assertSelectorExists('.lp-settings-nav__item--active[aria-current="page"][href="/account/data"]');
     }
 

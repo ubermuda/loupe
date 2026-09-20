@@ -31,6 +31,7 @@ hand.
 | `app:sweep-ended-trials` | Disables ended trials and cancellations, sends survey emails. |
 | `app:drain-outbox` | Publishes outbox events whose Mercure update never landed. Every five minutes; `--limit=<n>` to bound a manual pass. Safe to run alongside the worker — the claim is atomic. |
 | `app:purge-worker-runs` | Deletes bridge worker run records past the retention window. Hourly, at minute 20. The `bridge.run_retention_days` feature flag sets the window, and both this command and the hourly task read it. It defaults to the 180 days in `app.bridge.default_run_retention_days` in `config/services.yaml`, and `app.bridge.run_purge_schedule` in the same file is the cron expression that sets when the sweep runs. See [Worker run API](worker-runs.md). |
+| `app:oauth:purge-expired-tokens` | Deletes expired OAuth tokens, authorization codes and device codes. Hourly, at minute 17. It keeps an expired access token while a live refresh token still points at it, so a user can still revoke that refresh token. Do not use the bundle's `league:oauth2-server:clear-expired-tokens`, which does not keep them. See [Connected apps](../using/connected-apps.md). |
 | `audit:purge` | Deletes audit records past the retention window. Hourly, at minute 45. The `audit.retention_days` feature flag sets the window, and both this command and the hourly task read it. It defaults to the 180 days in `retention_days` in `config/packages/ubermuda_audit.yaml`, and `purge_schedule` in the same file is the cron expression that sets when the sweep runs. |
 
 ## Maintenance
@@ -38,6 +39,7 @@ hand.
 | Command | What it does |
 |---|---|
 | `app:review:rerender-versions` | Re-renders stored HTML for every document version from its Markdown source. For after a renderer change. |
+| `league:oauth2-server:create-client` | Registers an OAuth client. For a public client, pass `--public`, one `--redirect-uri` for each address, `--grant-type=authorization_code --grant-type=refresh_token`, and the scopes it may ask for. `league:oauth2-server:list-clients` and `league:oauth2-server:delete-client` list and remove clients. Do not delete `loupe-cli`: a migration registers it for `loupe login`, and deleting it signs out every CLI. |
 | `app:dev:seed` | Seeds an empty **development** database with a verified user, a project and a widget token. Not for production. |
 
 ## Symfony commands worth knowing
