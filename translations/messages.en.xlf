@@ -6039,7 +6039,7 @@
             <trans-unit id="oauth.consent.client_host.label"><source>oauth.consent.client_host.label</source><target>App published by</target></trans-unit>
             <trans-unit id="oauth.consent.client_name.label"><source>oauth.consent.client_name.label</source><target>Name the app gives itself</target></trans-unit>
             <trans-unit id="oauth.consent.client_name.unverified"><source>oauth.consent.client_name.unverified</source><target>Loupe cannot check this name. Trust the address above.</target></trans-unit>
-            <trans-unit id="oauth.consent.redirect.label"><source>oauth.consent.redirect.label</source><target>After you answer, Loupe sends you to</target></trans-unit>
+            <trans-unit id="oauth.consent.redirect.label"><source>oauth.consent.redirect.label</source><target>Sends you to</target></trans-unit>
             <trans-unit id="oauth.consent.loopback_warning"><source>oauth.consent.loopback_warning</source><target>This app receives the answer on your own computer, so Loupe cannot check which app it is. Continue only if you started this connection yourself.</target></trans-unit>
             <trans-unit id="oauth.consent.no_projects"><source>oauth.consent.no_projects</source><target>You own no project yet. Create a project first, then connect the app again.</target></trans-unit>
             <trans-unit id="oauth.consent.error.project_required"><source>oauth.consent.error.project_required</source><target>Choose a project.</target></trans-unit>
