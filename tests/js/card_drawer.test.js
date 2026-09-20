@@ -16,7 +16,7 @@ beforeEach(async () => {
         <a id="invoker" href="/card">Open card</a>
         <turbo-frame id="board-frame"></turbo-frame>
         <dialog open data-card-drawer-target="dialog">
-            <div data-card-drawer-target="loading" hidden><button>Close</button></div>
+            <div data-card-drawer-target="loading" tabindex="-1" hidden>Loading</div>
             <div data-card-drawer-target="error" hidden><button>Retry</button></div>
             <turbo-frame data-card-drawer-target="frame"><form><textarea>Draft reply</textarea></form></turbo-frame>
         </dialog>
@@ -78,7 +78,8 @@ it('shows frame errors, focuses Retry, and starts a fresh frame load', () => {
     expect(controller.frameTarget.reload).toHaveBeenCalledOnce();
     expect(controller.errorTarget.hidden).toBe(true);
     expect(controller.loadingTarget.hidden).toBe(false);
-    expect(document.activeElement.textContent).toBe('Close');
+    // The loading state offers no control, so the status itself takes focus.
+    expect(document.activeElement).toBe(controller.loadingTarget);
 });
 
 it('ignores late failure and load events after closing the drawer', () => {

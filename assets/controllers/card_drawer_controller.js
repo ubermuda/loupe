@@ -80,7 +80,9 @@ export default class extends ModalController {
 
     retry() {
         this.#startLoading();
-        this.loadingTarget.querySelector('button').focus();
+        // The loading state carries no control, so the status takes the focus
+        // the hidden Retry button had.
+        this.loadingTarget.focus();
         this.frameTarget.reload();
     }
 
