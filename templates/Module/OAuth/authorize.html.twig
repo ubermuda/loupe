@@ -55,7 +55,7 @@
         <div class="lp-consent__row">
             <twig:UX:Icon name="lucide:folder" class="lp-consent__row-icon" aria-hidden="true" />
             <div class="lp-consent__row-body">
-                <p class="lp-consent__row-primary" data-testid="oauth-consent-project">{{ 'oauth.consent.row.widget_project'|trans({'%project%': '<span class="lp-consent__row-strong">' ~ widget.project.name|e ~ '</span>'})|raw }}</p>
+                <p class="lp-consent__row-primary">{{ 'oauth.consent.row.widget_project'|trans({'%project%': '<span class="lp-consent__row-strong" data-testid="oauth-consent-project">' ~ widget.project.name|e ~ '</span>'})|raw }}</p>
                 <p class="lp-consent__row-second">{{ 'oauth.consent.row.widget_project_hint'|trans }}</p>
             </div>
         </div>
