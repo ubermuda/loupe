@@ -8,10 +8,12 @@ use App\Module\Account\Entity\User;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Command\CreateDocumentCommand;
 use App\Module\Review\Command\CreateDocumentHandler;
+use App\Search\Install\SearchInstallFlags;
 use App\Tests\Support\AcceptedTerms;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
+use Ubermuda\FeatureFlagsBundle\Repository\FeatureFlagRepository;
 
 final class SearchOwnedProjectsControllerTest extends WebTestCase
 {
@@ -32,6 +34,7 @@ final class SearchOwnedProjectsControllerTest extends WebTestCase
         $foreign = new Project($outsider, 'Private project');
         $em->persist($project);
         $em->persist($foreign);
+        self::getContainer()->get(FeatureFlagRepository::class)->findAllIndexed()[SearchInstallFlags::FLAG_TOPBAR_ENABLED]->value = true;
         $em->flush();
         $create = self::getContainer()->get(CreateDocumentHandler::class);
         $document = $create(new CreateDocumentCommand($project, 'Visible document', 'quartz'));

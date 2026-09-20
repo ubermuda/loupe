@@ -1,0 +1,5 @@
+{#- The right-hand drawer shell. The modal controller, or one that extends it,
+    slides it in and out. Props: attributes (map of dialog attributes), class. -#}
+<dialog class="lp-drawer{{ class|default('') ? ' ' ~ class }}"{% for name, value in attributes|default({}) %} {{ name }}="{{ value }}"{% endfor %}>
+    {%- block content %}{% endblock -%}
+</dialog>

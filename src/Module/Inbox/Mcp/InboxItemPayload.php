@@ -9,9 +9,7 @@ use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemDocument;
 use App\Module\Inbox\Entity\InboxItemKind;
-use App\Module\Inbox\Entity\InboxReply;
 use App\Module\Inbox\Entity\InboxReview;
-use App\Module\Inbox\Repository\InboxReplyRepository;
 use App\Module\Inbox\Repository\InboxReviewRepository;
 use App\Module\Review\Repository\ReviewRepository;
 
@@ -25,8 +23,7 @@ use App\Module\Review\Repository\ReviewRepository;
  * @phpstan-type InboxItemCardSummary array{cardId: string, number: int, title: string}
  * @phpstan-type InboxItemDocumentSummary array{documentId: string, title: string}
  * @phpstan-type InboxItemAskSummary array{askId: string, sessionId: string, closedAt: ?string}
- * @phpstan-type InboxReplySummary array{replyId: string, authorId: string, authorName: string, body: string, createdAt: string}
- * @phpstan-type InboxItemSummary array{itemId: string, number: int, kind: string, title: string, state: string, blocking: bool, createdAt: string, updatedAt: string, closedAt: ?string, body: ?string, options: list<string>, multiple: bool, freeText: bool, selectedOptions: list<int>, answerText: ?string, closeNote: ?string, review: ?InboxReviewSummary, replies: list<InboxReplySummary>, cards: list<InboxItemCardSummary>, documents: list<InboxItemDocumentSummary>, asks: list<InboxItemAskSummary>}
+ * @phpstan-type InboxItemSummary array{itemId: string, number: int, kind: string, title: string, state: string, blocking: bool, createdAt: string, updatedAt: string, closedAt: ?string, body: ?string, options: list<string>, multiple: bool, freeText: bool, selectedOptions: list<int>, answerText: ?string, closeNote: ?string, review: ?InboxReviewSummary, cards: list<InboxItemCardSummary>, documents: list<InboxItemDocumentSummary>, asks: list<InboxItemAskSummary>}
  * @phpstan-type InboxAskSummary array{askId: string, extended: bool, closed: bool, items: list<InboxItemListSummary>}
  */
 final readonly class InboxItemPayload
@@ -34,7 +31,6 @@ final readonly class InboxItemPayload
     public function __construct(
         private InboxReviewRepository $inboxReviews,
         private ReviewRepository $reviews,
-        private InboxReplyRepository $inboxReplies,
     ) {
     }
 
@@ -110,13 +106,6 @@ final readonly class InboxItemPayload
             'answerText' => $item->answerText,
             'closeNote' => $item->closeNote,
             'review' => null === $review ? null : $this->forReview($review),
-            'replies' => array_map(static fn (InboxReply $reply): array => [
-                'replyId' => (string) $reply->id,
-                'authorId' => (string) $reply->author->id,
-                'authorName' => $reply->author->fullName,
-                'body' => $reply->body,
-                'createdAt' => $reply->createdAt->format(\DATE_ATOM),
-            ], $this->inboxReplies->findForItem($item)),
             'cards' => array_map(
                 static fn (InboxItemCard $link): array => [
                     'cardId' => (string) $link->card->id,

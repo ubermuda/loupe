@@ -56,6 +56,7 @@ export default class extends Controller {
             : ['sort', 'dir'];
         return Array.from(this.element.elements).some((element) => {
             if (!element.name || ignored.includes(element.name)) return false;
+            if (element.type === 'checkbox') return element.checked;
             return element.value !== '';
         });
     }

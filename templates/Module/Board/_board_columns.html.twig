@@ -78,6 +78,7 @@
                 <twig:ux:icon name="lucide:grip-vertical" class="w-4 h-4" />
             </span>
             {% endif %}
+            <span class="lp-tone-dot lp-tone-dot--{{ view.column.tone.value }}" aria-hidden="true"></span>
             <h2 class="lp-board__column-title">{{ label }}</h2>
             <span class="lp-board__column-count">{{ view.count }}</span>
             {% if canManage %}
@@ -101,7 +102,7 @@
             {{ 'board.terminal.history_link'|trans({'%count%': view.terminalTotal}) }}
         </a>
         {% endif %}
-        <a class="lp-board__add-card" href="{{ path('app_board_card_create', {id: board.project.id, column: view.column.id}) }}">
+        <a class="lp-board__add-card" href="{{ path('app_board_card_create', {id: board.project.id, column: view.column.id}) }}" data-turbo-frame="card-drawer-frame" data-action="click->card-drawer#prepare">
             <twig:ux:icon name="lucide:plus" class="w-4 h-4" />
             {{ 'board.column.add_card'|trans }}
         </a>
@@ -111,9 +112,9 @@
     <div class="lp-board-list" data-board-view-target="list" hidden>
         <div class="lp-board-list__header" aria-hidden="true">
             <span>{{ 'board.list.work'|trans }}</span>
+            <span>{{ 'board.list.type'|trans }}</span>
             <span>{{ 'board.list.status'|trans }}</span>
             <span>{{ 'board.list.agent'|trans }}</span>
-            <span>{{ 'board.list.linked_work'|trans }}</span>
             <span>{{ 'board.list.feedback'|trans }}</span>
         </div>
         {% for view in board.columns %}
@@ -125,10 +126,10 @@
                    data-action="click->card-drawer#prepare"
                    data-board-filter-target="row"
                    data-card-title="{{ card.title }}">
-                    <span class="lp-board-list__work"><strong>#{{ card.number }} {{ card.title }}</strong><span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span></span>
-                    <span>{{ view.column.label|trans }}</span>
+                    <span class="lp-board-list__work"><strong>#{{ card.number }} {{ card.title }}</strong></span>
+                    <span>{% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}</span>
+                    <span>{% include '@Board/_column_tag.html.twig' with {column: view.column} only %}</span>
                     <span aria-label="{{ 'board.list.agent.unassigned'|trans }}">—</span>
-                    <span>{{ card.pullRequests|length + card.documents|length }}</span>
                     <span>{{ feedbackCount }}</span>
                 </a>
             {% endfor %}

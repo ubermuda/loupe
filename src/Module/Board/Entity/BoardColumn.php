@@ -51,6 +51,10 @@ class BoardColumn
         /** The column a card created with no column lands in. */
         #[ORM\Column]
         public bool $isDefault = false,
+
+        /** The column's label colour. The database default lets older migrations insert rows without it. */
+        #[ORM\Column(length: 20, enumType: LabelTone::class, options: ['default' => 'neutral'])]
+        public LabelTone $tone = LabelTone::Neutral,
     ) {
     }
 }

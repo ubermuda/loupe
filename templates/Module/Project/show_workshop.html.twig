@@ -20,11 +20,11 @@
     <div class="lp-workshop-summary" aria-label="{{ 'project.workshop.summary.label'|trans }}">
         {% if is_feature_enabled('inbox.enabled') %}<a class="lp-workshop-stat" data-workshop-stat="requests" href="{{ path('app_project_inbox', {id: workshop.project.id}) }}">{% else %}<div class="lp-workshop-stat" data-workshop-stat="requests">{% endif %}
             {% if is_feature_enabled('inbox.enabled') %}<span class="lp-workshop-stat__value">{{ workshop.stats.openInboxItemCount }}</span>{% endif %}
-            <span class="lp-workshop-stat__copy"><strong>{{ 'project.workshop.summary.requests'|trans }}</strong>{{ is_feature_enabled('inbox.enabled') ? 'project.workshop.needs_you.pending'|trans({'%count%': workshop.stats.openInboxItemCount}) : 'project.workshop.needs_you.disabled'|trans }}</span>
+            <span class="lp-workshop-stat__copy"><strong>{{ 'project.workshop.summary.requests'|trans }}</strong>{{ is_feature_enabled('inbox.enabled') ? 'project.workshop.summary.requests_detail'|trans : 'project.workshop.needs_you.disabled'|trans }}</span>
         {% if is_feature_enabled('inbox.enabled') %}</a>{% else %}</div>{% endif %}
         {% if is_feature_enabled('board.enabled') %}<a class="lp-workshop-stat" data-workshop-stat="open-cards" href="{{ path('app_project_board', {id: workshop.project.id}) }}">{% else %}<div class="lp-workshop-stat" data-workshop-stat="open-cards">{% endif %}
             {% if is_feature_enabled('board.enabled') %}<span class="lp-workshop-stat__value">{{ workshop.stats.openCardCount }}</span>{% endif %}
-            <span class="lp-workshop-stat__copy"><strong>{{ 'project.workshop.summary.cards'|trans }}</strong>{{ is_feature_enabled('board.enabled') ? 'project.workshop.in_motion.body'|trans({'%count%': workshop.stats.openCardCount}) : 'project.workshop.cards.disabled'|trans }}</span>
+            <span class="lp-workshop-stat__copy"><strong>{{ 'project.workshop.summary.cards'|trans }}</strong>{{ is_feature_enabled('board.enabled') ? 'project.workshop.summary.cards_detail'|trans : 'project.workshop.cards.disabled'|trans }}</span>
         {% if is_feature_enabled('board.enabled') %}</a>{% else %}</div>{% endif %}
         {% if is_feature_enabled('board.enabled') %}<a class="lp-workshop-stat" data-workshop-stat="completed-cards" href="{{ path('app_project_board', {id: workshop.project.id}) }}">{% else %}<div class="lp-workshop-stat" data-workshop-stat="completed-cards">{% endif %}
             {% if is_feature_enabled('board.enabled') %}<span class="lp-workshop-stat__value">{{ workshop.stats.completedCardCount }}</span>{% endif %}
@@ -49,7 +49,7 @@
             <div class="lp-workshop-attention-list">
                 {% for item in workshop.attention %}
                 <a class="lp-workshop-attention" href="{{ item.url }}" data-workshop-attention>
-                    <span class="lp-workshop-attention__icon"><twig:ux:icon name="lucide:inbox" /></span>
+                    <span class="lp-workshop-attention__icon" data-subject="{{ item.subject }}">{% include '_attention_subject_icon.html.twig' with {subject: item.subject} only %}</span>
                     <span><strong>{{ item.title }}</strong></span>
                     <span class="lp-workshop-attention__badge">{{ ('inbox.item.kind.' ~ item.kind)|trans }}{% if item.blocking %} · {{ 'inbox.item.blocking'|trans }}{% endif %}</span>
                     <twig:ux:icon name="lucide:chevron-right" class="lp-workshop-attention__chevron" />
@@ -69,7 +69,7 @@
             <div class="lp-workshop-work-grid">
                 {% for card in workshop.cards %}
                 <a class="lp-workshop-work-card" href="{{ card.url }}" data-workshop-card="{{ card.number }}" data-turbo-frame="card-drawer-frame" data-action="click->card-drawer#prepare">
-                    <header><span>#{{ card.number }}</span><span class="lp-workshop-work-card__badge">{{ card.column|trans }}</span></header>
+                    <header><span>#{{ card.number }}</span>{% include '_tone_tag.html.twig' with {label: card.column|trans, tone: card.columnTone, class: 'lp-workshop-work-card__badge'} only %}</header>
                     <h3>{{ card.title }}</h3>
                 </a>
                 {% else %}
@@ -88,7 +88,7 @@
                 {% for connection in workshop.connections %}
                 <a class="lp-workshop-crew__row" href="{{ connection.url }}" data-workshop-connection="{{ connection.id }}">
                     <span class="lp-workshop-crew__avatar"><twig:ux:icon name="lucide:bot" /></span>
-                    <span><strong>{{ connection.id|slice(-12) }}</strong><small>{{ connection.cliVersion }}</small></span>
+                    <span><strong>{{ connection.id|slice(-12) }}</strong><small>{{ connection.cliVersion|short_sha }}</small></span>
                     <span class="lp-workshop-crew__status">{{ (connection.quiet ? 'bridge.agents.status.stale' : 'bridge.agents.status.healthy')|trans }}</span>
                 </a>
                 {% else %}

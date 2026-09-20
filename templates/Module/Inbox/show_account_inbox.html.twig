@@ -7,9 +7,13 @@
 {% endblock %}
 
 {% block body %}
-<div class="lp-workspace">
-    <h1 class="lp-workspace-title">{{ 'inbox.account.page.title'|trans }}</h1>
-    <p class="lp-workspace-desc">{{ 'inbox.account.page.description'|trans }}</p>
+<div class="lp-workspace lp-account-inbox">
+    <header class="lp-page-header">
+        <div class="lp-page-header__copy">
+            <h1 class="lp-workspace-title">{{ 'inbox.account.page.title'|trans }}</h1>
+            <p class="lp-workspace-desc">{{ 'inbox.account.page.description'|trans }}</p>
+        </div>
+    </header>
 
     {% if inbox.isEmpty %}
     <div class="lp-empty-state">
@@ -17,42 +21,25 @@
         <h2 class="lp-empty-state__title">{{ 'inbox.account.page.empty'|trans }}</h2>
     </div>
     {% else %}
+    <div class="lp-account-inbox__grid">
+        {# One card per project: what it is, how much waits, how long, and the way in. #}
         {% for group in inbox.groups %}
-        {% set projectInbox = path('app_project_inbox', {id: group.project.id}) %}
-        <section class="lp-inbox-section" data-account-inbox-project="{{ group.project.id }}">
-            <header class="lp-account-inbox-project__head">
-                <h2 class="lp-account-inbox-project__title"><a class="lp-account-inbox-project__link" href="{{ projectInbox }}">{{ group.project.name }}</a></h2>
-                <span class="lp-account-inbox-project__count" data-account-inbox-open-count>{{ 'inbox.account.project.open_items'|trans({'%count%': group.openItemCount}) }}</span>
-            </header>
-            {% for ask in group.openAsks %}
-            <section class="lp-inbox-ask" data-inbox-ask-id="{{ ask.id }}">
-                <header class="lp-inbox-ask__head">
-                    <span class="lp-inbox-ask__session" title="{{ ask.sessionId }}">{{ 'inbox.ask.session'|trans({'%session%': ask.sessionId}) }}</span>
-                    <span class="lp-inbox-ask__time">{{ 'inbox.ask.asked'|trans({'%time%': ask.createdAt|relative_time}) }}</span>
-                    <a class="lp-inbox-ask__link" href="{{ projectInbox }}#inbox-ask-{{ ask.id }}" data-account-inbox-ask-link>{{ 'inbox.account.ask.open'|trans }}</a>
-                </header>
-                {% if ask.context|trim is not empty %}
-                    {# Agent Markdown, rendered and sanitized the way a card body is. #}
-                    <div class="prose lp-prose lp-inbox-ask__context">{{ ask.context|inbox_markdown }}</div>
-                {% endif %}
-                <div class="lp-inbox-ask__items">
-                    {% for link in ask.items %}
-                        {% include '@Inbox/_account_inbox_item.html.twig' with {item: link.item, href: null} only %}
-                    {% endfor %}
-                </div>
-            </section>
-            {% endfor %}
-            {% if group.looseItems|length > 0 %}
-            <div class="lp-inbox-ask__items" data-account-inbox-loose>
-                <p class="lp-inbox-section__note">{{ 'inbox.section.loose_items_note'|trans }}</p>
-                {# The project page gives an item its own anchor only outside every open ask, which holds for these. #}
-                {% for item in group.looseItems %}
-                    {% include '@Inbox/_account_inbox_item.html.twig' with {item: item, href: projectInbox ~ '#inbox-item-' ~ item.number} only %}
-                {% endfor %}
-            </div>
+        {% set waiting = [] %}
+        {% for ask in group.openAsks %}{% set waiting = waiting|merge([ask.createdAt]) %}{% endfor %}
+        {% for item in group.looseItems %}{% set waiting = waiting|merge([item.createdAt]) %}{% endfor %}
+        {% set blocking = group.looseItems|filter(item => item.blocking)|length > 0 %}
+        <a class="lp-account-inbox-card" href="{{ path('app_project_inbox', {id: group.project.id}) }}" data-account-inbox-project="{{ group.project.id }}">
+            <span class="lp-account-inbox-card__avatar" aria-hidden="true">{{ group.project.name|slice(0, 1)|upper }}</span>
+            <span class="lp-account-inbox-card__name">{{ group.project.name }}</span>
+            <span class="lp-account-inbox-card__count" data-account-inbox-open-count>{{ 'inbox.account.project.open_items'|trans({'%count%': group.openItemCount}) }}</span>
+            {% if waiting|length > 0 %}
+            <span class="lp-account-inbox-card__wait">{{ 'inbox.account.project.oldest'|trans({'%time%': min(waiting)|relative_time}) }}</span>
             {% endif %}
-        </section>
+            {% if blocking %}<span class="lp-inbox-item__blocking">{{ 'inbox.item.blocking'|trans }}</span>{% endif %}
+            <twig:ux:icon name="lucide:arrow-right" class="lp-account-inbox-card__go" />
+        </a>
         {% endfor %}
+    </div>
     {% endif %}
 </div>
 {% endblock %}

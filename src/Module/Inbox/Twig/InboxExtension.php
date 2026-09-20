@@ -13,13 +13,11 @@ use App\Module\Inbox\Form\AnswerInboxItemRequest;
 use App\Module\Inbox\Form\DeclineInboxItemFormType;
 use App\Module\Inbox\Form\DeclineInboxItemRequest;
 use App\Module\Inbox\Form\MarkInboxItemDoneFormType;
-use App\Module\Inbox\Form\ReplyToInboxItemFormType;
-use App\Module\Inbox\Form\ReplyToInboxItemRequest;
 use App\Module\Inbox\Form\SubmitInboxDocumentReviewFormType;
 use App\Module\Inbox\Form\SubmitInboxPullRequestReviewFormType;
 use App\Module\Inbox\Form\SubmitInboxPullRequestReviewRequest;
 use App\Module\Inbox\Repository\InboxItemRepository;
-use App\Module\Inbox\Repository\InboxReviewRepository;
+use App\Module\Inbox\Service\InboxReviewLookup;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Review;
 use App\Module\Review\Form\SubmitReviewRequest;
@@ -29,7 +27,6 @@ use App\Module\Review\Service\MarkdownRenderer;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\Form\FormView;
-use Symfony\Component\Uid\Uuid;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFilter;
 use Twig\TwigFunction;
@@ -46,7 +43,7 @@ final class InboxExtension extends AbstractExtension
         private readonly MarkdownRenderer $markdown,
         private readonly InboxItemRepository $inboxItems,
         private readonly UserTopicBuilder $topics,
-        private readonly InboxReviewRepository $inboxReviews,
+        private readonly InboxReviewLookup $inboxReviews,
         private readonly ReviewRepository $reviews,
         private readonly DocumentVersionRepository $documentVersions,
     ) {
@@ -60,8 +57,8 @@ final class InboxExtension extends AbstractExtension
             new TwigFunction('inbox_done_form', $this->doneForm(...)),
             new TwigFunction('inbox_decline_form', $this->declineForm(...)),
             new TwigFunction('inbox_review', $this->review(...)),
-            new TwigFunction('inbox_reply_form', $this->replyForm(...)),
             new TwigFunction('inbox_review_withdrawal', $this->reviewWithdrawal(...)),
+            new TwigFunction('inbox_review_version', $this->reviewVersion(...)),
             new TwigFunction('inbox_pull_request_review_form', $this->pullRequestReviewForm(...)),
             new TwigFunction('inbox_document_review_form', $this->documentReviewForm(...)),
             new TwigFunction('inbox_refusals', $this->refusals(...)),
@@ -117,24 +114,22 @@ final class InboxExtension extends AbstractExtension
 
     public function review(InboxItem $item): ?InboxReview
     {
-        return $this->inboxReviews->findOneBy(['item' => $item]);
-    }
-
-    public function replyForm(InboxItem $item, ?FormView $refused = null): FormView
-    {
-        $name = ReplyToInboxItemFormType::nameFor($item);
-        if (null !== $refused && $refused->vars['name'] === $name) {
-            return $refused;
-        }
-
-        return $this->formFactory->createNamed($name, ReplyToInboxItemFormType::class,
-            new ReplyToInboxItemRequest(submissionId: (string) Uuid::v4()),
-        )->createView();
+        return $this->inboxReviews->forItem($item);
     }
 
     public function reviewWithdrawal(InboxReview $review): ?Review
     {
         return null === $review->documentReview ? null : $this->reviews->findWithdrawalOf($review->documentReview);
+    }
+
+    /** The version a document review names: the one reviewed, or the latest until then. */
+    public function reviewVersion(InboxReview $review): ?int
+    {
+        if (null !== $review->reviewedVersionNumber) {
+            return $review->reviewedVersionNumber;
+        }
+
+        return null === $review->document ? null : $this->documentVersions->findLatest($review->document)->versionNumber;
     }
 
     public function documentReviewForm(InboxReview $review, ?FormView $refused = null): FormView

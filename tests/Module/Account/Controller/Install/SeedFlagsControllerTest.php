@@ -16,6 +16,7 @@ use App\Module\Bridge\Service\WorkerRunRetentionPolicy;
 use App\Module\Inbox\Install\InboxInstallFlags;
 use App\Module\Review\Mcp\DocumentHighlightTool;
 use App\Module\SiteReview\SiteReviewDrawing;
+use App\Search\Install\SearchInstallFlags;
 use App\Service\UpdateCheck;
 use App\Tests\Support\DirectLogging;
 use App\Tests\Support\RecordingAuditor;
@@ -64,7 +65,7 @@ final class SeedFlagsControllerTest extends WebTestCase
         // prefilled default, and that default has to be "on" or a freshly
         // installed instance cannot register anybody.
         self::assertTrue($flags[RegistrationGate::ENABLED_FLAG]->value);
-        self::assertCount(19, $flags);
+        self::assertCount(20, $flags);
         // Seeded on: the environment prerequisite holds it off until a hub is configured.
         self::assertTrue($flags[LiveUpdates::FLAG]->value);
         // Seeded on: drawing is additive, and a flag that installs off would
@@ -80,6 +81,7 @@ final class SeedFlagsControllerTest extends WebTestCase
         // Seeded off: the operator opts the board in.
         self::assertFalse($flags[BoardInstallFlags::FLAG_BOARD_ENABLED]->value);
         self::assertFalse($flags[InboxInstallFlags::FLAG_INBOX_ENABLED]->value);
+        self::assertFalse($flags[SearchInstallFlags::FLAG_TOPBAR_ENABLED]->value);
         // Same reasoning as the update check: an install sends nothing to a
         // third party until someone decides it should.
         self::assertFalse($flags[AnalyticsScript::ENABLED_FLAG]->value);

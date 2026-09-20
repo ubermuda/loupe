@@ -60,8 +60,9 @@ final readonly class ConfigureBoardColumnHandler
         $renamed = null;
         $previousDefaultId = null;
         $terminalChanged = false;
+        $toneChanged = false;
         // A refusal leaves the closure as a value, for the reason in AddBoardColumnHandler.
-        $errors = $this->em->wrapInTransaction(function () use ($command, $column, $label, &$renamed, &$previousDefaultId, &$terminalChanged): array {
+        $errors = $this->em->wrapInTransaction(function () use ($command, $column, $label, &$renamed, &$previousDefaultId, &$terminalChanged, &$toneChanged): array {
             $this->em->lock($column->project, LockMode::PESSIMISTIC_WRITE);
             $columns = $this->boardColumns->findForProjectFresh($column->project);
             if (!\in_array($column, $columns, true)) {
@@ -99,6 +100,10 @@ final readonly class ConfigureBoardColumnHandler
             }
             $terminalChanged = $command->terminal !== $column->terminal;
             $column->terminal = $command->terminal;
+            $toneChanged = null !== $command->tone && $command->tone !== $column->tone;
+            if ($toneChanged) {
+                $column->tone = $command->tone;
+            }
             $this->em->flush();
 
             if (null !== $renamed) {
@@ -127,7 +132,10 @@ final readonly class ConfigureBoardColumnHandler
         if ($terminalChanged) {
             $this->auditor->record('board.column_terminal_set', AuditOutcome::Success, $context + ['terminal' => $column->terminal], $subject);
         }
-        if (null !== $renamed || null !== $previousDefaultId || $terminalChanged) {
+        if ($toneChanged) {
+            $this->auditor->record('board.column_tone_set', AuditOutcome::Success, $context + ['tone' => $column->tone->value], $subject);
+        }
+        if (null !== $renamed || null !== $previousDefaultId || $terminalChanged || $toneChanged) {
             $this->events->dispatch(new BoardColumnsChanged($column->project));
         }
     }

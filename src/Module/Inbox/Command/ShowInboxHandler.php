@@ -8,9 +8,8 @@ use App\Module\Bridge\Service\BridgeLiveness;
 use App\Module\Inbox\Entity\InboxItem;
 use App\Module\Inbox\Repository\InboxAskRepository;
 use App\Module\Inbox\Repository\InboxItemRepository;
-use App\Module\Inbox\Repository\InboxReplyRepository;
+use App\Module\Inbox\Service\InboxReviewLookup;
 use App\Module\Inbox\View\InboxDetailView;
-use App\Module\Inbox\View\InboxReplyThreads;
 use App\Module\Project\Entity\Project;
 use App\Utils\PageList;
 
@@ -25,7 +24,7 @@ final readonly class ShowInboxHandler
         private InboxItemRepository $inboxItems,
         private BridgeLiveness $bridgeLiveness,
         private SearchInboxHandler $searchInbox,
-        private InboxReplyRepository $inboxReplies,
+        private InboxReviewLookup $inboxReviews,
     ) {
     }
 
@@ -64,6 +63,8 @@ final readonly class ShowInboxHandler
             }
         }
 
+        $this->inboxReviews->preload(array_values($shown));
+
         return new InboxDetailView(
             project: $project,
             openAsks: $openAsks,
@@ -75,7 +76,6 @@ final readonly class ShowInboxHandler
             pageList: PageList::build($page, $totalPages),
             finalItemIds: $this->finalItemIds(array_values($shown)),
             bridgeStatuses: $this->bridgeLiveness->forOwner($project->owner, array_values($bridgeIds)),
-            replies: new InboxReplyThreads($this->inboxReplies->findForItems(array_values($shown))),
             completed: $command->completed,
         );
     }
@@ -89,6 +89,8 @@ final readonly class ShowInboxHandler
             $results = ($this->searchInbox)(new SearchInboxCommand($project, $query, $totalPages, self::SEARCH_RESULTS_PER_PAGE));
         }
 
+        $this->inboxReviews->preload($results->items);
+
         return new InboxDetailView(
             project: $project,
             openAsks: [],
@@ -100,7 +102,6 @@ final readonly class ShowInboxHandler
             pageList: PageList::build($results->page, $totalPages),
             finalItemIds: $this->finalItemIds($results->items),
             bridgeStatuses: [],
-            replies: new InboxReplyThreads($this->inboxReplies->findForItems($results->items)),
             query: $query,
             searchResults: $results->items,
             searchTotal: $results->total,

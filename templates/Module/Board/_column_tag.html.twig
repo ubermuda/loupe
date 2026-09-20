@@ -1,0 +1,2 @@
+{#- A board column as a coloured label. Props: column (BoardColumn). -#}
+{% include '_tone_tag.html.twig' with {label: column.label|trans, tone: column.tone.value} only %}

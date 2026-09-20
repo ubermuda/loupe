@@ -3,6 +3,9 @@ title: Search
 description: "Find pages, cards, and documents in one project or all owned projects."
 ---
 
+The topbar search is behind the `search.topbar.enabled` feature flag, and the flag ships off.
+Switch it on at **`/admin/feature-flags`**. While it is off, the topbar shows no search and Cmd+K does nothing.
+
 Open **Search project** in the topbar, or press Cmd+K on macOS or Ctrl+K elsewhere.
 The search dialog keeps the current page open. On project pages, card and document results belong to the current project.
 An empty query lists its available pages.
