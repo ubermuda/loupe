@@ -93,7 +93,12 @@ final class ClientMetadataDocumentFlowTest extends WebTestCase
         self::assertResponseStatusCodeSame(400);
         self::assertFalse($this->browser->getResponse()->headers->has('Location'));
         self::assertSame('invalid_client', json_decode((string) $this->browser->getResponse()->getContent(), true)['error'] ?? null);
-        self::assertSame(0, (int) static::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchOne('SELECT COUNT(*) FROM oauth2_client'));
+        // Scoped to this client: the device flow seeds a client row of its own.
+        $rows = static::getContainer()->get(EntityManagerInterface::class)->getConnection()->fetchOne(
+            'SELECT COUNT(*) FROM oauth2_client WHERE identifier = ?',
+            [ClientIdUrl::parse(self::CLIENT_ID)->identifier ?? ''],
+        );
+        self::assertSame(0, (int) $rows);
     }
 
     public function test_the_token_endpoint_never_fetches_an_unknown_document(): void
