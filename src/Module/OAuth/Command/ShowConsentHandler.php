@@ -9,12 +9,14 @@ use App\Module\OAuth\Repository\ClientMetadataDocumentRepository;
 use App\Module\OAuth\Scope\GrantedScope;
 use App\Module\OAuth\Service\RedirectUris;
 use App\Module\Project\Repository\ProjectRepository;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 final readonly class ShowConsentHandler
 {
     public function __construct(
         private ProjectRepository $projects,
         private ClientMetadataDocumentRepository $clientMetadataDocuments,
+        private UrlGeneratorInterface $urls,
     ) {
     }
 
@@ -29,6 +31,7 @@ final readonly class ShowConsentHandler
         return new ConsentView(
             clientName: $client->getName(),
             clientHost: null === $document ? null : ClientIdUrl::parse($document->url)?->host,
+            clientIconUrl: null === $document?->iconType ? null : $this->urls->generate('oauth2_client_icon', ['identifier' => $document->clientIdentifier]),
             scope: $command->scope,
             needsProject: GrantedScope::needsProject($command->scope),
             redirectOrigin: RedirectUris::origin($redirectUri),

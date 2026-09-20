@@ -16,7 +16,12 @@
         {% if view.clientHost is not null %}
         <div class="lp-consent__fact">
             <dt class="lp-consent__label">{{ 'oauth.consent.client_host.label'|trans }}</dt>
-            <dd class="lp-consent__value lp-consent__value--mono" data-testid="oauth-consent-client-host">{{ view.clientHost }}</dd>
+            <dd class="lp-consent__value lp-consent__value--mono lp-consent__host" data-testid="oauth-consent-client-host">
+                {% if view.clientIconUrl %}
+                <img src="{{ view.clientIconUrl }}" alt="" width="20" height="20" loading="lazy" decoding="async" class="lp-consent__icon">
+                {% endif %}
+                {{ view.clientHost }}
+            </dd>
         </div>
         <div class="lp-consent__fact">
             <dt class="lp-consent__label">{{ 'oauth.consent.client_name.label'|trans }}</dt>

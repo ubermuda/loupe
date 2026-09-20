@@ -525,6 +525,13 @@
     .lp-consent__value--mono {
         @apply font-mono;
     }
+    .lp-consent__host {
+        @apply flex items-center gap-2;
+    }
+    /* Fixed box, so a slow or missing icon never moves the text beside it. */
+    .lp-consent__icon {
+        @apply w-5 h-5 shrink-0 rounded-sm object-contain;
+    }
     .lp-consent__alert {
         @apply w-full text-left;
     }

@@ -9,6 +9,7 @@ use App\Module\OAuth\ClientMetadata\ClientIdUrl;
 use App\Module\OAuth\ClientMetadata\ClientMetadataFetcher;
 use App\Module\OAuth\ClientMetadata\ClientMetadataRefused;
 use App\Module\OAuth\ClientMetadata\FetchedClientMetadata;
+use App\Module\OAuth\ClientMetadata\FetchedIcon;
 use App\Module\OAuth\Entity\ClientMetadataDocument;
 use App\Module\OAuth\Repository\ClientMetadataDocumentRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -68,10 +69,13 @@ final readonly class RegisterClientMetadataDocumentHandler
             throw self::invalidClient($e->getMessage());
         }
 
-        $this->em->wrapInTransaction(function () use ($url, $fetched): void {
+        // After the document, because a missing icon must not refuse the client.
+        $icon = $this->fetcher->fetchIcon($url);
+
+        $this->em->wrapInTransaction(function () use ($url, $fetched, $icon): void {
             $this->clientMetadataDocuments->lockForRegistration($url->identifier);
             $this->saveClient($url, $fetched);
-            $this->saveDocument($url, $fetched);
+            $this->saveDocument($url, $fetched, $icon);
         });
 
         $this->auditor->record('oauth.client_metadata_registered', AuditOutcome::Success, ['url' => $url->url], new AuditSubject('oauth_client', $url->identifier));
@@ -92,19 +96,22 @@ final readonly class RegisterClientMetadataDocumentHandler
         $this->clients->save($client);
     }
 
-    private function saveDocument(ClientIdUrl $url, FetchedClientMetadata $fetched): void
+    private function saveDocument(ClientIdUrl $url, FetchedClientMetadata $fetched, ?FetchedIcon $icon): void
     {
         $now = $this->clock->now();
         $expiresAt = $now->modify(\sprintf('+%d seconds', $fetched->maxAge));
         $document = $this->clientMetadataDocuments->find($url->identifier);
         if (null === $document) {
-            $this->em->persist(new ClientMetadataDocument($url->identifier, $url->url, $fetched->clientName, $now, $expiresAt));
+            $document = new ClientMetadataDocument($url->identifier, $url->url, $fetched->clientName, $now, $expiresAt);
+            $this->em->persist($document);
         } else {
             $this->em->refresh($document);
             $document->clientName = $fetched->clientName;
             $document->fetchedAt = $now;
             $document->expiresAt = $expiresAt;
         }
+
+        $document->setIcon($icon);
 
         $this->em->flush();
     }

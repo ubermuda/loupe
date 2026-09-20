@@ -31,6 +31,7 @@ final class ClientMetadataDocumentFlowTest extends WebTestCase
     private User $user;
     private Project $project;
     private int $fetches = 0;
+    private ?string $icon = 'icon-bytes';
 
     /** @var array<string, mixed> */
     private array $document = [
@@ -48,7 +49,13 @@ final class ClientMetadataDocumentFlowTest extends WebTestCase
         $this->browser->disableReboot();
         $container = static::getContainer();
         $container->set(SystemHostResolver::class, new FakeHostResolver(['client.example' => ['160.79.104.10']]));
-        $container->set('oauth.client_metadata_client', new MockHttpClient(function (): MockResponse {
+        $container->set('oauth.client_metadata_client', new MockHttpClient(function (string $method, string $url): MockResponse {
+            if (str_ends_with($url, '/favicon.ico')) {
+                return null === $this->icon
+                    ? new MockResponse('', ['http_code' => 404])
+                    : new MockResponse($this->icon, ['response_headers' => ['content-type' => 'image/png']]);
+            }
+
             ++$this->fetches;
 
             return new MockResponse((string) json_encode($this->document), ['response_headers' => ['content-type' => 'application/json']]);
@@ -81,6 +88,39 @@ final class ClientMetadataDocumentFlowTest extends WebTestCase
         self::assertSame(['scopes' => 'mcp', 'redirect_uris' => 'http://localhost/callback'], $connection->fetchAssociative('SELECT scopes, redirect_uris FROM oauth2_client WHERE identifier = ?', [$identifier]));
         self::assertSame(self::CLIENT_ID, $connection->fetchOne('SELECT url FROM oauth_client_metadata_document WHERE client_identifier = ?', [$identifier]));
         self::assertSame($identifier, $connection->fetchOne('SELECT client FROM oauth2_access_token'));
+    }
+
+    public function test_the_consent_page_shows_the_icon_of_the_verified_host(): void
+    {
+        $this->browser->loginUser($this->user);
+        $crawler = $this->browser->request(Request::METHOD_GET, $this->authorizeUrl());
+
+        self::assertResponseIsSuccessful();
+        $icon = $crawler->filter('[data-testid="oauth-consent-client-host"] img');
+        self::assertCount(1, $icon);
+        self::assertSame('', $icon->attr('alt'), 'the icon claims no identity, so it is decorative');
+        self::assertSame('20', $icon->attr('width'), 'a fixed box keeps the row from moving');
+
+        $this->browser->request(Request::METHOD_GET, (string) $icon->attr('src'));
+        self::assertResponseIsSuccessful();
+        self::assertSame('icon-bytes', $this->browser->getResponse()->getContent());
+        self::assertSame('image/png', $this->browser->getResponse()->headers->get('Content-Type'));
+        self::assertSame('nosniff', $this->browser->getResponse()->headers->get('X-Content-Type-Options'));
+    }
+
+    public function test_a_host_without_an_icon_renders_the_page_as_before(): void
+    {
+        $this->icon = null;
+
+        $this->browser->loginUser($this->user);
+        $crawler = $this->browser->request(Request::METHOD_GET, $this->authorizeUrl());
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextSame('[data-testid="oauth-consent-client-host"]', 'client.example');
+        self::assertCount(0, $crawler->filter('[data-testid="oauth-consent-client-host"] img'));
+
+        $this->browser->request(Request::METHOD_GET, '/oauth/client-icon/'.(ClientIdUrl::parse(self::CLIENT_ID)->identifier ?? ''));
+        self::assertResponseStatusCodeSame(404);
     }
 
     public function test_a_document_whose_client_id_differs_is_refused_without_a_redirect(): void

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Module\OAuth\Entity;
 
+use App\Module\OAuth\ClientMetadata\FetchedIcon;
 use App\Module\OAuth\Repository\ClientMetadataDocumentRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -32,7 +34,25 @@ class ClientMetadataDocument
 
         #[ORM\Column]
         public \DateTimeImmutable $expiresAt,
+
+        /** The host's icon, base64 encoded, and its media type. Null when the host serves no usable icon. */
+        #[ORM\Column(type: Types::TEXT, nullable: true)]
+        public ?string $icon = null,
+
+        #[ORM\Column(length: 64, nullable: true)]
+        public ?string $iconType = null,
     ) {
+    }
+
+    public function setIcon(?FetchedIcon $icon): void
+    {
+        $this->icon = null === $icon ? null : base64_encode($icon->bytes);
+        $this->iconType = $icon?->contentType;
+    }
+
+    public function iconBytes(): ?string
+    {
+        return null === $this->icon ? null : (base64_decode($this->icon, true) ?: null);
     }
 
     public function isFresh(\DateTimeImmutable $now): bool

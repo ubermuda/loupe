@@ -122,6 +122,50 @@ final class ClientMetadataFetcherTest extends TestCase
         self::assertSame('client.example', $fetched->clientName);
     }
 
+    public function test_it_fetches_the_icon_of_the_verified_host(): void
+    {
+        $seen = [];
+        $http = new MockHttpClient(static function (string $method, string $url, array $options) use (&$seen): MockResponse {
+            $seen = ['url' => $url, 'resolve' => $options['resolve'] ?? null, 'max_redirects' => $options['max_redirects'] ?? null];
+
+            return new MockResponse('icon-bytes', ['response_headers' => ['content-type' => 'image/vnd.microsoft.icon']]);
+        });
+
+        $icon = $this->fetcher($http)->fetchIcon($this->url());
+
+        self::assertSame('https://client.example/favicon.ico', $seen['url'], 'the icon comes from the host, never from a URL in the document');
+        self::assertSame(['client.example' => self::PUBLIC_IP], $seen['resolve']);
+        self::assertSame(0, $seen['max_redirects']);
+        self::assertSame('image/vnd.microsoft.icon', $icon?->contentType);
+        self::assertSame('icon-bytes', $icon->bytes);
+    }
+
+    #[DataProvider('unusableIcons')]
+    public function test_an_unusable_icon_is_no_icon(MockResponse $response): void
+    {
+        self::assertNull($this->fetcher(new MockHttpClient($response))->fetchIcon($this->url()));
+    }
+
+    /** @return iterable<string, array{MockResponse}> */
+    public static function unusableIcons(): iterable
+    {
+        yield 'not found' => [new MockResponse('', ['http_code' => 404, 'response_headers' => ['content-type' => 'image/png']])];
+        yield 'redirect' => [new MockResponse('', ['http_code' => 302, 'response_headers' => ['location' => 'http://169.254.169.254/']])];
+        yield 'transport error' => [new MockResponse('', ['error' => 'connection timed out'])];
+        yield 'html' => [new MockResponse('<html></html>', ['response_headers' => ['content-type' => 'text/html']])];
+        yield 'svg, which can carry script' => [new MockResponse('<svg/>', ['response_headers' => ['content-type' => 'image/svg+xml']])];
+        yield 'no content type' => [new MockResponse('icon-bytes')];
+        yield 'empty body' => [new MockResponse('', ['response_headers' => ['content-type' => 'image/png']])];
+        yield 'oversized body' => [new MockResponse(str_repeat('a', ClientMetadataFetcher::MAX_ICON_BYTES + 1), ['response_headers' => ['content-type' => 'image/png']])];
+    }
+
+    public function test_an_unsafe_host_gets_no_icon_and_no_request(): void
+    {
+        $http = new MockHttpClient(static fn (): MockResponse => throw new \LogicException('no request may leave'));
+
+        self::assertNull($this->fetcher($http, ['127.0.0.1'])->fetchIcon($this->url()));
+    }
+
     /** @param list<string> $addresses */
     private function fetcher(MockHttpClient $http, array $addresses = [self::PUBLIC_IP]): ClientMetadataFetcher
     {
