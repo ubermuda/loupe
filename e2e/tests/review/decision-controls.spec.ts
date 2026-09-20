@@ -435,3 +435,76 @@ test('a multi-choice block records several answers and clears one', async ({
     await expect(afterReload.nth(0)).not.toBeChecked();
     await expect(afterReload.nth(1)).toBeChecked();
 });
+
+test('the Decisions tab stays in the row when it cannot be opened', async ({
+    page,
+}) => {
+    await signedInReviewer(page, 'disabled-tab');
+    const plain = await page.request.post('/dev/seed/document', {
+        form: {
+            title: `No decisions ${RUN}`,
+            markdown: '# Plain\n\nThis document asks nothing.',
+            revisions: JSON.stringify([
+                '# Plain\n\nThis document asks little.',
+            ]),
+        },
+    });
+    expect(plain.status()).toBe(201);
+    const { projectId, documentId } = await plain.json();
+    const reviewUrl = `/projects/${projectId}/documents/${documentId}/review`;
+    const tab = page.getByRole('tab', { name: 'Decisions', exact: true });
+    const names = async () =>
+        page
+            .getByRole('tablist')
+            .getByRole('tab')
+            .evaluateAll((tabs) =>
+                tabs.map(
+                    (each) =>
+                        (each as HTMLElement).dataset.reviewMarginNameParam,
+                ),
+            );
+
+    // A document that asks nothing still shows the tab, and says why it is shut.
+    await page.goto(reviewUrl);
+    expect(await names()).toEqual([
+        'comments',
+        'outline',
+        'decisions',
+        'details',
+    ]);
+    await expect(tab).toHaveAttribute('aria-disabled', 'true');
+    await expect(tab).toHaveAttribute(
+        'title',
+        'This document has no decisions to answer.',
+    );
+
+    // Forced, because Playwright reads aria-disabled as not enabled and would
+    // otherwise wait for it. A real pointer is not stopped that way, so the
+    // controller still has to refuse the click.
+    await tab.click({ force: true });
+    await expect(
+        page.locator('.lp-review-margin-tabs__item--active'),
+    ).toHaveAttribute('data-review-margin-name-param', 'comments');
+
+    // A comparison cannot answer a decision, so the tab is shut there too and
+    // the row keeps the same four tabs as the document behind it.
+    await page.goto(`${reviewUrl}/diff/1/2?view=rendered`);
+    expect(await names()).toEqual([
+        'comments',
+        'outline',
+        'decisions',
+        'details',
+    ]);
+    await expect(tab).toHaveAttribute('aria-disabled', 'true');
+    await expect(tab).toHaveAttribute(
+        'title',
+        'A comparison cannot answer decisions. Open the Document view to answer them.',
+    );
+
+    // The arrows step over it rather than landing on a panel that cannot open.
+    await page.getByRole('tab', { name: 'Outline', exact: true }).focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(
+        page.getByRole('tab', { name: 'Details', exact: true }),
+    ).toBeFocused();
+});

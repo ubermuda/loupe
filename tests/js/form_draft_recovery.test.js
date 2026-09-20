@@ -83,6 +83,23 @@ it('returns focus to the request heading after discarding a draft', () => {
     expect(document.activeElement).toBe(heading);
 });
 
+it('returns focus to the ask heading when the item shows no title of its own', () => {
+    const ask = document.createElement('section');
+    ask.className = 'lp-inbox-ask';
+    const heading = document.createElement('h2');
+    heading.className = 'lp-inbox-ask__title';
+    const request = document.createElement('article');
+    request.dataset.inboxItem = '1';
+    controller.element.before(ask);
+    ask.append(heading, request);
+    request.append(controller.element);
+    const button = document.createElement('button');
+    controller.panelTarget.append(button);
+    button.focus();
+    controller.discard();
+    expect(document.activeElement).toBe(heading);
+});
+
 it('returns focus to the document heading after discarding a review draft', () => {
     const heading = document.createElement('h1');
     heading.id = 'review-document-title';

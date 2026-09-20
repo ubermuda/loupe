@@ -25,9 +25,11 @@ use App\Module\Board\Form\ReorderBoardColumnsFormType;
 use App\Module\Board\Form\ReorderBoardColumnsRequest;
 use App\Module\Board\Form\SetDefaultBoardColumnFormType;
 use App\Module\Board\Form\SetDefaultBoardColumnRequest;
+use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Repository\CardDocumentRepository;
 use App\Module\Board\Repository\CardRepository;
 use App\Module\Board\Repository\CardSiteReviewCommentRepository;
+use App\Module\Board\Service\BoardColumnTonePicker;
 use App\Module\Project\Entity\Project;
 use App\Module\Review\Entity\Document;
 use App\Module\Review\Service\MarkdownRenderer;
@@ -54,6 +56,8 @@ final class BoardExtension extends AbstractExtension
         private readonly CardSiteReviewCommentRepository $cardSiteReviewComments,
         private readonly CardRepository $cards,
         private readonly CardDocumentRepository $cardDocuments,
+        private readonly BoardColumnRepository $boardColumns,
+        private readonly BoardColumnTonePicker $tonePicker,
     ) {
     }
 
@@ -144,10 +148,15 @@ final class BoardExtension extends AbstractExtension
         return $linksByDocument;
     }
 
-    /** The refused form a failed add forwarded, or a fresh one. */
-    public function boardColumnAddForm(?FormView $refused = null): FormView
+    /**
+     * The refused form a failed add forwarded, or a fresh one whose colour is
+     * picked now, so the person sees it and can change it before saving.
+     */
+    public function boardColumnAddForm(Project $project, ?FormView $refused = null): FormView
     {
-        return $refused ?? $this->formFactory->create(AddBoardColumnFormType::class, new AddBoardColumnRequest())->createView();
+        return $refused ?? $this->formFactory->create(AddBoardColumnFormType::class, new AddBoardColumnRequest(
+            tone: $this->tonePicker->pick($this->boardColumns->findForProject($project)),
+        ))->createView();
     }
 
     /**
@@ -186,6 +195,7 @@ final class BoardExtension extends AbstractExtension
                 terminal: $column->terminal,
                 expectedDefaultId: $expectedDefaultId,
                 expectedTerminal: $column->terminal ? '1' : '0',
+                tone: $column->tone,
             ))
             ->createView();
     }

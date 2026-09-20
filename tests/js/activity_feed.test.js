@@ -28,9 +28,10 @@ beforeEach(async () => {
         data-activity-filter-url-value="/projects/project-a/activity"
         data-activity-filter-project-value="project-a"
         data-activity-filter-page-size-value="50"
-        data-activity-filter-labels-value='{"connecting":"Connecting","listening":"Live","paused":"Paused","failed":"Failed","stale":"Stale","pause":"Pause","resume":"Resume"}'>
+        data-activity-filter-labels-value='{"connecting":"Connecting","listening":"Live","paused":"Paused","failed":"Failed","stale":"Stale","pause":"Pause","resume":"Resume","listeningTitle":"Updates every 10 seconds"}'>
         <button data-activity-filter-target="toggle" data-action="activity-filter#toggle" disabled>Pause</button>
         <span data-activity-filter-target="status"></span>
+        <div data-activity-filter-target="filters"></div>
         <input data-activity-filter-target="query">
         <select data-activity-filter-target="family"><option value="all">All</option><option value="document">Document</option></select>
         <span data-activity-filter-target="count"></span>
@@ -186,4 +187,22 @@ it('distinguishes failed loading from an empty successful snapshot', async () =>
     expect(controller.element.dataset.activityState).toBe('listening');
     expect(controller.noEventsTarget.hidden).toBe(false);
     expect(controller.emptyTarget.hidden).toBe(true);
+});
+
+it('hides the filter bar until the project has an event', async () => {
+    controller.feedTarget.replaceChildren();
+    fetch.mockResolvedValue(response(''));
+    await controller.refresh();
+    expect(controller.filtersTarget.hidden).toBe(true);
+    fetch.mockResolvedValue(response(row('first')));
+    await controller.refresh();
+    expect(controller.filtersTarget.hidden).toBe(false);
+});
+
+it('names the refresh interval only while the feed is live', async () => {
+    await controller.refresh();
+    expect(controller.statusTarget.textContent).toBe('Live');
+    expect(controller.statusTarget.title).toBe('Updates every 10 seconds');
+    controller.toggle();
+    expect(controller.statusTarget.title).toBe('');
 });

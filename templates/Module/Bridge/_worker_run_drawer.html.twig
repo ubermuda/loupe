@@ -1,9 +1,20 @@
 {% set run = item.run %}
-<dialog class="lp-dialog lp-run-drawer" aria-labelledby="run-title-{{ run.id }}"
-        data-modal-target="dialog" data-action="cancel->modal#close"
-        data-controller="worker-run-output"
-        data-worker-run-output-copied-value="{{ 'bridge.worker_runs.details.copied'|trans }}"
-        data-worker-run-output-failed-value="{{ 'bridge.worker_runs.details.copy_failed'|trans }}">
+{% embed '_drawer.html.twig' with {
+    run: run,
+    item: item,
+    project: project,
+    boardEnabled: boardEnabled,
+    class: 'lp-run-drawer',
+    attributes: {
+        'aria-labelledby': 'run-title-' ~ run.id,
+        'data-modal-target': 'dialog',
+        'data-action': 'cancel->modal#close',
+        'data-controller': 'worker-run-output',
+        'data-worker-run-output-copied-value': 'bridge.worker_runs.details.copied'|trans,
+        'data-worker-run-output-failed-value': 'bridge.worker_runs.details.copy_failed'|trans,
+    },
+} only %}
+{% block content %}
     <header class="lp-run-drawer__header">
         <div>
             <h2 class="lp-dialog-title" id="run-title-{{ run.id }}">{{ 'bridge.worker_runs.details.title'|trans }}</h2>
@@ -39,4 +50,5 @@
         <p role="status" data-worker-run-output-target="status"></p>
         <button type="button" class="lp-btn" data-action="worker-run-output#copy">{{ 'bridge.worker_runs.details.copy'|trans }}</button>
     </footer>
-</dialog>
+{% endblock %}
+{% endembed %}

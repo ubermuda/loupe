@@ -48,7 +48,7 @@ final class MoveCardControllerTest extends WebTestCase
         self::assertSame([1, 2, 0], $positions);
     }
 
-    public function test_a_move_to_another_column_lands_at_the_end(): void
+    public function test_a_move_to_another_column_lands_at_the_rank_it_asks_for(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -63,14 +63,14 @@ final class MoveCardControllerTest extends WebTestCase
         $em->clear();
 
         $client->loginUser($owner);
-        // A rank is offered and ignored: a move to another column always lands at the end.
+        // The drop marker chose the top of the target column, so the card lands there.
         $this->move($client, $mover, 'next', 0);
 
         $em->clear();
         $moved = $em->find(Card::class, $moverId);
         self::assertInstanceOf(Card::class, $moved);
         self::assertSame('next', $moved->column->slug);
-        self::assertSame(2, $moved->position);
+        self::assertSame(0, $moved->position);
     }
 
     public function test_a_move_into_done_stamps_the_completion_and_answers_with_a_stream(): void

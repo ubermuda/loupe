@@ -14,6 +14,7 @@ final readonly class DocumentVersionHistoryEntry
         public \DateTimeImmutable $createdAt,
         public ?string $description,
         public array $reviews,
+        public int $threadCount = 0,
     ) {
     }
 }

@@ -13,6 +13,7 @@ export default class extends Controller {
         'noEvents',
         'gap',
         'count',
+        'filters',
     ];
     static values = {
         url: String,
@@ -143,6 +144,9 @@ export default class extends Controller {
         this.feedTarget.prepend(additions);
         this.filter();
         this.noEventsTarget.hidden = this.rowTargets.length > 0;
+        this.filtersTargets.forEach((filters) => {
+            filters.hidden = this.rowTargets.length === 0;
+        });
         if (anchor && anchorTop !== undefined) {
             scroller.scrollTop +=
                 anchor.getBoundingClientRect().top - anchorTop;
@@ -152,6 +156,8 @@ export default class extends Controller {
     setStatus(status) {
         this.element.dataset.activityState = status;
         this.statusTarget.textContent = this.labelsValue[status];
+        this.statusTarget.title =
+            status === 'listening' ? this.labelsValue.listeningTitle : '';
         this.statusTarget.classList.toggle(
             'lp-status-chip--ok',
             status === 'listening',

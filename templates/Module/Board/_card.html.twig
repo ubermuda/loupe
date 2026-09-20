@@ -1,28 +1,38 @@
 {# One card face. The whole card is the drag handle, and the grip says so.
-   Props: card (Card), pendingComments (int). #}
-<article class="lp-board-card"
+   Props: card (Card), pendingComments (int), static (bool, optional): a card
+   shown outside the board, which does not drag and names its column instead.
+   A static card also skips the prefetch, because it opens no drawer. #}
+{% set static = static ?? false %}
+<article class="lp-board-card{{ static ? ' lp-board-card--static' }}"
+         {% if not static %}data-controller="card-prefetch"
          data-board-drag-target="card"
          data-board-filter-target="card"
-         data-action="pointerdown->board-drag#press"
+         data-action="pointerdown->board-drag#press mouseenter->card-prefetch#enter mouseleave->card-prefetch#leave focusin->card-prefetch#enter"{% endif %}
          data-card-id="{{ card.id }}"
          data-card-title="{{ card.title }}">
+    {% if not static %}
     <span class="lp-board-card__grip" aria-hidden="true">
         <twig:ux:icon name="lucide:grip-vertical" class="w-4 h-4" />
     </span>
+    {% endif %}
     {# The identifier and the card's type lead the card face, as the design draws
        them. The number is the handle a person quotes. #}
     <div class="lp-board-card__identity">
         <span class="lp-board-card__number">#{{ card.number }}</span>
-        <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>
+        {% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}
     </div>
     {# draggable="false" stops the browser's own link drag taking the gesture. #}
     <a class="lp-board-card__title"
+       data-card-prefetch-target="link"
        draggable="false"
        href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}"
        data-turbo-frame="card-drawer-frame"
        data-action="click->card-drawer#prepare">
         {{ card.title }}
     </a>
+    {% if static %}
+    <span class="lp-status-chip lp-board-card__status">{{ card.column.label|trans }}</span>
+    {% endif %}
     {% if card.body|trim is not empty %}
     <p class="lp-board-card__excerpt">{{ card.body|striptags|slice(0, 110) }}{% if card.body|length > 110 %}…{% endif %}</p>
     {% endif %}
@@ -52,6 +62,7 @@
        no controls: the drag controller fills them and submits, which keeps
        Turbo and the CSRF controller in the path. The same form is on the card
        page with its labels, where a keyboard reaches it. #}
+    {% if not static %}
     {% set moveForm = card_move_form(card) %}
     <form hidden
           method="post"
@@ -61,4 +72,5 @@
         {{ form_widget(moveForm.column) }}
         {{ form_widget(moveForm.position) }}
     </form>
+    {% endif %}
 </article>

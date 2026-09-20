@@ -66,7 +66,7 @@ final class ShowDocumentHistoryControllerTest extends WebTestCase
         self::assertSelectorTextContains('.lp-history-title', 'Version history');
         self::assertSelectorTextContains('.lp-review-doc__title', 'Historied Doc');
         self::assertSelectorTextContains('.lp-review-doc__version', 'v3');
-        self::assertSelectorTextContains('.lp-review-view-tabs__item[aria-current="page"]', 'History');
+        self::assertSelectorTextContains('.lp-review-workspace-nav .lp-tabs__tab[aria-current="page"]', 'History');
         self::assertSelectorCount(0, '.lp-review-margin-tabs');
         self::assertSelectorExists('#revise-document-title');
         self::assertSelectorExists('#finish-review-title');
@@ -88,7 +88,7 @@ final class ShowDocumentHistoryControllerTest extends WebTestCase
 
         self::assertCount(
             1,
-            $crawler->filter('.lp-review-view-tabs__item[href="/projects/'.$projectId.'/documents/'.$id.'/review"]'),
+            $crawler->filter('.lp-review-workspace-nav .lp-tabs__tab[href="/projects/'.$projectId.'/documents/'.$id.'/review"]'),
         );
     }
 
@@ -157,22 +157,26 @@ final class ShowDocumentHistoryControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, $path);
 
         self::assertResponseIsSuccessful();
-        $firstRow = $crawler->filter('.lp-history__row[data-version-number="1"]');
-        self::assertSame(['Approved', 'Verdict withdrawn'], $firstRow->filter('.lp-history__verdict')->each(
+        // The verdicts read as one log under the table, newest version first,
+        // and each entry names the version it belongs to.
+        $log = $crawler->filter('.lp-history-log');
+        self::assertSame(['Changes requested', 'Approved', 'Verdict withdrawn'], $log->filter('.lp-history__verdict')->each(
             static fn (Crawler $node): string => $node->text(),
         ));
-        self::assertSame(['1', '2'], $firstRow->filter('[data-review-sequence]')->each(
+        self::assertSame(['1', '1', '2'], $log->filter('[data-review-sequence]')->each(
             static fn (Crawler $node): string => (string) $node->attr('data-review-sequence'),
         ));
-        self::assertStringContainsString('Ready to ship.', $firstRow->text());
-        self::assertStringContainsString('History-reviewer', $firstRow->text());
-        self::assertSame('2026-09-16T10:00:00+00:00', $firstRow->filter('time')->first()->attr('datetime'));
-        $secondRow = $crawler->filter('.lp-history__row[data-version-number="2"]');
-        self::assertStringContainsString('Changes requested', $secondRow->text());
-        self::assertStringContainsString('Fix <script>alert(1)</script>.', $secondRow->text());
-        self::assertCount(0, $secondRow->filter('script'));
-        self::assertCount(1, $secondRow->filter('.lp-history__review'));
-        self::assertSelectorTextContains('.lp-history__row[data-version-number="3"]', 'No reviews for this version.');
+        self::assertSame(['v2', 'v1', 'v1'], $log->filter('.lp-history__version')->each(
+            static fn (Crawler $node): string => $node->text(),
+        ));
+        self::assertStringContainsString('Ready to ship.', $log->text());
+        self::assertStringContainsString('History-reviewer', $log->text());
+        self::assertSame('2026-09-16T10:00:00+00:00', $log->filter('time')->first()->attr('datetime'));
+        self::assertStringContainsString('Fix <script>alert(1)</script>.', $log->text());
+        self::assertCount(0, $log->filter('script'));
+
+        // Each row of the table reports its own discussion instead.
+        self::assertSelectorTextContains('.lp-history__row[data-version-number="3"]', 'No threads');
         self::assertStringNotContainsString('Unrelated verdict.', $crawler->text());
     }
 

@@ -20,6 +20,9 @@ final class AddBoardColumnFormType extends AbstractType
         $builder->add('label', TextType::class, [
             'label' => 'board.form.add_board_column_form.label.label',
         ]);
+        $builder->add('tone', BoardColumnToneType::class, [
+            'label' => 'board.form.add_board_column_form.tone.label',
+        ]);
     }
 
     #[\Override]

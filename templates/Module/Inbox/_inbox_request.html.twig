@@ -14,7 +14,9 @@
         data-panel-tab="{{ entry.key }}"
         data-action="click->panel-tabs#select keydown->panel-tabs#keydown">
     <span class="lp-inbox-request__byline">
-        <span class="lp-source-avatar" aria-hidden="true"><twig:ux:icon name="lucide:bot" class="w-4 h-4" /></span>
+        {% set review = item.kind.value == 'review' ? inbox_review(item) : null %}
+        {% set subject = review ? review.targetKind.value : 'agent' %}
+        <span class="lp-source-avatar" aria-hidden="true" data-subject="{{ subject }}">{% include '_attention_subject_icon.html.twig' with {subject: subject} only %}</span>
         <strong>{{ 'inbox.source.agent'|trans }}</strong>
         <time datetime="{{ asked|date('c') }}">{{ asked|relative_time }}</time>
     </span>

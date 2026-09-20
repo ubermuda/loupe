@@ -53,9 +53,9 @@ Another reader of the board sees no column controls.
 Open **Board settings** to manage columns beside the other project settings.
 The **Board columns** section lists the columns in order. Each row has
 **Move up** and **Move down** arrows, a gear button, and a delete button. The
-gear opens a dialog with the column name, **Default for new cards**, and
-**A finishing point for completed work**. **Save column** saves the three
-together, so one save can move the default flag to a terminal column and clear
+gear opens a dialog with the column name, **Default for new cards**,
+**A finishing point for completed work**, and **Colour**. **Save column** saves
+them together, so one save can move the default flag to a terminal column and clear
 its terminal flag. Each action returns to this section. The board header menus
 remain available.
 
@@ -65,7 +65,9 @@ A refused configure keeps your draft in its dialog. Copy it before you reload.
 A refused reorder shows the current order with an error message.
 
 The owner adds a column with **Add a column** in board settings. A new column
-is neither terminal nor the default. The owner drags a column header by its grip
+is neither terminal nor the default. The dialog preselects a colour that no
+other column on the board uses, and the owner can pick another before saving.
+When every colour is in use, Loupe picks one at random. The owner drags a column header by its grip
 to reorder the columns. Board settings shows a **Default** or **Terminal** badge
 on a flagged column.
 
@@ -174,6 +176,10 @@ to it. The columns read side by side, in board order. Each card shows its
 number, its title, its type, how many pull requests it links to, and how many
 review comments still wait on it.
 
+Each card type and each column has a colour, and every page that names one uses
+the same colour. The owner picks a column's colour from twelve in its
+**Colour** setting. The colour stays with the column when the columns move.
+
 Board settings and Add card stack when their labels need more space.
 
 Drag a card to move it. The whole card is the handle, and the grip on its left
@@ -197,7 +203,7 @@ hub and the `live_updates.enabled` flag, see
 [Environment variables](../reference/environment.md). If either is missing, a
 board shows the change on its next load.
 
-**New card** opens the create form. Under each terminal column, a link opens the
+**Add card**, in the page header or under a column, opens the create form in the card drawer. A column's Add card preselects that column. After you save, the drawer shows the new card and the board shows it too. Without JavaScript, the same link opens the form as a page. Under each terminal column, a link opens the
 history page at **`/projects/<project>/board/terminal/<column id>`**. That page
 lists every card in the column, newest completion first, 25 to a page. The
 older address **`/projects/<project>/board/done`** still works. It opens the
@@ -205,8 +211,9 @@ history page of the board's first terminal column.
 
 ### Bridge rule health
 
-Open Rules to read the project's reported handoffs. Search by rule name and submit with the search button or Enter.
-Matching ignores case. Clear search restores the full list; the live-rule count always covers the project's complete report.
+Open Rules to read the project's reported handoffs. Each rule shows its event and its columns by their display names.
+Search by rule name. The list updates as you type, or when you press Enter.
+Matching ignores case. Clear restores the full list; the live-rule count always covers the project's complete report.
 Searches with no matches show a different message from a project with no reported rules.
 On narrow screens or with enlarged text, the search row scrolls to reveal each control as you press Tab or Shift+Tab.
 This page remains read-only. Change rules in the bridge configuration.
@@ -237,15 +244,23 @@ card id is the UUID, not the number.
 
 The page carries the full Markdown body, every pull request link, the review
 feedback pointing at the card, and the times the card was created, last changed
-and completed. It also carries a column control, which moves a card
+and completed. Its Status field is a column control, which moves a card
 with no drag. That is the way to move a card from a keyboard.
+
+The page also lists the card's five latest agent runs, with the rule that
+started each run, when it ran, how long it took and how it ended. A run opens
+its details on the run history page.
 
 When the inbox is on, the page also lists the inbox items linked to the card,
 and you can answer them there. See
 [On a card page and a document page](inbox.md#on-a-card-page-and-a-document-page).
 
+On the board, the Workshop, a document and the Site review page, a card opens
+in a drawer that slides in from the right. The drawer shows the same content as
+the card page.
+
 **Edit** opens the card for a change to its title, body, type, column and
-links. **Delete** asks for a confirmation first, then removes the card and
+links. In the drawer, the form replaces the card, and saving returns to the card. **Delete** asks for a confirmation first, then removes the card and
 its links. A delete cannot be undone, and the number the card held is not
 issued again.
 

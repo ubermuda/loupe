@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Repository;
 
 use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Entity\LabelTone;
 use App\Module\Project\Entity\Project;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -38,7 +39,7 @@ class BoardColumnRepository extends ServiceEntityRepository
     public function findForProjectFresh(Project $project): array
     {
         $rows = $this->getEntityManager()->getConnection()->fetchAllAssociativeIndexed(
-            'SELECT id, label, slug, position, terminal, is_default FROM board_columns WHERE project_id = :projectId',
+            'SELECT id, label, slug, position, terminal, is_default, tone FROM board_columns WHERE project_id = :projectId',
             ['projectId' => (string) $project->id],
         );
 
@@ -53,6 +54,7 @@ class BoardColumnRepository extends ServiceEntityRepository
             $column->position = (int) $row['position'];
             $column->terminal = (bool) $row['terminal'];
             $column->isDefault = (bool) $row['is_default'];
+            $column->tone = LabelTone::from((string) $row['tone']);
             $columns[] = $column;
         }
 

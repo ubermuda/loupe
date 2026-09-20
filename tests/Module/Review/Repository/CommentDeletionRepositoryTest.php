@@ -43,8 +43,6 @@ final class CommentDeletionRepositoryTest extends KernelTestCase
         self::assertEqualsCanonicalizing([$active, $activeReply], $comments->findOpenByVersion($version));
         self::assertSame([$activeReply], $comments->findReplies($active));
         self::assertSame([], $comments->findReplies($deleted));
-        self::assertSame([$deletedReply], $comments->findRepliesIncludingDeleted($deleted));
-        self::assertEqualsCanonicalizing([$deleted, $deletedReply], $comments->findDeletedByDocument($document));
         self::assertEqualsCanonicalizing([$active, $activeReply, $deleted, $deletedReply, $otherDeleted], $comments->findByAuthor($author));
         self::assertSame($activeReply->createdAt?->getTimestamp(), $comments->findLatestEngagementByDocumentAndAuthor($document, $author)?->at->getTimestamp());
         self::assertNull($comments->findLatestEngagementByDocumentAndAuthor($other, $author));
@@ -53,7 +51,6 @@ final class CommentDeletionRepositoryTest extends KernelTestCase
         $em->flush();
 
         self::assertEqualsCanonicalizing([$active, $activeReply, $deleted, $deletedReply], $comments->findByVersion($version));
-        self::assertSame([], $comments->findDeletedByDocument($document));
         self::assertSame([$deletedReply], $comments->findReplies($deleted));
     }
 

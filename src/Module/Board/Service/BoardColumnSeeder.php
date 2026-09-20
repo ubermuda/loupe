@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Board\Service;
 
 use App\Module\Board\Entity\BoardColumn;
+use App\Module\Board\Entity\LabelTone;
 use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -16,12 +17,12 @@ use Doctrine\ORM\EntityManagerInterface;
  */
 final readonly class BoardColumnSeeder
 {
-    /** @var list<array{slug: non-empty-string, terminal: bool, isDefault: bool}> */
+    /** @var list<array{slug: non-empty-string, terminal: bool, isDefault: bool, tone: LabelTone}> */
     private const array COLUMNS = [
-        ['slug' => 'backlog', 'terminal' => false, 'isDefault' => true],
-        ['slug' => 'next', 'terminal' => false, 'isDefault' => false],
-        ['slug' => 'in-progress', 'terminal' => false, 'isDefault' => false],
-        ['slug' => 'done', 'terminal' => true, 'isDefault' => false],
+        ['slug' => 'backlog', 'terminal' => false, 'isDefault' => true, 'tone' => LabelTone::Neutral],
+        ['slug' => 'next', 'terminal' => false, 'isDefault' => false, 'tone' => LabelTone::Lime],
+        ['slug' => 'in-progress', 'terminal' => false, 'isDefault' => false, 'tone' => LabelTone::Purple],
+        ['slug' => 'done', 'terminal' => true, 'isDefault' => false, 'tone' => LabelTone::Green],
     ];
 
     public function __construct(
@@ -41,6 +42,7 @@ final readonly class BoardColumnSeeder
                 position: $position,
                 terminal: $column['terminal'],
                 isDefault: $column['isDefault'],
+                tone: $column['tone'],
             );
             $this->em->persist($seeded);
         }

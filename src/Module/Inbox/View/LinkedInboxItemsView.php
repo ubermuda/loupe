@@ -40,7 +40,6 @@ final readonly class LinkedInboxItemsView implements InboxItemsView
         public Uuid $targetId,
         array $items,
         private array $asksByItem,
-        public InboxReplyThreads $replies,
         /** The older document version the page shows, or null for the current one. */
         public ?int $versionNumber = null,
         ?int $focusedItemNumber = null,
