@@ -73,8 +73,8 @@ final class ClientMetadataDocumentFlowTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('h1', 'client.example');
-        self::assertSelectorTextSame('[data-testid="oauth-consent-client-host"]', 'client.example');
-        self::assertSelectorTextSame('[data-testid="oauth-consent-client-name"]', 'Example Agent');
+        self::assertSelectorTextContains('[data-testid="oauth-consent-client-host"]', 'client.example');
+        self::assertSelectorTextContains('[data-testid="oauth-consent-client-name"]', 'Example Agent');
         self::assertSelectorExists('[data-testid="oauth-consent-loopback-warning"]');
 
         $tokens = $this->scenario->grantTokens($this->browser, $this->user, $this->project, $this->authorizeOverrides());
@@ -96,10 +96,10 @@ final class ClientMetadataDocumentFlowTest extends WebTestCase
         $crawler = $this->browser->request(Request::METHOD_GET, $this->authorizeUrl());
 
         self::assertResponseIsSuccessful();
-        $icon = $crawler->filter('[data-testid="oauth-consent-client-host"] img');
+        $icon = $crawler->filter('.lp-consent__badge img');
         self::assertCount(1, $icon);
         self::assertSame('', $icon->attr('alt'), 'the icon claims no identity, so it is decorative');
-        self::assertSame('20', $icon->attr('width'), 'a fixed box keeps the row from moving');
+        self::assertSame('16', $icon->attr('width'), 'a fixed box keeps the row from moving');
 
         $this->browser->request(Request::METHOD_GET, (string) $icon->attr('src'));
         self::assertResponseIsSuccessful();
@@ -116,8 +116,8 @@ final class ClientMetadataDocumentFlowTest extends WebTestCase
         $crawler = $this->browser->request(Request::METHOD_GET, $this->authorizeUrl());
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextSame('[data-testid="oauth-consent-client-host"]', 'client.example');
-        self::assertCount(0, $crawler->filter('[data-testid="oauth-consent-client-host"] img'));
+        self::assertSelectorTextContains('[data-testid="oauth-consent-client-host"]', 'client.example');
+        self::assertCount(0, $crawler->filter('.lp-consent__badge img'));
 
         $this->browser->request(Request::METHOD_GET, '/oauth/client-icon/'.(ClientIdUrl::parse(self::CLIENT_ID)->identifier ?? ''));
         self::assertResponseStatusCodeSame(404);

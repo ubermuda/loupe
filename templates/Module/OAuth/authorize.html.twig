@@ -3,55 +3,56 @@
 {% block title %}{{ 'oauth.consent.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block auth_body %}
-<div class="lp-consent" data-testid="oauth-consent">
-    <div class="auth-icon-badge">
-        <twig:UX:Icon name="lucide:plug" class="w-5 h-5" aria-hidden="true" />
-    </div>
-    <div>
-        <h1 class="lp-consent__title">{{ 'oauth.consent.heading'|trans({'%client%': view.clientHost ?? view.clientName}) }}</h1>
-        <p class="lp-consent__lead">{{ 'oauth.consent.signed_in_as'|trans({'%email%': app.user.userIdentifier}) }}</p>
-    </div>
+<div class="lp-consent lp-consent--rows" data-testid="oauth-consent">
+    <h1 class="lp-consent__question">{{ 'oauth.consent.question'|trans({'%client%': view.clientHost ?? view.clientName}) }}</h1>
 
-    <dl class="lp-consent__facts">
-        {% if view.clientHost is not null %}
-        <div class="lp-consent__fact">
-            <dt class="lp-consent__label">{{ 'oauth.consent.client_host.label'|trans }}</dt>
-            <dd class="lp-consent__value lp-consent__value--mono lp-consent__host" data-testid="oauth-consent-client-host">
+    <div class="lp-consent__rows">
+        <div class="lp-consent__row">
+            <span class="lp-consent__badge" aria-hidden="true">
                 {% if view.clientIconUrl %}
-                <img src="{{ view.clientIconUrl }}" alt="" width="20" height="20" loading="lazy" decoding="async" class="lp-consent__icon">
+                <img src="{{ view.clientIconUrl }}" alt="" width="16" height="16" loading="lazy" decoding="async" class="lp-consent__icon">
+                {% else %}
+                <twig:UX:Icon name="lucide:app-window" class="lp-consent__row-icon" />
                 {% endif %}
-                {{ view.clientHost }}
-            </dd>
+            </span>
+            <div class="lp-consent__row-body">
+                {% if view.clientHost is not null %}
+                <p class="lp-consent__row-primary" data-testid="oauth-consent-client-host">{{ 'oauth.consent.row.publisher'|trans({'%host%': '<span class="lp-consent__row-strong">' ~ view.clientHost|e ~ '</span>'})|raw }}</p>
+                <p class="lp-consent__row-second" data-testid="oauth-consent-client-name">{{ 'oauth.consent.row.publisher_unverified'|trans({'%client%': view.clientName}) }}</p>
+                {% else %}
+                <p class="lp-consent__row-primary" data-testid="oauth-consent-client-name">{{ 'oauth.consent.row.publisher_registered'|trans({'%client%': view.clientName}) }}</p>
+                <p class="lp-consent__row-second">{{ 'oauth.consent.row.publisher_registered_hint'|trans }}</p>
+                {% endif %}
+            </div>
         </div>
-        <div class="lp-consent__fact">
-            <dt class="lp-consent__label">{{ 'oauth.consent.client_name.label'|trans }}</dt>
-            <dd class="lp-consent__value" data-testid="oauth-consent-client-name">{{ view.clientName }}</dd>
-            <dd class="lp-consent__note">{{ 'oauth.consent.client_name.unverified'|trans }}</dd>
-        </div>
-        {% endif %}
-        <div class="lp-consent__fact">
-            <dt class="lp-consent__label">{{ 'oauth.consent.scope.label'|trans }}</dt>
-            <dd class="lp-consent__value" data-testid="oauth-consent-scope">{{ ('oauth.consent.scope.' ~ view.scope.value|replace({'-': '_'}))|trans }}</dd>
-        </div>
-        <div class="lp-consent__fact">
-            <dt class="lp-consent__label">{{ 'oauth.consent.redirect.label'|trans }}</dt>
-            <dd class="lp-consent__value lp-consent__value--mono" data-testid="oauth-consent-redirect">{{ view.redirectOrigin }}</dd>
-        </div>
-    </dl>
 
-    {% if view.loopbackOnly %}
-    <div class="lp-connect-alert lp-consent__alert" data-testid="oauth-consent-loopback-warning">
-        <twig:UX:Icon name="lucide:triangle-alert" class="lp-connect-alert__icon w-4 h-4" />
-        <p class="lp-connect-alert__text">{{ 'oauth.consent.loopback_warning'|trans }}</p>
+        <div class="lp-consent__row">
+            <twig:UX:Icon name="lucide:lock" class="lp-consent__row-icon" aria-hidden="true" />
+            <div class="lp-consent__row-body">
+                <p class="lp-consent__row-primary" data-testid="oauth-consent-scope">{{ ('oauth.consent.row.scope.' ~ view.scope.value|replace({'-': '_'}))|trans }}</p>
+                <p class="lp-consent__row-second">{{ ('oauth.consent.row.scope_bounds.' ~ view.scope.value|replace({'-': '_'}))|trans }}</p>
+            </div>
+        </div>
+
+        <div class="lp-consent__row">
+            <twig:UX:Icon name="lucide:arrow-right" class="lp-consent__row-icon" aria-hidden="true" />
+            <div class="lp-consent__row-body">
+                <p class="lp-consent__row-primary">{{ 'oauth.consent.row.return'|trans({'%origin%': '<span class="lp-consent__row-mono" data-testid="oauth-consent-redirect">' ~ view.redirectOrigin|e ~ '</span>'})|raw }}</p>
+                {% if view.loopbackOnly %}
+                <p class="lp-consent__row-second" data-testid="oauth-consent-loopback-warning">{{ 'oauth.consent.loopback_warning'|trans }}</p>
+                {% else %}
+                <p class="lp-consent__row-second">{{ 'oauth.consent.row.return_remote'|trans }}</p>
+                {% endif %}
+            </div>
+        </div>
     </div>
-    {% endif %}
 
     {# A native submit: the answer redirects to the app, which can be another origin or a custom scheme that Turbo cannot fetch. #}
     {{ form_start(form, {'attr': {'class': 'lp-form lp-consent__form', 'novalidate': 'novalidate', 'data-turbo': 'false', 'data-controller': 'require-choice'}}) }}
         {{ form_errors(form) }}
         {% if form.project is defined %}
         <div class="lp-form-field">
-            {{ form_label(form.project, null, {'label_attr': {'class': 'lp-label'}}) }}
+            {{ form_label(form.project, null, {'label_attr': {'class': 'lp-consent__picker-label'}}) }}
             {{ form_widget(form.project, {'attr': {
                 'class': 'lp-input lp-select',
                 'data-require-choice-target': 'choice',
@@ -68,5 +69,10 @@
             {{ form_widget(form.approve, {'attr': {'class': 'lp-btn lp-btn--primary', 'data-require-choice-target': 'submit'}}) }}
         </div>
     {{ form_end(form) }}
+
+    <p class="lp-consent__footnote">
+        {{ 'oauth.consent.footnote'|trans({'%email%': app.user.userIdentifier}) }}
+        <a href="{{ path('app_account_connected_apps') }}" class="auth-link">{{ 'oauth.consent.footnote_link'|trans }}</a>
+    </p>
 </div>
 {% endblock %}
