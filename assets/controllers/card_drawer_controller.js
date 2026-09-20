@@ -57,10 +57,10 @@ export default class extends ModalController {
                 easing: 'ease',
             });
         }
-        // A reader who already works in the new content keeps their focus.
-        if (this.frameTarget.contains(document.activeElement)) return;
         const opening = this.focusFrameOnLoad;
         this.focusFrameOnLoad = false;
+        // A reader who already works in the new content keeps their focus.
+        if (this.frameTarget.contains(document.activeElement)) return;
         // A form in the frame re-renders it too, and the drawer is modeless, so
         // work outside it is real work. Take only focus the render dropped.
         const active = document.activeElement;
