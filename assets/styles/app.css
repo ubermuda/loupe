@@ -2390,7 +2390,7 @@
         @apply bg-surface-2 px-4.5 py-3.25 text-xs font-semibold text-fg-dim;
     }
     .lp-history td {
-        @apply border-t border-line px-4.5 py-4.5 align-top text-sm text-fg-mute;
+        @apply border-t border-line px-4.5 py-4.5 align-middle text-sm text-fg-mute;
     }
     .lp-history td:last-child {
         @apply whitespace-nowrap;

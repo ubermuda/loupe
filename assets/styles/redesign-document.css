@@ -603,3 +603,38 @@
 .lp-review .lp-history__empty {
     @apply m-0 text-sm text-fg-dim;
 }
+
+/* ── Side-by-side comparison ────────────────────────────────────── */
+
+/* One paper holding both columns, the way the reading view holds one. A card
+   per block turned a document into a stack of cards. */
+.lp-review .lp-diff-columns {
+    @apply gap-0 overflow-hidden rounded-lg border border-line bg-surface-1;
+}
+.lp-review .lp-diff-columns__title {
+    @apply border-b border-line bg-surface-2 px-6 py-3 font-sans text-xs font-semibold tracking-normal text-fg-dim normal-case;
+}
+.lp-review .lp-diff-columns__cell {
+    @apply px-6 py-4;
+}
+.lp-review .lp-diff-columns__cell > .lp-diff-doc {
+    @apply rounded-none border-0 bg-transparent p-0 shadow-none;
+}
+/* The rule between the two versions, and between one pair and the next. */
+@media (width >= 64rem) {
+    .lp-review .lp-diff-columns__title + .lp-diff-columns__title,
+    .lp-review .lp-diff-columns__cell[data-diff-side='new'] {
+        @apply border-l border-line;
+    }
+    .lp-review .lp-diff-columns__cell[data-diff-row]:not([data-diff-row='1']) {
+        @apply border-t border-line-faint;
+    }
+}
+@media (width < 64rem) {
+    .lp-review .lp-diff-columns__cell + .lp-diff-columns__cell {
+        @apply border-t border-line-faint;
+    }
+}
+.lp-review .lp-diff-columns__cell--void {
+    @apply min-h-0 rounded-none border-0 bg-surface-2 p-0 px-6 py-4;
+}
