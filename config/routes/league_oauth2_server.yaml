@@ -1,6 +1,6 @@
-# The authorize endpoint is App\Module\OAuth\Controller\AuthorizeController.
-# The bundle's route file is not imported, because it also exposes the device
-# code endpoint, which no enabled grant serves.
+# The authorize and device authorization endpoints are controllers of the OAuth
+# module. The bundle's route file is not imported, because it would expose the
+# bundle's own versions of both.
 oauth2_token:
     path: /oauth/token
     controller: league.oauth2_server.controller.token::indexAction

@@ -1,19 +1,18 @@
 package cmd
 
 import (
-	"bufio"
 	"context"
-	"errors"
 	"fmt"
-	"io"
+	"net/http"
 	"os"
+	"os/signal"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/config"
-	"golang.org/x/term"
+	"github.com/ubermuda/loupe/cli/internal/oauth"
 )
 
 func newLoginCmd() *cobra.Command {
@@ -21,30 +20,25 @@ func newLoginCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Store a Loupe API token (agent scope) for the bridge",
-		Long: "Stores a Loupe API token so the bridge can subscribe to your " +
-			"site's event stream. The token is validated against the API before it is saved.\n\n" +
-			"Mint one from your account settings page. A project's widget token carries a " +
-			"different scope and the bridge endpoints refuse it.\n\n" +
-			"Provide the token with --token, the LOUPE_TOKEN env var, or interactively.",
+		Short: "Sign the bridge in to Loupe",
+		Long: "Signs the bridge in to Loupe, so it can subscribe to your site's event stream.\n\n" +
+			"With no token, login prints a link and a code. Open the link in a browser where you " +
+			"are signed in to Loupe, check the code, and choose Allow. The CLI then stores an " +
+			"access token and a refresh token, and refreshes the access token by itself.\n\n" +
+			"For CI and scripts, pass an API token with the agent scope in --token or the " +
+			"LOUPE_TOKEN env var. Mint one from your account settings page. The token is " +
+			"validated against the API before it is saved.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if token == "" {
 				token = os.Getenv("LOUPE_TOKEN")
 			}
-			if token == "" {
-				fmt.Fprint(cmd.OutOrStdout(), "API token (agent scope): ")
-				read, err := promptForToken(cmd)
-				if err != nil {
-					return err
-				}
-				token = read
-			}
 			token = strings.TrimSpace(token)
+			base := strings.TrimRight(baseURL, "/")
 			if token == "" {
-				return fmt.Errorf("no token provided")
+				return deviceLogin(cmd, base)
 			}
 
-			cfg := config.Config{BaseURL: strings.TrimRight(baseURL, "/"), Token: token}
+			cfg := config.Config{BaseURL: base, Token: token}
 
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)
 			defer cancel()
@@ -61,35 +55,47 @@ func newLoginCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&baseURL, "url", "https://loupe.dev.localhost", "Loupe base URL")
-	cmd.Flags().StringVar(&token, "token", "", "API token (else LOUPE_TOKEN env, else prompt)")
+	cmd.Flags().StringVar(&token, "token", "", "API token for CI and scripts (else LOUPE_TOKEN env, else sign in in a browser)")
 
 	return cmd
 }
 
-// promptForToken reads the token without echoing it when the input is a real
-// terminal, and falls back to a line read for pipes and tests.
-func promptForToken(cmd *cobra.Command) (string, error) {
-	in := cmd.InOrStdin()
+// deviceLogin runs the device flow: it prints the page and the code, waits for
+// the person to approve them, and stores the tokens. It prints no token.
+func deviceLogin(cmd *cobra.Command, baseURL string) error {
+	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt)
+	defer stop()
 
-	if f, ok := in.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
-		raw, err := term.ReadPassword(int(f.Fd()))
-		// Suppressed echo swallows the Enter keypress too, so the next line of
-		// output would otherwise run on from the prompt.
-		fmt.Fprintln(cmd.OutOrStdout())
-		if err != nil {
-			return "", fmt.Errorf("read token: %w", err)
-		}
-
-		return string(raw), nil
+	hc := &http.Client{Timeout: refreshTimeout}
+	flow := oauth.NewFlow(baseURL, hc)
+	device, err := flow.Start(ctx)
+	if err != nil {
+		return err
 	}
 
-	line, err := bufio.NewReader(in).ReadString('\n')
-	// A token piped in without a trailing newline ends in EOF with the line
-	// already read, which is success. EOF with nothing read, or any other
-	// error, is a failed read.
-	if err != nil && !(errors.Is(err, io.EOF) && line != "") {
-		return "", fmt.Errorf("read token: %w", err)
+	out := cmd.OutOrStdout()
+	code := oauth.DisplayUserCode(device.UserCode)
+	if device.VerificationURIComplete != "" {
+		fmt.Fprintf(out, "Open this page in a browser where you are signed in to Loupe:\n\n  %s\n\nCheck that the page shows the code %s, then choose Allow.\n", device.VerificationURIComplete, code)
+	} else {
+		fmt.Fprintf(out, "Open this page in a browser where you are signed in to Loupe:\n\n  %s\n\nType the code %s, then choose Allow.\n", device.VerificationURI, code)
+	}
+	fmt.Fprintln(out, "Waiting for your answer...")
+
+	tokens, err := flow.Poll(ctx, device)
+	if err != nil {
+		return err
 	}
 
-	return line, nil
+	checkCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if _, err := api.New(baseURL, tokens.AccessToken, hc).Sites(checkCtx); err != nil {
+		return err
+	}
+	if err := config.Save(config.Config{BaseURL: baseURL, OAuth: &tokens}); err != nil {
+		return err
+	}
+	fmt.Fprintln(out, "Logged in. Tokens saved.")
+
+	return nil
 }
