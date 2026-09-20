@@ -326,20 +326,23 @@ test('a drag into another column lands where the marker stood', async ({
 test('the dragged card stays under the pointer on a scrolled board, and a ghost holds its slot', async ({
     page,
 }) => {
-    // Narrow and short, so the main pane scrolls down and the columns scroll
+    // Narrow and short, so a column scrolls its cards and the columns scroll
     // sideways. The dragged card is fixed to the viewport, so both offsets
     // must drop out of its position.
-    await page.setViewportSize({ width: 700, height: 300 });
+    await page.setViewportSize({ width: 700, height: 400 });
     // Below lg the sidebar turns into a drawer, which stays over the board
     // until its slide-out ends.
     await expect(page.locator('.lp-sidebar')).toBeHidden();
     const offsets = await page.evaluate(() => {
-        const main = document.querySelector('.lp-main');
+        const cards = document.querySelector('.lp-board__group');
         const columns = document.querySelector('.lp-board__columns');
-        main?.scrollBy({ top: 150, behavior: 'instant' });
+        cards?.scrollBy({ top: 20, behavior: 'instant' });
         columns?.scrollBy({ left: 20, behavior: 'instant' });
 
-        return { down: main?.scrollTop ?? 0, across: columns?.scrollLeft ?? 0 };
+        return {
+            down: cards?.scrollTop ?? 0,
+            across: columns?.scrollLeft ?? 0,
+        };
     });
     expect(offsets.down).toBeGreaterThan(0);
     expect(offsets.across).toBeGreaterThan(0);
@@ -350,7 +353,7 @@ test('the dragged card stays under the pointer on a scrolled board, and a ghost 
     if (origin === null) {
         return;
     }
-    const grab = { x: 40, y: 12 };
+    const grab = { x: 40, y: 40 };
     await page.mouse.move(origin.x + grab.x, origin.y + grab.y);
     await page.mouse.down();
 
@@ -374,8 +377,16 @@ test('the dragged card stays under the pointer on a scrolled board, and a ghost 
         await expect(ghost).toHaveCount(1);
         const ghostBox = await ghost.boundingBox();
         expect(ghostBox).not.toBeNull();
+        // A pointer near a column's edge scrolls that column, and the slot the
+        // ghost holds travels with it.
+        const scrolled =
+            (await page.evaluate(
+                () => document.querySelector('.lp-board__group').scrollTop,
+            )) - offsets.down;
         expect(Math.abs((ghostBox?.x ?? 0) - origin.x)).toBeLessThan(2);
-        expect(Math.abs((ghostBox?.y ?? 0) - origin.y)).toBeLessThan(2);
+        expect(
+            Math.abs((ghostBox?.y ?? 0) - (origin.y - scrolled)),
+        ).toBeLessThan(2);
         expect(Math.abs((ghostBox?.width ?? 0) - origin.width)).toBeLessThan(2);
         expect(Math.abs((ghostBox?.height ?? 0) - origin.height)).toBeLessThan(
             2,

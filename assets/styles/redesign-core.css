@@ -38,15 +38,13 @@
     grid-auto-flow: column;
     grid-auto-columns: minmax(calc(var(--spacing) * 52), 1fr);
     gap: calc(var(--spacing) * 3.5);
-    align-items: start;
-    min-height: 60vh;
+    align-items: stretch;
     overflow-x: auto;
     padding-bottom: calc(var(--spacing) * 4);
 }
 
 .lp-core-board .lp-board__column {
     min-width: calc(var(--spacing) * 52);
-    min-height: calc(var(--spacing) * 40);
     padding: calc(var(--spacing) * 2.5);
     border: 0;
     border-radius: var(--radius-xl);

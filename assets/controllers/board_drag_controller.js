@@ -23,6 +23,10 @@ import { Controller } from '@hotwired/stimulus';
  */
 const DRAG_THRESHOLD = 5;
 
+/** How close to a column's edge the pointer scrolls its cards, and how fast. */
+const EDGE_BAND = 56;
+const EDGE_STEP = 14;
+
 export default class extends Controller {
     static targets = ['card', 'group', 'moveForm', 'message'];
 
@@ -37,7 +41,27 @@ export default class extends Controller {
         this.originIndex = -1;
         this.pendingForm = null;
         this.swallowClick = false;
+        this.scrollFrame = null;
+        this.scrollGroup = null;
+        this.pointerY = 0;
 
+        this.onScrollFrame = () => {
+            this.scrollFrame = null;
+            const group = this.scrollGroup;
+            if (this.draggedCard === null || group === null) {
+                return;
+            }
+            const step = this.edgeStep(group);
+            if (step === 0) {
+                return;
+            }
+            const before = group.scrollTop;
+            group.scrollTop = before + step;
+            if (group.scrollTop !== before) {
+                this.markPlaceIn(group, this.pointerY);
+            }
+            this.scrollFrame = requestAnimationFrame(this.onScrollFrame);
+        };
         this.onPointerMove = (event) => this.pointerMove(event);
         this.onPointerUp = (event) => this.pointerUp(event);
         this.onKeydown = (event) => {
@@ -151,9 +175,62 @@ export default class extends Controller {
         this.draggedCard.style.left = `${event.clientX - this.grabOffsetX}px`;
         this.draggedCard.style.top = `${event.clientY - this.grabOffsetY}px`;
 
+        this.pointerY = event.clientY;
         const group = this.groupUnder(event.clientX, event.clientY);
         if (group !== null) {
             this.markPlaceIn(group, event.clientY);
+        }
+        this.followEdge(group);
+    }
+
+    /**
+     * A column shows the cards that fit, so a drag to a card below the fold
+     * scrolls that column while the pointer rests near its edge.
+     */
+    followEdge(group) {
+        this.scrollGroup = group;
+        if (group === null || this.edgeStep(group) === 0) {
+            this.stopScrolling();
+
+            return;
+        }
+        if (this.scrollFrame === null) {
+            this.scrollFrame = requestAnimationFrame(this.onScrollFrame);
+        }
+    }
+
+    edgeStep(group) {
+        const box = group.getBoundingClientRect();
+        const fromTop = this.pointerY - box.top;
+        const fromBottom = box.bottom - this.pointerY;
+        const room = group.scrollHeight - group.clientHeight;
+        const speed = (depth) =>
+            Math.ceil(
+                ((EDGE_BAND - Math.max(depth, 0)) / EDGE_BAND) * EDGE_STEP,
+            );
+
+        if (
+            fromTop < EDGE_BAND &&
+            fromTop > -EDGE_BAND &&
+            group.scrollTop > 0
+        ) {
+            return -speed(fromTop);
+        }
+        if (
+            fromBottom < EDGE_BAND &&
+            fromBottom > -EDGE_BAND &&
+            group.scrollTop < room - 1
+        ) {
+            return speed(fromBottom);
+        }
+
+        return 0;
+    }
+
+    stopScrolling() {
+        if (this.scrollFrame !== null) {
+            cancelAnimationFrame(this.scrollFrame);
+            this.scrollFrame = null;
         }
     }
 
@@ -327,6 +404,8 @@ export default class extends Controller {
         }
         this.element.classList.remove('lp-board--dragging');
         delete this.element.dataset.turboPrefetch;
+        this.stopScrolling();
+        this.scrollGroup = null;
 
         this.pointerId = null;
         this.pressedCard = null;
