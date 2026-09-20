@@ -840,6 +840,17 @@
 }
 
 @layer components {
+    /* One quiet scrollbar for every pane the app scrolls: thin, no track, and a
+       muted thumb from the design tokens. The gutter is reserved, so content
+       does not shift when a pane starts or stops scrolling. */
+    .lp-quiet-scroll,
+    .lp-split-pane,
+    .lp-board__group,
+    .lp-sidebar--drawer {
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-strong) transparent;
+        scrollbar-gutter: stable;
+    }
     /* Holds the page's controllers around a frame and a drawer, and leaves the
        layout to them. */
     .lp-site-review-shell {
@@ -3844,10 +3855,7 @@
        `visibility: hidden`, so it is untabbable and untappable off-canvas. */
     .lp-sidebar--drawer {
         @apply fixed inset-y-0 left-0 z-50 min-h-0 overflow-y-auto bg-sidebar invisible -translate-x-full lg:static lg:visible lg:translate-x-0;
-        /* The shell is exactly one viewport tall, so a rail with more entries
-           than fit scrolls itself. Letting it overflow grew the document past
-           the shell, and the dark rail then stopped above the page's end. */
-        scrollbar-width: none;
+        /* The shell is one viewport tall, so a longer rail scrolls itself. */
         /* `translate`, not `transform`: that is the property -translate-x-full
            writes. Hiding waits out the slide, so the panel does not vanish
            mid-motion. */
@@ -3858,9 +3866,6 @@
     /* No delay on the way in, so the panel is focusable in the same tick the
        drawer opens. An interpolated `visibility` still reads `hidden` there and
        makes focus() a silent no-op. */
-    .lp-sidebar--drawer::-webkit-scrollbar {
-        display: none;
-    }
     .lp-sidebar--drawer.lp-sidebar--open {
         @apply visible translate-x-0;
         transition:
@@ -5719,8 +5724,9 @@
     }
     /* A group is a drop target, so it keeps a minimum height even when empty:
        an empty column with no area under it cannot be dropped into. */
+    /* pr-1.5 keeps the bar off the card edges, which are rounded boxes. */
     .lp-board__group {
-        @apply flex flex-col flex-1 gap-2 min-h-12 rounded-lg overflow-y-auto transition-colors;
+        @apply flex flex-col flex-1 gap-2 min-h-12 pr-1.5 rounded-lg overflow-y-auto transition-colors;
     }
     /* An empty group takes no room: the negative margin cancels the column gap
        above it. The drag controller hit-tests the whole column, so it stays a target. */
