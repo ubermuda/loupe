@@ -65,9 +65,13 @@ export default class extends ModalController {
         // work outside it is real work. Take only focus the render dropped.
         const active = document.activeElement;
         if (!opening && active && active !== document.body) return;
-        const focusTarget = this.frameTarget.querySelector(
-            'form input:not([type="hidden"]), [data-panel-tabs-target="tab"][aria-selected="true"], a, button',
-        );
+        // A flash renders above the header, so it holds the frame's first
+        // button and would take the focus the card's own content deserves.
+        const focusTarget = [
+            ...this.frameTarget.querySelectorAll(
+                'form input:not([type="hidden"]), [data-panel-tabs-target="tab"][aria-selected="true"], a, button',
+            ),
+        ].find((candidate) => !candidate.closest('.lp-flash'));
         focusTarget?.focus();
     }
 
