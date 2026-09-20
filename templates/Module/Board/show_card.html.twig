@@ -114,7 +114,7 @@
             <div class="lp-card-conversation-intro"><span class="lp-source-avatar"><twig:ux:icon name="lucide:messages-square" class="w-4 h-4" /></span><div><h2 class="lp-card-panel__title">{{ 'board.card.conversation.title'|trans }}</h2><p>{{ 'board.card.conversation.description'|trans }}</p></div></div>
             {{ inbox_card_section(card) }}
             {% for link in siteReviewLinks %}
-                {% include '@Board/_feedback_thread.html.twig' with {link: link, replies: siteReviewReplies.forComment(link.comment), surface: 'conversation', refusedForm: refusedFeedbackReply} only %}
+                {% include '@Board/_feedback_entry.html.twig' with {link: link, surface: 'conversation'} only %}
             {% endfor %}
         </section>
 
@@ -123,7 +123,7 @@
             {% if siteReviewLinks|length > 0 %}
             <ul class="lp-card-feedback-list">
                 {% for link in siteReviewLinks %}
-                    <li>{% include '@Board/_feedback_thread.html.twig' with {link: link, replies: siteReviewReplies.forComment(link.comment), surface: 'feedback', refusedForm: refusedFeedbackReply} only %}</li>
+                    <li>{% include '@Board/_feedback_entry.html.twig' with {link: link, surface: 'feedback'} only %}</li>
                 {% endfor %}
             </ul>
             <a class="lp-btn lp-btn--ghost" href="{{ path('app_project_site_review', {id: card.project.id}) }}" data-turbo-frame="_top">{{ 'board.card.site_review.all'|trans }}</a>

@@ -6026,16 +6026,8 @@
             <trans-unit id="inbox.answer.unsent"><source>inbox.answer.unsent</source><target>Your unsent answer</target></trans-unit>
             <trans-unit id="inbox.answer.unsent_closed"><source>inbox.answer.unsent_closed</source><target>This request no longer accepts responses. This draft was not sent.</target></trans-unit>
             <trans-unit id="inbox.answer.discard_draft"><source>inbox.answer.discard_draft</source><target>Discard draft</target></trans-unit>
-            <trans-unit id="site_review.reply.error.body"><source>site_review.reply.error.body</source><target>Write a reply of up to 2,000 characters.</target></trans-unit>
-            <trans-unit id="site_review.reply.error.submission"><source>site_review.reply.error.submission</source><target>This reply form is no longer current. Copy your draft, reload the feedback, and try again.</target></trans-unit>
-            <trans-unit id="site_review.reply.added"><source>site_review.reply.added</source><target>Reply added.</target></trans-unit>
-            <trans-unit id="site_review.reply.failed"><source>site_review.reply.failed</source><target>Your reply could not be confirmed. Your draft is still here. Try again.</target></trans-unit>
-            <trans-unit id="site_review.reply.placeholder"><source>site_review.reply.placeholder</source><target>Reply to this thread…</target></trans-unit>
             <trans-unit id="site_review.feedback.open_card"><source>site_review.feedback.open_card</source><target>Open card #%number%</target></trans-unit>
             <trans-unit id="site_review.feedback.received"><source>site_review.feedback.received</source><target>Received from the site review widget</target></trans-unit>
-            <trans-unit id="site_review.reply.submit"><source>site_review.reply.submit</source><target>Post reply</target></trans-unit>
-            <trans-unit id="site_review.reply.conversation"><source>site_review.reply.conversation</source><target>Replies</target></trans-unit>
-            <trans-unit id="sitereview.form.reply_to_site_review_comment_form.body.label"><source>sitereview.form.reply_to_site_review_comment_form.body.label</source><target>Reply to this feedback</target></trans-unit>
             <trans-unit id="site_review.receipt.needs_card"><source>site_review.receipt.needs_card</source><target>{0}No feedback needs a card|{1}1 needs a card|]1,Inf[%count% need a card</target></trans-unit>
             <trans-unit id="site_review.receipt.organized"><source>site_review.receipt.organized</source><target>All feedback organized</target></trans-unit>
             <trans-unit id="site_review.filter.empty_title"><source>site_review.filter.empty_title</source><target>No matching feedback</target></trans-unit>

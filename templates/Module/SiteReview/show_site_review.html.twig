@@ -148,7 +148,6 @@
                     {% if comment.status.value != 'resolved' %}<form method="POST" action="{{ path('app_site_review_comment_resolve', {id: comment.id}) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token('site-review-comment-action') }}"><button type="submit" class="lp-btn lp-btn--primary"><twig:ux:icon name="lucide:check" />{{ 'site_review.comment.action.resolve'|trans }}</button></form>{% endif %}
                 </footer>
                 <p class="lp-feedback-detail__source"><twig:ux:icon name="lucide:link-2" />{{ 'site_review.feedback.received'|trans }}</p>
-                {% include '@SiteReview/_replies.html.twig' with {comment: comment, replies: replies.forComment(comment), surface: 'site', refusedForm: refusedReply, action: path('app_site_review_comment_reply', {id: comment.id}), responseFrame: '_top'} only %}
             </article>
             {% endfor %}
             <div class="lp-empty-state lp-feedback-detail__empty" data-site-review-filter-target="empty" hidden>

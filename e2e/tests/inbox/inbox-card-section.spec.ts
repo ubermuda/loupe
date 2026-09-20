@@ -583,10 +583,6 @@ for (const surface of ['page', 'drawer']) {
         await expect(question.locator('[data-inbox-response]')).toContainText(
             'The importer reads CSV.',
         );
-        // An item on a card takes its response there and shows no thread.
-        await expect(question.getByLabel('Reply to this thread')).toHaveCount(
-            0,
-        );
         // Decline carries whatever stands in the item's own answer field.
         await question
             .getByLabel('Your answer')

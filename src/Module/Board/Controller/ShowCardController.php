@@ -26,8 +26,6 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 )]
 final class ShowCardController extends AppController
 {
-    public const string REFUSED_FEEDBACK_REPLY = 'refusedFeedbackReply';
-
     public function __construct(
         private readonly BoardAvailability $board,
         private readonly ShowCardHandler $handler,
@@ -45,8 +43,6 @@ final class ShowCardController extends AppController
         $response = $this->render('@Board/show_card.html.twig', [
             'card' => $view->card,
             'siteReviewLinks' => $view->siteReviewLinks,
-            'siteReviewReplies' => $view->siteReviewReplies,
-            'refusedFeedbackReply' => $this->getInjectedFormView($request, self::REFUSED_FEEDBACK_REPLY),
         ]);
         $response->setVary('Turbo-Frame', false);
 

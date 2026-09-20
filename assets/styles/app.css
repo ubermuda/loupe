@@ -999,40 +999,6 @@
     .lp-feedback-workspace .lp-status-chip--pending {
         @apply border-transparent;
     }
-    /* Replies under a piece of site feedback, then the one-line composer. */
-    /* A reply thread under an inbox item or a piece of site feedback:
-       replies with the author's initial, then the composer. */
-    .lp-thread {
-        @apply flex flex-col gap-4 mt-4 pt-4 border-t border-line;
-    }
-    .lp-thread-reply {
-        @apply flex items-start gap-3;
-    }
-    .lp-thread-reply__avatar {
-        @apply inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-bold text-accent-ink;
-    }
-    .lp-thread-reply__main {
-        @apply flex min-w-0 flex-1 flex-col gap-1;
-    }
-    .lp-thread-reply__meta {
-        @apply m-0 flex items-baseline gap-2 text-xs text-fg-dim;
-    }
-    .lp-thread-reply__meta strong {
-        @apply text-sm font-semibold text-ink;
-    }
-    .lp-thread-reply__body {
-        @apply m-0 text-sm leading-relaxed text-ink whitespace-pre-line break-words;
-    }
-    .lp-reply-composer {
-        @apply flex items-start gap-2;
-    }
-    .lp-reply-composer textarea.lp-input {
-        @apply flex-1 min-h-10 resize-y;
-    }
-    /* Doubled class: .lp-btn--icon is declared later and clears the border. */
-    .lp-reply-composer__send.lp-reply-composer__send {
-        @apply shrink-0 border-line bg-surface-1 text-fg-mute;
-    }
 }
 
 @layer components {

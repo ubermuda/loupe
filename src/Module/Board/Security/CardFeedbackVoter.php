@@ -9,17 +9,16 @@ use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Vote;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 
-/** @extends Voter<'card_feedback.reply'|'card_feedback.resolve'|'card_feedback.reopen', CardSiteReviewComment> */
+/** @extends Voter<'card_feedback.resolve'|'card_feedback.reopen', CardSiteReviewComment> */
 final class CardFeedbackVoter extends Voter
 {
-    public const string REPLY = 'card_feedback.reply';
     public const string RESOLVE = 'card_feedback.resolve';
     public const string REOPEN = 'card_feedback.reopen';
 
     #[\Override]
     protected function supports(string $attribute, mixed $subject): bool
     {
-        return \in_array($attribute, [self::REPLY, self::RESOLVE, self::REOPEN], true) && $subject instanceof CardSiteReviewComment;
+        return \in_array($attribute, [self::RESOLVE, self::REOPEN], true) && $subject instanceof CardSiteReviewComment;
     }
 
     #[\Override]
