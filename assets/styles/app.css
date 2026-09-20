@@ -489,7 +489,7 @@
         @apply self-center text-xs text-fg-mute;
     }
     /* The auth card, widened for a page whose content needs more than a form
-       column: max-w-lg less the 32px padding gives a 448px content column. */
+       column: max-w-lg less the 32px padding and the border leaves 446px. */
     .auth-shell--wide {
         @apply w-full max-w-lg bg-surface-1 border border-line rounded-xl shadow-md px-8 pt-8 pb-7 flex flex-col gap-5;
     }
