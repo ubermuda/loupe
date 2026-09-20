@@ -137,6 +137,21 @@ final class OAuthDeviceFlowTest extends WebTestCase
         self::assertSame('authorization_pending', $this->poll($start['device_code'])['error']);
     }
 
+    /** The Vitest suite drives the controller. This pins the hooks it needs to the page. */
+    public function test_the_entry_page_carries_the_code_boxes_and_the_plain_field(): void
+    {
+        $this->browser->loginUser($this->user);
+        $crawler = $this->browser->request(Request::METHOD_GET, '/oauth/device');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-controller="device-code-input"][data-device-code-input-length-value="8"]');
+        self::assertSelectorExists('[data-device-code-input-target="field"]');
+        $group = $crawler->filter('[data-device-code-input-target="boxes"]');
+        self::assertSame('group', $group->attr('role'));
+        self::assertSame($crawler->filter('label.lp-label')->attr('id'), $group->attr('aria-labelledby'));
+        self::assertNotEmpty($crawler->filter('[data-device-code-input-character-label-value]')->attr('data-device-code-input-character-label-value'));
+    }
+
     public function test_deny_makes_the_poll_answer_access_denied(): void
     {
         $start = $this->startDeviceFlow();

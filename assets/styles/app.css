@@ -530,6 +530,23 @@
     .lp-consent__actions {
         @apply flex items-center justify-end gap-3 pt-2;
     }
+
+    /* One box per character of a device code, with a dash between the groups. */
+    .lp-code-field {
+        @apply flex items-center justify-center gap-1.5;
+    }
+    .lp-code-field__box {
+        @apply w-9 h-12 text-center font-mono text-lg uppercase text-ink bg-field border border-line-field rounded-lg outline-hidden transition-colors;
+    }
+    .lp-code-field__box:focus {
+        @apply ring-2 ring-accent-ink;
+    }
+    .lp-code-field__box:focus-visible {
+        @apply outline-2 outline-offset-2 outline-accent-ink;
+    }
+    .lp-code-field__separator {
+        @apply px-1 text-fg-dim select-none;
+    }
 }
 
 @layer components {

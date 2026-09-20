@@ -6057,6 +6057,7 @@
             <trans-unit id="oauth.device.result.denied.heading"><source>oauth.device.result.denied.heading</source><target>Access denied</target></trans-unit>
             <trans-unit id="oauth.device.result.denied.lead"><source>oauth.device.result.denied.lead</source><target>%client% did not get access to your account. You can close this page.</target></trans-unit>
             <trans-unit id="oauth.form.device_code_entry_form.user_code.label"><source>oauth.form.device_code_entry_form.user_code.label</source><target>Code</target></trans-unit>
+            <trans-unit id="oauth.form.device_code_entry_form.user_code.character"><source>oauth.form.device_code_entry_form.user_code.character</source><target>Character %position% of %count%</target></trans-unit>
             <trans-unit id="oauth.form.device_code_entry_form.submit.label"><source>oauth.form.device_code_entry_form.submit.label</source><target>Continue</target></trans-unit>
             <trans-unit id="oauth.form.device_consent_form.approve.label"><source>oauth.form.device_consent_form.approve.label</source><target>Allow</target></trans-unit>
             <trans-unit id="oauth.form.device_consent_form.deny.label"><source>oauth.form.device_consent_form.deny.label</source><target>Deny</target></trans-unit>

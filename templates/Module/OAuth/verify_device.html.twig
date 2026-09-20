@@ -63,9 +63,14 @@
 
     {{ form_start(form, {'attr': {'class': 'lp-form', 'novalidate': 'novalidate'}}) }}
         {{ form_errors(form) }}
-        <div class="lp-form-field">
-            {{ form_label(form.userCode, null, {'label_attr': {'class': 'lp-label'}}) }}
-            {{ form_widget(form.userCode, {'attr': {'class': 'lp-input lp-consent__value--mono'}}) }}
+        <div class="lp-form-field"
+             data-controller="device-code-input"
+             data-device-code-input-length-value="8"
+             data-device-code-input-group-value="4"
+             data-device-code-input-character-label-value="{{ 'oauth.form.device_code_entry_form.user_code.character'|trans }}">
+            {{ form_label(form.userCode, null, {'label_attr': {'class': 'lp-label', 'id': 'device-code-label'}}) }}
+            {{ form_widget(form.userCode, {'attr': {'class': 'lp-input lp-consent__value--mono', 'data-device-code-input-target': 'field'}}) }}
+            <div class="lp-code-field" role="group" aria-labelledby="device-code-label" data-device-code-input-target="boxes" hidden></div>
             <div class="lp-field-errors">{{ form_errors(form.userCode) }}</div>
         </div>
         {{ form_widget(form.submit, {'attr': {'class': 'lp-btn lp-btn--primary'}}) }}
