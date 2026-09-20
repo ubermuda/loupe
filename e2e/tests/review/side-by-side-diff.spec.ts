@@ -300,21 +300,23 @@ test('the two columns pair the blocks and carry no comment column', async ({
         'no comment column',
     );
 
-    // The block widens for the second reading measure, and the chrome above it
-    // still sits inside that width.
+    // The columns take the gutter and the comment column for the second
+    // reading measure, and the chrome above them still sits inside the block.
     const widths = await page.evaluate(() => {
         const block = document.querySelector('.lp-review-block')!;
         const bar = document.querySelector('.lp-diff-bar')!;
         const chip = document.querySelector('.lp-version-compare')!;
+        const grid = document.querySelector('.lp-diff-columns')!;
         return {
             block: Math.round(block.getBoundingClientRect().width),
+            grid: Math.round(grid.getBoundingClientRect().width),
             barRight: Math.round(bar.getBoundingClientRect().right),
             blockRight: Math.round(block.getBoundingClientRect().right),
             chipLeft: Math.round(chip.getBoundingClientRect().left),
             blockLeft: Math.round(block.getBoundingClientRect().left),
         };
     });
-    expect(widths.block).toBe(1120);
+    expect(widths.grid).toBe(widths.block);
     expect(widths.barRight).toBeLessThanOrEqual(widths.blockRight + 1);
     expect(widths.chipLeft).toBeGreaterThanOrEqual(widths.blockLeft - 1);
 
@@ -332,37 +334,38 @@ test('the two columns pair the blocks and carry no comment column', async ({
     await expect(page.locator('#diff-columns-notice')).toHaveCount(0);
 });
 
-test('the view switch ends at the content edge in every view', async ({
+test('the toolbar holds the same two columns in every view', async ({
     page,
 }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await signIn(page, `e2e-sbs-switch-${RUN}@example.com`);
     const reviewPath = await seedComparison(page);
 
-    // Side by side drops the comment column, so the count must give its width
-    // back rather than hold the switch away from the edge.
-    const box = async (selector: string) => {
+    const span = async (selector: string) => {
         const found = await page.locator(selector).boundingBox();
         if (null === found) {
             throw new Error(`${selector} has no box`);
         }
-        return found;
-    };
-    const rightEdge = async (selector: string) => {
-        const found = await box(selector);
-        return Math.round(found.x + found.width);
+        return `${Math.round(found.x)}-${Math.round(found.x + found.width)}`;
     };
 
-    await page.goto(`${reviewPath}/diff/1/2?view=rendered`);
-    expect(await rightEdge(VIEWS)).toBe(await rightEdge('.lp-diff-doc'));
+    const rows = [];
+    for (const view of ['rendered', 'source', 'side-by-side']) {
+        await page.goto(`${reviewPath}/diff/1/2?view=${view}`);
+        await expect(
+            page.locator('.lp-diff-views__link[aria-current]'),
+        ).toHaveCount(1);
+        rows.push({
+            picker: await span('.lp-diff-bar > .lp-version-compare'),
+            views: await span(VIEWS),
+            nav: await span('.lp-diff-nav'),
+        });
+    }
 
-    await page.goto(`${reviewPath}/diff/1/2?view=side-by-side`);
-    expect(await rightEdge(VIEWS)).toBe(await rightEdge('.lp-diff-columns'));
-
-    // The count keeps its place beside the switch rather than jumping left.
-    const nav = await box('.lp-diff-nav');
-    const views = await box(VIEWS);
-    expect(Math.round(views.x - nav.x - nav.width)).toBe(16);
+    // The reader switches view without the control they clicked moving, so the
+    // two columns of the toolbar hold the same places in all three.
+    expect(rows[1]).toEqual(rows[0]);
+    expect(rows[2]).toEqual(rows[0]);
 });
 
 test('the jump controls still walk the changes across the two columns', async ({

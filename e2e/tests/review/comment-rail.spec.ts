@@ -586,3 +586,46 @@ test('expanding the orphan group pushes the anchored cards below it', async ({
         })
         .toBeGreaterThanOrEqual(0);
 });
+
+test('the selected margin tab carries its highlight in one frame', async ({
+    page,
+}) => {
+    const comments = page.getByRole('tab', { name: 'Comments', exact: true });
+    const outline = page.getByRole('tab', { name: 'Outline', exact: true });
+    await comments.click();
+    await expect(comments).toHaveAttribute('aria-selected', 'true');
+
+    // The tab widths and the labels swap with no transition, so a colour fade
+    // would leave the accent on the tab the reader just left, at the new icon
+    // width. Sampling every frame is what tells a fade from a clean swap.
+    const frames = await page.evaluate(async () => {
+        const tabs = [
+            ...document.querySelectorAll('[data-review-margin-target="tab"]'),
+        ];
+        const shot = () =>
+            tabs
+                .map(
+                    (tab) =>
+                        `${Math.round(tab.getBoundingClientRect().width)}:${getComputedStyle(tab).backgroundColor}`,
+                )
+                .join(' ');
+        const target = tabs.find(
+            (tab) =>
+                (tab as HTMLElement).dataset.reviewMarginNameParam ===
+                'outline',
+        ) as HTMLElement;
+        target.click();
+        const seen: string[] = [];
+        for (let frame = 0; frame < 10; frame++) {
+            await new Promise((resolve) => requestAnimationFrame(resolve));
+            const current = shot();
+            if (seen[seen.length - 1] !== current) {
+                seen.push(current);
+            }
+        }
+        return seen;
+    });
+
+    await expect(outline).toHaveAttribute('aria-selected', 'true');
+    expect(frames).toHaveLength(1);
+});

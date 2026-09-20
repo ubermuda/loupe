@@ -88,9 +88,12 @@
 .lp-review .lp-review-margin-tablist {
     @apply flex-1 gap-0.75;
 }
-/* Inactive views are named icons; the selected one grows to show its label. */
+/* Inactive views are named icons; the selected one grows to show its label.
+   The width and the label swap in one frame, so the colours must too. A fade
+   leaves the accent on the tab the reader just left, at the new icon width,
+   which reads as a flicker. */
 .lp-review .lp-review-margin-tabs__item {
-    @apply min-h-9 w-8 flex-none justify-center gap-1.25 rounded-md p-1.75 font-normal text-fg-dim;
+    @apply min-h-9 w-8 flex-none justify-center gap-1.25 rounded-md p-1.75 font-normal text-fg-dim transition-none;
 }
 .lp-review .lp-review-margin-tabs__item--active {
     @apply w-auto flex-auto border-accent-border bg-accent-soft font-semibold text-review-tab-ink;
@@ -423,14 +426,6 @@
         width: var(--doc-margin);
         /* The row's own gap makes up the rest of the gutter. */
         margin-left: calc(var(--doc-margin-gap) - var(--spacing) * 4);
-    }
-    /* Side by side has no comment column to hang the count over, so the count
-       shrinks to its own width and the switch ends at the content edge. */
-    .lp-review .lp-review-doc--wide .lp-diff-views {
-        @apply ml-0;
-    }
-    .lp-review .lp-review-doc--wide .lp-diff-nav {
-        @apply ml-auto w-auto;
     }
 }
 .lp-review .lp-diff-nav__count {

@@ -2110,15 +2110,10 @@
         @apply border-accent text-ink;
     }
 
-    /* The side-by-side comparison, which renders no comment rail and takes the
-       gutter and the comment column back for its second reading measure. Both
-       modifiers come after their base class, or the base would win. */
-    .lp-review-block--wide {
-        @apply max-w-280;
-    }
-    .lp-review-doc--wide {
-        @apply max-w-280;
-    }
+    /* The side-by-side comparison renders no comment rail and takes the gutter
+       and the comment column back for its second reading measure. It keeps the
+       block's own width, so the toolbar above it holds the same two columns as
+       the other views and the view switch does not move between them. */
 
     /* Comment cards share the margin on wide screens and stack below on phones. */
     .lp-review-margin {

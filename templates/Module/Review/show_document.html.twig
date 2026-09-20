@@ -158,12 +158,6 @@
                         viewValue: diffView.value,
                         idPrefix: 'diff',
                     } only %}
-                    {# Side by side has no comment column for the count to sit
-                       over, so it reads before the switch there and after it
-                       everywhere else. Both orders are the reading order. #}
-                    {% if diffNavigation and diffColumns %}
-                        {% include '@Review/_diff_navigation.html.twig' with {changeCount: diffChangeCount} only %}
-                    {% endif %}
                     <nav class="lp-diff-views" aria-label="{{ 'review.document.diff.view.label'|trans }}">
                         <a class="lp-btn lp-btn--ghost lp-diff-views__link"
                            href="{{ path('app_document_review_diff', viewParams|merge({view: 'rendered'})) }}"
@@ -186,7 +180,7 @@
                            {% if diffColumns %}aria-current="page"{% endif %}
                         >{{ 'review.document.diff.view.side_by_side'|trans }}</a>
                     </nav>
-                    {% if diffNavigation and not diffColumns %}
+                    {% if diffNavigation %}
                         {% include '@Review/_diff_navigation.html.twig' with {changeCount: diffChangeCount} only %}
                     {% endif %}
                 </div>
