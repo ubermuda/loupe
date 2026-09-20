@@ -2,6 +2,9 @@
 
 {% block title %}{{ 'oauth.consent.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
+{# One frame only: the rows panel is the card, so this page's shell draws none. #}
+{% block auth_shell_class 'auth-shell--bare' %}
+
 {% block auth_body %}
 <div class="lp-consent lp-consent--rows" data-testid="oauth-consent">
     <h1 class="lp-consent__question">{{ 'oauth.consent.question'|trans({'%client%': view.clientHost ?? view.clientName}) }}</h1>

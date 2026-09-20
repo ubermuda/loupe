@@ -488,6 +488,11 @@
     .auth-forgot {
         @apply self-center text-xs text-fg-mute;
     }
+    /* An auth page that draws its own card, such as the OAuth consent page.
+       Wider than the form pages, and with no card treatment of its own. */
+    .auth-shell--bare {
+        @apply w-full max-w-md flex flex-col gap-5;
+    }
     /* Accent links on the light authentication surfaces. */
     .auth-link {
         @apply text-accent-ink hover:underline;
@@ -548,10 +553,10 @@
         @apply font-display text-2xl font-bold tracking-tight text-fg m-0 leading-tight;
     }
     .lp-consent__rows {
-        @apply w-full flex flex-col rounded-xl border border-line bg-surface-1 px-6 shadow-sm;
+        @apply w-full flex flex-col rounded-xl border border-line bg-surface-1 px-6 py-1 shadow-sm;
     }
     .lp-consent__row {
-        @apply flex items-start gap-4 py-4 border-b border-line-faint;
+        @apply flex items-start gap-4 py-4.5 border-b border-line-faint;
     }
     .lp-consent__row:last-child {
         @apply border-b-0;
@@ -578,6 +583,7 @@
     .lp-consent__row-second {
         @apply text-sm text-fg-label m-0 leading-normal break-words;
     }
+
     .lp-consent__picker-label {
         @apply block text-base font-medium text-fg mb-1.5;
     }
