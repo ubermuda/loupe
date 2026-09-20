@@ -54,8 +54,15 @@ page. Its address is `?queue=completed`.
 
 A list row shows the source, the time, the title, the summary and one label,
 which is **Blocking**, the kind of the item, or its state. The request beside
-the list shows the session that asked, the context of the ask, the items, and
-whether the same thread appears on a card.
+the list takes its heading from its first item, as the list row does. The
+agent's note follows, then the items. An ask with one item shows that title
+once. The document or pull request that a review item names is a row of the
+item's linked items, with the version under review. Replies under an item show
+each author's initial, name and time.
+
+The agent's avatar carries a dot for its bridge: green while the bridge sends
+heartbeats, amber when it is quiet, and grey when no bridge started the
+session. Hover over or focus the avatar to read the details and the session id.
 
 An item can show in both queues, for example in a closed ask and as an open
 item outside one. Its forms show once, in the queue that still takes a
@@ -74,9 +81,10 @@ and request layout as the queues. Select **Clear** to go back to the queues.
 
 An agent that a CLI bridge started names that bridge when it asks. The bridge
 can resume the agent after the ask closes. Each open ask from such an agent
-shows when its bridge last sent a heartbeat.
+shows when its bridge last sent a heartbeat, in the tooltip of the agent's
+avatar, on the project inbox and on the account inbox.
 
-The line turns amber when no heartbeat arrived in the last three heartbeat
+The dot turns amber when no heartbeat arrived in the last three heartbeat
 intervals. With the default interval of 60 seconds, that is three minutes. It
 also turns amber when no heartbeat from the bridge ever reached Loupe. A
 running bridge keeps its interval until it reconnects, so the warning never
@@ -86,8 +94,8 @@ bridge is quiet. The machine may be asleep, the bridge may have stopped, or
 the network may be down. The warning reads only the heartbeat, and it does not
 check whether the bridge still follows this project.
 
-An ask from an interactive session names no bridge and shows no line. A closed
-ask shows no line either. The `bridge.heartbeat_interval_seconds` flag sets the
+An ask from an interactive session names no bridge, and its dot stays grey. A
+closed ask shows no dot. The `bridge.heartbeat_interval_seconds` flag sets the
 interval. See [Bridge heartbeat API](../reference/bridge-heartbeat.md).
 
 ## Answering
@@ -98,18 +106,18 @@ Every item that takes a response shows its forms under its text.
   question allows. Then select **Send answer**. The page needs JavaScript to
   send the options you pick.
 - **Mark a to-do done.** Select **Mark complete**.
-- **Decline an item.** Open **Decline**, write an optional note for the agent,
-  and select **Decline this item**. Decline any item that you cannot or will not
+- **Close an item.** Write an optional note for the agent in the answer field,
+  then select **Close this item**. Close any item that you cannot or will not
   answer, including a question whose options do not fit.
 
 The item then shows your response and its new state: answered, done or
-declined.
+closed.
 
 Unsent question answers keep their text and selected options when you close and reopen a card drawer in the same browser tab.
-Decline notes also survive drawer replacement. A restored note opens its Decline section so you can find it.
+A closing note also survives drawer replacement.
 A successful submission clears that draft. A rejected submission keeps it for correction.
 Drafts stay in memory and do not survive a reload or a closed tab.
-If the request closes before you respond, its page shows your unsent answer or decline note separately from the recorded response.
+If the request closes before you respond, its page shows your unsent answer separately from the recorded response.
 Copy that draft if needed, or select **Discard draft** to clear it from this tab.
 
 ## Changing a response
@@ -126,7 +134,7 @@ correction to the agent in some other way.
 Each closed item says which case applies:
 
 - "You can still change this response" shows the forms again, so you can pick
-  other options, mark the item done or decline it.
+  other options, mark the item done or close it.
 - "This response is final" shows no forms. A change sent from an older copy of
   the page is refused with the same message.
 
@@ -137,7 +145,7 @@ behind it finishes. Such an item takes no response from you.
 
 Open the linked document or pull request before choosing **Approve** or **Request changes**.
 Request changes requires a note that explains what to change.
-Select **Submit review** in the inbox or card conversation.
+Select **Submit review** in the inbox, or on the card that links the request.
 
 A document submission records the same verdict as the document review page.
 It completes open Review requests that target that document; questions with document links stay open.
@@ -153,20 +161,10 @@ If the request closes or its target becomes unavailable, the request keeps your 
 Discard clears only this tab's draft. It does not change the recorded review.
 A removed target shows an unavailable state, while completed results retain their original target label and answer.
 
-## Replies
-
-Use **Reply to this thread** to add context without changing an answer.
-Replies show their author and time in both the inbox and the card conversation.
-You can reply to completed requests. A reply does not reopen the request or resume an agent.
-The form accepts up to 2,000 characters and keeps an invalid draft for correction.
-Unsent replies stay in this browser tab when you close a card drawer or follow an in-app link.
-The browser asks before a reload or tab closure discards them. Signing out clears them.
-Text you type while a reply is being saved remains an unsent draft after confirmation.
-
 ## When an ask closes
 
 An ask closes when you close its last blocking item. An answer, a done and a
-decline all count. An agent's withdraw counts too, and so does an item that
+close all count. An agent's withdraw counts too, and so does an item that
 closes because every card it links to finished. An item that does not block
 stays open after its ask closes, and the page then lists it among the open
 items outside an open ask. A card that finishes while the inbox is off closes

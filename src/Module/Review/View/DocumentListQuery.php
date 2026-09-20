@@ -62,16 +62,6 @@ final readonly class DocumentListQuery
     }
 
     /**
-     * The same view with the archived toggle flipped, back at page one — the
-     * chip that renders this must carry the other filters with it, or turning
-     * archived on would silently drop the reader's search.
-     */
-    public function withIncludeArchived(bool $includeArchived): self
-    {
-        return clone ($this, ['page' => 1, 'includeArchived' => $includeArchived]);
-    }
-
-    /**
      * Whether the reader has narrowed the list — which is what separates "no
      * documents yet" from "nothing matched". The archived filter is deliberately
      * excluded: it widens the list, so an empty result under it still means the

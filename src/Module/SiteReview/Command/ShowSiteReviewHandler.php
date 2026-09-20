@@ -5,14 +5,11 @@ declare(strict_types=1);
 namespace App\Module\SiteReview\Command;
 
 use App\Module\SiteReview\Repository\SiteReviewCommentRepository;
-use App\Module\SiteReview\Repository\SiteReviewReplyRepository;
-use App\Module\SiteReview\View\SiteReviewReplyThreads;
 
 final readonly class ShowSiteReviewHandler
 {
     public function __construct(
         private SiteReviewCommentRepository $siteReviewComments,
-        private SiteReviewReplyRepository $siteReviewReplies,
     ) {
     }
 
@@ -23,7 +20,6 @@ final readonly class ShowSiteReviewHandler
         return new ShowSiteReviewView(
             project: $command->project,
             comments: $comments,
-            replies: new SiteReviewReplyThreads($this->siteReviewReplies->findForComments($comments)),
         );
     }
 }

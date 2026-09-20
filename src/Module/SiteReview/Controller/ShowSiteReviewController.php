@@ -22,8 +22,6 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 )]
 class ShowSiteReviewController extends AppController
 {
-    public const string REFUSED_REPLY = 'refusedSiteReply';
-
     public function __construct(
         private readonly ShowSiteReviewHandler $showSiteReview,
     ) {
@@ -36,8 +34,6 @@ class ShowSiteReviewController extends AppController
         return $this->render('@SiteReview/show_site_review.html.twig', [
             'project' => $view->project,
             'comments' => $view->comments,
-            'replies' => $view->replies,
-            'refusedReply' => $this->getInjectedFormView($request, self::REFUSED_REPLY),
             'selectedFeedback' => $request->attributes->get('selectedFeedback', ''),
         ]);
     }

@@ -19,7 +19,6 @@ use App\Module\Inbox\Entity\InboxItemCard;
 use App\Module\Inbox\Entity\InboxItemDocument;
 use App\Module\Inbox\Entity\InboxItemKind;
 use App\Module\Inbox\Entity\InboxItemState;
-use App\Module\Inbox\Entity\InboxReply;
 use App\Module\Inbox\Entity\InboxReview;
 use App\Module\Inbox\Entity\InboxReviewVerdict;
 use App\Module\Inbox\Repository\InboxItemRepository;
@@ -246,9 +245,6 @@ final readonly class ProjectShowcaseSeeder
         $this->em->persist(new InboxReview($columnRules, $documents['rules']));
         $this->em->persist(new InboxReview($pullRequest, $cards['pullRequest']));
 
-        $this->em->persist(new InboxReply($retries, $owner, 'Does the automatic retry cost the customer a second authorisation?', Uuid::v4(), $now->modify('-4 minutes')));
-        $this->em->persist(new InboxReply($retries, $reviewer, 'It reuses the first one, so no second hold on the card.', Uuid::v4(), $now->modify('-3 minutes')));
-
         $this->seedCompleted($project, $owner, $reviewer, $documents, $number + 5, $now);
         $this->em->flush();
 
@@ -326,8 +322,6 @@ final readonly class ProjectShowcaseSeeder
 
         $this->ask($project, [$answered, $declined], $now->modify('-2 days'), 'Two things before I open the export pull request.', Uuid::v4(), $now->modify('-2 days +45 minutes'));
         $this->ask($project, [$reviewed, $leftOpen], $now->modify('-3 days'), 'The specification is ready to read.', Uuid::v4(), $now->modify('-3 days +2 hours'));
-
-        $this->em->persist(new InboxReply($answered, $reviewer, 'Recorded. The export job now points at the replica.', Uuid::v4(), $now->modify('-2 days +1 hour')));
     }
 
     /** @param list<InboxItem> $items */

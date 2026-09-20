@@ -9,7 +9,7 @@
 {% endblock %}
 
 {% block body %}
-<div class="lp-workspace lp-core-prototype-page lp-core-board" data-controller="card-drawer">
+<div class="lp-workspace lp-split-page lp-core-prototype-page lp-core-board" data-controller="card-drawer">
     <header class="lp-board-head">
         <div>
             <h1 class="lp-workspace-title lp-workspace-title--doc">{{ 'board.page.title'|trans }}</h1>
@@ -20,7 +20,7 @@
                 <twig:ux:icon name="lucide:settings" class="w-4 h-4 shrink-0" />
                 {{ 'board.settings.action'|trans }}
             </a>
-            <a class="lp-btn lp-btn--primary" href="{{ path('app_board_card_create', {id: board.project.id}) }}">
+            <a class="lp-btn lp-btn--primary" href="{{ path('app_board_card_create', {id: board.project.id}) }}" data-turbo-frame="card-drawer-frame" data-action="click->card-drawer#prepare">
                 <twig:ux:icon name="lucide:plus" class="w-4 h-4 shrink-0" />
                 {{ 'board.card.create.action'|trans }}
             </a>
@@ -50,7 +50,7 @@
 
     {# A column change elsewhere reloads this frame, so every open board shows it. #}
     {% do mercure_subscribe(boardTopic) %}
-    <div data-controller="board-refresh" data-board-refresh-board-value="{{ path('app_project_board', {id: board.project.id}) }}">
+    <div class="lp-split-region" data-controller="board-refresh" data-board-refresh-board-value="{{ path('app_project_board', {id: board.project.id}) }}" data-action="card-drawer:saved@window->board-refresh#reload">
         <turbo-frame id="board-frame" target="_top" data-board-refresh-target="frame">
             {% include '@Board/_board_columns.html.twig' with {board: board, renameColumnForm: renameColumnForm} only %}
         </turbo-frame>

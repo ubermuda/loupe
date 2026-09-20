@@ -1,9 +1,28 @@
-import { expect } from '@playwright/test';
+import { expect, type APIRequestContext } from '@playwright/test';
 import { createTest } from '../fixtures';
 
 const test = createTest({
     email: 'e2e-project-switcher@example.com',
     password: 'e2e_password_123',
+});
+
+// The topbar search ships off. The flag is global, so it goes back off after.
+async function setSearchFlag(
+    request: APIRequestContext,
+    enabled: boolean,
+): Promise<void> {
+    const response = await request.post('/dev/e2e/feature-flag', {
+        form: { name: 'search.topbar.enabled', enabled: enabled ? 1 : 0 },
+    });
+    expect(response.ok()).toBeTruthy();
+}
+
+test.beforeAll(async ({ request }) => {
+    await setSearchFlag(request, true);
+});
+
+test.afterAll(async ({ request }) => {
+    await setSearchFlag(request, false);
 });
 
 test('resizing an open mobile sidebar releases the page at the desktop breakpoint', async ({

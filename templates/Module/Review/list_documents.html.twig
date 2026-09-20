@@ -44,10 +44,6 @@
               action="{{ path('app_project_documents', {id: project.id}) }}"
               data-controller="autosearch"
               class="lp-filter-form">
-            {% if listQuery.includeArchived %}
-                <input type="hidden" name="archived" value="1">
-            {% endif %}
-
             <div class="lp-filter-primary" data-action="focusin->autosearch#revealField">
                 <div class="lp-filter-search">
                     <twig:ux:icon name="lucide:search" class="lp-filter-search__icon" />
@@ -108,28 +104,21 @@
                 </select>
             {% endif %}
 
+            <label class="lp-filter-switch">
+                <input type="checkbox"
+                       class="lp-switch"
+                       role="switch"
+                       name="archived"
+                       value="1"
+                       {{ listQuery.includeArchived ? 'checked' }}
+                       data-action="change->autosearch#search">
+                {{ 'review.dashboard.filter.show_archived'|trans }}
+            </label>
+
             <a href="{{ path('app_project_documents', {id: project.id}) }}"
                data-autosearch-target="clearButton"
                class="lp-filter-clear">{{ 'review.dashboard.filter.clear'|trans }}</a>
         </form>
-
-        {# Labelled with what following the link does, rather than one label plus
-           aria-pressed: that attribute is defined for role="button" and is
-           dropped on an anchor, so both states would announce identically while
-           doing opposite things. #}
-        {% if listQuery.includeArchived %}
-            <a class="lp-filter-chip lp-filter-chip--on"
-               href="{{ path('app_project_documents', {id: project.id}|merge(listQuery.withIncludeArchived(false).routeParams)) }}">
-                <twig:ux:icon name="lucide:check" class="w-3.5 h-3.5 shrink-0" />
-                {{ 'review.dashboard.filter.hide_archived'|trans }}
-            </a>
-        {% else %}
-            <a class="lp-filter-chip"
-               href="{{ path('app_project_documents', {id: project.id}|merge(listQuery.withIncludeArchived(true).routeParams)) }}">
-                <twig:ux:icon name="lucide:archive" class="w-3.5 h-3.5 shrink-0" />
-                {{ 'review.dashboard.filter.show_archived'|trans }}
-            </a>
-        {% endif %}
 
         {# The total counts live documents only, so it is omitted while archived
            ones are on screen rather than reporting more rows than documents. #}

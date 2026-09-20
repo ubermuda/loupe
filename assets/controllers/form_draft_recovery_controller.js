@@ -43,9 +43,12 @@ export default class extends Controller {
         const containsFocus = this.element.contains(document.activeElement);
         const heading = this.hasFocusValue
             ? document.getElementById(this.focusValue)
-            : this.element
+            : (this.element
                   .closest('[data-inbox-item]')
-                  ?.querySelector('.lp-inbox-item__title');
+                  ?.querySelector('.lp-inbox-item__title') ??
+              this.element
+                  .closest('.lp-inbox-ask')
+                  ?.querySelector('.lp-inbox-ask__title'));
         discardFormDraft(this.keyValue);
         this.render();
         if (containsFocus && heading) {
