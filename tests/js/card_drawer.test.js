@@ -13,7 +13,7 @@ beforeEach(async () => {
         <dialog open data-card-drawer-target="dialog">
             <div data-card-drawer-target="loading" hidden><button>Close</button></div>
             <div data-card-drawer-target="error" hidden><button>Retry</button></div>
-            <turbo-frame data-card-drawer-target="frame"><form><textarea>Draft reply</textarea></form></turbo-frame>
+            <turbo-frame data-card-drawer-target="frame"><button type="button">Dismiss</button><form><textarea>Draft reply</textarea></form></turbo-frame>
         </dialog>
     </div>`;
     application = Application.start();
@@ -60,6 +60,26 @@ it('shows frame errors, focuses Retry, and starts a fresh frame load', () => {
     expect(controller.errorTarget.hidden).toBe(true);
     expect(controller.loadingTarget.hidden).toBe(false);
     expect(document.activeElement.textContent).toBe('Close');
+});
+
+it('focuses the frame when the drawer opens it, and not on a later render', () => {
+    const invoker = document.getElementById('invoker');
+    controller.prepare({ currentTarget: invoker });
+    controller.loaded({ target: controller.frameTarget });
+    expect(document.activeElement.textContent).toBe('Dismiss');
+    const textarea = controller.frameTarget.querySelector('textarea');
+    textarea.focus();
+    controller.loaded({ target: controller.frameTarget });
+    expect(document.activeElement).toBe(textarea);
+});
+
+it('leaves focus alone when a form inside the frame re-renders it', () => {
+    const textarea = controller.frameTarget.querySelector('textarea');
+    textarea.focus();
+    controller.loaded({ target: controller.frameTarget });
+    expect(document.activeElement).toBe(textarea);
+    expect(controller.frameTarget.hidden).toBe(false);
+    expect(controller.loadingTarget.hidden).toBe(true);
 });
 
 it('ignores late failure and load events after closing the drawer', () => {

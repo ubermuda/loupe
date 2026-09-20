@@ -6,6 +6,7 @@ export default class extends Controller {
 
     connect() {
         this.invoker = null;
+        this.focusFrameOnLoad = false;
         this.onBeforeCache = () => this.#reset();
         document.addEventListener('turbo:before-cache', this.onBeforeCache);
     }
@@ -28,6 +29,10 @@ export default class extends Controller {
         this.loadingTarget.hidden = true;
         this.errorTarget.hidden = true;
         this.frameTarget.hidden = false;
+        // A form inside the frame fires turbo:frame-load too. Focusing then
+        // takes the caret away from whatever the reader is typing.
+        if (!this.focusFrameOnLoad) return;
+        this.focusFrameOnLoad = false;
         const focusTarget = this.frameTarget.querySelector(
             '[data-panel-tabs-target="tab"][aria-selected="true"], a, button',
         );
@@ -57,6 +62,7 @@ export default class extends Controller {
     }
 
     #startLoading() {
+        this.focusFrameOnLoad = true;
         this.loadingTarget.hidden = false;
         this.errorTarget.hidden = true;
         this.frameTarget.hidden = true;
@@ -95,5 +101,6 @@ export default class extends Controller {
         this.frameTarget.removeAttribute('src');
         this.frameTarget.replaceChildren();
         this.invoker = null;
+        this.focusFrameOnLoad = false;
     }
 }
