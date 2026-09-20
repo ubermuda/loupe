@@ -2342,6 +2342,15 @@
                 <source>project.connect.forwarding.warning</source>
                 <target>Anyone who can view the page can submit a review, so forwarding straight to your agent is off unless you turn it on. Install the widget on staging and preview environments only, not production.</target>
             </trans-unit>
+            <trans-unit id="project.connect.widget_oauth.eyebrow"><source>project.connect.widget_oauth.eyebrow</source><target>Sign-in embed</target></trans-unit>
+            <trans-unit id="project.connect.widget_oauth.purpose"><source>project.connect.widget_oauth.purpose</source><target>This snippet puts no token in the page. The reviewer signs in with a Loupe account in a pop-up window. For now, only you, the project owner, can sign in. The widget works only on the sites in the list below.</target></trans-unit>
+            <trans-unit id="project.form.update_project_allowed_origins_form.origins.label"><source>project.form.update_project_allowed_origins_form.origins.label</source><target>Allowed sites</target></trans-unit>
+            <trans-unit id="project.form.update_project_allowed_origins_form.origins.help"><source>project.form.update_project_allowed_origins_form.origins.help</source><target>Write one site origin on each line, for example https://staging.example.com. A first label of * covers one level of subdomain, as in https://*.example.com, but not a whole registry such as *.com. Use https. Plain http works on localhost only.</target></trans-unit>
+            <trans-unit id="project.form.update_project_allowed_origins_form.origins.placeholder"><source>project.form.update_project_allowed_origins_form.origins.placeholder</source><target>https://staging.example.com</target></trans-unit>
+            <trans-unit id="project.allowed_origins.save"><source>project.allowed_origins.save</source><target>Save sites</target></trans-unit>
+            <trans-unit id="project.allowed_origins.flash.saved"><source>project.allowed_origins.flash.saved</source><target>The allowed sites are saved.</target></trans-unit>
+            <trans-unit id="project.allowed_origins.error.invalid"><source>project.allowed_origins.error.invalid</source><target>Each line must be a site origin with no path, such as https://staging.example.com or https://*.example.com. A * stands for one label, and it cannot cover a whole registry such as *.com. Plain http works on localhost only.</target></trans-unit>
+            <trans-unit id="project.allowed_origins.error.too_many"><source>project.allowed_origins.error.too_many</source><target>You can allow 20 sites at most.</target></trans-unit>
             <trans-unit id="project.connect.forwarding.state.on">
                 <source>project.connect.forwarding.state.on</source>
                 <target>On — submitted reviews go straight to the agent</target>
@@ -6059,6 +6068,16 @@
             <trans-unit id="oauth.consent.no_projects"><source>oauth.consent.no_projects</source><target>You own no project yet. Create a project first, then connect the app again.</target></trans-unit>
             <trans-unit id="oauth.consent.error.project_required"><source>oauth.consent.error.project_required</source><target>Choose a project.</target></trans-unit>
             <trans-unit id="oauth.consent.error.project_not_owned"><source>oauth.consent.error.project_not_owned</source><target>You can connect only a project that you own.</target></trans-unit>
+            <trans-unit id="oauth.widget.consent.project.label"><source>oauth.widget.consent.project.label</source><target>Project</target></trans-unit>
+            <trans-unit id="oauth.widget.consent.site.label"><source>oauth.widget.consent.site.label</source><target>Site that asks</target></trans-unit>
+            <trans-unit id="oauth.widget.refused.title"><source>oauth.widget.refused.title</source><target>You cannot sign in here</target></trans-unit>
+            <trans-unit id="oauth.widget.refused.bad_request"><source>oauth.widget.refused.bad_request</source><target>The review widget sent an incomplete sign-in request. Reload the page and try again.</target></trans-unit>
+            <trans-unit id="oauth.widget.refused.unknown_project"><source>oauth.widget.refused.unknown_project</source><target>The review widget names a project that does not exist on this Loupe instance. Check the embed snippet.</target></trans-unit>
+            <trans-unit id="oauth.widget.refused.not_owner"><source>oauth.widget.refused.not_owner</source><target>Only the owner of this project can review with the widget. Sign in with the owner's account.</target></trans-unit>
+            <trans-unit id="oauth.widget.refused.origin_not_allowed"><source>oauth.widget.refused.origin_not_allowed</source><target>This site is not on the allowed sites of the project. Add it on the Connections page of the project, then try again.</target></trans-unit>
+            <trans-unit id="oauth.widget.callback.page.title"><source>oauth.widget.callback.page.title</source><target>Signing in</target></trans-unit>
+            <trans-unit id="oauth.widget.callback.done"><source>oauth.widget.callback.done</source><target>You are signed in. Go back to the page to review it.</target></trans-unit>
+            <trans-unit id="oauth.widget.callback.lost"><source>oauth.widget.callback.lost</source><target>This window cannot reach the review widget. Close it, then sign in again from the page.</target></trans-unit>
             <trans-unit id="oauth.form.consent_form.project.label"><source>oauth.form.consent_form.project.label</source><target>Project</target></trans-unit>
             <trans-unit id="oauth.form.consent_form.project.placeholder"><source>oauth.form.consent_form.project.placeholder</source><target>Choose a project</target></trans-unit>
             <trans-unit id="oauth.form.consent_form.approve.label"><source>oauth.form.consent_form.approve.label</source><target>Allow</target></trans-unit>

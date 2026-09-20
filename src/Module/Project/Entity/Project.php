@@ -58,6 +58,15 @@ class Project implements ProjectScopedSubject
     public bool $forwardsToAgent = false;
 
     /**
+     * The sites the sign-in widget may run on, each in SiteOrigins form. The
+     * OAuth callback posts a code only to an origin on this list.
+     *
+     * @var list<string>
+     */
+    #[ORM\Column(name: 'allowed_origins', type: Types::JSON, options: ['jsonb' => true, 'default' => '[]'])]
+    public array $allowedOrigins = [];
+
+    /**
      * The stemming language a new document in this project gets when the caller
      * names none. Read once, at creation: each document then carries its own
      * language, so changing this leaves the documents already written alone.

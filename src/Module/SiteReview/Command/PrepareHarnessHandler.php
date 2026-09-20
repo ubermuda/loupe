@@ -43,12 +43,15 @@ final readonly class PrepareHarnessHandler
         [$token, $raw] = ApiToken::issue($user, 'e2e site-review', ApiTokenScope::SiteReview);
         $project->widgetToken = $token;
         $project->forwardsToAgent = false;
+        if (null !== $command->oauthOrigin && !\in_array($command->oauthOrigin, $project->allowedOrigins, true)) {
+            $project->allowedOrigins = [...$project->allowedOrigins, $command->oauthOrigin];
+        }
         $this->em->persist($token);
         if (null !== $previous) {
             $this->em->remove($previous);
         }
         $this->em->flush();
 
-        return new PrepareHarnessView($raw);
+        return new PrepareHarnessView($raw, (string) $project->id);
     }
 }
