@@ -117,10 +117,11 @@ final class CardCrudControllerTest extends WebTestCase
         $client->loginUser($owner);
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString(
-            'Create card and attach',
-            $crawler->filter('.lp-feedback-detail__panel a.lp-btn')->text(),
-        );
+        $create = $crawler->filter('.lp-feedback-attach__create');
+        self::assertStringContainsString('Create card and attach', $create->text());
+        // The form opens in the drawer, and its href stays the page a reader without JavaScript gets.
+        self::assertSame('card-drawer-frame', $create->attr('data-turbo-frame'));
+        self::assertSame('/projects/'.$project->id.'/board/cards/new?feedback='.$comment->id, $create->attr('href'));
 
         $client->submitForm('Attach to card', [
             AttachSiteReviewCommentFormType::nameFor($comment).'[card]' => (string) $card->id,
@@ -132,6 +133,11 @@ final class CardCrudControllerTest extends WebTestCase
         $link = $links->findOneBy(['comment' => $comment->id]);
         self::assertNotNull($link);
         self::assertSame((string) $card->id, (string) $link->card->id);
+
+        // The create form's Cancel returns to the site review, not to the board.
+        $form = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/board/cards/new?feedback='.$comment->id);
+        self::assertResponseIsSuccessful();
+        self::assertSame('/projects/'.$project->id.'/site-review', $form->filter('.lp-form a.lp-btn--ghost')->attr('href'));
     }
 
     public function test_the_owner_creates_a_card_with_pull_request_links(): void

@@ -13,7 +13,10 @@
 {% set addressedCount = comments|filter(comment => comment.status.value == 'addressed')|length %}
 {% set cardLinks = is_feature_enabled('board.enabled') ? card_site_review_links(project) : [] %}
 {% set unlinkedCount = comments|filter(comment => cardLinks[comment.id ~ ''] is not defined)|length %}
-<div class="lp-workspace lp-split-page lp-site-feedback-page lp-core-prototype-page lp-core-site-review" data-controller="site-review-filter card-drawer">
+{# The drawer sits outside the frame, so a card created in it survives the
+   reload that brings the feedback list up to date. #}
+<div class="lp-site-review-shell" data-controller="site-review-filter card-drawer frame-refresh" data-action="card-drawer:saved@window->frame-refresh#reload">
+<turbo-frame id="site-review-frame" target="_top" data-frame-refresh-target="frame" class="lp-workspace lp-split-page lp-site-feedback-page lp-core-prototype-page lp-core-site-review">
     <header class="lp-page-header">
         <div class="lp-page-header__copy"><h1 class="lp-workspace-title">{{ 'site_review.page.title'|trans }}</h1><p class="lp-workspace-desc">{{ 'site_review.page.description'|trans }}</p></div>
         <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}"><twig:ux:icon name="lucide:code-xml" class="w-4 h-4" />{{ 'site_review.widget.setup'|trans }}</a>
@@ -133,7 +136,7 @@
                             {{ 'site_review.attach.submit'|trans }}
                         </button>
                     {{ form_end(attachForm) }}
-                    <a class="lp-btn lp-btn--sm lp-feedback-attach__create" href="{{ path('app_board_card_create', {id: project.id, feedback: comment.id}) }}">
+                    <a class="lp-btn lp-btn--sm lp-feedback-attach__create" href="{{ path('app_board_card_create', {id: project.id, feedback: comment.id}) }}" data-turbo-frame="card-drawer-frame" data-action="click->card-drawer#prepare">
                         <twig:ux:icon name="lucide:plus" class="w-4 h-4" />
                         {{ 'site_review.create_card.submit'|trans }}
                     </a>
@@ -164,8 +167,9 @@
     {% else %}
     <div class="lp-empty-state"><twig:ux:icon name="lucide:message-square" class="lp-empty-state__icon w-12 h-12" /><h2 class="lp-empty-state__title">{{ 'site_review.site.reviews.empty_title'|trans }}</h2><p class="lp-empty-state__body">{{ 'site_review.site.reviews.empty_body'|trans }}</p></div>
     {% endif %}
-    {% if is_feature_enabled('board.enabled') %}
+</turbo-frame>
+{% if is_feature_enabled('board.enabled') %}
     {% include '@Board/_card_drawer.html.twig' with {} only %}
-    {% endif %}
+{% endif %}
 </div>
 {% endblock %}

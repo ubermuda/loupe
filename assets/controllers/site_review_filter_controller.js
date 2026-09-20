@@ -3,8 +3,13 @@ import { Controller } from '@hotwired/stimulus';
 export default class extends Controller {
     static targets = ['row', 'panel', 'query', 'status', 'scope', 'empty'];
 
-    connect() {
-        this.selectedScope = 'all';
+    /* Read from the pressed tab, so a re-rendered list cannot leave a stale scope behind. */
+    get selectedScope() {
+        return (
+            this.scopeTargets.find(
+                (control) => control.getAttribute('aria-pressed') === 'true',
+            )?.dataset.siteReviewFilterScopeParam ?? 'all'
+        );
     }
 
     filter() {
@@ -33,13 +38,12 @@ export default class extends Controller {
     }
 
     setScope(event) {
-        this.selectedScope = event.params.scope;
         for (const control of this.scopeTargets) {
             control.setAttribute(
                 'aria-pressed',
                 String(
                     control.dataset.siteReviewFilterScopeParam ===
-                        this.selectedScope,
+                        event.params.scope,
                 ),
             );
         }

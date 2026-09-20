@@ -13,7 +13,9 @@
 {% endblock %}
 
 {% block body %}
-{# The same frame as the card view, so the board opens this form in its drawer. #}
+{# The same frame as the card view, so the board opens this form in its drawer.
+   Feedback means the site review page opened it, so Cancel goes back there. #}
+{% set returnUrl = feedback ? path('app_project_site_review', {id: project.id}) : path('app_project_board', {id: project.id}) %}
 <turbo-frame id="card-drawer-frame"{% if app.request.headers.get('Turbo-Frame') != 'card-drawer-frame' %} target="_top"{% endif %}>
 <div class="lp-card-drawer">
     {% if app.request.headers.get('Turbo-Frame') == 'card-drawer-frame' %}
@@ -25,7 +27,7 @@
             <span>{{ 'board.card.create.page.title'|trans }}</span>
         </div>
         <div class="lp-card-drawer__header-actions">
-            <a class="lp-btn lp-btn--ghost lp-btn--icon" href="{{ path('app_project_board', {id: project.id}) }}" aria-label="{{ 'board.card.drawer.close'|trans }}" data-turbo-frame="_top" data-action="card-drawer#close"><twig:ux:icon name="lucide:x" class="w-4 h-4" /></a>
+            <a class="lp-btn lp-btn--ghost lp-btn--icon" href="{{ returnUrl }}" aria-label="{{ 'board.card.drawer.close'|trans }}" data-turbo-frame="_top" data-action="card-drawer#close"><twig:ux:icon name="lucide:x" class="w-4 h-4" /></a>
         </div>
     </header>
 
@@ -44,7 +46,7 @@
             form: form,
             action: path('app_board_card_create', {id: project.id, feedback: feedback ? feedback.id : null, column: form.vars.data.column.id}),
             submitLabel: 'board.card.create.submit',
-            cancelUrl: path('app_project_board', {id: project.id}),
+            cancelUrl: returnUrl,
             cancelLeavesFrame: true,
         } only %}
     </div>

@@ -784,6 +784,11 @@
 }
 
 @layer components {
+    /* Holds the page's controllers around a frame and a drawer, and leaves the
+       layout to them. */
+    .lp-site-review-shell {
+        @apply contents;
+    }
     /* A master-detail page holds its header still and scrolls each pane on its
        own, so reading one pane never moves the other. Below the stacking
        breakpoint the panes sit one above the other and the page scrolls. */
