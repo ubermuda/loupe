@@ -629,3 +629,63 @@ test('the selected margin tab carries its highlight in one frame', async ({
     await expect(outline).toHaveAttribute('aria-selected', 'true');
     expect(frames).toHaveLength(1);
 });
+
+test('a comment card is never painted before it is placed', async ({
+    page,
+}) => {
+    await commentOn(page, FIRST, 'Anchored before the view switch.');
+    const thread = page.locator(THREAD).first();
+    await expect(thread).toBeVisible();
+
+    await page.getByRole('link', { name: 'History', exact: true }).click();
+    await expect(
+        page.getByRole('heading', { name: 'Version history' }),
+    ).toBeVisible();
+    // The probe rides `document`, which survives a Turbo Drive render, and
+    // reads the card on the render event itself. That is the one frame the
+    // reader used to see, before the controller measures a top for it.
+    await page.evaluate(() => {
+        (window as unknown as { __placing?: unknown }).__placing = null;
+        const onRender = () => {
+            document.removeEventListener('turbo:render', onRender);
+            const card = document.querySelector('.lp-comment-thread');
+            const tabs = document.querySelector('.lp-review-workspace-nav');
+            (window as unknown as { __placing?: unknown }).__placing = {
+                visibility: card ? getComputedStyle(card).visibility : null,
+                placedYet: card
+                    ? Boolean((card as HTMLElement).style.top)
+                    : null,
+                overTheTabRow:
+                    card && tabs
+                        ? card.getBoundingClientRect().top <
+                          tabs.getBoundingClientRect().bottom
+                        : null,
+            };
+        };
+        document.addEventListener('turbo:render', onRender);
+    });
+
+    await page.getByRole('link', { name: 'Document', exact: true }).click();
+    await expect(page.locator(THREAD).first()).toBeVisible();
+
+    const placing = await page.evaluate(
+        () =>
+            (window as unknown as { __placing?: Record<string, unknown> })
+                .__placing,
+    );
+
+    // It has no measured top yet, and it sits where it would cover the tabs.
+    // Both are why it has to be invisible for that frame.
+    expect(placing?.placedYet).toBe(false);
+    expect(placing?.overTheTabRow).toBe(true);
+    expect(placing?.visibility).toBe('hidden');
+
+    // And it is placed and readable once the pass has run.
+    const settled = page.locator(THREAD).first();
+    await expect(settled).toBeVisible();
+    const cardBox = (await settled.boundingBox())!;
+    const tabsBox = (await page
+        .locator('.lp-review-workspace-nav')
+        .boundingBox())!;
+    expect(cardBox.y).toBeGreaterThan(tabsBox.y + tabsBox.height);
+});

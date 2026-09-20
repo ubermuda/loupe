@@ -393,6 +393,15 @@
     @apply mt-6;
 }
 
+/* A card is placed by measurement, so before the first pass it has no top and
+   every card resolves to the same static spot at the head of the margin, over
+   the tab row. One frame of that is what a page switch used to show. */
+@media (width >= 59.375rem) {
+    .lp-review .lp-review-block--placing .lp-comment-thread {
+        @apply invisible;
+    }
+}
+
 /* ── Diff toolbar ───────────────────────────────────────────────── */
 .lp-review .lp-diff-bar {
     @apply gap-x-4 gap-y-3 border-b-0 pt-3.5 pb-0;

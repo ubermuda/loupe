@@ -155,6 +155,11 @@ export default class extends Controller {
         this.transport = this.demoValue
             ? new DemoTransport(this)
             : new ServerTransport(this);
+        // The cards are absolutely positioned with no top until the first
+        // layout measures one. Marked here rather than in the template, so a
+        // page with no working JavaScript still shows them.
+        this.element.classList.add('lp-review-block--placing');
+        this.#scheduleLayout();
         this.pendingSelection = null;
         this.strikeInFlight = false;
         this.hoveredThread = null;
@@ -1341,7 +1346,13 @@ export default class extends Controller {
         }
         this.scheduledLayout = requestAnimationFrame(() => {
             this.scheduledLayout = null;
-            this.#layout();
+            try {
+                this.#layout();
+            } finally {
+                // In a finally, and cleared however the pass ended: a card the
+                // reader cannot see is worse than one in the wrong place.
+                this.element.classList.remove('lp-review-block--placing');
+            }
         });
     }
 
