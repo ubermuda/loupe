@@ -40,7 +40,9 @@ test('the History tab compares two distant versions', async ({ page }) => {
     await page.goto(`/projects/${projectId}/documents/${documentId}/review`);
     await page.getByRole('link', { name: 'History', exact: true }).click();
     await expect(
-        page.locator('.lp-review-view-tabs__item[aria-current="page"]'),
+        page.locator(
+            '.lp-review-workspace-nav .lp-tabs__tab[aria-current="page"]',
+        ),
     ).toHaveText('History');
     await expect(
         page.getByRole('heading', { name: 'Versioned Plan', exact: true }),

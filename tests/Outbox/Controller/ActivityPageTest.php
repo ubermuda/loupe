@@ -141,5 +141,28 @@ final class ActivityPageTest extends WebTestCase
         self::assertSame((string) $project->id, $crawler->filter('[data-activity-filter-project-value]')->attr('data-activity-filter-project-value'));
         self::assertSame('100', $crawler->filter('[data-activity-filter-page-size-value]')->attr('data-activity-filter-page-size-value'));
         self::assertStringNotContainsString('other.secret', $crawler->text());
+        self::assertCount(1, $crawler->filter('[data-activity-filter-target="filters"]:not([hidden])'));
+    }
+
+    public function test_a_project_with_no_events_shows_no_filter_bar(): void
+    {
+        $client = static::createClient();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $owner = new User(fullName: 'Owner', email: 'activity-empty@example.com', password: 'x');
+        $owner->emailVerifiedAt = new \DateTimeImmutable();
+        AcceptedTerms::stamp($owner, static::getContainer());
+        $project = new Project($owner, 'Quiet');
+        $em->persist($owner);
+        $em->persist($project);
+        $em->flush();
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/activity');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(1, $crawler->filter('[data-activity-filter-target="filters"][hidden]'));
+        self::assertCount(1, $crawler->filter('[data-activity-empty]:not([hidden])'));
     }
 }

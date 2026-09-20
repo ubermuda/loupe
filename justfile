@@ -368,6 +368,8 @@ e2e-up:
 
     docker compose exec -T -e WORKTREE_DB_SUFFIX=_e2e php-fpm \
         bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration >/dev/null
+    docker compose exec -T php-fpm \
+        bin/console league:oauth2-server:generate-keypair --skip-if-exists >/dev/null
     docker compose exec -T -e WORKTREE_DB_SUFFIX=_e2e php-fpm \
         bin/console app:dev:seed >/dev/null
 

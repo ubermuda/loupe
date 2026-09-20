@@ -1,0 +1,35 @@
+league_oauth2_server:
+    authorization_server:
+        # Each value is a PEM string or a path to a PEM file.
+        private_key: '%env(resolve:OAUTH_PRIVATE_KEY)%'
+        private_key_passphrase: '%env(OAUTH_PRIVATE_KEY_PASSPHRASE)%'
+        encryption_key: '%env(OAUTH_ENCRYPTION_KEY)%'
+        # Authorization code with PKCE, the device grant for the CLI, and refresh
+        # token with rotation. Nothing else.
+        enable_client_credentials_grant: false
+        enable_password_grant: false
+        enable_implicit_grant: false
+        enable_device_code_grant: true
+        device_code_verification_uri: '%env(DEFAULT_URI)%/oauth/device'
+        enable_auth_code_grant: true
+        enable_refresh_token_grant: true
+        require_code_challenge_for_public_clients: true
+        revoke_refresh_tokens: true
+    resource_server:
+        public_key: '%env(resolve:OAUTH_PUBLIC_KEY)%'
+    # The base scopes mirror ApiTokenScope. A project scope, project:<uuid>,
+    # is accepted by ProjectScopeRepository and is never listed here.
+    scopes:
+        available: ['mcp', 'site-review', 'agent']
+        default: ['mcp']
+    persistence:
+        doctrine: null
+    client:
+        allow_plaintext_secrets: false
+
+when@test:
+    services:
+        league.oauth2_server.password_hasher:
+            class: Symfony\Component\PasswordHasher\Hasher\NativePasswordHasher
+            arguments:
+                $cost: 4

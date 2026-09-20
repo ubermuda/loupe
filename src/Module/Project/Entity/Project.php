@@ -50,6 +50,14 @@ class Project implements ProjectScopedSubject
     public ?ApiToken $mcpToken = null;
 
     /**
+     * Whether a site-review submission may reach the owner's agent. Off by
+     * default: the widget token sits in the page markup, so anyone who can view
+     * the page holds it. A new, regenerated or revoked widget token resets it.
+     */
+    #[ORM\Column(options: ['default' => false])]
+    public bool $forwardsToAgent = false;
+
+    /**
      * The stemming language a new document in this project gets when the caller
      * names none. Read once, at creation: each document then carries its own
      * language, so changing this leaves the documents already written alone.

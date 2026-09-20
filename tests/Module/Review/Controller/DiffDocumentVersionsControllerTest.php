@@ -604,7 +604,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertSelectorTextContains('.lp-empty', 'too large to compare');
         // The versions themselves are still readable from History, which is what
         // the message points the reviewer at.
-        self::assertCount(1, $crawler->filter('.lp-review-view-tabs__item[href$="/review/history"]'));
+        self::assertCount(1, $crawler->filter('.lp-tabs__tab[href$="/review/history"]'));
     }
 
     /**

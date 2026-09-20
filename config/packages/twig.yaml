@@ -18,6 +18,7 @@ twig:
         '%kernel.project_dir%/templates/Module/Inbox': 'Inbox'
         '%kernel.project_dir%/templates/Module/Landing': 'Landing'
         '%kernel.project_dir%/templates/Module/Legal': 'Legal'
+        '%kernel.project_dir%/templates/Module/OAuth': 'OAuth'
         '%kernel.project_dir%/templates/Module/Project': 'Project'
         '%kernel.project_dir%/templates/Module/Review': 'Review'
         '%kernel.project_dir%/templates/Module/SiteReview': 'SiteReview'

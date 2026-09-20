@@ -83,9 +83,9 @@ final class ShowDocumentControllerTest extends WebTestCase
         self::assertSelectorExists('.lp-review-doc');
         self::assertSelectorExists('.lp-review-margin');
         self::assertSelectorExists('.lp-review-doc__back[aria-label="Back to documents"]');
-        self::assertSelectorTextContains('.lp-review-view-tabs', 'Document');
-        self::assertSelectorTextContains('.lp-review-view-tabs', 'History');
-        self::assertSelectorExists('.lp-review-view-tabs__item[aria-current="page"]');
+        self::assertSelectorTextContains('.lp-review-workspace-nav .lp-tabs', 'Document');
+        self::assertSelectorTextContains('.lp-review-workspace-nav .lp-tabs', 'History');
+        self::assertSelectorExists('.lp-review-workspace-nav .lp-tabs__tab[aria-current="page"]');
     }
 
     public function test_details_show_the_card_linked_to_the_document(): void
@@ -655,7 +655,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         // The history page is the way back — a route with no entry point would
         // leave the discussion exactly as unreachable as before.
         $historyUrl = '/projects/'.$projectId.'/documents/'.$id.'/review/history';
-        self::assertCount(1, $latest->filter('.lp-review-view-tabs a[href="'.$historyUrl.'"]'));
+        self::assertCount(1, $latest->filter('.lp-review-workspace-nav .lp-tabs a[href="'.$historyUrl.'"]'));
 
         $versionUrl = '/projects/'.$projectId.'/documents/'.$id.'/review/versions/1';
         $history = $client->request(Request::METHOD_GET, $historyUrl);
@@ -859,7 +859,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents/'.$id.'/review');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('.lp-review-view-tabs a[href="/projects/'.$projectId.'/documents/'.$id.'/review/history"]'));
+        self::assertCount(1, $crawler->filter('.lp-review-workspace-nav .lp-tabs a[href="/projects/'.$projectId.'/documents/'.$id.'/review/history"]'));
         self::assertCount(0, $crawler->filter('[data-version-note]'));
     }
 
@@ -1132,7 +1132,7 @@ final class ShowDocumentControllerTest extends WebTestCase
         $base = '/projects/'.$projectId.'/documents/'.$id.'/review/diff/';
         self::assertSame(
             [$base.'2/3'],
-            $crawler->filter('.lp-review-view-tabs a[href="'.$base.'2/3"]')->each(
+            $crawler->filter('.lp-review-workspace-nav .lp-tabs a[href="'.$base.'2/3"]')->each(
                 static fn (\Symfony\Component\DomCrawler\Crawler $node): string => (string) $node->attr('href'),
             ),
             'the Diff tab compares the current version with its predecessor',

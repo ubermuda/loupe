@@ -9,6 +9,10 @@
 //
 // The bridge id sits in that same file. It names a bridge and grants nothing,
 // so it is not a secret and the keychain does not hold it.
+//
+// A device login keeps its access token, refresh token and expiry in the file,
+// never in the keychain. Refresh tokens rotate, so every refresh rewrites all
+// three, and one rename under the config lock keeps them consistent.
 package config
 
 import (
@@ -19,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/zalando/go-keyring"
 )
@@ -33,13 +38,22 @@ const configFileName = "config.json"
 // ErrNotLoggedIn is returned by Load when no usable credentials are stored.
 var ErrNotLoggedIn = errors.New("not logged in: run `loupe login` first")
 
-// Config is the persisted credential set. Token is empty on disk whenever the
-// keychain accepted it. BridgeID names this machine's bridge to the server, and
-// EnsureBridgeID rather than Load is what guarantees a value.
+// Config is the persisted credential set. Token is a static API token, and is
+// empty on disk whenever the keychain accepted it. OAuth is a device login, and
+// replaces Token when set. BridgeID names this machine's bridge to the server,
+// and EnsureBridgeID rather than Load is what guarantees a value.
 type Config struct {
-	BaseURL  string `json:"baseUrl"`
-	Token    string `json:"token,omitempty"`
-	BridgeID string `json:"bridgeId,omitempty"`
+	BaseURL  string       `json:"baseUrl"`
+	Token    string       `json:"token,omitempty"`
+	OAuth    *OAuthTokens `json:"oauth,omitempty"`
+	BridgeID string       `json:"bridgeId,omitempty"`
+}
+
+// OAuthTokens is what the device flow and each refresh give.
+type OAuthTokens struct {
+	AccessToken  string    `json:"accessToken"`
+	RefreshToken string    `json:"refreshToken"`
+	ExpiresAt    time.Time `json:"expiresAt"`
 }
 
 // Dir is the directory that holds config.json, and rules.yaml beside it.
@@ -70,6 +84,13 @@ func Load() (Config, error) {
 	if c.BaseURL == "" {
 		return c, ErrNotLoggedIn
 	}
+	if c.OAuth != nil {
+		if c.OAuth.RefreshToken == "" {
+			return c, ErrNotLoggedIn
+		}
+
+		return c, nil
+	}
 	if c.Token == "" {
 		// An empty token on disk means Save handed it to the keychain. A
 		// keychain that has since become unreachable is indistinguishable from
@@ -98,25 +119,26 @@ func migrateTokenToKeyring(d string, c Config) {
 		return
 	}
 
-	configMu.Lock()
-	defer configMu.Unlock()
-
-	// Re-read under the lock, so a bridge id another goroutine stored in the
+	// Re-read under the lock, so a bridge id another writer stored in the
 	// meantime survives. A file that now holds other credentials belongs to a
-	// later write, and the keychain holds the older token alone, so clearing
-	// it here would throw the newer one away.
-	cleared, err := readStoredConfig(d)
-	if err != nil || cleared.BaseURL != c.BaseURL || cleared.Token != c.Token {
-		return
-	}
-	cleared.Token = ""
-	// A failed rewrite leaves the token in both places, and the next command
-	// tries again.
-	_ = writeConfig(d, cleared)
+	// later write, so clearing it here would throw the newer one away. A failed
+	// rewrite leaves the token in both places, and the next command tries again.
+	_ = withConfigLock(d, func() error {
+		cleared, err := readStoredConfig(d)
+		if err != nil || cleared.BaseURL != c.BaseURL || cleared.Token != c.Token {
+			return nil
+		}
+		cleared.Token = ""
+
+		return writeConfig(d, cleared)
+	})
 }
 
-// Save writes credentials, creating the config dir if needed. The token goes to
-// the OS keychain when one is reachable, and into the config file otherwise.
+// Save writes credentials, creating the config dir if needed. A static token
+// goes to the OS keychain when one is reachable, and into the config file
+// otherwise. A device login goes to the file. Load reads it before any static
+// token, and the keychain entry of an earlier static token is removed where a
+// keychain is reachable.
 func Save(c Config) error {
 	d, err := Dir()
 	if err != nil {
@@ -127,23 +149,26 @@ func Save(c Config) error {
 	}
 
 	stored := c
-	if err := keyring.Set(keyringService, c.BaseURL, c.Token); err == nil {
+	if c.OAuth != nil {
+		stored.Token = ""
+		_ = keyring.Delete(keyringService, c.BaseURL)
+	} else if err := keyring.Set(keyringService, c.BaseURL, c.Token); err == nil {
 		stored.Token = ""
 	}
-	configMu.Lock()
-	defer configMu.Unlock()
 
-	if stored.BridgeID == "" {
-		// A caller that knows nothing about the bridge id, such as `loupe
-		// login`, must not change which bridge this machine is. A file this
-		// cannot read holds no id to keep, and `login` is how an operator
-		// repairs such a file, so the read error stops nothing.
-		if previous, err := readStoredConfig(d); err == nil && isUUID(previous.BridgeID) {
-			stored.BridgeID = previous.BridgeID
+	return withConfigLock(d, func() error {
+		if stored.BridgeID == "" {
+			// A caller that knows nothing about the bridge id, such as `loupe
+			// login`, must not change which bridge this machine is. A file this
+			// cannot read holds no id to keep, and `login` is how an operator
+			// repairs such a file, so the read error stops nothing.
+			if previous, err := readStoredConfig(d); err == nil && isUUID(previous.BridgeID) {
+				stored.BridgeID = previous.BridgeID
+			}
 		}
-	}
 
-	return writeConfig(d, stored)
+		return writeConfig(d, stored)
+	})
 }
 
 // readStoredConfig reads config.json. A missing file gives an error that

@@ -1,11 +1,13 @@
 {# One card face. The whole card is the drag handle, and the grip says so.
    Props: card (Card), pendingComments (int), static (bool, optional): a card
-   shown outside the board, which does not drag and names its column instead. #}
+   shown outside the board, which does not drag and names its column instead.
+   A static card also skips the prefetch, because it opens no drawer. #}
 {% set static = static ?? false %}
 <article class="lp-board-card{{ static ? ' lp-board-card--static' }}"
-         {% if not static %}data-board-drag-target="card"
+         {% if not static %}data-controller="card-prefetch"
+         data-board-drag-target="card"
          data-board-filter-target="card"
-         data-action="pointerdown->board-drag#press"{% endif %}
+         data-action="pointerdown->board-drag#press mouseenter->card-prefetch#enter mouseleave->card-prefetch#leave focusin->card-prefetch#enter"{% endif %}
          data-card-id="{{ card.id }}"
          data-card-title="{{ card.title }}">
     {% if not static %}
@@ -17,10 +19,11 @@
        them. The number is the handle a person quotes. #}
     <div class="lp-board-card__identity">
         <span class="lp-board-card__number">#{{ card.number }}</span>
-        <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>
+        {% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}
     </div>
     {# draggable="false" stops the browser's own link drag taking the gesture. #}
     <a class="lp-board-card__title"
+       data-card-prefetch-target="link"
        draggable="false"
        href="{{ path('app_board_card', {projectId: card.project.id, cardId: card.id}) }}"
        data-turbo-frame="card-drawer-frame"

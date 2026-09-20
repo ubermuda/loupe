@@ -23,6 +23,10 @@ import { Controller } from '@hotwired/stimulus';
  */
 const DRAG_THRESHOLD = 5;
 
+/** How close to a column's edge the pointer scrolls its cards, and how fast. */
+const EDGE_BAND = 56;
+const EDGE_STEP = 14;
+
 export default class extends Controller {
     static targets = ['card', 'group', 'moveForm', 'message'];
 
@@ -31,12 +35,33 @@ export default class extends Controller {
         this.pressedCard = null;
         this.draggedCard = null;
         this.placeholder = null;
+        this.ghost = null;
         this.originGroup = null;
         this.originNextCard = null;
         this.originIndex = -1;
         this.pendingForm = null;
         this.swallowClick = false;
+        this.scrollFrame = null;
+        this.scrollGroup = null;
+        this.pointerY = 0;
 
+        this.onScrollFrame = () => {
+            this.scrollFrame = null;
+            const group = this.scrollGroup;
+            if (this.draggedCard === null || group === null) {
+                return;
+            }
+            const step = this.edgeStep(group);
+            if (step === 0) {
+                return;
+            }
+            const before = group.scrollTop;
+            group.scrollTop = before + step;
+            if (group.scrollTop !== before) {
+                this.markPlaceIn(group, this.pointerY);
+            }
+            this.scrollFrame = requestAnimationFrame(this.onScrollFrame);
+        };
         this.onPointerMove = (event) => this.pointerMove(event);
         this.onPointerUp = (event) => this.pointerUp(event);
         this.onKeydown = (event) => {
@@ -116,6 +141,8 @@ export default class extends Controller {
         this.placeholder.className = 'lp-board__placeholder';
         this.placeholder.style.height = `${rectangle.height}px`;
         card.after(this.placeholder);
+        this.ghost = this.ghostOf(card);
+        card.after(this.ghost);
 
         card.classList.add('lp-board-card--dragging');
         card.style.width = `${rectangle.width}px`;
@@ -123,6 +150,9 @@ export default class extends Controller {
         card.style.top = `${rectangle.top}px`;
         this.draggedCard = card;
         this.element.classList.add('lp-board--dragging');
+        // Turbo reads this on an ancestor, so no card under the pointer
+        // prefetches while the drag runs.
+        this.element.dataset.turboPrefetch = 'false';
     }
 
     pointerMove(event) {
@@ -145,22 +175,74 @@ export default class extends Controller {
         this.draggedCard.style.left = `${event.clientX - this.grabOffsetX}px`;
         this.draggedCard.style.top = `${event.clientY - this.grabOffsetY}px`;
 
+        this.pointerY = event.clientY;
         const group = this.groupUnder(event.clientX, event.clientY);
         if (group !== null) {
             this.markPlaceIn(group, event.clientY);
+        }
+        this.followEdge(group);
+    }
+
+    /**
+     * A column shows the cards that fit, so a drag to a card below the fold
+     * scrolls that column while the pointer rests near its edge.
+     */
+    followEdge(group) {
+        this.scrollGroup = group;
+        if (group === null || this.edgeStep(group) === 0) {
+            this.stopScrolling();
+
+            return;
+        }
+        if (this.scrollFrame === null) {
+            this.scrollFrame = requestAnimationFrame(this.onScrollFrame);
+        }
+    }
+
+    edgeStep(group) {
+        const box = group.getBoundingClientRect();
+        const fromTop = this.pointerY - box.top;
+        const fromBottom = box.bottom - this.pointerY;
+        const room = group.scrollHeight - group.clientHeight;
+        const speed = (depth) =>
+            Math.ceil(
+                ((EDGE_BAND - Math.max(depth, 0)) / EDGE_BAND) * EDGE_STEP,
+            );
+
+        if (
+            fromTop < EDGE_BAND &&
+            fromTop > -EDGE_BAND &&
+            group.scrollTop > 0
+        ) {
+            return -speed(fromTop);
+        }
+        if (
+            fromBottom < EDGE_BAND &&
+            fromBottom > -EDGE_BAND &&
+            group.scrollTop < room - 1
+        ) {
+            return speed(fromBottom);
+        }
+
+        return 0;
+    }
+
+    stopScrolling() {
+        if (this.scrollFrame !== null) {
+            cancelAnimationFrame(this.scrollFrame);
+            this.scrollFrame = null;
         }
     }
 
     /**
      * Puts the drop marker where a release at this point would land the card.
      *
-     * A card that leaves its column takes the end of the one it joins, whatever
-     * the pointer is over: the handler appends it there. Marking an insertion
-     * point it will not honour would promise an order the answer then
-     * contradicts.
+     * A terminal column sorts by completion and keeps no rank, so a card
+     * dropped there takes the end whatever the pointer is over. Every other
+     * column honours the marker, in its own column and across columns alike.
      */
     markPlaceIn(group, clientY) {
-        if (group !== this.originGroup) {
+        if ('1' !== group.dataset.rankable) {
             group.append(this.placeholder);
 
             return;
@@ -250,13 +332,11 @@ export default class extends Controller {
         }
 
         const rankable = '1' === group.dataset.rankable;
-        const staysInColumn = group === origin.group;
 
         column.value = group.dataset.column;
-        // A rank is only sent for a move inside one column. The handler appends
-        // on every other move, so sending one would be a number it discards.
-        rank.value =
-            staysInColumn && rankable && position >= 0 ? String(position) : '';
+        // A terminal column keeps no rank, so it takes none. Every other column
+        // lands the card where the marker stood.
+        rank.value = rankable && position >= 0 ? String(position) : '';
 
         const finished = (event) => {
             form.removeEventListener('turbo:submit-end', finished);
@@ -319,19 +399,51 @@ export default class extends Controller {
         if (this.placeholder !== null) {
             this.placeholder.remove();
         }
+        if (this.ghost !== null) {
+            this.ghost.remove();
+        }
         this.element.classList.remove('lp-board--dragging');
+        delete this.element.dataset.turboPrefetch;
+        this.stopScrolling();
+        this.scrollGroup = null;
 
         this.pointerId = null;
         this.pressedCard = null;
         this.draggedCard = null;
         this.placeholder = null;
+        this.ghost = null;
         this.originNextCard = null;
+    }
+
+    /**
+     * A faded, inert copy of the card that holds its slot for the length of the
+     * drag. It carries no id, data attribute or form, so no controller, rank
+     * count or query mistakes it for the card.
+     */
+    ghostOf(card) {
+        const ghost = card.cloneNode(true);
+        ghost.classList.remove('lp-board-card--dragging');
+        ghost.classList.add('lp-board__ghost');
+        ghost.inert = true;
+        ghost.setAttribute('aria-hidden', 'true');
+        ghost.querySelectorAll('form').forEach((form) => form.remove());
+        for (const element of [ghost, ...ghost.querySelectorAll('*')]) {
+            for (const { name } of Array.from(element.attributes)) {
+                if (name === 'id' || name.startsWith('data-')) {
+                    element.removeAttribute(name);
+                }
+            }
+        }
+
+        return ghost;
     }
 
     groupUnder(x, y) {
         return (
             this.groupTargets.find((group) => {
-                const rectangle = group.getBoundingClientRect();
+                const rectangle = (
+                    group.closest('.lp-board__column') ?? group
+                ).getBoundingClientRect();
 
                 return (
                     x >= rectangle.left &&

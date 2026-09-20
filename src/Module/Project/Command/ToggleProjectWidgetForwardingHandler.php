@@ -28,7 +28,7 @@ final readonly class ToggleProjectWidgetForwardingHandler
             throw new DomainErrors(['forwarding' => 'project.error.widget_token_missing']);
         }
 
-        $token->forwardsToAgent = !$token->forwardsToAgent;
+        $command->project->forwardsToAgent = !$command->project->forwardsToAgent;
         $this->em->flush();
 
         $this->auditor->record(
@@ -37,11 +37,11 @@ final readonly class ToggleProjectWidgetForwardingHandler
             [
                 'projectId' => (string) $command->project->id,
                 'tokenId' => (string) $token->id,
-                'forwardsToAgent' => $token->forwardsToAgent,
+                'forwardsToAgent' => $command->project->forwardsToAgent,
             ],
             new AuditSubject('api_token', (string) $token->id),
         );
 
-        return $token->forwardsToAgent;
+        return $command->project->forwardsToAgent;
     }
 }

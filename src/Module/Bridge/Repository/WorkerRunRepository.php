@@ -80,6 +80,21 @@ class WorkerRunRepository extends ServiceEntityRepository
             ->getResult());
     }
 
+    /** @return list<WorkerRun> the card's latest runs, newest first */
+    public function findRecentForCard(Project $project, Uuid $cardId, int $limit): array
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.project = :project')
+            ->andWhere('r.cardId = :cardId')
+            ->setParameter('project', $project)
+            ->setParameter('cardId', $cardId, UuidType::NAME)
+            ->orderBy('r.receivedAt', 'DESC')
+            ->addOrderBy('r.id', 'DESC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
     /**
      * One page of a project's runs, newest report first.
      *

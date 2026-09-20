@@ -105,6 +105,20 @@ final class MintProjectWidgetTokenHandlerTest extends KernelTestCase
         self::assertSame([], $this->audit->domainLogLines());
     }
 
+    public function test_a_minted_token_starts_collect_only(): void
+    {
+        $project = $this->project('mint-widget-forwarding@example.com', 'forwarding');
+        $project->forwardsToAgent = true;
+        $this->em->flush();
+
+        ($this->handler)(new MintProjectWidgetTokenCommand($project));
+
+        $this->em->clear();
+        $fresh = $this->em->find(Project::class, $project->id);
+        self::assertNotNull($fresh);
+        self::assertFalse($fresh->forwardsToAgent);
+    }
+
     public function test_the_handler_keeps_no_logger_beside_the_auditor(): void
     {
         DirectLogging::assertRemovedFrom(MintProjectWidgetTokenHandler::class);

@@ -69,9 +69,10 @@ final class SiteReviewsPageTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         $article = $crawler->filter('[data-comment-id="'.$commentId.'"]');
-        // One Page disclosure plus one per anchor.
-        self::assertCount(3, $article->filter('.lp-site-review-selector'));
-        self::assertStringContainsString('2 elements', $article->filter('.lp-site-review-quote')->text());
+        // One captured element per anchor, each with its selector behind a disclosure.
+        self::assertCount(2, $article->filter('.lp-feedback-anchor'));
+        self::assertCount(2, $article->filter('.lp-feedback-anchor__selector'));
+        self::assertStringContainsString('Element 2', $article->text());
         self::assertStringContainsString('.card', $article->text());
         self::assertStringContainsString('.panel', $article->text());
     }
@@ -90,72 +91,31 @@ final class SiteReviewsPageTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
 
         self::assertResponseIsSuccessful();
-        // Flat comment list: both comments rendered with a status-colored index.
+        // Flat comment list: both comments rendered with their number.
         self::assertCount(2, $crawler->filter('[data-comment-id]'));
-        self::assertCount(2, $crawler->filter('.lp-site-review-index'));
+        self::assertCount(2, $crawler->filter('.lp-feedback-list__number'));
         self::assertGreaterThanOrEqual(1, $crawler->filter('[data-comment-status="pending"]')->count());
         self::assertCount(1, $crawler->filter('[data-comment-id="'.$commentId.'"]'));
+        // A missing translation renders its key, and the gate does not fail on that.
+        self::assertDoesNotMatchRegularExpression('/\\bsite_review\\.[a-z_]+\\.[a-z_.]+/', $crawler->filter('main')->text());
     }
 
-    public function test_a_reply_is_shared_persistent_and_idempotent_without_changing_feedback(): void
+    public function test_the_page_carries_no_reply_thread_and_the_reply_route_is_gone(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
         [$project, $comments] = $this->projectWithPendingComments($em, 'site-reply-page@example.com', 'Replies');
         $comment = $comments[1];
-        $comment->status = SiteReviewCommentStatus::Resolved;
-        $em->flush();
         $em->clear();
-        $client->loginUser($project->owner);
-        $pageUrl = '/projects/'.$project->id.'/site-review';
-        $crawler = $client->request(Request::METHOD_GET, $pageUrl);
-        self::assertResponseIsSuccessful();
-        $name = 'site_reply_site_'.$comment->id;
-        $form = $crawler->filter('form[name="'.$name.'"]')->form([$name.'[body]' => 'Keep the original capture.']);
-        $client->submit($form);
-        self::assertResponseRedirects($pageUrl.'#feedback-'.$comment->id);
-        $client->followRedirect();
-        self::assertSelectorTextContains('[data-comment-id="'.$comment->id.'"] [data-site-review-reply]', 'Keep the original capture.');
-        $client->submit($form);
-        self::assertResponseRedirects($pageUrl.'#feedback-'.$comment->id);
-        $client->followRedirect();
-        self::assertSelectorCount(1, '[data-site-review-reply]');
-        $form[$name.'[body]'] = 'Keep this changed draft.';
-        $client->submit($form);
-        self::assertResponseStatusCodeSame(422);
-        self::assertSelectorTextContains('textarea[name="'.$name.'[body]"]', 'Keep this changed draft.');
-        self::assertSelectorTextContains('form[name="'.$name.'"]', 'This reply form is no longer current.');
-        self::assertSelectorExists('[data-master-detail-selected-value="feedback-'.$comment->id.'"]');
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $em->clear();
-        $stored = $em->find(SiteReviewComment::class, $comment->id);
-        self::assertInstanceOf(SiteReviewComment::class, $stored);
-        self::assertSame(SiteReviewCommentStatus::Resolved, $stored->status);
-        self::assertSame('Second comment', $stored->body);
-        self::assertSame(1, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM site_review_replies WHERE comment_id = ?', [(string) $comment->id]));
-    }
 
-    public function test_a_reply_refuses_another_owner_and_a_forged_csrf_token(): void
-    {
-        $client = static::createClient();
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        [$project, $comments] = $this->projectWithPendingComments($em, 'site-reply-owner@example.com', 'Private feedback');
-        $stranger = $this->user($em, 'site-reply-stranger@example.com');
-        $em->flush();
-        $comment = $comments[0];
-        $em->clear();
-        $url = '/site-review/comments/'.$comment->id.'/reply';
-        $name = 'site_reply_site_'.$comment->id;
-        $fields = [$name => ['body' => 'Forged reply.', 'submissionId' => '01995498-93aa-7000-8000-000000000001', '_token' => 'forged']];
-        $client->loginUser($stranger);
-        $client->request(Request::METHOD_POST, $url, $fields);
-        self::assertResponseStatusCodeSame(403);
         $client->loginUser($project->owner);
-        $client->request(Request::METHOD_POST, $url, $fields);
-        self::assertResponseStatusCodeSame(422);
-        self::assertSelectorTextContains('textarea[name="'.$name.'[body]"]', 'Forged reply.');
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        self::assertSame(0, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM site_review_replies'));
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/site-review');
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('[data-site-review-replies]'));
+        self::assertCount(0, $crawler->filter('.lp-reply-composer'));
+        $client->request(Request::METHOD_POST, '/site-review/comments/'.$comment->id.'/reply');
+        self::assertResponseStatusCodeSame(404);
     }
 
     public function test_resolve_marks_comment_resolved(): void

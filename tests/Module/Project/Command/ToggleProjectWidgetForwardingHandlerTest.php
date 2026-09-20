@@ -42,7 +42,7 @@ final class ToggleProjectWidgetForwardingHandlerTest extends KernelTestCase
         $project = $this->project('forwarding-a@example.com');
 
         self::assertNotNull($project->widgetToken);
-        self::assertFalse($project->widgetToken->forwardsToAgent);
+        self::assertFalse($project->forwardsToAgent);
     }
 
     public function test_toggling_turns_forwarding_on_and_back_off(): void
@@ -50,22 +50,21 @@ final class ToggleProjectWidgetForwardingHandlerTest extends KernelTestCase
         $project = $this->project('forwarding-b@example.com');
 
         self::assertTrue(($this->handler)(new ToggleProjectWidgetForwardingCommand($project)));
-        self::assertNotNull($project->widgetToken);
-        self::assertTrue($project->widgetToken->forwardsToAgent);
+        self::assertTrue($project->forwardsToAgent);
 
         self::assertFalse(($this->handler)(new ToggleProjectWidgetForwardingCommand($project)));
-        self::assertFalse($project->widgetToken->forwardsToAgent);
+        self::assertFalse($project->forwardsToAgent);
     }
 
     public function test_the_new_state_is_persisted(): void
     {
         $project = $this->project('forwarding-c@example.com');
         ($this->handler)(new ToggleProjectWidgetForwardingCommand($project));
-        $tokenId = $project->widgetToken?->id;
+        $projectId = $project->id;
 
         $this->em->clear();
 
-        $reloaded = $this->em->find(ApiToken::class, $tokenId);
+        $reloaded = $this->em->find(Project::class, $projectId);
         self::assertNotNull($reloaded);
         self::assertTrue($reloaded->forwardsToAgent);
     }

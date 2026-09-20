@@ -69,17 +69,17 @@
         gap: var(--doc-margin-gap, calc(var(--spacing) * 6));
     }
 }
-.lp-review .lp-review-workspace-nav .lp-review-view-tabs,
-.lp-review .lp-review-view-tabs {
+.lp-review .lp-review-workspace-nav .lp-tabs,
+.lp-review .lp-tabs {
     @apply mt-0 gap-6 self-stretch border-b-0;
 }
-.lp-review .lp-review-view-tabs__item {
+.lp-review .lp-tabs__tab {
     @apply -mb-px inline-flex min-h-12 items-center gap-1.75 px-0 py-2.5 font-medium text-fg-dim;
 }
-.lp-review .lp-review-view-tabs__item svg {
+.lp-review .lp-tabs__tab svg {
     @apply size-4 shrink-0;
 }
-.lp-review .lp-review-view-tabs__item[aria-current='page'] {
+.lp-review .lp-tabs__tab[aria-current='page'] {
     @apply border-review-tab font-semibold text-review-tab-ink;
 }
 .lp-review .lp-review-margin-tabs {

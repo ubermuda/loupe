@@ -43,8 +43,9 @@ repository, so a human confirms the CLI is what changed before it ships.
 ## Requirements
 
 - **`claude`** on your `PATH`. The bridge refuses to start without it.
-- A Loupe API token with the **agent** scope. Mint it from your account settings
-  page at `/account`. A project's widget token carries the site-review scope
+- A login with the **agent** scope. `loupe login` gets one in a browser. For CI,
+  mint an API token with the agent scope from your account settings page at
+  `/account`. A project's widget token carries the site-review scope
   instead. That token is embedded in page HTML and public by design, so the
   firewall refuses it on every endpoint the bridge needs.
 - A rule file, `rules.yaml`, beside `config.json`. See
@@ -54,19 +55,39 @@ repository, so a human confirms the CLI is what changed before it ships.
 
 ## `loupe login`
 
-Stores the token so the bridge can subscribe to your stream. The token is
-validated against the API *before* it is written to disk.
+Signs the bridge in so it can subscribe to your stream.
 
 ```bash
-loupe login                                   # prompts for the token
-loupe login --token <token>                   # or pass it directly
-LOUPE_TOKEN=<token> loupe login               # or via the environment
+loupe login                                   # sign in in a browser
 loupe login --url https://loupe.example.com   # defaults to https://loupe.dev.localhost
+loupe login --token <token>                   # CI and scripts: a static API token
+LOUPE_TOKEN=<token> loupe login               # the same, from the environment
 ```
 
-The prompt does not echo what you type.
+With no token, `loupe login` prints a link and a code such as `BCDF-GHJK`.
+Open the link in a browser where you are signed in to Loupe. Check that the
+page shows the same code, then choose **Allow**. The CLI does not open the
+browser for you. It asks the server every few seconds and stops when you answer
+or when the code expires after ten minutes. `Ctrl-C` stops it.
 
-The token goes to your **OS keychain** (Keychain Access on macOS, the Secret
+The device login stores an access token, a refresh token and the expiry in
+`loupe/config.json` at `0600`. The access token lives for an hour. Every
+command refreshes it before it expires, and again after a `401`, then retries
+the request once. Each refresh gives a new refresh token and ends the old one.
+Several processes can share one config: a bridge, a second bridge, a
+`loupe login`. Each refresh takes an exclusive lock on `loupe/config.lock`,
+reads the file again, and skips the refresh when another process already did
+it. The file is written to a temporary file and renamed over the old one.
+
+When the refresh token no longer works, the command stops with a message that
+asks you to run `loupe login` again. That happens when you revoke *Loupe CLI*
+on the *Connected apps* page of your account.
+
+A static token from `--token` or `LOUPE_TOKEN` is validated against the API
+*before* it is written to disk. It never refreshes, and a new login of either
+kind replaces the old one.
+
+A static token goes to your **OS keychain** (Keychain Access on macOS, the Secret
 Service on Linux, Credential Manager on Windows), keyed by the Loupe base URL so
 two instances can coexist. The base URL itself is written to `loupe/config.json`
 inside your OS config directory (`~/Library/Application Support` on macOS,

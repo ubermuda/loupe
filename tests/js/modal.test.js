@@ -93,6 +93,27 @@ it('slides an opted-in drawer horizontally', () => {
     ]);
 });
 
+it('times a drawer slide at 200ms with the ease curve both ways', () => {
+    controller.drawerValue = true;
+    controller.open();
+    controller.close();
+    expect(dialog.animate).toHaveBeenCalledTimes(2);
+    for (const call of dialog.animate.mock.calls) {
+        expect(call[1]).toMatchObject({ duration: 200, easing: 'ease' });
+    }
+});
+
+it('returns focus to the trigger once the close animation ends', async () => {
+    const trigger = document.createElement('button');
+    document.body.append(trigger);
+    trigger.focus();
+    controller.open();
+    dialog.querySelector('textarea').focus();
+    controller.close();
+    await finish(1);
+    expect(document.activeElement).toBe(trigger);
+});
+
 it('suppresses drawer motion when reduced motion is requested', () => {
     vi.stubGlobal('matchMedia', () => ({ matches: true }));
     controller.drawerValue = true;

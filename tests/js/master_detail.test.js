@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { Application } from '@hotwired/stimulus';
-import { afterEach, beforeEach, expect, it } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import MasterDetailController from '../../assets/controllers/master_detail_controller.js';
 
 let application;
@@ -57,4 +57,15 @@ it('defaults to the first panel and lets a later selection update the fragment',
     expect(controller.panelTargets[0].hidden).toBe(true);
     expect(controller.panelTargets[1].hidden).toBe(false);
     expect(window.location.hash).toBe('#second');
+});
+
+it('brings the selected row into view inside its own pane', async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    const controller = await mount();
+    scrollIntoView.mockClear();
+    controller.select({ currentTarget: controller.triggerTargets[1] });
+    expect(scrollIntoView).toHaveBeenCalledOnce();
+    expect(scrollIntoView.mock.instances[0]).toBe(controller.triggerTargets[1]);
+    delete Element.prototype.scrollIntoView;
 });

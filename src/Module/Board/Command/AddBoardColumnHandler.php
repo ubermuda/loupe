@@ -9,6 +9,7 @@ use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Event\BoardColumnsChanged;
 use App\Module\Board\Repository\BoardColumnRepository;
 use App\Module\Board\Service\BoardColumns;
+use App\Module\Board\Service\BoardColumnTonePicker;
 use Doctrine\DBAL\LockMode;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -22,6 +23,7 @@ final readonly class AddBoardColumnHandler
     public function __construct(
         private BoardColumnRepository $boardColumns,
         private BoardColumns $rules,
+        private BoardColumnTonePicker $tonePicker,
         private EntityManagerInterface $em,
         private Auditor $auditor,
         private EventDispatcherInterface $events,
@@ -52,7 +54,8 @@ final readonly class AddBoardColumnHandler
             }
 
             $position = [] === $columns ? 0 : max(array_map(static fn (BoardColumn $column): int => $column->position, $columns)) + 1;
-            $column = new BoardColumn(project: $command->project, label: $label, slug: $slug, position: $position);
+            $tone = $command->tone ?? $this->tonePicker->pick($columns);
+            $column = new BoardColumn(project: $command->project, label: $label, slug: $slug, position: $position, tone: $tone);
             $this->em->persist($column);
             $this->em->flush();
 
@@ -66,7 +69,7 @@ final readonly class AddBoardColumnHandler
         $this->auditor->record(
             'board.column_added',
             AuditOutcome::Success,
-            ['columnId' => (string) $result->id, 'projectId' => (string) $command->project->id, 'slug' => $result->slug],
+            ['columnId' => (string) $result->id, 'projectId' => (string) $command->project->id, 'slug' => $result->slug, 'tone' => $result->tone->value],
             new AuditSubject('board_column', (string) $result->id),
         );
         $this->events->dispatch(new BoardColumnsChanged($command->project));

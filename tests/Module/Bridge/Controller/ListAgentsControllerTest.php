@@ -55,6 +55,25 @@ final class ListAgentsControllerTest extends WebTestCase
         self::assertStringNotContainsString('other-version', $crawler->text());
     }
 
+    public function test_a_commit_sha_version_shows_its_short_form(): void
+    {
+        $client = static::createClient();
+        $em = $this->em();
+        $owner = $this->user($em, 'agents-sha@example.com');
+        $project = $this->project($em, $owner, 'Sha');
+        $sha = '03cc8ba4f1e2d3c4b5a6978877665544332211aa';
+        $bridge = $this->seedBridge($em, $owner, projects: [(string) $project->id], cliVersion: $sha);
+        $em->clear();
+
+        $client->loginUser($owner);
+        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$project->id.'/agents');
+
+        self::assertResponseIsSuccessful();
+        $card = $crawler->filter('[data-agent-connection-id="'.$bridge->id.'"]');
+        self::assertStringContainsString('03cc8ba4', $card->text());
+        self::assertStringNotContainsString($sha, $card->text());
+    }
+
     public function test_a_stranger_cannot_read_connections(): void
     {
         $client = static::createClient();

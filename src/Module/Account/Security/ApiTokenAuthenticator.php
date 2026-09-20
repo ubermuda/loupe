@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Account\Security;
 
 use App\Module\Account\Repository\ApiTokenRepository;
+use App\Security\AuthenticatedCredential;
+use App\Security\BearerToken;
 use Monolog\Attribute\WithMonologChannel;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -23,8 +25,6 @@ use Ubermuda\AuditBundle\AuditOutcome;
 #[WithMonologChannel('app_security')]
 final class ApiTokenAuthenticator extends AbstractAuthenticator implements AuthenticationEntryPointInterface
 {
-    private const string SCOPE_ROLE_ATTR = 'scopeRole';
-
     public const string API_TOKEN_ID_ATTR = 'apiTokenId';
 
     // The widget token is embedded on every page of a customer's site, so a
@@ -40,20 +40,22 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
     ) {
     }
 
+    /** A JWT bearer belongs to OAuthAccessTokenAuthenticator. */
     public function supports(Request $request): bool
     {
-        return self::carriesBearerToken($request);
+        $bearer = BearerToken::of($request);
+
+        return null !== $bearer && !BearerToken::isJwt($bearer);
     }
 
     /**
      * Shared with RateLimitApiAuthentication, which throttles exactly the
-     * requests that can reach authenticate() and record a failure there. Two
-     * copies of the same condition would drift apart without either side
-     * failing.
+     * requests that can reach this authenticator or the OAuth one and record a
+     * failure there.
      */
     public static function carriesBearerToken(Request $request): bool
     {
-        return str_starts_with((string) $request->headers->get('Authorization', ''), 'Bearer ');
+        return null !== BearerToken::of($request);
     }
 
     public function authenticate(Request $request): Passport
@@ -79,7 +81,7 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
         }
 
         $passport = new SelfValidatingPassport(new UserBadge($token->owner->getUserIdentifier(), fn () => $token->owner));
-        $passport->setAttribute(self::SCOPE_ROLE_ATTR, $token->scope->role());
+        $passport->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential((string) $token->id, $token->scope->role()));
         $passport->setAttribute(self::API_TOKEN_ID_ATTR, (string) $token->id);
 
         return $passport;
@@ -89,12 +91,13 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
     public function createToken(Passport $passport, string $firewallName): TokenInterface
     {
         $user = $passport->getUser();
-        $scopeRole = $passport->getAttribute(self::SCOPE_ROLE_ATTR);
-        if (!is_string($scopeRole)) {
-            throw new \LogicException('scopeRole missing on passport after authentication.');
+        $credential = $passport->getAttribute(AuthenticatedCredential::ATTRIBUTE);
+        if (!$credential instanceof AuthenticatedCredential) {
+            throw new \LogicException('credential missing on passport after authentication.');
         }
 
-        $authenticatedToken = new PostAuthenticationToken($user, $firewallName, [...$user->getRoles(), $scopeRole]);
+        $authenticatedToken = new PostAuthenticationToken($user, $firewallName, [...$user->getRoles(), $credential->scopeRole]);
+        $authenticatedToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, $credential);
         $apiTokenId = $passport->getAttribute(self::API_TOKEN_ID_ATTR);
         if (is_string($apiTokenId)) {
             $authenticatedToken->setAttribute(self::API_TOKEN_ID_ATTR, $apiTokenId);

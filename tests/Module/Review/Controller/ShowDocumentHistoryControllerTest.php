@@ -66,7 +66,7 @@ final class ShowDocumentHistoryControllerTest extends WebTestCase
         self::assertSelectorTextContains('.lp-history-title', 'Version history');
         self::assertSelectorTextContains('.lp-review-doc__title', 'Historied Doc');
         self::assertSelectorTextContains('.lp-review-doc__version', 'v3');
-        self::assertSelectorTextContains('.lp-review-view-tabs__item[aria-current="page"]', 'History');
+        self::assertSelectorTextContains('.lp-review-workspace-nav .lp-tabs__tab[aria-current="page"]', 'History');
         self::assertSelectorCount(0, '.lp-review-margin-tabs');
         self::assertSelectorExists('#revise-document-title');
         self::assertSelectorExists('#finish-review-title');
@@ -88,7 +88,7 @@ final class ShowDocumentHistoryControllerTest extends WebTestCase
 
         self::assertCount(
             1,
-            $crawler->filter('.lp-review-view-tabs__item[href="/projects/'.$projectId.'/documents/'.$id.'/review"]'),
+            $crawler->filter('.lp-review-workspace-nav .lp-tabs__tab[href="/projects/'.$projectId.'/documents/'.$id.'/review"]'),
         );
     }
 

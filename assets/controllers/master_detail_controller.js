@@ -22,9 +22,13 @@ export default class extends Controller {
             return;
         }
 
+        let selectedTrigger = null;
         this.triggerTargets.forEach((trigger) => {
             const selected = trigger.dataset.masterDetailId === id;
             trigger.setAttribute('aria-current', selected ? 'true' : 'false');
+            if (selected) {
+                selectedTrigger = trigger;
+            }
         });
         this.panelTargets.forEach((panel) => {
             panel.hidden = panel.dataset.masterDetailId !== id;
@@ -33,5 +37,9 @@ export default class extends Controller {
         if (updateUrl) {
             window.history.replaceState(window.history.state, '', `#${id}`);
         }
+
+        // A filter selects the first row it keeps, which can sit above the
+        // list's scroll position.
+        selectedTrigger?.scrollIntoView?.({ block: 'nearest' });
     }
 }

@@ -79,6 +79,21 @@ final class RegenerateProjectWidgetTokenHandlerTest extends KernelTestCase
         self::assertNull($record->context['previousTokenId']);
     }
 
+    public function test_a_regenerated_token_starts_collect_only(): void
+    {
+        $project = $this->project('regen-widget-forwarding@example.com', 'forwarding');
+        $this->mintToken($project);
+        $project->forwardsToAgent = true;
+        $this->em->flush();
+
+        ($this->handler)(new RegenerateProjectWidgetTokenCommand($project));
+
+        $this->em->clear();
+        $fresh = $this->em->find(Project::class, $project->id);
+        self::assertNotNull($fresh);
+        self::assertFalse($fresh->forwardsToAgent);
+    }
+
     public function test_the_handler_keeps_no_logger_beside_the_auditor(): void
     {
         DirectLogging::assertRemovedFrom(RegenerateProjectWidgetTokenHandler::class);
