@@ -100,3 +100,7 @@ e2e/.step-ca-root.crt
 /website/dist
 /website/.astro
 /website/.env
+
+###> oauth keys ###
+/*.key
+###< oauth keys ###
