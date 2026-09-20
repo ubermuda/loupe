@@ -1,0 +1,41 @@
+{% extends '@Account/_settings_layout.html.twig' %}
+
+{% block settings_section 'connected-apps' %}
+
+{% block settings_content %}
+<section class="lp-connect-block lp-settings-section lp-settings-panel-card" data-testid="connected-apps-section">
+    <h2 class="lp-section-title">{{ 'oauth.connected_apps.heading'|trans }}</h2>
+    <p class="lp-connect-hint">{{ 'oauth.connected_apps.intro'|trans }}</p>
+
+    {% for app in view.apps %}
+    <div class="lp-identity-row" data-connected-app="{{ app.clientId }}">
+        <twig:ux:icon name="lucide:plug" class="lp-identity-row__glyph w-4 h-4" />
+        <span class="lp-identity-row__text">
+            <span class="lp-identity-row__name">{{ app.clientName }}</span>
+            {% for grant in app.grants %}
+            <span class="lp-identity-row__meta lp-identity-row__meta--plain">
+                {{ ('oauth.consent.scope.' ~ grant.scope.value|replace({'-': '_'}))|trans }}
+                {%- if grant.project %} · {{ grant.project.name }}{% endif %}
+            </span>
+            {% endfor %}
+        </span>
+        <div data-controller="modal">
+            <button type="button" class="lp-btn lp-btn--danger-ghost lp-btn--sm" data-action="click->modal#open">{{ 'oauth.connected_apps.action.revoke'|trans }}</button>
+            <dialog class="lp-dialog" data-modal-target="dialog" aria-labelledby="revoke-app-title-{{ loop.index }}" data-action="cancel->modal#close">
+                <h2 class="lp-dialog-title" id="revoke-app-title-{{ loop.index }}">{{ 'oauth.connected_apps.revoke.title'|trans }}</h2>
+                <p class="lp-dialog-desc">{{ 'oauth.connected_apps.revoke.description'|trans({'%client%': app.clientName}) }}</p>
+                <form method="post" action="{{ path('app_account_connected_app_revoke', {clientId: app.clientId}) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('revoke-connected-app') }}">
+                    <div class="lp-dialog-actions">
+                        <button type="button" class="lp-btn lp-btn--ghost" data-action="click->modal#close">{{ 'oauth.connected_apps.revoke.cancel'|trans }}</button>
+                        <button type="submit" class="lp-btn lp-btn--danger">{{ 'oauth.connected_apps.revoke.confirm'|trans }}</button>
+                    </div>
+                </form>
+            </dialog>
+        </div>
+    </div>
+    {% else %}
+    <p class="lp-connect-hint" data-testid="connected-apps-empty">{{ 'oauth.connected_apps.empty'|trans }}</p>
+    {% endfor %}
+</section>
+{% endblock %}

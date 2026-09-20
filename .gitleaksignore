@@ -33,3 +33,7 @@ a1123f971180448439fb81287ff60d22d8f7a343:docker/dev/garage/garage.toml:generic-a
 # occurrences in the same historical revision of the file.
 a7361903d7263c100824738f867c841b26b918b6:tests/Module/Account/Command/CheckSystemStatusHandlerTest.php:generic-api-key:152
 a7361903d7263c100824738f867c841b26b918b6:tests/Module/Account/Command/CheckSystemStatusHandlerTest.php:generic-api-key:168
+
+# Test-only RSA key that signs OAuth access tokens in the `test` environment.
+# .env.test alone points at it; no other environment loads it. Safe to commit.
+39ebf4e333e52b26f44dce781323bde52978e1cd:tests/Support/oauth/private.pem:private-key:1

@@ -12,6 +12,7 @@ framework:
             - resend-verification
             - accept-terms
             - revoke-api-token
+            - revoke-connected-app
             - submit-review
             - section-approval
             - comment-action

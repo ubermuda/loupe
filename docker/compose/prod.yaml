@@ -134,6 +134,13 @@ x-app-environment: &app-environment
   OAUTH_GITHUB_ID: "${OAUTH_GITHUB_ID:-}"
   OAUTH_GITHUB_SECRET: "${OAUTH_GITHUB_SECRET:-}"
 
+  # The OAuth authorization server. Empty keys leave every OAuth connection
+  # failing, and the system status page says so.
+  OAUTH_PRIVATE_KEY: "${OAUTH_PRIVATE_KEY:-}"
+  OAUTH_PRIVATE_KEY_PASSPHRASE: "${OAUTH_PRIVATE_KEY_PASSPHRASE:-}"
+  OAUTH_PUBLIC_KEY: "${OAUTH_PUBLIC_KEY:-}"
+  OAUTH_ENCRYPTION_KEY: "${OAUTH_ENCRYPTION_KEY:-}"
+
 services:
   # nginx + php-fpm under supervisord, and nothing else — the image's own
   # default command, so none is given here. Expired-export purging is not run

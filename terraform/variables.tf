@@ -408,3 +408,30 @@ variable "oauth_github_secret" {
   default     = ""
   description = "OAUTH_GITHUB_SECRET."
 }
+
+variable "oauth_private_key" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "OAUTH_PRIVATE_KEY: the PEM RSA private key that signs OAuth access tokens. Empty leaves every OAuth connection failing."
+}
+
+variable "oauth_private_key_passphrase" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "OAUTH_PRIVATE_KEY_PASSPHRASE. Empty when the private key is not encrypted."
+}
+
+variable "oauth_public_key" {
+  type        = string
+  default     = ""
+  description = "OAUTH_PUBLIC_KEY: the PEM public key of the OAuth key pair."
+}
+
+variable "oauth_encryption_key" {
+  type        = string
+  sensitive   = true
+  default     = ""
+  description = "OAUTH_ENCRYPTION_KEY: encrypts OAuth authorization codes and refresh tokens (openssl rand -hex 32)."
+}

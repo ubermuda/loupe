@@ -1,0 +1,56 @@
+{% extends '@Account/auth_base.html.twig' %}
+
+{% block title %}{{ 'oauth.consent.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block auth_body %}
+<div class="lp-consent" data-testid="oauth-consent">
+    <div class="auth-icon-badge">
+        <twig:UX:Icon name="lucide:plug" class="w-5 h-5" aria-hidden="true" />
+    </div>
+    <div>
+        <h1 class="lp-consent__title">{{ 'oauth.consent.heading'|trans({'%client%': view.clientName}) }}</h1>
+        <p class="lp-consent__lead">{{ 'oauth.consent.signed_in_as'|trans({'%email%': app.user.userIdentifier}) }}</p>
+    </div>
+
+    <dl class="lp-consent__facts">
+        <div class="lp-consent__fact">
+            <dt class="lp-consent__label">{{ 'oauth.consent.scope.label'|trans }}</dt>
+            <dd class="lp-consent__value" data-testid="oauth-consent-scope">{{ ('oauth.consent.scope.' ~ view.scope.value|replace({'-': '_'}))|trans }}</dd>
+        </div>
+        <div class="lp-consent__fact">
+            <dt class="lp-consent__label">{{ 'oauth.consent.redirect.label'|trans }}</dt>
+            <dd class="lp-consent__value lp-consent__value--mono" data-testid="oauth-consent-redirect">{{ view.redirectOrigin }}</dd>
+        </div>
+    </dl>
+
+    {% if view.loopbackOnly %}
+    <div class="lp-connect-alert lp-consent__alert" data-testid="oauth-consent-loopback-warning">
+        <twig:UX:Icon name="lucide:triangle-alert" class="lp-connect-alert__icon w-4 h-4" />
+        <p class="lp-connect-alert__text">{{ 'oauth.consent.loopback_warning'|trans }}</p>
+    </div>
+    {% endif %}
+
+    {# A native submit: the answer redirects to the app, which can be another origin or a custom scheme that Turbo cannot fetch. #}
+    {{ form_start(form, {'attr': {'class': 'lp-form lp-consent__form', 'novalidate': 'novalidate', 'data-turbo': 'false', 'data-controller': 'require-choice'}}) }}
+        {{ form_errors(form) }}
+        {% if form.project is defined %}
+        <div class="lp-form-field">
+            {{ form_label(form.project, null, {'label_attr': {'class': 'lp-label'}}) }}
+            {{ form_widget(form.project, {'attr': {
+                'class': 'lp-input lp-select',
+                'data-require-choice-target': 'choice',
+                'data-action': 'change->require-choice#check',
+            }}) }}
+            <div class="lp-field-errors">{{ form_errors(form.project) }}</div>
+            {% if view.projects is empty %}
+            <p class="lp-connect-hint">{{ 'oauth.consent.no_projects'|trans }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+        <div class="lp-consent__actions">
+            {{ form_widget(form.deny, {'attr': {'class': 'lp-btn lp-btn--ghost'}}) }}
+            {{ form_widget(form.approve, {'attr': {'class': 'lp-btn lp-btn--primary', 'data-require-choice-target': 'submit'}}) }}
+        </div>
+    {{ form_end(form) }}
+</div>
+{% endblock %}
