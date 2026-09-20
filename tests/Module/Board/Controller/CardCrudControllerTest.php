@@ -157,6 +157,8 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         // The default column is chosen, and the labels are translated.
         self::assertSame('Backlog', trim($crawler->filter('select[name="create_card_form[column]"] option[selected]')->text()));
+        // No feedback means the board opened the form, so Cancel goes back to it.
+        self::assertSame('/projects/'.$project->id.'/board', $crawler->filter('.lp-form a.lp-btn--ghost')->attr('href'));
 
         $client->submitForm('Create card', [
             'create_card_form[title]' => 'Ship the board',
