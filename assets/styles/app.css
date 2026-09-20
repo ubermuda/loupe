@@ -131,6 +131,7 @@
     --color-ink-soft: var(--ink-soft);
     --color-fg: var(--text);
     --color-fg-mute: var(--text-mute);
+    --color-fg-label: var(--text-label);
     --color-fg-dim: var(--text-dim);
     --color-fg-faint: var(--faint);
     --color-accent: var(--accent);
@@ -212,6 +213,8 @@
     --ink: #20241f;
     --text: #20241f;
     --text-mute: #555b52;
+    /* Labels that name a value: darker than mute, 7.76:1 on the app background. */
+    --text-label: #4a5049;
     --text-dim: #656b60;
     --faint: #bec3b7;
     --prose: #22262b;
@@ -510,17 +513,22 @@
         @apply text-fg-mute text-sm mt-1.5 leading-normal;
     }
     .lp-consent__facts {
-        @apply w-full flex flex-col gap-3 rounded-xl bg-app py-3.5 px-4 text-left m-0;
+        @apply w-full flex flex-col gap-2.5 rounded-xl bg-app py-3 px-4 text-left m-0;
     }
     .lp-consent__fact {
-        @apply flex flex-col gap-1;
+        @apply flex flex-col gap-0.5;
     }
-    /* Darker and less spaced than .lp-eyebrow: this card carries the decision. */
+    /* Sentence case, not the uppercase .lp-eyebrow: a label here can be a
+       whole phrase, and caps at 12px read badly. The value stays dominant. */
     .lp-consent__label {
-        @apply uppercase text-fg-mute m-0 text-xs font-bold tracking-wide;
+        @apply text-fg-label m-0 text-sm font-medium;
     }
     .lp-consent__value {
-        @apply text-sm text-fg m-0 break-words;
+        @apply text-base text-fg m-0 break-words;
+    }
+    /* A caveat about the value above it, marked as an aside rather than a fact. */
+    .lp-consent__note {
+        @apply text-sm text-fg-label m-0 italic;
     }
     .lp-consent__value--mono {
         @apply font-mono;
