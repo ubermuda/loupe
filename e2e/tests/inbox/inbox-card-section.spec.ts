@@ -627,8 +627,9 @@ for (const surface of ['page', 'drawer']) {
         await page.goto(
             `/projects/${projectId}/inbox#inbox-item-${questionNumber}`,
         );
+        // The decline replaced the answer, and the inbox reads the same record.
         await expect(
             page.locator(`#inbox-item-${questionNumber} [data-inbox-response]`),
-        ).toContainText('The importer reads CSV.');
+        ).toContainText('Wait for the new importer.');
     });
 }
