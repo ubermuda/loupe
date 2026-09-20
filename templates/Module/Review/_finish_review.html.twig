@@ -16,8 +16,13 @@
             <legend class="lp-label">{{ submitReviewForm.verdict.vars.label|trans }}</legend>
             {% for choice in submitReviewForm.verdict %}
             <label class="lp-review-verdict-choice">
-                {{ form_widget(choice, {attr: {'data-form-draft-target': 'option'}}) }}
-                <span>{{ choice.vars.label|trans }}</span>
+                {# The hint describes the choice rather than naming it, so it stays out
+                   of the radio's accessible name. #}
+                {{ form_widget(choice, {attr: {'data-form-draft-target': 'option', 'aria-describedby': choice.vars.id ~ '_hint'}}) }}
+                <span class="lp-review-verdict-choice__text">
+                    <span class="lp-review-verdict-choice__label">{{ choice.vars.label|trans }}</span>
+                    <span class="lp-review-verdict-choice__hint" id="{{ choice.vars.id }}_hint" aria-hidden="true">{{ ('review.document.finish.hint.' ~ choice.vars.value|replace({'-': '_'}))|trans }}</span>
+                </span>
             </label>
             {% endfor %}
             <div class="lp-field-errors">{{ form_errors(submitReviewForm.verdict) }}</div>

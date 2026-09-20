@@ -60,11 +60,12 @@
        versions. It is never attached merely to stay quiet: its highlight
        painting runs on every layout, whatever readOnly says. #}
     {% set diffNavigation = diffMode and diffChangeCount is not null %}
-    {% set canComment = not readOnly or diffCommenting %}
+    {# Two columns spend the whole width on the two versions, so that view
+       carries no comment column and takes no new comment. #}
+    {% set diffColumns = diffMode and diffView is not null and diffView.value == 'side-by-side' %}
+    {% set canComment = (not readOnly or diffCommenting) and not diffColumns %}
     {% set reviewControllers = (diffNavigation ? ['diff-navigation'] : [])|merge(diffMode and not diffCommenting ? [] : ['comment-anchor']) %}
     {% set diffUnmarked = diffNavigation and diff.hasChanges and diffView.value != 'source' and diffChangeCount == 0 %}
-    {# Two columns use the full reading width; their comments follow below. #}
-    {% set diffColumns = diffMode and diffView is not null and diffView.value == 'side-by-side' %}
     <div class="lp-review-block{{ diffColumns ? ' lp-review-block--wide' : '' }}"
         data-controller="{{ (reviewControllers|merge(['review-margin']))|join(' ') }}"
         data-action="review-margin:filter->comment-anchor#filterThreads comment-anchor:resolved-filter->review-margin#resolvedFilter"
@@ -80,6 +81,21 @@
         {% set docActions = (canComment ? ['mouseup->comment-anchor#onDocMouseup', 'pointerup->comment-anchor#onDocPointerup', 'mousemove->comment-anchor#onDocMousemove', 'click->comment-anchor#onDocClick'] : [])|merge(readOnly ? [] : ['change->decision#select']) %}
         <div class="lp-review-doc{{ diffColumns ? ' lp-review-doc--wide' : '' }}" data-comment-anchor-target="block" data-controller="decision" data-decision-save-label-value="{{ 'review.decision.save'|trans }}"{% if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}>
 
+            {# One that accepts no comments has no comment list, so its margin
+               offers what remains. Decisions stays in every margin, disabled
+               where there is nothing to answer, so the row keeps its shape. #}
+            {% set marginTabs = diffMode
+                ? (diffCommenting ? ['comments'] : [])|merge(['outline', 'decisions', 'details'])
+                : ['comments', 'outline', 'decisions', 'details'] %}
+            {# The diff controller passes no `decisions` at all, so naming it
+               outside this branch is an undefined-variable 500 on the diff. #}
+            {% set decisionRows = diffMode ? [] : decisions.rows %}
+            {% set answeredDecisions = diffMode ? 0 : decisions.answeredCount %}
+            {% set marginTabReasons = {
+                decisions: diffMode
+                    ? 'review.document.margin.decisions_disabled_diff'
+                    : (decisionRows|length == 0 ? 'review.document.margin.decisions_disabled_empty' : null),
+            } %}
             {% include '@Review/_document_header.html.twig' with {
                 document: document,
                 version: version,
@@ -88,8 +104,13 @@
                 showDocumentActions: not readOnly and not diffMode,
                 reviseDocumentForm: not readOnly and not diffMode ? reviseDocumentForm : null,
                 approvedSections: diffMode ? 0 : sections.approvedCount,
-                totalSections: diffMode ? diffHeadings|length : sections.rows|length,
-                showMarginControls: not diffMode,
+                totalSections: diffMode ? null : sections.rows|length,
+                showMarginControls: not diffColumns,
+                marginTabs: marginTabs,
+                marginTabReasons: marginTabReasons,
+                commentCount: signals.threadCount,
+                canComment: canComment,
+                returnToDocument: diffMode,
             } only %}
 
             {# The way back to a discussion a revision left behind: comments
@@ -114,11 +135,6 @@
                labelled by its id, or the tab count would outrun the list. #}
             {% set showContents = sectionRows|length > 0 %}
             {% set referenceCount = document.references|length + document.referencedBy|length %}
-            {# Same lazy-ternary guard as the headings above: the diff controller
-               passes no `decisions` at all, and naming it outside this branch is
-               an undefined-variable 500 on the diff page. #}
-            {% set decisionRows = diffMode ? [] : decisions.rows %}
-            {% set answeredDecisions = diffMode ? 0 : decisions.answeredCount %}
             {# The pane HTML with an approval control beside each heading. Built
                here rather than in the block below, so the diff branch never
                evaluates `decisionMarkedHtml`, which it is not passed. An older
@@ -130,255 +146,8 @@
                 version.versionNumber,
             ) %}
 
-            {# Left of the reading column from 2xl up, where there is room for it
-               beside the comment column. Absolutely positioned, so it neither
-               moves the prose nor joins the anchor pane's textContent. Not on the
-               two-column diff, which already takes the width the rail needs. #}
-            {% if diffMode and not diffColumns and (sectionRows|length > 0 or decisionRows|length > 0) %}
-            {% include '@Review/_review_rail.html.twig' with {
-                document: document,
-                sectionRows: sectionRows,
-                sectionsApprovable: sectionsApprovable,
-                approvedSections: approvedSections,
-                decisionRows: decisionRows,
-                answeredDecisions: answeredDecisions,
-            } only %}
-            {% endif %}
-
             {% if diffMode %}
-            <div class="lp-doc-meta-bar" data-controller="metadata-tabs">
-                    <div class="lp-doc-meta">
-                        {# The chip names the pair and carries the way out of the
-                           comparison, so the bar needs no banner above it. It
-                           leads the row and survives below lg, where the tabs
-                           beside it do not. #}
-                        {% if diffMode %}
-                        <span class="lp-doc-meta__compare">
-                            <twig:ux:icon name="lucide:git-compare" class="w-3.5 h-3.5 shrink-0" />
-                            <span>{{ 'review.document.diff.chip'|trans({'%from%': diffFromVersion, '%to%': version.versionNumber}) }}</span>
-                            <a class="lp-doc-meta__compare-stop"
-                               href="{{ path('app_document_review', {projectId: document.project.id, documentId: document.id}) }}"
-                               aria-label="{{ 'review.document.diff.stop'|trans }}"
-                               title="{{ 'review.document.diff.stop'|trans }}">
-                                <twig:ux:icon name="lucide:x" class="w-3.5 h-3.5 shrink-0" />
-                            </a>
-                        </span>
-                        {% endif %}
-                        {% if showVersions %}
-                        <button type="button" class="lp-doc-meta__tab" aria-expanded="false"
-                                data-metadata-tabs-target="tab"
-                                data-metadata-tabs-panel-param="versions"
-                                data-action="click->metadata-tabs#toggle">
-                            {{ 'review.document.meta.versions'|trans }}
-                            <span class="lp-doc-meta__count">{{ versions|length }}</span>
-                            <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
-                        </button>
-                        {% endif %}
-                        {% if showContents %}
-                        <button type="button" class="lp-doc-meta__tab lp-doc-meta__tab--railed" aria-expanded="false"
-                                data-metadata-tabs-target="tab"
-                                data-metadata-tabs-panel-param="contents"
-                                data-action="click->metadata-tabs#toggle">
-                            {{ 'review.document.contents.label'|trans }}
-                            {# Approved-of-total rather than a bare heading count:
-                               it carries the same total and the state as well. A
-                               diff approves nothing, so it counts headings. #}
-                            <span class="lp-doc-meta__count" id="section-summary-count">{{ sectionsApprovable
-                                ? 'review.document.sections.count_compact'|trans({
-                                    '%approved%': approvedSections,
-                                    '%total%': sectionRows|length,
-                                })
-                                : sectionRows|length }}</span>
-                            <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
-                        </button>
-                        {% endif %}
-                        {% if referenceCount > 0 %}
-                        <button type="button" class="lp-doc-meta__tab" aria-expanded="false"
-                                data-metadata-tabs-target="tab"
-                                data-metadata-tabs-panel-param="references"
-                                data-action="click->metadata-tabs#toggle">
-                            {{ 'review.document.meta.references'|trans }}
-                            <span class="lp-doc-meta__count">{{ referenceCount }}</span>
-                            <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
-                        </button>
-                        {% endif %}
-                        {% if decisionRows|length > 0 %}
-                        <button type="button" class="lp-doc-meta__tab lp-doc-meta__tab--railed" aria-expanded="false"
-                                data-metadata-tabs-target="tab"
-                                data-metadata-tabs-panel-param="decisions"
-                                data-action="click->metadata-tabs#toggle">
-                            {{ 'review.document.meta.decisions'|trans }}
-                            <span class="lp-doc-meta__count" id="decision-summary-count">{{ 'review.document.decisions.count'|trans({
-                                '%answered%': answeredDecisions,
-                                '%total%': decisionRows|length,
-                            }) }}</span>
-                            <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
-                        </button>
-                        {% endif %}
-                        {% if document.tags|length > 0 %}
-                        <button type="button" class="lp-doc-meta__tab" aria-expanded="false"
-                                data-metadata-tabs-target="tab"
-                                data-metadata-tabs-panel-param="tags"
-                                data-action="click->metadata-tabs#toggle">
-                            {{ 'review.document.meta.tags'|trans }}
-                            <span class="lp-doc-meta__count">{{ document.tags|length }}</span>
-                            <twig:ux:icon name="lucide:chevron-right" class="lp-doc-meta__caret" />
-                        </button>
-                        {% endif %}
-                        {% if document.series is not null %}
-                        <div class="lp-doc-meta__series">
-                            <span class="lp-series">{{ 'review.document.series.item'|trans({
-                                '%series%': document.series.name,
-                                '%ordinal%': document.seriesOrdinal,
-                            }) }}</span>
-                        </div>
-                        {% endif %}
-                        {# Below lg the tab and its panel are display:none, so the
-                           chips stay in the bar there. Above lg the panel holds
-                           them and this group is hidden. #}
-                        {% if document.tags|length > 0 %}
-                        <div class="lp-doc-meta__tags">
-                            {% for tag in document.tags %}
-                            <span class="lp-tag">{{ tag.name }}</span>
-                            {% endfor %}
-                        </div>
-                        {% endif %}
-                    </div>
-
-                {% if document.tags|length > 0 %}
-                <div class="lp-doc-meta__panel lp-doc-tags" data-metadata-tabs-target="panel" data-panel="tags" hidden>
-                    <ul class="lp-doc-tags__list" aria-label="{{ 'review.document.meta.tags'|trans }}">
-                        {% for tag in document.tags %}
-                        <li class="lp-tag">{{ tag.name }}</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                {% endif %}
-
-                {% if showVersions %}
-                {# The version on screen alone, plus the way to the rest. Every
-                   version with its note in full made this panel taller than the
-                   fold, so opening it pushed the document's first paragraph off
-                   the screen. #}
-                <nav class="lp-doc-meta__panel lp-version-switcher" data-metadata-tabs-target="panel" data-panel="versions" hidden
-                     aria-label="{{ 'review.document.version.switcher_label'|trans }}">
-                    <div class="lp-version-entry" data-version-number="{{ version.versionNumber }}">
-                        <div class="lp-version-entry__row">
-                            {# A diff is not one of the versions it compares, so in
-                               diff mode the pill stays a link — reading the newer
-                               version on its own is a click away, and the only
-                               element claiming to be the current page is the diff
-                               link beside it. #}
-                            {% if not diffMode %}
-                                <span class="lp-version-pill" aria-current="page">{{ 'v' ~ version.versionNumber }}</span>
-                            {% else %}
-                                <a class="lp-version-pill lp-version-pill--link"
-                                   href="{{ version.versionNumber == versions|first.versionNumber
-                                       ? path('app_document_review', {projectId: document.project.id, documentId: document.id})
-                                       : path('app_document_review_version', {projectId: document.project.id, documentId: document.id, versionNumber: version.versionNumber}) }}"
-                                >{{ 'v' ~ version.versionNumber }}</a>
-                            {% endif %}
-                            <span class="lp-version-entry__date">{{ version.createdAt|relative_time }}</span>
-                            {% if version.versionNumber > 1 %}
-                            {# Above the note rather than below it: below, a reader
-                               takes it as the heading of the entry that follows. #}
-                            <a class="lp-version-entry__diff"
-                               href="{{ path('app_document_review_diff', {projectId: document.project.id, documentId: document.id, fromVersionNumber: version.versionNumber - 1, toVersionNumber: version.versionNumber}) }}"
-                               {% if diffMode and diffFromVersion == version.versionNumber - 1 %}aria-current="page"{% endif %}
-                            >{{ 'review.document.diff.link'|trans({'%from%': version.versionNumber - 1}) }}</a>
-                            {% endif %}
-                        </div>
-                        {% if version.description %}
-                        <p class="lp-version-entry__description">{{ version.description }}</p>
-                        {% endif %}
-                    </div>
-                    <a class="lp-version-switcher__all" href="{{ path('app_document_review_history', {projectId: document.project.id, documentId: document.id}) }}">
-                        <twig:ux:icon name="lucide:history" class="w-3.5 h-3.5 shrink-0" />
-                        <span>{{ 'review.document.version.see_all'|trans({'%count%': versions|length}) }}</span>
-                    </a>
-                </nav>
-                {% endif %}
-
-                {# Never inside [data-comment-anchor-target="doc"]: that element's
-                   textContent must stay identical to DocumentVersion::plainText(),
-                   which every comment anchor offset is measured against. #}
-                {% if showContents %}
-                <nav class="lp-doc-meta__panel lp-review-contents" data-metadata-tabs-target="panel" data-panel="contents" hidden
-                     aria-label="{{ 'review.document.contents.nav_label'|trans }}">
-                    <ul class="lp-review-contents__list" id="section-summary-list">
-                        {% include '@Review/_contents_rows.html.twig' with {rows: sectionRows, approvable: sectionsApprovable} only %}
-                    </ul>
-                </nav>
-                {% endif %}
-
-                {# Not gated on diffMode, unlike the contents panel above: a
-                   reference is document-level, and its links point at other
-                   documents rather than into the markup the diff replaces.
-                   `document` is passed in both modes. #}
-                {% if referenceCount > 0 %}
-                <div class="lp-doc-meta__panel lp-doc-references" data-metadata-tabs-target="panel" data-panel="references" hidden>
-                    {% for group in [
-                        {label: 'review.document.references.outgoing', documents: document.references},
-                        {label: 'review.document.references.incoming', documents: document.referencedBy},
-                    ] %}
-                        {% if group.documents|length > 0 %}
-                        <div class="lp-doc-references__group">
-                            <h2 class="lp-doc-references__label" id="references-{{ loop.index }}">{{ group.label|trans }}</h2>
-                            <ul class="lp-doc-references__list" aria-labelledby="references-{{ loop.index }}">
-                                {% for reference in group.documents %}
-                                <li class="lp-doc-references__item">
-                                    <a class="lp-doc-references__link" href="{{ path('app_document_review', {projectId: reference.project.id, documentId: reference.id}) }}">
-                                        <twig:ux:icon name="lucide:link" class="w-3.5 h-3.5 shrink-0" />
-                                        {{ reference.title }}
-                                    </a>
-                                    {% if reference.archivedAt %}
-                                    <span class="lp-doc-references__archived">{{ 'review.document.references.archived'|trans }}</span>
-                                    {# Rendered only when there is one to render — a
-                                       reason is required of the MCP tool and of
-                                       nothing else, so an archived reference
-                                       usually has none and must not look as
-                                       though its reason was lost. #}
-                                    {% if reference.archiveReason %}
-                                    <span class="lp-doc-references__archive-reason">{{ 'review.document.references.archive_reason'|trans({'%reason%': reference.archiveReason}) }}</span>
-                                    {% endif %}
-                                    {% endif %}
-                                </li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-                        {% endif %}
-                    {% endfor %}
-                </div>
-                {% endif %}
-
-                {# The list is streamed back after every answer, so the <ul> is the
-                   stream's target and must keep its id here. #}
-                {% if decisionRows|length > 0 %}
-                <div class="lp-doc-meta__panel lp-decision-summary" data-metadata-tabs-target="panel" data-panel="decisions" hidden>
-                    <ul class="lp-decision-summary__list" id="decision-summary-list">
-                        {% include '@Review/_decision_summary_rows.html.twig' with {rows: decisionRows} only %}
-                    </ul>
-                </div>
-                {% endif %}
-
-                {# Every panel above, and everything below it belongs to the bar
-                   rather than to a tab. A panel opens directly under the row that
-                   names it, the way the tags one does, and no control stands
-                   between the tab and what it opened. #}
-                {% if decisionRows|length > 0 %}
-                {# A row of its own in the bar: the longest refusal is a sentence
-                   and would squeeze the tabs out of the row above. Rendered
-                   empty rather than omitted — a live region must be in the
-                   accessibility tree before its text arrives. #}
-                <p id="decision-status" class="lp-decision-status" aria-live="polite"></p>
-                {% endif %}
-
-                {# The same shape for a refused press. Only where a control is
-                   rendered, which is the case the message can arise in. #}
-                {% if not diffMode and not readOnly and showContents %}
-                <p id="section-status" class="lp-decision-status" aria-live="polite"></p>
-                {% endif %}
-
+            <div class="lp-doc-meta-bar">
                 {# One row of the sticky bar for both, rather than a bar of its
                    own: two elements stuck to the same edge overlap. The views
                    stay plain links, so each is addressable. The rendered one
@@ -387,6 +156,11 @@
                 {% if diffMode %}
                 {% set viewParams = {projectId: document.project.id, documentId: document.id, fromVersionNumber: diffFromVersion, toVersionNumber: version.versionNumber} %}
                 <div class="lp-diff-bar">
+                    {# Two real columns, so the pickers and the switch keep the
+                       document's width and the change count keeps the comment
+                       column. One flex row put the switch in a different place
+                       in each view, and wrapped the count below a narrow one. #}
+                    <div class="lp-diff-bar__main">
                     {% include '@Review/_version_compare_picker.html.twig' with {
                         document: document,
                         versions: versions,
@@ -417,20 +191,9 @@
                            {% if diffColumns %}aria-current="page"{% endif %}
                         >{{ 'review.document.diff.view.side_by_side'|trans }}</a>
                     </nav>
-                    {% if diffNavigation %}
-                    <div class="lp-diff-nav">
-                        <p class="lp-diff-nav__count" aria-live="polite" data-diff-navigation-target="counter">{{ 'review.document.diff.nav.count'|trans({'%count%': diffChangeCount}) }}</p>
-                        <button type="button" class="lp-btn lp-btn--icon" data-diff-navigation-target="previousButton" data-action="diff-navigation#previous"{% if diffChangeCount == 0 %} disabled{% endif %}
-                                aria-label="{{ 'review.document.diff.nav.previous'|trans }}"
-                                title="{{ 'review.document.diff.nav.previous'|trans }}">
-                            <twig:ux:icon name="lucide:arrow-up" class="w-4 h-4 shrink-0" />
-                        </button>
-                        <button type="button" class="lp-btn lp-btn--icon" data-diff-navigation-target="nextButton" data-action="diff-navigation#next"{% if diffChangeCount == 0 %} disabled{% endif %}
-                                aria-label="{{ 'review.document.diff.nav.next'|trans }}"
-                                title="{{ 'review.document.diff.nav.next'|trans }}">
-                            <twig:ux:icon name="lucide:arrow-down" class="w-4 h-4 shrink-0" />
-                        </button>
                     </div>
+                    {% if diffNavigation %}
+                        {% include '@Review/_diff_navigation.html.twig' with {changeCount: diffChangeCount} only %}
                     {% endif %}
                 </div>
                 {% endif %}
@@ -438,7 +201,7 @@
                 {% if diffColumns %}
                 <p id="diff-columns-notice" class="lp-diff-notice">
                     <twig:ux:icon name="lucide:info" class="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{{ (diffCommenting ? 'review.document.diff.side_by_side.commenting' : 'review.document.diff.side_by_side.read_only')|trans }}</span>
+                    <span>{{ 'review.document.diff.side_by_side.read_only'|trans }}</span>
                 </p>
                 {% endif %}
 
@@ -466,33 +229,9 @@
             {% endif %}
 
             {% if canComment %}
-            <div class="lp-review-actions">
-                <button type="button" class="lp-btn lp-btn--sm" data-action="comment-anchor#startUntargeted">
-                    {{ 'review.document.comment.untargeted'|trans }}
-                </button>
-                <span class="lp-review-actions__hint">{{ 'review.document.comment.select_hint'|trans }}</span>
-                {# Always rendered, shown by the controller once a resolved thread
-                   exists. Resolving replaces #comment-threads alone, and this row
-                   sits outside it. Both icons ship and CSS picks one: the
-                   controller rewrites the label and would drop a re-rendered
-                   child, which is why the label has a span of its own. #}
-                <button type="button" class="lp-btn lp-btn--sm lp-btn--ghost lp-review-actions__resolved"
-                        data-resolved-toggle
-                        data-resolved-hidden="0"
-                        data-label-hide="{{ 'review.document.threads.hide_resolved'|trans }}"
-                        data-label-show="{{ 'review.document.threads.show_resolved'|trans }}"
-                        data-action="comment-anchor#toggleResolved"
-                        hidden>
-                    <twig:ux:icon name="lucide:eye-off" class="lp-review-actions__resolved-icon lp-review-actions__resolved-icon--hide w-4 h-4 shrink-0" />
-                    <twig:ux:icon name="lucide:eye" class="lp-review-actions__resolved-icon lp-review-actions__resolved-icon--show w-4 h-4 shrink-0" />
-                    <span data-resolved-toggle-label>{{ 'review.document.threads.hide_resolved'|trans }}</span>
-                </button>
-            </div>
-
-            {# Hidden until the reader opts in. It sits next to the button because
-               an untargeted comment opens in the flow here. A targeted one is
-               absolutely positioned at the selection, and .lp-review-doc is the
-               offset parent either way. #}
+            {# Hidden until the reader opts in. An untargeted comment opens in the
+               flow here, above the paper. A targeted one is absolutely positioned
+               at the selection, and .lp-review-doc is the offset parent either way. #}
             {{ form_start(addCommentForm, {attr: {
                 class: 'lp-comment-composer',
                 'data-comment-anchor-target': 'composer',
@@ -530,107 +269,103 @@
 
             {# Also on a diff that accepts comments: the add-comment stream
                replaces this list, so a comment made there needs it on the page. #}
-            {% if not diffMode or diffCommenting %}
+            {% if (not diffMode or diffCommenting) and not diffColumns %}
             <div data-review-margin-target="panel" data-margin-panel="comments"
-                 {% if not diffMode %}id="review-margin-panel-comments" role="tabpanel" aria-labelledby="review-margin-tab-comments" tabindex="0"{% endif %}>
+                 {% if not diffColumns %}id="review-margin-panel-comments" role="tabpanel" aria-labelledby="review-margin-tab-comments" tabindex="0"{% endif %}>
                 <div id="comment-recovery" aria-live="polite"></div>
                 {% include '@Review/_comment_threads.html.twig' with {comments: comments, readOnly: readOnly and not diffCommenting} only %}
             </div>
-            {% if not diffMode %}
+            {% endif %}
+            {% if not diffColumns %}
             <aside class="lp-review-context-panel" data-review-margin-target="panel" data-margin-panel="outline" data-panel="contents"
-                   data-controller="contents-rail" id="review-margin-panel-outline" role="tabpanel" aria-labelledby="review-margin-tab-outline" tabindex="0" hidden>
-                <h2>{{ 'review.document.margin.outline'|trans }} <span id="section-summary-count">{{ 'review.document.sections.count_compact'|trans({'%approved%': approvedSections, '%total%': sectionRows|length}) }}</span></h2>
-                {% if sectionRows|length > 0 %}
-                <ul class="lp-review-contents__list" id="section-summary-list">
-                    {% include '@Review/_contents_rows.html.twig' with {rows: sectionRows, approvable: sectionsApprovable} only %}
-                </ul>
-                {% else %}<p class="lp-empty">{{ 'review.document.margin.outline_empty'|trans }}</p>{% endif %}
+                   data-controller="contents-rail" id="review-margin-panel-outline" role="tabpanel" aria-labelledby="review-margin-tab-outline" tabindex="0"{{ marginTabs|first != 'outline' ? ' hidden' }}>
+                <div class="lp-review-context-panel__inner">
+                    <h2>{{ 'review.document.margin.outline'|trans }} <span id="section-summary-count">{{ sectionsApprovable
+                        ? 'review.document.sections.count_compact'|trans({'%approved%': approvedSections, '%total%': sectionRows|length})
+                        : sectionRows|length }}</span></h2>
+                    {% if sectionRows|length > 0 %}
+                    <ul class="lp-review-contents__list" id="section-summary-list">
+                        {% include '@Review/_contents_rows.html.twig' with {rows: sectionRows, approvable: sectionsApprovable} only %}
+                    </ul>
+                    {% else %}<p class="lp-review-context-panel__hint">{{ 'review.document.margin.outline_empty'|trans }}</p>{% endif %}
+                </div>
             </aside>
+            {# Rendered even where the tab is disabled, so `aria-controls` on
+               that tab names a panel that exists. #}
             <aside class="lp-review-context-panel" data-review-margin-target="panel" data-margin-panel="decisions"
                    data-controller="contents-rail" id="review-margin-panel-decisions" role="tabpanel" aria-labelledby="review-margin-tab-decisions" tabindex="0" hidden>
-                <h2>{{ 'review.document.margin.decisions'|trans }} <span id="decision-summary-count">{{ 'review.document.decisions.count'|trans({'%answered%': answeredDecisions, '%total%': decisionRows|length}) }}</span></h2>
-                {% if decisionRows|length > 0 %}
-                <ul class="lp-decision-summary__list" id="decision-summary-list">
-                    {% include '@Review/_decision_summary_rows.html.twig' with {rows: decisionRows} only %}
-                </ul>
-                <p class="lp-review-context-panel__hint">{{ 'review.document.margin.decisions_save_hint'|trans }}</p>
-                {% else %}<p class="lp-empty">{{ 'review.document.margin.decisions_empty'|trans }}</p>{% endif %}
+                <div class="lp-review-context-panel__inner">
+                    <h2>{{ 'review.document.margin.decisions'|trans }} <span id="decision-summary-count">{{ 'review.document.decisions.count'|trans({'%answered%': answeredDecisions, '%total%': decisionRows|length}) }}</span></h2>
+                    {% if diffMode %}<p class="lp-review-context-panel__hint">{{ 'review.document.margin.decisions_disabled_diff'|trans }}</p>
+                    {% elseif decisionRows|length > 0 %}
+                    <ul class="lp-decision-summary__list" id="decision-summary-list">
+                        {% include '@Review/_decision_summary_rows.html.twig' with {rows: decisionRows} only %}
+                    </ul>
+                    <p class="lp-review-context-panel__hint">{{ 'review.document.margin.decisions_save_hint'|trans }}</p>
+                    {% else %}<p class="lp-review-context-panel__hint">{{ 'review.document.margin.decisions_empty'|trans }}</p>{% endif %}
+                </div>
             </aside>
             <aside class="lp-review-context-panel" data-review-margin-target="panel" data-margin-panel="details"
                    data-controller="contents-rail" id="review-margin-panel-details" role="tabpanel" aria-labelledby="review-margin-tab-details" tabindex="0" hidden>
-                <h2>{{ 'review.document.margin.details'|trans }}</h2>
-                {% set cardLinks = document_card_links(document) %}
-                <dl class="lp-review-details">
-                    <div>
-                        <dt>{{ 'review.document.margin.linked_card'|trans }}</dt>
-                        <dd>
-                            {% if cardLinks is empty %}
-                                {{ 'review.document.margin.linked_card_unavailable'|trans }}
-                            {% else %}
-                                {% for link in cardLinks %}
-                                <a class="lp-review-details__card"
-                                   href="{{ path('app_board_card', {projectId: document.project.id, cardId: link.card.id}) }}"
-                                   data-turbo-frame="card-drawer-frame"
-                                   data-action="click->card-drawer#prepare">
-                                    <span>#{{ link.card.number }} {{ link.card.title }}</span>
-                                    {% include '@Board/_column_tag.html.twig' with {column: link.card.column} only %}
-                                    <twig:ux:icon name="lucide:chevron-right" class="w-4 h-4" />
-                                </a>
-                                {% endfor %}
-                            {% endif %}
-                        </dd>
-                    </div>
-                    {% for group in [
+                <div class="lp-review-context-panel__inner">
+                    <h2>{{ 'review.document.margin.details'|trans }}</h2>
+                    {# Only the rows that carry something. A column of "None" says
+                       nothing and pushes what the document does have off the fold. #}
+                    {% set cardLinks = document_card_links(document) %}
+                    {% set referenceGroups = [
                         {label: 'review.document.references.outgoing', documents: document.references},
                         {label: 'review.document.references.incoming', documents: document.referencedBy},
-                    ] %}
-                    <div>
-                        <dt>{{ group.label|trans }}</dt>
-                        <dd{% if group.documents is not empty %} class="lp-doc-references"{% endif %}>
-                            {% if group.documents is empty %}{{ 'review.document.margin.references_empty'|trans }}{% else %}
-                            <ul class="lp-doc-references__list">
-                                {% for reference in group.documents %}
-                                <li class="lp-doc-references__item">
-                                    <a class="lp-doc-references__link" href="{{ path('app_document_review', {projectId: reference.project.id, documentId: reference.id}) }}">{{ reference.title }}</a>
-                                    {% if reference.archivedAt %}
-                                    <span class="lp-doc-references__archived">{{ 'review.document.references.archived'|trans }}</span>
-                                    {% if reference.archiveReason %}<span class="lp-doc-references__archive-reason">{{ 'review.document.references.archive_reason'|trans({'%reason%': reference.archiveReason}) }}</span>{% endif %}
-                                    {% endif %}
-                                </li>
+                    ]|filter(group => group.documents is not empty) %}
+                    {% set hasDetails = cardLinks is not empty or referenceGroups|length > 0
+                        or document.series is not null or version.description or document.tags is not empty %}
+                    {% if not hasDetails %}
+                    <p class="lp-review-context-panel__hint">{{ 'review.document.margin.details_empty'|trans }}</p>
+                    {% else %}
+                    <dl class="lp-review-details">
+                        {% if cardLinks is not empty %}
+                        <div>
+                            <dt>{{ 'review.document.margin.linked_card'|trans }}</dt>
+                            <dd>
+                                {% for link in cardLinks %}
+                                {% include '@Board/_card.html.twig' with {card: link.card, pendingComments: 0, static: true} only %}
                                 {% endfor %}
-                            </ul>
-                            {% endif %}
-                        </dd>
-                    </div>
-                    {% endfor %}
-                    {% if document.series is not null %}
-                    <div><dt>{{ 'review.document.margin.series'|trans }}</dt><dd><span class="lp-series">{{ 'review.document.series.item'|trans({'%series%': document.series.name, '%ordinal%': document.seriesOrdinal}) }}</span></dd></div>
+                            </dd>
+                        </div>
+                        {% endif %}
+                        {% for group in referenceGroups %}
+                        <div>
+                            <dt>{{ group.label|trans }}</dt>
+                            <dd class="lp-doc-references">
+                                <ul class="lp-doc-references__list">
+                                    {% for reference in group.documents %}
+                                    <li class="lp-doc-references__item">
+                                        <a class="lp-doc-references__link" href="{{ path('app_document_review', {projectId: reference.project.id, documentId: reference.id}) }}">{{ reference.title }}</a>
+                                        {% if reference.archivedAt %}
+                                        <span class="lp-doc-references__archived">{{ 'review.document.references.archived'|trans }}</span>
+                                        {% if reference.archiveReason %}<span class="lp-doc-references__archive-reason">{{ 'review.document.references.archive_reason'|trans({'%reason%': reference.archiveReason}) }}</span>{% endif %}
+                                        {% endif %}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </dd>
+                        </div>
+                        {% endfor %}
+                        {% if document.series is not null %}
+                        <div><dt>{{ 'review.document.margin.series'|trans }}</dt><dd><span class="lp-series">{{ 'review.document.series.item'|trans({'%series%': document.series.name, '%ordinal%': document.seriesOrdinal}) }}</span></dd></div>
+                        {% endif %}
+                        {% if version.description %}
+                        <div><dt>{{ 'review.document.margin.version_note'|trans }}</dt><dd data-version-note>{{ version.description }}</dd></div>
+                        {% endif %}
+                        {% if document.tags is not empty %}
+                        <div>
+                            <dt>{{ 'review.document.meta.tags'|trans }}</dt>
+                            <dd><ul class="lp-doc-tags__list">{% for tag in document.tags %}<li class="lp-tag">{{ tag.name }}</li>{% endfor %}</ul></dd>
+                        </div>
+                        {% endif %}
+                    </dl>
                     {% endif %}
-                    {% if version.description %}
-                    <div><dt>{{ 'review.document.margin.version_note'|trans }}</dt><dd data-version-note>{{ version.description }}</dd></div>
-                    {% endif %}
-                    <div>
-                        <dt>{{ 'review.document.meta.tags'|trans }}</dt>
-                        <dd>
-                            {% if document.tags is empty %}{{ 'review.document.margin.references_empty'|trans }}{% else %}
-                            <ul class="lp-doc-tags__list">{% for tag in document.tags %}<li class="lp-tag">{{ tag.name }}</li>{% endfor %}</ul>
-                            {% endif %}
-                        </dd>
-                    </div>
-                </dl>
-                <a class="lp-btn lp-btn--ghost" href="{{ path('app_document_deleted_threads', {projectId: document.project.id, documentId: document.id}) }}">{{ 'review.deleted_threads.title'|trans }}</a>
-                <div data-controller="review-summary"
-                     data-review-summary-header-value="{{ document.title ~ ' · v' ~ version.versionNumber ~ "\n" ~ 'review.document.summary.status'|trans({'%status%': ('document.status.' ~ document.status.value|replace({'-': '_'}))|trans}) }}"
-                     data-review-summary-copied-value="{{ 'review.document.summary.copied'|trans }}"
-                     data-review-summary-failed-value="{{ 'review.document.summary.failed'|trans }}">
-                    <button type="button" class="lp-btn lp-btn--ghost" data-action="review-summary#copy">
-                        <twig:ux:icon name="lucide:copy" class="w-4 h-4" />
-                        {{ 'review.document.summary.copy'|trans }}
-                    </button>
-                    <p class="lp-review-context-panel__hint" data-review-summary-target="status" role="status"></p>
                 </div>
             </aside>
-            {% endif %}
             {% endif %}
 
             {# The one part the diff view replaces — see diff_document_versions.html.twig.

@@ -78,8 +78,7 @@ Reload the page before withdrawing the current verdict.
 The margin has Comments, Outline, Decisions and Details tabs.
 Outline and Decisions show current progress and link to passages in the document.
 Details shows linked cards, outgoing and incoming references, tags, series and version notes.
-In Details, select **Copy review summary** to copy this version’s threads, including resolved threads and replies.
-The summary includes quoted passages, replacement text and unanchored markers.
+It lists only what the document has, and says so when it has none of them.
 The History tab opens the full version list.
 
 Use Left and Right Arrow to select the adjacent tab.
@@ -89,9 +88,14 @@ On narrow screens, the margin tabs scroll horizontally. Selecting a tab brings i
 Switching tabs preserves an unfinished reply.
 
 The filter beside Comments shows counts for Open, Resolved, Unanchored and All.
+**Open** is the default view, so a resolved thread leaves the margin as you resolve it.
+Select **All** to bring it back. The filter icon turns purple while it hides threads.
 With the filter closed, Tab moves focus to Comments. Arrow keys select the other margin tabs.
 The selected filter stays active when you resolve or reopen a thread.
 An empty result shows a message in the margin.
+
+Select **Add general comment** in the header to comment on the whole document.
+Its composer opens above the document.
 
 When the inbox is on, the review page lists the inbox items linked to the
 document above it, and you can answer them there. See
@@ -125,17 +129,14 @@ messages skip their movement when your system requests reduced motion.
 ### Deleted threads
 
 Delete hides a thread and its replies from the review without changing their status.
-Select **Undo** in the deletion notice to restore the thread immediately.
-Deleted threads have no expiry date.
-In Details, select **Deleted threads** to find retained threads from every document version.
-Select **Restore thread** to return a thread to its original version.
-A restored thread on an older version stays read-only.
+Confirm the deletion, then a notice replaces the thread in the margin.
+Select **Undo** in that notice to restore the thread and its replies.
+A thread restored on an older version stays read-only.
 
-Select **Purge permanently**, then confirm, to remove a thread and all its replies.
-Purge cannot be undone.
+The notice is the only way back. Once you leave the page, the thread stays hidden.
+There is no page that lists deleted threads, and there is no way to remove one for good.
 The audit log records one thread deletion with its reply count and deletion sequence.
-Permanent purge records the root and every reply.
-Deleting the project or account also removes its retained threads.
+Deleting the project or account also removes its hidden threads.
 
 ### On a narrow screen
 
@@ -146,7 +147,8 @@ The corner menu also provides section navigation, version links, references and 
 A wide window puts comment cards beside the document, aligned with their passages.
 Each card shows its author, status, body, replies and actions.
 Cards move down when necessary to prevent overlap.
-Reply opens an inline form and preserves its draft when closed.
+Reply opens an inline form, puts the caret in it, and preserves its draft when closed.
+Select **Cancel** in that form to close it again.
 
 A comment does not repeat its highlighted passage.
 Suggestions and strikes retain the quoted text.
@@ -166,23 +168,26 @@ Three views help across versions:
 - `/review/diff/{from}/{to}` — what changed between two versions.
 - `/review/history` — every version, newest first.
 
-Open **History** from the document navigation to see every version, newest first.
-Each version shows its revision note and review log.
+Open **History** from the document navigation to see every version in one table, newest first.
+Each row shows the version, its revision note, its reviews, and **Read** and **Diff** links.
 Each review shows the reviewer, verdict, note and time.
 Withdrawals remain beside the original verdict. Versions without reviews say so.
 History keeps the document header and the Document, Diff and History tabs.
 Use **Revise** or **Finish review** there to act on the current version.
-The history page also has a picker that compares any two
-versions, not only two that follow one another.
+The **From** and **To** picker beside the heading compares any two versions,
+not only two that follow one another.
 
 ### What a comparison looks like
 
 A comparison is the review page with one pane replaced, so the document keeps its
-place on the screen. A green chip in the metadata bar names the pair, and the ×
-on the chip returns you to the latest version. One row under it holds the view
-switch, **Rendered**, **Markdown** and **Side by side**, with the change count
-and the two jump arrows at the right end. `j` and `k` move between changes as
-well.
+place on the screen. One row under the tabs holds the **From** and **To** picker,
+**Compare**, the view switch (**Rendered**, **Markdown** and **Side by side**),
+and the change count with the two jump arrows at the right end. `j` and `k` move
+between changes as well. **Return to document** in the header goes back to the
+latest version.
+
+The margin keeps its Outline and Details tabs, plus Comments when the comparison
+accepts comments.
 
 **Side by side** puts the two versions in two columns, the older one on the
 left. Each block sits opposite the block it became, so a reworded paragraph
@@ -190,13 +195,13 @@ reads whole on both sides. Where one version has nothing, that side shows an
 empty slot and the pair stays level. The change count and the jump arrows work
 here too, and a jump can land in either column.
 
-Comments appear below the comparison so both columns keep their reading width.
-Select text on the new side to annotate the current version.
-The old side and comparisons of earlier versions remain read-only.
-On a phone the columns stack, older above newer, and each names its version.
+This view spends its whole width on the two versions, so it carries no comment
+column and takes no new comment. Read or write comments on **Rendered**, or in
+the document itself. On a phone the columns stack, older above newer, and each
+names its version.
 
 **Markdown** compares the two sources line by line, so it shows a change the
-other views cannot mark. Its contents list names every heading line, the removed
+other views cannot mark. Its Outline tab names every heading line, the removed
 ones included, and a row takes you to that line.
 
 The toolbar includes the from/to picker and **Compare** button.
@@ -224,9 +229,9 @@ at a time. A section runs from one heading to the next heading, whatever the two
 levels are.
 
 A round button sits beside each heading in the document. It approves that
-section, and it withdraws the approval again. The **Sections** panel above the
-document lists every section with its state, as an overview; the button beside
-the heading is where you act.
+section, and it withdraws the approval again. The **Outline** tab in the margin
+lists every section with its state, as an overview; the button beside the
+heading is where you act.
 
 Loupe stores each approval against the heading and against a digest of the
 section's own text. A revision keeps an approval only while both still match, so

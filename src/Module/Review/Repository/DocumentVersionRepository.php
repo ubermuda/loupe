@@ -54,12 +54,12 @@ class DocumentVersionRepository extends ServiceEntityRepository
      * it is listing. The description is a third TEXT column but holds one line
      * per version, and the switcher renders it.
      *
-     * @return list<array{versionNumber: int, createdAt: \DateTimeImmutable, description: ?string}>
+     * @return list<array{id: string, versionNumber: int, createdAt: \DateTimeImmutable, description: ?string}>
      */
     public function findAllMetaByDocument(Document $document): array
     {
         $rows = $this->createQueryBuilder('v')
-            ->select('v.versionNumber AS versionNumber', 'v.createdAt AS createdAt', 'v.description AS description')
+            ->select('v.id AS id', 'v.versionNumber AS versionNumber', 'v.createdAt AS createdAt', 'v.description AS description')
             ->where('v.document = :document')
             ->setParameter('document', $document)
             ->orderBy('v.versionNumber', 'DESC')
@@ -73,6 +73,7 @@ class DocumentVersionRepository extends ServiceEntityRepository
             $description = $row['description'];
 
             $meta[] = [
+                'id' => (string) $row['id'],
                 'versionNumber' => is_int($versionNumber) ? $versionNumber : throw new \LogicException('versionNumber must be an int.'),
                 'createdAt' => $createdAt instanceof \DateTimeImmutable ? $createdAt : throw new \LogicException('createdAt must be a DateTimeImmutable.'),
                 'description' => null === $description || is_string($description) ? $description : throw new \LogicException('description must be a string or null.'),

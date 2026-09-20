@@ -190,7 +190,7 @@ test('margin filter stays outside the tablist and within narrow viewports', asyn
             .getByRole('tab', { name: 'Comments', exact: true })
             .boundingBox())!;
         expect(commentsBounds.x - triggerBounds.x - triggerBounds.width).toBe(
-            4,
+            6,
         );
         await page.keyboard.press('Escape');
         await expect(filter.locator('summary')).toBeFocused();
@@ -228,7 +228,9 @@ test('enlarged margin tabs scroll within the document controls', async ({
         expect(selectedBounds.x + selectedBounds.width).toBeLessThanOrEqual(
             visibleBounds.x + visibleBounds.width,
         );
-        const labelBounds = (await selected.locator('span').boundingBox())!;
+        const labelBounds = (await selected
+            .locator('span:not(.lp-review-margin-tabs__count)')
+            .boundingBox())!;
         expect(labelBounds.x).toBeGreaterThanOrEqual(selectedBounds.x);
         expect(labelBounds.x + labelBounds.width).toBeLessThanOrEqual(
             selectedBounds.x + selectedBounds.width,
@@ -464,11 +466,8 @@ test('hiding resolved threads closes the gap the cards left', async ({
     const before = await threadTops(page);
     expect(before).toHaveLength(3);
 
-    // The toggle is a button, and a button class declares a display that beats
-    // the [hidden] rule the controller drives it with. Nothing is resolved yet,
-    // so a toggle on screen here means that override came back.
-    await expect(page.locator('.lp-review-actions__resolved')).toBeHidden();
-
+    // Open is the margin's default view, so resolving a thread takes its card
+    // out of the column there and then.
     await page
         .locator(THREAD)
         .first()
@@ -477,10 +476,15 @@ test('hiding resolved threads closes the gap the cards left', async ({
     await expect(page.locator('.lp-comment-thread--resolved')).toHaveCount(1, {
         timeout: coverageScaled(10000),
     });
+    await expect(page.locator('.lp-comment-thread--resolved')).toBeHidden();
 
-    const toggle = page.locator('.lp-review-actions__resolved');
-    await expect(toggle).toBeVisible({ timeout: coverageScaled(5000) });
-    await toggle.click();
+    // All brings it back, and Open hides it again.
+    const filter = page.locator('[data-review-margin-target="filter"]');
+    await filter.locator('summary').click();
+    await filter.getByRole('button', { name: /^All/ }).click();
+    await expect(page.locator('.lp-comment-thread--resolved')).toBeVisible();
+    await filter.locator('summary').click();
+    await filter.getByRole('button', { name: /^Open/ }).click();
 
     await expect(page.locator('.lp-comment-thread--resolved')).toBeHidden();
 
@@ -581,4 +585,107 @@ test('expanding the orphan group pushes the anchored cards below it', async ({
             timeout: coverageScaled(5000),
         })
         .toBeGreaterThanOrEqual(0);
+});
+
+test('the selected margin tab carries its highlight in one frame', async ({
+    page,
+}) => {
+    const comments = page.getByRole('tab', { name: 'Comments', exact: true });
+    const outline = page.getByRole('tab', { name: 'Outline', exact: true });
+    await comments.click();
+    await expect(comments).toHaveAttribute('aria-selected', 'true');
+
+    // The tab widths and the labels swap with no transition, so a colour fade
+    // would leave the accent on the tab the reader just left, at the new icon
+    // width. Sampling every frame is what tells a fade from a clean swap.
+    const frames = await page.evaluate(async () => {
+        const tabs = [
+            ...document.querySelectorAll('[data-review-margin-target="tab"]'),
+        ];
+        const shot = () =>
+            tabs
+                .map(
+                    (tab) =>
+                        `${Math.round(tab.getBoundingClientRect().width)}:${getComputedStyle(tab).backgroundColor}`,
+                )
+                .join(' ');
+        const target = tabs.find(
+            (tab) =>
+                (tab as HTMLElement).dataset.reviewMarginNameParam ===
+                'outline',
+        ) as HTMLElement;
+        target.click();
+        const seen: string[] = [];
+        for (let frame = 0; frame < 10; frame++) {
+            await new Promise((resolve) => requestAnimationFrame(resolve));
+            const current = shot();
+            if (seen[seen.length - 1] !== current) {
+                seen.push(current);
+            }
+        }
+        return seen;
+    });
+
+    await expect(outline).toHaveAttribute('aria-selected', 'true');
+    expect(frames).toHaveLength(1);
+});
+
+test('a comment card is never painted before it is placed', async ({
+    page,
+}) => {
+    await commentOn(page, FIRST, 'Anchored before the view switch.');
+    const thread = page.locator(THREAD).first();
+    await expect(thread).toBeVisible();
+
+    await page.getByRole('link', { name: 'History', exact: true }).click();
+    await expect(
+        page.getByRole('heading', { name: 'Version history' }),
+    ).toBeVisible();
+    // The probe rides `document`, which survives a Turbo Drive render, and
+    // reads the card on the render event itself. That is the one frame the
+    // reader used to see, before the controller measures a top for it.
+    await page.evaluate(() => {
+        (window as unknown as { __placing?: unknown }).__placing = null;
+        const onRender = () => {
+            document.removeEventListener('turbo:render', onRender);
+            const card = document.querySelector('.lp-comment-thread');
+            const tabs = document.querySelector('.lp-review-workspace-nav');
+            (window as unknown as { __placing?: unknown }).__placing = {
+                visibility: card ? getComputedStyle(card).visibility : null,
+                placedYet: card
+                    ? Boolean((card as HTMLElement).style.top)
+                    : null,
+                overTheTabRow:
+                    card && tabs
+                        ? card.getBoundingClientRect().top <
+                          tabs.getBoundingClientRect().bottom
+                        : null,
+            };
+        };
+        document.addEventListener('turbo:render', onRender);
+    });
+
+    await page.getByRole('link', { name: 'Document', exact: true }).click();
+    await expect(page.locator(THREAD).first()).toBeVisible();
+
+    const placing = await page.evaluate(
+        () =>
+            (window as unknown as { __placing?: Record<string, unknown> })
+                .__placing,
+    );
+
+    // It has no measured top yet, and it sits where it would cover the tabs.
+    // Both are why it has to be invisible for that frame.
+    expect(placing?.placedYet).toBe(false);
+    expect(placing?.overTheTabRow).toBe(true);
+    expect(placing?.visibility).toBe('hidden');
+
+    // And it is placed and readable once the pass has run.
+    const settled = page.locator(THREAD).first();
+    await expect(settled).toBeVisible();
+    const cardBox = (await settled.boundingBox())!;
+    const tabsBox = (await page
+        .locator('.lp-review-workspace-nav')
+        .boundingBox())!;
+    expect(cardBox.y).toBeGreaterThan(tabsBox.y + tabsBox.height);
 });

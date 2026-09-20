@@ -32,7 +32,6 @@
 {% set anchoredComments = rootComments|filter(c => c.anchor.quote != '' and not c.orphaned)|map(c => c) %}
 {% set resolvedCount = rootComments|filter(c => c.threadStatus.value == 'resolved')|length %}
 <div id="comment-threads" class="lp-comment-threads" data-resolved-count="{{ resolvedCount }}">
-    {% include '@Review/_review_summary.html.twig' with {comments: comments} only %}
     {% if generalComments|length > 0 %}
     {# Open by default: the disclosure controller reads that starting state off
        the .disclosure-open class, because a <section> has no native `open`. #}
@@ -53,7 +52,10 @@
     {% endif %}
 
     <div class="lp-review-margin lp-comment-rail" data-comment-anchor-target="margin">
-        <p class="lp-empty" data-review-margin-target="empty" role="status" hidden>{{ 'review.document.margin.filter_empty'|trans }}</p>
+        <div class="lp-review-margin-empty" data-review-margin-target="empty" role="status" hidden>
+            <p data-empty-filter="all">{{ 'review.document.margin.empty_all'|trans }}</p>
+            <p data-empty-filter="filtered">{{ 'review.document.margin.filter_empty'|trans }}</p>
+        </div>
         {# Closed on arrival: these threads point at text this version does not
            hold, so they are a thing to come back to rather than the first thing
            to read. The heading still says how many there are. #}
