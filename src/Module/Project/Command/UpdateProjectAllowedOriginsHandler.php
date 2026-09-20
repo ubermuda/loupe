@@ -27,7 +27,7 @@ final readonly class UpdateProjectAllowedOriginsHandler
                 continue;
             }
 
-            $origin = SiteOrigins::normalise($line)
+            $origin = SiteOrigins::normalisePattern($line)
                 ?? throw new DomainErrors(['origins' => 'project.allowed_origins.error.invalid']);
             $origins[$origin] = true;
         }

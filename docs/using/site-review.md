@@ -50,6 +50,11 @@ The ID is the project's UUID, the same one that is in the project's URLs.
 1. On the Connections page, add each site that embeds the widget to **Allowed sites**.
    Write one origin on each line, such as `https://staging.example.com`, with no path.
    Use `https`. Plain `http` works for `localhost` only, because the widget needs a secure page to sign in.
+   The first label can be a `*`, which covers one level of subdomain: `https://*.example.com` covers
+   `https://staging.example.com`, and it covers neither `https://a.staging.example.com` nor `https://example.com`.
+   The scheme and the port must still be the same. Loupe refuses a bare `*` and a wildcard over a whole
+   registry, such as `*.com` or `*.co.uk`, because one entry would then cover every site under it.
+   A wildcard is what a preview environment needs, where each branch gets its own host.
 2. Paste the snippet into the site.
 3. The reviewer opens the widget and presses **Sign in with Loupe**. A pop-up window opens on your Loupe instance.
 4. The reviewer signs in, checks the project and the site on the consent page, and presses **Allow**.

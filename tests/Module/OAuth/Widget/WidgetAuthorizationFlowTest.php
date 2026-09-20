@@ -101,6 +101,51 @@ final class WidgetAuthorizationFlowTest extends WebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
+    public function test_a_wildcard_entry_covers_one_label_under_it(): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->project->allowedOrigins = ['https://*.loupe.dev.localhost'];
+        $em->flush();
+        $worktree = 'https://agent-x1.loupe.dev.localhost';
+
+        $this->browser->loginUser($this->owner);
+        $crawler = $this->browser->request(Request::METHOD_GET, $this->authorizeUrl(['origin' => $worktree]));
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('[data-testid="oauth-consent-site"]', $worktree);
+
+        $this->browser->submit($crawler->selectButton('consent_form_approve')->form());
+        $message = $this->followToCallback();
+
+        self::assertSame($worktree, $message['targetOrigin'], 'the callback posts to the origin that asked, not to the pattern');
+        self::assertIsString($message['payload']['code']);
+
+        $this->browser->request(Request::METHOD_OPTIONS, '/oauth/token', server: [
+            'HTTP_ORIGIN' => $worktree,
+            'HTTP_ACCESS_CONTROL_REQUEST_METHOD' => 'POST',
+        ]);
+        self::assertSame($worktree, $this->browser->getResponse()->headers->get('Access-Control-Allow-Origin'));
+    }
+
+    public function test_a_wildcard_entry_covers_one_label_and_no_more(): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $this->project->allowedOrigins = ['https://*.loupe.dev.localhost'];
+        $em->flush();
+
+        $this->browser->loginUser($this->owner);
+        foreach (['https://a.b.loupe.dev.localhost', 'https://loupe.dev.localhost', 'https://evil.example'] as $origin) {
+            $this->browser->request(Request::METHOD_GET, $this->authorizeUrl(['origin' => $origin]));
+            self::assertResponseStatusCodeSame(403, $origin.' must not pass');
+            self::assertSelectorExists('[data-testid="oauth-widget-refused"]');
+        }
+
+        $this->browser->request(Request::METHOD_OPTIONS, '/oauth/token', server: [
+            'HTTP_ORIGIN' => 'https://a.b.loupe.dev.localhost',
+            'HTTP_ACCESS_CONTROL_REQUEST_METHOD' => 'POST',
+        ]);
+        self::assertFalse($this->browser->getResponse()->headers->has('Access-Control-Allow-Origin'));
+    }
+
     public function test_an_origin_missing_from_the_list_is_refused_before_consent(): void
     {
         $this->browser->loginUser($this->owner);

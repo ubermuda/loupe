@@ -48,6 +48,31 @@ final class UpdateProjectAllowedOriginsHandlerTest extends KernelTestCase
         self::assertSame(['https://shop.example.com', 'http://localhost:3000'], $reloaded->allowedOrigins);
     }
 
+    public function test_it_stores_a_wildcard_entry(): void
+    {
+        $project = $this->project('origins-wildcard@example.com');
+
+        ($this->handler)(new UpdateProjectAllowedOriginsCommand($project, "https://*.loupe.dev.localhost\nhttps://*.Example.com"));
+
+        self::assertSame(['https://*.loupe.dev.localhost', 'https://*.example.com'], $project->allowedOrigins);
+    }
+
+    public function test_it_refuses_a_wildcard_that_covers_a_registry(): void
+    {
+        $project = $this->project('origins-wildcard-wide@example.com');
+
+        foreach (['*', 'https://*', 'https://*.com', 'https://*.co.uk'] as $line) {
+            try {
+                ($this->handler)(new UpdateProjectAllowedOriginsCommand($project, $line));
+                self::fail(\sprintf('Expected DomainErrors for "%s".', $line));
+            } catch (DomainErrors $e) {
+                self::assertSame(['origins' => 'project.allowed_origins.error.invalid'], $e->errors);
+            }
+        }
+
+        self::assertSame([], $project->allowedOrigins);
+    }
+
     public function test_an_empty_list_clears_the_origins(): void
     {
         $project = $this->project('origins-b@example.com');

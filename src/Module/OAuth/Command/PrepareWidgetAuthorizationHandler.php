@@ -48,8 +48,10 @@ final readonly class PrepareWidgetAuthorizationHandler
             $this->refuse('oauth.widget.refused.not_owner', Response::HTTP_FORBIDDEN, $project->id);
         }
 
+        // The concrete origin the request carried, never the pattern that
+        // allowed it: this is what the callback posts the code to.
         $origin = SiteOrigins::normalise($command->origin);
-        if (null === $origin || !\in_array($origin, $project->allowedOrigins, true)) {
+        if (null === $origin || !SiteOrigins::allows($project->allowedOrigins, $origin)) {
             $this->refuse('oauth.widget.refused.origin_not_allowed', Response::HTTP_FORBIDDEN, $project->id);
         }
 

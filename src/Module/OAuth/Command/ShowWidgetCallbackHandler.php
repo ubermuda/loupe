@@ -6,6 +6,7 @@ namespace App\Module\OAuth\Command;
 
 use App\Module\OAuth\Widget\WidgetCallbackStore;
 use App\Module\Project\Repository\ProjectRepository;
+use App\Module\Project\Service\SiteOrigins;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
@@ -41,7 +42,7 @@ final readonly class ShowWidgetCallbackHandler
         }
 
         $project = $this->projects->find($entry['projectId']);
-        $allowed = null !== $project && \in_array($entry['origin'], $project->allowedOrigins, true);
+        $allowed = null !== $project && SiteOrigins::allows($project->allowedOrigins, $entry['origin']);
 
         return new ShowWidgetCallbackView($allowed ? $entry['origin'] : null, $message);
     }
