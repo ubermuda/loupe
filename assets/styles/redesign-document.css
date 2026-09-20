@@ -424,6 +424,14 @@
         /* The row's own gap makes up the rest of the gutter. */
         margin-left: calc(var(--doc-margin-gap) - var(--spacing) * 4);
     }
+    /* Side by side has no comment column to hang the count over, so the count
+       shrinks to its own width and the switch ends at the content edge. */
+    .lp-review .lp-review-doc--wide .lp-diff-views {
+        @apply ml-0;
+    }
+    .lp-review .lp-review-doc--wide .lp-diff-nav {
+        @apply ml-auto w-auto;
+    }
 }
 .lp-review .lp-diff-nav__count {
     @apply font-sans text-sm tracking-normal text-fg-dim normal-case;

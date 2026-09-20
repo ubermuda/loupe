@@ -332,6 +332,39 @@ test('the two columns pair the blocks and carry no comment column', async ({
     await expect(page.locator('#diff-columns-notice')).toHaveCount(0);
 });
 
+test('the view switch ends at the content edge in every view', async ({
+    page,
+}) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signIn(page, `e2e-sbs-switch-${RUN}@example.com`);
+    const reviewPath = await seedComparison(page);
+
+    // Side by side drops the comment column, so the count must give its width
+    // back rather than hold the switch away from the edge.
+    const box = async (selector: string) => {
+        const found = await page.locator(selector).boundingBox();
+        if (null === found) {
+            throw new Error(`${selector} has no box`);
+        }
+        return found;
+    };
+    const rightEdge = async (selector: string) => {
+        const found = await box(selector);
+        return Math.round(found.x + found.width);
+    };
+
+    await page.goto(`${reviewPath}/diff/1/2?view=rendered`);
+    expect(await rightEdge(VIEWS)).toBe(await rightEdge('.lp-diff-doc'));
+
+    await page.goto(`${reviewPath}/diff/1/2?view=side-by-side`);
+    expect(await rightEdge(VIEWS)).toBe(await rightEdge('.lp-diff-columns'));
+
+    // The count keeps its place beside the switch rather than jumping left.
+    const nav = await box('.lp-diff-nav');
+    const views = await box(VIEWS);
+    expect(Math.round(views.x - nav.x - nav.width)).toBe(16);
+});
+
 test('the jump controls still walk the changes across the two columns', async ({
     page,
 }) => {
