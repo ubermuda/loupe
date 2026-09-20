@@ -841,15 +841,14 @@
 
 @layer components {
     /* One quiet scrollbar for every pane the app scrolls: thin, no track, and a
-       muted thumb from the design tokens. The gutter is reserved, so content
-       does not shift when a pane starts or stops scrolling. */
+       muted thumb from the design tokens. No reserved gutter, so a pane that
+       does not scroll reads flush. */
     .lp-quiet-scroll,
     .lp-split-pane,
     .lp-board__group,
     .lp-sidebar--drawer {
         scrollbar-width: thin;
         scrollbar-color: var(--border-strong) transparent;
-        scrollbar-gutter: stable;
     }
     /* Holds the page's controllers around a frame and a drawer, and leaves the
        layout to them. */
@@ -5635,7 +5634,7 @@
         @apply text-sm font-semibold text-danger m-0 empty:hidden;
     }
     .lp-board__column {
-        @apply flex flex-col gap-3 grow basis-0 min-w-64 min-h-0 rounded-xl bg-surface-2 p-3.5;
+        @apply flex flex-col gap-3 grow basis-0 min-w-64 min-h-0 rounded-xl bg-surface-2 p-3.5 pr-2;
     }
     .lp-board__column-head {
         @apply flex items-center justify-between gap-2;
@@ -5724,7 +5723,8 @@
     }
     /* A group is a drop target, so it keeps a minimum height even when empty:
        an empty column with no area under it cannot be dropped into. */
-    /* pr-1.5 keeps the bar off the card edges, which are rounded boxes. */
+    /* pr-1.5 keeps the bar off the card edges, which are rounded boxes. The
+       column gives back the same amount, so a short column reads flush. */
     .lp-board__group {
         @apply flex flex-col flex-1 gap-2 min-h-12 pr-1.5 rounded-lg overflow-y-auto transition-colors;
     }

@@ -46,6 +46,9 @@
 .lp-core-board .lp-board__column {
     min-width: calc(var(--spacing) * 52);
     padding: calc(var(--spacing) * 2.5);
+    /* The card list carries the rest of this inset, so its scrollbar clears
+       the cards without a short column looking inset on one side. */
+    padding-right: calc(var(--spacing) * 1);
     border: 0;
     border-radius: var(--radius-xl);
     background: var(--surface-3);
