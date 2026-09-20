@@ -10,6 +10,7 @@ use App\Module\OAuth\ClientMetadata\ClientMetadataFetcher;
 use App\Module\OAuth\ClientMetadata\ClientMetadataRefused;
 use App\Module\OAuth\ClientMetadata\FetchedClientMetadata;
 use App\Module\OAuth\ClientMetadata\FetchedIcon;
+use App\Module\OAuth\ClientMetadata\TrustedClientIds;
 use App\Module\OAuth\Entity\ClientMetadataDocument;
 use App\Module\OAuth\Repository\ClientMetadataDocumentRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -38,6 +39,7 @@ final readonly class RegisterClientMetadataDocumentHandler
 {
     public function __construct(
         private ClientMetadataFetcher $fetcher,
+        private TrustedClientIds $trustedClientIds,
         private ClientMetadataDocumentRepository $clientMetadataDocuments,
         private ClientManagerInterface $clients,
         private EntityManagerInterface $em,
@@ -69,8 +71,9 @@ final readonly class RegisterClientMetadataDocumentHandler
             throw self::invalidClient($e->getMessage());
         }
 
-        // After the document, because a missing icon must not refuse the client.
-        $icon = $this->fetcher->fetchIcon($url);
+        // Only for a client the operator vouches for: an icon from a shared
+        // host would dress an attacker's document in that host's brand.
+        $icon = $this->trustedClientIds->isTrusted($url) ? $this->fetcher->fetchIcon($url) : null;
 
         $this->em->wrapInTransaction(function () use ($url, $fetched, $icon): void {
             $this->clientMetadataDocuments->lockForRegistration($url->identifier);

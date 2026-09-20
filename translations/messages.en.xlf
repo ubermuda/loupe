@@ -6058,6 +6058,7 @@
             <trans-unit id="oauth.consent.client_name.unverified"><source>oauth.consent.client_name.unverified</source><target>Loupe cannot check this name. Trust the address above.</target></trans-unit>
             <trans-unit id="oauth.consent.question"><source>oauth.consent.question</source><target>Give %client% access to Loupe?</target></trans-unit>
             <trans-unit id="oauth.consent.row.publisher"><source>oauth.consent.row.publisher</source><target>Published by %host%</target></trans-unit>
+            <trans-unit id="oauth.consent.row.publisher_name"><source>oauth.consent.row.publisher_name</source><target>It calls itself %client%.</target></trans-unit>
             <trans-unit id="oauth.consent.row.publisher_unverified"><source>oauth.consent.row.publisher_unverified</source><target>It calls itself %client%. Loupe cannot check that name.</target></trans-unit>
             <trans-unit id="oauth.consent.row.publisher_registered"><source>oauth.consent.row.publisher_registered</source><target>%client%</target></trans-unit>
             <trans-unit id="oauth.consent.row.publisher_registered_hint"><source>oauth.consent.row.publisher_registered_hint</source><target>An operator of this Loupe registered this app.</target></trans-unit>

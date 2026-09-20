@@ -20,9 +20,18 @@ necessary. The consent page then shows three facts:
 - The address that receives the answer.
 
 An app can identify itself with a URL, such as Claude Code with
-`https://claude.ai/oauth/claude-code-client-metadata`. The consent page then
-shows the domain of that URL as the app, because Loupe checked it. The name the
-app gives itself shows below it, marked as not verified.
+`https://claude.ai/oauth/claude-code-client-metadata`. What the consent page
+shows then depends on whether the operator vouches for that exact URL, through
+`OAUTH_TRUSTED_CLIENT_IDS`. See [Environment variables](../reference/environment.md).
+
+- A client the operator vouches for shows its host alone, with the host's icon.
+- Every other client shows its whole `client_id`, with the host in heavy type
+  and the rest of the URL in light type, and with no icon. A document on a
+  shared host, such as a CDN, is one of these: the host says nothing about who
+  wrote the document.
+
+The name an app gives itself always shows below that line. Loupe cannot check
+that name, and the page says so for a client it does not vouch for.
 
 When every address of the app is on the user's own computer, such as
 `localhost` or `127.0.0.1`, the page shows a warning. Loupe cannot check which

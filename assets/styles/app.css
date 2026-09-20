@@ -608,6 +608,10 @@
     .lp-consent__row-strong {
         @apply font-semibold;
     }
+    /* The rest of an unvouched client id, beside its emphasised host. */
+    .lp-consent__row-muted {
+        @apply text-fg-label break-all;
+    }
     .lp-consent__row-mono {
         @apply font-mono break-all;
     }

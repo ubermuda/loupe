@@ -6,7 +6,9 @@ namespace App\Tests\Module\OAuth;
 
 use App\Module\Account\Entity\User;
 use App\Module\OAuth\ClientMetadata\ClientIdUrl;
+use App\Module\OAuth\ClientMetadata\ConfiguredTrustedClientIds;
 use App\Module\OAuth\ClientMetadata\SystemHostResolver;
+use App\Module\OAuth\ClientMetadata\TrustedClientIds;
 use App\Module\Project\Entity\Project;
 use App\Tests\Support\FakeHostResolver;
 use App\Tests\Support\OAuthScenario;
@@ -22,7 +24,7 @@ use Symfony\Component\RateLimiter\Storage\InMemoryStorage;
 /** A client whose client_id is the URL of its metadata document (CIMD). */
 final class ClientMetadataDocumentFlowTest extends WebTestCase
 {
-    private const string CLIENT_ID = 'https://client.example/oauth/metadata';
+    public const string CLIENT_ID = 'https://client.example/oauth/metadata';
     private const string REDIRECT_URI = 'http://localhost:53712/callback';
     private const string INIT = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}';
 
@@ -32,6 +34,7 @@ final class ClientMetadataDocumentFlowTest extends WebTestCase
     private Project $project;
     private int $fetches = 0;
     private ?string $icon = 'icon-bytes';
+    private TrustedClientIds $trustedClientIds;
 
     /** @var array<string, mixed> */
     private array $document = [
@@ -60,6 +63,20 @@ final class ClientMetadataDocumentFlowTest extends WebTestCase
 
             return new MockResponse((string) json_encode($this->document), ['response_headers' => ['content-type' => 'application/json']]);
         }));
+
+        // One instance for the whole test: the container refuses a second set()
+        // once a service is built, so each test changes its entries instead.
+        $this->trustedClientIds = new class implements TrustedClientIds {
+            /** @var list<string> */
+            public array $entries = [ClientMetadataDocumentFlowTest::CLIENT_ID];
+
+            #[\Override]
+            public function isTrusted(ClientIdUrl $url): bool
+            {
+                return new ConfiguredTrustedClientIds($this->entries)->isTrusted($url);
+            }
+        };
+        $container->set(ConfiguredTrustedClientIds::class, $this->trustedClientIds);
 
         $this->scenario = new OAuthScenario($container);
         $this->user = $this->scenario->createUser('riley@example.com');
@@ -99,6 +116,8 @@ final class ClientMetadataDocumentFlowTest extends WebTestCase
         $icon = $crawler->filter('.lp-consent__badge img');
         self::assertCount(1, $icon);
         self::assertSame('', $icon->attr('alt'), 'the icon claims no identity, so it is decorative');
+        self::assertStringNotContainsString('cannot check', $crawler->filter('[data-testid="oauth-consent-client-name"]')->text(), 'a vouched client needs no warning');
+        self::assertCount(0, $crawler->filter('.lp-consent__row-muted'), 'a vouched client shows its host alone');
         self::assertSame('16', $icon->attr('width'), 'a fixed box keeps the row from moving');
 
         $this->browser->request(Request::METHOD_GET, (string) $icon->attr('src'));
@@ -121,6 +140,37 @@ final class ClientMetadataDocumentFlowTest extends WebTestCase
 
         $this->browser->request(Request::METHOD_GET, '/oauth/client-icon/'.(ClientIdUrl::parse(self::CLIENT_ID)->identifier ?? ''));
         self::assertResponseStatusCodeSame(404);
+    }
+
+    public function test_an_unvouched_client_shows_its_whole_client_id_and_no_icon(): void
+    {
+        $this->trustedClientIds->entries = [];
+
+        $this->browser->loginUser($this->user);
+        $crawler = $this->browser->request(Request::METHOD_GET, $this->authorizeUrl());
+
+        self::assertResponseIsSuccessful();
+        $host = $crawler->filter('[data-testid="oauth-consent-client-host"]');
+        self::assertStringContainsString('client.example', $host->text());
+        self::assertStringContainsString('/oauth/metadata', $host->text(), 'the path is what tells a lookalike apart');
+        self::assertSame(self::CLIENT_ID, $host->attr('title'), 'the whole client id stays available');
+        self::assertSame('client.example', $host->filter('.lp-consent__row-strong')->text(), 'the host carries the emphasis');
+        self::assertSame('/oauth/metadata', $host->filter('.lp-consent__row-muted')->text());
+        self::assertStringContainsString('cannot check', $crawler->filter('[data-testid="oauth-consent-client-name"]')->text());
+        self::assertCount(0, $crawler->filter('.lp-consent__badge img'), 'an unvouched client borrows no host icon');
+    }
+
+    public function test_a_lookalike_path_does_not_borrow_the_trust_of_the_host_it_names(): void
+    {
+        $this->trustedClientIds->entries = ['https://claude.ai/oauth/claude-code-client-metadata'];
+
+        $this->browser->loginUser($this->user);
+        $crawler = $this->browser->request(Request::METHOD_GET, $this->authorizeUrl());
+
+        self::assertResponseIsSuccessful();
+        self::assertSame('client.example', $crawler->filter('.lp-consent__row-strong')->text());
+        self::assertStringContainsString('cannot check', $crawler->filter('[data-testid="oauth-consent-client-name"]')->text());
+        self::assertCount(0, $crawler->filter('.lp-consent__badge img'));
     }
 
     public function test_a_document_whose_client_id_differs_is_refused_without_a_redirect(): void

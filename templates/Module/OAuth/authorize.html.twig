@@ -19,8 +19,11 @@
                 {% endif %}
             </span>
             <div class="lp-consent__row-body">
-                {% if view.clientHost is not null %}
+                {% if view.clientTrusted %}
                 <p class="lp-consent__row-primary" data-testid="oauth-consent-client-host">{{ 'oauth.consent.row.publisher'|trans({'%host%': '<span class="lp-consent__row-strong">' ~ view.clientHost|e ~ '</span>'})|raw }}</p>
+                <p class="lp-consent__row-second" data-testid="oauth-consent-client-name">{{ 'oauth.consent.row.publisher_name'|trans({'%client%': view.clientName}) }}</p>
+                {% elseif view.clientIdUrl is not null %}
+                <p class="lp-consent__row-primary" data-testid="oauth-consent-client-host" title="{{ view.clientIdUrl }}">{{ 'oauth.consent.row.publisher'|trans({'%host%': '<span class="lp-consent__row-strong">' ~ view.clientHost|e ~ '</span><span class="lp-consent__row-muted">' ~ view.clientIdPath|e ~ '</span>'})|raw }}</p>
                 <p class="lp-consent__row-second" data-testid="oauth-consent-client-name">{{ 'oauth.consent.row.publisher_unverified'|trans({'%client%': view.clientName}) }}</p>
                 {% else %}
                 <p class="lp-consent__row-primary" data-testid="oauth-consent-client-name">{{ 'oauth.consent.row.publisher_registered'|trans({'%client%': view.clientName}) }}</p>

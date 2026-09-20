@@ -30,6 +30,22 @@ final readonly class ClientIdUrl
         $this->identifier = self::IDENTIFIER_PREFIX.substr(hash('sha256', $url), 0, 32 - \strlen(self::IDENTIFIER_PREFIX));
     }
 
+    /**
+     * Everything after the host, shortened in the middle. The end is where a
+     * lookalike puts its reassuring words, so the end always stays visible.
+     */
+    public function pathDisplay(int $max = 44): string
+    {
+        $path = substr($this->url, \strlen('https://') + \strlen($this->host));
+        if (\strlen($path) <= $max) {
+            return $path;
+        }
+
+        $head = (int) floor(($max - 1) / 2);
+
+        return substr($path, 0, $head).'…'.substr($path, -($max - 1 - $head));
+    }
+
     public static function isCandidate(string $clientId): bool
     {
         return 0 === strncasecmp($clientId, 'https://', 8);
