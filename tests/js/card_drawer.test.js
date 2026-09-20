@@ -119,6 +119,18 @@ it('leaves a flash alone and focuses the card content under it', () => {
     expect(document.activeElement.dataset.panelTabsTarget).toBe('tab');
 });
 
+it('takes the opening focus once, so a later load leaves the reader alone', () => {
+    const invoker = document.getElementById('invoker');
+    const textarea = controller.frameTarget.querySelector('textarea');
+    controller.prepare({ currentTarget: invoker });
+    textarea.focus();
+    controller.loaded({ target: controller.frameTarget });
+    expect(document.activeElement).toBe(textarea);
+    invoker.focus();
+    controller.loaded({ target: controller.frameTarget });
+    expect(document.activeElement).toBe(invoker);
+});
+
 it('ignores late failure and load events after closing the drawer', () => {
     dialog.open = false;
     const invoker = document.getElementById('invoker');
