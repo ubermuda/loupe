@@ -22,6 +22,10 @@
     // a visitor can try the flow before signing up. It swaps the transport and
     // nothing else — every behaviour below is the widget customers embed.
     const DEMO = script.hasAttribute('data-demo');
+    // An embed that names a project and carries no token signs the reviewer in
+    // with OAuth instead, so no credential sits in the page source.
+    const PROJECT = script.getAttribute('data-project') || '';
+    const OAUTH = !DEMO && !TOKEN && !!PROJECT;
     // Opaque to the widget and to the API alike: it is echoed onto every comment
     // this page produces, and only the module that set it knows what it means.
     // The attribute is absent on an ordinary deployment, which is why an empty
@@ -224,15 +228,156 @@
         return null;
     };
 
-    const serverApi = async (method, path, body) => {
+    // ---- OAuth sign-in ----
+    const OAUTH_CLIENT_ID = 'loupe-site-review-widget';
+    const OAUTH_REDIRECT_URI = `${BACKEND}/oauth/widget/callback`;
+    const OAUTH_MESSAGE_TYPE = 'loupe-site-review-oauth';
+    // Per backend and project, so two embeds on one site keep separate grants.
+    const OAUTH_STORAGE_KEY = `loupe-site-review:oauth:${BACKEND}:${PROJECT}`;
+    const OAUTH_EXPIRY_MARGIN_MS = 60 * 1000;
+
+    // sessionStorage can be absent or throw (a sandboxed frame, blocked site
+    // data). The grant then lives for this page load only.
+    const readGrant = () => {
+        try {
+            const grant = JSON.parse(
+                window.sessionStorage.getItem(OAUTH_STORAGE_KEY) || 'null',
+            );
+            return grant &&
+                typeof grant.accessToken === 'string' &&
+                typeof grant.refreshToken === 'string' &&
+                typeof grant.expiresAt === 'number'
+                ? grant
+                : null;
+        } catch {
+            return null;
+        }
+    };
+    let grant = OAUTH ? readGrant() : null;
+    const setGrant = (next) => {
+        grant = next;
+        try {
+            if (next) {
+                window.sessionStorage.setItem(
+                    OAUTH_STORAGE_KEY,
+                    JSON.stringify(next),
+                );
+            } else {
+                window.sessionStorage.removeItem(OAUTH_STORAGE_KEY);
+            }
+        } catch {
+            /* the in-memory grant still works for this page */
+        }
+    };
+
+    const base64Url = (bytes) =>
+        btoa(String.fromCharCode(...bytes))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+    const randomToken = (size) =>
+        base64Url(crypto.getRandomValues(new Uint8Array(size)));
+    const pkceChallenge = async (verifier) =>
+        base64Url(
+            new Uint8Array(
+                await crypto.subtle.digest(
+                    'SHA-256',
+                    new TextEncoder().encode(verifier),
+                ),
+            ),
+        );
+
+    const signedOutError = (message) =>
+        Object.assign(new Error('signed out'), {
+            status: 401,
+            code: 'signed_out',
+            message: message || '',
+        });
+
+    const tokenRequest = async (parameters) => {
+        const response = await fetch(`${BACKEND}/oauth/token`, {
+            method: 'POST',
+            credentials: 'omit',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                client_id: OAUTH_CLIENT_ID,
+                ...parameters,
+            }).toString(),
+        });
+        let payload = null;
+        try {
+            payload = await response.json();
+        } catch {
+            /* an unreadable body is a failure like any other */
+        }
+        if (
+            !response.ok ||
+            !payload ||
+            typeof payload.access_token !== 'string' ||
+            typeof payload.refresh_token !== 'string'
+        ) {
+            throw Object.assign(new Error(`HTTP ${response.status}`), {
+                status: response.status,
+            });
+        }
+        return {
+            accessToken: payload.access_token,
+            refreshToken: payload.refresh_token,
+            expiresAt: Date.now() + (Number(payload.expires_in) || 0) * 1000,
+        };
+    };
+
+    // One refresh at a time. The server rotates the refresh token, so a second
+    // request that used the same one would fail and sign the reviewer out.
+    let refreshing = null;
+    const refreshGrant = () => {
+        if (!refreshing) {
+            refreshing = tokenRequest({
+                grant_type: 'refresh_token',
+                refresh_token: grant.refreshToken,
+            })
+                .then((next) => setGrant(next))
+                .catch((error) => {
+                    // A refused refresh ends the grant. A network failure or a
+                    // 5xx keeps it, so the next request can try again.
+                    if (error.status >= 400 && error.status < 500)
+                        setGrant(null);
+                    throw grant ? error : signedOutError();
+                })
+                .finally(() => {
+                    refreshing = null;
+                });
+        }
+        return refreshing;
+    };
+
+    const accessToken = async () => {
+        if (!OAUTH) return TOKEN;
+        if (!grant) throw signedOutError();
+        if (grant.expiresAt - OAUTH_EXPIRY_MARGIN_MS <= Date.now())
+            await refreshGrant();
+        return grant.accessToken;
+    };
+
+    const serverApi = async (method, path, body, retried = false) => {
         const response = await fetch(`${BACKEND}${path}`, {
             method,
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${TOKEN}`,
+                Authorization: `Bearer ${await accessToken()}`,
             },
             body: body === undefined ? undefined : JSON.stringify(body),
         });
+        // An access token can die before its expiry, for example when the owner
+        // revokes the app. One refresh tells a dead token from a dead grant.
+        if (OAUTH && response.status === 401 && !retried && grant) {
+            await refreshGrant();
+            return serverApi(method, path, body, true);
+        }
+        if (OAUTH && response.status === 401) {
+            setGrant(null);
+            throw signedOutError();
+        }
         if (!response.ok) {
             // Carry the status so callers can tell a permanent auth/config failure (401/403 —
             // invalid, revoked, or unlinked token) from a transient one (network, 5xx, 429).
@@ -260,7 +405,11 @@
     // promote it to the fatal state instead of showing a dismissible inline error.
     const authFailed = (error) =>
         !!error && (error.status === 401 || error.status === 403);
-    const fatalFrom = (error) => ({ status: error.status, code: error.code });
+    const fatalFrom = (error) => ({
+        status: error.status,
+        code: error.code,
+        message: 'signed_out' === error.code ? error.message : undefined,
+    });
     // Enter the terminal fatal state: record the cause and tear down everything interactive
     // so the critical panel actually surfaces cleanly. Drops the in-memory list (so no
     // stale pins/rows/highlights linger as clickable dead ends), and exits pick and compose
@@ -1177,6 +1326,8 @@
       .lp-fatal-disc{width:46px;height:46px;margin:6px auto 13px;border-radius:50%;background:color-mix(in srgb,var(--danger) 13%,transparent);display:flex;align-items:center;justify-content:center;color:var(--danger)}
       .lp-fatal-title{font-size:14.5px;font-weight:700;color:var(--text)}
       .lp-fatal-sub{max-width:252px;margin:6px auto 0;font-size:12.5px;color:var(--muted);line-height:1.55}
+      .lp-signin .lp-fatal-disc{background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--accent)}
+      .lp-signin-button{margin:16px 0 0}
     </style>
     <div class="lp-launcher" id="lp-launcher">
       ${LOCAL ? '<span class="lp-local" id="lp-local" data-tip="Comments save to this local build">Local</span>' : ''}
@@ -2273,7 +2424,8 @@
         launchCount.textContent = String(n);
         // A rejected token surfaces on the collapsed launcher too — a danger "!" badge — so
         // the problem is visible before the panel is ever opened.
-        $('lp-launch-alert').style.display = fatal ? 'inline-flex' : 'none';
+        $('lp-launch-alert').style.display =
+            fatal && !signedOut() ? 'inline-flex' : 'none';
 
         // While picking an element, hide the whole widget (launcher + panel) so it does
         // not obscure the page; the scrim + toast are the only pick-mode UI. Add-anchor
@@ -2677,14 +2829,123 @@
     // recover without a fresh page load (with a corrected embed), so there is nothing to
     // retry or dismiss; the copy tells the embedder how to fix it.
     const renderFatal = () => {
-        if (fatalNode.dataset.shown) return;
-        fatalNode.dataset.shown = '1';
+        const shown = JSON.stringify(state.fatal || {});
+        if (fatalNode.dataset.shown === shown) return;
+        fatalNode.dataset.shown = shown;
+        if (signedOut()) {
+            fatalNode.innerHTML = `<div class="lp-fatal lp-signin">
+        <div class="lp-fatal-disc">${ICON.comment(22)}</div>
+        <div class="lp-fatal-title">Sign in to review this page</div>
+        <div class="lp-fatal-sub">${escapeHtml(state.fatal.message || 'Your comments go to the Loupe project of this site. Only the project owner can sign in for now.')}</div>
+        <button class="lp-primary lp-signin-button" id="lp-sign-in" type="button">Sign in with Loupe</button>
+      </div>`;
+            fatalNode
+                .querySelector('#lp-sign-in')
+                .addEventListener('click', signIn);
+            return;
+        }
         fatalNode.innerHTML = `<div class="lp-fatal">
         <div class="lp-fatal-disc">${ICON.alert(22)}</div>
         <div class="lp-fatal-title">This review widget can’t connect</div>
         <div class="lp-fatal-sub">${fatalDetail(state.fatal || {})}</div>
       </div>`;
     };
+
+    const signedOut = () => !!state.fatal && state.fatal.code === 'signed_out';
+    const showSignedOut = (message) => {
+        enterFatal(signedOutError(message));
+        sync();
+    };
+
+    // The popup must open inside the click, or a pop-up blocker eats it, and
+    // the PKCE digest is async. So it opens blank and navigates once ready.
+    let pendingSignIn = null;
+    const signIn = async () => {
+        const popup = window.open(
+            '',
+            'loupe-site-review-sign-in',
+            'popup,width=480,height=720',
+        );
+        if (!popup) {
+            showSignedOut(
+                'Your browser blocked the sign-in window. Allow pop-ups for this site, then try again.',
+            );
+            return;
+        }
+        const verifier = randomToken(32);
+        const oauthState = randomToken(16);
+        let challenge;
+        try {
+            challenge = await pkceChallenge(verifier);
+        } catch {
+            popup.close();
+            showSignedOut(
+                'This page cannot sign in securely. Open it over https.',
+            );
+            return;
+        }
+        pendingSignIn = { verifier, state: oauthState };
+        popup.location.href = `${BACKEND}/oauth/authorize?${new URLSearchParams(
+            {
+                response_type: 'code',
+                client_id: OAUTH_CLIENT_ID,
+                redirect_uri: OAUTH_REDIRECT_URI,
+                scope: 'site-review',
+                state: oauthState,
+                code_challenge: challenge,
+                code_challenge_method: 'S256',
+                project: PROJECT,
+                origin: window.location.origin,
+            },
+        ).toString()}`;
+    };
+
+    // Only Loupe's own callback page may answer, and only with the state this
+    // page sent. Anything else is somebody else's message and is ignored.
+    const receiveSignIn = async (event) => {
+        const pending = pendingSignIn;
+        const data = event.data;
+        if (
+            !pending ||
+            event.origin !== BACKEND ||
+            !data ||
+            data.type !== OAUTH_MESSAGE_TYPE ||
+            data.state !== pending.state
+        )
+            return;
+        pendingSignIn = null;
+        if (data.iss !== BACKEND) {
+            showSignedOut(
+                'The sign-in answer came from an unexpected server. Try again.',
+            );
+            return;
+        }
+        if (typeof data.code !== 'string' || data.error) {
+            showSignedOut(
+                'access_denied' === data.error
+                    ? 'Sign-in was cancelled. Your comments go to the Loupe project of this site.'
+                    : 'Sign-in failed. Try again.',
+            );
+            return;
+        }
+        try {
+            setGrant(
+                await tokenRequest({
+                    grant_type: 'authorization_code',
+                    code: data.code,
+                    redirect_uri: OAUTH_REDIRECT_URI,
+                    code_verifier: pending.verifier,
+                }),
+            );
+        } catch {
+            showSignedOut('Sign-in failed. Try again.');
+            return;
+        }
+        state.fatal = null;
+        await refresh({ firstLoad: true });
+        sync();
+    };
+    if (OAUTH) window.addEventListener('message', receiveSignIn);
 
     const sync = () => {
         updatePanel();

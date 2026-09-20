@@ -3,6 +3,17 @@
 {% block title %}{{ 'oauth.consent.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
 
 {% block auth_body %}
+{% if refusal is defined %}
+<div class="lp-consent" data-testid="oauth-widget-refused">
+    <div class="auth-icon-badge">
+        <twig:UX:Icon name="lucide:triangle-alert" class="w-5 h-5" aria-hidden="true" />
+    </div>
+    <div>
+        <h1 class="lp-consent__title">{{ 'oauth.widget.refused.title'|trans }}</h1>
+        <p class="lp-consent__lead">{{ refusal|trans }}</p>
+    </div>
+</div>
+{% else %}
 <div class="lp-consent" data-testid="oauth-consent">
     <div class="auth-icon-badge">
         <twig:UX:Icon name="lucide:plug" class="w-5 h-5" aria-hidden="true" />
@@ -17,10 +28,21 @@
             <dt class="lp-consent__label">{{ 'oauth.consent.scope.label'|trans }}</dt>
             <dd class="lp-consent__value" data-testid="oauth-consent-scope">{{ ('oauth.consent.scope.' ~ view.scope.value|replace({'-': '_'}))|trans }}</dd>
         </div>
+        {% if widget %}
+        <div class="lp-consent__fact">
+            <dt class="lp-consent__label">{{ 'oauth.widget.consent.project.label'|trans }}</dt>
+            <dd class="lp-consent__value" data-testid="oauth-consent-project">{{ widget.project.name }}</dd>
+        </div>
+        <div class="lp-consent__fact">
+            <dt class="lp-consent__label">{{ 'oauth.widget.consent.site.label'|trans }}</dt>
+            <dd class="lp-consent__value lp-consent__value--mono" data-testid="oauth-consent-site">{{ widget.origin }}</dd>
+        </div>
+        {% else %}
         <div class="lp-consent__fact">
             <dt class="lp-consent__label">{{ 'oauth.consent.redirect.label'|trans }}</dt>
             <dd class="lp-consent__value lp-consent__value--mono" data-testid="oauth-consent-redirect">{{ view.redirectOrigin }}</dd>
         </div>
+        {% endif %}
     </dl>
 
     {% if view.loopbackOnly %}
@@ -53,4 +75,5 @@
         </div>
     {{ form_end(form) }}
 </div>
+{% endif %}
 {% endblock %}

@@ -8,6 +8,7 @@ final readonly class PrepareHarnessView
 {
     public function __construct(
         public string $rawToken,
+        public string $projectId,
     ) {
     }
 }

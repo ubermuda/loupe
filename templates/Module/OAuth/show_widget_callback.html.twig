@@ -1,0 +1,29 @@
+{% extends '@Account/auth_base.html.twig' %}
+
+{% block title %}{{ 'oauth.widget.callback.page.title'|trans }} — {{ 'app.name'|trans }}{% endblock %}
+
+{% block auth_body %}
+<div class="lp-consent" data-testid="oauth-widget-callback"
+     data-target-origin="{{ view.targetOrigin ?? '' }}"
+     data-message="{{ view.message|json_encode }}"
+     data-lost-text="{{ 'oauth.widget.callback.lost'|trans }}">
+    <div class="auth-icon-badge">
+        <twig:UX:Icon name="lucide:plug" class="w-5 h-5" aria-hidden="true" />
+    </div>
+    <p class="lp-consent__lead" data-callback-text>{{ (view.targetOrigin is null ? 'oauth.widget.callback.lost' : 'oauth.widget.callback.done')|trans }}</p>
+</div>
+{# The target origin is the one the authorize step checked; never "*". #}
+<script nonce="{{ csp_nonce('script') }}">
+    (() => {
+        const node = document.querySelector('[data-testid="oauth-widget-callback"]');
+        history.replaceState(null, '', location.pathname);
+        const target = node.dataset.targetOrigin;
+        if (!target || !window.opener) {
+            node.querySelector('[data-callback-text]').textContent = node.dataset.lostText;
+            return;
+        }
+        window.opener.postMessage(JSON.parse(node.dataset.message), target);
+        window.close();
+    })();
+</script>
+{% endblock %}
