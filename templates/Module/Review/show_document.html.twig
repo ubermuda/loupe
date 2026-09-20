@@ -81,11 +81,21 @@
         {% set docActions = (canComment ? ['mouseup->comment-anchor#onDocMouseup', 'pointerup->comment-anchor#onDocPointerup', 'mousemove->comment-anchor#onDocMousemove', 'click->comment-anchor#onDocClick'] : [])|merge(readOnly ? [] : ['change->decision#select']) %}
         <div class="lp-review-doc{{ diffColumns ? ' lp-review-doc--wide' : '' }}" data-comment-anchor-target="block" data-controller="decision" data-decision-save-label-value="{{ 'review.decision.save'|trans }}"{% if docActions|length > 0 %} data-action="{{ docActions|join(' ') }}"{% endif %}>
 
-            {# A diff has no decisions to answer, and one that accepts no comments
-               has no comment list, so its margin offers what remains. #}
+            {# One that accepts no comments has no comment list, so its margin
+               offers what remains. Decisions stays in every margin, disabled
+               where there is nothing to answer, so the row keeps its shape. #}
             {% set marginTabs = diffMode
-                ? (diffCommenting ? ['comments'] : [])|merge(['outline', 'details'])
+                ? (diffCommenting ? ['comments'] : [])|merge(['outline', 'decisions', 'details'])
                 : ['comments', 'outline', 'decisions', 'details'] %}
+            {# The diff controller passes no `decisions` at all, so naming it
+               outside this branch is an undefined-variable 500 on the diff. #}
+            {% set decisionRows = diffMode ? [] : decisions.rows %}
+            {% set answeredDecisions = diffMode ? 0 : decisions.answeredCount %}
+            {% set marginTabReasons = {
+                decisions: diffMode
+                    ? 'review.document.margin.decisions_disabled_diff'
+                    : (decisionRows|length == 0 ? 'review.document.margin.decisions_disabled_empty' : null),
+            } %}
             {% include '@Review/_document_header.html.twig' with {
                 document: document,
                 version: version,
@@ -97,6 +107,7 @@
                 totalSections: diffMode ? null : sections.rows|length,
                 showMarginControls: not diffColumns,
                 marginTabs: marginTabs,
+                marginTabReasons: marginTabReasons,
                 commentCount: signals.threadCount,
                 canComment: canComment,
                 returnToDocument: diffMode,
@@ -124,11 +135,6 @@
                labelled by its id, or the tab count would outrun the list. #}
             {% set showContents = sectionRows|length > 0 %}
             {% set referenceCount = document.references|length + document.referencedBy|length %}
-            {# Same lazy-ternary guard as the headings above: the diff controller
-               passes no `decisions` at all, and naming it outside this branch is
-               an undefined-variable 500 on the diff page. #}
-            {% set decisionRows = diffMode ? [] : decisions.rows %}
-            {% set answeredDecisions = diffMode ? 0 : decisions.answeredCount %}
             {# The pane HTML with an approval control beside each heading. Built
                here rather than in the block below, so the diff branch never
                evaluates `decisionMarkedHtml`, which it is not passed. An older
@@ -284,12 +290,14 @@
                     {% else %}<p class="lp-review-context-panel__hint">{{ 'review.document.margin.outline_empty'|trans }}</p>{% endif %}
                 </div>
             </aside>
-            {% if not diffMode %}
+            {# Rendered even where the tab is disabled, so `aria-controls` on
+               that tab names a panel that exists. #}
             <aside class="lp-review-context-panel" data-review-margin-target="panel" data-margin-panel="decisions"
                    data-controller="contents-rail" id="review-margin-panel-decisions" role="tabpanel" aria-labelledby="review-margin-tab-decisions" tabindex="0" hidden>
                 <div class="lp-review-context-panel__inner">
                     <h2>{{ 'review.document.margin.decisions'|trans }} <span id="decision-summary-count">{{ 'review.document.decisions.count'|trans({'%answered%': answeredDecisions, '%total%': decisionRows|length}) }}</span></h2>
-                    {% if decisionRows|length > 0 %}
+                    {% if diffMode %}<p class="lp-review-context-panel__hint">{{ 'review.document.margin.decisions_disabled_diff'|trans }}</p>
+                    {% elseif decisionRows|length > 0 %}
                     <ul class="lp-decision-summary__list" id="decision-summary-list">
                         {% include '@Review/_decision_summary_rows.html.twig' with {rows: decisionRows} only %}
                     </ul>
@@ -297,7 +305,6 @@
                     {% else %}<p class="lp-review-context-panel__hint">{{ 'review.document.margin.decisions_empty'|trans }}</p>{% endif %}
                 </div>
             </aside>
-            {% endif %}
             <aside class="lp-review-context-panel" data-review-margin-target="panel" data-margin-panel="details"
                    data-controller="contents-rail" id="review-margin-panel-details" role="tabpanel" aria-labelledby="review-margin-tab-details" tabindex="0" hidden>
                 <div class="lp-review-context-panel__inner">

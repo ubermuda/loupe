@@ -1412,6 +1412,8 @@
             <trans-unit id="review.document.margin.filter_all"><source>review.document.margin.filter_all</source><target>All</target></trans-unit>
             <trans-unit id="review.document.margin.filter_empty"><source>review.document.margin.filter_empty</source><target>No comments match this filter.</target></trans-unit>
             <trans-unit id="review.document.margin.outline_empty"><source>review.document.margin.outline_empty</source><target>This document has no section headings.</target></trans-unit>
+            <trans-unit id="review.document.margin.decisions_disabled_empty"><source>review.document.margin.decisions_disabled_empty</source><target>This document has no decisions to answer.</target></trans-unit>
+            <trans-unit id="review.document.margin.decisions_disabled_diff"><source>review.document.margin.decisions_disabled_diff</source><target>A comparison cannot answer decisions. Open the Document view to answer them.</target></trans-unit>
             <trans-unit id="review.document.margin.decisions_empty"><source>review.document.margin.decisions_empty</source><target>This document has no decisions.</target></trans-unit>
             <trans-unit id="review.document.margin.decisions_save_hint"><source>review.document.margin.decisions_save_hint</source><target>Select your choices, then select Save decision in the document.</target></trans-unit>
             <trans-unit id="review.decision.save"><source>review.decision.save</source><target>Save decision</target></trans-unit>

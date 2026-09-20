@@ -88,14 +88,18 @@
         {% endif %}
         <div class="lp-review-margin-tablist" role="tablist" aria-label="{{ 'review.document.margin.label'|trans }}">
         {% for marginTab in marginTabs %}
+        {# A tab with nothing behind it stays in the row and says why, so the
+           row keeps its shape between the document and a comparison. #}
+        {% set tabReason = marginTabReasons[marginTab]|default(null) %}
         <button type="button" role="tab"
                 id="review-margin-tab-{{ marginTab }}"
                 aria-controls="review-margin-panel-{{ marginTab }}"
                 tabindex="{{ loop.first ? '0' : '-1' }}"
-                class="lp-review-margin-tabs__item{{ loop.first ? ' lp-review-margin-tabs__item--active' }}"
+                class="lp-review-margin-tabs__item{{ loop.first ? ' lp-review-margin-tabs__item--active' }}{{ tabReason ? ' lp-review-margin-tabs__item--disabled' }}"
                 aria-selected="{{ loop.first ? 'true' : 'false' }}"
+                {% if tabReason %}aria-disabled="true"{% endif %}
                 aria-label="{{ ('review.document.margin.' ~ marginTab)|trans }}"
-                title="{{ ('review.document.margin.' ~ marginTab)|trans }}"
+                title="{{ tabReason ? tabReason|trans : ('review.document.margin.' ~ marginTab)|trans }}"
                 data-review-margin-target="tab"
                 data-review-margin-name-param="{{ marginTab }}"
                 data-action="click->review-margin#select keydown->review-margin#navigate">

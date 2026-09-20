@@ -33,35 +33,56 @@ export default class extends Controller {
     }
 
     select(event) {
+        if (this.isDisabled(event.currentTarget)) {
+            return;
+        }
         this.selectTab(event.params.name);
         this.revealTab(event.currentTarget);
     }
 
+    // A disabled tab keeps its place in the row and its tooltip, so the arrows
+    // step over it rather than landing on a panel that cannot open.
+    isDisabled(tab) {
+        return tab.getAttribute('aria-disabled') === 'true';
+    }
+
     navigate(event) {
-        const index = this.tabTargets.indexOf(event.currentTarget);
+        const tabs = this.tabTargets;
+        const index = tabs.indexOf(event.currentTarget);
+        const step = (from, delta) => {
+            for (let hop = 1; hop <= tabs.length; hop++) {
+                const candidate =
+                    (from + delta * hop + tabs.length * hop) % tabs.length;
+                if (!this.isDisabled(tabs[candidate])) {
+                    return candidate;
+                }
+            }
+            return null;
+        };
         let nextIndex;
 
         switch (event.key) {
             case 'ArrowRight':
-                nextIndex = (index + 1) % this.tabTargets.length;
+                nextIndex = step(index, 1);
                 break;
             case 'ArrowLeft':
-                nextIndex =
-                    (index - 1 + this.tabTargets.length) %
-                    this.tabTargets.length;
+                nextIndex = step(index, -1);
                 break;
             case 'Home':
-                nextIndex = 0;
+                nextIndex = step(-1, 1);
                 break;
             case 'End':
-                nextIndex = this.tabTargets.length - 1;
+                nextIndex = step(tabs.length, -1);
                 break;
             default:
                 return;
         }
 
         event.preventDefault();
-        const tab = this.tabTargets[nextIndex];
+        if (null === nextIndex) {
+            return;
+        }
+        const tab = tabs[nextIndex];
         this.selectTab(tab.dataset.reviewMarginNameParam);
         tab.focus({ preventScroll: true });
         this.revealTab(tab);

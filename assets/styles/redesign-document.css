@@ -98,6 +98,11 @@
 .lp-review .lp-review-margin-tabs__item--active {
     @apply w-auto flex-auto border-accent-border bg-accent-soft font-semibold text-review-tab-ink;
 }
+/* Present so the row keeps its shape, and plainly not a way in. The title
+   says why. Pointer events stay on, or the tooltip never appears. */
+.lp-review .lp-review-margin-tabs__item--disabled {
+    @apply cursor-not-allowed text-fg-faint hover:bg-transparent hover:text-fg-faint;
+}
 .lp-review .lp-review-margin-tabs__count {
     @apply hidden;
 }
