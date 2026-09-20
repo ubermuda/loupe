@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/ubermuda/loupe/cli/internal/api"
 	"github.com/ubermuda/loupe/cli/internal/config"
+	"github.com/ubermuda/loupe/cli/internal/oauth"
 	"github.com/ubermuda/loupe/cli/internal/outbound"
 	"github.com/ubermuda/loupe/cli/internal/rules"
 	"github.com/ubermuda/loupe/cli/internal/transport"
@@ -39,7 +40,12 @@ var lookPath = exec.LookPath
 // apiClient is for short request/response calls only. The SSE subscription must
 // keep its own timeout-free client: a stream is meant to stay open.
 func apiClient(cfg config.Config) *api.Client {
-	return api.New(cfg.BaseURL, cfg.Token, &http.Client{Timeout: refreshTimeout})
+	hc := &http.Client{Timeout: refreshTimeout}
+	if cfg.OAuth != nil {
+		return api.NewWithSource(cfg.BaseURL, oauth.NewSource(cfg.BaseURL, *cfg.OAuth, hc), hc)
+	}
+
+	return api.New(cfg.BaseURL, cfg.Token, hc)
 }
 
 func newBridgeCmd() *cobra.Command {

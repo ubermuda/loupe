@@ -431,8 +431,8 @@ func TestWriteConfigLeavesNoTemporaryFile(t *testing.T) {
 		t.Fatalf("read config dir: %v", err)
 	}
 	for _, e := range entries {
-		if e.Name() != "config.json" {
-			t.Fatalf("config dir holds %q, want config.json alone", e.Name())
+		if e.Name() != "config.json" && e.Name() != lockFileName {
+			t.Fatalf("config dir holds %q, want config.json and its lock file alone", e.Name())
 		}
 	}
 }

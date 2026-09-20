@@ -4,11 +4,13 @@ league_oauth2_server:
         private_key: '%env(resolve:OAUTH_PRIVATE_KEY)%'
         private_key_passphrase: '%env(OAUTH_PRIVATE_KEY_PASSPHRASE)%'
         encryption_key: '%env(OAUTH_ENCRYPTION_KEY)%'
-        # Authorization code with PKCE, and refresh token with rotation. Nothing else.
+        # Authorization code with PKCE, the device grant for the CLI, and refresh
+        # token with rotation. Nothing else.
         enable_client_credentials_grant: false
         enable_password_grant: false
         enable_implicit_grant: false
-        enable_device_code_grant: false
+        enable_device_code_grant: true
+        device_code_verification_uri: '%env(DEFAULT_URI)%/oauth/device'
         enable_auth_code_grant: true
         enable_refresh_token_grant: true
         require_code_challenge_for_public_clients: true
