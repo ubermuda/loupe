@@ -6036,7 +6036,7 @@
             <trans-unit id="oauth.consent.scope.mcp"><source>oauth.consent.scope.mcp</source><target>Read and change the documents and site reviews of one project, through MCP.</target></trans-unit>
             <trans-unit id="oauth.consent.scope.site_review"><source>oauth.consent.scope.site_review</source><target>Read and post site-review comments on one project.</target></trans-unit>
             <trans-unit id="oauth.consent.scope.agent"><source>oauth.consent.scope.agent</source><target>Act as your Loupe agent: read your projects and boards, and report bridge runs.</target></trans-unit>
-            <trans-unit id="oauth.consent.redirect.label"><source>oauth.consent.redirect.label</source><target>After you answer, Loupe sends you to</target></trans-unit>
+            <trans-unit id="oauth.consent.redirect.label"><source>oauth.consent.redirect.label</source><target>Sends you to</target></trans-unit>
             <trans-unit id="oauth.consent.loopback_warning"><source>oauth.consent.loopback_warning</source><target>This app receives the answer on your own computer, so Loupe cannot check which app it is. Continue only if you started this connection yourself.</target></trans-unit>
             <trans-unit id="oauth.consent.no_projects"><source>oauth.consent.no_projects</source><target>You own no project yet. Create a project first, then connect the app again.</target></trans-unit>
             <trans-unit id="oauth.consent.error.project_required"><source>oauth.consent.error.project_required</source><target>Choose a project.</target></trans-unit>
