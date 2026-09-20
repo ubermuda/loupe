@@ -101,7 +101,10 @@ final class ShowBoardControllerTest extends WebTestCase
         // The drag submits this form, so the fields are on the face. Dragging is
         // the only interaction the face offers, so nothing renders a control.
         $face = $crawler->filter('[data-card-id="'.$cardId.'"]');
-        self::assertSame('pointerdown->board-drag#press', $face->attr('data-action'));
+        self::assertStringContainsString('pointerdown->board-drag#press', (string) $face->attr('data-action'));
+        // Hovering the whole card hands the prefetch to the title link.
+        self::assertStringContainsString('mouseenter->card-prefetch#enter', (string) $face->attr('data-action'));
+        self::assertCount(1, $face->filter('a.lp-board-card__title[data-card-prefetch-target="link"]'));
         self::assertCount(1, $crawler->filter('#board [data-board-drag-target="message"]'));
         self::assertCount(1, $face->filter('form[hidden][data-board-drag-target="moveForm"]'));
         self::assertCount(1, $face->filter('select[name$="[column]"]'));

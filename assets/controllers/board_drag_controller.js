@@ -126,6 +126,9 @@ export default class extends Controller {
         card.style.top = `${rectangle.top}px`;
         this.draggedCard = card;
         this.element.classList.add('lp-board--dragging');
+        // Turbo reads this on an ancestor, so no card under the pointer
+        // prefetches while the drag runs.
+        this.element.dataset.turboPrefetch = 'false';
     }
 
     pointerMove(event) {
@@ -323,6 +326,7 @@ export default class extends Controller {
             this.ghost.remove();
         }
         this.element.classList.remove('lp-board--dragging');
+        delete this.element.dataset.turboPrefetch;
 
         this.pointerId = null;
         this.pressedCard = null;
