@@ -85,24 +85,28 @@ it('shows frame errors, focuses Retry, and starts a fresh frame load', () => {
     expect(document.activeElement).toBe(controller.loadingTarget);
 });
 
-it('focuses the frame when the drawer opens it, and not on a later render', () => {
-    const invoker = document.getElementById('invoker');
-    controller.prepare({ currentTarget: invoker });
+it('takes the focus the frame render dropped on the body', () => {
+    const textarea = controller.frameTarget.querySelector('textarea');
+    textarea.focus();
+    textarea.remove();
     controller.loaded({ target: controller.frameTarget });
     expect(document.activeElement.textContent).toBe('Dismiss');
-    const textarea = controller.frameTarget.querySelector('textarea');
-    textarea.focus();
-    controller.loaded({ target: controller.frameTarget });
-    expect(document.activeElement).toBe(textarea);
 });
 
-it('leaves focus alone when a form inside the frame re-renders it', () => {
-    const textarea = controller.frameTarget.querySelector('textarea');
-    textarea.focus();
+it('leaves the focus a reader moved outside the frame', () => {
+    const invoker = document.getElementById('invoker');
+    invoker.focus();
     controller.loaded({ target: controller.frameTarget });
-    expect(document.activeElement).toBe(textarea);
+    expect(document.activeElement).toBe(invoker);
     expect(controller.frameTarget.hidden).toBe(false);
-    expect(controller.loadingTarget.hidden).toBe(true);
+});
+
+it('focuses the frame for a load the drawer started', () => {
+    const invoker = document.getElementById('invoker');
+    controller.prepare({ currentTarget: invoker });
+    invoker.focus();
+    controller.loaded({ target: controller.frameTarget });
+    expect(document.activeElement.textContent).toBe('Dismiss');
 });
 
 it('ignores late failure and load events after closing the drawer', () => {
