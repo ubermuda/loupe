@@ -985,12 +985,6 @@
     .lp-feedback-detail__actions {
         @apply flex flex-wrap items-center justify-end gap-2 pt-5 border-t border-line;
     }
-    .lp-feedback-detail__source {
-        @apply flex items-center gap-2 m-0 mt-4 text-xs text-fg-dim;
-    }
-    .lp-feedback-detail__source svg {
-        @apply w-3.5 h-3.5 shrink-0;
-    }
     .lp-feedback-detail__empty {
         @apply m-6;
     }

@@ -61,10 +61,9 @@ final class CardCrudControllerTest extends WebTestCase
         self::assertSame('pending', $stored->status->value);
     }
 
-    #[TestWith(['conversation'])]
-    #[TestWith(['feedback'])]
-    public function test_card_feedback_status_actions_update_the_original_and_preserve_the_tab(string $surface): void
+    public function test_card_feedback_status_actions_update_the_original_and_preserve_the_tab(): void
     {
+        $surface = 'feedback';
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $this->enableBoard();
@@ -82,6 +81,9 @@ final class CardCrudControllerTest extends WebTestCase
         foreach (['resolve' => 'resolved', 'reopen' => 'pending'] as $action => $status) {
             $crawler = $client->request(Request::METHOD_GET, $url);
             self::assertResponseIsSuccessful();
+            // Feedback holds the capture; Conversation holds the inbox requests.
+            self::assertCount(1, $crawler->filter('#card-panel-feedback [data-site-feedback="'.$comment->id.'"]'));
+            self::assertCount(0, $crawler->filter('#card-panel-conversation [data-site-feedback]'));
             $actionUrl = '/board/feedback/'.$link->id.'/'.$surface.'/'.$action;
             $form = $crawler->filter('form[action="'.$actionUrl.'"]')->form();
             $client->request(Request::METHOD_POST, $actionUrl, ['_csrf_token' => 'forged']);

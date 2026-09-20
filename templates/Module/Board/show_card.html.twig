@@ -113,9 +113,6 @@
         <section class="lp-card-panel" id="card-panel-conversation" role="tabpanel" aria-labelledby="card-tab-conversation" data-panel-tabs-target="panel" data-panel-panel="conversation" hidden>
             <div class="lp-card-conversation-intro"><span class="lp-source-avatar"><twig:ux:icon name="lucide:messages-square" class="w-4 h-4" /></span><div><h2 class="lp-card-panel__title">{{ 'board.card.conversation.title'|trans }}</h2><p>{{ 'board.card.conversation.description'|trans }}</p></div></div>
             {{ inbox_card_section(card) }}
-            {% for link in siteReviewLinks %}
-                {% include '@Board/_feedback_entry.html.twig' with {link: link, surface: 'conversation'} only %}
-            {% endfor %}
         </section>
 
         <section class="lp-card-panel" id="card-panel-feedback" role="tabpanel" aria-labelledby="card-tab-feedback" data-panel-tabs-target="panel" data-panel-panel="feedback" hidden>

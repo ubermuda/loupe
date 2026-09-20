@@ -5605,7 +5605,7 @@
             <trans-unit id="board.card.runs.all"><source>board.card.runs.all</source><target>Run history</target></trans-unit>
             <trans-unit id="board.card.runs.empty"><source>board.card.runs.empty</source><target>No agent has run on this card yet.</target></trans-unit>
             <trans-unit id="board.card.conversation.title"><source>board.card.conversation.title</source><target>Conversation</target></trans-unit>
-            <trans-unit id="board.card.conversation.description"><source>board.card.conversation.description</source><target>Requests and feedback linked to this card share their original records.</target></trans-unit>
+            <trans-unit id="board.card.conversation.description"><source>board.card.conversation.description</source><target>Inbox requests linked to this card share their original records.</target></trans-unit>
             <trans-unit id="board.card.feedback.description"><source>board.card.feedback.description</source><target>Feedback captured by the site review widget for this card.</target></trans-unit>
             <trans-unit id="board.card.link.status_not_reported"><source>board.card.link.status_not_reported</source><target>Not reported</target></trans-unit>
             <trans-unit id="board.card.link.status_unavailable"><source>board.card.link.status_unavailable</source><target>Unavailable</target></trans-unit>
@@ -6026,7 +6026,6 @@
             <trans-unit id="inbox.answer.unsent_closed"><source>inbox.answer.unsent_closed</source><target>This request no longer accepts responses. This draft was not sent.</target></trans-unit>
             <trans-unit id="inbox.answer.discard_draft"><source>inbox.answer.discard_draft</source><target>Discard draft</target></trans-unit>
             <trans-unit id="site_review.feedback.open_card"><source>site_review.feedback.open_card</source><target>Open card #%number%</target></trans-unit>
-            <trans-unit id="site_review.feedback.received"><source>site_review.feedback.received</source><target>Received from the site review widget</target></trans-unit>
             <trans-unit id="site_review.receipt.needs_card"><source>site_review.receipt.needs_card</source><target>{0}No feedback needs a card|{1}1 needs a card|]1,Inf[%count% need a card</target></trans-unit>
             <trans-unit id="site_review.receipt.organized"><source>site_review.receipt.organized</source><target>All feedback organized</target></trans-unit>
             <trans-unit id="site_review.filter.empty_title"><source>site_review.filter.empty_title</source><target>No matching feedback</target></trans-unit>
@@ -6045,6 +6044,7 @@
             <trans-unit id="board.card.tab.details"><source>board.card.tab.details</source><target>Details</target></trans-unit>
             <trans-unit id="inbox.account.project.oldest"><source>inbox.account.project.oldest</source><target>Oldest waiting %time%</target></trans-unit>
             <trans-unit id="site_review.attach.title"><source>site_review.attach.title</source><target>Link this feedback to work</target></trans-unit>
+            <trans-unit id="board.card.site_review.open_comment"><source>board.card.site_review.open_comment</source><target>Open this comment on the site review page</target></trans-unit>
         </body>
     </file>
 </xliff>
