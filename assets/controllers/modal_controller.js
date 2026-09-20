@@ -36,11 +36,20 @@ const DRAWER_TIMING = { duration: 200, easing: 'ease' };
 
 const isMobile = () => window.innerWidth < 640;
 
+/** A modeless drawer only pays off where the page beside it is still usable. */
+const MODELESS_MIN_WIDTH = 1024;
+
 export default class extends Controller {
     static targets = ['dialog'];
-    static values = { reopen: Boolean, drawer: Boolean };
+    static values = { reopen: Boolean, drawer: Boolean, modeless: Boolean };
 
     connect() {
+        this.onEscapeKey = (event) => {
+            if (event.key === 'Escape' && this.dialogTarget.open) {
+                event.preventDefault();
+                this.close();
+            }
+        };
         document.addEventListener(
             'turbo:before-stream-render',
             this.#onBeforeStreamRender,
@@ -57,6 +66,7 @@ export default class extends Controller {
     disconnect() {
         this.closeRequest = null;
         this.closingAnimation = null;
+        document.removeEventListener('keydown', this.onEscapeKey);
         document.removeEventListener(
             'turbo:before-stream-render',
             this.#onBeforeStreamRender,
@@ -85,7 +95,18 @@ export default class extends Controller {
         if (!dialog.open) {
             this.returnFocusTo = document.activeElement;
         }
-        dialog.showModal();
+        // A modeless dialog leaves the rest of the page live. It reports no
+        // cancel event, so Escape is handled here instead.
+        this.modeless =
+            this.modelessValue && window.innerWidth >= MODELESS_MIN_WIDTH;
+        if (!dialog.open) {
+            if (this.modeless) {
+                dialog.show();
+                document.addEventListener('keydown', this.onEscapeKey);
+            } else {
+                dialog.showModal();
+            }
+        }
         dialog.classList.remove('is-closing');
         dialog.classList.add('is-opening');
         // Cancel any leftover animations and start a fresh one every time.
@@ -113,6 +134,7 @@ export default class extends Controller {
         event?.preventDefault();
         const dialog = this.dialogTarget;
         if (!dialog.open) return;
+        document.removeEventListener('keydown', this.onEscapeKey);
         const request = {};
         this.closeRequest = request;
         this.#animateOutAsync().then(() => {

@@ -25,6 +25,9 @@ beforeEach(async () => {
     dialog.showModal = vi.fn(() => {
         dialog.open = true;
     });
+    dialog.show = vi.fn(() => {
+        dialog.open = true;
+    });
     dialog.close = vi.fn(() => {
         dialog.open = false;
         dialog.dispatchEvent(new Event('close'));
@@ -97,7 +100,9 @@ it('slides the drawer in when a card link opens it', () => {
     dialog.open = false;
     const invoker = document.getElementById('invoker');
     controller.prepare({ currentTarget: invoker });
-    expect(dialog.showModal).toHaveBeenCalledOnce();
+    // Wide enough for the board beside it, so the drawer is modeless.
+    expect(dialog.show).toHaveBeenCalledOnce();
+    expect(dialog.showModal).not.toHaveBeenCalled();
     expect(dialog.animate.mock.calls[0][0]).toEqual([
         { transform: 'translateX(100%)' },
         { transform: 'translateX(0)' },
@@ -157,4 +162,20 @@ it('keeps the focus of a reader already typing in the loaded content', () => {
     textarea.focus();
     controller.loaded({ target: controller.frameTarget });
     expect(document.activeElement).toBe(textarea);
+});
+
+it('keeps the drawer modal where the page beside it has no room', () => {
+    vi.stubGlobal('innerWidth', 900);
+    dialog.open = false;
+    controller.prepare({ currentTarget: document.getElementById('invoker') });
+    expect(dialog.showModal).toHaveBeenCalledOnce();
+    expect(dialog.show).not.toHaveBeenCalled();
+});
+
+it('closes a modeless drawer on Escape, which reports no cancel event', () => {
+    dialog.open = false;
+    controller.prepare({ currentTarget: document.getElementById('invoker') });
+    expect(dialog.open).toBe(true);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(controller.closeRequest).not.toBeNull();
 });

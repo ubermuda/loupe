@@ -7,6 +7,8 @@ export default class extends ModalController {
     static values = {
         reopen: Boolean,
         drawer: { type: Boolean, default: true },
+        // The board, or the list behind it, stays usable while a card is open.
+        modeless: { type: Boolean, default: true },
     };
 
     connect() {

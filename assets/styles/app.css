@@ -2036,8 +2036,9 @@
     }
     /* The right-hand drawer shell for the card, run and activity drawers.
        The modal controller slides it; the dialog itself stays still. */
+    /* z-50 carries the modeless case, which sits outside the top layer. */
     .lp-drawer {
-        @apply fixed inset-y-0 right-0 left-auto m-0 p-0 w-full max-w-142.5 overflow-hidden rounded-none border-0 bg-surface-1 shadow-2xl;
+        @apply fixed inset-y-0 right-0 left-auto z-50 m-0 p-0 w-full max-w-142.5 overflow-hidden rounded-none border-0 bg-surface-1 shadow-2xl;
         height: 100dvh;
         max-height: 100dvh;
     }
