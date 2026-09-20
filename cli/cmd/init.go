@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -36,7 +37,9 @@ func newInitCmd() *cobra.Command {
 				return err
 			}
 
-			if _, err := projectfile.Load(dir); err == nil && !force {
+			// Whether the file parses is beside the point. Replacing one
+			// somebody wrote is the thing that needs saying yes to.
+			if _, err := os.Stat(filepath.Join(dir, projectfile.Name)); err == nil && !force {
 				return fmt.Errorf("%s already exists: pass --force to replace it", projectfile.Name)
 			}
 

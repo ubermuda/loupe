@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -184,5 +185,20 @@ func TestInitSaysSoWhenTheLoginCoversNoProject(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "no project") {
 		t.Fatalf("error must say the login covers no project, got %v", err)
+	}
+}
+
+func TestInitRefusesToReplaceAMalformedFileWithoutForce(t *testing.T) {
+	dir := inRepo(t, "")
+	if err := os.WriteFile(filepath.Join(dir, projectfile.Name), []byte("project: [broken\n"), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	_, err := runInit(t, "", "--project", firstProject)
+	if err == nil {
+		t.Fatal("init over a malformed file: got no error")
+	}
+	if !strings.Contains(err.Error(), "--force") {
+		t.Fatalf("error must say how to replace it, got %v", err)
 	}
 }
