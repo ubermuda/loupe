@@ -261,10 +261,10 @@ final class ShowInboxControllerTest extends WebTestCase
         self::assertCount(0, $block->filter('.lp-inbox-ask__session'));
         self::assertStringContainsString((string) $ask->sessionId, $block->filter('.lp-presence [role="tooltip"]')->text());
         self::assertSame('the export', $block->filter('.lp-inbox-ask__context strong')->text());
-        self::assertStringContainsString('without an answer', $block->filter('#inbox-item-12 [data-inbox-decline-hint]')->text());
+        self::assertCount(0, $block->filter('[data-inbox-decline-hint]'));
         // A missing translation renders its key, and the gate does not fail on that.
         self::assertDoesNotMatchRegularExpression('/\\binbox\\.[a-z_]+\\.[a-z_.]+/', $crawler->filter('main')->text());
-        // Decline sits in the response row, and carries the note field's text.
+        // Close sits in the response row, and carries the note field's text.
         self::assertCount(1, $block->filter('#inbox-item-12 .lp-inbox-item__buttons button[form="inbox_decline_'.$question->id.'"]'));
         // The button names the form by id, so the form must carry that id.
         self::assertCount(1, $block->filter('form#inbox_decline_'.$question->id.'[action$="/decline"]'));

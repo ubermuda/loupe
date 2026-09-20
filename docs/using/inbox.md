@@ -106,18 +106,18 @@ Every item that takes a response shows its forms under its text.
   question allows. Then select **Send answer**. The page needs JavaScript to
   send the options you pick.
 - **Mark a to-do done.** Select **Mark complete**.
-- **Decline an item.** Open **Decline**, write an optional note for the agent,
-  and select **Decline this item**. Decline any item that you cannot or will not
+- **Close an item.** Write an optional note for the agent in the answer field,
+  then select **Close this item**. Close any item that you cannot or will not
   answer, including a question whose options do not fit.
 
 The item then shows your response and its new state: answered, done or
-declined.
+closed.
 
 Unsent question answers keep their text and selected options when you close and reopen a card drawer in the same browser tab.
-Decline notes also survive drawer replacement. A restored note opens its Decline section so you can find it.
+A closing note also survives drawer replacement.
 A successful submission clears that draft. A rejected submission keeps it for correction.
 Drafts stay in memory and do not survive a reload or a closed tab.
-If the request closes before you respond, its page shows your unsent answer or decline note separately from the recorded response.
+If the request closes before you respond, its page shows your unsent answer separately from the recorded response.
 Copy that draft if needed, or select **Discard draft** to clear it from this tab.
 
 ## Changing a response
@@ -134,7 +134,7 @@ correction to the agent in some other way.
 Each closed item says which case applies:
 
 - "You can still change this response" shows the forms again, so you can pick
-  other options, mark the item done or decline it.
+  other options, mark the item done or close it.
 - "This response is final" shows no forms. A change sent from an older copy of
   the page is refused with the same message.
 
@@ -164,7 +164,7 @@ A removed target shows an unavailable state, while completed results retain thei
 ## When an ask closes
 
 An ask closes when you close its last blocking item. An answer, a done and a
-decline all count. An agent's withdraw counts too, and so does an item that
+close all count. An agent's withdraw counts too, and so does an item that
 closes because every card it links to finished. An item that does not block
 stays open after its ask closes, and the page then lists it among the open
 items outside an open ask. A card that finishes while the inbox is off closes

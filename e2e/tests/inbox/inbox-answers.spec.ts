@@ -294,14 +294,14 @@ test('the owner answers a question and declines a to-do', async ({
     await question.getByText('CSV', { exact: true }).click();
     await question.getByLabel('Your answer').fill('An unsent correction.');
 
-    // A to-do takes no prose, so its decline carries no note.
+    // A to-do takes no prose, so closing it carries no note.
     const todo = page.locator(`#inbox-item-${inbox.todoNumber}`);
-    await todo.getByRole('button', { name: 'Decline this item' }).click();
+    await todo.getByRole('button', { name: 'Close this item' }).click();
 
     await expect(page.locator('.lp-flash')).toContainText(
-        `Item ${inbox.todoNumber} is declined.`,
+        `Item ${inbox.todoNumber} is closed.`,
     );
-    await expect(todo).toContainText('Declined');
+    await expect(todo).toContainText('Closed');
     await expect(sidebarPill).toHaveCount(0);
 
     const recovery = question.locator('[data-inbox-draft-kind="answer"]');

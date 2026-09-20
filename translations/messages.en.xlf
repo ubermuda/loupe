@@ -4674,7 +4674,7 @@
             </trans-unit>
             <trans-unit id="inbox.item.state.declined">
                 <source>inbox.item.state.declined</source>
-                <target>Declined</target>
+                <target>Closed</target>
             </trans-unit>
             <trans-unit id="inbox.item.state.withdrawn">
                 <source>inbox.item.state.withdrawn</source>
@@ -4768,14 +4768,13 @@
                 <source>inbox.done.error.already_done</source>
                 <target>This to-do is already done.</target>
             </trans-unit>
-            <trans-unit id="inbox.decline.hint"><source>inbox.decline.hint</source><target>Decline closes this item without an answer. The agent sees that you declined it, with your note if you add one.</target></trans-unit>
             <trans-unit id="inbox.decline.change">
                 <source>inbox.decline.change</source>
-                <target>Change the decline note</target>
+                <target>Change the closing note</target>
             </trans-unit>
             <trans-unit id="inbox.decline.submit">
                 <source>inbox.decline.submit</source>
-                <target>Decline this item</target>
+                <target>Close this item</target>
             </trans-unit>
             <trans-unit id="inbox.flash.answered">
                 <source>inbox.flash.answered</source>
@@ -4787,7 +4786,7 @@
             </trans-unit>
             <trans-unit id="inbox.flash.declined">
                 <source>inbox.flash.declined</source>
-                <target>Item %number% is declined.</target>
+                <target>Item %number% is closed.</target>
             </trans-unit>
             <trans-unit id="inbox.project_list.open_items">
                 <source>inbox.project_list.open_items</source>

@@ -197,7 +197,6 @@
                 {{ form_widget(declineForm.closeNote, {attr: {'data-inbox-decline-target': 'value'}}) }}
                 <div class="lp-field-errors">{{ form_errors(declineForm) }}{{ form_errors(declineForm.closeNote) }}</div>
             {{ form_end(declineForm) }}
-            <p class="lp-form-hint" data-inbox-decline-hint>{{ 'inbox.decline.hint'|trans }}</p>
         </div>
     {% endif %}
     {% if home %}

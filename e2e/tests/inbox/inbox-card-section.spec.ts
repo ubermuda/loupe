@@ -597,11 +597,9 @@ for (const surface of ['page', 'drawer']) {
                 'Wait for the new importer.',
             );
         }
-        await question
-            .getByRole('button', { name: 'Decline this item' })
-            .click();
+        await question.getByRole('button', { name: 'Close this item' }).click();
         await expect(page.locator('.lp-flash')).toContainText(
-            `Item ${questionNumber} is declined.`,
+            `Item ${questionNumber} is closed.`,
         );
         await expect(question.locator('[data-inbox-response]')).toContainText(
             'Wait for the new importer.',
