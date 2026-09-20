@@ -29,11 +29,11 @@
 
     <dl class="lp-consent__facts">
         <div class="lp-consent__fact">
-            <dt class="lp-eyebrow">{{ 'oauth.device.code.label'|trans }}</dt>
+            <dt class="lp-consent__label">{{ 'oauth.device.code.label'|trans }}</dt>
             <dd class="lp-consent__value lp-consent__value--mono" data-testid="oauth-device-user-code">{{ view.displayUserCode }}</dd>
         </div>
         <div class="lp-consent__fact">
-            <dt class="lp-eyebrow">{{ 'oauth.consent.scope.label'|trans }}</dt>
+            <dt class="lp-consent__label">{{ 'oauth.consent.scope.label'|trans }}</dt>
             <dd class="lp-consent__value">{{ ('oauth.consent.scope.' ~ view.scope.value|replace({'-': '_'}))|trans }}</dd>
         </div>
     </dl>
