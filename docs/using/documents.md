@@ -195,10 +195,10 @@ reads whole on both sides. Where one version has nothing, that side shows an
 empty slot and the pair stays level. The change count and the jump arrows work
 here too, and a jump can land in either column.
 
-Comments appear below the comparison so both columns keep their reading width.
-Select text on the new side to annotate the current version.
-The old side and comparisons of earlier versions remain read-only.
-On a phone the columns stack, older above newer, and each names its version.
+This view spends its whole width on the two versions, so it carries no comment
+column and takes no new comment. Read or write comments on **Rendered**, or in
+the document itself. On a phone the columns stack, older above newer, and each
+names its version.
 
 **Markdown** compares the two sources line by line, so it shows a change the
 other views cannot mark. Its Outline tab names every heading line, the removed

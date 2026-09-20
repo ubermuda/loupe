@@ -69,6 +69,11 @@ export default class extends Controller {
 
     revealTab(tab) {
         const tablist = tab.closest('[role="tablist"]');
+        // Only a list that scrolls needs revealing. Scrolling one that fits
+        // moved the row by a pixel on every switch, which reads as a flicker.
+        if (tablist.scrollWidth <= tablist.clientWidth) {
+            return;
+        }
         tablist.parentElement.scrollIntoView({
             block: 'nearest',
             inline: 'nearest',
@@ -100,7 +105,12 @@ export default class extends Controller {
         }
 
         if (this.hasFilterTarget) {
-            this.filterTarget.hidden = name !== 'comments';
+            // Hidden by visibility, not by [hidden]: taking it out of the
+            // layout shifted the whole row sideways on every tab change.
+            this.filterTarget.classList.toggle(
+                'lp-review-margin-filter--inactive',
+                name !== 'comments',
+            );
             this.filterTarget.open = false;
         }
         window.dispatchEvent(new Event('resize'));

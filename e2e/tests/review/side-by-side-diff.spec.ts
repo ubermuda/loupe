@@ -210,7 +210,7 @@ async function contentEscapingItsBox(page: Page): Promise<string[]> {
     });
 }
 
-test('the two columns pair the blocks and place comments below', async ({
+test('the two columns pair the blocks and carry no comment column', async ({
     page,
 }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -290,13 +290,14 @@ test('the two columns pair the blocks and place comments below', async ({
     expect(rewritten[0].isVoid).toBe(false);
     expect(rewritten[1].isVoid).toBe(false);
 
-    await expect(page.locator(MARGIN)).toHaveCount(1);
-    await expect(page.locator(MARGIN)).toHaveCSS('position', 'static');
+    // The two columns spend the whole width on the versions, so this view
+    // carries no comment column and takes no new comment.
+    await expect(page.locator(MARGIN)).toHaveCount(0);
     await expect(
         page.getByRole('button', { name: 'Add general comment' }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(page.locator('#diff-columns-notice')).toContainText(
-        'Comments appear below the comparison',
+        'no comment column',
     );
 
     // The block widens for the second reading measure, and the chrome above it

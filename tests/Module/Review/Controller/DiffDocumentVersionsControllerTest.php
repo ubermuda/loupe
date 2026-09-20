@@ -1069,7 +1069,7 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertSame('1', $spanning->filter('#diff-from option[selected]')->attr('value'));
     }
 
-    public function test_the_side_by_side_view_pairs_blocks_and_accepts_current_version_comments(): void
+    public function test_the_side_by_side_view_pairs_blocks_and_carries_no_comment_column(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -1104,9 +1104,10 @@ final class DiffDocumentVersionsControllerTest extends WebTestCase
         self::assertSame(0, $cells->count() % 2);
         self::assertGreaterThan(0, $columns->filter('.lp-diff-columns__cell--void')->count());
 
-        self::assertCount(1, $columns->filter('.lp-review-margin'));
-        self::assertCount(1, $columns->filter('[data-comment-anchor-target="doc"]'));
-        self::assertCount(1, $columns->filter('[data-comment-anchor-diff-value="true"]'));
+        // The columns take the width the comment column would, so this view
+        // carries none and accepts no comment.
+        self::assertCount(0, $columns->filter('.lp-review-margin'));
+        self::assertCount(0, $columns->filter('[data-comment-anchor-target="doc"]'));
         self::assertCount(0, $columns->filter('[data-diff-side="old"] [data-diff-offset]'));
         self::assertCount(1, $columns->filter('#diff-columns-notice'));
         self::assertCount(1, $columns->filter('.lp-review-block--wide'));

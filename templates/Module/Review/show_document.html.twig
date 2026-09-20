@@ -60,11 +60,12 @@
        versions. It is never attached merely to stay quiet: its highlight
        painting runs on every layout, whatever readOnly says. #}
     {% set diffNavigation = diffMode and diffChangeCount is not null %}
-    {% set canComment = not readOnly or diffCommenting %}
+    {# Two columns spend the whole width on the two versions, so that view
+       carries no comment column and takes no new comment. #}
+    {% set diffColumns = diffMode and diffView is not null and diffView.value == 'side-by-side' %}
+    {% set canComment = (not readOnly or diffCommenting) and not diffColumns %}
     {% set reviewControllers = (diffNavigation ? ['diff-navigation'] : [])|merge(diffMode and not diffCommenting ? [] : ['comment-anchor']) %}
     {% set diffUnmarked = diffNavigation and diff.hasChanges and diffView.value != 'source' and diffChangeCount == 0 %}
-    {# Two columns use the full reading width; their comments follow below. #}
-    {% set diffColumns = diffMode and diffView is not null and diffView.value == 'side-by-side' %}
     <div class="lp-review-block{{ diffColumns ? ' lp-review-block--wide' : '' }}"
         data-controller="{{ (reviewControllers|merge(['review-margin']))|join(' ') }}"
         data-action="review-margin:filter->comment-anchor#filterThreads comment-anchor:resolved-filter->review-margin#resolvedFilter"
@@ -200,7 +201,7 @@
                 {% if diffColumns %}
                 <p id="diff-columns-notice" class="lp-diff-notice">
                     <twig:ux:icon name="lucide:info" class="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{{ (diffCommenting ? 'review.document.diff.side_by_side.commenting' : 'review.document.diff.side_by_side.read_only')|trans }}</span>
+                    <span>{{ 'review.document.diff.side_by_side.read_only'|trans }}</span>
                 </p>
                 {% endif %}
 
@@ -268,7 +269,7 @@
 
             {# Also on a diff that accepts comments: the add-comment stream
                replaces this list, so a comment made there needs it on the page. #}
-            {% if not diffMode or diffCommenting %}
+            {% if (not diffMode or diffCommenting) and not diffColumns %}
             <div data-review-margin-target="panel" data-margin-panel="comments"
                  {% if not diffColumns %}id="review-margin-panel-comments" role="tabpanel" aria-labelledby="review-margin-tab-comments" tabindex="0"{% endif %}>
                 <div id="comment-recovery" aria-live="polite"></div>
