@@ -95,7 +95,7 @@ final class ReviewExtension extends AbstractExtension
         return 'reply_'.$comment->id?->toBase32();
     }
 
-    /** @param 'restore'|'purge' $action */
+    /** @param 'restore' $action */
     public function commentRecoveryForm(Comment $comment, string $action): FormView
     {
         return $this->formFactory->createNamed(
@@ -109,7 +109,7 @@ final class ReviewExtension extends AbstractExtension
         )->createView();
     }
 
-    /** @param 'restore'|'purge' $action */
+    /** @param 'restore' $action */
     public static function recoveryFormName(Comment $comment, string $action): string
     {
         return $action.'_comment_'.$comment->id?->toBase32();

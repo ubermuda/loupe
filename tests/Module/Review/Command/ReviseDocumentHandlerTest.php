@@ -61,12 +61,11 @@ final class ReviseDocumentHandlerTest extends KernelTestCase
         $current = $comments->findByVersion($fresh->currentVersion());
         self::assertCount(1, $current);
         self::assertSame('Visible', $current[0]->body);
-        $retained = $comments->findDeletedByDocument($fresh);
-        self::assertCount(2, $retained);
-        self::assertEqualsCanonicalizing([$deletedId, $replyId], array_map(static fn (Comment $comment): ?Uuid => $comment->id, $retained));
-        foreach ($retained as $comment) {
-            self::assertSame(1, $comment->version->versionNumber);
-            self::assertSame(CommentStatus::Addressed, $comment->threadStatus);
+        foreach ([$deletedId, $replyId] as $retainedId) {
+            $retained = $em->find(Comment::class, $retainedId);
+            self::assertInstanceOf(Comment::class, $retained);
+            self::assertSame(1, $retained->version->versionNumber);
+            self::assertSame(CommentStatus::Addressed, $retained->threadStatus);
         }
     }
 

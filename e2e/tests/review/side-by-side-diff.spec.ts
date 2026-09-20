@@ -210,7 +210,7 @@ async function contentEscapingItsBox(page: Page): Promise<string[]> {
     });
 }
 
-test('the two columns pair the blocks and place comments below', async ({
+test('the two columns pair the blocks and carry no comment column', async ({
     page,
 }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -290,30 +290,33 @@ test('the two columns pair the blocks and place comments below', async ({
     expect(rewritten[0].isVoid).toBe(false);
     expect(rewritten[1].isVoid).toBe(false);
 
-    await expect(page.locator(MARGIN)).toHaveCount(1);
-    await expect(page.locator(MARGIN)).toHaveCSS('position', 'static');
+    // The two columns spend the whole width on the versions, so this view
+    // carries no comment column and takes no new comment.
+    await expect(page.locator(MARGIN)).toHaveCount(0);
     await expect(
         page.getByRole('button', { name: 'Add general comment' }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(page.locator('#diff-columns-notice')).toContainText(
-        'Comments appear below the comparison',
+        'no comment column',
     );
 
-    // The block widens for the second reading measure, and the chrome above it
-    // still sits inside that width.
+    // The columns take the gutter and the comment column for the second
+    // reading measure, and the chrome above them still sits inside the block.
     const widths = await page.evaluate(() => {
         const block = document.querySelector('.lp-review-block')!;
         const bar = document.querySelector('.lp-diff-bar')!;
-        const chip = document.querySelector('.lp-doc-meta__compare')!;
+        const chip = document.querySelector('.lp-version-compare')!;
+        const grid = document.querySelector('.lp-diff-columns')!;
         return {
             block: Math.round(block.getBoundingClientRect().width),
+            grid: Math.round(grid.getBoundingClientRect().width),
             barRight: Math.round(bar.getBoundingClientRect().right),
             blockRight: Math.round(block.getBoundingClientRect().right),
             chipLeft: Math.round(chip.getBoundingClientRect().left),
             blockLeft: Math.round(block.getBoundingClientRect().left),
         };
     });
-    expect(widths.block).toBe(1120);
+    expect(widths.grid).toBe(widths.block);
     expect(widths.barRight).toBeLessThanOrEqual(widths.blockRight + 1);
     expect(widths.chipLeft).toBeGreaterThanOrEqual(widths.blockLeft - 1);
 
@@ -329,6 +332,46 @@ test('the two columns pair the blocks and place comments below', async ({
         page.getByRole('button', { name: 'Add general comment' }),
     ).toBeVisible();
     await expect(page.locator('#diff-columns-notice')).toHaveCount(0);
+});
+
+test('the toolbar holds the same two columns in every view', async ({
+    page,
+}) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signIn(page, `e2e-sbs-switch-${RUN}@example.com`);
+    const reviewPath = await seedComparison(page);
+
+    const span = async (selector: string) => {
+        const found = await page.locator(selector).boundingBox();
+        if (null === found) {
+            throw new Error(`${selector} has no box`);
+        }
+        return `${Math.round(found.x)}-${Math.round(found.x + found.width)}`;
+    };
+
+    // A laptop window is narrower than 1440, and that is where a single flex
+    // row used to wrap the change count under the switch and move it.
+    for (const width of [1440, 1280, 1100]) {
+        await page.setViewportSize({ width, height: 900 });
+        const rows = [];
+        for (const view of ['rendered', 'source', 'side-by-side']) {
+            await page.goto(`${reviewPath}/diff/1/2?view=${view}`);
+            await expect(
+                page.locator('.lp-diff-views__link[aria-current]'),
+            ).toHaveCount(1);
+            rows.push({
+                width,
+                view,
+                picker: await span('.lp-diff-bar .lp-version-compare'),
+                views: await span(VIEWS),
+                nav: await span('.lp-diff-nav'),
+            });
+        }
+
+        // The reader switches view without the control they clicked moving.
+        expect({ ...rows[1], view: rows[0].view }).toEqual(rows[0]);
+        expect({ ...rows[2], view: rows[0].view }).toEqual(rows[0]);
+    }
 });
 
 test('the jump controls still walk the changes across the two columns', async ({

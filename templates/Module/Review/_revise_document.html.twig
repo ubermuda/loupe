@@ -1,5 +1,5 @@
 <div data-controller="modal" data-modal-reopen-value="{{ form.vars.submitted ? 'true' : 'false' }}">
-    <button type="button" class="lp-btn" data-action="click->modal#open">{{ 'review.revise.open'|trans }}</button>
+    <button type="button" class="lp-btn" data-action="click->modal#open"><twig:ux:icon name="lucide:pencil" />{{ 'review.revise.open'|trans }}</button>
     <dialog class="lp-dialog lp-dialog--document" data-modal-target="dialog" aria-labelledby="revise-document-title" data-action="cancel->modal#close">
         <h2 class="lp-dialog-title" id="revise-document-title">{{ 'review.revise.title'|trans }}</h2>
         <p class="lp-dialog-desc">{{ 'review.revise.help'|trans }}</p>
