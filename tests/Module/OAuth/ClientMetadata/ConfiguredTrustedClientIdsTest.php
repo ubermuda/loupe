@@ -13,6 +13,7 @@ final class ConfiguredTrustedClientIdsTest extends TestCase
 {
     private const string CLAUDE = 'https://claude.ai/oauth/claude-code-client-metadata';
 
+    /** @param list<string> $entries */
     #[DataProvider('trusted')]
     public function test_it_trusts_a_listed_client(array $entries, string $clientId): void
     {
@@ -28,6 +29,7 @@ final class ConfiguredTrustedClientIdsTest extends TestCase
         yield 'an origin the operator vouches for' => [['https://claude.ai'], self::CLAUDE];
     }
 
+    /** @param list<string> $entries */
     #[DataProvider('untrusted')]
     public function test_it_does_not_trust_anything_else(array $entries, string $clientId): void
     {

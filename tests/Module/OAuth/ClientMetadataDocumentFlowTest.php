@@ -8,9 +8,9 @@ use App\Module\Account\Entity\User;
 use App\Module\OAuth\ClientMetadata\ClientIdUrl;
 use App\Module\OAuth\ClientMetadata\ConfiguredTrustedClientIds;
 use App\Module\OAuth\ClientMetadata\SystemHostResolver;
-use App\Module\OAuth\ClientMetadata\TrustedClientIds;
 use App\Module\Project\Entity\Project;
 use App\Tests\Support\FakeHostResolver;
+use App\Tests\Support\MutableTrustedClientIds;
 use App\Tests\Support\OAuthScenario;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
@@ -34,7 +34,7 @@ final class ClientMetadataDocumentFlowTest extends WebTestCase
     private Project $project;
     private int $fetches = 0;
     private ?string $icon = 'icon-bytes';
-    private TrustedClientIds $trustedClientIds;
+    private MutableTrustedClientIds $trustedClientIds;
 
     /** @var array<string, mixed> */
     private array $document = [
@@ -64,18 +64,7 @@ final class ClientMetadataDocumentFlowTest extends WebTestCase
             return new MockResponse((string) json_encode($this->document), ['response_headers' => ['content-type' => 'application/json']]);
         }));
 
-        // One instance for the whole test: the container refuses a second set()
-        // once a service is built, so each test changes its entries instead.
-        $this->trustedClientIds = new class implements TrustedClientIds {
-            /** @var list<string> */
-            public array $entries = [ClientMetadataDocumentFlowTest::CLIENT_ID];
-
-            #[\Override]
-            public function isTrusted(ClientIdUrl $url): bool
-            {
-                return new ConfiguredTrustedClientIds($this->entries)->isTrusted($url);
-            }
-        };
+        $this->trustedClientIds = new MutableTrustedClientIds([self::CLIENT_ID]);
         $container->set(ConfiguredTrustedClientIds::class, $this->trustedClientIds);
 
         $this->scenario = new OAuthScenario($container);
