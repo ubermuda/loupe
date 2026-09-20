@@ -22,7 +22,7 @@
         {% for card in items %}
         <div class="lp-done-row" data-card-id="{{ card.id }}">
             <a class="lp-done-row__title" href="{{ path('app_board_card', {projectId: project.id, cardId: card.id}) }}">{{ card.title }}</a>
-            <span class="lp-tag">{{ ('board.card.type.' ~ card.type.value)|trans }}</span>
+            {% include '@Board/_card_type_tag.html.twig' with {type: card.type} only %}
             {% if card.pullRequests|length > 0 %}
             <span class="lp-board-card__pulls">
                 <twig:ux:icon name="lucide:git-pull-request" class="w-3.5 h-3.5 shrink-0" />

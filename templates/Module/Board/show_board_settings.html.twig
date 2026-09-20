@@ -30,6 +30,7 @@
                 {% set label = column.label|trans %}
                 {% set index = loop.index0 %}
                 <li class="lp-settings-column" data-column-id="{{ column.id }}">
+                    <span class="lp-tone-dot lp-tone-dot--{{ column.tone.value }}" aria-hidden="true"></span>
                     <div class="lp-settings-column__name">
                         <h3>{{ label }}</h3>
                         <code>{{ column.slug }}</code>
@@ -80,6 +81,7 @@
                                         <div class="lp-field-errors" data-field-errors="label">{{ form_errors(configureForm.label) }}</div>
                                     </div>
                                     {% include '@Board/_board_column_slug.html.twig' with {column: column, slug: column.slug, refusal: null} only %}
+                                    {% include '@Board/_board_column_tone_field.html.twig' with {field: configureForm.tone} only %}
                                     {% for field in [configureForm.isDefault, configureForm.terminal] %}
                                     <div class="lp-form-field">
                                         <label class="lp-choice">
@@ -111,7 +113,7 @@
             {% endfor %}
             </ol>
             {% if canManage %}
-                {% set addForm = board_column_add_form(addColumnForm) %}
+                {% set addForm = board_column_add_form(board.project, addColumnForm) %}
                 <div data-controller="modal"{% if addForm.vars.submitted %} data-modal-reopen-value="true"{% endif %}>
                     <button class="lp-btn lp-btn--primary" type="button" data-action="click->modal#open">
                         <twig:ux:icon name="lucide:plus" />{{ 'board.column.add.title'|trans }}
@@ -124,6 +126,7 @@
                                 {{ form_widget(addForm.label, {attr: {class: 'lp-input'}}) }}
                                 <div class="lp-field-errors">{{ form_errors(addForm.label) }}</div>
                             </div>
+                            {% include '@Board/_board_column_tone_field.html.twig' with {field: addForm.tone} only %}
                             <div class="lp-settings-form-actions">
                                 <button class="lp-btn" type="button" data-action="click->modal#close">{{ 'board.column.rename.cancel'|trans }}</button>
                                 <button class="lp-btn lp-btn--primary" type="submit">{{ 'board.column.add.submit'|trans }}</button>

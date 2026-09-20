@@ -88,14 +88,12 @@ final class ShowAccountInboxControllerTest extends WebTestCase
         $crawler = $this->client->request(Request::METHOD_GET, '/account/inbox');
 
         self::assertResponseIsSuccessful();
-        self::assertSame([(string) $open->id], $this->askIds($crawler));
-        self::assertCount(0, $crawler->filter('[data-inbox-ask-id="'.$closed->id.'"]'));
-        self::assertCount(0, $crawler->filter('[data-inbox-ask-id="'.$foreign->id.'"]'));
+        self::assertSame([(string) $mine->id], $this->projectIds($crawler));
         self::assertCount(0, $crawler->filter('[data-account-inbox-project="'.$theirs->id.'"]'));
         self::assertStringNotContainsString('A stranger asks', $crawler->filter('main')->text());
     }
 
-    public function test_asks_group_by_project_name_and_come_oldest_first_inside_a_project(): void
+    public function test_the_projects_read_by_name_with_their_count_and_their_oldest_wait(): void
     {
         $owner = $this->signedUpUser($this->em, 'account-inbox-order');
         $zulu = $this->namedProject($owner, 'Zulu');
@@ -109,16 +107,13 @@ final class ShowAccountInboxControllerTest extends WebTestCase
         $crawler = $this->client->request(Request::METHOD_GET, '/account/inbox');
 
         self::assertResponseIsSuccessful();
-        self::assertSame(
-            [(string) $alpha->id, (string) $zulu->id],
-            $crawler->filter('[data-account-inbox-project]')->each(static fn (Crawler $node): string => (string) $node->attr('data-account-inbox-project')),
-        );
-        self::assertSame([(string) $alphaOlder->id, (string) $alphaNewer->id, (string) $zuluAsk->id], $this->askIds($crawler));
-        self::assertSame(
-            ['2', '3'],
-            $crawler->filter('[data-inbox-ask-id="'.$alphaOlder->id.'"] [data-inbox-item]')->each(static fn (Crawler $node): string => (string) $node->attr('data-inbox-item')),
-        );
+        self::assertSame([(string) $alpha->id, (string) $zulu->id], $this->projectIds($crawler));
+        // A missing translation renders its key, and the gate does not fail on that.
+        self::assertDoesNotMatchRegularExpression('/\\binbox\\.[a-z_]+\\.[a-z_.]+/', $crawler->filter('main')->text());
         self::assertSelectorTextSame('[data-account-inbox-project="'.$alpha->id.'"] [data-account-inbox-open-count]', '3 open items');
+        // The oldest of the project's open asks and loose items, not the newest.
+        self::assertStringContainsString('2h ago', $crawler->filter('[data-account-inbox-project="'.$alpha->id.'"] .lp-account-inbox-card__wait')->text());
+        self::assertStringContainsString('3h ago', $crawler->filter('[data-account-inbox-project="'.$zulu->id.'"] .lp-account-inbox-card__wait')->text());
     }
 
     public function test_the_page_is_read_only(): void
@@ -132,12 +127,13 @@ final class ShowAccountInboxControllerTest extends WebTestCase
         $crawler = $this->client->request(Request::METHOD_GET, '/account/inbox');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('[data-inbox-ask-id]'));
-        self::assertCount(2, $crawler->filter('[data-inbox-item]'));
+        // The page decides where to go and answers nothing itself.
+        self::assertCount(1, $crawler->filter('[data-account-inbox-project]'));
+        self::assertCount(0, $crawler->filter('[data-inbox-item]'));
         self::assertCount(0, $crawler->filter('main form'));
     }
 
-    public function test_an_open_item_outside_any_open_ask_shows_and_links_to_its_anchor(): void
+    public function test_an_open_item_outside_any_open_ask_keeps_its_project_on_the_page(): void
     {
         $owner = $this->signedUpUser($this->em, 'account-inbox-loose');
         $project = $this->inboxProject($this->em, $owner);
@@ -154,53 +150,14 @@ final class ShowAccountInboxControllerTest extends WebTestCase
         $group = $crawler->filter('[data-account-inbox-project="'.$project->id.'"]');
         self::assertCount(1, $group);
         self::assertSame('1 open item', $group->filter('[data-account-inbox-open-count]')->text());
-        self::assertCount(0, $group->filter('[data-inbox-ask-id]'));
-        $loose = $group->filter('[data-account-inbox-loose] [data-inbox-item]');
-        self::assertSame(['2'], $loose->each(static fn (Crawler $node): string => (string) $node->attr('data-inbox-item')));
-        self::assertStringContainsString('Review pull request 482', $loose->text());
+        self::assertStringNotContainsString('Review pull request 482', $group->text());
 
-        $link = $loose->filter('a[data-account-inbox-item-link]');
-        self::assertCount(1, $link);
-        [$path, $fragment] = explode('#', (string) $link->attr('href'), 2);
+        $path = (string) $group->attr('href');
         self::assertSame('/projects/'.$project->id.'/inbox', $path);
         $page = $this->client->request(Request::METHOD_GET, $path);
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $page->filter('#'.$fragment.'[data-inbox-item="2"]'));
-        self::assertCount(1, $page->filter('#'.$fragment.' form[name="inbox_done_'.$leftOpen->id.'"]'));
-    }
-
-    public function test_each_ask_links_to_its_block_on_the_project_inbox_page(): void
-    {
-        $owner = $this->signedUpUser($this->em, 'account-inbox-links');
-        $first = $this->inboxProject($this->em, $owner);
-        $second = $this->inboxProject($this->em, $owner);
-        $shared = $this->question($this->em, $first, 1);
-        $asks = [
-            $this->askHolding($this->em, $first, [$shared], createdAt: new \DateTimeImmutable('-2 hours')),
-            // One item in two open asks: each ask still links to its own block.
-            $this->askHolding($this->em, $first, [$shared], createdAt: new \DateTimeImmutable('-1 hour')),
-            $this->askHolding($this->em, $second, [$this->todo($this->em, $second, 1)]),
-        ];
-        $this->setInboxFlag(true);
-
-        $this->client->loginUser($owner);
-        $crawler = $this->client->request(Request::METHOD_GET, '/account/inbox');
-        self::assertResponseIsSuccessful();
-
-        $hrefs = [];
-        foreach ($asks as $ask) {
-            $link = $crawler->filter('[data-inbox-ask-id="'.$ask->id.'"] a[data-account-inbox-ask-link]');
-            self::assertCount(1, $link);
-            $hrefs[] = (string) $link->attr('href');
-        }
-
-        foreach ($hrefs as $href) {
-            [$path, $fragment] = explode('#', $href, 2);
-            $page = $this->client->request(Request::METHOD_GET, $path);
-            self::assertResponseIsSuccessful();
-            self::assertCount(1, $page->filter('#'.$fragment), \sprintf('%s names no element on %s.', $fragment, $path));
-            self::assertCount(1, $page->filter('#'.$fragment.'[data-inbox-ask-id]'));
-        }
+        self::assertCount(1, $page->filter('[data-inbox-item="2"]'));
+        self::assertCount(1, $page->filter('form[name="inbox_done_'.$leftOpen->id.'"]'));
     }
 
     public function test_the_page_reads_every_ask_item_and_project_in_one_query(): void
@@ -224,8 +181,7 @@ final class ShowAccountInboxControllerTest extends WebTestCase
         $this->client->enableProfiler();
         $crawler = $this->client->request(Request::METHOD_GET, '/account/inbox');
         self::assertResponseIsSuccessful();
-        self::assertCount(9, $crawler->filter('[data-inbox-ask-id]'));
-        self::assertCount(8, $crawler->filter('[data-account-inbox-loose] [data-inbox-item]'));
+        self::assertCount(5, $crawler->filter('[data-account-inbox-project]'));
 
         $profile = $this->client->getProfile();
         self::assertInstanceOf(Profile::class, $profile);
@@ -267,8 +223,8 @@ final class ShowAccountInboxControllerTest extends WebTestCase
     }
 
     /** @return list<string> */
-    private function askIds(Crawler $crawler): array
+    private function projectIds(Crawler $crawler): array
     {
-        return $crawler->filter('[data-inbox-ask-id]')->each(static fn (Crawler $node): string => (string) $node->attr('data-inbox-ask-id'));
+        return $crawler->filter('[data-account-inbox-project]')->each(static fn (Crawler $node): string => (string) $node->attr('data-account-inbox-project'));
     }
 }

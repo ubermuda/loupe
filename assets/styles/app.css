@@ -171,6 +171,20 @@
     --color-status-danger-border: var(--status-danger-border);
     --color-status-ok-ink: var(--status-ok-ink);
     --color-status-danger-chip: var(--status-danger-chip);
+    --color-status-active: var(--status-active);
+    --color-status-active-bg: var(--status-active-bg);
+    --color-tone-teal: var(--tone-teal);
+    --color-tone-teal-bg: var(--tone-teal-bg);
+    --color-tone-sky: var(--tone-sky);
+    --color-tone-sky-bg: var(--tone-sky-bg);
+    --color-tone-blue: var(--tone-blue);
+    --color-tone-blue-bg: var(--tone-blue-bg);
+    --color-tone-indigo: var(--tone-indigo);
+    --color-tone-indigo-bg: var(--tone-indigo-bg);
+    --color-tone-pink: var(--tone-pink);
+    --color-tone-pink-bg: var(--tone-pink-bg);
+    --color-tone-orange: var(--tone-orange);
+    --color-tone-orange-bg: var(--tone-orange-bg);
     --color-strike: var(--strike);
     --color-strike-on-chrome: var(--strike-on-chrome);
 
@@ -264,6 +278,22 @@
     --status-danger-deep: #8c1e14;
     --status-danger-bg: #fbe9e7;
     --status-danger-border: #f8d7d2;
+    /* Purple rung: running and in-progress work, and card or column labels. */
+    --status-active: #984482;
+    --status-active-bg: #f3e8f1;
+    /* More label hues for board columns: a pale fill with an ink at WCAG AA or better. */
+    --tone-teal: #1f6f65;
+    --tone-teal-bg: #e3f4f1;
+    --tone-sky: #1d6a8f;
+    --tone-sky-bg: #e4f2fa;
+    --tone-blue: #2f58b0;
+    --tone-blue-bg: #e8eefb;
+    --tone-indigo: #4a45a8;
+    --tone-indigo-bg: #ecebfa;
+    --tone-pink: #a8325f;
+    --tone-pink-bg: #fbe8ef;
+    --tone-orange: #a14a14;
+    --tone-orange-bg: #fdede2;
 
     /* Ink dark enough to sit on the -border rung, which the design uses as a
        solid chip fill (Approved, Changes requested) as well as a hairline. The
@@ -798,9 +828,6 @@
     .lp-redesign-projects .lp-page-header {
         @apply flex-wrap;
     }
-    .lp-section-tabs__item > span {
-        @apply inline-flex items-center justify-center min-w-5 rounded-full bg-surface-3 px-1.5 py-0.5 text-xs;
-    }
     .lp-inbox-section {
         scroll-margin-top: calc(var(--spacing) * 20);
     }
@@ -812,9 +839,6 @@
     }
     .lp-inbox-ask__source {
         @apply text-sm font-bold text-ink;
-    }
-    .lp-inbox-ask__session {
-        @apply truncate text-xs text-fg-mute;
     }
     .lp-inbox-item {
         @apply bg-surface-1;
@@ -881,24 +905,77 @@
         .lp-needs-you__header-actions {
             @apply w-full justify-between;
         }
-        .lp-inbox-ask__session {
-            @apply hidden;
-        }
     }
 }
 
 @layer components {
+    /* One quiet scrollbar for every pane the app scrolls: thin, no track, and a
+       muted thumb from the design tokens. No reserved gutter, so a pane that
+       does not scroll reads flush. */
+    .lp-quiet-scroll,
+    .lp-split-pane,
+    .lp-board__group,
+    .lp-sidebar--drawer {
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-strong) transparent;
+    }
+    /* Holds the page's controllers around a frame and a drawer, and leaves the
+       layout to them. */
+    .lp-site-review-shell {
+        @apply contents;
+    }
+    /* A master-detail page holds its header still and scrolls each pane on its
+       own, so reading one pane never moves the other. Below the stacking
+       breakpoint the panes sit one above the other and the page scrolls. */
+    .lp-split-page {
+        @apply flex flex-col min-h-0 h-full;
+    }
+    .lp-split-page > *:not(.lp-split-region) {
+        @apply shrink-0;
+    }
+    .lp-split-page > .lp-split-region {
+        @apply flex-1 min-h-0;
+    }
+    .lp-split-region > * {
+        @apply min-h-0 h-full;
+    }
+    /* The pane is positioned, so an absolute child such as an .sr-only label
+       cannot escape the clip and stretch the page. */
+    .lp-split-pane {
+        @apply relative min-h-0 overflow-y-auto;
+    }
+    @media (width <= 42.5rem) {
+        .lp-split-page {
+            @apply h-auto;
+        }
+        .lp-split-page > .lp-split-region,
+        .lp-split-region > * {
+            @apply flex-none h-auto;
+        }
+        .lp-split-pane {
+            @apply overflow-visible;
+        }
+    }
     .lp-feedback-receipt {
-        @apply flex items-center gap-3 rounded-xl bg-tint px-4 py-3 mb-5;
+        @apply flex items-center gap-4 rounded-xl border border-accent-border bg-accent-soft px-5.5 py-5 mb-6;
+    }
+    .lp-feedback-receipt__icon {
+        @apply grid place-items-center size-9.5 shrink-0 rounded-lg bg-surface-1 text-accent-ink;
+    }
+    .lp-feedback-receipt__icon svg {
+        @apply size-4.5;
     }
     .lp-feedback-receipt div {
         @apply min-w-0 mr-auto;
     }
     .lp-feedback-receipt h2 {
-        @apply text-sm font-bold text-ink m-0;
+        @apply text-sm font-semibold text-ink m-0;
     }
     .lp-feedback-receipt p {
-        @apply text-sm text-fg-mute m-0 mt-0.5;
+        @apply text-sm leading-relaxed text-fg-mute m-0 mt-1 max-w-3xl;
+    }
+    .lp-feedback-receipt .lp-tag {
+        @apply gap-1.5 shrink-0;
     }
     .lp-feedback-workspace {
         @apply grid grid-cols-1 min-h-96 rounded-2xl border border-line bg-surface-1 overflow-hidden;
@@ -918,112 +995,149 @@
             @apply col-span-3;
         }
     }
-    .lp-feedback-list__head {
-        @apply flex items-center justify-between gap-3 px-4 py-3 border-b border-line text-xs font-semibold text-fg-dim;
-    }
     .lp-feedback-list__item {
-        @apply flex items-start gap-3 w-full px-4 py-4 border-b border-line text-left transition-colors hover:bg-surface-1;
+        @apply block w-full px-5.5 py-5.5 border-b border-line text-left transition-colors hover:bg-accent-faint;
     }
     .lp-feedback-list__item[aria-current='true'] {
-        @apply bg-surface-1;
+        @apply bg-accent-soft;
     }
-    .lp-feedback-list__copy {
-        @apply flex flex-col flex-1 min-w-0;
+    .lp-feedback-list__meta {
+        @apply flex items-center gap-2.5 mb-3 text-xs text-fg-dim;
     }
-    .lp-feedback-list__copy strong {
-        @apply text-sm text-ink;
+    .lp-feedback-list__number {
+        @apply font-semibold text-fg-mute;
     }
-    .lp-feedback-list__copy > span {
-        @apply text-sm text-fg-mute truncate;
+    .lp-feedback-list__title {
+        @apply block text-base font-semibold leading-normal text-ink break-words;
     }
-    .lp-feedback-list__copy time {
-        @apply text-xs text-fg-dim mt-1;
+    .lp-feedback-list__body {
+        @apply block mt-2 mb-3.5 text-sm leading-relaxed text-fg-mute line-clamp-2;
+    }
+    .lp-feedback-list__source,
+    .lp-feedback-list__card {
+        @apply flex items-center gap-2 text-xs text-fg-dim break-all;
+    }
+    .lp-feedback-list__card {
+        @apply mt-2.5 font-semibold;
+    }
+    .lp-feedback-list__source svg,
+    .lp-feedback-list__card svg {
+        @apply size-3.5 shrink-0;
     }
     .lp-feedback-detail {
         @apply min-w-0;
     }
     .lp-feedback-detail__panel {
-        @apply p-6;
+        @apply px-8 py-7;
     }
     .lp-feedback-detail__panel[hidden] {
         @apply hidden;
     }
     .lp-feedback-detail__header {
-        @apply flex items-start justify-between gap-4 mb-5;
+        @apply flex items-center justify-between gap-4 mb-5;
     }
     .lp-feedback-detail__eyebrow {
-        @apply text-xs font-semibold text-accent-ink m-0 mb-1;
-    }
-    .lp-feedback-detail__header h2 {
-        @apply font-display text-2xl font-extrabold tracking-tight text-ink m-0;
+        @apply m-0 text-xs font-bold uppercase tracking-widest text-fg-dim;
     }
     .lp-feedback-detail__message {
-        @apply rounded-xl bg-surface-2 px-4 py-4 text-base leading-relaxed text-ink m-0 mb-6;
+        @apply m-0 mb-7 text-xl leading-relaxed text-ink whitespace-pre-line break-words;
     }
     .lp-feedback-detail__section {
-        @apply py-4 border-t border-line;
+        @apply py-5 border-t border-line;
     }
     .lp-feedback-detail__section h3 {
-        @apply text-sm font-bold text-ink m-0 mb-2;
+        @apply text-base font-bold text-ink m-0 mb-3;
     }
-    .lp-feedback-detail__section a {
-        @apply inline-flex items-center gap-2 text-sm text-accent-ink break-all;
+    .lp-feedback-detail__section-head {
+        @apply flex flex-wrap items-center justify-between gap-x-4 gap-y-1 mb-3;
     }
-    .lp-feedback-anchors {
-        @apply flex flex-col gap-2;
+    .lp-feedback-detail__section-head h3 {
+        @apply mb-0;
     }
-    .lp-feedback-anchors details {
-        @apply rounded-lg bg-surface-2 px-3 py-2;
+    .lp-feedback-detail__url {
+        @apply m-0 text-sm text-accent-ink break-all;
     }
-    .lp-feedback-anchors summary {
-        @apply cursor-pointer text-sm font-medium text-ink;
+    .lp-feedback-detail__muted {
+        @apply m-0 mb-3 text-sm text-fg-mute;
     }
-    .lp-feedback-anchors code {
-        @apply block mt-2 text-xs text-fg-mute break-all;
+    .lp-feedback-detail__section .lp-inbox-linked-table-wrap {
+        @apply mt-0;
+    }
+    /* Unlinked feedback leads with the two ways to give it a home, so neither
+       hides among the sections below. */
+    .lp-feedback-attach {
+        @apply flex flex-wrap items-center gap-3 mt-5 rounded-xl border border-accent-border bg-accent-soft px-5 py-4;
+    }
+    .lp-feedback-attach h3 {
+        @apply basis-full m-0 text-base font-bold text-ink;
+    }
+    .lp-feedback-attach p {
+        @apply basis-full m-0 -mt-2 text-sm text-fg-mute;
+    }
+    /* The form lays its children out in the panel's own rows, so the select
+       takes one row and both buttons sit together on the next one. */
+    .lp-feedback-attach .lp-site-review-attach {
+        display: contents;
+    }
+    .lp-feedback-attach .lp-select {
+        @apply basis-full;
+    }
+    .lp-feedback-attach .lp-btn {
+        @apply shrink-0;
+    }
+    .lp-feedback-attach__create {
+        @apply bg-surface-1;
+    }
+    /* One captured element: what it said, then its selector behind a disclosure. */
+    .lp-feedback-anchor {
+        @apply mt-3 first-of-type:mt-0 rounded-lg border border-line bg-surface-2 p-4;
+    }
+    .lp-feedback-anchor__label {
+        @apply flex items-center gap-2 text-xs text-fg-dim;
+    }
+    .lp-feedback-anchor__label svg {
+        @apply size-3.5 shrink-0;
+    }
+    .lp-feedback-anchor__text {
+        @apply m-0 my-3 text-base leading-relaxed text-ink whitespace-pre-line break-words;
+    }
+    .lp-feedback-anchor__selector {
+        @apply text-sm text-fg-mute;
+    }
+    .lp-feedback-anchor__selector summary {
+        @apply cursor-pointer py-1.5;
+    }
+    .lp-feedback-anchor__selector code {
+        @apply block mt-1 rounded-md border border-line bg-surface-1 p-3 font-mono text-xs leading-relaxed break-all;
+    }
+    /* A link that reads as an action: accent ink, no underline, trailing icon. */
+    .lp-text-link {
+        @apply inline-flex items-center gap-1.5 text-sm font-semibold text-accent-ink no-underline transition-colors hover:text-ink;
+    }
+    .lp-text-link svg {
+        @apply size-3.5 shrink-0;
     }
     .lp-feedback-detail__actions {
-        @apply flex items-center justify-end gap-2 pt-5 border-t border-line;
+        @apply flex flex-wrap items-center justify-end gap-2 pt-5 border-t border-line;
     }
-    .lp-feedback-detail__source {
-        @apply flex items-center gap-2 m-0 mt-4 pb-4 border-b border-line text-xs text-fg-dim;
+    .lp-feedback-detail__empty {
+        @apply m-6;
     }
-    .lp-feedback-detail__source svg {
-        @apply w-3.5 h-3.5 shrink-0;
+    /* Site review follows the handoff ladder: addressed is purple, resolved green. */
+    .lp-feedback-workspace .lp-status-chip--addressed {
+        @apply bg-status-active-bg text-status-active border-transparent;
     }
-    /* Replies under a piece of site feedback, then the one-line composer. */
-    .lp-feedback-replies {
-        @apply flex flex-col gap-3 mt-4;
+    .lp-feedback-workspace .lp-status-chip--resolved {
+        @apply bg-status-ok-bg text-status-ok-deep border-transparent;
     }
-    .lp-feedback-replies__meta {
-        @apply m-0 text-xs text-fg-dim;
-    }
-    .lp-feedback-replies__body {
-        @apply m-0 text-sm text-ink whitespace-pre-line;
-    }
-    .lp-reply-composer {
-        @apply flex items-start gap-2;
-    }
-    .lp-reply-composer textarea.lp-input {
-        @apply flex-1 min-h-10 resize-y;
-    }
-    /* Doubled class: .lp-btn--icon is declared later and clears the border. */
-    .lp-reply-composer__send.lp-reply-composer__send {
-        @apply shrink-0 border-line bg-surface-1 text-fg-mute;
+    .lp-feedback-workspace .lp-status-chip--pending {
+        @apply border-transparent;
     }
 }
 
 @layer components {
     .lp-card-drawer {
         @apply flex flex-col max-w-5xl min-h-screen mx-auto bg-surface-1 border-x border-line shadow-xl;
-    }
-    .lp-card-drawer-overlay {
-        @apply fixed inset-y-0 right-0 left-auto m-0 p-0 w-full max-w-xl h-full max-h-none overflow-hidden border-0 bg-surface-1 shadow-2xl;
-    }
-    .lp-card-drawer-overlay::backdrop {
-        @apply bg-ink/40 backdrop-blur-xs;
-    }
-    .lp-card-drawer-overlay[open] {
-        animation: lp-card-drawer-enter 200ms ease-out both;
     }
     .lp-card-drawer-overlay > turbo-frame {
         @apply block h-full;
@@ -1049,14 +1163,6 @@
     .lp-card-drawer-overlay__loading svg {
         @apply animate-spin;
     }
-    @keyframes lp-card-drawer-enter {
-        from {
-            translate: 100% 0;
-        }
-        to {
-            translate: 0 0;
-        }
-    }
     .lp-card-drawer__header,
     .lp-card-drawer__footer {
         @apply flex items-center justify-between gap-4 px-6 border-b border-line bg-surface-1;
@@ -1081,22 +1187,29 @@
     .lp-card-drawer__title {
         @apply font-display text-3xl font-extrabold tracking-tight text-ink m-0 mb-4;
     }
-    .lp-card-tabs {
+    /* The one tab strip: role="tab" buttons (aria-selected), page links
+       (aria-current) or view toggles (aria-pressed) share the underline. */
+    .lp-tabs {
         @apply flex items-center gap-1 overflow-x-auto border-b border-line mb-6;
         scrollbar-width: none;
     }
-    .lp-card-tabs::-webkit-scrollbar {
+    .lp-tabs::-webkit-scrollbar {
         display: none;
     }
-    .lp-card-tabs__tab {
-        @apply px-3 py-2.5 border-b-2 border-transparent text-sm font-semibold text-fg-mute whitespace-nowrap transition-colors;
+    .lp-tabs__tab {
+        @apply inline-flex items-center gap-2 px-3 py-2.5 border-b-2 border-transparent text-sm font-semibold text-fg-mute no-underline whitespace-nowrap cursor-pointer transition-colors;
     }
-    .lp-card-tabs__tab:hover,
-    .lp-card-tabs__tab:focus-visible {
+    .lp-tabs__tab:hover,
+    .lp-tabs__tab:focus-visible {
         @apply text-ink;
     }
-    .lp-card-tabs__tab[aria-selected='true'] {
+    .lp-tabs__tab[aria-selected='true'],
+    .lp-tabs__tab[aria-current='page'],
+    .lp-tabs__tab[aria-pressed='true'] {
         @apply border-accent text-ink;
+    }
+    .lp-tabs__count {
+        @apply inline-flex items-center justify-center min-w-5 rounded-md bg-surface-3 px-1.5 py-0.5 text-xs text-fg-dim;
     }
     .lp-card-panel[hidden] {
         @apply hidden;
@@ -1104,26 +1217,41 @@
     .lp-card-panel__title {
         @apply font-display text-lg font-extrabold tracking-tight text-ink m-0;
     }
-    .lp-card-overview-grid {
-        @apply grid grid-cols-1 lg:grid-cols-3 gap-8;
+    /* The card overview reads top to bottom, like the drawer it sits in:
+       description, the field grid, linked work, then agent runs. */
+    .lp-card-overview {
+        @apply flex flex-col gap-7;
     }
-    .lp-card-overview-grid__main {
-        @apply lg:col-span-2 flex flex-col gap-7;
+    .lp-card-overview__section {
+        @apply flex flex-col gap-3;
     }
-    .lp-card-overview-grid__facts {
-        @apply flex flex-col gap-6 rounded-xl bg-surface-2 p-4;
+    .lp-card-fields {
+        @apply grid grid-cols-2 gap-x-6 gap-y-4 m-0 rounded-xl bg-surface-2 p-4;
     }
-    .lp-card-fact-list {
-        @apply flex flex-col m-0;
+    .lp-card-field {
+        @apply flex flex-col gap-1 min-w-0;
     }
-    .lp-card-fact-list div {
-        @apply flex items-center justify-between gap-4 py-2.5 border-b border-line last:border-0;
+    .lp-card-field--wide {
+        @apply col-span-2;
     }
-    .lp-card-fact-list dt {
-        @apply text-sm font-medium text-fg-mute;
+    .lp-card-field dt {
+        @apply text-xs font-semibold text-fg-mute;
     }
-    .lp-card-fact-list dd {
-        @apply text-sm font-semibold text-ink m-0 text-right;
+    .lp-card-field dd {
+        @apply m-0 text-sm font-semibold text-ink whitespace-nowrap;
+    }
+    /* One agent run on the card: rule, when and how long, outcome. */
+    .lp-card-run {
+        @apply flex items-center gap-3 rounded-lg border border-line px-3 py-2.5 text-sm text-ink no-underline transition-colors hover:bg-surface-2;
+    }
+    .lp-card-run__rule {
+        @apply min-w-0 truncate font-semibold;
+    }
+    .lp-card-run__meta {
+        @apply shrink-0 text-xs text-fg-mute;
+    }
+    .lp-card-run__chevron {
+        @apply size-4 shrink-0 text-fg-dim;
     }
     .lp-card-linked-list,
     .lp-card-feedback-list {
@@ -1206,6 +1334,9 @@
     }
     .lp-choice input {
         @apply w-4 h-4 shrink-0 cursor-pointer accent-accent-ink;
+    }
+    .lp-choice:has(input:checked) {
+        @apply bg-accent-soft border-accent-border;
     }
     .lp-choice:has(input:focus-visible) {
         @apply outline-2 outline-offset-1 outline-accent-ink;
@@ -1329,6 +1460,87 @@
 
     .lp-tag {
         @apply inline-flex items-center py-1 px-2.5 rounded-md text-xs font-semibold bg-surface-3 text-fg-mute;
+    }
+    /* Label tones for card types and board columns; LabelTone names each one. */
+    .lp-tag--neutral {
+        @apply bg-surface-3 text-fg-mute;
+    }
+    .lp-tag--lime {
+        @apply bg-accent-soft text-accent-ink;
+    }
+    .lp-tag--purple {
+        @apply bg-status-active-bg text-status-active;
+    }
+    .lp-tag--green {
+        @apply bg-status-ok-bg text-status-ok-deep;
+    }
+    .lp-tag--amber {
+        @apply bg-status-pending-bg text-status-pending-deep;
+    }
+    .lp-tag--red {
+        @apply bg-status-danger-bg text-status-danger-deep;
+    }
+    .lp-tag--teal {
+        @apply bg-tone-teal-bg text-tone-teal;
+    }
+    .lp-tag--sky {
+        @apply bg-tone-sky-bg text-tone-sky;
+    }
+    .lp-tag--blue {
+        @apply bg-tone-blue-bg text-tone-blue;
+    }
+    .lp-tag--indigo {
+        @apply bg-tone-indigo-bg text-tone-indigo;
+    }
+    .lp-tag--pink {
+        @apply bg-tone-pink-bg text-tone-pink;
+    }
+    .lp-tag--orange {
+        @apply bg-tone-orange-bg text-tone-orange;
+    }
+    /* The column header's colour mark, in the same tone as its labels. */
+    .lp-tone-dot {
+        @apply inline-block size-2 shrink-0 rounded-full bg-fg-faint;
+    }
+    .lp-tone-dot--lime {
+        @apply bg-accent-ink;
+    }
+    .lp-tone-dot--purple {
+        @apply bg-status-active;
+    }
+    .lp-tone-dot--green {
+        @apply bg-status-ok;
+    }
+    .lp-tone-dot--amber {
+        @apply bg-status-pending;
+    }
+    .lp-tone-dot--red {
+        @apply bg-status-danger;
+    }
+    .lp-tone-dot--teal {
+        @apply bg-tone-teal;
+    }
+    .lp-tone-dot--sky {
+        @apply bg-tone-sky;
+    }
+    .lp-tone-dot--blue {
+        @apply bg-tone-blue;
+    }
+    .lp-tone-dot--indigo {
+        @apply bg-tone-indigo;
+    }
+    .lp-tone-dot--pink {
+        @apply bg-tone-pink;
+    }
+    .lp-tone-dot--orange {
+        @apply bg-tone-orange;
+    }
+    /* The colour picker: each choice shows its tone's dot beside its name. */
+    .lp-tone-picker {
+        @apply grid grid-cols-2 gap-2 sm:grid-cols-3;
+    }
+    .lp-tone-picker .lp-tone-dot {
+        @apply size-3;
     }
 
     /* A series chip carries a position, so it reads in the accent ink to
@@ -1642,14 +1854,9 @@
     .lp-list-filters {
         @apply flex flex-wrap items-center gap-2 mt-6;
     }
-    .lp-filter-chip {
-        @apply inline-flex items-center gap-1.5 h-8.5 rounded-full bg-surface-3 text-fg-mute no-underline transition-colors text-sm font-semibold px-3.5;
-    }
-    .lp-filter-chip:hover {
-        @apply bg-tint-strong text-ink;
-    }
-    .lp-filter-chip--on {
-        @apply bg-ink text-accent;
+    /* A labelled on/off filter, such as Show archived. */
+    .lp-filter-switch {
+        @apply inline-flex items-center gap-2 h-8.5 px-1 text-sm font-semibold text-fg-mute cursor-pointer;
     }
     /* Borderless "Clear" — an escape hatch, not a filter of its own. */
     .lp-filter-clear {
@@ -1737,25 +1944,49 @@
         @apply bg-status-ok;
     }
 
-    /* About page. One card per fact, so the AGPL offer reads as a statement
-       with its own edge rather than a paragraph among others. */
+    /* About page: a warm hero with the lead and the planner mascot, then one
+       card per fact, so the AGPL offer reads as a statement of its own. */
+    .lp-about-hero {
+        @apply relative flex items-center gap-6 overflow-hidden rounded-2xl border border-line-warm bg-warm px-8 py-8 mb-6;
+    }
+    .lp-about-hero__copy {
+        @apply relative z-10 min-w-0 max-w-2xl;
+    }
+    .lp-about-hero__eyebrow {
+        @apply m-0 mb-2 text-xs font-bold uppercase tracking-widest text-fg-dim;
+    }
+    .lp-about-hero__lead {
+        @apply m-0 font-display text-2xl font-extrabold leading-snug tracking-tight text-ink;
+    }
+    .lp-about-hero__facts {
+        @apply flex flex-wrap gap-2 m-0 mt-5 p-0 list-none;
+    }
+    .lp-about-hero__facts .lp-tag {
+        @apply gap-1.5;
+    }
+    .lp-about-hero__mascot {
+        @apply hidden sm:block ml-auto h-40 w-40 shrink-0 -rotate-6 object-contain;
+    }
     .lp-about-cards {
-        @apply flex flex-col gap-4 max-w-170;
+        @apply grid grid-cols-1 lg:grid-cols-3 gap-4;
     }
     .lp-about-card {
-        @apply flex items-start gap-4 rounded-xl bg-surface-2 py-5 px-5.5;
+        @apply flex flex-col items-start gap-4 rounded-xl border border-line bg-surface-1 p-6;
     }
     .lp-about-card__glyph {
-        @apply inline-flex items-center justify-center shrink-0 w-9.5 h-9.5 rounded-lg bg-accent-soft text-accent-hover;
+        @apply inline-flex items-center justify-center shrink-0 w-9.5 h-9.5 rounded-lg bg-accent-soft text-accent-ink;
     }
     .lp-about-card__main {
-        @apply flex flex-col items-start gap-2 min-w-0;
+        @apply flex flex-1 flex-col items-start gap-2 min-w-0;
     }
     .lp-about-card__title {
         @apply font-display font-extrabold text-lg text-ink m-0 tracking-tight;
     }
     .lp-about-card__text {
         @apply text-fg-mute m-0 text-sm leading-relaxed;
+    }
+    .lp-about-card__action {
+        @apply mt-auto;
     }
     .lp-about-card__value {
         @apply font-mono text-base text-ink m-0;
@@ -1938,14 +2169,20 @@
     .lp-dialog--document {
         @apply max-w-3xl;
     }
-    /** Read-only details for a reported worker attempt. */
-    .lp-dialog.lp-run-drawer {
-        @apply w-full max-w-2xl m-0 ml-auto rounded-none p-0 overflow-hidden;
+    /* The right-hand drawer shell for the card, run and activity drawers.
+       The modal controller slides it; the dialog itself stays still. */
+    /* z-50 carries the modeless case, which sits outside the top layer. */
+    .lp-drawer {
+        @apply fixed inset-y-0 right-0 left-auto z-50 m-0 p-0 w-full max-w-142.5 overflow-hidden rounded-none border-0 bg-surface-1 shadow-2xl;
         height: 100dvh;
         max-height: 100dvh;
     }
-    .lp-run-drawer[open] {
+    .lp-drawer[open] {
         @apply flex flex-col;
+    }
+    .lp-drawer::backdrop {
+        @apply bg-ink/40 backdrop-blur-xs;
+        animation: lp-dialog-backdrop-in 200ms ease;
     }
     .lp-run-drawer__header {
         @apply flex items-start justify-between gap-3 p-6 border-b border-line shrink-0;
@@ -2018,14 +2255,6 @@
         @apply flex flex-wrap gap-3 py-4;
     }
     /** Recent project events in the topbar's right-hand drawer. */
-    .lp-activity-drawer {
-        @apply fixed inset-y-0 right-0 left-auto m-0 ml-auto w-full max-w-142.5 rounded-none border-0 bg-surface-1 p-0;
-        height: 100dvh;
-        max-height: 100dvh;
-    }
-    .lp-activity-drawer[open] {
-        @apply flex flex-col;
-    }
     .lp-activity-drawer__header {
         @apply flex shrink-0 items-center justify-between gap-4 min-h-15.5 border-b border-line px-6;
     }
@@ -2175,6 +2404,9 @@
     .lp-review-verdict-choice {
         @apply flex items-center gap-3 rounded-lg border border-line p-3 text-sm text-ink;
     }
+    .lp-review-verdict-choice:has(input:checked) {
+        @apply bg-accent-soft border-accent-border;
+    }
     .lp-review-verdict-choice input {
         @apply size-4 accent-accent;
     }
@@ -2198,19 +2430,6 @@
         @apply shrink-0 font-mono text-sm text-fg-dim;
     }
     /* Primary document workspace views. */
-    .lp-review-view-tabs {
-        @apply mt-3 flex items-center gap-1 overflow-x-auto border-b border-line;
-        scrollbar-width: none;
-    }
-    .lp-review-view-tabs::-webkit-scrollbar {
-        display: none;
-    }
-    .lp-review-view-tabs__item {
-        @apply whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-sm font-semibold text-fg-mute no-underline transition-colors hover:text-ink;
-    }
-    .lp-review-view-tabs__item[aria-current='page'] {
-        @apply border-accent text-ink;
-    }
 
     /* The side-by-side comparison, which renders no comment rail and takes the
        gutter and the comment column back for its second reading measure. Both
@@ -2965,8 +3184,8 @@
             @apply flex-row items-end gap-9;
         }
     }
-    .lp-review-workspace-nav .lp-review-view-tabs {
-        @apply mt-0 min-w-0 flex-1;
+    .lp-review-workspace-nav .lp-tabs {
+        @apply mb-0 min-w-0 flex-1;
     }
     .lp-review-margin-tabs {
         @apply flex min-w-0 max-w-full shrink-0 scroll-mb-24 items-center justify-start gap-1;
@@ -3703,7 +3922,8 @@
        which a viewport media query would pin to the window. The closed panel is
        `visibility: hidden`, so it is untabbable and untappable off-canvas. */
     .lp-sidebar--drawer {
-        @apply fixed inset-y-0 left-0 z-50 overflow-y-auto bg-sidebar invisible -translate-x-full lg:static lg:visible lg:translate-x-0 lg:overflow-visible;
+        @apply fixed inset-y-0 left-0 z-50 min-h-0 overflow-y-auto bg-sidebar invisible -translate-x-full lg:static lg:visible lg:translate-x-0;
+        /* The shell is one viewport tall, so a longer rail scrolls itself. */
         /* `translate`, not `transform`: that is the property -translate-x-full
            writes. Hiding waits out the slide, so the panel does not vanish
            mid-motion. */
@@ -4689,20 +4909,25 @@
 
     /* The input stays a real checkbox so form binding and keyboard access are
        untouched; only its box is redrawn as a track and knob. */
-    .admin-switch {
+    .admin-switch,
+    .lp-switch {
         @apply relative shrink-0 w-10 h-6 mt-px appearance-none rounded-full bg-line-strong cursor-pointer transition-colors;
     }
-    .admin-switch::after {
+    .admin-switch::after,
+    .lp-switch::after {
         @apply absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-surface-1 transition-all;
         content: '';
     }
-    .admin-switch:checked {
+    .admin-switch:checked,
+    .lp-switch:checked {
         @apply bg-accent;
     }
-    .admin-switch:checked::after {
+    .admin-switch:checked::after,
+    .lp-switch:checked::after {
         @apply left-4.5;
     }
-    .admin-switch:focus-visible {
+    .admin-switch:focus-visible,
+    .lp-switch:focus-visible {
         @apply outline-2 outline-offset-2 outline-accent-ink;
     }
 
@@ -5456,16 +5681,29 @@
         @apply flex items-start justify-between gap-4 mb-7;
     }
     .lp-board {
-        @apply flex flex-col gap-2;
+        @apply flex flex-col gap-2 min-h-0 h-full;
     }
+    /* A board is a viewport-sized surface at every width: the columns keep the
+       room the page leaves, rather than stacking as a split page does. */
+    .lp-core-board.lp-split-page,
+    .lp-core-board .lp-split-region,
+    .lp-core-board .lp-split-region > * {
+        @apply flex-1 min-h-0 h-full;
+    }
+    /* Everything above the strip keeps its height, whatever the strip needs. */
+    .lp-board > *:not(.lp-board__columns) {
+        @apply shrink-0;
+    }
+    /* The strip fills what the page leaves and scrolls sideways. Each column
+       holds its own head and Add card still, and scrolls its cards. */
     .lp-board__columns {
-        @apply flex items-start gap-4 overflow-x-auto pb-4;
+        @apply flex flex-1 items-stretch gap-4 min-h-72 overflow-x-auto pb-4;
     }
     .lp-board__message {
         @apply text-sm font-semibold text-danger m-0 empty:hidden;
     }
     .lp-board__column {
-        @apply flex flex-col gap-3 grow basis-0 min-w-64 rounded-xl bg-surface-2 p-3.5;
+        @apply flex flex-col gap-3 grow basis-0 min-w-64 min-h-0 rounded-xl bg-surface-2 p-3.5 pr-2;
     }
     .lp-board__column-head {
         @apply flex items-center justify-between gap-2;
@@ -5504,11 +5742,6 @@
     }
     .lp-board__column-menu-panel[hidden] {
         @apply hidden;
-    }
-    /* The row scrolls sideways, which clips anything below it too, so an open
-       menu gets room below the columns rather than a scrollbar. */
-    .lp-board__columns:has(.lp-board__column-menu-panel:not([hidden])) {
-        @apply pb-80;
     }
     .lp-board__column-menu-item {
         @apply w-full px-2 py-1.5 rounded-lg text-left text-sm font-semibold text-ink transition-colors hover:bg-surface-2;
@@ -5559,14 +5792,27 @@
     }
     /* A group is a drop target, so it keeps a minimum height even when empty:
        an empty column with no area under it cannot be dropped into. */
+    /* pr-1.5 keeps the bar off the card edges, which are rounded boxes. The
+       column gives back the same amount, so a short column reads flush. */
     .lp-board__group {
-        @apply flex flex-col gap-2 min-h-12 rounded-lg transition-colors;
+        @apply flex flex-col flex-1 gap-2 min-h-12 pr-1.5 rounded-lg overflow-y-auto transition-colors;
     }
-    .lp-board__group:not(:has(.lp-board-card)) {
-        @apply min-h-6;
+    /* An empty group takes no room: the negative margin cancels the column gap
+       above it. The drag controller hit-tests the whole column, so it stays a target. */
+    .lp-board__group:not(:has(.lp-board-card, .lp-board__placeholder)) {
+        @apply min-h-0 -mt-3;
     }
     .lp-board__placeholder {
         @apply rounded-xl border-2 border-dashed border-accent-border bg-accent-faint;
+    }
+    /* The dragged card's own slot, shown as a faded copy. A drop marker next to
+       it would mark the same place twice, so the marker hides there. */
+    .lp-board__ghost {
+        @apply opacity-40 pointer-events-none;
+    }
+    .lp-board__ghost + .lp-board__placeholder,
+    .lp-board__placeholder:has(+ .lp-board-card--dragging + .lp-board__ghost) {
+        @apply hidden;
     }
     /* Text selection during a drag would highlight every card the pointer
        crosses, so it is suppressed for the length of the gesture only. */
@@ -5621,20 +5867,12 @@
 
     /* The move controls, on the card's own page. The board face carries the
        same form with no controls, because dragging is its one interaction. */
-    .lp-card-move {
-        @apply mt-8;
-    }
-    .lp-card-move__title {
-        @apply font-display font-extrabold text-lg tracking-tight text-ink m-0 mb-3;
-    }
+    /* Status is the move control: a column select and Move. */
     .lp-card-move__form {
-        @apply flex flex-wrap items-end gap-4 rounded-xl bg-surface-2 py-4 px-5;
+        @apply flex flex-wrap items-center gap-2;
     }
-    .lp-card-move__field {
-        @apply flex flex-col gap-1;
-    }
-    .lp-card-move__submit {
-        @apply shrink-0;
+    .lp-card-move__form .lp-card-move__select {
+        @apply w-auto min-w-40;
     }
 
     /* ── Card detail and card form ──────────────────────────────────── */
@@ -5651,9 +5889,6 @@
     }
     /* The documents a card's work is written up in. Read only here: a
        document is written and revised through its own screens. */
-    .lp-card-docs {
-        @apply mt-8;
-    }
     .lp-card-docs__title {
         @apply font-display font-extrabold text-lg tracking-tight text-ink m-0 mb-3;
     }
@@ -5665,9 +5900,6 @@
     }
     .lp-card-docs__link {
         @apply text-sm;
-    }
-    .lp-card-pulls {
-        @apply mt-8;
     }
     .lp-card-pulls__title {
         @apply font-display font-extrabold text-lg tracking-tight text-ink m-0 mb-3;
@@ -5802,9 +6034,6 @@
     .lp-inbox-section__title {
         @apply m-0 text-sm font-bold uppercase tracking-widest text-fg-mute;
     }
-    .lp-inbox-section__note {
-        @apply m-0 text-sm text-fg-dim;
-    }
     .lp-inbox-ask {
         @apply flex flex-col gap-3 rounded-xl bg-surface-2 py-4 px-4.5 scroll-mt-16;
     }
@@ -5817,15 +6046,36 @@
     .lp-inbox-ask__time {
         @apply ml-auto;
     }
-    /* When an open ask's bridge last sent a heartbeat. The amber variant warns that no resume will come. */
-    .lp-inbox-ask__bridge {
-        @apply flex items-start gap-2 m-0 text-xs text-fg-dim leading-normal;
+    .lp-inbox-linked-table__version {
+        @apply text-xs font-semibold text-fg-mute whitespace-nowrap;
     }
-    .lp-inbox-ask__bridge--quiet {
-        @apply rounded-lg bg-status-pending-bg px-3 py-2 text-sm font-semibold text-status-pending-deep;
+    .lp-inbox-ask__title {
+        @apply m-0 font-display text-xl font-extrabold tracking-tight text-ink;
     }
-    .lp-inbox-ask__bridge-icon {
-        @apply shrink-0 text-status-pending mt-0.5;
+    /* The agent's avatar with a dot for its bridge: green live, amber quiet,
+       grey with no bridge. Hover or focus shows the tooltip. */
+    .lp-presence {
+        @apply relative inline-flex shrink-0 rounded-full outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-ink;
+    }
+    .lp-presence__dot {
+        @apply absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full border-2 border-surface-2 bg-fg-faint;
+    }
+    .lp-presence--live .lp-presence__dot {
+        @apply bg-status-ok;
+    }
+    .lp-presence--quiet .lp-presence__dot {
+        @apply bg-status-pending;
+    }
+    /* A small text bubble under its anchor, shown on hover and on keyboard focus. */
+    .lp-tooltip {
+        @apply invisible absolute left-0 top-full z-20 mt-2 flex w-72 flex-col gap-1 rounded-lg bg-ink px-3 py-2 text-xs font-medium leading-snug text-chrome-fg opacity-0 shadow-lg transition-opacity;
+    }
+    .lp-presence:hover .lp-tooltip,
+    .lp-presence:focus-visible .lp-tooltip {
+        @apply visible opacity-100;
+    }
+    .lp-tooltip__line--quiet {
+        @apply break-all text-chrome-mute;
     }
     .lp-inbox-ask__context {
         @apply max-w-none text-sm;
@@ -5876,22 +6126,28 @@
     .lp-inbox-item__jump {
         @apply self-start text-sm font-semibold text-accent-ink no-underline hover:underline;
     }
-    /* The account inbox: one heading per project above its open asks. The
-       link to an ask's block on the project page sits at the end of its head. */
-    .lp-account-inbox-project__head {
-        @apply flex flex-wrap items-baseline gap-3;
+    /* The account inbox points at the project inboxes and answers nothing
+       itself, so a row carries only what chooses between them. */
+    .lp-account-inbox__grid {
+        @apply flex flex-col gap-3 mt-2;
     }
-    .lp-account-inbox-project__title {
-        @apply m-0 text-lg font-semibold;
+    .lp-account-inbox-card {
+        @apply flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface-1 px-5 py-4 no-underline transition-colors hover:border-accent-border hover:bg-accent-faint;
     }
-    .lp-account-inbox-project__link {
-        @apply text-ink no-underline hover:underline;
+    .lp-account-inbox-card__avatar {
+        @apply inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-status-danger text-xs font-bold text-white;
     }
-    .lp-account-inbox-project__count {
+    .lp-account-inbox-card__name {
+        @apply font-display text-base font-extrabold tracking-tight text-ink;
+    }
+    .lp-account-inbox-card__count {
+        @apply text-sm font-semibold text-accent-ink;
+    }
+    .lp-account-inbox-card__wait {
         @apply text-sm text-fg-dim;
     }
-    .lp-inbox-ask__link {
-        @apply ml-auto font-sans text-sm font-semibold text-accent-ink no-underline hover:underline;
+    .lp-account-inbox-card__go {
+        @apply ml-auto size-4 shrink-0 text-fg-dim;
     }
     .lp-inbox-item__actions {
         @apply flex flex-col gap-3;
@@ -5911,22 +6167,6 @@
         @apply hidden;
     }
     .lp-inbox-answer__clear {
-        @apply mt-2;
-    }
-    /* The reply composer: one field with its send button beside it. */
-    .lp-inbox-composer {
-        @apply flex-row items-end gap-2;
-    }
-    .lp-inbox-composer .lp-input {
-        @apply flex-1;
-    }
-    .lp-inbox-composer__send {
-        @apply shrink-0 px-2.5;
-    }
-    .lp-inbox-decline__summary {
-        @apply cursor-pointer select-none text-sm font-semibold text-fg-dim hover:text-ink;
-    }
-    .lp-inbox-decline__form {
         @apply mt-2;
     }
 
@@ -6162,10 +6402,6 @@
         transition: none;
     }
 
-    .lp-card-drawer-overlay[open] {
-        animation: none;
-    }
-
     @keyframes lp-appear {
         from {
             opacity: 0;
@@ -6362,10 +6598,7 @@
         @apply flex flex-wrap items-center justify-between gap-3 text-xs text-fg-dim;
     }
     .lp-workshop-work-card__badge {
-        @apply min-w-0 max-w-full break-words rounded-md bg-accent-soft px-2 py-1 font-semibold text-accent-ink;
-    }
-    .lp-workshop-work-card__badge--quiet {
-        @apply bg-surface-3 text-fg-dim;
+        @apply min-w-0 max-w-full break-words;
     }
     .lp-workshop-work-card h3 {
         @apply mt-3 break-words font-display text-base leading-normal font-bold text-ink;
@@ -6451,15 +6684,14 @@
         @apply flex lg:flex-col gap-1 overflow-x-auto;
         scrollbar-width: none;
     }
-    .lp-settings-nav::-webkit-scrollbar,
-    .lp-section-tabs::-webkit-scrollbar {
+    .lp-settings-nav::-webkit-scrollbar {
         display: none;
     }
     .lp-settings-nav__item {
         @apply inline-flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-xs font-normal text-fg-mute no-underline whitespace-nowrap transition-colors;
     }
     .lp-settings-nav__item:hover {
-        @apply bg-tint text-ink;
+        @apply bg-tint-strong text-ink;
     }
     .lp-settings-nav__item--active {
         @apply bg-accent-soft text-accent-ink;
@@ -6531,22 +6763,6 @@
     }
     .lp-settings-section .lp-form {
         @apply mt-6;
-    }
-
-    .lp-section-tabs {
-        @apply flex gap-1 overflow-x-auto mb-8 border-b border-line;
-        scrollbar-width: none;
-    }
-    .lp-section-tabs__item {
-        @apply px-3 py-3 text-sm font-semibold text-fg-mute no-underline whitespace-nowrap border-b-2 border-transparent transition-colors;
-    }
-    .lp-section-tabs__item:hover,
-    .lp-section-tabs__item:focus-visible {
-        @apply text-ink border-accent;
-    }
-    /* After the base class, or the base border colour wins at equal specificity. */
-    .lp-section-tabs__item--active {
-        @apply border-accent text-ink;
     }
 
     .lp-orchestration-header {

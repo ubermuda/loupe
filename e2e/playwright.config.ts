@@ -111,6 +111,8 @@ export default defineConfig({
                 /admin\/.*\.spec\.ts/,
                 /billing\/paywall\.spec\.ts/,
                 /account\/social-login\.spec\.ts/,
+                /project\/search\.spec\.ts/,
+                /project\/project-switcher\.spec\.ts/,
             ],
             use: {
                 ...devices['Desktop Chrome'],
@@ -137,13 +139,15 @@ export default defineConfig({
         },
         {
             name: 'global-flags',
-            // billing.enabled, inbox.enabled and the OAuth provider flags change
-            // what every signed-in page and the login form render, so nothing
-            // else runs beside these.
+            // billing.enabled, inbox.enabled, search.topbar.enabled and the
+            // OAuth provider flags change what every signed-in page and the
+            // login form render, so nothing else runs beside these.
             testMatch: [
                 /billing\/paywall\.spec\.ts/,
                 /account\/social-login\.spec\.ts/,
                 /inbox\/.*\.spec\.ts/,
+                /project\/search\.spec\.ts/,
+                /project\/project-switcher\.spec\.ts/,
             ],
             workers: 1,
             use: {

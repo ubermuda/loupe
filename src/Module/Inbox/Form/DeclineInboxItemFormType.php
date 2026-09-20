@@ -6,7 +6,7 @@ namespace App\Module\Inbox\Form;
 
 use App\Module\Inbox\Entity\InboxItem;
 use Symfony\Component\Form\AbstractType;
-use Symfony\Component\Form\Extension\Core\Type\TextareaType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
@@ -23,10 +23,9 @@ class DeclineInboxItemFormType extends AbstractType
     #[\Override]
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
-        $builder->add('closeNote', TextareaType::class, [
-            'required' => false,
-            'label' => 'inbox.form.decline_inbox_item_form.close_note.label',
-        ]);
+        // The note comes from the item's answer or review note field, which a
+        // reader with script copies in. Without script a decline carries none.
+        $builder->add('closeNote', HiddenType::class, ['required' => false]);
     }
 
     #[\Override]

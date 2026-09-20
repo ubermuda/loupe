@@ -6,7 +6,6 @@ namespace App\Module\Board\Command;
 
 use App\Module\Board\Entity\Card;
 use App\Module\Board\Entity\CardSiteReviewComment;
-use App\Module\SiteReview\View\SiteReviewReplyThreads;
 
 /** Everything one card page renders. */
 final readonly class CardView
@@ -15,7 +14,6 @@ final readonly class CardView
     public function __construct(
         public Card $card,
         public array $siteReviewLinks,
-        public SiteReviewReplyThreads $siteReviewReplies,
     ) {
     }
 }

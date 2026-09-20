@@ -41,7 +41,9 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertCount(0, $crawler->filter('[data-priority], [data-card-priority]'));
         self::assertCount(2, $crawler->filter('[data-board-drag-target="card"]'));
         self::assertCount(1, $crawler->filter('dialog[data-card-drawer-target="dialog"] turbo-frame#card-drawer-frame'));
-        self::assertCount(2, $crawler->filter('.lp-board__column a[data-turbo-frame="card-drawer-frame"][data-action="click->card-drawer#prepare"]'));
+        self::assertCount(2, $crawler->filter('.lp-board-card a[data-turbo-frame="card-drawer-frame"][data-action="click->card-drawer#prepare"]'));
+        self::assertCount(4, $crawler->filter('a.lp-board__add-card[data-turbo-frame="card-drawer-frame"][data-action="click->card-drawer#prepare"]'));
+        self::assertCount(1, $crawler->filter('.lp-board-head a[href$="/board/cards/new"][data-turbo-frame="card-drawer-frame"]'));
         self::assertSelectorTextContains('.lp-board-toolbar__count', '2 cards');
         self::assertSelectorTextContains('.lp-board-toolbar__mode-button[aria-pressed="true"]', 'Board');
         self::assertSelectorExists('a[href="/projects/'.$project->id.'/edit"]');
@@ -99,7 +101,10 @@ final class ShowBoardControllerTest extends WebTestCase
         // The drag submits this form, so the fields are on the face. Dragging is
         // the only interaction the face offers, so nothing renders a control.
         $face = $crawler->filter('[data-card-id="'.$cardId.'"]');
-        self::assertSame('pointerdown->board-drag#press', $face->attr('data-action'));
+        self::assertStringContainsString('pointerdown->board-drag#press', (string) $face->attr('data-action'));
+        // Hovering the whole card hands the prefetch to the title link.
+        self::assertStringContainsString('mouseenter->card-prefetch#enter', (string) $face->attr('data-action'));
+        self::assertCount(1, $face->filter('a.lp-board-card__title[data-card-prefetch-target="link"]'));
         self::assertCount(1, $crawler->filter('#board [data-board-drag-target="message"]'));
         self::assertCount(1, $face->filter('form[hidden][data-board-drag-target="moveForm"]'));
         self::assertCount(1, $face->filter('select[name$="[column]"]'));
@@ -134,6 +139,18 @@ final class ShowBoardControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter('[data-card-id="'.$linked->id.'"] .lp-board-card__pulls'));
         self::assertCount(0, $crawler->filter('[data-card-id="'.$plain->id.'"] .lp-board-card__pulls'));
         self::assertStringContainsString('Feature', $crawler->filter('[data-card-id="'.$plain->id.'"]')->text());
+
+        self::assertSame(['Work', 'Type', 'Status', 'Agent', 'Feedback'], $crawler->filter('.lp-board-list__header span')->each(static fn ($cell): string => $cell->text()));
+        $row = $crawler->filter('.lp-board-list__row[data-card-title="No links"] > span');
+        self::assertCount(5, $row);
+        self::assertSame('Feature', $row->eq(1)->text());
+
+        self::assertSame('lime', $crawler->filter('[data-card-id="'.$plain->id.'"] .lp-tag')->attr('data-tone'));
+        self::assertSame('lime', $row->eq(1)->filter('.lp-tag')->attr('data-tone'));
+        $column = $row->eq(2)->filter('.lp-tag');
+        self::assertCount(1, $column);
+        self::assertContains($column->attr('data-tone'), ['neutral', 'lime', 'purple', 'amber', 'green']);
+        self::assertCount(1, $crawler->filter('.lp-board__column-head .lp-tone-dot--green'));
     }
 
     public function test_the_done_column_shows_only_the_recent_slice_and_links_to_the_history(): void

@@ -1,8 +1,17 @@
-<div data-controller="modal activity-drawer" data-activity-drawer-url-value="{{ path('app_project_recent_activity', {id: project.id}) }}">
+<div data-controller="modal activity-drawer" data-modal-drawer-value="true" data-activity-drawer-url-value="{{ path('app_project_recent_activity', {id: project.id}) }}">
     <a class="lp-topbar__global-action" href="{{ path('app_project_activity', {id: project.id}) }}" title="{{ 'nav.activity.open'|trans }}" aria-label="{{ 'nav.activity.open'|trans }}" aria-haspopup="dialog" data-action="click->modal#open click->activity-drawer#open">
         <twig:ux:icon name="lucide:bell" />
     </a>
-    <dialog class="lp-dialog lp-activity-drawer lp-redesign-activity" data-modal-target="dialog" data-action="cancel->modal#close" aria-labelledby="recent-activity-title">
+    {% embed '_drawer.html.twig' with {
+        project: project,
+        class: 'lp-activity-drawer lp-redesign-activity',
+        attributes: {
+            'data-modal-target': 'dialog',
+            'data-action': 'cancel->modal#close',
+            'aria-labelledby': 'recent-activity-title',
+        },
+    } only %}
+    {% block content %}
         <header class="lp-activity-drawer__header">
             <h2 class="lp-activity-drawer__title" id="recent-activity-title"><twig:ux:icon name="lucide:activity" />{{ 'activity.recent.title'|trans }}</h2>
             <button type="button" class="lp-btn lp-btn--icon" data-action="modal#close" aria-label="{{ 'activity.recent.close'|trans }}" autofocus><twig:ux:icon name="lucide:x" /></button>
@@ -15,5 +24,6 @@
         <footer class="lp-activity-drawer__footer">
             <a class="lp-btn" href="{{ path('app_project_activity', {id: project.id}) }}"><twig:ux:icon name="lucide:activity" />{{ 'activity.recent.open'|trans }}</a>
         </footer>
-    </dialog>
+    {% endblock %}
+    {% endembed %}
 </div>

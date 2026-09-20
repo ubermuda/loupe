@@ -1,0 +1,2 @@
+{#- What an item waiting on a person is about. Props: subject ("document", "pull-request", or anything else for an agent's question or to-do). -#}
+{% if subject == 'document' %}<twig:ux:icon name="lucide:file-text" />{% elseif subject == 'pull-request' %}<twig:ux:icon name="lucide:git-pull-request" />{% else %}<twig:ux:icon name="lucide:bot" />{% endif %}

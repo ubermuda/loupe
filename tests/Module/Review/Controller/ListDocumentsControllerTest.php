@@ -523,7 +523,7 @@ final class ListDocumentsControllerTest extends WebTestCase
         self::assertCount(1, $crawler->filter('[data-document-id="'.$liveId.'"]'));
         self::assertCount(0, $crawler->filter('[data-document-id="'.$archivedId.'"]'));
 
-        $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?archived=1');
+        $crawler = $client->submit($crawler->filter('.lp-list-filters form')->form()->setValues(['archived' => true]));
 
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('[data-document-id="'.$liveId.'"]'));
@@ -649,7 +649,7 @@ final class ListDocumentsControllerTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?archived=1');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('.lp-list-filters .lp-filter-chip--on'));
+        self::assertCount(1, $crawler->filter('.lp-list-filters form input[type="checkbox"][role="switch"][name="archived"][checked]'));
         self::assertCount(1, $crawler->filter('.lp-list-filters input[name="search"]'));
         self::assertCount(1, $crawler->filter('.lp-list-filters select[name="status"]'));
     }
@@ -822,12 +822,10 @@ final class ListDocumentsControllerTest extends WebTestCase
         self::assertCount(1, $secondPage);
         self::assertSame([], array_intersect($firstPage, $secondPage));
 
-        // The archived chip is a link built outside the form, so it is the one
-        // most likely to drop the rest of the bar.
-        self::assertGreaterThan(
-            0,
-            $crawler->filter('.lp-list-filters a[href*="search=kafka"][href*="tag=design"]')->count(),
-        );
+        $values = $crawler->filter('.lp-list-filters form')->form()->getValues();
+        self::assertSame('kafka', $values['search']);
+        self::assertSame('design', $values['tag']);
+        self::assertSame('1', $values['archived']);
 
         $client->request(Request::METHOD_GET, '/projects/'.$projectId.'/documents?page=9&'.$filters);
         self::assertResponseRedirects($paged);

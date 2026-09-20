@@ -7,6 +7,7 @@ namespace App\Tests\Module\Board\Controller;
 use App\Module\Account\Entity\User;
 use App\Module\Board\Entity\BoardColumn;
 use App\Module\Board\Entity\Card;
+use App\Module\Board\Entity\LabelTone;
 use App\Module\Board\Form\ConfigureBoardColumnFormType;
 use App\Module\Board\Form\DeleteBoardColumnFormType;
 use App\Module\Board\Form\RenameBoardColumnFormType;
@@ -57,6 +58,32 @@ final class BoardColumnControllersTest extends WebTestCase
         $this->client->followRedirect();
         self::assertSelectorExists('[data-board-column-settings]');
         self::assertSame(['backlog', 'next', 'in-progress', 'done', 'parked'], $this->slugs($project));
+    }
+
+    public function test_the_add_dialog_preselects_a_colour_no_column_uses_and_saves_the_one_chosen(): void
+    {
+        [, $project] = $this->ownedBoard('columns-settings-add-tone@example.com');
+        $crawler = $this->settings($project);
+
+        $checked = $crawler->filter('form[name="add_board_column_form"] input[name="add_board_column_form[tone]"]:checked');
+        self::assertCount(1, $checked);
+        self::assertNotContains($checked->attr('value'), ['neutral', 'lime', 'purple', 'green']);
+
+        $this->client->submit($crawler->filter('form[name="add_board_column_form"]')->form(['add_board_column_form[label]' => 'Parked', 'add_board_column_form[tone]' => 'pink']));
+        self::assertSame(LabelTone::Pink, $this->column($project, 'parked')->tone);
+    }
+
+    public function test_settings_shows_the_stored_colour_and_a_configure_save_changes_it(): void
+    {
+        [, $project] = $this->ownedBoard('columns-configure-tone@example.com');
+        $name = ConfigureBoardColumnFormType::nameFor($this->column($project, 'next'));
+        self::assertSame('lime', $this->settings($project)->filter('input[name="'.$name.'[tone]"]:checked')->attr('value'));
+
+        $this->configure($project, 'next', ['tone' => 'orange']);
+        self::assertResponseRedirects('/projects/'.$project->id.'/settings/columns');
+
+        self::assertSame(LabelTone::Orange, $this->column($project, 'next')->tone);
+        self::assertCount(1, $this->settings($project)->filter('[data-column-id] > .lp-tone-dot--orange'));
     }
 
     public function test_settings_rows_move_up_and_down_and_open_a_configure_dialog(): void
