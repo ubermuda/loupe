@@ -6030,9 +6030,6 @@
             <trans-unit id="inbox.form.reply_to_inbox_item_form.body.label"><source>inbox.form.reply_to_inbox_item_form.body.label</source><target>Reply to this thread</target></trans-unit>
             <trans-unit id="account.settings.nav.connected_apps"><source>account.settings.nav.connected_apps</source><target>Connected apps</target></trans-unit>
             <trans-unit id="oauth.consent.page.title"><source>oauth.consent.page.title</source><target>Connect an app</target></trans-unit>
-            <trans-unit id="oauth.consent.heading"><source>oauth.consent.heading</source><target>%client% wants to use your Loupe account</target></trans-unit>
-            <trans-unit id="oauth.consent.signed_in_as"><source>oauth.consent.signed_in_as</source><target>You are signed in as %email%.</target></trans-unit>
-            <trans-unit id="oauth.consent.scope.label"><source>oauth.consent.scope.label</source><target>Access</target></trans-unit>
             <trans-unit id="oauth.consent.scope.mcp"><source>oauth.consent.scope.mcp</source><target>Read and change the documents and site reviews of one project, through MCP.</target></trans-unit>
             <trans-unit id="oauth.consent.scope.site_review"><source>oauth.consent.scope.site_review</source><target>Read and post site-review comments on one project.</target></trans-unit>
             <trans-unit id="oauth.consent.scope.agent"><source>oauth.consent.scope.agent</source><target>Act as your Loupe agent: read your projects and boards, and report bridge runs.</target></trans-unit>
@@ -6064,9 +6061,10 @@
             <trans-unit id="oauth.form.consent_form.approve.label"><source>oauth.form.consent_form.approve.label</source><target>Allow access</target></trans-unit>
             <trans-unit id="oauth.form.consent_form.deny.label"><source>oauth.form.consent_form.deny.label</source><target>Cancel</target></trans-unit>
             <trans-unit id="oauth.device.page.title"><source>oauth.device.page.title</source><target>Connect a device</target></trans-unit>
+            <trans-unit id="oauth.device.question"><source>oauth.device.question</source><target>Give %client% access to your Loupe account?</target></trans-unit>
+            <trans-unit id="oauth.device.row.code"><source>oauth.device.row.code</source><target>Your code is %code%</target></trans-unit>
             <trans-unit id="oauth.device.entry.heading"><source>oauth.device.entry.heading</source><target>Enter the code from your terminal</target></trans-unit>
             <trans-unit id="oauth.device.entry.lead"><source>oauth.device.entry.lead</source><target>Type the code that loupe login shows. Loupe then asks you to allow the app.</target></trans-unit>
-            <trans-unit id="oauth.device.code.label"><source>oauth.device.code.label</source><target>Code</target></trans-unit>
             <trans-unit id="oauth.device.warning"><source>oauth.device.warning</source><target>Allow only if you started this sign-in yourself and this code is the code in your terminal.</target></trans-unit>
             <trans-unit id="oauth.device.error.invalid_code"><source>oauth.device.error.invalid_code</source><target>This code is not valid. It is wrong, it expired, or it has an answer already. Run loupe login again to get a new code.</target></trans-unit>
             <trans-unit id="oauth.device.error.too_many_attempts"><source>oauth.device.error.too_many_attempts</source><target>You tried too many codes. Wait a few minutes, then try again.</target></trans-unit>

@@ -26,13 +26,7 @@
             </div>
         </div>
 
-        <div class="lp-consent__row">
-            <twig:UX:Icon name="lucide:lock" class="lp-consent__row-icon" aria-hidden="true" />
-            <div class="lp-consent__row-body">
-                <p class="lp-consent__row-primary" data-testid="oauth-consent-scope">{{ ('oauth.consent.row.scope.' ~ view.scope.value|replace({'-': '_'}))|trans }}</p>
-                <p class="lp-consent__row-second">{{ ('oauth.consent.row.scope_bounds.' ~ view.scope.value|replace({'-': '_'}))|trans }}</p>
-            </div>
-        </div>
+        {% include '@OAuth/_consent_scope_row.html.twig' with {scope: view.scope} only %}
 
         <div class="lp-consent__row">
             <twig:UX:Icon name="lucide:arrow-right" class="lp-consent__row-icon" aria-hidden="true" />
