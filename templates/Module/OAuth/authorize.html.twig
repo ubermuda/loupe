@@ -25,21 +25,21 @@
 
     <dl class="lp-consent__facts">
         <div class="lp-consent__fact">
-            <dt class="lp-eyebrow">{{ 'oauth.consent.scope.label'|trans }}</dt>
+            <dt class="lp-consent__label">{{ 'oauth.consent.scope.label'|trans }}</dt>
             <dd class="lp-consent__value" data-testid="oauth-consent-scope">{{ ('oauth.consent.scope.' ~ view.scope.value|replace({'-': '_'}))|trans }}</dd>
         </div>
         {% if widget %}
         <div class="lp-consent__fact">
-            <dt class="lp-eyebrow">{{ 'oauth.widget.consent.project.label'|trans }}</dt>
+            <dt class="lp-consent__label">{{ 'oauth.widget.consent.project.label'|trans }}</dt>
             <dd class="lp-consent__value" data-testid="oauth-consent-project">{{ widget.project.name }}</dd>
         </div>
         <div class="lp-consent__fact">
-            <dt class="lp-eyebrow">{{ 'oauth.widget.consent.site.label'|trans }}</dt>
+            <dt class="lp-consent__label">{{ 'oauth.widget.consent.site.label'|trans }}</dt>
             <dd class="lp-consent__value lp-consent__value--mono" data-testid="oauth-consent-site">{{ widget.origin }}</dd>
         </div>
         {% else %}
         <div class="lp-consent__fact">
-            <dt class="lp-eyebrow">{{ 'oauth.consent.redirect.label'|trans }}</dt>
+            <dt class="lp-consent__label">{{ 'oauth.consent.redirect.label'|trans }}</dt>
             <dd class="lp-consent__value lp-consent__value--mono" data-testid="oauth-consent-redirect">{{ view.redirectOrigin }}</dd>
         </div>
         {% endif %}
@@ -53,12 +53,16 @@
     {% endif %}
 
     {# A native submit: the answer redirects to the app, which can be another origin or a custom scheme that Turbo cannot fetch. #}
-    {{ form_start(form, {'attr': {'class': 'lp-form lp-consent__form', 'novalidate': 'novalidate', 'data-turbo': 'false'}}) }}
+    {{ form_start(form, {'attr': {'class': 'lp-form lp-consent__form', 'novalidate': 'novalidate', 'data-turbo': 'false', 'data-controller': 'require-choice'}}) }}
         {{ form_errors(form) }}
         {% if form.project is defined %}
         <div class="lp-form-field">
             {{ form_label(form.project, null, {'label_attr': {'class': 'lp-label'}}) }}
-            {{ form_widget(form.project, {'attr': {'class': 'lp-input lp-select'}}) }}
+            {{ form_widget(form.project, {'attr': {
+                'class': 'lp-input lp-select',
+                'data-require-choice-target': 'choice',
+                'data-action': 'change->require-choice#check',
+            }}) }}
             <div class="lp-field-errors">{{ form_errors(form.project) }}</div>
             {% if view.projects is empty %}
             <p class="lp-connect-hint">{{ 'oauth.consent.no_projects'|trans }}</p>
@@ -67,7 +71,7 @@
         {% endif %}
         <div class="lp-consent__actions">
             {{ form_widget(form.deny, {'attr': {'class': 'lp-btn lp-btn--ghost'}}) }}
-            {{ form_widget(form.approve, {'attr': {'class': 'lp-btn lp-btn--primary'}}) }}
+            {{ form_widget(form.approve, {'attr': {'class': 'lp-btn lp-btn--primary', 'data-require-choice-target': 'submit'}}) }}
         </div>
     {{ form_end(form) }}
 </div>

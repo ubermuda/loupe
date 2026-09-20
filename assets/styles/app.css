@@ -515,6 +515,10 @@
     .lp-consent__fact {
         @apply flex flex-col gap-1;
     }
+    /* Darker and less spaced than .lp-eyebrow: this card carries the decision. */
+    .lp-consent__label {
+        @apply uppercase text-fg-mute m-0 text-xs font-bold tracking-wide;
+    }
     .lp-consent__value {
         @apply text-sm text-fg m-0 break-words;
     }
@@ -529,6 +533,9 @@
     }
     .lp-consent__actions {
         @apply flex items-center justify-end gap-3 pt-2;
+    }
+    .lp-consent__actions .lp-btn:disabled {
+        @apply opacity-60 cursor-not-allowed;
     }
 }
 

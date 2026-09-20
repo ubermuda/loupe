@@ -101,6 +101,23 @@ final class WidgetAuthorizationFlowTest extends WebTestCase
         self::assertResponseStatusCodeSame(403);
     }
 
+    public function test_the_allow_button_is_live_although_the_page_has_no_picker(): void
+    {
+        $this->browser->loginUser($this->owner);
+        $crawler = $this->browser->request(Request::METHOD_GET, $this->authorizeUrl());
+
+        // require-choice disables Allow until a project is chosen. The widget
+        // fixes the project, so the page carries no choice and the button stays live.
+        self::assertSame('require-choice', $crawler->filter('form.lp-consent__form')->attr('data-controller'));
+        self::assertCount(0, $crawler->filter('[data-require-choice-target="choice"]'));
+        $approve = $crawler->filter('#consent_form_approve');
+        self::assertSame('submit', $approve->attr('data-require-choice-target'));
+        self::assertNull($approve->attr('disabled'));
+
+        $this->browser->submit($crawler->selectButton('consent_form_approve')->form());
+        self::assertResponseRedirects();
+    }
+
     public function test_a_wildcard_entry_covers_one_label_under_it(): void
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);

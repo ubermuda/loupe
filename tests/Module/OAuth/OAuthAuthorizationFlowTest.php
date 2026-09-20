@@ -133,6 +133,21 @@ final class OAuthAuthorizationFlowTest extends WebTestCase
         self::assertNotEmpty(OAuthScenario::redirectQuery((string) $this->browser->getResponse()->headers->get('Location'))['code'] ?? null);
     }
 
+    public function test_the_project_picker_gates_the_allow_button(): void
+    {
+        $this->browser->loginUser($this->user);
+        $crawler = $this->browser->request(Request::METHOD_GET, $this->scenario->authorizeUrl());
+
+        self::assertSame('require-choice', $crawler->filter('form.lp-consent__form')->attr('data-controller'));
+        self::assertSame('choice', $crawler->filter('#consent_form_project')->attr('data-require-choice-target'));
+        self::assertSame('submit', $crawler->filter('#consent_form_approve')->attr('data-require-choice-target'));
+
+        // The agent scope picks no project, so nothing gates its button.
+        $crawler = $this->browser->request(Request::METHOD_GET, $this->scenario->authorizeUrl('agent'));
+        self::assertCount(0, $crawler->filter('#consent_form_project'));
+        self::assertSame('submit', $crawler->filter('#consent_form_approve')->attr('data-require-choice-target'));
+    }
+
     public function test_consent_refuses_a_forged_csrf_token(): void
     {
         $this->browser->loginUser($this->user);
