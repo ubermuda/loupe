@@ -161,16 +161,10 @@
             0,
             1.42fr
         );
-    min-height: calc(var(--spacing) * 112);
 }
 
-/* The list scrolls inside the card, as the site review list does. Unbounded, a
-   long queue set the row height and left the detail's own column empty below
-   its content. */
 .lp-core-inbox .lp-inbox-request-list {
     min-height: 0;
-    max-height: calc(var(--spacing) * 195);
-    overflow-y: auto;
     border-right: 1px solid var(--border);
     background: var(--surface-2);
 }
@@ -359,18 +353,6 @@
     border-top: 1px solid var(--border);
     border-radius: 0;
     background: transparent;
-}
-
-/* Where else the same thread appears, at the foot of the request. */
-.lp-core-inbox .lp-inbox-ask__thread-note {
-    display: flex;
-    align-items: center;
-    gap: calc(var(--spacing) * 1.75);
-    margin: calc(var(--spacing) * 7) 0 0;
-    padding: 0;
-    border: 0;
-    color: var(--text-dim);
-    font-size: var(--text-xs);
 }
 
 .lp-core-inbox .lp-inbox-item {
@@ -588,14 +570,11 @@
 
 .lp-core-site-review .lp-feedback-workspace {
     grid-template-columns: minmax(calc(var(--spacing) * 76), 36%) minmax(0, 1fr);
-    min-height: calc(var(--spacing) * 142);
     border-radius: var(--radius-xl);
 }
 
 .lp-core-site-review .lp-feedback-list {
     grid-column: auto;
-    max-height: calc(var(--spacing) * 195);
-    overflow-y: auto;
 }
 
 .lp-core-site-review .lp-feedback-detail {
@@ -656,6 +635,7 @@
 
     .lp-core-inbox .lp-inbox-request-list {
         max-height: calc(var(--spacing) * 75);
+        overflow-y: auto;
         border-right: 0;
         border-bottom: 1px solid var(--border);
     }
@@ -666,6 +646,7 @@
 
     .lp-core-site-review .lp-feedback-list {
         max-height: calc(var(--spacing) * 75);
+        overflow-y: auto;
         border-right: 0;
         border-bottom: 1px solid var(--border);
     }

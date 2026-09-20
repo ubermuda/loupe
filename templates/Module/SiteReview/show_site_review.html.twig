@@ -13,7 +13,7 @@
 {% set addressedCount = comments|filter(comment => comment.status.value == 'addressed')|length %}
 {% set cardLinks = is_feature_enabled('board.enabled') ? card_site_review_links(project) : [] %}
 {% set unlinkedCount = comments|filter(comment => cardLinks[comment.id ~ ''] is not defined)|length %}
-<div class="lp-workspace lp-site-feedback-page lp-core-prototype-page lp-core-site-review" data-controller="site-review-filter card-drawer">
+<div class="lp-workspace lp-split-page lp-site-feedback-page lp-core-prototype-page lp-core-site-review" data-controller="site-review-filter card-drawer">
     <header class="lp-page-header">
         <div class="lp-page-header__copy"><h1 class="lp-workspace-title">{{ 'site_review.page.title'|trans }}</h1><p class="lp-workspace-desc">{{ 'site_review.page.description'|trans }}</p></div>
         <a class="lp-btn" href="{{ path('app_project_connect', {id: project.id}) }}"><twig:ux:icon name="lucide:code-xml" class="w-4 h-4" />{{ 'site_review.widget.setup'|trans }}</a>
@@ -54,8 +54,8 @@
         <span class="lp-site-review-toolbar__summary">{{ 'site_review.filter.summary'|trans({'%pending%': pendingCount, '%addressed%': addressedCount}) }}</span>
     </div>
 
-    <div class="lp-feedback-workspace" data-controller="master-detail" data-master-detail-selected-value="{{ selectedFeedback }}">
-        <nav class="lp-feedback-list" aria-label="{{ 'site_review.feedback.list'|trans }}">
+    <div class="lp-feedback-workspace lp-split-region" data-controller="master-detail" data-master-detail-selected-value="{{ selectedFeedback }}">
+        <nav class="lp-feedback-list lp-split-pane" aria-label="{{ 'site_review.feedback.list'|trans }}">
             {% for comment in comments %}
             {% set anchors = comment.anchors|filter(anchor => anchor.selector is not empty) %}
             {% set cardLink = cardLinks[comment.id ~ ''] ?? null %}
@@ -73,7 +73,7 @@
             {% endfor %}
         </nav>
 
-        <div class="lp-feedback-detail">
+        <div class="lp-feedback-detail lp-split-pane">
             {% for comment in comments %}
             {% set anchors = comment.anchors|filter(anchor => anchor.selector is not empty) %}
             {% set cardLink = cardLinks[comment.id ~ ''] ?? null %}

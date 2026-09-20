@@ -784,6 +784,38 @@
 }
 
 @layer components {
+    /* A master-detail page holds its header still and scrolls each pane on its
+       own, so reading one pane never moves the other. Below the stacking
+       breakpoint the panes sit one above the other and the page scrolls. */
+    .lp-split-page {
+        @apply flex flex-col min-h-0 h-full;
+    }
+    .lp-split-page > *:not(.lp-split-region) {
+        @apply shrink-0;
+    }
+    .lp-split-page > .lp-split-region {
+        @apply flex-1 min-h-0;
+    }
+    .lp-split-region > * {
+        @apply min-h-0 h-full;
+    }
+    /* The pane is positioned, so an absolute child such as an .sr-only label
+       cannot escape the clip and stretch the page. */
+    .lp-split-pane {
+        @apply relative min-h-0 overflow-y-auto;
+    }
+    @media (width <= 42.5rem) {
+        .lp-split-page {
+            @apply h-auto;
+        }
+        .lp-split-page > .lp-split-region,
+        .lp-split-region > * {
+            @apply flex-none h-auto;
+        }
+        .lp-split-pane {
+            @apply overflow-visible;
+        }
+    }
     .lp-feedback-receipt {
         @apply flex items-center gap-4 rounded-xl border border-accent-border bg-accent-soft px-5.5 py-5 mb-6;
     }
@@ -902,8 +934,16 @@
     .lp-feedback-attach p {
         @apply basis-full m-0 -mt-2 text-sm text-fg-mute;
     }
+    /* The form lays its children out in the panel's own rows, so the select
+       takes one row and both buttons sit together on the next one. */
     .lp-feedback-attach .lp-site-review-attach {
-        @apply flex flex-1 flex-wrap items-center gap-2 min-w-0;
+        display: contents;
+    }
+    .lp-feedback-attach .lp-select {
+        @apply basis-full;
+    }
+    .lp-feedback-attach .lp-btn {
+        @apply shrink-0;
     }
     .lp-feedback-attach__create {
         @apply bg-surface-1;

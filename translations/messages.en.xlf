@@ -4702,7 +4702,7 @@
             </trans-unit>
             <trans-unit id="inbox.item.thread_elsewhere">
                 <source>inbox.item.thread_elsewhere</source>
-                <target>Read item %number% and its replies at the request that holds it</target>
+                <target>Read item %number% at the request that holds it</target>
             </trans-unit>
             <trans-unit id="inbox.item.error.final">
                 <source>inbox.item.error.final</source>
@@ -5653,8 +5653,6 @@
             <trans-unit id="inbox.page.open_empty"><source>inbox.page.open_empty</source><target>Nothing waits for you.</target></trans-unit>
             <trans-unit id="inbox.page.completed_empty"><source>inbox.page.completed_empty</source><target>No request is completed yet.</target></trans-unit>
             <trans-unit id="inbox.answer.placeholder"><source>inbox.answer.placeholder</source><target>Add a detail or write a different answer…</target></trans-unit>
-            <trans-unit id="inbox.detail.in_card"><source>inbox.detail.in_card</source><target>The same thread appears in the card conversation.</target></trans-unit>
-            <trans-unit id="inbox.detail.no_card"><source>inbox.detail.no_card</source><target>This request is not linked to a card.</target></trans-unit>
             <trans-unit id="inbox.tabs.label"><source>inbox.tabs.label</source><target>Request state</target></trans-unit>
             <trans-unit id="inbox.tabs.open"><source>inbox.tabs.open</source><target>Open</target></trans-unit>
             <trans-unit id="inbox.tabs.completed"><source>inbox.tabs.completed</source><target>Completed</target></trans-unit>

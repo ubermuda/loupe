@@ -1,8 +1,7 @@
-{# The selected request: its source byline, the agent's context, its items and where else the thread appears. #}
+{# The selected request: its source byline, the agent's context and its items. #}
 {% set ask = entry.ask %}
 {% set items = ask ? ask.items|map(link => link.item) : [entry.item] %}
 {% set asked = ask ? ask.createdAt : entry.item.createdAt %}
-{% set linked = items|filter(item => item.cards|length > 0)|length > 0 %}
 <section class="lp-inbox-ask{{ ask and ask.closedAt ? ' lp-inbox-ask--closed' }}"
          id="{{ entry.panelId }}"
          {% if ask %}data-inbox-ask-id="{{ ask.id }}"{% endif %}
@@ -34,9 +33,5 @@
         {% for item in items %}
             {% include '@Inbox/_inbox_item.html.twig' with {item: item, ask: ask, inbox: inbox, refusedForm: refusedForm, showLinkedItems: true, showHead: items|length > 1, showTitle: items|length > 1} only %}
         {% endfor %}
-        <p class="lp-inbox-ask__thread-note">
-            <twig:ux:icon name="lucide:link" class="w-4 h-4 shrink-0" />
-            {{ (linked ? 'inbox.detail.in_card' : 'inbox.detail.no_card')|trans }}
-        </p>
     </div>
 </section>
