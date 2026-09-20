@@ -2549,6 +2549,10 @@
                 <source>project.connect.tool.document_mark_comment_addressed</source>
                 <target>Mark document-review comment threads as addressed after acting on them.</target>
             </trans-unit>
+            <trans-unit id="project.connect.tool.project_current">
+                <source>project.connect.tool.project_current</source>
+                <target>Report which project this connection acts on.</target>
+            </trans-unit>
             <trans-unit id="project.connect.tool.tag_list">
                 <source>project.connect.tool.tag_list</source>
                 <target>List every tag in the project with how many documents carry it.</target>
