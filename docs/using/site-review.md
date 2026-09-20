@@ -64,11 +64,13 @@ control that removes a comment, and it asks you to confirm first.
 
 ## Feedback on a card
 
-Attach a piece of feedback to a card from the Site review page. The card's
-Conversation and Feedback tabs then show the same capture as Site review.
+Attach a piece of feedback to a card from the Site review page, either to an
+open card or to a new one you create there. Creating the card opens the card
+form in the drawer, and the feedback list refreshes once the card exists.
 
-Use **Resolve** or **Reopen** on either card tab to change the shared feedback status.
-The linked card opens on its Feedback tab from Site review.
+The card's Feedback tab then shows the same capture as Site review. Use
+**Resolve** or **Reopen** there to change the shared feedback status. The linked
+card opens on its Feedback tab from Site review.
 
 ## Quoting a passage of text
 
