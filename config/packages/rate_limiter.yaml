@@ -86,6 +86,14 @@ framework:
             limit: 20
             interval: '15 minutes'
 
+        # Bounds Client ID Metadata Document fetches across every user. DNS has
+        # no timeout in PHP, so a slow host holds a worker for the fetch's
+        # duration, and open signup makes the per-user bucket cheap to widen.
+        oauth_client_metadata_fetch_global:
+            policy: 'sliding_window'
+            limit: 120
+            interval: '10 minutes'
+
         # Bounds subscriber-cookie renewals from open pages. A page renews once
         # before each reconnect, with backoff, so a real page stays far below
         # this. Keyed per signed-in user, because the route requires one.
@@ -116,6 +124,10 @@ when@dev:
                 policy: 'sliding_window'
                 limit: 100000
                 interval: '1 minute'
+            oauth_client_metadata_fetch_global:
+                policy: 'sliding_window'
+                limit: 100000
+                interval: '1 minute'
             oauth_device_authorization:
                 policy: 'sliding_window'
                 limit: 100000
@@ -141,6 +153,10 @@ when@test:
                 limit: 100000
                 interval: '1 minute'
             oauth_client_metadata_fetch:
+                policy: 'sliding_window'
+                limit: 100000
+                interval: '1 minute'
+            oauth_client_metadata_fetch_global:
                 policy: 'sliding_window'
                 limit: 100000
                 interval: '1 minute'

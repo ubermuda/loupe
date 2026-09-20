@@ -27,7 +27,7 @@ final class ClientMetadataFetcherTest extends TestCase
             return self::json(self::document(), ['cache-control' => 'public, max-age=900']);
         });
 
-        $fetched = $this->fetcher($http)->fetch($this->url());
+        $fetched = $this->fetcher($http)->fetch($this->url(), self::PUBLIC_IP);
 
         self::assertSame('GET', $seen['method']);
         self::assertSame(self::URL, $seen['url']);
@@ -45,7 +45,7 @@ final class ClientMetadataFetcherTest extends TestCase
         $http = new MockHttpClient(static fn (): MockResponse => throw new \LogicException('no request may leave'));
 
         $this->expectException(ClientMetadataRefused::class);
-        $this->fetcher($http, $addresses)->fetch($this->url());
+        $this->fetcher($http, $addresses)->vettedAddress($this->url());
     }
 
     /** @return iterable<string, array{list<string>}> */
@@ -65,7 +65,7 @@ final class ClientMetadataFetcherTest extends TestCase
     public function test_it_refuses_a_bad_response(MockResponse $response): void
     {
         $this->expectException(ClientMetadataRefused::class);
-        $this->fetcher(new MockHttpClient($response))->fetch($this->url());
+        $this->fetcher(new MockHttpClient($response))->fetch($this->url(), self::PUBLIC_IP);
     }
 
     /** @return iterable<string, array{MockResponse}> */
@@ -102,7 +102,7 @@ final class ClientMetadataFetcherTest extends TestCase
     {
         $headers = null === $cacheControl ? [] : ['cache-control' => $cacheControl];
 
-        self::assertSame($expected, $this->fetcher(new MockHttpClient(self::json(self::document(), $headers)))->fetch($this->url())->maxAge);
+        self::assertSame($expected, $this->fetcher(new MockHttpClient(self::json(self::document(), $headers)))->fetch($this->url(), self::PUBLIC_IP)->maxAge);
     }
 
     /** @return iterable<string, array{?string, int}> */
@@ -117,7 +117,7 @@ final class ClientMetadataFetcherTest extends TestCase
 
     public function test_a_missing_client_name_falls_back_to_the_host(): void
     {
-        $fetched = $this->fetcher(new MockHttpClient(self::json(array_diff_key(self::document(), ['client_name' => true]))))->fetch($this->url());
+        $fetched = $this->fetcher(new MockHttpClient(self::json(array_diff_key(self::document(), ['client_name' => true]))))->fetch($this->url(), self::PUBLIC_IP);
 
         self::assertSame('client.example', $fetched->clientName);
     }
@@ -131,7 +131,7 @@ final class ClientMetadataFetcherTest extends TestCase
             return new MockResponse('icon-bytes', ['response_headers' => ['content-type' => 'image/vnd.microsoft.icon']]);
         });
 
-        $icon = $this->fetcher($http)->fetchIcon($this->url());
+        $icon = $this->fetcher($http)->fetchIcon($this->url(), self::PUBLIC_IP);
 
         self::assertSame('https://client.example/favicon.ico', $seen['url'], 'the icon comes from the host, never from a URL in the document');
         self::assertSame(['client.example' => self::PUBLIC_IP], $seen['resolve']);
@@ -143,7 +143,7 @@ final class ClientMetadataFetcherTest extends TestCase
     #[DataProvider('unusableIcons')]
     public function test_an_unusable_icon_is_no_icon(MockResponse $response): void
     {
-        self::assertNull($this->fetcher(new MockHttpClient($response))->fetchIcon($this->url()));
+        self::assertNull($this->fetcher(new MockHttpClient($response))->fetchIcon($this->url(), self::PUBLIC_IP));
     }
 
     /** @return iterable<string, array{MockResponse}> */
@@ -159,11 +159,11 @@ final class ClientMetadataFetcherTest extends TestCase
         yield 'oversized body' => [new MockResponse(str_repeat('a', ClientMetadataFetcher::MAX_ICON_BYTES + 1), ['response_headers' => ['content-type' => 'image/png']])];
     }
 
-    public function test_an_unsafe_host_gets_no_icon_and_no_request(): void
+    public function test_the_vetted_address_is_the_first_public_ipv4(): void
     {
         $http = new MockHttpClient(static fn (): MockResponse => throw new \LogicException('no request may leave'));
 
-        self::assertNull($this->fetcher($http, ['127.0.0.1'])->fetchIcon($this->url()));
+        self::assertSame(self::PUBLIC_IP, $this->fetcher($http, ['2607:6bc0::10', self::PUBLIC_IP])->vettedAddress($this->url()));
     }
 
     /** @param list<string> $addresses */

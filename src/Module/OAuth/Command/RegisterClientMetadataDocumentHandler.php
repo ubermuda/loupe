@@ -46,6 +46,9 @@ final readonly class RegisterClientMetadataDocumentHandler
 
         #[Autowire(service: 'limiter.oauth_client_metadata_fetch')]
         private RateLimiterFactoryInterface $limiter,
+
+        #[Autowire(service: 'limiter.oauth_client_metadata_fetch_global')]
+        private RateLimiterFactoryInterface $globalLimiter,
         private ClockInterface $clock,
         private Auditor $auditor,
     ) {
@@ -59,12 +62,14 @@ final readonly class RegisterClientMetadataDocumentHandler
             return;
         }
 
-        if (!$this->limiter->create('user:'.$command->user->id?->toRfc4122())->consume()->isAccepted()) {
+        if (!$this->globalLimiter->create('oauth_client_metadata')->consume()->isAccepted()
+            || !$this->limiter->create('user:'.$command->user->id?->toRfc4122())->consume()->isAccepted()) {
             throw new OAuthServerException('Too many client metadata fetches. Try again later.', 0, 'temporarily_unavailable', 429);
         }
 
         try {
-            $fetched = $this->fetcher->fetch($url);
+            $ip = $this->fetcher->vettedAddress($url);
+            $fetched = $this->fetcher->fetch($url, $ip);
         } catch (ClientMetadataRefused $e) {
             $this->auditor->record('oauth.client_metadata_refused', AuditOutcome::Refused, ['url' => $url->url, 'reason' => $e->getMessage()], new AuditSubject('oauth_client', $url->identifier));
 
@@ -73,7 +78,7 @@ final readonly class RegisterClientMetadataDocumentHandler
 
         // Only for a client the operator vouches for: an icon from a shared
         // host would dress an attacker's document in that host's brand.
-        $icon = $this->trustedClientIds->isTrusted($url) ? $this->fetcher->fetchIcon($url) : null;
+        $icon = $this->trustedClientIds->isTrusted($url) ? $this->fetcher->fetchIcon($url, $ip) : null;
 
         $this->em->wrapInTransaction(function () use ($url, $fetched, $icon): void {
             $this->clientMetadataDocuments->lockForRegistration($url->identifier);
