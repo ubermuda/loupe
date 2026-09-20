@@ -183,32 +183,32 @@ for (const surface of ['page', 'drawer']) {
             await expect(
                 conversation.getByLabel('Reply to this feedback'),
             ).toHaveValue('From the card.');
-            let releaseResponse!: () => void;
-            let savedReply!: () => void;
-            const responseReleased = new Promise<void>((resolve) => {
-                releaseResponse = resolve;
+            let releaseSubmission!: () => void;
+            let submissionHeld!: () => void;
+            const submissionReleased = new Promise<void>((resolve) => {
+                releaseSubmission = resolve;
             });
-            const replySaved = new Promise<void>((resolve) => {
-                savedReply = resolve;
+            const submissionInFlight = new Promise<void>((resolve) => {
+                submissionHeld = resolve;
             });
-            await page.route(
-                '**/board/feedback/*/conversation/reply',
-                async (route) => {
-                    const response = await route.fetch({ maxRedirects: 0 });
-                    savedReply();
-                    await responseReleased;
-                    await route.fulfill({ response });
-                },
-                { times: 1 },
-            );
+            // Hold the request itself. Replaying the 302 with route.fulfill()
+            // makes the browser issue a redirect hop that Playwright never
+            // offers to a handler, and `times: 1` disables interception
+            // milliseconds before it arrives. CI saw that hop abort.
+            const replyRoute = '**/board/feedback/*/conversation/reply';
+            await page.route(replyRoute, async (route) => {
+                submissionHeld();
+                await submissionReleased;
+                await route.continue();
+            });
             await conversation
                 .getByRole('button', { name: 'Post reply' })
                 .click();
-            await replySaved;
+            await submissionInFlight;
             await conversation
                 .getByLabel('Reply to this feedback')
                 .fill('A new draft during confirmation.');
-            releaseResponse();
+            releaseSubmission();
             await expect(
                 conversation.locator('[data-site-review-reply]'),
             ).toHaveCount(2);
@@ -216,6 +216,7 @@ for (const surface of ['page', 'drawer']) {
             await expect(
                 conversation.getByLabel('Reply to this feedback'),
             ).toHaveValue('A new draft during confirmation.');
+            await page.unroute(replyRoute);
             await conversation.getByLabel('Reply to this feedback').fill('');
             if (surface === 'drawer') {
                 await page.keyboard.press('Escape');
