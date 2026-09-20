@@ -392,6 +392,11 @@
 .lp-review .lp-diff-bar {
     @apply gap-x-4 gap-y-3 border-b-0 pt-3.5 pb-0;
 }
+/* Below the two-column breakpoint there is no comment column to line up with,
+   so the wrapper steps out of the way and the bar wraps as one row again. */
+.lp-review .lp-diff-bar__main {
+    @apply contents;
+}
 .lp-review .lp-version-compare {
     @apply w-auto gap-2;
 }
@@ -416,13 +421,22 @@
     @apply border-line bg-surface-1 text-ink shadow-xs;
 }
 /* The view switch ends where the paper ends, and the change count sits over
-   the comment column beside it. */
+   the comment column beside it. The row never wraps, so the count cannot drop
+   below the switch and move it. */
 @media (width >= 59.375rem) {
+    .lp-review .lp-diff-bar {
+        @apply flex-nowrap;
+    }
+    /* The document's column. Its own contents wrap when the window is narrow,
+       which keeps the count beside them rather than under them. */
+    .lp-review .lp-diff-bar__main {
+        @apply flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-3;
+    }
     .lp-review .lp-diff-views {
         @apply ml-auto;
     }
     .lp-review .lp-diff-nav {
-        @apply justify-end;
+        @apply flex-none justify-end;
         width: var(--doc-margin);
         /* The row's own gap makes up the rest of the gutter. */
         margin-left: calc(var(--doc-margin-gap) - var(--spacing) * 4);

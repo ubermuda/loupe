@@ -150,6 +150,11 @@
                 {% if diffMode %}
                 {% set viewParams = {projectId: document.project.id, documentId: document.id, fromVersionNumber: diffFromVersion, toVersionNumber: version.versionNumber} %}
                 <div class="lp-diff-bar">
+                    {# Two real columns, so the pickers and the switch keep the
+                       document's width and the change count keeps the comment
+                       column. One flex row put the switch in a different place
+                       in each view, and wrapped the count below a narrow one. #}
+                    <div class="lp-diff-bar__main">
                     {% include '@Review/_version_compare_picker.html.twig' with {
                         document: document,
                         versions: versions,
@@ -180,6 +185,7 @@
                            {% if diffColumns %}aria-current="page"{% endif %}
                         >{{ 'review.document.diff.view.side_by_side'|trans }}</a>
                     </nav>
+                    </div>
                     {% if diffNavigation %}
                         {% include '@Review/_diff_navigation.html.twig' with {changeCount: diffChangeCount} only %}
                     {% endif %}

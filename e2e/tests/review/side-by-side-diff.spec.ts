@@ -349,23 +349,29 @@ test('the toolbar holds the same two columns in every view', async ({
         return `${Math.round(found.x)}-${Math.round(found.x + found.width)}`;
     };
 
-    const rows = [];
-    for (const view of ['rendered', 'source', 'side-by-side']) {
-        await page.goto(`${reviewPath}/diff/1/2?view=${view}`);
-        await expect(
-            page.locator('.lp-diff-views__link[aria-current]'),
-        ).toHaveCount(1);
-        rows.push({
-            picker: await span('.lp-diff-bar > .lp-version-compare'),
-            views: await span(VIEWS),
-            nav: await span('.lp-diff-nav'),
-        });
-    }
+    // A laptop window is narrower than 1440, and that is where a single flex
+    // row used to wrap the change count under the switch and move it.
+    for (const width of [1440, 1280, 1100]) {
+        await page.setViewportSize({ width, height: 900 });
+        const rows = [];
+        for (const view of ['rendered', 'source', 'side-by-side']) {
+            await page.goto(`${reviewPath}/diff/1/2?view=${view}`);
+            await expect(
+                page.locator('.lp-diff-views__link[aria-current]'),
+            ).toHaveCount(1);
+            rows.push({
+                width,
+                view,
+                picker: await span('.lp-diff-bar .lp-version-compare'),
+                views: await span(VIEWS),
+                nav: await span('.lp-diff-nav'),
+            });
+        }
 
-    // The reader switches view without the control they clicked moving, so the
-    // two columns of the toolbar hold the same places in all three.
-    expect(rows[1]).toEqual(rows[0]);
-    expect(rows[2]).toEqual(rows[0]);
+        // The reader switches view without the control they clicked moving.
+        expect({ ...rows[1], view: rows[0].view }).toEqual(rows[0]);
+        expect({ ...rows[2], view: rows[0].view }).toEqual(rows[0]);
+    }
 });
 
 test('the jump controls still walk the changes across the two columns', async ({
