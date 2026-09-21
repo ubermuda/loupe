@@ -129,6 +129,24 @@ do, because an unanswered prompt leaves the file alone. `loupe init --mcp` in a
 repository that already has a `.loupe.yaml` writes `.mcp.json` alone, so you can
 say no now and change your mind later.
 
+### Claude Code can hide the file
+
+Claude Code resolves a server name across three scopes, and its own local-scope
+entry wins over `.mcp.json`. So a `loupe` server you added earlier with
+`claude mcp add` keeps running, the new `.mcp.json` has no effect, and neither
+of them says so. The agent starts, connects to the other server, and looks
+correct.
+
+`loupe init` reads Claude Code's configuration, says when such an entry exists,
+and offers to remove it. It never edits that file. Claude Code owns it, rewrites
+it while it runs, and keeps its own backups beside it, so removal runs
+`claude mcp remove loupe -s local` and lets Claude Code edit its own file. The
+offer is always asked, so `--mcp` in a script changes nothing there.
+
+The entry is filed under one directory, so a git worktree of the same repository
+has none. The same `.mcp.json` therefore takes effect in the worktree and does
+nothing in the main checkout until you remove the entry.
+
 The file holds no credential, so committing it is safe. `.loupe.yaml` holds the
 project id, which is not a secret either.
 

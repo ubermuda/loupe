@@ -44,6 +44,10 @@ func inRepo(t *testing.T, baseURL string) string {
 		}
 	}
 
+	// Pin Claude Code's configuration at an empty directory, so no test here
+	// reads, or reports on, the real one belonging to whoever runs the suite.
+	t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
+
 	dir := t.TempDir()
 	previous, err := os.Getwd()
 	if err != nil {
@@ -362,5 +366,50 @@ func TestConfirmReadsTheAnswer(t *testing.T) {
 		if got := confirm(&out, strings.NewReader(answer), "Add it?"); got != want {
 			t.Errorf("confirm(%q): got %v, want %v", answer, got, want)
 		}
+	}
+}
+
+// shadowLoupe makes Claude Code's configuration name its own loupe server for
+// dir, which is the entry that hides the .mcp.json init writes.
+func shadowLoupe(t *testing.T, dir string) {
+	t.Helper()
+	resolved, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatalf("EvalSymlinks: %v", err)
+	}
+	home := t.TempDir()
+	t.Setenv("CLAUDE_CONFIG_DIR", home)
+	body := `{"projects":{"` + resolved + `":{"mcpServers":{"loupe":{"type":"http","url":"https://loupe.ac/mcp"}}}}}`
+	if err := os.WriteFile(filepath.Join(home, ".claude.json"), []byte(body), 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+}
+
+func TestInitSaysWhenClaudeCodeHidesTheFileItWrote(t *testing.T) {
+	dir := inRepo(t, "")
+	shadowLoupe(t, dir)
+
+	// No, so the test never runs the real claude command.
+	out, err := runInit(t, "n\n", "--project", firstProject, "--mcp")
+	if err != nil {
+		t.Fatalf("init --mcp: %v", err)
+	}
+	if !strings.Contains(out, "claude mcp remove loupe -s local") {
+		t.Fatalf("output must name the command that removes it, got %q", out)
+	}
+	if strings.Contains(out, "Bearer") {
+		t.Fatalf("output must carry no credential, got %q", out)
+	}
+}
+
+func TestInitSaysNothingAboutClaudeCodeWhenNothingHidesTheFile(t *testing.T) {
+	inRepo(t, "")
+
+	out, err := runInit(t, "", "--project", firstProject, "--mcp")
+	if err != nil {
+		t.Fatalf("init --mcp: %v", err)
+	}
+	if strings.Contains(out, "Claude Code") {
+		t.Fatalf("output must not mention Claude Code, got %q", out)
 	}
 }

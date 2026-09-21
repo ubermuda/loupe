@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/ubermuda/loupe/cli/internal/api"
+	"github.com/ubermuda/loupe/cli/internal/claudecode"
 	"github.com/ubermuda/loupe/cli/internal/config"
 	"github.com/ubermuda/loupe/cli/internal/mcpjson"
 	"github.com/ubermuda/loupe/cli/internal/projectfile"
@@ -36,7 +37,10 @@ func newInitCmd() *cobra.Command {
 			"It then offers to name `loupe mcp` in " + mcpjson.Name + ", which is what makes an " +
 			"agent in this repository start it. Every other server in that file is kept. " +
 			"Use --mcp or --no-mcp to answer without being asked, which a script must do.\n\n" +
-			"--mcp on a repository that already names its project writes " + mcpjson.Name + " alone.",
+			"--mcp on a repository that already names its project writes " + mcpjson.Name + " alone.\n\n" +
+			"Claude Code prefers its own entry of the same name over " + mcpjson.Name + ". When it has " +
+			"one, init offers to remove it. That offer is always asked, so --mcp in a script never " +
+			"changes Claude Code's configuration.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			dir, err := os.Getwd()
 			if err != nil {
@@ -132,6 +136,46 @@ func offerMcpEntry(cmd *cobra.Command, dir string, write, skip bool) error {
 		return err
 	}
 	fmt.Fprintf(out, "Wrote %s. Restart your agent so it picks the server up.\n", mcpjson.Name)
+
+	return offerToUnshadow(cmd, dir)
+}
+
+// offerToUnshadow deals with a Claude Code entry that hides the file we just
+// wrote. Claude Code prefers its own local-scope entry over .mcp.json, so the
+// new file has no effect while that entry exists, and neither of them says so.
+func offerToUnshadow(cmd *cobra.Command, dir string) error {
+	out := cmd.OutOrStdout()
+
+	shadow, err := claudecode.Shadowing(dir, mcpjson.ServerKey)
+	if err != nil {
+		// Claude Code owns this file. Failing to read it says nothing about
+		// whether loupe init did its job, so it is a note rather than an error.
+		fmt.Fprintf(out, "Could not check Claude Code's own configuration: %v\n", err)
+
+		return nil
+	}
+	if nil == shadow {
+		return nil
+	}
+
+	fmt.Fprintf(out, "\nClaude Code has its own %q server for %s, pointing at %s.\n", mcpjson.ServerKey, shadow.Path, shadow.Summary)
+	fmt.Fprintf(out, "That entry wins over %s, so the file just written has no effect until it goes.\n", mcpjson.Name)
+
+	if !confirm(out, cmd.InOrStdin(), "Ask Claude Code to remove it?") {
+		fmt.Fprintf(out, "Left it. Run `%s` when you want %s to take effect.\n", claudecode.RemoveCommand(mcpjson.ServerKey), mcpjson.Name)
+
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
+	defer cancel()
+	if err := claudecode.Remove(ctx, dir, mcpjson.ServerKey); err != nil {
+		fmt.Fprintf(out, "Could not remove it: %v\n", err)
+		fmt.Fprintf(out, "Run `%s` by hand.\n", claudecode.RemoveCommand(mcpjson.ServerKey))
+
+		return nil
+	}
+	fmt.Fprintf(out, "Removed it. %s now names the server Claude Code starts.\n", mcpjson.Name)
 
 	return nil
 }

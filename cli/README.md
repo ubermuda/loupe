@@ -143,6 +143,13 @@ An unanswered prompt leaves the file alone, so a script must pass `--mcp` or
 writes `.mcp.json` alone and keeps the project file, so you can decline the
 offer now and take it later.
 
+Claude Code prefers its own local-scope entry of the same name over `.mcp.json`,
+so a `loupe` server added earlier with `claude mcp add` hides the file and
+nothing reports the conflict. `loupe init` reads Claude Code's configuration and
+offers to remove such an entry. It never edits that file: removal runs
+`claude mcp remove loupe -s local`, so Claude Code edits its own. That offer is
+always asked, so `--mcp` in a script changes nothing there.
+
 The file holds one key:
 
 ```yaml
