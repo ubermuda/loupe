@@ -83,6 +83,17 @@ final class OAuthAuthorizationFlowTest extends WebTestCase
         self::assertSame(401, $this->callMcp($tokens['access_token']), 'a refresh revokes the old access token');
         self::assertSame(200, $this->callMcp($refreshed['access_token']));
 
+        // The grace window accepts the rotated token once, so a client whose
+        // refresh response was lost recovers. The second reuse is refused.
+        $recovered = OAuthScenario::postToken($this->browser, [
+            'grant_type' => 'refresh_token',
+            'client_id' => OAuthScenario::CLIENT_ID,
+            'refresh_token' => $tokens['refresh_token'],
+        ]);
+        self::assertResponseStatusCodeSame(200);
+        self::assertIsString($recovered['refresh_token']);
+        self::assertNotSame($tokens['refresh_token'], $recovered['refresh_token']);
+
         $replay = OAuthScenario::postToken($this->browser, [
             'grant_type' => 'refresh_token',
             'client_id' => OAuthScenario::CLIENT_ID,
@@ -107,7 +118,7 @@ final class OAuthAuthorizationFlowTest extends WebTestCase
         $afterRevoke = OAuthScenario::postToken($this->browser, [
             'grant_type' => 'refresh_token',
             'client_id' => OAuthScenario::CLIENT_ID,
-            'refresh_token' => $refreshed['refresh_token'],
+            'refresh_token' => $recovered['refresh_token'],
         ]);
         self::assertSame('invalid_grant', $afterRevoke['error']);
     }
