@@ -68,7 +68,8 @@ final class WizardFlowTest extends WebTestCase
         self::assertSelectorExists('form[action$="/welcome/skip"]');
     }
 
-    public function test_mint_flashes_raw_token_once(): void
+    /** The step hands out no credential, so it shows the endpoint and the ways in. */
+    public function test_the_connect_step_names_the_endpoint_and_carries_no_credential(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -77,16 +78,12 @@ final class WizardFlowTest extends WebTestCase
         $em->flush();
 
         $client->loginUser($user);
-        $client->request(Request::METHOD_GET, '/welcome/connect');
-        $client->submitForm('Generate token');
-
-        self::assertResponseRedirects('/welcome/connect');
-        $crawler = $client->followRedirect();
-        self::assertSelectorExists('[data-testid="minted-mcp-token"]');
-
         $crawler = $client->request(Request::METHOD_GET, '/welcome/connect');
-        self::assertSelectorNotExists('[data-testid="minted-mcp-token"]');
-        self::assertStringContainsString('This project already has an MCP token.', $crawler->text());
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(3, $crawler->filter('details.lp-install'));
+        self::assertStringNotContainsString('YOUR_TOKEN', $crawler->text());
+        self::assertStringNotContainsString('Authorization: Bearer', $crawler->text());
     }
 
     public function test_widget_step_without_project_bounces_to_step_one(): void
@@ -102,7 +99,7 @@ final class WizardFlowTest extends WebTestCase
         self::assertResponseRedirects('/welcome');
     }
 
-    public function test_widget_step_mints_its_own_token_once(): void
+    public function test_the_widget_step_offers_an_embed_that_names_the_project(): void
     {
         $client = static::createClient();
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -115,18 +112,10 @@ final class WizardFlowTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('ol[data-wizard-step="3"]');
-        // The placeholder stands in until a token exists, so the snippet is
-        // copyable-shaped from the first render.
-        self::assertStringContainsString('site-review/widget.js', $crawler->text());
-
-        $client->submitForm('Generate token');
-        self::assertResponseRedirects('/welcome/widget');
-        $client->followRedirect();
-        self::assertSelectorExists('[data-testid="minted-widget-token"]');
-
-        $crawler = $client->request(Request::METHOD_GET, '/welcome/widget');
-        self::assertSelectorNotExists('[data-testid="minted-widget-token"]');
-        self::assertStringContainsString('This project already has a site-review token.', $crawler->text());
+        $snippet = $crawler->filter('[data-testid="wizard-widget-snippet"]')->text();
+        self::assertStringContainsString('site-review/widget.js', $snippet);
+        self::assertStringContainsString('data-project=', $snippet);
+        self::assertStringNotContainsString('data-token', $snippet);
     }
 
     public function test_done_renders_the_final_step_with_finish_only(): void

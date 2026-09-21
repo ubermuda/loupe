@@ -138,7 +138,7 @@ final class WidgetTokenSurfaceTest extends WebTestCase
         $em->persist($project);
         $em->flush();
 
-        return AgentCredential::tokenFor(static::getContainer(), $client, $user, 'site-review', $project);
+        return AgentCredential::tokenFor(static::getContainer(), $user, 'site-review', $project);
     }
 
     /** @param non-empty-string $email */
@@ -149,7 +149,7 @@ final class WidgetTokenSurfaceTest extends WebTestCase
         $em->persist(new Project($user, 'account-'.substr(md5($email), 0, 8)));
         $em->flush();
 
-        return AgentCredential::agentToken(static::getContainer(), $client, $user);
+        return AgentCredential::agentToken(static::getContainer(), $user);
     }
 
     private function em(): EntityManagerInterface

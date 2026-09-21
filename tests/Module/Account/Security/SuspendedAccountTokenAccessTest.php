@@ -94,7 +94,7 @@ final class SuspendedAccountTokenAccessTest extends WebTestCase
 
         // Consent runs on the main firewall, which diverts a suspended user, so
         // the grant has to come first.
-        $raw = AgentCredential::tokenFor(static::getContainer(), $client, $user, $scope->value, ApiScope::Agent === $scope ? null : $project);
+        $raw = AgentCredential::tokenFor(static::getContainer(), $user, $scope->value, ApiScope::Agent === $scope ? null : $project);
 
         if ($suspended) {
             $user = AgentCredential::managed($em, $user, $user->id);

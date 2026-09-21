@@ -120,11 +120,7 @@ test('site review opens a linked card in the drawer on its Feedback tab', async 
     expect(harnessProject).toBeTruthy();
     // The page carries no credential now, so the capture is written with the
     // grant the widget's own sign-in produces.
-    const { accessToken } = await signWidgetIn(
-        page,
-        { email: EMAIL, password: PASSWORD },
-        harnessProject!,
-    );
+    const { accessToken } = await signWidgetIn(page, harnessProject!);
     const body = `Drawer capture ${RUN}`;
     const created = await page.request.post('/api/site-review/comments', {
         headers: { Authorization: 'Bearer ' + accessToken },

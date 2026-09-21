@@ -293,7 +293,7 @@ final class BridgeRuleReportApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'rules-api-widget@example.com');
         $project = $this->project($em, $owner, 'Widget Rules App');
-        $raw = AgentCredential::tokenFor(static::getContainer(), $client, $owner, 'site-review', $project);
+        $raw = AgentCredential::tokenFor(static::getContainer(), $owner, 'site-review', $project);
         $this->enableBoard();
 
         $this->put($client, $this->path((string) $project->id, (string) Uuid::v4()), $raw, ['rules' => [self::LIVE_RULE]]);
@@ -308,7 +308,7 @@ final class BridgeRuleReportApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'rules-api-mcp@example.com');
         $project = $this->project($em, $owner, 'Mcp Rules App');
-        $raw = AgentCredential::tokenFor(static::getContainer(), $client, $owner, 'mcp', $project);
+        $raw = AgentCredential::tokenFor(static::getContainer(), $owner, 'mcp', $project);
         $this->enableBoard();
 
         $this->put($client, $this->path((string) $project->id, (string) Uuid::v4()), $raw, ['rules' => [self::LIVE_RULE]]);
@@ -393,7 +393,7 @@ final class BridgeRuleReportApiTest extends WebTestCase
 
     private function agentToken(KernelBrowser $browser, User $owner): string
     {
-        return AgentCredential::agentToken(static::getContainer(), $browser, $owner);
+        return AgentCredential::agentToken(static::getContainer(), $owner);
     }
 
     /** @param array<string, mixed> $body */

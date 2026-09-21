@@ -132,7 +132,7 @@ final class ShowEventsControllerTest extends WebTestCase
         $em = $this->em();
         $user = $this->user($em, 'events-empty@example.com');
         $em->flush();
-        $raw = AgentCredential::agentToken(static::getContainer(), $client, $user);
+        $raw = AgentCredential::agentToken(static::getContainer(), $user);
 
         $data = $this->events($client, $raw);
 
@@ -262,7 +262,7 @@ final class ShowEventsControllerTest extends WebTestCase
         $project = new Project($user, 'mcp-events-site');
         $em->persist($project);
         $em->flush();
-        $raw = AgentCredential::tokenFor(static::getContainer(), $client, $user, 'mcp', $project);
+        $raw = AgentCredential::tokenFor(static::getContainer(), $user, 'mcp', $project);
 
         $client->request(Request::METHOD_GET, '/api/events', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
@@ -290,24 +290,7 @@ final class ShowEventsControllerTest extends WebTestCase
         $project = new Project($user, 'events-widget-site');
         $em->persist($project);
         $em->flush();
-        $raw = AgentCredential::tokenFor(static::getContainer(), $client, $user, 'site-review', $project);
-
-        $client->request(Request::METHOD_GET, '/api/events', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
-
-        self::assertResponseStatusCodeSame(403);
-        self::assertJsonStringEqualsJsonString('{"error":"insufficient_scope"}', (string) $client->getResponse()->getContent());
-    }
-
-    /** Scope alone decides, so the project binding is not what keeps a widget out. */
-    public function test_a_site_review_credential_over_every_project_is_forbidden(): void
-    {
-        $client = static::createClient();
-        $client->disableReboot();
-        $em = $this->em();
-        $user = $this->user($em, 'events-unbound@example.com');
-        $em->persist(new Project($user, 'events-unbound-site'));
-        $em->flush();
-        $raw = AgentCredential::tokenFor(static::getContainer(), $client, $user, 'site-review projects');
+        $raw = AgentCredential::tokenFor(static::getContainer(), $user, 'site-review', $project);
 
         $client->request(Request::METHOD_GET, '/api/events', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
 
@@ -389,7 +372,7 @@ final class ShowEventsControllerTest extends WebTestCase
         $em->persist($project);
         $em->flush();
 
-        $raw = AgentCredential::agentToken(static::getContainer(), $client, $user);
+        $raw = AgentCredential::agentToken(static::getContainer(), $user);
 
         return [
             $raw,

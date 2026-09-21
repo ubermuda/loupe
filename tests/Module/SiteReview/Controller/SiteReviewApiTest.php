@@ -59,7 +59,7 @@ final class SiteReviewApiTest extends WebTestCase
         $em->persist($project);
         $em->flush();
 
-        $raw = AgentCredential::tokenFor(static::getContainer(), $client, $user, 'site-review', $project);
+        $raw = AgentCredential::tokenFor(static::getContainer(), $user, 'site-review', $project);
 
         return [$raw, AgentCredential::managed($em, $project, $project->id)];
     }
@@ -532,20 +532,26 @@ final class SiteReviewApiTest extends WebTestCase
     }
 
     /**
-     * A grant over every project of an owner who owns none reaches no site. The
-     * API then answers with the code the widget reads, rather than an error page.
+     * A grant names one project, and the header names another of the same
+     * owner. The resolver refuses rather than ignoring the header, so the API
+     * answers with the code the widget reads rather than an error page.
      */
-    public function test_a_site_review_credential_that_reaches_no_site_is_forbidden(): void
+    public function test_a_header_naming_another_project_reaches_no_site(): void
     {
         $client = static::createClient();
         $client->disableReboot();
+        [$raw, $project] = $this->projectWithToken($client, 'api-b@example.com');
         $em = $this->em();
-        $user = $this->user($em, 'api-b@example.com');
+        $elsewhere = new Project($project->owner, 'api-b-elsewhere');
+        $em->persist($elsewhere);
         $em->flush();
-        $raw = AgentCredential::tokenFor(static::getContainer(), $client, $user, 'site-review projects');
 
-        $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $raw,
-            ['body' => 'x', 'url' => 'https://app/x']);
+        $client->request(Request::METHOD_POST, '/api/site-review/comments', server: [
+            'HTTP_AUTHORIZATION' => 'Bearer '.$raw,
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ORIGIN' => 'https://app.localhost',
+            'HTTP_X_LOUPE_PROJECT' => (string) $elsewhere->id,
+        ], content: json_encode(['body' => 'x', 'url' => 'https://app/x'], \JSON_THROW_ON_ERROR));
 
         self::assertResponseStatusCodeSame(403);
         self::assertSame('token_not_bound_to_site', json_decode((string) $client->getResponse()->getContent(), true)['error'] ?? null);
@@ -719,7 +725,7 @@ final class SiteReviewApiTest extends WebTestCase
         $mcpProject = new Project($user, 'api-g-site');
         $em->persist($mcpProject);
         $em->flush();
-        $mcpRaw = AgentCredential::tokenFor(static::getContainer(), $client, $user, 'mcp', $mcpProject);
+        $mcpRaw = AgentCredential::tokenFor(static::getContainer(), $user, 'mcp', $mcpProject);
         $this->api($client, Request::METHOD_POST, '/api/site-review/comments', $mcpRaw, ['body' => 'x', 'url' => 'u']);
         self::assertResponseStatusCodeSame(403);
         // The wrong-scope 403 carries a machine-readable JSON code rather than

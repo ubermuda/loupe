@@ -427,7 +427,7 @@ final class WorkerRunsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'runs-api-widget@example.com');
         $project = $this->project($em, $owner, 'Widget Runs');
-        $raw = AgentCredential::tokenFor(static::getContainer(), $client, $owner, 'site-review', $project);
+        $raw = AgentCredential::tokenFor(static::getContainer(), $owner, 'site-review', $project);
 
         $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, $this->payload());
 
@@ -445,7 +445,7 @@ final class WorkerRunsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'runs-api-mcp@example.com');
         $project = $this->project($em, $owner, 'Mcp Runs');
-        $raw = AgentCredential::tokenFor(static::getContainer(), $client, $owner, 'mcp', $project);
+        $raw = AgentCredential::tokenFor(static::getContainer(), $owner, 'mcp', $project);
 
         $this->post($client, '/api/projects/'.$project->id.'/worker-runs', $raw, $this->payload());
 

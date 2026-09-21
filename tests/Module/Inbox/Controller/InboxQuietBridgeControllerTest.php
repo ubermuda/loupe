@@ -105,7 +105,7 @@ final class InboxQuietBridgeControllerTest extends WebTestCase
     public function test_a_heartbeat_sent_through_the_endpoint_marks_the_ask_heard(): void
     {
         $ask = $this->openAsk($bridgeId = Uuid::v4());
-        $raw = AgentCredential::agentToken(static::getContainer(), $this->client, $this->owner);
+        $raw = AgentCredential::agentToken(static::getContainer(), $this->owner);
 
         $this->client->request(
             Request::METHOD_PUT,

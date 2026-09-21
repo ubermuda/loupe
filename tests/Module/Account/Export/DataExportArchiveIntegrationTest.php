@@ -49,7 +49,7 @@ final class DataExportArchiveIntegrationTest extends WebTestCase
 
         // The grant comes first, because the consent flow detaches everything
         // the test holds. The rest of the graph then points at managed rows.
-        $raw = AgentCredential::agentToken(self::getContainer(), $client, $user);
+        $raw = AgentCredential::agentToken(self::getContainer(), $user);
         $user = AgentCredential::managed($em, $user, $user->id);
         $project = AgentCredential::managed($em, $project, $project->id);
 
@@ -133,7 +133,8 @@ final class DataExportArchiveIntegrationTest extends WebTestCase
             self::assertIsString($rawApps);
             $apps = json_decode($rawApps, true, flags: \JSON_THROW_ON_ERROR);
             self::assertCount(1, $apps);
-            self::assertSame(OAuthScenario::CLIENT_ID, $apps[0]['clientId']);
+            // The client the mint grants through, which is the one the CLI uses.
+            self::assertSame('loupe-cli', $apps[0]['clientId']);
 
             $allJson = '';
             for ($i = 0; $i < $zip->numFiles; ++$i) {

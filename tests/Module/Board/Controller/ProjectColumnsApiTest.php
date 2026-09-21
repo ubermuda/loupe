@@ -147,7 +147,7 @@ final class ProjectColumnsApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'columns-api-widget@example.com');
         $project = $this->project($em, $owner, 'Widget App');
-        $raw = AgentCredential::tokenFor(static::getContainer(), $client, $owner, 'site-review', $project);
+        $raw = AgentCredential::tokenFor(static::getContainer(), $owner, 'site-review', $project);
         $this->enableBoard();
 
         $this->get($client, '/api/projects/'.$project->id.'/board/columns', $raw);
@@ -215,7 +215,7 @@ final class ProjectColumnsApiTest extends WebTestCase
 
     private function agentToken(KernelBrowser $browser, User $owner): string
     {
-        return AgentCredential::agentToken(static::getContainer(), $browser, $owner);
+        return AgentCredential::agentToken(static::getContainer(), $owner);
     }
 
     private function get(KernelBrowser $client, string $path, string $raw, string $clientIp = '127.0.0.1'): void

@@ -70,7 +70,7 @@ final class CompedAccountMcpAccessTest extends WebTestCase
 
         // The paywall covers the consent page, so the grant has to happen
         // while the trial runs. The trial then moves into the past.
-        $raw = AgentCredential::tokenFor(static::getContainer(), $client, $user, 'mcp', $project);
+        $raw = AgentCredential::tokenFor(static::getContainer(), $user, 'mcp', $project);
 
         $user = AgentCredential::managed($em, $user, $user->id);
         foreach (AgentCredential::managed($em, $profile, $profile->id)->subscriptions as $subscription) {

@@ -225,7 +225,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'heartbeat-widget@example.com');
         $project = $this->project($em, $owner, 'Widget Heartbeat');
-        $raw = AgentCredential::tokenFor(static::getContainer(), $client, $owner, 'site-review', $project);
+        $raw = AgentCredential::tokenFor(static::getContainer(), $owner, 'site-review', $project);
 
         $this->put($client, (string) Uuid::v4(), $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7']);
 
@@ -239,7 +239,7 @@ final class BridgeHeartbeatApiTest extends WebTestCase
         $em = $this->em();
         $owner = $this->user($em, 'heartbeat-mcp@example.com');
         $project = $this->project($em, $owner, 'Heartbeat MCP');
-        $raw = AgentCredential::tokenFor(static::getContainer(), $client, $owner, 'mcp', $project);
+        $raw = AgentCredential::tokenFor(static::getContainer(), $owner, 'mcp', $project);
 
         $this->put($client, (string) Uuid::v4(), $raw, ['projects' => [], 'cliVersion' => 'b4e39aa7']);
 

@@ -32,7 +32,7 @@ final class ListSitesApiTest extends WebTestCase
 
         $em->flush();
 
-        $raw = AgentCredential::agentToken(static::getContainer(), $client, $owner);
+        $raw = AgentCredential::agentToken(static::getContainer(), $owner);
 
         $client->request(Request::METHOD_GET, '/api/projects',
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
@@ -60,7 +60,7 @@ final class ListSitesApiTest extends WebTestCase
         $em->persist(new Project($owner, 'My Slugged Site'));
         $em->flush();
 
-        $raw = AgentCredential::agentToken(static::getContainer(), $client, $owner);
+        $raw = AgentCredential::agentToken(static::getContainer(), $owner);
 
         $client->request(Request::METHOD_GET, '/api/projects',
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
@@ -80,7 +80,7 @@ final class ListSitesApiTest extends WebTestCase
         $owner = $this->user($em, 'list-sites-old-path@example.com');
         $em->flush();
 
-        $raw = AgentCredential::agentToken(static::getContainer(), $client, $owner);
+        $raw = AgentCredential::agentToken(static::getContainer(), $owner);
 
         $client->request(Request::METHOD_GET, '/api/agent/sites',
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
@@ -106,7 +106,7 @@ final class ListSitesApiTest extends WebTestCase
         $em->persist($project);
         $em->flush();
 
-        $raw = AgentCredential::tokenFor(static::getContainer(), $client, $user, 'mcp', $project);
+        $raw = AgentCredential::tokenFor(static::getContainer(), $user, 'mcp', $project);
 
         $client->request(Request::METHOD_GET, '/api/projects',
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
@@ -127,7 +127,7 @@ final class ListSitesApiTest extends WebTestCase
         $em->persist($project);
         $em->flush();
 
-        $raw = AgentCredential::tokenFor(static::getContainer(), $client, $user, 'site-review', $project);
+        $raw = AgentCredential::tokenFor(static::getContainer(), $user, 'site-review', $project);
 
         $client->request(Request::METHOD_GET, '/api/projects',
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);
@@ -144,17 +144,18 @@ final class ListSitesApiTest extends WebTestCase
      * A site-review grant over every project of its owner is refused too. Scope
      * alone decides here, so the binding is not what keeps a widget out.
      */
-    public function test_a_site_review_credential_over_every_project_is_forbidden(): void
+    public function test_a_site_review_credential_is_forbidden_the_agent_surface(): void
     {
         $client = static::createClient();
         $client->disableReboot();
         $em = $this->em();
 
         $user = $this->user($em, 'list-sites-unbound@example.com');
-        $em->persist(new Project($user, 'list-unbound-site'));
+        $project = new Project($user, 'list-unbound-site');
+        $em->persist($project);
         $em->flush();
 
-        $raw = AgentCredential::tokenFor(static::getContainer(), $client, $user, 'site-review projects');
+        $raw = AgentCredential::tokenFor(static::getContainer(), $user, 'site-review', $project);
 
         $client->request(Request::METHOD_GET, '/api/projects',
             server: ['HTTP_AUTHORIZATION' => 'Bearer '.$raw]);

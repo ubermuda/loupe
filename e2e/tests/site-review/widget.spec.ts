@@ -74,7 +74,7 @@ const registerUser = async (page: Page): Promise<string> => {
     expect(harness.ok()).toBeTruthy();
     const projectId = /data-project="([^"]+)"/.exec(await harness.text())?.[1];
     expect(projectId).toBeTruthy();
-    await signWidgetIn(page, { email, password: E2E_PASSWORD }, projectId!);
+    await signWidgetIn(page, projectId!);
 
     return projectId!;
 };

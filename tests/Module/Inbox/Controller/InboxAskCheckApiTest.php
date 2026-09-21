@@ -144,7 +144,7 @@ final class InboxAskCheckApiTest extends WebTestCase
     {
         [$owner, $project] = $this->ownerAndProject('ask-check-widget');
         $ask = $this->closedAskReadUpTo($project, 1);
-        $raw = AgentCredential::tokenFor(static::getContainer(), $this->client, $owner, 'site-review', $project);
+        $raw = AgentCredential::tokenFor(static::getContainer(), $owner, 'site-review', $project);
         $this->setInboxFlag(true);
 
         $this->check($raw, (string) $project->id, (string) $ask->id);
@@ -157,7 +157,7 @@ final class InboxAskCheckApiTest extends WebTestCase
     {
         [$owner, $project] = $this->ownerAndProject('ask-check-mcp');
         $ask = $this->closedAskReadUpTo($project, 1);
-        $raw = AgentCredential::tokenFor(static::getContainer(), $this->client, $owner, 'mcp', $project);
+        $raw = AgentCredential::tokenFor(static::getContainer(), $owner, 'mcp', $project);
         $this->setInboxFlag(true);
 
         $this->check($raw, (string) $project->id, (string) $ask->id);
@@ -258,7 +258,7 @@ final class InboxAskCheckApiTest extends WebTestCase
 
     private function agentToken(User $owner): string
     {
-        return AgentCredential::agentToken(static::getContainer(), $this->client, $owner);
+        return AgentCredential::agentToken(static::getContainer(), $owner);
     }
 
     private function path(string $handle, string $askId): string

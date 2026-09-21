@@ -49,7 +49,7 @@ trait BridgeScenario
 
     private function agentToken(KernelBrowser $browser, User $owner): string
     {
-        return AgentCredential::agentToken(static::getContainer(), $browser, $owner);
+        return AgentCredential::agentToken(static::getContainer(), $owner);
     }
 
     private function seedRun(

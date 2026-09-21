@@ -9,6 +9,7 @@ use App\Module\Project\Entity\Project;
 use Doctrine\ORM\EntityManagerInterface;
 use League\Bundle\OAuth2ServerBundle\Manager\ClientManagerInterface;
 use League\Bundle\OAuth2ServerBundle\Model\Client;
+use League\Bundle\OAuth2ServerBundle\Model\ClientInterface;
 use League\Bundle\OAuth2ServerBundle\ValueObject\Grant;
 use League\Bundle\OAuth2ServerBundle\ValueObject\RedirectUri;
 use League\Bundle\OAuth2ServerBundle\ValueObject\Scope;
@@ -46,7 +47,7 @@ final readonly class OAuthScenario
      * @param non-empty-string       $identifier
      * @param list<non-empty-string> $redirectUris
      */
-    public function createClient(string $identifier = self::CLIENT_ID, array $redirectUris = [self::REDIRECT_URI]): Client
+    public function createClient(string $identifier = self::CLIENT_ID, array $redirectUris = [self::REDIRECT_URI]): ClientInterface
     {
         $manager = $this->container->get(ClientManagerInterface::class);
         // A test that takes two credentials seeds the row twice, and the second

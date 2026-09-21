@@ -116,6 +116,33 @@ $factory = new RateLimiterFactory(
 );
 ```
 
+## A bearer token in a WebTestCase
+
+Loupe accepts no static token, so a test that calls `/api` or `/mcp` needs an
+OAuth access token. Mint one rather than run a grant.
+
+```php
+$token = AgentCredential::agentToken(static::getContainer(), $owner);
+$project = AgentCredential::tokenFor(static::getContainer(), $owner, 'mcp', $project);
+```
+
+`App\Tests\Support\AgentCredential` calls `MintAccessTokenHandler`, which
+exists in dev and test alone. The token comes from the repositories the grants
+use, so the firewall accepts it, and `MintAccessTokenHandlerTest` proves that
+over HTTP.
+
+Pass base scopes only, such as `agent`, `mcp` or `site-review`. The handler adds
+the binding: a scope that needs a project takes the one you name, or every
+project of the owner. The `agent` scope needs none, so naming a project with it
+throws.
+
+Never mint in a test about signing in. The authorization code flow, the device
+flow and the widget popup have their own tests under `tests/Module/OAuth/`, and
+a shortcut there would prove nothing.
+
+For a `KernelTestCase` that needs a security token rather than a bearer, use the
+`McpTokenScenario` trait, which sets an `AuthenticatedCredential` directly.
+
 ## Terms acceptance in a WebTestCase
 
 A fixture `User` has not accepted the terms, so `RequireTermsAcceptanceListener`

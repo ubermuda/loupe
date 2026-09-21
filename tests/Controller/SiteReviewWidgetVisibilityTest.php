@@ -13,14 +13,20 @@ use Symfony\Component\HttpFoundation\Request;
 
 /**
  * The widget invites comments an agent may act on, so who is offered it is a
- * security question rather than a cosmetic one. The test env mirrors production:
- * a token is configured and SITE_REVIEW_WIDGET_PUBLIC is not.
+ * security question rather than a cosmetic one. The test env mirrors
+ * production, where SITE_REVIEW_WIDGET_PUBLIC is not set.
  */
 final class SiteReviewWidgetVisibilityTest extends WebTestCase
 {
     private const string WIDGET = 'script[src="/site-review/widget.js"]';
 
     private const string PROJECT_ID = '0199c0de-0000-7000-8000-00000000beef';
+
+    #[\Override]
+    protected function setUp(): void
+    {
+        $this->setWidgetProject(self::PROJECT_ID);
+    }
 
     #[\Override]
     protected function tearDown(): void
@@ -65,8 +71,7 @@ final class SiteReviewWidgetVisibilityTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/projects');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter(self::WIDGET));
-        self::assertCount(1, $crawler->filter(self::WIDGET.'[data-token]'));
+        self::assertCount(1, $crawler->filter(self::WIDGET.'[data-project="'.self::PROJECT_ID.'"]'));
     }
 
     public function test_the_admin_area_offers_the_widget_from_its_own_layout(): void
@@ -79,39 +84,29 @@ final class SiteReviewWidgetVisibilityTest extends WebTestCase
         $crawler = $client->request(Request::METHOD_GET, '/admin');
 
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter(self::WIDGET));
-        self::assertCount(1, $crawler->filter(self::WIDGET.'[data-token]'));
+        self::assertCount(1, $crawler->filter(self::WIDGET.'[data-project="'.self::PROJECT_ID.'"]'));
     }
 
-    /**
-     * A token in the page source is public to every reader, so an instance
-     * that names a project signs the reviewer in instead. The token stays
-     * configured here, because the project must win over it.
-     */
-    public function test_a_configured_project_replaces_the_token(): void
+    /** No project named means no widget at all, on either layout. */
+    public function test_an_instance_that_names_no_project_offers_nothing(): void
     {
-        $this->setWidgetProject(self::PROJECT_ID);
+        $this->setWidgetProject('');
         $client = static::createClient();
-        $this->signInAdmin($client, 'widget-project@example.com');
+        $this->signInAdmin($client, 'widget-no-project@example.com');
 
-        $crawler = $client->request(Request::METHOD_GET, '/projects');
-
-        self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter(self::WIDGET.'[data-project="'.self::PROJECT_ID.'"]'));
-        self::assertCount(0, $crawler->filter(self::WIDGET.'[data-token]'));
+        self::assertCount(0, $client->request(Request::METHOD_GET, '/projects')->filter(self::WIDGET));
+        self::assertCount(0, $client->request(Request::METHOD_GET, '/admin')->filter(self::WIDGET));
     }
 
-    public function test_the_admin_area_also_prefers_the_project(): void
+    /** The page source carries no credential, whichever layout renders it. */
+    public function test_no_layout_puts_a_credential_in_the_page(): void
     {
-        $this->setWidgetProject(self::PROJECT_ID);
         $client = static::createClient();
-        $this->signInAdmin($client, 'widget-project-admin-area@example.com');
+        $this->signInAdmin($client, 'widget-no-credential@example.com');
 
-        $crawler = $client->request(Request::METHOD_GET, '/admin');
-
-        self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter(self::WIDGET.'[data-project="'.self::PROJECT_ID.'"]'));
-        self::assertCount(0, $crawler->filter(self::WIDGET.'[data-token]'));
+        foreach (['/projects', '/admin'] as $path) {
+            self::assertCount(0, $client->request(Request::METHOD_GET, $path)->filter(self::WIDGET.'[data-token]'));
+        }
     }
 
     /** @param non-empty-string $email */

@@ -29,6 +29,11 @@ final class Version20260921213048 extends AbstractMigration
         $this->addSql('CREATE UNIQUE INDEX UNIQ_A62484A5918020D9 ON oauth_credentials (handle)');
         $this->addSql('CREATE INDEX IDX_A62484A57E3C61F9 ON oauth_credentials (owner_id)');
         $this->addSql('ALTER TABLE oauth_credentials ADD CONSTRAINT FK_A62484A57E3C61F9 FOREIGN KEY (owner_id) REFERENCES users (id) ON DELETE CASCADE NOT DEFERRABLE');
+        // @contract-phase: nothing reads audit_log.credential_id. The column is
+        // written at insert and read only by the account purger, which now
+        // matches oauth_credentials. The previous image keeps writing an
+        // api_tokens id, and a foreign key to the new table would refuse it, so
+        // the old key goes now and the new one waits for board card 178.
         $this->addSql('ALTER TABLE audit_log DROP CONSTRAINT fk_f6e1c0f52558a7a5');
     }
 
