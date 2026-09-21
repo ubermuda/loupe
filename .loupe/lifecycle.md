@@ -27,7 +27,7 @@ The Loupe stage skills read this file. It holds the values that belong to this r
 2. Run `just cs`, and commit what it changes.
 3. Run `just ci`. It is long, so run it as the harness adapter says for a long command.
 4. Never start `just ci` again over a killed run. PHPUnit keeps running in the shared php-fpm container. Stop it as `project-worktrees` says.
-5. Never run the full e2e suite locally. The CI `e2e` check gates it. Read a failed one in its shard job, `e2e-chromium` or `e2e-rest`.
+5. Never run the full e2e suite on this machine, and a hook refuses it. The CI `e2e` check gates it. Read a failed one in its shard job, `e2e-chromium` or `e2e-rest`. One named spec is still fine while you debug it.
 6. Fix every failure, including one that pre-dates the branch.
 7. The required checks come from the ruleset command in `working-with-prs` "What the ruleset actually requires".
 
