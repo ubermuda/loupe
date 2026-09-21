@@ -96,3 +96,42 @@ func TestLoginWithATokenKeepsTheStaticPath(t *testing.T) {
 		t.Fatalf("stored %+v", stored)
 	}
 }
+
+func TestLoginDefaultsToTheHostedInstance(t *testing.T) {
+	useLoginConfigHome(t)
+
+	cmd := newLoginCmd()
+	flag := cmd.Flags().Lookup("url")
+	if flag == nil {
+		t.Fatal("login has no --url flag")
+	}
+	// Empty, so the precedence below can tell "not given" from a value.
+	if flag.DefValue != "" {
+		t.Fatalf("--url default: got %q, want the empty string", flag.DefValue)
+	}
+	if !strings.Contains(flag.Usage, DefaultBaseURL) {
+		t.Fatalf("--url help must name the default, got %q", flag.Usage)
+	}
+	if DefaultBaseURL != "https://loupe.ac" {
+		t.Fatalf("DefaultBaseURL: got %q, want the hosted instance", DefaultBaseURL)
+	}
+}
+
+func TestTheBaseUrlPrefersTheFlagThenTheEnvThenTheHostedInstance(t *testing.T) {
+	for name, c := range map[string]struct {
+		flag, env, want string
+	}{
+		"the flag wins":              {flag: "https://flag.example", env: "https://env.example", want: "https://flag.example"},
+		"the env when no flag":       {env: "https://env.example", want: "https://env.example"},
+		"the default when neither":   {want: DefaultBaseURL},
+		"a blank flag is not a URL":  {flag: "   ", env: "https://env.example", want: "https://env.example"},
+		"a blank env is not one out": {want: DefaultBaseURL, env: "  "},
+		"a trailing slash goes":      {flag: "https://flag.example/", want: "https://flag.example"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := resolveBaseURL(c.flag, c.env); got != c.want {
+				t.Fatalf("resolveBaseURL(%q, %q): got %q, want %q", c.flag, c.env, got, c.want)
+			}
+		})
+	}
+}

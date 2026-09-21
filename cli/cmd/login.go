@@ -15,6 +15,25 @@ import (
 	"github.com/ubermuda/loupe/cli/internal/oauth"
 )
 
+// DefaultBaseURL is the instance `loupe login` signs in to when nothing names
+// another. The hosted instance, because that is where a reader of a release
+// binary has an account. Someone self-hosting, or working on Loupe itself,
+// passes --url once or sets LOUPE_URL.
+const DefaultBaseURL = "https://loupe.ac"
+
+// resolveBaseURL picks the instance to sign in to: the flag, else LOUPE_URL,
+// else the hosted instance. The trailing slash goes, because every caller joins
+// a path onto it.
+func resolveBaseURL(flag, env string) string {
+	for _, candidate := range []string{flag, env, DefaultBaseURL} {
+		if trimmed := strings.TrimRight(strings.TrimSpace(candidate), "/"); "" != trimmed {
+			return trimmed
+		}
+	}
+
+	return DefaultBaseURL
+}
+
 func newLoginCmd() *cobra.Command {
 	var baseURL, token string
 
@@ -33,7 +52,7 @@ func newLoginCmd() *cobra.Command {
 				token = os.Getenv("LOUPE_TOKEN")
 			}
 			token = strings.TrimSpace(token)
-			base := strings.TrimRight(baseURL, "/")
+			base := resolveBaseURL(baseURL, os.Getenv("LOUPE_URL"))
 			if token == "" {
 				return deviceLogin(cmd, base)
 			}
@@ -54,7 +73,7 @@ func newLoginCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&baseURL, "url", "https://loupe.dev.localhost", "Loupe base URL")
+	cmd.Flags().StringVar(&baseURL, "url", "", "Loupe base URL (else LOUPE_URL env, else "+DefaultBaseURL+")")
 	cmd.Flags().StringVar(&token, "token", "", "API token for CI and scripts (else LOUPE_TOKEN env, else sign in in a browser)")
 
 	return cmd
