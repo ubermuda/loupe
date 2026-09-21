@@ -120,20 +120,31 @@ jobs:
       - uses: extractions/setup-just@v4
       - run: just cli-test
 
-  # Two runners, each with its own stack, database and seed. `chromium` holds
-  # 191 of the 226 tests and sets the wall time; `rest` holds the one-worker
-  # projects and the destructive chain that has to stay in one runner's order.
-  # Neither job may be called `e2e`, because the required check of that name is
-  # the fan-in job below.
+  # Three runners, each with its own stack, database and seed. `chromium` holds
+  # 281 of the 354 tests and sets the wall time, so `--shard` now splits it
+  # over two runners. `rest` holds the one-worker projects and the chain
+  # that has to stay in one runner's order. Neither job may be called `e2e`,
+  # because the required check of that name is the fan-in job below.
   e2e-shard:
-    name: e2e-${{ matrix.shard }}
+    name: e2e-${{ matrix.name }}
     runs-on: ubuntu-latest
     strategy:
-      # Both halves report, so one red shard still leaves the other's timing
+      # Every leg reports, so one red shard still leaves the others' timing
       # and Playwright report to read.
       fail-fast: false
       matrix:
-        shard: [chromium, rest]
+        # `--shard` splits the `chromium` half and cannot split `rest`, where
+        # every project is a dependency of another and the half is one unit.
+        include:
+          - name: chromium
+            shard: chromium
+            split: '--shard=1/2'
+          - name: chromium-2
+            shard: chromium
+            split: '--shard=2/2'
+          - name: rest
+            shard: rest
+            split: ''
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
@@ -176,8 +187,10 @@ jobs:
 
       # The runner's whole database is disposable, so the suite runs against the
       # main stack rather than the `just e2e-up` sidecar, whose only purpose is
-      # to keep a developer's own database out of the way.
-      - run: just e2e
+      # to keep a developer's own database out of the way. Playwright shards
+      # whole test groups and never splits one, so a serial spec stays on one
+      # runner. An empty `split` runs the whole half.
+      - run: just e2e ${{ matrix.split }}
         env:
           E2E_BASE_URL: http://localhost
           MAILPIT_URL: http://localhost:8025
@@ -193,7 +206,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: e2e-timing-${{ matrix.shard }}
+          name: e2e-timing-${{ matrix.name }}
           path: var/e2e-timing/results.json
           retention-days: 30
           if-no-files-found: warn
@@ -205,7 +218,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: playwright-report-${{ matrix.shard }}
+          name: playwright-report-${{ matrix.name }}
           path: e2e/playwright-report
           retention-days: 7
 

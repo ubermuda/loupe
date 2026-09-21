@@ -356,11 +356,11 @@ CI's `e2e` check is the gate. It runs the same `just e2e` against a disposable
 stack, with both `E2E_BASE_URL` and `MAILPIT_URL` set correctly. See
 `.github/workflows/ci.yml`.
 
-The work happens in two jobs, `e2e-chromium` and `e2e-rest`, each on its own
-runner with its own stack. `e2e` itself is a fan-in job that reports red when
-either shard fails. Read the shard job for a failure, because `e2e` names no
-test. `maxFailures: 1` is per process, so a red run can report one failure in
-each shard.
+The work happens in three jobs, `e2e-chromium`, `e2e-chromium-2` and
+`e2e-rest`, each on its own runner with its own stack. `e2e` itself is a fan-in
+job that reports red when any shard fails. Read the shard job for a failure,
+because `e2e` names no test. `maxFailures: 1` is per process, so a red run can
+report one failure in each shard.
 
 Locally the same suite is slower, destructive, and measurably less truthful.
 Across one wave of five branches, every local e2e problem was environmental and
@@ -649,10 +649,11 @@ gh api repos/ubermuda/loupe/rulesets/$id \
   -q '.rules[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context'
 ```
 
-On 2026-09-06 it printed ten contexts: `lint`, `cs-check`, `phpstan`,
-`arkitect`, `gamache`, `audit`, `phpunit`, `e2e`, `js-test` and `cli-test`. Run
-the command rather than trust that snapshot. It read eight until `js-test` and
-`cli-test` arrived, and nothing in the repository fails when it goes stale.
+On 2026-09-21 it printed thirteen contexts: `lint`, `cs-check`, `phpstan`,
+`arkitect`, `gamache`, `audit`, `phpunit`, `e2e`, `js-test`, `cli-test`,
+`e2e-chromium`, `e2e-rest` and `e2e-chromium-2`. Run the command rather than
+trust that snapshot. It read ten before the e2e shard jobs arrived, and nothing
+in the repository fails when it goes stale.
 
 An approval in chat is not a GitHub approval. Check before concluding a merge is
 blocked by something else:

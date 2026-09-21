@@ -8,7 +8,7 @@ description: Use when writing, fixing, or debugging Playwright e2e tests under `
 ## General rules
 
 - **CI's `e2e` check gates the suite. Run it locally only to work on one spec.** Push and read the check instead of running the full suite before a PR. Locally the suite is slower, destructive, and prone to failures that belong to the environment, not the diff (see `working-with-prs`). One spec: `just e2e tests/<area>/<spec>.spec.ts`.
-- **CI splits the suite across two runners, and `E2E_SHARD` picks the half.** `chromium` runs that project alone, `rest` runs every other project with chromium dropped from the dependency chain. Unset runs everything, so a local `just e2e` is unchanged. Playwright's own `--shard` cannot split this suite: it filters top-level projects only, and `install-reset` is the one top-level project here.
+- **CI splits the suite across three runners, and `E2E_SHARD` picks the half.** The jobs are `e2e-chromium`, `e2e-chromium-2` and `e2e-rest`. `chromium` runs that project alone, `rest` runs every other project with chromium dropped from the dependency chain. Unset runs everything, so a local `just e2e` is unchanged. Playwright's own `--shard` cannot split the whole suite: it filters top-level projects only, and `install-reset` is the one top-level project here. It does split the `chromium` half, where that project is the only one left.
 - Never fix a failing test by manipulating the database (resetting passwords, deleting rows). A test that needs a specific DB state must create that state. A fix that needs a one-time DB operation breaks again on the next fresh environment.
 
 ## Turbo Drive navigation
