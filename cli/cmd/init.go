@@ -135,49 +135,73 @@ func offerMcpEntry(cmd *cobra.Command, dir string, write, skip bool) error {
 	if err := mcpjson.Write(dir); err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "Wrote %s. Restart your agent so it picks the server up.\n", mcpjson.Name)
+	// A .mcp.json names programs to run and travels with the repository, so an
+	// agent gates it behind an approval the first time rather than on trust.
+	fmt.Fprintf(out, "Wrote %s. Restart your agent, which asks you to approve the server once.\n", mcpjson.Name)
 
 	return offerToUnshadow(cmd, dir)
 }
 
 // offerToUnshadow deals with a Claude Code entry that hides the file we just
-// wrote. Claude Code prefers its own local-scope entry over .mcp.json, so the
-// new file has no effect while that entry exists, and neither of them says so.
+// wrote. Claude Code prefers its own entry over .mcp.json, in local scope and
+// in user scope alike, so the new file has no effect while one exists and
+// neither of them says so.
 func offerToUnshadow(cmd *cobra.Command, dir string) error {
 	out := cmd.OutOrStdout()
 
-	shadow, err := claudecode.Shadowing(dir, mcpjson.ServerKey)
-	if err != nil {
-		// Claude Code owns this file. Failing to read it says nothing about
-		// whether loupe init did its job, so it is a note rather than an error.
-		fmt.Fprintf(out, "Could not check Claude Code's own configuration: %v\n", err)
+	// Local beats user, so removing one can uncover the other. Two scopes hide
+	// the file, so two passes see all of it. The bound matters more than the
+	// count: a removal that reports success and changes nothing must not loop.
+	for range 2 {
+		shadow, err := claudecode.Shadowing(dir, mcpjson.ServerKey)
+		if err != nil {
+			// Claude Code owns this file. Failing to read it says nothing
+			// about whether loupe init did its job, so it is a note.
+			fmt.Fprintf(out, "Could not check Claude Code's own configuration: %v\n", err)
 
-		return nil
-	}
-	if nil == shadow {
-		return nil
+			return nil
+		}
+		if nil == shadow {
+			return nil
+		}
+
+		if !removeShadow(cmd, dir, shadow) {
+			return nil
+		}
 	}
 
-	fmt.Fprintf(out, "\nClaude Code has its own %q server for %s, pointing at %s.\n", mcpjson.ServerKey, shadow.Path, shadow.Summary)
+	return nil
+}
+
+// removeShadow shows one entry and offers to remove it, and reports whether it
+// went, so the caller knows whether to look for another behind it.
+func removeShadow(cmd *cobra.Command, dir string, shadow *claudecode.Shadow) bool {
+	out := cmd.OutOrStdout()
+	remove := claudecode.RemoveCommand(mcpjson.ServerKey, shadow.Scope)
+
+	fmt.Fprintf(out, "\nClaude Code has its own %q server for %s, pointing at %s.\n", mcpjson.ServerKey, shadow.Where(), shadow.Summary)
 	fmt.Fprintf(out, "That entry wins over %s, so the file just written has no effect until it goes.\n", mcpjson.Name)
+	if claudecode.ScopeUser == shadow.Scope {
+		fmt.Fprintln(out, "It covers every project, so removing it affects your other repositories too.")
+	}
 
 	if !confirm(out, cmd.InOrStdin(), "Ask Claude Code to remove it?") {
-		fmt.Fprintf(out, "Left it. Run `%s` when you want %s to take effect.\n", claudecode.RemoveCommand(mcpjson.ServerKey), mcpjson.Name)
+		fmt.Fprintf(out, "Left it. Run `%s` when you want %s to take effect.\n", remove, mcpjson.Name)
 
-		return nil
+		return false
 	}
 
 	ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
 	defer cancel()
-	if err := claudecode.Remove(ctx, dir, mcpjson.ServerKey); err != nil {
+	if err := claudecode.Remove(ctx, dir, mcpjson.ServerKey, shadow.Scope); err != nil {
 		fmt.Fprintf(out, "Could not remove it: %v\n", err)
-		fmt.Fprintf(out, "Run `%s` by hand.\n", claudecode.RemoveCommand(mcpjson.ServerKey))
+		fmt.Fprintf(out, "Run `%s` by hand.\n", remove)
 
-		return nil
+		return false
 	}
-	fmt.Fprintf(out, "Removed it. %s now names the server Claude Code starts.\n", mcpjson.Name)
+	fmt.Fprintf(out, "Removed the %s entry.\n", shadow.Scope)
 
-	return nil
+	return true
 }
 
 // confirm asks a yes or no question. Enter means yes, and every answer that is

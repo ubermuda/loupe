@@ -62,6 +62,9 @@ func TestAnEntryForThisDirectoryShadowsUs(t *testing.T) {
 	if shadow.Path != resolved {
 		t.Fatalf("Path: got %q, want %q", shadow.Path, resolved)
 	}
+	if shadow.Scope != ScopeLocal {
+		t.Fatalf("Scope: got %q, want local", shadow.Scope)
+	}
 }
 
 // t.TempDir gives a path through a symbolic link on macOS, and Claude Code
@@ -148,14 +151,72 @@ func TestBrokenConfigurationIsAnErrorRatherThanNothingToDo(t *testing.T) {
 func TestRemoveSaysSoWhenClaudeIsNotInstalled(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 
-	if err := Remove(context.Background(), t.TempDir(), "loupe"); err != ErrNoClaude {
+	if err := Remove(context.Background(), t.TempDir(), "loupe", ScopeLocal); err != ErrNoClaude {
 		t.Fatalf("Remove with no claude on PATH: got %v, want ErrNoClaude", err)
 	}
 }
 
-func TestRemoveCommandNamesTheLocalScope(t *testing.T) {
-	got := RemoveCommand("loupe")
-	if got != "claude mcp remove loupe -s local" {
-		t.Fatalf("RemoveCommand: got %q", got)
+func TestRemoveCommandNamesTheScope(t *testing.T) {
+	if got := RemoveCommand("loupe", ScopeLocal); got != "claude mcp remove loupe -s local" {
+		t.Fatalf("RemoveCommand(local): got %q", got)
+	}
+	if got := RemoveCommand("loupe", ScopeUser); got != "claude mcp remove loupe -s user" {
+		t.Fatalf("RemoveCommand(user): got %q", got)
+	}
+}
+
+// .mcp.json is the lowest of the three scopes, so a user entry hides it just as
+// a local one does. Checking local alone reports nothing and leaves the file
+// inert.
+func TestAUserEntryShadowsUsToo(t *testing.T) {
+	dir, _ := project(t)
+	configure(t, `{"mcpServers":{"loupe":{"type":"http","url":"https://loupe.ac/mcp"}}}`)
+
+	shadow, err := Shadowing(dir, "loupe")
+	if err != nil {
+		t.Fatalf("Shadowing: %v", err)
+	}
+	if shadow == nil {
+		t.Fatal("Shadowing: got nil, want the user entry")
+	}
+	if shadow.Scope != ScopeUser {
+		t.Fatalf("Scope: got %q, want user", shadow.Scope)
+	}
+	if shadow.Where() != "every project" {
+		t.Fatalf("Where: got %q, want it to say the entry is not one project's", shadow.Where())
+	}
+}
+
+// Local wins over user, so reporting the user entry first would have somebody
+// remove it and find the file still hidden.
+func TestTheLocalEntryIsReportedBeforeTheUserOne(t *testing.T) {
+	dir, resolved := project(t)
+	configure(t, `{"mcpServers":{"loupe":{"url":"https://user.example/mcp"}},"projects":{"`+resolved+`":{"mcpServers":{"loupe":{"url":"https://local.example/mcp"}}}}}`)
+
+	shadow, err := Shadowing(dir, "loupe")
+	if err != nil {
+		t.Fatalf("Shadowing: %v", err)
+	}
+	if shadow == nil {
+		t.Fatal("Shadowing: got nil, want the local entry")
+	}
+	if shadow.Scope != ScopeLocal {
+		t.Fatalf("Scope: got %q, want local", shadow.Scope)
+	}
+	if shadow.Summary != "https://local.example/mcp" {
+		t.Fatalf("Summary: got %q, want the local entry", shadow.Summary)
+	}
+}
+
+func TestAUserEntryUnderAnotherNameDoesNotShadowUs(t *testing.T) {
+	dir, _ := project(t)
+	configure(t, `{"mcpServers":{"other":{"url":"https://example.test/mcp"}}}`)
+
+	shadow, err := Shadowing(dir, "loupe")
+	if err != nil {
+		t.Fatalf("Shadowing: %v", err)
+	}
+	if shadow != nil {
+		t.Fatalf("Shadowing: got %+v, want nil", shadow)
 	}
 }

@@ -129,13 +129,17 @@ do, because an unanswered prompt leaves the file alone. `loupe init --mcp` in a
 repository that already has a `.loupe.yaml` writes `.mcp.json` alone, so you can
 say no now and change your mind later.
 
+An agent asks you to approve the server the first time it reads the file. A
+`.mcp.json` names programs to run and travels with the repository, so approval
+is per machine and is recorded outside the repository.
+
 ### Claude Code can hide the file
 
-Claude Code resolves a server name across three scopes, and its own local-scope
-entry wins over `.mcp.json`. So a `loupe` server you added earlier with
-`claude mcp add` keeps running, the new `.mcp.json` has no effect, and neither
-of them says so. The agent starts, connects to the other server, and looks
-correct.
+Claude Code resolves a server name across three scopes, and `.mcp.json` is the
+lowest of them. A local-scope entry wins, and so does a user-scope one. So a
+`loupe` server you added earlier with `claude mcp add` keeps running, the new
+`.mcp.json` has no effect, and neither of them says so. The agent starts,
+connects to the other server, and looks correct.
 
 `loupe init` reads Claude Code's configuration, says when such an entry exists,
 and offers to remove it. It never edits that file. Claude Code owns it, rewrites
