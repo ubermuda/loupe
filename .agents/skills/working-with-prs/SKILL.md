@@ -136,6 +136,28 @@ Counting occurrences per entry is weaker. It needs a hypothesis about what to
 expect, so it catches only a loss somebody thought to look for. `comm` needs no
 hypothesis and answers both directions at once.
 
+### A stacked branch conflicts after its parent squashes
+
+A branch stacked on a pull request that merged by squash conflicts in files it
+is a strict superset of. The squash gives `main` the same content under a new
+commit that shares no history with the branch. Expect this at every stack merge.
+
+Apply the section above to a different unit. That section compares entries at a
+shared anchor. This compares test method names in `$F`, the test file both sides
+edited:
+
+```bash
+comm -23 <(git show origin/main:$F | grep -oE "public function test_[a-z_]+" | sort) \
+         <(grep -oE "public function test_[a-z_]+" $F | sort)   # lost from main: must be empty
+comm -13 <(git show HEAD:$F     | grep -oE "public function test_[a-z_]+" | sort) \
+         <(grep -oE "public function test_[a-z_]+" $F | sort)   # lost from the branch: must be empty
+```
+
+Both directions matter. `comm` proves no test disappeared. It does not prove
+that any test still asserts what it did. It compares names, so a resolution that
+keeps every name and guts a body passes it. This check complements reading the
+diff, and it never replaces it.
+
 ### Ask what reads what you write
 
 Inert code looks wired up when its input is present. A changelog fold proposed
@@ -407,6 +429,13 @@ only `E2E_BASE_URL` both fall back to the *shared* instance and read each
 other's mail. Serialise those, or give each its own `MAILPIT_URL`.
 
 ## Merging
+
+The `main` ruleset sets `strict_required_status_checks_policy` to `true`, so
+GitHub refuses a merge from a branch that is behind `main`. The sync below is a
+hard block rather than a caution. Every merge to `main` puts every other open
+branch behind, so a queue of N branches costs N sync-and-gate cycles. Two
+sessions cannot interleave their merges, so one session holds the queue at a
+time.
 
 1. A branch's final gate happens on the branch **fully merged with current
    main**. A branch cut before a sibling merged has not really been gated: its
