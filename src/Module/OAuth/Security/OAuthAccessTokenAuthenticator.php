@@ -99,7 +99,7 @@ final class OAuthAccessTokenAuthenticator extends AbstractAuthenticator
         }
 
         $granted = GrantedScope::fromScopes(array_values(array_filter($scopes, \is_string(...))));
-        if ($audience !== (ApiTokenScope::Mcp === $granted?->scope ? $this->mcpResource->uri : $clientId)) {
+        if ($audience !== (true === $granted?->allows(ApiTokenScope::Mcp) ? $this->mcpResource->uri : $clientId)) {
             throw new AuthenticationException('The OAuth access token is for another audience.');
         }
 
@@ -118,8 +118,9 @@ final class OAuthAccessTokenAuthenticator extends AbstractAuthenticator
         $passport = new SelfValidatingPassport(new UserBadge($user->getUserIdentifier(), static fn (): User => $user));
         $passport->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential(
             self::credentialId($clientId, $userId, $granted->projectId),
-            $granted->scope->role(),
+            $granted->roles(),
             $granted->projectId,
+            $granted->allProjects,
         ));
 
         return $passport;
@@ -134,7 +135,7 @@ final class OAuthAccessTokenAuthenticator extends AbstractAuthenticator
             throw new \LogicException('credential missing on passport after authentication.');
         }
 
-        $token = new PostAuthenticationToken($user, $firewallName, [...$user->getRoles(), $credential->scopeRole]);
+        $token = new PostAuthenticationToken($user, $firewallName, [...$user->getRoles(), ...$credential->roles]);
         $token->setAttribute(AuthenticatedCredential::ATTRIBUTE, $credential);
 
         return $token;

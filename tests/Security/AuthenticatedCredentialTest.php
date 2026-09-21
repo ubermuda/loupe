@@ -13,7 +13,7 @@ final class AuthenticatedCredentialTest extends TestCase
 {
     public function test_reads_the_credential_an_authenticator_attached(): void
     {
-        $credential = new AuthenticatedCredential('grant-1', 'ROLE_API_MCP');
+        $credential = new AuthenticatedCredential('grant-1', ['ROLE_API_MCP']);
         $securityToken = $this->securityToken();
         $securityToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, $credential);
 

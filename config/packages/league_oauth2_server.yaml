@@ -17,10 +17,12 @@ league_oauth2_server:
         revoke_refresh_tokens: true
     resource_server:
         public_key: '%env(resolve:OAUTH_PUBLIC_KEY)%'
-    # The base scopes mirror ApiTokenScope. A project scope, project:<uuid>,
-    # is accepted by ProjectScopeRepository and is never listed here.
+    # The base scopes mirror ApiTokenScope, plus `projects`, the binding that
+    # means every project the owner owns. It is listed here because league's own
+    # repository refuses a scope it does not know. A project:<uuid> scope is not
+    # listed, because ProjectScopeRepository accepts that one itself.
     scopes:
-        available: ['mcp', 'site-review', 'agent']
+        available: ['mcp', 'site-review', 'agent', 'projects']
         default: ['mcp']
     persistence:
         doctrine: null

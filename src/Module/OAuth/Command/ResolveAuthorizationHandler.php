@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\OAuth\Command;
 
 use App\Exception\DomainErrors;
+use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\OAuth\Scope\GrantedScope;
 use App\Module\Project\Entity\Project;
 use App\Module\Project\Repository\ProjectRepository;
@@ -55,8 +56,16 @@ final readonly class ResolveAuthorizationHandler
         $request->setUser($this->userConverter->toLeague($command->user));
         $request->setAuthorizationApproved($command->approved);
 
+        // A request that already asks for every project carries its binding, and
+        // adding one project beside it would leave the grant with both, which
+        // GrantedScope refuses.
+        $allProjects = false;
+        foreach ($request->getScopes() as $scope) {
+            $allProjects = $allProjects || GrantedScope::ALL_PROJECTS === $scope->getIdentifier();
+        }
+
         $project = null;
-        if ($command->approved && GrantedScope::needsProject($command->scope)) {
+        if ($command->approved && !$allProjects && GrantedScope::anyNeedsProject($command->scopes)) {
             $project = $this->ownedProject($command->projectId);
             $projectScope = $this->scopes->getScopeEntityByIdentifier(GrantedScope::projectScope($project->id ?? throw new \LogicException('a persisted project always has an id')))
                 ?? throw new \LogicException('an existing project always resolves to a scope');
@@ -69,7 +78,7 @@ final readonly class ResolveAuthorizationHandler
         $this->auditor->record(
             'oauth.client_authorized',
             AuditOutcome::Success,
-            ['clientId' => $clientId, 'scope' => $command->scope->value, 'projectId' => null === $project ? null : (string) $project->id],
+            ['clientId' => $clientId, 'scopes' => implode(' ', array_map(static fn (ApiTokenScope $scope): string => $scope->value, $command->scopes)), 'allProjects' => $allProjects, 'projectId' => null === $project ? null : (string) $project->id],
             new AuditSubject('oauth_client', $clientId),
         );
 
