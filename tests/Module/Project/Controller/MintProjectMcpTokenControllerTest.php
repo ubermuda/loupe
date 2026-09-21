@@ -139,7 +139,7 @@ final class MintProjectMcpTokenControllerTest extends WebTestCase
         // Simulate a request authenticated by that token: the authenticator stores the
         // credential and the ApiToken id as security-token attributes, which the resolver reads back.
         $securityToken = new PostAuthenticationToken($fresh->owner, 'api', $fresh->owner->getRoles());
-        $securityToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential((string) $fresh->mcpToken->id, $fresh->mcpToken->scope->role()));
+        $securityToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential((string) $fresh->mcpToken->id, [$fresh->mcpToken->scope->role()]));
         $securityToken->setAttribute(ApiTokenAuthenticator::API_TOKEN_ID_ATTR, (string) $fresh->mcpToken->id);
         $tokenStorage = static::getContainer()->get(TokenStorageInterface::class);
         self::assertInstanceOf(TokenStorageInterface::class, $tokenStorage);

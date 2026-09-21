@@ -245,7 +245,7 @@ final class AuthenticatedProjectResolverTest extends KernelTestCase
     private function staticTokenCredential(User $owner, ApiToken $token): PostAuthenticationToken
     {
         $securityToken = new PostAuthenticationToken($owner, 'api', $owner->getRoles());
-        $securityToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential((string) $token->id, $token->scope->role()));
+        $securityToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential((string) $token->id, [$token->scope->role()]));
         $securityToken->setAttribute(ApiTokenAuthenticator::API_TOKEN_ID_ATTR, (string) $token->id);
 
         return $securityToken;
@@ -254,7 +254,7 @@ final class AuthenticatedProjectResolverTest extends KernelTestCase
     private function credentialCoveringEveryProject(User $owner): PostAuthenticationToken
     {
         $securityToken = new PostAuthenticationToken($owner, 'api', $owner->getRoles());
-        $securityToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential('grant-all', ApiTokenScope::Mcp->role(), null, true));
+        $securityToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential('grant-all', [ApiTokenScope::Mcp->role()], null, true));
 
         return $securityToken;
     }
@@ -276,7 +276,7 @@ final class AuthenticatedProjectResolverTest extends KernelTestCase
     private function credentialNaming(Project $project, ApiTokenScope $scope): PostAuthenticationToken
     {
         $securityToken = new PostAuthenticationToken($project->owner, 'api', $project->owner->getRoles());
-        $securityToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential('grant-'.$project->name, $scope->role(), $project->id));
+        $securityToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential('grant-'.$project->name, [$scope->role()], $project->id));
 
         return $securityToken;
     }

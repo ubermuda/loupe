@@ -105,7 +105,7 @@ final class LogWidgetOriginMismatchTest extends TestCase
         $securityToken->method('hasAttribute')->willReturn(true);
         $securityToken->method('getAttribute')->willReturnCallback(
             static fn (string $name): AuthenticatedCredential|string => AuthenticatedCredential::ATTRIBUTE === $name
-                ? new AuthenticatedCredential($apiTokenId, 'ROLE_API_SITE_REVIEW')
+                ? new AuthenticatedCredential($apiTokenId, ['ROLE_API_SITE_REVIEW'])
                 : $apiTokenId,
         );
 

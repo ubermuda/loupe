@@ -11,6 +11,8 @@ use App\Module\Project\Entity\Project;
 use App\Module\Project\Service\ProjectDeleter;
 use App\Tests\Support\OAuthScenario;
 use Doctrine\ORM\EntityManagerInterface;
+use League\Bundle\OAuth2ServerBundle\Manager\ClientManagerInterface;
+use League\Bundle\OAuth2ServerBundle\ValueObject\Scope;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -226,13 +228,50 @@ final class OAuthAuthorizationFlowTest extends WebTestCase
         self::assertSame($this->issuer(), $query['iss']);
     }
 
-    public function test_more_than_one_base_scope_is_refused(): void
+    /**
+     * One credential reaches several firewalls, so a grant may carry several
+     * base scopes. The client's own registered list is what bounds them.
+     */
+    public function test_several_registered_base_scopes_are_accepted(): void
     {
         $this->browser->loginUser($this->user);
         $this->browser->request(Request::METHOD_GET, $this->scenario->authorizeUrl('mcp agent'));
 
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-testid="oauth-consent-scope"]');
+    }
+
+    /**
+     * The client asks for every project and the screen says so, in place of the
+     * picker. A picker there would let the person narrow a grant the client
+     * needs whole, and `loupe mcp` would then reach one repository only.
+     */
+    public function test_an_all_projects_request_says_so_and_offers_no_picker(): void
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertInstanceOf(EntityManagerInterface::class, $em);
+        $clients = static::getContainer()->get(ClientManagerInterface::class);
+        self::assertInstanceOf(ClientManagerInterface::class, $clients);
+        $client = $clients->find(OAuthScenario::CLIENT_ID);
+        self::assertNotNull($client);
+        $client->setScopes(new Scope('mcp'), new Scope('projects'));
+        $clients->save($client);
+
+        $this->browser->loginUser($this->user);
+        $this->browser->request(Request::METHOD_GET, $this->scenario->authorizeUrl('mcp projects'));
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-testid="oauth-consent-all-projects"]');
+        self::assertSelectorNotExists('.lp-consent__picker-label');
+    }
+
+    public function test_a_scope_the_client_is_not_registered_for_is_refused(): void
+    {
+        $this->browser->loginUser($this->user);
+        $this->browser->request(Request::METHOD_GET, $this->scenario->authorizeUrl('mcp projects'));
+
         $query = OAuthScenario::redirectQuery((string) $this->browser->getResponse()->headers->get('Location'));
-        self::assertSame('invalid_scope', $query['error']);
+        self::assertSame('invalid_scope', $query['error'], 'the scenario client is registered for mcp, site-review and agent, never projects');
     }
 
     public function test_plain_pkce_is_refused(): void

@@ -46,7 +46,7 @@ trait McpTokenScenario
     private function setSecurityTokenForApiToken(User $user, ApiToken $apiToken): void
     {
         $securityToken = new PostAuthenticationToken($user, 'api', $user->getRoles());
-        $securityToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential((string) $apiToken->id, $apiToken->scope->role()));
+        $securityToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential((string) $apiToken->id, [$apiToken->scope->role()]));
         $securityToken->setAttribute(ApiTokenAuthenticator::API_TOKEN_ID_ATTR, (string) $apiToken->id);
         $tokenStorage = self::getContainer()->get('security.token_storage');
         self::assertInstanceOf(TokenStorageInterface::class, $tokenStorage);

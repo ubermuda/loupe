@@ -83,7 +83,7 @@ final readonly class AuthenticatedProjectResolver
         if (null === $credential) {
             return ProjectResolution::refused(ProjectRefusal::NoCredential);
         }
-        if ($scope->role() !== $credential->scopeRole) {
+        if (!$credential->hasRole($scope->role())) {
             return ProjectResolution::refused(ProjectRefusal::WrongScope);
         }
 

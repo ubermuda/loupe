@@ -10,7 +10,7 @@ use App\Module\Project\Entity\Project;
 /** A client that holds a live grant for the user, with what each grant allows. */
 final readonly class ConnectedApp
 {
-    /** @param list<array{scope: ApiTokenScope, project: ?Project}> $grants */
+    /** @param list<array{scopes: non-empty-list<ApiTokenScope>, allProjects: bool, project: ?Project}> $grants */
     public function __construct(
         public string $clientId,
         public string $clientName,
