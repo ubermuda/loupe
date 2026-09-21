@@ -51,6 +51,13 @@ func TestParseCardMoved(t *testing.T) {
 // TestParseIgnoresUnknownFields keeps a bridge built against one payload shape
 // working against a server publishing a richer one — the binary and the server
 // are deployed independently.
+func TestParseCardMovedBySystem(t *testing.T) {
+	e := parseOK(t, moved(map[string]string{"actor": `"system"`}), nil)
+	if e.Actor != ActorSystem {
+		t.Fatalf("actor = %q", e.Actor)
+	}
+}
+
 func TestParseIgnoresUnknownFields(t *testing.T) {
 	e := parseOK(t, moved(map[string]string{"rank": `12`, "title": `"someone"`}), nil)
 	if e.CardNumber != 87 {
@@ -232,7 +239,7 @@ func TestParseRejectsASlugChangingEventWithABadSlug(t *testing.T) {
 		"renamed, bad toSlug":    strings.Replace(columnRenamedPayload, `"toSlug":"ready"`, `"toSlug":"Ready now"`, 1),
 		"deleted, no slug":       strings.Replace(columnDeletedPayload, `"slug":"next"`, `"slug":null`, 1),
 		"project, bad fromSlug":  strings.Replace(projectRenamedPayload, `"fromSlug":"loupe"`, `"fromSlug":"-loupe"`, 1),
-		"project, unknown actor": strings.Replace(projectRenamedPayload, `"actor":"human"`, `"actor":"system"`, 1),
+		"project, unknown actor": strings.Replace(projectRenamedPayload, `"actor":"human"`, `"actor":"widget"`, 1),
 	} {
 		if err := parseErr(t, payload, nil); errors.Is(err, ErrUnknownType) {
 			t.Fatalf("%s: must be malformed, not unknown", name)
