@@ -24,8 +24,10 @@ final readonly class ConsentView
         public ?string $clientIdPath,
         public bool $clientTrusted,
         public ?string $clientIconUrl,
-        public ApiTokenScope $scope,
+        /** @var non-empty-list<ApiTokenScope> */
+        public array $scopes,
         public bool $needsProject,
+        public bool $allProjects,
         public string $redirectOrigin,
         public bool $loopbackOnly,
         public array $projects,

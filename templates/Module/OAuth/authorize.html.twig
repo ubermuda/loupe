@@ -43,7 +43,19 @@
             </div>
         </div>
 
-        {% include '@OAuth/_consent_scope_row.html.twig' with {scope: view.scope} only %}
+        {% for scope in view.scopes %}
+        {% include '@OAuth/_consent_scope_row.html.twig' with {scope: scope} only %}
+        {% endfor %}
+
+        {% if view.allProjects %}
+        <div class="lp-consent__row">
+            <twig:UX:Icon name="lucide:folder" class="lp-consent__row-icon" aria-hidden="true" />
+            <div class="lp-consent__row-body">
+                <p class="lp-consent__row-primary" data-testid="oauth-consent-all-projects">{{ 'oauth.consent.row.all_projects'|trans }}</p>
+                <p class="lp-consent__row-second">{{ 'oauth.consent.row.all_projects_hint'|trans }}</p>
+            </div>
+        </div>
+        {% endif %}
 
         {% if widget is defined and widget %}
         <div class="lp-consent__row">

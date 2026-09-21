@@ -18,7 +18,7 @@ final class GrantedScopeTest extends TestCase
         $granted = GrantedScope::fromScopes(['mcp', 'project:'.self::PROJECT]);
 
         self::assertNotNull($granted);
-        self::assertSame(ApiTokenScope::Mcp, $granted->scope);
+        self::assertSame([ApiTokenScope::Mcp], $granted->scopes);
         self::assertSame(self::PROJECT, $granted->projectId?->toRfc4122());
     }
 
@@ -27,7 +27,7 @@ final class GrantedScopeTest extends TestCase
         $granted = GrantedScope::fromScopes(['agent']);
 
         self::assertNotNull($granted);
-        self::assertSame(ApiTokenScope::Agent, $granted->scope);
+        self::assertSame([ApiTokenScope::Agent], $granted->scopes);
         self::assertNull($granted->projectId);
     }
 
@@ -36,7 +36,7 @@ final class GrantedScopeTest extends TestCase
         $granted = GrantedScope::fromScopes(['mcp', 'projects']);
 
         self::assertNotNull($granted);
-        self::assertSame(ApiTokenScope::Mcp, $granted->scope);
+        self::assertSame([ApiTokenScope::Mcp], $granted->scopes);
         self::assertTrue($granted->allProjects);
         self::assertNull($granted->projectId);
     }
@@ -56,8 +56,46 @@ final class GrantedScopeTest extends TestCase
         $granted = GrantedScope::fromScopes(['projects', 'site-review']);
 
         self::assertNotNull($granted);
-        self::assertSame(ApiTokenScope::SiteReview, $granted->scope);
+        self::assertSame([ApiTokenScope::SiteReview], $granted->scopes);
         self::assertTrue($granted->allProjects);
+    }
+
+    public function test_a_grant_carries_several_base_scopes(): void
+    {
+        $granted = GrantedScope::fromScopes(['agent', 'mcp', 'projects']);
+
+        self::assertNotNull($granted);
+        self::assertSame([ApiTokenScope::Agent, ApiTokenScope::Mcp], $granted->scopes);
+        self::assertTrue($granted->allows(ApiTokenScope::Mcp));
+        self::assertTrue($granted->allows(ApiTokenScope::Agent));
+        self::assertFalse($granted->allows(ApiTokenScope::SiteReview));
+        self::assertTrue($granted->allProjects);
+    }
+
+    public function test_the_roles_cover_every_scope_the_grant_carries(): void
+    {
+        $granted = GrantedScope::fromScopes(['agent', 'mcp', 'projects']);
+
+        self::assertNotNull($granted);
+        self::assertSame(['ROLE_API_AGENT', 'ROLE_API_MCP'], $granted->roles());
+    }
+
+    public function test_a_duplicate_scope_yields_one_role(): void
+    {
+        $granted = GrantedScope::fromScopes(['agent', 'agent']);
+
+        self::assertNotNull($granted);
+        self::assertSame(['ROLE_API_AGENT'], $granted->roles());
+    }
+
+    /**
+     * The agent scope needs no binding, but a grant that also carries mcp does,
+     * so the question is about the set rather than about one scope.
+     */
+    public function test_a_set_needs_a_binding_when_any_scope_does(): void
+    {
+        self::assertNull(GrantedScope::fromScopes(['agent', 'mcp']));
+        self::assertNotNull(GrantedScope::fromScopes(['agent', 'mcp', 'projects']));
     }
 
     /** @param list<string> $scopes */
@@ -74,7 +112,6 @@ final class GrantedScopeTest extends TestCase
         yield 'mcp with no project' => [['mcp']];
         yield 'site-review with no project' => [['site-review']];
         yield 'agent with a project' => [['agent', 'project:'.self::PROJECT]];
-        yield 'two base scopes' => [['mcp', 'agent', 'project:'.self::PROJECT]];
         yield 'two projects' => [['mcp', 'project:'.self::PROJECT, 'project:0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5c']];
         yield 'unknown scope' => [['email']];
         yield 'a project alone' => [['project:'.self::PROJECT]];

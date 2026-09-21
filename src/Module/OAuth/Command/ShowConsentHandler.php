@@ -32,6 +32,11 @@ final readonly class ShowConsentHandler
         $clientIdUrl = null === $document ? null : ClientIdUrl::parse($document->url);
         $trusted = null !== $clientIdUrl && $this->trustedClientIds->isTrusted($clientIdUrl);
 
+        $allProjects = false;
+        foreach ($command->authorizationRequest->getScopes() as $scope) {
+            $allProjects = $allProjects || GrantedScope::ALL_PROJECTS === $scope->getIdentifier();
+        }
+
         return new ConsentView(
             clientName: $client->getName(),
             clientHost: $clientIdUrl?->host,
@@ -39,8 +44,9 @@ final readonly class ShowConsentHandler
             clientIdPath: $clientIdUrl?->pathDisplay(),
             clientTrusted: $trusted,
             clientIconUrl: $trusted && null !== $document?->iconType ? $this->urls->generate('oauth2_client_icon', ['identifier' => $document->clientIdentifier]) : null,
-            scope: $command->scope,
-            needsProject: GrantedScope::needsProject($command->scope),
+            scopes: $command->scopes,
+            needsProject: !$allProjects && GrantedScope::anyNeedsProject($command->scopes),
+            allProjects: $allProjects,
             redirectOrigin: RedirectUris::origin($redirectUri),
             loopbackOnly: RedirectUris::allLoopback($registered),
             projects: array_values($this->projects->findByOwner($command->user)),

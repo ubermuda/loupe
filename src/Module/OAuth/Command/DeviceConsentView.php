@@ -15,7 +15,9 @@ final readonly class DeviceConsentView
         public string $displayUserCode,
         public string $clientId,
         public string $clientName,
-        public ApiTokenScope $scope,
+        /** @var non-empty-list<ApiTokenScope> */
+        public array $scopes,
+        public bool $allProjects,
     ) {
     }
 }

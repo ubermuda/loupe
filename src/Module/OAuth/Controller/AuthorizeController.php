@@ -19,6 +19,7 @@ use App\Module\OAuth\Command\ShowConsentCommand;
 use App\Module\OAuth\Command\ShowConsentHandler;
 use App\Module\OAuth\Form\ConsentFormType;
 use App\Module\OAuth\Form\ConsentRequest;
+use App\Module\OAuth\Scope\GrantedScope;
 use App\Module\OAuth\Service\McpResource;
 use App\Module\OAuth\Service\ResourceParameter;
 use App\Module\OAuth\Widget\WidgetAuthorizationRefused;
@@ -100,12 +101,12 @@ final class AuthorizeController extends AppController
             $widget = WidgetClient::ID === $authorizationRequest->getClient()->getIdentifier()
                 ? ($this->prepareWidget)(new PrepareWidgetAuthorizationCommand($authorizationRequest, $user, $request->query->getString('project'), $request->query->getString('origin')))
                 : null;
-            $scope = $this->requestedScope($authorizationRequest);
-            if (!$this->mcpResource->accepts(ResourceParameter::values((string) $request->server->get('QUERY_STRING')), ApiTokenScope::Mcp === $scope)) {
+            $scopes = $this->requestedScopes($authorizationRequest);
+            if (!$this->mcpResource->accepts(ResourceParameter::values((string) $request->server->get('QUERY_STRING')), \in_array(ApiTokenScope::Mcp, $scopes, true))) {
                 throw new OAuthServerException('The resource is not one this server protects for the requested scope.', 0, 'invalid_target', 400, null, $this->errorRedirect($authorizationRequest));
             }
 
-            $view = ($this->showConsent)(new ShowConsentCommand($authorizationRequest, $scope, $user));
+            $view = ($this->showConsent)(new ShowConsentCommand($authorizationRequest, $scopes, $user));
             $form = $this->createForm(ConsentFormType::class, new ConsentRequest(), [
                 'action' => $request->getRequestUri(),
                 'projects' => $view->projects,
@@ -120,7 +121,7 @@ final class AuthorizeController extends AppController
                     try {
                         return $this->toClient(($this->resolveAuthorization)(new ResolveAuthorizationCommand(
                             authorizationRequest: $authorizationRequest,
-                            scope: $scope,
+                            scopes: $scopes,
                             user: $user,
                             approved: !$denied,
                             projectId: $widget?->project->id?->toRfc4122() ?? $form->getData()?->project,
@@ -153,13 +154,42 @@ final class AuthorizeController extends AppController
      * one for the user. League checks the client's scopes only at the token
      * endpoint, after the user has already consented.
      */
-    private function requestedScope(AuthorizationRequestInterface $authorizationRequest): ApiTokenScope
+    /**
+     * The base scopes the request asks for. A binding scope is not one of them,
+     * so it is taken out before they are read.
+     *
+     * @return non-empty-list<ApiTokenScope>
+     */
+    private function requestedScopes(AuthorizationRequestInterface $authorizationRequest): array
     {
         $requested = array_map(static fn ($scope): string => $scope->getIdentifier(), $authorizationRequest->getScopes());
-        $scope = 1 === \count($requested) ? ApiTokenScope::tryFrom($requested[0]) : null;
 
         $allowed = array_map(strval(...), $this->clients->find($authorizationRequest->getClient()->getIdentifier())?->getScopes() ?? []);
-        if (null === $scope || ([] !== $allowed && !\in_array($scope->value, $allowed, true))) {
+
+        $scopes = [];
+        foreach ($requested as $identifier) {
+            // The person picks the project on the consent screen. A client that
+            // named one itself would bind a grant to a project nobody chose.
+            if (null !== GrantedScope::projectIdOf($identifier)) {
+                throw OAuthServerException::invalidScope(implode(' ', $requested), $this->errorRedirect($authorizationRequest));
+            }
+            if ([] !== $allowed && !\in_array($identifier, $allowed, true)) {
+                throw OAuthServerException::invalidScope(implode(' ', $requested), $this->errorRedirect($authorizationRequest));
+            }
+            // A binding rather than a base scope, and checked against the
+            // client's own list above, because it widens what the grant reaches.
+            if (GrantedScope::ALL_PROJECTS === $identifier) {
+                continue;
+            }
+
+            $scope = ApiTokenScope::tryFrom($identifier);
+            if (null === $scope) {
+                throw OAuthServerException::invalidScope(implode(' ', $requested), $this->errorRedirect($authorizationRequest));
+            }
+            $scopes[] = $scope;
+        }
+
+        if ([] === $scopes) {
             throw OAuthServerException::invalidScope(implode(' ', $requested), $this->errorRedirect($authorizationRequest));
         }
 
@@ -167,7 +197,7 @@ final class AuthorizeController extends AppController
             throw new OAuthServerException('Only the S256 code challenge method is supported.', 3, 'invalid_request', 400, null, $this->errorRedirect($authorizationRequest));
         }
 
-        return $scope;
+        return $scopes;
     }
 
     private function errorRedirect(AuthorizationRequestInterface $authorizationRequest): string

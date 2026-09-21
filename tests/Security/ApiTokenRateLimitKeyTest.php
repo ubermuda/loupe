@@ -16,7 +16,7 @@ final class ApiTokenRateLimitKeyTest extends TestCase
 {
     public function test_keys_on_the_credential_id(): void
     {
-        $key = $this->keyFor(new AuthenticatedCredential('0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b', 'ROLE_API_AGENT'));
+        $key = $this->keyFor(new AuthenticatedCredential('0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b', ['ROLE_API_AGENT']));
 
         self::assertSame('token:0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b', $key->forRequest($this->request()));
     }
