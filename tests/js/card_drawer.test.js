@@ -18,7 +18,7 @@ beforeEach(async () => {
         <dialog open data-card-drawer-target="dialog">
             <div data-card-drawer-target="loading" tabindex="-1" hidden>Loading</div>
             <div data-card-drawer-target="error" hidden><button>Retry</button></div>
-            <turbo-frame data-card-drawer-target="frame"><button type="button">Dismiss</button><form><textarea>Draft reply</textarea></form></turbo-frame>
+            <turbo-frame data-card-drawer-target="frame"><div class="lp-flash"><button type="button">Dismiss</button></div><button type="button" data-panel-tabs-target="tab" aria-selected="true">Overview</button><form><textarea>Draft reply</textarea></form></turbo-frame>
         </dialog>
     </div>`;
     dialog = document.querySelector('dialog');
@@ -90,7 +90,7 @@ it('takes the focus the frame render dropped on the body', () => {
     textarea.focus();
     textarea.remove();
     controller.loaded({ target: controller.frameTarget });
-    expect(document.activeElement.textContent).toBe('Dismiss');
+    expect(document.activeElement.textContent).toBe('Overview');
 });
 
 it('leaves the focus a reader moved outside the frame', () => {
@@ -106,7 +106,17 @@ it('focuses the frame for a load the drawer started', () => {
     controller.prepare({ currentTarget: invoker });
     invoker.focus();
     controller.loaded({ target: controller.frameTarget });
-    expect(document.activeElement.textContent).toBe('Dismiss');
+    expect(document.activeElement.textContent).toBe('Overview');
+});
+
+it('leaves a flash alone and focuses the card content under it', () => {
+    const invoker = document.getElementById('invoker');
+    const flash = controller.frameTarget.querySelector('.lp-flash button');
+    controller.prepare({ currentTarget: invoker });
+    invoker.focus();
+    controller.loaded({ target: controller.frameTarget });
+    expect(document.activeElement).not.toBe(flash);
+    expect(document.activeElement.dataset.panelTabsTarget).toBe('tab');
 });
 
 it('takes the opening focus once, so a later load leaves the reader alone', () => {

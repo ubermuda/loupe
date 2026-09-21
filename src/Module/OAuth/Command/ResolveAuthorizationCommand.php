@@ -12,7 +12,8 @@ final readonly class ResolveAuthorizationCommand
 {
     public function __construct(
         public AuthorizationRequestInterface $authorizationRequest,
-        public ApiTokenScope $scope,
+        /** @var non-empty-list<ApiTokenScope> */
+        public array $scopes,
         public User $user,
         public bool $approved,
         public ?string $projectId = null,

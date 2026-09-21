@@ -12,7 +12,8 @@ final readonly class ShowConsentCommand
 {
     public function __construct(
         public AuthorizationRequestInterface $authorizationRequest,
-        public ApiTokenScope $scope,
+        /** @var non-empty-list<ApiTokenScope> */
+        public array $scopes,
         public User $user,
     ) {
     }

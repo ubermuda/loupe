@@ -81,7 +81,7 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
         }
 
         $passport = new SelfValidatingPassport(new UserBadge($token->owner->getUserIdentifier(), fn () => $token->owner));
-        $passport->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential((string) $token->id, $token->scope->role()));
+        $passport->setAttribute(AuthenticatedCredential::ATTRIBUTE, new AuthenticatedCredential((string) $token->id, [$token->scope->role()]));
         $passport->setAttribute(self::API_TOKEN_ID_ATTR, (string) $token->id);
 
         return $passport;
@@ -96,7 +96,7 @@ final class ApiTokenAuthenticator extends AbstractAuthenticator implements Authe
             throw new \LogicException('credential missing on passport after authentication.');
         }
 
-        $authenticatedToken = new PostAuthenticationToken($user, $firewallName, [...$user->getRoles(), $credential->scopeRole]);
+        $authenticatedToken = new PostAuthenticationToken($user, $firewallName, [...$user->getRoles(), ...$credential->roles]);
         $authenticatedToken->setAttribute(AuthenticatedCredential::ATTRIBUTE, $credential);
         $apiTokenId = $passport->getAttribute(self::API_TOKEN_ID_ATTR);
         if (is_string($apiTokenId)) {

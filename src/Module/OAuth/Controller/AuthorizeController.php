@@ -8,16 +8,23 @@ use App\Controller\AppController;
 use App\Exception\DomainErrors;
 use App\Module\Account\Entity\ApiTokenScope;
 use App\Module\Account\Entity\User;
+use App\Module\OAuth\ClientMetadata\ClientIdUrl;
 use App\Module\OAuth\Command\PrepareWidgetAuthorizationCommand;
 use App\Module\OAuth\Command\PrepareWidgetAuthorizationHandler;
+use App\Module\OAuth\Command\RegisterClientMetadataDocumentCommand;
+use App\Module\OAuth\Command\RegisterClientMetadataDocumentHandler;
 use App\Module\OAuth\Command\ResolveAuthorizationCommand;
 use App\Module\OAuth\Command\ResolveAuthorizationHandler;
 use App\Module\OAuth\Command\ShowConsentCommand;
 use App\Module\OAuth\Command\ShowConsentHandler;
 use App\Module\OAuth\Form\ConsentFormType;
 use App\Module\OAuth\Form\ConsentRequest;
+use App\Module\OAuth\Scope\GrantedScope;
+use App\Module\OAuth\Service\McpResource;
+use App\Module\OAuth\Service\ResourceParameter;
 use App\Module\OAuth\Widget\WidgetAuthorizationRefused;
 use App\Module\OAuth\Widget\WidgetClient;
+use League\Bundle\OAuth2ServerBundle\Manager\ClientManagerInterface;
 use League\OAuth2\Server\AuthorizationServer;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\RequestTypes\AuthorizationRequestInterface;
@@ -62,6 +69,9 @@ final class AuthorizeController extends AppController
         private readonly ResolveAuthorizationHandler $resolveAuthorization,
         private readonly PrepareWidgetAuthorizationHandler $prepareWidget,
         private readonly TranslatorInterface $translator,
+        private readonly McpResource $mcpResource,
+        private readonly RegisterClientMetadataDocumentHandler $registerClientMetadata,
+        private readonly ClientManagerInterface $clients,
 
         #[Autowire(param: 'app.url')]
         private readonly string $issuer,
@@ -80,14 +90,23 @@ final class AuthorizeController extends AppController
             return new JsonResponse(['error' => 'invalid_request', 'error_description' => 'The response_type parameter is missing.'], Response::HTTP_BAD_REQUEST);
         }
 
+        $psrRequest = $this->psrRequests->createRequest($request);
         try {
-            $authorizationRequest = $this->server->validateAuthorizationRequest($this->psrRequests->createRequest($request));
+            $clientId = $request->query->get('client_id');
+            if (\is_string($clientId) && ClientIdUrl::isCandidate($clientId)) {
+                ($this->registerClientMetadata)(new RegisterClientMetadataDocumentCommand($clientId, $user));
+            }
+
+            $authorizationRequest = $this->server->validateAuthorizationRequest($psrRequest);
             $widget = WidgetClient::ID === $authorizationRequest->getClient()->getIdentifier()
                 ? ($this->prepareWidget)(new PrepareWidgetAuthorizationCommand($authorizationRequest, $user, $request->query->getString('project'), $request->query->getString('origin')))
                 : null;
-            $scope = $this->requestedScope($authorizationRequest);
+            $scopes = $this->requestedScopes($authorizationRequest);
+            if (!$this->mcpResource->accepts(ResourceParameter::values((string) $request->server->get('QUERY_STRING')), \in_array(ApiTokenScope::Mcp, $scopes, true))) {
+                throw new OAuthServerException('The resource is not one this server protects for the requested scope.', 0, 'invalid_target', 400, null, $this->errorRedirect($authorizationRequest));
+            }
 
-            $view = ($this->showConsent)(new ShowConsentCommand($authorizationRequest, $scope, $user));
+            $view = ($this->showConsent)(new ShowConsentCommand($authorizationRequest, $scopes, $user));
             $form = $this->createForm(ConsentFormType::class, new ConsentRequest(), [
                 'action' => $request->getRequestUri(),
                 'projects' => $view->projects,
@@ -102,7 +121,7 @@ final class AuthorizeController extends AppController
                     try {
                         return $this->toClient(($this->resolveAuthorization)(new ResolveAuthorizationCommand(
                             authorizationRequest: $authorizationRequest,
-                            scope: $scope,
+                            scopes: $scopes,
                             user: $user,
                             approved: !$denied,
                             projectId: $widget?->project->id?->toRfc4122() ?? $form->getData()?->project,
@@ -119,6 +138,8 @@ final class AuthorizeController extends AppController
         } catch (WidgetAuthorizationRefused $e) {
             return $this->render('@OAuth/authorize.html.twig', ['refusal' => $e->reasonKey], new Response(status: $e->status));
         } catch (OAuthServerException $e) {
+            // League builds an invalid_client response from the request, and only its own throws set it.
+            $e->setServerRequest($psrRequest);
             if ($e->hasRedirect()) {
                 $e->setPayload([...$e->getPayload(), 'iss' => $this->issuer()]);
             }
@@ -128,15 +149,47 @@ final class AuthorizeController extends AppController
     }
 
     /**
-     * Exactly one base scope, and no project scope: the project comes from the
-     * consent page alone, so a client cannot name one for the user.
+     * Exactly one base scope that the client may hold, and no project scope:
+     * the project comes from the consent page alone, so a client cannot name
+     * one for the user. League checks the client's scopes only at the token
+     * endpoint, after the user has already consented.
      */
-    private function requestedScope(AuthorizationRequestInterface $authorizationRequest): ApiTokenScope
+    /**
+     * The base scopes the request asks for. A binding scope is not one of them,
+     * so it is taken out before they are read.
+     *
+     * @return non-empty-list<ApiTokenScope>
+     */
+    private function requestedScopes(AuthorizationRequestInterface $authorizationRequest): array
     {
         $requested = array_map(static fn ($scope): string => $scope->getIdentifier(), $authorizationRequest->getScopes());
-        $scope = 1 === \count($requested) ? ApiTokenScope::tryFrom($requested[0]) : null;
 
-        if (null === $scope) {
+        $allowed = array_map(strval(...), $this->clients->find($authorizationRequest->getClient()->getIdentifier())?->getScopes() ?? []);
+
+        $scopes = [];
+        foreach ($requested as $identifier) {
+            // The person picks the project on the consent screen. A client that
+            // named one itself would bind a grant to a project nobody chose.
+            if (null !== GrantedScope::projectIdOf($identifier)) {
+                throw OAuthServerException::invalidScope(implode(' ', $requested), $this->errorRedirect($authorizationRequest));
+            }
+            if ([] !== $allowed && !\in_array($identifier, $allowed, true)) {
+                throw OAuthServerException::invalidScope(implode(' ', $requested), $this->errorRedirect($authorizationRequest));
+            }
+            // A binding rather than a base scope, and checked against the
+            // client's own list above, because it widens what the grant reaches.
+            if (GrantedScope::ALL_PROJECTS === $identifier) {
+                continue;
+            }
+
+            $scope = ApiTokenScope::tryFrom($identifier);
+            if (null === $scope) {
+                throw OAuthServerException::invalidScope(implode(' ', $requested), $this->errorRedirect($authorizationRequest));
+            }
+            $scopes[] = $scope;
+        }
+
+        if ([] === $scopes) {
             throw OAuthServerException::invalidScope(implode(' ', $requested), $this->errorRedirect($authorizationRequest));
         }
 
@@ -144,7 +197,7 @@ final class AuthorizeController extends AppController
             throw new OAuthServerException('Only the S256 code challenge method is supported.', 3, 'invalid_request', 400, null, $this->errorRedirect($authorizationRequest));
         }
 
-        return $scope;
+        return $scopes;
     }
 
     private function errorRedirect(AuthorizationRequestInterface $authorizationRequest): string

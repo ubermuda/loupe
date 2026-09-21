@@ -23,8 +23,10 @@ import (
 // ClientID is the public client every Loupe instance registers for the CLI.
 const ClientID = "loupe-cli"
 
-// Scope is the only scope the CLI asks for, the one the bridge endpoints need.
-const Scope = "agent"
+// Scope is what the CLI asks for. `agent` reaches the bridge endpoints, `mcp`
+// reaches the MCP endpoint that `loupe mcp` forwards to, and `projects` covers
+// every project the person owns, so a new project needs no new login.
+const Scope = "agent mcp projects"
 
 // DeviceGrant is the grant type of a device token poll.
 const DeviceGrant = "urn:ietf:params:oauth:grant-type:device_code"

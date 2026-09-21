@@ -8,7 +8,55 @@ project-scoped API token and calls tools that create documents, revise them, and
 read back what humans said — so a long-form plan gets considered review instead
 of scrolling past in a terminal.
 
+## Connecting by URL
+
+An MCP client that supports OAuth connects with the endpoint URL alone. You do
+not copy a token. Claude Code and Claude connect this way.
+
+In Claude Code, add the server, then sign in:
+
+```bash
+claude mcp add --transport http loupe https://loupe.example.com/mcp
+claude mcp login loupe
+```
+
+You can also run `/mcp` inside Claude Code and select the server. Claude Code
+opens the Loupe consent page in your browser. Sign in, choose the project, and
+select **Allow**.
+
+In Claude, add a custom connector with the same URL, then connect it. Claude
+reaches your instance from Anthropic's servers, so the instance must be
+reachable from the internet over https. An instance on a private network or
+behind a VPN works with Claude Code only.
+
+The connection is bound to one project. The *Connected apps* section of your
+account settings lists it and revokes it. See [Connected apps](connected-apps.md).
+
+A client finds the sign-in in three steps:
+
+1. `POST /mcp` with no token answers `401`. Its `WWW-Authenticate` header
+   points at `/.well-known/oauth-protected-resource/mcp`.
+2. That document names the endpoint as the resource and Loupe as its
+   authorization server.
+3. The client identifies itself with a Client ID Metadata Document. Its client
+   id is an https URL, and Loupe fetches that document to learn the app's name
+   and redirect addresses.
+
+Loupe has no Dynamic Client Registration. A client that supports only that
+cannot connect by URL. Give it a token instead.
+
+For a self-hosted instance:
+
+- `DEFAULT_URI` must be the https URL that clients use. The resource
+  `https://<host>/mcp` and the issuer are built from it.
+- `MCP_ALLOWED_HOSTS` must contain that host.
+- The web container fetches a client's metadata document when a user connects
+  that client. The fetch goes to public addresses only. An instance with no
+  internet access cannot connect a new client, and every other feature works.
+
 ## Getting a token
+
+Use a token for CI, for scripts, and for a client without OAuth.
 
 Mint one from the project: `/projects/{id}/mcp-token`, and
 `/projects/{id}/mcp-token/regenerate` to roll it. Tokens are stored hashed and
@@ -45,6 +93,45 @@ bound to no project cannot be told apart from a widget token whose binding was
 cleared, and a widget token sits in page HTML that anyone can read, so a
 conversion could hand a page visitor your project list and your event streams.
 No widget token is affected, and no widget deployment changes.
+
+## Connecting through the CLI
+
+`loupe mcp` connects an agent to this endpoint with no token in any file. The
+CLI already holds a login, so the command signs each request with it. This is
+the way to connect when you work across several projects, because the project
+comes from the repository rather than from the credential.
+
+Install the CLI, sign in once, and name the project in each repository:
+
+```bash
+loupe login                  # a browser sign-in, once per machine
+cd ~/code/my-project
+loupe init                   # writes .loupe.yaml, choosing from your projects
+```
+
+Then point the agent at the command. For Claude Code, a committed `.mcp.json`
+in the repository:
+
+```json
+{
+  "mcpServers": {
+    "loupe": { "command": "loupe", "args": ["mcp"] }
+  }
+}
+```
+
+The file holds no credential, so committing it is safe. `.loupe.yaml` holds the
+project id, which is not a secret either.
+
+The command adds one thing a direct HTTP connection cannot. Loupe keeps each MCP
+session for an hour in one web container's cache directory, so a session ends on
+an idle agent, on a deploy, and on a request that reaches another container.
+`loupe mcp` then opens a new session and carries on, where a direct connection
+loses its Loupe tools for the rest of the agent's run.
+
+One sign-in is enough. `loupe login` asks for `agent mcp projects`, so the same
+login serves `loupe bridge` and `loupe mcp`, and it covers every project you own
+including ones you create later. The approval page says so before you allow it.
 
 ## The Claude Code plugin
 
@@ -402,5 +489,8 @@ must contain the hostname agents actually use, or every call is rejected with a
 403 that names the variable and echoes the host it rejected. See
 [Environment variables](../reference/environment.md).
 
-An unauthenticated `POST /mcp` answers **401, not 404**. A 404 means the route
-did not register; a 403 is the rebinding guard.
+An unauthenticated `POST /mcp` answers **401, not 404**, with a
+`WWW-Authenticate` header that points at the protected resource metadata. A 404
+means the route did not register. A 403 with a plain-text body is the rebinding
+guard. A 403 with `insufficient_scope` means the token is valid but is not an
+MCP token.

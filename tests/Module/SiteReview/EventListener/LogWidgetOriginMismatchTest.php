@@ -16,8 +16,10 @@ use App\Security\AuthenticatedCredential;
 use PHPUnit\Framework\TestCase;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Log\AbstractLogger;
+use Psr\Log\NullLogger;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
@@ -103,7 +105,7 @@ final class LogWidgetOriginMismatchTest extends TestCase
         $securityToken->method('hasAttribute')->willReturn(true);
         $securityToken->method('getAttribute')->willReturnCallback(
             static fn (string $name): AuthenticatedCredential|string => AuthenticatedCredential::ATTRIBUTE === $name
-                ? new AuthenticatedCredential($apiTokenId, 'ROLE_API_SITE_REVIEW')
+                ? new AuthenticatedCredential($apiTokenId, ['ROLE_API_SITE_REVIEW'])
                 : $apiTokenId,
         );
 
@@ -122,7 +124,7 @@ final class LogWidgetOriginMismatchTest extends TestCase
         };
 
         $listener = new LogWidgetOriginMismatch(
-            new AuthenticatedProjectResolver($tokenStorage, new AuthenticatedApiTokenResolver($tokenStorage, $apiTokens), $projects),
+            new AuthenticatedProjectResolver($tokenStorage, new AuthenticatedApiTokenResolver($tokenStorage, $apiTokens), $projects, new RequestStack(), new NullLogger()),
             $seen ?? new ArrayAdapter(),
             $logger,
         );
