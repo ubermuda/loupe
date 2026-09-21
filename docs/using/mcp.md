@@ -167,90 +167,40 @@ including ones you create later. The approval page says so before you allow it.
 
 ## The Claude Code plugin
 
-**Use this for the skills, not for the endpoint.** A plugin holds one set of
-config values per user — Claude Code deliberately refuses to read them from a
-repository's settings, so a clone cannot inject a credential — which means one
-`api_token` across every project you work in. Loupe's tokens are per project, so
-anyone with more than one wants the `claude mcp add` line above and the plugin
-alongside it for the skills.
-
-For a single project the plugin does both at once:
+The plugin ships skills, and no MCP server. `loupe login` and `loupe init` set
+the server up, so nothing here holds a credential and nothing asks you for one.
 
 ```bash
 claude plugin marketplace add ubermuda/loupe
 claude plugin install loupe@loupe
 ```
 
-Installing asks for a project API token, from the project's Connect page. The
-endpoint defaults to the hosted instance; if you self-host, set it to your own
-`/mcp` URL, which the same page shows. The token is marked sensitive,
-so it goes to the OS keychain rather than a settings file, and it is never read
-from a repository's `.claude/settings.json`: a cloned project cannot inject one.
+It installs eight skills, each covering one part of working a Loupe project:
 
-### Setting and changing the two values
+| Skill | Covers |
+|---|---|
+| `loupe:loupe-documents` | Writing a document so the review UI reads well |
+| `loupe:loupe-site-review` | Acting on widget comments and marking them addressed |
+| `loupe:loupe-board` | Reading a board, writing a card, linking a pull request |
+| `loupe:loupe-inbox` | Asking the project owner, and ending a turn on a blocking ask |
+| `loupe:loupe-stage-product-design` | A card entering the product design column |
+| `loupe:loupe-stage-tech-design` | A card entering the tech design column |
+| `loupe:loupe-stage-implementation` | Building an approved design into a pull request |
+| `loupe:loupe-stage-fix-round` | One round of review feedback, run by hand |
 
-Answer the prompts, or pass them on the command line:
+The plugin carried an MCP server until version 0.2.0, as an HTTP endpoint plus a
+project API token you typed at install. Two things were wrong with it. A plugin
+holds one set of config values per user, so that was one token across every
+project you work in, and Loupe's tokens are per project. And the token sat in
+your configuration for as long as the plugin was installed.
 
-```bash
-claude plugin install loupe@loupe \
-  --config server_url=https://loupe.example.com/mcp \
-  --config api_token=<token>
-```
+`loupe mcp` has neither problem. The project comes from `.loupe.yaml` in the
+repository, so one setup serves every project, and the credential is an OAuth
+login the CLI refreshes rather than a token you paste.
 
-To change either one later — pointing at a different instance, switching
-projects, or rotating a token — run `/plugin configure loupe@loupe` inside
-Claude Code, or re-run the same `install --config` command with the new value.
-Re-running prints `Plugin "loupe@loupe" is already installed`, which reads like
-nothing happened; the config is updated regardless. Confirm with `claude mcp
-list`, which prints the endpoint the plugin resolved:
-
-```
-plugin:loupe:loupe: https://loupe.example.com/mcp (HTTP) - ✔ Connected
-```
-
-Omitting a value leaves the notice `1 userConfig option not yet set` after
-install. For `server_url` that is cosmetic — the default applies — but the
-plugin cannot work until a token is set.
-
-Alongside the server the plugin ships `loupe:loupe-documents`, which formats a
-document for the review UI, and `loupe:loupe-site-review`, which works the
-comment loop. The `claude mcp add` one-liner on the Connect page remains the
-right choice for any other MCP client.
-
-**A hand-configured server of the same name wins.** If you previously ran
-`claude mcp add ... loupe ...`, that entry takes precedence and the plugin's
-server is ignored with no warning — `claude mcp list` shows `loupe` rather than
-`plugin:loupe:loupe`.
-
-Whether that is a problem depends on how many projects you have. With one, it is
-a leftover: `claude mcp remove loupe` and let the plugin serve the endpoint. With
-several it is the arrangement you want — the per-project server carries that
-project's token while the plugin supplies the skills — and removing it would
-point every project at whichever single token the plugin holds.
-
-### Working across several projects
-
-Register the server per project and keep the plugin for the skills. `claude mcp
-add` defaults to **local** scope, which is per project and stays out of the
-repository; do **not** pass `--scope project`, which writes the token into a
-committed `.mcp.json`.
-
-To keep the token out of the file entirely, `.mcp.json` interpolates the
-environment, so the value can live in the project's own untracked settings:
-
-```json
-{
-  "mcpServers": {
-    "loupe": {
-      "type": "http",
-      "url": "https://loupe.example.com/mcp",
-      "headers": { "Authorization": "Bearer ${LOUPE_API_TOKEN}" }
-    }
-  }
-}
-```
-
-with `LOUPE_API_TOKEN` set under `env` in `.claude/settings.local.json`.
+If you installed an older version, the plugin's server is still declared. Remove
+it by reinstalling the plugin, and check with `claude mcp list`, which should
+show `loupe` and no `plugin:loupe:loupe`.
 
 ## What the tools do
 
