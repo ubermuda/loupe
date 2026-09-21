@@ -61,16 +61,16 @@ which git ignores, and it does not download a run twice.
 | mutation | `Mutation testing` | `infection` | `infection-report` | `summary.log`, `infection.log` | 90 days |
 | PHPUnit coverage | `Coverage report` | `phpunit-coverage` | `phpunit-coverage` | `summary.txt`, `clover.xml`, `html/` | 90 days |
 | e2e coverage | `Coverage report` | `e2e-coverage` | `e2e-coverage` | `summary.txt`, `clover.xml`, `html/` | 90 days |
-| e2e timing | `CI` | `e2e-chromium`, `e2e-rest` | `e2e-timing-chromium`, `e2e-timing-rest` | `results.json` | 30 days |
+| e2e timing | `CI` | `e2e-chromium`, `e2e-chromium-2`, `e2e-rest` | `e2e-timing-chromium`, `e2e-timing-chromium-2`, `e2e-timing-rest` | `results.json` | 30 days |
 | PHPUnit timing | `CI` | `phpunit` | `phpunit-timing` | `junit.xml` | 30 days |
 
 The e2e timing artifact comes from every CI run, green or red. `bin/e2e-timing.mjs`
 reads its Playwright JSON report. Time between two tests on one worker counts as
 idle, so worker start-up shows as idle time.
 
-The e2e job runs as two shards on two runners, so a run holds one timing
+The e2e job runs as three shards on three runners, so a run holds one timing
 artifact per shard and `just ci-report e2e-timing` prints one summary for each.
-The two ran against separate clocks, so read the wall times side by side and
+The three ran against separate clocks, so read the wall times side by side and
 never add them.
 
 The PHPUnit timing artifact comes from every CI run as well. `bin/phpunit-timing.php`
