@@ -69,6 +69,8 @@ Then run the commands of the profile `Gate` section in order. Run each long comm
 
 Push the branch, and create the pull request with the forge adapter. Follow the profile `Pull request` section for the title, the body and the ready state.
 
+The profile `Board` section names the column a ready pull request's card moves to. Read the slug there, never from `board_columns`, which can be missing.
+
 Put the card URL in the body. The card page route is `/projects/{projectId}/board/cards/{cardId}`, so the URL is `<instance>/projects/<projectId>/board/cards/<cardId>`. Take the instance from the prompt line `Loupe instance <url>.`, and the project id from the prompt. When the prompt lacks either, write `Loupe card <number>` instead.
 
 Then write the changelog entry that the profile `Changelog` section names, run its check, commit, and push.
