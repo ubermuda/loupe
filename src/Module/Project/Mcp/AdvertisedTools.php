@@ -30,6 +30,7 @@ final class AdvertisedTools
      * list is still advertised — it lands at the end.
      */
     private const array ORDER = [
+        'project_current',
         'document_create',
         'document_list',
         'document_get',

@@ -226,6 +226,7 @@ Roughly in the order an agent uses them:
 
 | Tool | Purpose |
 |---|---|
+| `project_current` | Report which project this connection acts on, with its id, slug and name |
 | `document_create` | Submit Markdown as a new document; returns a review URL and the language it was stored in |
 | `document_revise` | Submit a new version, described by what changed |
 | `document_get` / `document_list` | Read a document, or enumerate the project's, with search and filters |

@@ -101,6 +101,7 @@ final class McpEndpointAuthTest extends WebTestCase
             'document_set_series',
             'document_set_tags',
             'document_unarchive',
+            'project_current',
             'series_list',
             'series_rename',
             'site_review_get',
