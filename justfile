@@ -576,6 +576,52 @@ cli-build goos="darwin" goarch="arm64":
     [ -z "$(git status --porcelain 2>/dev/null)" ] || dirty=true
     docker run --rm -v "{{justfile_directory()}}/cli":/cli -w /cli -e GOTOOLCHAIN=local -e CGO_ENABLED=0 -e GOOS={{goos}} -e GOARCH={{goarch}} -e LOUPE_COMMIT="$commit" -e LOUPE_DIRTY="$dirty" golang:1.26-alpine sh -c 'go build -ldflags "-X github.com/ubermuda/loupe/cli/cmd.commit=$LOUPE_COMMIT -X github.com/ubermuda/loupe/cli/cmd.dirty=$LOUPE_DIRTY" -o dist/loupe-{{goos}}-{{goarch}} .'
 
+# Build for this machine and install the binary onto your PATH (default ~/bin).
+cli-install dir="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # ~/bin is what cli/README.md tells a reader to use; pass a directory to
+    # choose another. This warns rather than installs silently somewhere the
+    # shell will not look, because a binary nobody can run reads as "the CLI is
+    # broken".
+    target="{{dir}}"
+    [ -n "$target" ] || target="$HOME/bin"
+    target="${target/#\~/$HOME}"
+
+    # The host's own platform, so this works on a developer Mac and on a Linux
+    # box without either of them passing anything.
+    case "$(uname -s)" in
+        Darwin) goos=darwin ;;
+        Linux)  goos=linux ;;
+        *) echo "unsupported operating system $(uname -s); build it yourself with just cli-build" >&2; exit 1 ;;
+    esac
+    case "$(uname -m)" in
+        arm64|aarch64) goarch=arm64 ;;
+        x86_64|amd64)  goarch=amd64 ;;
+        *) echo "unsupported architecture $(uname -m); build it yourself with just cli-build" >&2; exit 1 ;;
+    esac
+
+    just cli-build "$goos" "$goarch"
+
+    mkdir -p "$target"
+    install -m 0755 "{{justfile_directory()}}/cli/dist/loupe-$goos-$goarch" "$target/loupe"
+    echo "installed $target/loupe"
+
+    # Prove the binary just written runs, rather than whatever PATH resolves:
+    # with another loupe earlier on PATH, checking `loupe` would report that one
+    # and call a failed install a success.
+    "$target/loupe" version
+
+    # An install nobody can reach is the other failure. `command -v` answers what
+    # the shell would actually pick.
+    found="$(command -v loupe || true)"
+    if [ -z "$found" ]; then
+        echo "warning: $target is not on your PATH, so the shell cannot find loupe yet" >&2
+        echo "         add it, e.g.  export PATH=\"$target:\$PATH\"" >&2
+    elif [ "$found" != "$target/loupe" ]; then
+        echo "warning: another loupe comes first on PATH and will be used instead: $found" >&2
+    fi
+
 # --- Production deploy (DigitalOcean App Platform) ---
 # Infra lives in terraform/; App Platform pulls {{prod_image}}.
 
