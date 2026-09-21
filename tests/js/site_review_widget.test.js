@@ -475,6 +475,28 @@ describe('the quote offer', () => {
         expect(quoteButton().style.display).toBe('inline-flex');
     });
 
+    it('survives an event that lands while pick mode owns the pointer', async () => {
+        bootWidget({ respond: () => ok({ comments: [] }) });
+        await settle();
+        openPanel();
+        await selectTextIn(document.body);
+        panelRoot().getElementById('target').click();
+        await settle();
+        expect(quoteButton().style.display).toBe('none');
+
+        // The drag's own trailing selectionchange lands here on a loaded
+        // machine. Pick mode hides the offer and owes it back, so the event
+        // must not take the pick away.
+        document.dispatchEvent(new Event('selectionchange'));
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        document.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+        );
+        await settle();
+
+        expect(quoteButton().style.display).toBe('inline-flex');
+    });
+
     it('stays away inside an element that opts out', async () => {
         bootWidget({ respond: () => ok({ comments: [] }) });
         await settle();
