@@ -129,9 +129,9 @@ an idle agent, on a deploy, and on a request that reaches another container.
 `loupe mcp` then opens a new session and carries on, where a direct connection
 loses its Loupe tools for the rest of the agent's run.
 
-`loupe mcp` needs a login that reaches `/mcp`. `loupe login` asks for the agent
-scope, which does not, so until the credentials work lands the command needs a
-project-bound credential. See the CLI's own README for the state of that.
+One sign-in is enough. `loupe login` asks for `agent mcp projects`, so the same
+login serves `loupe bridge` and `loupe mcp`, and it covers every project you own
+including ones you create later. The approval page says so before you allow it.
 
 ## The Claude Code plugin
 

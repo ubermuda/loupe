@@ -196,12 +196,14 @@ A refusal stops the command with a message rather than a status code. A `403`
 names the project the file chose, because a login that does not cover it is the
 usual cause.
 
-### What it needs from the server
+### How the project reaches the server
 
-The project travels in an `X-Loupe-Project` header. The server reads it once
-step S1 of the post-OAuth credentials work lands. Until then a login must be
-bound to one project, and `loupe login` asks for the agent scope alone, so
-`loupe mcp` reaches `/mcp` with a project-bound credential only.
+The project travels in an `X-Loupe-Project` header. The server reads it, and
+refuses a project your login does not cover rather than ignoring the header.
+
+`loupe login` asks for `agent mcp projects`. So one sign-in reaches the bridge
+endpoints and the MCP endpoint, and it covers every project you own, including
+ones you create later.
 
 ## `loupe bridge run`
 
