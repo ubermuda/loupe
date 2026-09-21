@@ -20,8 +20,15 @@ RUN npm run build:widget
 #
 # To move to a newer base:
 #   docker buildx imagetools inspect php:8.5-fpm-alpine --format '{{.Manifest.Digest}}'
-FROM php:8.5-fpm-alpine@sha256:79def1d16ece3ab1a6656c46a23bfd80ad33887fbd33626e7bd743cef54ef9c6
+#
+# `base` holds what both the build and the runtime need. The two stages share it
+# rather than each installing PHP extensions, so the extensions the image runs
+# are the same binaries the build ran.
+FROM php:8.5-fpm-alpine@sha256:79def1d16ece3ab1a6656c46a23bfd80ad33887fbd33626e7bd743cef54ef9c6 AS base
 
+# Both stages use the same path. `cache:warmup` writes absolute paths into the
+# warmed cache, so a build stage that worked elsewhere would produce a cache
+# pointing at a directory the runtime does not have.
 WORKDIR /var/www/html
 
 # Runtime libs stay; build-only headers/compilers go into a .build-deps virtual
@@ -52,9 +59,16 @@ COPY --from=composer:2.8 /usr/bin/composer /usr/local/bin/composer
 
 ENV APP_ENV=prod
 
-COPY docker/prod/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
-COPY docker/prod/nginx.conf /etc/nginx/http.d/default.conf
-COPY docker/prod/supervisord.conf /etc/supervisord.conf
+# Everything below this line runs at build time only. Nothing here reaches the
+# final image except the files the runtime stage copies, so a tool installed
+# here needs no uninstall and a large download needs no prune to stay out.
+FROM base AS build
+
+# No limit for a stage that serves no request. Warming the cache compiles every
+# Twig template in one process, and PHP's 128 MB default is what the template set
+# outgrew. A runtime ceiling is a different question from a build one, so this
+# deliberately does not follow the image.
+RUN printf 'memory_limit=-1\n' > /usr/local/etc/php/conf.d/zz-build.ini
 
 COPY . .
 
@@ -67,13 +81,41 @@ RUN set -eux; \
 # git is Composer's fallback when a dist download fails. Without it a single
 # transient GitHub 5xx on one zipball fails the whole build, because the source
 # retry dies with "git was not found in your PATH".
-RUN apk add --no-cache --virtual .composer-deps git \
- && composer install --no-dev --prefer-dist --optimize-autoloader --classmap-authoritative \
- && apk del .composer-deps
+RUN apk add --no-cache git \
+ && composer install --no-dev --prefer-dist --optimize-autoloader --classmap-authoritative
 RUN bin/console importmap:install
-# The prune shares this RUN deliberately: the downloaded Tailwind CLI is ~110 MB
-# and a later `rm` would leave it in this layer regardless. Only app.built.css is
-# needed past build time, and the binary is re-downloaded if a build ever needs it.
+# The bundle downloads this itself, through a plain HttpClient with no retry, so
+# one 5xx from GitHub fails the whole image build. It skips the download when the
+# binary is already at var/tailwind/<version>/<name>, so Docker fetches it here
+# instead and the build opens no socket of its own.
+#
+# The checksum is what makes the bytes verifiable rather than merely present, and
+# it is what lets BuildKit cache the URL. Both sums come from the release's own
+# sha256sums.txt. They move with binary_version in
+# config/packages/symfonycasts_tailwind.yaml, and a version bumped in one place
+# alone fails here on a mismatch, which is the failure you want.
+ARG TARGETARCH
+ADD --checksum=sha256:d861210e7c772e3b8a8b302d51bd4c8e2ab2e6f5dcb7545b16da6e9676c99079 \
+	https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.0/tailwindcss-linux-x64-musl \
+	var/tailwind/v4.3.0/tailwindcss-linux-x64-musl
+ADD --checksum=sha256:9c106e815ce7ea99a65f91c13be2c51f00388dd3c0127c7a13a38f76cd1e26aa \
+	https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.0/tailwindcss-linux-arm64-musl \
+	var/tailwind/v4.3.0/tailwindcss-linux-arm64-musl
+
+# ADD arrives 0644 and the bundle execs it. Only the one this platform runs is
+# kept, so the other architecture's 110 MB never reaches the Tailwind step.
+RUN set -eux; \
+	case "$TARGETARCH" in \
+		amd64) keep=tailwindcss-linux-x64-musl ;; \
+		arm64) keep=tailwindcss-linux-arm64-musl ;; \
+		*) echo "no Tailwind binary pinned for TARGETARCH=$TARGETARCH" >&2; exit 1 ;; \
+	esac; \
+	find var/tailwind/v4.3.0 -mindepth 1 ! -name "$keep" -delete; \
+	chmod +x "var/tailwind/v4.3.0/$keep";
+
+# Only app.built.css is needed past build time. The runtime stage copies this
+# stage's final tree rather than its layers, so this removal is real wherever it
+# sits.
 RUN bin/console tailwind:build \
 	&& find var/tailwind -mindepth 1 -maxdepth 1 ! -name 'app.built.css' -exec rm -rf {} +
 RUN bin/console asset-map:compile
@@ -86,6 +128,19 @@ RUN bin/console cache:warmup --env=prod
 ARG APP_VERSION=""
 RUN if [ -n "$APP_VERSION" ]; then printf '%s' "$APP_VERSION" > var/build-version; fi
 
+# The image that serves traffic. It carries no compiler, no git, no Tailwind
+# binary and no raised memory limit, because none of those were installed here.
+FROM base AS runtime
+
+COPY docker/prod/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
+COPY docker/prod/nginx.conf /etc/nginx/http.d/default.conf
+COPY docker/prod/supervisord.conf /etc/supervisord.conf
+
+# The whole tree in one copy, rather than a list of the directories that matter.
+# A list is the failure this boundary invites: miss `var/cache` or the compiled
+# assets and the image builds, starts, and fails on its first request.
+COPY --from=build /var/www/html /var/www/html
+
 # Provenance for the published package: GitHub links a container to its
 # repository through image.source, and an AGPL image should say so where a tool
 # can read it. An ARG rather than a literal for the same reason APP_SOURCE_URL
@@ -96,10 +151,11 @@ ARG APP_SOURCE_URL=https://github.com/ubermuda/loupe
 LABEL org.opencontainers.image.source=$APP_SOURCE_URL
 LABEL org.opencontainers.image.licenses=AGPL-3.0-or-later
 
-# var/ is created and warmed above as root, but php-fpm workers run as www-data.
-# Cache pools and prod logs are written lazily at runtime; without this, www-data
-# cannot create those dirs and the writes (incl. any cache-backed rate limiter)
-# silently fail. Hand all of var/ to www-data so runtime writes succeed.
+# var/ arrives from the build stage owned by root, but php-fpm workers run as
+# www-data. Cache pools and prod logs are written lazily at runtime; without this,
+# www-data cannot create those dirs and the writes (incl. any cache-backed rate
+# limiter) silently fail. Only var/ changes hands: the code stays root-owned, so
+# a request cannot rewrite the application it is serving.
 RUN chown -R www-data:www-data var
 
 EXPOSE 80
