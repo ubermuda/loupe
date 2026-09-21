@@ -1,8 +1,8 @@
 {
   "name": "loupe",
   "displayName": "Loupe",
-  "version": "0.1.0",
-  "description": "Submit long-form documents for human review and act on site-review comments, from inside Claude Code.",
+  "version": "0.2.0",
+  "description": "Skills for working a Loupe project from Claude Code: documents, the board, the inbox, site review and the card stages.",
   "author": {
     "name": "Geoffrey Bachelet",
     "url": "https://github.com/ubermuda"
@@ -15,20 +15,5 @@
     "documents",
     "site-review",
     "mcp"
-  ],
-  "userConfig": {
-    "server_url": {
-      "type": "string",
-      "title": "MCP endpoint URL",
-      "description": "Defaults to the hosted instance. Self-hosting? Use your own /mcp endpoint, shown on a project's Connect page.",
-      "default": "https://loupe.ac/mcp"
-    },
-    "api_token": {
-      "type": "string",
-      "title": "Project API token",
-      "description": "An MCP-scoped token minted at /projects/{id}/mcp-token. It binds this connection to one project.",
-      "sensitive": true,
-      "required": true
-    }
-  }
+  ]
 }
