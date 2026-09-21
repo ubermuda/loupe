@@ -128,6 +128,16 @@ RUN bin/console cache:warmup --env=prod
 ARG APP_VERSION=""
 RUN if [ -n "$APP_VERSION" ]; then printf '%s' "$APP_VERSION" > var/build-version; fi
 
+# php-fpm workers run as www-data, and cache pools and prod logs are written
+# lazily at runtime; without this, www-data cannot create those dirs and the
+# writes (incl. any cache-backed rate limiter) silently fail.
+#
+# Done here rather than after the copy: a chown in the runtime stage rewrites
+# every file it touches into a new layer, which cost 32 MB. COPY --from carries
+# ownership, so this costs nothing. Only var/ changes hands, so the code stays
+# root-owned and a request cannot rewrite the application it is serving.
+RUN chown -R www-data:www-data var
+
 # The image that serves traffic. It carries no compiler, no git, no Tailwind
 # binary and no raised memory limit, because none of those were installed here.
 FROM base AS runtime
@@ -150,13 +160,6 @@ COPY --from=build /var/www/html /var/www/html
 ARG APP_SOURCE_URL=https://github.com/ubermuda/loupe
 LABEL org.opencontainers.image.source=$APP_SOURCE_URL
 LABEL org.opencontainers.image.licenses=AGPL-3.0-or-later
-
-# var/ arrives from the build stage owned by root, but php-fpm workers run as
-# www-data. Cache pools and prod logs are written lazily at runtime; without this,
-# www-data cannot create those dirs and the writes (incl. any cache-backed rate
-# limiter) silently fail. Only var/ changes hands: the code stays root-owned, so
-# a request cannot rewrite the application it is serving.
-RUN chown -R www-data:www-data var
 
 EXPOSE 80
 
