@@ -87,8 +87,11 @@ x-app-environment: &app-environment
   # Optional: lets a post-deploy check read the running build from /healthz.
   # Empty means the endpoint never reports a version.
   HEALTH_PROBE_TOKEN: "${HEALTH_PROBE_TOKEN:-}"
+  # Optional: the id of the project site-review comments file into. The reviewer
+  # signs in through the OAuth popup, and it wins over the token below.
+  SITE_REVIEW_WIDGET_PROJECT: "${SITE_REVIEW_WIDGET_PROJECT:-}"
   # Optional: the widget token of the project site-review comments file into.
-  # Empty serves no widget; when set it is shown to administrators only.
+  # Empty serves no widget on its own; when set it is shown to admins only.
   SITE_REVIEW_WIDGET_TOKEN: "${SITE_REVIEW_WIDGET_TOKEN:-}"
   # Empty shows the widget to administrators only. "1" offers it to every
   # visitor, whose comments an agent may then act on.
