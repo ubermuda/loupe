@@ -2981,6 +2981,52 @@ test('the offer to quote a selection comes back when the add-another hold ends',
 });
 
 /**
+ * Pick mode hides the offer and promises it back, so a selectionchange that
+ * lands during the hold must leave the pick alone. The drag's own trailing
+ * event arrives after pick mode starts on a loaded machine, which is how the
+ * test above used to fail; this forces that order instead of waiting for it.
+ */
+test('a selection change during the add-another hold keeps the offer', async ({
+    page,
+}) => {
+    await openHarness(page);
+    const modifier = await addAnchorKey(page);
+    await page.getByRole('button', { name: 'Review' }).click();
+    await page
+        .locator('#lp-panel')
+        .getByRole('button', { name: 'Pick element' })
+        .click();
+    await page.locator('#target-me').click();
+
+    const offer = page.locator('#lp-quote-btn');
+    const prose = (await page.locator('#prose').boundingBox())!;
+    const y = prose.y + prose.height / 2;
+    await page.mouse.move(prose.x + 40, y);
+    await page.mouse.down();
+    await page.mouse.move(prose.x + 200, y, { steps: 5 });
+    await page.mouse.up();
+    await expect(offer).toBeVisible();
+
+    await page.keyboard.down(modifier);
+    await page.mouse.move(2, 2);
+    await expect(page.locator('#lp-toast')).toContainText(
+        'Click to add another element',
+    );
+    await expect(offer).toBeHidden();
+
+    await afterSelectionRead(page, async () => {
+        await page.evaluate(() => {
+            const selection = document.getSelection();
+            if (selection) selection.modify('extend', 'forward', 'character');
+        });
+    });
+
+    await afterSelectionRead(page, () => page.keyboard.up(modifier));
+    await expect(page.locator('#lp-toast')).toBeHidden();
+    await expect(offer).toBeVisible();
+});
+
+/**
  * The arm that keeps the pick waits for the selectionchange its focus owes. A
  * browser that never sends one must not leave the arm up to swallow the
  * reviewer's own collapse, so a press on the page drops it.
