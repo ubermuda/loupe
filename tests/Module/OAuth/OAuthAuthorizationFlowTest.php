@@ -144,6 +144,18 @@ final class OAuthAuthorizationFlowTest extends WebTestCase
         self::assertNotEmpty(OAuthScenario::redirectQuery((string) $this->browser->getResponse()->headers->get('Location'))['code'] ?? null);
     }
 
+    /** The device page draws the same row from the same partial, so both pages must keep it. */
+    public function test_the_scope_row_states_the_scope_and_its_bounds(): void
+    {
+        $this->browser->loginUser($this->user);
+        $crawler = $this->browser->request(Request::METHOD_GET, $this->scenario->authorizeUrl('agent'));
+
+        $row = $crawler->filter('[data-testid="oauth-consent-scope"]')->closest('.lp-consent__row');
+        self::assertNotNull($row);
+        self::assertStringContainsString('It can list your projects', $row->text());
+        self::assertStringContainsString('It cannot reach your account', $row->text());
+    }
+
     public function test_the_project_picker_gates_the_allow_button(): void
     {
         $this->browser->loginUser($this->user);
