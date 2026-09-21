@@ -194,6 +194,12 @@ variable "site_review_widget_context" {
   description = "SITE_REVIEW_WIDGET_CONTEXT: an opaque marker stored on every comment the widget files, saying what this deployment was serving. Empty (the default) is right for production, which stores nothing. A preview instance sets it so a comment carries the work it was made against."
 }
 
+variable "site_review_widget_project" {
+  type        = string
+  default     = ""
+  description = "SITE_REVIEW_WIDGET_PROJECT: id of the project site-review comments should file into. The reviewer signs in through the OAuth popup, so no credential is in the page source. It wins over site_review_widget_token."
+}
+
 variable "site_review_widget_public" {
   type        = string
   default     = ""
@@ -204,7 +210,7 @@ variable "site_review_widget_token" {
   type        = string
   sensitive   = true
   default     = ""
-  description = "SITE_REVIEW_WIDGET_TOKEN: the widget token of the project site-review comments should file into. Optional; empty serves no widget at all. The widget is shown to administrators only unless SITE_REVIEW_WIDGET_PUBLIC is set, which production should leave alone."
+  description = "SITE_REVIEW_WIDGET_TOKEN: the widget token of the project site-review comments should file into. Optional; empty serves no widget unless site_review_widget_project is set, which takes precedence. The widget is shown to administrators only unless SITE_REVIEW_WIDGET_PUBLIC is set, which production should leave alone."
 }
 
 variable "analytics_script_url" {

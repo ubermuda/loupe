@@ -353,6 +353,7 @@ e2e-up:
         printf '%s\n' 'fastcgi_param WORKTREE_DB_SUFFIX "_e2e";'
         printf 'fastcgi_param DEFAULT_URI "https://%s";\n' "$host"
         printf '%s\n' 'fastcgi_param SITE_REVIEW_WIDGET_BACKEND "";'
+        printf '%s\n' 'fastcgi_param SITE_REVIEW_WIDGET_PROJECT "";'
     } > "$main/var/nginx-e2e-env.conf"
 
     # Always from scratch. A reused database carries over whatever the last run
